@@ -58,7 +58,13 @@ async def _seed_event(redis, ip: str, ts: str, action: str = "blocked") -> str:
     """Add one event to the stream. Returns the stream entry ID."""
     entry_id = await redis.xadd(
         "ja4proxy:events",
-        {"ip": ip, "action_taken": action, "timestamp": ts, "ja4": "t13abc", "risk_score": "50"},
+        {
+            "ip": ip,
+            "action_taken": action,
+            "timestamp": ts,
+            "ja4": "t13abc",
+            "risk_score": "50",
+        },
     )
     return entry_id
 
@@ -75,8 +81,8 @@ async def test_until_excludes_events_at_or_after_cutoff(analyst_client_redis):
     await _seed_event(redis, "1.1.1.1", _ts(2026, 1, 15))
     await _seed_event(redis, "2.2.2.2", _ts(2026, 2, 10))
     await _seed_event(redis, "3.3.3.3", _ts(2026, 2, 28))
-    await _seed_event(redis, "4.4.4.4", _ts(2026, 3, 1))   # AT cutoff — excluded
-    await _seed_event(redis, "5.5.5.5", _ts(2026, 4, 1))   # after cutoff — excluded
+    await _seed_event(redis, "4.4.4.4", _ts(2026, 3, 1))  # AT cutoff — excluded
+    await _seed_event(redis, "5.5.5.5", _ts(2026, 4, 1))  # after cutoff — excluded
 
     r = await client.get("/api/v1/connections?until=2026-03-01T00:00:00Z&limit=100")
     assert r.status_code == 200
@@ -168,9 +174,9 @@ async def test_pagination_all_pages_cover_all_events(analyst_client_redis):
         if not data["has_more"]:
             break
 
-    assert collected_ips == all_ips, (
-        f"Pagination missed events. Got {collected_ips}, expected {all_ips}"
-    )
+    assert (
+        collected_ips == all_ips
+    ), f"Pagination missed events. Got {collected_ips}, expected {all_ips}"
 
 
 @pytest.mark.asyncio
@@ -218,9 +224,9 @@ async def test_pagination_cursor_stable_after_new_events(analyst_client_redis):
     second_page_ips = {c["ip"] for c in data2["connections"]}
 
     # The new event should NOT appear in the second page (cursor is position-stable)
-    assert "99.99.99.99" not in second_page_ips, (
-        "New event appeared in a paginated result set (cursor not stable)"
-    )
+    assert (
+        "99.99.99.99" not in second_page_ips
+    ), "New event appeared in a paginated result set (cursor not stable)"
     # No overlap between pages
     assert first_page_ips.isdisjoint(second_page_ips), "Duplicate events across pages"
 

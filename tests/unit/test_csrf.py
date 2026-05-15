@@ -30,6 +30,7 @@ def _csrf_enforced(monkeypatch: pytest.MonkeyPatch) -> None:
     """
     monkeypatch.delenv("MANAGEMENT_DISABLE_CSRF", raising=False)
 
+
 from httpx import ASGITransport, AsyncClient  # noqa: E402
 
 try:
@@ -135,9 +136,7 @@ async def test_post_without_csrf_rejected_403(
     admin_client: AsyncClient,
 ) -> None:
     """POST /api/v1/* without cookie+header → 403 csrf_token_mismatch."""
-    resp = await admin_client.post(
-        "/api/v1/threat-intel/feeds/test-feed/poll"
-    )
+    resp = await admin_client.post("/api/v1/threat-intel/feeds/test-feed/poll")
     assert resp.status_code == 403, resp.text
     body = resp.json()
     assert body == {"error": "csrf_token_mismatch"}

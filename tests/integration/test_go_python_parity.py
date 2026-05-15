@@ -9,6 +9,7 @@ Live tests need the Docker stack running (`make start`).
 Build ja4check: make go-build-ja4check
 Run: make go-parity
 """
+
 import glob
 import json
 import os
@@ -61,6 +62,7 @@ pytestmark = pytest.mark.live_services
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+
 def _check_port(host: str, port: int, timeout: float = 1.0) -> bool:
     """Return True if a TCP connection to host:port succeeds."""
     try:
@@ -85,6 +87,7 @@ def _python_proxy_live() -> bool:
 def _redis_live() -> bool:
     try:
         import redis as redislib
+
         r = redislib.Redis(
             host=REDIS_HOST,
             port=REDIS_PORT,
@@ -124,6 +127,7 @@ def _run_compute_py(fixture_path: str) -> str:
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────
 
+
 @pytest.fixture(scope="module")
 def go_proxy():
     """Start the Go proxy for local tests; skip if binary missing.
@@ -155,6 +159,7 @@ def go_proxy():
     )
     # Wait up to 8s for the proxy to start listening (Redis retries delay startup)
     import time as _time
+
     deadline = _time.monotonic() + 8.0
     started = False
     while _time.monotonic() < deadline:
@@ -183,8 +188,13 @@ class _DockerRedis:
 
     def _run(self, *args: str) -> str:
         cmd = [
-            "docker", "exec", self._container,
-            "redis-cli", "-a", self._password, "--no-auth-warning",
+            "docker",
+            "exec",
+            self._container,
+            "redis-cli",
+            "-a",
+            self._password,
+            "--no-auth-warning",
         ] + list(args)
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
         return r.stdout.strip()
@@ -218,9 +228,12 @@ def redis_client():
     # Try direct TCP connection first
     try:
         import redis as redislib
+
         r = redislib.Redis(
-            host=REDIS_HOST, port=REDIS_PORT,
-            password=REDIS_PASSWORD or None, socket_connect_timeout=2,
+            host=REDIS_HOST,
+            port=REDIS_PORT,
+            password=REDIS_PASSWORD or None,
+            socket_connect_timeout=2,
         )
         r.ping()
         yield r
@@ -243,6 +256,7 @@ def redis_client():
 
 # ── Tests: Go proxy basic connectivity ───────────────────────────────────────
 
+
 def test_go_proxy_starts(go_proxy):
     """Go proxy must start and accept TCP connections."""
     if not _go_proxy_live():
@@ -256,18 +270,19 @@ def test_go_proxy_health(go_proxy):
     if not _go_proxy_live():
         pytest.skip("Go proxy not reachable")
     if not _go_metrics_live():
-        pytest.skip("Go proxy metrics port not reachable (metrics server not yet implemented)")
+        pytest.skip(
+            "Go proxy metrics port not reachable (metrics server not yet implemented)"
+        )
     try:
         import requests
     except ImportError:
         pytest.skip("requests not installed")
 
-    r = requests.get(
-        f"http://{GO_PROXY_HOST}:{GO_METRICS_PORT}/health", timeout=3
-    )
-    assert r.status_code in (200, 503), (
-        f"Expected 200 or 503 from /health, got {r.status_code}"
-    )
+    r = requests.get(f"http://{GO_PROXY_HOST}:{GO_METRICS_PORT}/health", timeout=3)
+    assert r.status_code in (
+        200,
+        503,
+    ), f"Expected 200 or 503 from /health, got {r.status_code}"
     data = r.json()
     assert "status" in data, f"/health response missing 'status' field: {data}"
 
@@ -277,25 +292,26 @@ def test_go_proxy_metrics_present(go_proxy):
     if not _go_proxy_live():
         pytest.skip("Go proxy not reachable")
     if not _go_metrics_live():
-        pytest.skip("Go proxy metrics port not reachable (metrics server not yet implemented)")
+        pytest.skip(
+            "Go proxy metrics port not reachable (metrics server not yet implemented)"
+        )
     try:
         import requests
     except ImportError:
         pytest.skip("requests not installed")
 
-    r = requests.get(
-        f"http://{GO_PROXY_HOST}:{GO_METRICS_PORT}/metrics", timeout=3
-    )
+    r = requests.get(f"http://{GO_PROXY_HOST}:{GO_METRICS_PORT}/metrics", timeout=3)
     assert r.status_code == 200, f"/metrics returned {r.status_code}"
-    assert "ja4proxy_connections_total" in r.text, (
-        "Expected 'ja4proxy_connections_total' in /metrics output"
-    )
-    assert "ja4proxy_active_connections" in r.text, (
-        "Expected 'ja4proxy_active_connections' in /metrics output"
-    )
+    assert (
+        "ja4proxy_connections_total" in r.text
+    ), "Expected 'ja4proxy_connections_total' in /metrics output"
+    assert (
+        "ja4proxy_active_connections" in r.text
+    ), "Expected 'ja4proxy_active_connections' in /metrics output"
 
 
 # ── Tests: JA4 fingerprint parity ────────────────────────────────────────────
+
 
 def _get_fixture_files():
     """Return all .bin fixture files found in tests/fixtures/clienthello/."""
@@ -339,7 +355,9 @@ def test_ja4_parity_go_vs_python(fixture_path):
         pytest.skip("No .bin fixture files found; run generate_synthetic_fixtures.py")
 
     if not JA4CHECK:
-        pytest.skip("ja4check binary not found; run: go build -o bin/ja4check ./cmd/ja4check")
+        pytest.skip(
+            "ja4check binary not found; run: go build -o bin/ja4check ./cmd/ja4check"
+        )
 
     if not os.path.exists(COMPUTE_JA4_PY):
         pytest.skip(f"compute_ja4.py not found at {COMPUTE_JA4_PY}")
@@ -347,11 +365,15 @@ def test_ja4_parity_go_vs_python(fixture_path):
     go_ja4 = _run_ja4check(fixture_path)
     py_ja4 = _run_compute_py(fixture_path)
 
-    assert not go_ja4.startswith("ERROR"), f"Go ja4check failed on {fixture_path}: {go_ja4}"
-    assert not py_ja4.startswith("ERROR"), f"Python compute_ja4.py failed on {fixture_path}: {py_ja4}"
-    assert not py_ja4.startswith("PARSE_FAILED"), (
-        f"Python parser could not parse {fixture_path}: {py_ja4}"
-    )
+    assert not go_ja4.startswith(
+        "ERROR"
+    ), f"Go ja4check failed on {fixture_path}: {go_ja4}"
+    assert not py_ja4.startswith(
+        "ERROR"
+    ), f"Python compute_ja4.py failed on {fixture_path}: {py_ja4}"
+    assert not py_ja4.startswith(
+        "PARSE_FAILED"
+    ), f"Python parser could not parse {fixture_path}: {py_ja4}"
 
     assert go_ja4 == py_ja4, (
         f"JA4 mismatch for {pathlib.Path(fixture_path).name}:\n"
@@ -383,16 +405,15 @@ def test_ja4_known_values_match_json():
             continue
         go_ja4 = _run_ja4check(str(fixture_path))
         if go_ja4 != expected_ja4:
-            mismatches.append(
-                f"  {name}: expected={expected_ja4} got={go_ja4}"
-            )
+            mismatches.append(f"  {name}: expected={expected_ja4} got={go_ja4}")
 
-    assert not mismatches, (
-        "Go JA4 output does not match known_ja4.json for:\n" + "\n".join(mismatches)
-    )
+    assert (
+        not mismatches
+    ), "Go JA4 output does not match known_ja4.json for:\n" + "\n".join(mismatches)
 
 
 # ── Tests: dial=0 monitor mode ───────────────────────────────────────────────
+
 
 def test_dial_zero_monitor_mode(go_proxy):
     """At dial=0 (default), Go proxy must accept TCP connections without RST."""
@@ -402,19 +423,18 @@ def test_dial_zero_monitor_mode(go_proxy):
     refusals = 0
     for _ in range(5):
         try:
-            with socket.create_connection(
-                (GO_PROXY_HOST, GO_PROXY_PORT), timeout=2
-            ):
+            with socket.create_connection((GO_PROXY_HOST, GO_PROXY_PORT), timeout=2):
                 pass
         except ConnectionRefusedError:
             refusals += 1
 
-    assert refusals == 0, (
-        f"Go proxy refused {refusals}/5 connections at dial=0 (should accept all)"
-    )
+    assert (
+        refusals == 0
+    ), f"Go proxy refused {refusals}/5 connections at dial=0 (should accept all)"
 
 
 # ── Tests: h2 ALPN bypass ─────────────────────────────────────────────────────
+
 
 def test_h2_alpn_bypass_go_proxy(go_proxy):
     """Go proxy must never RST a connection advertising h2 ALPN."""
@@ -430,9 +450,9 @@ def test_h2_alpn_bypass_go_proxy(go_proxy):
     result = send_clienthello_and_check(GO_PROXY_HOST, GO_PROXY_PORT, hello)
 
     assert result["connected"], "Go proxy refused h2 ALPN connection"
-    assert not result["rst"], (
-        "Go proxy sent RST for h2 ALPN connection — h2 traffic must always bypass"
-    )
+    assert not result[
+        "rst"
+    ], "Go proxy sent RST for h2 ALPN connection — h2 traffic must always bypass"
 
 
 def test_h2_alpn_bypass_python_proxy():
@@ -449,12 +469,13 @@ def test_h2_alpn_bypass_python_proxy():
     result = send_clienthello_and_check(PYTHON_PROXY_HOST, PYTHON_PROXY_PORT, hello)
 
     assert result["connected"], "Python proxy refused h2 ALPN connection"
-    assert not result["rst"], (
-        "Python proxy sent RST for h2 ALPN connection — h2 traffic must always bypass"
-    )
+    assert not result[
+        "rst"
+    ], "Python proxy sent RST for h2 ALPN connection — h2 traffic must always bypass"
 
 
 # ── Tests: JA4 blacklist ──────────────────────────────────────────────────────
+
 
 def test_ja4_blacklist_blocks_go_proxy(go_proxy, redis_client):
     """Go proxy must RST a connection whose JA4 is in the blacklist."""
@@ -479,6 +500,7 @@ def test_ja4_blacklist_blocks_go_proxy(go_proxy, redis_client):
 
     # Save hello to a temp file so ja4check can read it
     import tempfile
+
     with tempfile.NamedTemporaryFile(suffix=".bin", delete=False) as f:
         f.write(hello)
         tmp_path = f.name
@@ -512,12 +534,15 @@ def test_ja4_blacklist_blocks_go_proxy(go_proxy, redis_client):
 
 # ── Tests: metrics consistency ────────────────────────────────────────────────
 
+
 def test_metrics_connections_increment(go_proxy):
     """Making a connection to Go proxy must increment ja4proxy_connections_total."""
     if not _go_proxy_live():
         pytest.skip("Go proxy not reachable")
     if not _go_metrics_live():
-        pytest.skip("Go proxy metrics port not reachable (metrics server not yet implemented)")
+        pytest.skip(
+            "Go proxy metrics port not reachable (metrics server not yet implemented)"
+        )
     try:
         import requests
     except ImportError:
@@ -541,6 +566,7 @@ def test_metrics_connections_increment(go_proxy):
     # Make a connection and send a ClientHello to trigger pipeline + counter
     try:
         from tests.lib.tls_client import build_client_hello
+
         hello = build_client_hello(tls13=True)
     except ImportError:
         pytest.skip("tests.lib.tls_client not available")
@@ -560,6 +586,6 @@ def test_metrics_connections_increment(go_proxy):
     time.sleep(6.0)  # allow pipeline to complete (Redis timeout=1s × ~5 calls)
     after = _get_counter()
 
-    assert after > before, (
-        f"ja4proxy_connections_total did not increase: before={before}, after={after}"
-    )
+    assert (
+        after > before
+    ), f"ja4proxy_connections_total did not increase: before={before}, after={after}"

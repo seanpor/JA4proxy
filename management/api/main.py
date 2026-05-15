@@ -119,7 +119,10 @@ def _enforce_no_test_mode_in_production() -> None:
             "are mutually exclusive (test mode disables authentication checks). "
             "Unset MANAGEMENT_TEST_MODE or set ENVIRONMENT to dev/staging."
         )
-    if env in {"production", "prod"} and os.environ.get("MANAGEMENT_DISABLE_CSRF") == "1":
+    if (
+        env in {"production", "prod"}
+        and os.environ.get("MANAGEMENT_DISABLE_CSRF") == "1"
+    ):
         raise RuntimeError(
             "refusing to start: ENVIRONMENT=production and MANAGEMENT_DISABLE_CSRF=1 "
             "are mutually exclusive (CSRF bypass is a test-only escape hatch)."
@@ -161,9 +164,7 @@ def create_app() -> FastAPI:
         pages.set_templates(templates)
         partials.set_templates(templates)
     else:
-        logger.warning(
-            "management | event=templates_missing | path=%s", _TEMPLATES_DIR
-        )
+        logger.warning("management | event=templates_missing | path=%s", _TEMPLATES_DIR)
 
     # ── Static files ──────────────────────────────────────────────────────────
     if _STATIC_DIR.exists():

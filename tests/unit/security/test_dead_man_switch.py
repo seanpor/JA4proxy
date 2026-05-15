@@ -239,7 +239,9 @@ async def test_switch_fails_open_on_error():
     """Exception in watchdog loop → logged, not re-raised, does not kill process."""
     monitor = MagicMock()
     # Make last_check_time raise AttributeError on first access, then return a sane value
-    type(monitor).last_check_time = property(lambda self: (_ for _ in ()).throw(AttributeError("boom")))
+    type(monitor).last_check_time = property(
+        lambda self: (_ for _ in ()).throw(AttributeError("boom"))
+    )
 
     dms = DeadManSwitch(
         integrity_monitor=monitor,

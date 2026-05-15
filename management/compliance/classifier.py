@@ -30,22 +30,24 @@ class SignalClassifier:
 
     # Default mapping — mirrors PHASE_84.md §6.1 exactly.
     DEFAULT_SIGNAL_CATEGORIES: dict[str, dict[str, Any]] = {
-        "spamhaus_drop":        {"category": "known_malicious_network",   "weight": 100},
-        "spamhaus_edrop":       {"category": "known_malicious_network",   "weight": 100},
-        "tor_exit":             {"category": "tor_exit_node",             "weight": 95},
-        "beaconing_detected":   {"category": "c2_beaconing",              "weight": 90},
-        "ja4_blacklist":        {"category": "malicious_tls_fingerprint", "weight": 85},
-        "abuseipdb_score_high": {"category": "reported_abuse",            "weight": 70},
-        "tls_version_old":      {"category": "obsolete_tls",              "weight": 60},
-        "sni_missing":          {"category": "automation_tool",           "weight": 55},
-        "sni_ip_literal":       {"category": "automation_tool",           "weight": 55},
-        "datacenter":           {"category": "datacenter_scanner",        "weight": 50},
-        "asn_datacenter":       {"category": "datacenter_scanner",        "weight": 50},
-        "country_blacklist":    {"category": "geo_blocked",               "weight": 40},
+        "spamhaus_drop": {"category": "known_malicious_network", "weight": 100},
+        "spamhaus_edrop": {"category": "known_malicious_network", "weight": 100},
+        "tor_exit": {"category": "tor_exit_node", "weight": 95},
+        "beaconing_detected": {"category": "c2_beaconing", "weight": 90},
+        "ja4_blacklist": {"category": "malicious_tls_fingerprint", "weight": 85},
+        "abuseipdb_score_high": {"category": "reported_abuse", "weight": 70},
+        "tls_version_old": {"category": "obsolete_tls", "weight": 60},
+        "sni_missing": {"category": "automation_tool", "weight": 55},
+        "sni_ip_literal": {"category": "automation_tool", "weight": 55},
+        "datacenter": {"category": "datacenter_scanner", "weight": 50},
+        "asn_datacenter": {"category": "datacenter_scanner", "weight": 50},
+        "country_blacklist": {"category": "geo_blocked", "weight": 40},
     }
     FALLBACK_CATEGORY = "high_risk_score"
 
-    def __init__(self, signal_categories: dict[str, dict[str, Any]] | None = None) -> None:
+    def __init__(
+        self, signal_categories: dict[str, dict[str, Any]] | None = None
+    ) -> None:
         """
         Args:
             signal_categories: Optional override dict.  Custom entries are merged

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Minimal HTTPS backend for Go proxy integration tests."""
+
 import http.server
 import ssl
 

@@ -16,6 +16,7 @@ import pytest
 def _reset_corpus():
     """Reset the module-level corpus cache so each test starts fresh."""
     import src.analytics.ti_feeds.ja4_safety as mod
+
     mod._JA4_FP_CORPUS = None
     mod.is_known_browser_ja4.cache_clear()
 
@@ -28,7 +29,9 @@ def test_corpus_file_not_found_returns_empty_frozenset():
     _reset_corpus()
     from src.analytics.ti_feeds.ja4_safety import _load_corpus
 
-    with patch.dict(os.environ, {"JA4PROXY_FP_CORPUS_PATH": "/nonexistent/path/corpus.txt"}):
+    with patch.dict(
+        os.environ, {"JA4PROXY_FP_CORPUS_PATH": "/nonexistent/path/corpus.txt"}
+    ):
         result = _load_corpus(Path("/nonexistent/path/corpus.txt"))
 
     assert result == frozenset()
@@ -66,6 +69,7 @@ def test_ja4_safe_to_block_unknown_ja4():
     # Force empty corpus
     import src.analytics.ti_feeds.ja4_safety as mod
     from src.analytics.ti_feeds.ja4_safety import ja4_safe_to_block
+
     mod._JA4_FP_CORPUS = frozenset()
 
     safe, reason = ja4_safe_to_block("t13d191000_aaaaaaaaaa_bbbbbbbbbb")
@@ -79,6 +83,7 @@ def test_ja4_safe_to_block_known_browser():
     _reset_corpus()
     import src.analytics.ti_feeds.ja4_safety as mod
     from src.analytics.ti_feeds.ja4_safety import ja4_safe_to_block
+
     mod._JA4_FP_CORPUS = frozenset({"t13d191000_known_browser"})
 
     safe, reason = ja4_safe_to_block("t13d191000_known_browser")
@@ -92,6 +97,7 @@ def test_is_known_browser_ja4_returns_bool():
     _reset_corpus()
     import src.analytics.ti_feeds.ja4_safety as mod
     from src.analytics.ti_feeds.ja4_safety import is_known_browser_ja4
+
     mod._JA4_FP_CORPUS = frozenset({"t13d191000_known_browser"})
 
     # Unknown JA4 - safe to block, so is_known_browser returns the safe value

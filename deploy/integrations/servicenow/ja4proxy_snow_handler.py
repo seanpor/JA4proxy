@@ -56,9 +56,7 @@ def ecs_to_sir(event: dict) -> dict:
     source_ip = event.get("source.ip", "unknown")
 
     return {
-        "short_description": (
-            f"JA4proxy ban: {source_ip} (score={risk_score})"
-        ),
+        "short_description": (f"JA4proxy ban: {source_ip} (score={risk_score})"),
         "description": signal_txt,
         "category": "network_intrusion",
         "severity": severity,

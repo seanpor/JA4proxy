@@ -1,6 +1,7 @@
 """
 Unit tests for src/tap/fingerprints/h2_fingerprint.py (Phase 20 Group 5-J).
 """
+
 import struct
 
 import pytest
@@ -46,9 +47,9 @@ def _chrome_120_stream() -> bytes:
     """Chrome 120 SETTINGS (from real capture)."""
     return _build_h2_preface_plus_settings(
         {
-            0x1: 65536,   # HEADER_TABLE_SIZE
-            0x2: 0,       # ENABLE_PUSH
-            0x4: 6291456, # INITIAL_WINDOW_SIZE
+            0x1: 65536,  # HEADER_TABLE_SIZE
+            0x2: 0,  # ENABLE_PUSH
+            0x4: 6291456,  # INITIAL_WINDOW_SIZE
             0x6: 262144,  # MAX_HEADER_LIST_SIZE
         },
         window_update=15663105,
@@ -59,9 +60,9 @@ def _firefox_121_stream() -> bytes:
     """Firefox 121 SETTINGS."""
     return _build_h2_preface_plus_settings(
         {
-            0x1: 65536,    # HEADER_TABLE_SIZE
-            0x4: 131072,   # INITIAL_WINDOW_SIZE
-            0x5: 16384,    # MAX_FRAME_SIZE
+            0x1: 65536,  # HEADER_TABLE_SIZE
+            0x4: 131072,  # INITIAL_WINDOW_SIZE
+            0x5: 16384,  # MAX_FRAME_SIZE
         },
         window_update=12517377,
     )
@@ -116,9 +117,7 @@ class TestH2Fingerprint:
         assert r1.fingerprint == r2.fingerprint
 
     def test_settings_order_preserved(self):
-        stream = _build_h2_preface_plus_settings(
-            {0x1: 100, 0x4: 200, 0x6: 300}
-        )
+        stream = _build_h2_preface_plus_settings({0x1: 100, 0x4: 200, 0x6: 300})
         result = extract_h2_fingerprint(stream)
         assert result is not None
         # Order: HEADER_TABLE_SIZE, INITIAL_WINDOW_SIZE, MAX_HEADER_LIST_SIZE
@@ -148,6 +147,7 @@ class TestH2Fingerprint:
 
 # ── Missing-coverage tests ────────────────────────────────────────────────────
 
+
 class TestH2FingerprintMissingCoverage:
     """Cover load_h2_database(), exception in extract_h2_fingerprint(), and
     zero-settings signature (line 216).
@@ -161,6 +161,7 @@ class TestH2FingerprintMissingCoverage:
         So what: if database loading fails, ALL h2 fingerprints are unmatched —
         no bot identification, no blocklist lookups based on h2 fingerprint."""
         from src.tap.fingerprints.h2_fingerprint import H2Signature, load_h2_database
+
         yaml_content = """
 signatures:
   - id: TestBrowser/1.0
@@ -183,6 +184,7 @@ signatures:
         So what: a corrupt database file must not crash fingerprinting — built-in
         signatures must still be available for known-bad bot detection."""
         from src.tap.fingerprints.h2_fingerprint import load_h2_database
+
         p = tmp_path / "bad.yaml"
         p.write_text("not: valid: yaml: content: [unclosed")
         sigs = load_h2_database(p)
@@ -193,6 +195,7 @@ signatures:
         """load_h2_database with missing file → returns builtin DB.
         So what: missing YAML on first deploy must not crash the fingerprinter."""
         from src.tap.fingerprints.h2_fingerprint import load_h2_database
+
         sigs = load_h2_database(tmp_path / "nonexistent.yaml")
         assert len(sigs) > 0
 
@@ -200,6 +203,7 @@ signatures:
         """load_h2_database with empty signatures list → returns builtin (line 115).
         So what: an empty YAML must not silently disable all client identification."""
         from src.tap.fingerprints.h2_fingerprint import load_h2_database
+
         p = tmp_path / "empty.yaml"
         p.write_text("signatures: []\n")
         sigs = load_h2_database(p)
@@ -211,6 +215,7 @@ signatures:
         from unittest.mock import patch
 
         import src.tap.fingerprints.h2_fingerprint as _mod
+
         with patch.object(_mod, "_parse", side_effect=RuntimeError("injected")):
             result = _mod.extract_h2_fingerprint(b"\x00" * 20)
         assert result is None
@@ -220,6 +225,7 @@ signatures:
         So what: zero-settings signature must not be matched against any client,
         which would produce a false 'unknown' identity."""
         from src.tap.fingerprints.h2_fingerprint import H2Signature, _match_db
+
         empty_sig = H2Signature(
             client_id="empty_sig",
             settings_order=[],

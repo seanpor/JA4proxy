@@ -6,8 +6,10 @@ from pydantic import BaseModel, Field
 class DialUpdate(BaseModel):
     value: int = Field(..., ge=0, le=100)
 
+
 class JA4Entry(BaseModel):
     fingerprint: str
+
 
 class HealthResponse(BaseModel):
     status: str
@@ -17,7 +19,8 @@ class HealthResponse(BaseModel):
 
 class DeepHealthResponse(BaseModel):
     """Phase 86a — Deep health response with all monitoring fields."""
-    status: str                           # "ok" | "degraded" | "error"
+
+    status: str  # "ok" | "degraded" | "error"
     redis_connected: bool
     redis_latency_ms: float
     dial: int

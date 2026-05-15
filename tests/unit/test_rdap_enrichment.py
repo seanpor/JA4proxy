@@ -52,7 +52,9 @@ def _make_config(**kwargs) -> RDAPConfig:
         lookup_timeout_seconds=5,
         delegate_to_analytics=False,
         org_reputation=_OrgReputationConfig(enabled=True, score=45),
-        new_netblock_flagging=_NewNetblockConfig(enabled=True, max_age_days=90, score=20),
+        new_netblock_flagging=_NewNetblockConfig(
+            enabled=True, max_age_days=90, score=20
+        ),
         block_expansion=_BlockExpansionConfig(
             enabled=True,
             min_trigger_score=75,
@@ -82,7 +84,7 @@ def _make_redis() -> MagicMock:
     redis_mock.lpush = AsyncMock(return_value=1)
     redis_mock.ltrim = AsyncMock(return_value=True)
     redis_mock.scan = AsyncMock(return_value=(0, []))
-    
+
     # Phase 28a: Mock pipeline
     pipeline = MagicMock()
     pipeline.incr = MagicMock()
@@ -93,15 +95,21 @@ def _make_redis() -> MagicMock:
     pipeline.__aenter__ = AsyncMock(return_value=pipeline)
     pipeline.__aexit__ = AsyncMock(return_value=None)
     redis_mock.pipeline = MagicMock(return_value=pipeline)
-    
+
     bf = MagicMock()
     bf.add = AsyncMock(return_value=1)
     redis_mock.bf = MagicMock(return_value=bf)
     return redis_mock
 
 
-def _make_enricher(config=None, redis=None, local_cache=None, session=None,
-                   blocklist_manager=None, known_bad_orgs_path=None):
+def _make_enricher(
+    config=None,
+    redis=None,
+    local_cache=None,
+    session=None,
+    blocklist_manager=None,
+    known_bad_orgs_path=None,
+):
     if config is None:
         config = _make_config()
     if redis is None:
@@ -188,6 +196,7 @@ class TestComputeExpansionCidr(unittest.TestCase):
         config = _BlockExpansionConfig(max_prefix_length_v4=24, max_prefix_length_v6=48)
         result = _compute_expansion_cidr("2001:db8::1", config)
         import ipaddress
+
         net = ipaddress.ip_network(result, strict=False)
         self.assertEqual(net.prefixlen, 48)
         self.assertIn(ipaddress.ip_address("2001:db8::1"), net)
@@ -207,7 +216,12 @@ class TestComputeExpansionCidr(unittest.TestCase):
 class TestKnownBadOrgs(unittest.TestCase):
 
     KNOWN_BAD = [
-        {"handle": "FRANTECH", "name": "Frantech Solutions", "reason": "BP hosting", "score": 55},
+        {
+            "handle": "FRANTECH",
+            "name": "Frantech Solutions",
+            "reason": "BP hosting",
+            "score": 55,
+        },
         {"handle": "M247-MNT", "name": "M247", "reason": "Abuse tolerant", "score": 35},
         {"handle": "QUASI-1", "name": "Quasi Networks", "reason": "BP C2", "score": 55},
     ]
@@ -242,7 +256,9 @@ class TestKnownBadOrgs(unittest.TestCase):
     def test_org_name_substring_case_insensitive(self):
         """Case-insensitive substring match."""
         enricher = self._make_enricher_with_orgs()
-        is_bad, entry = enricher._check_known_bad("UNKNOWN", "quasi networks hosting llc")
+        is_bad, entry = enricher._check_known_bad(
+            "UNKNOWN", "quasi networks hosting llc"
+        )
         self.assertTrue(is_bad)
 
     def test_no_match_returns_false(self):
@@ -317,7 +333,12 @@ class TestGetSignal(unittest.TestCase):
 
         enricher = _make_enricher(local_cache=local_cache)
         enricher._known_bad = [
-            {"handle": "FRANTECH", "name": "Frantech Solutions", "reason": "BP", "score": 55}
+            {
+                "handle": "FRANTECH",
+                "name": "Frantech Solutions",
+                "reason": "BP",
+                "score": 55,
+            }
         ]
 
         signals = enricher.get_signal("1.2.3.4", trigger_score=0)
@@ -360,21 +381,27 @@ class TestBlockExpansionGuards(unittest.IsolatedAsyncioTestCase):
         """Guard 1: trigger_score < min_trigger_score → no expansion."""
         enricher, _ = self._enricher_with_bad_org()
         rdap = _make_rdap_result(netblock="1.2.3.0/24")
-        result = await enricher.maybe_expand_block("1.2.3.4", rdap, trigger_score=50, is_known_bad=True)
+        result = await enricher.maybe_expand_block(
+            "1.2.3.4", rdap, trigger_score=50, is_known_bad=True
+        )
         self.assertFalse(result)
 
     async def test_guard2_ipv4_too_broad(self):
         """Guard 2 (v4): netblock /16 (prefixlen=16 < 24) → no expansion."""
         enricher, _ = self._enricher_with_bad_org()
         rdap = _make_rdap_result(netblock="1.2.0.0/16")
-        result = await enricher.maybe_expand_block("1.2.3.4", rdap, trigger_score=80, is_known_bad=True)
+        result = await enricher.maybe_expand_block(
+            "1.2.3.4", rdap, trigger_score=80, is_known_bad=True
+        )
         self.assertFalse(result)
 
     async def test_guard2_ipv6_too_broad(self):
         """Guard 2 (v6): netblock broader than /48 → no expansion."""
         enricher, _ = self._enricher_with_bad_org()
         rdap = _make_rdap_result(netblock="2001:db8::/32")
-        result = await enricher.maybe_expand_block("2001:db8::1", rdap, trigger_score=80, is_known_bad=True)
+        result = await enricher.maybe_expand_block(
+            "2001:db8::1", rdap, trigger_score=80, is_known_bad=True
+        )
         self.assertFalse(result)
 
     async def test_guard2_ipv4_exactly_24_passes(self):
@@ -382,9 +409,11 @@ class TestBlockExpansionGuards(unittest.IsolatedAsyncioTestCase):
         enricher, redis = self._enricher_with_bad_org()
         # Set up so remaining guards also pass
         rdap = _make_rdap_result(netblock="1.2.3.0/24", org_handle="BADORG-1")
-        with patch.object(enricher, '_apply_expansion', new=AsyncMock()):
-            with patch.object(enricher, '_log_expansion_audit', new=AsyncMock()):
-                result = await enricher.maybe_expand_block("1.2.3.4", rdap, trigger_score=80, is_known_bad=True)
+        with patch.object(enricher, "_apply_expansion", new=AsyncMock()):
+            with patch.object(enricher, "_log_expansion_audit", new=AsyncMock()):
+                result = await enricher.maybe_expand_block(
+                    "1.2.3.4", rdap, trigger_score=80, is_known_bad=True
+                )
         self.assertTrue(result)
 
     async def test_guard3_browser_subnet_prevents_expansion(self):
@@ -392,24 +421,28 @@ class TestBlockExpansionGuards(unittest.IsolatedAsyncioTestCase):
         enricher, redis = self._enricher_with_bad_org()
         redis.exists = AsyncMock(return_value=1)  # browser traffic seen
         rdap = _make_rdap_result(netblock="1.2.3.0/24")
-        result = await enricher.maybe_expand_block("1.2.3.4", rdap, trigger_score=80, is_known_bad=True)
+        result = await enricher.maybe_expand_block(
+            "1.2.3.4", rdap, trigger_score=80, is_known_bad=True
+        )
         self.assertFalse(result)
 
     async def test_guard4_unknown_org_prevents_expansion(self):
         """Guard 4: org not known-bad → no expansion."""
         enricher, redis = self._enricher_with_bad_org()
         rdap = _make_rdap_result(netblock="1.2.3.0/24")
-        result = await enricher.maybe_expand_block("1.2.3.4", rdap, trigger_score=80, is_known_bad=False)
+        result = await enricher.maybe_expand_block(
+            "1.2.3.4", rdap, trigger_score=80, is_known_bad=False
+        )
         self.assertFalse(result)
 
     async def test_expansion_disabled(self):
         """block_expansion.enabled=false → always returns False."""
-        config = _make_config(
-            block_expansion=_BlockExpansionConfig(enabled=False)
-        )
+        config = _make_config(block_expansion=_BlockExpansionConfig(enabled=False))
         enricher = _make_enricher(config=config)
         rdap = _make_rdap_result(netblock="1.2.3.0/24")
-        result = await enricher.maybe_expand_block("1.2.3.4", rdap, trigger_score=100, is_known_bad=True)
+        result = await enricher.maybe_expand_block(
+            "1.2.3.4", rdap, trigger_score=100, is_known_bad=True
+        )
         self.assertFalse(result)
 
     async def test_all_guards_pass_expansion_applied(self):
@@ -419,7 +452,9 @@ class TestBlockExpansionGuards(unittest.IsolatedAsyncioTestCase):
         enricher._blocklist_manager = blocklist_manager
 
         rdap = _make_rdap_result(netblock="1.2.3.0/24", org_handle="BADORG-1")
-        result = await enricher.maybe_expand_block("1.2.3.4", rdap, trigger_score=80, is_known_bad=True)
+        result = await enricher.maybe_expand_block(
+            "1.2.3.4", rdap, trigger_score=80, is_known_bad=True
+        )
 
         self.assertTrue(result)
         # ban_cidr written
@@ -430,6 +465,7 @@ class TestBlockExpansionGuards(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(args[0][0], "ja4proxy:invalidate")
         msg = args[0][1]
         import json
+
         parsed = json.loads(msg)
         self.assertEqual(parsed["type"], "cidr_ban_add")
         self.assertEqual(parsed["value"], "1.2.3.0/24")
@@ -458,7 +494,9 @@ class TestBlockExpansionGuards(unittest.IsolatedAsyncioTestCase):
 
         enricher = _make_enricher(config=config, redis=redis)
         rdap = _make_rdap_result(netblock="1.2.3.0/24", org_handle="BADORG-1")
-        result = await enricher.maybe_expand_block("1.2.3.4", rdap, trigger_score=80, is_known_bad=True)
+        result = await enricher.maybe_expand_block(
+            "1.2.3.4", rdap, trigger_score=80, is_known_bad=True
+        )
 
         self.assertFalse(result)
         # Counter rolled back
@@ -475,14 +513,19 @@ class TestRDAPNotFound(unittest.IsolatedAsyncioTestCase):
     async def test_404_stores_is_unknown_no_error_counter(self):
         """RDAP 404 → is_unknown=True stored; no rdap_lookup_total{result=error}."""
         from src.security.rdap_enrichment import _NotFoundError
+
         enricher = _make_enricher()
         enricher._known_bad = []
-        enricher._bootstrap_v4 = [{"prefixes": ["0.0.0.0/0"], "urls": ["https://rdap.arin.net/registry/"]}]
+        enricher._bootstrap_v4 = [
+            {"prefixes": ["0.0.0.0/0"], "urls": ["https://rdap.arin.net/registry/"]}
+        ]
         enricher._bootstrap_v6 = []
         local_cache = LocalCache({})
         enricher._local_cache = local_cache
 
-        with patch.object(enricher, '_api_lookup', side_effect=_NotFoundError("1.2.3.4")):
+        with patch.object(
+            enricher, "_api_lookup", side_effect=_NotFoundError("1.2.3.4")
+        ):
             await enricher._process_lookup("1.2.3.4")
 
         # Should be cached as is_unknown=True
@@ -592,6 +635,7 @@ class TestPubSubCidrBanAdd(unittest.IsolatedAsyncioTestCase):
         )
 
         import json
+
         msg = json.dumps({"type": "cidr_ban_add", "value": "1.2.3.0/24"})
         await handler._dispatch(msg.encode())
 
@@ -618,6 +662,7 @@ class TestPubSubCidrBanAdd(unittest.IsolatedAsyncioTestCase):
         )
 
         import json
+
         msg = json.dumps({"type": "cidr_ban_add", "value": "1.2.3.0/24"})
         # Should not raise
         await handler._dispatch(msg.encode())
@@ -642,6 +687,7 @@ class TestPubSubCidrBanAdd(unittest.IsolatedAsyncioTestCase):
         )
 
         import json
+
         msg = json.dumps({"type": "cidr_ban_add", "value": ""})
         await handler._dispatch(msg.encode())
         blocklist_manager.load_cidrs.assert_not_called()
@@ -661,6 +707,7 @@ class TestOnConfigReload(unittest.TestCase):
         enricher._known_bad = []
 
         import logging
+
         with self.assertLogs("src.security.rdap_enrichment", level="WARNING") as cm:
             new_config = {
                 "rdap_enrichment": {
@@ -674,7 +721,11 @@ class TestOnConfigReload(unittest.TestCase):
         # worker_count should NOT have changed
         self.assertEqual(enricher._config.worker_count, config.worker_count)
         # A WARN should have been logged
-        warn_msgs = [m for m in cm.output if "restart_required" in m or "worker_count" in m.lower()]
+        warn_msgs = [
+            m
+            for m in cm.output
+            if "restart_required" in m or "worker_count" in m.lower()
+        ]
         self.assertTrue(len(warn_msgs) > 0 or any("WARN" in m for m in cm.output))
 
     def test_queue_size_change_logs_warn(self):

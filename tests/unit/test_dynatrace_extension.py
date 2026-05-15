@@ -6,7 +6,13 @@ from typing import Any
 import pytest
 import yaml
 
-EXTENSION_YAML = Path(__file__).parent.parent.parent / "deploy" / "dynatrace" / "ja4proxy-extension" / "extension.yaml"
+EXTENSION_YAML = (
+    Path(__file__).parent.parent.parent
+    / "deploy"
+    / "dynatrace"
+    / "ja4proxy-extension"
+    / "extension.yaml"
+)
 
 
 @pytest.fixture
@@ -31,9 +37,9 @@ class TestExtensionYAML:
 
     def test_name_format(self, extension: dict):
         """Custom extensions must be prefixed with 'custom:'."""
-        assert extension["name"].startswith("custom:"), (
-            f"Extension name must start with 'custom:', got: {extension['name']}"
-        )
+        assert extension["name"].startswith(
+            "custom:"
+        ), f"Extension name must start with 'custom:', got: {extension['name']}"
 
     def test_version_is_string(self, extension: dict):
         assert isinstance(extension["version"], str)
@@ -57,9 +63,9 @@ class TestMetricDefinitions:
     def test_all_metrics_have_required_keys(self, metrics: list):
         for i, metric in enumerate(metrics):
             missing = self.REQUIRED_METRIC_KEYS - set(metric.keys())
-            assert not missing, (
-                f"Metric {i} ({metric.get('key', 'unknown')}) missing keys: {missing}"
-            )
+            assert (
+                not missing
+            ), f"Metric {i} ({metric.get('key', 'unknown')}) missing keys: {missing}"
 
     def test_metric_keys_are_unique(self, metrics: list):
         keys = [m["key"] for m in metrics]
@@ -68,9 +74,9 @@ class TestMetricDefinitions:
 
     def test_metric_keys_use_ext_prefix(self, metrics: list):
         for m in metrics:
-            assert m["key"].startswith("ext:ja4proxy."), (
-                f"Metric key must start with 'ext:ja4proxy.', got: {m['key']}"
-            )
+            assert m["key"].startswith(
+                "ext:ja4proxy."
+            ), f"Metric key must start with 'ext:ja4proxy.', got: {m['key']}"
 
     def test_expected_metrics_present(self, metrics: list):
         expected = {
@@ -110,7 +116,9 @@ class TestTopologyDefinition:
 
     def test_topology_has_display_name(self, extension: dict):
         for t in extension["topology"]["types"]:
-            assert "displayName" in t, f"Topology type {t.get('name')} missing displayName"
+            assert (
+                "displayName" in t
+            ), f"Topology type {t.get('name')} missing displayName"
 
     def test_topology_has_rules(self, extension: dict):
         for t in extension["topology"]["types"]:
@@ -120,7 +128,13 @@ class TestTopologyDefinition:
 class TestDynatracePlugin:
     """Validate the runtime plugin.py skeleton."""
 
-    PLUGIN_PATH = Path(__file__).parent.parent.parent / "deploy" / "dynatrace" / "ja4proxy-extension" / "plugin.py"
+    PLUGIN_PATH = (
+        Path(__file__).parent.parent.parent
+        / "deploy"
+        / "dynatrace"
+        / "ja4proxy-extension"
+        / "plugin.py"
+    )
 
     def test_plugin_file_exists(self):
         assert self.PLUGIN_PATH.exists(), f"plugin.py not found at {self.PLUGIN_PATH}"
@@ -138,8 +152,9 @@ class TestDynatracePlugin:
     def test_plugin_handles_missing_dt_runtime(self):
         """Plugin must gracefully skip when dtpython is not available (local dev)."""
         source = self.PLUGIN_PATH.read_text()
-        assert "HAS_DT" in source or "ImportError" in source, \
-            "Plugin should handle missing dtpython imports gracefully"
+        assert (
+            "HAS_DT" in source or "ImportError" in source
+        ), "Plugin should handle missing dtpython imports gracefully"
 
     def test_plugin_references_correct_endpoint(self):
         """Phase 86i: plugin now scrapes /metrics instead of
@@ -150,8 +165,9 @@ class TestDynatracePlugin:
     def test_plugin_uses_auth_header(self):
         """Plugin should support Bearer token authentication."""
         source = self.PLUGIN_PATH.read_text()
-        assert "Authorization" in source, \
-            "Plugin should support Authorization header for API auth"
+        assert (
+            "Authorization" in source
+        ), "Plugin should support Authorization header for API auth"
 
 
 # ── Phase 86i: Prometheus text-format scraping ──────────────────────────────
@@ -162,7 +178,10 @@ class TestPhase86iPrometheusScraper:
 
     PLUGIN_PATH = (
         Path(__file__).parent.parent.parent
-        / "deploy" / "dynatrace" / "ja4proxy-extension" / "plugin.py"
+        / "deploy"
+        / "dynatrace"
+        / "ja4proxy-extension"
+        / "plugin.py"
     )
 
     CANONICAL_EXPOSITION = """\
@@ -184,6 +203,7 @@ ja4proxy_pipeline_duration_seconds_count 100
 
     def _load_plugin_module(self):
         import importlib.util
+
         spec = importlib.util.spec_from_file_location(
             "ja4proxy_dt_plugin", self.PLUGIN_PATH
         )
@@ -195,14 +215,16 @@ ja4proxy_pipeline_duration_seconds_count 100
         """Plugin must expose a parser that extracts samples from the
         canonical Prometheus exposition format (counter, gauge, histogram)."""
         mod = self._load_plugin_module()
-        assert hasattr(mod, "parse_prometheus_text"), (
-            "Phase 86i: plugin.py must export parse_prometheus_text()"
-        )
+        assert hasattr(
+            mod, "parse_prometheus_text"
+        ), "Phase 86i: plugin.py must export parse_prometheus_text()"
         samples = mod.parse_prometheus_text(self.CANONICAL_EXPOSITION)
         # Expect a dict-like or list of (name, labels, value) triples.
-        flat = list(samples) if not isinstance(samples, dict) else [
-            (k, {}, v) for k, v in samples.items()
-        ]
+        flat = (
+            list(samples)
+            if not isinstance(samples, dict)
+            else [(k, {}, v) for k, v in samples.items()]
+        )
         names = {s[0] for s in flat}
         assert "ja4proxy_connections_total" in names
         assert "ja4proxy_dial_setting" in names
@@ -216,15 +238,18 @@ ja4proxy_pipeline_duration_seconds_count 100
         from unittest.mock import patch
 
         mod = self._load_plugin_module()
-        assert hasattr(mod, "scrape_metrics"), (
-            "Phase 86i: plugin.py must export scrape_metrics(url)"
-        )
+        assert hasattr(
+            mod, "scrape_metrics"
+        ), "Phase 86i: plugin.py must export scrape_metrics(url)"
         with patch("urllib.request.urlopen", side_effect=OSError("boom")):
             with caplog.at_level(logging.ERROR):
                 result = mod.scrape_metrics("http://127.0.0.1:9/metrics")
-        assert result in (None, {}, [], ()), (
-            "failed scrape must return empty/None, not raise"
-        )
+        assert result in (
+            None,
+            {},
+            [],
+            (),
+        ), "failed scrape must return empty/None, not raise"
 
     def test_extension_yaml_topology_preserved(self):
         """Phase 86i: topology entity type must still be defined after
@@ -233,9 +258,9 @@ ja4proxy_pipeline_duration_seconds_count 100
             ext = yaml.safe_load(f)
         assert "topology" in ext
         types = ext["topology"].get("types", [])
-        assert any(t.get("name") == "ja4proxy:node" for t in types), (
-            "Phase 86i: ja4proxy:node topology type must remain"
-        )
+        assert any(
+            t.get("name") == "ja4proxy:node" for t in types
+        ), "Phase 86i: ja4proxy:node topology type must remain"
 
 
 # ── PHASE_101 H15: parser hardening ──────────────────────────────────────────
@@ -261,6 +286,7 @@ class TestPhase101H15ParserHardening:
 
     def _load(self):
         import importlib.util
+
         spec = importlib.util.spec_from_file_location(
             "ja4proxy_dt_plugin_h15", self.PLUGIN_PATH
         )
@@ -281,9 +307,9 @@ class TestPhase101H15ParserHardening:
         names = {s[0] for s in samples}
         assert "ja4proxy_good" in names
         assert "ja4proxy_also_good" in names
-        assert "ja4proxy_nan" not in names, (
-            "NaN samples must be dropped — they corrupt Dynatrace timeseries"
-        )
+        assert (
+            "ja4proxy_nan" not in names
+        ), "NaN samples must be dropped — they corrupt Dynatrace timeseries"
         assert "ja4proxy_pos_inf" not in names
         assert "ja4proxy_neg_inf" not in names
 
@@ -298,13 +324,13 @@ class TestPhase101H15ParserHardening:
         name, labels, value = samples[0]
         assert name == "ja4proxy_requests_total"
         assert value == 7.0
-        assert labels.get("method") == "GET", (
-            f"tail label dropped — parser mis-handled escaped quote: {labels!r}"
-        )
+        assert (
+            labels.get("method") == "GET"
+        ), f"tail label dropped — parser mis-handled escaped quote: {labels!r}"
         # The decoded path should contain the literal quote + comma.
-        assert labels.get("path") == '/a"b,c', (
-            f"escape not decoded correctly: {labels.get('path')!r}"
-        )
+        assert (
+            labels.get("path") == '/a"b,c'
+        ), f"escape not decoded correctly: {labels.get('path')!r}"
 
     def test_escaped_backslash_and_newline_decoded(self):
         """``\\\\`` → ``\\`` and ``\\n`` → newline, per the Prometheus spec."""
@@ -387,6 +413,7 @@ class TestPhase101M25TopologyOnFailure:
 
     def _load(self):
         import importlib.util
+
         spec = importlib.util.spec_from_file_location(
             "ja4proxy_dt_plugin_m25", self.PLUGIN_PATH
         )
@@ -403,18 +430,16 @@ class TestPhase101M25TopologyOnFailure:
         monkeypatch.setattr(mod, "HAS_DT", True, raising=False)
         monkeypatch.setattr(mod, "dt", stub_dt, raising=False)
         monkeypatch.setattr(mod, "dtlog", stub_log, raising=False)
-        monkeypatch.setattr(
-            mod, "scrape_metrics", lambda *a, **kw: [], raising=False
-        )
+        monkeypatch.setattr(mod, "scrape_metrics", lambda *a, **kw: [], raising=False)
 
         plugin = mod.JA4proxyPlugin({"metrics_url": "http://example.invalid/metrics"})
         series = plugin.query()
 
         assert series, "M25: query() must return ≥1 entity even on scrape failure"
         kinds = [r["kind"] for r in stub_dt.records]
-        assert "ja4proxy:node" in kinds, (
-            f"M25: topology entity ja4proxy:node missing from {kinds!r}"
-        )
+        assert (
+            "ja4proxy:node" in kinds
+        ), f"M25: topology entity ja4proxy:node missing from {kinds!r}"
 
     def test_query_emits_topology_when_scrape_returns_samples(
         self, monkeypatch: pytest.MonkeyPatch
@@ -437,9 +462,9 @@ class TestPhase101M25TopologyOnFailure:
         plugin = mod.JA4proxyPlugin({"metrics_url": "http://example.invalid/metrics"})
         series = plugin.query()
 
-        assert len(series) >= 2, (
-            f"expected topology + dial_setting series, got {series!r}"
-        )
+        assert (
+            len(series) >= 2
+        ), f"expected topology + dial_setting series, got {series!r}"
         kinds = [r["kind"] for r in stub_dt.records]
         assert "ja4proxy:node" in kinds
         assert "ext:ja4proxy.dial_setting" in kinds

@@ -1,6 +1,7 @@
 """
 Tests for BackupScheduler (P19-G1 — backup schedule executor).
 """
+
 import asyncio
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, call, patch
@@ -12,6 +13,7 @@ from src.backup.scheduler import BackupScheduler, _next_delay_s
 # ---------------------------------------------------------------------------
 # _next_delay_s unit tests
 # ---------------------------------------------------------------------------
+
 
 class TestNextDelayS:
     def test_plain_integer_string_returns_float(self):
@@ -40,14 +42,16 @@ class TestNextDelayS:
 # BackupScheduler unit tests
 # ---------------------------------------------------------------------------
 
+
 def _make_worker(dest="/app/backups"):
     worker = MagicMock()
     worker.create_backup.return_value = Path(dest) / "backup_test.bin"
     return worker
 
 
-def _make_config(enabled=True, schedule="1", destination="/app/backups",
-                 schedule_enabled=True):
+def _make_config(
+    enabled=True, schedule="1", destination="/app/backups", schedule_enabled=True
+):
     return {
         "enabled": enabled,
         "schedule": schedule,

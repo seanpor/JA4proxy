@@ -51,19 +51,25 @@ os.environ.setdefault("MANAGEMENT_ADMIN_USER", "admin")
 os.environ.setdefault("MANAGEMENT_ADMIN_PASSWORD", "testpassword")
 os.environ.setdefault("MANAGEMENT_TEST_MODE", "1")
 os.environ.setdefault("MANAGEMENT_SAML_STRICT", "false")
-os.environ.setdefault("MANAGEMENT_SAML_SP_ENTITY_ID", "http://localhost:8090/auth/sso/metadata")
-os.environ.setdefault("MANAGEMENT_SAML_SP_ACS_URL", "http://localhost:8090/auth/sso/saml/acs")
+os.environ.setdefault(
+    "MANAGEMENT_SAML_SP_ENTITY_ID", "http://localhost:8090/auth/sso/metadata"
+)
+os.environ.setdefault(
+    "MANAGEMENT_SAML_SP_ACS_URL", "http://localhost:8090/auth/sso/saml/acs"
+)
 os.environ.setdefault("MANAGEMENT_SAML_IDP_ENTITY_ID", "http://mock-idp.test/saml")
 os.environ.setdefault("MANAGEMENT_SAML_IDP_SSO_URL", "http://mock-idp.test/sso")
 os.environ.setdefault("MANAGEMENT_SAML_IDP_CERT", "")
 os.environ.setdefault(
     "MANAGEMENT_SAML_ROLE_MAPPING",
-    json.dumps({
-        "Security-Admins": "admin",
-        "SecOps-Operators": "operator",
-        "SOC-Analysts": "analyst",
-        "Audit-Team": "auditor",
-    }),
+    json.dumps(
+        {
+            "Security-Admins": "admin",
+            "SecOps-Operators": "operator",
+            "SOC-Analysts": "analyst",
+            "Audit-Team": "auditor",
+        }
+    ),
 )
 os.environ.setdefault("MANAGEMENT_SAML_DEFAULT_ROLE", "")
 os.environ.setdefault("MANAGEMENT_SAML_GROUPS_ATTRIBUTE", "groups")
@@ -146,9 +152,9 @@ async def test_saml_metadata_contains_sp_entity_id(
     """SP metadata XML contains the configured entityID."""
     r = await public_client.get("/auth/sso/metadata")
     assert r.status_code == 200
-    assert "localhost:8090" in r.text or "auth/sso/metadata" in r.text, (
-        f"SP entity ID not found in metadata: {r.text[:400]}"
-    )
+    assert (
+        "localhost:8090" in r.text or "auth/sso/metadata" in r.text
+    ), f"SP entity ID not found in metadata: {r.text[:400]}"
 
 
 @pytest.mark.asyncio
@@ -164,9 +170,9 @@ async def test_saml_metadata_not_configured_returns_503(
             transport=ASGITransport(app=app), base_url="http://test"
         ) as client:
             r = await client.get("/auth/sso/metadata")
-        assert r.status_code == 503, (
-            f"Expected 503 when SAML not configured, got {r.status_code}: {r.text}"
-        )
+        assert (
+            r.status_code == 503
+        ), f"Expected 503 when SAML not configured, got {r.status_code}: {r.text}"
     finally:
         if saved is not None:
             os.environ["MANAGEMENT_SAML_IDP_ENTITY_ID"] = saved
@@ -185,14 +191,20 @@ async def test_saml_login_redirects(
 ) -> None:
     """GET /auth/sso/saml/login returns a redirect to the IdP SSO URL."""
     mock_auth = _make_mock_saml_auth()
-    with patch("management.api.routes.saml.OneLogin_Saml2_Auth", return_value=mock_auth):
+    with patch(
+        "management.api.routes.saml.OneLogin_Saml2_Auth", return_value=mock_auth
+    ):
         r = await public_client.get("/auth/sso/saml/login", follow_redirects=False)
-    assert r.status_code in (301, 302, 303, 307, 308), (
-        f"Expected redirect, got {r.status_code}: {r.text}"
-    )
-    assert "mock-idp.test" in r.headers.get("location", ""), (
-        f"Expected redirect to mock IdP, got location={r.headers.get('location')!r}"
-    )
+    assert r.status_code in (
+        301,
+        302,
+        303,
+        307,
+        308,
+    ), f"Expected redirect, got {r.status_code}: {r.text}"
+    assert "mock-idp.test" in r.headers.get(
+        "location", ""
+    ), f"Expected redirect to mock IdP, got location={r.headers.get('location')!r}"
 
 
 @pytest.mark.asyncio
@@ -202,7 +214,9 @@ async def test_saml_login_stores_nonce_in_redis(
 ) -> None:
     """GET /auth/sso/saml/login creates a nonce in mgmt:saml:nonce:* with 5-min TTL."""
     mock_auth = _make_mock_saml_auth()
-    with patch("management.api.routes.saml.OneLogin_Saml2_Auth", return_value=mock_auth):
+    with patch(
+        "management.api.routes.saml.OneLogin_Saml2_Auth", return_value=mock_auth
+    ):
         r = await public_client.get("/auth/sso/saml/login", follow_redirects=False)
     assert r.status_code in (301, 302, 303, 307, 308)
 
@@ -225,9 +239,9 @@ async def test_saml_login_not_configured_returns_503(
             transport=ASGITransport(app=app), base_url="http://test"
         ) as client:
             r = await client.get("/auth/sso/saml/login", follow_redirects=False)
-        assert r.status_code == 503, (
-            f"Expected 503 when SAML not configured, got {r.status_code}: {r.text}"
-        )
+        assert (
+            r.status_code == 503
+        ), f"Expected 503 when SAML not configured, got {r.status_code}: {r.text}"
     finally:
         if saved is not None:
             os.environ["MANAGEMENT_SAML_IDP_ENTITY_ID"] = saved
@@ -245,16 +259,20 @@ async def test_saml_login_is_public(
     await _redis_module.init_redis(override_client=fake_redis)
     mock_auth = _make_mock_saml_auth()
     async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
+        transport=ASGITransport(app=app),
+        base_url="http://test",
         # No cookie — unauthenticated
     ) as client:
-        with patch("management.api.routes.saml.OneLogin_Saml2_Auth", return_value=mock_auth):
+        with patch(
+            "management.api.routes.saml.OneLogin_Saml2_Auth", return_value=mock_auth
+        ):
             r = await client.get("/auth/sso/saml/login", follow_redirects=False)
     await _redis_module.close_redis()
     # A public endpoint must not return 401 or 403
-    assert r.status_code not in (401, 403), (
-        f"Login endpoint should be public, got {r.status_code}"
-    )
+    assert r.status_code not in (
+        401,
+        403,
+    ), f"Login endpoint should be public, got {r.status_code}"
 
 
 # ── Section 3: ACS ────────────────────────────────────────────────────────────
@@ -271,17 +289,22 @@ async def test_saml_acs_valid_response_sets_cookie(
     await fake_redis.set(f"mgmt:saml:nonce:{nonce}", "/", ex=300)
 
     mock_auth = _make_mock_saml_auth(groups=["Security-Admins"])
-    with patch("management.api.routes.saml.OneLogin_Saml2_Auth", return_value=mock_auth):
+    with patch(
+        "management.api.routes.saml.OneLogin_Saml2_Auth", return_value=mock_auth
+    ):
         r = await public_client.post(
             "/auth/sso/saml/acs",
             data={"SAMLResponse": "ZmFrZQ==", "RelayState": nonce},
             follow_redirects=False,
         )
-    assert r.status_code in (200, 302), f"Expected redirect/200, got {r.status_code}: {r.text}"
+    assert r.status_code in (
+        200,
+        302,
+    ), f"Expected redirect/200, got {r.status_code}: {r.text}"
     # JWT cookie must be set
-    assert "token" in r.cookies, (
-        f"Expected 'token' cookie to be set. Cookies: {dict(r.cookies)}"
-    )
+    assert (
+        "token" in r.cookies
+    ), f"Expected 'token' cookie to be set. Cookies: {dict(r.cookies)}"
 
 
 @pytest.mark.asyncio
@@ -304,7 +327,9 @@ async def test_saml_acs_role_embedded_in_token(
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
     ) as client:
-        with patch("management.api.routes.saml.OneLogin_Saml2_Auth", return_value=mock_auth):
+        with patch(
+            "management.api.routes.saml.OneLogin_Saml2_Auth", return_value=mock_auth
+        ):
             r = await client.post(
                 "/auth/sso/saml/acs",
                 data={"SAMLResponse": "ZmFrZQ==", "RelayState": nonce},
@@ -316,11 +341,13 @@ async def test_saml_acs_role_embedded_in_token(
     token_value = r.cookies.get("token")
     assert token_value is not None, "No token cookie set"
 
-    secret = os.environ.get("MANAGEMENT_JWT_SECRET", "test-secret-do-not-use-in-production")
-    payload = _jwt.decode(token_value, secret, algorithms=["HS256"])
-    assert payload.get("role") == "operator", (
-        f"Expected role='operator' in JWT, got role={payload.get('role')!r}"
+    secret = os.environ.get(
+        "MANAGEMENT_JWT_SECRET", "test-secret-do-not-use-in-production"
     )
+    payload = _jwt.decode(token_value, secret, algorithms=["HS256"])
+    assert (
+        payload.get("role") == "operator"
+    ), f"Expected role='operator' in JWT, got role={payload.get('role')!r}"
 
 
 @pytest.mark.asyncio
@@ -333,13 +360,17 @@ async def test_saml_acs_auth_failed_returns_401(
     await fake_redis.set(f"mgmt:saml:nonce:{nonce}", "/", ex=300)
 
     mock_auth = _make_mock_saml_auth(authenticated=False, errors=["invalid_response"])
-    with patch("management.api.routes.saml.OneLogin_Saml2_Auth", return_value=mock_auth):
+    with patch(
+        "management.api.routes.saml.OneLogin_Saml2_Auth", return_value=mock_auth
+    ):
         r = await public_client.post(
             "/auth/sso/saml/acs",
             data={"SAMLResponse": "ZmFrZQ==", "RelayState": nonce},
             follow_redirects=False,
         )
-    assert r.status_code == 401, f"Expected 401 for failed SAML auth, got {r.status_code}: {r.text}"
+    assert (
+        r.status_code == 401
+    ), f"Expected 401 for failed SAML auth, got {r.status_code}: {r.text}"
 
 
 @pytest.mark.asyncio
@@ -357,7 +388,9 @@ async def test_saml_acs_nonce_consumed_on_auth_failure(
     await fake_redis.set(f"mgmt:saml:nonce:{nonce}", "/", ex=300)
 
     mock_auth = _make_mock_saml_auth(authenticated=False, errors=["invalid_response"])
-    with patch("management.api.routes.saml.OneLogin_Saml2_Auth", return_value=mock_auth):
+    with patch(
+        "management.api.routes.saml.OneLogin_Saml2_Auth", return_value=mock_auth
+    ):
         r = await public_client.post(
             "/auth/sso/saml/acs",
             data={"SAMLResponse": "ZmFrZQ==", "RelayState": nonce},
@@ -367,9 +400,9 @@ async def test_saml_acs_nonce_consumed_on_auth_failure(
 
     # Nonce must no longer exist in Redis
     remaining = await fake_redis.get(f"mgmt:saml:nonce:{nonce}")
-    assert remaining is None, (
-        f"Nonce should be consumed on auth failure, but key still exists: {remaining!r}"
-    )
+    assert (
+        remaining is None
+    ), f"Nonce should be consumed on auth failure, but key still exists: {remaining!r}"
 
 
 @pytest.mark.asyncio
@@ -382,13 +415,17 @@ async def test_saml_acs_unmapped_group_returns_403(
     await fake_redis.set(f"mgmt:saml:nonce:{nonce}", "/", ex=300)
 
     mock_auth = _make_mock_saml_auth(groups=["Unknown-Group-No-Mapping"])
-    with patch("management.api.routes.saml.OneLogin_Saml2_Auth", return_value=mock_auth):
+    with patch(
+        "management.api.routes.saml.OneLogin_Saml2_Auth", return_value=mock_auth
+    ):
         r = await public_client.post(
             "/auth/sso/saml/acs",
             data={"SAMLResponse": "ZmFrZQ==", "RelayState": nonce},
             follow_redirects=False,
         )
-    assert r.status_code == 403, f"Expected 403 for unmapped group, got {r.status_code}: {r.text}"
+    assert (
+        r.status_code == 403
+    ), f"Expected 403 for unmapped group, got {r.status_code}: {r.text}"
 
 
 @pytest.mark.asyncio
@@ -399,15 +436,17 @@ async def test_saml_acs_missing_relay_state_returns_400(
     """POST /auth/sso/saml/acs without a valid RelayState (nonce) returns 400."""
     # No nonce seeded in Redis — stale or CSRF attempt
     mock_auth = _make_mock_saml_auth()
-    with patch("management.api.routes.saml.OneLogin_Saml2_Auth", return_value=mock_auth):
+    with patch(
+        "management.api.routes.saml.OneLogin_Saml2_Auth", return_value=mock_auth
+    ):
         r = await public_client.post(
             "/auth/sso/saml/acs",
             data={"SAMLResponse": "ZmFrZQ==", "RelayState": "nonexistent-nonce"},
             follow_redirects=False,
         )
-    assert r.status_code == 400, (
-        f"Expected 400 for invalid relay state, got {r.status_code}: {r.text}"
-    )
+    assert (
+        r.status_code == 400
+    ), f"Expected 400 for invalid relay state, got {r.status_code}: {r.text}"
 
 
 @pytest.mark.asyncio
@@ -420,7 +459,9 @@ async def test_saml_acs_nonce_is_single_use(
     await fake_redis.set(f"mgmt:saml:nonce:{nonce}", "/", ex=300)
 
     mock_auth = _make_mock_saml_auth()
-    with patch("management.api.routes.saml.OneLogin_Saml2_Auth", return_value=mock_auth):
+    with patch(
+        "management.api.routes.saml.OneLogin_Saml2_Auth", return_value=mock_auth
+    ):
         r1 = await public_client.post(
             "/auth/sso/saml/acs",
             data={"SAMLResponse": "ZmFrZQ==", "RelayState": nonce},
@@ -429,15 +470,17 @@ async def test_saml_acs_nonce_is_single_use(
     assert r1.status_code in (200, 302), f"First ACS call failed: {r1.status_code}"
 
     # Second use of the same nonce
-    with patch("management.api.routes.saml.OneLogin_Saml2_Auth", return_value=mock_auth):
+    with patch(
+        "management.api.routes.saml.OneLogin_Saml2_Auth", return_value=mock_auth
+    ):
         r2 = await public_client.post(
             "/auth/sso/saml/acs",
             data={"SAMLResponse": "ZmFrZQ==", "RelayState": nonce},
             follow_redirects=False,
         )
-    assert r2.status_code == 400, (
-        f"Second use of same nonce should be 400, got {r2.status_code}"
-    )
+    assert (
+        r2.status_code == 400
+    ), f"Second use of same nonce should be 400, got {r2.status_code}"
 
 
 # ── Section 4: Role mapping unit tests ───────────────────────────────────────
@@ -510,6 +553,7 @@ def test_map_role_empty_groups_no_default() -> None:
         else:
             os.environ["MANAGEMENT_SAML_DEFAULT_ROLE"] = ""
 
+
 # ── Section 8: Integration test stubs (Gap 5 — Production Readiness) ────────────────────
 
 
@@ -524,6 +568,7 @@ async def test_saml_live_okta_login() -> None:
     To run: OKTA_METADATA_URL=https://... pytest -m integration
     """
     pytest.skip("Not yet implemented — stub for future live-IdP test")
+
 
 # ── Section 9: Audit log events (Gap 2 — Production Readiness) ──────────────────────────
 
@@ -545,28 +590,33 @@ async def test_saml_acs_success_writes_audit_entry(
         nameid="audited@example.com",
         groups=["Security-Admins"],
     )
-    with patch("management.api.routes.saml.OneLogin_Saml2_Auth", return_value=mock_auth):
+    with patch(
+        "management.api.routes.saml.OneLogin_Saml2_Auth", return_value=mock_auth
+    ):
         r = await public_client.post(
             "/auth/sso/saml/acs",
             data={"SAMLResponse": "ZmFrZQ==", "RelayState": nonce},
             follow_redirects=False,
         )
-    assert r.status_code in (200, 302), f"Expected login success, got {r.status_code}: {r.text}"
+    assert r.status_code in (
+        200,
+        302,
+    ), f"Expected login success, got {r.status_code}: {r.text}"
 
     # Audit entry must exist in Redis
     entries = await fake_redis.lrange("management:audit_log", 0, 0)
     assert entries, "Expected at least one audit entry in management:audit_log"
 
     entry = json.loads(entries[0])
-    assert entry.get("action_type") == "sso.login", (
-        f"Expected action_type='sso.login', got {entry.get('action_type')!r}"
-    )
-    assert entry.get("actor_id") == "audited@example.com", (
-        f"Expected actor_id='audited@example.com', got {entry.get('actor_id')!r}"
-    )
-    assert entry.get("resource_type") == "session", (
-        f"Expected resource_type='session', got {entry.get('resource_type')!r}"
-    )
+    assert (
+        entry.get("action_type") == "sso.login"
+    ), f"Expected action_type='sso.login', got {entry.get('action_type')!r}"
+    assert (
+        entry.get("actor_id") == "audited@example.com"
+    ), f"Expected actor_id='audited@example.com', got {entry.get('actor_id')!r}"
+    assert (
+        entry.get("resource_type") == "session"
+    ), f"Expected resource_type='session', got {entry.get('resource_type')!r}"
 
 
 @pytest.mark.asyncio
@@ -579,7 +629,9 @@ async def test_saml_acs_failure_does_not_write_audit_entry(
     await fake_redis.set(f"mgmt:saml:nonce:{nonce}", "/", ex=300)
 
     mock_auth = _make_mock_saml_auth(authenticated=False, errors=["bad_response"])
-    with patch("management.api.routes.saml.OneLogin_Saml2_Auth", return_value=mock_auth):
+    with patch(
+        "management.api.routes.saml.OneLogin_Saml2_Auth", return_value=mock_auth
+    ):
         r = await public_client.post(
             "/auth/sso/saml/acs",
             data={"SAMLResponse": "ZmFrZQ==", "RelayState": nonce},
@@ -590,9 +642,10 @@ async def test_saml_acs_failure_does_not_write_audit_entry(
     entries = await fake_redis.lrange("management:audit_log", 0, -1)
     for e in entries:
         parsed = json.loads(e)
-        assert parsed.get("action_type") != "sso.login", (
-            f"Failed login must not produce an audit entry: {parsed}"
-        )
+        assert (
+            parsed.get("action_type") != "sso.login"
+        ), f"Failed login must not produce an audit entry: {parsed}"
+
 
 # ── Section 10: SSO-delegated MFA trust (Gap 4 — Production Readiness) ──────────────────
 
@@ -630,7 +683,9 @@ async def test_saml_acs_idp_mfa_trust_sets_session_key(
         async with AsyncClient(
             transport=ASGITransport(app=app), base_url="http://test"
         ) as client:
-            with patch("management.api.routes.saml.OneLogin_Saml2_Auth", return_value=mock_auth):
+            with patch(
+                "management.api.routes.saml.OneLogin_Saml2_Auth", return_value=mock_auth
+            ):
                 r = await client.post(
                     "/auth/sso/saml/acs",
                     data={"SAMLResponse": "ZmFrZQ==", "RelayState": nonce},
@@ -643,16 +698,19 @@ async def test_saml_acs_idp_mfa_trust_sets_session_key(
             os.environ.pop("MANAGEMENT_SSO_TRUST_IDP_MFA", None)
         await _redis_module.close_redis()
 
-    assert r.status_code in (200, 302), f"Expected login success, got {r.status_code}: {r.text}"
+    assert r.status_code in (
+        200,
+        302,
+    ), f"Expected login success, got {r.status_code}: {r.text}"
 
     token_value = r.cookies.get("token")
     assert token_value, "No token cookie issued"
 
     mfa_key = "mgmt:mfa:session:" + hashlib.sha256(token_value.encode()).hexdigest()
     value = await fake_redis.get(mfa_key)
-    assert value == "verified", (
-        f"Expected MFA session key set to 'verified' when IdP asserts MFA, got {value!r}"
-    )
+    assert (
+        value == "verified"
+    ), f"Expected MFA session key set to 'verified' when IdP asserts MFA, got {value!r}"
 
 
 @pytest.mark.asyncio
@@ -676,7 +734,9 @@ async def test_saml_acs_idp_mfa_trust_disabled_no_session_key(
 
     saved = os.environ.pop("MANAGEMENT_SSO_TRUST_IDP_MFA", None)
     try:
-        with patch("management.api.routes.saml.OneLogin_Saml2_Auth", return_value=mock_auth):
+        with patch(
+            "management.api.routes.saml.OneLogin_Saml2_Auth", return_value=mock_auth
+        ):
             r = await public_client.post(
                 "/auth/sso/saml/acs",
                 data={"SAMLResponse": "ZmFrZQ==", "RelayState": nonce},
@@ -691,9 +751,10 @@ async def test_saml_acs_idp_mfa_trust_disabled_no_session_key(
     if token_value:
         mfa_key = "mgmt:mfa:session:" + hashlib.sha256(token_value.encode()).hexdigest()
         value = await fake_redis.get(mfa_key)
-        assert value is None, (
-            f"MFA session key must NOT be set when trust flag is off, got {value!r}"
-        )
+        assert (
+            value is None
+        ), f"MFA session key must NOT be set when trust flag is off, got {value!r}"
+
 
 # ── Section 11: config/proxy.yml role mapping (Gap 6 — Production Readiness) ────────────
 
@@ -727,14 +788,19 @@ def test_saml_map_role_from_proxy_config(tmp_path) -> None:
         if saved_env is not None:
             os.environ["MANAGEMENT_SAML_ROLE_MAPPING"] = saved_env
         else:
-            os.environ["MANAGEMENT_SAML_ROLE_MAPPING"] = json.dumps({
-                "Security-Admins": "admin",
-                "SecOps-Operators": "operator",
-                "SOC-Analysts": "analyst",
-            })
+            os.environ["MANAGEMENT_SAML_ROLE_MAPPING"] = json.dumps(
+                {
+                    "Security-Admins": "admin",
+                    "SecOps-Operators": "operator",
+                    "SOC-Analysts": "analyst",
+                }
+            )
 
     from management.api.models import Role
-    assert role == Role.auditor, f"Expected auditor from config file mapping, got {role}"
+
+    assert (
+        role == Role.auditor
+    ), f"Expected auditor from config file mapping, got {role}"
 
 
 def test_saml_map_role_env_overrides_config(tmp_path) -> None:
@@ -751,7 +817,9 @@ def test_saml_map_role_env_overrides_config(tmp_path) -> None:
     _clr()
     try:
         os.environ["MANAGEMENT_PROXY_CONFIG_PATH"] = str(cfg)
-        os.environ["MANAGEMENT_SAML_ROLE_MAPPING"] = json.dumps({"Overlap-Group": "admin"})
+        os.environ["MANAGEMENT_SAML_ROLE_MAPPING"] = json.dumps(
+            {"Overlap-Group": "admin"}
+        )
         role = _map_role(["Overlap-Group"])
     finally:
         _clr()
@@ -762,12 +830,14 @@ def test_saml_map_role_env_overrides_config(tmp_path) -> None:
         if saved_env is not None:
             os.environ["MANAGEMENT_SAML_ROLE_MAPPING"] = saved_env
         else:
-            os.environ["MANAGEMENT_SAML_ROLE_MAPPING"] = json.dumps({
-                "Security-Admins": "admin",
-                "SecOps-Operators": "operator",
-                "SOC-Analysts": "analyst",
-            })
+            os.environ["MANAGEMENT_SAML_ROLE_MAPPING"] = json.dumps(
+                {
+                    "Security-Admins": "admin",
+                    "SecOps-Operators": "operator",
+                    "SOC-Analysts": "analyst",
+                }
+            )
 
-    assert role == Role.admin, (
-        f"Expected admin (env var wins over config file), got {role}"
-    )
+    assert (
+        role == Role.admin
+    ), f"Expected admin (env var wins over config file), got {role}"

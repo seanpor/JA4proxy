@@ -1,6 +1,7 @@
 """
 Unit tests for src/tap/fingerprints/quic_fingerprint.py (Phase 20 Group 5-K).
 """
+
 import struct
 
 import pytest
@@ -88,6 +89,7 @@ class TestQUICFingerprint:
 
 # ── Missing-coverage tests ────────────────────────────────────────────────────
 
+
 class TestQUICEdgeCases:
     """Cover parse-failure paths not reached by the happy-path tests."""
 
@@ -95,8 +97,11 @@ class TestQUICEdgeCases:
         """_parse() raising unexpectedly must be caught and return None.
         So what: a malformed internet packet must never crash the capture loop."""
         from unittest.mock import patch
-        with patch("src.tap.fingerprints.quic_fingerprint._parse",
-                   side_effect=RuntimeError("injected")):
+
+        with patch(
+            "src.tap.fingerprints.quic_fingerprint._parse",
+            side_effect=RuntimeError("injected"),
+        ):
             result = extract_quic_fingerprint(_build_quic_initial())
         assert result is None
 
@@ -133,8 +138,13 @@ class TestQUICEdgeCases:
     def test_scid_overruns_buffer_returns_none(self):
         """scid_len=200 with no following bytes → None."""
         dcid = b"\xaa" * 4
-        data = (bytes([0xC3]) + struct.pack("!I", _QUIC_V1)
-                + bytes([len(dcid)]) + dcid + bytes([200]))
+        data = (
+            bytes([0xC3])
+            + struct.pack("!I", _QUIC_V1)
+            + bytes([len(dcid)])
+            + dcid
+            + bytes([200])
+        )
         assert extract_quic_fingerprint(data) is None
 
     def test_token_varint_truncated_returns_none(self):
@@ -143,16 +153,23 @@ class TestQUICEdgeCases:
         dcid = b"\xaa" * 4
         scid = b"\xbb" * 4
         # 0x40 = length_type 1 (2-byte varint) but only 1 byte present
-        data = (bytes([0xC3]) + struct.pack("!I", _QUIC_V1)
-                + bytes([len(dcid)]) + dcid
-                + bytes([len(scid)]) + scid
-                + bytes([0x40]))
+        data = (
+            bytes([0xC3])
+            + struct.pack("!I", _QUIC_V1)
+            + bytes([len(dcid)])
+            + dcid
+            + bytes([len(scid)])
+            + scid
+            + bytes([0x40])
+        )
         assert extract_quic_fingerprint(data) is None
 
     def test_quic_v2_produces_v2_in_fingerprint(self):
         """QUIC v2 (RFC 9369) must be identified as 'v2', not an unknown hex string.
-        So what: v2 is the current IETF version; wrong label pollutes fingerprint DBs."""
+        So what: v2 is the current IETF version; wrong label pollutes fingerprint DBs.
+        """
         from src.tap.fingerprints.quic_fingerprint import _QUIC_V2
+
         data = _build_quic_initial(version=_QUIC_V2)
         result = extract_quic_fingerprint(data)
         assert result is not None
@@ -164,6 +181,7 @@ class TestQUICVarint:
 
     def setup_method(self):
         from src.tap.fingerprints.quic_fingerprint import _read_varint
+
         self._rv = _read_varint
 
     def test_empty_buffer_returns_none(self):
@@ -203,7 +221,9 @@ class TestQUICVarint:
 
     def test_8byte_encoding(self):
         """length_type 3 (11xxxxxx): 62-bit value read from 8 bytes."""
-        val, new_pos = self._rv(bytes([0xC0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01]), 0)
+        val, new_pos = self._rv(
+            bytes([0xC0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01]), 0
+        )
         assert val == 1
         assert new_pos == 8
 
@@ -226,7 +246,8 @@ class TestQUICSmallPacketTruncations:
     def test_dcid_overruns_remaining_bytes_returns_none(self):
         """dcid_len byte claims 2 bytes but only 1 byte follows (line 82).
         Input: 7 bytes (passes len<7 guard), dcid_len=2 but only 1 remaining.
-        So what: a crafted DCID length must not cause slice-beyond-end in packet capture."""
+        So what: a crafted DCID length must not cause slice-beyond-end in packet capture.
+        """
         # Layout: [first_byte(1)] [version(4)] [dcid_len=2(1)] [one_byte(1)] — 7 bytes
         data = bytes([0xC3]) + struct.pack("!I", _QUIC_V1) + bytes([2, 0x00])
         assert extract_quic_fingerprint(data) is None

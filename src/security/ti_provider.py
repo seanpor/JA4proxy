@@ -36,7 +36,7 @@ async def retry_with_backoff(
         except Exception as exc:
             last_exc = exc
             if attempt < max_attempts - 1:
-                delay = min(base_delay * (2 ** attempt), max_delay)
+                delay = min(base_delay * (2**attempt), max_delay)
                 logger.warning(
                     "ti_feed | event=retry | feed=%s | attempt=%d/%d | delay=%.1fs",
                     feed_name,
@@ -51,6 +51,7 @@ async def retry_with_backoff(
 @dataclass
 class TIProviderConfig:
     """Base configuration for TI providers."""
+
     enabled: bool = False
     api_key: str = ""
     cache_ttl_seconds: int = 86400  # 24h default

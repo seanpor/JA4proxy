@@ -19,6 +19,7 @@ from src.security.threat_tier import ThreatTier
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_manager(
     ping_ok=True,
     rate_tracker=None,
@@ -53,14 +54,21 @@ def _make_manager(
         }
     }
 
-    return SecurityManager(
-        redis_client=redis_mock,
-        config=config,
-        rate_tracker=rt,
-        threat_evaluator=te,
-        action_enforcer=ae,
-        gdpr_storage=gs,
-    ), redis_mock, rt, te, ae, gs
+    return (
+        SecurityManager(
+            redis_client=redis_mock,
+            config=config,
+            rate_tracker=rt,
+            threat_evaluator=te,
+            action_enforcer=ae,
+            gdpr_storage=gs,
+        ),
+        redis_mock,
+        rt,
+        te,
+        ae,
+        gs,
+    )
 
 
 def _make_action_result(allowed=True, reason="Allowed", action_type=None):
@@ -76,6 +84,7 @@ def _make_action_result(allowed=True, reason="Allowed", action_type=None):
 # ---------------------------------------------------------------------------
 # Initialization
 # ---------------------------------------------------------------------------
+
 
 class TestSecurityManagerInit:
     def test_raises_if_redis_none(self):
@@ -107,6 +116,7 @@ class TestSecurityManagerInit:
 # ---------------------------------------------------------------------------
 # check_access — normal paths
 # ---------------------------------------------------------------------------
+
 
 class TestCheckAccessNormal:
     async def test_invalid_ja4_blocked(self):
@@ -152,7 +162,9 @@ class TestCheckAccessNormal:
         """Threat detected → action enforced → result returned."""
         ae = MagicMock()
         ae.is_blocked.return_value = (False, "")
-        ae.enforce.return_value = _make_action_result(allowed=False, reason="Rate limited")
+        ae.enforce.return_value = _make_action_result(
+            allowed=False, reason="Rate limited"
+        )
 
         te = MagicMock()
         te.evaluate_multi_strategy.return_value = {"per_ip": MagicMock()}
@@ -179,7 +191,9 @@ class TestCheckAccessNormal:
         te.get_triggering_strategy.return_value = MagicMock(value="per_ip")
 
         gs = MagicMock()
-        mgr, _, _, _, _, _ = _make_manager(action_enforcer=ae, threat_evaluator=te, gdpr_storage=gs)
+        mgr, _, _, _, _, _ = _make_manager(
+            action_enforcer=ae, threat_evaluator=te, gdpr_storage=gs
+        )
         await mgr.check_access("ja4fp", "1.2.3.4")
 
         gs.store.assert_called()
@@ -197,7 +211,9 @@ class TestCheckAccessNormal:
         te.get_triggering_strategy.return_value = MagicMock(value="per_ip")
 
         gs = MagicMock()
-        mgr, _, _, _, _, _ = _make_manager(action_enforcer=ae, threat_evaluator=te, gdpr_storage=gs)
+        mgr, _, _, _, _, _ = _make_manager(
+            action_enforcer=ae, threat_evaluator=te, gdpr_storage=gs
+        )
         await mgr.check_access("ja4fp", "1.2.3.4")
 
         gs.store.assert_not_called()
@@ -206,6 +222,7 @@ class TestCheckAccessNormal:
 # ---------------------------------------------------------------------------
 # check_access — exception path (lines 188-193)
 # ---------------------------------------------------------------------------
+
 
 class TestCheckAccessExceptionPath:
     async def test_exception_in_rate_tracker_returns_blocked(self):
@@ -241,6 +258,7 @@ class TestCheckAccessExceptionPath:
 # _store_enforcement_data tier routing (lines 274-281, 290-291)
 # ---------------------------------------------------------------------------
 
+
 class TestStoreTierRouting:
     async def _check_access_with_tier(self, tier):
         ae = MagicMock()
@@ -254,7 +272,9 @@ class TestStoreTierRouting:
         te.get_triggering_strategy.return_value = MagicMock(value="per_ip")
 
         gs = MagicMock()
-        mgr, _, _, _, _, _ = _make_manager(action_enforcer=ae, threat_evaluator=te, gdpr_storage=gs)
+        mgr, _, _, _, _, _ = _make_manager(
+            action_enforcer=ae, threat_evaluator=te, gdpr_storage=gs
+        )
         await mgr.check_access("ja4fp", "1.2.3.4")
         return gs
 
@@ -263,6 +283,7 @@ class TestStoreTierRouting:
         gs = await self._check_access_with_tier(ThreatTier.SUSPICIOUS)
         call_args = gs.store.call_args
         from src.security.gdpr_storage import DataCategory
+
         assert call_args.kwargs["category"] == DataCategory.SUSPICIOUS
 
     async def test_banned_tier_uses_bans_category(self):
@@ -270,6 +291,7 @@ class TestStoreTierRouting:
         gs = await self._check_access_with_tier(ThreatTier.BANNED)
         call_args = gs.store.call_args
         from src.security.gdpr_storage import DataCategory
+
         assert call_args.kwargs["category"] == DataCategory.BANS
 
     async def test_unknown_tier_uses_fingerprints_category(self):
@@ -278,6 +300,7 @@ class TestStoreTierRouting:
         gs = await self._check_access_with_tier(ThreatTier.NORMAL)
         call_args = gs.store.call_args
         from src.security.gdpr_storage import DataCategory
+
         assert call_args.kwargs["category"] == DataCategory.FINGERPRINTS
 
     async def test_store_enforcement_exception_is_silenced(self):
@@ -295,7 +318,9 @@ class TestStoreTierRouting:
         gs = MagicMock()
         gs.store.side_effect = redis.RedisError("Redis write failed")
 
-        mgr, _, _, _, _, _ = _make_manager(action_enforcer=ae, threat_evaluator=te, gdpr_storage=gs)
+        mgr, _, _, _, _, _ = _make_manager(
+            action_enforcer=ae, threat_evaluator=te, gdpr_storage=gs
+        )
         # Must not raise
         allowed, reason = await mgr.check_access("ja4fp", "1.2.3.4")
         assert allowed is False
@@ -304,6 +329,7 @@ class TestStoreTierRouting:
 # ---------------------------------------------------------------------------
 # get_statistics (lines 209-211)
 # ---------------------------------------------------------------------------
+
 
 class TestGetStatistics:
     def test_returns_stats_dict(self):
@@ -328,6 +354,7 @@ class TestGetStatistics:
 # ---------------------------------------------------------------------------
 # manual_unban (lines 247-249)
 # ---------------------------------------------------------------------------
+
 
 class TestManualUnban:
     def test_unban_entity_not_banned(self):
@@ -366,6 +393,7 @@ class TestManualUnban:
 # verify_gdpr_compliance (lines 260-262)
 # ---------------------------------------------------------------------------
 
+
 class TestVerifyGdprCompliance:
     def test_delegates_to_gdpr_storage(self):
         gs = MagicMock()
@@ -390,6 +418,7 @@ class TestVerifyGdprCompliance:
 # __repr__ (line 332)
 # ---------------------------------------------------------------------------
 
+
 class TestRepr:
     def test_repr_contains_class_names(self):
         """Line 332: __repr__ includes component class names."""
@@ -402,6 +431,7 @@ class TestRepr:
 # ---------------------------------------------------------------------------
 # create_security_manager convenience function (line 355)
 # ---------------------------------------------------------------------------
+
 
 class TestCreateSecurityManager:
     def test_create_security_manager_returns_instance(self):

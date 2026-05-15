@@ -145,9 +145,9 @@ class TestGetAnalyticsSignalsDirect:
         signals = _run(pipeline._get_analytics_signals("192.168.1.42"))
 
         signal_names = [s.name for s in signals]
-        assert "analytics_campaign" in signal_names, (
-            f"Expected 'analytics_campaign' signal for subnet {subnet}; got {signal_names}"
-        )
+        assert (
+            "analytics_campaign" in signal_names
+        ), f"Expected 'analytics_campaign' signal for subnet {subnet}; got {signal_names}"
 
     def test_campaign_key_exists_ipv4_score_is_correct(self):
         """Campaign signal score matches the configured value (35 in current impl)."""
@@ -159,9 +159,9 @@ class TestGetAnalyticsSignalsDirect:
 
         campaign_signals = [s for s in signals if s.name == "analytics_campaign"]
         assert campaign_signals, "No analytics_campaign signal found"
-        assert campaign_signals[0].score > 0, (
-            "Campaign signal must have a positive score"
-        )
+        assert (
+            campaign_signals[0].score > 0
+        ), "Campaign signal must have a positive score"
 
     def test_campaign_key_absent_no_signal(self):
         """analytics:campaign key absent → no analytics_campaign signal emitted."""
@@ -185,9 +185,9 @@ class TestGetAnalyticsSignalsDirect:
 
         # Verify the correct key was queried
         get_calls = [str(c.args[0]) for c in redis.get.call_args_list]
-        assert any("analytics:campaign:192.168.1.0/24" in k for k in get_calls), (
-            f"Expected campaign key for /24 subnet; keys queried: {get_calls}"
-        )
+        assert any(
+            "analytics:campaign:192.168.1.0/24" in k for k in get_calls
+        ), f"Expected campaign key for /24 subnet; keys queried: {get_calls}"
 
     def test_correct_ipv6_subnet_key_is_looked_up(self):
         """For IPv6 2001:db8::1, the key analytics:campaign:2001:db8::/48 is queried."""
@@ -199,9 +199,7 @@ class TestGetAnalyticsSignalsDirect:
 
         get_calls = [str(c.args[0]) for c in redis.get.call_args_list]
         # The /48 subnet for 2001:db8::1
-        expected_subnet = str(
-            ipaddress.IPv6Network("2001:db8::1/48", strict=False)
-        )
+        expected_subnet = str(ipaddress.IPv6Network("2001:db8::1/48", strict=False))
         assert any(expected_subnet in k for k in get_calls), (
             f"Expected campaign key for /48 subnet ({expected_subnet}); "
             f"keys queried: {get_calls}"
@@ -218,9 +216,9 @@ class TestGetAnalyticsSignalsDirect:
         signals = _run(pipeline._get_analytics_signals(ip))
 
         signal_names = [s.name for s in signals]
-        assert "analytics_campaign" in signal_names, (
-            f"Expected 'analytics_campaign' for IPv6 subnet {subnet}; got {signal_names}"
-        )
+        assert (
+            "analytics_campaign" in signal_names
+        ), f"Expected 'analytics_campaign' for IPv6 subnet {subnet}; got {signal_names}"
 
     def test_redis_unavailable_returns_empty_list(self):
         """Redis down → no signal, no exception, returns empty list."""
@@ -258,9 +256,9 @@ class TestSubnetCorrelationEndToEnd:
         signals = _run(pipeline._collect_signals(ctx))
 
         signal_names = [s.name for s in signals]
-        assert "analytics_campaign" in signal_names, (
-            f"Expected 'analytics_campaign' in _collect_signals; got {signal_names}"
-        )
+        assert (
+            "analytics_campaign" in signal_names
+        ), f"Expected 'analytics_campaign' in _collect_signals; got {signal_names}"
 
     def test_no_campaign_key_collect_signals_no_campaign_signal(self):
         """No campaign key → analytics_campaign absent from _collect_signals."""

@@ -1,4 +1,5 @@
 """Tests that required Makefile targets are defined. Phase 100."""
+
 import re
 from pathlib import Path
 

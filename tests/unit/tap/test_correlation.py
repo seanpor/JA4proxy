@@ -1,6 +1,7 @@
 """
 Unit tests for src/tap/fingerprints/correlation.py (Phase 20 Group 5-L).
 """
+
 import uuid
 from datetime import datetime, timezone
 
@@ -105,6 +106,7 @@ class TestConnectionFingerprints:
 
 
 # ── Missing-coverage tests ────────────────────────────────────────────────────
+
 
 class TestConnectionFingerprintsEdgeCases:
     """Cover remaining paths in to_redis_dict() and from_redis_dict() (lines 84-88, 117-143)."""

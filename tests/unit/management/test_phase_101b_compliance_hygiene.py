@@ -27,8 +27,12 @@ class TestM1XtrimMinidFallback:
         import fakeredis.aioredis
 
         fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
-        await fake_redis.xadd("ja4proxy:events", {"a": "1", "timestamp": "1000000000000-0"})
-        await fake_redis.xadd("ja4proxy:events", {"a": "2", "timestamp": "2000000000000-0"})
+        await fake_redis.xadd(
+            "ja4proxy:events", {"a": "1", "timestamp": "1000000000000-0"}
+        )
+        await fake_redis.xadd(
+            "ja4proxy:events", {"a": "2", "timestamp": "2000000000000-0"}
+        )
 
         fake_redis.info = AsyncMock(return_value={"redis_version": "6.0.0"})
         fake_redis.xtrim = AsyncMock()
@@ -57,8 +61,12 @@ class TestM1XtrimMinidFallback:
         import fakeredis.aioredis
 
         fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
-        await fake_redis.xadd("ja4proxy:events", {"a": "1", "timestamp": "1000000000000-0"})
-        await fake_redis.xadd("ja4proxy:events", {"a": "2", "timestamp": "2000000000000-0"})
+        await fake_redis.xadd(
+            "ja4proxy:events", {"a": "1", "timestamp": "1000000000000-0"}
+        )
+        await fake_redis.xadd(
+            "ja4proxy:events", {"a": "2", "timestamp": "2000000000000-0"}
+        )
 
         fake_redis.info = AsyncMock(return_value={"redis_version": "6.2.0"})
         fake_redis.xtrim = AsyncMock()

@@ -2,6 +2,7 @@
 Tests for src/analytics/main.py — AnalyticsNode.
 Phase 104: coverage gap closure.
 """
+
 import asyncio
 import json
 from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
@@ -39,6 +40,7 @@ def node():
 
 # ── constructor ──────────────────────────────────────────────────────────────
 
+
 class TestConstructor:
     def test_defaults(self, node):
         assert node.consumer is None
@@ -50,6 +52,7 @@ class TestConstructor:
 
 
 # ── health_check ─────────────────────────────────────────────────────────────
+
 
 class TestHealthCheck:
     @pytest.mark.asyncio
@@ -87,6 +90,7 @@ class TestHealthCheck:
 
 # ── _handle_shutdown ─────────────────────────────────────────────────────────
 
+
 class TestHandleShutdown:
     def test_sets_event(self, node):
         node._handle_shutdown()
@@ -94,6 +98,7 @@ class TestHandleShutdown:
 
 
 # ── _handle_reload ───────────────────────────────────────────────────────────
+
 
 class TestHandleReload:
     def test_reload_updates_config(self, node):
@@ -105,7 +110,9 @@ class TestHandleReload:
         assert node.consumer.batch_size == 999
 
     def test_reload_failure_logged(self, node):
-        with patch("src.analytics.main.load_config", side_effect=ValueError("bad yaml")):
+        with patch(
+            "src.analytics.main.load_config", side_effect=ValueError("bad yaml")
+        ):
             node._handle_reload()  # should not raise
 
     def test_reload_with_ti_runner(self, node):
@@ -116,13 +123,15 @@ class TestHandleReload:
         node.ti_runner.reload_config = AsyncMock()
 
         mock_loop = MagicMock()
-        with patch("src.analytics.main.load_config", return_value=new_config), \
-             patch("asyncio.get_running_loop", return_value=mock_loop):
+        with patch("src.analytics.main.load_config", return_value=new_config), patch(
+            "asyncio.get_running_loop", return_value=mock_loop
+        ):
             node._handle_reload()
         mock_loop.create_task.assert_called_once()
 
 
 # ── _start_ti_runner ─────────────────────────────────────────────────────────
+
 
 class TestStartTIRunner:
     @pytest.mark.asyncio
@@ -143,21 +152,26 @@ class TestStartTIRunner:
     async def test_skipped_when_import_failed(self, node):
         """TI runner not started when FeedRunner import failed."""
         node.config["threat_intel"] = {"enabled": True}
-        with patch("src.analytics.main._FeedRunner", None), \
-             patch("src.analytics.main._ti_feed_import_error", ImportError("no module")):
+        with patch("src.analytics.main._FeedRunner", None), patch(
+            "src.analytics.main._ti_feed_import_error", ImportError("no module")
+        ):
             await node._start_ti_runner("redis://127.0.0.1:6379")
         assert node.ti_runner is None
 
     @pytest.mark.asyncio
     async def test_started_successfully(self, node):
         """TI runner starts when enabled and import works."""
-        node.config["threat_intel"] = {"enabled": True, "feeds": [{"name": "test-feed"}]}
+        node.config["threat_intel"] = {
+            "enabled": True,
+            "feeds": [{"name": "test-feed"}],
+        }
         mock_runner = AsyncMock()
         mock_runner.start = AsyncMock()
         mock_feed_cls = MagicMock(return_value=mock_runner)
 
-        with patch("src.analytics.main._FeedRunner", mock_feed_cls), \
-             patch("src.analytics.main.redis_async") as mock_redis_mod:
+        with patch("src.analytics.main._FeedRunner", mock_feed_cls), patch(
+            "src.analytics.main.redis_async"
+        ) as mock_redis_mod:
             mock_redis_mod.from_url = MagicMock(return_value=AsyncMock())
             await node._start_ti_runner("redis://127.0.0.1:6379")
 
@@ -172,8 +186,9 @@ class TestStartTIRunner:
         mock_runner.start = AsyncMock(side_effect=RuntimeError("test-start-fail"))
         mock_feed_cls = MagicMock(return_value=mock_runner)
 
-        with patch("src.analytics.main._FeedRunner", mock_feed_cls), \
-             patch("src.analytics.main.redis_async") as mock_redis_mod:
+        with patch("src.analytics.main._FeedRunner", mock_feed_cls), patch(
+            "src.analytics.main.redis_async"
+        ) as mock_redis_mod:
             mock_redis_mod.from_url = MagicMock(return_value=AsyncMock())
             await node._start_ti_runner("redis://127.0.0.1:6379")
 
@@ -181,6 +196,7 @@ class TestStartTIRunner:
 
 
 # ── _stop_ti_runner ──────────────────────────────────────────────────────────
+
 
 class TestStopTIRunner:
     @pytest.mark.asyncio
@@ -204,13 +220,15 @@ class TestStopTIRunner:
 
         async def slow_stop():
             await asyncio.sleep(999)
+
         mock_runner.stop = slow_stop
         node.ti_runner = mock_runner
         node._ti_async_redis = AsyncMock()
 
         # We patch wait_for to raise TimeoutError immediately
-        with patch("src.analytics.main.asyncio.wait_for",
-                   side_effect=asyncio.TimeoutError):
+        with patch(
+            "src.analytics.main.asyncio.wait_for", side_effect=asyncio.TimeoutError
+        ):
             await node._stop_ti_runner()
         assert node.ti_runner is None
 
@@ -222,13 +240,16 @@ class TestStopTIRunner:
         node.ti_runner = mock_runner
         node._ti_async_redis = AsyncMock()
 
-        with patch("src.analytics.main.asyncio.wait_for",
-                   side_effect=RuntimeError("test-stop-err")):
+        with patch(
+            "src.analytics.main.asyncio.wait_for",
+            side_effect=RuntimeError("test-stop-err"),
+        ):
             await node._stop_ti_runner()
         assert node.ti_runner is None
 
 
 # ── HTTP handlers ────────────────────────────────────────────────────────────
+
 
 class TestHTTPHandlers:
     @pytest.mark.asyncio
@@ -267,6 +288,7 @@ class TestHTTPHandlers:
     @pytest.mark.asyncio
     async def test_handle_ready_ping_fails(self, node):
         import redis
+
         mock_redis_client = AsyncMock()
         mock_redis_client.ping = AsyncMock(side_effect=redis.RedisError("test-err"))
         node.consumer = MagicMock()
@@ -287,6 +309,7 @@ class TestHTTPHandlers:
     @pytest.mark.asyncio
     async def test_handle_metrics_with_registry(self, node):
         from prometheus_client import CollectorRegistry
+
         registry = CollectorRegistry()
         node.consumer = MagicMock()
         node.consumer.monitoring_system = MagicMock()
@@ -297,6 +320,7 @@ class TestHTTPHandlers:
 
 
 # ── start (integration-ish) ─────────────────────────────────────────────────
+
 
 class TestStart:
     @pytest.mark.asyncio
@@ -313,11 +337,15 @@ class TestStart:
         mock_runner.setup = AsyncMock()
         mock_runner.cleanup = AsyncMock()
 
-        with patch("src.analytics.main.StreamConsumer", return_value=mock_consumer), \
-             patch("src.analytics.main.setup_logging"), \
-             patch.object(node, "_start_http_server", return_value=mock_runner), \
-             patch.object(node, "_start_ti_runner", new_callable=AsyncMock), \
-             patch("asyncio.get_running_loop") as mock_loop:
+        with patch(
+            "src.analytics.main.StreamConsumer", return_value=mock_consumer
+        ), patch("src.analytics.main.setup_logging"), patch.object(
+            node, "_start_http_server", return_value=mock_runner
+        ), patch.object(
+            node, "_start_ti_runner", new_callable=AsyncMock
+        ), patch(
+            "asyncio.get_running_loop"
+        ) as mock_loop:
 
             mock_loop_inst = MagicMock()
             mock_loop.return_value = mock_loop_inst
@@ -338,12 +366,14 @@ class TestStart:
 
 # ── _start_http_server ───────────────────────────────────────────────────────
 
+
 class TestStartHTTPServer:
     @pytest.mark.asyncio
     async def test_start_http_server_creates_routes(self, node):
         """Verify the HTTP server sets up /health, /ready, /metrics."""
-        with patch("src.analytics.main.web.AppRunner") as MockRunner, \
-             patch("src.analytics.main.web.TCPSite") as MockSite:
+        with patch("src.analytics.main.web.AppRunner") as MockRunner, patch(
+            "src.analytics.main.web.TCPSite"
+        ) as MockSite:
             mock_runner = AsyncMock()
             MockRunner.return_value = mock_runner
             mock_site = AsyncMock()

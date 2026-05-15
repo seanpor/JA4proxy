@@ -2,6 +2,7 @@
 Test suite for backup config validation.
 Tests invalid config cases (missing keys, invalid ranges, bad types).
 """
+
 import pytest
 
 from src.config.loader import ConfigLoader
@@ -12,7 +13,7 @@ def test_backup_config_validation():
     loader = ConfigLoader()
     config = loader._read_and_parse()
     backup_config = config.get("backup")
-    
+
     # Test default values
     assert backup_config["enabled"] is False
     assert backup_config["destination"] == "/app/backups"

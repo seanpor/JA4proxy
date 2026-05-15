@@ -122,7 +122,7 @@ class RDAPMock:
     def __init__(self) -> None:
         self._results: dict[str, _FakeRDAPResponse] = {}
         self._not_found: set[str] = set()
-        self._errors: dict[str, int] = {}   # ip → HTTP status
+        self._errors: dict[str, int] = {}  # ip → HTTP status
         self._timeouts: set[str] = set()
         self._redirects: dict[str, int] = {}  # ip → number of redirect hops
         self._redirect_counts: dict[str, int] = {}  # ip → current hop count
@@ -142,7 +142,9 @@ class RDAPMock:
             }
         ]
 
-    def set_result(self, ip: str, rdap_result: "_FakeRDAPResponse | None" = None) -> None:
+    def set_result(
+        self, ip: str, rdap_result: "_FakeRDAPResponse | None" = None
+    ) -> None:
         """Configure a successful RDAP result for this IP."""
         if rdap_result is None:
             rdap_result = _FakeRDAPResponse(ip=ip)
@@ -215,19 +217,23 @@ class RDAPMock:
             if "iana.org/rdap/ipv4" in url:
                 yield _FakeHTTPResponse(
                     status=200,
-                    body={"services": [
-                        [entry["prefixes"], entry["urls"]]
-                        for entry in mock_self._bootstrap_v4
-                    ]},
+                    body={
+                        "services": [
+                            [entry["prefixes"], entry["urls"]]
+                            for entry in mock_self._bootstrap_v4
+                        ]
+                    },
                 )
                 return
             if "iana.org/rdap/ipv6" in url:
                 yield _FakeHTTPResponse(
                     status=200,
-                    body={"services": [
-                        [entry["prefixes"], entry["urls"]]
-                        for entry in mock_self._bootstrap_v6
-                    ]},
+                    body={
+                        "services": [
+                            [entry["prefixes"], entry["urls"]]
+                            for entry in mock_self._bootstrap_v6
+                        ]
+                    },
                 )
                 return
 
@@ -248,7 +254,9 @@ class RDAPMock:
                 max_hops = mock_self._redirects[ip]
                 if count < max_hops:
                     mock_self._redirect_counts[ip] = count + 1
-                    redirect_url = f"https://rdap-redirect.example.com/ip/{ip}?hop={count + 1}"
+                    redirect_url = (
+                        f"https://rdap-redirect.example.com/ip/{ip}?hop={count + 1}"
+                    )
                     yield _FakeHTTPResponse(
                         status=301,
                         body={},

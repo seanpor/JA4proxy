@@ -223,8 +223,12 @@ class BackupRestorer:
 
         try:
             # Phase 40: Distributed Locking
-            if not redis_client.set("backup:operation_lock", "restore", nx=True, ex=600):
-                raise RestoreError("Backup/Restore operation already in progress (lock held)")
+            if not redis_client.set(
+                "backup:operation_lock", "restore", nx=True, ex=600
+            ):
+                raise RestoreError(
+                    "Backup/Restore operation already in progress (lock held)"
+                )
 
             # Log manifest loaded with key count
             logger.info(
@@ -253,22 +257,24 @@ class BackupRestorer:
             # if the manifest says it's encrypted.
             encryption_cfg = manifest.get("encryption", {})
             is_encrypted = encryption_cfg.get("enabled", False)
-            
+
             if is_encrypted:
                 if not self.encryption:
-                    raise RestoreError("Backup is encrypted but no decryption key provided")
-                
+                    raise RestoreError(
+                        "Backup is encrypted but no decryption key provided"
+                    )
+
                 # Read, decrypt, and save to a temporary file for _restore_backup_data
                 # Alternatively, we could refactor _restore_backup_data to accept bytes.
                 # Let's refactor it to accept data bytes optionally.
                 with open(backup_path, "rb") as f:
                     encrypted_data = f.read()
-                
+
                 try:
                     decrypted_data = self.encryption.decrypt(encrypted_data)
                 except Exception as e:
                     raise RestoreError(f"Decryption failed: {e}")
-                
+
                 keys_restored, keys_failed = self._restore_from_bytes(
                     redis_client, decrypted_data
                 )
@@ -277,7 +283,7 @@ class BackupRestorer:
                 keys_restored, keys_failed = self._restore_backup_data(
                     redis_client, backup_path
                 )
-            
+
             keys_total = keys_restored + keys_failed
             RESTORE_KEYS_RESTORED_TOTAL.inc(keys_restored)
 
@@ -547,11 +553,13 @@ class BackupRestorer:
             filename: Backup artifact filename (basename only).
             keys_count: Number of keys successfully restored.
         """
-        record = json.dumps({
-            "filename": filename,
-            "restored_at": datetime.now(timezone.utc).isoformat(),
-            "keys_count": keys_count,
-        })
+        record = json.dumps(
+            {
+                "filename": filename,
+                "restored_at": datetime.now(timezone.utc).isoformat(),
+                "keys_count": keys_count,
+            }
+        )
         redis_client.set("backup:restored_from", record)
 
     def restore_with_fallback(

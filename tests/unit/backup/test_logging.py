@@ -2,6 +2,7 @@
 Test suite for backup and restore structured logging.
 Tests that JSON logs are properly emitted during operations.
 """
+
 import json
 import logging
 from unittest.mock import MagicMock, patch
@@ -23,45 +24,50 @@ def test_backup_logging_success(caplog):
     # Set up logging capture
     with caplog.at_level(logging.INFO):
         worker = BackupWorker()
-        
+
         # Mock Redis and file operations
         mock_redis = MagicMock()
-        mock_redis.scan = MagicMock(side_effect=[
-            (0, ["config:dial", "ban:192.168.1.1"]),
-            (0, []),  # No more keys
-        ])
+        mock_redis.scan = MagicMock(
+            side_effect=[
+                (0, ["config:dial", "ban:192.168.1.1"]),
+                (0, []),  # No more keys
+            ]
+        )
         mock_redis.dump = MagicMock(return_value=b"test_data")
-        
+
         # Mock filesystem validation
         def mock_access(path, mode):
             return True  # All permissions granted
-        
+
         import os
+
         mock_stat = MagicMock()
         mock_stat.st_mode = 0o700  # Secure permissions (owner only)
         mock_stat.st_uid = os.getuid()  # Current user
         mock_stat.st_gid = os.getgid()  # Current group
-        
-        with patch("src.backup.worker.redis.Redis", return_value=mock_redis), \
-             patch("os.access", side_effect=mock_access), \
-             patch("os.stat", return_value=mock_stat), \
-             patch("pathlib.Path.mkdir"), \
-             patch("pathlib.Path.exists"), \
-             patch("pathlib.Path.write_bytes"), \
-             patch("pathlib.Path.write_text") as mock_write_text:
-            
+
+        with patch("src.backup.worker.redis.Redis", return_value=mock_redis), patch(
+            "os.access", side_effect=mock_access
+        ), patch("os.stat", return_value=mock_stat), patch("pathlib.Path.mkdir"), patch(
+            "pathlib.Path.exists"
+        ), patch(
+            "pathlib.Path.write_bytes"
+        ), patch(
+            "pathlib.Path.write_text"
+        ) as mock_write_text:
+
             # Create backup
             backup_path = worker.create_backup("/tmp/test_backups")
-        
+
         # Verify logs were emitted
         log_records = caplog.records
         assert len(log_records) >= 2  # At least start and success logs
-        
+
         # Check start log and keys enumerated log
         start_log = None
         keys_log = None
         success_log = None
-        
+
         for record in log_records:
             log_data = json.loads(record.getMessage())
             if log_data.get("event") == "backup_started":
@@ -70,7 +76,7 @@ def test_backup_logging_success(caplog):
                 keys_log = log_data
             elif log_data.get("event") == "backup_succeeded":
                 success_log = log_data
-        
+
         # Verify start log structure
         assert start_log is not None
         assert start_log["type"] == "system"
@@ -78,7 +84,7 @@ def test_backup_logging_success(caplog):
         assert start_log["subsystem"] == "backup"
         assert start_log["event"] == "backup_started"
         assert "ts" in start_log
-        
+
         # Verify keys enumerated log structure
         assert keys_log is not None
         assert keys_log["type"] == "system"
@@ -87,7 +93,7 @@ def test_backup_logging_success(caplog):
         assert keys_log["event"] == "keys_enumerated"
         assert "ts" in keys_log
         assert "keys_expected" in keys_log
-        
+
         # Verify success log structure
         assert success_log is not None
         assert success_log["type"] == "system"
@@ -106,57 +112,57 @@ def test_backup_logging_failure(caplog):
     # Set up logging capture
     with caplog.at_level(logging.INFO):
         worker = BackupWorker()
-        
+
         # Mock Redis to fail
         mock_redis = MagicMock()
         mock_redis.scan.side_effect = Exception("Redis connection failed")
-        
+
         # Mock filesystem validation to pass
         def mock_access(path, mode):
             return True  # All permissions granted
-        
+
         import os
+
         mock_stat = MagicMock()
         mock_stat.st_mode = 0o700  # Secure permissions (owner only)
         mock_stat.st_uid = os.getuid()  # Current user
         mock_stat.st_gid = os.getgid()  # Current group
-        
+
         # On Python 3.14, pathlib.Path.mkdir(exist_ok=True) calls os.stat
         # to verify an existing target is a directory; the mock above lacks
         # the S_IFDIR bit, so mkdir would re-raise FileExistsError before
         # the Redis-backed failure we're testing. Patch mkdir to a no-op.
-        with patch("src.backup.worker.redis.Redis", return_value=mock_redis), \
-             patch("os.access", side_effect=mock_access), \
-             patch("os.stat", return_value=mock_stat), \
-             patch("pathlib.Path.mkdir"):
+        with patch("src.backup.worker.redis.Redis", return_value=mock_redis), patch(
+            "os.access", side_effect=mock_access
+        ), patch("os.stat", return_value=mock_stat), patch("pathlib.Path.mkdir"):
             # Try to create backup (should fail)
             try:
                 worker.create_backup("/tmp/test_backups")
             except Exception:
                 pass  # Expected to fail
-        
+
         # Verify logs were emitted
         log_records = caplog.records
         assert len(log_records) >= 2  # At least start and failure logs
-        
+
         # Check start log
         start_log = None
         failure_log = None
-        
+
         for record in log_records:
             log_data = json.loads(record.getMessage())
             if log_data.get("event") == "backup_started":
                 start_log = log_data
             elif log_data.get("event") == "backup_failed":
                 failure_log = log_data
-        
+
         # Verify start log structure
         assert start_log is not None
         assert start_log["type"] == "system"
         assert start_log["level"] == "INFO"
         assert start_log["subsystem"] == "backup"
         assert start_log["event"] == "backup_started"
-        
+
         # Verify failure log structure
         assert failure_log is not None
         assert failure_log["type"] == "system"
@@ -173,19 +179,19 @@ def test_restore_logging_success(caplog):
     import hashlib
     import os
     import tempfile
-    
+
     # Set up logging capture
     with caplog.at_level(logging.INFO):
         restorer = BackupRestorer()
-        
+
         # Create test backup and manifest files
         test_data = b"test backup data"
         checksum = hashlib.sha256(test_data).hexdigest()
-        
+
         with tempfile.NamedTemporaryFile(suffix=".bin", delete=False) as backup_f:
             backup_file = backup_f.name
             backup_f.write(test_data)
-        
+
         manifest_file = backup_file + ".manifest.json"
         manifest = {
             "filename": "backup_20260321T150000Z.bin",
@@ -195,30 +201,30 @@ def test_restore_logging_success(caplog):
             "checksum_sha256": checksum,
             "size_bytes": len(test_data),
             "included_patterns": [],
-            "excluded_patterns": []
+            "excluded_patterns": [],
         }
-        
+
         try:
             with open(manifest_file, "w") as f:
                 json.dump(manifest, f)
-            
+
             # Mock Redis
             mock_redis = MagicMock()
             mock_redis.ping.return_value = True
-            
+
             with patch("src.backup.restorer.redis.Redis", return_value=mock_redis):
                 # Perform restore
                 restorer.restore_backup(backup_file, manifest_file, destructive=False)
-            
+
             # Verify logs were emitted
             log_records = caplog.records
             assert len(log_records) >= 2  # At least start and success logs
-            
+
             # Check start log and manifest loaded log
             start_log = None
             manifest_log = None
             success_log = None
-            
+
             for record in log_records:
                 log_data = json.loads(record.getMessage())
                 if log_data.get("event") == "restore_started":
@@ -227,7 +233,7 @@ def test_restore_logging_success(caplog):
                     manifest_log = log_data
                 elif log_data.get("event") == "restore_succeeded":
                     success_log = log_data
-            
+
             # Verify start log structure
             assert start_log is not None
             assert start_log["type"] == "system"
@@ -237,7 +243,7 @@ def test_restore_logging_success(caplog):
             assert "ts" in start_log
             assert "restore_type" in start_log
             assert start_log["restore_type"] == "non-destructive"
-            
+
             # Verify manifest loaded log structure
             assert manifest_log is not None
             assert manifest_log["type"] == "system"
@@ -246,7 +252,7 @@ def test_restore_logging_success(caplog):
             assert manifest_log["event"] == "manifest_loaded"
             assert "ts" in manifest_log
             assert "keys_expected" in manifest_log
-            
+
             # Verify success log structure
             assert success_log is not None
             assert success_log["type"] == "system"
@@ -258,7 +264,7 @@ def test_restore_logging_success(caplog):
             assert "duration_ms" in success_log
             assert "restore_type" in success_log
             assert success_log["restore_type"] == "non-destructive"
-            
+
         finally:
             # Clean up
             for f in [backup_file, manifest_file]:
@@ -271,19 +277,19 @@ def test_restore_logging_failure(caplog):
     import hashlib
     import os
     import tempfile
-    
+
     # Set up logging capture
     with caplog.at_level(logging.INFO):
         restorer = BackupRestorer()
-        
+
         # Create test backup and manifest files
         test_data = b"test backup data"
         checksum = hashlib.sha256(test_data).hexdigest()
-        
+
         with tempfile.NamedTemporaryFile(suffix=".bin", delete=False) as backup_f:
             backup_file = backup_f.name
             backup_f.write(test_data)
-        
+
         manifest_file = backup_file + ".manifest.json"
         manifest = {
             "filename": "backup_20260321T150000Z.bin",
@@ -293,46 +299,48 @@ def test_restore_logging_failure(caplog):
             "checksum_sha256": checksum,
             "size_bytes": len(test_data),
             "included_patterns": [],
-            "excluded_patterns": []
+            "excluded_patterns": [],
         }
-        
+
         try:
             with open(manifest_file, "w") as f:
                 json.dump(manifest, f)
-            
+
             # Mock Redis to fail
             mock_redis = MagicMock()
             mock_redis.ping.side_effect = Exception("Redis connection failed")
-            
+
             with patch("src.backup.restorer.redis.Redis", return_value=mock_redis):
                 # Try to perform restore (should fail)
                 try:
-                    restorer.restore_backup(backup_file, manifest_file, destructive=False)
+                    restorer.restore_backup(
+                        backup_file, manifest_file, destructive=False
+                    )
                 except Exception:
                     pass  # Expected to fail
-            
+
             # Verify logs were emitted
             log_records = caplog.records
             assert len(log_records) >= 2  # At least start and failure logs
-            
+
             # Check start log
             start_log = None
             failure_log = None
-            
+
             for record in log_records:
                 log_data = json.loads(record.getMessage())
                 if log_data.get("event") == "restore_started":
                     start_log = log_data
                 elif log_data.get("event") == "restore_failed":
                     failure_log = log_data
-            
+
             # Verify start log structure
             assert start_log is not None
             assert start_log["type"] == "system"
             assert start_log["level"] == "INFO"
             assert start_log["subsystem"] == "restore"
             assert start_log["event"] == "restore_started"
-            
+
             # Verify failure log structure
             assert failure_log is not None
             assert failure_log["type"] == "system"
@@ -342,7 +350,7 @@ def test_restore_logging_failure(caplog):
             assert "ts" in failure_log
             assert "error" in failure_log
             assert "duration_ms" in failure_log
-            
+
         finally:
             # Clean up
             for f in [backup_file, manifest_file]:

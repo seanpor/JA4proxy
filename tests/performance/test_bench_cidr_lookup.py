@@ -37,7 +37,7 @@ def bench_ipv4_lookup(entry_count: int = 50_000, iterations: int = 10_000) -> No
     mgr.load_cidrs(cidrs, "bench_feed")
 
     # Use a mix of blocked and unblocked IPs
-    blocked_sample = "1.10.16.1"    # Not in our random list → unblocked
+    blocked_sample = "1.10.16.1"  # Not in our random list → unblocked
     test_ips = [f"10.{i % 256}.{(i // 256) % 256}.{i % 128}" for i in range(iterations)]
 
     latencies: list[float] = []
@@ -65,12 +65,22 @@ def bench_full_pipeline(entry_count: int = 50_000, iterations: int = 10_000) -> 
     cidrs_scored = _generate_cidrs(entry_count // 2)
 
     bypass_cfg = FeedConfig(
-        name="spamhaus_drop", url="", format="spamhaus",
-        is_bypass=True, action="block", score=80, refresh_interval_seconds=43200,
+        name="spamhaus_drop",
+        url="",
+        format="spamhaus",
+        is_bypass=True,
+        action="block",
+        score=80,
+        refresh_interval_seconds=43200,
     )
     scored_cfg = FeedConfig(
-        name="custom_list", url="", format="cidr",
-        is_bypass=False, action="block", score=60, refresh_interval_seconds=3600,
+        name="custom_list",
+        url="",
+        format="cidr",
+        is_bypass=False,
+        action="block",
+        score=60,
+        refresh_interval_seconds=3600,
     )
     mgr.load_cidrs(cidrs_bypass, "spamhaus_drop", bypass_cfg)
     mgr.load_cidrs(cidrs_scored, "custom_list", scored_cfg)

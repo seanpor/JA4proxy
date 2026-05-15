@@ -21,16 +21,16 @@ tarpit:
   worker_count: 4
   max_per_ip: 1  # Adjusted for 4 workers: ceil(3/4) = 1
 """
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False) as f:
             f.write(config_text)
             config_path = f.name
 
         try:
             loader = ConfigLoader(config_path)
             config = await loader.load()
-            
-            assert config['tarpit']['worker_count'] == 4
-            assert config['tarpit']['max_per_ip'] == 1
+
+            assert config["tarpit"]["worker_count"] == 4
+            assert config["tarpit"]["max_per_ip"] == 1
         finally:
             os.unlink(config_path)
 
@@ -41,16 +41,16 @@ tarpit:
   worker_count: 1
   max_per_ip: 3  # Default for single worker
 """
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False) as f:
             f.write(config_text)
             config_path = f.name
 
         try:
             loader = ConfigLoader(config_path)
             config = await loader.load()
-            
-            assert config['tarpit']['worker_count'] == 1
-            assert config['tarpit']['max_per_ip'] == 3
+
+            assert config["tarpit"]["worker_count"] == 1
+            assert config["tarpit"]["max_per_ip"] == 3
         finally:
             os.unlink(config_path)
 
@@ -61,16 +61,16 @@ tarpit:
   worker_count: 2
   max_per_ip: 2  # ceil(3/2) = 2
 """
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False) as f:
             f.write(config_text)
             config_path = f.name
 
         try:
             loader = ConfigLoader(config_path)
             config = await loader.load()
-            
-            assert config['tarpit']['worker_count'] == 2
-            assert config['tarpit']['max_per_ip'] == 2
+
+            assert config["tarpit"]["worker_count"] == 2
+            assert config["tarpit"]["max_per_ip"] == 2
         finally:
             os.unlink(config_path)
 
@@ -88,15 +88,15 @@ tarpit:
   worker_count: 4
   max_per_ip: 1
 """
-        
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yml', delete=False) as f:
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False) as f:
             f.write(config_text)
             config_path = f.name
 
         try:
             loader = ConfigLoader(config_path)
             config = await loader.load()
-            
+
             # Create mock Redis client
             mock_redis = MagicMock(spec=redis.Redis)
             mock_redis.ping = AsyncMock()
@@ -105,21 +105,24 @@ tarpit:
             mock_redis.zadd = AsyncMock()
             mock_redis.evalsha = AsyncMock(return_value={"connections_per_second": 0})
             mock_redis.pipeline = MagicMock(return_value=MagicMock())
-            
+
             from src.cache.local_cache import LocalCache
+
             cache = LocalCache({})
             cache.dial = 0
-            
+
             # Create pipeline
-            pipeline = Pipeline(config=config, local_cache=cache, redis_client=mock_redis)
-            
+            pipeline = Pipeline(
+                config=config, local_cache=cache, redis_client=mock_redis
+            )
+
             # Verify worker count is loaded
-            assert config['tarpit']['worker_count'] == 4
-            assert config['tarpit']['max_per_ip'] == 1
-            
+            assert config["tarpit"]["worker_count"] == 4
+            assert config["tarpit"]["max_per_ip"] == 1
+
             # Start and stop pipeline (tests WriteBuffer lifecycle)
             await pipeline.start()
-            
+
             # Create test context
             ctx = ConnectionContext(
                 client_ip="1.2.3.4",
@@ -129,15 +132,15 @@ tarpit:
                 tls_version="TLSv1.3",
                 cipher_list=[0x1301, 0x1302],
                 client_certificate=None,
-                country="US"
+                country="US",
             )
-            
+
             # Process a connection
             result = await pipeline.process(ctx)
-            
+
             # Stop pipeline
             await pipeline.stop()
-            
+
         finally:
             os.unlink(config_path)
 

@@ -27,9 +27,7 @@ from src.tls.parser import parse_client_hello
 # Helper: load a known-good ClientHello fixture
 # ---------------------------------------------------------------------------
 
-_FIXTURE_DIR = os.path.join(
-    os.path.dirname(__file__), "..", "fixtures", "clienthello"
-)
+_FIXTURE_DIR = os.path.join(os.path.dirname(__file__), "..", "fixtures", "clienthello")
 
 
 def _load_fixture(name: str) -> bytes:
@@ -87,7 +85,9 @@ def test_truncated_valid_clienthello_no_exception(truncate_at: int):
     """A valid ClientHello truncated at various offsets must not raise."""
     data = _VALID_TLS13[:truncate_at]
     result = parse_client_hello(data)
-    assert _is_valid_result(result), f"Unexpected result type at truncate_at={truncate_at}"
+    assert _is_valid_result(
+        result
+    ), f"Unexpected result type at truncate_at={truncate_at}"
 
 
 def test_full_valid_clienthello_parses_successfully():
@@ -146,12 +146,12 @@ def _build_clienthello_with_extensions(extensions_bytes: bytes) -> bytes:
     # 2 bytes cipher_suites_len = 2, then one cipher suite (0x1301)
     # 1 byte compression_methods_len = 1, then 0x00
     ch_body = (
-        b"\x03\x03"          # legacy version
-        + b"\xab" * 32       # random
-        + b"\x00"            # session_id_len = 0
-        + b"\x00\x02"        # cipher_suites_len = 2
-        + b"\x13\x01"        # TLS_AES_128_GCM_SHA256
-        + b"\x01\x00"        # compression_methods: 1 byte, value 0x00
+        b"\x03\x03"  # legacy version
+        + b"\xab" * 32  # random
+        + b"\x00"  # session_id_len = 0
+        + b"\x00\x02"  # cipher_suites_len = 2
+        + b"\x13\x01"  # TLS_AES_128_GCM_SHA256
+        + b"\x01\x00"  # compression_methods: 1 byte, value 0x00
         + extensions_bytes
     )
     # Handshake header: type=0x01, length = len(ch_body)
@@ -185,10 +185,10 @@ def test_extension_length_exceeds_record_length():
     """Extension length field larger than remaining record → None, no exception."""
     # Build a valid-looking extension header but with ext_len=9999
     ext_overflow = (
-        struct.pack("!H", 8)       # total extensions length = 8 bytes
-        + b"\x00\x00"              # ext type = SNI (0)
+        struct.pack("!H", 8)  # total extensions length = 8 bytes
+        + b"\x00\x00"  # ext type = SNI (0)
         + struct.pack("!H", 9999)  # ext data length claims 9999 bytes (overflow!)
-        + b"\x00\x00"              # only 2 bytes of actual data
+        + b"\x00\x00"  # only 2 bytes of actual data
     )
     result = parse_client_hello(_build_clienthello_with_extensions(ext_overflow))
     assert _is_valid_result(result)
@@ -199,9 +199,9 @@ def test_sni_extension_length_overflow():
     # SNI ext: list_len=5, name_type=0, name_len=0xFFFF (overflow)
     sni_ext_data = b"\x00\x05\x00\xff\xff\x68\x69"  # name_len=0xFFFF
     ext_block = (
-        struct.pack("!H", len(sni_ext_data) + 4)   # total exts len
-        + b"\x00\x00"                               # ext type = SNI
-        + struct.pack("!H", len(sni_ext_data))      # ext data length
+        struct.pack("!H", len(sni_ext_data) + 4)  # total exts len
+        + b"\x00\x00"  # ext type = SNI
+        + struct.pack("!H", len(sni_ext_data))  # ext data length
         + sni_ext_data
     )
     result = parse_client_hello(_build_clienthello_with_extensions(ext_block))
@@ -214,8 +214,8 @@ def test_cipher_suites_length_odd_no_exception():
     ch_body = (
         b"\x03\x03"
         + b"\xab" * 32
-        + b"\x00"        # session_id_len = 0
-        + b"\x00\x03"    # cipher_suites_len = 3 (odd — malformed)
+        + b"\x00"  # session_id_len = 0
+        + b"\x00\x03"  # cipher_suites_len = 3 (odd — malformed)
         + b"\x13\x01\x13"  # 3 bytes of cipher data
         + b"\x01\x00"
     )
@@ -287,10 +287,10 @@ def test_record_len_less_than_hs_len_returns_none():
     ch_body = (
         b"\x03\x03"
         + b"\xab" * 32
-        + b"\x00"           # session_id_len = 0
-        + b"\x00\x02"       # cipher_suites_len = 2
-        + b"\x13\x01"       # TLS_AES_128_GCM_SHA256
-        + b"\x01\x00"       # compression_methods
+        + b"\x00"  # session_id_len = 0
+        + b"\x00\x02"  # cipher_suites_len = 2
+        + b"\x13\x01"  # TLS_AES_128_GCM_SHA256
+        + b"\x01\x00"  # compression_methods
     )
     # Handshake header with the real body length
     hs_len = len(ch_body)
@@ -328,10 +328,10 @@ def test_cipher_suites_overrun_buffer_returns_none():
     """
     ch_body = (
         b"\x03\x03"
-        + b"\xab" * 32     # random
-        + b"\x00"           # session_id_len = 0
-        + b"\x00\xff"       # cipher_suites_len = 255, but only 2 bytes follow
-        + b"\x13\x01"       # only 2 bytes of cipher data — far less than 255
+        + b"\xab" * 32  # random
+        + b"\x00"  # session_id_len = 0
+        + b"\x00\xff"  # cipher_suites_len = 255, but only 2 bytes follow
+        + b"\x13\x01"  # only 2 bytes of cipher data — far less than 255
         # compression and extensions intentionally omitted
     )
     hs_len = len(ch_body)
@@ -354,10 +354,10 @@ def test_compression_methods_length_byte_missing_returns_none():
     # so record_len and hs_len checks all pass — only the cm_len byte is absent.
     ch_body = (
         b"\x03\x03"
-        + b"\xab" * 32     # random (32 bytes)
-        + b"\x00"           # session_id_len = 0
-        + b"\x00\x02"       # cipher_suites_len = 2
-        + b"\x13\x01"       # one cipher suite — deliberately ends here, no cm_len
+        + b"\xab" * 32  # random (32 bytes)
+        + b"\x00"  # session_id_len = 0
+        + b"\x00\x02"  # cipher_suites_len = 2
+        + b"\x13\x01"  # one cipher suite — deliberately ends here, no cm_len
     )
     hs_len = len(ch_body)
     hs_header = b"\x01" + struct.pack("!I", hs_len)[1:]
@@ -377,7 +377,7 @@ def test_ext_len_exceeds_remaining_space_breaks_loop():
     """
     # Build a single extension that claims 200 bytes of data, but the outer
     # extensions block only has 4 bytes allocated for it.
-    ext_type = 0x000f  # heartbeat — not specially handled, just recorded
+    ext_type = 0x000F  # heartbeat — not specially handled, just recorded
     ext_claimed_len = 200  # lies: real data is 0 bytes
     exts_payload = struct.pack("!HH", ext_type, ext_claimed_len)  # 4 bytes, no data
     exts_block = struct.pack("!H", len(exts_payload)) + exts_payload
@@ -387,9 +387,9 @@ def test_ext_len_exceeds_remaining_space_breaks_loop():
     assert _is_valid_result(result)
     if result is not None:
         # The malformed extension must NOT have been added to the list
-        assert ext_type not in result["extensions"], (
-            "A malformed extension (ext_len > remaining) must be skipped"
-        )
+        assert (
+            ext_type not in result["extensions"]
+        ), "A malformed extension (ext_len > remaining) must be skipped"
 
 
 def test_alpn_h2_single_protocol_parsed():
@@ -404,15 +404,15 @@ def test_alpn_h2_single_protocol_parsed():
     alpn_ext_data = b"\x00\x03" + b"\x02" + b"h2"
     ext_block = (
         struct.pack("!H", len(alpn_ext_data) + 4)  # total exts len
-        + struct.pack("!H", 16)                     # ext_type = ALPN (0x0010)
-        + struct.pack("!H", len(alpn_ext_data))     # ext data length
+        + struct.pack("!H", 16)  # ext_type = ALPN (0x0010)
+        + struct.pack("!H", len(alpn_ext_data))  # ext data length
         + alpn_ext_data
     )
     result = parse_client_hello(_build_clienthello_with_extensions(ext_block))
     assert result is not None, "Expected successful parse with ALPN extension"
-    assert "h2" in result["alpn"], (
-        f"ALPN='h2' must be in result['alpn']; got {result['alpn']!r}"
-    )
+    assert (
+        "h2" in result["alpn"]
+    ), f"ALPN='h2' must be in result['alpn']; got {result['alpn']!r}"
 
 
 def test_alpn_h2_and_http11_both_parsed():
@@ -470,15 +470,15 @@ def test_supported_versions_extension_parsed():
     sv_ext_data = b"\x02" + b"\x03\x04"  # len=2, version=TLS 1.3
     ext_block = (
         struct.pack("!H", len(sv_ext_data) + 4)
-        + struct.pack("!H", 43)                     # ext_type = supported_versions
+        + struct.pack("!H", 43)  # ext_type = supported_versions
         + struct.pack("!H", len(sv_ext_data))
         + sv_ext_data
     )
     result = parse_client_hello(_build_clienthello_with_extensions(ext_block))
     assert result is not None, "Expected successful parse with supported_versions"
-    assert 0x0304 in result["supported_versions"], (
-        f"TLS 1.3 (0x0304) must be in supported_versions; got {result['supported_versions']!r}"
-    )
+    assert (
+        0x0304 in result["supported_versions"]
+    ), f"TLS 1.3 (0x0304) must be in supported_versions; got {result['supported_versions']!r}"
 
 
 def test_supported_versions_exception_path():
@@ -494,7 +494,9 @@ def test_supported_versions_exception_path():
     # which works; force an error via a mock: pass a non-bytes object that
     # looks long enough but will blow up struct.unpack.
     # Simplest approach: pass ext_data where v_len > actual remaining bytes.
-    sv_ext_data = b"\x04\x03\x04"  # v_len=4, but only 2 bytes of data → unpack fails on i=3
+    sv_ext_data = (
+        b"\x04\x03\x04"  # v_len=4, but only 2 bytes of data → unpack fails on i=3
+    )
     ext_block = (
         struct.pack("!H", len(sv_ext_data) + 4)
         + struct.pack("!H", 43)
@@ -517,15 +519,15 @@ def test_supported_groups_extension_parsed():
     sg_ext_data = b"\x00\x04" + b"\x00\x1d" + b"\x00\x17"
     ext_block = (
         struct.pack("!H", len(sg_ext_data) + 4)
-        + struct.pack("!H", 10)                     # ext_type = supported_groups
+        + struct.pack("!H", 10)  # ext_type = supported_groups
         + struct.pack("!H", len(sg_ext_data))
         + sg_ext_data
     )
     result = parse_client_hello(_build_clienthello_with_extensions(ext_block))
     assert result is not None, "Expected successful parse with supported_groups"
-    assert 0x001d in result["supported_groups"], (
-        f"x25519 (0x001d) must be in supported_groups; got {result['supported_groups']!r}"
-    )
+    assert (
+        0x001D in result["supported_groups"]
+    ), f"x25519 (0x001d) must be in supported_groups; got {result['supported_groups']!r}"
 
 
 def test_supported_groups_exception_path():
@@ -558,15 +560,15 @@ def test_signature_algorithms_extension_parsed():
     sa_ext_data = b"\x00\x04" + b"\x04\x01" + b"\x04\x03"
     ext_block = (
         struct.pack("!H", len(sa_ext_data) + 4)
-        + struct.pack("!H", 13)                     # ext_type = signature_algorithms
+        + struct.pack("!H", 13)  # ext_type = signature_algorithms
         + struct.pack("!H", len(sa_ext_data))
         + sa_ext_data
     )
     result = parse_client_hello(_build_clienthello_with_extensions(ext_block))
     assert result is not None, "Expected successful parse with signature_algorithms"
-    assert 0x0401 in result["signature_algorithms"], (
-        f"rsa_pkcs1_sha256 (0x0401) must be in signature_algorithms; got {result['signature_algorithms']!r}"
-    )
+    assert (
+        0x0401 in result["signature_algorithms"]
+    ), f"rsa_pkcs1_sha256 (0x0401) must be in signature_algorithms; got {result['signature_algorithms']!r}"
 
 
 def test_signature_algorithms_exception_path():
@@ -598,7 +600,7 @@ def test_sni_name_type_nonzero_skips_decode():
     sni_ext_data = b"\x00\x05\x01\x00\x02hi"
     ext_block = (
         struct.pack("!H", len(sni_ext_data) + 4)
-        + b"\x00\x00"                               # ext_type = SNI
+        + b"\x00\x00"  # ext_type = SNI
         + struct.pack("!H", len(sni_ext_data))
         + sni_ext_data
     )
@@ -606,9 +608,9 @@ def test_sni_name_type_nonzero_skips_decode():
     assert _is_valid_result(result)
     if result is not None:
         # name_type != 0 → sni should remain ''
-        assert result["sni"] == "", (
-            f"Non-host_name SNI type must not populate sni field; got {result['sni']!r}"
-        )
+        assert (
+            result["sni"] == ""
+        ), f"Non-host_name SNI type must not populate sni field; got {result['sni']!r}"
 
 
 def test_sni_inner_exception_path_is_silenced():
@@ -639,8 +641,8 @@ def test_sni_inner_exception_path_is_silenced():
     sni_host = b"example.com"
     sni_ext_data = (
         struct.pack("!H", 3 + len(sni_host))  # list_len
-        + b"\x00"                               # name_type = host_name
-        + struct.pack("!H", len(sni_host))     # name_len
+        + b"\x00"  # name_type = host_name
+        + struct.pack("!H", len(sni_host))  # name_len
         + sni_host
     )
     ext_block = (
@@ -727,6 +729,6 @@ def test_outer_exception_path_returns_none():
         result = parse_client_hello(_VALID_TLS13)
 
     # The outer except must catch the RuntimeError and return None
-    assert result is None, (
-        "Outer except Exception must catch injected faults and return None"
-    )
+    assert (
+        result is None
+    ), "Outer except Exception must catch injected faults and return None"

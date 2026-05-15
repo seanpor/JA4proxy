@@ -39,17 +39,11 @@ def test_dockerfile_go_proxy_has_explicit_uid() -> None:
     text = DOCKERFILE.read_text()
 
     # Accept either "USER 1000" or "USER 1000:1000" — but reject "USER name".
-    explicit_uid = re.search(
-        r"^\s*USER\s+1000(?::1000)?\s*$", text, flags=re.MULTILINE
-    )
+    explicit_uid = re.search(r"^\s*USER\s+1000(?::1000)?\s*$", text, flags=re.MULTILINE)
     assert explicit_uid, (
         f"{DOCKERFILE.relative_to(REPO_ROOT)} does not declare an explicit "
         f"numeric UID 1000. Found USER directives:\n"
-        + "\n".join(
-            f"  {ln}"
-            for ln in text.splitlines()
-            if re.match(r"\s*USER\s", ln)
-        )
+        + "\n".join(f"  {ln}" for ln in text.splitlines() if re.match(r"\s*USER\s", ln))
         + "\nExpected a line like `USER 1000:1000`."
     )
 
@@ -78,9 +72,9 @@ def test_dockerfile_go_proxy_has_oci_labels() -> None:
         f"block after `FROM alpine:...` with at minimum a `source` URL."
     )
     url = label_line.group(1)
-    assert url.startswith(("http://", "https://")), (
-        f"OCI image.source label is not a URL: {url!r}"
-    )
+    assert url.startswith(
+        ("http://", "https://")
+    ), f"OCI image.source label is not a URL: {url!r}"
 
 
 # ── Docker-gated build/run check ─────────────────────────────────────────────
@@ -112,9 +106,9 @@ def test_built_image_runs_as_uid_1000() -> None:
         text=True,
         timeout=600,
     )
-    assert build.returncode == 0, (
-        f"docker build failed:\nSTDOUT:\n{build.stdout}\nSTDERR:\n{build.stderr}"
-    )
+    assert (
+        build.returncode == 0
+    ), f"docker build failed:\nSTDOUT:\n{build.stdout}\nSTDERR:\n{build.stderr}"
 
     run = subprocess.run(
         [
@@ -131,9 +125,9 @@ def test_built_image_runs_as_uid_1000() -> None:
         text=True,
         timeout=30,
     )
-    assert run.returncode == 0, (
-        f"docker run failed:\nSTDOUT:\n{run.stdout}\nSTDERR:\n{run.stderr}"
-    )
+    assert (
+        run.returncode == 0
+    ), f"docker run failed:\nSTDOUT:\n{run.stdout}\nSTDERR:\n{run.stderr}"
     uid = run.stdout.strip()
     assert uid == "1000", (
         f"Built image runs as UID {uid!r}, expected '1000'. "

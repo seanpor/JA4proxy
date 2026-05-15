@@ -36,7 +36,11 @@ from src.security.seccomp_transition import (
 
 def test_apply_returns_bool():
     """apply_runtime_seccomp always returns True or False, never raises."""
-    result = apply_runtime_seccomp.__wrapped__() if hasattr(apply_runtime_seccomp, "__wrapped__") else apply_runtime_seccomp()
+    result = (
+        apply_runtime_seccomp.__wrapped__()
+        if hasattr(apply_runtime_seccomp, "__wrapped__")
+        else apply_runtime_seccomp()
+    )
     assert isinstance(result, bool)
 
 
@@ -122,48 +126,54 @@ class TestIsSupportedEdgeCases:
 
     def test_old_kernel_returns_false(self):
         """Kernel < 3.5 → False."""
-        with patch("src.security.seccomp_transition.sys") as mock_sys, \
-             patch("src.security.seccomp_transition.platform") as mock_plat:
+        with patch("src.security.seccomp_transition.sys") as mock_sys, patch(
+            "src.security.seccomp_transition.platform"
+        ) as mock_plat:
             mock_sys.platform = "linux"
             mock_plat.release.return_value = "2.6.32-generic"
             assert is_supported() is False
 
     def test_kernel_35_returns_true(self):
         """Kernel == 3.5 → True."""
-        with patch("src.security.seccomp_transition.sys") as mock_sys, \
-             patch("src.security.seccomp_transition.platform") as mock_plat:
+        with patch("src.security.seccomp_transition.sys") as mock_sys, patch(
+            "src.security.seccomp_transition.platform"
+        ) as mock_plat:
             mock_sys.platform = "linux"
             mock_plat.release.return_value = "3.5.0-custom"
             assert is_supported() is True
 
     def test_modern_kernel_returns_true(self):
         """Kernel 6.1 → True."""
-        with patch("src.security.seccomp_transition.sys") as mock_sys, \
-             patch("src.security.seccomp_transition.platform") as mock_plat:
+        with patch("src.security.seccomp_transition.sys") as mock_sys, patch(
+            "src.security.seccomp_transition.platform"
+        ) as mock_plat:
             mock_sys.platform = "linux"
             mock_plat.release.return_value = "6.1.0-20-amd64"
             assert is_supported() is True
 
     def test_unparseable_release_returns_false(self):
         """Lines 66-68: platform.release() raises → False."""
-        with patch("src.security.seccomp_transition.sys") as mock_sys, \
-             patch("src.security.seccomp_transition.platform") as mock_plat:
+        with patch("src.security.seccomp_transition.sys") as mock_sys, patch(
+            "src.security.seccomp_transition.platform"
+        ) as mock_plat:
             mock_sys.platform = "linux"
             mock_plat.release.side_effect = RuntimeError("boom")
             assert is_supported() is False
 
     def test_garbage_release_string_returns_false(self):
         """Non-numeric kernel version string → exception caught, False."""
-        with patch("src.security.seccomp_transition.sys") as mock_sys, \
-             patch("src.security.seccomp_transition.platform") as mock_plat:
+        with patch("src.security.seccomp_transition.sys") as mock_sys, patch(
+            "src.security.seccomp_transition.platform"
+        ) as mock_plat:
             mock_sys.platform = "linux"
             mock_plat.release.return_value = "not-a-version"
             assert is_supported() is False
 
     def test_single_component_release(self):
         """Kernel with only major version, no minor → minor defaults to 0."""
-        with patch("src.security.seccomp_transition.sys") as mock_sys, \
-             patch("src.security.seccomp_transition.platform") as mock_plat:
+        with patch("src.security.seccomp_transition.sys") as mock_sys, patch(
+            "src.security.seccomp_transition.platform"
+        ) as mock_plat:
             mock_sys.platform = "linux"
             mock_plat.release.return_value = "4"
             assert is_supported() is True
@@ -174,7 +184,9 @@ class TestApplyOuterExceptionHandler:
 
     def test_internal_apply_raises_returns_false(self):
         """When _apply raises an unexpected exception, the outer handler catches it."""
-        with patch("src.security.seccomp_transition._apply", side_effect=RuntimeError("kaboom")):
+        with patch(
+            "src.security.seccomp_transition._apply", side_effect=RuntimeError("kaboom")
+        ):
             result = apply_runtime_seccomp("some/path.json")
             assert result is False
 
@@ -197,7 +209,7 @@ class TestApplyInternalPaths:
     def test_profile_not_dict_returns_false(self, tmp_path):
         """Lines 150-156: JSON that parses to a list → False."""
         profile = tmp_path / "list.json"
-        profile.write_text('[1, 2, 3]')
+        profile.write_text("[1, 2, 3]")
         with patch("src.security.seccomp_transition.is_supported", return_value=True):
             assert _apply(str(profile)) is False
 
@@ -205,8 +217,9 @@ class TestApplyInternalPaths:
         """Line 162-168: seccomp library not installed → ImportError → False."""
         profile = tmp_path / "ok.json"
         profile.write_text('{"defaultAction": "SCMP_ACT_ERRNO"}')
-        with patch("src.security.seccomp_transition.is_supported", return_value=True), \
-             patch("builtins.__import__", side_effect=_import_raise_for_seccomp):
+        with patch(
+            "src.security.seccomp_transition.is_supported", return_value=True
+        ), patch("builtins.__import__", side_effect=_import_raise_for_seccomp):
             assert _apply(str(profile)) is False
 
 
@@ -267,7 +280,9 @@ class TestApplyViaSeccompLib:
         mock_filter.add_rule.side_effect = [OSError("unknown syscall"), None]
         profile = {
             "defaultAction": "SCMP_ACT_ERRNO",
-            "syscalls": [{"names": ["bad_syscall", "good_syscall"], "action": "SCMP_ACT_ALLOW"}],
+            "syscalls": [
+                {"names": ["bad_syscall", "good_syscall"], "action": "SCMP_ACT_ALLOW"}
+            ],
         }
         result = _apply_via_seccomp_lib(mock_seccomp, profile, "/fake/path.json")
         assert result is True
@@ -275,7 +290,9 @@ class TestApplyViaSeccompLib:
 
     def test_load_raises_returns_false(self, mock_seccomp):
         """Lines 206-213: ctx.load() raises → returns False."""
-        mock_seccomp.SyscallFilter.return_value.load.side_effect = OSError("permission denied")
+        mock_seccomp.SyscallFilter.return_value.load.side_effect = OSError(
+            "permission denied"
+        )
         profile = {"defaultAction": "SCMP_ACT_ERRNO"}
         result = _apply_via_seccomp_lib(mock_seccomp, profile, "/fake/path.json")
         assert result is False
@@ -318,15 +335,18 @@ class TestOCIActionMapping:
         mod.LOG = 6
         return mod
 
-    @pytest.mark.parametrize("oci_str,expected_attr", [
-        ("SCMP_ACT_ALLOW", "ALLOW"),
-        ("SCMP_ACT_ERRNO", "ERRNO"),
-        ("SCMP_ACT_KILL", "KILL"),
-        ("SCMP_ACT_KILL_PROCESS", "KILL"),
-        ("SCMP_ACT_TRAP", "TRAP"),
-        ("SCMP_ACT_TRACE", "TRACE"),
-        ("SCMP_ACT_LOG", "LOG"),
-    ])
+    @pytest.mark.parametrize(
+        "oci_str,expected_attr",
+        [
+            ("SCMP_ACT_ALLOW", "ALLOW"),
+            ("SCMP_ACT_ERRNO", "ERRNO"),
+            ("SCMP_ACT_KILL", "KILL"),
+            ("SCMP_ACT_KILL_PROCESS", "KILL"),
+            ("SCMP_ACT_TRAP", "TRAP"),
+            ("SCMP_ACT_TRACE", "TRACE"),
+            ("SCMP_ACT_LOG", "LOG"),
+        ],
+    )
     def test_known_actions_mapped(self, mock_mod, oci_str, expected_attr):
         result = _oci_action_to_libseccomp(mock_mod, oci_str)
         assert result == getattr(mock_mod, expected_attr)

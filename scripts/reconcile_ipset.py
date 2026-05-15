@@ -16,6 +16,7 @@ This script must be run as root (or with CAP_NET_ADMIN) to manage ipset.
 Designed to run on a schedule (e.g. every 5 minutes via cron) as a safeguard
 against temporary enforcement failures.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -141,8 +142,8 @@ def reconcile(
 
     redis_set = set(redis_bans.keys())
 
-    missing_from_ipset = redis_set - ipset_ips   # in Redis, missing from ipset
-    stale_in_ipset = ipset_ips - redis_set        # in ipset, not in Redis (expired)
+    missing_from_ipset = redis_set - ipset_ips  # in Redis, missing from ipset
+    stale_in_ipset = ipset_ips - redis_set  # in ipset, not in Redis (expired)
     already_ok = redis_set & ipset_ips
 
     n_added = 0
@@ -168,7 +169,9 @@ def reconcile(
     n_ok = len(already_ok)
     logger.info(
         "Reconciliation complete: added=%d removed=%d unchanged=%d%s",
-        n_added, n_removed, n_ok,
+        n_added,
+        n_removed,
+        n_ok,
         " [DRY-RUN]" if dry_run else "",
     )
 

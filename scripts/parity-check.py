@@ -19,6 +19,7 @@ FIXTURES_DIR = pathlib.Path("tests/fixtures/clienthello")
 PYTHON_PORT = int(os.environ.get("PARITY_PYTHON_PORT", "8083"))
 GO_PORT = int(os.environ.get("PARITY_GO_PORT", "8081"))
 
+
 def send_payload(port, payload):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.settimeout(2)
@@ -28,6 +29,7 @@ def send_payload(port, payload):
         # but we wait long enough for the proxy to process.
         time.sleep(0.1)
 
+
 def get_latest_logs(agent_name, lines=10):
     # This assumes logs are written to a known location or accessible via docker
     # For this POC harness, we'll look at the recently updated Redis keys
@@ -35,9 +37,12 @@ def get_latest_logs(agent_name, lines=10):
     # SIMPLIFICATION: We will check Redis for the stored fingerprints.
     pass
 
+
 def run_parity():
-    print(f"🚀 Starting Parity Check across ports {PYTHON_PORT} (Py) and {GO_PORT} (Go)")
-    
+    print(
+        f"🚀 Starting Parity Check across ports {PYTHON_PORT} (Py) and {GO_PORT} (Go)"
+    )
+
     fixtures = list(FIXTURES_DIR.glob("*.bin"))
     if not fixtures:
         print("❌ No fixtures found.")
@@ -47,14 +52,14 @@ def run_parity():
         known_ja4 = json.load(f)
 
     results = []
-    
+
     for fix in fixtures:
         name = fix.stem
         payload = fix.read_bytes()
         _expected = known_ja4.get(name, "unknown")
 
         print(f"Testing {name}...", end=" ", flush=True)
-        
+
         # Send to both (assumes proxies are already running or started externally)
         try:
             send_payload(PYTHON_PORT, payload)
@@ -66,8 +71,11 @@ def run_parity():
             return 1
 
     print("\n✅ Parity Check Payloads Delivered.")
-    print("Note: End-to-end score verification requires a mock backend or log analysis.")
+    print(
+        "Note: End-to-end score verification requires a mock backend or log analysis."
+    )
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(run_parity())

@@ -27,6 +27,7 @@ from typing import List, Optional
 @dataclass
 class BenchResult:
     """Results from a single benchmark run."""
+
     scenario: str
     proxy_count: int
     good_rate_target: float
@@ -71,9 +72,10 @@ def make_browser_ctx():
     ctx.verify_mode = ssl.CERT_NONE
     ctx.minimum_version = ssl.TLSVersion.TLSv1_2
     ctx.maximum_version = ssl.TLSVersion.TLSv1_3
-    ctx.set_ciphers("ECDHE+AESGCM:ECDHE+CHACHA20:DHE+AESGCM:!aNULL:!MD5") # nosemgrep
+    ctx.set_ciphers("ECDHE+AESGCM:ECDHE+CHACHA20:DHE+AESGCM:!aNULL:!MD5")  # nosemgrep
     ctx.set_alpn_protocols(["h2", "http/1.1"])
     return ctx
+
 
 def make_bot_ctx():
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
@@ -81,7 +83,7 @@ def make_bot_ctx():
     ctx.verify_mode = ssl.CERT_NONE
     ctx.minimum_version = ssl.TLSVersion.TLSv1_2
     ctx.maximum_version = ssl.TLSVersion.TLSv1_3
-    ctx.set_ciphers("ECDHE+AESGCM:ECDHE+CHACHA20:!aNULL:!MD5") # nosemgrep
+    ctx.set_ciphers("ECDHE+AESGCM:ECDHE+CHACHA20:!aNULL:!MD5")  # nosemgrep
     # No ALPN — this is the key differentiator
     return ctx
 
@@ -121,7 +123,13 @@ def try_connection(host: str, port: int, ctx: ssl.SSLContext, is_good: bool) -> 
         tls_sock.send(HTTP_REQ)
         tls_sock.recv(512)
         result["allowed"] = True
-    except (ssl.SSLError, ConnectionResetError, ConnectionRefusedError, socket.timeout, OSError):
+    except (
+        ssl.SSLError,
+        ConnectionResetError,
+        ConnectionRefusedError,
+        socket.timeout,
+        OSError,
+    ):
         result["blocked"] = True
     except Exception:
         result["error"] = True
@@ -136,8 +144,14 @@ def try_connection(host: str, port: int, ctx: ssl.SSLContext, is_good: bool) -> 
     return result
 
 
-def run_benchmark(host: str, port: int, good_rate: float, bad_rate: float,
-                  duration: float, proxy_count: int) -> BenchResult:
+def run_benchmark(
+    host: str,
+    port: int,
+    good_rate: float,
+    bad_rate: float,
+    duration: float,
+    proxy_count: int,
+) -> BenchResult:
     """Run a single benchmark scenario."""
     result = BenchResult(
         scenario=f"{proxy_count}x proxy, {good_rate:.0f} good/s + {bad_rate:.0f} bad/s",
@@ -209,11 +223,14 @@ def run_benchmark(host: str, port: int, good_rate: float, bad_rate: float,
     while time.monotonic() - start < duration:
         elapsed = time.monotonic() - start
         rate = result.total_connections / elapsed if elapsed > 0 else 0
-        print(f"\r  [{elapsed:.0f}s/{duration:.0f}s] "
-              f"Total: {result.total_connections:,} ({rate:.0f}/s) | "
-              f"Good: {result.good_allowed}/{result.total_good} | "
-              f"Bad blocked: {result.bad_blocked}/{result.total_bad}",
-              end="", flush=True)
+        print(
+            f"\r  [{elapsed:.0f}s/{duration:.0f}s] "
+            f"Total: {result.total_connections:,} ({rate:.0f}/s) | "
+            f"Good: {result.good_allowed}/{result.total_good} | "
+            f"Bad blocked: {result.bad_blocked}/{result.total_bad}",
+            end="",
+            flush=True,
+        )
         time.sleep(0.5)
 
     running = False
@@ -231,16 +248,24 @@ def print_result(r: BenchResult):
     print(f"  Scenario:          {r.scenario}")
     print(f"  Duration:          {r.elapsed:.1f}s")
     print(f"  Total connections: {r.total_connections:,} ({r.actual_rate:.0f}/s)")
-    print(f"  Good traffic:      {r.total_good:,} sent, {r.good_allowed:,} allowed, "
-          f"{r.good_blocked:,} blocked")
-    print(f"  Bad traffic:       {r.total_bad:,} sent, {r.bad_blocked:,} blocked, "
-          f"{r.bad_allowed:,} leaked")
+    print(
+        f"  Good traffic:      {r.total_good:,} sent, {r.good_allowed:,} allowed, "
+        f"{r.good_blocked:,} blocked"
+    )
+    print(
+        f"  Bad traffic:       {r.total_bad:,} sent, {r.bad_blocked:,} blocked, "
+        f"{r.bad_allowed:,} leaked"
+    )
     print(f"  Errors:            {r.errors:,}")
     print("  ────────────────────────────────────────")
-    print(f"  Good pass rate:    {r.good_pass_rate:.1f}%  "
-          f"{'✅' if r.good_pass_rate >= 99 else '⚠️' if r.good_pass_rate >= 90 else '❌'}")
-    print(f"  Bad block rate:    {r.bad_block_rate:.1f}%  "
-          f"{'✅' if r.bad_block_rate >= 95 else '⚠️' if r.bad_block_rate >= 80 else '❌'}")
+    print(
+        f"  Good pass rate:    {r.good_pass_rate:.1f}%  "
+        f"{'✅' if r.good_pass_rate >= 99 else '⚠️' if r.good_pass_rate >= 90 else '❌'}"
+    )
+    print(
+        f"  Bad block rate:    {r.bad_block_rate:.1f}%  "
+        f"{'✅' if r.bad_block_rate >= 95 else '⚠️' if r.bad_block_rate >= 80 else '❌'}"
+    )
     print(f"  False positive:    {r.false_positive_rate:.1f}%")
     print(f"  False negative:    {r.false_negative_rate:.1f}%")
     print(f"  {'─' * 60}")
@@ -254,10 +279,14 @@ def format_markdown_report(results: List[BenchResult]) -> str:
 
     # Summary table
     lines.append("## Summary\n")
-    lines.append("| Proxies | Good Rate | Bad Rate | Total Rate | "
-                 "Good Pass % | Bad Block % | False +ve | False -ve |")
-    lines.append("|---------|-----------|----------|------------|"
-                 "-------------|-------------|-----------|-----------|")
+    lines.append(
+        "| Proxies | Good Rate | Bad Rate | Total Rate | "
+        "Good Pass % | Bad Block % | False +ve | False -ve |"
+    )
+    lines.append(
+        "|---------|-----------|----------|------------|"
+        "-------------|-------------|-----------|-----------|"
+    )
     for r in results:
         lines.append(
             f"| {r.proxy_count} | {r.good_rate_target:.0f}/s | "
@@ -274,10 +303,12 @@ def format_markdown_report(results: List[BenchResult]) -> str:
     for count in sorted(by_proxy.keys()):
         group = by_proxy[count]
         lines.append(f"\n## {count}x Proxy Instance{'s' if count > 1 else ''}\n")
-        lines.append("| Good/s | Bad/s | Total/s | Good Pass | Bad Block | "
-                     "Conns | Duration |")
-        lines.append("|--------|-------|---------|-----------|-----------|"
-                     "-------|----------|")
+        lines.append(
+            "| Good/s | Bad/s | Total/s | Good Pass | Bad Block | " "Conns | Duration |"
+        )
+        lines.append(
+            "|--------|-------|---------|-----------|-----------|" "-------|----------|"
+        )
         for r in group:
             lines.append(
                 f"| {r.good_rate_target:.0f} | {r.bad_rate_target:.0f} | "
@@ -287,12 +318,16 @@ def format_markdown_report(results: List[BenchResult]) -> str:
             )
 
         # Find max throughput with acceptable accuracy
-        acceptable = [r for r in group if r.good_pass_rate >= 95 and r.bad_block_rate >= 90]
+        acceptable = [
+            r for r in group if r.good_pass_rate >= 95 and r.bad_block_rate >= 90
+        ]
         if acceptable:
             best = max(acceptable, key=lambda r: r.actual_rate)
-            lines.append(f"\n**Max throughput (≥95% good pass, ≥90% bad block): "
-                         f"{best.actual_rate:.0f} conn/s** "
-                         f"({best.good_rate_target:.0f} good + {best.bad_rate_target:.0f} bad)")
+            lines.append(
+                f"\n**Max throughput (≥95% good pass, ≥90% bad block): "
+                f"{best.actual_rate:.0f} conn/s** "
+                f"({best.good_rate_target:.0f} good + {best.bad_rate_target:.0f} bad)"
+            )
 
     # Scaling analysis
     if len(by_proxy) > 1:
@@ -307,15 +342,19 @@ def format_markdown_report(results: List[BenchResult]) -> str:
                 base = base_rates.get(r.bad_rate_target)
                 if base and base.actual_rate > 0:
                     speedup = r.actual_rate / base.actual_rate
-                    lines.append(f"- At {r.bad_rate_target:.0f} bad/s: "
-                                 f"{speedup:.1f}x throughput "
-                                 f"({base.actual_rate:.0f} → {r.actual_rate:.0f} conn/s)")
+                    lines.append(
+                        f"- At {r.bad_rate_target:.0f} bad/s: "
+                        f"{speedup:.1f}x throughput "
+                        f"({base.actual_rate:.0f} → {r.actual_rate:.0f} conn/s)"
+                    )
 
     lines.append("\n## Test Environment\n")
     lines.append("- **Platform:** Docker containers on single host")
     lines.append("- **Load balancer:** HAProxy 2.8 (TCP mode, TLS passthrough)")
     lines.append("- **Good traffic:** Browser-like TLS 1.3 with h2 ALPN (whitelisted)")
-    lines.append("- **Bad traffic:** Bot-like TLS 1.3, no ALPN (rate-limited → tarpit → ban)")
+    lines.append(
+        "- **Bad traffic:** Bot-like TLS 1.3, no ALPN (rate-limited → tarpit → ban)"
+    )
     lines.append("- **Security pipeline:** GeoIP → Blacklist → Whitelist → Rate limit")
     lines.append("")
     return "\n".join(lines)
@@ -325,28 +364,42 @@ def main():
     parser = argparse.ArgumentParser(description="JA4proxy Performance Benchmark")
     parser.add_argument("--host", default="proxy", help="Target host")
     parser.add_argument("--port", type=int, default=8080, help="Target port")
-    parser.add_argument("--good-rate", type=float, default=5,
-                        help="Good connections per second (default: 5)")
-    parser.add_argument("--bad-rates", default="50,100,200,500",
-                        help="Comma-separated bad rates to test")
-    parser.add_argument("--duration", type=float, default=30,
-                        help="Duration per test in seconds")
-    parser.add_argument("--proxy-counts", default="1",
-                        help="Comma-separated proxy instance counts to test")
-    parser.add_argument("--output", default=None,
-                        help="Output markdown file path")
-    parser.add_argument("--json", default=None,
-                        help="Output JSON results file path")
-    parser.add_argument("--agent", default=None,
-                        help="Target an isolated agent environment (e.g. gemini)")
+    parser.add_argument(
+        "--good-rate",
+        type=float,
+        default=5,
+        help="Good connections per second (default: 5)",
+    )
+    parser.add_argument(
+        "--bad-rates",
+        default="50,100,200,500",
+        help="Comma-separated bad rates to test",
+    )
+    parser.add_argument(
+        "--duration", type=float, default=30, help="Duration per test in seconds"
+    )
+    parser.add_argument(
+        "--proxy-counts",
+        default="1",
+        help="Comma-separated proxy instance counts to test",
+    )
+    parser.add_argument("--output", default=None, help="Output markdown file path")
+    parser.add_argument("--json", default=None, help="Output JSON results file path")
+    parser.add_argument(
+        "--agent",
+        default=None,
+        help="Target an isolated agent environment (e.g. gemini)",
+    )
     args = parser.parse_args()
 
     if args.agent:
         env_file = f".env.{args.agent}"
         if not os.path.exists(env_file):
-            print(f"Error: {env_file} not found. Run './scripts/agent-env.sh {args.agent}'")
+            print(
+                f"Error: {env_file} not found. Run './scripts/agent-env.sh {args.agent}'"
+            )
             sys.exit(1)
-        with open(env_file, 'r') as f:
+        with open(env_file, "r") as f:
             for line in f:
                 if line.startswith("AGENT_BIND_IP="):
                     args.host = line.split("=")[1].strip()
@@ -374,11 +427,14 @@ def main():
         print(f"{'━' * 70}")
 
         for bad_rate in bad_rates:
-            print(f"\n▶ Scenario: {args.good_rate:.0f} good/s + {bad_rate:.0f} bad/s "
-                  f"({pc}x proxy)")
+            print(
+                f"\n▶ Scenario: {args.good_rate:.0f} good/s + {bad_rate:.0f} bad/s "
+                f"({pc}x proxy)"
+            )
 
-            r = run_benchmark(args.host, args.port, args.good_rate, bad_rate,
-                              args.duration, pc)
+            r = run_benchmark(
+                args.host, args.port, args.good_rate, bad_rate, args.duration, pc
+            )
             print_result(r)
             all_results.append(r)
 
@@ -391,33 +447,35 @@ def main():
     print("\n" + report)
 
     if args.output:
-        with open(args.output, 'w') as f:
+        with open(args.output, "w") as f:
             f.write(report)
         print(f"\n📄 Report saved to {args.output}")
 
     if args.json:
         json_data = []
         for r in all_results:
-            json_data.append({
-                "scenario": r.scenario,
-                "proxy_count": r.proxy_count,
-                "good_rate_target": r.good_rate_target,
-                "bad_rate_target": r.bad_rate_target,
-                "duration": r.duration,
-                "elapsed": r.elapsed,
-                "total_connections": r.total_connections,
-                "actual_rate": r.actual_rate,
-                "good_total": r.total_good,
-                "good_allowed": r.good_allowed,
-                "good_blocked": r.good_blocked,
-                "bad_total": r.total_bad,
-                "bad_allowed": r.bad_allowed,
-                "bad_blocked": r.bad_blocked,
-                "errors": r.errors,
-                "good_pass_rate": r.good_pass_rate,
-                "bad_block_rate": r.bad_block_rate,
-            })
-        with open(args.json, 'w') as f:
+            json_data.append(
+                {
+                    "scenario": r.scenario,
+                    "proxy_count": r.proxy_count,
+                    "good_rate_target": r.good_rate_target,
+                    "bad_rate_target": r.bad_rate_target,
+                    "duration": r.duration,
+                    "elapsed": r.elapsed,
+                    "total_connections": r.total_connections,
+                    "actual_rate": r.actual_rate,
+                    "good_total": r.total_good,
+                    "good_allowed": r.good_allowed,
+                    "good_blocked": r.good_blocked,
+                    "bad_total": r.total_bad,
+                    "bad_allowed": r.bad_allowed,
+                    "bad_blocked": r.bad_blocked,
+                    "errors": r.errors,
+                    "good_pass_rate": r.good_pass_rate,
+                    "bad_block_rate": r.bad_block_rate,
+                }
+            )
+        with open(args.json, "w") as f:
             json.dump(json_data, f, indent=2)
         print(f"📊 JSON saved to {args.json}")
 

@@ -3,6 +3,7 @@ Unit tests for src/tap/capture.py (Phase 20 Group 3).
 
 Uses PcapReplay and synthetic Ethernet frames — no live AF_PACKET socket required.
 """
+
 import asyncio
 import socket as _socket
 import struct
@@ -61,14 +62,14 @@ def _ipv4_hdr(
     flags_frag = flags | (frag_offset // 8)
     hdr = struct.pack(
         "!BBHHHBBH4s4s",
-        0x45,          # ver=4, ihl=5
-        0,             # DSCP/ECN
-        0,             # total_length (not used by parser)
+        0x45,  # ver=4, ihl=5
+        0,  # DSCP/ECN
+        0,  # total_length (not used by parser)
         ip_id,
         flags_frag,
         ttl,
         proto,
-        0,             # checksum
+        0,  # checksum
         _socket.inet_aton(src),
         _socket.inet_aton(dst),
     )
@@ -90,8 +91,7 @@ def _tcp_hdr(
     data_offset = 5 + len(options) // 4
     dof_flags = (data_offset << 12) | (flags & 0x1FF)
     # TCP header: sport, dport, seq, ack, data_offset+flags, window, checksum, urgent
-    hdr = struct.pack("!HHIIHHHH",
-        sport, dport, seq, ack, dof_flags, window, 0, 0)
+    hdr = struct.pack("!HHIIHHHH", sport, dport, seq, ack, dof_flags, window, 0, 0)
     return hdr + options
 
 
@@ -204,7 +204,9 @@ class TestFrameParsing:
     def test_parse_geneve_encapsulated_ipv4(self):
         inner = _build_ipv4_tcp(src="10.1.0.1", dst="10.1.0.2", sport=44444, dport=443)
         # GENEVE header: 4-byte fixed (opt_len=0) + 0 option bytes
-        geneve_hdr = struct.pack("!BBH", 0x00, 0x00, 0x6558)  # opt_len=0, proto=Ethernet
+        geneve_hdr = struct.pack(
+            "!BBH", 0x00, 0x00, 0x6558
+        )  # opt_len=0, proto=Ethernet
         outer_udp = struct.pack("!HHHH", 12345, GENEVE_PORT, 8 + 4 + len(inner), 0)
         outer_payload = outer_udp + geneve_hdr + inner
         outer_ip = _ipv4_hdr(17, src="192.168.2.1", dst="192.168.2.2")
@@ -284,27 +286,45 @@ class TestDedup:
     def test_dedup_filters_identical_packet_within_window(self):
         cap = self._make_capture(dedup_window=60.0)
         pkt = ParsedPacket(
-            src_ip="1.1.1.1", dst_ip="2.2.2.2",
-            src_port=1, dst_port=2,
-            proto="tcp", seq=10, ack=0, flags=2,
-            data=b"hello", timestamp=_TS,
-            tcp_options_raw=b"", window_size=65535, ip_ttl=64,
-            ip_df=True, ip_id=1,
+            src_ip="1.1.1.1",
+            dst_ip="2.2.2.2",
+            src_port=1,
+            dst_port=2,
+            proto="tcp",
+            seq=10,
+            ack=0,
+            flags=2,
+            data=b"hello",
+            timestamp=_TS,
+            tcp_options_raw=b"",
+            window_size=65535,
+            ip_ttl=64,
+            ip_df=True,
+            ip_id=1,
         )
         first = cap._dedup_check(pkt)
         second = cap._dedup_check(pkt)
-        assert first is False   # first time: not a duplicate
-        assert second is True   # second time: duplicate
+        assert first is False  # first time: not a duplicate
+        assert second is True  # second time: duplicate
 
     def test_dedup_allows_identical_packet_after_window_expires(self):
         cap = self._make_capture(dedup_window=0.0)  # expires immediately
         pkt = ParsedPacket(
-            src_ip="3.3.3.3", dst_ip="4.4.4.4",
-            src_port=10, dst_port=20,
-            proto="tcp", seq=99, ack=0, flags=2,
-            data=b"x", timestamp=_TS,
-            tcp_options_raw=b"", window_size=8192, ip_ttl=64,
-            ip_df=False, ip_id=5,
+            src_ip="3.3.3.3",
+            dst_ip="4.4.4.4",
+            src_port=10,
+            dst_port=20,
+            proto="tcp",
+            seq=99,
+            ack=0,
+            flags=2,
+            data=b"x",
+            timestamp=_TS,
+            tcp_options_raw=b"",
+            window_size=8192,
+            ip_ttl=64,
+            ip_df=False,
+            ip_id=5,
         )
         cap._dedup_check(pkt)
         # After a 0-second window, the entry immediately expires
@@ -344,8 +364,12 @@ class TestDispatch:
         # 5 packets with the same 4-tuple but different seq numbers (realistic TCP)
         frames = [
             _build_ipv4_tcp(
-                src="1.2.3.4", dst="5.6.7.8", sport=9000, dport=443,
-                seq=i * 1000, payload=bytes([i]) * 10,
+                src="1.2.3.4",
+                dst="5.6.7.8",
+                sport=9000,
+                dport=443,
+                seq=i * 1000,
+                payload=bytes([i]) * 10,
             )
             for i in range(1, 6)
         ]
@@ -369,6 +393,7 @@ class TestPcapReplay:
         """Write raw Ethernet frames into a PCAP file using scapy."""
         from scapy.all import Ether, wrpcap  # type: ignore[import]
         from scapy.packet import Raw  # type: ignore[import]
+
         pcap_path = tmp_path / "test.pcap"
         pkts = [Ether(f) for f in frames]
         wrpcap(str(pcap_path), pkts)
@@ -592,7 +617,11 @@ class TestParseIPv6Direct:
         src_b = _socket.inet_pton(_socket.AF_INET6, "2001:db8::1")
         dst_b = _socket.inet_pton(_socket.AF_INET6, "2001:db8::2")
         # next_hdr=0 (Hop-by-Hop) in IPv6 base header
-        ip6 = struct.pack("!IHBB", 0x60000000, len(hop_by_hop) + len(tcp), 0, 64) + src_b + dst_b
+        ip6 = (
+            struct.pack("!IHBB", 0x60000000, len(hop_by_hop) + len(tcp), 0, 64)
+            + src_b
+            + dst_b
+        )
         frame = _eth_hdr(ETH_P_IPV6) + ip6 + hop_by_hop + tcp
         pkt = _parse_ethernet_frame(memoryview(frame), _TS, {})
         assert pkt is not None
@@ -629,7 +658,11 @@ class TestParseIPv6Direct:
         src_b = _socket.inet_pton(_socket.AF_INET6, "::1")
         dst_b = _socket.inet_pton(_socket.AF_INET6, "::2")
         # next_hdr=44 (Fragment) in IPv6 base header
-        ip6 = struct.pack("!IHBB", 0x60000000, len(frag_hdr) + len(tcp), 44, 64) + src_b + dst_b
+        ip6 = (
+            struct.pack("!IHBB", 0x60000000, len(frag_hdr) + len(tcp), 44, 64)
+            + src_b
+            + dst_b
+        )
         frame = _eth_hdr(ETH_P_IPV6) + ip6 + frag_hdr + tcp
         pkt = _parse_ethernet_frame(memoryview(frame), _TS, {})
         assert pkt is not None
@@ -706,9 +739,9 @@ class TestPacketCaptureLifecycle:
         fut.set_result(None)
         mock_loop = MagicMock()
         mock_loop.run_in_executor.return_value = fut
-        with patch.object(cap, "_setup_socket", return_value=mock_sock), \
-             patch.object(cap, "_set_bpf_filter"), \
-             patch("src.tap.capture.asyncio.get_running_loop", return_value=mock_loop):
+        with patch.object(cap, "_setup_socket", return_value=mock_sock), patch.object(
+            cap, "_set_bpf_filter"
+        ), patch("src.tap.capture.asyncio.get_running_loop", return_value=mock_loop):
             cap._stop = True
             await cap.start()
         assert cap._stop is False
@@ -795,12 +828,21 @@ class TestPollRing:
 class TestRouteToWorker:
     def _make_pkt(self) -> ParsedPacket:
         return ParsedPacket(
-            src_ip="1.1.1.1", dst_ip="2.2.2.2",
-            src_port=1, dst_port=2,
-            proto="tcp", seq=0, ack=0, flags=2,
-            data=b"", timestamp=_TS,
-            tcp_options_raw=b"", window_size=0, ip_ttl=64,
-            ip_df=False, ip_id=0,
+            src_ip="1.1.1.1",
+            dst_ip="2.2.2.2",
+            src_port=1,
+            dst_port=2,
+            proto="tcp",
+            seq=0,
+            ack=0,
+            flags=2,
+            data=b"",
+            timestamp=_TS,
+            tcp_options_raw=b"",
+            window_size=0,
+            ip_ttl=64,
+            ip_df=False,
+            ip_id=0,
         )
 
     def test_no_workers_is_safe(self):
@@ -833,6 +875,7 @@ class TestDedupEviction:
     def test_dedup_cache_evicts_expired_entries_when_over_10000(self):
         """When cache exceeds 10000 entries, expired ones are evicted."""
         import time as _time
+
         cap = PacketCapture(
             config={"tap": {"interface": "lo", "dedup_window_s": 0.0}},
             workers=[],
@@ -843,12 +886,21 @@ class TestDedupEviction:
             cap._dedup_cache[f"key_{i}"] = past
 
         pkt = ParsedPacket(
-            src_ip="9.9.9.9", dst_ip="8.8.8.8",
-            src_port=100, dst_port=200,
-            proto="tcp", seq=42, ack=0, flags=2,
-            data=b"evict_test", timestamp=_TS,
-            tcp_options_raw=b"", window_size=1024, ip_ttl=64,
-            ip_df=True, ip_id=99,
+            src_ip="9.9.9.9",
+            dst_ip="8.8.8.8",
+            src_port=100,
+            dst_port=200,
+            proto="tcp",
+            seq=42,
+            ack=0,
+            flags=2,
+            data=b"evict_test",
+            timestamp=_TS,
+            tcp_options_raw=b"",
+            window_size=1024,
+            ip_ttl=64,
+            ip_df=True,
+            ip_id=99,
         )
         cap._dedup_check(pkt)
         # All expired entries must have been evicted (plus the new one added)
@@ -870,11 +922,7 @@ class TestVlanEdgeCases:
     def test_9100_qinq_alt_ethertype_stripped(self):
         """0x9100 alternate QinQ ethertype must also be stripped."""
         base = _build_ipv4_tcp()
-        frame = (
-            base[:12]
-            + struct.pack("!HH", ETH_P_8021Q_ALT, 0x0001)
-            + base[12:]
-        )
+        frame = base[:12] + struct.pack("!HH", ETH_P_8021Q_ALT, 0x0001) + base[12:]
         pkt = _parse_ethernet_frame(memoryview(frame), _TS, {})
         assert pkt is not None
         assert pkt.proto == "tcp"
@@ -897,6 +945,7 @@ class TestPcapReplayExtras:
     async def test_replay_stops_early_when_stop_set(self, tmp_path):
         """If _stop is already True when start() is called, replay emits nothing."""
         from scapy.all import Ether, wrpcap  # type: ignore[import]
+
         frame = _build_ipv4_tcp()
         pcap_path = tmp_path / "early_stop.pcap"
         wrpcap(str(pcap_path), [Ether(frame), Ether(frame), Ether(frame)])
@@ -915,12 +964,21 @@ class TestPcapReplayExtras:
     def test_route_to_worker_no_workers_is_safe(self):
         replay = PcapReplay(Path("/dev/null"), [], realtime=False)
         pkt = ParsedPacket(
-            src_ip="1.1.1.1", dst_ip="2.2.2.2",
-            src_port=1, dst_port=2,
-            proto="tcp", seq=0, ack=0, flags=0,
-            data=b"", timestamp=_TS,
-            tcp_options_raw=b"", window_size=0, ip_ttl=64,
-            ip_df=False, ip_id=0,
+            src_ip="1.1.1.1",
+            dst_ip="2.2.2.2",
+            src_port=1,
+            dst_port=2,
+            proto="tcp",
+            seq=0,
+            ack=0,
+            flags=0,
+            data=b"",
+            timestamp=_TS,
+            tcp_options_raw=b"",
+            window_size=0,
+            ip_ttl=64,
+            ip_df=False,
+            ip_id=0,
         )
         replay._route_to_worker(pkt)
 
@@ -929,12 +987,21 @@ class TestPcapReplayExtras:
         worker.put_nowait.side_effect = RuntimeError("queue full")
         replay = PcapReplay(Path("/dev/null"), [worker], realtime=False)
         pkt = ParsedPacket(
-            src_ip="1.1.1.1", dst_ip="2.2.2.2",
-            src_port=1, dst_port=2,
-            proto="tcp", seq=0, ack=0, flags=0,
-            data=b"", timestamp=_TS,
-            tcp_options_raw=b"", window_size=0, ip_ttl=64,
-            ip_df=False, ip_id=0,
+            src_ip="1.1.1.1",
+            dst_ip="2.2.2.2",
+            src_port=1,
+            dst_port=2,
+            proto="tcp",
+            seq=0,
+            ack=0,
+            flags=0,
+            data=b"",
+            timestamp=_TS,
+            tcp_options_raw=b"",
+            window_size=0,
+            ip_ttl=64,
+            ip_df=False,
+            ip_id=0,
         )
         replay._route_to_worker(pkt)
 
@@ -952,6 +1019,7 @@ class TestPcapReplayExtras:
     async def test_pcap_replay_realtime_skips_zero_or_negative_delay(self, tmp_path):
         """Realtime mode: delay <= 0 must not sleep (coverage for delay > 0 branch)."""
         from scapy.all import Ether, wrpcap  # type: ignore[import]
+
         frame = _build_ipv4_tcp(src="1.1.1.1", dst="2.2.2.2", sport=5000, dport=80)
         pcap_path = tmp_path / "realtime_negative.pcap"
         pkt1 = Ether(frame)
@@ -963,6 +1031,7 @@ class TestPcapReplayExtras:
         worker = MagicMock()
         replay = PcapReplay(pcap_path, [worker], realtime=True)
         import time as _time
+
         start = _time.monotonic()
         await replay.start()
         elapsed = _time.monotonic() - start
@@ -973,6 +1042,7 @@ class TestPcapReplayExtras:
     async def test_pcap_replay_realtime_with_positive_delay(self, tmp_path):
         """Realtime mode: positive delay invokes asyncio.sleep (covers lines 504-506)."""
         from scapy.all import Ether, wrpcap  # type: ignore[import]
+
         frame = _build_ipv4_tcp(src="1.1.1.1", dst="2.2.2.2", sport=5000, dport=80)
         pcap_path = tmp_path / "realtime_pos.pcap"
         pkt1 = Ether(frame)
@@ -998,6 +1068,7 @@ class TestPcapReplayExtras:
     async def test_pcap_replay_skips_unparseable_scapy_packet(self, tmp_path):
         """Packets where _scapy_to_parsed returns None must be silently skipped."""
         from scapy.all import Ether, wrpcap  # type: ignore[import]
+
         frame = _build_ipv4_tcp(src="1.1.1.1", dst="2.2.2.2", sport=5000, dport=80)
         pcap_path = tmp_path / "skip_bad.pcap"
         wrpcap(str(pcap_path), [Ether(frame), Ether(frame)])

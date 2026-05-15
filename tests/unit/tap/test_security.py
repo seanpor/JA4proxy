@@ -4,6 +4,7 @@ Unit tests for src/tap/security.py — Group 12 (Phase 20).
 Covers: validate_pcap_path, drop_cap_net_raw, apply_seccomp_profile,
         and selected enforcement/export security behaviours.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -25,6 +26,7 @@ from src.tap.security import (
 # ---------------------------------------------------------------------------
 # validate_pcap_path
 # ---------------------------------------------------------------------------
+
 
 class TestValidatePcapPath:
     def test_validate_pcap_path_allows_valid_path(self, tmp_path):
@@ -82,6 +84,7 @@ class TestValidatePcapPath:
 # drop_cap_net_raw
 # ---------------------------------------------------------------------------
 
+
 class TestDropCapNetRaw:
     def test_drop_cap_net_raw_does_not_crash(self):
         """drop_cap_net_raw must complete without raising, even if libcap absent."""
@@ -93,8 +96,10 @@ class TestDropCapNetRaw:
             with caplog.at_level(logging.WARNING, logger="src.tap.security"):
                 drop_cap_net_raw()
 
-        assert any("unavailable" in r.message or "not found" in r.message
-                   for r in caplog.records)
+        assert any(
+            "unavailable" in r.message or "not found" in r.message
+            for r in caplog.records
+        )
 
     def test_drop_cap_net_raw_logs_success_when_libcap_present(self, caplog):
         """When libcap returns 0, an INFO message must be emitted."""
@@ -123,6 +128,7 @@ class TestDropCapNetRaw:
 # apply_seccomp_profile
 # ---------------------------------------------------------------------------
 
+
 class TestApplySeccompProfile:
     def _write_profile(self, tmp_path: Path, data: dict) -> Path:
         p = tmp_path / "seccomp.json"
@@ -146,14 +152,17 @@ class TestApplySeccompProfile:
         """When libseccomp.so.2 is unavailable the function must return cleanly."""
         profile = self._write_profile(
             tmp_path,
-            {"defaultAction": "SCMP_ACT_ERRNO", "syscalls": [
-                {"names": ["read", "write"], "action": "SCMP_ACT_ALLOW"}
-            ]},
+            {
+                "defaultAction": "SCMP_ACT_ERRNO",
+                "syscalls": [{"names": ["read", "write"], "action": "SCMP_ACT_ALLOW"}],
+            },
         )
         with patch("ctypes.CDLL", side_effect=OSError("libseccomp not found")):
             apply_seccomp_profile(profile)  # must not raise
 
-    def test_apply_seccomp_profile_logs_warning_if_libseccomp_absent(self, tmp_path, caplog):
+    def test_apply_seccomp_profile_logs_warning_if_libseccomp_absent(
+        self, tmp_path, caplog
+    ):
         """A WARNING must be logged when libseccomp is not installed."""
         profile = self._write_profile(
             tmp_path,
@@ -169,9 +178,12 @@ class TestApplySeccompProfile:
         """Profile is parsed and number of allowed syscalls is logged at DEBUG."""
         profile = self._write_profile(
             tmp_path,
-            {"defaultAction": "SCMP_ACT_ERRNO", "syscalls": [
-                {"names": ["read", "write", "close"], "action": "SCMP_ACT_ALLOW"}
-            ]},
+            {
+                "defaultAction": "SCMP_ACT_ERRNO",
+                "syscalls": [
+                    {"names": ["read", "write", "close"], "action": "SCMP_ACT_ALLOW"}
+                ],
+            },
         )
         with patch("ctypes.CDLL", side_effect=OSError("no libseccomp")):
             with caplog.at_level(logging.DEBUG, logger="src.tap.security"):
@@ -195,6 +207,7 @@ class TestApplySeccompProfile:
 # Webhook TLS verification warning
 # ---------------------------------------------------------------------------
 
+
 class TestWebhookTlsWarning:
     def test_webhook_tls_false_emits_startup_warn(self, caplog):
         """PaloAltoClient with verify_tls=False must log a TLS-disabled warning."""
@@ -210,8 +223,7 @@ class TestWebhookTlsWarning:
             PaloAltoClient(config=cfg, session=MagicMock())
 
         assert any(
-            "tls_verification_disabled" in r.message or
-            "TLS" in r.message
+            "tls_verification_disabled" in r.message or "TLS" in r.message
             for r in caplog.records
         )
 
@@ -219,6 +231,7 @@ class TestWebhookTlsWarning:
 # ---------------------------------------------------------------------------
 # BGP prefix length guard (mirrored from test_enforcement_bridge.py)
 # ---------------------------------------------------------------------------
+
 
 class TestBGPPrefixGuard:
     def _make_bridge_config(self, agg_v4: int = 32) -> dict:
@@ -232,7 +245,12 @@ class TestBGPPrefixGuard:
                     "aggregate_prefix_len_v4": agg_v4,
                     "aggregate_prefix_len_v6": 128,
                 },
-                "webhook": {"enabled": False, "url": "", "secret": "", "max_retries": 1},
+                "webhook": {
+                    "enabled": False,
+                    "url": "",
+                    "secret": "",
+                    "max_retries": 1,
+                },
             }
         }
 
@@ -288,6 +306,7 @@ class TestBGPPrefixGuard:
 
 # ── Missing-coverage tests ────────────────────────────────────────────────────
 
+
 class TestApplySeccompProfileWithLibSeccomp:
     """Cover lines 121-148: paths when libseccomp.so.2 IS successfully loaded.
 
@@ -303,11 +322,15 @@ class TestApplySeccompProfileWithLibSeccomp:
 
     def test_seccomp_init_returns_null_logs_warning(self, tmp_path, caplog):
         """seccomp_init() returns 0 (null ctx) → WARNING logged, function returns (lines 124-130).
-        So what: null ctx means seccomp filter is NOT applied; operator must be warned."""
-        profile = self._write_profile(tmp_path, {
-            "defaultAction": "SCMP_ACT_ERRNO",
-            "syscalls": [{"names": ["read"], "action": "SCMP_ACT_ALLOW"}]
-        })
+        So what: null ctx means seccomp filter is NOT applied; operator must be warned.
+        """
+        profile = self._write_profile(
+            tmp_path,
+            {
+                "defaultAction": "SCMP_ACT_ERRNO",
+                "syscalls": [{"names": ["read"], "action": "SCMP_ACT_ALLOW"}],
+            },
+        )
         mock_lib = MagicMock()
         mock_lib.seccomp_init.return_value = 0  # null ctx
 
@@ -320,10 +343,13 @@ class TestApplySeccompProfileWithLibSeccomp:
     def test_seccomp_load_success_logs_info(self, tmp_path, caplog):
         """seccomp_load() returns 0 → INFO 'seccomp_filter_applied' logged (lines 147-150).
         So what: successful seccomp application must be confirmed in audit logs."""
-        profile = self._write_profile(tmp_path, {
-            "defaultAction": "SCMP_ACT_ERRNO",
-            "syscalls": [{"names": ["read", "write"], "action": "SCMP_ACT_ALLOW"}]
-        })
+        profile = self._write_profile(
+            tmp_path,
+            {
+                "defaultAction": "SCMP_ACT_ERRNO",
+                "syscalls": [{"names": ["read", "write"], "action": "SCMP_ACT_ALLOW"}],
+            },
+        )
         mock_lib = MagicMock()
         mock_lib.seccomp_init.return_value = 1  # non-null ctx
         mock_lib.seccomp_syscall_resolve_name.return_value = 3  # valid syscall nr
@@ -340,10 +366,9 @@ class TestApplySeccompProfileWithLibSeccomp:
         """seccomp_load() returns non-zero → WARNING 'seccomp_load_failed' (lines 141-146).
         So what: a failed seccomp load means the filter was NOT applied — high-severity
         security misconfiguration that must be visible in logs."""
-        profile = self._write_profile(tmp_path, {
-            "defaultAction": "SCMP_ACT_ERRNO",
-            "syscalls": []
-        })
+        profile = self._write_profile(
+            tmp_path, {"defaultAction": "SCMP_ACT_ERRNO", "syscalls": []}
+        )
         mock_lib = MagicMock()
         mock_lib.seccomp_init.return_value = 1  # valid ctx
         mock_lib.seccomp_load.return_value = -1  # failure
@@ -357,10 +382,15 @@ class TestApplySeccompProfileWithLibSeccomp:
     def test_seccomp_invalid_syscall_name_skipped(self, tmp_path):
         """syscall name that resolves to -1 → rule not added, no crash (line 134-136).
         So what: unknown syscall names in profile must not crash filter construction."""
-        profile = self._write_profile(tmp_path, {
-            "defaultAction": "SCMP_ACT_ERRNO",
-            "syscalls": [{"names": ["unknown_syscall_xyz"], "action": "SCMP_ACT_ALLOW"}]
-        })
+        profile = self._write_profile(
+            tmp_path,
+            {
+                "defaultAction": "SCMP_ACT_ERRNO",
+                "syscalls": [
+                    {"names": ["unknown_syscall_xyz"], "action": "SCMP_ACT_ALLOW"}
+                ],
+            },
+        )
         mock_lib = MagicMock()
         mock_lib.seccomp_init.return_value = 1
         mock_lib.seccomp_syscall_resolve_name.return_value = -1  # not found

@@ -67,9 +67,7 @@ def _make_checker(
     # Directly inject test state
     checker._enabled = enabled
     checker._honey_fingerprints = frozenset(honey_fingerprints or [])
-    checker._honey_snis = frozenset(
-        s.lower() for s in (honey_snis or [])
-    )
+    checker._honey_snis = frozenset(s.lower() for s in (honey_snis or []))
     checker._ban_ttl = ban_ttl
     checker._silent_drop = True
     return checker
@@ -130,7 +128,11 @@ class TestEmptyHoneyLists:
             honey_fingerprints=[],
             honey_snis=[],
         )
-        result = _run(checker.check("10.0.0.1", "t13d030500_55b375c5d22e_a80244f201c9", "www.example.com"))
+        result = _run(
+            checker.check(
+                "10.0.0.1", "t13d030500_55b375c5d22e_a80244f201c9", "www.example.com"
+            )
+        )
         assert result is None
 
     def test_empty_lists_no_ban_written(self):
@@ -198,11 +200,13 @@ class TestHoneyFingerprintMatch:
             enabled=True,
             honey_fingerprints=["t13d030500_deadbeef0000_000000000000"],
         )
-        result = _run(checker.check(
-            "10.0.0.1",
-            "t13d030500_55b375c5d22e_a80244f201c9",
-            "www.example.com",
-        ))
+        result = _run(
+            checker.check(
+                "10.0.0.1",
+                "t13d030500_55b375c5d22e_a80244f201c9",
+                "www.example.com",
+            )
+        )
         assert result is None
 
     def test_none_ja4_does_not_match(self):
@@ -229,13 +233,19 @@ class TestHoneySNIMatch:
             honey_snis=["trap.internal.company.com"],
             redis=redis,
         )
-        _run(checker.check("10.0.0.99", "t13d030500_55b375c5d22e_a80244f201c9", "trap.internal.company.com"))
+        _run(
+            checker.check(
+                "10.0.0.99",
+                "t13d030500_55b375c5d22e_a80244f201c9",
+                "trap.internal.company.com",
+            )
+        )
 
         redis.set.assert_called_once()
         call_args = redis.set.call_args
-        assert "ban:10.0.0.99" in str(call_args.args[0]), (
-            f"Expected ban:10.0.0.99 key; got {call_args}"
-        )
+        assert "ban:10.0.0.99" in str(
+            call_args.args[0]
+        ), f"Expected ban:10.0.0.99 key; got {call_args}"
 
     def test_matching_sni_returns_sni_trigger(self):
         """Client SNI matching a honey SNI → returns dict with trigger=sni."""
@@ -243,11 +253,13 @@ class TestHoneySNIMatch:
             enabled=True,
             honey_snis=["trap.internal.company.com"],
         )
-        result = _run(checker.check(
-            "10.0.0.99",
-            "t13d030500_55b375c5d22e_a80244f201c9",
-            "trap.internal.company.com",
-        ))
+        result = _run(
+            checker.check(
+                "10.0.0.99",
+                "t13d030500_55b375c5d22e_a80244f201c9",
+                "trap.internal.company.com",
+            )
+        )
         assert result is not None
         assert result["trigger"] == "sni"
 
@@ -258,11 +270,13 @@ class TestHoneySNIMatch:
             honey_snis=["trap.internal.company.com"],
         )
         # Client sends uppercase variant
-        result = _run(checker.check(
-            "10.0.0.99",
-            None,
-            "TRAP.INTERNAL.COMPANY.COM",
-        ))
+        result = _run(
+            checker.check(
+                "10.0.0.99",
+                None,
+                "TRAP.INTERNAL.COMPANY.COM",
+            )
+        )
         assert result is not None, "SNI match must be case-insensitive"
         assert result["trigger"] == "sni"
 
@@ -315,11 +329,13 @@ class TestRedisUnavailableDuringBan:
             redis=None,  # No Redis client
         )
         checker._redis = None  # Ensure it's really None
-        result = _run(checker.check(
-            "10.0.0.7",
-            "t13d030500_deadbeef0000_000000000000",
-            None,
-        ))
+        result = _run(
+            checker.check(
+                "10.0.0.7",
+                "t13d030500_deadbeef0000_000000000000",
+                None,
+            )
+        )
         # Still detects the match (fail open means no crash, not no detection)
         assert result is not None
 
@@ -371,9 +387,9 @@ class TestPipelineDeceptionIntegration:
             sni="www.example.com",
         )
         result = _run(pipeline.process(ctx))
-        assert result.action == "silent_drop", (
-            f"Expected 'silent_drop' for honey fingerprint match; got {result.action!r}"
-        )
+        assert (
+            result.action == "silent_drop"
+        ), f"Expected 'silent_drop' for honey fingerprint match; got {result.action!r}"
 
     def test_matching_sni_pipeline_returns_silent_drop(self):
         """Honey SNI match → pipeline action is 'silent_drop'."""
@@ -389,9 +405,9 @@ class TestPipelineDeceptionIntegration:
             sni="trap.internal.company.com",
         )
         result = _run(pipeline.process(ctx))
-        assert result.action == "silent_drop", (
-            f"Expected 'silent_drop' for honey SNI match; got {result.action!r}"
-        )
+        assert (
+            result.action == "silent_drop"
+        ), f"Expected 'silent_drop' for honey SNI match; got {result.action!r}"
 
     def test_no_match_pipeline_returns_allow(self):
         """No honey match → pipeline continues normally (allow at dial=0)."""
@@ -413,6 +429,7 @@ class TestPipelineDeceptionIntegration:
 
 # ── Missing-coverage tests ────────────────────────────────────────────────────
 
+
 class TestDeceptionConfigLoadPaths:
     """Cover _load_deception_config() edge paths (lines 88-147) and reload() (lines 151-155)."""
 
@@ -422,7 +439,9 @@ class TestDeceptionConfigLoadPaths:
         must silently disable itself so real traffic is never blocked."""
         redis = _make_redis()
         checker = DeceptionChecker(
-            proxy_config={"deception": {"config_path": str(tmp_path / "nonexistent.yml")}},
+            proxy_config={
+                "deception": {"config_path": str(tmp_path / "nonexistent.yml")}
+            },
             redis_client=redis,
         )
         assert not checker._enabled
@@ -435,8 +454,9 @@ class TestDeceptionConfigLoadPaths:
         cfg_file = tmp_path / "deception.yml"
         cfg_file.write_text("- item1\n- item2\n")
         import logging
-        with __import__('unittest.mock', fromlist=['patch']).patch(
-            'src.security.deception.logger'
+
+        with __import__("unittest.mock", fromlist=["patch"]).patch(
+            "src.security.deception.logger"
         ) as mock_log:
             checker = DeceptionChecker(
                 proxy_config={"deception": {"config_path": str(cfg_file)}},
@@ -460,7 +480,9 @@ class TestDeceptionConfigLoadPaths:
         So what: misconfigured fingerprint type must not raise TypeError; the checker
         should stay functional with no honey fingerprints."""
         cfg_file = tmp_path / "deception.yml"
-        cfg_file.write_text("deception:\n  enabled: true\n  honey_fingerprints: 12345\n")
+        cfg_file.write_text(
+            "deception:\n  enabled: true\n  honey_fingerprints: 12345\n"
+        )
         checker = DeceptionChecker(
             proxy_config={"deception": {"config_path": str(cfg_file)}},
             redis_client=_make_redis(),
@@ -485,6 +507,7 @@ class TestDeceptionConfigLoadPaths:
         cfg_file = tmp_path / "deception.yml"
         cfg_file.write_text("deception:\n  enabled: true\n")
         import builtins
+
         original_open = builtins.open
 
         def _raise_open(path, *args, **kwargs):
@@ -492,7 +515,9 @@ class TestDeceptionConfigLoadPaths:
                 raise PermissionError("No read permission")
             return original_open(path, *args, **kwargs)
 
-        with __import__('unittest.mock', fromlist=['patch']).patch('builtins.open', _raise_open):
+        with __import__("unittest.mock", fromlist=["patch"]).patch(
+            "builtins.open", _raise_open
+        ):
             checker = DeceptionChecker(
                 proxy_config={"deception": {"config_path": str(cfg_file)}},
                 redis_client=_make_redis(),
@@ -526,7 +551,9 @@ class TestCheckExceptionFails(object):
         hot path; fail-open means the connection is allowed through."""
         redis = _make_redis()
         honey_ja4 = "t13d030500_deadbeef0000_000000000000"
-        checker = _make_checker(enabled=True, honey_fingerprints=[honey_ja4], redis=redis)
+        checker = _make_checker(
+            enabled=True, honey_fingerprints=[honey_ja4], redis=redis
+        )
         with patch.object(checker, "_ban_ip", side_effect=RuntimeError("injected")):
             result = _run(checker.check("1.2.3.4", honey_ja4, None))
         assert result is None

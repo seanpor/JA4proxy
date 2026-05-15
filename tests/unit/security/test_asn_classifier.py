@@ -214,24 +214,31 @@ class TestCoverageGaps(unittest.TestCase):
     """Phase 16c — cover previously uncovered code paths."""
 
     @patch("src.security.asn_classifier.asyncio")
-    @patch("builtins.open", new_callable=mock_open, read_data="asns:\n  15169: Google\n")
+    @patch(
+        "builtins.open", new_callable=mock_open, read_data="asns:\n  15169: Google\n"
+    )
     @patch("os.path.exists")
     def _make(self, mock_exists, mock_file, mock_asyncio):
         mock_exists.return_value = True
-        return ASNClassifier({"asn_classifier": {"enabled": True, "risk_contributions": RISK_SCORES}}, MagicMock())
+        return ASNClassifier(
+            {"asn_classifier": {"enabled": True, "risk_contributions": RISK_SCORES}},
+            MagicMock(),
+        )
 
     def test_parse_tor_consensus_exit_entries(self):
         """_parse_tor_consensus extracts IPs from Exit-flag lines."""
         cls = self._make()
-        content = "\n".join([
-            "network-status-version 3",
-            "# comment",
-            "",
-            "r TorNode 0000 2000-01-01 00:00:00 1.2.3.4 9001 0",
-            "s Exit Fast Guard Stable Valid",
-            "r TorNode2 0001 2000-01-01 00:00:01 5.6.7.8 9001 0",
-            "s Fast Guard Stable Valid",   # No Exit flag — should not be included
-        ])
+        content = "\n".join(
+            [
+                "network-status-version 3",
+                "# comment",
+                "",
+                "r TorNode 0000 2000-01-01 00:00:00 1.2.3.4 9001 0",
+                "s Exit Fast Guard Stable Valid",
+                "r TorNode2 0001 2000-01-01 00:00:01 5.6.7.8 9001 0",
+                "s Fast Guard Stable Valid",  # No Exit flag — should not be included
+            ]
+        )
         ips = cls._parse_tor_consensus(content)
         # Exit-flag line has "Exit" in parts — but our parser checks parts not "s" lines
         assert isinstance(ips, set)
@@ -319,7 +326,9 @@ class TestASNClassifierCoverageExtended:
             patch("builtins.open", mock_open(read_data="asns: {}\n")),
             patch("os.path.exists", return_value=True),
         ):
-            config = {"asn_classifier": {"enabled": True, "risk_contributions": RISK_SCORES}}
+            config = {
+                "asn_classifier": {"enabled": True, "risk_contributions": RISK_SCORES}
+            }
             cls = ASNClassifier(config, MagicMock())
         # _maxmind_reader should be None since init returned early
         assert cls._maxmind_reader is None
@@ -329,13 +338,16 @@ class TestASNClassifierCoverageExtended:
     def test_yaml_error_in_datacenter_list_caught(self):
         """yaml.YAMLError during datacenter list load is caught (lines 136-137)."""
         import yaml
+
         with (
             patch("src.security.asn_classifier.asyncio"),
             patch("builtins.open", mock_open(read_data=":")),  # invalid YAML
             patch("yaml.safe_load", side_effect=yaml.YAMLError("bad yaml")),
             patch("os.path.exists", return_value=True),
         ):
-            config = {"asn_classifier": {"enabled": True, "risk_contributions": RISK_SCORES}}
+            config = {
+                "asn_classifier": {"enabled": True, "risk_contributions": RISK_SCORES}
+            }
             cls = ASNClassifier(config, MagicMock())
         # Should not raise; datacenter asns stays empty
         assert isinstance(cls._datacenter_asns, dict)
@@ -352,7 +364,9 @@ class TestASNClassifierCoverageExtended:
             patch("src.security.asn_classifier.maxminddb") as mock_mmdb,
         ):
             mock_mmdb.open_database.return_value = mock_reader
-            config = {"asn_classifier": {"enabled": True, "risk_contributions": RISK_SCORES}}
+            config = {
+                "asn_classifier": {"enabled": True, "risk_contributions": RISK_SCORES}
+            }
             cls = ASNClassifier(config, MagicMock())
         assert cls._maxmind_reader is mock_reader
 
@@ -434,7 +448,11 @@ class TestASNClassifierCoverageExtended:
         async def run_cancel_path():
             """Verify CancelledError breaks the while loop in _tor_refresh_loop."""
             with (
-                patch.object(cls, "_refresh_tor_list", AsyncMock(side_effect=asyncio.CancelledError())),
+                patch.object(
+                    cls,
+                    "_refresh_tor_list",
+                    AsyncMock(side_effect=asyncio.CancelledError()),
+                ),
                 patch("asyncio.sleep", AsyncMock(return_value=None)),
             ):
                 # Loop should break on first CancelledError from _refresh_tor_list
@@ -491,13 +509,15 @@ class TestASNClassifierCoverageExtended:
         redis.pipeline.return_value = MagicMock()
         cls = self._make(redis=redis)
 
-        tor_content = "\n".join([
-            "network-status-version 3",
-            "r Node1 xxxx 2024-01-01 00:00:00 1.2.3.4 9001 0",
-            "s Exit Fast Guard",
-            "r Node2 yyyy 2024-01-01 00:00:01 5.6.7.8 9001 0",
-            "s Fast Guard",
-        ])
+        tor_content = "\n".join(
+            [
+                "network-status-version 3",
+                "r Node1 xxxx 2024-01-01 00:00:00 1.2.3.4 9001 0",
+                "s Exit Fast Guard",
+                "r Node2 yyyy 2024-01-01 00:00:01 5.6.7.8 9001 0",
+                "s Fast Guard",
+            ]
+        )
 
         mock_response = MagicMock()
         mock_response.status = 200
@@ -510,7 +530,10 @@ class TestASNClassifierCoverageExtended:
         mock_session.get.return_value.__aexit__ = AsyncMock(return_value=None)
 
         async def run():
-            with patch("src.security.asn_classifier.aiohttp.ClientSession", return_value=mock_session):
+            with patch(
+                "src.security.asn_classifier.aiohttp.ClientSession",
+                return_value=mock_session,
+            ):
                 await _REAL_REFRESH_TOR_LIST(cls)
 
         asyncio.run(run())
@@ -532,7 +555,10 @@ class TestASNClassifierCoverageExtended:
         mock_session.get.return_value.__aexit__ = AsyncMock(return_value=None)
 
         async def run():
-            with patch("src.security.asn_classifier.aiohttp.ClientSession", return_value=mock_session):
+            with patch(
+                "src.security.asn_classifier.aiohttp.ClientSession",
+                return_value=mock_session,
+            ):
                 await _REAL_REFRESH_TOR_LIST(cls)  # must not raise
 
         asyncio.run(run())
@@ -548,7 +574,10 @@ class TestASNClassifierCoverageExtended:
         mock_session.__aexit__ = AsyncMock(return_value=None)
 
         async def run():
-            with patch("src.security.asn_classifier.aiohttp.ClientSession", return_value=mock_session):
+            with patch(
+                "src.security.asn_classifier.aiohttp.ClientSession",
+                return_value=mock_session,
+            ):
                 await _REAL_REFRESH_TOR_LIST(cls)  # must not raise
 
         asyncio.run(run())
@@ -577,7 +606,9 @@ class TestASNClassifierCoverageExtended:
         """Invalid IP token in Exit line → ValueError caught, continue (lines 309-310)."""
         cls = self._make()
         # Line has "Exit" and something that looks like IP but is invalid
-        content = "r Node 000 2024-01-01 00:00:00 not.a.valid.ip.address 9001 0 Exit Fast\n"
+        content = (
+            "r Node 000 2024-01-01 00:00:00 not.a.valid.ip.address 9001 0 Exit Fast\n"
+        )
         ips = cls._parse_tor_consensus(content)
         assert isinstance(ips, set)
 
@@ -686,7 +717,9 @@ class TestASNClassifierCoverageExtended:
             raise asyncio.CancelledError()
 
         async def run():
-            with patch.object(cls, "_refresh_tor_list", side_effect=_refresh_raises_then_cancels):
+            with patch.object(
+                cls, "_refresh_tor_list", side_effect=_refresh_raises_then_cancels
+            ):
                 with patch("asyncio.sleep", AsyncMock(return_value=None)):
                     await _REAL_TOR_REFRESH_LOOP(cls, 0)
 
@@ -722,9 +755,7 @@ class TestASNClassifierCoverageExtended:
         redis.pipeline = MagicMock(return_value=mock_pipe)
         cls = self._make(redis=redis)
 
-        tor_content = (
-            "r Node1 xxxx 2024-01-01 00:00:00 9.9.9.9 9001 0 Exit Fast\n"
-        )
+        tor_content = "r Node1 xxxx 2024-01-01 00:00:00 9.9.9.9 9001 0 Exit Fast\n"
         mock_response = MagicMock()
         mock_response.status = 200
         mock_response.text = AsyncMock(return_value=tor_content)
@@ -736,7 +767,10 @@ class TestASNClassifierCoverageExtended:
         mock_session.get.return_value.__aexit__ = AsyncMock(return_value=None)
 
         async def run():
-            with patch("src.security.asn_classifier.aiohttp.ClientSession", return_value=mock_session):
+            with patch(
+                "src.security.asn_classifier.aiohttp.ClientSession",
+                return_value=mock_session,
+            ):
                 await _REAL_REFRESH_TOR_LIST(cls)
 
         asyncio.run(run())
@@ -758,9 +792,7 @@ class TestASNClassifierCoverageExtended:
         redis.pipeline = MagicMock(return_value=mock_pipe)
         cls = self._make(redis=redis)
 
-        tor_content = (
-            "r Node1 xxxx 2024-01-01 00:00:00 9.9.9.9 9001 0 Exit Fast\n"
-        )
+        tor_content = "r Node1 xxxx 2024-01-01 00:00:00 9.9.9.9 9001 0 Exit Fast\n"
         mock_response = MagicMock()
         mock_response.status = 200
         mock_response.text = AsyncMock(return_value=tor_content)
@@ -772,7 +804,10 @@ class TestASNClassifierCoverageExtended:
         mock_session.get.return_value.__aexit__ = AsyncMock(return_value=None)
 
         async def run():
-            with patch("src.security.asn_classifier.aiohttp.ClientSession", return_value=mock_session):
+            with patch(
+                "src.security.asn_classifier.aiohttp.ClientSession",
+                return_value=mock_session,
+            ):
                 await _REAL_REFRESH_TOR_LIST(cls)  # must not raise
 
         asyncio.run(run())

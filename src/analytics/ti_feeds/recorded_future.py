@@ -108,12 +108,16 @@ class RecordedFutureClient(FeedClient):
                         "username": "api",
                         "password": config.api_token or "",
                         # Propagate gating knobs:
-                        "min_confidence": max(config.min_confidence, config.min_rf_risk_score),
+                        "min_confidence": max(
+                            config.min_confidence, config.min_rf_risk_score
+                        ),
                         "ban_ttl_hours": config.ban_ttl_hours,
                         "enabled": config.enabled,
                     }
                 )
-                self._inner_clients.append(TAXIIClient(config=inner_cfg, mgmt=mgmt, state=state))
+                self._inner_clients.append(
+                    TAXIIClient(config=inner_cfg, mgmt=mgmt, state=state)
+                )
 
     @property
     def collection_ids(self) -> list[str]:
@@ -135,7 +139,9 @@ class RecordedFutureClient(FeedClient):
         if self._bearer_token is not None:
             return self._bearer_token
         if self._token_exchange is None:
-            raise RuntimeError("RecordedFutureClient.fetch_bearer_token requires token_exchange to be set")
+            raise RuntimeError(
+                "RecordedFutureClient.fetch_bearer_token requires token_exchange to be set"
+            )
         self._bearer_token = await self._token_exchange(self.config.api_token)
         return self._bearer_token
 
@@ -186,7 +192,9 @@ class RecordedFutureClient(FeedClient):
                 inner_result = await inner.poll()
                 combined.stix_ids_seen.update(inner_result.stix_ids_seen)
                 combined.created.extend(inner_result.created)
-                combined.skipped_below_confidence += inner_result.skipped_below_confidence
+                combined.skipped_below_confidence += (
+                    inner_result.skipped_below_confidence
+                )
                 combined.unsupported_pattern += inner_result.unsupported_pattern
                 combined.errors.extend(inner_result.errors)
             _POLL_TOTAL.labels(feed_id=feed_id, result="success").inc()
@@ -224,7 +232,9 @@ class RecordedFutureClient(FeedClient):
                 type="taxii2",
                 enabled=True,
                 collection_id=collection_id,
-                min_confidence=max(self.config.min_confidence, self.config.min_rf_risk_score),
+                min_confidence=max(
+                    self.config.min_confidence, self.config.min_rf_risk_score
+                ),
                 ban_ttl_hours=self.config.ban_ttl_hours,
             )
             inner = TAXIIClient(

@@ -3,6 +3,7 @@ Tests for src/management/redis_client.py — RedisManager.
 Phase 104: coverage gap closure.
 Uses fakeredis for an in-memory Redis substitute.
 """
+
 import asyncio
 import json
 import os
@@ -34,6 +35,7 @@ async def manager(fake_redis):
 
 # ── connect ──────────────────────────────────────────────────────────────────
 
+
 class TestConnect:
     @pytest.mark.asyncio
     async def test_connect_creates_client(self):
@@ -55,6 +57,7 @@ class TestConnect:
 
 
 # ── get_dial / set_dial ──────────────────────────────────────────────────────
+
 
 class TestDial:
     @pytest.mark.asyncio
@@ -92,6 +95,7 @@ class TestDial:
 
 
 # ── list operations ──────────────────────────────────────────────────────────
+
 
 class TestLists:
     @pytest.mark.asyncio
@@ -147,6 +151,7 @@ class TestLists:
 
 # ── get_events ───────────────────────────────────────────────────────────────
 
+
 class TestGetEvents:
     @pytest.mark.asyncio
     async def test_get_events_yields_messages(self, manager):
@@ -176,6 +181,7 @@ class TestGetEvents:
 
 # ── close ────────────────────────────────────────────────────────────────────
 
+
 class TestClose:
     @pytest.mark.asyncio
     @pytest.mark.filterwarnings("ignore::DeprecationWarning")
@@ -191,6 +197,7 @@ class TestClose:
 
 
 # ── constructor ──────────────────────────────────────────────────────────────
+
 
 class TestConstructor:
     def test_init_stores_params(self):
@@ -208,8 +215,10 @@ class TestConstructor:
 
 # ── helper ───────────────────────────────────────────────────────────────────
 
+
 class AsyncIterator:
     """Turn a list into an async iterator for mocking pubsub.listen()."""
+
     def __init__(self, items):
         self._items = iter(items)
 

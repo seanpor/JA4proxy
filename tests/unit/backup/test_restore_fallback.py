@@ -9,6 +9,7 @@ Tests for BackupRestorer.restore_with_fallback():
 - Empty fallback list + primary fails → RestoreError raised
 - audit key records the actually-used artifact filename
 """
+
 import hashlib
 import json
 import logging
@@ -25,6 +26,7 @@ from src.backup.restorer import BackupRestorer, RestoreError
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _write_valid_artifact(tmp_path: Path, suffix: str = "") -> tuple[Path, Path]:
     """Write a valid backup artifact + manifest. Returns (backup_path, manifest_path)."""
     entries = [("ban:0", b"v"), ("ban:1", b"v")]
@@ -34,16 +36,20 @@ def _write_valid_artifact(tmp_path: Path, suffix: str = "") -> tuple[Path, Path]
     bp = tmp_path / filename
     mp = tmp_path / f"{filename}.manifest.json"
     bp.write_bytes(data)
-    mp.write_text(json.dumps({
-        "filename": filename,
-        "created_at": "2026-01-01T00:00:00Z",
-        "backup_type": "full",
-        "keys_count": 2,
-        "checksum_sha256": checksum,
-        "size_bytes": len(data),
-        "included_patterns": ["*"],
-        "excluded_patterns": [],
-    }))
+    mp.write_text(
+        json.dumps(
+            {
+                "filename": filename,
+                "created_at": "2026-01-01T00:00:00Z",
+                "backup_type": "full",
+                "keys_count": 2,
+                "checksum_sha256": checksum,
+                "size_bytes": len(data),
+                "included_patterns": ["*"],
+                "excluded_patterns": [],
+            }
+        )
+    )
     return bp, mp
 
 
@@ -53,16 +59,20 @@ def _write_bad_artifact(tmp_path: Path, suffix: str = "_bad") -> tuple[Path, Pat
     bp = tmp_path / filename
     mp = tmp_path / f"{filename}.manifest.json"
     bp.write_bytes(b"garbage data for a bad artifact")
-    mp.write_text(json.dumps({
-        "filename": filename,
-        "created_at": "2026-01-01T00:00:01Z",
-        "backup_type": "full",
-        "keys_count": 1,
-        "checksum_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
-        "size_bytes": 31,
-        "included_patterns": ["*"],
-        "excluded_patterns": [],
-    }))
+    mp.write_text(
+        json.dumps(
+            {
+                "filename": filename,
+                "created_at": "2026-01-01T00:00:01Z",
+                "backup_type": "full",
+                "keys_count": 1,
+                "checksum_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+                "size_bytes": 31,
+                "included_patterns": ["*"],
+                "excluded_patterns": [],
+            }
+        )
+    )
     return bp, mp
 
 
@@ -99,6 +109,7 @@ def _make_restorer() -> BackupRestorer:
 # Tests
 # ---------------------------------------------------------------------------
 
+
 class TestRestoreWithFallback:
 
     def test_fallback_not_tried_when_primary_succeeds(self, tmp_path):
@@ -122,9 +133,9 @@ class TestRestoreWithFallback:
 
         assert result == primary_bp
         # Fallback binary must never be read
-        assert str(fallback_bp) not in opened_paths, (
-            "Fallback artifact file was opened when primary succeeded"
-        )
+        assert (
+            str(fallback_bp) not in opened_paths
+        ), "Fallback artifact file was opened when primary succeeded"
 
     def test_fallback_used_when_primary_checksum_fails(self, tmp_path):
         """Primary has bad checksum; fallback is valid → restore succeeds via fallback."""
@@ -152,9 +163,9 @@ class TestRestoreWithFallback:
                 restorer.restore_with_fallback(primary_bp, [fallback_bp])
 
         fallback_warnings = [
-            r for r in caplog.records
-            if "fallback" in r.getMessage().lower()
-            and r.levelno >= logging.WARNING
+            r
+            for r in caplog.records
+            if "fallback" in r.getMessage().lower() and r.levelno >= logging.WARNING
         ]
         assert len(fallback_warnings) >= 1, (
             "Expected WARNING about fallback being used, found none. "
@@ -162,9 +173,9 @@ class TestRestoreWithFallback:
         )
         # At least one warning should mention the fallback filename
         msgs = " ".join(r.getMessage() for r in fallback_warnings)
-        assert fallback_bp.name in msgs, (
-            f"Fallback filename '{fallback_bp.name}' not mentioned in warnings: {msgs}"
-        )
+        assert (
+            fallback_bp.name in msgs
+        ), f"Fallback filename '{fallback_bp.name}' not mentioned in warnings: {msgs}"
 
     def test_all_fallbacks_fail_raises_restore_error(self, tmp_path):
         """Primary fails + all fallbacks fail → RestoreError raised."""
@@ -208,9 +219,9 @@ class TestRestoreWithFallback:
 
         raw_str = raw.decode() if isinstance(raw, bytes) else raw
         record = json.loads(raw_str)
-        assert record["filename"] == fallback_bp.name, (
-            f"Expected filename '{fallback_bp.name}', got '{record.get('filename')}'"
-        )
+        assert (
+            record["filename"] == fallback_bp.name
+        ), f"Expected filename '{fallback_bp.name}', got '{record.get('filename')}'"
 
     def test_restore_with_fallback_no_fallback_arg(self, tmp_path):
         """restore_with_fallback(primary) with no fallbacks → behaves as if fallbacks=[]."""

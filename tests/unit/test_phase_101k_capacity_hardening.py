@@ -12,9 +12,15 @@ def test_estimated_banner_deleted():
     with open("scripts/capacity_calculator.py") as f:
         content = f.read()
 
-    assert "_ESTIMATED_BANNER" not in content, "Dead code _ESTIMATED_BANNER should be deleted"
-    assert "_print_estimated_warning" not in content, "Dead code _print_estimated_warning should be deleted"
-    assert "report.estimated =" not in content, "Dead code report.estimated = should be deleted"
+    assert (
+        "_ESTIMATED_BANNER" not in content
+    ), "Dead code _ESTIMATED_BANNER should be deleted"
+    assert (
+        "_print_estimated_warning" not in content
+    ), "Dead code _print_estimated_warning should be deleted"
+    assert (
+        "report.estimated =" not in content
+    ), "Dead code report.estimated = should be deleted"
 
 
 def test_require_measured_exits_zero():
@@ -30,7 +36,9 @@ def test_require_measured_exits_zero():
         capture_output=True,
         text=True,
     )
-    assert result.returncode == 0, f"--require-measured should exit 0, got {result.returncode}: {result.stderr}"
+    assert (
+        result.returncode == 0
+    ), f"--require-measured should exit 0, got {result.returncode}: {result.stderr}"
 
 
 def test_require_measured_exits_nonzero_on_placeholders(tmp_path):
@@ -57,4 +65,6 @@ def test_require_measured_exits_nonzero_on_placeholders(tmp_path):
         capture_output=True,
         text=True,
     )
-    assert result.returncode != 0, "--require-measured should exit non-zero on placeholders"
+    assert (
+        result.returncode != 0
+    ), "--require-measured should exit non-zero on placeholders"

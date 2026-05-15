@@ -33,7 +33,9 @@ from src.security.rate_tracker import (
 def _make_redis(ping_ok=True, register_ok=True, register_side_effect=None):
     """Build a mock Redis client."""
     mock = Mock(spec=redis.Redis)
-    mock.ping.return_value = True if ping_ok else Mock(side_effect=redis.ConnectionError("down"))
+    mock.ping.return_value = (
+        True if ping_ok else Mock(side_effect=redis.ConnectionError("down"))
+    )
     script = Mock()
     script.return_value = 1
     if register_ok:
@@ -45,14 +47,18 @@ def _make_redis(ping_ok=True, register_ok=True, register_side_effect=None):
 
 def _minimal_config(strategy_override=None, windows_override=None):
     """Minimal valid config with one enabled strategy."""
-    strategies = strategy_override if strategy_override is not None else {
-        "by_ip": {
-            "enabled": True,
-            "thresholds": {"suspicious": 5, "block": 20, "ban": 50},
-            "action": "block",
-            "ban_duration": 3600,
+    strategies = (
+        strategy_override
+        if strategy_override is not None
+        else {
+            "by_ip": {
+                "enabled": True,
+                "thresholds": {"suspicious": 5, "block": 20, "ban": 50},
+                "action": "block",
+                "ban_duration": 3600,
+            }
         }
-    }
+    )
     cfg = {
         "security": {
             "rate_limit_strategies": strategies,
@@ -89,7 +95,9 @@ class TestNonDictStrategies:
         mock_redis = _make_redis()
         config = {"security": {"rate_limit_strategies": ["by_ip", "by_ja4"]}}
 
-        with pytest.raises(ValueError, match="rate_limit_strategies must be a dictionary"):
+        with pytest.raises(
+            ValueError, match="rate_limit_strategies must be a dictionary"
+        ):
             MultiStrategyRateTracker(mock_redis, config)
 
     def test_string_strategies_raises_value_error(self):
@@ -97,7 +105,9 @@ class TestNonDictStrategies:
         mock_redis = _make_redis()
         config = {"security": {"rate_limit_strategies": "by_ip"}}
 
-        with pytest.raises(ValueError, match="rate_limit_strategies must be a dictionary"):
+        with pytest.raises(
+            ValueError, match="rate_limit_strategies must be a dictionary"
+        ):
             MultiStrategyRateTracker(mock_redis, config)
 
 
@@ -110,10 +120,13 @@ class TestInvalidStrategySettings:
     def test_string_settings_skipped_with_warning(self, caplog):
         """Lines 175-178: settings is a string → warning logged, strategy skipped."""
         import logging
+
         mock_redis = _make_redis()
-        config = _minimal_config(strategy_override={
-            "by_ip": "not-a-dict",  # invalid settings
-        })
+        config = _minimal_config(
+            strategy_override={
+                "by_ip": "not-a-dict",  # invalid settings
+            }
+        )
         with caplog.at_level(logging.WARNING, logger="src.security.rate_tracker"):
             tracker = MultiStrategyRateTracker(mock_redis, config)
 
@@ -124,10 +137,13 @@ class TestInvalidStrategySettings:
     def test_none_settings_skipped(self, caplog):
         """None settings → not a dict → warning, strategy skipped."""
         import logging
+
         mock_redis = _make_redis()
-        config = _minimal_config(strategy_override={
-            "by_ip": None,
-        })
+        config = _minimal_config(
+            strategy_override={
+                "by_ip": None,
+            }
+        )
         with caplog.at_level(logging.WARNING, logger="src.security.rate_tracker"):
             tracker = MultiStrategyRateTracker(mock_redis, config)
 
@@ -144,15 +160,18 @@ class TestUnknownStrategyName:
     def test_unknown_enabled_strategy_skipped(self, caplog):
         """Line 187: enabled strategy with unknown name → warning, skipped."""
         import logging
+
         mock_redis = _make_redis()
-        config = _minimal_config(strategy_override={
-            "completely_unknown_strategy": {
-                "enabled": True,
-                "thresholds": {"suspicious": 5, "block": 20, "ban": 50},
-                "action": "block",
-                "ban_duration": 3600,
-            },
-        })
+        config = _minimal_config(
+            strategy_override={
+                "completely_unknown_strategy": {
+                    "enabled": True,
+                    "thresholds": {"suspicious": 5, "block": 20, "ban": 50},
+                    "action": "block",
+                    "ban_duration": 3600,
+                },
+            }
+        )
         with caplog.at_level(logging.WARNING, logger="src.security.rate_tracker"):
             tracker = MultiStrategyRateTracker(mock_redis, config)
 
@@ -162,13 +181,16 @@ class TestUnknownStrategyName:
     def test_disabled_unknown_strategy_not_warned(self, caplog):
         """Disabled unknown strategy doesn't trigger the warning."""
         import logging
+
         mock_redis = _make_redis()
-        config = _minimal_config(strategy_override={
-            "completely_unknown_strategy": {
-                "enabled": False,  # disabled → not loaded, no warning
-                "thresholds": {"suspicious": 5, "block": 20, "ban": 50},
-            },
-        })
+        config = _minimal_config(
+            strategy_override={
+                "completely_unknown_strategy": {
+                    "enabled": False,  # disabled → not loaded, no warning
+                    "thresholds": {"suspicious": 5, "block": 20, "ban": 50},
+                },
+            }
+        )
         with caplog.at_level(logging.WARNING, logger="src.security.rate_tracker"):
             tracker = MultiStrategyRateTracker(mock_redis, config)
 
@@ -185,6 +207,7 @@ class TestInvalidWindowValues:
     def test_non_numeric_window_value_skipped(self, caplog):
         """Lines 225-226: float('list') raises ValueError → warning, default kept."""
         import logging
+
         mock_redis = _make_redis()
         config = _minimal_config(windows_override={"custom": "not-a-number"})
 
@@ -198,6 +221,7 @@ class TestInvalidWindowValues:
     def test_none_window_value_skipped(self, caplog):
         """None window value → float(None) raises TypeError → warning."""
         import logging
+
         mock_redis = _make_redis()
         config = _minimal_config(windows_override={"custom": None})
 
@@ -260,6 +284,7 @@ class TestTrackSingleStrategyExceptions:
 
 # ── Missing-coverage tests ────────────────────────────────────────────────────
 
+
 class TestIsAsyncRedis:
     """Cover _is_async_redis() AttributeError path (line 141-142).
 
@@ -271,9 +296,11 @@ class TestIsAsyncRedis:
         """redis.asyncio missing Redis attr → returns False (lines 141-142).
         So what: environments without redis.asyncio must still initialise safely."""
         from src.security.rate_tracker import MultiStrategyRateTracker
+
         mock_client = MagicMock()
         # Simulate redis.asyncio not having a Redis attribute at all
         import types
+
         fake_asyncio = types.ModuleType("redis.asyncio")
         # Do NOT set fake_asyncio.Redis — accessing it raises AttributeError
         with patch("src.security.rate_tracker.redis") as mock_redis_mod:
@@ -297,7 +324,9 @@ class TestValidateRedisConnectionAsync:
         cfg = _minimal_config()
         tracker = MultiStrategyRateTracker(mock_redis, cfg)
         # Patch _is_async_redis to pretend our mock is async
-        with patch.object(MultiStrategyRateTracker, "_is_async_redis", return_value=True):
+        with patch.object(
+            MultiStrategyRateTracker, "_is_async_redis", return_value=True
+        ):
             # Should not call ping
             tracker._validate_redis_connection()
         mock_redis.ping.assert_called_once()  # was called in __init__, not in validate
@@ -316,7 +345,9 @@ class TestHealthCheckAsync:
         mock_redis = _make_redis()
         cfg = _minimal_config()
         tracker = MultiStrategyRateTracker(mock_redis, cfg)
-        with patch.object(MultiStrategyRateTracker, "_is_async_redis", return_value=True):
+        with patch.object(
+            MultiStrategyRateTracker, "_is_async_redis", return_value=True
+        ):
             result = tracker.health_check()
         assert result is True
 
@@ -345,9 +376,12 @@ class TestTrackWithPipelineBatchingSyncPath:
         mock_redis.pipeline.return_value = mock_pipe
 
         results = {}
-        with patch.object(MultiStrategyRateTracker, "_is_async_redis", return_value=False):
+        with patch.object(
+            MultiStrategyRateTracker, "_is_async_redis", return_value=False
+        ):
             await tracker._track_with_pipeline_batching(
-                "t13d", "1.2.3.4",
+                "t13d",
+                "1.2.3.4",
                 window_seconds=60.0,
                 now=1700000000.0,
                 ttl=60,
@@ -372,9 +406,12 @@ class TestTrackWithPipelineBatchingSyncPath:
         mock_redis.pipeline.return_value = mock_pipe
 
         results = {}
-        with patch.object(MultiStrategyRateTracker, "_is_async_redis", return_value=False):
+        with patch.object(
+            MultiStrategyRateTracker, "_is_async_redis", return_value=False
+        ):
             await tracker._track_with_pipeline_batching(
-                "t13d", "1.2.3.4",
+                "t13d",
+                "1.2.3.4",
                 window_seconds=60.0,
                 now=1700000000.0,
                 ttl=60,
@@ -386,7 +423,8 @@ class TestTrackWithPipelineBatchingSyncPath:
     @pytest.mark.asyncio
     async def test_sync_pipeline_batching_connection_error_raises(self):
         """redis.ConnectionError in sync pipeline → RateTrackerError (line 443).
-        So what: Redis going down during batch must be surfaced, not silently dropped."""
+        So what: Redis going down during batch must be surfaced, not silently dropped.
+        """
         mock_redis = _make_redis()
         cfg = _minimal_config()
         tracker = MultiStrategyRateTracker(mock_redis, cfg)
@@ -398,16 +436,24 @@ class TestTrackWithPipelineBatchingSyncPath:
         mock_redis.pipeline.return_value = mock_pipe
 
         results = {}
-        with patch.object(MultiStrategyRateTracker, "_is_async_redis", return_value=False):
+        with patch.object(
+            MultiStrategyRateTracker, "_is_async_redis", return_value=False
+        ):
             with pytest.raises(RateTrackerError, match="Redis connection error"):
                 await tracker._track_with_pipeline_batching(
-                    "t13d", "1.2.3.4", 60.0, 1700000000.0, 60, results,
+                    "t13d",
+                    "1.2.3.4",
+                    60.0,
+                    1700000000.0,
+                    60,
+                    results,
                 )
 
     @pytest.mark.asyncio
     async def test_sync_pipeline_batching_timeout_error_raises(self):
         """redis.TimeoutError in sync pipeline → RateTrackerError (line 445).
-        So what: timeout during batch must propagate so track_connection can fail-closed."""
+        So what: timeout during batch must propagate so track_connection can fail-closed.
+        """
         mock_redis = _make_redis()
         cfg = _minimal_config()
         tracker = MultiStrategyRateTracker(mock_redis, cfg)
@@ -419,10 +465,17 @@ class TestTrackWithPipelineBatchingSyncPath:
         mock_redis.pipeline.return_value = mock_pipe
 
         results = {}
-        with patch.object(MultiStrategyRateTracker, "_is_async_redis", return_value=False):
+        with patch.object(
+            MultiStrategyRateTracker, "_is_async_redis", return_value=False
+        ):
             with pytest.raises(RateTrackerError, match="Redis timeout"):
                 await tracker._track_with_pipeline_batching(
-                    "t13d", "1.2.3.4", 60.0, 1700000000.0, 60, results,
+                    "t13d",
+                    "1.2.3.4",
+                    60.0,
+                    1700000000.0,
+                    60,
+                    results,
                 )
 
     @pytest.mark.asyncio
@@ -440,21 +493,36 @@ class TestTrackWithPipelineBatchingSyncPath:
         mock_redis.pipeline.return_value = mock_pipe
 
         results = {}
-        with patch.object(MultiStrategyRateTracker, "_is_async_redis", return_value=False):
+        with patch.object(
+            MultiStrategyRateTracker, "_is_async_redis", return_value=False
+        ):
             with pytest.raises(RateTrackerError, match="Redis error"):
                 await tracker._track_with_pipeline_batching(
-                    "t13d", "1.2.3.4", 60.0, 1700000000.0, 60, results,
+                    "t13d",
+                    "1.2.3.4",
+                    60.0,
+                    1700000000.0,
+                    60,
+                    results,
                 )
 
     @pytest.mark.asyncio
     async def test_no_enabled_strategies_returns_immediately(self):
         """enabled_strategies empty → _track_with_pipeline_batching returns (line 354-355).
-        So what: a proxy with all rate strategies disabled must not attempt Redis calls."""
+        So what: a proxy with all rate strategies disabled must not attempt Redis calls.
+        """
         mock_redis = _make_redis()
-        tracker = MultiStrategyRateTracker(mock_redis, {"security": {"rate_limit_strategies": {}}})
+        tracker = MultiStrategyRateTracker(
+            mock_redis, {"security": {"rate_limit_strategies": {}}}
+        )
         results = {}
         await tracker._track_with_pipeline_batching(
-            "t13d", "1.2.3.4", 60.0, 1700000000.0, 60, results,
+            "t13d",
+            "1.2.3.4",
+            60.0,
+            1700000000.0,
+            60,
+            results,
         )
         assert results == {}
 
@@ -484,9 +552,12 @@ class TestTrackWithPipelineBatchingAsyncPath:
         mock_redis.pipeline = MagicMock(return_value=async_cm)
 
         results = {}
-        with patch.object(MultiStrategyRateTracker, "_is_async_redis", return_value=True):
+        with patch.object(
+            MultiStrategyRateTracker, "_is_async_redis", return_value=True
+        ):
             await tracker._track_with_pipeline_batching(
-                "t13d", "1.2.3.4",
+                "t13d",
+                "1.2.3.4",
                 window_seconds=60.0,
                 now=1700000000.0,
                 ttl=60,
@@ -505,16 +576,21 @@ class TestTrackWithPipelineBatchingAsyncPath:
         tracker = MultiStrategyRateTracker(mock_redis, cfg)
 
         mock_pipe = AsyncMock()
-        mock_pipe.execute = AsyncMock(return_value=[tracker.MAX_CONNECTIONS_PER_WINDOW + 9999])
+        mock_pipe.execute = AsyncMock(
+            return_value=[tracker.MAX_CONNECTIONS_PER_WINDOW + 9999]
+        )
         async_cm = MagicMock()
         async_cm.__aenter__ = AsyncMock(return_value=mock_pipe)
         async_cm.__aexit__ = AsyncMock(return_value=False)
         mock_redis.pipeline = MagicMock(return_value=async_cm)
 
         results = {}
-        with patch.object(MultiStrategyRateTracker, "_is_async_redis", return_value=True):
+        with patch.object(
+            MultiStrategyRateTracker, "_is_async_redis", return_value=True
+        ):
             await tracker._track_with_pipeline_batching(
-                "t13d", "1.2.3.4",
+                "t13d",
+                "1.2.3.4",
                 window_seconds=60.0,
                 now=1700000000.0,
                 ttl=60,
@@ -538,8 +614,15 @@ class TestTrackWithPipelineBatchingAsyncPath:
         mock_redis.pipeline = MagicMock(return_value=async_cm)
 
         results = {}
-        with patch.object(MultiStrategyRateTracker, "_is_async_redis", return_value=True):
+        with patch.object(
+            MultiStrategyRateTracker, "_is_async_redis", return_value=True
+        ):
             with pytest.raises(RateTrackerError, match="Redis connection error"):
                 await tracker._track_with_pipeline_batching(
-                    "t13d", "1.2.3.4", 60.0, 1700000000.0, 60, results,
+                    "t13d",
+                    "1.2.3.4",
+                    60.0,
+                    1700000000.0,
+                    60,
+                    results,
                 )

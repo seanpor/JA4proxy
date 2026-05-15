@@ -19,6 +19,7 @@ Usage:
     python3 scripts/tap_benchmark.py --mode synthetic --packets 1000000
     python3 scripts/tap_benchmark.py --mode pcap --pcap tests/pcap_corpus/chrome_tls13.pcap
 """
+
 from __future__ import annotations
 
 import argparse
@@ -59,7 +60,7 @@ class _Pkt:
 
 def _build_client_hello_bytes() -> bytes:
     """Build a minimal TLS ClientHello for benchmark payloads."""
-    ciphers = [0x1301, 0x1302, 0x1303, 0x00ff]
+    ciphers = [0x1301, 0x1302, 0x1303, 0x00FF]
     cipher_data = b"".join(struct.pack("!H", c) for c in ciphers)
     cipher_section = struct.pack("!H", len(cipher_data)) + cipher_data
 
@@ -73,7 +74,14 @@ def _build_client_hello_bytes() -> bytes:
             ext_bytes += struct.pack("!HH", t, 0)
     ext_section = struct.pack("!H", len(ext_bytes)) + ext_bytes
 
-    body = b"\x03\x03" + b"\x00" * 32 + b"\x00" + cipher_section + b"\x01\x00" + ext_section
+    body = (
+        b"\x03\x03"
+        + b"\x00" * 32
+        + b"\x00"
+        + cipher_section
+        + b"\x01\x00"
+        + ext_section
+    )
     hs = bytes([0x01]) + struct.pack("!I", len(body))[1:] + body
     return b"\x16\x03\x01" + struct.pack("!H", len(hs)) + hs
 
@@ -96,17 +104,27 @@ def generate_synthetic_packets(n: int) -> Iterator[_Pkt]:
 
         # SYN
         yield _Pkt(
-            src_ip=src_ip, dst_ip="5.6.7.8",
-            src_port=sport, dst_port=443,
-            flags=0x002, data=b"",
-            seq=1000, ack=0, timestamp=float(i),
+            src_ip=src_ip,
+            dst_ip="5.6.7.8",
+            src_port=sport,
+            dst_port=443,
+            flags=0x002,
+            data=b"",
+            seq=1000,
+            ack=0,
+            timestamp=float(i),
         )
         # TLS ClientHello data
         yield _Pkt(
-            src_ip=src_ip, dst_ip="5.6.7.8",
-            src_port=sport, dst_port=443,
-            flags=0x010, data=ch,
-            seq=1001, ack=1, timestamp=float(i) + 0.001,
+            src_ip=src_ip,
+            dst_ip="5.6.7.8",
+            src_port=sport,
+            dst_port=443,
+            flags=0x010,
+            data=ch,
+            seq=1001,
+            ack=1,
+            timestamp=float(i) + 0.001,
         )
 
 
@@ -153,7 +171,9 @@ def run_synthetic_benchmark(n_packets: int, use_reassembler: bool) -> None:
         raise SystemExit(1)
 
     config = {"tap": {"max_streams": 100_000, "stream_timeout_s": 300}}
-    reassembler = StreamReassembler(extractor=None, config=config) if use_reassembler else None
+    reassembler = (
+        StreamReassembler(extractor=None, config=config) if use_reassembler else None
+    )
 
     n_processed = 0
     n_errors = 0
@@ -163,14 +183,21 @@ def run_synthetic_benchmark(n_packets: int, use_reassembler: bool) -> None:
         try:
             if reassembler is not None:
                 real_pkt = ParsedPacket(
-                    src_ip=pkt.src_ip, dst_ip=pkt.dst_ip,
-                    src_port=pkt.src_port, dst_port=pkt.dst_port,
-                    proto=pkt.proto, seq=pkt.seq, ack=pkt.ack,
-                    flags=pkt.flags, data=pkt.data,
+                    src_ip=pkt.src_ip,
+                    dst_ip=pkt.dst_ip,
+                    src_port=pkt.src_port,
+                    dst_port=pkt.dst_port,
+                    proto=pkt.proto,
+                    seq=pkt.seq,
+                    ack=pkt.ack,
+                    flags=pkt.flags,
+                    data=pkt.data,
                     timestamp=pkt.timestamp,
                     tcp_options_raw=pkt.tcp_options_raw,
                     window_size=pkt.window_size,
-                    ip_ttl=pkt.ip_ttl, ip_df=pkt.ip_df, ip_id=pkt.ip_id,
+                    ip_ttl=pkt.ip_ttl,
+                    ip_df=pkt.ip_df,
+                    ip_id=pkt.ip_id,
                 )
                 reassembler.on_packet(real_pkt)
             n_processed += 1
@@ -194,7 +221,9 @@ def run_synthetic_benchmark(n_packets: int, use_reassembler: bool) -> None:
         print(f"\n  PASS: {pps:,.0f} >= {target_pps:,} pps target")
     else:
         print(f"\n  WARN: {pps:,.0f} < {target_pps:,} pps target")
-        print("        Consider: more workers, ring buffer tuning, or Go rewrite (Phase 15)")
+        print(
+            "        Consider: more workers, ring buffer tuning, or Go rewrite (Phase 15)"
+        )
 
 
 def run_pcap_benchmark(pcap_path: Path) -> None:

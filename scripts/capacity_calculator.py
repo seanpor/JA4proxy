@@ -82,7 +82,9 @@ EstimatedConstants = BenchmarkConstants
 # ── Benchmark placeholder detection ──────────────────────────────────────────
 
 _PLACEHOLDER_TOKEN = "_(measure)_"
-_DEFAULT_BENCHMARKS_PATH = Path(__file__).resolve().parent.parent / "docs" / "performance" / "benchmarks.md"
+_DEFAULT_BENCHMARKS_PATH = (
+    Path(__file__).resolve().parent.parent / "docs" / "performance" / "benchmarks.md"
+)
 
 
 def _resolve_benchmarks_path() -> Path:
@@ -210,9 +212,13 @@ def compute_capacity(
     if redis_memory_gb < 8:
         report.redis_instance = "r7g.large" if cloud_provider == "aws" else "Redis 8GB"
     elif redis_memory_gb < 16:
-        report.redis_instance = "r7g.xlarge" if cloud_provider == "aws" else "Redis 16GB"
+        report.redis_instance = (
+            "r7g.xlarge" if cloud_provider == "aws" else "Redis 16GB"
+        )
     else:
-        report.redis_instance = "r7g.2xlarge" if cloud_provider == "aws" else "Redis 32GB"
+        report.redis_instance = (
+            "r7g.2xlarge" if cloud_provider == "aws" else "Redis 32GB"
+        )
 
     # ── Analytics sizing ─────────────────────────────────────────────────
     has_analytics = "analytics" in features
@@ -256,7 +262,9 @@ def print_report(report: CapacityReport) -> None:
     print(f"  Peak connections/second:  {report.peak_rps:,.0f}")
     print(f"  P99 latency budget:       {report.p99_budget_ms}ms")
     print(f"  Redis nodes:              {report.redis_nodes}")
-    print(f"  Features enabled:         {', '.join(report.features) if report.features else 'core only'}")
+    print(
+        f"  Features enabled:         {', '.join(report.features) if report.features else 'core only'}"
+    )
     print(f"  Cloud provider:           {report.cloud_provider} ({report.region})")
     print("  Benchmark source:         docs/performance/benchmarks.md")
 
@@ -265,7 +273,9 @@ def print_report(report: CapacityReport) -> None:
     print(f"  Recommended (N+1):        {report.proxy_nodes_with_redundancy}")
     print(f"  CPU per node:             {report.cpu_per_proxy}")
     print(f"  RAM per node:             {report.ram_per_proxy}")
-    print(f"  Estimated P99 latency:    {report.estimated_p99_ms:.1f}ms (budget: {report.p99_budget_ms}ms)")
+    print(
+        f"  Estimated P99 latency:    {report.estimated_p99_ms:.1f}ms (budget: {report.p99_budget_ms}ms)"
+    )
 
     print("\nRedis sizing:")
     print(f"  Estimated memory:         {report.redis_memory_gb} GB (with 2× headroom)")
@@ -290,7 +300,9 @@ def print_report(report: CapacityReport) -> None:
             f"budget ({report.p99_budget_ms}ms). Add more proxy nodes or reduce peak RPS."
         )
     else:
-        print(f"  ✓ P99 latency within budget ({report.estimated_p99_ms:.1f}ms < {report.p99_budget_ms}ms)")
+        print(
+            f"  ✓ P99 latency within budget ({report.estimated_p99_ms:.1f}ms < {report.p99_budget_ms}ms)"
+        )
 
     required_throughput = report.proxy_nodes_min * report.bench.go_full_conn_s
     if required_throughput < report.peak_rps:
@@ -300,7 +312,9 @@ def print_report(report: CapacityReport) -> None:
             f"{ceil(report.peak_rps / report.bench.go_full_conn_s)} node(s)."
         )
     else:
-        print(f"  ✓ Throughput capacity sufficient ({required_throughput:,.0f} conn/s ≥ {report.peak_rps:,.0f} RPS)")
+        print(
+            f"  ✓ Throughput capacity sufficient ({required_throughput:,.0f} conn/s ≥ {report.peak_rps:,.0f} RPS)"
+        )
 
     print(sep)
 
@@ -310,18 +324,35 @@ def main() -> None:
         description="JA4proxy capacity sizing calculator (Phase 86c).",
     )
     parser.add_argument(
-        "--peak-connections-per-second", type=float, required=True, help="Peak sustained connections per second"
+        "--peak-connections-per-second",
+        type=float,
+        required=True,
+        help="Peak sustained connections per second",
     )
     parser.add_argument(
-        "--p99-latency-budget-ms", type=float, default=10, help="P99 latency budget in ms (default: 10)"
-    )
-    parser.add_argument("--redis-node-count", type=int, default=3, help="Number of Redis nodes (default: 3)")
-    parser.add_argument("--enable-analytics", action="store_true", help="Enable analytics node sizing")
-    parser.add_argument(
-        "--enable-beaconing-detection", action="store_true", help="Enable beaconing detection (affects key count)"
+        "--p99-latency-budget-ms",
+        type=float,
+        default=10,
+        help="P99 latency budget in ms (default: 10)",
     )
     parser.add_argument(
-        "--enable-abuseipdb", action="store_true", help="Enable AbuseIPDB enrichment (affects key count)"
+        "--redis-node-count",
+        type=int,
+        default=3,
+        help="Number of Redis nodes (default: 3)",
+    )
+    parser.add_argument(
+        "--enable-analytics", action="store_true", help="Enable analytics node sizing"
+    )
+    parser.add_argument(
+        "--enable-beaconing-detection",
+        action="store_true",
+        help="Enable beaconing detection (affects key count)",
+    )
+    parser.add_argument(
+        "--enable-abuseipdb",
+        action="store_true",
+        help="Enable AbuseIPDB enrichment (affects key count)",
     )
     parser.add_argument(
         "--cloud-provider",
@@ -329,15 +360,26 @@ def main() -> None:
         choices=["aws", "azure", "gcp"],
         help="Cloud provider for cost estimation (default: aws)",
     )
-    parser.add_argument("--region", default="us-east-1", help="Cloud region for cost estimation (default: us-east-1)")
+    parser.add_argument(
+        "--region",
+        default="us-east-1",
+        help="Cloud region for cost estimation (default: us-east-1)",
+    )
     parser.add_argument(
         "--go-full-conn-s",
         type=float,
         default=None,
         help="Override: Go full signal path conn/s (default: from EstimatedConstants)",
     )
-    parser.add_argument("--go-bypass-conn-s", type=float, default=None, help="Override: Go bypass path conn/s")
-    parser.add_argument("--json", action="store_true", help="Output JSON instead of formatted text")
+    parser.add_argument(
+        "--go-bypass-conn-s",
+        type=float,
+        default=None,
+        help="Override: Go bypass path conn/s",
+    )
+    parser.add_argument(
+        "--json", action="store_true", help="Output JSON instead of formatted text"
+    )
     parser.add_argument(
         "--require-measured",
         action="store_true",

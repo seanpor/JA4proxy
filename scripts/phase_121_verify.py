@@ -9,6 +9,7 @@ human-readable report otherwise.
 Not a substitute for `make verify-findings` or the regression-test gate — it
 composes them.
 """
+
 from __future__ import annotations
 
 import subprocess
@@ -117,7 +118,9 @@ def main() -> int:
     print(f"  - all {len(REQUIRED_DOCS)} required docs present")
     print("  - findings_register.py validate passes")
     print(f"  - >= {MIN_FINDINGS} canonical findings")
-    print("  - manifest: 121 registered, 120 DEFERRED/superseded_by 119, 117 superseded_by 118")
+    print(
+        "  - manifest: 121 registered, 120 DEFERRED/superseded_by 119, 117 superseded_by 118"
+    )
     return 0
 
 

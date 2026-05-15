@@ -34,6 +34,7 @@ from tests.mocks.management_api_mock import management_api_mock_server
 def _import_applier():
     """Import the policy applier module. Raises ImportError if not present."""
     from src.governance import policy_applier as pa  # type: ignore[import]
+
     return pa
 
 
@@ -42,8 +43,8 @@ def _import_applier():
 # ---------------------------------------------------------------------------
 
 _JA4_EXISTING = "t13d1516h2_aabbccddeeff_aabbccddeeff"
-_JA4_NEW      = "t13d1516h2_112233445566_aabbccddeeff"
-_JA4_BLOCK    = "t10d170900_9dc949161b6c_b64c0ad42cb7"
+_JA4_NEW = "t13d1516h2_112233445566_aabbccddeeff"
+_JA4_BLOCK = "t10d170900_9dc949161b6c_b64c0ad42cb7"
 
 
 # ---------------------------------------------------------------------------
@@ -123,15 +124,19 @@ async def test_apply_idempotent_allowlist_entry():
         result = await pa.apply_policy(policy, api_url=base_url, token=token)
 
     # The entry was already present — POST must never have been called.
-    post_calls = [r for r in mock.requests_made if r["method"] == "POST" and r["path"] == "/api/v1/allowlist"]
-    assert len(post_calls) == 0, (
-        f"Expected 0 POST /api/v1/allowlist calls for idempotent entry, got {len(post_calls)}: {post_calls}"
-    )
+    post_calls = [
+        r
+        for r in mock.requests_made
+        if r["method"] == "POST" and r["path"] == "/api/v1/allowlist"
+    ]
+    assert (
+        len(post_calls) == 0
+    ), f"Expected 0 POST /api/v1/allowlist calls for idempotent entry, got {len(post_calls)}: {post_calls}"
 
     # The result must reflect that one entry was unchanged (not added).
-    assert result.unchanged >= 1, (
-        f"Expected result.unchanged >= 1, got {result.unchanged!r} (full result: {result!r})"
-    )
+    assert (
+        result.unchanged >= 1
+    ), f"Expected result.unchanged >= 1, got {result.unchanged!r} (full result: {result!r})"
 
 
 # ===========================================================================
@@ -149,19 +154,23 @@ async def test_apply_adds_new_blocklist_entry():
         policy = _policy_with_blocklist_entry(ja4=_JA4_BLOCK)
         result = await pa.apply_policy(policy, api_url=base_url, token=token)
 
-    post_calls = [r for r in mock.requests_made if r["method"] == "POST" and r["path"] == "/api/v1/blocklist"]
-    assert len(post_calls) == 1, (
-        f"Expected exactly 1 POST /api/v1/blocklist call, got {len(post_calls)}: {post_calls}"
-    )
+    post_calls = [
+        r
+        for r in mock.requests_made
+        if r["method"] == "POST" and r["path"] == "/api/v1/blocklist"
+    ]
+    assert (
+        len(post_calls) == 1
+    ), f"Expected exactly 1 POST /api/v1/blocklist call, got {len(post_calls)}: {post_calls}"
 
     sent_ja4 = post_calls[0]["body"].get("ja4")
-    assert sent_ja4 == _JA4_BLOCK, (
-        f"Expected POST body to contain ja4={_JA4_BLOCK!r}, got {sent_ja4!r}"
-    )
+    assert (
+        sent_ja4 == _JA4_BLOCK
+    ), f"Expected POST body to contain ja4={_JA4_BLOCK!r}, got {sent_ja4!r}"
 
-    assert result.added >= 1, (
-        f"Expected result.added >= 1, got {result.added!r} (full result: {result!r})"
-    )
+    assert (
+        result.added >= 1
+    ), f"Expected result.added >= 1, got {result.added!r} (full result: {result!r})"
 
 
 # ===========================================================================
@@ -187,19 +196,23 @@ async def test_apply_removes_entry_not_in_policy():
         policy = _minimal_policy()  # empty allowlist
         result = await pa.apply_policy(policy, api_url=base_url, token=token)
 
-    delete_calls = [r for r in mock.requests_made if r["method"] == "DELETE" and "/api/v1/allowlist/" in r["path"]]
-    assert len(delete_calls) == 1, (
-        f"Expected exactly 1 DELETE /api/v1/allowlist/{{id}} call, got {len(delete_calls)}: {delete_calls}"
-    )
+    delete_calls = [
+        r
+        for r in mock.requests_made
+        if r["method"] == "DELETE" and "/api/v1/allowlist/" in r["path"]
+    ]
+    assert (
+        len(delete_calls) == 1
+    ), f"Expected exactly 1 DELETE /api/v1/allowlist/{{id}} call, got {len(delete_calls)}: {delete_calls}"
 
     deleted_path = delete_calls[0]["path"]
-    assert "stale-entry-007" in deleted_path, (
-        f"Expected DELETE path to contain 'stale-entry-007', got {deleted_path!r}"
-    )
+    assert (
+        "stale-entry-007" in deleted_path
+    ), f"Expected DELETE path to contain 'stale-entry-007', got {deleted_path!r}"
 
-    assert result.removed >= 1, (
-        f"Expected result.removed >= 1, got {result.removed!r} (full result: {result!r})"
-    )
+    assert (
+        result.removed >= 1
+    ), f"Expected result.removed >= 1, got {result.removed!r} (full result: {result!r})"
 
 
 # ===========================================================================
@@ -226,9 +239,9 @@ async def test_apply_operator_drift_not_removed():
         result = await pa.apply_policy(policy, api_url=base_url, token=token)
 
     delete_calls = [r for r in mock.requests_made if r["method"] == "DELETE"]
-    assert len(delete_calls) == 0, (
-        f"Expected 0 DELETE calls for operator-managed entry, got {len(delete_calls)}: {delete_calls}"
-    )
+    assert (
+        len(delete_calls) == 0
+    ), f"Expected 0 DELETE calls for operator-managed entry, got {len(delete_calls)}: {delete_calls}"
 
 
 # ===========================================================================
@@ -244,15 +257,19 @@ async def test_apply_sets_dial():
         policy = _policy_with_dial(70)
         await pa.apply_policy(policy, api_url=base_url, token=token)
 
-    patch_calls = [r for r in mock.requests_made if r["method"] == "PATCH" and r["path"] == "/api/v1/dial"]
-    assert len(patch_calls) == 1, (
-        f"Expected exactly 1 PATCH /api/v1/dial call, got {len(patch_calls)}: {patch_calls}"
-    )
+    patch_calls = [
+        r
+        for r in mock.requests_made
+        if r["method"] == "PATCH" and r["path"] == "/api/v1/dial"
+    ]
+    assert (
+        len(patch_calls) == 1
+    ), f"Expected exactly 1 PATCH /api/v1/dial call, got {len(patch_calls)}: {patch_calls}"
 
     sent_value = patch_calls[0]["body"].get("value")
-    assert sent_value == 70, (
-        f"Expected PATCH body {{\"value\": 70}}, got body={patch_calls[0]['body']!r}"
-    )
+    assert (
+        sent_value == 70
+    ), f"Expected PATCH body {{\"value\": 70}}, got body={patch_calls[0]['body']!r}"
 
 
 # ===========================================================================
@@ -273,9 +290,9 @@ async def test_apply_pending_on_approval_required():
             await pa.apply_policy(policy, api_url=base_url, token=token)
 
     # The exception must carry the decision_id from the 202 response.
-    assert exc_info.value.decision_id == "dec-001", (
-        f"Expected PendingApprovalError.decision_id='dec-001', got {exc_info.value.decision_id!r}"
-    )
+    assert (
+        exc_info.value.decision_id == "dec-001"
+    ), f"Expected PendingApprovalError.decision_id='dec-001', got {exc_info.value.decision_id!r}"
 
 
 # ===========================================================================
@@ -300,13 +317,15 @@ async def test_diff_detects_operator_drift():
         policy = _minimal_policy()  # empty allowlist — drift_entry is not in policy
         diff_result = await pa.diff_policy(policy, api_url=base_url, token=token)
 
-    assert len(diff_result.drift) >= 1, (
-        f"Expected at least 1 drift entry, got {len(diff_result.drift)}: {diff_result.drift!r}"
-    )
+    assert (
+        len(diff_result.drift) >= 1
+    ), f"Expected at least 1 drift entry, got {len(diff_result.drift)}: {diff_result.drift!r}"
 
     # The drift entry must reference the operator-added fingerprint.
     drift_identifiers = [d.identifier for d in diff_result.drift]
-    assert any(_JA4_NEW in val or "drift-entry-111" in val for val in drift_identifiers), (
+    assert any(
+        _JA4_NEW in val or "drift-entry-111" in val for val in drift_identifiers
+    ), (
         f"Expected drift entry with identifier containing ja4={_JA4_NEW!r} or "
         f"'drift-entry-111', got: {diff_result.drift!r}"
     )
@@ -335,14 +354,15 @@ async def test_diff_clean_no_drift():
         policy = _policy_with_allowlist_entry(ja4=_JA4_EXISTING)
         diff_result = await pa.diff_policy(policy, api_url=base_url, token=token)
 
-    assert len(diff_result.drift) == 0, (
-        f"Expected empty drift list when policy matches API state, got: {diff_result.drift!r}"
-    )
+    assert (
+        len(diff_result.drift) == 0
+    ), f"Expected empty drift list when policy matches API state, got: {diff_result.drift!r}"
 
 
 # ===========================================================================
 # bypass_toggles apply path
 # ===========================================================================
+
 
 class TestApplyBypassToggles:
 
@@ -359,7 +379,8 @@ class TestApplyBypassToggles:
             result = await pa.apply_policy(policy, api_url=base_url, token=token)
 
         config_calls = [
-            r for r in mock.requests_made
+            r
+            for r in mock.requests_made
             if r["method"] == "PATCH" and r["path"] == "/api/v1/config"
         ]
         assert len(config_calls) == 1, (
@@ -367,8 +388,8 @@ class TestApplyBypassToggles:
             f"{config_calls!r}"
         )
         sent_body = config_calls[0]["body"]
-        assert "bypass_toggles" in sent_body, (
-            f"Expected 'bypass_toggles' key in PATCH /api/v1/config body, got: {sent_body!r}"
-        )
+        assert (
+            "bypass_toggles" in sent_body
+        ), f"Expected 'bypass_toggles' key in PATCH /api/v1/config body, got: {sent_body!r}"
         assert sent_body["bypass_toggles"]["alpn_browser_bypass"] is True
         assert sent_body["bypass_toggles"]["spamhaus_bypass"] is False

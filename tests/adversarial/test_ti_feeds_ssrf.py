@@ -192,9 +192,9 @@ def test_crowdstrike_oauth_blocks_private_ip_resolution(
         "post_ban check below will pass for the wrong reason if this fails."
     )
     assert result.errors, "expected SSRF block to surface as a poll error"
-    assert stub_management_client.bans == {}, (
-        "post_ban must not have fired during an SSRF-blocked CrowdStrike poll"
-    )
+    assert (
+        stub_management_client.bans == {}
+    ), "post_ban must not have fired during an SSRF-blocked CrowdStrike poll"
 
 
 def test_safe_resolver_isolation_check_no_global_leak() -> None:

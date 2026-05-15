@@ -1,6 +1,7 @@
 """
 Unit tests for src/tap/export/misp_client.py — Phase 20, Group 9.
 """
+
 import logging
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -12,6 +13,7 @@ from src.tap.export.misp_client import MISPClient
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_config(**overrides) -> dict:
     cfg = {
@@ -65,6 +67,7 @@ def _make_session(event_response=None, attr_response=None) -> MagicMock:
 # Tests
 # ---------------------------------------------------------------------------
 
+
 class TestPushBan:
     @pytest.mark.asyncio
     async def test_push_ban_creates_attribute_with_ip_dst_type(self):
@@ -82,9 +85,9 @@ class TestPushBan:
 
         await client.push_ban("1.2.3.4", 80, "high_score")
 
-        assert any(t == "ip-dst" for t, _ in add_calls), (
-            f"Expected ip-dst attribute, got: {add_calls}"
-        )
+        assert any(
+            t == "ip-dst" for t, _ in add_calls
+        ), f"Expected ip-dst attribute, got: {add_calls}"
 
     @pytest.mark.asyncio
     async def test_ja4_attribute_added_as_other_type(self):
@@ -101,9 +104,9 @@ class TestPushBan:
 
         await client.push_ban("1.2.3.4", 80, "high_score", ja4="t13d_abc")
 
-        assert any(t == "other" for t, _ in add_calls), (
-            f"Expected 'other' type for JA4, got: {add_calls}"
-        )
+        assert any(
+            t == "other" for t, _ in add_calls
+        ), f"Expected 'other' type for JA4, got: {add_calls}"
 
     @pytest.mark.asyncio
     async def test_daily_event_reused_for_same_day(self):
@@ -132,13 +135,10 @@ class TestPushBan:
 
         # Event creation should have been attempted once per unique date
         # The POST /events endpoint should only be called once
-        post_to_events = [
-            c for c in session.post.call_args_list
-            if "/events" in str(c)
-        ]
-        assert len(post_to_events) <= 1, (
-            f"Event should be created only once, got {len(post_to_events)} calls to /events"
-        )
+        post_to_events = [c for c in session.post.call_args_list if "/events" in str(c)]
+        assert (
+            len(post_to_events) <= 1
+        ), f"Event should be created only once, got {len(post_to_events)} calls to /events"
 
     @pytest.mark.asyncio
     async def test_duplicate_attribute_not_created(self):
@@ -200,6 +200,7 @@ class TestGetOrCreateDailyEvent:
 # ---------------------------------------------------------------------------
 # Additional tests targeting previously uncovered lines
 # ---------------------------------------------------------------------------
+
 
 class TestPushBanExceptionPath:
     """Lines 71-72: outer exception handler in push_ban logs WARNING and does not raise."""
@@ -291,7 +292,9 @@ class TestAddAttributeEdgeCases:
         session.post.return_value = resp_mock
 
         client = MISPClient(_make_config(), session)
-        await client._add_attribute("42", "ip-dst", "1.2.3.4", "comment")  # must not raise
+        await client._add_attribute(
+            "42", "ip-dst", "1.2.3.4", "comment"
+        )  # must not raise
 
     @pytest.mark.asyncio
     async def test_add_attribute_non_aenter_path_logs_warning_on_error(self, caplog):

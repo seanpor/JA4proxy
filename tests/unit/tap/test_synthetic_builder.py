@@ -1,6 +1,7 @@
 """
 Unit tests for SyntheticPacketBuilder (Phase 20, Group 13).
 """
+
 import pytest
 
 from src.tap.capture import ParsedPacket

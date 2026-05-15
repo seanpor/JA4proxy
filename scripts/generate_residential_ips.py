@@ -3,13 +3,14 @@
 Generate anonymized residential IP addresses for ASN testing.
 Creates 500+ realistic residential IPs with last-octet randomization.
 """
+
 import os
 import random
 
 
 def generate_residential_ips(count=500):
     """Generate anonymized residential IP addresses."""
-    
+
     # Common residential IP ranges (private and public)
     residential_ranges = [
         # Private ranges (RFC 1918)
@@ -17,21 +18,21 @@ def generate_residential_ips(count=500):
         "10.{}.{}.{}",
         "172.{}.{}.{}",
         # Public ranges that are typically residential
-        "71.{}.{}.{}",    # Comcast
-        "72.{}.{}.{}",    # Comcast
-        "73.{}.{}.{}",    # Comcast
-        "74.{}.{}.{}",    # Comcast
-        "75.{}.{}.{}",    # Comcast
-        "76.{}.{}.{}",    # Comcast
-        "96.{}.{}.{}",    # Verizon
-        "97.{}.{}.{}",    # Verizon
-        "98.{}.{}.{}",    # Verizon
-        "99.{}.{}.{}",    # Verizon
-        "100.{}.{}.{}",   # Verizon
+        "71.{}.{}.{}",  # Comcast
+        "72.{}.{}.{}",  # Comcast
+        "73.{}.{}.{}",  # Comcast
+        "74.{}.{}.{}",  # Comcast
+        "75.{}.{}.{}",  # Comcast
+        "76.{}.{}.{}",  # Comcast
+        "96.{}.{}.{}",  # Verizon
+        "97.{}.{}.{}",  # Verizon
+        "98.{}.{}.{}",  # Verizon
+        "99.{}.{}.{}",  # Verizon
+        "100.{}.{}.{}",  # Verizon
     ]
-    
+
     ips = set()
-    
+
     # Generate IPs from each range
     for range_template in residential_ranges:
         if "172." in range_template:
@@ -70,18 +71,19 @@ def generate_residential_ips(count=500):
                     last_octet = random.randint(1, 254)
                     ip = range_template.format(i, j, last_octet)
                     ips.add(ip)
-    
+
     return list(ips)[:count]
 
-if __name__ == '__main__':
-    os.makedirs('tests/fp_corpus/data', exist_ok=True)
-    
+
+if __name__ == "__main__":
+    os.makedirs("tests/fp_corpus/data", exist_ok=True)
+
     print("Generating anonymized residential IPs...")
     ips = generate_residential_ips(500)
-    
-    with open('tests/fp_corpus/data/residential_ips.txt', 'w') as f:
-        f.write('\n'.join(ips))
-    
+
+    with open("tests/fp_corpus/data/residential_ips.txt", "w") as f:
+        f.write("\n".join(ips))
+
     print(f"✓ Generated {len(ips)} anonymized residential IPs")
     print(f"  First 5: {ips[:5]}")
     print(f"  Last 5: {ips[-5:]}")

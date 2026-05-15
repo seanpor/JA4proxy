@@ -84,6 +84,7 @@ _PROBE_INTERVAL_SECONDS = Gauge(
 # Circuit-breaker
 # ---------------------------------------------------------------------------
 
+
 class CircuitState(Enum):
     CLOSED = "closed"
     OPEN = "open"
@@ -147,25 +148,31 @@ class CircuitBreaker:
         self._last_response_time = response_time
         _RESPONSE_TIME.labels(feed=self.feed_name).set(response_time)
         _CONSECUTIVE_FAILURES.labels(feed=self.feed_name).set(0)
-        self._history.append({
-            "ts": time.monotonic(),
-            "event": "success",
-            "state": self._state.value,
-            "response_time": response_time,
-        })
+        self._history.append(
+            {
+                "ts": time.monotonic(),
+                "event": "success",
+                "state": self._state.value,
+                "response_time": response_time,
+            }
+        )
         if self._state != CircuitState.CLOSED:
             self._transition(CircuitState.CLOSED)
 
     def record_failure(self) -> None:
         """Record a failed API call and open the circuit if threshold exceeded."""
         self._consecutive_failures += 1
-        _CONSECUTIVE_FAILURES.labels(feed=self.feed_name).set(self._consecutive_failures)
-        self._history.append({
-            "ts": time.monotonic(),
-            "event": "failure",
-            "state": self._state.value,
-            "response_time": 0.0,
-        })
+        _CONSECUTIVE_FAILURES.labels(feed=self.feed_name).set(
+            self._consecutive_failures
+        )
+        self._history.append(
+            {
+                "ts": time.monotonic(),
+                "event": "failure",
+                "state": self._state.value,
+                "response_time": 0.0,
+            }
+        )
 
         should_open = (
             self._state == CircuitState.HALF_OPEN
@@ -202,31 +209,29 @@ class CircuitBreaker:
     def _transition(self, new_state: CircuitState) -> None:
         old = self._state
         self._state = new_state
-        _CIRCUIT_TRANSITIONS.labels(
-            feed=self.feed_name, to_state=new_state.value
-        ).inc()
-        self._history.append({
-            "ts": time.monotonic(),
-            "event": "state_change",
-            "state": new_state.value,
-            "response_time": 0.0,
-        })
+        _CIRCUIT_TRANSITIONS.labels(feed=self.feed_name, to_state=new_state.value).inc()
+        self._history.append(
+            {
+                "ts": time.monotonic(),
+                "event": "state_change",
+                "state": new_state.value,
+                "response_time": 0.0,
+            }
+        )
 
         if new_state == CircuitState.OPEN:
             self._opened_at = time.monotonic()
             _CIRCUIT_OPEN.labels(feed=self.feed_name).set(1)
             _FEED_HEALTHY.labels(feed=self.feed_name).set(0)
             logger.warning(
-                "ti_feed | event=circuit_opened | feed=%s | "
-                "consecutive_failures=%d",
+                "ti_feed | event=circuit_opened | feed=%s | " "consecutive_failures=%d",
                 self.feed_name,
                 self._consecutive_failures,
             )
         elif new_state == CircuitState.HALF_OPEN:
             _CIRCUIT_OPEN.labels(feed=self.feed_name).set(1)
             logger.info(
-                "ti_feed | event=circuit_half_open | feed=%s | "
-                "probe_after=%.1fs",
+                "ti_feed | event=circuit_half_open | feed=%s | " "probe_after=%.1fs",
                 self.feed_name,
                 self.recovery_probe_interval,
             )
@@ -243,6 +248,7 @@ class CircuitBreaker:
 # ---------------------------------------------------------------------------
 # Health monitor (aggregator)
 # ---------------------------------------------------------------------------
+
 
 class FeedHealthMonitor:
     """

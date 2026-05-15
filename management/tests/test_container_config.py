@@ -152,6 +152,7 @@ def test_jwt_secret_missing_raises_on_token_creation() -> None:
         import importlib
 
         from management.api import auth as auth_module
+
         importlib.reload(auth_module)
 
         # _get_secret_key() should raise or return a non-empty value
@@ -172,4 +173,5 @@ def test_jwt_secret_missing_raises_on_token_creation() -> None:
         import importlib
 
         from management.api import auth as auth_module
+
         importlib.reload(auth_module)

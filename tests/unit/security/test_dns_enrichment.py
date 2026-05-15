@@ -20,7 +20,7 @@ class TestFCrDNSResult(unittest.TestCase):
             has_ptr=True,
             hostname="example.com",
             confirmed=True,
-            classification="confirmed"
+            classification="confirmed",
         )
         self.assertEqual(result.ip, "1.2.3.4")
         self.assertTrue(result.has_ptr)
@@ -43,8 +43,8 @@ class TestDNSEnrichment(unittest.TestCase):
                     "cache_ttl_seconds": 21600,
                     "no_ptr_score": 15,
                     "fcrdns_failed_score": 20,
-                    "residential_score_reduction": 10
-                }
+                    "residential_score_reduction": 10,
+                },
             }
         }
         self.mock_redis = MagicMock()
@@ -54,7 +54,7 @@ class TestDNSEnrichment(unittest.TestCase):
         # Create event loop for aiodns
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        
+
         try:
             enrichment = DNSEnrichment(self.config, self.mock_redis)
             # If aiodns is not available, module should disable itself gracefully
@@ -86,7 +86,9 @@ class TestDNSEnrichment(unittest.TestCase):
     def test_classify_hostname_datacenter(self):
         """Datacenter pattern → datacenter_confirmed classification."""
         enrichment = DNSEnrichment(self.config, self.mock_redis)
-        result = enrichment._classify_hostname("ec2-1-2-3-4.compute-1.amazonaws.com", True)
+        result = enrichment._classify_hostname(
+            "ec2-1-2-3-4.compute-1.amazonaws.com", True
+        )
         self.assertEqual(result, "datacenter_confirmed")
 
     def test_classify_hostname_fcrdns_failed(self):
@@ -124,11 +126,11 @@ class TestDNSEnrichment(unittest.TestCase):
         enrichment = DNSEnrichment(self.config, self.mock_redis)
         # Mock _get_cached_result to return None
         enrichment._get_cached_result = AsyncMock(return_value=None)
-        
+
         async def run_test():
             signal = await enrichment.get_signal("1.2.3.4")
             self.assertIsNone(signal)
-        
+
         asyncio.run(run_test())
 
 
@@ -146,8 +148,8 @@ class TestDNSEnrichmentAsync(unittest.TestCase):
                     "cache_ttl_seconds": 21600,
                     "no_ptr_score": 15,
                     "fcrdns_failed_score": 20,
-                    "residential_score_reduction": 10
-                }
+                    "residential_score_reduction": 10,
+                },
             }
         }
         self.mock_redis = MagicMock()
@@ -156,23 +158,23 @@ class TestDNSEnrichmentAsync(unittest.TestCase):
         """FCrDNS check disabled when enrichment disabled."""
         config = {"dns_enrichment": {"enabled": False}}
         enrichment = DNSEnrichment(config, self.mock_redis)
-        
+
         async def run_test():
             # Should not crash
             result = await enrichment._fcrdns_check("1.2.3.4")
             self.assertEqual(result.classification, "resolver_unavailable")
-        
+
         asyncio.run(run_test())
 
     def test_enqueue_alpn_whitelist(self):
         """h2/h1 ALPN IPs are not enqueued."""
         enrichment = DNSEnrichment(self.config, self.mock_redis)
-        
+
         async def run_test():
             await enrichment.enqueue("1.2.3.4", alpn="h2")
             # Queue should be empty or not have this IP
             self.assertLessEqual(enrichment._queue.qsize(), 0)
-        
+
         asyncio.run(run_test())
 
     def test_enqueue_bloom_filter_hit(self):
@@ -180,22 +182,24 @@ class TestDNSEnrichmentAsync(unittest.TestCase):
         # Create event loop for aiodns
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        
+
         try:
             enrichment = DNSEnrichment(self.config, self.mock_redis)
-            
+
             # If module is disabled (aiodns not available), skip this test
             if not enrichment._enabled:
                 self.skipTest("aiodns not available, DNS enrichment disabled")
                 return
-            
+
             self.mock_redis.bf().exists.return_value = True
-            
+
             async def run_test():
                 await enrichment.enqueue("1.2.3.4")
                 # Should have checked Bloom filter
-                self.mock_redis.bf().exists.assert_called_once_with("bloom:dns_enriched", "1.2.3.4")
-            
+                self.mock_redis.bf().exists.assert_called_once_with(
+                    "bloom:dns_enriched", "1.2.3.4"
+                )
+
             asyncio.run(run_test())
         finally:
             loop.close()
@@ -205,15 +209,15 @@ class TestDNSEnrichmentAsync(unittest.TestCase):
         # Create event loop for aiodns
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        
+
         try:
             enrichment = DNSEnrichment(self.config, self.mock_redis)
-            
+
             # If module is disabled (aiodns not available), skip this test
             if not enrichment._enabled:
                 self.skipTest("aiodns not available, DNS enrichment disabled")
                 return
-            
+
             # Create queue with size 1 and fill it
             async def run_test():
                 # Fill queue
@@ -222,7 +226,7 @@ class TestDNSEnrichmentAsync(unittest.TestCase):
                 await enrichment.enqueue("5.6.7.8")
                 # At least one item should be in the queue or processed
                 self.assertGreaterEqual(enrichment._queue.qsize(), 0)
-            
+
             asyncio.run(run_test())
         finally:
             loop.close()
@@ -377,7 +381,9 @@ class TestDNSEnrichmentCoverageGaps(unittest.TestCase):
 
         async def run():
             cached_data = {"classification": "confirmed", "ptr": "example.com"}
-            with patch.object(enr, "_get_cached_result", AsyncMock(return_value=cached_data)):
+            with patch.object(
+                enr, "_get_cached_result", AsyncMock(return_value=cached_data)
+            ):
                 with patch.object(enr, "_fcrdns_check", AsyncMock()) as mock_check:
                     await enr._process_ip("1.2.3.4")
                     mock_check.assert_not_called()
@@ -585,7 +591,12 @@ class TestDNSEnrichmentCoverageGaps(unittest.TestCase):
     def test_signal_from_cache_datacenter_confirmed(self):
         """datacenter_confirmed → datacenter_ptr signal with score 0."""
         enr = self._make()
-        sig = enr._signal_from_cache({"classification": "datacenter_confirmed", "ptr": "ec2-1-2-3-4.compute-1.amazonaws.com"})
+        sig = enr._signal_from_cache(
+            {
+                "classification": "datacenter_confirmed",
+                "ptr": "ec2-1-2-3-4.compute-1.amazonaws.com",
+            }
+        )
         self.assertIsNotNone(sig)
         self.assertEqual(sig.name, "datacenter_ptr")
         self.assertEqual(sig.score, 0)
@@ -593,7 +604,9 @@ class TestDNSEnrichmentCoverageGaps(unittest.TestCase):
     def test_signal_from_cache_confirmed(self):
         """confirmed → ptr_confirmed signal with score 0."""
         enr = self._make()
-        sig = enr._signal_from_cache({"classification": "confirmed", "ptr": "host.example.com"})
+        sig = enr._signal_from_cache(
+            {"classification": "confirmed", "ptr": "host.example.com"}
+        )
         self.assertIsNotNone(sig)
         self.assertEqual(sig.name, "ptr_confirmed")
         self.assertEqual(sig.score, 0)
@@ -612,7 +625,9 @@ class TestDNSEnrichmentCoverageGaps(unittest.TestCase):
 
         async def run():
             cached = {"classification": "no_ptr", "ptr": None}
-            with patch.object(enr, "_get_cached_result", AsyncMock(return_value=cached)):
+            with patch.object(
+                enr, "_get_cached_result", AsyncMock(return_value=cached)
+            ):
                 with patch.object(enr, "enqueue", AsyncMock()) as mock_enqueue:
                     sig = await enr.get_signal("1.2.3.4")
                     self.assertIsNotNone(sig)
@@ -675,6 +690,7 @@ class TestDNSEnrichmentCoverageGaps(unittest.TestCase):
 
         async def run():
             from src.security.dns_enrichment import _DNS_QUEUE_DROPS
+
             before = _DNS_QUEUE_DROPS._value.get()
             await enr.enqueue("99.99.99.99")
             after = _DNS_QUEUE_DROPS._value.get()
@@ -686,6 +702,7 @@ class TestDNSEnrichmentCoverageGaps(unittest.TestCase):
 
     def test_close_cancels_workers(self):
         """close() cancels all worker tasks (lines 440-443)."""
+
         async def run():
             enr = self._make()
             dummy = asyncio.create_task(asyncio.sleep(9999))
@@ -711,9 +728,7 @@ class TestDNSEnrichmentCoverageGaps(unittest.TestCase):
         with patch("src.security.dns_enrichment.logger") as mock_logger:
             enr = DNSEnrichment(config, None)
             # Should not have logged passive_dns_disabled
-            logged_events = [
-                str(call) for call in mock_logger.info.call_args_list
-            ]
+            logged_events = [str(call) for call in mock_logger.info.call_args_list]
             self.assertFalse(any("passive_dns_disabled" in e for e in logged_events))
 
 
@@ -741,7 +756,12 @@ class TestDNSEnrichmentCoverageGaps2(unittest.TestCase):
         home ISP hostnames never receive the benign-traffic discount — ordinary end
         users accumulate higher risk scores, increasing false-positive block rates."""
         enr = self._make()
-        sig = enr._signal_from_cache({"classification": "residential", "ptr": "pool-72-84-14-102.rcmdva.fios.verizon.net"})
+        sig = enr._signal_from_cache(
+            {
+                "classification": "residential",
+                "ptr": "pool-72-84-14-102.rcmdva.fios.verizon.net",
+            }
+        )
         self.assertIsNotNone(sig)
         self.assertEqual(sig.name, "residential_ptr")
         self.assertLess(sig.score, 0)  # score is negative (reduction)
@@ -752,6 +772,7 @@ class TestDNSEnrichmentCoverageGaps2(unittest.TestCase):
         So what: if task creation is skipped, DNS resolution requests pile up in the
         queue indefinitely — the entire FCrDNS enrichment pipeline stalls and all
         connections that need PTR lookups bypass DNS scoring silently."""
+
         async def run():
             enr = self._make(worker_count=2)
             # Cancel any tasks already created so they don't linger
@@ -779,6 +800,7 @@ class TestDNSEnrichmentCoverageGaps2(unittest.TestCase):
         enrichment is disabled in config. Verifying the module exports both names
         confirms the try/except guard is wired correctly."""
         import src.security.dns_enrichment as dns_mod
+
         # Both names must exist regardless of whether aiodns is installed
         self.assertIn("AIODNS_AVAILABLE", dir(dns_mod))
         self.assertIsInstance(dns_mod.AIODNS_AVAILABLE, bool)

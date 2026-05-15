@@ -70,7 +70,9 @@ def test_extracts_ips_via_jsonpath(stub_management_client):
     )
     _run(client.poll())
 
-    paths = [r["path"] for r in stub_management_client.requests if r["method"] == "POST"]
+    paths = [
+        r["path"] for r in stub_management_client.requests if r["method"] == "POST"
+    ]
     assert any("198.51.100.1" in p for p in paths)
     assert any("198.51.100.2" in p for p in paths)
     assert any("198.51.100.3" in p for p in paths)
@@ -97,7 +99,11 @@ def test_extracts_per_indicator_ttl(stub_management_client):
     )
     _run(client.poll())
 
-    bans = [r for r in stub_management_client.requests if r["method"] == "POST" and r["path"].startswith("/api/v1/bans/")]
+    bans = [
+        r
+        for r in stub_management_client.requests
+        if r["method"] == "POST" and r["path"].startswith("/api/v1/bans/")
+    ]
     by_ip = {r["path"].split("/")[-1]: r["ttl"] for r in bans}
     assert by_ip["198.51.100.1"] == 600
     assert by_ip["198.51.100.2"] == 86400
@@ -300,7 +306,13 @@ def test_basic_auth_header(stub_management_client):
         return {"indicators": []}
 
     client = RESTGenericClient(
-        config=_make_rest_config(auth={"type": "basic", "username": "test-user-xxx", "password": "test-pass-xxx"}),
+        config=_make_rest_config(
+            auth={
+                "type": "basic",
+                "username": "test-user-xxx",
+                "password": "test-pass-xxx",
+            }
+        ),
         mgmt=stub_management_client,
         state=None,
         fetch=_fetch,
@@ -308,6 +320,7 @@ def test_basic_auth_header(stub_management_client):
     _run(client.poll())
 
     import base64
+
     expected = "Basic " + base64.b64encode(b"test-user-xxx:test-pass-xxx").decode()
     assert captured["headers"]["Authorization"] == expected
 
@@ -532,7 +545,9 @@ def test_ja4_indicators_posted_to_blocklist(stub_management_client):
         fetch=_fetch,
     )
     result = _run(client.poll())
-    blocklist_posts = [r for r in stub_management_client.requests if r["path"] == "/api/v1/blocklist"]
+    blocklist_posts = [
+        r for r in stub_management_client.requests if r["path"] == "/api/v1/blocklist"
+    ]
     assert len(blocklist_posts) == 1
     assert blocklist_posts[0]["entry"] == ja4
 
@@ -626,7 +641,9 @@ def test_list_body_is_walkable(stub_management_client):
 
     # Use a jsonpath that works on a list root.
     client = RESTGenericClient(
-        config=_make_rest_config(ip_jsonpath="$[*].value", ttl_jsonpath="$[*].expires_in"),
+        config=_make_rest_config(
+            ip_jsonpath="$[*].value", ttl_jsonpath="$[*].expires_in"
+        ),
         mgmt=stub_management_client,
         state=None,
         fetch=_fetch,

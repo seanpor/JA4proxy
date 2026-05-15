@@ -57,6 +57,7 @@ def _make_client_fixture(role: Role):
         ) as client:
             yield client, fake_redis
         await _redis_module.close_redis()
+
     return _client
 
 
@@ -175,7 +176,9 @@ async def test_pci_dss_pack_unauthenticated_forbidden():
     fake_r = fakeredis.aioredis.FakeRedis(server=server, decode_responses=True)
     app = create_app()
     await _redis_module.init_redis(override_client=fake_r)
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as c:
         r = await c.post("/api/v1/compliance/pci-dss-pack", json=_PACK_BODY)
     await _redis_module.close_redis()
     assert r.status_code in (401, 403)
@@ -185,11 +188,14 @@ async def test_pci_dss_pack_unauthenticated_forbidden():
 async def test_pci_dss_pack_invalid_date_range(auditor_client_redis):
     """to_date before from_date must return 422."""
     client, _ = auditor_client_redis
-    r = await client.post("/api/v1/compliance/pci-dss-pack", json={
-        "from_date": "2026-03-31",
-        "to_date": "2026-01-01",
-        "format": "jsonl",
-    })
+    r = await client.post(
+        "/api/v1/compliance/pci-dss-pack",
+        json={
+            "from_date": "2026-03-31",
+            "to_date": "2026-01-01",
+            "format": "jsonl",
+        },
+    )
     assert r.status_code == 422
 
 
@@ -213,10 +219,13 @@ async def test_report_html_returns_html(auditor_client_redis):
 async def test_report_contains_period_label(auditor_client_redis):
     """Period label passed in request body appears in the HTML output."""
     client, _ = auditor_client_redis
-    r = await client.post("/api/v1/compliance/report", json={
-        **_REPORT_BODY,
-        "period_label": "Q3 2025 Evidence Review",
-    })
+    r = await client.post(
+        "/api/v1/compliance/report",
+        json={
+            **_REPORT_BODY,
+            "period_label": "Q3 2025 Evidence Review",
+        },
+    )
 
     assert r.status_code == 200
     assert "Q3 2025 Evidence Review" in r.text
@@ -235,16 +244,22 @@ async def test_report_falls_back_gracefully_with_no_aggregates(auditor_client_re
 async def test_report_uses_monthly_aggregate_data(auditor_client_redis):
     """When monthly aggregate hashes exist, their data appears in the report."""
     client, redis = auditor_client_redis
-    await redis.hset("reporting:monthly:2026-01", mapping={
-        "connections_total": "500000",
-        "connections_blocked": "5000",
-    })
+    await redis.hset(
+        "reporting:monthly:2026-01",
+        mapping={
+            "connections_total": "500000",
+            "connections_blocked": "5000",
+        },
+    )
 
-    r = await client.post("/api/v1/compliance/report", json={
-        "from_date": "2026-01-01",
-        "to_date": "2026-01-31",
-        "format": "html",
-    })
+    r = await client.post(
+        "/api/v1/compliance/report",
+        json={
+            "from_date": "2026-01-01",
+            "to_date": "2026-01-31",
+            "format": "html",
+        },
+    )
     assert r.status_code == 200
     # 500,000 total should appear (formatted with comma)
     assert "500,000" in r.text
@@ -278,8 +293,13 @@ async def test_dsar_export_returns_all_categories(auditor_client_redis):
     data = r.json()
     assert data["subject_ip"] == "1.2.3.4"
     cats = data["data_categories"]
-    for key in ["connection_history", "ban_history", "watchlist_entries",
-                "beaconing_records", "fingerprint_associations"]:
+    for key in [
+        "connection_history",
+        "ban_history",
+        "watchlist_entries",
+        "beaconing_records",
+        "fingerprint_associations",
+    ]:
         assert key in cats, f"Missing data category: {key}"
 
 
@@ -306,8 +326,13 @@ async def test_dsar_export_empty_ip_returns_empty_categories(auditor_client_redi
 
     assert r.status_code == 200
     cats = r.json()["data_categories"]
-    for key in ["connection_history", "ban_history", "watchlist_entries",
-                "beaconing_records", "fingerprint_associations"]:
+    for key in [
+        "connection_history",
+        "ban_history",
+        "watchlist_entries",
+        "beaconing_records",
+        "fingerprint_associations",
+    ]:
         assert cats[key] == [], f"Expected empty list for {key}"
 
 
@@ -368,9 +393,9 @@ async def test_dsar_erase_removes_beaconing_keys(admin_client_redis):
     )
     assert r.status_code == 200
 
-    assert not await redis.exists("beacon:6.6.6.6:t13abc"), (
-        "Beaconing key still exists after erasure"
-    )
+    assert not await redis.exists(
+        "beacon:6.6.6.6:t13abc"
+    ), "Beaconing key still exists after erasure"
 
 
 @pytest.mark.asyncio
@@ -387,12 +412,14 @@ async def test_dsar_erase_preserves_active_ban(admin_client_redis):
     assert r.status_code == 200
 
     # Ban must survive
-    assert await redis.exists("ban:7.7.7.7"), "Active ban was illegally deleted by DSAR erasure"
+    assert await redis.exists(
+        "ban:7.7.7.7"
+    ), "Active ban was illegally deleted by DSAR erasure"
     # And it must appear in the skipped list
     skipped = r.json()["skipped"]
-    assert any("ban:7.7.7.7" in s.get("key", "") for s in skipped), (
-        "Active ban not listed in skipped"
-    )
+    assert any(
+        "ban:7.7.7.7" in s.get("key", "") for s in skipped
+    ), "Active ban not listed in skipped"
 
 
 @pytest.mark.asyncio
@@ -410,7 +437,9 @@ async def test_dsar_erase_writes_audit_log(admin_client_redis):
     # Read audit log and find the erasure entry
     entries_raw = await redis.lrange("management:audit_log", 0, -1)
     entries = [json.loads(e) for e in entries_raw]
-    erasure_entries = [e for e in entries if e.get("action_type") == "compliance.dsar_erasure"]
+    erasure_entries = [
+        e for e in entries if e.get("action_type") == "compliance.dsar_erasure"
+    ]
     assert len(erasure_entries) >= 1, "No DSAR erasure audit entry written"
 
     entry = erasure_entries[0]
@@ -552,16 +581,15 @@ async def test_dsar_erase_audit_log_preserves_skipped_detail(admin_client_redis)
     )
     assert r.status_code == 200
 
-    entries = [
-        json.loads(e)
-        for e in await redis.lrange("management:audit_log", 0, -1)
-    ]
-    erasure = next(e for e in entries if e.get("action_type") == "compliance.dsar_erasure")
+    entries = [json.loads(e) for e in await redis.lrange("management:audit_log", 0, -1)]
+    erasure = next(
+        e for e in entries if e.get("action_type") == "compliance.dsar_erasure"
+    )
     after = erasure["after_value"]
     assert "skipped" in after, "skipped list missing from audit record"
-    assert "skipped_count" not in after, (
-        "audit record still uses skipped_count scalar (L3 regression)"
-    )
+    assert (
+        "skipped_count" not in after
+    ), "audit record still uses skipped_count scalar (L3 regression)"
     assert isinstance(after["skipped"], list)
     assert any("ban:9.9.9.9" in s.get("key", "") for s in after["skipped"])
 
@@ -581,9 +609,9 @@ async def test_dsar_erase_absent_ban_not_skipped(admin_client_redis):
         json={"ticket": "GDPR-2026-C1"},
     )
     assert r.status_code == 200
-    assert r.json()["skipped"] == [], (
-        "absent ban produced a ghost skip entry — C1 regression"
-    )
+    assert (
+        r.json()["skipped"] == []
+    ), "absent ban produced a ghost skip entry — C1 regression"
 
 
 @pytest.mark.asyncio
@@ -598,29 +626,38 @@ async def test_report_ignores_events_with_mismatched_tz_format(auditor_client_re
     """
     client, redis = auditor_client_redis
     # Event 1: Z suffix, clearly inside the window
-    await redis.xadd("ja4proxy:events", {
-        "timestamp": "2026-02-10T10:00:00Z",
-        "action_taken": "blocked",
-        "ip": "1.1.1.1",
-        "ja4": "t13d1516",
-        "risk_score": "95",
-        "signals": json.dumps(["spamhaus_drop"]),
-    })
+    await redis.xadd(
+        "ja4proxy:events",
+        {
+            "timestamp": "2026-02-10T10:00:00Z",
+            "action_taken": "blocked",
+            "ip": "1.1.1.1",
+            "ja4": "t13d1516",
+            "risk_score": "95",
+            "signals": json.dumps(["spamhaus_drop"]),
+        },
+    )
     # Event 2: +00:00 offset, also inside the window
-    await redis.xadd("ja4proxy:events", {
-        "timestamp": "2026-02-20T12:00:00+00:00",
-        "action_taken": "blocked",
-        "ip": "2.2.2.2",
-        "ja4": "t13d1516",
-        "risk_score": "95",
-        "signals": json.dumps(["tor_exit"]),
-    })
+    await redis.xadd(
+        "ja4proxy:events",
+        {
+            "timestamp": "2026-02-20T12:00:00+00:00",
+            "action_taken": "blocked",
+            "ip": "2.2.2.2",
+            "ja4": "t13d1516",
+            "risk_score": "95",
+            "signals": json.dumps(["tor_exit"]),
+        },
+    )
 
-    r = await client.post("/api/v1/compliance/report", json={
-        "from_date": "2026-02-01",
-        "to_date": "2026-02-28",
-        "format": "html",
-    })
+    r = await client.post(
+        "/api/v1/compliance/report",
+        json={
+            "from_date": "2026-02-01",
+            "to_date": "2026-02-28",
+            "format": "html",
+        },
+    )
     assert r.status_code == 200
     # Both events should appear in category counts — if lex compare were
     # still in use, the Z-suffix event would be filtered out.
@@ -638,15 +675,19 @@ async def test_report_logo_rejects_oversize(auditor_client_redis, caplog):
     client, _ = auditor_client_redis
     huge = "A" * (1_500_000)  # > 1.4MB base64 cap
     import logging
+
     with caplog.at_level(logging.WARNING):
-        r = await client.post("/api/v1/compliance/report", json={
-            **_REPORT_BODY,
-            "logo_base64": huge,
-        })
+        r = await client.post(
+            "/api/v1/compliance/report",
+            json={
+                **_REPORT_BODY,
+                "logo_base64": huge,
+            },
+        )
     assert r.status_code == 200
-    assert any("logo_rejected" in rec.message for rec in caplog.records), (
-        "expected WARN log for oversize logo"
-    )
+    assert any(
+        "logo_rejected" in rec.message for rec in caplog.records
+    ), "expected WARN log for oversize logo"
     # Rendered HTML must not contain the huge data URI
     assert huge[:128] not in r.text
 
@@ -659,14 +700,19 @@ async def test_report_logo_rejects_unknown_magic(auditor_client_redis, caplog):
     A caller sending a ZIP or random bytes would get them embedded as PNG.
     """
     import base64 as _b64
+
     client, _ = auditor_client_redis
     junk = _b64.b64encode(b"PK\x03\x04totally-not-a-png").decode()
     import logging
+
     with caplog.at_level(logging.WARNING):
-        r = await client.post("/api/v1/compliance/report", json={
-            **_REPORT_BODY,
-            "logo_base64": junk,
-        })
+        r = await client.post(
+            "/api/v1/compliance/report",
+            json={
+                **_REPORT_BODY,
+                "logo_base64": junk,
+            },
+        )
     assert r.status_code == 200
     assert any("logo_rejected" in rec.message for rec in caplog.records)
 
@@ -675,14 +721,18 @@ async def test_report_logo_rejects_unknown_magic(auditor_client_redis, caplog):
 async def test_report_logo_accepts_valid_png(auditor_client_redis):
     """H2: valid PNG magic bytes produce a ``data:image/png`` URI."""
     import base64 as _b64
+
     client, _ = auditor_client_redis
     # Minimal 8-byte PNG signature + IHDR stub
     png_bytes = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
     encoded = _b64.b64encode(png_bytes).decode()
-    r = await client.post("/api/v1/compliance/report", json={
-        **_REPORT_BODY,
-        "logo_base64": encoded,
-    })
+    r = await client.post(
+        "/api/v1/compliance/report",
+        json={
+            **_REPORT_BODY,
+            "logo_base64": encoded,
+        },
+    )
     assert r.status_code == 200
     assert f"data:image/png;base64,{encoded}" in r.text
 
@@ -691,17 +741,21 @@ async def test_report_logo_accepts_valid_png(auditor_client_redis):
 async def test_report_logo_accepts_valid_svg(auditor_client_redis):
     """H2: SVG bytes produce a ``data:image/svg+xml`` URI, not image/png."""
     import base64 as _b64
+
     client, _ = auditor_client_redis
     svg_bytes = b'<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>'
     encoded = _b64.b64encode(svg_bytes).decode()
-    r = await client.post("/api/v1/compliance/report", json={
-        **_REPORT_BODY,
-        "logo_base64": encoded,
-    })
-    assert r.status_code == 200
-    assert "data:image/svg+xml;base64," in r.text, (
-        "SVG was not detected — MIME sniffer regressed to hardcoded PNG"
+    r = await client.post(
+        "/api/v1/compliance/report",
+        json={
+            **_REPORT_BODY,
+            "logo_base64": encoded,
+        },
     )
+    assert r.status_code == 200
+    assert (
+        "data:image/svg+xml;base64," in r.text
+    ), "SVG was not detected — MIME sniffer regressed to hardcoded PNG"
 
 
 @pytest.mark.asyncio
@@ -715,6 +769,7 @@ async def test_signal_categories_reflects_config_override(
     Patch the loader to inject an override and verify the response.
     """
     from management.api.routes import compliance as _route_mod
+
     monkeypatch.setattr(
         _route_mod,
         "_load_signal_categories_config",
@@ -745,15 +800,21 @@ async def test_report_tolerates_corrupt_monthly_aggregate(auditor_client_redis):
     parse in try/except and logs a warning.
     """
     client, redis = auditor_client_redis
-    await redis.hset("reporting:monthly:2026-01", mapping={
-        "connections_total": "not-a-number",
-        "connections_blocked": "",
-    })
-    r = await client.post("/api/v1/compliance/report", json={
-        "from_date": "2026-01-01",
-        "to_date": "2026-01-31",
-        "format": "html",
-    })
-    assert r.status_code == 200, (
-        "report crashed on corrupt monthly aggregate — H5 regression"
+    await redis.hset(
+        "reporting:monthly:2026-01",
+        mapping={
+            "connections_total": "not-a-number",
+            "connections_blocked": "",
+        },
     )
+    r = await client.post(
+        "/api/v1/compliance/report",
+        json={
+            "from_date": "2026-01-01",
+            "to_date": "2026-01-31",
+            "format": "html",
+        },
+    )
+    assert (
+        r.status_code == 200
+    ), "report crashed on corrupt monthly aggregate — H5 regression"

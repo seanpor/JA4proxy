@@ -21,6 +21,7 @@ from src.analytics.shadow_scoring import ShadowScoring
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_shadow(config=None) -> ShadowScoring:
     mock_redis = AsyncMock()
     mock_redis.get = AsyncMock(return_value=None)
@@ -48,6 +49,7 @@ def _bot_event(score: float) -> dict:
 # ---------------------------------------------------------------------------
 # _is_known_good_traffic
 # ---------------------------------------------------------------------------
+
 
 class TestIsKnownGoodTraffic:
     def test_h2_alpn_is_known_good(self):
@@ -78,6 +80,7 @@ class TestIsKnownGoodTraffic:
 # _calculate_median
 # ---------------------------------------------------------------------------
 
+
 class TestCalculateMedian:
     def test_empty_list_returns_zero(self):
         s = _make_shadow()
@@ -104,6 +107,7 @@ class TestCalculateMedian:
 # _calculate_mean
 # ---------------------------------------------------------------------------
 
+
 class TestCalculateMean:
     def test_empty_list_returns_zero(self):
         s = _make_shadow()
@@ -122,6 +126,7 @@ class TestCalculateMean:
 # _calculate_stddev
 # ---------------------------------------------------------------------------
 
+
 class TestCalculateStddev:
     def test_single_value_returns_zero(self):
         s = _make_shadow()
@@ -138,12 +143,15 @@ class TestCalculateStddev:
     def test_known_stddev(self):
         # Population std of [2,4,4,4,5,5,7,9] = 2.0
         s = _make_shadow()
-        assert s._calculate_stddev([2, 4, 4, 4, 5, 5, 7, 9]) == pytest.approx(2.0, abs=1e-9)
+        assert s._calculate_stddev([2, 4, 4, 4, 5, 5, 7, 9]) == pytest.approx(
+            2.0, abs=1e-9
+        )
 
 
 # ---------------------------------------------------------------------------
 # update_with_event — window rotation and score accumulation
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 class TestUpdateWithEvent:
@@ -191,6 +199,7 @@ class TestUpdateWithEvent:
 # _store_shadow_scores
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 class TestStoreShadowScores:
     async def test_empty_scores_no_redis_write(self):
@@ -226,6 +235,7 @@ class TestStoreShadowScores:
 # check_calibration
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 class TestCheckCalibration:
     async def test_rate_limited_on_second_call(self):
@@ -243,7 +253,9 @@ class TestCheckCalibration:
     async def test_insufficient_count_returns_none(self):
         # Too few samples → calibration check is unreliable; suppress alert.
         s = _make_shadow({"check_interval_seconds": 0})
-        shadow_data = json.dumps({"median": 5.0, "mean": 5.0, "stddev": 1.0, "count": 5})
+        shadow_data = json.dumps(
+            {"median": 5.0, "mean": 5.0, "stddev": 1.0, "count": 5}
+        )
         s.redis.get = AsyncMock(return_value=shadow_data.encode())
         result = await s.check_calibration()
         assert result is None
@@ -252,7 +264,9 @@ class TestCheckCalibration:
         # Security: if known-good traffic receives high scores, the scoring model
         # is miscalibrated; operators must be alerted before raising the dial.
         s = _make_shadow({"check_interval_seconds": 0, "calibration_threshold": 10.0})
-        shadow_data = json.dumps({"median": 25.0, "mean": 22.0, "stddev": 5.0, "count": 50})
+        shadow_data = json.dumps(
+            {"median": 25.0, "mean": 22.0, "stddev": 5.0, "count": 50}
+        )
         s.redis.get = AsyncMock(return_value=shadow_data.encode())
         s.redis.set = AsyncMock()
         result = await s.check_calibration()
@@ -262,14 +276,18 @@ class TestCheckCalibration:
 
     async def test_no_alert_when_median_below_threshold(self):
         s = _make_shadow({"check_interval_seconds": 0, "calibration_threshold": 10.0})
-        shadow_data = json.dumps({"median": 3.0, "mean": 3.5, "stddev": 1.0, "count": 50})
+        shadow_data = json.dumps(
+            {"median": 3.0, "mean": 3.5, "stddev": 1.0, "count": 50}
+        )
         s.redis.get = AsyncMock(return_value=shadow_data.encode())
         result = await s.check_calibration()
         assert result is None
 
     async def test_calibration_alert_stored_in_redis(self):
         s = _make_shadow({"check_interval_seconds": 0, "calibration_threshold": 10.0})
-        shadow_data = json.dumps({"median": 30.0, "mean": 28.0, "stddev": 5.0, "count": 100})
+        shadow_data = json.dumps(
+            {"median": 30.0, "mean": 28.0, "stddev": 5.0, "count": 100}
+        )
         s.redis.get = AsyncMock(return_value=shadow_data.encode())
         s.redis.set = AsyncMock()
         await s.check_calibration()
@@ -282,6 +300,7 @@ class TestCheckCalibration:
 # ---------------------------------------------------------------------------
 # get_active_alert / clear_alert
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 class TestShadowAlertManagement:
@@ -310,7 +329,11 @@ class TestShadowAlertManagement:
 
     async def test_clear_alert_sets_resolved_true(self):
         s = _make_shadow()
-        original = {"type": "calibration_issue", "resolved": False, "shadow_median": 30.0}
+        original = {
+            "type": "calibration_issue",
+            "resolved": False,
+            "shadow_median": 30.0,
+        }
         s.redis.get = AsyncMock(return_value=json.dumps(original).encode())
         s.redis.set = AsyncMock()
         await s.clear_alert()
@@ -330,6 +353,7 @@ class TestShadowAlertManagement:
 # get_calibration_history
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 class TestGetCalibrationHistory:
     async def test_empty_history_when_no_redis_data(self):
@@ -342,7 +366,9 @@ class TestGetCalibrationHistory:
         # Security: most recent calibration status first so operators can quickly
         # check whether the model was miscalibrated recently.
         s = _make_shadow()
-        shadow_data = json.dumps({"median": 2.0, "mean": 2.0, "stddev": 0.5, "count": 20})
+        shadow_data = json.dumps(
+            {"median": 2.0, "mean": 2.0, "stddev": 0.5, "count": 20}
+        )
         s.redis.get = AsyncMock(return_value=shadow_data.encode())
         history = await s.get_calibration_history(hours=3)
         if len(history) >= 2:
@@ -350,17 +376,26 @@ class TestGetCalibrationHistory:
 
     async def test_history_entry_has_expected_keys(self):
         s = _make_shadow()
-        shadow_data = json.dumps({"median": 2.0, "mean": 2.0, "stddev": 0.5, "count": 20})
+        shadow_data = json.dumps(
+            {"median": 2.0, "mean": 2.0, "stddev": 0.5, "count": 20}
+        )
         s.redis.get = AsyncMock(return_value=shadow_data.encode())
         history = await s.get_calibration_history(hours=1)
         if history:
             entry = history[0]
-            for key in ("timestamp", "shadow_median", "has_calibration_issue", "severity"):
+            for key in (
+                "timestamp",
+                "shadow_median",
+                "has_calibration_issue",
+                "severity",
+            ):
                 assert key in entry
 
     async def test_history_marks_calibration_issue_when_threshold_exceeded(self):
         s = _make_shadow({"calibration_threshold": 10.0})
-        shadow_data = json.dumps({"median": 25.0, "mean": 22.0, "stddev": 5.0, "count": 50})
+        shadow_data = json.dumps(
+            {"median": 25.0, "mean": 22.0, "stddev": 5.0, "count": 50}
+        )
         s.redis.get = AsyncMock(return_value=shadow_data.encode())
         history = await s.get_calibration_history(hours=1)
         if history:

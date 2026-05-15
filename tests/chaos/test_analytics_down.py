@@ -70,10 +70,10 @@ def _run(coro):
 async def test_redis_exception_returns_empty_signals(exc):
     """Any Redis exception must yield empty analytics signals, not propagate."""
     redis_mock = MagicMock()
-    
+
     async def _get_error(key):
         raise exc
-    
+
     redis_mock.get.side_effect = _get_error
     pipeline = _make_pipeline(redis_mock)
 
@@ -85,10 +85,10 @@ async def test_redis_exception_returns_empty_signals(exc):
 async def test_redis_down_does_not_cache_partial_result():
     """On Redis error, the cache must stay empty so the next request retries."""
     redis_mock = MagicMock()
-    
+
     async def _get_error(key):
         raise ConnectionError("Redis down")
-    
+
     redis_mock.get.side_effect = _get_error
     pipeline = _make_pipeline(redis_mock)
 
@@ -138,11 +138,11 @@ def test_pipeline_scores_correctly_when_analytics_redis_down():
 async def test_recovery_after_redis_error():
     """After Redis recovers, analytics signals should be readable again."""
     redis_mock = MagicMock()
-    
+
     # Make redis.get async
     async def _get_error(key):
         raise ConnectionError("Redis down")
-    
+
     redis_mock.get.side_effect = _get_error
     pipeline = _make_pipeline(redis_mock)
 
@@ -205,6 +205,7 @@ async def test_both_signals_total_score_is_65():
     corroborating signal that fires alongside analytics_campaign whenever a campaign
     key is present.  The total is now 35 + 25 + 30 = 90.
     """
+
     async def _get(key):
         if "campaign" in key or "slowscan" in key:
             return b"1"
@@ -220,4 +221,6 @@ async def test_both_signals_total_score_is_65():
     assert "subnet_campaign" in names
     assert "analytics_slowscan" in names
     total = sum(s.score for s in signals)
-    assert total == 90  # 35 (analytics_campaign) + 25 (subnet_campaign) + 30 (analytics_slowscan)
+    assert (
+        total == 90
+    )  # 35 (analytics_campaign) + 25 (subnet_campaign) + 30 (analytics_slowscan)

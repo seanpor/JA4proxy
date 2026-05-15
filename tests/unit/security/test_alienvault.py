@@ -57,14 +57,14 @@ def _make_ctx(status: int, body: dict):
 
 
 @pytest.mark.asyncio
-async def test_alienvault_no_health_monitor_works(mock_redis, mock_local_cache, mock_session):
+async def test_alienvault_no_health_monitor_works(
+    mock_redis, mock_local_cache, mock_session
+):
     """Provider works normally without a health_monitor (backwards compat)."""
     config = OTXConfig(enabled=True, api_key="key")
     provider = AlienVaultOTXProvider(config, mock_redis, mock_local_cache, mock_session)
 
-    mock_session.get.return_value = _make_ctx(
-        200, {"pulse_info": {"count": 3}}
-    )
+    mock_session.get.return_value = _make_ctx(200, {"pulse_info": {"count": 3}})
 
     await provider._process_lookup("1.2.3.4")
     mock_redis.setex.assert_called_once()
@@ -76,7 +76,9 @@ async def test_alienvault_no_health_monitor_works(mock_redis, mock_local_cache, 
 
 
 @pytest.mark.asyncio
-async def test_alienvault_circuit_open_skips_api(mock_redis, mock_local_cache, mock_session):
+async def test_alienvault_circuit_open_skips_api(
+    mock_redis, mock_local_cache, mock_session
+):
     """When the circuit is open, _process_lookup returns without calling the API."""
     monitor = FeedHealthMonitor()
     cb = monitor.get_circuit_breaker("alienvault_otx", failure_threshold=1)
@@ -98,7 +100,9 @@ async def test_alienvault_circuit_open_skips_api(mock_redis, mock_local_cache, m
 
 
 @pytest.mark.asyncio
-async def test_alienvault_circuit_records_success(mock_redis, mock_local_cache, mock_session):
+async def test_alienvault_circuit_records_success(
+    mock_redis, mock_local_cache, mock_session
+):
     """Successful API call causes record_success() to be invoked."""
     monitor = FeedHealthMonitor()
     cb = monitor.get_circuit_breaker("alienvault_otx")
@@ -111,9 +115,7 @@ async def test_alienvault_circuit_records_success(mock_redis, mock_local_cache, 
             config, mock_redis, mock_local_cache, mock_session, health_monitor=monitor
         )
 
-        mock_session.get.return_value = _make_ctx(
-            200, {"pulse_info": {"count": 2}}
-        )
+        mock_session.get.return_value = _make_ctx(200, {"pulse_info": {"count": 2}})
 
         await provider._process_lookup("1.2.3.4")
         cb_mock.record_success.assert_called_once()
@@ -151,7 +153,9 @@ async def test_alienvault_circuit_records_failure_on_exception(
 
 
 @pytest.mark.asyncio
-async def test_alienvault_retry_twice_then_succeed(mock_redis, mock_local_cache, mock_session):
+async def test_alienvault_retry_twice_then_succeed(
+    mock_redis, mock_local_cache, mock_session
+):
     """API fails twice then succeeds; session.get called 3 times."""
     config = OTXConfig(enabled=True, api_key="key")
     provider = AlienVaultOTXProvider(config, mock_redis, mock_local_cache, mock_session)
@@ -263,7 +267,9 @@ def test_otxconfig_from_config_env_api_key(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_start_enabled_creates_workers(mock_redis, mock_local_cache, mock_session):
+async def test_start_enabled_creates_workers(
+    mock_redis, mock_local_cache, mock_session
+):
     """start() creates worker_count tasks when enabled=True.
 
     Security consequence: if workers are never created, IPs are never actually
@@ -283,7 +289,9 @@ async def test_start_enabled_creates_workers(mock_redis, mock_local_cache, mock_
 
 
 @pytest.mark.asyncio
-async def test_start_disabled_creates_no_workers(mock_redis, mock_local_cache, mock_session):
+async def test_start_disabled_creates_no_workers(
+    mock_redis, mock_local_cache, mock_session
+):
     """start() is a no-op when enabled=False.
 
     Security consequence: workers must not run when the feature is disabled —
@@ -329,7 +337,9 @@ def test_get_signal_disabled_returns_none(mock_redis, mock_local_cache, mock_ses
     assert result is None
 
 
-def test_get_signal_cache_hit_returns_signal(mock_redis, mock_local_cache, mock_session):
+def test_get_signal_cache_hit_returns_signal(
+    mock_redis, mock_local_cache, mock_session
+):
     """get_signal() returns a RiskSignal from local cache without going to Redis/API.
 
     Security consequence: if the cache-hit branch is broken, every request causes
@@ -349,7 +359,9 @@ def test_get_signal_cache_hit_returns_signal(mock_redis, mock_local_cache, mock_
     assert provider._total == 1
 
 
-def test_get_signal_cache_hit_zero_pulse_returns_none(mock_redis, mock_local_cache, mock_session):
+def test_get_signal_cache_hit_zero_pulse_returns_none(
+    mock_redis, mock_local_cache, mock_session
+):
     """get_signal() returns None for cache hit with pulse_count=0 (clean IP).
 
     Security consequence: returning a non-None signal for pulse_count=0 would add
@@ -364,7 +376,9 @@ def test_get_signal_cache_hit_zero_pulse_returns_none(mock_redis, mock_local_cac
     assert signal is None
 
 
-def test_get_signal_cache_miss_increments_total(mock_redis, mock_local_cache, mock_session):
+def test_get_signal_cache_miss_increments_total(
+    mock_redis, mock_local_cache, mock_session
+):
     """get_signal() on a cache miss increments _total but not _hits.
 
     Security consequence: if _total is not incremented on misses, the cache-hit
@@ -390,7 +404,9 @@ def test_get_signal_cache_miss_increments_total(mock_redis, mock_local_cache, mo
 
 
 @pytest.mark.asyncio
-async def test_maybe_lookup_redis_hit_populates_local_cache(mock_redis, mock_local_cache, mock_session):
+async def test_maybe_lookup_redis_hit_populates_local_cache(
+    mock_redis, mock_local_cache, mock_session
+):
     """_maybe_lookup() finds result in Redis and populates local cache without API call.
 
     Security consequence: if the Redis-tier cache is bypassed, every connection
@@ -404,12 +420,16 @@ async def test_maybe_lookup_redis_hit_populates_local_cache(mock_redis, mock_loc
     mock_redis.get.return_value = _json.dumps({"pulse_count": 5}).encode()
     await provider._maybe_lookup("1.2.3.4")
 
-    mock_local_cache.alienvault_scores.set.assert_called_once_with("1.2.3.4", {"pulse_count": 5})
+    mock_local_cache.alienvault_scores.set.assert_called_once_with(
+        "1.2.3.4", {"pulse_count": 5}
+    )
     mock_session.get.assert_not_called()
 
 
 @pytest.mark.asyncio
-async def test_maybe_lookup_redis_error_continues(mock_redis, mock_local_cache, mock_session):
+async def test_maybe_lookup_redis_error_continues(
+    mock_redis, mock_local_cache, mock_session
+):
     """_maybe_lookup() logs a Redis read error but still tries to enqueue the IP.
 
     Security consequence: a transient Redis error must not silently drop the lookup
@@ -429,7 +449,9 @@ async def test_maybe_lookup_redis_error_continues(mock_redis, mock_local_cache, 
 
 
 @pytest.mark.asyncio
-async def test_maybe_lookup_bloom_duplicate_skips_queue(mock_redis, mock_local_cache, mock_session):
+async def test_maybe_lookup_bloom_duplicate_skips_queue(
+    mock_redis, mock_local_cache, mock_session
+):
     """_maybe_lookup() skips re-enqueuing an IP already in the Bloom filter.
 
     Security consequence: re-enqueuing the same IP floods the worker queue,
@@ -447,7 +469,9 @@ async def test_maybe_lookup_bloom_duplicate_skips_queue(mock_redis, mock_local_c
 
 
 @pytest.mark.asyncio
-async def test_maybe_lookup_queue_full_does_not_raise(mock_redis, mock_local_cache, mock_session):
+async def test_maybe_lookup_queue_full_does_not_raise(
+    mock_redis, mock_local_cache, mock_session
+):
     """_maybe_lookup() silently drops an IP when the queue is full rather than raising.
 
     Security consequence: if a full queue raises an exception it crashes the caller
@@ -473,7 +497,9 @@ async def test_maybe_lookup_queue_full_does_not_raise(mock_redis, mock_local_cac
 
 
 @pytest.mark.asyncio
-async def test_worker_loop_exception_does_not_crash(mock_redis, mock_local_cache, mock_session):
+async def test_worker_loop_exception_does_not_crash(
+    mock_redis, mock_local_cache, mock_session
+):
     """_worker_loop() catches unexpected exceptions so the worker keeps running.
 
     Security consequence: an unhandled exception in the worker task kills it
@@ -486,11 +512,17 @@ async def test_worker_loop_exception_does_not_crash(mock_redis, mock_local_cache
     provider._queue.put_nowait("1.2.3.4")
 
     # Make _process_lookup raise an unexpected exception (not CancelledError)
-    with patch.object(provider, "_process_lookup", side_effect=RuntimeError("unexpected")):
+    with patch.object(
+        provider, "_process_lookup", side_effect=RuntimeError("unexpected")
+    ):
         # Start the worker — the exception is caught internally (line 195), task stays alive
         task = asyncio.create_task(provider._worker_loop())
-        await asyncio.sleep(0.05)  # Let the worker run once, log the error, and keep looping
-        assert not task.done(), "Worker task must stay alive after a non-CancelledError exception"
+        await asyncio.sleep(
+            0.05
+        )  # Let the worker run once, log the error, and keep looping
+        assert (
+            not task.done()
+        ), "Worker task must stay alive after a non-CancelledError exception"
         task.cancel()
         try:
             await task
@@ -504,7 +536,9 @@ async def test_worker_loop_exception_does_not_crash(mock_redis, mock_local_cache
 
 
 @pytest.mark.asyncio
-async def test_process_lookup_no_api_key_returns_early(mock_redis, mock_local_cache, mock_session):
+async def test_process_lookup_no_api_key_returns_early(
+    mock_redis, mock_local_cache, mock_session
+):
     """_process_lookup() returns without calling the API when api_key is empty.
 
     Security consequence: if this guard is missing, the provider sends requests
@@ -518,7 +552,9 @@ async def test_process_lookup_no_api_key_returns_early(mock_redis, mock_local_ca
 
 
 @pytest.mark.asyncio
-async def test_process_lookup_404_caches_zero_pulses(mock_redis, mock_local_cache, mock_session):
+async def test_process_lookup_404_caches_zero_pulses(
+    mock_redis, mock_local_cache, mock_session
+):
     """HTTP 404 from OTX API caches pulse_count=0 (IP is clean or unknown).
 
     Security consequence: if a 404 is treated as an error and not cached, the
@@ -562,7 +598,9 @@ async def test_process_lookup_non_200_404_raises_logged_and_fails_open(
 
 
 @pytest.mark.asyncio
-async def test_process_lookup_timeout_does_not_raise(mock_redis, mock_local_cache, mock_session):
+async def test_process_lookup_timeout_does_not_raise(
+    mock_redis, mock_local_cache, mock_session
+):
     """asyncio.TimeoutError during lookup is caught and increments timeout counter.
 
     Security consequence: an uncaught timeout would crash the worker task, halting
@@ -639,7 +677,9 @@ def test_on_config_reload_updates_config(mock_redis, mock_local_cache, mock_sess
 
 
 @pytest.mark.asyncio
-async def test_maybe_lookup_bloom_exception_is_suppressed(mock_redis, mock_local_cache, mock_session):
+async def test_maybe_lookup_bloom_exception_is_suppressed(
+    mock_redis, mock_local_cache, mock_session
+):
     """Lines 176-177: exception from the Bloom filter is caught and suppressed so
     enrichment degrades gracefully instead of crashing the caller.
     So what: if the except block is removed, a transient Redis Bloom filter error

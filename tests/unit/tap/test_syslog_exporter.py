@@ -1,6 +1,7 @@
 """
 Unit tests for src/tap/export/syslog_exporter.py — Phase 20, Group 9.
 """
+
 import socket
 from unittest.mock import MagicMock, patch
 
@@ -11,6 +12,7 @@ from src.tap.export.syslog_exporter import SyslogExporter
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_config(**overrides) -> dict:
     cfg = {
@@ -34,6 +36,7 @@ def _make_exporter(**overrides) -> SyslogExporter:
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 class TestCEFFormat:
     def test_cef_format_is_valid(self):
@@ -60,7 +63,9 @@ class TestCEFFormat:
     def test_cef_severity_mapping_signal_block_is_7(self):
         """signal_block event must map to CEF severity 7."""
         exporter = _make_exporter()
-        result = exporter._format_cef("signal_block", "1.2.3.4", 70, "signal_block", None)
+        result = exporter._format_cef(
+            "signal_block", "1.2.3.4", 70, "signal_block", None
+        )
         parts = result.split("|")
         assert parts[6] == "7"
 
@@ -82,7 +87,9 @@ class TestRFC5424Format:
         """_format_rfc5424 must return a string starting with '<' (priority field)."""
         exporter = _make_exporter()
         result = exporter._format_rfc5424("ban", "1.2.3.4", 80, "signal_ban", None)
-        assert result.startswith("<"), f"RFC 5424 must start with priority: {result[:20]}"
+        assert result.startswith(
+            "<"
+        ), f"RFC 5424 must start with priority: {result[:20]}"
 
     def test_rfc5424_contains_ip(self):
         """RFC 5424 message must contain the IP address."""
@@ -152,6 +159,7 @@ class TestSendBehavior:
 # ---------------------------------------------------------------------------
 # Additional tests targeting previously uncovered lines
 # ---------------------------------------------------------------------------
+
 
 class TestSocketCreationFailure:
     """Lines 62-64: socket creation failure at __init__."""

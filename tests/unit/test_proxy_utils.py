@@ -95,7 +95,13 @@ class TestClassifyJa4:
         assert "QUIC" in result
 
     def test_config_label_takes_precedence(self):
-        config = {"security": {"fingerprint_labels": {"t13d1516h2_8daaf6152771_02713d6af862": "MyBrowser"}}}
+        config = {
+            "security": {
+                "fingerprint_labels": {
+                    "t13d1516h2_8daaf6152771_02713d6af862": "MyBrowser"
+                }
+            }
+        }
         result = classify_ja4("t13d1516h2_8daaf6152771_02713d6af862", config)
         assert result == "MyBrowser"
 
@@ -127,8 +133,13 @@ class TestSensitiveDataFilter:
 
     def _make_record(self, msg: str) -> logging.LogRecord:
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="", lineno=0,
-            msg=msg, args=(), exc_info=None
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg=msg,
+            args=(),
+            exc_info=None,
         )
         return record
 
@@ -184,8 +195,13 @@ class TestSensitiveDataFilter:
     def test_args_filtered(self):
         """Sensitive data in record.args is also redacted."""
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="", lineno=0,
-            msg="auth %s", args=("password=mysecret",), exc_info=None
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="auth %s",
+            args=("password=mysecret",),
+            exc_info=None,
         )
         self.f.filter(record)
         assert "mysecret" not in str(record.args)
@@ -200,8 +216,13 @@ class TestSecureFormatter:
     def test_format_adds_event_type_attribute(self):
         fmt = SecureFormatter("%(message)s")
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="", lineno=0,
-            msg="hello", args=(), exc_info=None
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="hello",
+            args=(),
+            exc_info=None,
         )
         fmt.format(record)
         assert hasattr(record, "event_type")
@@ -214,11 +235,17 @@ class TestSecureFormatter:
             raise ValueError("sensitive internal detail")
         except ValueError:
             import sys
+
             exc_info = sys.exc_info()
 
         record = logging.LogRecord(
-            name="test", level=logging.ERROR, pathname="", lineno=0,
-            msg="error", args=(), exc_info=exc_info
+            name="test",
+            level=logging.ERROR,
+            pathname="",
+            lineno=0,
+            msg="error",
+            args=(),
+            exc_info=exc_info,
         )
         with patch.dict(os.environ, {"ENVIRONMENT": "production"}):
             fmt.format(record)
@@ -234,11 +261,17 @@ class TestSecureFormatter:
             raise RuntimeError("debug info")
         except RuntimeError:
             import sys
+
             exc_info = sys.exc_info()
 
         record = logging.LogRecord(
-            name="test", level=logging.ERROR, pathname="", lineno=0,
-            msg="error", args=(), exc_info=exc_info
+            name="test",
+            level=logging.ERROR,
+            pathname="",
+            lineno=0,
+            msg="error",
+            args=(),
+            exc_info=exc_info,
         )
         # Ensure ENVIRONMENT is not 'production'
         env = {k: v for k, v in os.environ.items() if k != "ENVIRONMENT"}
@@ -285,7 +318,9 @@ class TestConfigManagerValidation:
         mgr._validate_proxy_config({"bind_port": 8080, "max_connections": 1000})
 
     def test_validate_redis_config_valid_passes(self, mgr):
-        mgr._validate_redis_config({"host": "redis", "port": 6379, "password": "secret"})
+        mgr._validate_redis_config(
+            {"host": "redis", "port": 6379, "password": "secret"}
+        )
 
     def test_validate_redis_config_bad_port_raises(self, mgr):
         with pytest.raises(ValidationError, match="Redis port"):
@@ -304,7 +339,9 @@ class TestConfigManagerValidation:
             mgr._validate_security_config({"max_requests_per_minute": 2000000})
 
     def test_validate_security_config_valid_passes(self, mgr):
-        mgr._validate_security_config({"whitelist_enabled": True, "max_requests_per_minute": 500})
+        mgr._validate_security_config(
+            {"whitelist_enabled": True, "max_requests_per_minute": 500}
+        )
 
 
 class TestConfigManagerEnvVars:
@@ -452,9 +489,7 @@ class TestExtractClientIpFromHttp:
         # impersonate an arbitrary source must NOT win. HAProxy appends the
         # real peer IP on the right, so we trust that.
         data = (
-            b"GET / HTTP/1.1\r\n"
-            b"X-Forwarded-For: 1.2.3.4, 203.0.113.50\r\n"
-            b"\r\n"
+            b"GET / HTTP/1.1\r\n" b"X-Forwarded-For: 1.2.3.4, 203.0.113.50\r\n" b"\r\n"
         )
         ip = server._extract_client_ip_from_http(data)
         assert ip == "203.0.113.50"

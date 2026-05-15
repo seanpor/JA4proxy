@@ -83,9 +83,7 @@ class TestVerifyConfigSignature:
         _write_pubkey_raw(pubkey, pubkey_path)
 
         monitor = IntegrityMonitor()
-        result = monitor.verify_config_signature(
-            str(config_path), str(pubkey_path)
-        )
+        result = monitor.verify_config_signature(str(config_path), str(pubkey_path))
         assert result is True
 
     def test_missing_sig_file_returns_false(self, tmp_path):
@@ -101,9 +99,7 @@ class TestVerifyConfigSignature:
         _write_pubkey_raw(pubkey, pubkey_path)
 
         monitor = IntegrityMonitor()
-        result = monitor.verify_config_signature(
-            str(config_path), str(pubkey_path)
-        )
+        result = monitor.verify_config_signature(str(config_path), str(pubkey_path))
         assert result is False
 
     def test_corrupted_sig_returns_false(self, tmp_path):
@@ -128,9 +124,7 @@ class TestVerifyConfigSignature:
         _write_pubkey_raw(pubkey, pubkey_path)
 
         monitor = IntegrityMonitor()
-        result = monitor.verify_config_signature(
-            str(config_path), str(pubkey_path)
-        )
+        result = monitor.verify_config_signature(str(config_path), str(pubkey_path))
         assert result is False
 
     def test_wrong_key_returns_false(self, tmp_path):
@@ -150,9 +144,7 @@ class TestVerifyConfigSignature:
         _write_pubkey_raw(wrong_pubkey, pubkey_path)
 
         monitor = IntegrityMonitor()
-        result = monitor.verify_config_signature(
-            str(config_path), str(pubkey_path)
-        )
+        result = monitor.verify_config_signature(str(config_path), str(pubkey_path))
         assert result is False
 
     def test_config_modified_after_signing_returns_false(self, tmp_path):
@@ -172,9 +164,7 @@ class TestVerifyConfigSignature:
         _write_pubkey_raw(pubkey, pubkey_path)
 
         monitor = IntegrityMonitor()
-        result = monitor.verify_config_signature(
-            str(config_path), str(pubkey_path)
-        )
+        result = monitor.verify_config_signature(str(config_path), str(pubkey_path))
         assert result is False
 
     def test_missing_config_file_returns_false(self, tmp_path):
@@ -187,9 +177,7 @@ class TestVerifyConfigSignature:
         _write_pubkey_raw(pubkey, pubkey_path)
 
         monitor = IntegrityMonitor()
-        result = monitor.verify_config_signature(
-            str(config_path), str(pubkey_path)
-        )
+        result = monitor.verify_config_signature(str(config_path), str(pubkey_path))
         assert result is False
 
     def test_missing_pubkey_file_returns_false(self, tmp_path):
@@ -299,9 +287,7 @@ class TestAppendAuditLog:
         monitor = IntegrityMonitor()
 
         for i in range(5):
-            monitor.append_audit_log(
-                str(log_path), status="OK", detail=f"entry-{i}"
-            )
+            monitor.append_audit_log(str(log_path), status="OK", detail=f"entry-{i}")
 
         lines = log_path.read_text().strip().splitlines()
         assert len(lines) == 5
@@ -324,9 +310,7 @@ class TestAppendAuditLog:
         monitor = IntegrityMonitor()
 
         for i in range(4):
-            monitor.append_audit_log(
-                str(log_path), status="OK", detail=f"entry-{i}"
-            )
+            monitor.append_audit_log(str(log_path), status="OK", detail=f"entry-{i}")
 
         lines = log_path.read_text().strip().splitlines()
 
@@ -343,9 +327,9 @@ class TestAppendAuditLog:
         entry2 = json.loads(lines_after[2])
 
         # Entry 2's prev_hash was computed from the original line 1, not the tampered one
-        assert entry2["prev_hash"] != actual_hash_of_line1, (
-            "Hash chain should be broken after tampering a middle entry"
-        )
+        assert (
+            entry2["prev_hash"] != actual_hash_of_line1
+        ), "Hash chain should be broken after tampering a middle entry"
 
     def test_creates_parent_directory_if_missing(self, tmp_path):
         """append_audit_log creates parent directories if they don't exist."""
@@ -417,9 +401,9 @@ class TestStartBackgroundMonitor:
             return before, after
 
         before, after = _run(run_test())
-        assert after > before, (
-            "Prometheus counter should have incremented after file modification"
-        )
+        assert (
+            after > before
+        ), "Prometheus counter should have incremented after file modification"
 
     def test_monitors_multiple_files(self, tmp_path):
         """Monitor watches all specified paths, detects changes in any of them."""
@@ -454,7 +438,9 @@ class TestStartBackgroundMonitor:
             return before, after
 
         before, after = _run(run_test())
-        assert after > before, "Violation counter must increment when any watched file changes"
+        assert (
+            after > before
+        ), "Violation counter must increment when any watched file changes"
 
     def test_no_violation_when_files_unchanged(self, tmp_path):
         """Monitor does NOT increment the counter when files remain identical."""
@@ -507,18 +493,16 @@ class TestStartBackgroundMonitor:
             # Monitor should survive the next poll without raising
             await asyncio.sleep(0.15)
 
-            assert not task.done() or task.cancelled(), (
-                "Task should still be running (or cleanly cancelled), not crashed"
-            )
+            assert (
+                not task.done() or task.cancelled()
+            ), "Task should still be running (or cleanly cancelled), not crashed"
             task.cancel()
             try:
                 await task
             except asyncio.CancelledError:
                 pass
             except Exception as exc:
-                pytest.fail(
-                    f"Background monitor raised an unexpected exception: {exc}"
-                )
+                pytest.fail(f"Background monitor raised an unexpected exception: {exc}")
 
         _run(run_test())  # Test passes if no exception raised
 
@@ -550,9 +534,13 @@ class TestStartBackgroundMonitor:
         with caplog.at_level(logging.ERROR):
             _run(run_test())
 
-        error_messages = [r.message for r in caplog.records if r.levelno >= logging.ERROR]
+        error_messages = [
+            r.message for r in caplog.records if r.levelno >= logging.ERROR
+        ]
         assert any(
-            "integrity" in msg.lower() or "violation" in msg.lower() or str(watched_file) in msg
+            "integrity" in msg.lower()
+            or "violation" in msg.lower()
+            or str(watched_file) in msg
             for msg in error_messages
         ), f"Expected an ERROR log about integrity violation, got: {error_messages}"
 
@@ -574,9 +562,7 @@ class TestStartBackgroundMonitor:
 
         async def run_test():
             task = asyncio.create_task(
-                monitor.start_background_monitor(
-                    paths=[str(tmp_path)], interval_s=0.05
-                )
+                monitor.start_background_monitor(paths=[str(tmp_path)], interval_s=0.05)
             )
             await asyncio.sleep(0.1)
             # Plant a new file after baseline is set
@@ -595,8 +581,7 @@ class TestStartBackgroundMonitor:
             r.getMessage() for r in caplog.records if r.levelno >= logging.WARNING
         ]
         assert any(
-            "new_file" in msg or str(new_file) in msg
-            for msg in warning_messages
+            "new_file" in msg or str(new_file) in msg for msg in warning_messages
         ), f"Expected WARNING about new file in monitored tree, got: {warning_messages}"
 
     def test_shutdown_on_violation_calls_sys_exit(self, tmp_path):
@@ -614,7 +599,9 @@ class TestStartBackgroundMonitor:
         exit_calls = []
 
         async def run_test():
-            with patch.object(sys, "exit", side_effect=lambda code: exit_calls.append(code)):
+            with patch.object(
+                sys, "exit", side_effect=lambda code: exit_calls.append(code)
+            ):
                 task = asyncio.create_task(
                     monitor.start_background_monitor(
                         paths=[str(watched_file)], interval_s=0.05
@@ -662,6 +649,7 @@ class TestVerifyConfigSignatureCryptographyMissing:
         pubkey_path.write_bytes(b"dummy")
 
         import builtins
+
         real_import = builtins.__import__
 
         def _block_cryptography(name, *args, **kwargs):
@@ -674,14 +662,13 @@ class TestVerifyConfigSignatureCryptographyMissing:
         # on every call — patch builtins.__import__ to simulate the missing library.
         with patch("builtins.__import__", side_effect=_block_cryptography):
             from src.security.integrity_monitor import IntegrityMonitor
-            monitor = IntegrityMonitor()
-            result = monitor.verify_config_signature(
-                str(config_path), str(pubkey_path)
-            )
 
-        assert result is True, (
-            "verify_config_signature must return True when cryptography is absent"
-        )
+            monitor = IntegrityMonitor()
+            result = monitor.verify_config_signature(str(config_path), str(pubkey_path))
+
+        assert (
+            result is True
+        ), "verify_config_signature must return True when cryptography is absent"
 
 
 class TestVerifyConfigSignatureGenericVerifyException:
@@ -710,15 +697,15 @@ class TestVerifyConfigSignatureGenericVerifyException:
         mock_key = MagicMock()
         mock_key.verify.side_effect = RuntimeError("unexpected internal error")
 
-        with patch("src.security.integrity_monitor._load_pubkey", return_value=mock_key):
+        with patch(
+            "src.security.integrity_monitor._load_pubkey", return_value=mock_key
+        ):
             monitor = IntegrityMonitor()
-            result = monitor.verify_config_signature(
-                str(config_path), str(pubkey_path)
-            )
+            result = monitor.verify_config_signature(str(config_path), str(pubkey_path))
 
-        assert result is False, (
-            "Generic exception from verify() must return False, not propagate"
-        )
+        assert (
+            result is False
+        ), "Generic exception from verify() must return False, not propagate"
 
 
 class TestBackgroundMonitorShutdownFlag:
@@ -810,9 +797,9 @@ class TestBackgroundMonitorHashPathsException:
                 return still_running
 
         still_running = _run(run_test())
-        assert still_running, (
-            "Monitor must keep running after a transient _hash_paths exception"
-        )
+        assert (
+            still_running
+        ), "Monitor must keep running after a transient _hash_paths exception"
 
     def test_outer_cancelled_error_stops_monitor(self, tmp_path):
         """Lines 242-244: CancelledError raised around the entire try block (e.g.
@@ -942,7 +929,9 @@ class TestLoadPubkeyEdgePaths:
         from src.security.integrity_monitor import _load_pubkey
 
         _, pubkey = _generate_keypair()
-        pem_bytes = pubkey.public_bytes(encoding=_Enc.PEM, format=_PF.SubjectPublicKeyInfo)
+        pem_bytes = pubkey.public_bytes(
+            encoding=_Enc.PEM, format=_PF.SubjectPublicKeyInfo
+        )
         pem_path = tmp_path / "pubkey.pem"
         pem_path.write_bytes(pem_bytes)
 
@@ -1046,9 +1035,9 @@ class TestHashPathsEdgeCases:
 
         assert str(normal) in result
         # No __pycache__ entry should appear
-        assert not any("__pycache__" in p for p in result), (
-            "__pycache__ files must be excluded from the hash baseline"
-        )
+        assert not any(
+            "__pycache__" in p for p in result
+        ), "__pycache__ files must be excluded from the hash baseline"
 
     def test_hash_error_on_individual_dir_file_is_skipped(self, tmp_path):
         """If hashing one file in a directory raises OSError, that file is skipped
@@ -1075,7 +1064,9 @@ class TestHashPathsEdgeCases:
                 raise OSError("permission denied")
             return original_hash_file(path)
 
-        with patch("src.security.integrity_monitor._hash_file", side_effect=_partial_failure):
+        with patch(
+            "src.security.integrity_monitor._hash_file", side_effect=_partial_failure
+        ):
             result = _hash_paths([str(tmp_path)])
 
         # b.py should still be hashed; a.py should be absent (skipped)
@@ -1138,7 +1129,9 @@ class TestHashPathsEdgeCases:
                 raise RuntimeError("unexpected non-OSError in hash_file")
             return original_hash_file(path)
 
-        with patch("src.security.integrity_monitor._hash_file", side_effect=_bad_hash_file):
+        with patch(
+            "src.security.integrity_monitor._hash_file", side_effect=_bad_hash_file
+        ):
             # Should not raise — outer except catches the RuntimeError
             result = _hash_paths([str(inner_dir), str(real_file)])
 
@@ -1162,9 +1155,9 @@ class TestReadLastLineHashEdgeCases:
         log_path.write_text("")  # empty file — exists but has no lines
 
         result = _read_last_line_hash(str(log_path))
-        assert result == "", (
-            "Empty log file must return empty string as the previous hash"
-        )
+        assert (
+            result == ""
+        ), "Empty log file must return empty string as the previous hash"
 
     def test_generic_read_exception_returns_empty_string(self, tmp_path):
         """A non-FileNotFoundError exception while reading the log file returns ''
@@ -1190,6 +1183,6 @@ class TestReadLastLineHashEdgeCases:
         with patch("builtins.open", side_effect=_bad_open):
             result = _read_last_line_hash(str(log_path))
 
-        assert result == "", (
-            "_read_last_line_hash must return '' on any non-FileNotFoundError exception"
-        )
+        assert (
+            result == ""
+        ), "_read_last_line_hash must return '' on any non-FileNotFoundError exception"

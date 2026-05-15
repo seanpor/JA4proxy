@@ -56,7 +56,7 @@ def _make_redis(get_return=None) -> MagicMock:
     redis_mock.decr = AsyncMock(return_value=0)
     redis_mock.expire = AsyncMock(return_value=True)
     redis_mock.sadd = AsyncMock(return_value=1)
-    
+
     # Phase 28a: Mock pipeline
     pipeline = MagicMock()
     pipeline.incr = MagicMock()
@@ -65,7 +65,7 @@ def _make_redis(get_return=None) -> MagicMock:
     pipeline.__aenter__ = AsyncMock(return_value=pipeline)
     pipeline.__aexit__ = AsyncMock(return_value=None)
     redis_mock.pipeline = MagicMock(return_value=pipeline)
-    
+
     bf = MagicMock()
     bf.add = AsyncMock(return_value=1)  # 1 = newly added
     redis_mock.bf = MagicMock(return_value=bf)
@@ -385,6 +385,7 @@ class TestQueueOverflow(unittest.IsolatedAsyncioTestCase):
 
         # Next enqueue should drop
         from prometheus_client import REGISTRY
+
         initial_dropped = 0
         try:
             dropped_counter = REGISTRY._names_to_collectors.get(
@@ -424,9 +425,7 @@ class TestIPv6Handling(unittest.IsolatedAsyncioTestCase):
             submitted_ips.append(ip)
             resp = MagicMock()
             resp.status = 200
-            resp.json = AsyncMock(
-                return_value={"data": {"abuseConfidenceScore": 0}}
-            )
+            resp.json = AsyncMock(return_value={"data": {"abuseConfidenceScore": 0}})
             resp.raise_for_status = MagicMock()
             yield resp
 
@@ -440,6 +439,7 @@ class TestIPv6Handling(unittest.IsolatedAsyncioTestCase):
 
         # The submitted IP should be compressed
         import ipaddress
+
         expected = ipaddress.ip_address(full_ipv6).compressed
         self.assertIn(expected, submitted_ips)
         self.assertEqual(submitted_ips[0], expected)
@@ -550,6 +550,7 @@ class TestHotReload(unittest.TestCase):
             }
         }
         import logging
+
         with self.assertLogs("src.security.abuseipdb", level="WARNING"):
             checker.on_config_reload(new_config)
         # Old worker_count preserved
@@ -567,6 +568,7 @@ class TestHotReload(unittest.TestCase):
             }
         }
         import logging
+
         with self.assertLogs("src.security.abuseipdb", level="WARNING"):
             checker.on_config_reload(new_config)
         # Old queue_size preserved
@@ -575,7 +577,9 @@ class TestHotReload(unittest.TestCase):
     def test_enabled_toggle_false_to_true_logs_warn(self):
         """Toggling enabled false→true during hot reload logs WARN (restart needed)."""
         checker = _make_checker(config=_make_config(enabled=False))
-        new_config = {"abuseipdb": {"enabled": True, "worker_count": 1, "queue_size": 10}}
+        new_config = {
+            "abuseipdb": {"enabled": True, "worker_count": 1, "queue_size": 10}
+        }
         with self.assertLogs("src.security.abuseipdb", level="WARNING"):
             checker.on_config_reload(new_config)
 
@@ -605,6 +609,7 @@ class TestAbuseIPDBConfigFromConfig(unittest.TestCase):
     def test_loads_api_key_from_env_if_empty(self):
         """If api_key is empty in config, loads from ABUSEIPDB_API_KEY env var."""
         import os
+
         old = os.environ.get("ABUSEIPDB_API_KEY")
         os.environ["ABUSEIPDB_API_KEY"] = "env-key-123"
         try:
@@ -619,6 +624,7 @@ class TestAbuseIPDBConfigFromConfig(unittest.TestCase):
     def test_config_key_takes_precedence_over_env(self):
         """Explicit api_key in config takes precedence over env var."""
         import os
+
         old = os.environ.get("ABUSEIPDB_API_KEY")
         os.environ["ABUSEIPDB_API_KEY"] = "env-key-456"
         try:
@@ -698,6 +704,7 @@ class TestStopQueueNotEmpty(unittest.IsolatedAsyncioTestCase):
         checker._queue.put_nowait("1.2.3.4")
         checker._queue.put_nowait("5.6.7.8")
         import logging
+
         with self.assertLogs("src.security.abuseipdb", level="WARNING"):
             await checker.stop()
 
@@ -710,6 +717,7 @@ class TestMaybeLookup(unittest.IsolatedAsyncioTestCase):
         So what: tier-1 bypass is the key latency optimization; a regression here
         doubles Redis RTTs on hot-path requests."""
         from src.cache.local_cache import LocalCache
+
         local_cache = LocalCache({})
         local_cache.abuseipdb_scores.set("1.2.3.4", 75)
         redis = _make_redis()
@@ -746,6 +754,7 @@ class TestMaybeLookup(unittest.IsolatedAsyncioTestCase):
         checker._queue = asyncio.Queue(maxsize=10)
         checker._workers = []
         import logging
+
         with self.assertLogs("src.security.abuseipdb", level="WARNING"):
             await checker._maybe_lookup("1.2.3.4")
 
@@ -776,6 +785,7 @@ class TestEnqueueLookupEdgePaths(unittest.IsolatedAsyncioTestCase):
         checker._queue = asyncio.Queue(maxsize=10)
         checker._workers = []
         import logging
+
         with self.assertLogs("src.security.abuseipdb", level="WARNING"):
             await checker._enqueue_lookup("1.2.3.4")
 
@@ -784,6 +794,7 @@ class TestEnqueueLookupEdgePaths(unittest.IsolatedAsyncioTestCase):
         So what: TTL-setting failure must not prevent the IP from being enqueued;
         slightly longer bloom filter retention is acceptable."""
         import redis as redis_lib
+
         r = _make_redis()
         bf = MagicMock()
         bf.add = AsyncMock(return_value=1)  # newly added
@@ -896,6 +907,7 @@ class TestProcessLookupPaths(unittest.IsolatedAsyncioTestCase):
 
         with patch.object(checker, "_check_quota", AsyncMock(return_value=False)):
             import logging
+
             with self.assertLogs("src.security.abuseipdb", level="WARNING"):
                 await checker._process_lookup("1.2.3.4")
 
@@ -920,7 +932,8 @@ class TestProcessLookupPaths(unittest.IsolatedAsyncioTestCase):
     async def test_process_lookup_invalid_ip_uses_raw_string(self):
         """Invalid IP string → ValueError caught, raw string used as canonical (lines 534-535).
         So what: a malformed IP in the queue (from a corrupt event) must not crash
-        the worker; it should fall through and attempt the API call with the raw value."""
+        the worker; it should fall through and attempt the API call with the raw value.
+        """
         redis = _make_redis()
         local_cache = MagicMock()
         local_cache.abuseipdb_scores = MagicMock()
@@ -954,8 +967,11 @@ class TestProcessLookupPaths(unittest.IsolatedAsyncioTestCase):
         checker = _make_checker(redis=redis)
         await checker.start()
 
-        with patch.object(checker, "_api_lookup", AsyncMock(side_effect=QuotaExhaustedException())):
+        with patch.object(
+            checker, "_api_lookup", AsyncMock(side_effect=QuotaExhaustedException())
+        ):
             import logging
+
             with self.assertLogs("src.security.abuseipdb", level="WARNING"):
                 await checker._process_lookup("1.2.3.4")
 
@@ -987,6 +1003,7 @@ class TestProcessLookupPaths(unittest.IsolatedAsyncioTestCase):
         checker = _make_checker(redis=redis, local_cache=local_cache, session=session)
         await checker.start()
         import logging
+
         with self.assertLogs("src.security.abuseipdb", level="WARNING"):
             await checker._process_lookup("1.2.3.4")
         await checker.stop()
@@ -1035,6 +1052,7 @@ class TestCheckQuotaException(unittest.IsolatedAsyncioTestCase):
         redis.pipeline = MagicMock(return_value=pipe)
         checker = _make_checker(redis=redis)
         import logging
+
         with self.assertLogs("src.security.abuseipdb", level="WARNING"):
             result = await checker._check_quota()
         self.assertTrue(result)
@@ -1067,6 +1085,7 @@ class TestUpdateQuotaGauge(unittest.IsolatedAsyncioTestCase):
         So what: gauge updates are best-effort; a Redis error here must not
         propagate and crash the worker that called it after a successful lookup."""
         import redis as redis_lib
+
         redis = _make_redis()
         redis.get = AsyncMock(side_effect=redis_lib.RedisError("redis down"))
         checker = _make_checker(redis=redis)
@@ -1086,6 +1105,7 @@ class TestGetScoreRedisException(unittest.IsolatedAsyncioTestCase):
         redis.get = AsyncMock(side_effect=ConnectionError("Redis read failed"))
         checker = _make_checker(redis=redis, local_cache=local_cache)
         import logging
+
         with self.assertLogs("src.security.abuseipdb", level="WARNING"):
             score = await checker.get_score("1.2.3.4")
         self.assertIsNone(score)

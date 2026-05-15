@@ -15,6 +15,7 @@ Those are the same self-signed certs used by the Docker mock-backend service.
 
 Exit: Ctrl-C or SIGTERM.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -46,6 +47,7 @@ RESPONSE = (
 
 # ── Connection handler ────────────────────────────────────────────────────────
 
+
 async def _handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
     """Accept connection, drain any request bytes, send 200, close."""
     try:
@@ -64,6 +66,7 @@ async def _handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) ->
 
 
 # ── Stats tracker ─────────────────────────────────────────────────────────────
+
 
 class Stats:
     """Thread-safe connection counter with periodic reporting."""
@@ -100,16 +103,18 @@ async def _handle_with_stats(
 
 # ── SSL context ────────────────────────────────────────────────────────────────
 
+
 def _build_ssl_ctx(cert: Path, key: Path) -> ssl.SSLContext:
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     ctx.minimum_version = ssl.TLSVersion.TLSv1_2
     ctx.load_cert_chain(certfile=str(cert), keyfile=str(key))
     # Accept any cipher the client proposes — we're a benchmark backend, not production.
-    ctx.set_ciphers("ALL:@SECLEVEL=0") # nosemgrep
+    ctx.set_ciphers("ALL:@SECLEVEL=0")  # nosemgrep
     return ctx
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
+
 
 async def _serve(host: str, port: int, ssl_ctx: ssl.SSLContext) -> None:
     server = await asyncio.start_server(

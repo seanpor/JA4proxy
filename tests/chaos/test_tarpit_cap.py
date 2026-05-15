@@ -86,10 +86,13 @@ class TestTarpitCounterIsolatedFromRedis:
             server, "_forward_to_backend", new=AsyncMock(side_effect=OSError("network"))
         ):
             with patch("proxy._TARPIT_CONCURRENT") as mock_gauge:
+
                 async def run():
                     # Patch the tarpit forwarding to raise immediately
                     try:
-                        await server._redirect_to_tarpit(b"data", reader, writer, "1.2.3.4")
+                        await server._redirect_to_tarpit(
+                            b"data", reader, writer, "1.2.3.4"
+                        )
                     except Exception:
                         pass
 
@@ -111,7 +114,9 @@ class TestTarpitCounterIsolatedFromRedis:
         overflow_reader.read = AsyncMock(return_value=b"")
 
         async def run():
-            await server._redirect_to_tarpit(b"data", overflow_reader, overflow_writer, "9.9.9.9")
+            await server._redirect_to_tarpit(
+                b"data", overflow_reader, overflow_writer, "9.9.9.9"
+            )
 
         asyncio.run(run())
 
@@ -130,7 +135,9 @@ class TestTarpitCounterIsolatedFromRedis:
         overflow_reader.read = AsyncMock(return_value=b"")
 
         async def run():
-            await server._redirect_to_tarpit(b"data", overflow_reader, overflow_writer, "5.5.5.5")
+            await server._redirect_to_tarpit(
+                b"data", overflow_reader, overflow_writer, "5.5.5.5"
+            )
 
         asyncio.run(run())
 
@@ -144,7 +151,9 @@ class TestTarpitCounterIsolatedFromRedis:
 
         async def run():
             # Simulate tarpit host unreachable
-            with patch("asyncio.open_connection", side_effect=OSError("Connection refused")):
+            with patch(
+                "asyncio.open_connection", side_effect=OSError("Connection refused")
+            ):
                 try:
                     await server._redirect_to_tarpit(b"data", reader, writer, "2.3.4.5")
                 except Exception:

@@ -82,7 +82,9 @@ def _read_audit_log(redis) -> list[str]:
         entries = redis.lrange("management:audit_log", 0, -1) or []
     except Exception:
         entries = []
-    return [e if isinstance(e, str) else e.decode("utf-8", errors="ignore") for e in entries]
+    return [
+        e if isinstance(e, str) else e.decode("utf-8", errors="ignore") for e in entries
+    ]
 
 
 # ── Recorded Future ───────────────────────────────────────────────────────────
@@ -127,12 +129,12 @@ def test_rf_api_token_never_leaks(caplog, stub_management_client):
 
     # 1. Logs
     for record in caplog.records:
-        assert _RF_TOKEN_SENTINEL not in record.getMessage(), (
-            f"RF token leaked in log: {record.getMessage()}"
-        )
-        assert _RF_TOKEN_SENTINEL not in str(getattr(record, "args", ())), (
-            f"RF token leaked in log args: {record.args!r}"
-        )
+        assert (
+            _RF_TOKEN_SENTINEL not in record.getMessage()
+        ), f"RF token leaked in log: {record.getMessage()}"
+        assert _RF_TOKEN_SENTINEL not in str(
+            getattr(record, "args", ())
+        ), f"RF token leaked in log args: {record.args!r}"
 
     # 2. Prometheus
     hits = _scrape_prometheus_for(_RF_TOKEN_SENTINEL)
@@ -140,7 +142,9 @@ def test_rf_api_token_never_leaks(caplog, stub_management_client):
 
     # 3. Audit log
     audit = _read_audit_log(redis)
-    assert not any(_RF_TOKEN_SENTINEL in row for row in audit), "RF token leaked to audit log"
+    assert not any(
+        _RF_TOKEN_SENTINEL in row for row in audit
+    ), "RF token leaked to audit log"
 
 
 # ── CrowdStrike ───────────────────────────────────────────────────────────────
@@ -280,6 +284,6 @@ def test_client_repr_does_not_expose_secrets():
         (taxii, _TAXII_PW_SENTINEL),
     ]:
         for text in (repr(obj), str(obj)):
-            assert sentinel not in text, (
-                f"{type(obj).__name__} exposed secret in {text!r}"
-            )
+            assert (
+                sentinel not in text
+            ), f"{type(obj).__name__} exposed secret in {text!r}"

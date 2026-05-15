@@ -1,6 +1,7 @@
 """
 Unit tests for src/tap/enforcement_bridge.py — Group 8 (Phase 20).
 """
+
 import asyncio
 import hashlib
 import hmac
@@ -19,6 +20,7 @@ from src.tap.enforcement_bridge import (
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_config(**overrides) -> dict:
     base = {
@@ -56,6 +58,7 @@ def _make_bridge(**kwargs) -> EnforcementBridge:
 # iptables/ipset backend
 # ---------------------------------------------------------------------------
 
+
 class TestIptablesBan:
     @pytest.mark.asyncio
     async def test_iptables_ban_calls_ipset_add_with_timeout(self):
@@ -65,7 +68,9 @@ class TestIptablesBan:
         proc_mock.returncode = 0
         proc_mock.communicate.return_value = (b"", b"")
 
-        with patch("asyncio.create_subprocess_exec", return_value=proc_mock) as mock_exec:
+        with patch(
+            "asyncio.create_subprocess_exec", return_value=proc_mock
+        ) as mock_exec:
             await bridge._iptables_ban("1.2.3.4", 3600)
 
         mock_exec.assert_called_once()
@@ -85,7 +90,9 @@ class TestIptablesBan:
         proc_mock.returncode = 0
         proc_mock.communicate.return_value = (b"", b"")
 
-        with patch("asyncio.create_subprocess_exec", return_value=proc_mock) as mock_exec:
+        with patch(
+            "asyncio.create_subprocess_exec", return_value=proc_mock
+        ) as mock_exec:
             await bridge._iptables_ban("1.2.3.4", 3600)
 
         # Must NOT be called with shell=True
@@ -100,7 +107,9 @@ class TestIptablesBan:
         proc_mock.returncode = 0
         proc_mock.communicate.return_value = (b"", b"")
 
-        with patch("asyncio.create_subprocess_exec", return_value=proc_mock) as mock_exec:
+        with patch(
+            "asyncio.create_subprocess_exec", return_value=proc_mock
+        ) as mock_exec:
             await bridge._iptables_ban("1.2.3.4", 7200)
 
         args = mock_exec.call_args.args
@@ -132,6 +141,7 @@ class TestIptablesBan:
 # BGP backend
 # ---------------------------------------------------------------------------
 
+
 class TestBGPAnnounce:
     def _bgp_bridge(self, agg_v4: int = 32, agg_v6: int = 128) -> EnforcementBridge:
         config = _make_config(
@@ -156,8 +166,9 @@ class TestBGPAnnounce:
 
         with patch("builtins.open", m_open):
             with patch.object(
-                asyncio.get_event_loop(), "run_in_executor",
-                side_effect=lambda _, fn: asyncio.coroutine(lambda: fn())()
+                asyncio.get_event_loop(),
+                "run_in_executor",
+                side_effect=lambda _, fn: asyncio.coroutine(lambda: fn())(),
             ):
                 pass
 
@@ -172,9 +183,9 @@ class TestBGPAnnounce:
         with patch(
             "asyncio.get_event_loop",
             return_value=MagicMock(
-                run_in_executor=AsyncMock(side_effect=lambda _, fn: asyncio.coroutine(
-                    lambda f=fn: f()
-                )())
+                run_in_executor=AsyncMock(
+                    side_effect=lambda _, fn: asyncio.coroutine(lambda f=fn: f())()
+                )
             ),
         ):
             # Just test the prefix rejection logic (most testable part)
@@ -251,8 +262,11 @@ class TestBGPAnnounce:
 # Webhook backend
 # ---------------------------------------------------------------------------
 
+
 class TestWebhookBan:
-    def _webhook_bridge(self, max_retries: int = 2) -> tuple[EnforcementBridge, MagicMock]:
+    def _webhook_bridge(
+        self, max_retries: int = 2
+    ) -> tuple[EnforcementBridge, MagicMock]:
         session = MagicMock()
         resp_200 = AsyncMock()
         resp_200.status = 200
@@ -280,7 +294,9 @@ class TestWebhookBan:
 
         session.post.assert_called_once()
         _, kwargs = session.post.call_args
-        headers = kwargs.get("headers") or session.post.call_args.kwargs.get("headers", {})
+        headers = kwargs.get("headers") or session.post.call_args.kwargs.get(
+            "headers", {}
+        )
 
         assert "X-JA4Proxy-Signature" in headers
         sig_header = headers["X-JA4Proxy-Signature"]
@@ -331,6 +347,7 @@ class TestWebhookBan:
 # _on_ban fan-out
 # ---------------------------------------------------------------------------
 
+
 class TestOnBan:
     @pytest.mark.asyncio
     async def test_on_ban_calls_all_enabled_backends(self):
@@ -356,6 +373,7 @@ class TestOnBan:
 
 # ── Missing-coverage tests ────────────────────────────────────────────────────
 
+
 class TestEnforcementBridgeLifecycle:
     """Lines 95-96 (start) and 100-112 (close) lifecycle paths."""
 
@@ -377,7 +395,8 @@ class TestEnforcementBridgeLifecycle:
     @pytest.mark.asyncio
     async def test_close_cancels_task_and_cleans_pubsub(self):
         """close() cancels the task and unsubscribes pubsub (lines 100-112).
-        So what: leaked tasks and open pubsub connections waste FDs and mask shutdown."""
+        So what: leaked tasks and open pubsub connections waste FDs and mask shutdown.
+        """
         bridge = _make_bridge()
         # Plant a fake running task
         finished = asyncio.Event()
@@ -445,10 +464,14 @@ class TestIptablesBanAdditional:
         """asyncio.create_subprocess_exec raising a non-FileNotFoundError exception
         must be caught and logged (lines 220-221).
         So what: an unexpected iptables error must not crash the ban dispatch loop."""
-        bridge = _make_bridge(config=_make_config(
-            iptables={"enabled": True, "ipset_name": "ja4proxy_ban"},
-        ))
-        with patch("asyncio.create_subprocess_exec", side_effect=OSError("permission denied")):
+        bridge = _make_bridge(
+            config=_make_config(
+                iptables={"enabled": True, "ipset_name": "ja4proxy_ban"},
+            )
+        )
+        with patch(
+            "asyncio.create_subprocess_exec", side_effect=OSError("permission denied")
+        ):
             await bridge._iptables_ban("1.2.3.4", 3600)  # must not raise
 
 
@@ -459,28 +482,35 @@ class TestBGPAnnounceAdditional:
     async def test_bgp_ipv6_prefix_too_broad_rejected(self):
         """IPv6 agg_len < /48 → warning logged, route not written (lines 261-262).
         So what: a /32 IPv6 announcement would black-hole entire ISP allocations."""
-        config = _make_config(bgp={
-            "enabled": True,
-            "pipe": "/run/exabgp.cmd",
-            "next_hop": "self",
-            "aggregate_prefix_len_v4": 32,
-            "aggregate_prefix_len_v6": 32,  # too broad — /32 < /48
-        })
+        config = _make_config(
+            bgp={
+                "enabled": True,
+                "pipe": "/run/exabgp.cmd",
+                "next_hop": "self",
+                "aggregate_prefix_len_v4": 32,
+                "aggregate_prefix_len_v6": 32,  # too broad — /32 < /48
+            }
+        )
         bridge = _make_bridge(config=config)
         with patch("builtins.open", side_effect=AssertionError("should not open pipe")):
-            await bridge._bgp_announce("2001:db8::1")  # must return without opening pipe
+            await bridge._bgp_announce(
+                "2001:db8::1"
+            )  # must return without opening pipe
 
     @pytest.mark.asyncio
     async def test_bgp_pipe_timeout_logged(self):
         """asyncio.wait_for → TimeoutError → error logged (line 270).
-        So what: a hung ExaBGP process must not block the ban dispatch loop indefinitely."""
-        config = _make_config(bgp={
-            "enabled": True,
-            "pipe": "/run/exabgp.cmd",
-            "next_hop": "self",
-            "aggregate_prefix_len_v4": 32,
-            "aggregate_prefix_len_v6": 128,
-        })
+        So what: a hung ExaBGP process must not block the ban dispatch loop indefinitely.
+        """
+        config = _make_config(
+            bgp={
+                "enabled": True,
+                "pipe": "/run/exabgp.cmd",
+                "next_hop": "self",
+                "aggregate_prefix_len_v4": 32,
+                "aggregate_prefix_len_v6": 128,
+            }
+        )
         bridge = _make_bridge(config=config)
         with patch("asyncio.wait_for", side_effect=asyncio.TimeoutError()):
             await bridge._bgp_announce("1.2.3.4")  # must not raise
@@ -488,14 +518,17 @@ class TestBGPAnnounceAdditional:
     @pytest.mark.asyncio
     async def test_bgp_generic_exception_swallowed(self):
         """Unexpected exception in _bgp_announce caught by outer handler (lines 279-280).
-        So what: a BGP crash must not prevent iptables or webhook backends from running."""
-        config = _make_config(bgp={
-            "enabled": True,
-            "pipe": "/run/exabgp.cmd",
-            "next_hop": "self",
-            "aggregate_prefix_len_v4": 32,
-            "aggregate_prefix_len_v6": 128,
-        })
+        So what: a BGP crash must not prevent iptables or webhook backends from running.
+        """
+        config = _make_config(
+            bgp={
+                "enabled": True,
+                "pipe": "/run/exabgp.cmd",
+                "next_hop": "self",
+                "aggregate_prefix_len_v4": 32,
+                "aggregate_prefix_len_v6": 128,
+            }
+        )
         bridge = _make_bridge(config=config)
         with patch("ipaddress.ip_address", side_effect=RuntimeError("injected")):
             await bridge._bgp_announce("1.2.3.4")  # must not raise
@@ -508,12 +541,16 @@ class TestListenLoop:
     async def test_listen_loop_dispatches_message_and_stops(self):
         """_listen_loop subscribes, reads one message, dispatches it, then stops.
         Covers lines 116-133.
-        So what: if the loop never reaches _handle_message, bans are never dispatched."""
+        So what: if the loop never reaches _handle_message, bans are never dispatched.
+        """
         bridge = _make_bridge()
         mock_pubsub = MagicMock()
 
         # get_message returns one real message then None (so inner while exits)
-        msg = {"type": "message", "data": json.dumps({"ip": "5.6.7.8", "ttl": 60, "reason": "x"})}
+        msg = {
+            "type": "message",
+            "data": json.dumps({"ip": "5.6.7.8", "ttl": 60, "reason": "x"}),
+        }
         mock_pubsub.get_message.side_effect = [msg, None]
 
         # After second None, stop the loop
@@ -532,10 +569,14 @@ class TestListenLoop:
         bridge._running = True
 
         with (
-            patch.object(bridge, "_handle_message", new_callable=AsyncMock) as mock_handle,
+            patch.object(
+                bridge, "_handle_message", new_callable=AsyncMock
+            ) as mock_handle,
             patch("asyncio.get_event_loop") as mock_loop,
         ):
-            mock_loop.return_value.run_in_executor = AsyncMock(side_effect=_fake_executor)
+            mock_loop.return_value.run_in_executor = AsyncMock(
+                side_effect=_fake_executor
+            )
             await asyncio.wait_for(bridge._listen_loop(), timeout=2.0)
 
     @pytest.mark.asyncio
@@ -558,7 +599,9 @@ class TestListenLoop:
             patch("asyncio.get_event_loop") as mock_loop,
             patch("asyncio.sleep", new_callable=AsyncMock),
         ):
-            mock_loop.return_value.run_in_executor = AsyncMock(side_effect=_fake_executor)
+            mock_loop.return_value.run_in_executor = AsyncMock(
+                side_effect=_fake_executor
+            )
             await asyncio.wait_for(bridge._listen_loop(), timeout=2.0)
         assert call_count >= 1
 
@@ -573,7 +616,9 @@ class TestListenLoop:
             raise asyncio.CancelledError()
 
         with patch("asyncio.get_event_loop") as mock_loop:
-            mock_loop.return_value.run_in_executor = AsyncMock(side_effect=_fake_executor)
+            mock_loop.return_value.run_in_executor = AsyncMock(
+                side_effect=_fake_executor
+            )
             await bridge._listen_loop()  # must return, not raise
 
 
@@ -690,13 +735,15 @@ class TestEnforcementBridgeCoverageGaps:
         """Successful BGP pipe write executes pipe.write(cmd) (line 262).
         So what: if the write never executes, no announce route commands reach ExaBGP,
         and the BGP black-hole never activates — the attacker's traffic continues."""
-        config = _make_config(bgp={
-            "enabled": True,
-            "pipe": "/tmp/test_exabgp.cmd",
-            "next_hop": "self",
-            "aggregate_prefix_len_v4": 32,
-            "aggregate_prefix_len_v6": 128,
-        })
+        config = _make_config(
+            bgp={
+                "enabled": True,
+                "pipe": "/tmp/test_exabgp.cmd",
+                "next_hop": "self",
+                "aggregate_prefix_len_v4": 32,
+                "aggregate_prefix_len_v6": 128,
+            }
+        )
         bridge = _make_bridge(config=config)
         written = []
         mock_file = MagicMock()
@@ -712,7 +759,9 @@ class TestEnforcementBridgeCoverageGaps:
             patch("builtins.open", m_open),
             patch("asyncio.get_event_loop") as mock_loop,
         ):
-            mock_loop.return_value.run_in_executor = AsyncMock(side_effect=_fake_executor)
+            mock_loop.return_value.run_in_executor = AsyncMock(
+                side_effect=_fake_executor
+            )
             await bridge._bgp_announce("1.2.3.4")
 
         assert any("announce route" in w for w in written)
@@ -722,13 +771,15 @@ class TestEnforcementBridgeCoverageGaps:
         """FileNotFoundError from BGP pipe open → error logged (lines 274-275).
         So what: if this error is swallowed silently, operators don't know that
         ExaBGP is not running and the BGP black-hole backend is non-functional."""
-        config = _make_config(bgp={
-            "enabled": True,
-            "pipe": "/nonexistent/exabgp.cmd",
-            "next_hop": "self",
-            "aggregate_prefix_len_v4": 32,
-            "aggregate_prefix_len_v6": 128,
-        })
+        config = _make_config(
+            bgp={
+                "enabled": True,
+                "pipe": "/nonexistent/exabgp.cmd",
+                "next_hop": "self",
+                "aggregate_prefix_len_v4": 32,
+                "aggregate_prefix_len_v6": 128,
+            }
+        )
         bridge = _make_bridge(config=config)
 
         async def _fake_executor(_, fn):
@@ -738,7 +789,9 @@ class TestEnforcementBridgeCoverageGaps:
             patch("asyncio.get_event_loop") as mock_loop,
             patch("src.tap.enforcement_bridge.logger") as mock_log,
         ):
-            mock_loop.return_value.run_in_executor = AsyncMock(side_effect=_fake_executor)
+            mock_loop.return_value.run_in_executor = AsyncMock(
+                side_effect=_fake_executor
+            )
             await bridge._bgp_announce("1.2.3.4")  # must not raise
 
         mock_log.error.assert_called()
@@ -752,13 +805,15 @@ class TestEnforcementBridgeCoverageGaps:
         attempt retries — a silent drop would leave the SIEM without ban events."""
         session = MagicMock()
         session.post.side_effect = ConnectionError("connection refused")
-        config = _make_config(webhook={
-            "enabled": True,
-            "url": "http://hook.test/ban",
-            "secret": "",
-            "max_retries": 0,
-            "retry_delay_s": 0,
-        })
+        config = _make_config(
+            webhook={
+                "enabled": True,
+                "url": "http://hook.test/ban",
+                "secret": "",
+                "max_retries": 0,
+                "retry_delay_s": 0,
+            }
+        )
         bridge = _make_bridge(config=config, session=session)
         with patch("src.tap.enforcement_bridge.logger") as mock_log:
             await bridge._webhook_ban("1.2.3.4", 3600, "reason")

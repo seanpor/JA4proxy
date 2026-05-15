@@ -54,7 +54,7 @@ _IP_KEY_PATTERNS = [
     "misp:data:{ip}",
     "threatfox:data:{ip}",
     "virustotal:data:{ip}",
-    "beacon:{ip}:*",          # wildcard — scan required
+    "beacon:{ip}:*",  # wildcard — scan required
 ]
 
 # HyperLogLog keys: individual contributors CANNOT be removed from a sketch.
@@ -75,19 +75,27 @@ _SCAN_PATTERNS = [p for p in _IP_KEY_PATTERNS if "*" in p]
 _EXACT_PATTERNS = [p for p in _IP_KEY_PATTERNS if "*" not in p]
 
 
-def _write_audit_log(r, ip: str, dry_run: bool, keys_deleted: int,
-                     hll_skipped: int, zset_removed: int,
-                     invoked_by: str = "gdpr_delete.py") -> None:
+def _write_audit_log(
+    r,
+    ip: str,
+    dry_run: bool,
+    keys_deleted: int,
+    hll_skipped: int,
+    zset_removed: int,
+    invoked_by: str = "gdpr_delete.py",
+) -> None:
     """Write an erasure audit entry to management:gdpr_erasure_log (last 1000)."""
-    entry = json.dumps({
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "ip": ip,
-        "dry_run": dry_run,
-        "keys_deleted": keys_deleted,
-        "keys_skipped_hll": hll_skipped,
-        "zset_members_removed": zset_removed,
-        "invoked_by": invoked_by,
-    })
+    entry = json.dumps(
+        {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "ip": ip,
+            "dry_run": dry_run,
+            "keys_deleted": keys_deleted,
+            "keys_skipped_hll": hll_skipped,
+            "zset_members_removed": zset_removed,
+            "invoked_by": invoked_by,
+        }
+    )
     r.lpush("management:gdpr_erasure_log", entry)
     r.ltrim("management:gdpr_erasure_log", 0, 999)
 
@@ -134,11 +142,14 @@ def purge_ip(ip: str, dry_run: bool = False, r=None) -> dict:
         while True:
             cursor, keys = r.scan(cursor, match=key_glob, count=100)
             for key in keys:
-                members = [m for m in r.zrange(key, 0, -1)
-                           if m.startswith(member_prefix)]
+                members = [
+                    m for m in r.zrange(key, 0, -1) if m.startswith(member_prefix)
+                ]
                 if members:
                     if dry_run:
-                        print(f"  [dry-run] would ZREM {len(members)} member(s) from: {key}")
+                        print(
+                            f"  [dry-run] would ZREM {len(members)} member(s) from: {key}"
+                        )
                     else:
                         r.zrem(key, *members)
                         print(f"  ZREM {len(members)} member(s) from: {key}")
@@ -175,8 +186,7 @@ def purge_ip(ip: str, dry_run: bool = False, r=None) -> dict:
         "zset_members_removed": zset_removed,
         "hll_skipped": hll_skipped,
     }
-    _write_audit_log(r, ip, dry_run,
-                     result["keys_deleted"], hll_skipped, zset_removed)
+    _write_audit_log(r, ip, dry_run, result["keys_deleted"], hll_skipped, zset_removed)
     return result
 
 
@@ -211,23 +221,32 @@ def main() -> int:
         result = purge_ip(ip, dry_run=args.dry_run)
     except Exception as exc:
         print(f"ERROR: could not connect to Redis: {exc}", file=sys.stderr)
-        print("Set REDIS_HOST / REDIS_PORT / REDIS_PASSWORD as needed.", file=sys.stderr)
+        print(
+            "Set REDIS_HOST / REDIS_PORT / REDIS_PASSWORD as needed.", file=sys.stderr
+        )
         return 1
 
     if args.report:
-        print(json.dumps({
-            "ip": ip,
-            "dry_run": args.dry_run,
-            **result,
-        }, indent=2))
+        print(
+            json.dumps(
+                {
+                    "ip": ip,
+                    "dry_run": args.dry_run,
+                    **result,
+                },
+                indent=2,
+            )
+        )
 
     prefix = "Dry run complete." if args.dry_run else "Erasure complete."
     print(f"\n{prefix}")
     print(f"  Keys deleted:          {result['keys_deleted']}")
     print(f"  ZSET members removed:  {result['zset_members_removed']}")
     if result["hll_skipped"]:
-        print(f"  HLL keys skipped:      {result['hll_skipped']} "
-              f"(probabilistic sketch — cannot erase; expire via TTL)")
+        print(
+            f"  HLL keys skipped:      {result['hll_skipped']} "
+            f"(probabilistic sketch — cannot erase; expire via TTL)"
+        )
     return 0
 
 

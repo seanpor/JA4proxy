@@ -368,7 +368,8 @@ class TestPubSubCoverageGaps:
     def test_verify_signature_with_key_returns_true_for_correct_sig(self):
         """_verify_signature computes HMAC and verifies correct signature (lines 111-120).
         So what: if the HMAC check is never exercised, a wrong implementation
-        could accept any signature, allowing any compromised instance to forge updates."""
+        could accept any signature, allowing any compromised instance to forge updates.
+        """
         import hashlib
         import hmac as _hmac
 
@@ -411,11 +412,13 @@ class TestPubSubCoverageGaps:
         handler._signing_key = "secret"
 
         # Send a critical message type with wrong signature
-        msg = json.dumps({
-            "type": "dial_change",
-            "value": 0,
-            "signature": "wrong_signature",
-        }).encode()
+        msg = json.dumps(
+            {
+                "type": "dial_change",
+                "value": 0,
+                "signature": "wrong_signature",
+            }
+        ).encode()
 
         with caplog.at_level(logging.ERROR, logger="src.pubsub"):
             _run(handler._dispatch(msg))
@@ -446,10 +449,12 @@ class TestPubSubCoverageGaps:
             blocklist_manager=mock_blocklist,
         )
 
-        msg = json.dumps({
-            "type": "cidr_ban_add",
-            "value": "10.0.0.0/24",
-        }).encode()
+        msg = json.dumps(
+            {
+                "type": "cidr_ban_add",
+                "value": "10.0.0.0/24",
+            }
+        ).encode()
 
         with caplog.at_level(logging.WARNING, logger="src.pubsub"):
             _run(handler._dispatch(msg))

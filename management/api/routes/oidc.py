@@ -52,7 +52,17 @@ from authlib.jose import JsonWebKey, JsonWebToken
 # ``HS256``, which lets an attacker re-sign an ID token with the IdP's *public*
 # key as an HMAC secret (alg-confusion attack). Restrict to asymmetric-only
 # algorithms we're willing to trust.
-_ALLOWED_OIDC_ALGS = ["RS256", "RS384", "RS512", "ES256", "ES384", "ES512", "PS256", "PS384", "PS512"]
+_ALLOWED_OIDC_ALGS = [
+    "RS256",
+    "RS384",
+    "RS512",
+    "ES256",
+    "ES384",
+    "ES512",
+    "PS256",
+    "PS384",
+    "PS512",
+]
 _OIDC_JWT = JsonWebToken(_ALLOWED_OIDC_ALGS)
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse, Response
@@ -124,7 +134,7 @@ def _map_role(groups: list[str]) -> Optional[Role]:
     # Config-file base; env var entries override config-file entries for the same group
     role_mapping: dict = {**get_sso_role_mapping(), **env_mapping}
 
-    for group in (groups or []):
+    for group in groups or []:
         role_str = role_mapping.get(group)
         if role_str:
             try:
@@ -140,7 +150,9 @@ def _map_role(groups: list[str]) -> Optional[Role]:
         try:
             return Role(default_role_str)
         except ValueError:
-            logger.warning("oidc | event=invalid_default_role | value=%s", default_role_str)
+            logger.warning(
+                "oidc | event=invalid_default_role | value=%s", default_role_str
+            )
 
     return None
 
@@ -216,6 +228,7 @@ async def _extract_claims(id_token: str, jwks_uri: str) -> dict:
     """
     # JA4PROXY-2026-0023 — test-mode bypass is only honoured outside production.
     from ..auth import is_test_mode
+
     if is_test_mode():
         # Test mode — decode without signature verification
         try:
@@ -240,7 +253,9 @@ async def _extract_claims(id_token: str, jwks_uri: str) -> dict:
         header_padding = "=" * (-len(header_b64) % 4)
         header = json.loads(base64.urlsafe_b64decode(header_b64 + header_padding))
     except Exception as exc:
-        logger.warning("oidc | event=id_token_header_invalid | error=%s", exc)  # nosemgrep
+        logger.warning(
+            "oidc | event=id_token_header_invalid | error=%s", exc
+        )  # nosemgrep
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="ID token header malformed",
@@ -333,7 +348,9 @@ async def oidc_login(
     try:
         discovery = await _fetch_oidc_discovery(discovery_url)
     except Exception as exc:
-        logger.error("oidc | event=discovery_failed | url=%s | error=%s", discovery_url, exc)
+        logger.error(
+            "oidc | event=discovery_failed | url=%s | error=%s", discovery_url, exc
+        )
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Failed to fetch OIDC discovery document",
@@ -410,9 +427,7 @@ async def oidc_callback(
     idp_error = request.query_params.get("error", "")
     if idp_error:
         error_desc = request.query_params.get("error_description", idp_error)
-        logger.warning(
-            "oidc | event=idp_error | error=%s | state=%s", idp_error, state
-        )
+        logger.warning("oidc | event=idp_error | error=%s | state=%s", idp_error, state)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"IdP rejected the authentication request: {error_desc}",
@@ -446,7 +461,9 @@ async def oidc_callback(
             code_verifier=code_verifier,
         )
     except Exception as exc:
-        logger.warning("oidc | event=token_exchange_failed | error=%s", exc)  # nosemgrep
+        logger.warning(
+            "oidc | event=token_exchange_failed | error=%s", exc
+        )  # nosemgrep
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token exchange failed",
@@ -471,7 +488,9 @@ async def oidc_callback(
 
     role = _map_role(groups)
     if role is None:
-        logger.warning("oidc | event=role_mapping_denied | user=%s | groups=%s", sub, groups)
+        logger.warning(
+            "oidc | event=role_mapping_denied | user=%s | groups=%s", sub, groups
+        )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User's groups have no mapped role — access denied",
@@ -481,7 +500,9 @@ async def oidc_callback(
 
     # Gap 4 (Production Readiness): SSO-delegated MFA trust
     _MFA_SESSION_TTL = 8 * 3600
-    trust_idp_mfa = os.environ.get("MANAGEMENT_SSO_TRUST_IDP_MFA", "false").lower() == "true"
+    trust_idp_mfa = (
+        os.environ.get("MANAGEMENT_SSO_TRUST_IDP_MFA", "false").lower() == "true"
+    )
     if trust_idp_mfa:
         amr = claims.get("amr") or []
         if isinstance(amr, str):
@@ -492,6 +513,7 @@ async def oidc_callback(
 
     response = RedirectResponse(url=redirect_target, status_code=302)
     from ..auth import _should_set_secure_cookie
+
     response.set_cookie(
         "token",
         token,

@@ -212,7 +212,9 @@ class TokenCreate(BaseModel):
         try:
             dt = datetime.fromisoformat(v)
         except ValueError as exc:
-            raise ValueError(f"expires_at is not a valid ISO 8601 timestamp: {v!r}") from exc
+            raise ValueError(
+                f"expires_at is not a valid ISO 8601 timestamp: {v!r}"
+            ) from exc
         # Ensure timezone-aware comparison
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)

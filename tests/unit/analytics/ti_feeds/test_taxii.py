@@ -50,7 +50,9 @@ def _make_config(**overrides):
 # ── Bundle parsing ────────────────────────────────────────────────────────────
 
 
-def test_taxii_extracts_ja4_indicators(stix_bundle, mock_taxii_server, stub_management_client):
+def test_taxii_extracts_ja4_indicators(
+    stix_bundle, mock_taxii_server, stub_management_client
+):
     """Above-confidence JA4 indicators are sent to the blocklist endpoint."""
     TAXIIClient = _import_taxii()
     server = mock_taxii_server(stix_bundle)
@@ -72,7 +74,9 @@ def test_taxii_extracts_ja4_indicators(stix_bundle, mock_taxii_server, stub_mana
     assert all(r["managed_by"] == "feed" for r in blocklist_calls)
 
 
-def test_taxii_extracts_ip_indicators(stix_bundle, mock_taxii_server, stub_management_client):
+def test_taxii_extracts_ip_indicators(
+    stix_bundle, mock_taxii_server, stub_management_client
+):
     """Above-confidence IP indicators are sent to the bans endpoint."""
     TAXIIClient = _import_taxii()
     server = mock_taxii_server(stix_bundle)
@@ -85,13 +89,17 @@ def test_taxii_extracts_ip_indicators(stix_bundle, mock_taxii_server, stub_manag
     _run(client.poll())
 
     ban_paths = [
-        r["path"] for r in stub_management_client.requests if r["method"] == "POST" and r["path"].startswith("/api/v1/bans/")
+        r["path"]
+        for r in stub_management_client.requests
+        if r["method"] == "POST" and r["path"].startswith("/api/v1/bans/")
     ]
     assert any("198.51.100.42" in p for p in ban_paths)
     assert any("2001:db8::dead:beef" in p for p in ban_paths)
 
 
-def test_taxii_skips_below_confidence(stix_bundle, mock_taxii_server, stub_management_client):
+def test_taxii_skips_below_confidence(
+    stix_bundle, mock_taxii_server, stub_management_client
+):
     """Confidence < min_confidence increments the skipped counter, not the API."""
     TAXIIClient = _import_taxii()
     server = mock_taxii_server(stix_bundle)
@@ -109,7 +117,9 @@ def test_taxii_skips_below_confidence(stix_bundle, mock_taxii_server, stub_manag
     assert not any("203.0.113.1" in p for p in ban_paths)
 
 
-def test_taxii_filters_expired_indicators(stix_bundle, mock_taxii_server, stub_management_client):
+def test_taxii_filters_expired_indicators(
+    stix_bundle, mock_taxii_server, stub_management_client
+):
     """An indicator with valid_until in the past must be filtered out."""
     TAXIIClient = _import_taxii()
     server = mock_taxii_server(stix_bundle)
@@ -126,7 +136,9 @@ def test_taxii_filters_expired_indicators(stix_bundle, mock_taxii_server, stub_m
     assert not any("192.0.2.99" in p for p in ban_paths)
 
 
-def test_taxii_empty_collection_does_not_crash(mock_taxii_server, stub_management_client):
+def test_taxii_empty_collection_does_not_crash(
+    mock_taxii_server, stub_management_client
+):
     """An empty bundle is handled gracefully and produces an empty result."""
     TAXIIClient = _import_taxii()
     server = mock_taxii_server({"type": "bundle", "id": "bundle--empty", "objects": []})
@@ -145,7 +157,9 @@ def test_taxii_empty_collection_does_not_crash(mock_taxii_server, stub_managemen
 # ── Incremental polling ───────────────────────────────────────────────────────
 
 
-def test_taxii_passes_added_after_on_subsequent_poll(stix_bundle, mock_taxii_server, stub_management_client):
+def test_taxii_passes_added_after_on_subsequent_poll(
+    stix_bundle, mock_taxii_server, stub_management_client
+):
     """The second poll honours an ``added_after`` from poll_state."""
     TAXIIClient = _import_taxii()
     server = mock_taxii_server(stix_bundle)
@@ -163,7 +177,9 @@ def test_taxii_passes_added_after_on_subsequent_poll(stix_bundle, mock_taxii_ser
     assert last["added_after"] == "2026-04-01T00:00:00Z"
 
 
-def test_taxii_records_seen_stix_ids(stix_bundle, mock_taxii_server, stub_management_client):
+def test_taxii_records_seen_stix_ids(
+    stix_bundle, mock_taxii_server, stub_management_client
+):
     """Every above-confidence non-expired indicator id is in stix_ids_seen."""
     TAXIIClient = _import_taxii()
     server = mock_taxii_server(stix_bundle)
@@ -187,7 +203,9 @@ def test_taxii_records_seen_stix_ids(stix_bundle, mock_taxii_server, stub_manage
 # ── TAXII HTTP error handling (coverage gap closure) ─────────────────────────
 
 
-def test_taxii_injected_transport_non_dict_raises(mock_taxii_server, stub_management_client):
+def test_taxii_injected_transport_non_dict_raises(
+    mock_taxii_server, stub_management_client
+):
     """When the injected transport returns a non-dict, RuntimeError is raised."""
     TAXIIClient = _import_taxii()
 
@@ -196,7 +214,9 @@ def test_taxii_injected_transport_non_dict_raises(mock_taxii_server, stub_manage
             return "not a dict"
 
     client = TAXIIClient(
-        config=_make_config(), mgmt=stub_management_client, state=None,
+        config=_make_config(),
+        mgmt=stub_management_client,
+        state=None,
         taxii=BadTransport(),
     )
     result = _run(client.poll())
@@ -204,7 +224,9 @@ def test_taxii_injected_transport_non_dict_raises(mock_taxii_server, stub_manage
     assert "non-dict" in result.errors[0]
 
 
-def test_taxii_injected_transport_non_list_objects_raises(mock_taxii_server, stub_management_client):
+def test_taxii_injected_transport_non_list_objects_raises(
+    mock_taxii_server, stub_management_client
+):
     """When bundle.objects is not a list, RuntimeError is raised."""
     TAXIIClient = _import_taxii()
 
@@ -213,7 +235,9 @@ def test_taxii_injected_transport_non_list_objects_raises(mock_taxii_server, stu
             return {"objects": "not a list"}
 
     client = TAXIIClient(
-        config=_make_config(), mgmt=stub_management_client, state=None,
+        config=_make_config(),
+        mgmt=stub_management_client,
+        state=None,
         taxii=BadObjectsTransport(),
     )
     result = _run(client.poll())
@@ -230,7 +254,9 @@ def test_taxii_fetch_failure_records_error(mock_taxii_server, stub_management_cl
             raise ConnectionError("network unreachable")
 
     client = TAXIIClient(
-        config=_make_config(), mgmt=stub_management_client, state=None,
+        config=_make_config(),
+        mgmt=stub_management_client,
+        state=None,
         taxii=FailTransport(),
     )
     result = _run(client.poll())
@@ -273,12 +299,22 @@ def test_indicator_missing_id_records_error(mock_taxii_server, stub_management_c
     """An indicator without 'id' appends an error."""
     TAXIIClient = _import_taxii()
     bundle = {
-        "type": "bundle", "id": "bundle--test",
-        "objects": [{"type": "indicator", "pattern": "[ipv4-addr:value = '1.2.3.4']", "confidence": 90}],
+        "type": "bundle",
+        "id": "bundle--test",
+        "objects": [
+            {
+                "type": "indicator",
+                "pattern": "[ipv4-addr:value = '1.2.3.4']",
+                "confidence": 90,
+            }
+        ],
     }
     server = mock_taxii_server(bundle)
     client = TAXIIClient(
-        config=_make_config(), mgmt=stub_management_client, state=None, taxii=server,
+        config=_make_config(),
+        mgmt=stub_management_client,
+        state=None,
+        taxii=server,
     )
     result = _run(client.poll())
     assert any("missing id" in e for e in result.errors)
@@ -288,17 +324,23 @@ def test_indicator_invalid_ip_records_error(mock_taxii_server, stub_management_c
     """An indicator with an invalid IP pattern records an error."""
     TAXIIClient = _import_taxii()
     bundle = {
-        "type": "bundle", "id": "bundle--test",
-        "objects": [{
-            "type": "indicator",
-            "id": "indicator--bad-ip",
-            "pattern": "[ipv4-addr:value = 'not.an.ip.address']",
-            "confidence": 90,
-        }],
+        "type": "bundle",
+        "id": "bundle--test",
+        "objects": [
+            {
+                "type": "indicator",
+                "id": "indicator--bad-ip",
+                "pattern": "[ipv4-addr:value = 'not.an.ip.address']",
+                "confidence": 90,
+            }
+        ],
     }
     server = mock_taxii_server(bundle)
     client = TAXIIClient(
-        config=_make_config(), mgmt=stub_management_client, state=None, taxii=server,
+        config=_make_config(),
+        mgmt=stub_management_client,
+        state=None,
+        taxii=server,
     )
     result = _run(client.poll())
     assert result.unsupported_pattern >= 1
@@ -308,18 +350,24 @@ def test_indicator_ban_api_failure(mock_taxii_server, stub_management_client):
     """When post_ban raises, the error is recorded but poll continues."""
     TAXIIClient = _import_taxii()
     bundle = {
-        "type": "bundle", "id": "bundle--test",
-        "objects": [{
-            "type": "indicator",
-            "id": "indicator--ban-fail",
-            "pattern": "[ipv4-addr:value = '198.51.100.1']",
-            "confidence": 90,
-        }],
+        "type": "bundle",
+        "id": "bundle--test",
+        "objects": [
+            {
+                "type": "indicator",
+                "id": "indicator--ban-fail",
+                "pattern": "[ipv4-addr:value = '198.51.100.1']",
+                "confidence": 90,
+            }
+        ],
     }
     server = mock_taxii_server(bundle)
     stub_management_client.fail_path("POST", "/api/v1/bans/198.51.100.1", 500)
     client = TAXIIClient(
-        config=_make_config(), mgmt=stub_management_client, state=None, taxii=server,
+        config=_make_config(),
+        mgmt=stub_management_client,
+        state=None,
+        taxii=server,
     )
     result = _run(client.poll())
     assert any("ban create failed" in e for e in result.errors)
@@ -331,16 +379,20 @@ def test_indicator_blocklist_api_failure(mock_taxii_server, stub_management_clie
 
     # Need a valid JA4 that is not in the FP corpus
     import src.analytics.ti_feeds.ja4_safety as safety
+
     safety._JA4_FP_CORPUS = frozenset()
 
     bundle = {
-        "type": "bundle", "id": "bundle--test",
-        "objects": [{
-            "type": "indicator",
-            "id": "indicator--bl-fail",
-            "pattern": "[x-ja4-fingerprint:value = 't10d170900_9dc949161b6c_b64c0ad42cb7']",
-            "confidence": 90,
-        }],
+        "type": "bundle",
+        "id": "bundle--test",
+        "objects": [
+            {
+                "type": "indicator",
+                "id": "indicator--bl-fail",
+                "pattern": "[x-ja4-fingerprint:value = 't10d170900_9dc949161b6c_b64c0ad42cb7']",
+                "confidence": 90,
+            }
+        ],
     }
     server = mock_taxii_server(bundle)
 
@@ -353,7 +405,10 @@ def test_indicator_blocklist_api_failure(mock_taxii_server, stub_management_clie
     stub_management_client.post_blocklist = _fail_blocklist
 
     client = TAXIIClient(
-        config=_make_config(), mgmt=stub_management_client, state=None, taxii=server,
+        config=_make_config(),
+        mgmt=stub_management_client,
+        state=None,
+        taxii=server,
     )
     result = _run(client.poll())
     assert any("blocklist create failed" in e for e in result.errors)
@@ -367,20 +422,27 @@ def test_indicator_ja4_fp_blocked(mock_taxii_server, stub_management_client):
     TAXIIClient = _import_taxii()
 
     import src.analytics.ti_feeds.ja4_safety as safety
+
     safety._JA4_FP_CORPUS = frozenset({"t10d170900_9dc949161b6c_b64c0ad42cb7"})
 
     bundle = {
-        "type": "bundle", "id": "bundle--test",
-        "objects": [{
-            "type": "indicator",
-            "id": "indicator--fp-test",
-            "pattern": "[x-ja4-fingerprint:value = 't10d170900_9dc949161b6c_b64c0ad42cb7']",
-            "confidence": 90,
-        }],
+        "type": "bundle",
+        "id": "bundle--test",
+        "objects": [
+            {
+                "type": "indicator",
+                "id": "indicator--fp-test",
+                "pattern": "[x-ja4-fingerprint:value = 't10d170900_9dc949161b6c_b64c0ad42cb7']",
+                "confidence": 90,
+            }
+        ],
     }
     server = mock_taxii_server(bundle)
     client = TAXIIClient(
-        config=_make_config(), mgmt=stub_management_client, state=None, taxii=server,
+        config=_make_config(),
+        mgmt=stub_management_client,
+        state=None,
+        taxii=server,
     )
     result = _run(client.poll())
     assert any("false positive" in e.lower() for e in result.errors)
@@ -392,17 +454,23 @@ def test_indicator_unsupported_pattern(mock_taxii_server, stub_management_client
     """An unsupported pattern type increments unsupported_pattern."""
     TAXIIClient = _import_taxii()
     bundle = {
-        "type": "bundle", "id": "bundle--test",
-        "objects": [{
-            "type": "indicator",
-            "id": "indicator--unsupported",
-            "pattern": "[domain-name:value = 'evil.example.com']",
-            "confidence": 90,
-        }],
+        "type": "bundle",
+        "id": "bundle--test",
+        "objects": [
+            {
+                "type": "indicator",
+                "id": "indicator--unsupported",
+                "pattern": "[domain-name:value = 'evil.example.com']",
+                "confidence": 90,
+            }
+        ],
     }
     server = mock_taxii_server(bundle)
     client = TAXIIClient(
-        config=_make_config(), mgmt=stub_management_client, state=None, taxii=server,
+        config=_make_config(),
+        mgmt=stub_management_client,
+        state=None,
+        taxii=server,
     )
     result = _run(client.poll())
     assert result.unsupported_pattern >= 1
@@ -413,20 +481,27 @@ def test_indicator_invalid_ja4_pattern(mock_taxii_server, stub_management_client
     TAXIIClient = _import_taxii()
 
     import src.analytics.ti_feeds.ja4_safety as safety
+
     safety._JA4_FP_CORPUS = frozenset()
 
     bundle = {
-        "type": "bundle", "id": "bundle--test",
-        "objects": [{
-            "type": "indicator",
-            "id": "indicator--bad-ja4",
-            "pattern": "[x-ja4-fingerprint:value = 'invalid']",
-            "confidence": 90,
-        }],
+        "type": "bundle",
+        "id": "bundle--test",
+        "objects": [
+            {
+                "type": "indicator",
+                "id": "indicator--bad-ja4",
+                "pattern": "[x-ja4-fingerprint:value = 'invalid']",
+                "confidence": 90,
+            }
+        ],
     }
     server = mock_taxii_server(bundle)
     client = TAXIIClient(
-        config=_make_config(), mgmt=stub_management_client, state=None, taxii=server,
+        config=_make_config(),
+        mgmt=stub_management_client,
+        state=None,
+        taxii=server,
     )
     result = _run(client.poll())
     assert result.unsupported_pattern >= 1
@@ -434,7 +509,9 @@ def test_indicator_invalid_ja4_pattern(mock_taxii_server, stub_management_client
     safety._JA4_FP_CORPUS = None
 
 
-def test_indicator_with_state_tracking(stix_bundle, mock_taxii_server, stub_management_client, fake_redis):
+def test_indicator_with_state_tracking(
+    stix_bundle, mock_taxii_server, stub_management_client, fake_redis
+):
     """When state is provided, mark() is called for successful indicators."""
     TAXIIClient = _import_taxii()
     from src.analytics.ti_feeds.state import FeedState
@@ -442,7 +519,10 @@ def test_indicator_with_state_tracking(stix_bundle, mock_taxii_server, stub_mana
     state = FeedState(fake_redis)
     server = mock_taxii_server(stix_bundle)
     client = TAXIIClient(
-        config=_make_config(), mgmt=stub_management_client, state=state, taxii=server,
+        config=_make_config(),
+        mgmt=stub_management_client,
+        state=state,
+        taxii=server,
     )
     result = _run(client.poll())
     # Should have tracked stix IDs in state
@@ -461,16 +541,21 @@ def test_process_objects_batches_large_set(mock_taxii_server, stub_management_cl
     # Create 60 IP indicators
     objects = []
     for i in range(60):
-        objects.append({
-            "type": "indicator",
-            "id": f"indicator--batch-{i:04d}",
-            "pattern": f"[ipv4-addr:value = '198.51.100.{i % 256}']",
-            "confidence": 90,
-        })
+        objects.append(
+            {
+                "type": "indicator",
+                "id": f"indicator--batch-{i:04d}",
+                "pattern": f"[ipv4-addr:value = '198.51.100.{i % 256}']",
+                "confidence": 90,
+            }
+        )
     bundle = {"type": "bundle", "id": "bundle--batch", "objects": objects}
     server = mock_taxii_server(bundle)
     client = TAXIIClient(
-        config=_make_config(), mgmt=stub_management_client, state=None, taxii=server,
+        config=_make_config(),
+        mgmt=stub_management_client,
+        state=None,
+        taxii=server,
     )
 
     sleeps = []
@@ -499,23 +584,30 @@ def test_taxii_aiohttp_non_200_raises(stub_management_client):
 
     class FakeResp:
         status = 503
+
         async def text(self):
             return "Service Unavailable"
+
         async def __aenter__(self):
             return self
+
         async def __aexit__(self, *a):
             pass
 
     class FakeSession:
         def get(self, url, headers=None, params=None, timeout=None):
             return FakeResp()
+
         async def __aenter__(self):
             return self
+
         async def __aexit__(self, *a):
             pass
 
     client = TAXIIClient(
-        config=_make_config(), mgmt=stub_management_client, state=None,
+        config=_make_config(),
+        mgmt=stub_management_client,
+        state=None,
         taxii=None,  # force aiohttp path
     )
 
@@ -536,23 +628,30 @@ def test_taxii_aiohttp_json_parse_error(stub_management_client):
 
     class FakeResp:
         status = 200
+
         async def text(self):
             return "this is not json"
+
         async def __aenter__(self):
             return self
+
         async def __aexit__(self, *a):
             pass
 
     class FakeSession:
         def get(self, url, headers=None, params=None, timeout=None):
             return FakeResp()
+
         async def __aenter__(self):
             return self
+
         async def __aexit__(self, *a):
             pass
 
     client = TAXIIClient(
-        config=_make_config(), mgmt=stub_management_client, state=None,
+        config=_make_config(),
+        mgmt=stub_management_client,
+        state=None,
         taxii=None,
     )
 
@@ -574,23 +673,30 @@ def test_taxii_aiohttp_non_list_objects(stub_management_client):
 
     class FakeResp:
         status = 200
+
         async def text(self):
             return json.dumps({"objects": "not a list"})
+
         async def __aenter__(self):
             return self
+
         async def __aexit__(self, *a):
             pass
 
     class FakeSession:
         def get(self, url, headers=None, params=None, timeout=None):
             return FakeResp()
+
         async def __aenter__(self):
             return self
+
         async def __aexit__(self, *a):
             pass
 
     client = TAXIIClient(
-        config=_make_config(), mgmt=stub_management_client, state=None,
+        config=_make_config(),
+        mgmt=stub_management_client,
+        state=None,
         taxii=None,
     )
 
@@ -614,24 +720,30 @@ def test_taxii_aiohttp_success_path(stub_management_client):
 
     class FakeResp:
         status = 200
+
         async def text(self):
             return json.dumps(bundle)
+
         async def __aenter__(self):
             return self
+
         async def __aexit__(self, *a):
             pass
 
     class FakeSession:
         def get(self, url, headers=None, params=None, timeout=None):
             return FakeResp()
+
         async def __aenter__(self):
             return self
+
         async def __aexit__(self, *a):
             pass
 
     client = TAXIIClient(
         config=_make_config(username="", password=""),
-        mgmt=stub_management_client, state=None,
+        mgmt=stub_management_client,
+        state=None,
         taxii=None,
     )
 

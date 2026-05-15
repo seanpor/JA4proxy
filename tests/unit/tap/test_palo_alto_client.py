@@ -1,6 +1,7 @@
 """
 Unit tests for src/tap/export/palo_alto_client.py — Phase 20, Group 9.
 """
+
 import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -11,6 +12,7 @@ from src.tap.export.palo_alto_client import PaloAltoClient, _build_uid_xml
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_config(**overrides) -> dict:
     cfg = {
@@ -41,6 +43,7 @@ def _make_session(status: int = 200) -> MagicMock:
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 class TestRegisterIP:
     @pytest.mark.asyncio
@@ -84,7 +87,8 @@ class TestRegisterIP:
             client = PaloAltoClient(_make_config(verify_tls=False), session)
 
         assert any(
-            "tls_verification_disabled" in record.message or "disabled" in record.message.lower()
+            "tls_verification_disabled" in record.message
+            or "disabled" in record.message.lower()
             for record in caplog.records
         ), f"Expected TLS warning, got: {[r.message for r in caplog.records]}"
 
@@ -110,6 +114,7 @@ class TestBuildUidXml:
 # ---------------------------------------------------------------------------
 # Additional tests targeting previously uncovered lines
 # ---------------------------------------------------------------------------
+
 
 class TestCallApiEdgeCases:
     """Lines 98-104: _call_api error and non-context-manager paths."""

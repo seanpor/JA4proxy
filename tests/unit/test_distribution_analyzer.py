@@ -24,6 +24,7 @@ from src.analytics.distribution_analyzer import DistributionAnalyzer
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_analyzer(config=None) -> DistributionAnalyzer:
     mock_redis = AsyncMock()
     mock_redis.get = AsyncMock(return_value=None)
@@ -43,6 +44,7 @@ def _run(coro):
 # ---------------------------------------------------------------------------
 # _normalize_distribution
 # ---------------------------------------------------------------------------
+
 
 class TestNormalizeDistribution:
     def test_empty_distribution_returns_empty(self):
@@ -75,6 +77,7 @@ class TestNormalizeDistribution:
 # ---------------------------------------------------------------------------
 # _calculate_ks_statistic
 # ---------------------------------------------------------------------------
+
 
 class TestCalculateKSStatistic:
     def test_identical_distributions_ks_zero(self):
@@ -115,6 +118,7 @@ class TestCalculateKSStatistic:
 # _approximate_p_value
 # ---------------------------------------------------------------------------
 
+
 class TestApproximatePValue:
     def test_zero_ks_statistic_returns_one(self):
         # p=1.0 means "no evidence of difference" — correct for KS=0.
@@ -145,6 +149,7 @@ class TestApproximatePValue:
 # ---------------------------------------------------------------------------
 # _analyze_distribution_shift
 # ---------------------------------------------------------------------------
+
 
 class TestAnalyzeDistributionShift:
     def test_no_shift_when_distributions_identical(self):
@@ -182,13 +187,20 @@ class TestAnalyzeDistributionShift:
         analyzer = _make_analyzer()
         b = _baseline({"50": 100}, 100)
         result = analyzer._analyze_distribution_shift(b, b)
-        for key in ("distribution_shift", "ks_statistic", "p_value", "severity", "detected_at"):
+        for key in (
+            "distribution_shift",
+            "ks_statistic",
+            "p_value",
+            "severity",
+            "detected_at",
+        ):
             assert key in result
 
 
 # ---------------------------------------------------------------------------
 # check_distribution_shift — rate limiting and Redis interaction
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 class TestCheckDistributionShift:
@@ -218,7 +230,9 @@ class TestCheckDistributionShift:
     async def test_shift_detected_stores_alert_in_redis(self):
         # Security: the alert must be persisted in Redis so that all proxy
         # instances can read it and — if configured — escalate via Prometheus alert.
-        analyzer = _make_analyzer({"check_interval_seconds": 0, "ks_test_threshold": 1.0})
+        analyzer = _make_analyzer(
+            {"check_interval_seconds": 0, "ks_test_threshold": 1.0}
+        )
         current = json.dumps(_baseline({"90": 900, "10": 100}, 1000))
         previous = json.dumps(_baseline({"10": 900, "90": 100}, 1000))
         call_count = [0]
@@ -242,6 +256,7 @@ class TestCheckDistributionShift:
 # ---------------------------------------------------------------------------
 # get_active_alert / clear_alert
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 class TestAlertManagement:
@@ -293,16 +308,14 @@ class TestAlertManagement:
 # detect_anomaly_patterns
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 class TestDetectAnomalyPatterns:
     async def test_bimodal_distribution_detected(self):
         # Security: a bimodal score distribution (cluster at 0 and cluster at 100)
         # indicates mixed benign + attack traffic, which the proxy should separate.
         analyzer = _make_analyzer()
-        baseline = _baseline(
-            {"0": 400, "10": 50, "50": 50, "90": 50, "100": 450},
-            1000
-        )
+        baseline = _baseline({"0": 400, "10": 50, "50": 50, "90": 50, "100": 450}, 1000)
         patterns = await analyzer.detect_anomaly_patterns(baseline)
         # bimodal check: two peaks with valley; exact result depends on algorithm
         assert isinstance(patterns["bimodal"], bool)
@@ -345,6 +358,7 @@ class TestDetectAnomalyPatterns:
 # ---------------------------------------------------------------------------
 # get_shift_history
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 class TestGetShiftHistory:

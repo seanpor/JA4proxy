@@ -286,9 +286,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Apply policy to the Management API.",
     )
     p_apply.add_argument("--file", required=True, help="Path to policy YAML file.")
-    p_apply.add_argument(
-        "--url", required=True, help="Management API base URL."
-    )
+    p_apply.add_argument("--url", required=True, help="Management API base URL.")
     p_apply.add_argument(
         "--token",
         default="",
@@ -307,9 +305,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Compare policy file against live API state.",
     )
     p_diff.add_argument("--file", required=True, help="Path to policy YAML file.")
-    p_diff.add_argument(
-        "--url", required=True, help="Management API base URL."
-    )
+    p_diff.add_argument("--url", required=True, help="Management API base URL.")
     p_diff.add_argument(
         "--token",
         default="",

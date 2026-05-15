@@ -42,7 +42,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
 from ..audit_utils import write_audit
 from ..auth import require_role
-from ..models import ManagedBy, ResourceCreate, ResourceListResponse, ResourceResponse, Role
+from ..models import (
+    ManagedBy,
+    ResourceCreate,
+    ResourceListResponse,
+    ResourceResponse,
+    Role,
+)
 from ..redis_client import get_redis
 
 logger = logging.getLogger(__name__)
@@ -96,7 +102,9 @@ def _is_ip_entry(entry: str) -> bool:
     return entry[:1].isdigit() or ":" in entry
 
 
-def _resolve_list_config(list_name: str, body: Optional[ResourceCreate] = None) -> dict[str, str]:
+def _resolve_list_config(
+    list_name: str, body: Optional[ResourceCreate] = None
+) -> dict[str, str]:
     """Return the LIST_CONFIG dict for *list_name*, handling IP sub-type for allowlist."""
     if list_name == "allowlist" and body is not None:
         # IP allowlist: explicit list_type='ip' or entry looks like IP/CIDR
@@ -208,7 +216,9 @@ async def _ensure_migrated(redis, list_name: str) -> None:
         await migrate_legacy_entries(redis, list_name)
 
 
-async def _get_all_entries(redis, list_name: str, managed_by_filter: Optional[str] = None) -> list[ResourceResponse]:
+async def _get_all_entries(
+    redis, list_name: str, managed_by_filter: Optional[str] = None
+) -> list[ResourceResponse]:
     """Return all non-expired entries from *list_name*, optionally filtered by managed_by."""
     await _ensure_migrated(redis, list_name)
     cfg = LIST_CONFIG[list_name]
@@ -221,7 +231,10 @@ async def _get_all_entries(redis, list_name: str, managed_by_filter: Optional[st
             continue
         if _is_expired(record.get("expires_at")):
             continue
-        if managed_by_filter is not None and record.get("managed_by") != managed_by_filter:
+        if (
+            managed_by_filter is not None
+            and record.get("managed_by") != managed_by_filter
+        ):
             continue
         results.append(_hash_to_response(record))
 
@@ -330,7 +343,10 @@ def _make_list_routes(list_name: str) -> None:
                 resource_type=list_name,
                 resource_id=response.id,
                 before_value=None,
-                after_value={"entry": response.entry, "managed_by": response.managed_by},
+                after_value={
+                    "entry": response.entry,
+                    "managed_by": response.managed_by,
+                },
                 role=role.value,
             )
         return response
@@ -361,9 +377,14 @@ def _make_list_routes(list_name: str) -> None:
         cfg = LIST_CONFIG[list_name]
         record = await redis.hgetall(f"{cfg['hash_prefix']}:{resource_id}")
         if not record:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Resource not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Resource not found"
+            )
         if _is_expired(record.get("expires_at")):
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Resource not found (expired)")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Resource not found (expired)",
+            )
         return _hash_to_response(record)
 
     @router.delete(

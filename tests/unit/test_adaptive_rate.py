@@ -107,7 +107,11 @@ class TestAdaptiveRateComputer:
         assert count == 1
         mock_redis.hset.assert_called_once()
         call_kwargs = mock_redis.hset.call_args
-        key = call_kwargs.args[0] if call_kwargs.args else call_kwargs.kwargs.get("name", "")
+        key = (
+            call_kwargs.args[0]
+            if call_kwargs.args
+            else call_kwargs.kwargs.get("name", "")
+        )
         assert "rate:adaptive:" in key
         mock_redis.expire.assert_called_once_with(key, 120)
 
@@ -173,7 +177,9 @@ def _make_proxy_stub(config: dict) -> Any:
 class TestProxyAdaptiveReadPath:
     """Tests for proxy.py _get_adaptive_rate_threshold()."""
 
-    def _config_with_adaptive(self, enabled: bool = True, confidence_min: float = 0.7) -> dict:
+    def _config_with_adaptive(
+        self, enabled: bool = True, confidence_min: float = 0.7
+    ) -> dict:
         return {
             "security": {"max_requests_per_minute": 100},
             "rate_limiter": {
@@ -198,20 +204,26 @@ class TestProxyAdaptiveReadPath:
     @pytest.mark.asyncio
     async def test_uses_adaptive_threshold_when_confidence_sufficient(self) -> None:
         server = _make_proxy_stub(self._config_with_adaptive(enabled=True))
-        server.redis.hgetall = AsyncMock(return_value={
-            b"threshold_rps": b"250",
-            b"confidence": b"0.85",
-        })
+        server.redis.hgetall = AsyncMock(
+            return_value={
+                b"threshold_rps": b"250",
+                b"confidence": b"0.85",
+            }
+        )
         result = await server._get_adaptive_rate_threshold("1.2.3.4")
         assert result == 250
 
     @pytest.mark.asyncio
     async def test_falls_back_when_confidence_below_minimum(self) -> None:
-        server = _make_proxy_stub(self._config_with_adaptive(enabled=True, confidence_min=0.7))
-        server.redis.hgetall = AsyncMock(return_value={
-            b"threshold_rps": b"250",
-            b"confidence": b"0.5",  # Below 0.7 minimum
-        })
+        server = _make_proxy_stub(
+            self._config_with_adaptive(enabled=True, confidence_min=0.7)
+        )
+        server.redis.hgetall = AsyncMock(
+            return_value={
+                b"threshold_rps": b"250",
+                b"confidence": b"0.5",  # Below 0.7 minimum
+            }
+        )
         result = await server._get_adaptive_rate_threshold("1.2.3.4")
         assert result == 100  # Static fallback
 
@@ -234,20 +246,24 @@ class TestProxyAdaptiveReadPath:
     @pytest.mark.asyncio
     async def test_clamps_adaptive_threshold_to_max(self) -> None:
         server = _make_proxy_stub(self._config_with_adaptive(enabled=True))
-        server.redis.hgetall = AsyncMock(return_value={
-            b"threshold_rps": b"9999",  # Way above max
-            b"confidence": b"0.95",
-        })
+        server.redis.hgetall = AsyncMock(
+            return_value={
+                b"threshold_rps": b"9999",  # Way above max
+                b"confidence": b"0.95",
+            }
+        )
         result = await server._get_adaptive_rate_threshold("1.2.3.4")
         assert result <= 1000
 
     @pytest.mark.asyncio
     async def test_clamps_adaptive_threshold_to_min(self) -> None:
         server = _make_proxy_stub(self._config_with_adaptive(enabled=True))
-        server.redis.hgetall = AsyncMock(return_value={
-            b"threshold_rps": b"1",  # Below min
-            b"confidence": b"0.95",
-        })
+        server.redis.hgetall = AsyncMock(
+            return_value={
+                b"threshold_rps": b"1",  # Below min
+                b"confidence": b"0.95",
+            }
+        )
         result = await server._get_adaptive_rate_threshold("1.2.3.4")
         assert result >= 5
 

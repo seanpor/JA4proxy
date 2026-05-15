@@ -24,6 +24,7 @@ from src.security.blocklists import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _run(coro):
     return asyncio.run(coro)
 
@@ -43,7 +44,9 @@ def _feed_cfg(**kwargs) -> FeedConfig:
     return FeedConfig(**defaults)
 
 
-def _make_feed_manager(feed_cfg: FeedConfig, redis=None) -> tuple[FeedManager, BlocklistManager]:
+def _make_feed_manager(
+    feed_cfg: FeedConfig, redis=None
+) -> tuple[FeedManager, BlocklistManager]:
     config = {
         "blocklists": {
             "feeds": [
@@ -68,6 +71,7 @@ def _make_feed_manager(feed_cfg: FeedConfig, redis=None) -> tuple[FeedManager, B
 # ---------------------------------------------------------------------------
 # HTTP 503 — last known trie retained
 # ---------------------------------------------------------------------------
+
 
 class TestHTTP503:
     """HTTP 503 from feed server: last known trie retained, error counter up."""
@@ -101,9 +105,7 @@ class TestHTTP503:
                 )
                 mock_aiohttp.ClientSession.return_value.__aexit__ = AsyncMock()
                 mock_aiohttp.ClientTimeout = MagicMock()
-                mock_session.get.return_value.__aenter__ = AsyncMock(
-                    side_effect=exc
-                )
+                mock_session.get.return_value.__aenter__ = AsyncMock(side_effect=exc)
                 await fm._download_and_store(feed_cfg)
 
         _run(run())
@@ -111,7 +113,10 @@ class TestHTTP503:
         # Trie still has old data
         assert mgr.is_blocked("1.10.16.1")[0] is True
         # Error counter incremented
-        assert _BLOCKLIST_DOWNLOAD_ERRORS.labels("spamhaus_drop")._value.get() == before + 1
+        assert (
+            _BLOCKLIST_DOWNLOAD_ERRORS.labels("spamhaus_drop")._value.get()
+            == before + 1
+        )
 
     def test_503_logs_error_json(self, caplog):
         """HTTP 503 emits structured ERROR log."""
@@ -143,12 +148,11 @@ class TestHTTP503:
         _run(run())
 
         json_logs = [
-            json.loads(r.message) for r in caplog.records
-            if r.message.startswith("{")
+            json.loads(r.message) for r in caplog.records if r.message.startswith("{")
         ]
         assert any(
-            log.get("event") == "feed_download_failed" and
-            log.get("subsystem") == "blocklist"
+            log.get("event") == "feed_download_failed"
+            and log.get("subsystem") == "blocklist"
             for log in json_logs
         )
 
@@ -156,6 +160,7 @@ class TestHTTP503:
 # ---------------------------------------------------------------------------
 # Timeout
 # ---------------------------------------------------------------------------
+
 
 class TestDownloadTimeout:
     """Download timeout: last known trie retained, no hang."""
@@ -185,12 +190,16 @@ class TestDownloadTimeout:
         _run(run())
 
         assert mgr.is_blocked("2.57.97.1")[0] is True
-        assert _BLOCKLIST_DOWNLOAD_ERRORS.labels("spamhaus_drop")._value.get() == before + 1
+        assert (
+            _BLOCKLIST_DOWNLOAD_ERRORS.labels("spamhaus_drop")._value.get()
+            == before + 1
+        )
 
 
 # ---------------------------------------------------------------------------
 # Malformed CIDR data
 # ---------------------------------------------------------------------------
+
 
 class TestMalformedFeedData:
     """Malformed lines are skipped; valid CIDRs are loaded; no crash."""
@@ -249,6 +258,7 @@ NOT_A_CIDR
 # ---------------------------------------------------------------------------
 # Redis unavailable at startup
 # ---------------------------------------------------------------------------
+
 
 class TestRedisUnavailableAtStartup:
     """When Redis is down, attempt direct download (act as leader)."""

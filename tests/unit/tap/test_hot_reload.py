@@ -159,10 +159,12 @@ class TestRestartRequired:
         reloadable_keys = [path for path, *_ in reloadable]
         assert ("tap", "interface") not in reloadable_keys
 
-        warning_msgs = [r.message for r in caplog.records if r.levelno == logging.WARNING]
-        assert any("interface" in m and "restart" in m for m in warning_msgs), (
-            f"Expected restart warning for interface; got: {warning_msgs}"
-        )
+        warning_msgs = [
+            r.message for r in caplog.records if r.levelno == logging.WARNING
+        ]
+        assert any(
+            "interface" in m and "restart" in m for m in warning_msgs
+        ), f"Expected restart warning for interface; got: {warning_msgs}"
 
     def test_ring_buffer_mb_change_logs_warn_and_is_ignored(
         self, caplog: pytest.LogCaptureFixture
@@ -181,7 +183,9 @@ class TestRestartRequired:
         reloadable_keys = [path for path, *_ in reloadable]
         assert ("tap", "ring_buffer_mb") not in reloadable_keys
 
-        warning_msgs = [r.message for r in caplog.records if r.levelno == logging.WARNING]
-        assert any("ring_buffer_mb" in m and "restart" in m for m in warning_msgs), (
-            f"Expected restart warning for ring_buffer_mb; got: {warning_msgs}"
-        )
+        warning_msgs = [
+            r.message for r in caplog.records if r.levelno == logging.WARNING
+        ]
+        assert any(
+            "ring_buffer_mb" in m and "restart" in m for m in warning_msgs
+        ), f"Expected restart warning for ring_buffer_mb; got: {warning_msgs}"

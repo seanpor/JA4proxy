@@ -236,9 +236,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     # verify
     verify_p = subs.add_parser("verify", help="Verify a file's signature.")
-    verify_p.add_argument(
-        "file", type=Path, metavar="FILE", help="File to verify."
-    )
+    verify_p.add_argument("file", type=Path, metavar="FILE", help="File to verify.")
 
     return parser
 

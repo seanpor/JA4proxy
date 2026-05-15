@@ -4,6 +4,7 @@ Unit tests for proxy.py mode dispatch (G1-C — Phase 20).
 Validates that main() routes to ProxyServer or TapSensor based on
 proxy.mode in the config file, and exits with code 1 for unknown modes.
 """
+
 import asyncio
 import sys
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -15,6 +16,7 @@ import yaml
 # Helper
 # ---------------------------------------------------------------------------
 
+
 def _write_cfg(tmp_path, data: dict) -> str:
     cfg = tmp_path / "proxy.yml"
     cfg.write_text(yaml.dump(data), encoding="utf-8")
@@ -24,6 +26,7 @@ def _write_cfg(tmp_path, data: dict) -> str:
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 class TestModeSwitch:
     @pytest.mark.asyncio
@@ -37,6 +40,7 @@ class TestModeSwitch:
             patch("proxy.TapSensor") as mock_ts,
         ):
             from proxy import main
+
             await main()
 
         mock_create.assert_called_once_with(cfg_path)
@@ -53,6 +57,7 @@ class TestModeSwitch:
             patch("proxy.ProxyServer.create") as mock_create,
         ):
             from proxy import main
+
             await main()
 
         mock_ts_cls.assert_called_once()
@@ -67,6 +72,7 @@ class TestModeSwitch:
             pytest.raises(SystemExit) as exc_info,
         ):
             from proxy import main
+
             asyncio.run(main())
 
         assert exc_info.value.code == 1
@@ -82,6 +88,7 @@ class TestModeSwitch:
             patch("proxy.TapSensor") as mock_ts,
         ):
             from proxy import main
+
             await main()
 
         mock_create.assert_called_once_with(cfg_path)

@@ -262,9 +262,13 @@ class TestPrometheusCounterFailure:
             f = tmp_path / "backup_ctr.bin"
             f.write_bytes(b"counter test")
 
-            before = CLOUD_UPLOAD_TOTAL.labels(provider="s3", result="failure")._value.get()
+            before = CLOUD_UPLOAD_TOTAL.labels(
+                provider="s3", result="failure"
+            )._value.get()
             run(adapter.upload(f, {}))
-            after = CLOUD_UPLOAD_TOTAL.labels(provider="s3", result="failure")._value.get()
+            after = CLOUD_UPLOAD_TOTAL.labels(
+                provider="s3", result="failure"
+            )._value.get()
 
         assert after == before + 1
 

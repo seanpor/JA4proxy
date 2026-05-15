@@ -81,10 +81,19 @@ async def get_connections(
     ip: Optional[str] = Query(None, description="Filter by exact IP"),
     ja4: Optional[str] = Query(None, description="Filter by exact JA4 fingerprint"),
     action: Optional[str] = Query(None, description="Filter by action_taken"),
-    since: Optional[str] = Query(None, description="ISO 8601 timestamp — only events after this"),
-    until: Optional[str] = Query(None, description="ISO 8601 timestamp — only events before this (Compliance Reporting)"),
-    limit: int = Query(_DEFAULT_LIMIT, ge=1, le=_MAX_LIMIT, description="Max results per page"),
-    page_token: Optional[str] = Query(None, description="Cursor for next page (from previous response)"),
+    since: Optional[str] = Query(
+        None, description="ISO 8601 timestamp — only events after this"
+    ),
+    until: Optional[str] = Query(
+        None,
+        description="ISO 8601 timestamp — only events before this (Compliance Reporting)",
+    ),
+    limit: int = Query(
+        _DEFAULT_LIMIT, ge=1, le=_MAX_LIMIT, description="Max results per page"
+    ),
+    page_token: Optional[str] = Query(
+        None, description="Cursor for next page (from previous response)"
+    ),
     current_user=Depends(require_role(Role.analyst)),
     redis=Depends(get_redis),
 ):
@@ -209,7 +218,9 @@ async def get_fingerprint_detail(
             last_seen = ts
 
     if total == 0:
-        raise HTTPException(status_code=404, detail=f"Fingerprint '{ja4}' not found in stream")
+        raise HTTPException(
+            status_code=404, detail=f"Fingerprint '{ja4}' not found in stream"
+        )
 
     return {
         "fingerprint": ja4,

@@ -17,38 +17,38 @@ from src.analytics.ml_detector import (
 
 class TestFeatureExtractor:
     """Test feature extraction for ML models."""
-    
+
     def test_feature_extraction(self):
         """Test basic feature extraction from JA4 fingerprint."""
         extractor = FeatureExtractor({})
-        
+
         fingerprint = {
-            'score': 75.5,
-            'extensions': ['server_name', 'supported_groups', 'ec_point_formats'],
-            'ciphers': ['TLS_AES_256_GCM_SHA384', 'TLS_CHACHA20_POLY1305_SHA256'],
-            'ja4': 't13d1234h2_1234_1234',
-            'timestamp': 1234567890
+            "score": 75.5,
+            "extensions": ["server_name", "supported_groups", "ec_point_formats"],
+            "ciphers": ["TLS_AES_256_GCM_SHA384", "TLS_CHACHA20_POLY1305_SHA256"],
+            "ja4": "t13d1234h2_1234_1234",
+            "timestamp": 1234567890,
         }
-        
+
         features = extractor.extract(fingerprint)
-        
+
         # Verify feature count and types
         assert len(features) >= 10
         assert all(isinstance(f, (int, float)) for f in features)
-        
+
         # Verify specific feature values
         assert features[0] == 75.5  # Score
-        assert features[1] == 3     # Extension count
-        assert features[2] == 2     # Cipher count
+        assert features[1] == 3  # Extension count
+        assert features[2] == 2  # Cipher count
 
     def test_feature_extraction_edge_cases(self):
         """Test feature extraction with missing/empty fields."""
         extractor = FeatureExtractor({})
-        
+
         # Minimal fingerprint
-        fingerprint = {'score': 50.0}
+        fingerprint = {"score": 50.0}
         features = extractor.extract(fingerprint)
-        
+
         assert len(features) >= 10
         assert features[0] == 50.0
         # Missing fields should default to 0
@@ -59,62 +59,66 @@ class TestFeatureExtractor:
 @pytest.mark.asyncio
 class TestMLDetector:
     """Test ML-based anomaly detection."""
-    
+
     async def test_detector_initialization(self):
         """Test detector initialization with mock model."""
         mock_redis = AsyncMock()
-        
+
         # Create detector with test configuration
         config = {
-            'ml_model_path': '/tmp/test_model.pkl',
-            'feature_config': {'version': 1}
+            "ml_model_path": "/tmp/test_model.pkl",
+            "feature_config": {"version": 1},
         }
-        
+
         detector = MLDetector(mock_redis, config)
-        
+
         assert detector.config == config
         assert detector.redis == mock_redis
-        assert hasattr(detector, 'extractor')
-        assert hasattr(detector, 'model')
+        assert hasattr(detector, "extractor")
+        assert hasattr(detector, "model")
 
     async def test_anomaly_detection(self):
         """Test anomaly detection with mock model predictions."""
         mock_redis = AsyncMock()
-        
+
         # Create detector
-        config = {'ml_model_path': '/tmp/test_model.pkl'}
+        config = {"ml_model_path": "/tmp/test_model.pkl"}
         detector = MLDetector(mock_redis, config)
-        
+
         # Mock model prediction
-        detector.model.predict = lambda x: [0.95, 0.10, 0.88]  # High, low, medium scores
-        
+        detector.model.predict = lambda x: [
+            0.95,
+            0.10,
+            0.88,
+        ]  # High, low, medium scores
+
         # Test fingerprints
         fingerprints = [
-            {'score': 75.5, 'extensions': ['ext1', 'ext2']},
-            {'score': 30.0, 'extensions': ['ext1']},
-            {'score': 60.0, 'extensions': ['ext1', 'ext2', 'ext3']}
+            {"score": 75.5, "extensions": ["ext1", "ext2"]},
+            {"score": 30.0, "extensions": ["ext1"]},
+            {"score": 60.0, "extensions": ["ext1", "ext2", "ext3"]},
         ]
-        
+
         results = await detector.detect(fingerprints)
-        
+
         # Verify results
         assert len(results) == 3
-        assert results[0]['anomaly_score'] == 0.95
-        assert results[0]['is_anomaly'] == True
-        assert results[1]['anomaly_score'] == 0.10
-        assert results[1]['is_anomaly'] == False
+        assert results[0]["anomaly_score"] == 0.95
+        assert results[0]["is_anomaly"] == True
+        assert results[1]["anomaly_score"] == 0.10
+        assert results[1]["is_anomaly"] == False
 
     async def test_detector_with_redis_integration(self):
         """Test detector initialization with Redis mock."""
         mock_redis = AsyncMock()
-        
-        config = {'ml_model_path': 'analytics:ml:model:v1'}
+
+        config = {"ml_model_path": "analytics:ml:model:v1"}
         detector = MLDetector(mock_redis, config)
-        
+
         # Verify detector is initialized correctly
         assert detector.redis == mock_redis
-        assert detector.model_version == '1'
-        assert detector.model_key == 'analytics:ml:model:v1'
+        assert detector.model_version == "1"
+        assert detector.model_key == "analytics:ml:model:v1"
         # Note: Current implementation uses default model, doesn't call Redis.get
         # This would be tested when we implement real model loading
 
@@ -122,74 +126,75 @@ class TestMLDetector:
 @pytest.mark.asyncio
 class TestMLIntegration:
     """Test ML integration with monitoring system."""
-    
+
     async def test_monitoring_system_integration(self):
         """Test ML detector integration with monitoring system."""
         from unittest.mock import AsyncMock
 
         from src.analytics.monitoring import MonitoringSystem
-        
+
         mock_redis = AsyncMock()
-        
+
         # Create monitoring system with ML config
         config = {
-            'ml': {
-                'model_path': '/tmp/test_model.pkl',
-                'feature_config': {'version': 1}
+            "ml": {
+                "model_path": "/tmp/test_model.pkl",
+                "feature_config": {"version": 1},
             }
         }
-        
+
         monitoring = MonitoringSystem(mock_redis, config)
-        
+
         # Verify ML detector is initialized
-        assert hasattr(monitoring, 'ml_detector')
+        assert hasattr(monitoring, "ml_detector")
         assert monitoring.ml_detector is not None
-        
+
         # Test ML detection method exists
-        assert hasattr(monitoring, 'detect_anomalies')
+        assert hasattr(monitoring, "detect_anomalies")
 
 
 class TestModelManagement:
     """Test model versioning and management."""
-    
+
     def test_model_versioning(self):
         """Test model version tracking."""
         mock_redis = AsyncMock()
-        
-        config = {'ml_model_path': 'analytics:ml:model:v1'}
+
+        config = {"ml_model_path": "analytics:ml:model:v1"}
         detector = MLDetector(mock_redis, config)
-        
+
         # Initial version (implementation extracts just the number)
-        assert detector.model_version == '1'
-        
+        assert detector.model_version == "1"
+
         # Test version update (update_model_version sets full version string)
-        detector.update_model_version('v2')
-        assert detector.model_version == 'v2'
-        assert detector.config['ml_model_path'] == 'analytics:ml:model:vv2'
+        detector.update_model_version("v2")
+        assert detector.model_version == "v2"
+        assert detector.config["ml_model_path"] == "analytics:ml:model:vv2"
 
     async def test_model_persistence(self):
         """Test model persistence to Redis."""
         mock_redis = AsyncMock()
-        
-        config = {'ml_model_path': 'analytics:ml:model:v1'}
+
+        config = {"ml_model_path": "analytics:ml:model:v1"}
         detector = MLDetector(mock_redis, config)
-        
+
         # Mock model data
-        mock_model = b'mock_model_data'
-        
+        mock_model = b"mock_model_data"
+
         # Test save
         await detector.save_model(mock_model)
-        
+
         # Verify Redis set was called
         assert mock_redis.set.called
         call_args = mock_redis.set.call_args
-        assert call_args[0][0] == 'analytics:ml:model:v1'
+        assert call_args[0][0] == "analytics:ml:model:v1"
         assert call_args[0][1] == mock_model
 
 
 # ---------------------------------------------------------------------------
 # ThresholdModel (created by _create_default_model) — via detect()
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 class TestThresholdModel:
@@ -265,6 +270,7 @@ class TestThresholdModel:
 # save_model — Redis error propagation
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 class TestSaveModelErrors:
     async def test_save_model_propagates_redis_error(self):
@@ -273,8 +279,11 @@ class TestSaveModelErrors:
         stale or absent model on next reload.
         """
         import redis.asyncio as aioredis
+
         mock_redis = AsyncMock()
-        mock_redis.set = AsyncMock(side_effect=aioredis.RedisError("connection refused"))
+        mock_redis.set = AsyncMock(
+            side_effect=aioredis.RedisError("connection refused")
+        )
         detector = MLDetector(mock_redis, {"ml_model_path": "analytics:ml:model:v1"})
         with pytest.raises(aioredis.RedisError):
             await detector.save_model(b"model_bytes")
@@ -283,6 +292,7 @@ class TestSaveModelErrors:
 # ---------------------------------------------------------------------------
 # get_model_info
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 class TestGetModelInfo:
@@ -305,6 +315,7 @@ class TestGetModelInfo:
 # MLModelManager
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 class TestMLModelManager:
     async def test_list_models_returns_empty_on_redis_error(self):
@@ -314,6 +325,7 @@ class TestMLModelManager:
         unavailable when Redis is degraded.
         """
         import redis.asyncio as aioredis
+
         mock_redis = AsyncMock()
         mock_redis.keys = AsyncMock(side_effect=aioredis.RedisError("timeout"))
         manager = MLModelManager(mock_redis)
@@ -323,10 +335,12 @@ class TestMLModelManager:
     async def test_list_models_returns_keys(self):
         """Keys in Redis must be listed with version extracted from the key name."""
         mock_redis = AsyncMock()
-        mock_redis.keys = AsyncMock(return_value=[
-            b"analytics:ml:model:v1",
-            b"analytics:ml:model:v2",
-        ])
+        mock_redis.keys = AsyncMock(
+            return_value=[
+                b"analytics:ml:model:v1",
+                b"analytics:ml:model:v2",
+            ]
+        )
         manager = MLModelManager(mock_redis)
         result = await manager.list_models()
         assert len(result) == 2
@@ -337,9 +351,11 @@ class TestMLModelManager:
     async def test_list_models_handles_string_keys(self):
         """Keys returned as strings (not bytes) must also be handled correctly."""
         mock_redis = AsyncMock()
-        mock_redis.keys = AsyncMock(return_value=[
-            "analytics:ml:model:v5",
-        ])
+        mock_redis.keys = AsyncMock(
+            return_value=[
+                "analytics:ml:model:v5",
+            ]
+        )
         manager = MLModelManager(mock_redis)
         result = await manager.list_models()
         assert result[0]["version"] == "v5"
@@ -358,6 +374,7 @@ class TestMLModelManager:
 # ---------------------------------------------------------------------------
 # MLMonitoringIntegration
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 class TestMLMonitoringIntegration:
@@ -387,7 +404,9 @@ class TestMLMonitoringIntegration:
     async def test_get_model_metrics_delegates(self):
         """Model metrics must flow through from the underlying detector."""
         mock_detector = AsyncMock()
-        mock_detector.get_model_info = AsyncMock(return_value={"version": "1", "status": "active"})
+        mock_detector.get_model_info = AsyncMock(
+            return_value={"version": "1", "status": "active"}
+        )
         mock_monitoring = MagicMock()
         mock_monitoring.ml_detector = mock_detector
         integration = MLMonitoringIntegration(mock_monitoring)
@@ -405,6 +424,7 @@ class TestMLMonitoringIntegration:
 # ---------------------------------------------------------------------------
 # FeatureExtractor — timestamp and network features
 # ---------------------------------------------------------------------------
+
 
 class TestFeatureExtractorAdditional:
     def test_timestamp_feature_is_seconds_modulo(self):
@@ -461,9 +481,14 @@ class TestFeatureExtractorAdditional:
         extractor = FeatureExtractor({})
         # Full fingerprint
         fp_full = {
-            "score": 50, "extensions": ["a", "b"], "ciphers": ["c"],
-            "ja4": "t13d1516h2_aa_bb", "timestamp": 9999,
-            "src_ip": "1.2.3.4", "dest_ip": "5.6.7.8", "alpn": "h2"
+            "score": 50,
+            "extensions": ["a", "b"],
+            "ciphers": ["c"],
+            "ja4": "t13d1516h2_aa_bb",
+            "timestamp": 9999,
+            "src_ip": "1.2.3.4",
+            "dest_ip": "5.6.7.8",
+            "alpn": "h2",
         }
         assert len(extractor.extract(fp_full)) == 20
         # Empty fingerprint
@@ -478,6 +503,7 @@ class TestFeatureExtractorAdditional:
         assert features[5] == "t13d1516h2_aabbcc_ddeeff".count("h")
         assert features[6] == "t13d1516h2_aabbcc_ddeeff".count("d")
 
+
 # ── Missing-coverage additions ────────────────────────────────────────────────
 
 
@@ -489,7 +515,8 @@ class TestMLDetectorCoverageGaps:
         then falls back to creating the default model.
         So what: if this fallback is missing, an ML model loading failure at startup
         would leave self.model unset — any subsequent detect() call would raise
-        AttributeError and the analytics node would crash, losing all anomaly detection."""
+        AttributeError and the analytics node would crash, losing all anomaly detection.
+        """
         mock_redis = MagicMock()
         config = {}
         detector = MLDetector(mock_redis, config)

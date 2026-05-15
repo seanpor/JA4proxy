@@ -3,6 +3,7 @@ TAP-mode chaos/resilience tests (Phase 20, Group 13-C).
 
 Tests verify TAP-mode components handle adversarial/edge-case inputs gracefully.
 """
+
 import struct
 from unittest.mock import MagicMock
 
@@ -52,7 +53,9 @@ class TestTLSParserResilience:
     def test_truncated_tls_record_returns_none_not_exception(self):
         """Truncated TLS record must return None from extract_ja4."""
         # Valid TLS record header but truncated body
-        truncated = b"\x16\x03\x01\x00\x50" + b"\x00" * 10  # claims 80 bytes but only 10
+        truncated = (
+            b"\x16\x03\x01\x00\x50" + b"\x00" * 10
+        )  # claims 80 bytes but only 10
         result = extract_ja4(truncated)
         assert result is None
 
@@ -92,21 +95,31 @@ class TestStreamTableCapacity:
         # Simulate 6 streams being added
         for i in range(6):
             pkt = ParsedPacket(
-                src_ip=f"10.0.0.{i+1}", dst_ip="5.6.7.8",
-                src_port=50000 + i, dst_port=443,
-                proto="tcp", seq=1000, ack=0, flags=0x002,  # SYN
-                data=b"", timestamp=float(i),
-                tcp_options_raw=b"", window_size=65535,
-                ip_ttl=64, ip_df=True, ip_id=i,
+                src_ip=f"10.0.0.{i+1}",
+                dst_ip="5.6.7.8",
+                src_port=50000 + i,
+                dst_port=443,
+                proto="tcp",
+                seq=1000,
+                ack=0,
+                flags=0x002,  # SYN
+                data=b"",
+                timestamp=float(i),
+                tcp_options_raw=b"",
+                window_size=65535,
+                ip_ttl=64,
+                ip_df=True,
+                ip_id=i,
             )
             reassembler.on_packet(pkt)
 
         # With max_streams=5, we should not have more than 5 streams
-        assert len(reassembler._streams) <= 5, (
-            f"Expected ≤5 streams at capacity, got {len(reassembler._streams)}"
-        )
+        assert (
+            len(reassembler._streams) <= 5
+        ), f"Expected ≤5 streams at capacity, got {len(reassembler._streams)}"
 
     def test_worker_crash_triggers_watchdog_restart(self):
         """Watchdog restart is tested in test_watchdog.py — just verify import."""
         from src.tap import watchdog  # noqa: F401
+
         assert hasattr(watchdog, "WorkerWatchdog")

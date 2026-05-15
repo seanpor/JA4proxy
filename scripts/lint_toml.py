@@ -3,6 +3,7 @@
 Validates all TOML files in the repository. tomllib (built-in since 3.11) or
 the tomli backport validates structure and types, not just character encoding.
 """
+
 import sys
 
 try:

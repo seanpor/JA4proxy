@@ -31,6 +31,7 @@ from src.security.virustotal import VirusTotalConfig, VirusTotalProvider
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _misp_config(**kwargs) -> MISPConfig:
     defaults = dict(
         enabled=True,
@@ -75,6 +76,7 @@ def _ctx_manager(mock_resp):
 # ---------------------------------------------------------------------------
 # CircuitBreaker unit tests
 # ---------------------------------------------------------------------------
+
 
 class TestCircuitBreakerStates:
     """State-machine correctness."""
@@ -142,6 +144,7 @@ class TestCircuitBreakerStates:
 # FeedHealthMonitor
 # ---------------------------------------------------------------------------
 
+
 class TestFeedHealthMonitor:
 
     def test_get_or_create_circuit_breaker(self):
@@ -183,6 +186,7 @@ class TestFeedHealthMonitor:
 # MISP provider + circuit breaker integration
 # ---------------------------------------------------------------------------
 
+
 class TestMISPCircuitBreakerIntegration:
     """MISP provider uses the circuit breaker to skip API calls when open."""
 
@@ -190,8 +194,9 @@ class TestMISPCircuitBreakerIntegration:
     async def test_circuit_open_skips_api_call(self):
         """When circuit is open, _process_lookup returns without calling the API."""
         monitor = FeedHealthMonitor()
-        cb = monitor.get_circuit_breaker("misp", failure_threshold=1,
-                                         recovery_probe_interval=9999)
+        cb = monitor.get_circuit_breaker(
+            "misp", failure_threshold=1, recovery_probe_interval=9999
+        )
         cb.record_failure()  # open the circuit
 
         mock_session = MagicMock()
@@ -210,16 +215,19 @@ class TestMISPCircuitBreakerIntegration:
     async def test_circuit_closes_on_successful_api_call(self):
         """A successful API call closes a previously-open circuit."""
         monitor = FeedHealthMonitor()
-        cb = monitor.get_circuit_breaker("misp", failure_threshold=1,
-                                         recovery_probe_interval=0.0)
+        cb = monitor.get_circuit_breaker(
+            "misp", failure_threshold=1, recovery_probe_interval=0.0
+        )
         cb.record_failure()  # open
-        cb.is_open()         # transition to HALF_OPEN
+        cb.is_open()  # transition to HALF_OPEN
 
         mock_resp = AsyncMock()
         mock_resp.status = 200
-        mock_resp.json = AsyncMock(return_value={
-            "response": [{"id": "1", "value": "1.2.3.4", "type": "ip-dst"}]
-        })
+        mock_resp.json = AsyncMock(
+            return_value={
+                "response": [{"id": "1", "value": "1.2.3.4", "type": "ip-dst"}]
+            }
+        )
         mock_session = MagicMock()
         mock_session.post.return_value = _ctx_manager(mock_resp)
 
@@ -238,8 +246,9 @@ class TestMISPCircuitBreakerIntegration:
     async def test_timeout_opens_circuit(self):
         """Repeated timeouts drive consecutive_failures up and open the circuit."""
         monitor = FeedHealthMonitor()
-        cb = monitor.get_circuit_breaker("misp", failure_threshold=2,
-                                         recovery_probe_interval=9999)
+        cb = monitor.get_circuit_breaker(
+            "misp", failure_threshold=2, recovery_probe_interval=9999
+        )
 
         mock_session = MagicMock()
         ctx = MagicMock()
@@ -290,14 +299,15 @@ class TestMISPCircuitBreakerIntegration:
     async def test_get_signal_returns_none_gracefully_when_circuit_open(self):
         """get_signal() always returns None for unknown IPs even if circuit is open."""
         monitor = FeedHealthMonitor()
-        cb = monitor.get_circuit_breaker("misp", failure_threshold=1,
-                                         recovery_probe_interval=9999)
+        cb = monitor.get_circuit_breaker(
+            "misp", failure_threshold=1, recovery_probe_interval=9999
+        )
         cb.record_failure()
 
         provider = MISPProvider(
             _misp_config(),
             _mock_redis(),
-            _mock_local_cache(),     # cache miss
+            _mock_local_cache(),  # cache miss
             MagicMock(),
             health_monitor=monitor,
         )
@@ -310,27 +320,29 @@ class TestMISPCircuitBreakerIntegration:
     async def test_cached_signal_served_while_circuit_open(self):
         """Cached signals are still served from local cache when circuit is open."""
         monitor = FeedHealthMonitor()
-        cb = monitor.get_circuit_breaker("misp", failure_threshold=1,
-                                         recovery_probe_interval=9999)
+        cb = monitor.get_circuit_breaker(
+            "misp", failure_threshold=1, recovery_probe_interval=9999
+        )
         cb.record_failure()
 
         cached = {"attribute_count": 3}
         provider = MISPProvider(
             _misp_config(score_cap=100),
             _mock_redis(),
-            _mock_local_cache(cached_data=cached),   # cache hit
+            _mock_local_cache(cached_data=cached),  # cache hit
             MagicMock(),
             health_monitor=monitor,
         )
 
         signal = provider.get_signal("1.2.3.4")
         assert signal is not None
-        assert signal.score == 60   # 3 * 20
+        assert signal.score == 60  # 3 * 20
 
 
 # ---------------------------------------------------------------------------
 # System-level: all providers down simultaneously
 # ---------------------------------------------------------------------------
+
 
 class TestSystemDegradationGraceful:
     """System continues operating when TI feeds are unavailable."""
@@ -360,8 +372,9 @@ class TestSystemDegradationGraceful:
     async def test_recovery_after_outage(self):
         """After a simulated outage, a successful call re-closes the circuit."""
         monitor = FeedHealthMonitor()
-        cb = monitor.get_circuit_breaker("misp", failure_threshold=2,
-                                         recovery_probe_interval=0.0)
+        cb = monitor.get_circuit_breaker(
+            "misp", failure_threshold=2, recovery_probe_interval=0.0
+        )
         # Simulate two failures → circuit opens
         cb.record_failure()
         cb.record_failure()
@@ -381,6 +394,7 @@ class TestSystemDegradationGraceful:
 # ---------------------------------------------------------------------------
 # Additional helpers for GreyNoise / AlienVault / VirusTotal / ThreatFox
 # ---------------------------------------------------------------------------
+
 
 def _greynoise_config(**kwargs) -> GreyNoiseConfig:
     defaults = dict(
@@ -493,6 +507,7 @@ def _mock_redis_vt():
 # GreyNoise provider chaos tests
 # ---------------------------------------------------------------------------
 
+
 class TestGreyNoiseCircuitBreakerIntegration:
     """
     GreyNoise provider chaos: failure handling and circuit breaker integration.
@@ -512,8 +527,9 @@ class TestGreyNoiseCircuitBreakerIntegration:
         """When the circuit is open, a caller that checks cb.is_open() will skip
         the lookup — and if _process_lookup IS called anyway it still won't
         crash (fails open).  This tests the CB guard pattern."""
-        cb = CircuitBreaker("greynoise", failure_threshold=1,
-                            recovery_probe_interval=9999)
+        cb = CircuitBreaker(
+            "greynoise", failure_threshold=1, recovery_probe_interval=9999
+        )
         cb.record_failure()
         assert cb.is_open()
 
@@ -538,11 +554,13 @@ class TestGreyNoiseCircuitBreakerIntegration:
 
         mock_resp = AsyncMock()
         mock_resp.status = 200
-        mock_resp.json = AsyncMock(return_value={
-            "noise": True,
-            "riot": False,
-            "classification": "malicious",
-        })
+        mock_resp.json = AsyncMock(
+            return_value={
+                "noise": True,
+                "riot": False,
+                "classification": "malicious",
+            }
+        )
         mock_session = MagicMock()
         mock_session.get.return_value = _ctx_manager(mock_resp)
 
@@ -588,8 +606,9 @@ class TestGreyNoiseCircuitBreakerIntegration:
     @pytest.mark.asyncio
     async def test_retry_exhaustion_opens_circuit(self):
         """failure_threshold repeated failures → circuit transitions to OPEN."""
-        cb = CircuitBreaker("greynoise", failure_threshold=3,
-                            recovery_probe_interval=9999)
+        cb = CircuitBreaker(
+            "greynoise", failure_threshold=3, recovery_probe_interval=9999
+        )
 
         mock_session = MagicMock()
         ctx = MagicMock()
@@ -614,8 +633,9 @@ class TestGreyNoiseCircuitBreakerIntegration:
     @pytest.mark.asyncio
     async def test_cached_signal_served_while_circuit_open(self):
         """Even with circuit OPEN, a cache-hit returns the signal immediately."""
-        cb = CircuitBreaker("greynoise", failure_threshold=1,
-                            recovery_probe_interval=9999)
+        cb = CircuitBreaker(
+            "greynoise", failure_threshold=1, recovery_probe_interval=9999
+        )
         cb.record_failure()
         assert cb.is_open()
 
@@ -634,8 +654,9 @@ class TestGreyNoiseCircuitBreakerIntegration:
     @pytest.mark.asyncio
     async def test_recovery_after_outage(self):
         """OPEN → (probe interval elapses) → HALF_OPEN → success probe → CLOSED."""
-        cb = CircuitBreaker("greynoise", failure_threshold=2,
-                            recovery_probe_interval=0.0)
+        cb = CircuitBreaker(
+            "greynoise", failure_threshold=2, recovery_probe_interval=0.0
+        )
         cb.record_failure()
         cb.record_failure()
         assert cb.state == CircuitState.OPEN
@@ -654,6 +675,7 @@ class TestGreyNoiseCircuitBreakerIntegration:
 # AlienVault OTX provider chaos tests
 # ---------------------------------------------------------------------------
 
+
 class TestAlienVaultCircuitBreakerIntegration:
     """
     AlienVault OTX provider chaos: failure handling and circuit breaker integration.
@@ -662,8 +684,9 @@ class TestAlienVaultCircuitBreakerIntegration:
     @pytest.mark.asyncio
     async def test_circuit_open_skips_api_call(self):
         """Circuit open → caller skips _process_lookup; no HTTP call made."""
-        cb = CircuitBreaker("alienvault", failure_threshold=1,
-                            recovery_probe_interval=9999)
+        cb = CircuitBreaker(
+            "alienvault", failure_threshold=1, recovery_probe_interval=9999
+        )
         cb.record_failure()
         assert cb.is_open()
 
@@ -687,9 +710,11 @@ class TestAlienVaultCircuitBreakerIntegration:
 
         mock_resp = AsyncMock()
         mock_resp.status = 200
-        mock_resp.json = AsyncMock(return_value={
-            "pulse_info": {"count": 3},
-        })
+        mock_resp.json = AsyncMock(
+            return_value={
+                "pulse_info": {"count": 3},
+            }
+        )
         mock_session = MagicMock()
         mock_session.get.return_value = _ctx_manager(mock_resp)
 
@@ -732,8 +757,9 @@ class TestAlienVaultCircuitBreakerIntegration:
     @pytest.mark.asyncio
     async def test_retry_exhaustion_opens_circuit(self):
         """3 repeated failures drive the circuit to OPEN."""
-        cb = CircuitBreaker("alienvault", failure_threshold=3,
-                            recovery_probe_interval=9999)
+        cb = CircuitBreaker(
+            "alienvault", failure_threshold=3, recovery_probe_interval=9999
+        )
 
         mock_session = MagicMock()
         ctx = MagicMock()
@@ -757,8 +783,9 @@ class TestAlienVaultCircuitBreakerIntegration:
     @pytest.mark.asyncio
     async def test_cached_signal_served_while_circuit_open(self):
         """Cache hit returns a signal even when circuit is OPEN."""
-        cb = CircuitBreaker("alienvault", failure_threshold=1,
-                            recovery_probe_interval=9999)
+        cb = CircuitBreaker(
+            "alienvault", failure_threshold=1, recovery_probe_interval=9999
+        )
         cb.record_failure()
         assert cb.is_open()
 
@@ -777,8 +804,9 @@ class TestAlienVaultCircuitBreakerIntegration:
     @pytest.mark.asyncio
     async def test_recovery_after_outage(self):
         """OPEN → HALF_OPEN → CLOSED after successful probe."""
-        cb = CircuitBreaker("alienvault", failure_threshold=2,
-                            recovery_probe_interval=0.0)
+        cb = CircuitBreaker(
+            "alienvault", failure_threshold=2, recovery_probe_interval=0.0
+        )
         cb.record_failure()
         cb.record_failure()
         assert cb.state == CircuitState.OPEN
@@ -795,6 +823,7 @@ class TestAlienVaultCircuitBreakerIntegration:
 # VirusTotal provider chaos tests
 # ---------------------------------------------------------------------------
 
+
 class TestVirusTotalCircuitBreakerIntegration:
     """
     VirusTotal provider chaos.
@@ -806,8 +835,9 @@ class TestVirusTotalCircuitBreakerIntegration:
     @pytest.mark.asyncio
     async def test_circuit_open_skips_api_call(self):
         """Circuit open → no HTTP GET issued."""
-        cb = CircuitBreaker("virustotal", failure_threshold=1,
-                            recovery_probe_interval=9999)
+        cb = CircuitBreaker(
+            "virustotal", failure_threshold=1, recovery_probe_interval=9999
+        )
         cb.record_failure()
         assert cb.is_open()
 
@@ -831,16 +861,18 @@ class TestVirusTotalCircuitBreakerIntegration:
 
         mock_resp = AsyncMock()
         mock_resp.status = 200
-        mock_resp.json = AsyncMock(return_value={
-            "data": {
-                "attributes": {
-                    "last_analysis_stats": {
-                        "malicious": 2,
-                        "suspicious": 1,
+        mock_resp.json = AsyncMock(
+            return_value={
+                "data": {
+                    "attributes": {
+                        "last_analysis_stats": {
+                            "malicious": 2,
+                            "suspicious": 1,
+                        }
                     }
                 }
             }
-        })
+        )
         mock_session = MagicMock()
         mock_session.get.return_value = _ctx_manager(mock_resp)
 
@@ -882,8 +914,9 @@ class TestVirusTotalCircuitBreakerIntegration:
     @pytest.mark.asyncio
     async def test_retry_exhaustion_opens_circuit(self):
         """3 timeouts → circuit OPEN."""
-        cb = CircuitBreaker("virustotal", failure_threshold=3,
-                            recovery_probe_interval=9999)
+        cb = CircuitBreaker(
+            "virustotal", failure_threshold=3, recovery_probe_interval=9999
+        )
 
         mock_session = MagicMock()
         ctx = MagicMock()
@@ -907,8 +940,9 @@ class TestVirusTotalCircuitBreakerIntegration:
     @pytest.mark.asyncio
     async def test_cached_signal_served_while_circuit_open(self):
         """Cache hit returns signal regardless of circuit state."""
-        cb = CircuitBreaker("virustotal", failure_threshold=1,
-                            recovery_probe_interval=9999)
+        cb = CircuitBreaker(
+            "virustotal", failure_threshold=1, recovery_probe_interval=9999
+        )
         cb.record_failure()
         assert cb.is_open()
 
@@ -927,8 +961,9 @@ class TestVirusTotalCircuitBreakerIntegration:
     @pytest.mark.asyncio
     async def test_recovery_after_outage(self):
         """OPEN → HALF_OPEN → CLOSED after probe succeeds."""
-        cb = CircuitBreaker("virustotal", failure_threshold=2,
-                            recovery_probe_interval=0.0)
+        cb = CircuitBreaker(
+            "virustotal", failure_threshold=2, recovery_probe_interval=0.0
+        )
         cb.record_failure()
         cb.record_failure()
         assert cb.state == CircuitState.OPEN
@@ -947,8 +982,9 @@ class TestVirusTotalCircuitBreakerIntegration:
         The provider returns early without caching but must NOT be treated
         as an infrastructure failure by the circuit breaker.
         """
-        cb = CircuitBreaker("virustotal", failure_threshold=2,
-                            recovery_probe_interval=9999)
+        cb = CircuitBreaker(
+            "virustotal", failure_threshold=2, recovery_probe_interval=9999
+        )
 
         mock_resp = AsyncMock()
         mock_resp.status = 403
@@ -975,6 +1011,7 @@ class TestVirusTotalCircuitBreakerIntegration:
 # ThreatFox provider chaos tests
 # ---------------------------------------------------------------------------
 
+
 class TestThreatFoxCircuitBreakerIntegration:
     """
     ThreatFox provider chaos: failure handling and circuit breaker integration.
@@ -983,8 +1020,9 @@ class TestThreatFoxCircuitBreakerIntegration:
     @pytest.mark.asyncio
     async def test_circuit_open_skips_api_call(self):
         """Circuit open → caller skips _process_lookup; no HTTP POST issued."""
-        cb = CircuitBreaker("threatfox", failure_threshold=1,
-                            recovery_probe_interval=9999)
+        cb = CircuitBreaker(
+            "threatfox", failure_threshold=1, recovery_probe_interval=9999
+        )
         cb.record_failure()
         assert cb.is_open()
 
@@ -1008,13 +1046,19 @@ class TestThreatFoxCircuitBreakerIntegration:
 
         mock_resp = AsyncMock()
         mock_resp.status = 200
-        mock_resp.json = AsyncMock(return_value={
-            "query_status": "ok",
-            "data": [
-                {"id": "1", "ioc": "11.11.11.11", "threat_type": "botnet_cc"},
-                {"id": "2", "ioc": "11.11.11.11", "threat_type": "payload_delivery"},
-            ],
-        })
+        mock_resp.json = AsyncMock(
+            return_value={
+                "query_status": "ok",
+                "data": [
+                    {"id": "1", "ioc": "11.11.11.11", "threat_type": "botnet_cc"},
+                    {
+                        "id": "2",
+                        "ioc": "11.11.11.11",
+                        "threat_type": "payload_delivery",
+                    },
+                ],
+            }
+        )
         mock_session = MagicMock()
         mock_session.post.return_value = _ctx_manager(mock_resp)
 
@@ -1056,8 +1100,9 @@ class TestThreatFoxCircuitBreakerIntegration:
     @pytest.mark.asyncio
     async def test_retry_exhaustion_opens_circuit(self):
         """3 repeated POST failures drive the circuit to OPEN."""
-        cb = CircuitBreaker("threatfox", failure_threshold=3,
-                            recovery_probe_interval=9999)
+        cb = CircuitBreaker(
+            "threatfox", failure_threshold=3, recovery_probe_interval=9999
+        )
 
         mock_session = MagicMock()
         ctx = MagicMock()
@@ -1081,8 +1126,9 @@ class TestThreatFoxCircuitBreakerIntegration:
     @pytest.mark.asyncio
     async def test_cached_signal_served_while_circuit_open(self):
         """Cache hit returns a signal even when the circuit is OPEN."""
-        cb = CircuitBreaker("threatfox", failure_threshold=1,
-                            recovery_probe_interval=9999)
+        cb = CircuitBreaker(
+            "threatfox", failure_threshold=1, recovery_probe_interval=9999
+        )
         cb.record_failure()
         assert cb.is_open()
 
@@ -1101,8 +1147,9 @@ class TestThreatFoxCircuitBreakerIntegration:
     @pytest.mark.asyncio
     async def test_recovery_after_outage(self):
         """OPEN → HALF_OPEN → CLOSED after successful probe."""
-        cb = CircuitBreaker("threatfox", failure_threshold=2,
-                            recovery_probe_interval=0.0)
+        cb = CircuitBreaker(
+            "threatfox", failure_threshold=2, recovery_probe_interval=0.0
+        )
         cb.record_failure()
         cb.record_failure()
         assert cb.state == CircuitState.OPEN
@@ -1118,6 +1165,7 @@ class TestThreatFoxCircuitBreakerIntegration:
 # ---------------------------------------------------------------------------
 # Multi-provider system-level degradation tests
 # ---------------------------------------------------------------------------
+
 
 class TestMultiProviderDegradation:
     """
@@ -1173,8 +1221,9 @@ class TestMultiProviderDegradation:
 
         # Open circuits for all feeds
         for feed in ("misp", "greynoise", "alienvault", "virustotal", "threatfox"):
-            cb = monitor.get_circuit_breaker(feed, failure_threshold=1,
-                                             recovery_probe_interval=9999)
+            cb = monitor.get_circuit_breaker(
+                feed, failure_threshold=1, recovery_probe_interval=9999
+            )
             cb.record_failure()
             assert cb.is_open()
 
@@ -1206,31 +1255,31 @@ class TestMultiProviderDegradation:
         misp = MISPProvider(
             _misp_config(),
             _mock_redis(),
-            _mock_local_cache(),      # miss
+            _mock_local_cache(),  # miss
             MagicMock(),
         )
         gn = GreyNoiseProvider(
             _greynoise_config(),
             _mock_redis(),
-            _mock_local_cache_gn(cached_data=cached_gn),   # HIT
+            _mock_local_cache_gn(cached_data=cached_gn),  # HIT
             MagicMock(),
         )
         av = AlienVaultOTXProvider(
             _alienvault_config(),
             _mock_redis(),
-            _mock_local_cache_av(),   # miss
+            _mock_local_cache_av(),  # miss
             MagicMock(),
         )
         vt = VirusTotalProvider(
             _virustotal_config(),
             _mock_redis_vt(),
-            _mock_local_cache_vt(),   # miss
+            _mock_local_cache_vt(),  # miss
             MagicMock(),
         )
         tf = ThreatFoxProvider(
             _threatfox_config(),
             _mock_redis(),
-            _mock_local_cache_tf(cached_data=cached_tf),   # HIT
+            _mock_local_cache_tf(cached_data=cached_tf),  # HIT
             MagicMock(),
         )
 
@@ -1267,16 +1316,51 @@ class TestMultiProviderDegradation:
         mock_session_post.post.return_value = error_ctx
 
         providers_and_ip = [
-            (MISPProvider(_misp_config(), _mock_redis(),
-                          _mock_local_cache(), mock_session_post), "10.0.0.10"),
-            (GreyNoiseProvider(_greynoise_config(), _mock_redis(),
-                               _mock_local_cache_gn(), mock_session_get), "10.0.0.11"),
-            (AlienVaultOTXProvider(_alienvault_config(), _mock_redis(),
-                                   _mock_local_cache_av(), mock_session_get), "10.0.0.12"),
-            (VirusTotalProvider(_virustotal_config(), _mock_redis_vt(),
-                                _mock_local_cache_vt(), mock_session_get), "10.0.0.13"),
-            (ThreatFoxProvider(_threatfox_config(), _mock_redis(),
-                               _mock_local_cache_tf(), mock_session_post), "10.0.0.14"),
+            (
+                MISPProvider(
+                    _misp_config(),
+                    _mock_redis(),
+                    _mock_local_cache(),
+                    mock_session_post,
+                ),
+                "10.0.0.10",
+            ),
+            (
+                GreyNoiseProvider(
+                    _greynoise_config(),
+                    _mock_redis(),
+                    _mock_local_cache_gn(),
+                    mock_session_get,
+                ),
+                "10.0.0.11",
+            ),
+            (
+                AlienVaultOTXProvider(
+                    _alienvault_config(),
+                    _mock_redis(),
+                    _mock_local_cache_av(),
+                    mock_session_get,
+                ),
+                "10.0.0.12",
+            ),
+            (
+                VirusTotalProvider(
+                    _virustotal_config(),
+                    _mock_redis_vt(),
+                    _mock_local_cache_vt(),
+                    mock_session_get,
+                ),
+                "10.0.0.13",
+            ),
+            (
+                ThreatFoxProvider(
+                    _threatfox_config(),
+                    _mock_redis(),
+                    _mock_local_cache_tf(),
+                    mock_session_post,
+                ),
+                "10.0.0.14",
+            ),
         ]
 
         for provider, ip in providers_and_ip:

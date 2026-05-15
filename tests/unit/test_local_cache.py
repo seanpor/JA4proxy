@@ -97,7 +97,7 @@ class TestLRUCache:
 
     def test_hit_ratio_mixed(self, cache):
         cache.set("k", "v")
-        cache.get("k")      # hit
+        cache.get("k")  # hit
         cache.get("miss1")  # miss
         cache.get("miss2")  # miss
         ratio = cache.hit_ratio()

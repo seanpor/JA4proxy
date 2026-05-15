@@ -88,7 +88,10 @@ class PerFeedCircuitBreaker:
     def state(self) -> CircuitState:
         """Return the current logical state, lazily transitioning OPEN→HALF-OPEN."""
         if self.tracker.state == CircuitState.OPEN:
-            if time.monotonic() - self.tracker.open_since >= self.tracker.current_backoff_s:
+            if (
+                time.monotonic() - self.tracker.open_since
+                >= self.tracker.current_backoff_s
+            ):
                 self.tracker.state = CircuitState.HALF_OPEN
                 logger.info(
                     "ti_feed | event=circuit_half_open | feed=%s | backoff_s=%d",

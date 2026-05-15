@@ -23,7 +23,7 @@ def check_scores():
         registry = yaml.safe_load(f)["signals"]
 
     errors = 0
-    
+
     # Check Python sources (src/security/)
     py_dir = pathlib.Path("src/security")
     for py_file in py_dir.glob("*.py"):
@@ -36,7 +36,9 @@ def check_scores():
             matches = re.findall(pattern, content)
             for match in matches:
                 if int(match) != score:
-                    print(f"DRIFT [Python]: {py_file.name} - {signal} has score {match}, registry says {score}")
+                    print(
+                        f"DRIFT [Python]: {py_file.name} - {signal} has score {match}, registry says {score}"
+                    )
                     errors += 1
 
     # Check Go sources (internal/security/)
@@ -50,7 +52,9 @@ def check_scores():
             matches = re.findall(pattern, content)
             for match in matches:
                 if int(match) != score:
-                    print(f"DRIFT [Go]: {go_file.name} - {signal} has score {match}, registry says {score}")
+                    print(
+                        f"DRIFT [Go]: {go_file.name} - {signal} has score {match}, registry says {score}"
+                    )
                     errors += 1
 
     if errors == 0:
@@ -59,6 +63,7 @@ def check_scores():
     else:
         print(f"❌ Found {errors} score inconsistencies.")
         return 1
+
 
 if __name__ == "__main__":
     sys.exit(check_scores())

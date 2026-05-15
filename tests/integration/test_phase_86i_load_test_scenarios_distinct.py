@@ -65,18 +65,18 @@ class TestRunBenchmarkPassesMix:
 
     def test_fingerprint_mix_flag_is_present(self, load_test_mod):
         cmd = _captured_cmd(load_test_mod.run_benchmark, "bypass-only")
-        assert "--fingerprint-mix" in cmd, (
-            "run_benchmark must pass --fingerprint-mix to the TLS generator"
-        )
+        assert (
+            "--fingerprint-mix" in cmd
+        ), "run_benchmark must pass --fingerprint-mix to the TLS generator"
 
     def test_bypass_only_and_full_signal_are_distinct(self, load_test_mod):
         bypass_cmd = _captured_cmd(load_test_mod.run_benchmark, "bypass-only")
         signal_cmd = _captured_cmd(load_test_mod.run_benchmark, "full-signal")
         bypass_mix = bypass_cmd[bypass_cmd.index("--fingerprint-mix") + 1]
         signal_mix = signal_cmd[signal_cmd.index("--fingerprint-mix") + 1]
-        assert bypass_mix != signal_mix, (
-            f"bypass-only and full-signal produced identical mix: {bypass_mix!r}"
-        )
+        assert (
+            bypass_mix != signal_mix
+        ), f"bypass-only and full-signal produced identical mix: {bypass_mix!r}"
         # Sanity-check the specific distributions.
         assert "browser_alpn=100" in bypass_mix, bypass_mix
         assert "automation=100" in signal_mix, signal_mix
@@ -87,9 +87,9 @@ class TestRunBenchmarkPassesMix:
             cmd = _captured_cmd(load_test_mod.run_benchmark, scenario)
             mix = cmd[cmd.index("--fingerprint-mix") + 1]
             seen[scenario] = mix
-        assert len(set(seen.values())) == 4, (
-            f"expected 4 distinct mix strings, got {seen}"
-        )
+        assert (
+            len(set(seen.values())) == 4
+        ), f"expected 4 distinct mix strings, got {seen}"
 
     def test_target_host_port_are_passed(self, load_test_mod):
         cmd = _captured_cmd(load_test_mod.run_benchmark, "bypass-only")
@@ -125,11 +125,12 @@ class TestMixParsesToDistinctProfiles:
 
     def test_scanner_bucket_is_tls12_only(self, tls_gen_mod):
         import ssl
+
         profiles = tls_gen_mod.profiles_for_mix(
             tls_gen_mod.parse_fingerprint_mix("scanner=100")
         )
         assert profiles
         for p in profiles:
-            assert p.tls_max_version == ssl.TLSVersion.TLSv1_2, (
-                f"scanner profile {p.name} must be TLS1.2 only"
-            )
+            assert (
+                p.tls_max_version == ssl.TLSVersion.TLSv1_2
+            ), f"scanner profile {p.name} must be TLS1.2 only"

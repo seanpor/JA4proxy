@@ -4,6 +4,7 @@ Purpose: Verify TLS parser handles adversarial inputs without crashing
 Coverage: All files in tests/adversarial/corpus/
 Owner: Phase 16
 """
+
 import struct
 from pathlib import Path
 
@@ -13,6 +14,7 @@ import pytest
 from proxy import TLSParser
 
 CORPUS_DIR = Path(__file__).parent / "corpus"
+
 
 @pytest.mark.parametrize("corpus_file", list(CORPUS_DIR.glob("*.bin")))
 def test_parser_does_not_crash(corpus_file):

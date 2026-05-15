@@ -103,7 +103,9 @@ def cli(ctx: click.Context, fmt: str) -> None:
 
 @cli.command()
 @click.argument("ip")
-@click.option("--ttl", default=3600, show_default=True, help="Ban TTL in seconds (0 = permanent).")
+@click.option(
+    "--ttl", default=3600, show_default=True, help="Ban TTL in seconds (0 = permanent)."
+)
 @click.option("--reason", default="manual-admin-ban", show_default=True)
 @click.option("--confirm", is_flag=True, default=False)
 @click.pass_context
@@ -117,7 +119,12 @@ def ban(ctx: click.Context, ip: str, ttl: int, reason: str, confirm: bool) -> No
         r.set(key, reason, ex=ttl)
     else:
         r.set(key, reason)
-    result = {"ip": ip, "key": key, "ttl": ttl if ttl > 0 else "permanent", "reason": reason}
+    result = {
+        "ip": ip,
+        "key": key,
+        "ttl": ttl if ttl > 0 else "permanent",
+        "reason": reason,
+    }
     click.echo(f"Banned {ip}.")
     _output(result, ctx.obj["fmt"])
 
@@ -159,11 +166,17 @@ def dial_get(ctx: click.Context) -> None:
 
 @dial.command("set")
 @click.argument("value", type=click.IntRange(0, 100))
-@click.option("--acknowledge-blocking", is_flag=True, default=False,
-              help="Required when setting dial > 0 to confirm you accept blocking risk.")
+@click.option(
+    "--acknowledge-blocking",
+    is_flag=True,
+    default=False,
+    help="Required when setting dial > 0 to confirm you accept blocking risk.",
+)
 @click.option("--confirm", is_flag=True, default=False)
 @click.pass_context
-def dial_set(ctx: click.Context, value: int, acknowledge_blocking: bool, confirm: bool) -> None:
+def dial_set(
+    ctx: click.Context, value: int, acknowledge_blocking: bool, confirm: bool
+) -> None:
     """Set the dial value (0–100)."""
     if value > 0 and not acknowledge_blocking:
         click.echo(
@@ -198,7 +211,9 @@ def whitelist() -> None:
 def whitelist_add(ctx: click.Context, ja4: str, confirm: bool) -> None:
     """Add a JA4 fingerprint to the whitelist."""
     if not confirm:
-        _confirm_required(f"Adding {ja4} to whitelist — connections with this fingerprint will bypass scoring.")
+        _confirm_required(
+            f"Adding {ja4} to whitelist — connections with this fingerprint will bypass scoring."
+        )
     r = _get_redis()
     r.sadd("ja4:whitelist", ja4)
     click.echo(f"Added {ja4} to whitelist.")
@@ -216,7 +231,15 @@ def whitelist_remove(ctx: click.Context, ja4: str, confirm: bool) -> None:
     r = _get_redis()
     removed = r.srem("ja4:whitelist", ja4)
     click.echo(f"{'Removed' if removed else 'Not found'}: {ja4} in whitelist.")
-    _output({"ja4": ja4, "list": "whitelist", "action": "removed", "was_present": bool(removed)}, ctx.obj["fmt"])
+    _output(
+        {
+            "ja4": ja4,
+            "list": "whitelist",
+            "action": "removed",
+            "was_present": bool(removed),
+        },
+        ctx.obj["fmt"],
+    )
 
 
 @whitelist.command("list")
@@ -240,7 +263,9 @@ def blacklist() -> None:
 def blacklist_add(ctx: click.Context, ja4: str, confirm: bool) -> None:
     """Add a JA4 fingerprint to the blacklist (immediate RST on match)."""
     if not confirm:
-        _confirm_required(f"Adding {ja4} to blacklist — connections with this fingerprint will be blocked.")
+        _confirm_required(
+            f"Adding {ja4} to blacklist — connections with this fingerprint will be blocked."
+        )
     r = _get_redis()
     r.sadd("ja4:blacklist", ja4)
     click.echo(f"Added {ja4} to blacklist.")
@@ -258,7 +283,15 @@ def blacklist_remove(ctx: click.Context, ja4: str, confirm: bool) -> None:
     r = _get_redis()
     removed = r.srem("ja4:blacklist", ja4)
     click.echo(f"{'Removed' if removed else 'Not found'}: {ja4} in blacklist.")
-    _output({"ja4": ja4, "list": "blacklist", "action": "removed", "was_present": bool(removed)}, ctx.obj["fmt"])
+    _output(
+        {
+            "ja4": ja4,
+            "list": "blacklist",
+            "action": "removed",
+            "was_present": bool(removed),
+        },
+        ctx.obj["fmt"],
+    )
 
 
 @blacklist.command("list")
@@ -281,13 +314,17 @@ def suspect() -> None:
 
 
 @suspect.command("list")
-@click.option("--top", default=20, show_default=True, help="Number of top suspects to show.")
+@click.option(
+    "--top", default=20, show_default=True, help="Number of top suspects to show."
+)
 @click.pass_context
 def suspect_list(ctx: click.Context, top: int) -> None:
     """List the top beaconing suspects by confidence score."""
     r = _get_redis()
     entries = r.zrevrange("beacon:suspects", 0, top - 1, withscores=True)
-    results = [{"suspect": member, "confidence": round(score, 4)} for member, score in entries]
+    results = [
+        {"suspect": member, "confidence": round(score, 4)} for member, score in entries
+    ]
     if not results:
         click.echo("No beaconing suspects found.")
     _output(results, ctx.obj["fmt"])
@@ -375,7 +412,9 @@ def flush_abuseipdb(ctx: click.Context, ip: str, confirm: bool) -> None:
         _confirm_required(f"Clearing AbuseIPDB cache for {ip}.")
     r = _get_redis()
     deleted = r.delete(f"abuseipdb:score:{ip}")
-    click.echo(f"AbuseIPDB cache {'cleared' if deleted else 'was not present'} for {ip}.")
+    click.echo(
+        f"AbuseIPDB cache {'cleared' if deleted else 'was not present'} for {ip}."
+    )
     _output({"ip": ip, "deleted": bool(deleted)}, ctx.obj["fmt"])
 
 
@@ -470,8 +509,14 @@ def backup() -> None:
 
 
 @backup.command("create")
-@click.option("--dest", default="backups", show_default=True, help="Destination directory.")
-@click.option("--encryption-key", envvar="BACKUP_ENCRYPTION_KEY", help="Secret key for encryption.")
+@click.option(
+    "--dest", default="backups", show_default=True, help="Destination directory."
+)
+@click.option(
+    "--encryption-key",
+    envvar="BACKUP_ENCRYPTION_KEY",
+    help="Secret key for encryption.",
+)
 @click.pass_context
 def backup_create(ctx: click.Context, dest: str, encryption_key: str) -> None:
     """Create a new Redis state backup."""
@@ -479,16 +524,17 @@ def backup_create(ctx: click.Context, dest: str, encryption_key: str) -> None:
     import urllib.parse
 
     from src.backup.worker import BackupWorker
+
     url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
     p = urllib.parse.urlparse(url)
-    
+
     worker = BackupWorker(
         redis_host=p.hostname or "localhost",
         redis_port=p.port or 6379,
         redis_db=int(p.path.lstrip("/") or 0),
-        encryption_key=encryption_key
+        encryption_key=encryption_key,
     )
-    
+
     click.echo(f"Starting backup to {dest}...")
     try:
         path = worker.create_backup(dest)
@@ -503,8 +549,14 @@ def backup_create(ctx: click.Context, dest: str, encryption_key: str) -> None:
 @backup.command("restore")
 @click.argument("artifact")
 @click.argument("manifest")
-@click.option("--encryption-key", envvar="BACKUP_ENCRYPTION_KEY", help="Secret key for decryption.")
-@click.option("--destructive", is_flag=True, default=False, help="Wipe Redis before restore.")
+@click.option(
+    "--encryption-key",
+    envvar="BACKUP_ENCRYPTION_KEY",
+    help="Secret key for decryption.",
+)
+@click.option(
+    "--destructive", is_flag=True, default=False, help="Wipe Redis before restore."
+)
 @click.option(
     "--fallback",
     "fallbacks",
@@ -582,11 +634,23 @@ def backup_restore(
 
 @backup.command("redact")
 @click.argument("artifact")
-@click.option("--ip", "ips", multiple=True, required=True, help="IP address to redact (can be repeated).")
-@click.option("--output", "out_path", help="Output path for redacted artifact (defaults to overwrite).")
+@click.option(
+    "--ip",
+    "ips",
+    multiple=True,
+    required=True,
+    help="IP address to redact (can be repeated).",
+)
+@click.option(
+    "--output",
+    "out_path",
+    help="Output path for redacted artifact (defaults to overwrite).",
+)
 @click.option("--confirm", is_flag=True, default=False)
 @click.pass_context
-def backup_redact(ctx: click.Context, artifact: str, ips: list[str], out_path: str, confirm: bool) -> None:
+def backup_redact(
+    ctx: click.Context, artifact: str, ips: list[str], out_path: str, confirm: bool
+) -> None:
     """Redact PII (IP addresses) from a backup artifact (DSAR tool)."""
     if not out_path and not confirm:
         _confirm_required(f"This will OVERWRITE {artifact} with redacted data.")
@@ -618,6 +682,7 @@ def backup_redact(ctx: click.Context, artifact: str, ips: list[str], out_path: s
     manifest_path = artifact_path.with_suffix(".manifest.json")
     if not out_path and manifest_path.exists():
         import json
+
         manifest = json.loads(manifest_path.read_text())
         manifest["checksum_sha256"] = hashlib.sha256(new_data).hexdigest()
         manifest["size_bytes"] = len(new_data)
@@ -630,10 +695,20 @@ def backup_redact(ctx: click.Context, artifact: str, ips: list[str], out_path: s
 
 @backup.command("dsar-redact")
 @click.argument("artifact_path")
-@click.option("--ip", "ips", multiple=True, required=True, help="IP address to redact (can be repeated).")
-@click.option("--output", "out_path", help="Output path (defaults to <artifact>.redacted.bin).")
+@click.option(
+    "--ip",
+    "ips",
+    multiple=True,
+    required=True,
+    help="IP address to redact (can be repeated).",
+)
+@click.option(
+    "--output", "out_path", help="Output path (defaults to <artifact>.redacted.bin)."
+)
 @click.pass_context
-def backup_dsar_redact(ctx: click.Context, artifact_path: str, ips: list[str], out_path: str) -> None:
+def backup_dsar_redact(
+    ctx: click.Context, artifact_path: str, ips: list[str], out_path: str
+) -> None:
     """Redact a GDPR data subject's IP from a backup artifact (key names and JSON values).
 
     Scans both Redis key names and decoded JSON values for the target IP(s).
@@ -650,7 +725,11 @@ def backup_dsar_redact(ctx: click.Context, artifact_path: str, ips: list[str], o
         click.echo(f"ERROR: Artifact {artifact_path} not found.", err=True)
         sys.exit(1)
 
-    dest = Path(out_path) if out_path else source.with_suffix("").with_suffix(".redacted.bin")
+    dest = (
+        Path(out_path)
+        if out_path
+        else source.with_suffix("").with_suffix(".redacted.bin")
+    )
 
     redactor = BackupRedactor()
     data = source.read_bytes()
@@ -665,6 +744,7 @@ def backup_dsar_redact(ctx: click.Context, artifact_path: str, ips: list[str], o
     manifest_path = source.parent / f"{source.name}.manifest.json"
     if manifest_path.exists():
         import json as _json
+
         manifest = _json.loads(manifest_path.read_text())
         manifest["checksum_sha256"] = hashlib.sha256(new_data).hexdigest()
         manifest["size_bytes"] = len(new_data)
@@ -697,6 +777,7 @@ def _make_storage_adapter(provider: str) -> "Any":
     """
     import asyncio
     import importlib
+
     if provider == "s3":
         try:
             mod = importlib.import_module("src.backup.cloud.s3_adapter")
@@ -741,7 +822,9 @@ def _make_storage_adapter(provider: str) -> "Any":
             prefix=prefix,
         )
     else:
-        click.echo(f"ERROR: Unknown provider '{provider}'. Use 's3' or 'gcs'.", err=True)
+        click.echo(
+            f"ERROR: Unknown provider '{provider}'. Use 's3' or 'gcs'.", err=True
+        )
         sys.exit(1)
 
 
@@ -803,7 +886,9 @@ def backup_cloud_upload(ctx: click.Context, artifact_path: str, provider: str) -
     show_default=True,
     help="Cloud storage provider.",
 )
-@click.option("--prefix", default="", show_default=False, help="Filename prefix filter.")
+@click.option(
+    "--prefix", default="", show_default=False, help="Filename prefix filter."
+)
 @click.pass_context
 def backup_cloud_list(ctx: click.Context, provider: str, prefix: str) -> None:
     """List backup artifacts available in cloud storage.
@@ -852,7 +937,9 @@ def backup_cloud_list(ctx: click.Context, provider: str, prefix: str) -> None:
     help="Local destination directory.",
 )
 @click.pass_context
-def backup_cloud_download(ctx: click.Context, artifact_id: str, provider: str, dest: str) -> None:
+def backup_cloud_download(
+    ctx: click.Context, artifact_id: str, provider: str, dest: str
+) -> None:
     """Download a backup artifact from cloud storage.
 
     ARTIFACT_ID is the filename or full cloud URI returned by ``backup cloud list``.

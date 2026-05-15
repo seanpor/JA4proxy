@@ -63,15 +63,17 @@ async def _seed_minimal(redis):
     )
     await redis.lpush(
         "management:audit_log",
-        json.dumps({
-            "timestamp": _TS_IN,
-            "actor_id": "admin",
-            "actor_ip": "10.0.0.1",
-            "action_type": "ban.created",
-            "resource_type": "ban",
-            "resource_id": "1.2.3.4",
-            "role": "admin",
-        }),
+        json.dumps(
+            {
+                "timestamp": _TS_IN,
+                "actor_id": "admin",
+                "actor_ip": "10.0.0.1",
+                "action_type": "ban.created",
+                "resource_type": "ban",
+                "resource_id": "1.2.3.4",
+                "role": "admin",
+            }
+        ),
     )
 
 
@@ -121,11 +123,21 @@ async def test_block_event_log_contains_blocked_only(redis_client):
     # Seed one blocked + one allowed event, both in window
     await redis_client.xadd(
         "ja4proxy:events",
-        {"ip": "1.2.3.4", "action_taken": "blocked", "timestamp": _TS_IN, "signals": "[]"},
+        {
+            "ip": "1.2.3.4",
+            "action_taken": "blocked",
+            "timestamp": _TS_IN,
+            "signals": "[]",
+        },
     )
     await redis_client.xadd(
         "ja4proxy:events",
-        {"ip": "5.6.7.8", "action_taken": "allowed", "timestamp": _TS_IN, "signals": "[]"},
+        {
+            "ip": "5.6.7.8",
+            "action_taken": "allowed",
+            "timestamp": _TS_IN,
+            "signals": "[]",
+        },
     )
 
     builder = PciDssPackBuilder(redis_client, fmt="jsonl")
@@ -147,11 +159,21 @@ async def test_block_event_log_excludes_out_of_window_events(redis_client):
     """Events outside the from/to window must not appear in the log."""
     await redis_client.xadd(
         "ja4proxy:events",
-        {"ip": "1.2.3.4", "action_taken": "blocked", "timestamp": _TS_IN, "signals": "[]"},
+        {
+            "ip": "1.2.3.4",
+            "action_taken": "blocked",
+            "timestamp": _TS_IN,
+            "signals": "[]",
+        },
     )
     await redis_client.xadd(
         "ja4proxy:events",
-        {"ip": "9.9.9.9", "action_taken": "blocked", "timestamp": _TS_OUT, "signals": "[]"},
+        {
+            "ip": "9.9.9.9",
+            "action_taken": "blocked",
+            "timestamp": _TS_OUT,
+            "signals": "[]",
+        },
     )
 
     builder = PciDssPackBuilder(redis_client, fmt="jsonl")
@@ -198,7 +220,12 @@ async def test_attack_classification_no_allowed_events(redis_client):
     """Allowed events must not appear in the attack classification CSV."""
     await redis_client.xadd(
         "ja4proxy:events",
-        {"ip": "1.1.1.1", "action_taken": "allowed", "timestamp": _TS_IN, "signals": "[]"},
+        {
+            "ip": "1.1.1.1",
+            "action_taken": "allowed",
+            "timestamp": _TS_IN,
+            "signals": "[]",
+        },
     )
 
     builder = PciDssPackBuilder(redis_client, fmt="jsonl")
@@ -268,15 +295,17 @@ async def test_audit_log_export_matches_seeded_entries(redis_client):
     for i in range(3):
         await redis_client.lpush(
             "management:audit_log",
-            json.dumps({
-                "timestamp": _TS_IN,
-                "actor_id": f"user{i}",
-                "actor_ip": "10.0.0.1",
-                "action_type": "ban.created",
-                "resource_type": "ban",
-                "resource_id": f"1.2.3.{i}",
-                "role": "operator",
-            }),
+            json.dumps(
+                {
+                    "timestamp": _TS_IN,
+                    "actor_id": f"user{i}",
+                    "actor_ip": "10.0.0.1",
+                    "action_type": "ban.created",
+                    "resource_type": "ban",
+                    "resource_id": f"1.2.3.{i}",
+                    "role": "operator",
+                }
+            ),
         )
 
     builder = PciDssPackBuilder(redis_client, fmt="jsonl")
@@ -305,15 +334,17 @@ async def test_config_change_log_only_contains_config_changes(redis_client):
     ]:
         await redis_client.lpush(
             "management:audit_log",
-            json.dumps({
-                "timestamp": _TS_IN,
-                "actor_id": "admin",
-                "actor_ip": "10.0.0.1",
-                "action_type": action,
-                "resource_type": resource,
-                "resource_id": "n/a",
-                "role": "admin",
-            }),
+            json.dumps(
+                {
+                    "timestamp": _TS_IN,
+                    "actor_id": "admin",
+                    "actor_ip": "10.0.0.1",
+                    "action_type": action,
+                    "resource_type": resource,
+                    "resource_id": "n/a",
+                    "role": "admin",
+                }
+            ),
         )
 
     builder = PciDssPackBuilder(redis_client, fmt="jsonl")
@@ -328,9 +359,9 @@ async def test_config_change_log_only_contains_config_changes(redis_client):
     # Only config.* entries must appear
     assert len(rows) == 2
     for row in rows:
-        assert row["action_type"].startswith("config."), (
-            f"Non-config entry leaked into config change log: {row['action_type']}"
-        )
+        assert row["action_type"].startswith(
+            "config."
+        ), f"Non-config entry leaked into config change log: {row['action_type']}"
 
 
 # ── SHA-256 footer ────────────────────────────────────────────────────────────
@@ -347,6 +378,7 @@ async def test_pdf_artefacts_contain_sha256_footer(redis_client, monkeypatch):
     WeasyPrint converts it to PDF or not.
     """
     import management.compliance.pack_builder as _pb
+
     monkeypatch.setattr(_pb, "_weasyprint_available", lambda: False)
 
     await _seed_minimal(redis_client)
@@ -356,11 +388,12 @@ async def test_pdf_artefacts_contain_sha256_footer(redis_client, monkeypatch):
     with zipfile.ZipFile(io.BytesIO(data)) as zf:
         pdf_bytes = zf.read("01_deployment_confirmation.pdf")
 
-    assert b"SHA256:" in pdf_bytes, (
-        "SHA-256 footer not found in deployment confirmation artefact"
-    )
+    assert (
+        b"SHA256:" in pdf_bytes
+    ), "SHA-256 footer not found in deployment confirmation artefact"
     # Verify the hash-like hex string follows (40+ hex chars)
     import re
+
     content = pdf_bytes.decode("utf-8", errors="replace")
     match = re.search(r"SHA256:\s*([0-9a-f]{40,})", content)
     assert match is not None, "SHA256 value not found after 'SHA256:' marker"

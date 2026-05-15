@@ -19,14 +19,20 @@ DASHBOARD_PATH = (
     REPO_ROOT / "deploy" / "monitoring" / "grafana" / "dashboards" / "04_capacity.json"
 )
 PROVISION_PATH = (
-    REPO_ROOT / "deploy" / "monitoring" / "grafana" / "provisioning" / "dashboards" / "default.yml"
+    REPO_ROOT
+    / "deploy"
+    / "monitoring"
+    / "grafana"
+    / "provisioning"
+    / "dashboards"
+    / "default.yml"
 )
 
 
 def _load_dashboard() -> dict:
-    assert DASHBOARD_PATH.exists(), (
-        f"Phase 86i: capacity dashboard missing at {DASHBOARD_PATH}"
-    )
+    assert (
+        DASHBOARD_PATH.exists()
+    ), f"Phase 86i: capacity dashboard missing at {DASHBOARD_PATH}"
     with open(DASHBOARD_PATH) as f:
         return json.load(f)
 
@@ -57,12 +63,12 @@ def test_dashboard_uses_ceiling_variables():
     templating = data.get("templating", {}) or {}
     variables = templating.get("list", [])
     names = {v.get("name") for v in variables}
-    assert "BYPASS_CEILING_CPS" in names, (
-        "missing BYPASS_CEILING_CPS templated variable"
-    )
-    assert "SIGNAL_CEILING_CPS" in names, (
-        "missing SIGNAL_CEILING_CPS templated variable"
-    )
+    assert (
+        "BYPASS_CEILING_CPS" in names
+    ), "missing BYPASS_CEILING_CPS templated variable"
+    assert (
+        "SIGNAL_CEILING_CPS" in names
+    ), "missing SIGNAL_CEILING_CPS templated variable"
 
 
 def test_dashboard_provisioned_in_default_yml():
@@ -99,6 +105,7 @@ def _exported_metric_names() -> set:
     matches them too.
     """
     import re
+
     src = METRICS_GO.read_text()
     base = set(re.findall(r'Name:\s*"(ja4proxy_[a-z0-9_]+)"', src))
     # Histogram-derived names.
@@ -168,9 +175,7 @@ def test_dashboard_does_not_use_nonexistent_labels_on_connections_total():
         if "ja4proxy_connections_total" not in expr:
             continue
         # Extract the label block following the metric name.
-        for m in re.finditer(
-            r"ja4proxy_connections_total\s*\{([^}]*)\}", expr
-        ):
+        for m in re.finditer(r"ja4proxy_connections_total\s*\{([^}]*)\}", expr):
             label_block = m.group(1)
             for label in re.findall(r"(\w+)\s*=", label_block):
                 if label != "action":
@@ -193,17 +198,32 @@ def test_dashboard_foreign_metrics_are_in_allowlist():
     # A conservative list of promql function/keyword identifiers we expect
     # to see on a capacity dashboard.
     keywords = {
-        "sum", "rate", "avg", "max", "min", "histogram_quantile",
-        "predict_linear", "deriv", "clamp_min", "clamp_max", "by",
-        "le", "vector", "irate", "increase", "topk", "bottomk", "on",
+        "sum",
+        "rate",
+        "avg",
+        "max",
+        "min",
+        "histogram_quantile",
+        "predict_linear",
+        "deriv",
+        "clamp_min",
+        "clamp_max",
+        "by",
+        "le",
+        "vector",
+        "irate",
+        "increase",
+        "topk",
+        "bottomk",
+        "on",
     }
     pattern = re.compile(r"[a-zA-Z_][a-zA-Z0-9_]*")
     # Grafana templated variables ($BYPASS_CEILING_CPS etc) are defined
     # in the dashboard templating block; capture them so they're not
     # flagged as unknown metrics.
     template_vars = {
-        v.get("name") for v in
-        (data.get("templating", {}) or {}).get("list", [])
+        v.get("name")
+        for v in (data.get("templating", {}) or {}).get("list", [])
         if v.get("name")
     }
 

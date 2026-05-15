@@ -20,7 +20,12 @@ from unittest.mock import MagicMock, patch
 
 from src.security.models import ConnectionContext
 from src.security.pipeline import Pipeline
-from src.telemetry.tracing import Tracing, _NoopSpan, _NoopTracer, init_tracing_from_config
+from src.telemetry.tracing import (
+    Tracing,
+    _NoopSpan,
+    _NoopTracer,
+    init_tracing_from_config,
+)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -95,7 +100,9 @@ class TestNoopTracer(unittest.TestCase):
     def test_start_as_current_span_accepts_kwargs(self):
         """start_as_current_span() accepts arbitrary kwargs (compatibility)."""
         tracer = _NoopTracer()
-        with tracer.start_as_current_span("op", kind="client", attributes={"k": "v"}) as span:
+        with tracer.start_as_current_span(
+            "op", kind="client", attributes={"k": "v"}
+        ) as span:
             span.set_attribute("extra", True)
 
     def test_noop_tracer_is_reusable(self):
@@ -152,9 +159,7 @@ class TestTracingOTELUnavailable(unittest.TestCase):
             with self.assertLogs("src.telemetry.tracing", level="WARNING") as cm:
                 t = Tracing(endpoint="http://jaeger:4317")
             self.assertFalse(t.is_enabled())
-            self.assertTrue(
-                any("otel_not_available" in line for line in cm.output)
-            )
+            self.assertTrue(any("otel_not_available" in line for line in cm.output))
 
 
 # ---------------------------------------------------------------------------
@@ -244,7 +249,9 @@ class TestTracingWithMockedOTEL(unittest.TestCase):
 
         self.mock_tracer_provider_cls = MagicMock(return_value=self.mock_provider)
         self.mock_batch_processor = MagicMock()
-        self.mock_batch_processor_cls = MagicMock(return_value=self.mock_batch_processor)
+        self.mock_batch_processor_cls = MagicMock(
+            return_value=self.mock_batch_processor
+        )
         self.mock_exporter = MagicMock()
         self.mock_exporter_cls = MagicMock(return_value=self.mock_exporter)
 
@@ -253,9 +260,14 @@ class TestTracingWithMockedOTEL(unittest.TestCase):
         with (
             patch("src.telemetry.tracing.OTEL_AVAILABLE", True),
             patch("src.telemetry.tracing.trace", self.mock_trace_module),
-            patch("src.telemetry.tracing.TracerProvider", self.mock_tracer_provider_cls),
+            patch(
+                "src.telemetry.tracing.TracerProvider", self.mock_tracer_provider_cls
+            ),
             patch("src.telemetry.tracing.Resource", self.mock_resource_cls),
-            patch("src.telemetry.tracing.BatchSpanProcessor", self.mock_batch_processor_cls),
+            patch(
+                "src.telemetry.tracing.BatchSpanProcessor",
+                self.mock_batch_processor_cls,
+            ),
             patch("src.telemetry.tracing.OTLPSpanExporter", self.mock_exporter_cls),
         ):
             t = Tracing(endpoint="http://jaeger:4317", service_name="test-svc")
@@ -267,14 +279,21 @@ class TestTracingWithMockedOTEL(unittest.TestCase):
         with (
             patch("src.telemetry.tracing.OTEL_AVAILABLE", True),
             patch("src.telemetry.tracing.trace", self.mock_trace_module),
-            patch("src.telemetry.tracing.TracerProvider", self.mock_tracer_provider_cls),
+            patch(
+                "src.telemetry.tracing.TracerProvider", self.mock_tracer_provider_cls
+            ),
             patch("src.telemetry.tracing.Resource", self.mock_resource_cls),
-            patch("src.telemetry.tracing.BatchSpanProcessor", self.mock_batch_processor_cls),
+            patch(
+                "src.telemetry.tracing.BatchSpanProcessor",
+                self.mock_batch_processor_cls,
+            ),
             patch("src.telemetry.tracing.OTLPSpanExporter", self.mock_exporter_cls),
         ):
             Tracing(endpoint="http://collector:4317", service_name="my-proxy")
         # tracing.py calls Resource.create({"service.name": ...}), not Resource(...)
-        self.mock_resource_cls.create.assert_called_once_with({"service.name": "my-proxy"})
+        self.mock_resource_cls.create.assert_called_once_with(
+            {"service.name": "my-proxy"}
+        )
         self.mock_tracer_provider_cls.assert_called_once()
 
     def test_get_tracer_returns_real_tracer_when_enabled(self):
@@ -282,9 +301,14 @@ class TestTracingWithMockedOTEL(unittest.TestCase):
         with (
             patch("src.telemetry.tracing.OTEL_AVAILABLE", True),
             patch("src.telemetry.tracing.trace", self.mock_trace_module),
-            patch("src.telemetry.tracing.TracerProvider", self.mock_tracer_provider_cls),
+            patch(
+                "src.telemetry.tracing.TracerProvider", self.mock_tracer_provider_cls
+            ),
             patch("src.telemetry.tracing.Resource", self.mock_resource_cls),
-            patch("src.telemetry.tracing.BatchSpanProcessor", self.mock_batch_processor_cls),
+            patch(
+                "src.telemetry.tracing.BatchSpanProcessor",
+                self.mock_batch_processor_cls,
+            ),
             patch("src.telemetry.tracing.OTLPSpanExporter", self.mock_exporter_cls),
         ):
             t = Tracing(endpoint="http://jaeger:4317")
@@ -299,7 +323,10 @@ class TestTracingWithMockedOTEL(unittest.TestCase):
             patch("src.telemetry.tracing.trace", self.mock_trace_module),
             patch("src.telemetry.tracing.TracerProvider", failing_provider),
             patch("src.telemetry.tracing.Resource", self.mock_resource_cls),
-            patch("src.telemetry.tracing.BatchSpanProcessor", self.mock_batch_processor_cls),
+            patch(
+                "src.telemetry.tracing.BatchSpanProcessor",
+                self.mock_batch_processor_cls,
+            ),
             patch("src.telemetry.tracing.OTLPSpanExporter", self.mock_exporter_cls),
         ):
             with self.assertLogs("src.telemetry.tracing", level="WARNING") as cm:
@@ -323,7 +350,9 @@ class TestInitTracingFromConfig(unittest.TestCase):
 
     def test_enabled_false_is_noop(self):
         """telemetry.tracing.enabled=false → noop."""
-        config = {"telemetry": {"tracing": {"enabled": False, "endpoint": "http://x:4317"}}}
+        config = {
+            "telemetry": {"tracing": {"enabled": False, "endpoint": "http://x:4317"}}
+        }
         t = init_tracing_from_config(config)
         self.assertFalse(t.is_enabled())
 
@@ -515,7 +544,9 @@ class TestTracingOtelImportBlock(unittest.TestCase):
             "opentelemetry": fake_otel,
             "opentelemetry.trace": fake_trace,
             "opentelemetry.exporter": types.ModuleType("opentelemetry.exporter"),
-            "opentelemetry.exporter.otlp": types.ModuleType("opentelemetry.exporter.otlp"),
+            "opentelemetry.exporter.otlp": types.ModuleType(
+                "opentelemetry.exporter.otlp"
+            ),
             "opentelemetry.exporter.otlp.proto": types.ModuleType(
                 "opentelemetry.exporter.otlp.proto"
             ),

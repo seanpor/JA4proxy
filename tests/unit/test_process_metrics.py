@@ -88,7 +88,9 @@ def test_ci_reliability_with_mocked_api(metrics_mod) -> None:
     fake_resp.__enter__.return_value = fake_resp
     fake_resp.__exit__.return_value = False
 
-    with mock.patch.object(metrics_mod.urllib.request, "urlopen", return_value=fake_resp):
+    with mock.patch.object(
+        metrics_mod.urllib.request, "urlopen", return_value=fake_resp
+    ):
         ci, warn = metrics_mod.gather_ci_metrics(repo="test/repo", token="fake-token")
 
     assert warn is None

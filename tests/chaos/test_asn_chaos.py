@@ -133,7 +133,9 @@ class TestASNClassifierChaos:
 
         # Bypass the session-level noop patch for this specific test by patching
         # the instance with the real implementation captured at import time.
-        with patch.object(classifier, "_refresh_tor_list", _REAL_REFRESH_TOR_LIST.__get__(classifier)):
+        with patch.object(
+            classifier, "_refresh_tor_list", _REAL_REFRESH_TOR_LIST.__get__(classifier)
+        ):
             asyncio.run(classifier._refresh_tor_list())
 
         # Should have loaded from Redis (leader election failed → fallback to smembers)
@@ -174,7 +176,9 @@ class TestASNClassifierChaos:
             classifier._tor_exit_ips = {"1.2.3.4"}
 
         async def run_test():
-            with patch.object(classifier, "_refresh_tor_list", side_effect=mock_refresh):
+            with patch.object(
+                classifier, "_refresh_tor_list", side_effect=mock_refresh
+            ):
                 # Use the real loop implementation (bypasses session-level no-op patch)
                 task = asyncio.create_task(_REAL_TOR_REFRESH_LOOP(classifier, 1))
                 await asyncio.sleep(2.1)
@@ -220,7 +224,14 @@ class TestASNClassifierChaos:
         # IPv6 should not crash
         result = classifier.classify("2001:db8::1")
         # Should return some classification (likely unknown without MaxMind)
-        assert result.category in ["unknown", "residential", "datacenter", "vpn", "tor", "mobile"]
+        assert result.category in [
+            "unknown",
+            "residential",
+            "datacenter",
+            "vpn",
+            "tor",
+            "mobile",
+        ]
 
 
 class TestASNClassifierDisabledChaos:
@@ -236,7 +247,9 @@ class TestASNClassifierDisabledChaos:
         result = classifier.classify("1.2.3.4")
         assert result.category == "unknown"
 
-        signals = asyncio.run(classifier.signals(ConnectionContext(client_ip="1.2.3.4")))
+        signals = asyncio.run(
+            classifier.signals(ConnectionContext(client_ip="1.2.3.4"))
+        )
         assert len(signals) == 0
 
     def test_disabled_classifier_in_pipeline_no_crash(self):

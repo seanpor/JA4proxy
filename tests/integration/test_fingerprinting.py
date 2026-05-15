@@ -78,11 +78,13 @@ def _make_cert_der() -> bytes:
     from cryptography.x509.oid import NameOID
 
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    subject = issuer = x509.Name([
-        x509.NameAttribute(NameOID.COUNTRY_NAME, "US"),
-        x509.NameAttribute(NameOID.ORGANIZATION_NAME, "Test Org"),
-        x509.NameAttribute(NameOID.COMMON_NAME, "client.example.com"),
-    ])
+    subject = issuer = x509.Name(
+        [
+            x509.NameAttribute(NameOID.COUNTRY_NAME, "US"),
+            x509.NameAttribute(NameOID.ORGANIZATION_NAME, "Test Org"),
+            x509.NameAttribute(NameOID.COMMON_NAME, "client.example.com"),
+        ]
+    )
     cert = (
         x509.CertificateBuilder()
         .subject_name(subject)
@@ -310,7 +312,11 @@ class TestJA4XBlacklistSignalIntegration:
         pipeline = _make_pipeline(
             extra_config={
                 "fingerprinting": {
-                    "ja4x": {"enabled": True, "blacklist_score": 55, "emit_in_logs": True}
+                    "ja4x": {
+                        "enabled": True,
+                        "blacklist_score": 55,
+                        "emit_in_logs": True,
+                    }
                 }
             },
             dial=100,
@@ -325,8 +331,7 @@ class TestJA4XBlacklistSignalIntegration:
         )
         result = await pipeline.process(ctx)
         bl_signals = [
-            s for s in result.signals
-            if getattr(s, "name", "") == "ja4x_blacklist"
+            s for s in result.signals if getattr(s, "name", "") == "ja4x_blacklist"
         ]
         assert len(bl_signals) == 1
         assert bl_signals[0].score == 55
@@ -337,7 +342,11 @@ class TestJA4XBlacklistSignalIntegration:
         pipeline = _make_pipeline(
             extra_config={
                 "fingerprinting": {
-                    "ja4x": {"enabled": False, "blacklist_score": 80, "emit_in_logs": False}
+                    "ja4x": {
+                        "enabled": False,
+                        "blacklist_score": 80,
+                        "emit_in_logs": False,
+                    }
                 }
             },
             dial=100,
@@ -376,7 +385,8 @@ class TestJA4XEmittedInLog:
             await pipeline.process(ctx)
 
         json_lines = [
-            line for line in caplog.messages
+            line
+            for line in caplog.messages
             if line.startswith("{") and '"type": "connection"' in line
         ]
         assert json_lines, "No JSON log lines found"
@@ -397,7 +407,8 @@ class TestJA4XEmittedInLog:
             await pipeline.process(ctx)
 
         json_lines = [
-            line for line in caplog.messages
+            line
+            for line in caplog.messages
             if line.startswith("{") and '"type": "connection"' in line
         ]
         assert json_lines
@@ -410,7 +421,11 @@ class TestJA4XEmittedInLog:
         pipeline = _make_pipeline(
             extra_config={
                 "fingerprinting": {
-                    "ja4x": {"enabled": True, "blacklist_score": 80, "emit_in_logs": False}
+                    "ja4x": {
+                        "enabled": True,
+                        "blacklist_score": 80,
+                        "emit_in_logs": False,
+                    }
                 }
             }
         )
@@ -423,7 +438,8 @@ class TestJA4XEmittedInLog:
             await pipeline.process(ctx)
 
         json_lines = [
-            line for line in caplog.messages
+            line
+            for line in caplog.messages
             if line.startswith("{") and '"type": "connection"' in line
         ]
         assert json_lines

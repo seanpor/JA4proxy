@@ -33,6 +33,7 @@ CONFIG_PATH = (
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(scope="module")
 def config() -> dict:
     """Load and parse the vector-interlink.yaml config file.
@@ -61,6 +62,7 @@ def config_raw() -> str:
 # Tests
 # ---------------------------------------------------------------------------
 
+
 class TestVectorInterlinkConfig:
 
     def test_interlink_config_is_valid_yaml(self):
@@ -74,9 +76,9 @@ class TestVectorInterlinkConfig:
             parsed = yaml.safe_load(fh)
 
         assert parsed is not None, "YAML file parsed to None — it may be empty"
-        assert isinstance(parsed, dict), (
-            f"Expected a YAML mapping at top level, got {type(parsed).__name__}"
-        )
+        assert isinstance(
+            parsed, dict
+        ), f"Expected a YAML mapping at top level, got {type(parsed).__name__}"
 
     def test_interlink_config_source_is_stdin(self, config: dict):
         """Source type must be 'stdin' (Docker pattern, not 'journald').
@@ -122,9 +124,7 @@ class TestVectorInterlinkConfig:
 
         # Find a socket-type sink
         socket_sinks = {
-            name: sink
-            for name, sink in sinks.items()
-            if sink.get("type") == "socket"
+            name: sink for name, sink in sinks.items() if sink.get("type") == "socket"
         }
         assert socket_sinks, (
             f"Expected a sink of type 'socket' for syslog output, found sinks: "
@@ -148,9 +148,7 @@ class TestVectorInterlinkConfig:
         """
         sinks = config.get("sinks", {})
         socket_sinks = {
-            name: sink
-            for name, sink in sinks.items()
-            if sink.get("type") == "socket"
+            name: sink for name, sink in sinks.items() if sink.get("type") == "socket"
         }
         assert socket_sinks, (
             "No socket-type sinks found — cannot check port. "

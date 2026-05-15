@@ -63,6 +63,7 @@ NOT_A_CIDR
 # parse_feed
 # ---------------------------------------------------------------------------
 
+
 class TestParseFeed:
     """Feed format parsers produce correct CIDR lists."""
 
@@ -116,6 +117,7 @@ class TestParseFeed:
 # ---------------------------------------------------------------------------
 # BlocklistManager — CIDR trie lookup
 # ---------------------------------------------------------------------------
+
 
 class TestBlocklistManagerIPv4:
     """IPv4 CIDR trie lookup."""
@@ -225,6 +227,7 @@ class TestBlocklistManagerReload:
 # FeedConfig
 # ---------------------------------------------------------------------------
 
+
 class TestFeedConfig:
     """FeedConfig dataclass defaults."""
 
@@ -259,6 +262,7 @@ class TestFeedConfig:
 # is_bypass=false → RiskSignal
 # ---------------------------------------------------------------------------
 
+
 class TestNonBypassFeedSignal:
     """is_bypass=false feeds produce RiskSignal, not a bypass."""
 
@@ -274,8 +278,7 @@ class TestNonBypassFeedSignal:
             refresh_interval_seconds=3600,
             enabled=True,
         )
-        self.mgr.load_cidrs(["203.0.113.0/24"], "custom_scored",
-                             feed_config=feed_cfg)
+        self.mgr.load_cidrs(["203.0.113.0/24"], "custom_scored", feed_config=feed_cfg)
 
     def test_matched_ip_returns_risk_signal(self):
         signals = self.mgr.get_signals("203.0.113.5")
@@ -310,6 +313,7 @@ class TestNonBypassFeedSignal:
 # ---------------------------------------------------------------------------
 # Prometheus metrics
 # ---------------------------------------------------------------------------
+
 
 class TestBlocklistMetrics:
     """Prometheus counters are incremented on match."""
@@ -350,6 +354,7 @@ class TestBlocklistMetrics:
 # ---------------------------------------------------------------------------
 # Phase 16c — Coverage Gaps
 # ---------------------------------------------------------------------------
+
 
 class TestParseFeedCoverageGaps:
     """Cover parse_feed paths missed by existing tests."""
@@ -450,6 +455,7 @@ class TestFeedManagerCoverageGaps:
 
     def _make_fm(self, redis=None, config=None):
         from src.security.blocklists import FeedManager
+
         cfg = config or self._BASE_CFG
         mgr = BlocklistManager()
         return FeedManager(cfg, mgr, redis_client=redis)
@@ -459,15 +465,29 @@ class TestFeedManagerCoverageGaps:
     def test_disabled_feed_excluded(self):
         """Feeds with enabled=False are excluded from _feeds."""
         from src.security.blocklists import FeedManager
+
         cfg = {
             "blocklists": {
                 "feeds": [
-                    {"name": "disabled", "url": "", "format": "cidr",
-                     "is_bypass": True, "action": "block", "score": 60,
-                     "refresh_interval_seconds": 3600, "enabled": False},
-                    {"name": "active", "url": "", "format": "cidr",
-                     "is_bypass": True, "action": "block", "score": 60,
-                     "refresh_interval_seconds": 3600},
+                    {
+                        "name": "disabled",
+                        "url": "",
+                        "format": "cidr",
+                        "is_bypass": True,
+                        "action": "block",
+                        "score": 60,
+                        "refresh_interval_seconds": 3600,
+                        "enabled": False,
+                    },
+                    {
+                        "name": "active",
+                        "url": "",
+                        "format": "cidr",
+                        "is_bypass": True,
+                        "action": "block",
+                        "score": 60,
+                        "refresh_interval_seconds": 3600,
+                    },
                 ]
             }
         }
@@ -478,6 +498,7 @@ class TestFeedManagerCoverageGaps:
     def test_empty_config_no_feeds(self):
         """FeedManager with no feeds config produces empty _feeds list."""
         from src.security.blocklists import FeedManager
+
         fm = FeedManager({}, BlocklistManager())
         assert fm._feeds == []
 
@@ -485,8 +506,10 @@ class TestFeedManagerCoverageGaps:
 
     def test_stop_cancels_tasks(self):
         """stop() cancels all refresh tasks and clears the list."""
+
         async def run():
             from src.security.blocklists import FeedManager
+
             fm = FeedManager(self._BASE_CFG, BlocklistManager())
             # Manually add a dummy task
             dummy = asyncio.create_task(asyncio.sleep(9999))
@@ -501,6 +524,7 @@ class TestFeedManagerCoverageGaps:
 
     def test_load_from_redis_no_redis_returns_none(self):
         """_load_from_redis returns None when no Redis client."""
+
         async def run():
             fm = self._make_fm(redis=None)
             result = await fm._load_from_redis("test_feed")
@@ -510,6 +534,7 @@ class TestFeedManagerCoverageGaps:
 
     def test_load_from_redis_cache_hit(self):
         """_load_from_redis returns list when Redis has data."""
+
         async def run():
             redis = AsyncMock()
             redis.get = AsyncMock(return_value=json.dumps(["1.2.3.0/24", "5.6.7.0/24"]))
@@ -521,6 +546,7 @@ class TestFeedManagerCoverageGaps:
 
     def test_load_from_redis_cache_miss(self):
         """_load_from_redis returns None when Redis has no key."""
+
         async def run():
             redis = AsyncMock()
             redis.get = AsyncMock(return_value=None)
@@ -532,9 +558,12 @@ class TestFeedManagerCoverageGaps:
 
     def test_load_from_redis_exception_returns_none(self):
         """_load_from_redis returns None on exception."""
+
         async def run():
             redis = AsyncMock()
-            redis.get = AsyncMock(side_effect=redis_module.RedisError("connection error"))
+            redis.get = AsyncMock(
+                side_effect=redis_module.RedisError("connection error")
+            )
             fm = self._make_fm(redis=redis)
             result = await fm._load_from_redis("test_feed")
             assert result is None
@@ -545,16 +574,21 @@ class TestFeedManagerCoverageGaps:
 
     def test_try_become_leader_no_redis_returns_true(self):
         """Without Redis, always becomes leader."""
+
         async def run():
             fm = self._make_fm(redis=None)
-            result = await fm._try_become_leader(fm._feeds[0] if fm._feeds else
-                FeedConfig("f", "", "cidr", True, "block", 60, 3600))
+            result = await fm._try_become_leader(
+                fm._feeds[0]
+                if fm._feeds
+                else FeedConfig("f", "", "cidr", True, "block", 60, 3600)
+            )
             assert result is True
 
         asyncio.run(run())
 
     def test_try_become_leader_wins_set_nx(self):
         """SET NX returns non-None → leader won."""
+
         async def run():
             redis = AsyncMock()
             redis.set = AsyncMock(return_value=1)  # Non-None → won
@@ -567,6 +601,7 @@ class TestFeedManagerCoverageGaps:
 
     def test_try_become_leader_loses_set_nx(self):
         """SET NX returns None → leader lost."""
+
         async def run():
             redis = AsyncMock()
             redis.set = AsyncMock(return_value=None)  # None → lost
@@ -579,6 +614,7 @@ class TestFeedManagerCoverageGaps:
 
     def test_try_become_leader_redis_exception_returns_true(self):
         """Redis failure → act as leader (fail open)."""
+
         async def run():
             redis = AsyncMock()
             redis.set = AsyncMock(side_effect=redis_module.RedisError("redis down"))
@@ -593,6 +629,7 @@ class TestFeedManagerCoverageGaps:
 
     def test_get_etag_no_redis_returns_none(self):
         """_get_etag returns None without Redis."""
+
         async def run():
             fm = self._make_fm(redis=None)
             result = await fm._get_etag("test_feed")
@@ -602,6 +639,7 @@ class TestFeedManagerCoverageGaps:
 
     def test_get_etag_bytes_decoded(self):
         """_get_etag decodes bytes ETag."""
+
         async def run():
             redis = AsyncMock()
             redis.get = AsyncMock(return_value=b'"abc123"')
@@ -613,6 +651,7 @@ class TestFeedManagerCoverageGaps:
 
     def test_get_etag_exception_returns_none(self):
         """_get_etag returns None on exception."""
+
         async def run():
             redis = AsyncMock()
             redis.get = AsyncMock(side_effect=redis_module.RedisError("err"))
@@ -624,6 +663,7 @@ class TestFeedManagerCoverageGaps:
 
     def test_store_to_redis_no_redis_returns_early(self):
         """_store_to_redis does nothing without Redis."""
+
         async def run():
             fm = self._make_fm(redis=None)
             fc = FeedConfig("f", "", "cidr", True, "block", 60, 3600)
@@ -634,6 +674,7 @@ class TestFeedManagerCoverageGaps:
 
     def test_store_to_redis_with_etag(self):
         """_store_to_redis writes CIDR list and ETag."""
+
         async def run():
             redis = AsyncMock()
             redis.setex = AsyncMock(return_value=True)
@@ -646,6 +687,7 @@ class TestFeedManagerCoverageGaps:
 
     def test_store_to_redis_without_etag(self):
         """_store_to_redis skips ETag write when etag is None."""
+
         async def run():
             redis = AsyncMock()
             redis.setex = AsyncMock(return_value=True)
@@ -658,6 +700,7 @@ class TestFeedManagerCoverageGaps:
 
     def test_store_to_redis_exception_logged(self):
         """_store_to_redis logs warning on exception."""
+
         async def run():
             redis = AsyncMock()
             redis.setex = AsyncMock(side_effect=Exception("write error"))
@@ -672,10 +715,14 @@ class TestFeedManagerCoverageGaps:
 
     def test_download_and_store_304_etag_hit(self):
         """304 Not Modified response → skip parse, return early."""
+
         async def run():
             import aiohttp
+
             fm = self._make_fm(redis=None)
-            fc = FeedConfig("f", "https://example.com/f.txt", "cidr", True, "block", 60, 3600)
+            fc = FeedConfig(
+                "f", "https://example.com/f.txt", "cidr", True, "block", 60, 3600
+            )
 
             mock_resp = AsyncMock()
             mock_resp.status = 304
@@ -689,12 +736,20 @@ class TestFeedManagerCoverageGaps:
 
             with patch("src.security.blocklists.aiohttp") as mock_aiohttp:
                 mock_aiohttp.ClientSession.return_value = mock_session
-                mock_aiohttp.ClientSession.return_value.__aenter__ = AsyncMock(return_value=mock_session)
-                mock_aiohttp.ClientSession.return_value.__aexit__ = AsyncMock(return_value=False)
+                mock_aiohttp.ClientSession.return_value.__aenter__ = AsyncMock(
+                    return_value=mock_session
+                )
+                mock_aiohttp.ClientSession.return_value.__aexit__ = AsyncMock(
+                    return_value=False
+                )
                 mock_aiohttp.ClientTimeout = aiohttp.ClientTimeout
                 # Simulate 304
-                with patch.object(fm, "_get_etag", AsyncMock(return_value='"old-etag"')):
-                    with patch.object(fm, "_load_from_redis", AsyncMock(return_value=None)):
+                with patch.object(
+                    fm, "_get_etag", AsyncMock(return_value='"old-etag"')
+                ):
+                    with patch.object(
+                        fm, "_load_from_redis", AsyncMock(return_value=None)
+                    ):
                         # Just call _download_and_store directly; 304 means early return
                         # We can't easily mock aiohttp context manager, so test via _load_feed
                         pass
@@ -703,22 +758,30 @@ class TestFeedManagerCoverageGaps:
 
     def test_download_and_store_download_error_increments_counter(self):
         """Network error → download error counter incremented."""
+
         async def run():
             fm = self._make_fm(redis=None)
-            fc = FeedConfig("err_feed", "https://example.com/f.txt", "cidr", True, "block", 60, 3600)
+            fc = FeedConfig(
+                "err_feed", "https://example.com/f.txt", "cidr", True, "block", 60, 3600
+            )
 
             with patch("src.security.blocklists.aiohttp") as mock_aiohttp:
                 mock_aiohttp.ClientSession.return_value.__aenter__ = AsyncMock(
                     side_effect=Exception("connect failed")
                 )
-                mock_aiohttp.ClientSession.return_value.__aexit__ = AsyncMock(return_value=False)
+                mock_aiohttp.ClientSession.return_value.__aexit__ = AsyncMock(
+                    return_value=False
+                )
                 # Make the context manager itself raise
                 mock_session = MagicMock()
-                mock_session.__aenter__ = AsyncMock(side_effect=Exception("connect failed"))
+                mock_session.__aenter__ = AsyncMock(
+                    side_effect=Exception("connect failed")
+                )
                 mock_session.__aexit__ = AsyncMock(return_value=False)
                 mock_aiohttp.ClientSession.return_value = mock_session
 
                 from src.security.blocklists import _BLOCKLIST_DOWNLOAD_ERRORS
+
                 before = _BLOCKLIST_DOWNLOAD_ERRORS.labels(feed="err_feed")._value.get()
                 await fm._download_and_store(fc)
                 after = _BLOCKLIST_DOWNLOAD_ERRORS.labels(feed="err_feed")._value.get()
@@ -730,11 +793,13 @@ class TestFeedManagerCoverageGaps:
 
     def test_load_feed_fast_path_redis_hit(self):
         """_load_feed loads from Redis when data is available."""
+
         async def run():
             redis = AsyncMock()
             redis.get = AsyncMock(return_value=json.dumps(["1.2.3.0/24"]))
             mgr = BlocklistManager()
             from src.security.blocklists import FeedManager
+
             fm = FeedManager(self._BASE_CFG, mgr, redis_client=redis)
             fc = FeedConfig("test_feed", "", "cidr", True, "block", 60, 3600)
             await fm._load_feed(fc)
@@ -746,6 +811,7 @@ class TestFeedManagerCoverageGaps:
 
     def test_start_creates_refresh_tasks(self):
         """start() creates one refresh task per feed."""
+
         async def run():
             from src.security.blocklists import FeedManager
 
@@ -763,6 +829,7 @@ class TestFeedManagerCoverageGaps:
 
 
 # ── Missing-coverage tests ────────────────────────────────────────────────────
+
 
 class TestBlocklistsMissingCoverage:
     """Cover uncovered paths in blocklists.py.
@@ -793,6 +860,7 @@ class TestBlocklistsMissingCoverage:
         So what: feed files often have trailing newlines; empty lines must not
         cause ValueError from ipaddress.ip_network('')."""
         from src.security.blocklists import parse_feed
+
         text = "1.2.3.0/24\n\n\n10.0.0.0/8\n"
         result = parse_feed(text, "cidr")
         assert "1.2.3.0/24" in result
@@ -814,9 +882,12 @@ class TestBlocklistsMissingCoverage:
         async def run():
             mgr = BlocklistManager()
             fm = FeedManager(self._BASE_CFG, mgr)
-            fc = FeedConfig("rf_feed", "http://x.com/f", "cidr", True, "block", 3600, 86400)
+            fc = FeedConfig(
+                "rf_feed", "http://x.com/f", "cidr", True, "block", 3600, 86400
+            )
 
             load_calls = []
+
             async def fake_load(feed_cfg):
                 load_calls.append(feed_cfg.name)
                 raise asyncio.CancelledError()  # stop the loop after one call
@@ -838,7 +909,8 @@ class TestBlocklistsMissingCoverage:
     def test_load_feed_non_leader_wait_timeout(self):
         """Non-leader waits up to 30s then fails open if Redis never populated (lines 400-419).
         So what: if the leader dies after winning election and Redis never gets written,
-        non-leaders must fail open (not crash) — stale trie is better than no service."""
+        non-leaders must fail open (not crash) — stale trie is better than no service.
+        """
         import asyncio
         from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -851,10 +923,13 @@ class TestBlocklistsMissingCoverage:
             redis.set = AsyncMock(return_value=None)  # loses leadership election
             mgr = BlocklistManager()
             fm = FeedManager(self._BASE_CFG, mgr, redis_client=redis)
-            fc = FeedConfig("timeout_feed", "http://x.com/f", "cidr", True, "block", 3600, 86400)
+            fc = FeedConfig(
+                "timeout_feed", "http://x.com/f", "cidr", True, "block", 3600, 86400
+            )
 
             # Patch sleep to not actually wait, and iteration count to 2
             call_count = 0
+
             async def fast_sleep(delay):
                 nonlocal call_count
                 call_count += 1
@@ -886,7 +961,9 @@ class TestBlocklistsMissingCoverage:
         async def run():
             mgr = BlocklistManager()
             fm = FeedManager(self._BASE_CFG, mgr)
-            fc = FeedConfig("nohttp_feed", "http://x.com/f", "cidr", True, "block", 3600, 86400)
+            fc = FeedConfig(
+                "nohttp_feed", "http://x.com/f", "cidr", True, "block", 3600, 86400
+            )
 
             with patch("src.security.blocklists.AIOHTTP_AVAILABLE", False):
                 await fm._download_and_store(fc)
@@ -896,7 +973,8 @@ class TestBlocklistsMissingCoverage:
 
     def test_load_feed_slow_path_leader_downloads(self):
         """Leader wins election → calls _download_and_store (lines 397-399).
-        So what: if leader doesn't download, no instance ever populates the blocklist."""
+        So what: if leader doesn't download, no instance ever populates the blocklist.
+        """
         import asyncio
         from unittest.mock import AsyncMock, patch
 
@@ -905,15 +983,20 @@ class TestBlocklistsMissingCoverage:
         async def run():
             mgr = BlocklistManager()
             fm = FeedManager(self._BASE_CFG, mgr)
-            fc = FeedConfig("leader_feed", "http://x.com/f", "cidr", True, "block", 3600, 86400)
+            fc = FeedConfig(
+                "leader_feed", "http://x.com/f", "cidr", True, "block", 3600, 86400
+            )
 
             download_called = []
+
             async def fake_download(feed_cfg):
                 download_called.append(feed_cfg.name)
 
             with patch.object(fm, "_load_from_redis", return_value=None):
                 with patch.object(fm, "_try_become_leader", return_value=True):
-                    with patch.object(fm, "_download_and_store", side_effect=fake_download):
+                    with patch.object(
+                        fm, "_download_and_store", side_effect=fake_download
+                    ):
                         await fm._load_feed(fc)
             assert "leader_feed" in download_called
 
@@ -933,9 +1016,12 @@ class TestBlocklistsMissingCoverage:
         async def run():
             mgr = BlocklistManager()
             fm = FeedManager(self._BASE_CFG, mgr)
-            fc = FeedConfig("wait_feed", "http://x.com/f", "cidr", True, "block", 3600, 86400)
+            fc = FeedConfig(
+                "wait_feed", "http://x.com/f", "cidr", True, "block", 3600, 86400
+            )
 
             call_count = 0
+
             async def load_from_redis_eventually(feed_name):
                 nonlocal call_count
                 call_count += 1
@@ -948,7 +1034,9 @@ class TestBlocklistsMissingCoverage:
 
             with patch("src.security.blocklists.asyncio.sleep", side_effect=no_sleep):
                 with patch.object(fm, "_try_become_leader", return_value=False):
-                    with patch.object(fm, "_load_from_redis", side_effect=load_from_redis_eventually):
+                    with patch.object(
+                        fm, "_load_from_redis", side_effect=load_from_redis_eventually
+                    ):
                         await fm._load_feed(fc)
 
             # Data should be loaded once Redis was populated
@@ -974,7 +1062,9 @@ class TestBlocklistsMissingCoverage:
             redis.set = AsyncMock(return_value=True)
             redis.expire = AsyncMock(return_value=True)
             fm = FeedManager(self._BASE_CFG, mgr, redis_client=redis)
-            fc = FeedConfig("ok_feed", "https://x.com/f.txt", "cidr", True, "block", 3600, 86400)
+            fc = FeedConfig(
+                "ok_feed", "https://x.com/f.txt", "cidr", True, "block", 3600, 86400
+            )
 
             # Build mock aiohttp response
             mock_resp = MagicMock()
@@ -999,7 +1089,9 @@ class TestBlocklistsMissingCoverage:
             with patch("src.security.blocklists.aiohttp", mock_aiohttp):
                 with patch("src.security.blocklists.AIOHTTP_AVAILABLE", True):
                     with patch.object(fm, "_get_etag", AsyncMock(return_value=None)):
-                        with patch.object(fm, "_store_to_redis", AsyncMock(return_value=None)):
+                        with patch.object(
+                            fm, "_store_to_redis", AsyncMock(return_value=None)
+                        ):
                             await fm._download_and_store(fc)
 
             # Both CIDRs should be loaded
@@ -1020,7 +1112,9 @@ class TestBlocklistsMissingCoverage:
         async def run():
             mgr = BlocklistManager()
             fm = FeedManager(self._BASE_CFG, mgr)
-            fc = FeedConfig("etag_feed", "https://x.com/f.txt", "cidr", True, "block", 3600, 86400)
+            fc = FeedConfig(
+                "etag_feed", "https://x.com/f.txt", "cidr", True, "block", 3600, 86400
+            )
 
             captured_headers = []
 
@@ -1044,12 +1138,14 @@ class TestBlocklistsMissingCoverage:
 
             with patch("src.security.blocklists.aiohttp", mock_aiohttp):
                 with patch("src.security.blocklists.AIOHTTP_AVAILABLE", True):
-                    with patch.object(fm, "_get_etag", AsyncMock(return_value='"cached-etag"')):
+                    with patch.object(
+                        fm, "_get_etag", AsyncMock(return_value='"cached-etag"')
+                    ):
                         await fm._download_and_store(fc)
 
-            assert any("If-None-Match" in h for h in captured_headers), (
-                f"Expected If-None-Match header; got: {captured_headers}"
-            )
+            assert any(
+                "If-None-Match" in h for h in captured_headers
+            ), f"Expected If-None-Match header; got: {captured_headers}"
 
         asyncio.run(run())
 
@@ -1067,7 +1163,9 @@ class TestBlocklistsMissingCoverage:
         async def run():
             mgr = BlocklistManager()
             fm = FeedManager(self._BASE_CFG, mgr)
-            fc = FeedConfig("timeout_feed2", "http://x.com/f", "cidr", True, "block", 3600, 86400)
+            fc = FeedConfig(
+                "timeout_feed2", "http://x.com/f", "cidr", True, "block", 3600, 86400
+            )
 
             async def no_sleep(d):
                 pass
@@ -1077,8 +1175,14 @@ class TestBlocklistsMissingCoverage:
                     with patch.object(fm, "_load_from_redis", return_value=None):
                         with patch("builtins.range", return_value=range(2)):
                             import logging
-                            with __import__("unittest.mock", fromlist=["patch"]).patch.object(
-                                __import__("logging").getLogger("src.security.blocklists"), "warning"
+
+                            with __import__(
+                                "unittest.mock", fromlist=["patch"]
+                            ).patch.object(
+                                __import__("logging").getLogger(
+                                    "src.security.blocklists"
+                                ),
+                                "warning",
                             ) as mock_warn:
                                 await fm._load_feed(fc)
                             assert mock_warn.called
@@ -1098,7 +1202,9 @@ class TestBlocklistsMissingCoverage:
         async def run():
             mgr = BlocklistManager()
             fm = FeedManager(self._BASE_CFG, mgr)
-            fc = FeedConfig("e503_feed", "https://x.com/f.txt", "cidr", True, "block", 3600, 86400)
+            fc = FeedConfig(
+                "e503_feed", "https://x.com/f.txt", "cidr", True, "block", 3600, 86400
+            )
 
             mock_resp = MagicMock()
             mock_resp.status = 503
@@ -1113,12 +1219,14 @@ class TestBlocklistsMissingCoverage:
             mock_session.__aexit__ = AsyncMock(return_value=False)
 
             import aiohttp
+
             mock_aiohttp = MagicMock()
             mock_aiohttp.ClientSession.return_value = mock_session
             mock_aiohttp.ClientTimeout = MagicMock(return_value=None)
             mock_aiohttp.ClientResponseError = aiohttp.ClientResponseError
 
             from src.security.blocklists import _BLOCKLIST_DOWNLOAD_ERRORS
+
             before = _BLOCKLIST_DOWNLOAD_ERRORS.labels(feed="e503_feed")._value.get()
             with patch("src.security.blocklists.aiohttp", mock_aiohttp):
                 with patch("src.security.blocklists.AIOHTTP_AVAILABLE", True):

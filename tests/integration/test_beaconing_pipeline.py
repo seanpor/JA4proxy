@@ -9,7 +9,11 @@ import time
 import unittest
 from unittest.mock import AsyncMock, MagicMock
 
-from src.security.beaconing_detector import BeaconingDetector, beacon_score, compute_iats
+from src.security.beaconing_detector import (
+    BeaconingDetector,
+    beacon_score,
+    compute_iats,
+)
 from src.security.models import ConnectionContext
 
 
@@ -42,8 +46,11 @@ def _make_detector(min_obs: int = 10) -> tuple[BeaconingDetector, list]:
         return [1, 0, 0, True]
 
     async def fake_zrangebyscore(key, min_score, max_score, **kwargs):
-        return [(f"ts{i}", t) for i, t in enumerate(sorted(recorded))
-                if min_score <= t <= max_score]
+        return [
+            (f"ts{i}", t)
+            for i, t in enumerate(sorted(recorded))
+            if min_score <= t <= max_score
+        ]
 
     async def fake_zadd_suspects(key, mapping):
         pass
@@ -53,10 +60,20 @@ def _make_detector(min_obs: int = 10) -> tuple[BeaconingDetector, list]:
 
     # Build pipeline mock that executes commands immediately
     pipe = MagicMock()
-    pipe.zadd = MagicMock(side_effect=lambda k, m: asyncio.ensure_future(fake_zadd(k, m)))
-    pipe.zremrangebyscore = MagicMock(side_effect=lambda k, a, b: asyncio.ensure_future(fake_zremrangebyscore(k, a, b)))
-    pipe.zremrangebyrank = MagicMock(side_effect=lambda k, a, b: asyncio.ensure_future(fake_zremrangebyrank(k, a, b)))
-    pipe.expire = MagicMock(side_effect=lambda k, t: asyncio.ensure_future(fake_expire(k, t)))
+    pipe.zadd = MagicMock(
+        side_effect=lambda k, m: asyncio.ensure_future(fake_zadd(k, m))
+    )
+    pipe.zremrangebyscore = MagicMock(
+        side_effect=lambda k, a, b: asyncio.ensure_future(
+            fake_zremrangebyscore(k, a, b)
+        )
+    )
+    pipe.zremrangebyrank = MagicMock(
+        side_effect=lambda k, a, b: asyncio.ensure_future(fake_zremrangebyrank(k, a, b))
+    )
+    pipe.expire = MagicMock(
+        side_effect=lambda k, t: asyncio.ensure_future(fake_expire(k, t))
+    )
     pipe.execute = AsyncMock(side_effect=fake_execute)
     pipe.__aenter__ = AsyncMock(return_value=pipe)
     pipe.__aexit__ = AsyncMock(return_value=False)
@@ -159,7 +176,7 @@ class TestBeaconingPipeline(unittest.TestCase):
             now - 2000,  # 895s gap
             now - 1998,  # 2s gap
             now - 1000,  # 998s gap
-            now - 998,   # 2s gap
+            now - 998,  # 2s gap
         ]
         iats = compute_iats(timestamps)
         score = beacon_score(iats)

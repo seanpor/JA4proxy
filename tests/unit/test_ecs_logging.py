@@ -87,9 +87,9 @@ class TestECSFormatterAtTimestamp:
     def test_ecs_formatter_no_legacy_timestamp(self):
         """ECS output must NOT have the legacy 'timestamp' field."""
         out = _ecs_format({})
-        assert "timestamp" not in out, (
-            "ECS output should not have 'timestamp' — use '@timestamp' instead"
-        )
+        assert (
+            "timestamp" not in out
+        ), "ECS output should not have 'timestamp' — use '@timestamp' instead"
 
     def test_ecs_formatter_timestamp_is_rfc3339(self):
         """The @timestamp value must be a valid RFC3339/ISO8601 string with timezone."""
@@ -112,9 +112,9 @@ class TestECSFormatterSourceIP:
     def test_ecs_formatter_source_ip(self):
         """'client_ip' log field maps to 'source.ip' in ECS output."""
         out = _ecs_format({"client_ip": "203.0.113.42"})
-        assert out.get("source.ip") == "203.0.113.42", (
-            f"source.ip = {out.get('source.ip')!r}, want '203.0.113.42'"
-        )
+        assert (
+            out.get("source.ip") == "203.0.113.42"
+        ), f"source.ip = {out.get('source.ip')!r}, want '203.0.113.42'"
 
     def test_ecs_formatter_source_ip_ipv6(self):
         """IPv6 client addresses are preserved in 'source.ip'."""
@@ -124,14 +124,16 @@ class TestECSFormatterSourceIP:
     def test_ecs_formatter_source_ip_absent_when_no_client_ip(self):
         """When client_ip is not set, source.ip must not appear in output."""
         out = _ecs_format({})
-        assert "source.ip" not in out, "source.ip should not be present when client_ip is absent"
+        assert (
+            "source.ip" not in out
+        ), "source.ip should not be present when client_ip is absent"
 
     def test_ecs_formatter_client_ip_not_at_top_level(self):
         """The raw 'client_ip' field should be remapped, not kept at top level."""
         out = _ecs_format({"client_ip": "10.0.0.1"})
-        assert "client_ip" not in out, (
-            "'client_ip' should be remapped to 'source.ip', not kept at top level"
-        )
+        assert (
+            "client_ip" not in out
+        ), "'client_ip' should be remapped to 'source.ip', not kept at top level"
 
 
 # ---------------------------------------------------------------------------
@@ -143,39 +145,39 @@ class TestECSFormatterEventAction:
     def test_ecs_formatter_event_action(self):
         """'action' log field maps to 'event.action' in ECS output."""
         out = _ecs_format({"action": "block"})
-        assert out.get("event.action") == "block", (
-            f"event.action = {out.get('event.action')!r}, want 'block'"
-        )
+        assert (
+            out.get("event.action") == "block"
+        ), f"event.action = {out.get('event.action')!r}, want 'block'"
 
     def test_ecs_formatter_event_action_all_values(self):
         """All JA4proxy action values are passed through as event.action."""
         for action in ("allow", "block", "ban", "tarpit", "flagged", "rate_limited"):
             out = _ecs_format({"action": action})
-            assert out.get("event.action") == action, (
-                f"For action={action!r}: event.action = {out.get('event.action')!r}"
-            )
+            assert (
+                out.get("event.action") == action
+            ), f"For action={action!r}: event.action = {out.get('event.action')!r}"
 
     def test_ecs_formatter_action_not_at_top_level(self):
         """The raw 'action' field should be remapped to event.action, not remain at top level."""
         out = _ecs_format({"action": "allow"})
-        assert "action" not in out, (
-            "'action' should be remapped to 'event.action', not kept at top level"
-        )
+        assert (
+            "action" not in out
+        ), "'action' should be remapped to 'event.action', not kept at top level"
 
     def test_ecs_formatter_event_outcome_allow(self):
         """allow action produces event.outcome='success'."""
         out = _ecs_format({"action": "allow"})
-        assert out.get("event.outcome") == "success", (
-            f"event.outcome for allow = {out.get('event.outcome')!r}, want 'success'"
-        )
+        assert (
+            out.get("event.outcome") == "success"
+        ), f"event.outcome for allow = {out.get('event.outcome')!r}, want 'success'"
 
     def test_ecs_formatter_event_outcome_block(self):
         """block/ban/tarpit actions produce event.outcome='failure'."""
         for action in ("block", "ban", "tarpit"):
             out = _ecs_format({"action": action})
-            assert out.get("event.outcome") == "failure", (
-                f"event.outcome for {action} = {out.get('event.outcome')!r}, want 'failure'"
-            )
+            assert (
+                out.get("event.outcome") == "failure"
+            ), f"event.outcome for {action} = {out.get('event.outcome')!r}, want 'failure'"
 
 
 # ---------------------------------------------------------------------------
@@ -188,9 +190,9 @@ class TestECSFormatterJA4ProxyNamespace:
         """JA4 fingerprint is nested in 'ja4proxy.fingerprint.ja4'."""
         ja4 = "t13d1516h2_aabbccddeeff_aabbccddeeff"
         out = _ecs_format({"ja4": ja4})
-        assert out.get("ja4proxy.fingerprint.ja4") == ja4, (
-            f"ja4proxy.fingerprint.ja4 = {out.get('ja4proxy.fingerprint.ja4')!r}, want {ja4!r}"
-        )
+        assert (
+            out.get("ja4proxy.fingerprint.ja4") == ja4
+        ), f"ja4proxy.fingerprint.ja4 = {out.get('ja4proxy.fingerprint.ja4')!r}, want {ja4!r}"
 
     def test_ecs_formatter_ja4x_namespace(self):
         """JA4X fingerprint is nested in 'ja4proxy.fingerprint.ja4x'."""
@@ -216,9 +218,9 @@ class TestECSFormatterJA4ProxyNamespace:
     def test_ecs_formatter_score_field(self):
         """Risk score is available as 'ja4proxy.score' (integer)."""
         out = _ecs_format({"score": 77})
-        assert out.get("ja4proxy.score") == 77, (
-            f"ja4proxy.score = {out.get('ja4proxy.score')!r}, want 77"
-        )
+        assert (
+            out.get("ja4proxy.score") == 77
+        ), f"ja4proxy.score = {out.get('ja4proxy.score')!r}, want 77"
 
 
 # ---------------------------------------------------------------------------
@@ -236,7 +238,9 @@ class TestECSFormatterSignals:
         out = _ecs_format({"signals": signals})
         assert "ja4proxy.signals" in out, "ECS output missing 'ja4proxy.signals'"
         arr = out["ja4proxy.signals"]
-        assert isinstance(arr, list), f"ja4proxy.signals should be a list, got {type(arr)}"
+        assert isinstance(
+            arr, list
+        ), f"ja4proxy.signals should be a list, got {type(arr)}"
         assert len(arr) == 2
         # Each element must have all three required keys
         for i, elem in enumerate(arr):
@@ -287,30 +291,30 @@ class TestECSFormatterStaticFields:
     def test_ecs_formatter_service_name(self):
         """service.name must be 'ja4proxy'."""
         out = _ecs_format({})
-        assert out.get("service.name") == "ja4proxy", (
-            f"service.name = {out.get('service.name')!r}, want 'ja4proxy'"
-        )
+        assert (
+            out.get("service.name") == "ja4proxy"
+        ), f"service.name = {out.get('service.name')!r}, want 'ja4proxy'"
 
     def test_ecs_formatter_network_transport(self):
         """network.transport must be 'tcp'."""
         out = _ecs_format({})
-        assert out.get("network.transport") == "tcp", (
-            f"network.transport = {out.get('network.transport')!r}, want 'tcp'"
-        )
+        assert (
+            out.get("network.transport") == "tcp"
+        ), f"network.transport = {out.get('network.transport')!r}, want 'tcp'"
 
     def test_ecs_formatter_network_protocol(self):
         """network.protocol must be 'tls'."""
         out = _ecs_format({})
-        assert out.get("network.protocol") == "tls", (
-            f"network.protocol = {out.get('network.protocol')!r}, want 'tls'"
-        )
+        assert (
+            out.get("network.protocol") == "tls"
+        ), f"network.protocol = {out.get('network.protocol')!r}, want 'tls'"
 
     def test_ecs_formatter_event_kind(self):
         """event.kind must be 'event'."""
         out = _ecs_format({})
-        assert out.get("event.kind") == "event", (
-            f"event.kind = {out.get('event.kind')!r}, want 'event'"
-        )
+        assert (
+            out.get("event.kind") == "event"
+        ), f"event.kind = {out.get('event.kind')!r}, want 'event'"
 
 
 # ---------------------------------------------------------------------------
@@ -360,14 +364,16 @@ class TestECSDualOutputMode:
         record = _make_record("dual mode event")
         output = fmt.format(record)
         lines = [line for line in output.strip().splitlines() if line.strip()]
-        assert len(lines) == 2, (
-            f"dual_output=True should produce 2 JSON lines, got {len(lines)}: {output!r}"
-        )
+        assert (
+            len(lines) == 2
+        ), f"dual_output=True should produce 2 JSON lines, got {len(lines)}: {output!r}"
         legacy = json.loads(lines[0])
         ecs = json.loads(lines[1])
         # First line: legacy format
         assert "timestamp" in legacy, "first line (legacy) missing 'timestamp'"
-        assert "@timestamp" not in legacy, "first line (legacy) should not have '@timestamp'"
+        assert (
+            "@timestamp" not in legacy
+        ), "first line (legacy) should not have '@timestamp'"
         # Second line: ECS format
         assert "@timestamp" in ecs, "second line (ECS) missing '@timestamp'"
         assert "timestamp" not in ecs, "second line (ECS) should not have 'timestamp'"
@@ -375,7 +381,9 @@ class TestECSDualOutputMode:
     def test_ecs_dual_output_both_lines_valid_json(self):
         """Both lines in dual output mode must be independently parseable JSON."""
         fmt = JSONFormatter(format="ecs", dual_output=True)
-        record = _make_record("both valid", extra={"client_ip": "10.0.0.5", "action": "block"})
+        record = _make_record(
+            "both valid", extra={"client_ip": "10.0.0.5", "action": "block"}
+        )
         output = fmt.format(record)
         lines = [line for line in output.strip().splitlines() if line.strip()]
         for i, line in enumerate(lines):
@@ -431,18 +439,18 @@ class TestECSFormatterExceptionHandling:
         record_ecs.exc_info = exc_info
         out_ecs = json.loads(fmt_ecs.format(record_ecs))
 
-        assert "error.message" in out_ecs, (
-            "ECS mode missing 'error.message' when exc_info is set"
-        )
-        assert "boom" in out_ecs["error.message"], (
-            f"error.message {out_ecs['error.message']!r} should contain 'boom'"
-        )
-        assert "error.stack_trace" in out_ecs, (
-            "ECS mode missing 'error.stack_trace' when exc_info is set"
-        )
-        assert isinstance(out_ecs["error.stack_trace"], str), (
-            "error.stack_trace must be a string"
-        )
+        assert (
+            "error.message" in out_ecs
+        ), "ECS mode missing 'error.message' when exc_info is set"
+        assert (
+            "boom" in out_ecs["error.message"]
+        ), f"error.message {out_ecs['error.message']!r} should contain 'boom'"
+        assert (
+            "error.stack_trace" in out_ecs
+        ), "ECS mode missing 'error.stack_trace' when exc_info is set"
+        assert isinstance(
+            out_ecs["error.stack_trace"], str
+        ), "error.stack_trace must be a string"
 
         # --- Legacy mode ---
         fmt_legacy = JSONFormatter()
@@ -450,9 +458,9 @@ class TestECSFormatterExceptionHandling:
         record_legacy.exc_info = exc_info
         out_legacy = json.loads(fmt_legacy.format(record_legacy))
 
-        assert "exception" in out_legacy, (
-            "Legacy mode missing 'exception' key when exc_info is set"
-        )
+        assert (
+            "exception" in out_legacy
+        ), "Legacy mode missing 'exception' key when exc_info is set"
 
 
 # ---------------------------------------------------------------------------
@@ -475,8 +483,10 @@ class TestSetupLoggingECSFormat:
 
         root = _logging.getLogger()
         ecs_handlers = [
-            h for h in root.handlers
-            if isinstance(h.formatter, JSONFormatter) and getattr(h.formatter, "format", None) == "ecs"
+            h
+            for h in root.handlers
+            if isinstance(h.formatter, JSONFormatter)
+            and getattr(h.formatter, "format", None) == "ecs"
         ]
         assert len(ecs_handlers) >= 1, (
             "setup_logging(format='ecs') should install at least one handler "

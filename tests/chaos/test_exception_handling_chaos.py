@@ -18,6 +18,7 @@ import redis
 # Shared helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_local_cache(dial=0):
     cache = MagicMock()
     cache.dial = dial
@@ -51,12 +52,14 @@ def _make_pipeline(collectors=None):
 
 def _make_ctx(ip="5.5.5.5"):
     from src.security.models import ConnectionContext
+
     return ConnectionContext(client_ip=ip, alpn=None, ja4="", sni=None)
 
 
 # ---------------------------------------------------------------------------
 # Chaos tests
 # ---------------------------------------------------------------------------
+
 
 class TestExceptionHandlingChaos(unittest.TestCase):
 
@@ -84,8 +87,11 @@ class TestExceptionHandlingChaos(unittest.TestCase):
 
         result = asyncio.run(pipeline.process(ctx))
 
-        self.assertEqual(result.action, "allow",
-                         "Pipeline must fail open when all signal modules raise")
+        self.assertEqual(
+            result.action,
+            "allow",
+            "Pipeline must fail open when all signal modules raise",
+        )
 
     def test_redis_down_all_modules_fail_open(self):
         """Redis client raises RedisError on every call → pipeline returns allow."""
@@ -94,7 +100,9 @@ class TestExceptionHandlingChaos(unittest.TestCase):
         redis_client = MagicMock()
         redis_client.get = MagicMock(side_effect=redis.RedisError("connection refused"))
         redis_client.set = MagicMock(side_effect=redis.RedisError("connection refused"))
-        redis_client.smembers = MagicMock(side_effect=redis.RedisError("connection refused"))
+        redis_client.smembers = MagicMock(
+            side_effect=redis.RedisError("connection refused")
+        )
 
         local_cache = _make_local_cache()
         # analytics_signals.get also raises to simulate full Redis outage
@@ -152,11 +160,15 @@ class TestExceptionHandlingChaos(unittest.TestCase):
 
         self.assertEqual(result.action, "allow")
         dns_signal_names = [
-            s.name for s in result.signals
+            s.name
+            for s in result.signals
             if hasattr(s, "name") and "dns" in s.name.lower()
         ]
-        self.assertEqual(dns_signal_names, [],
-                         "No DNS signal should be present when lookup times out")
+        self.assertEqual(
+            dns_signal_names,
+            [],
+            "No DNS signal should be present when lookup times out",
+        )
 
     def test_rdap_500_error_fail_open(self):
         """RDAP raises aiohttp.ClientResponseError(500) → pipeline returns allow."""
@@ -228,7 +240,7 @@ class TestExceptionHandlingChaos(unittest.TestCase):
         }
         redis_mock = AsyncMock()
         redis_mock.get = AsyncMock(return_value=None)  # no cached CIDRs
-        redis_mock.set = AsyncMock(return_value=True)   # leader election wins
+        redis_mock.set = AsyncMock(return_value=True)  # leader election wins
 
         fm = FeedManager(config, mgr, redis_client=redis_mock)
 
@@ -238,7 +250,9 @@ class TestExceptionHandlingChaos(unittest.TestCase):
             async def fail_download():
                 # aiohttp.ClientError is the base class for download errors
                 raise aiohttp.ClientError("connection error")
+
         except ImportError:
+
             async def fail_download():
                 raise RuntimeError("download failed")
 
@@ -256,8 +270,10 @@ class TestExceptionHandlingChaos(unittest.TestCase):
 
         # BlocklistManager must still have the previously loaded CIDR
         blocked_after, _ = mgr.is_blocked("192.0.2.1")
-        self.assertTrue(blocked_after,
-                        "Previously loaded CIDR must be retained after download failure")
+        self.assertTrue(
+            blocked_after,
+            "Previously loaded CIDR must be retained after download failure",
+        )
 
     def test_multiple_error_types_pipeline_still_allows_ipv6(self):
         """Mix of exception types with an IPv6 client address → pipeline allows."""
@@ -282,6 +298,7 @@ class TestExceptionHandlingChaos(unittest.TestCase):
 
         # Use an IPv6 client address
         from src.security.models import ConnectionContext
+
         ctx = ConnectionContext(client_ip="2001:db8::1", alpn=None, ja4="", sni=None)
 
         result = asyncio.run(pipeline.process(ctx))
@@ -293,6 +310,7 @@ class TestExceptionHandlingChaos(unittest.TestCase):
         from src.security.pipeline import Pipeline
 
         redis_client = MagicMock()
+
         # Normal operations work, but analytics-specific key raises
         def redis_get_side_effect(key):
             if "analytics:" in str(key):

@@ -61,7 +61,9 @@ logger = logging.getLogger(__name__)
 
 
 _FALCON_AUTH_URL_DEFAULT = "https://api.crowdstrike.com/oauth2/token"
-_FALCON_INDICATORS_URL_DEFAULT = "https://api.crowdstrike.com/intel/combined/indicators/v1"
+_FALCON_INDICATORS_URL_DEFAULT = (
+    "https://api.crowdstrike.com/intel/combined/indicators/v1"
+)
 
 _PAGE_SIZE = 100
 
@@ -134,7 +136,9 @@ class CrowdStrikeFalconClient(FeedClient):
         if self._token is not None:
             return self._token
         if self._token_fetcher is None:
-            raise RuntimeError("CrowdStrikeFalconClient.fetch_bearer_token requires token_fetcher to be set")
+            raise RuntimeError(
+                "CrowdStrikeFalconClient.fetch_bearer_token requires token_fetcher to be set"
+            )
         self._token = await self._token_fetcher(
             self.config.client_id or "",
             self.config.client_secret or "",
@@ -220,7 +224,9 @@ class CrowdStrikeFalconClient(FeedClient):
         if self._token and time.time() < (self._token_expires_at - 60):
             return
         if not self.config.client_id or not self.config.client_secret:
-            raise RuntimeError("CrowdStrike client_id / client_secret unset (env var unresolved?)")
+            raise RuntimeError(
+                "CrowdStrike client_id / client_secret unset (env var unresolved?)"
+            )
 
         # phase-85 Chunk H: Falcon's /oauth2/token endpoint takes only
         # client_id + client_secret. The grant type is implicit
@@ -242,7 +248,9 @@ class CrowdStrikeFalconClient(FeedClient):
             ) as resp:
                 if resp.status != 200:
                     text = await resp.text()
-                    raise RuntimeError(f"Falcon auth returned HTTP {resp.status}: {text[:256]}")
+                    raise RuntimeError(
+                        f"Falcon auth returned HTTP {resp.status}: {text[:256]}"
+                    )
                 body = await resp.json()
         access_token = body.get("access_token")
         if not access_token:
@@ -280,7 +288,9 @@ class CrowdStrikeFalconClient(FeedClient):
         from .safe_resolver import SafeResolver
 
         connector = aiohttp.TCPConnector(resolver=SafeResolver())
-        async with aiohttp.ClientSession(headers=headers, connector=connector) as session:
+        async with aiohttp.ClientSession(
+            headers=headers, connector=connector
+        ) as session:
             while first or offset:
                 first = False
                 params: dict[str, str] = {
@@ -296,7 +306,9 @@ class CrowdStrikeFalconClient(FeedClient):
                 ) as resp:
                     if resp.status != 200:
                         text = await resp.text()
-                        raise RuntimeError(f"Falcon indicators returned HTTP {resp.status}: {text[:256]}")
+                        raise RuntimeError(
+                            f"Falcon indicators returned HTTP {resp.status}: {text[:256]}"
+                        )
                     body = await resp.json()
 
                 resources = body.get("resources", []) or []
@@ -341,7 +353,9 @@ class CrowdStrikeFalconClient(FeedClient):
     ) -> None:
         """Apply a page of Falcon indicators to the Management API."""
         feed_id = self.config.id
-        threshold = _CONFIDENCE_RANK.get((self.config.min_malicious_confidence or "high").lower(), 3)
+        threshold = _CONFIDENCE_RANK.get(
+            (self.config.min_malicious_confidence or "high").lower(), 3
+        )
         for resource in resources:
             ip = resource.get("indicator") or resource.get("value")
             if not isinstance(ip, str):

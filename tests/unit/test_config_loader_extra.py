@@ -233,5 +233,7 @@ class TestConfigLoaderCoverageGaps:
         assert "h" in captured_handler
 
         # asyncio.create_task raises RuntimeError when called outside an event loop
-        with patch("asyncio.create_task", side_effect=RuntimeError("no running event loop")):
+        with patch(
+            "asyncio.create_task", side_effect=RuntimeError("no running event loop")
+        ):
             captured_handler["h"]()  # must not raise

@@ -77,10 +77,20 @@ def _apply_filters(
 @router.get("/api/v1/audit")
 async def get_audit_log(
     request: Request,
-    output_format: Optional[str] = Query(default=None, alias="format", description="Response format: json (default), jsonl, csv"),
-    action: Optional[str] = Query(default=None, description="Filter by action_type field"),
-    actor: Optional[str] = Query(default=None, description="Filter by actor_id substring"),
-    since: Optional[str] = Query(default=None, description="Filter by timestamp >= value (ISO 8601)"),
+    output_format: Optional[str] = Query(
+        default=None,
+        alias="format",
+        description="Response format: json (default), jsonl, csv",
+    ),
+    action: Optional[str] = Query(
+        default=None, description="Filter by action_type field"
+    ),
+    actor: Optional[str] = Query(
+        default=None, description="Filter by actor_id substring"
+    ),
+    since: Optional[str] = Query(
+        default=None, description="Filter by timestamp >= value (ISO 8601)"
+    ),
     current_user=Depends(require_role(Role.auditor)),
     redis=Depends(get_redis),
 ) -> Response:

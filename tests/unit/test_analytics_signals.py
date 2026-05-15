@@ -41,7 +41,7 @@ def _make_pipeline(redis_get_side_effect=None, redis_get_return=None):
     }
     cache = LocalCache({})
     mock_redis = MagicMock()
-    
+
     # Make redis.get async
     async def _get_async(key):
         if redis_get_side_effect is not None:
@@ -56,7 +56,7 @@ def _make_pipeline(redis_get_side_effect=None, redis_get_return=None):
             return redis_get_return
         else:
             return None
-    
+
     mock_redis.get.side_effect = _get_async
     return Pipeline(config=config, local_cache=cache, redis_client=mock_redis)
 
@@ -186,6 +186,7 @@ async def test_both_signals_when_both_keys_set():
 async def test_redis_error_returns_empty_and_does_not_raise():
     async def _get_error(key):
         raise ConnectionError("Redis down")
+
     pipeline = _make_pipeline(redis_get_side_effect=_get_error)
     result = await pipeline._get_analytics_signals("1.2.3.4")
     assert result == []

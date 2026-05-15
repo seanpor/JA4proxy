@@ -7,6 +7,7 @@ run without a live Redis instance and are included in the normal test suite.
 The round-trip is: populate FakeRedis → BackupWorker.create_backup() →
 flushdb → BackupRestorer.restore_backup() → verify identical state.
 """
+
 import hashlib
 import json
 import os
@@ -24,6 +25,7 @@ from src.backup.worker import BackupWorker
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_worker(fake_redis: fakeredis.FakeRedis) -> BackupWorker:
     worker = BackupWorker()
@@ -57,7 +59,9 @@ def _patch_os_stat_for_dir(tmpdir: Path):
     def mock_access(path, mode):
         return True
 
-    return patch("os.stat", side_effect=mock_stat), patch("os.access", side_effect=mock_access)
+    return patch("os.stat", side_effect=mock_stat), patch(
+        "os.access", side_effect=mock_access
+    )
 
 
 def _do_backup(fake: fakeredis.FakeRedis, dest: Path) -> tuple[Path, Path]:
@@ -70,8 +74,12 @@ def _do_backup(fake: fakeredis.FakeRedis, dest: Path) -> tuple[Path, Path]:
     return backup_path, manifest_path
 
 
-def _do_restore(fake: fakeredis.FakeRedis, backup_path: Path, manifest_path: Path,
-                threshold: float = 0.05) -> None:
+def _do_restore(
+    fake: fakeredis.FakeRedis,
+    backup_path: Path,
+    manifest_path: Path,
+    threshold: float = 0.05,
+) -> None:
     restorer = BackupRestorer(restore_error_threshold=threshold)
     with _patch_redis(fake):
         restorer.restore_backup(str(backup_path), str(manifest_path))
@@ -80,6 +88,7 @@ def _do_restore(fake: fakeredis.FakeRedis, backup_path: Path, manifest_path: Pat
 # ---------------------------------------------------------------------------
 # Round-trip tests
 # ---------------------------------------------------------------------------
+
 
 class TestBackupRoundTrip:
     def setup_method(self):
@@ -115,7 +124,10 @@ class TestBackupRoundTrip:
     def test_roundtrip_hash_key(self):
         # rdap:ip:* is in the include list and naturally stores hash fields
         fake = fakeredis.FakeRedis()
-        fake.hset("rdap:ip:1.2.3.4", mapping={"org": "ExampleISP", "cidr": "1.2.3.0/24", "risk": "5"})
+        fake.hset(
+            "rdap:ip:1.2.3.4",
+            mapping={"org": "ExampleISP", "cidr": "1.2.3.0/24", "risk": "5"},
+        )
 
         bp, mp = _do_backup(fake, self.tmpdir)
         fake.flushdb()

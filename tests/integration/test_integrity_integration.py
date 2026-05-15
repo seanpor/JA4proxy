@@ -85,7 +85,9 @@ class TestSignAndVerifyIntegration:
         _write_pubkey_raw(pubkey, pubkey_path)
 
         monitor = IntegrityMonitor()
-        assert monitor.verify_config_signature(str(config_file), str(pubkey_path)) is True
+        assert (
+            monitor.verify_config_signature(str(config_file), str(pubkey_path)) is True
+        )
 
     def test_corrupt_single_byte_fails_verification(self, tmp_path):
         """Corrupting any single byte in the config makes verification return False."""
@@ -115,9 +117,9 @@ class TestSignAndVerifyIntegration:
                 corruption_detected = False
                 break
 
-        assert corruption_detected, (
-            f"Corrupting byte at position {byte_pos} was not detected by verify_config_signature"
-        )
+        assert (
+            corruption_detected
+        ), f"Corrupting byte at position {byte_pos} was not detected by verify_config_signature"
 
     def test_corrupt_sig_byte_by_byte_fails_verification(self, tmp_path):
         """Corrupting decoded signature bytes makes verification return False.
@@ -155,9 +157,9 @@ class TestSignAndVerifyIntegration:
             sig_path.write_bytes(_base64.b64encode(bytes(corrupted)) + b"\n")
 
             result = monitor.verify_config_signature(str(config_file), str(pubkey_path))
-            assert result is False, (
-                f"Expected False when decoded sig byte {byte_pos} is corrupted, got {result}"
-            )
+            assert (
+                result is False
+            ), f"Expected False when decoded sig byte {byte_pos} is corrupted, got {result}"
 
 
 # ---------------------------------------------------------------------------
@@ -306,9 +308,9 @@ class TestBackgroundMonitorIntegration:
 
         _run(run_test())
 
-        assert not exceptions_raised, (
-            f"Background monitor raised an exception: {exceptions_raised[0]}"
-        )
+        assert (
+            not exceptions_raised
+        ), f"Background monitor raised an exception: {exceptions_raised[0]}"
 
 
 # ---------------------------------------------------------------------------
@@ -363,9 +365,7 @@ class TestAuditLogIntegration:
         monitor = IntegrityMonitor()
 
         for i in range(3):
-            monitor.append_audit_log(
-                str(log_path), status="OK", detail=f"check-{i}"
-            )
+            monitor.append_audit_log(str(log_path), status="OK", detail=f"check-{i}")
 
         lines = log_path.read_text().strip().splitlines()
         for i, line in enumerate(lines):
@@ -399,9 +399,9 @@ class TestAuditLogIntegration:
             zip(lines, ["entry-0", "entry-1", "entry-2", "entry-3"])
         ):
             entry = json.loads(line)
-            assert entry["detail"] == expected_detail, (
-                f"Entry {i}: expected detail={expected_detail!r}, got {entry['detail']!r}"
-            )
+            assert (
+                entry["detail"] == expected_detail
+            ), f"Entry {i}: expected detail={expected_detail!r}, got {entry['detail']!r}"
 
     def test_audit_log_chain_tamper_detection(self, tmp_path):
         """Demonstrates tamper detection: changing entry N breaks chain from N+1 onwards."""
@@ -411,9 +411,7 @@ class TestAuditLogIntegration:
         monitor = IntegrityMonitor()
 
         for i in range(4):
-            monitor.append_audit_log(
-                str(log_path), status="OK", detail=f"check-{i}"
-            )
+            monitor.append_audit_log(str(log_path), status="OK", detail=f"check-{i}")
 
         lines = log_path.read_text().strip().splitlines()
 
@@ -447,13 +445,11 @@ class TestAuditLogIntegration:
 
         statuses = ["OK", "FAIL", "WARNING", "OK"]
         for i, status in enumerate(statuses):
-            monitor.append_audit_log(
-                str(log_path), status=status, detail=f"test-{i}"
-            )
+            monitor.append_audit_log(str(log_path), status=status, detail=f"test-{i}")
 
         lines = log_path.read_text().strip().splitlines()
         for i, (line, expected_status) in enumerate(zip(lines, statuses)):
             entry = json.loads(line)
-            assert entry["status"] == expected_status, (
-                f"Entry {i}: expected status={expected_status!r}, got {entry['status']!r}"
-            )
+            assert (
+                entry["status"] == expected_status
+            ), f"Entry {i}: expected status={expected_status!r}, got {entry['status']!r}"

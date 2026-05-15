@@ -356,31 +356,46 @@ async def apply_policy(
         # Fingerprints — always call even when list is empty so stale
         # managed_by=policy entries in the live API get removed.
         await _apply_fingerprints(
-            session, api_url, headers,
-            allowlist.get("fingerprints") or [], "allowlist",
+            session,
+            api_url,
+            headers,
+            allowlist.get("fingerprints") or [],
+            "allowlist",
             result,
         )
         await _apply_fingerprints(
-            session, api_url, headers,
-            blocklist.get("fingerprints") or [], "blocklist",
+            session,
+            api_url,
+            headers,
+            blocklist.get("fingerprints") or [],
+            "blocklist",
             result,
         )
 
         # IPs / CIDRs — always call even when list is empty so stale
         # managed_by=policy entries in the live API get removed.
         await _apply_ips(
-            session, api_url, headers,
-            allowlist.get("ips") or [], "allowlist/ips",
+            session,
+            api_url,
+            headers,
+            allowlist.get("ips") or [],
+            "allowlist/ips",
             result,
         )
         await _apply_ips(
-            session, api_url, headers,
-            blocklist.get("ips") or [], "blocklist/ips",
+            session,
+            api_url,
+            headers,
+            blocklist.get("ips") or [],
+            "blocklist/ips",
             result,
         )
         await _apply_ips(
-            session, api_url, headers,
-            watchlist.get("ips") or [], "watchlist/ips",
+            session,
+            api_url,
+            headers,
+            watchlist.get("ips") or [],
+            "watchlist/ips",
             result,
         )
 
@@ -439,10 +454,7 @@ async def diff_policy(
         blocklist = policy_dict.get("blocklist") or {}
 
         # ── Allowlist fingerprints ──────────────────────────────────────────
-        policy_allow_fps = {
-            fp["ja4"]
-            for fp in (allowlist.get("fingerprints") or [])
-        }
+        policy_allow_fps = {fp["ja4"] for fp in (allowlist.get("fingerprints") or [])}
         live_allow_fps = await _get_list(
             session, f"{api_url}/api/v1/allowlist", headers
         )
@@ -459,10 +471,7 @@ async def diff_policy(
                 )
 
         # ── Blocklist fingerprints ──────────────────────────────────────────
-        policy_block_fps = {
-            fp["ja4"]
-            for fp in (blocklist.get("fingerprints") or [])
-        }
+        policy_block_fps = {fp["ja4"] for fp in (blocklist.get("fingerprints") or [])}
         live_block_fps = await _get_list(
             session, f"{api_url}/api/v1/blocklist", headers
         )

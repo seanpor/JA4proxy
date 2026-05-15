@@ -38,7 +38,9 @@ RULE_FILES = [
 
 # Regex: a bare ja4_ metric (old prefix) — must not appear in any expr field.
 # We allow ja4proxy_ (the correct prefix) and ja4: (recording rule names).
-_BARE_JA4_METRIC = re.compile(r"\bja4_(?!proxy_|requests_total|request_duration|blocked|security_events|errors)")
+_BARE_JA4_METRIC = re.compile(
+    r"\bja4_(?!proxy_|requests_total|request_duration|blocked|security_events|errors)"
+)
 
 
 def _load_rules(path: Path) -> dict:
@@ -89,18 +91,22 @@ class TestRuleFileStructure:
             assert isinstance(rule["expr"], str) and rule["expr"].strip()
             assert "labels" in rule, f"Rule '{rule.get('alert')}' missing 'labels'"
             assert isinstance(rule["labels"], dict)
-            assert "annotations" in rule, f"Rule '{rule.get('alert')}' missing 'annotations'"
+            assert (
+                "annotations" in rule
+            ), f"Rule '{rule.get('alert')}' missing 'annotations'"
             assert isinstance(rule["annotations"], dict)
 
     def test_severity_label_present(self, path):
         data = _load_rules(path)
         for rule in _all_rules(data):
-            assert "severity" in rule["labels"], (
-                f"Rule '{rule.get('alert')}' missing 'severity' label"
-            )
-            assert rule["labels"]["severity"] in ("critical", "warning", "info"), (
-                f"Rule '{rule.get('alert')}' has unknown severity: {rule['labels']['severity']}"
-            )
+            assert (
+                "severity" in rule["labels"]
+            ), f"Rule '{rule.get('alert')}' missing 'severity' label"
+            assert rule["labels"]["severity"] in (
+                "critical",
+                "warning",
+                "info",
+            ), f"Rule '{rule.get('alert')}' has unknown severity: {rule['labels']['severity']}"
 
     def test_no_bare_ja4_metric_names_in_exprs(self, path):
         """Expressions must not reference old pre-Phase-1 ja4_ metric names."""
@@ -111,9 +117,9 @@ class TestRuleFileStructure:
             # Strip ja4proxy_ occurrences first so the regex doesn't false-positive
             expr_stripped = expr.replace("ja4proxy_", "").replace("ja4:", "")
             bad = _BARE_JA4_METRIC.search(expr_stripped)
-            assert not bad, (
-                f"Rule '{rule.get('alert')}' references old ja4_ metric name in expr: {expr!r}"
-            )
+            assert (
+                not bad
+            ), f"Rule '{rule.get('alert')}' references old ja4_ metric name in expr: {expr!r}"
 
 
 # ---------------------------------------------------------------------------

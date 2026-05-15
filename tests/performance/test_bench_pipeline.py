@@ -69,9 +69,7 @@ class TestRiskScorerPerformance:
             f"\nRiskScorer.score() (n={_ITERATIONS}, 10 signals): "
             f"p50={p50:.1f}µs  p99={p99:.1f}µs"
         )
-        assert p99 < 500, (
-            f"RiskScorer.score() p99={p99:.1f}µs exceeded 500µs limit"
-        )
+        assert p99 < 500, f"RiskScorer.score() p99={p99:.1f}µs exceeded 500µs limit"
 
     def test_score_empty_signals_p99_under_20us(self):
         """Empty signal list is the common bypass path — must be very fast."""
@@ -86,9 +84,7 @@ class TestRiskScorerPerformance:
         latencies.sort()
         p99 = _percentile(latencies, 99)
         print(f"\nRiskScorer.score() empty (n={_ITERATIONS}): p99={p99:.1f}µs")
-        assert p99 < 20, (
-            f"RiskScorer.score() empty p99={p99:.1f}µs exceeded 20µs limit"
-        )
+        assert p99 < 20, f"RiskScorer.score() empty p99={p99:.1f}µs exceeded 20µs limit"
 
 
 class TestActionDeciderPerformance:
@@ -123,9 +119,7 @@ class TestActionDeciderPerformance:
             f"\nActionDecider.decide() (n={_ITERATIONS}): "
             f"p50={p50:.2f}µs  p99={p99:.2f}µs"
         )
-        assert p99 < 20, (
-            f"ActionDecider.decide() p99={p99:.2f}µs exceeded 20µs limit"
-        )
+        assert p99 < 20, f"ActionDecider.decide() p99={p99:.2f}µs exceeded 20µs limit"
 
     def test_decide_dial_zero_p99_under_5us(self):
         """dial=0 (monitor mode) is the default path — must be fastest."""
@@ -140,9 +134,9 @@ class TestActionDeciderPerformance:
         latencies.sort()
         p99 = _percentile(latencies, 99)
         print(f"\nActionDecider.decide() dial=0 (n={_ITERATIONS}): p99={p99:.2f}µs")
-        assert p99 < 5, (
-            f"ActionDecider.decide() dial=0 p99={p99:.2f}µs exceeded 5µs limit"
-        )
+        assert (
+            p99 < 5
+        ), f"ActionDecider.decide() dial=0 p99={p99:.2f}µs exceeded 5µs limit"
 
 
 class TestTarpitCapPerformance:
@@ -205,9 +199,7 @@ class TestTarpitCapPerformance:
             f"\nTarpit cap check ({_CONCURRENCY} concurrent): "
             f"p50={p50:.3f}ms  p99={p99:.3f}ms"
         )
-        assert p99 < 1.0, (
-            f"Tarpit cap check p99={p99:.3f}ms exceeded 1ms limit"
-        )
+        assert p99 < 1.0, f"Tarpit cap check p99={p99:.3f}ms exceeded 1ms limit"
 
 
 if __name__ == "__main__":
@@ -251,6 +243,7 @@ if __name__ == "__main__":
 
 
 # ── Phase 16e: Accept criteria tests ─────────────────────────────────────────
+
 
 class TestPhase16eAcceptanceCriteria:
     """Phase 16e acceptance: allow bypass p99 < 500µs; scoring path p99 < 1ms."""

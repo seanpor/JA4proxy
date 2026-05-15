@@ -32,7 +32,9 @@ from typing import Any
 import pytest
 from httpx import AsyncClient
 
-from management.api.auth import _create_access_token  # noqa: F401 — used in bearer tests
+from management.api.auth import (
+    _create_access_token,
+)  # noqa: F401 — used in bearer tests
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -296,7 +298,9 @@ async def test_list_tokens_requires_auth(test_client: AsyncClient) -> None:
 @pytest.mark.asyncio
 async def test_get_token_by_id(authenticated_client: AsyncClient) -> None:
     """GET /api/v1/tokens/{id} returns correct metadata for an existing token."""
-    created = await _create_token(authenticated_client, name="inspectable", role="operator")
+    created = await _create_token(
+        authenticated_client, name="inspectable", role="operator"
+    )
     token_id = created["id"]
 
     r = await authenticated_client.get(f"/api/v1/tokens/{token_id}")
@@ -304,7 +308,7 @@ async def test_get_token_by_id(authenticated_client: AsyncClient) -> None:
     data = r.json()
     assert data["id"] == token_id
     assert data["name"] == "inspectable"
-    assert data["role"] == "operator"          # value must round-trip, not just exist
+    assert data["role"] == "operator"  # value must round-trip, not just exist
     assert "created_at" in data
     assert "expires_at" in data
     assert "last_used_at" in data
@@ -425,7 +429,10 @@ async def test_deleted_token_bearer_auth_returns_401(fake_redis) -> None:
     ) as anon_client:
         r = await anon_client.get(
             "/api/v1/dial",
-            headers={"Authorization": f"Bearer {plaintext}", "Accept": "application/json"},
+            headers={
+                "Authorization": f"Bearer {plaintext}",
+                "Accept": "application/json",
+            },
         )
         assert r.status_code == 401, (
             "Revoked bearer token must return 401; got 200 — "
@@ -452,8 +459,8 @@ async def test_rotate_token_returns_200_with_new_token(
     r = await authenticated_client.post(f"/api/v1/tokens/{created['id']}/rotate")
     assert r.status_code == 200
     data = r.json()
-    assert "token" in data          # new plaintext
-    assert "id" in data             # new ID
+    assert "token" in data  # new plaintext
+    assert "id" in data  # new ID
     assert data["id"] != created["id"]  # must be a different ID
     assert data["token"] != created["token"]  # must be a different secret
 
@@ -513,11 +520,14 @@ async def test_rotate_token_new_token_usable_immediately(fake_redis) -> None:
     ) as anon_client:
         r = await anon_client.get(
             "/api/v1/dial",
-            headers={"Authorization": f"Bearer {new_token}", "Accept": "application/json"},
+            headers={
+                "Authorization": f"Bearer {new_token}",
+                "Accept": "application/json",
+            },
         )
-        assert r.status_code == 200, (
-            f"New bearer token from rotation must be immediately usable; got {r.status_code}."
-        )
+        assert (
+            r.status_code == 200
+        ), f"New bearer token from rotation must be immediately usable; got {r.status_code}."
 
     await _redis_module.close_redis()
 
@@ -554,7 +564,10 @@ async def test_bearer_valid_token_grants_access(fake_redis) -> None:
     ) as anon_client:
         r = await anon_client.get(
             "/api/v1/dial",
-            headers={"Authorization": f"Bearer {plaintext}", "Accept": "application/json"},
+            headers={
+                "Authorization": f"Bearer {plaintext}",
+                "Accept": "application/json",
+            },
         )
         assert r.status_code == 200, (
             f"Valid bearer token must grant access; got {r.status_code}. "
@@ -686,7 +699,10 @@ async def test_bearer_any_role_can_access_dial(fake_redis) -> None:
     ) as anon_client:
         r = await anon_client.get(
             "/api/v1/dial",
-            headers={"Authorization": f"Bearer {plaintext}", "Accept": "application/json"},
+            headers={
+                "Authorization": f"Bearer {plaintext}",
+                "Accept": "application/json",
+            },
         )
         assert r.status_code == 200, (
             f"An auditor-role bearer token must be sufficient to read /api/v1/dial; "
@@ -718,10 +734,10 @@ async def test_token_stored_in_redis_hash(
     assert fields.get("id") == token_id
     assert fields.get("name") == "redis-schema-check"
     assert fields.get("role")
-    assert fields.get("hash")          # bcrypt hash — present but not returned via API
+    assert fields.get("hash")  # bcrypt hash — present but not returned via API
     assert fields.get("created_at")
-    assert "expires_at" in fields      # may be empty string for no-expiry tokens
-    assert "last_used_at" in fields    # may be empty string on creation
+    assert "expires_at" in fields  # may be empty string for no-expiry tokens
+    assert "last_used_at" in fields  # may be empty string on creation
 
 
 @pytest.mark.asyncio
@@ -757,7 +773,9 @@ async def test_delete_token_removes_id_from_index_set(
     await authenticated_client.delete(f"/api/v1/tokens/{token_id}")
 
     is_member = await fake_redis.sismember("mgmt:token:idx", token_id)
-    assert not is_member, f"Expected {token_id} removed from mgmt:token:idx after deletion"
+    assert (
+        not is_member
+    ), f"Expected {token_id} removed from mgmt:token:idx after deletion"
 
 
 # ── Security property tests ────────────────────────────────────────────────────
@@ -780,9 +798,9 @@ async def test_bcrypt_hash_stored_not_plaintext(
         f"Stored hash does not look like a bcrypt digest: {stored_hash!r}. "
         "Implementation may be storing the plaintext token."
     )
-    assert stored_hash != created["token"], (
-        "Stored 'hash' is identical to the plaintext token — no hashing was done."
-    )
+    assert (
+        stored_hash != created["token"]
+    ), "Stored 'hash' is identical to the plaintext token — no hashing was done."
 
 
 @pytest.mark.asyncio
@@ -809,15 +827,18 @@ async def test_bearer_hash_must_match(fake_redis) -> None:
     correct_hash = bcrypt.hashpw(correct_secret.encode(), bcrypt.gensalt()).decode()
 
     token_id = str(uuid.uuid4())
-    await fake_redis.hset(f"mgmt:token:{token_id}", mapping={
-        "id": token_id,
-        "name": "hash-mismatch-test",
-        "role": "operator",
-        "hash": correct_hash,
-        "created_at": _dt.datetime.now(_dt.timezone.utc).isoformat(),
-        "expires_at": "",
-        "last_used_at": "",
-    })
+    await fake_redis.hset(
+        f"mgmt:token:{token_id}",
+        mapping={
+            "id": token_id,
+            "name": "hash-mismatch-test",
+            "role": "operator",
+            "hash": correct_hash,
+            "created_at": _dt.datetime.now(_dt.timezone.utc).isoformat(),
+            "expires_at": "",
+            "last_used_at": "",
+        },
+    )
     await fake_redis.sadd("mgmt:token:idx", token_id)
 
     async with AsyncClient(
@@ -826,7 +847,10 @@ async def test_bearer_hash_must_match(fake_redis) -> None:
     ) as client:
         r = await client.get(
             "/api/v1/dial",
-            headers={"Authorization": f"Bearer {wrong_token}", "Accept": "application/json"},
+            headers={
+                "Authorization": f"Bearer {wrong_token}",
+                "Accept": "application/json",
+            },
         )
         assert r.status_code == 401, (
             "Token with non-matching hash must be rejected; got 200. "
@@ -870,7 +894,10 @@ async def test_last_used_at_updated_on_bearer_auth(fake_redis) -> None:
     ) as anon_client:
         r = await anon_client.get(
             "/api/v1/dial",
-            headers={"Authorization": f"Bearer {plaintext}", "Accept": "application/json"},
+            headers={
+                "Authorization": f"Bearer {plaintext}",
+                "Accept": "application/json",
+            },
         )
         assert r.status_code == 200
 
@@ -878,9 +905,9 @@ async def test_last_used_at_updated_on_bearer_auth(fake_redis) -> None:
     last_used_after = fields_after.get("last_used_at", "")
 
     assert last_used_after, "last_used_at must be set after a successful bearer auth"
-    assert last_used_after != last_used_before, (
-        f"last_used_at not updated. Before: {last_used_before!r}, After: {last_used_after!r}"
-    )
+    assert (
+        last_used_after != last_used_before
+    ), f"last_used_at not updated. Before: {last_used_before!r}, After: {last_used_after!r}"
     used_dt = datetime.fromisoformat(last_used_after)
     age_seconds = (datetime.now(timezone.utc) - used_dt).total_seconds()
     assert age_seconds < 5, f"last_used_at ({last_used_after}) is not recent"
@@ -922,7 +949,10 @@ async def test_rotate_token_old_token_works_during_grace_period(fake_redis) -> N
     ) as anon_client:
         r = await anon_client.get(
             "/api/v1/dial",
-            headers={"Authorization": f"Bearer {old_plaintext}", "Accept": "application/json"},
+            headers={
+                "Authorization": f"Bearer {old_plaintext}",
+                "Accept": "application/json",
+            },
         )
         assert r.status_code == 200, (
             f"Old bearer token must still work during grace period (TTL={ttl}s); "
@@ -965,11 +995,17 @@ async def test_two_tokens_authenticate_independently(fake_redis) -> None:
     ) as anon_client:
         r_a = await anon_client.get(
             "/api/v1/dial",
-            headers={"Authorization": f"Bearer {plaintext_a}", "Accept": "application/json"},
+            headers={
+                "Authorization": f"Bearer {plaintext_a}",
+                "Accept": "application/json",
+            },
         )
         r_b = await anon_client.get(
             "/api/v1/dial",
-            headers={"Authorization": f"Bearer {plaintext_b}", "Accept": "application/json"},
+            headers={
+                "Authorization": f"Bearer {plaintext_b}",
+                "Accept": "application/json",
+            },
         )
         assert r_a.status_code == 200, f"Token A failed: {r_a.status_code}"
         assert r_b.status_code == 200, f"Token B failed: {r_b.status_code}"
@@ -988,11 +1024,17 @@ async def test_two_tokens_authenticate_independently(fake_redis) -> None:
     ) as anon_client:
         r_a_after = await anon_client.get(
             "/api/v1/dial",
-            headers={"Authorization": f"Bearer {plaintext_a}", "Accept": "application/json"},
+            headers={
+                "Authorization": f"Bearer {plaintext_a}",
+                "Accept": "application/json",
+            },
         )
         r_b_after = await anon_client.get(
             "/api/v1/dial",
-            headers={"Authorization": f"Bearer {plaintext_b}", "Accept": "application/json"},
+            headers={
+                "Authorization": f"Bearer {plaintext_b}",
+                "Accept": "application/json",
+            },
         )
         assert r_a_after.status_code == 401, "Revoked token A must not authenticate"
         assert r_b_after.status_code == 200, "Unrevoked token B must still authenticate"

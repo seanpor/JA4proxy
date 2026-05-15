@@ -45,7 +45,9 @@ def _make_config(**kwargs) -> RDAPConfig:
         lookup_timeout_seconds=5,
         delegate_to_analytics=False,
         org_reputation=_OrgReputationConfig(enabled=True, score=45),
-        new_netblock_flagging=_NewNetblockConfig(enabled=True, max_age_days=90, score=20),
+        new_netblock_flagging=_NewNetblockConfig(
+            enabled=True, max_age_days=90, score=20
+        ),
         block_expansion=_BlockExpansionConfig(
             enabled=True,
             min_trigger_score=75,
@@ -106,7 +108,7 @@ class TestRDAPFalsePositiveBounds(unittest.TestCase):
         past the block threshold without corroboration from other signals.
         This is by design (PHASE_11.md §11g constraint).
         """
-        max_rdap_org_score = 45   # From _OrgReputationConfig default
+        max_rdap_org_score = 45  # From _OrgReputationConfig default
         max_new_netblock_score = 20  # From _NewNetblockConfig default
 
         total_rdap_max = max_rdap_org_score + max_new_netblock_score
@@ -153,7 +155,12 @@ class TestLegitimateOrgNameFalsePositives(unittest.TestCase):
     """Verify substring matching doesn't fire on legitimate org names."""
 
     KNOWN_BAD_ORGS = [
-        {"handle": "FRANTECH", "name": "Frantech Solutions", "reason": "BP", "score": 55},
+        {
+            "handle": "FRANTECH",
+            "name": "Frantech Solutions",
+            "reason": "BP",
+            "score": 55,
+        },
         {"handle": "M247-MNT", "name": "M247", "reason": "Abuse tolerant", "score": 35},
         {"handle": "QUASI-1", "name": "Quasi Networks", "reason": "BP", "score": 55},
     ]
@@ -180,7 +187,10 @@ class TestLegitimateOrgNameFalsePositives(unittest.TestCase):
         enricher = self._make_enricher_with_orgs()
         # "Frantech Solutions" is not a substring of "Cloud Solutions Inc"
         is_bad, entry = enricher._check_known_bad("CLOUDCORP-1", "Cloud Solutions Inc")
-        self.assertFalse(is_bad, "Legitimate org 'Cloud Solutions Inc' should not match 'Frantech Solutions'")
+        self.assertFalse(
+            is_bad,
+            "Legitimate org 'Cloud Solutions Inc' should not match 'Frantech Solutions'",
+        )
 
     def test_legitimate_org_networks_does_not_match(self):
         """'Networks' as common word does NOT match 'Quasi Networks'."""
@@ -193,7 +203,9 @@ class TestLegitimateOrgNameFalsePositives(unittest.TestCase):
         """Generic datacenter name does NOT match 'M247'."""
         enricher = self._make_enricher_with_orgs()
         # "M247" is not a substring of "MainCloud Hosting"
-        is_bad, entry = enricher._check_known_bad("MAINCLOUD-1", "MainCloud Hosting Inc")
+        is_bad, entry = enricher._check_known_bad(
+            "MAINCLOUD-1", "MainCloud Hosting Inc"
+        )
         self.assertFalse(is_bad)
 
     def test_actual_bad_org_still_matches(self):
@@ -223,7 +235,10 @@ class TestBrowserSubnetGuardFalsePositives(unittest.IsolatedAsyncioTestCase):
         redis.exists = AsyncMock(return_value=1)
 
         enricher = RDAPEnricher(
-            config, redis, LocalCache({}), MagicMock(),
+            config,
+            redis,
+            LocalCache({}),
+            MagicMock(),
             known_bad_orgs_path="config/known_bad_orgs.yml",
         )
         enricher._known_bad = [
@@ -235,7 +250,9 @@ class TestBrowserSubnetGuardFalsePositives(unittest.IsolatedAsyncioTestCase):
         result = await enricher.maybe_expand_block(
             "1.2.3.4", rdap, trigger_score=100, is_known_bad=True
         )
-        self.assertFalse(result, "Guard 3 must prevent expansion when browser traffic seen in subnet")
+        self.assertFalse(
+            result, "Guard 3 must prevent expansion when browser traffic seen in subnet"
+        )
 
     async def test_one_attacker_in_shared_subnet_no_expansion(self):
         """/24 shared by attacker and legit IPs: guard 3 prevents expansion."""
@@ -254,7 +271,10 @@ class TestBrowserSubnetGuardFalsePositives(unittest.IsolatedAsyncioTestCase):
         redis.exists = AsyncMock(return_value=1)
 
         enricher = RDAPEnricher(
-            config, redis, LocalCache({}), MagicMock(),
+            config,
+            redis,
+            LocalCache({}),
+            MagicMock(),
             known_bad_orgs_path="config/known_bad_orgs.yml",
         )
         enricher._known_bad = [

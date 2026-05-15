@@ -169,8 +169,7 @@ class AnalyticsNode:
             logger.info("ti_feed | event=runner_stopped")
         except asyncio.TimeoutError:
             logger.warning(
-                "ti_feed | event=runner_stop_timeout | "
-                "tasks_may_be_orphaned=true"
+                "ti_feed | event=runner_stop_timeout | " "tasks_may_be_orphaned=true"
             )
         except Exception as exc:  # noqa: BLE001
             logger.warning("ti_feed | event=runner_stop_error | error=%s", exc)

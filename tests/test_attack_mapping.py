@@ -90,7 +90,10 @@ def test_attack_mapping_confidence_labels_present() -> None:
         confidence_cell = cells[4]
         if not CONFIDENCE_PATTERN.match(confidence_cell):
             bad.append(
-                (i, f"confidence cell {confidence_cell!r} does not start with high/medium/low")
+                (
+                    i,
+                    f"confidence cell {confidence_cell!r} does not start with high/medium/low",
+                )
             )
     if bad:
         msg = ["Confidence-label gate failed:"]

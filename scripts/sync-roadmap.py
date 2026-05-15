@@ -25,12 +25,12 @@ STATUS_PATH = "docs/PROJECT_STATUS.md"
 # on stderr for any phase whose status is absent from this map, so silent
 # data-loss on future additions is impossible.
 TODO_SECTION_MAP: dict = {
-    "COMPLETE":    None,          # Not shown — work done
-    "CLOSED":      None,          # Not shown — abandoned/superseded
-    "CANCELLED":   None,          # Not shown — absorbed into another phase
-    "IN_PROGRESS": "in_progress", # → 🟡 Phases In Progress
-    "PROPOSED":    "planned",     # → 🔵 Planned & Open Phases
-    "DEFERRED":    "planned",     # → 🔵 Planned & Open Phases
+    "COMPLETE": None,  # Not shown — work done
+    "CLOSED": None,  # Not shown — abandoned/superseded
+    "CANCELLED": None,  # Not shown — absorbed into another phase
+    "IN_PROGRESS": "in_progress",  # → 🟡 Phases In Progress
+    "PROPOSED": "planned",  # → 🔵 Planned & Open Phases
+    "DEFERRED": "planned",  # → 🔵 Planned & Open Phases
 }
 
 
@@ -72,7 +72,7 @@ def _action_plan_rel(action_plan: str) -> str:
     Falls back to os.path.basename() for values that don't use that prefix.
     """
     if action_plan.startswith(_DOCS_PHASES_PREFIX):
-        return action_plan[len(_DOCS_PHASES_PREFIX):]
+        return action_plan[len(_DOCS_PHASES_PREFIX) :]
     return os.path.basename(action_plan)
 
 
@@ -176,7 +176,9 @@ def generate_status(manifest, date_str: str | None = None) -> str:
         lines.append("|-------|------|--------|---------|")
         for phase_id in epic["phases"]:
             p = manifest["phases"][phase_id]
-            lines.append(f"| {phase_id} | {p['name']} | {p['status']} | {p['summary']} |")
+            lines.append(
+                f"| {phase_id} | {p['name']} | {p['status']} | {p['summary']} |"
+            )
         lines.append("")
 
     lines.append("## Phase Completion Details")

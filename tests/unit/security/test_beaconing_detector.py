@@ -122,8 +122,12 @@ def _make_detector(config=None, redis=None, cache=None):
             "window_size": 20,
             "observation_window_seconds": 3600,
             "score": 35,
-            "long_window": {"enabled": True, "window_seconds": 86400,
-                            "min_observations": 5, "score": 20},
+            "long_window": {
+                "enabled": True,
+                "window_seconds": 86400,
+                "min_observations": 5,
+                "score": 20,
+            },
         }
     }
     mock_redis = redis or MagicMock()
@@ -204,7 +208,9 @@ class TestMaybeRecordGuards(unittest.TestCase):
         self._run(detector.maybe_record("1.2.3.4", "t13d...", "", "allow"))
 
         # Verify it was enqueued
-        enqueued_ops = [call.args[0] for call in detector._write_buffer.enqueue.call_args_list]
+        enqueued_ops = [
+            call.args[0] for call in detector._write_buffer.enqueue.call_args_list
+        ]
         self.assertIn("zadd", enqueued_ops)
 
     def test_disabled_detector_skips_all(self):
@@ -235,7 +241,9 @@ class TestUUIDSuffixPreventsDuplication(unittest.TestCase):
             return True
 
         mock_redis = MagicMock()
-        with patch("src.security.beaconing_detector.time.time", return_value=1700000000.0):
+        with patch(
+            "src.security.beaconing_detector.time.time", return_value=1700000000.0
+        ):
             detector = _make_detector(redis=mock_redis)
             detector._write_buffer.enqueue = AsyncMock(side_effect=_capture_enqueue)
             self._run(detector.maybe_record("1.2.3.4", "t13d...", "", "allow"))
@@ -244,7 +252,9 @@ class TestUUIDSuffixPreventsDuplication(unittest.TestCase):
         # Both calls recorded at exact same timestamp — UUID suffix must differ.
         # Each maybe_record adds to 2 keys (short + long), so 4 zadd calls total.
         self.assertEqual(len(added_members), 4)
-        unique_members = list(dict.fromkeys(added_members))  # preserve order, deduplicate
+        unique_members = list(
+            dict.fromkeys(added_members)
+        )  # preserve order, deduplicate
         self.assertEqual(len(unique_members), 2)
         self.assertNotEqual(unique_members[0], unique_members[1])
         # Both start with the same timestamp prefix
@@ -281,7 +291,7 @@ class TestGetSignalMinObservations(unittest.TestCase):
 
         mock_redis = MagicMock()
         mock_redis.zrangebyscore = AsyncMock(return_value=timestamps)
-        
+
         # Phase 28a: Use pipeline for suspects update to reduce RTTs
         pipeline = MagicMock()
         pipeline.execute = AsyncMock(return_value=[1, 1])  # zadd=1, zcard=1
@@ -302,7 +312,9 @@ class TestGetSignalMinObservations(unittest.TestCase):
     def test_redis_failure_returns_none(self):
         """Redis unavailable during get_signal → returns None silently."""
         mock_redis = MagicMock()
-        mock_redis.zrangebyscore = AsyncMock(side_effect=redis.exceptions.ConnectionError("Redis down"))
+        mock_redis.zrangebyscore = AsyncMock(
+            side_effect=redis.exceptions.ConnectionError("Redis down")
+        )
 
         detector = _make_detector(redis=mock_redis)
         ctx = ConnectionContext(client_ip="1.2.3.4", ja4="t13d...")
@@ -317,7 +329,7 @@ class TestGetSignalMinObservations(unittest.TestCase):
 
         mock_redis = MagicMock()
         mock_redis.zrangebyscore = AsyncMock(return_value=timestamps)
-        
+
         # Phase 28a: Mock pipeline
         pipeline = MagicMock()
         pipeline.execute = AsyncMock(return_value=[1, 1])
@@ -350,18 +362,20 @@ def _make_detector_with_cap(max_suspects: int, zcard_return: int):
     returns zadd result and zcard result.
     """
     now = time.time()
-    timestamps = [(now - i * 60, now - i * 60) for i in range(10)]  # (member, score) pairs
+    timestamps = [
+        (now - i * 60, now - i * 60) for i in range(10)
+    ]  # (member, score) pairs
 
     mock_redis = MagicMock()
     mock_redis.zrangebyscore = AsyncMock(return_value=timestamps)
-    
+
     # Phase 28a: Mock pipeline
     pipeline = MagicMock()
     pipeline.execute = AsyncMock(return_value=[1, zcard_return])
     pipeline.__aenter__ = AsyncMock(return_value=pipeline)
     pipeline.__aexit__ = AsyncMock(return_value=None)
     mock_redis.pipeline.return_value = pipeline
-    
+
     mock_redis.zremrangebyrank = AsyncMock()
 
     cfg = {
@@ -387,28 +401,36 @@ class TestSuspectsLeaderboardCap(unittest.TestCase):
 
     def test_no_trim_when_under_cap(self):
         """When leaderboard count <= max_suspects, ZREMRANGEBYRANK is NOT called."""
-        detector, mock_redis = _make_detector_with_cap(max_suspects=100, zcard_return=50)
+        detector, mock_redis = _make_detector_with_cap(
+            max_suspects=100, zcard_return=50
+        )
         ctx = ConnectionContext(client_ip="1.2.3.4", ja4="t13d1234")
         self._run(detector.get_signal(ctx))
         mock_redis.zremrangebyrank.assert_not_called()
 
     def test_no_trim_when_exactly_at_cap(self):
         """When leaderboard count == max_suspects, ZREMRANGEBYRANK is NOT called."""
-        detector, mock_redis = _make_detector_with_cap(max_suspects=100, zcard_return=100)
+        detector, mock_redis = _make_detector_with_cap(
+            max_suspects=100, zcard_return=100
+        )
         ctx = ConnectionContext(client_ip="1.2.3.4", ja4="t13d1234")
         self._run(detector.get_signal(ctx))
         mock_redis.zremrangebyrank.assert_not_called()
 
     def test_trim_when_one_over_cap(self):
         """When leaderboard is exactly 1 over cap, trim removes 1 entry."""
-        detector, mock_redis = _make_detector_with_cap(max_suspects=100, zcard_return=101)
+        detector, mock_redis = _make_detector_with_cap(
+            max_suspects=100, zcard_return=101
+        )
         ctx = ConnectionContext(client_ip="1.2.3.4", ja4="t13d1234")
         self._run(detector.get_signal(ctx))
         mock_redis.zremrangebyrank.assert_called_once_with("beacon:suspects", 0, 0)
 
     def test_trim_when_many_over_cap(self):
         """When leaderboard is N over cap, trim removes N lowest-scoring entries."""
-        detector, mock_redis = _make_detector_with_cap(max_suspects=100, zcard_return=150)
+        detector, mock_redis = _make_detector_with_cap(
+            max_suspects=100, zcard_return=150
+        )
         ctx = ConnectionContext(client_ip="1.2.3.4", ja4="t13d1234")
         self._run(detector.get_signal(ctx))
         # Remove entries 0..49 (50 entries)
@@ -416,7 +438,9 @@ class TestSuspectsLeaderboardCap(unittest.TestCase):
 
     def test_suspects_gauge_capped_at_max(self):
         """After trimming, the Prometheus gauge must reflect max_suspects, not the raw count."""
-        detector, mock_redis = _make_detector_with_cap(max_suspects=100, zcard_return=200)
+        detector, mock_redis = _make_detector_with_cap(
+            max_suspects=100, zcard_return=200
+        )
         ctx = ConnectionContext(client_ip="1.2.3.4", ja4="t13d1234")
         with patch("src.security.beaconing_detector._BEACONING_SUSPECTS") as mock_gauge:
             self._run(detector.get_signal(ctx))
@@ -425,7 +449,9 @@ class TestSuspectsLeaderboardCap(unittest.TestCase):
     def test_trim_error_does_not_propagate(self):
         """An exception from ZREMRANGEBYRANK must be silently swallowed."""
         detector, mock_redis = _make_detector_with_cap(max_suspects=10, zcard_return=20)
-        mock_redis.zremrangebyrank = AsyncMock(side_effect=redis.RedisError("redis down"))
+        mock_redis.zremrangebyrank = AsyncMock(
+            side_effect=redis.RedisError("redis down")
+        )
         ctx = ConnectionContext(client_ip="1.2.3.4", ja4="t13d1234")
         # Must not raise
         result = self._run(detector.get_signal(ctx))
@@ -484,7 +510,9 @@ class TestBeaconingCoverageGaps(unittest.TestCase):
         So what: a write buffer failure must not propagate to the caller — beacon
         recording must always be fire-and-forget from the connection hot path."""
         detector = _make_detector()
-        detector._write_buffer.enqueue = AsyncMock(side_effect=RuntimeError("queue full"))
+        detector._write_buffer.enqueue = AsyncMock(
+            side_effect=RuntimeError("queue full")
+        )
         # Must not raise
         self._run(detector.maybe_record("1.2.3.4", "t13d...", "", "allow"))
 
@@ -550,11 +578,22 @@ class TestBeaconingCoverageGaps(unittest.TestCase):
         So what: if this return is missing, a zero-score signal propagates with
         risk_score=0, polluting the composite scorer with noise."""
         import time as _time
+
         now = _time.time()
         # 10 timestamps with very high CV (random-ish timing → score_float=0.0)
         # IATs: [300, 1, 500, 2, 400, 1, 600] — extremely irregular
-        ts_list = [now - 1800, now - 1500, now - 1499, now - 999, now - 997,
-                   now - 597, now - 596, now - 196, now - 195, now - 1]
+        ts_list = [
+            now - 1800,
+            now - 1500,
+            now - 1499,
+            now - 999,
+            now - 997,
+            now - 597,
+            now - 596,
+            now - 196,
+            now - 195,
+            now - 1,
+        ]
         mock_members = [(f"m{i}", t) for i, t in enumerate(ts_list)]
 
         mock_redis = MagicMock()

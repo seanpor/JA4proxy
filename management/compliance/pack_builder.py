@@ -86,7 +86,9 @@ def _parse_signals(fields: dict[str, Any]) -> list[dict[str, Any]]:
     signals = []
     i = 0
     while f"signal_{i}" in fields:
-        signals.append({"name": fields[f"signal_{i}"], "score": fields.get(f"score_{i}", "")})
+        signals.append(
+            {"name": fields[f"signal_{i}"], "score": fields.get(f"score_{i}", "")}
+        )
         i += 1
     return signals
 
@@ -138,7 +140,11 @@ class PciDssPackBuilder:
         node_info = await self._query_nodes()
 
         classified = self._classifier.classify_batch(blocked_events)
-        config_changes = [e for e in audit_entries if e.get("action_type", "").startswith(_CONFIG_CHANGE_PREFIX)]
+        config_changes = [
+            e
+            for e in audit_entries
+            if e.get("action_type", "").startswith(_CONFIG_CHANGE_PREFIX)
+        ]
 
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
@@ -153,7 +159,9 @@ class PciDssPackBuilder:
 
         return buf.getvalue()
 
-    async def _query_blocked_events(self, from_dt: datetime, to_dt: datetime) -> list[dict[str, Any]]:
+    async def _query_blocked_events(
+        self, from_dt: datetime, to_dt: datetime
+    ) -> list[dict[str, Any]]:
         """Read all blocked events from ja4proxy:events stream in the window."""
         try:
             raw = await self._redis.xrange(_STREAM_KEY)
@@ -180,7 +188,9 @@ class PciDssPackBuilder:
             )
         return events
 
-    async def _query_audit_entries(self, from_dt: datetime, to_dt: datetime) -> list[dict[str, Any]]:
+    async def _query_audit_entries(
+        self, from_dt: datetime, to_dt: datetime
+    ) -> list[dict[str, Any]]:
         """Read all audit entries in the window from management:audit_log.
 
         Reads in chunks of AUDIT_LOG_CHUNK_SIZE (10k) to avoid blocking
@@ -190,7 +200,9 @@ class PciDssPackBuilder:
         start = 0
         while True:
             try:
-                raw = await self._redis.lrange(_AUDIT_KEY, start, start + AUDIT_LOG_CHUNK_SIZE - 1)
+                raw = await self._redis.lrange(
+                    _AUDIT_KEY, start, start + AUDIT_LOG_CHUNK_SIZE - 1
+                )
             except Exception as exc:
                 logger.warning("pack_builder | event=audit_read_error | error=%s", exc)
                 return entries
@@ -219,20 +231,26 @@ class PciDssPackBuilder:
             cursor = 0
             tokens = []
             while True:
-                cursor, keys = await self._redis.scan(cursor=cursor, match="mgmt:token:*", count=100)
+                cursor, keys = await self._redis.scan(
+                    cursor=cursor, match="mgmt:token:*", count=100
+                )
                 for key in keys:
                     if ":idx" in key:
                         continue
                     entry = await self._redis.hgetall(key)
                     if entry:
-                        safe = {k: v for k, v in entry.items() if k in _TOKEN_SAFE_FIELDS}
+                        safe = {
+                            k: v for k, v in entry.items() if k in _TOKEN_SAFE_FIELDS
+                        }
                         safe["token_id"] = key.rsplit(":", 1)[-1]
                         tokens.append(safe)
                 if cursor == 0:
                     break
             return tokens
         except Exception as exc:
-            logger.warning("pack_builder | event=token_read_error | error=%s", exc)  # nosemgrep
+            logger.warning(
+                "pack_builder | event=token_read_error | error=%s", exc
+            )  # nosemgrep
             return []
 
     async def _query_nodes(self) -> list[dict[str, Any]]:
@@ -241,7 +259,9 @@ class PciDssPackBuilder:
             cursor = 0
             nodes = []
             while True:
-                cursor, keys = await self._redis.scan(cursor=cursor, match="proxy:heartbeat:*", count=100)
+                cursor, keys = await self._redis.scan(
+                    cursor=cursor, match="proxy:heartbeat:*", count=100
+                )
                 for key in keys:
                     data = await self._redis.hgetall(key)
                     if data:
@@ -292,13 +312,17 @@ class PciDssPackBuilder:
 
         zf.writestr("01_deployment_confirmation.pdf", self._render_simple_pdf(html))
 
-    def _add_02_block_events(self, zf: zipfile.ZipFile, events: list[dict[str, Any]]) -> None:
+    def _add_02_block_events(
+        self, zf: zipfile.ZipFile, events: list[dict[str, Any]]
+    ) -> None:
         buf = io.StringIO()
         for e in events:
             buf.write(json.dumps(e, default=str) + "\n")
         zf.writestr("02_block_event_log.jsonl", buf.getvalue())
 
-    def _add_03_attack_classification(self, zf: zipfile.ZipFile, classified: list[dict[str, Any]]) -> None:
+    def _add_03_attack_classification(
+        self, zf: zipfile.ZipFile, classified: list[dict[str, Any]]
+    ) -> None:
         if not classified:
             zf.writestr("03_attack_classification.csv", "")
             return
@@ -311,14 +335,20 @@ class PciDssPackBuilder:
             writer.writerow(row)
         zf.writestr("03_attack_classification.csv", buf.getvalue())
 
-    def _add_04_rbac_configuration(self, zf: zipfile.ZipFile, tokens: list[dict[str, Any]]) -> None:
+    def _add_04_rbac_configuration(
+        self, zf: zipfile.ZipFile, tokens: list[dict[str, Any]]
+    ) -> None:
         data = {
             "roles": ["admin", "operator", "analyst", "auditor"],
             "tokens": tokens,
         }
-        zf.writestr("04_rbac_configuration.json", json.dumps(data, indent=2, default=str))
+        zf.writestr(
+            "04_rbac_configuration.json", json.dumps(data, indent=2, default=str)
+        )
 
-    def _add_05_audit_log(self, zf: zipfile.ZipFile, entries: list[dict[str, Any]]) -> None:
+    def _add_05_audit_log(
+        self, zf: zipfile.ZipFile, entries: list[dict[str, Any]]
+    ) -> None:
         buf = io.StringIO()
         for e in entries:
             buf.write(json.dumps(e, default=str) + "\n")
@@ -362,7 +392,10 @@ class PciDssPackBuilder:
         for c in classified:
             cat = c.get("category", "unknown")
             categories[cat] = categories.get(cat, 0) + 1
-        rows = "".join(f"<tr><td>{_html.escape(cat)}</td><td>{count}</td></tr>" for cat, count in categories.items())
+        rows = "".join(
+            f"<tr><td>{_html.escape(cat)}</td><td>{count}</td></tr>"
+            for cat, count in categories.items()
+        )
         html = f"""<!DOCTYPE html>
 <html><head><title>Access Denied Summary</title></head>
 <body><h1>Access Denied Summary</h1>
@@ -372,7 +405,9 @@ class PciDssPackBuilder:
 </body></html>"""
         zf.writestr("07_access_denied_summary.pdf", self._render_simple_pdf(html))
 
-    def _add_08_config_change_log(self, zf: zipfile.ZipFile, changes: list[dict[str, Any]]) -> None:
+    def _add_08_config_change_log(
+        self, zf: zipfile.ZipFile, changes: list[dict[str, Any]]
+    ) -> None:
         if not changes:
             zf.writestr("08_configuration_change_log.csv", "")
             return

@@ -1,4 +1,5 @@
 """Unit tests for TAP-mode Prometheus metrics (Phase 20, Group 11)."""
+
 import re
 
 import pytest
@@ -10,6 +11,7 @@ from src.tap import metrics
 # Helper
 # ---------------------------------------------------------------------------
 
+
 def _label_names(metric):
     """Return the label names declared on a prometheus_client metric."""
     return list(metric._labelnames)
@@ -18,6 +20,7 @@ def _label_names(metric):
 # ---------------------------------------------------------------------------
 # Structural tests — all metric groups defined
 # ---------------------------------------------------------------------------
+
 
 def test_all_capture_metrics_defined():
     assert isinstance(metrics.TAP_PACKETS_RECEIVED_TOTAL, Counter)
@@ -102,6 +105,7 @@ def test_all_export_metrics_defined():
 # Naming convention
 # ---------------------------------------------------------------------------
 
+
 def test_no_stale_metric_names():
     """All Counter/Gauge/Histogram objects in metrics.py must start with ja4proxy_tap_."""
     for attr_name in dir(metrics):
@@ -117,6 +121,7 @@ def test_no_stale_metric_names():
 # ---------------------------------------------------------------------------
 # Behavioural tests
 # ---------------------------------------------------------------------------
+
 
 def test_ring_buffer_fill_gauge_updated_on_poll():
     """Setting the ring-buffer fill gauge and reading it back returns the correct value."""

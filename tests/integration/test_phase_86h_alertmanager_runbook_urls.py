@@ -31,6 +31,7 @@ def _rule_files() -> list[Path]:
 # promtool check rules
 # ---------------------------------------------------------------------------
 
+
 def test_promtool_check_rules_all_files():
     promtool = shutil.which("promtool")
     if promtool is None:
@@ -52,6 +53,7 @@ def test_promtool_check_rules_all_files():
 # Sanity: every runbook_url in every real rule file points at a real runbook
 # ---------------------------------------------------------------------------
 
+
 def test_every_url_resolves_to_real_file():
     missing: list[tuple[str, str, str]] = []
     for rf in _rule_files():
@@ -69,10 +71,8 @@ def test_every_url_resolves_to_real_file():
                 if not url.startswith(CANONICAL_PREFIX):
                     missing.append((rf.name, rule["alert"], url))
                     continue
-                rel = url[len(CANONICAL_PREFIX):].split("#", 1)[0].split("?", 1)[0]
+                rel = url[len(CANONICAL_PREFIX) :].split("#", 1)[0].split("?", 1)[0]
                 target = RUNBOOKS_DIR / rel
                 if not target.is_file():
                     missing.append((rf.name, rule["alert"], url))
-    assert not missing, (
-        f"runbook_url values do not resolve to on-disk files: {missing}"
-    )
+    assert not missing, f"runbook_url values do not resolve to on-disk files: {missing}"

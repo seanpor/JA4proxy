@@ -60,10 +60,13 @@ def runner() -> CliRunner:
 @pytest.fixture()
 def invoke(runner: CliRunner, mock_redis: MagicMock):
     """Helper: invoke CLI with mocked Redis and REDIS_URL set."""
+
     def _invoke(*args: str, **kwargs: Any):
-        with patch("ja4proxy_admin._get_redis", return_value=mock_redis), \
-             patch.dict(os.environ, {"REDIS_URL": "redis://localhost:6379/0"}):
+        with patch("ja4proxy_admin._get_redis", return_value=mock_redis), patch.dict(
+            os.environ, {"REDIS_URL": "redis://localhost:6379/0"}
+        ):
             return runner.invoke(cli, list(args), catch_exceptions=False, **kwargs)
+
     return _invoke
 
 
@@ -108,7 +111,9 @@ class TestConfirmGuard:
         assert result.exit_code == 1
         assert "--acknowledge-blocking" in result.output
 
-    def test_dial_set_zero_needs_only_confirm(self, invoke: Any, mock_redis: MagicMock) -> None:
+    def test_dial_set_zero_needs_only_confirm(
+        self, invoke: Any, mock_redis: MagicMock
+    ) -> None:
         result = invoke("dial", "set", "0", "--confirm")
         assert result.exit_code == 0
         mock_redis.set.assert_called_once_with("config:dial", "0")
@@ -123,7 +128,9 @@ class TestBan:
     def test_ban_sets_key_with_ttl(self, invoke: Any, mock_redis: MagicMock) -> None:
         result = invoke("ban", "1.2.3.4", "--ttl", "7200", "--confirm")
         assert result.exit_code == 0
-        mock_redis.set.assert_called_once_with("ban:1.2.3.4", "manual-admin-ban", ex=7200)
+        mock_redis.set.assert_called_once_with(
+            "ban:1.2.3.4", "manual-admin-ban", ex=7200
+        )
 
     def test_ban_permanent_no_ex(self, invoke: Any, mock_redis: MagicMock) -> None:
         result = invoke("ban", "1.2.3.4", "--ttl", "0", "--confirm")
@@ -171,7 +178,9 @@ class TestDial:
         assert result.exit_code == 0
         assert "0" in result.output
 
-    def test_dial_get_shows_stored_value(self, invoke: Any, mock_redis: MagicMock) -> None:
+    def test_dial_get_shows_stored_value(
+        self, invoke: Any, mock_redis: MagicMock
+    ) -> None:
         mock_redis.get.return_value = "75"
         result = invoke("dial", "get")
         assert result.exit_code == 0
@@ -216,7 +225,9 @@ class TestLists:
         assert result.exit_code == 0
         mock_redis.srem.assert_called_once_with("ja4:whitelist", "t13d..._aa_bb")
 
-    def test_blacklist_remove_not_found(self, invoke: Any, mock_redis: MagicMock) -> None:
+    def test_blacklist_remove_not_found(
+        self, invoke: Any, mock_redis: MagicMock
+    ) -> None:
         mock_redis.srem.return_value = 0
         result = invoke("blacklist", "remove", "t13d..._aa_bb", "--confirm")
         assert result.exit_code == 0
@@ -241,7 +252,9 @@ class TestLists:
 
 class TestInspect:
     def test_inspect_ip_banned(self, invoke: Any, mock_redis: MagicMock) -> None:
-        mock_redis.get.side_effect = lambda key: "manual-admin-ban" if "ban:" in key else None
+        mock_redis.get.side_effect = lambda key: (
+            "manual-admin-ban" if "ban:" in key else None
+        )
         mock_redis.ttl.return_value = 1800
         result = invoke("inspect", "ip", "1.2.3.4")
         assert result.exit_code == 0
@@ -286,7 +299,9 @@ class TestSuspect:
         assert result.exit_code == 0
         assert "No beaconing suspects" in result.output
 
-    def test_suspect_list_with_entries(self, invoke: Any, mock_redis: MagicMock) -> None:
+    def test_suspect_list_with_entries(
+        self, invoke: Any, mock_redis: MagicMock
+    ) -> None:
         mock_redis.zrevrange.return_value = [
             ("1.2.3.4:t13d_aa_bb", 0.85),
             ("5.6.7.8:t13d_cc_dd", 0.72),
@@ -310,14 +325,21 @@ class TestSuspect:
 
 
 class TestFlush:
-    def test_flush_abuseipdb_deletes_key(self, invoke: Any, mock_redis: MagicMock) -> None:
+    def test_flush_abuseipdb_deletes_key(
+        self, invoke: Any, mock_redis: MagicMock
+    ) -> None:
         mock_redis.delete.return_value = 1
         result = invoke("flush", "abuseipdb", "1.2.3.4", "--confirm")
         assert result.exit_code == 0
         mock_redis.delete.assert_called_once_with("abuseipdb:score:1.2.3.4")
 
-    def test_flush_beaconing_deletes_windows(self, invoke: Any, mock_redis: MagicMock) -> None:
-        mock_redis.keys.return_value = ["beacon:1.2.3.4:t13d_aa", "beacon:1.2.3.4:t13d_bb"]
+    def test_flush_beaconing_deletes_windows(
+        self, invoke: Any, mock_redis: MagicMock
+    ) -> None:
+        mock_redis.keys.return_value = [
+            "beacon:1.2.3.4:t13d_aa",
+            "beacon:1.2.3.4:t13d_bb",
+        ]
         result = invoke("flush", "beaconing", "1.2.3.4", "--confirm")
         assert result.exit_code == 0
         assert "2" in result.output

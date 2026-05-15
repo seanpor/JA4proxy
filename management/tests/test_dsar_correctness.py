@@ -149,7 +149,9 @@ async def test_dsar_single_xrange_call_per_request(auditor_client):
     # The fix should ensure only ONE scan produces the data
     # For now, we verify the data is correct (not duplicated)
     unique_ja4s = {item["ja4"] for item in conn_history}
-    assert len(unique_ja4s) == len(conn_history), f"Duplicate entries detected: {conn_history}"
+    assert len(unique_ja4s) == len(
+        conn_history
+    ), f"Duplicate entries detected: {conn_history}"
 
 
 @pytest.mark.asyncio
@@ -204,10 +206,12 @@ async def test_dsar_watchlist_cidr_ipv4_slash32_matches_exact(auditor_client):
 
     # CRITICAL: This will fail until H3 is fixed
     # The DSAR for 10.0.0.15 should include 10.0.0.0/24
-    assert len(watchlist) > 0, "DSAR for 10.0.0.15 did not match watchlist entry 10.0.0.0/24"
-    assert any("10.0.0.0/24" in e.get("entry", "") for e in watchlist), (
-        f"CIDR block not found in watchlist: {watchlist}"
-    )
+    assert (
+        len(watchlist) > 0
+    ), "DSAR for 10.0.0.15 did not match watchlist entry 10.0.0.0/24"
+    assert any(
+        "10.0.0.0/24" in e.get("entry", "") for e in watchlist
+    ), f"CIDR block not found in watchlist: {watchlist}"
 
 
 @pytest.mark.asyncio
@@ -233,7 +237,9 @@ async def test_dsar_watchlist_cidr_ipv6_slash48_matches(auditor_client):
     watchlist = data["data_categories"]["watchlist_entries"]
 
     # IPv6 CIDR should match
-    assert len(watchlist) > 0, "DSAR for 2001:db8:0:1::1 did not match watchlist entry 2001:db8::/48"
+    assert (
+        len(watchlist) > 0
+    ), "DSAR for 2001:db8:0:1::1 did not match watchlist entry 2001:db8::/48"
 
 
 @pytest.mark.asyncio
@@ -280,9 +286,11 @@ async def test_dsar_partial_failure_on_redis_error(auditor_client):
 
     # The response should have a partial_failures key (or it should)
     # This test will fail until M7 is implemented
-    assert "partial_failures" in data or "data_unavailable" in data or "data_categories" in data, (
-        f"Response missing partial_failures mechanism: {data.keys()}"
-    )
+    assert (
+        "partial_failures" in data
+        or "data_unavailable" in data
+        or "data_categories" in data
+    ), f"Response missing partial_failures mechanism: {data.keys()}"
 
 
 @pytest.mark.asyncio
@@ -297,7 +305,9 @@ async def test_dsar_connection_history_returns_empty_on_error(auditor_client):
     from management.api.routes.compliance import _dsar_connection_history
 
     mock_redis = unittest.mock.AsyncMock()
-    mock_redis.xrange = unittest.mock.AsyncMock(side_effect=redis_lib.ConnectionError("Simulated failure"))
+    mock_redis.xrange = unittest.mock.AsyncMock(
+        side_effect=redis_lib.ConnectionError("Simulated failure")
+    )
 
     result = await _dsar_connection_history(mock_redis, "1.2.3.4")
 
@@ -332,20 +342,20 @@ async def test_dsar_xrange_metric_wired(auditor_client):
         )
 
     # Pre-condition: key must not exist before the DSAR call.
-    assert not await redis.exists("management:dsar:last_xrange_len"), (
-        "Test bug — metric key already populated before DSAR"
-    )
+    assert not await redis.exists(
+        "management:dsar:last_xrange_len"
+    ), "Test bug — metric key already populated before DSAR"
 
     r = await client.get("/api/v1/compliance/dsar/10.0.0.7")
     assert r.status_code == 200
 
     raw = await redis.get("management:dsar:last_xrange_len")
-    assert raw is not None, (
-        "DSAR did not write management:dsar:last_xrange_len after sweep"
-    )
-    assert int(raw) == 7, (
-        f"DSAR xrange_len metric mismatch: expected 7 rows, got {raw!r}"
-    )
+    assert (
+        raw is not None
+    ), "DSAR did not write management:dsar:last_xrange_len after sweep"
+    assert (
+        int(raw) == 7
+    ), f"DSAR xrange_len metric mismatch: expected 7 rows, got {raw!r}"
 
 
 @pytest.mark.asyncio
@@ -376,7 +386,8 @@ async def test_dsar_partial_failures_counter_wired(auditor_client):
     assert r.status_code == 200
     body = r.json()
     assert body.get("partial_failures") == [
-        "connection_history", "fingerprint_associations",
+        "connection_history",
+        "fingerprint_associations",
     ], f"Expected paired partial_failures, got {body.get('partial_failures')}"
 
     counter = await redis.get("management:dsar:partial_failures_total")
@@ -422,9 +433,9 @@ async def test_dsar_erase_cidr_block_surfaced_as_skipped(admin_client):
     body = r.json()
 
     # Exact-match entry must be in erased_keys.
-    assert any("watchlist:entry:exact" in k for k in body["erased_keys"]), (
-        f"Exact watchlist entry not erased: {body['erased_keys']}"
-    )
+    assert any(
+        "watchlist:entry:exact" in k for k in body["erased_keys"]
+    ), f"Exact watchlist entry not erased: {body['erased_keys']}"
     # CIDR-cover entry must NOT be erased.
     assert not any("watchlist:entry:cover" in k for k in body["erased_keys"]), (
         f"/24 watchlist entry was erased — would strip coverage from 254 "
@@ -432,17 +443,17 @@ async def test_dsar_erase_cidr_block_surfaced_as_skipped(admin_client):
     )
     # CIDR-cover entry must be surfaced in skipped with a reason.
     cover_skips = [s for s in body["skipped"] if "cover" in s.get("key", "")]
-    assert len(cover_skips) == 1, (
-        f"Expected /24 entry in skipped, got {body['skipped']}"
-    )
-    assert "10.0.0.0/24" in cover_skips[0]["reason"], (
-        f"Skip reason must name the network: {cover_skips[0]['reason']}"
-    )
+    assert (
+        len(cover_skips) == 1
+    ), f"Expected /24 entry in skipped, got {body['skipped']}"
+    assert (
+        "10.0.0.0/24" in cover_skips[0]["reason"]
+    ), f"Skip reason must name the network: {cover_skips[0]['reason']}"
 
     # And after the call: the cover entry still exists in Redis.
-    assert await redis.exists("watchlist:entry:cover"), (
-        "Cover entry was deleted from Redis despite being reported as skipped"
-    )
+    assert await redis.exists(
+        "watchlist:entry:cover"
+    ), "Cover entry was deleted from Redis despite being reported as skipped"
 
 
 # ── Acceptance criteria check ───────────────────────────────────────────────

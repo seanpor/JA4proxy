@@ -71,7 +71,7 @@ def test_tie_between_different_categories_alphabetical():
     clf = SignalClassifier(
         signal_categories={
             "signal_alpha": {"category": "zzz_category", "weight": 77},
-            "signal_beta":  {"category": "aaa_category", "weight": 77},
+            "signal_beta": {"category": "aaa_category", "weight": 77},
         }
     )
     # aaa_category < zzz_category alphabetically → aaa_category must win
@@ -205,6 +205,6 @@ def test_categories_property_is_copy():
     cats["spamhaus_drop"]["category"] = "mutated_name"
     # Classifier must still use original category name.
     result = clf.classify(["spamhaus_drop"])
-    assert result == "known_malicious_network", (
-        f"categories property returned a reference (not copy): got {result!r}"
-    )
+    assert (
+        result == "known_malicious_network"
+    ), f"categories property returned a reference (not copy): got {result!r}"

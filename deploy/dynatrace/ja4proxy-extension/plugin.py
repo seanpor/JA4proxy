@@ -178,7 +178,9 @@ def parse_prometheus_text(text: str) -> List[Tuple[str, Dict[str, str], float]]:
     return samples
 
 
-def scrape_metrics(url: str, api_token: str = "", timeout: float = 10.0) -> List[Tuple[str, Dict[str, str], float]]:
+def scrape_metrics(
+    url: str, api_token: str = "", timeout: float = 10.0
+) -> List[Tuple[str, Dict[str, str], float]]:
     """Fetch a Prometheus ``/metrics`` endpoint and return parsed samples.
 
     On any failure (network, HTTP, parse), logs a single error line and
@@ -190,7 +192,9 @@ def scrape_metrics(url: str, api_token: str = "", timeout: float = 10.0) -> List
         req.add_header("Authorization", f"Bearer {api_token}")
     try:
         ctx = ssl.create_default_context() if url.startswith("https") else None
-        with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:  # nosemgrep
+        with urllib.request.urlopen(
+            req, timeout=timeout, context=ctx
+        ) as resp:  # nosemgrep
             body = resp.read().decode("utf-8", errors="replace")
     except Exception as exc:  # OSError, HTTPError, URLError, ssl.SSLError
         _log.error("ja4proxy dynatrace scrape failed: url=%s err=%s", url, exc)
@@ -295,6 +299,7 @@ class JA4proxyPlugin:
     def _extract_node_name(self) -> str:
         """Derive a node name for topology and dimension tagging."""
         import socket
+
         return socket.gethostname()
 
 

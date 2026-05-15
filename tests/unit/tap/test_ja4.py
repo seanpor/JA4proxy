@@ -1,11 +1,18 @@
 """
 Unit tests for src/tap/fingerprints/ja4.py (Phase 20 Group 5-A).
 """
+
 import struct
 
 import pytest
 
-from src.tap.fingerprints.ja4 import _GREASE, JA4Result, _hash_ciphers, _hash_exts, extract_ja4
+from src.tap.fingerprints.ja4 import (
+    _GREASE,
+    JA4Result,
+    _hash_ciphers,
+    _hash_exts,
+    extract_ja4,
+)
 
 # ---------------------------------------------------------------------------
 # Helpers — build raw ClientHello bytes
@@ -68,11 +75,11 @@ def _build_client_hello(
 
     # ClientHello body
     body = (
-        struct.pack("!H", version)     # version
-        + b"\x00" * 32                  # random
-        + struct.pack("!B", 0)          # session_id len = 0
+        struct.pack("!H", version)  # version
+        + b"\x00" * 32  # random
+        + struct.pack("!B", 0)  # session_id len = 0
         + cs_section
-        + struct.pack("!BB", 1, 0)      # compression_methods: [null]
+        + struct.pack("!BB", 1, 0)  # compression_methods: [null]
         + ext_section
     )
 
@@ -194,6 +201,7 @@ class TestHashFunctions:
     def test_hash_exts_excludes_sni_and_alpn(self):
         # SNI=0 and ALPN=16 should both be excluded
         import hashlib
+
         exts_without = [0x000A, 0x000D]  # supported_groups, sig_algs
         h1 = _hash_exts(exts_without)
         # Adding SNI or ALPN should NOT change the hash
@@ -205,6 +213,7 @@ class TestHashFunctions:
 
 
 # ── Missing-coverage tests ────────────────────────────────────────────────────
+
 
 class TestJA4TruncationPaths:
     """Exercise the boundary-return-None paths inside _parse().
@@ -240,7 +249,7 @@ class TestJA4TruncationPaths:
     def test_hs_end_exceeds_buffer_returns_none(self):
         """hs_len claims more bytes than buffer → None (line 119-120).
         So what: oversized length field in untrusted packet must not overread."""
-        body = bytes([0x01]) + b"\x00\xFF\xFF" + b"\x00" * 5  # hs_len=65535
+        body = bytes([0x01]) + b"\x00\xff\xff" + b"\x00" * 5  # hs_len=65535
         rec = struct.pack("!BHH", 0x16, 0x0303, len(body))
         assert extract_ja4(rec + body) is None
 
@@ -269,7 +278,8 @@ class TestJA4TruncationPaths:
 
     def test_session_ticket_ext_sets_flag(self):
         """Session ticket extension (type 35) sets session_ticket_present (line 211).
-        So what: missing session_ticket_present flag corrupts JA4T resumption scoring."""
+        So what: missing session_ticket_present flag corrupts JA4T resumption scoring.
+        """
         # Build hello with session ticket extension
         data = _build_client_hello(extensions=[35])  # ext type 35 = session ticket
         result = extract_ja4(data)
@@ -307,8 +317,10 @@ class TestJA4TruncationPaths:
 
     def test_alpn_single_char_protocol(self):
         """Single-char ALPN protocol string → second char is '0' (line 389-390).
-        So what: single-char protocols like 'h' must produce a valid 2-char ALPN field."""
+        So what: single-char protocols like 'h' must produce a valid 2-char ALPN field.
+        """
         from src.tap.fingerprints.ja4 import _alpn_chars
+
         result = _alpn_chars(["h"])
         assert result == "h0"
 
@@ -316,6 +328,7 @@ class TestJA4TruncationPaths:
         """Empty string ALPN → '00' (line 391).
         So what: zero-length ALPN must not cause IndexError in fingerprint assembly."""
         from src.tap.fingerprints.ja4 import _alpn_chars
+
         result = _alpn_chars([""])
         assert result == "00"
 
@@ -327,12 +340,14 @@ class TestJA4SNIParsing:
         """SNI payload < 5 bytes → None (line 301-302).
         So what: truncated SNI extension must not crash the SNI analyzer."""
         from src.tap.fingerprints.ja4 import _parse_sni
+
         assert _parse_sni(b"\x00\x01") is None
 
     def test_sni_list_len_overrun_returns_none(self):
         """list_len + 2 > len(payload) → None (line 305-306).
         So what: crafted oversized list_len must not overread the payload buffer."""
         from src.tap.fingerprints.ja4 import _parse_sni
+
         # list_len=100 but payload only 7 bytes total
         payload = struct.pack("!H", 100) + bytes([0, 0, 5]) + b"a.com"
         assert _parse_sni(payload) is None
@@ -341,6 +356,7 @@ class TestJA4SNIParsing:
         """name_type != 0 → None (line 308-309).
         So what: unknown SNI name type must not be mistaken for a valid hostname."""
         from src.tap.fingerprints.ja4 import _parse_sni
+
         host = b"a.com"
         entry = struct.pack("!BH", 1, len(host)) + host  # name_type=1 (invalid)
         payload = struct.pack("!H", len(entry)) + entry
@@ -350,8 +366,11 @@ class TestJA4SNIParsing:
         """5 + name_len > len(payload) → None (line 311-312).
         So what: malformed name_len must not cause a slice-beyond-end."""
         from src.tap.fingerprints.ja4 import _parse_sni
+
         host = b"a.com"
-        entry = struct.pack("!BH", 0, 255) + host  # name_len=255 but only 5 bytes follow
+        entry = (
+            struct.pack("!BH", 0, 255) + host
+        )  # name_len=255 but only 5 bytes follow
         payload = struct.pack("!H", len(entry)) + entry
         assert _parse_sni(payload) is None
 
@@ -363,6 +382,7 @@ class TestJA4ALPNParsing:
         """proto_len overruns remaining bytes → break, not crash (line 330).
         So what: a crafted proto_len overrun must not cause a slice-beyond-end."""
         from src.tap.fingerprints.ja4 import _parse_alpn
+
         out: list = []
         # list_len=5, then proto_len=100 but only 1 byte follows
         payload = struct.pack("!H", 5) + bytes([100]) + b"\x00"
@@ -379,6 +399,7 @@ class TestJA4ExtensionParsing:
         """Empty payload → returns immediately (line 342).
         So what: an empty supported_versions extension must not IndexError."""
         from src.tap.fingerprints.ja4 import _parse_supported_versions
+
         out: list = []
         _parse_supported_versions(b"", out)
         assert out == []
@@ -387,6 +408,7 @@ class TestJA4ExtensionParsing:
         """Payload < 2 bytes → returns immediately.
         So what: 1-byte truncated extension must not unpack error."""
         from src.tap.fingerprints.ja4 import _parse_uint16_list_with_len
+
         out: list = []
         _parse_uint16_list_with_len(b"\x00", out)
         assert out == []
@@ -395,6 +417,7 @@ class TestJA4ExtensionParsing:
         """Payload < 2 bytes → returns immediately.
         So what: truncated key_share must not unpack error."""
         from src.tap.fingerprints.ja4 import _parse_key_share_ext
+
         out: list = []
         _parse_key_share_ext(b"\x00", out)
         assert out == []
@@ -403,6 +426,7 @@ class TestJA4ExtensionParsing:
         """count > remaining bytes in PSK_MODES → partial parse, no crash.
         So what: malformed PSK modes extension must not IndexError."""
         import struct as _s
+
         # Build a hello with a PSK_MODES extension where count=10 but only 2 bytes follow
         psk_payload = bytes([10]) + b"\x00\x01"  # count=10, only 2 modes provided
         ext_blob = struct.pack("!HH", 45, len(psk_payload)) + psk_payload
@@ -425,6 +449,7 @@ class TestJA4ExtensionParsing:
 
 # ── Additional missing-coverage tests ────────────────────────────────────────
 
+
 class TestJA4HelperEdgeCases:
     """Cover helper function edge paths (lines 125,136,140,144,154,158,187,193-194,
        283,285,287,294-295,314-315,322,334-335,348-349,357-362,370-379).
@@ -440,6 +465,7 @@ class TestJA4HelperEdgeCases:
         from unittest.mock import patch
 
         import src.tap.fingerprints.ja4 as _mod
+
         with patch.object(_mod, "_parse", side_effect=RuntimeError("injected")):
             result = _mod.extract_ja4(b"\x16\x03\x01" + b"\x00" * 100)
         assert result is None
@@ -467,7 +493,9 @@ class TestJA4HelperEdgeCases:
     def test_parse_returns_none_hs_end_overrun(self):
         """hs_len claims more bytes than available → None (line 144).
         So what: oversized handshake length field must not overread."""
-        body = bytes([0x01]) + b"\x00\xFF\xFF" + b"\x00" * 5  # hs_len=65535 but only 5 bytes
+        body = (
+            bytes([0x01]) + b"\x00\xff\xff" + b"\x00" * 5
+        )  # hs_len=65535 but only 5 bytes
         rec = struct.pack("!BHH", 0x16, 0x0303, len(body))
         assert extract_ja4(rec + body) is None
 
@@ -492,6 +520,7 @@ class TestJA4HelperEdgeCases:
         So what: GREASE values must be tracked for accurate browser fingerprinting
         but must NOT be passed to extension parsers (would produce wrong hashes)."""
         from src.tap.fingerprints.ja4 import _GREASE
+
         grease_type = next(iter(_GREASE))
         # Build a minimal ClientHello with one GREASE extension
         ext_payload = struct.pack("!HH", grease_type, 0)
@@ -500,7 +529,8 @@ class TestJA4HelperEdgeCases:
             struct.pack("!H", 0x0303)
             + b"\x00" * 32  # random
             + bytes([0])  # sid_len
-            + struct.pack("!H", 2) + struct.pack("!H", 0x1301)  # 1 cipher
+            + struct.pack("!H", 2)
+            + struct.pack("!H", 0x1301)  # 1 cipher
             + bytes([1, 0])  # compression
             + ext_section
         )
@@ -520,7 +550,8 @@ class TestJA4HelperEdgeCases:
             struct.pack("!H", 0x0303)
             + b"\x00" * 32
             + bytes([0])
-            + struct.pack("!H", 2) + struct.pack("!H", 0x1301)
+            + struct.pack("!H", 2)
+            + struct.pack("!H", 0x1301)
             + bytes([1, 0])
             + ext_section
         )
@@ -535,17 +566,25 @@ class TestJA4HelperEdgeCases:
         So what: corrupt extension payload must not propagate an exception
         to the capture loop; the extension is silently skipped."""
         from src.tap.fingerprints.ja4 import _parse_extension
+
         # Call with payload that will cause unpack to fail for a known extension type
         _parse_extension(
-            0x000a,  # supported_groups
+            0x000A,  # supported_groups
             b"\x00",  # 1 byte — too short for uint16 list
-            [], [], [], [], [], [], None
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            None,
         )
 
     def test_parse_sni_exception_swallowed(self):
         """_parse_sni exception → None (lines 314-315).
         So what: corrupt SNI payload must return None, not propagate."""
         from src.tap.fingerprints.ja4 import _parse_sni
+
         result = _parse_sni(b"\xff" * 2)  # Triggers out-of-bounds read
         assert result is None
 
@@ -553,6 +592,7 @@ class TestJA4HelperEdgeCases:
         """_parse_alpn list_len=0 → empty out (line 322).
         So what: zero-length ALPN list must not IndexError or yield wrong data."""
         from src.tap.fingerprints.ja4 import _parse_alpn
+
         out = []
         _parse_alpn(struct.pack("!H", 0), out)
         assert out == []
@@ -561,6 +601,7 @@ class TestJA4HelperEdgeCases:
         """_parse_supported_versions exception → swallowed (lines 334-335).
         So what: corrupt supported_versions must not crash the fingerprinter."""
         from src.tap.fingerprints.ja4 import _parse_supported_versions
+
         out = []
         _parse_supported_versions(b"\x01\xff", out)  # list_len=1 but only 2 bytes total
 
@@ -568,6 +609,7 @@ class TestJA4HelperEdgeCases:
         """_parse_supported_versions with 0 bytes → return (lines 348-349).
         So what: empty payload must produce an empty versions list, not crash."""
         from src.tap.fingerprints.ja4 import _parse_supported_versions
+
         out = []
         _parse_supported_versions(b"", out)
         assert out == []
@@ -575,18 +617,21 @@ class TestJA4HelperEdgeCases:
     def test_parse_uint16_list_with_len_parses_values(self):
         """_parse_uint16_list_with_len with valid payload → fills out (lines 357-362).
         So what: supported_groups and sig_algs both use this helper; if it
-        silently returns without filling the list, group negotiation signals are lost."""
+        silently returns without filling the list, group negotiation signals are lost.
+        """
         from src.tap.fingerprints.ja4 import _parse_uint16_list_with_len
+
         out = []
         # list_len=4, two uint16 values: 0x0017 and 0x001d
-        payload = struct.pack("!H", 4) + struct.pack("!HH", 0x0017, 0x001d)
+        payload = struct.pack("!H", 4) + struct.pack("!HH", 0x0017, 0x001D)
         _parse_uint16_list_with_len(payload, out)
-        assert out == [0x0017, 0x001d]
+        assert out == [0x0017, 0x001D]
 
     def test_parse_uint16_list_exception_swallowed(self):
         """_parse_uint16_list_with_len exception → swallowed (lines 361-362).
         So what: corrupt list must not propagate."""
         from src.tap.fingerprints.ja4 import _parse_uint16_list_with_len
+
         out = []
         _parse_uint16_list_with_len(b"\xff\xff" * 100, out)  # list_len=65535
 
@@ -595,21 +640,23 @@ class TestJA4HelperEdgeCases:
         So what: key_share groups identify the key exchange algorithm; if never
         parsed, the JA4L and group-analysis signals are silently empty."""
         from src.tap.fingerprints.ja4 import _parse_key_share_ext
+
         out = []
         # key_shares_len=8: two entries, each with group_id(2) + key_len(2) + key_data
         # group=0x001d, key_len=32 bytes
-        entry1 = struct.pack("!HH", 0x001d, 4) + b"\xaa" * 4
+        entry1 = struct.pack("!HH", 0x001D, 4) + b"\xaa" * 4
         entry2 = struct.pack("!HH", 0x0017, 2) + b"\xbb" * 2
         total = entry1 + entry2
         payload = struct.pack("!H", len(total)) + total
         _parse_key_share_ext(payload, out)
-        assert 0x001d in out
+        assert 0x001D in out
         assert 0x0017 in out
 
     def test_parse_key_share_ext_exception_swallowed(self):
         """_parse_key_share_ext exception → swallowed (lines 378-379).
         So what: corrupt key_share payload must not crash the fingerprinter."""
         from src.tap.fingerprints.ja4 import _parse_key_share_ext
+
         out = []
         _parse_key_share_ext(b"\xff\xff" * 100, out)  # Oversized list_len
 
@@ -618,32 +665,36 @@ class TestJA4HelperEdgeCases:
         So what: if the dispatch is broken, every ClientHello with supported_groups
         produces a zero-group fingerprint, preventing group-based bot detection."""
         from src.tap.fingerprints.ja4 import _parse_extension
+
         groups = []
-        payload = struct.pack("!H", 4) + struct.pack("!HH", 0x0017, 0x001d)
-        _parse_extension(0x000a, payload, [], [], groups, [], [], [], None)
-        assert groups == [0x0017, 0x001d]
+        payload = struct.pack("!H", 4) + struct.pack("!HH", 0x0017, 0x001D)
+        _parse_extension(0x000A, payload, [], [], groups, [], [], [], None)
+        assert groups == [0x0017, 0x001D]
 
     def test_parse_extension_sig_algs_called(self):
         """_parse_extension for ext_type=sig_algs delegates (line 285).
         So what: signature algorithm fingerprinting requires this dispatch."""
         from src.tap.fingerprints.ja4 import _parse_extension
+
         sig_algs = []
         payload = struct.pack("!H", 4) + struct.pack("!HH", 0x0403, 0x0804)
-        _parse_extension(0x000d, payload, [], [], [], sig_algs, [], [], None)
+        _parse_extension(0x000D, payload, [], [], [], sig_algs, [], [], None)
         assert sig_algs == [0x0403, 0x0804]
 
     def test_parse_extension_key_share_called(self):
         """_parse_extension for ext_type=key_share delegates (line 287).
         So what: key_share groups are a key TLS 1.3 fingerprint component."""
         from src.tap.fingerprints.ja4 import _parse_extension
+
         key_groups = []
-        entry = struct.pack("!HH", 0x001d, 2) + b"\xaa\xbb"
+        entry = struct.pack("!HH", 0x001D, 2) + b"\xaa\xbb"
         payload = struct.pack("!H", len(entry)) + entry
         _parse_extension(0x0033, payload, [], [], [], [], key_groups, [], None)
-        assert 0x001d in key_groups
+        assert 0x001D in key_groups
 
 
 # ── Exact-line coverage gaps ───────────────────────────────────────────────────
+
 
 class TestJA4ParseBodyTruncation:
     """Hit the SECOND return-None in each body-field guard (lines 136,140,144,154,158).
@@ -664,7 +715,8 @@ class TestJA4ParseBodyTruncation:
 
     def test_session_id_len_byte_missing_returns_none(self):
         """hs_end = 43: version+random fill hs exactly → no room for sid_len (line 136).
-        So what: truncated just after the random field must not crash the fingerprinter."""
+        So what: truncated just after the random field must not crash the fingerprinter.
+        """
         # hs_body = version(2) + random(32) = 34 bytes → hs_end = 9+34 = 43 = n
         # pos+1 = 44 > 43 = hs_end → line 136
         hs_body = struct.pack("!H", 0x0303) + b"\x00" * 32
@@ -733,6 +785,7 @@ class TestJA4ExceptionPaths:
         from unittest.mock import patch
 
         import src.tap.fingerprints.ja4 as _mod
+
         with patch.object(_mod, "_parse_alpn", side_effect=RuntimeError("injected")):
             # ext_type=ALPN → calls _parse_alpn which raises
             _mod._parse_extension(0x0010, b"\x00\x03h2", [], [], [], [], [], [], None)
@@ -744,14 +797,19 @@ class TestJA4ExceptionPaths:
         from unittest.mock import patch
 
         import src.tap.fingerprints.ja4 as _mod
-        with patch.object(_mod.struct, "unpack_from", side_effect=RuntimeError("injected")):
+
+        with patch.object(
+            _mod.struct, "unpack_from", side_effect=RuntimeError("injected")
+        ):
             result = _mod._parse_sni(b"\x00" * 10)
         assert result is None
 
     def test_parse_alpn_too_short_returns_early(self):
         """payload < 2 bytes → early return (line 322).
-        So what: a 1-byte ALPN extension must not cause struct.unpack_from to overread."""
+        So what: a 1-byte ALPN extension must not cause struct.unpack_from to overread.
+        """
         import src.tap.fingerprints.ja4 as _mod
+
         out: list = []
         _mod._parse_alpn(b"\x00", out)  # 1 byte < 2
         assert out == []
@@ -762,19 +820,26 @@ class TestJA4ExceptionPaths:
         from unittest.mock import patch
 
         import src.tap.fingerprints.ja4 as _mod
+
         out: list = []
-        with patch.object(_mod.struct, "unpack_from", side_effect=RuntimeError("injected")):
+        with patch.object(
+            _mod.struct, "unpack_from", side_effect=RuntimeError("injected")
+        ):
             _mod._parse_alpn(b"\x00\x02h2", out)
         # Must not raise
 
     def test_parse_supported_versions_exception_swallowed_via_struct_mock(self):
         """Exception inside _parse_supported_versions → swallowed (lines 348-349).
-        So what: corrupt supported_versions extension must not crash the fingerprinter."""
+        So what: corrupt supported_versions extension must not crash the fingerprinter.
+        """
         from unittest.mock import patch
 
         import src.tap.fingerprints.ja4 as _mod
+
         out: list = []
-        with patch.object(_mod.struct, "unpack_from", side_effect=RuntimeError("injected")):
+        with patch.object(
+            _mod.struct, "unpack_from", side_effect=RuntimeError("injected")
+        ):
             _mod._parse_supported_versions(b"\x02\x03\x04", out)
         # Must not raise
 
@@ -784,8 +849,11 @@ class TestJA4ExceptionPaths:
         from unittest.mock import patch
 
         import src.tap.fingerprints.ja4 as _mod
+
         out: list = []
-        with patch.object(_mod.struct, "unpack_from", side_effect=RuntimeError("injected")):
+        with patch.object(
+            _mod.struct, "unpack_from", side_effect=RuntimeError("injected")
+        ):
             _mod._parse_uint16_list_with_len(b"\x00\x04\x00\x17\x00\x1d", out)
         # Must not raise
 
@@ -795,7 +863,10 @@ class TestJA4ExceptionPaths:
         from unittest.mock import patch
 
         import src.tap.fingerprints.ja4 as _mod
+
         out: list = []
-        with patch.object(_mod.struct, "unpack_from", side_effect=RuntimeError("injected")):
+        with patch.object(
+            _mod.struct, "unpack_from", side_effect=RuntimeError("injected")
+        ):
             _mod._parse_key_share_ext(b"\x00\x08\x00\x1d\x00\x20" + b"\xaa" * 32, out)
         # Must not raise

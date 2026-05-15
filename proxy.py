@@ -300,10 +300,10 @@ class GeoIPLookup:
 
     def reload(self, db_path: str = None) -> bool:
         """Atomic hot-reload of the GeoIP database file.
-        
+
         Args:
             db_path: Path to the new database file. If None, uses DB_PATHS.
-            
+
         Returns:
             True if reload was successful, False otherwise.
         """
@@ -316,20 +316,20 @@ class GeoIPLookup:
                     new_db = IP2Location.IP2Location(p)
                     # Simple test lookup to ensure it works
                     new_db.get_country_short("8.8.8.8")
-                    
+
                     # Atomic swap
                     self.db = new_db
                     self.current_path = p
-                    
+
                     # Explicitly close old DB if supported/needed
-                    # IP2Location-Python doesn't have an explicit close() but we 
+                    # IP2Location-Python doesn't have an explicit close() but we
                     # let the old object be garbage collected.
-                    
+
                     self.logger.info(f"GeoIP database hot-reloaded: {p}")
                     return True
                 except Exception as e:
                     self.logger.error(f"Failed to hot-reload GeoIP database {p}: {e}")
-        
+
         if not self.db:
             self.logger.warning("No GeoIP database found - country lookup disabled")
         return False
@@ -545,10 +545,26 @@ class TLSParser:
 
 
 # Phase 65: Optimized GREASE values set for O(1) lookup
-_GREASE_VALUES: frozenset[int] = frozenset({
-    0x0A0A, 0x1A1A, 0x2A2A, 0x3A3A, 0x4A4A, 0x5A5A, 0x6A6A, 0x7A7A,
-    0x8A8A, 0x9A9A, 0xAAAA, 0xBABA, 0xCACA, 0xDADA, 0xEAEA, 0xFAFA,
-})
+_GREASE_VALUES: frozenset[int] = frozenset(
+    {
+        0x0A0A,
+        0x1A1A,
+        0x2A2A,
+        0x3A3A,
+        0x4A4A,
+        0x5A5A,
+        0x6A6A,
+        0x7A7A,
+        0x8A8A,
+        0x9A9A,
+        0xAAAA,
+        0xBABA,
+        0xCACA,
+        0xDADA,
+        0xEAEA,
+        0xFAFA,
+    }
+)
 
 
 class JA4Generator:
@@ -1364,9 +1380,12 @@ class ProxyServer:
         self.adaptive_cache = AdaptiveCacheManager(self.redis_client)
         try:
             import aiohttp
+
             self._aiohttp_session = aiohttp.ClientSession()
         except (ImportError, Exception):
-            self.logger.warning("aiohttp not installed or failed to init - TI providers using network will be disabled")
+            self.logger.warning(
+                "aiohttp not installed or failed to init - TI providers using network will be disabled"
+            )
             self._aiohttp_session = None
 
         self.tls_parser = TLSParser()
@@ -1391,12 +1410,12 @@ class ProxyServer:
         self.health_monitor = HealthMonitor(
             redis_client=self.redis_client,
             config=self.config,
-            geoip_path=self.config.get("geoip", {}).get("database_path")
+            geoip_path=self.config.get("geoip", {}).get("database_path"),
         )
         self.health_server = HealthServer(
             monitor=self.health_monitor,
             host=self.config["metrics"].get("bind_host", "0.0.0.0"),
-            port=int(self.config["metrics"].get("port", 9090))
+            port=int(self.config["metrics"].get("port", 9090)),
         )
         self._health_task = None
 
@@ -1567,13 +1586,16 @@ class ProxyServer:
         # Phase 35: Integrity monitor — verify config signature on startup
         try:
             from src.security.integrity_monitor import IntegrityMonitor  # phase-35
+
             self._integrity_monitor = IntegrityMonitor(self.config)  # phase-35
             integrity_cfg = self.config.get("integrity", {})  # phase-35
             if integrity_cfg.get("verify_on_startup", False):  # phase-35
                 pubkey_path = integrity_cfg.get(  # phase-35
                     "pubkey_path", "config/keys/integrity.pub"  # phase-35
                 )  # phase-35
-                config_path_for_verify = getattr(self, "config_path", "config/proxy.yml")  # phase-35
+                config_path_for_verify = getattr(
+                    self, "config_path", "config/proxy.yml"
+                )  # phase-35
                 if not self._integrity_monitor.verify_config_signature(  # phase-35
                     config_path_for_verify, pubkey_path  # phase-35
                 ):  # phase-35
@@ -1583,12 +1605,14 @@ class ProxyServer:
                         config_path_for_verify,  # phase-35
                     )  # phase-35
                     import sys  # phase-35
+
                     sys.exit(1)  # phase-35
         except SystemExit:  # phase-35
             raise  # phase-35
         except Exception as exc:  # phase-35
             self.logger.error(  # phase-35
-                "integrity | event=init_error | error=%s | effect=continuing", exc  # phase-35
+                "integrity | event=init_error | error=%s | effect=continuing",
+                exc,  # phase-35
             )  # phase-35
 
         return self
@@ -1597,20 +1621,20 @@ class ProxyServer:
         """Callback for hot-reloading components when config changes."""
         self.logger.info("proxy | event=hot_reload_triggered")
         self.config = new_config
-        
+
         # 1. Update GeoIP if path changed
         new_geoip_path = new_config.get("geoip", {}).get("database_path")
         if new_geoip_path != self.geoip.current_path:
             self.geoip.reload(new_geoip_path)
-            
+
         # 2. Update Pipeline (RiskScorer, ActionDecider)
         from src.security.action_decider import ActionDecider
         from src.security.risk_scorer import RiskScorer
-        
+
         new_scorer = RiskScorer.from_config(new_config)
         new_decider = ActionDecider.from_config(new_config)
         self.pipeline.update_scorer(new_scorer, new_decider)
-        
+
         # 3. Update TI Providers
         if hasattr(self, "greynoise_provider") and self.greynoise_provider:
             self.greynoise_provider.on_config_reload(new_config)
@@ -1618,15 +1642,19 @@ class ProxyServer:
             self.alienvault_provider.on_config_reload(new_config)
         if hasattr(self, "_abuseipdb_checker") and self._abuseipdb_checker:
             from src.security.abuseipdb import AbuseIPDBConfig
-            self._abuseipdb_checker.on_config_reload(AbuseIPDBConfig.from_config(new_config))
+
+            self._abuseipdb_checker.on_config_reload(
+                AbuseIPDBConfig.from_config(new_config)
+            )
         if hasattr(self, "_rdap_enricher") and self._rdap_enricher:
             from src.security.rdap_enrichment import RDAPConfig
+
             self._rdap_enricher.on_config_reload(new_config)
-            
+
         # 4. Update Health Monitor
         self.health_monitor.config = new_config
         self.health_monitor.geoip_path = new_geoip_path
-        
+
         self.logger.info("proxy | event=hot_reload_complete")
 
     async def _populate_security_lists(self):
@@ -1891,7 +1919,7 @@ class ProxyServer:
             '"event":"dial_initialized","value":%s}',
             int(initial_dial),
         )
-        
+
         # Phase 47: Initialize confidence manager
         _cm = getattr(self, "confidence_manager", None)
         if _cm:
@@ -1922,21 +1950,29 @@ class ProxyServer:
             )  # phase-35
             _monitor_interval = _integrity_cfg.get("monitor_interval_s", 60)  # phase-35
             self._integrity_monitor_task = asyncio.create_task(  # phase-35
-                _im.start_background_monitor(_monitor_paths, _monitor_interval)  # phase-35
+                _im.start_background_monitor(
+                    _monitor_paths, _monitor_interval
+                )  # phase-35
             )  # phase-35
             self.logger.info(  # phase-35
                 "integrity | event=monitor_started | paths=%s | interval=%d",  # phase-35
-                _monitor_paths, _monitor_interval,  # phase-35
+                _monitor_paths,
+                _monitor_interval,  # phase-35
             )  # phase-35
 
         # Phase 56b: Dead-Man's Switch — self-terminates if integrity monitor goes silent
         from src.security.dead_man_switch import DeadManSwitch  # phase-56
-        _dms_cfg = self.config.get("deception", {}).get("dead_man_switch", {})  # phase-56
+
+        _dms_cfg = self.config.get("deception", {}).get(
+            "dead_man_switch", {}
+        )  # phase-56
         if _dms_cfg.get("enabled", False) and _im is not None:  # phase-56
             _dms = DeadManSwitch(  # phase-56
                 integrity_monitor=_im,  # phase-56
                 timeout_seconds=_dms_cfg.get("timeout_seconds", 300),  # phase-56
-                grace_period_seconds=_dms_cfg.get("grace_period_seconds", 30),  # phase-56
+                grace_period_seconds=_dms_cfg.get(
+                    "grace_period_seconds", 30
+                ),  # phase-56
             )  # phase-56
             self._dead_man_task = asyncio.create_task(_dms.run())  # phase-56
             self.logger.info(  # phase-56
@@ -1961,7 +1997,7 @@ class ProxyServer:
         _vt = getattr(self, "virustotal_provider", None)
         if _vt:
             ti_tasks.append(_vt.start())
-            
+
         if ti_tasks:
             await asyncio.gather(*ti_tasks)
 
@@ -1976,44 +2012,73 @@ class ProxyServer:
             import time as _t
 
             import aiohttp as _aiohttp
+
             t0 = _t.monotonic()
-            async with _probe_session.head(url, timeout=_aiohttp.ClientTimeout(total=5)) as r:  # pylint: disable=not-async-context-manager
+            async with _probe_session.head(
+                url, timeout=_aiohttp.ClientTimeout(total=5)
+            ) as r:  # pylint: disable=not-async-context-manager
                 if r.status >= 500:
                     raise RuntimeError(f"{feed} probe returned HTTP {r.status}")
             return _t.monotonic() - t0
 
-        if getattr(self, "greynoise_provider", None) and self.greynoise_provider._config.enabled:
-            self._feed_health_monitor.get_circuit_breaker("greynoise", _cb_fail, _cb_recovery)
+        if (
+            getattr(self, "greynoise_provider", None)
+            and self.greynoise_provider._config.enabled
+        ):
+            self._feed_health_monitor.get_circuit_breaker(
+                "greynoise", _cb_fail, _cb_recovery
+            )
             self._feed_health_monitor.register_probe(
                 "greynoise",
                 lambda: _http_probe("https://api.greynoise.io/ping", "greynoise"),
                 _probe_interval,
             )
-        if getattr(self, "alienvault_provider", None) and self.alienvault_provider._config.enabled:
-            self._feed_health_monitor.get_circuit_breaker("alienvault_otx", _cb_fail, _cb_recovery)
+        if (
+            getattr(self, "alienvault_provider", None)
+            and self.alienvault_provider._config.enabled
+        ):
+            self._feed_health_monitor.get_circuit_breaker(
+                "alienvault_otx", _cb_fail, _cb_recovery
+            )
             self._feed_health_monitor.register_probe(
                 "alienvault_otx",
-                lambda: _http_probe("https://otx.alienvault.com/api/v1/user/me", "alienvault_otx"),
+                lambda: _http_probe(
+                    "https://otx.alienvault.com/api/v1/user/me", "alienvault_otx"
+                ),
                 _probe_interval,
             )
         if getattr(self, "misp_provider", None) and self.misp_provider._config.enabled:
             _misp_base = self.misp_provider._config.base_url.rstrip("/")
-            self._feed_health_monitor.get_circuit_breaker("misp", _cb_fail, _cb_recovery)
+            self._feed_health_monitor.get_circuit_breaker(
+                "misp", _cb_fail, _cb_recovery
+            )
             self._feed_health_monitor.register_probe(
                 "misp",
                 lambda: _http_probe(f"{_misp_base}/users/login.json", "misp"),
                 _probe_interval,
             )
-        if getattr(self, "threatfox_provider", None) and self.threatfox_provider._config.enabled:
-            self._feed_health_monitor.get_circuit_breaker("threatfox", _cb_fail, _cb_recovery)
+        if (
+            getattr(self, "threatfox_provider", None)
+            and self.threatfox_provider._config.enabled
+        ):
+            self._feed_health_monitor.get_circuit_breaker(
+                "threatfox", _cb_fail, _cb_recovery
+            )
             self._feed_health_monitor.register_probe(
                 "threatfox",
-                lambda: _http_probe("https://threatfox-api.abuse.ch/api/v1/", "threatfox"),
+                lambda: _http_probe(
+                    "https://threatfox-api.abuse.ch/api/v1/", "threatfox"
+                ),
                 _probe_interval,
             )
         # VirusTotal: no probe (quota-sensitive; no free health endpoint)
-        if getattr(self, "virustotal_provider", None) and self.virustotal_provider._config.enabled:
-            self._feed_health_monitor.get_circuit_breaker("virustotal", _cb_fail, _cb_recovery)
+        if (
+            getattr(self, "virustotal_provider", None)
+            and self.virustotal_provider._config.enabled
+        ):
+            self._feed_health_monitor.get_circuit_breaker(
+                "virustotal", _cb_fail, _cb_recovery
+            )
 
         await self._feed_health_monitor.start_probing()
 
@@ -2046,8 +2111,14 @@ class ProxyServer:
         # Fails open: if python-libseccomp is absent or the profile is malformed,
         # the proxy continues on the Docker-applied startup profile.
         try:  # phase-56
-            from src.security.seccomp_transition import apply_runtime_seccomp, is_supported  # phase-56
-            _sc_cfg = self.config.get("deception", {}).get("seccomp_transition", {})  # phase-56
+            from src.security.seccomp_transition import (
+                apply_runtime_seccomp,
+                is_supported,
+            )  # phase-56
+
+            _sc_cfg = self.config.get("deception", {}).get(
+                "seccomp_transition", {}
+            )  # phase-56
             if _sc_cfg.get("enabled", True) and is_supported():  # phase-56
                 _sc_profile = _sc_cfg.get(  # phase-56
                     "runtime_profile", "config/seccomp/proxy_runtime.json"  # phase-56
@@ -2055,7 +2126,8 @@ class ProxyServer:
                 _sc_ok = apply_runtime_seccomp(_sc_profile)  # phase-56
                 self.logger.info(  # phase-56
                     "seccomp | event=runtime_transition | applied=%s | profile=%s",  # phase-56
-                    _sc_ok, _sc_profile,  # phase-56
+                    _sc_ok,
+                    _sc_profile,  # phase-56
                 )  # phase-56
         except Exception as _sc_exc:  # phase-56
             self.logger.warning(  # phase-56
@@ -2148,7 +2220,7 @@ class ProxyServer:
             _vt = getattr(self, "virustotal_provider", None)
             if _vt:
                 stop_tasks.append(_vt.stop())
-                
+
             if stop_tasks:
                 # Filter out None tasks if any stop() returned None
                 stop_tasks = [t for t in stop_tasks if t is not None]
@@ -2663,7 +2735,9 @@ class ProxyServer:
             )
             if overflow_action == "allow":
                 await self._forward_to_backend(
-                    data, client_reader, client_writer,
+                    data,
+                    client_reader,
+                    client_writer,
                     JA4Fingerprint(ja4="unknown", source_ip=client_ip),
                 )
             else:
@@ -2731,6 +2805,7 @@ class ProxyServer:
             if len(data) >= 5 and data[0] == 0x16:
                 # Phase 65: Use pure-Python parser first (fast, direct call)
                 from src.tls.parser import parse_client_hello
+
                 client_hello_fields = parse_client_hello(data)
 
                 # Fallback to Scapy in subprocess if pure-Python parser fails
@@ -3182,6 +3257,7 @@ if __name__ == "__main__":  # pragma: no cover
     # Suppress with JA4PROXY_PYTHON_EXPERIMENTAL_ACK=1 for intentional runs.
     if os.environ.get("JA4PROXY_PYTHON_EXPERIMENTAL_ACK") != "1":
         import sys as _sys
+
         _banner = (
             "\n"
             "================================================================\n"

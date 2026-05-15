@@ -15,17 +15,53 @@ from pathlib import Path
 
 # Directories that are never source
 EXCLUDE_DIRS = {
-    ".git", "__pycache__", "node_modules", ".mypy_cache",
-    ".pytest_cache", ".ruff_cache", ".hypothesis", "test-results",
-    "reports", ".local", "bin", ".tox", ".eggs", "htmlcov",
-    ".venv", "venv", "env",
+    ".git",
+    "__pycache__",
+    "node_modules",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".hypothesis",
+    "test-results",
+    "reports",
+    ".local",
+    "bin",
+    ".tox",
+    ".eggs",
+    "htmlcov",
+    ".venv",
+    "venv",
+    "env",
 }
 
 # File suffixes that are never source
-EXCLUDE_SUFFIXES = {".pyc", ".pyo", ".backup", ".bak", ".old", ".swp", ".swo",
-                    ".gz", ".tar", ".zip", ".png", ".jpg", ".ico", ".woff",
-                    ".db", ".sqlite", ".mmdb", ".bin", ".pfx", ".p12",
-                    ".coverage", ".key", ".pem", ".crt", ".cer"}
+EXCLUDE_SUFFIXES = {
+    ".pyc",
+    ".pyo",
+    ".backup",
+    ".bak",
+    ".old",
+    ".swp",
+    ".swo",
+    ".gz",
+    ".tar",
+    ".zip",
+    ".png",
+    ".jpg",
+    ".ico",
+    ".woff",
+    ".db",
+    ".sqlite",
+    ".mmdb",
+    ".bin",
+    ".pfx",
+    ".p12",
+    ".coverage",
+    ".key",
+    ".pem",
+    ".crt",
+    ".cer",
+}
 
 
 def count_nonblank(path: Path) -> int:
@@ -87,7 +123,12 @@ def classify(path: Path, root: Path) -> str | None:
         return "Config (YAML)"
 
     # --- Monitoring / alerting / grafana YAML ---
-    if suffix in (".yml", ".yaml") and parts[0] in ("monitoring", "grafana", "deploy", "docker"):
+    if suffix in (".yml", ".yaml") and parts[0] in (
+        "monitoring",
+        "grafana",
+        "deploy",
+        "docker",
+    ):
         return "Infrastructure (YAML)"
 
     # --- HA-proxy config ---

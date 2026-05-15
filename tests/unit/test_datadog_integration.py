@@ -18,6 +18,7 @@ CHECK_PATH = DATADOG_DIR / "checks" / "ja4proxy" / "check.py"
 
 # ── Dashboard JSON validation ────────────────────────────────────────────────
 
+
 class TestDatadogDashboard:
     DASHBOARD = DATADOG_DIR / "ja4proxy-dashboard.json"
 
@@ -51,6 +52,7 @@ class TestDatadogDashboard:
 
 
 # ── Monitors JSON validation ─────────────────────────────────────────────────
+
 
 class TestDatadogMonitors:
     MONITORS = DATADOG_DIR / "ja4proxy-monitors.json"
@@ -97,6 +99,7 @@ class TestDatadogMonitors:
 
 # ── Conf YAML validation ─────────────────────────────────────────────────────
 
+
 class TestDatadogConf:
     CONF = DATADOG_DIR / "conf.d" / "ja4proxy.d" / "conf.yaml"
 
@@ -114,9 +117,9 @@ class TestDatadogConf:
             data = yaml.safe_load(f)
         for inst in data["instances"]:
             assert "management_url" in inst, "Each instance needs management_url"
-            assert inst["management_url"].startswith("http"), (
-                f"management_url must be a full URL, got: {inst['management_url']}"
-            )
+            assert inst["management_url"].startswith(
+                "http"
+            ), f"management_url must be a full URL, got: {inst['management_url']}"
 
     def test_container_config_has_api_token_field(self):
         """Per AGENTS.md: services with external deps must document auth fields.
@@ -130,6 +133,7 @@ class TestDatadogConf:
 
 
 # ── Check module static analysis ─────────────────────────────────────────────
+
 
 class TestCheckModule:
     """Static checks on the check.py source (no runtime import needed)."""
@@ -165,16 +169,14 @@ class TestCheckModule:
 class TestPhase86iOpenMetricsConfig:
     """Phase 86i Gap 1 — Layer 1: OpenMetrics config for Datadog Agent."""
 
-    OPENMETRICS_CONF = (
-        DATADOG_DIR / "conf.d" / "openmetrics.d" / "ja4proxy.yaml"
-    )
+    OPENMETRICS_CONF = DATADOG_DIR / "conf.d" / "openmetrics.d" / "ja4proxy.yaml"
 
     def test_openmetrics_config_is_valid_yaml_and_has_namespace(self):
         """Layer 1 config must be valid YAML with namespace: ja4proxy and
         at least one metric allowlist entry."""
-        assert self.OPENMETRICS_CONF.exists(), (
-            f"Phase 86i OpenMetrics config missing: {self.OPENMETRICS_CONF}"
-        )
+        assert (
+            self.OPENMETRICS_CONF.exists()
+        ), f"Phase 86i OpenMetrics config missing: {self.OPENMETRICS_CONF}"
         with open(self.OPENMETRICS_CONF) as f:
             data = yaml.safe_load(f)
         assert "instances" in data
@@ -182,15 +184,15 @@ class TestPhase86iOpenMetricsConfig:
         inst = data["instances"][0]
         assert inst.get("namespace") == "ja4proxy"
         metrics = inst.get("metrics")
-        assert metrics and len(metrics) >= 1, (
-            "openmetrics config must declare at least one metric allowlist entry"
-        )
+        assert (
+            metrics and len(metrics) >= 1
+        ), "openmetrics config must declare at least one metric allowlist entry"
 
     def _exported_proxy_metrics(self):
         import re
+
         metrics_go = (
-            Path(__file__).resolve().parents[2]
-            / "internal" / "metrics" / "metrics.go"
+            Path(__file__).resolve().parents[2] / "internal" / "metrics" / "metrics.go"
         )
         src = metrics_go.read_text()
         return set(re.findall(r'Name:\s*"(ja4proxy_[a-z0-9_]+)"', src))
@@ -223,17 +225,13 @@ class TestPhase86iOpenMetricsConfig:
             data = yaml.safe_load(f)
         for idx, inst in enumerate(data.get("instances", [])):
             overrides = inst.get("type_overrides")
-            assert overrides, (
-                f"instance[{idx}] missing type_overrides"
-            )
+            assert overrides, f"instance[{idx}] missing type_overrides"
             assert any(t == "histogram" for t in overrides.values()), (
                 f"instance[{idx}] type_overrides must include at least "
                 f"one histogram entry, got: {overrides}"
             )
             # pipeline_duration_seconds must specifically be a histogram.
-            assert (
-                overrides.get("ja4proxy_pipeline_duration_seconds") == "histogram"
-            ), (
+            assert overrides.get("ja4proxy_pipeline_duration_seconds") == "histogram", (
                 f"instance[{idx}]: ja4proxy_pipeline_duration_seconds "
                 f"must be overridden to 'histogram'"
             )
@@ -246,9 +244,7 @@ class TestPhase86iOpenMetricsConfig:
             data = yaml.safe_load(f)
         for idx, inst in enumerate(data.get("instances", [])):
             has_buckets = inst.get("collect_histogram_buckets") is True
-            has_distributions = inst.get(
-                "histogram_buckets_as_distributions"
-            ) is True
+            has_distributions = inst.get("histogram_buckets_as_distributions") is True
             assert has_buckets or has_distributions, (
                 f"instance[{idx}]: one of collect_histogram_buckets or "
                 f"histogram_buckets_as_distributions must be true"
@@ -260,15 +256,15 @@ class TestPhase86iOpenMetricsConfig:
         with open(self.OPENMETRICS_CONF) as f:
             data = yaml.safe_load(f)
         instances = data.get("instances", [])
-        assert len(instances) > 1, (
-            "openmetrics config template must show >1 instance (per-node pattern)"
-        )
+        assert (
+            len(instances) > 1
+        ), "openmetrics config template must show >1 instance (per-node pattern)"
         for inst in instances:
             tags = inst.get("tags", [])
             joined = " ".join(tags) if isinstance(tags, list) else str(tags)
-            assert "node" in joined, (
-                f"each instance must include a node tag, got: {tags}"
-            )
+            assert (
+                "node" in joined
+            ), f"each instance must include a node tag, got: {tags}"
 
 
 class TestPhase86iNarrowedCustomCheck:
@@ -303,9 +299,9 @@ class TestPhase86iNarrowedCustomCheck:
             )
         # Service checks must still be present.
         assert "ja4proxy.node_health" in source
-        assert "ja4proxy.redis_health" in source, (
-            "Phase 86i: ja4proxy.redis_health service_check must be added"
-        )
+        assert (
+            "ja4proxy.redis_health" in source
+        ), "Phase 86i: ja4proxy.redis_health service_check must be added"
 
 
 # ── PHASE_101 H16: migration runbook ────────────────────────────────────────
@@ -353,13 +349,13 @@ class TestPhase101H16MigrationRunbook:
         narrowed custom check — reversing the order produces 24h of
         spurious ``unknown`` health states."""
         text = self.RUNBOOK.read_text()
-        assert "Layer 1" in text and "Layer 2" in text, (
-            "Phase 101 H16: runbook must enumerate Layer 1 / Layer 2"
-        )
+        assert (
+            "Layer 1" in text and "Layer 2" in text
+        ), "Phase 101 H16: runbook must enumerate Layer 1 / Layer 2"
         # Layer 1 (OpenMetrics) must appear before Layer 2 (custom check)
         # in the document body.
         idx_l1 = text.find("Layer 1")
         idx_l2 = text.find("Layer 2")
-        assert 0 <= idx_l1 < idx_l2, (
-            "Phase 101 H16: runbook must describe Layer 1 before Layer 2"
-        )
+        assert (
+            0 <= idx_l1 < idx_l2
+        ), "Phase 101 H16: runbook must describe Layer 1 before Layer 2"

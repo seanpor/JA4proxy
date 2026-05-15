@@ -210,6 +210,7 @@ class TestUnknownPolicyFailSecure:
 
         # Build a fake evaluations dict with one threat
         from src.security.threat_evaluator import ThreatEvaluation
+
         evaluations = {
             RateLimitStrategy.BY_IP: ThreatEvaluation(
                 strategy=RateLimitStrategy.BY_IP,

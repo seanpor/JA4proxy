@@ -61,6 +61,7 @@ _QUOTA_REMAINING = Gauge(
 @dataclass
 class VirusTotalConfig(TIProviderConfig):
     """Configuration for VirusTotalProvider."""
+
     malicious_score: int = 30  # Score for malicious detection
     suspicious_score: int = 15  # Score for suspicious detection
     daily_quota: int = 10000  # Daily API quota limit
@@ -113,23 +114,27 @@ class VirusTotalProvider(TIProvider):
     async def start(self) -> None:
         if not self._config.enabled:
             return
-        
+
         # Load quota state from Redis
         await self._load_quota_state()
-        
+
         self._workers = [
             asyncio.create_task(self._worker_loop(), name=f"virustotal-worker-{i}")
             for i in range(self._config.worker_count)
         ]
         logger.info(
-            json.dumps({
-                "type": "system",
-                "level": "INFO",
-                "subsystem": "virustotal",
-                "event": "started",
-                "worker_count": self._config.worker_count,
-                "quota_remaining": max(0, self._config.daily_quota - self._quota_used_today)
-            })
+            json.dumps(
+                {
+                    "type": "system",
+                    "level": "INFO",
+                    "subsystem": "virustotal",
+                    "event": "started",
+                    "worker_count": self._config.worker_count,
+                    "quota_remaining": max(
+                        0, self._config.daily_quota - self._quota_used_today
+                    ),
+                }
+            )
         )
 
     async def stop(self) -> None:
@@ -148,11 +153,11 @@ class VirusTotalProvider(TIProvider):
         if cached is not None:
             self._hits += 1
             self._update_metrics()
-            
+
             # Record cache hit for adaptive caching
             if self._adaptive_cache:
                 asyncio.create_task(self._adaptive_cache.record_cache_hit("virustotal"))
-            
+
             return self._to_signal(ip, cached)
 
         # Tier 2+: Async lookup (respects quota)
@@ -166,42 +171,47 @@ class VirusTotalProvider(TIProvider):
         _QUEUE_DEPTH.set(self._queue.qsize())
         _QUOTA_REMAINING.set(max(0, self._config.daily_quota - self._quota_used_today))
 
-    def _to_signal(self, ip: str, data: dict, confidence_weight: float = 1.0) -> Optional[RiskSignal]:
+    def _to_signal(
+        self, ip: str, data: dict, confidence_weight: float = 1.0
+    ) -> Optional[RiskSignal]:
         """Convert cached VirusTotal data to a RiskSignal."""
         malicious_count = data.get("malicious_count", 0)
         suspicious_count = data.get("suspicious_count", 0)
-        
+
         if malicious_count == 0 and suspicious_count == 0:
             return None
 
         # Score based on detection levels
         score = 0
         reason_parts = []
-        
+
         if malicious_count > 0:
-            score += min(malicious_count * self._config.malicious_score, self._config.score_cap)
+            score += min(
+                malicious_count * self._config.malicious_score, self._config.score_cap
+            )
             reason_parts.append(f"{malicious_count} malicious detection(s)")
-        
+
         if suspicious_count > 0:
-            score += min(suspicious_count * self._config.suspicious_score, self._config.score_cap)
+            score += min(
+                suspicious_count * self._config.suspicious_score, self._config.score_cap
+            )
             reason_parts.append(f"{suspicious_count} suspicious detection(s)")
-        
+
         # Cap total score
         score = min(score, self._config.score_cap)
         reason = "VirusTotal: " + ", ".join(reason_parts)
 
         return RiskSignal(
-            name="virustotal",
-            score=score,
-            reason=reason,
-            weight=confidence_weight
+            name="virustotal", score=score, reason=reason, weight=confidence_weight
         )
 
     async def _maybe_lookup(self, ip: str) -> None:
         """Check Redis; if miss and quota available, enqueue API lookup."""
         # Check quota first
         if self._quota_used_today >= self._config.daily_quota:
-            logger.warning(f"virustotal | event=quota_exceeded | ip={ip} | quota_used={self._quota_used_today}")
+            logger.warning(
+                f"virustotal | event=quota_exceeded | ip={ip} | quota_used={self._quota_used_today}"
+            )
             return
 
         try:
@@ -263,7 +273,9 @@ class VirusTotalProvider(TIProvider):
             async with self._session.get(
                 url,
                 headers=headers,
-                timeout=aiohttp.ClientTimeout(total=self._config.lookup_timeout_seconds),
+                timeout=aiohttp.ClientTimeout(
+                    total=self._config.lookup_timeout_seconds
+                ),
             ) as resp:
                 if resp.status == 200:
                     data = await resp.json()
@@ -294,7 +306,8 @@ class VirusTotalProvider(TIProvider):
                 else:
                     logger.warning(
                         "virustotal | event=api_error | status=%d | ip=%s",
-                        resp.status, ip,
+                        resp.status,
+                        ip,
                     )
                     _LOOKUP_TOTAL.labels(result="error").inc()
                     raise RuntimeError(f"virustotal API error: status={resp.status}")
@@ -334,7 +347,9 @@ class VirusTotalProvider(TIProvider):
 
             # Record cache miss with volatility detection
             if self._adaptive_cache:
-                await self._adaptive_cache.record_cache_miss("virustotal", old_value, result)
+                await self._adaptive_cache.record_cache_miss(
+                    "virustotal", old_value, result
+                )
 
             if cb:
                 cb.record_success(time.monotonic() - t0)
@@ -365,12 +380,10 @@ class VirusTotalProvider(TIProvider):
         try:
             quota_data = {
                 "quota_used": self._quota_used_today,
-                "last_reset": self._last_quota_reset
+                "last_reset": self._last_quota_reset,
             }
             await self._redis.setex(
-                "virustotal:quota:state",
-                86400,  # 24h TTL
-                json.dumps(quota_data)
+                "virustotal:quota:state", 86400, json.dumps(quota_data)  # 24h TTL
             )
         except Exception as e:
             logger.warning(f"virustotal | event=quota_save_error | error={e}")

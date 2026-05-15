@@ -9,6 +9,7 @@ agent implements:
   - The ``r`` parameter on ``purge_ip`` (for dependency injection)
   - Audit log writes to ``management:gdpr_erasure_log``
 """
+
 import json
 import os
 import sys
@@ -24,6 +25,7 @@ from scripts.gdpr_delete import main, purge_ip
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_redis() -> fakeredis.FakeRedis:
     """Return a fresh, isolated fakeredis client with decode_responses=True."""
     return fakeredis.FakeRedis(decode_responses=True)
@@ -32,6 +34,7 @@ def _make_redis() -> fakeredis.FakeRedis:
 # ---------------------------------------------------------------------------
 # 1. Exact-key deletion
 # ---------------------------------------------------------------------------
+
 
 def test_exact_key_deletion():
     """Exact per-IP keys (ban, visitor, lifespan, concurrent) are all deleted."""
@@ -58,6 +61,7 @@ def test_exact_key_deletion():
 # 2. Wildcard-key deletion
 # ---------------------------------------------------------------------------
 
+
 def test_wildcard_key_deletion():
     """Keys matching wildcard patterns (session:ip:* and beacon:*) are deleted."""
     r = _make_redis()
@@ -80,6 +84,7 @@ def test_wildcard_key_deletion():
 # ---------------------------------------------------------------------------
 # 3. Sorted-set member removal
 # ---------------------------------------------------------------------------
+
 
 def test_zset_member_removal():
     """Members belonging to the target IP are removed; other members remain."""
@@ -105,6 +110,7 @@ def test_zset_member_removal():
 # 4. HLL keys are not deleted
 # ---------------------------------------------------------------------------
 
+
 def test_hll_keys_not_deleted():
     """HyperLogLog keys are skipped (cannot remove individual contributors)."""
     r = _make_redis()
@@ -116,14 +122,15 @@ def test_hll_keys_not_deleted():
     result = purge_ip(ip, dry_run=False, r=r)
 
     assert r.exists(hll_key), "HLL key should NOT be deleted"
-    assert result["hll_skipped"] == 1, (
-        f"Expected hll_skipped == 1, got {result['hll_skipped']}"
-    )
+    assert (
+        result["hll_skipped"] == 1
+    ), f"Expected hll_skipped == 1, got {result['hll_skipped']}"
 
 
 # ---------------------------------------------------------------------------
 # 5. Dry-run deletes nothing
 # ---------------------------------------------------------------------------
+
 
 def test_dry_run_deletes_nothing():
     """With dry_run=True no keys are actually deleted, but count reflects would-be deletions."""
@@ -135,14 +142,15 @@ def test_dry_run_deletes_nothing():
     result = purge_ip(ip, dry_run=True, r=r)
 
     assert r.exists(key), "Key should still exist after dry run"
-    assert result["keys_deleted"] >= 1, (
-        "dry_run result should report how many keys WOULD be deleted"
-    )
+    assert (
+        result["keys_deleted"] >= 1
+    ), "dry_run result should report how many keys WOULD be deleted"
 
 
 # ---------------------------------------------------------------------------
 # 6. Audit log written on normal run
 # ---------------------------------------------------------------------------
+
 
 def test_audit_log_written():
     """A JSON entry is appended to management:gdpr_erasure_log after purge."""
@@ -164,13 +172,16 @@ def test_audit_log_written():
     assert entry["ip"] == ip, f"Audit entry ip mismatch: {entry['ip']!r}"
     assert "keys_deleted" in entry, "Audit entry must include 'keys_deleted'"
     assert "keys_skipped_hll" in entry, "Audit entry must include 'keys_skipped_hll'"
-    assert "zset_members_removed" in entry, "Audit entry must include 'zset_members_removed'"
+    assert (
+        "zset_members_removed" in entry
+    ), "Audit entry must include 'zset_members_removed'"
     assert entry["keys_deleted"] == result["keys_deleted"]
 
 
 # ---------------------------------------------------------------------------
 # 7. Audit log flags dry-run runs
 # ---------------------------------------------------------------------------
+
 
 def test_audit_log_dry_run_flagged():
     """Audit log entry records dry_run=True when called with dry_run=True."""
@@ -186,14 +197,15 @@ def test_audit_log_dry_run_flagged():
     raw = r.lindex("management:gdpr_erasure_log", 0)
     entry = json.loads(raw)
 
-    assert entry.get("dry_run") is True, (
-        f"Audit entry should have dry_run=true, got: {entry.get('dry_run')!r}"
-    )
+    assert (
+        entry.get("dry_run") is True
+    ), f"Audit entry should have dry_run=true, got: {entry.get('dry_run')!r}"
 
 
 # ---------------------------------------------------------------------------
 # 8. IPv6 canonical form
 # ---------------------------------------------------------------------------
+
 
 def test_ipv6_canonical_form():
     """Passing a non-canonical IPv6 form is normalised before key lookup."""
@@ -204,15 +216,16 @@ def test_ipv6_canonical_form():
     # Pass the full uncompressed form — purge_ip must normalise it to "::1"
     result = purge_ip("0:0:0:0:0:0:0:1", dry_run=False, r=r)
 
-    assert not r.exists("ban:::1"), (
-        "Key 'ban:::1' should have been deleted after normalising '0:0:0:0:0:0:0:1' → '::1'"
-    )
+    assert not r.exists(
+        "ban:::1"
+    ), "Key 'ban:::1' should have been deleted after normalising '0:0:0:0:0:0:0:1' → '::1'"
     assert result["keys_deleted"] >= 1
 
 
 # ---------------------------------------------------------------------------
 # 9. Empty Redis — no error
 # ---------------------------------------------------------------------------
+
 
 def test_empty_redis_no_error():
     """Purging an IP with no keys in Redis succeeds and returns all-zero counts."""
@@ -222,16 +235,21 @@ def test_empty_redis_no_error():
     # Should not raise any exception
     result = purge_ip(ip, dry_run=False, r=r)
 
-    assert result["keys_deleted"] == 0, f"Expected 0 keys_deleted, got {result['keys_deleted']}"
-    assert result["zset_members_removed"] == 0, (
-        f"Expected 0 zset_members_removed, got {result['zset_members_removed']}"
-    )
-    assert result["hll_skipped"] == 0, f"Expected 0 hll_skipped, got {result['hll_skipped']}"
+    assert (
+        result["keys_deleted"] == 0
+    ), f"Expected 0 keys_deleted, got {result['keys_deleted']}"
+    assert (
+        result["zset_members_removed"] == 0
+    ), f"Expected 0 zset_members_removed, got {result['zset_members_removed']}"
+    assert (
+        result["hll_skipped"] == 0
+    ), f"Expected 0 hll_skipped, got {result['hll_skipped']}"
 
 
 # ---------------------------------------------------------------------------
 # 10. Invalid IP causes non-zero exit
 # ---------------------------------------------------------------------------
+
 
 def test_invalid_ip_exits_nonzero():
     """Passing a non-IP string to main() should return exit code 1.
@@ -244,6 +262,8 @@ def test_invalid_ip_exits_nonzero():
     try:
         sys.argv = ["gdpr_delete.py", "--ip", "not-an-ip"]
         exit_code = main()
-        assert exit_code == 1, f"Expected main() to return 1 for invalid IP, got {exit_code}"
+        assert (
+            exit_code == 1
+        ), f"Expected main() to return 1 for invalid IP, got {exit_code}"
     finally:
         sys.argv = original_argv

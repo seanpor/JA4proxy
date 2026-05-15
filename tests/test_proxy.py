@@ -318,7 +318,9 @@ class TestProxyServer:
             patch.object(self.proxy_server, "_store_fingerprint") as mock_store,
         ):
             mock_loop = Mock()
-            mock_loop.run_in_executor = AsyncMock(return_value={"version": 0x0303, "supported_versions": []})
+            mock_loop.run_in_executor = AsyncMock(
+                return_value={"version": 0x0303, "supported_versions": []}
+            )
             mock_get_loop.return_value = mock_loop
             self.proxy_server.executor = None
             mock_generate.return_value = VALID_FP_A
@@ -356,6 +358,7 @@ class TestIntegration:
     async def test_full_request_flow(self):
         """Verify proxy module imports and exposes expected public names."""
         import proxy as proxy_module
+
         assert hasattr(proxy_module, "ProxyServer"), "ProxyServer class must exist"
         assert hasattr(proxy_module, "main"), "main() entry point must exist"
 

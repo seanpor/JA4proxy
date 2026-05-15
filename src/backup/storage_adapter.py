@@ -48,7 +48,7 @@ class StorageMetadata:
     size_bytes: int
     checksum_sha256: str
     created_at: str  # ISO-8601
-    provider: str    # "local", "s3", "gcs"
+    provider: str  # "local", "s3", "gcs"
     extra: dict = field(default_factory=dict)
 
 

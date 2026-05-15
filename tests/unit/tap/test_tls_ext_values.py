@@ -1,6 +1,7 @@
 """
 Unit tests for src/tap/fingerprints/tls_ext_values.py (Phase 20 Group 5-H).
 """
+
 import struct
 
 import pytest
@@ -49,11 +50,11 @@ def _build_hello_with_grease_and_chrome_exts() -> bytes:
     cipher_section = struct.pack("!H", len(cipher_data)) + cipher_data
 
     body = (
-        struct.pack("!H", 0x0303)          # client_version
-        + b"\x00" * 32                      # random
-        + struct.pack("!B", 0)              # session_id length = 0
-        + cipher_section                    # cipher suites
-        + struct.pack("!BB", 1, 0)          # compression_methods: 1 method (null)
+        struct.pack("!H", 0x0303)  # client_version
+        + b"\x00" * 32  # random
+        + struct.pack("!B", 0)  # session_id length = 0
+        + cipher_section  # cipher suites
+        + struct.pack("!BB", 1, 0)  # compression_methods: 1 method (null)
         + ext_section
     )
     hs = bytes([0x01]) + struct.pack("!I", len(body))[1:]  # 3-byte handshake len
@@ -71,6 +72,7 @@ class TestTLSExtValues:
 
     def test_no_grease_in_python_requests_like_hello(self):
         from tests.unit.tap.test_ja4 import _build_client_hello
+
         data = _build_client_hello(sni="api.example.com")
         ja4 = extract_ja4(data)
         assert ja4 is not None
@@ -103,6 +105,7 @@ class TestTLSExtValues:
     def test_result_is_always_returned(self):
         """extract_tls_ext_values must never raise, even with empty JA4Result."""
         from src.tap.fingerprints.ja4 import JA4Result
+
         empty = JA4Result(
             fingerprint="t00i0000_000000000000_000000000000",
             tls_version_offered="00",
@@ -126,7 +129,8 @@ class TestTLSExtValuesExceptionHandler:
         a zeroed JA4TLSExtValues with empty lists and False flags.
         So what: if this except block is absent, any AttributeError on a malformed
         JA4Result (e.g. from an experimental parser version) propagates to the tap
-        pipeline and crashes the fingerprint aggregation for the entire connection batch."""
+        pipeline and crashes the fingerprint aggregation for the entire connection batch.
+        """
         from unittest.mock import patch
 
         bad_result = object()  # not a JA4Result — accessing .extensions raises

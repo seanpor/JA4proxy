@@ -67,9 +67,7 @@ async def _request(
                 raise AuthError("401 Unauthorized — check API token")
             if resp.status >= 400:
                 body = await resp.text()
-                raise JA4proxySoarError(
-                    f"HTTP {resp.status} from {url}: {body}"
-                )
+                raise JA4proxySoarError(f"HTTP {resp.status} from {url}: {body}")
             if resp.status == 204:
                 return {}
             return await resp.json()

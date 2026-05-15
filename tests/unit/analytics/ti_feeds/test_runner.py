@@ -428,8 +428,13 @@ async def test_start_seed_file_error_does_not_crash(redis):
     runner._mgmt.connect = AsyncMock()
     runner._mgmt.close = AsyncMock()
     # Patch run_seed_file to raise
-    with patch("src.analytics.ti_feeds.runner.run_seed_file", side_effect=RuntimeError("boom")):
-        with patch("src.analytics.ti_feeds.runner.FeedRunner._rebuild_clients", new_callable=AsyncMock):
+    with patch(
+        "src.analytics.ti_feeds.runner.run_seed_file", side_effect=RuntimeError("boom")
+    ):
+        with patch(
+            "src.analytics.ti_feeds.runner.FeedRunner._rebuild_clients",
+            new_callable=AsyncMock,
+        ):
             with patch("asyncio.create_task") as mock_ct:
                 mock_ct.return_value = MagicMock()
                 await runner.start()
@@ -487,7 +492,11 @@ async def test_rebuild_clients_unknown_feed_type(redis):
     runner._state = FeedState(redis)
     ti_cfg = {
         "feeds": [
-            {"id": "test-feed", "type": "nonexistent_type", "url": "https://example.com/x"},
+            {
+                "id": "test-feed",
+                "type": "nonexistent_type",
+                "url": "https://example.com/x",
+            },
         ],
     }
     with patch("asyncio.create_task") as mock_ct:
@@ -564,6 +573,7 @@ async def test_poll_loop_handles_poll_exception(redis):
 
     runner._poll_once = failing_poll_once  # type: ignore[assignment]
     client.config.poll_interval_minutes = 1
+
     # Set stopping after one iteration
     async def auto_stop(*args, **kwargs):
         runner._stopping.set()
@@ -598,7 +608,9 @@ async def test_poll_once_runtime_override_false_skips(redis):
     """When runtime override is False, poll is skipped."""
     cfg = _make_config()
     mgmt = _StubMgmt()
-    poll_result = FeedPollResult(feed_id=cfg.id, stix_ids_seen={"x"}, created=[("x", "1.2.3.4")])
+    poll_result = FeedPollResult(
+        feed_id=cfg.id, stix_ids_seen={"x"}, created=[("x", "1.2.3.4")]
+    )
     client = _StubClient(cfg, poll_result)
     runner = _make_runner(redis, mgmt, client)
 
@@ -617,7 +629,9 @@ async def test_poll_once_config_disabled_no_override_skips(redis):
     cfg = _make_config()
     cfg.enabled = False
     mgmt = _StubMgmt()
-    poll_result = FeedPollResult(feed_id=cfg.id, stix_ids_seen={"x"}, created=[("x", "1.2.3.4")])
+    poll_result = FeedPollResult(
+        feed_id=cfg.id, stix_ids_seen={"x"}, created=[("x", "1.2.3.4")]
+    )
     client = _StubClient(cfg, poll_result)
     runner = _make_runner(redis, mgmt, client)
 
@@ -647,7 +661,9 @@ async def test_poll_once_leader_lock_rejected_skips(redis):
     """When leader lock cannot be acquired, poll is skipped."""
     cfg = _make_config()
     mgmt = _StubMgmt()
-    poll_result = FeedPollResult(feed_id=cfg.id, stix_ids_seen={"x"}, created=[("x", "1.2.3.4")])
+    poll_result = FeedPollResult(
+        feed_id=cfg.id, stix_ids_seen={"x"}, created=[("x", "1.2.3.4")]
+    )
     client = _StubClient(cfg, poll_result)
     runner = _make_runner(redis, mgmt, client)
 
@@ -778,7 +794,9 @@ async def test_cleanup_unknown_handle_logged(redis):
 
     # Manually insert a stix entry with a handle that's not in either side set
     state = runner._state
-    await state._redis.hset(f"ti_feed:{cfg.id}:active_stix_ids", "orphan-id", "orphan-handle")
+    await state._redis.hset(
+        f"ti_feed:{cfg.id}:active_stix_ids", "orphan-id", "orphan-handle"
+    )
 
     # Prime the empty-streak gate.
     await runner._poll_once(cfg.id)
@@ -804,7 +822,9 @@ async def test_cleanup_failure_does_not_crash(redis):
     runner = _make_runner(redis, mgmt, client)
 
     # Seed two ban entries — one will fail cleanup, one will succeed
-    await _seed_previous_snapshot(runner._state, cfg.id, [("id-0", "ip-0"), ("id-1", "ip-1")])
+    await _seed_previous_snapshot(
+        runner._state, cfg.id, [("id-0", "ip-0"), ("id-1", "ip-1")]
+    )
 
     # Prime the empty-streak gate.
     await runner._poll_once(cfg.id)

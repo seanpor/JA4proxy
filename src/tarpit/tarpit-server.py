@@ -20,39 +20,38 @@ import time
 from prometheus_client import Counter, Gauge, Histogram, start_http_server
 
 # Metrics
-TARPIT_CONNECTIONS = Counter(
-    'tarpit_connections_total', 'Total connections received'
-)
+TARPIT_CONNECTIONS = Counter("tarpit_connections_total", "Total connections received")
 TARPIT_ACTIVE = Gauge(
-    'tarpit_active_connections', 'Currently active tarpit connections'
+    "tarpit_active_connections", "Currently active tarpit connections"
 )
 TARPIT_DURATION = Histogram(
-    'tarpit_connection_duration_seconds', 'Time connections were held',
-    buckets=[1, 5, 10, 15, 30, 45, 60, 90, 120]
+    "tarpit_connection_duration_seconds",
+    "Time connections were held",
+    buckets=[1, 5, 10, 15, 30, 45, 60, 90, 120],
 )
 TARPIT_BYTES_SENT = Counter(
-    'tarpit_bytes_sent_total', 'Total bytes trickled to clients'
+    "tarpit_bytes_sent_total", "Total bytes trickled to clients"
 )
 
-logger = logging.getLogger('tarpit')
+logger = logging.getLogger("tarpit")
 
 # Configurable via environment
-TARPIT_PORT = int(os.environ.get('TARPIT_PORT', 8888))
-TARPIT_DURATION_SECS = int(os.environ.get('TARPIT_DURATION', 60))
-TARPIT_METRICS_PORT = int(os.environ.get('TARPIT_METRICS_PORT', 9099))
-TARPIT_MAX_CONNECTIONS = int(os.environ.get('TARPIT_MAX_CONNECTIONS', 1000))
+TARPIT_PORT = int(os.environ.get("TARPIT_PORT", 8888))
+TARPIT_DURATION_SECS = int(os.environ.get("TARPIT_DURATION", 60))
+TARPIT_METRICS_PORT = int(os.environ.get("TARPIT_METRICS_PORT", 9099))
+TARPIT_MAX_CONNECTIONS = int(os.environ.get("TARPIT_MAX_CONNECTIONS", 1000))
 
 # Fake TLS ServerHello-ish bytes to trickle (looks like a slow TLS server)
 TARPIT_PAYLOAD = (
-    b'\x16\x03\x03'  # TLS record header (handshake, TLS 1.2)
-    + b'\x00' * 64    # Padding — sent very slowly
+    b"\x16\x03\x03"  # TLS record header (handshake, TLS 1.2)
+    + b"\x00" * 64  # Padding — sent very slowly
 )
 
 
 async def handle_tarpit_connection(reader, writer):
     """Hold a connection open, trickling bytes slowly."""
-    client_addr = writer.get_extra_info('peername')
-    client_ip = client_addr[0] if client_addr else 'unknown'
+    client_addr = writer.get_extra_info("peername")
+    client_ip = client_addr[0] if client_addr else "unknown"
 
     TARPIT_CONNECTIONS.inc()
     TARPIT_ACTIVE.inc()
@@ -63,7 +62,9 @@ async def handle_tarpit_connection(reader, writer):
     try:
         # Trickle bytes slowly
         for i in range(TARPIT_DURATION_SECS):
-            byte_to_send = TARPIT_PAYLOAD[i % len(TARPIT_PAYLOAD):i % len(TARPIT_PAYLOAD) + 1]
+            byte_to_send = TARPIT_PAYLOAD[
+                i % len(TARPIT_PAYLOAD) : i % len(TARPIT_PAYLOAD) + 1
+            ]
             writer.write(byte_to_send)
             await writer.drain()
             TARPIT_BYTES_SENT.inc()
@@ -87,7 +88,7 @@ async def handle_tarpit_connection(reader, writer):
 async def main():
     logging.basicConfig(
         level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 
     # Start metrics server
@@ -101,9 +102,7 @@ async def main():
         async with sem:
             await handle_tarpit_connection(reader, writer)
 
-    server = await asyncio.start_server(
-        limited_handler, '0.0.0.0', TARPIT_PORT
-    )
+    server = await asyncio.start_server(limited_handler, "0.0.0.0", TARPIT_PORT)
     logger.info(f"Tarpit server listening on :{TARPIT_PORT}")
     logger.info(f"Tarpit duration: {TARPIT_DURATION_SECS}s per connection")
 
@@ -122,5 +121,5 @@ async def shutdown(server):
     await server.wait_closed()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     asyncio.run(main())

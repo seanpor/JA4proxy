@@ -18,7 +18,18 @@ from collections import defaultdict
 from pathlib import Path
 
 # Directories to exclude
-EXCLUDE_DIRS = {".git", "__pycache__", ".mypy_cache", ".pytest_cache", ".ruff_cache", "node_modules", ".claude", "reports", "geoip"}
+EXCLUDE_DIRS = {
+    ".git",
+    "__pycache__",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    "node_modules",
+    ".claude",
+    "reports",
+    "geoip",
+}
+
 
 def get_python_imports(file_path):
     imports = []
@@ -36,25 +47,32 @@ def get_python_imports(file_path):
         print(f"Warning: Failed to parse {file_path}: {e}", file=sys.stderr)
     return imports
 
+
 def get_shell_dependencies(file_path):
     deps = []
     try:
         with open(file_path, "r", encoding="utf-8") as f:
             content = f.read()
             # Match source or direct execution of scripts
-            for match in re.finditer(r'(?:source|\.)\s+([./a-zA-Z0-9_-]+\.sh)', content):
+            for match in re.finditer(
+                r"(?:source|\.)\s+([./a-zA-Z0-9_-]+\.sh)", content
+            ):
                 deps.append(match.group(1))
-            for match in re.finditer(r'(?:bash|sh|python3?|go run)\s+([./a-zA-Z0-9_-]+(?:\.sh|\.py|\.go))', content):
+            for match in re.finditer(
+                r"(?:bash|sh|python3?|go run)\s+([./a-zA-Z0-9_-]+(?:\.sh|\.py|\.go))",
+                content,
+            ):
                 deps.append(match.group(1))
     except Exception:
         pass
     return deps
 
+
 def main():
     root_dir = Path.cwd()
     graph = defaultdict(list)
     files_found = set()
-    
+
     for ext in ["*.py", "*.sh", "*.go"]:
         for p in root_dir.rglob(ext):
             if any(part in EXCLUDE_DIRS for part in p.parts):
@@ -64,7 +82,7 @@ def main():
 
     # Analyze Python
     for f in files_found:
-        if f.endswith('.py'):
+        if f.endswith(".py"):
             imports = get_python_imports(f)
             # Try to map module names to local files
             for imp in imports:
@@ -80,7 +98,7 @@ def main():
                 for c in candidates:
                     if c in files_found:
                         graph[f].append(c)
-        elif f.endswith('.sh'):
+        elif f.endswith(".sh"):
             deps = get_shell_dependencies(f)
             for d in deps:
                 # Normalize path
@@ -89,12 +107,14 @@ def main():
                 for known_f in files_found:
                     if known_f.endswith(base):
                         graph[f].append(known_f)
-        elif f.endswith('.go'):
+        elif f.endswith(".go"):
             # Simple heuristic for go imports (just within the project)
             try:
                 with open(f, "r", encoding="utf-8") as go_file:
                     content = go_file.read()
-                    for match in re.finditer(r'"(github\.com/.*?/JA4proxy2/.*?)"', content):
+                    for match in re.finditer(
+                        r'"(github\.com/.*?/JA4proxy2/.*?)"', content
+                    ):
                         imp = match.group(1)
                         # Naive translation to local path
                         _local_path = imp.split("JA4proxy2/")[-1]
@@ -108,17 +128,21 @@ def main():
     for src, dsts in graph.items():
         for dst in dsts:
             incoming_edges[dst].append(src)
-            
+
     orphans = []
     for f in files_found:
-        if f not in incoming_edges and not f.startswith('tests/') and not f.endswith('__init__.py'):
+        if (
+            f not in incoming_edges
+            and not f.startswith("tests/")
+            and not f.endswith("__init__.py")
+        ):
             # It might be an entry point. We should log it.
             orphans.append(f)
 
     # Save outputs
     out_dir = root_dir / "reports"
     out_dir.mkdir(exist_ok=True)
-    
+
     with open(out_dir / "dependency_graph.json", "w") as jf:
         json.dump(dict(graph), jf, indent=2)
 
@@ -129,14 +153,17 @@ def main():
             for dst in dsts:
                 df.write(f'  "{src}" -> "{dst}";\n')
         df.write("}\n")
-        
-    print(f"Generated dependency graph with {len(files_found)} nodes and {sum(len(v) for v in graph.values())} edges.")
+
+    print(
+        f"Generated dependency graph with {len(files_found)} nodes and {sum(len(v) for v in graph.values())} edges."
+    )
     print("Saved to reports/dependency_graph.json and reports/dependency_graph.dot")
 
     if "--analyze" in sys.argv:
         print("\nPotential orphans (no internal incoming imports/references):")
         for o in sorted(orphans):
             print(f"  - {o}")
+
 
 if __name__ == "__main__":
     main()

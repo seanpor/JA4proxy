@@ -136,9 +136,9 @@ async def test_second_consecutive_empty_poll_allows_cleanup(redis):
     _release_leader(redis)
     await runner._poll_once(cfg.id)
     deletes = [c for c in mgmt.calls if c.method == "delete_ban"]
-    assert len(deletes) == 10, (
-        f"second empty poll should delete up to 10 (10% cap); got {len(deletes)}"
-    )
+    assert (
+        len(deletes) == 10
+    ), f"second empty poll should delete up to 10 (10% cap); got {len(deletes)}"
 
 
 @pytest.mark.asyncio

@@ -64,9 +64,7 @@ def _parse_entries(raw: dict[str, Any]) -> list[SeedFingerprint]:
     parsed: list[SeedFingerprint] = []
     for entry in fingerprints_raw:
         if not isinstance(entry, dict):
-            logger.warning(
-                "ti_feed | event=seed_entry_malformed | reason=not_dict"
-            )
+            logger.warning("ti_feed | event=seed_entry_malformed | reason=not_dict")
             continue
         ja4 = entry.get("ja4", "")
         name = entry.get("name", "")
@@ -146,9 +144,7 @@ class SeedFileLoader:
             )
         fingerprints = raw.get("fingerprints")
         if not isinstance(fingerprints, list) or not fingerprints:
-            raise ValueError(
-                "seed file 'fingerprints' must be a non-empty list"
-            )
+            raise ValueError("seed file 'fingerprints' must be a non-empty list")
 
         out: list[dict[str, Any]] = []
         for idx, entry in enumerate(fingerprints):
@@ -163,9 +159,7 @@ class SeedFileLoader:
                     )
             ja4 = entry["ja4"]
             if not isinstance(ja4, str) or not is_valid_ja4(ja4):
-                raise ValueError(
-                    f"seed entry #{idx} has invalid JA4: {ja4!r}"
-                )
+                raise ValueError(f"seed entry #{idx} has invalid JA4: {ja4!r}")
             try:
                 confidence = int(entry["confidence"])
             except (TypeError, ValueError) as exc:
@@ -276,9 +270,7 @@ async def run_once(
         if not safe:
             summary["rejected"] += 1
             _FP_BLOCKED.labels(feed_id=_SEED_FEED_ID).inc()
-            logger.warning(
-                "ti_feed | event=seed_entry_fp_blocked | ja4=%s", entry.ja4
-            )
+            logger.warning("ti_feed | event=seed_entry_fp_blocked | ja4=%s", entry.ja4)
             continue
         note = f"feed:{_SEED_FEED_ID}:{entry.ja4}"
         try:

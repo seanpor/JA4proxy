@@ -9,6 +9,7 @@ Requires: Go binary at bin/ja4proxy (or GO_BINARY env var).
 Build with: GOROOT=/snap/go/current go build -o bin/ja4proxy ./cmd/proxy
 Run: python3 -m pytest tests/chaos/test_go_proxy_chaos.py -v
 """
+
 import glob
 import os
 import pathlib
@@ -34,10 +35,7 @@ _CHAOS_PROXY_PORT = 18083
 _CHAOS_METRICS_PORT = 19093
 
 pytestmark = pytest.mark.skipif(
-    not (
-        os.path.exists(GO_BINARY)
-        or os.path.exists("/usr/local/bin/ja4proxy")
-    ),
+    not (os.path.exists(GO_BINARY) or os.path.exists("/usr/local/bin/ja4proxy")),
     reason=(
         "Go binary not built; run: "
         "GOROOT=/snap/go/current go build -o bin/ja4proxy ./cmd/proxy"
@@ -52,6 +50,7 @@ if not os.path.exists(_GO_BIN):
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 def _check_port(host: str, port: int, timeout: float = 1.0) -> bool:
     try:
@@ -70,7 +69,9 @@ def _wait_for_port(host: str, port: int, timeout: float = 10.0) -> bool:
     return False
 
 
-def _start_proxy(port: int, metrics_port: int, extra_env: dict = None) -> subprocess.Popen:
+def _start_proxy(
+    port: int, metrics_port: int, extra_env: dict = None
+) -> subprocess.Popen:
     env = {
         **os.environ,
         "PROXY_PORT": str(port),
@@ -87,6 +88,7 @@ def _start_proxy(port: int, metrics_port: int, extra_env: dict = None) -> subpro
 
 
 # ── Test: adversarial ClientHello corpus ─────────────────────────────────────
+
 
 def test_go_proxy_adversarial_clienthello_no_panic():
     """Every adversarial corpus file must not cause a goroutine panic.
@@ -134,9 +136,9 @@ def test_go_proxy_adversarial_clienthello_no_panic():
                 pass
 
         # After sending all corpus files, proxy must still be alive
-        assert _check_port("127.0.0.1", chaos_port, timeout=2.0), (
-            "Go proxy is no longer accepting connections after adversarial corpus replay"
-        )
+        assert _check_port(
+            "127.0.0.1", chaos_port, timeout=2.0
+        ), "Go proxy is no longer accepting connections after adversarial corpus replay"
         assert not panics, f"Proxy panicked on corpus files: {panics}"
     finally:
         proc.terminate()
@@ -148,11 +150,10 @@ def test_go_proxy_adversarial_clienthello_no_panic():
 
 # ── Test: unknown config keys ─────────────────────────────────────────────────
 
+
 def test_go_proxy_starts_with_unknown_config_keys():
     """Go proxy must start even if proxy.yml has unknown top-level keys."""
-    with tempfile.NamedTemporaryFile(
-        mode="w", suffix=".yml", delete=False
-    ) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False) as f:
         f.write(
             "# Chaos test config with unknown keys\n"
             "listen_port: 18999\n"
@@ -185,14 +186,16 @@ def test_go_proxy_starts_with_unknown_config_keys():
             stderr_text = err.decode(errors="replace")
             # Acceptable: proxy may refuse to start due to unknown keys (strict mode)
             # OR it may start successfully. Either way it must not segfault.
-            assert proc.returncode != -signal.SIGSEGV.value if hasattr(signal, "SIGSEGV") else True, (
-                "Proxy segfaulted on unknown config keys"
-            )
+            assert (
+                proc.returncode != -signal.SIGSEGV.value
+                if hasattr(signal, "SIGSEGV")
+                else True
+            ), "Proxy segfaulted on unknown config keys"
         except subprocess.TimeoutExpired:
             # Still running — it started successfully despite unknown keys
-            assert _wait_for_port("127.0.0.1", chaos_port, timeout=2.0) or True, (
-                "Proxy started but not listening"
-            )
+            assert (
+                _wait_for_port("127.0.0.1", chaos_port, timeout=2.0) or True
+            ), "Proxy started but not listening"
             proc.terminate()
             proc.wait(timeout=5)
     finally:
@@ -206,6 +209,7 @@ def test_go_proxy_starts_with_unknown_config_keys():
 
 
 # ── Test: Redis fail-open ─────────────────────────────────────────────────────
+
 
 def test_go_proxy_redis_fail_open():
     """When Redis is unreachable, Go proxy must allow connections (dial=0 fail-open).
@@ -228,7 +232,9 @@ def test_go_proxy_redis_fail_open():
     started = _wait_for_port("127.0.0.1", chaos_port, timeout=15.0)
     if not started and proc.poll() is not None:
         out, err = proc.communicate()
-        pytest.skip(f"Go proxy exited on startup (Redis config issue): {err.decode()[:200]}")
+        pytest.skip(
+            f"Go proxy exited on startup (Redis config issue): {err.decode()[:200]}"
+        )
 
     try:
         if not started:
@@ -253,6 +259,7 @@ def test_go_proxy_redis_fail_open():
 
 
 # ── Test: malformed PROXY protocol header ─────────────────────────────────────
+
 
 def test_go_proxy_malformed_proxy_protocol_header():
     """Sending garbage before TLS ClientHello must not crash the Go proxy.
@@ -295,9 +302,9 @@ def test_go_proxy_malformed_proxy_protocol_header():
                 pass
 
         # Proxy must still be accepting connections after the garbage
-        assert _check_port("127.0.0.1", chaos_port, timeout=2.0), (
-            "Go proxy is no longer accepting connections after malformed PROXY headers"
-        )
+        assert _check_port(
+            "127.0.0.1", chaos_port, timeout=2.0
+        ), "Go proxy is no longer accepting connections after malformed PROXY headers"
     finally:
         proc.terminate()
         try:
@@ -307,6 +314,7 @@ def test_go_proxy_malformed_proxy_protocol_header():
 
 
 # ── Test: SIGTERM drain ────────────────────────────────────────────────────────
+
 
 def test_go_proxy_sigterm_drain():
     """SIGTERM must cause the Go proxy to drain and exit within 35 seconds."""
@@ -346,8 +354,10 @@ def test_go_proxy_sigterm_drain():
             except OSError:
                 pass
 
-    assert proc.returncode is not None, "Go proxy process has no returncode after wait()"
+    assert (
+        proc.returncode is not None
+    ), "Go proxy process has no returncode after wait()"
     # Exit code after SIGTERM is typically -15 (Unix) or 1; just not a panic code
-    assert proc.returncode != -signal.SIGABRT.value if hasattr(signal, "SIGABRT") else True, (
-        f"Go proxy aborted (SIGABRT) on SIGTERM: returncode={proc.returncode}"
-    )
+    assert (
+        proc.returncode != -signal.SIGABRT.value if hasattr(signal, "SIGABRT") else True
+    ), f"Go proxy aborted (SIGABRT) on SIGTERM: returncode={proc.returncode}"

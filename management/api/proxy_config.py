@@ -62,7 +62,9 @@ def _load_proxy_config() -> dict:
         _cache = ({}, now)
         return {}
     except Exception as exc:
-        logger.warning("proxy_config | load_failed | path=%s | error=%s", config_path, exc)
+        logger.warning(
+            "proxy_config | load_failed | path=%s | error=%s", config_path, exc
+        )
         _cache = ({}, now)
         return {}
 

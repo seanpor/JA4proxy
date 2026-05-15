@@ -1,6 +1,7 @@
 """
 Unit tests for src/tap/fingerprints/os_fingerprint.py (Phase 20 Group 5-I).
 """
+
 import pytest
 
 from src.tap.fingerprints.os_fingerprint import (
@@ -46,6 +47,7 @@ class TestOSFingerprint:
     def test_database_loaded_from_yaml(self, tmp_path):
         """load_os_database() must read YAML and return OSSignature list."""
         import yaml
+
         db_file = tmp_path / "os_db.yaml"
         db_file.write_text(
             "signatures:\n"

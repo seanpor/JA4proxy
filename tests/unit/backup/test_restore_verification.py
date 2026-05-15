@@ -6,6 +6,7 @@ Tests for:
 - Key count divergence warning (>5% → WARNING logged; advisory only)
 - `backup:restored_from` NOT written on restore failure
 """
+
 import hashlib
 import json
 import logging
@@ -22,6 +23,7 @@ from src.backup.restorer import BackupRestorer, RestoreError
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_backup(tmp_path: Path, n_keys: int = 5) -> tuple[Path, Path]:
     """Write a minimal valid backup artifact + manifest.
 
@@ -34,16 +36,20 @@ def _make_backup(tmp_path: Path, n_keys: int = 5) -> tuple[Path, Path]:
     bp = tmp_path / filename
     mp = tmp_path / f"{filename}.manifest.json"
     bp.write_bytes(data)
-    mp.write_text(json.dumps({
-        "filename": filename,
-        "created_at": "2026-01-01T00:00:00Z",
-        "backup_type": "full",
-        "keys_count": n_keys,
-        "checksum_sha256": checksum,
-        "size_bytes": len(data),
-        "included_patterns": ["*"],
-        "excluded_patterns": [],
-    }))
+    mp.write_text(
+        json.dumps(
+            {
+                "filename": filename,
+                "created_at": "2026-01-01T00:00:00Z",
+                "backup_type": "full",
+                "keys_count": n_keys,
+                "checksum_sha256": checksum,
+                "size_bytes": len(data),
+                "included_patterns": ["*"],
+                "excluded_patterns": [],
+            }
+        )
+    )
     return bp, mp
 
 
@@ -72,7 +78,11 @@ def _make_mock_redis(scan_key_count: int = 0) -> MagicMock:
     _stored: dict[str, bytes] = {}
 
     def _set(key, value, *args, **kwargs):
-        _stored[key] = value if isinstance(value, bytes) else value.encode() if isinstance(value, str) else value
+        _stored[key] = (
+            value
+            if isinstance(value, bytes)
+            else value.encode() if isinstance(value, str) else value
+        )
         return True
 
     def _get(key):
@@ -91,6 +101,7 @@ def _make_restorer() -> BackupRestorer:
 # ---------------------------------------------------------------------------
 # Test: backup:restored_from key written after successful restore
 # ---------------------------------------------------------------------------
+
 
 class TestRestoredFromKeyWritten:
     """backup:restored_from is set on success."""
@@ -132,6 +143,7 @@ class TestRestoredFromKeyWritten:
 
         # restored_at should parse as ISO-8601
         from datetime import datetime
+
         ts = record["restored_at"].rstrip("Z").split("+")[0]
         datetime.fromisoformat(ts)  # raises ValueError if not valid ISO
 
@@ -143,6 +155,7 @@ class TestRestoredFromKeyWritten:
 # ---------------------------------------------------------------------------
 # Test: key count divergence warning
 # ---------------------------------------------------------------------------
+
 
 class TestKeyCountDivergence:
     """_verify_key_count emits WARNING on >5% divergence; never blocks restore."""
@@ -159,13 +172,13 @@ class TestKeyCountDivergence:
                 restorer.restore_backup(str(bp), str(mp))
 
         divergence_warnings = [
-            r for r in caplog.records
-            if "divergence" in r.getMessage().lower()
-            and r.levelno >= logging.WARNING
+            r
+            for r in caplog.records
+            if "divergence" in r.getMessage().lower() and r.levelno >= logging.WARNING
         ]
-        assert divergence_warnings == [], (
-            f"Unexpected divergence warning(s): {[r.getMessage() for r in divergence_warnings]}"
-        )
+        assert (
+            divergence_warnings == []
+        ), f"Unexpected divergence warning(s): {[r.getMessage() for r in divergence_warnings]}"
 
     def test_key_count_diverges_warning_logged(self, tmp_path, caplog):
         """100 keys in manifest, 80 returned by SCAN → 20% divergence → WARNING logged."""
@@ -178,9 +191,9 @@ class TestKeyCountDivergence:
                 restorer.restore_backup(str(bp), str(mp))
 
         divergence_warnings = [
-            r for r in caplog.records
-            if "divergence" in r.getMessage().lower()
-            and r.levelno >= logging.WARNING
+            r
+            for r in caplog.records
+            if "divergence" in r.getMessage().lower() and r.levelno >= logging.WARNING
         ]
         assert len(divergence_warnings) >= 1, (
             "Expected at least one key-count-divergence WARNING but found none. "
@@ -202,6 +215,7 @@ class TestKeyCountDivergence:
 # Test: backup:restored_from NOT written on failure
 # ---------------------------------------------------------------------------
 
+
 class TestRestoredFromKeyNotWrittenOnFailure:
     """backup:restored_from must not be written when restore fails."""
 
@@ -215,16 +229,20 @@ class TestRestoredFromKeyNotWrittenOnFailure:
         bp = tmp_path / filename
         mp = tmp_path / f"{filename}.manifest.json"
         bp.write_bytes(data)
-        mp.write_text(json.dumps({
-            "filename": filename,
-            "created_at": "2026-01-01T12:00:00Z",
-            "backup_type": "full",
-            "keys_count": 1,
-            "checksum_sha256": checksum,
-            "size_bytes": len(data),
-            "included_patterns": ["*"],
-            "excluded_patterns": [],
-        }))
+        mp.write_text(
+            json.dumps(
+                {
+                    "filename": filename,
+                    "created_at": "2026-01-01T12:00:00Z",
+                    "backup_type": "full",
+                    "keys_count": 1,
+                    "checksum_sha256": checksum,
+                    "size_bytes": len(data),
+                    "included_patterns": ["*"],
+                    "excluded_patterns": [],
+                }
+            )
+        )
 
         # Corrupt the binary so checksum fails
         bp.write_bytes(b"corrupted content that does not match")
@@ -239,6 +257,6 @@ class TestRestoredFromKeyNotWrittenOnFailure:
         # Checksum failure happens BEFORE Redis is touched, so `set` was never called
         # for restored_from. get() should return None.
         raw = mock_redis.get("backup:restored_from")
-        assert raw is None, (
-            "backup:restored_from must not be written when restore fails (checksum mismatch)"
-        )
+        assert (
+            raw is None
+        ), "backup:restored_from must not be written when restore fails (checksum mismatch)"

@@ -15,7 +15,9 @@ def mock_redis():
     mock_client = AsyncMock()
     mock_client.ping = AsyncMock(return_value=True)
     mock_client.get = AsyncMock(return_value="25")
-    mock_client.scan = AsyncMock(return_value=(0, ["ja4proxy:ban:abc", "ja4proxy:ban:def"]))
+    mock_client.scan = AsyncMock(
+        return_value=(0, ["ja4proxy:ban:abc", "ja4proxy:ban:def"])
+    )
 
     mock_manager = MagicMock()
     mock_manager._client = mock_client
@@ -68,9 +70,9 @@ def app_with_mocks(mock_redis, mock_prometheus_response):
     mock_aiohttp.ClientTimeout = MagicMock()
 
     app_module.aiohttp = mock_aiohttp
-    
+
     yield app
-    
+
     # Restore original values
     app_module.redis_manager = orig_redis
     if orig_aiohttp is not None:
@@ -186,6 +188,7 @@ class TestHealthDeepRedisFailure:
         mock_manager.get_dial = AsyncMock(side_effect=ConnectionError("redis down"))
 
         import src.management.app as app_module
+
         orig = app_module.redis_manager
         app_module.redis_manager = mock_manager
 

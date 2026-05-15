@@ -195,7 +195,7 @@ def parse_phase_file(path: Path, phase_number: str) -> list[Requirement]:
         if vmatches:
             vmatch = vmatches[-1]
             description = rest[: vmatch.start()].rstrip(" .\t`")
-            verified_clause = rest[vmatch.end():].strip()
+            verified_clause = rest[vmatch.end() :].strip()
         else:
             description = rest
             verified_clause = ""
@@ -247,6 +247,7 @@ def render_table(reqs: Iterable[Requirement]) -> str:
         "|--------|-------|-------------|-------------|--------|\n"
     )
     rows = []
+
     # Stable sort by (phase as int when possible, req_id)
     def sort_key(r: Requirement) -> tuple:
         try:

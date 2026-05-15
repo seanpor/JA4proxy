@@ -68,9 +68,7 @@ def _check_cidr(cidr: str, context: str) -> None:
     try:
         ipaddress.ip_network(cidr, strict=False)
     except ValueError as exc:
-        raise PolicySchemaError(
-            f"Invalid CIDR in {context}: {cidr!r} — {exc}"
-        ) from exc
+        raise PolicySchemaError(f"Invalid CIDR in {context}: {cidr!r} — {exc}") from exc
 
 
 def _check_ja4(fingerprint: str, context: str) -> None:
@@ -224,12 +222,8 @@ def validate_policy(yaml_text: str, current_dial: int = 0) -> dict:
     _check_expires(watchlist.get("ips") or [], "watchlist.ips")
 
     # ── 6. Duplicate JA4 fingerprints ───────────────────────────────────────
-    _check_duplicates_ja4(
-        allowlist.get("fingerprints") or [], "allowlist.fingerprints"
-    )
-    _check_duplicates_ja4(
-        blocklist.get("fingerprints") or [], "blocklist.fingerprints"
-    )
+    _check_duplicates_ja4(allowlist.get("fingerprints") or [], "allowlist.fingerprints")
+    _check_duplicates_ja4(blocklist.get("fingerprints") or [], "blocklist.fingerprints")
 
     # ── 7. Dial increase > 20 without approval ───────────────────────────────
     dial = policy.get("dial") or {}

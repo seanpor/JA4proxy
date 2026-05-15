@@ -1,6 +1,7 @@
 """
 Unit tests for src/tap/export/kafka_producer.py — Phase 20, Group 9.
 """
+
 import asyncio
 import json
 from datetime import datetime, timezone
@@ -13,6 +14,7 @@ from src.tap.export.kafka_producer import KafkaExporter
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_config(**overrides) -> dict:
     cfg = {
@@ -52,6 +54,7 @@ def _make_fp(**kwargs):
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 class TestFingerprintMessage:
     @pytest.mark.asyncio
@@ -150,6 +153,7 @@ class TestBatching:
 # Additional tests targeting previously uncovered lines
 # ---------------------------------------------------------------------------
 
+
 class TestNoopProducer:
     """Line 28, 38, 41, 46, 49: _NoopProducer stub used when aiokafka is absent."""
 
@@ -158,6 +162,7 @@ class TestNoopProducer:
         # Line 38: _NoopProducer.start() is the fallback when aiokafka is not installed.
         # If this stub crashes, every deployment without aiokafka fails at startup.
         from src.tap.export.kafka_producer import _NoopProducer
+
         noop = _NoopProducer()
         await noop.start()  # must not raise
 
@@ -165,6 +170,7 @@ class TestNoopProducer:
     async def test_noop_producer_stop_does_not_raise(self):
         # Line 41: _NoopProducer.stop() must be safe — called during shutdown.
         from src.tap.export.kafka_producer import _NoopProducer
+
         noop = _NoopProducer()
         await noop.stop()  # must not raise
 
@@ -173,6 +179,7 @@ class TestNoopProducer:
         # Lines 44-46: _NoopProducer.send_and_wait() must silently swallow messages.
         # Without a Kafka broker, messages should be dropped, not cause an exception.
         from src.tap.export.kafka_producer import _NoopProducer
+
         noop = _NoopProducer()
         await noop.send_and_wait("topic", key=b"k", value=b"v")  # must not raise
 
@@ -180,6 +187,7 @@ class TestNoopProducer:
     async def test_noop_producer_flush_does_not_raise(self):
         # Line 49: _NoopProducer.flush() must be a no-op when aiokafka is absent.
         from src.tap.export.kafka_producer import _NoopProducer
+
         noop = _NoopProducer()
         await noop.flush()  # must not raise
 
@@ -188,6 +196,7 @@ class TestNoopProducer:
         # This ensures the exporter degrades gracefully in environments without Kafka.
         from src.tap.export import kafka_producer as kp
         from src.tap.export.kafka_producer import _NoopProducer
+
         original = kp._AIOKAFKA_AVAILABLE
         try:
             kp._AIOKAFKA_AVAILABLE = False

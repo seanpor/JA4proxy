@@ -24,6 +24,7 @@ def policy() -> KeyPolicy:
 # Critical security keys that must always be included
 # ---------------------------------------------------------------------------
 
+
 class TestCriticalKeysIncluded:
     """Verify that critical security keys are included in every backup."""
 
@@ -64,6 +65,7 @@ class TestCriticalKeysIncluded:
 # ---------------------------------------------------------------------------
 # Transient keys that must NOT be included in backup
 # ---------------------------------------------------------------------------
+
 
 class TestTransientKeysExcluded:
     """Verify that transient, per-connection state is excluded from backup.
@@ -109,6 +111,7 @@ class TestTransientKeysExcluded:
 # ---------------------------------------------------------------------------
 # Exclusion precedence: exclude wins over include for same key
 # ---------------------------------------------------------------------------
+
 
 class TestExclusionPrecedence:
     """Verify that exclusion patterns take precedence over inclusion patterns."""

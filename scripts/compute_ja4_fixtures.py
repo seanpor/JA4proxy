@@ -14,7 +14,7 @@ from src.tls.parser import parse_client_hello
 def compute():
     fixtures_dir = pathlib.Path("tests/fixtures/clienthello")
     known_ja4_path = fixtures_dir / "known_ja4.json"
-    
+
     if known_ja4_path.exists():
         with open(known_ja4_path, "r") as f:
             known = json.load(f)
@@ -22,7 +22,7 @@ def compute():
         known = {}
 
     generator = JA4Generator()
-    
+
     for bin_file in fixtures_dir.glob("*.bin"):
         name = bin_file.stem
         data = bin_file.read_bytes()
@@ -37,6 +37,7 @@ def compute():
     with open(known_ja4_path, "w") as f:
         json.dump(known, f, indent=2)
     print(f"\nUpdated {known_ja4_path}")
+
 
 if __name__ == "__main__":
     compute()

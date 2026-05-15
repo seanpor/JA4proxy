@@ -44,12 +44,14 @@ async def soar_mock():
 def _import_xsoar():
     """Import the XSOAR connector module. Raises ImportError if not present."""
     from deploy.integrations.xsoar.JA4proxy import commands as xsoar_commands  # type: ignore[import]
+
     return xsoar_commands
 
 
 def _import_splunk():
     """Import the Splunk SOAR connector module. Raises ImportError if not present."""
     from deploy.integrations.splunk_soar.ja4proxy import connector as splunk_connector  # type: ignore[import]
+
     return splunk_connector
 
 
@@ -144,9 +146,10 @@ class TestXSOARGetConnectionHistory:
         assert req["method"] == "GET"
         assert req["path"] == "/api/v1/connections"
         assert req["query"].get("ip") == "1.2.3.4"
-        assert req["query"].get("days") in ("7", 7), (
-            f"Expected query param days=7, got {req['query'].get('days')!r}"
-        )
+        assert req["query"].get("days") in (
+            "7",
+            7,
+        ), f"Expected query param days=7, got {req['query'].get('days')!r}"
         assert req["headers"].get("Authorization") == f"Bearer {token}"
 
 
@@ -218,9 +221,11 @@ class TestXSOARGetHealth:
         assert req["path"] == "/api/v1/health/deep"
         assert req["headers"].get("Authorization") == f"Bearer {token}"
         # Verify the connector returns the parsed response body (not None or empty dict).
-        assert result.get("status") in ("ok", "degraded", "critical"), (
-            f"Expected status in (ok, degraded, critical), got: {result!r}"
-        )
+        assert result.get("status") in (
+            "ok",
+            "degraded",
+            "critical",
+        ), f"Expected status in (ok, degraded, critical), got: {result!r}"
 
 
 class TestXSOARAddToAllowlist:
@@ -295,9 +300,9 @@ class TestXSOARGetDial:
         assert req["method"] == "GET"
         assert req["path"] == "/api/v1/dial"
         assert req["headers"].get("Authorization") == f"Bearer {token}"
-        assert isinstance(result.get("dial"), int), (
-            f"Expected 'dial' to be an integer in response, got: {result!r}"
-        )
+        assert isinstance(
+            result.get("dial"), int
+        ), f"Expected 'dial' to be an integer in response, got: {result!r}"
 
 
 class TestXSOARAuthError:
@@ -320,9 +325,9 @@ class TestXSOARAuthError:
 
         # The exception must communicate the 401 status
         err_str = str(exc_info.value).lower()
-        assert "401" in err_str or "auth" in err_str or "unauthorized" in err_str, (
-            f"Expected auth-related error, got: {exc_info.value!r}"
-        )
+        assert (
+            "401" in err_str or "auth" in err_str or "unauthorized" in err_str
+        ), f"Expected auth-related error, got: {exc_info.value!r}"
 
 
 # ===========================================================================
@@ -520,9 +525,11 @@ class TestSplunkGetHealth:
         assert req["method"] == "GET"
         assert req["path"] == "/api/v1/health/deep"
         assert req["headers"].get("Authorization") == f"Bearer {token}"
-        assert result.get("status") in ("ok", "degraded", "critical"), (
-            f"Expected status in (ok, degraded, critical), got: {result!r}"
-        )
+        assert result.get("status") in (
+            "ok",
+            "degraded",
+            "critical",
+        ), f"Expected status in (ok, degraded, critical), got: {result!r}"
 
 
 class TestSplunkErrorHandling:
@@ -604,6 +611,6 @@ class TestSplunkErrorHandling:
 
         req = mock.last_request()
         assert req is not None
-        assert req["query"].get("days") == "14", (
-            f"Expected days=14 in query params, got: {req['query']}"
-        )
+        assert (
+            req["query"].get("days") == "14"
+        ), f"Expected days=14 in query params, got: {req['query']}"

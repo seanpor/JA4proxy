@@ -143,9 +143,10 @@ class TestLocalCacheWithRedisDown:
         # Phase 2 formula: effective_block@75 = round(101-0.75*31) = round(77.75) = 78
         # effective_tarpit@75 = round(101-0.75*46) = round(66.5) = 66
         # score=80 >= 78 → block
-        assert action in ("tarpit", "block"), (
-            f"Unexpected action {action!r} at dial=75, score=80"
-        )
+        assert action in (
+            "tarpit",
+            "block",
+        ), f"Unexpected action {action!r} at dial=75, score=80"
 
     def test_block_bypass_fires_without_any_redis_interaction(self):
         """JA4 blacklist bypass must work entirely from in-process memory —

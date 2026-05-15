@@ -163,8 +163,7 @@ class IntegrityMonitor:
             signature = _decode_signature(sig_raw)
         except (OSError, ValueError) as exc:
             logger.warning(
-                "integrity | event=sig_file_missing_or_invalid | "
-                "path=%s | error=%s",
+                "integrity | event=sig_file_missing_or_invalid | " "path=%s | error=%s",
                 sig_path,
                 exc,
             )
@@ -182,14 +181,10 @@ class IntegrityMonitor:
 
         try:
             public_key.verify(signature, data)
-            logger.info(
-                "integrity | event=signature_valid | path=%s", config_path
-            )
+            logger.info("integrity | event=signature_valid | path=%s", config_path)
             return True
         except InvalidSignature:
-            logger.error(
-                "integrity | event=signature_invalid | path=%s", config_path
-            )
+            logger.error("integrity | event=signature_invalid | path=%s", config_path)
             return False
         except Exception as exc:
             logger.error(
@@ -235,23 +230,21 @@ class IntegrityMonitor:
                 try:
                     current = _hash_paths(paths)
                     _compare_and_alert(
-                        self._baseline, current, self._integrity_cfg,
+                        self._baseline,
+                        current,
+                        self._integrity_cfg,
                         self.violation_counter,
                     )
                     # Phase 56b: record that a check completed — used by DeadManSwitch.
                     self.last_check_time = time.monotonic()  # phase-56b
                 except Exception as exc:
                     # Fail open — log the error but keep the monitor running.
-                    logger.error(
-                        "integrity | event=monitor_error | error=%s", exc
-                    )
+                    logger.error("integrity | event=monitor_error | error=%s", exc)
         except asyncio.CancelledError:
             logger.info("integrity | event=monitor_stopped")
             return
 
-    def append_audit_log(
-        self, log_path: str, status: str, detail: str
-    ) -> None:
+    def append_audit_log(self, log_path: str, status: str, detail: str) -> None:
         """Append a JSON line to *log_path* forming a hash-chain.
 
         Each entry contains:
@@ -310,6 +303,7 @@ def _decode_signature(raw: bytes) -> bytes:
 
     # Try base64 decode
     import base64
+
     try:
         decoded = base64.b64decode(stripped)
         if len(decoded) == 64:
@@ -347,6 +341,7 @@ def _load_pubkey(pubkey_path: str):
 
     # Try base64 → 32 bytes raw key
     import base64
+
     try:
         decoded = base64.b64decode(stripped)
         if len(decoded) == 32:
@@ -397,9 +392,7 @@ def _hash_paths(paths: List[str]) -> Dict[str, str]:
             elif p.is_file():
                 result[str(p)] = _hash_file(str(p))
             else:
-                logger.debug(
-                    "integrity | event=path_not_found | path=%s", raw_path
-                )
+                logger.debug("integrity | event=path_not_found | path=%s", raw_path)
         except Exception as exc:
             logger.warning(
                 "integrity | event=path_error | path=%s | error=%s",
@@ -433,8 +426,7 @@ def _compare_and_alert(
             violation_counter.inc()  # unlabelled total
             _INTEGRITY_VIOLATIONS_BY_PATH.labels(path=path).inc()
             logger.error(
-                "integrity | event=file_tampered | path=%s | "
-                "expected=%s | got=%s",
+                "integrity | event=file_tampered | path=%s | " "expected=%s | got=%s",
                 path,
                 baseline_digest,
                 digest,
@@ -444,6 +436,7 @@ def _compare_and_alert(
                     "integrity | event=shutdown_on_violation | path=%s", path
                 )
                 import sys
+
                 sys.exit(1)
 
     # Report deleted files — and remove from baseline so we don't alert every cycle
@@ -451,9 +444,7 @@ def _compare_and_alert(
         if path not in current:
             violation_counter.inc()  # unlabelled total
             _INTEGRITY_VIOLATIONS_BY_PATH.labels(path=path).inc()
-            logger.error(
-                "integrity | event=file_deleted | path=%s", path
-            )
+            logger.error("integrity | event=file_deleted | path=%s", path)
             del baseline[path]  # stop alerting on every subsequent scan cycle
 
 
@@ -486,4 +477,5 @@ def _read_last_line_hash(log_path: str) -> str:
 def _utc_now_iso() -> str:
     """Return the current UTC time as an ISO-8601 string."""
     from datetime import datetime, timezone
+
     return datetime.now(timezone.utc).isoformat()

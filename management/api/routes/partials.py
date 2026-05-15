@@ -57,7 +57,7 @@ _LIST_REDIS_KEYS: dict[str, tuple[str, str, str]] = {
     # query_param  → (list_type, list_name, redis_key)
     "ja4_whitelist": ("ja4", "whitelist", "ja4:whitelist"),
     "ja4_blacklist": ("ja4", "blacklist", "ja4:blacklist"),
-    "ip_allowlist":  ("ip",  "allowlist",  "static:allowlist"),
+    "ip_allowlist": ("ip", "allowlist", "static:allowlist"),
 }
 
 _BAN_KEY_PREFIX = "ban:"
@@ -139,7 +139,9 @@ async def health_cards_partial(
             "label": "Dial Setting",
             "value": str(dial_value),
             "unit": "/100",
-            "status": "ok" if dial_value == 0 else ("warn" if dial_value <= 49 else "error"),
+            "status": (
+                "ok" if dial_value == 0 else ("warn" if dial_value <= 49 else "error")
+            ),
             "icon_path": "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0",
         },
         {
@@ -152,8 +154,13 @@ async def health_cards_partial(
     ]
 
     return templates.TemplateResponse(
-        request, "partials/health_cards.html",
-        {"user": current_user[0], "health_cards": health_cards, "dial_value": dial_value},
+        request,
+        "partials/health_cards.html",
+        {
+            "user": current_user[0],
+            "health_cards": health_cards,
+            "dial_value": dial_value,
+        },
     )
 
 
@@ -168,7 +175,8 @@ async def dial_partial(
     dial_value = await _get_dial(redis)
 
     return templates.TemplateResponse(
-        request, "partials/dial_widget.html",
+        request,
+        "partials/dial_widget.html",
         {"user": current_user[0], "dial_value": dial_value},
     )
 
@@ -190,7 +198,7 @@ async def bans_partial(
                 cursor=cursor, match=f"{_BAN_KEY_PREFIX}*", count=100
             )
             for key in keys:
-                ip = key[len(_BAN_KEY_PREFIX):]
+                ip = key[len(_BAN_KEY_PREFIX) :]
                 reason = await redis.get(key)
                 if reason is None:
                     continue
@@ -220,7 +228,8 @@ async def bans_partial(
     dial_value = await _get_dial(redis)
 
     return templates.TemplateResponse(
-        request, "partials/bans_table.html",
+        request,
+        "partials/bans_table.html",
         {"user": current_user[0], "bans": bans, "dial_value": dial_value},
     )
 
@@ -250,8 +259,7 @@ async def audit_partial(
         # Apply filter
         if filter != "all":
             parsed = [
-                e for e in parsed
-                if filter.lower() in (e.get("action", "").lower())
+                e for e in parsed if filter.lower() in (e.get("action", "").lower())
             ]
 
         # Limit to 100
@@ -270,7 +278,10 @@ async def audit_partial(
                 "timestamp": e.get("timestamp", "—")[:19].replace("T", " "),
                 "changed_by": e.get("user", "system"),
                 "action": e.get("action", "unknown"),
-                "item": detail.get("ip") or detail.get("entry") or detail.get("list") or "",
+                "item": detail.get("ip")
+                or detail.get("entry")
+                or detail.get("list")
+                or "",
                 "old_value": detail.get("from"),
                 "new_value": detail.get("to"),
                 "details": detail if detail else None,
@@ -280,7 +291,8 @@ async def audit_partial(
     dial_value = await _get_dial(redis)
 
     return templates.TemplateResponse(
-        request, "partials/audit_table.html",
+        request,
+        "partials/audit_table.html",
         {"user": current_user[0], "events": normalised, "dial_value": dial_value},
     )
 
@@ -290,7 +302,9 @@ async def list_table_partial(
     request: Request,
     current_user=Depends(get_current_user),
     redis=Depends(get_redis),
-    list: str = Query(..., description="List name: ja4_whitelist | ja4_blacklist | ip_allowlist"),
+    list: str = Query(
+        ..., description="List name: ja4_whitelist | ja4_blacklist | ip_allowlist"
+    ),
 ) -> HTMLResponse:
     """Return a list entries table as an HTML fragment."""
     templates = _get_templates()
@@ -314,12 +328,15 @@ async def list_table_partial(
             for e in sorted(raw_entries)
         ]
     except Exception as exc:  # noqa: BLE001
-        logger.warning("partials | event=list_redis_error | list=%s | error=%s", list, exc)
+        logger.warning(
+            "partials | event=list_redis_error | list=%s | error=%s", list, exc
+        )
 
     dial_value = await _get_dial(redis)
 
     return templates.TemplateResponse(
-        request, "partials/list_table.html",
+        request,
+        "partials/list_table.html",
         {
             "user": current_user[0],
             "list_name": list,

@@ -55,6 +55,7 @@ async def login_page(request: Request) -> HTMLResponse:
     user = _get_optional_user(request)
     if user:
         from fastapi.responses import RedirectResponse
+
         return RedirectResponse(url="/", status_code=302)
 
     templates = _get_templates()
@@ -68,7 +69,9 @@ async def dashboard_page(
 ) -> HTMLResponse:
     """Render the main dashboard page."""
     templates = _get_templates()
-    return templates.TemplateResponse(request, "dashboard.html", {"user": current_user[0]})
+    return templates.TemplateResponse(
+        request, "dashboard.html", {"user": current_user[0]}
+    )
 
 
 @router.get("/lists", response_class=HTMLResponse)
