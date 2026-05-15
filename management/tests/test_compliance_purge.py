@@ -64,8 +64,12 @@ async def test_purge_stream_removes_old_events(redis_client):
     recent_id = _recent_stream_id()
 
     # Seed one old event and one recent event
-    await redis_client.xadd("ja4proxy:events", {"ip": "1.2.3.4", "action_taken": "blocked"}, id=old_id)
-    await redis_client.xadd("ja4proxy:events", {"ip": "5.6.7.8", "action_taken": "allowed"}, id=recent_id)
+    await redis_client.xadd(
+        "ja4proxy:events", {"ip": "1.2.3.4", "action_taken": "blocked"}, id=old_id
+    )
+    await redis_client.xadd(
+        "ja4proxy:events", {"ip": "5.6.7.8", "action_taken": "allowed"}, id=recent_id
+    )
 
     assert await redis_client.xlen("ja4proxy:events") == 2
 
@@ -84,7 +88,9 @@ async def test_purge_stream_removes_old_events(redis_client):
 async def test_purge_stream_preserves_recent_events(redis_client):
     """Events within the retention window are not touched."""
     recent_id = _recent_stream_id()
-    await redis_client.xadd("ja4proxy:events", {"ip": "1.2.3.4", "action_taken": "blocked"}, id=recent_id)
+    await redis_client.xadd(
+        "ja4proxy:events", {"ip": "1.2.3.4", "action_taken": "blocked"}, id=recent_id
+    )
 
     before_count = await redis_client.xlen("ja4proxy:events")
 
@@ -295,12 +301,15 @@ async def test_purge_summary_to_dict_all_fields(redis_client):
     for k in required_keys:
         assert k in d, f"Missing '{k}' in summary dict"
     assert isinstance(d["errors"], list)
-    assert all(isinstance(n, int) for n in [
-        d["connection_events_deleted"],
-        d["beaconing_records_cleaned"],
-        d["rv_hashes_deleted"],
-        d["monthly_aggregates_deleted"],
-    ])
+    assert all(
+        isinstance(n, int)
+        for n in [
+            d["connection_events_deleted"],
+            d["beaconing_records_cleaned"],
+            d["rv_hashes_deleted"],
+            d["monthly_aggregates_deleted"],
+        ]
+    )
 
 
 # ── Partial error resilience ──────────────────────────────────────────────────
@@ -316,8 +325,10 @@ async def test_purge_partial_error_still_completes(redis_client):
 
     # Make _purge_stream raise to simulate a Redis error in that category
     _original_purge_stream = purge._purge_stream
+
     async def failing_purge_stream(cutoff_ms):
         raise RuntimeError("simulated stream error")
+
     purge._purge_stream = failing_purge_stream
 
     summary = await purge.run()
@@ -327,7 +338,9 @@ async def test_purge_partial_error_still_completes(redis_client):
     assert any(e["category"] == "stream" for e in summary.errors)
 
     # Other categories still ran — rv hash was deleted
-    assert not await redis_client.exists("rv:1.2.3.4"), "rv hash not deleted despite partial error"
+    assert not await redis_client.exists(
+        "rv:1.2.3.4"
+    ), "rv hash not deleted despite partial error"
 
     # Completion keys still written
     assert await redis_client.get("gdpr:purge:last_run") is not None

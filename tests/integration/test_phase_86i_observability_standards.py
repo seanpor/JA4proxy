@@ -21,10 +21,10 @@ REQUIRED_LOADTEST_METRICS = [
 def test_observability_standards_registers_loadtest_metrics():
     assert OBS_STANDARDS.exists(), f"missing {OBS_STANDARDS}"
     text = OBS_STANDARDS.read_text()
-    assert "Load Testing" in text, (
-        "Phase 86i: OBSERVABILITY_STANDARDS.md must have a Load Testing subsection"
-    )
+    assert (
+        "Load Testing" in text
+    ), "Phase 86i: OBSERVABILITY_STANDARDS.md must have a Load Testing subsection"
     for metric in REQUIRED_LOADTEST_METRICS:
-        assert metric in text, (
-            f"Phase 86i: {metric} not registered in OBSERVABILITY_STANDARDS.md"
-        )
+        assert (
+            metric in text
+        ), f"Phase 86i: {metric} not registered in OBSERVABILITY_STANDARDS.md"

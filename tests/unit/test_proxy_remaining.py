@@ -825,6 +825,7 @@ class TestProxyServerInitLogging:
         from unittest.mock import mock_open
 
         import yaml
+
         with (
             patch("proxy.ConfigLoader"),
             patch("builtins.open", mock_open(read_data=yaml.dump(config))),
@@ -894,6 +895,7 @@ class TestProxyServerInitLogging:
         from unittest.mock import mock_open
 
         import yaml
+
         with (
             patch("proxy.ConfigLoader"),
             patch("builtins.open", mock_open(read_data=yaml.dump(config))),
@@ -1410,7 +1412,7 @@ class TestJA4GeneratorCoverageGaps:
             "version": 0x0303,
             "supported_versions": [0x0304],
             "cipher_suites": [0x0A0A, 0x1301],  # 0x0A0A is GREASE
-            "extensions": [0x0A0A, 10],           # 0x0A0A is GREASE
+            "extensions": [0x0A0A, 10],  # 0x0A0A is GREASE
             "alpn": [],
         }
         ja4 = gen.generate_ja4(fields)
@@ -1467,9 +1469,22 @@ class TestJA4GeneratorCoverageGaps:
         """All 16 GREASE values return True (lines 533-551)."""
         gen = JA4Generator()
         grease_values = [
-            0x0A0A, 0x1A1A, 0x2A2A, 0x3A3A, 0x4A4A, 0x5A5A,
-            0x6A6A, 0x7A7A, 0x8A8A, 0x9A9A, 0xAAAA, 0xBABA,
-            0xCACA, 0xDADA, 0xEAEA, 0xFAFA,
+            0x0A0A,
+            0x1A1A,
+            0x2A2A,
+            0x3A3A,
+            0x4A4A,
+            0x5A5A,
+            0x6A6A,
+            0x7A7A,
+            0x8A8A,
+            0x9A9A,
+            0xAAAA,
+            0xBABA,
+            0xCACA,
+            0xDADA,
+            0xEAEA,
+            0xFAFA,
         ]
         for val in grease_values:
             assert gen._is_grease(val) is True
@@ -1498,7 +1513,9 @@ class TestConfigManagerCoverageGaps:
         mgr.config_path = "test"
         mgr.logger = MagicMock()
         config = {"redis": {"password": "x"}, "security": {}}  # Missing "proxy"
-        with patch.object(mgr, "_default_config", return_value={"proxy": {"bind_port": 8080}}):
+        with patch.object(
+            mgr, "_default_config", return_value={"proxy": {"bind_port": 8080}}
+        ):
             with patch.object(mgr, "_validate_proxy_config"):
                 with patch.object(mgr, "_validate_redis_config"):
                     with patch.object(mgr, "_validate_security_config"):
@@ -1553,16 +1570,18 @@ class TestSecurityManagerCoverageGaps:
 
     def test_load_security_lists_happy_path(self):
         """_load_security_lists successfully loads whitelist + blacklist (line 790)."""
+
         async def run():
             sm, redis = self._make_security_manager()
-            redis.smembers = AsyncMock(side_effect=[
-                {b"fp3"},          # blacklist
-                {b"fp1", b"fp2"},  # whitelist
-            ])
-            redis.get = AsyncMock(side_effect=[
-                b"sig1", # blacklist sig
-                b"sig2"  # whitelist sig
-            ])
+            redis.smembers = AsyncMock(
+                side_effect=[
+                    {b"fp3"},  # blacklist
+                    {b"fp1", b"fp2"},  # whitelist
+                ]
+            )
+            redis.get = AsyncMock(
+                side_effect=[b"sig1", b"sig2"]  # blacklist sig  # whitelist sig
+            )
             sm._verify_signature = MagicMock(return_value=True)
             await sm._load_security_lists()
             assert "fp3" in sm.blacklist
@@ -1696,17 +1715,26 @@ class TestSecurityManagerCoverageGaps:
 
     def test_check_rate_limit_adaptive_threshold(self):
         """Adaptive rate enabled → calls _get_adaptive_rate_threshold (line 907)."""
+
         async def run():
             redis = MagicMock()
             # JA4PROXY-2026-0038: atomic rate-limit uses eval().
             redis.eval = AsyncMock(return_value=5)
-            redis.hgetall = AsyncMock(return_value={
-                b"confidence": b"0.8",
-                b"threshold_rps": b"50",
-            })
+            redis.hgetall = AsyncMock(
+                return_value={
+                    b"confidence": b"0.8",
+                    b"threshold_rps": b"50",
+                }
+            )
             config = {
                 "security": {"max_requests_per_minute": 100, "rate_limit_window": 60},
-                "rate_limiter": {"adaptive": {"enabled": True, "min_threshold_rps": 5, "max_threshold_rps": 1000}},
+                "rate_limiter": {
+                    "adaptive": {
+                        "enabled": True,
+                        "min_threshold_rps": 5,
+                        "max_threshold_rps": 1000,
+                    }
+                },
             }
             sm = SecurityManager(config, redis)
             sm.redis = redis
@@ -1790,6 +1818,7 @@ class TestProxyServerShutdownCoverageGaps:
 
     def test_shutdown_with_no_abuseipdb(self):
         """Shutdown when _abuseipdb_checker is None doesn't call stop (line 1441)."""
+
         async def run():
             server = self._make_server_stub()
             server._abuseipdb_checker = None
@@ -1815,6 +1844,7 @@ class TestProxyServerShutdownCoverageGaps:
 
     def test_shutdown_abuseipdb_stop_exception_swallowed(self):
         """Exception in _abuseipdb_checker.stop() is caught (lines 1442-1445)."""
+
         async def run():
             server = self._make_server_stub()
             mock_checker = MagicMock()
@@ -1824,6 +1854,7 @@ class TestProxyServerShutdownCoverageGaps:
             server._aiohttp_session = None
 
             mock_srv = MagicMock()
+
             async def serve_forever():
                 await asyncio.sleep(0)
 
@@ -1839,6 +1870,7 @@ class TestProxyServerShutdownCoverageGaps:
 
     def test_shutdown_rdap_stop_exception_swallowed(self):
         """Exception in _rdap_enricher.stop() is caught (lines 1448-1451)."""
+
         async def run():
             server = self._make_server_stub()
             server._abuseipdb_checker = None
@@ -1848,6 +1880,7 @@ class TestProxyServerShutdownCoverageGaps:
             server._aiohttp_session = None
 
             mock_srv = MagicMock()
+
             async def serve_forever():
                 await asyncio.sleep(0)
 
@@ -1863,6 +1896,7 @@ class TestProxyServerShutdownCoverageGaps:
 
     def test_shutdown_aiohttp_close_exception_swallowed(self):
         """Exception in _aiohttp_session.close() is caught (lines 1453-1456)."""
+
         async def run():
             server = self._make_server_stub()
             server._abuseipdb_checker = None
@@ -1872,6 +1906,7 @@ class TestProxyServerShutdownCoverageGaps:
             server._aiohttp_session = mock_session
 
             mock_srv = MagicMock()
+
             async def serve_forever():
                 await asyncio.sleep(0)
 
@@ -1887,6 +1922,7 @@ class TestProxyServerShutdownCoverageGaps:
 
     def test_shutdown_event_none_skips_drain(self):
         """shutdown_event=None → _shutdown_watcher returns immediately (line 1404)."""
+
         async def run():
             server = self._make_server_stub()
             server._abuseipdb_checker = None
@@ -1894,6 +1930,7 @@ class TestProxyServerShutdownCoverageGaps:
             server._aiohttp_session = None
 
             mock_srv = MagicMock()
+
             async def serve_forever():
                 await asyncio.sleep(0)
 
@@ -1916,12 +1953,15 @@ class TestProxyProtocolTLVCoverageGaps:
         server.logger = MagicMock()
         return server
 
-    def _make_ppv2_header(self, addr_len: int, addr_bytes: bytes, tlv_bytes: bytes = b"") -> bytes:
+    def _make_ppv2_header(
+        self, addr_len: int, addr_bytes: bytes, tlv_bytes: bytes = b""
+    ) -> bytes:
         """Build a minimal PPv2 header for IPv4 TCP."""
         sig = b"\x0d\x0a\x0d\x0a\x00\x0d\x0a\x51\x55\x49\x54\x0a"
-        ver_cmd = b"\x21"       # Version 2, PROXY command
-        family = b"\x11"        # AF_INET TCP
+        ver_cmd = b"\x21"  # Version 2, PROXY command
+        family = b"\x11"  # AF_INET TCP
         import struct
+
         total_addr_len = addr_len + len(tlv_bytes)
         length = struct.pack("!H", total_addr_len)
         return sig + ver_cmd + family + length + addr_bytes + tlv_bytes
@@ -1929,12 +1969,17 @@ class TestProxyProtocolTLVCoverageGaps:
     def test_tlv_pp2_type_tcp_info_parsed(self):
         """TLV type 0x04 (PP2_TYPE_TCP_INFO) extracts ttl/window/options (lines 1731-1743)."""
         import struct
+
         server = self._make_server_stub()
 
         # 12 bytes: src IPv4 (4) + dst IPv4 (4) + src_port (2) + dst_port (2)
-        addr_bytes = b"\x01\x02\x03\x04" + b"\x05\x06\x07\x08" + b"\x1f\x90" + b"\x01\xbb"
+        addr_bytes = (
+            b"\x01\x02\x03\x04" + b"\x05\x06\x07\x08" + b"\x1f\x90" + b"\x01\xbb"
+        )
         # TLV: type=0x04, len=5, data=ttl(1B)+window(2B)+options(2B)
-        tlv_data = struct.pack("!BH", 0x04, 5) + struct.pack("!BH", 64, 65535) + b"\x02\x04"
+        tlv_data = (
+            struct.pack("!BH", 0x04, 5) + struct.pack("!BH", 64, 65535) + b"\x02\x04"
+        )
         header = self._make_ppv2_header(12, addr_bytes, tlv_data)
         remaining = b"some_payload"
 
@@ -1946,9 +1991,12 @@ class TestProxyProtocolTLVCoverageGaps:
     def test_tlv_truncated_type_breaks_loop(self):
         """Truncated TLV (idx+2 > len) breaks loop (line 1723-1724)."""
         import struct
+
         server = self._make_server_stub()
 
-        addr_bytes = b"\x01\x02\x03\x04" + b"\x05\x06\x07\x08" + b"\x1f\x90" + b"\x01\xbb"
+        addr_bytes = (
+            b"\x01\x02\x03\x04" + b"\x05\x06\x07\x08" + b"\x1f\x90" + b"\x01\xbb"
+        )
         # Truncated TLV: only type byte, no length
         tlv_data = b"\x04"  # Type byte but no length
         header = self._make_ppv2_header(12, addr_bytes, tlv_data)
@@ -1960,9 +2008,12 @@ class TestProxyProtocolTLVCoverageGaps:
     def test_tlv_data_overflow_breaks_loop(self):
         """TLV length exceeds available data — breaks loop (line 1727-1728)."""
         import struct
+
         server = self._make_server_stub()
 
-        addr_bytes = b"\x01\x02\x03\x04" + b"\x05\x06\x07\x08" + b"\x1f\x90" + b"\x01\xbb"
+        addr_bytes = (
+            b"\x01\x02\x03\x04" + b"\x05\x06\x07\x08" + b"\x1f\x90" + b"\x01\xbb"
+        )
         # TLV with length > remaining bytes
         tlv_data = struct.pack("!BH", 0x04, 100)  # Length 100 but no data
         header = self._make_ppv2_header(12, addr_bytes, tlv_data)
@@ -1973,9 +2024,12 @@ class TestProxyProtocolTLVCoverageGaps:
     def test_tlv_struct_error_ignored(self):
         """Malformed PP2_TYPE_TCP_INFO data → struct.error ignored (line 1742-1743)."""
         import struct
+
         server = self._make_server_stub()
 
-        addr_bytes = b"\x01\x02\x03\x04" + b"\x05\x06\x07\x08" + b"\x1f\x90" + b"\x01\xbb"
+        addr_bytes = (
+            b"\x01\x02\x03\x04" + b"\x05\x06\x07\x08" + b"\x1f\x90" + b"\x01\xbb"
+        )
         # TLV type=0x04, len=1 (too short for ttl+window = 3 bytes → struct.error)
         tlv_data = struct.pack("!BH", 0x04, 1) + b"\x40"  # Only 1 byte of data
         header = self._make_ppv2_header(12, addr_bytes, tlv_data)
@@ -2054,6 +2108,7 @@ class TestProxyServerCreate:
 
     def test_create_happy_path(self):
         """create() successfully initialises all components when both abuseipdb and rdap succeed."""
+
         async def run():
             redis_mock = AsyncMock()
             redis_mock.smembers = AsyncMock(return_value=set())
@@ -2074,8 +2129,14 @@ class TestProxyServerCreate:
 
             with (
                 patch("proxy.ConfigManager") as MockCM,
-                patch.object(ProxyServer, "_init_logging", return_value=logging.getLogger("proxy")),
-                patch.object(ProxyServer, "_init_redis", new=AsyncMock(return_value=redis_mock)),
+                patch.object(
+                    ProxyServer,
+                    "_init_logging",
+                    return_value=logging.getLogger("proxy"),
+                ),
+                patch.object(
+                    ProxyServer, "_init_redis", new=AsyncMock(return_value=redis_mock)
+                ),
                 patch.object(ProxyServer, "_populate_security_lists", new=AsyncMock()),
                 patch("proxy.TLSParser"),
                 patch("proxy.JA4Generator"),
@@ -2088,9 +2149,14 @@ class TestProxyServerCreate:
                 patch("proxy.Pipeline", return_value=pipeline_mock),
                 patch("proxy.DialManager"),
                 patch("aiohttp.ClientSession"),
-                patch("src.security.abuseipdb.AbuseIPDBChecker", return_value=abuseipdb_mock),
+                patch(
+                    "src.security.abuseipdb.AbuseIPDBChecker",
+                    return_value=abuseipdb_mock,
+                ),
                 patch("src.security.abuseipdb.AbuseIPDBConfig") as MockAbuseCfg,
-                patch("src.security.rdap_enrichment.RDAPEnricher", return_value=rdap_mock),
+                patch(
+                    "src.security.rdap_enrichment.RDAPEnricher", return_value=rdap_mock
+                ),
                 patch("src.security.rdap_enrichment.RDAPConfig") as MockRdapCfg,
             ):
                 MockCM.return_value.config = self._MINIMAL_CONFIG
@@ -2110,6 +2176,7 @@ class TestProxyServerCreate:
 
     def test_create_abuseipdb_and_rdap_fail_gracefully(self):
         """create() handles abuseipdb and rdap init exceptions without raising."""
+
         async def run():
             redis_mock = AsyncMock()
             redis_mock.smembers = AsyncMock(return_value=set())
@@ -2122,8 +2189,14 @@ class TestProxyServerCreate:
 
             with (
                 patch("proxy.ConfigManager") as MockCM,
-                patch.object(ProxyServer, "_init_logging", return_value=logging.getLogger("proxy")),
-                patch.object(ProxyServer, "_init_redis", new=AsyncMock(return_value=redis_mock)),
+                patch.object(
+                    ProxyServer,
+                    "_init_logging",
+                    return_value=logging.getLogger("proxy"),
+                ),
+                patch.object(
+                    ProxyServer, "_init_redis", new=AsyncMock(return_value=redis_mock)
+                ),
                 patch.object(ProxyServer, "_populate_security_lists", new=AsyncMock()),
                 patch("proxy.TLSParser"),
                 patch("proxy.JA4Generator"),

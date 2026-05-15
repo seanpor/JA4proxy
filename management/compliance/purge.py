@@ -112,9 +112,15 @@ class GDPRPurge:
     def __init__(self, redis: Any, config: dict[str, Any] | None = None) -> None:
         cfg = config or {}
         self._redis = redis
-        self._connection_retention_days: int = int(cfg.get("connection_log_retention_days", 90))
-        self._analytics_retention_days: int = int(cfg.get("analytics_retention_days", 90))
-        self._monthly_retention_months: int = int(cfg.get("monthly_aggregate_retention_months", 24))
+        self._connection_retention_days: int = int(
+            cfg.get("connection_log_retention_days", 90)
+        )
+        self._analytics_retention_days: int = int(
+            cfg.get("analytics_retention_days", 90)
+        )
+        self._monthly_retention_months: int = int(
+            cfg.get("monthly_aggregate_retention_months", 24)
+        )
         self._redis_version_checked = False
         self._use_minid = True
 
@@ -127,11 +133,17 @@ class GDPRPurge:
         now = datetime.now(timezone.utc)
         summary = PurgeSummary()
 
-        conn_cutoff_ms = int((now - timedelta(days=self._connection_retention_days)).timestamp() * 1000)
-        analytics_cutoff_ms = int((now - timedelta(days=self._analytics_retention_days)).timestamp() * 1000)
+        conn_cutoff_ms = int(
+            (now - timedelta(days=self._connection_retention_days)).timestamp() * 1000
+        )
+        analytics_cutoff_ms = int(
+            (now - timedelta(days=self._analytics_retention_days)).timestamp() * 1000
+        )
         analytics_cutoff_dt = now - timedelta(days=self._analytics_retention_days)
 
-        oldest_month = _subtract_months(now, self._monthly_retention_months).strftime("%Y-%m")
+        oldest_month = _subtract_months(now, self._monthly_retention_months).strftime(
+            "%Y-%m"
+        )
 
         for category, coro in [
             ("stream", self._purge_stream(conn_cutoff_ms)),
@@ -168,7 +180,9 @@ class GDPRPurge:
         try:
             info = await self._redis.info()
             version = info.get("redis_version", "6.2.0")
-            self._use_minid = _parse_redis_version(version) >= _MIN_REDIS_VERSION_FOR_MINID
+            self._use_minid = (
+                _parse_redis_version(version) >= _MIN_REDIS_VERSION_FOR_MINID
+            )
             if not self._use_minid:
                 logger.warning(
                     "purge | event=redis_version_fallback | version=%s | min_version=%s",
@@ -214,7 +228,9 @@ class GDPRPurge:
             after = before
 
         deleted = max(0, before - after)
-        logger.info("purge | event=stream_trimmed | deleted=%d | minid=%s", deleted, use_minid)
+        logger.info(
+            "purge | event=stream_trimmed | deleted=%d | minid=%s", deleted, use_minid
+        )
         return deleted
 
     async def _purge_beaconing(self, cutoff_ms: int) -> int:
@@ -222,13 +238,19 @@ class GDPRPurge:
         total = 0
         cursor = 0
         while True:
-            cursor, keys = await self._redis.scan(cursor=cursor, match="beacon:*", count=100)
+            cursor, keys = await self._redis.scan(
+                cursor=cursor, match="beacon:*", count=100
+            )
             for key in keys:
                 try:
-                    removed = await self._redis.zremrangebyscore(key, "-inf", cutoff_ms - 1)
+                    removed = await self._redis.zremrangebyscore(
+                        key, "-inf", cutoff_ms - 1
+                    )
                     total += removed
                 except Exception as exc:
-                    logger.warning("purge | event=beacon_key_error | key=%s | error=%s", key, exc)
+                    logger.warning(
+                        "purge | event=beacon_key_error | key=%s | error=%s", key, exc
+                    )
             if cursor == 0:
                 break
 
@@ -240,20 +262,26 @@ class GDPRPurge:
         deleted = 0
         cursor = 0
         while True:
-            cursor, keys = await self._redis.scan(cursor=cursor, match="rv:*", count=100)
+            cursor, keys = await self._redis.scan(
+                cursor=cursor, match="rv:*", count=100
+            )
             for key in keys:
                 try:
                     first_seen_str = await self._redis.hget(key, "first_seen")
                     if first_seen_str is None:
                         continue
-                    first_seen = datetime.fromisoformat(first_seen_str.replace("Z", "+00:00"))
+                    first_seen = datetime.fromisoformat(
+                        first_seen_str.replace("Z", "+00:00")
+                    )
                     if first_seen.tzinfo is None:
                         first_seen = first_seen.replace(tzinfo=timezone.utc)
                     if first_seen < cutoff_dt:
                         await self._redis.delete(key)
                         deleted += 1
                 except Exception as exc:
-                    logger.warning("purge | event=rv_key_error | key=%s | error=%s", key, exc)
+                    logger.warning(
+                        "purge | event=rv_key_error | key=%s | error=%s", key, exc
+                    )
             if cursor == 0:
                 break
 
@@ -265,7 +293,9 @@ class GDPRPurge:
         deleted = 0
         cursor = 0
         while True:
-            cursor, keys = await self._redis.scan(cursor=cursor, match="reporting:monthly:*", count=100)
+            cursor, keys = await self._redis.scan(
+                cursor=cursor, match="reporting:monthly:*", count=100
+            )
             for key in keys:
                 parts = key.split(":")
                 if len(parts) < 3:

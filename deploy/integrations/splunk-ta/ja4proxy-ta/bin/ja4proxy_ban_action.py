@@ -32,6 +32,7 @@ import urllib.request
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _log(level: str, message: str) -> None:
     """Write a log line to stderr (captured by Splunk as the action log)."""
     print(f"[{level}] ja4proxy_ban_action: {message}", file=sys.stderr, flush=True)
@@ -95,7 +96,10 @@ def _extract_src_ip(payload: dict) -> str:
         if ip:
             return ip
 
-    _log("ERROR", f"Could not find source IP in payload result fields: {list(result.keys())}")
+    _log(
+        "ERROR",
+        f"Could not find source IP in payload result fields: {list(result.keys())}",
+    )
     sys.exit(1)
 
 
@@ -114,7 +118,9 @@ def _get_config() -> tuple[str, str]:
     return mgmt_url, api_token
 
 
-def _post_ban(mgmt_url: str, api_token: str, src_ip: str, ttl_seconds: int, reason: str) -> None:
+def _post_ban(
+    mgmt_url: str, api_token: str, src_ip: str, ttl_seconds: int, reason: str
+) -> None:
     """POST a ban request to the JA4proxy Management API.
 
     The Phase 79 route is ``POST /api/v1/bans/{ip:path}``.  The IP is placed
@@ -125,10 +131,12 @@ def _post_ban(mgmt_url: str, api_token: str, src_ip: str, ttl_seconds: int, reas
     encoded_ip = urllib.parse.quote(src_ip, safe="")
     endpoint = f"{mgmt_url}/api/v1/bans/{encoded_ip}"
 
-    body = json.dumps({
-        "ttl": ttl_seconds,
-        "reason": reason,
-    }).encode("utf-8")
+    body = json.dumps(
+        {
+            "ttl": ttl_seconds,
+            "reason": reason,
+        }
+    ).encode("utf-8")
 
     request = urllib.request.Request(
         endpoint,
@@ -142,11 +150,16 @@ def _post_ban(mgmt_url: str, api_token: str, src_ip: str, ttl_seconds: int, reas
 
     ctx = _build_tls_context(endpoint)
     try:
-        with urllib.request.urlopen(request, timeout=10, context=ctx) as response:  # nosemgrep: dynamic-urllib-use-detected
+        with urllib.request.urlopen(
+            request, timeout=10, context=ctx
+        ) as response:  # nosemgrep: dynamic-urllib-use-detected
             status = response.getcode()
             response_body = response.read().decode("utf-8", errors="replace")
             if status in (200, 201):
-                _log("INFO", f"Ban posted successfully for {src_ip} — HTTP {status}: {response_body}")
+                _log(
+                    "INFO",
+                    f"Ban posted successfully for {src_ip} — HTTP {status}: {response_body}",
+                )
             else:
                 _log("WARN", f"Unexpected HTTP {status} for {src_ip}: {response_body}")
                 sys.exit(1)
@@ -155,13 +168,17 @@ def _post_ban(mgmt_url: str, api_token: str, src_ip: str, ttl_seconds: int, reas
         _log("ERROR", f"HTTP {exc.code} from Management API for {src_ip}: {error_body}")
         sys.exit(1)
     except urllib.error.URLError as exc:
-        _log("ERROR", f"Network error reaching Management API at {endpoint}: {exc.reason}")
+        _log(
+            "ERROR",
+            f"Network error reaching Management API at {endpoint}: {exc.reason}",
+        )
         sys.exit(1)
 
 
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
+
 
 def main() -> None:
     payload = _read_payload()
@@ -172,7 +189,10 @@ def main() -> None:
     # block in savedsearches.conf or via the alert action UI form.
     configuration: dict = payload.get("configuration", {})
     ttl_seconds = int(configuration.get("ttl_seconds", 3600))
-    reason = str(configuration.get("reason", "Splunk alert action")).strip() or "Splunk alert action"
+    reason = (
+        str(configuration.get("reason", "Splunk alert action")).strip()
+        or "Splunk alert action"
+    )
 
     _log("INFO", f"Banning {src_ip} for {ttl_seconds}s — reason: {reason!r}")
     _post_ban(mgmt_url, api_token, src_ip, ttl_seconds, reason)

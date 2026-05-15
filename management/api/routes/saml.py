@@ -146,7 +146,7 @@ def _map_role(groups: list[str]) -> Optional[Role]:
     # Config-file base; env var entries override config-file entries for the same group
     role_mapping: dict = {**get_sso_role_mapping(), **env_mapping}
 
-    for group in (groups or []):
+    for group in groups or []:
         role_str = role_mapping.get(group)
         if role_str:
             try:
@@ -300,7 +300,9 @@ async def saml_acs(
 
     # Gap 4 (Production Readiness): SSO-delegated MFA trust
     _MFA_SESSION_TTL = 8 * 3600
-    trust_idp_mfa = os.environ.get("MANAGEMENT_SSO_TRUST_IDP_MFA", "false").lower() == "true"
+    trust_idp_mfa = (
+        os.environ.get("MANAGEMENT_SSO_TRUST_IDP_MFA", "false").lower() == "true"
+    )
     if trust_idp_mfa:
         authn_contexts = auth.get_last_authn_contexts() or []
         _MFA_AUTHN_CONTEXTS = {
@@ -313,6 +315,7 @@ async def saml_acs(
 
     response = RedirectResponse(url=redirect_target or "/", status_code=302)
     from ..auth import _should_set_secure_cookie
+
     response.set_cookie(
         "token",
         token,
@@ -332,7 +335,5 @@ async def saml_acs(
         after_value={"provider": "saml"},
     )
 
-    logger.info(
-        "saml | event=login_success | user=%s | role=%s", nameid, role.value
-    )
+    logger.info("saml | event=login_success | user=%s | role=%s", nameid, role.value)
     return response

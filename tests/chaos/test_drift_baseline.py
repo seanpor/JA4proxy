@@ -38,12 +38,14 @@ def _make_detector(redis_get_side_effect=None, redis_get_return=None):
 
 
 def _baseline_json(median=20.0, stddev=5.0, event_count=100):
-    return json.dumps({
-        "median_score": median,
-        "stddev_score": stddev,
-        "mean_score": median,
-        "event_count": event_count,
-    }).encode()
+    return json.dumps(
+        {
+            "median_score": median,
+            "stddev_score": stddev,
+            "mean_score": median,
+            "event_count": event_count,
+        }
+    ).encode()
 
 
 def _run(coro):
@@ -116,6 +118,7 @@ def test_insufficient_events_in_historical_baseline_returns_none():
 
 def test_corrupted_json_does_not_raise(caplog):
     """Malformed JSON in baseline key must not propagate an exception."""
+
     async def _get(key):
         return b"not valid json {{{"
 
@@ -133,6 +136,7 @@ def test_corrupted_json_does_not_raise(caplog):
 
 def test_baseline_missing_median_field_does_not_raise():
     """Baseline with missing median_score field must not cause unhandled exception."""
+
     async def _get(key):
         return json.dumps({"event_count": 100}).encode()
 
@@ -151,6 +155,7 @@ def test_baseline_missing_median_field_does_not_raise():
 
 def test_redis_connection_error_returns_none():
     """Redis unreachable → fail open, return None, no exception propagated."""
+
     async def _get(key):
         raise ConnectionError("Redis unreachable")
 
@@ -164,6 +169,7 @@ def test_redis_connection_error_returns_none():
 
 def test_redis_timeout_does_not_crash_analytics_node():
     """Redis timeout → no crash, continues processing."""
+
     async def _get(key):
         raise TimeoutError("Redis timeout")
 
@@ -233,5 +239,12 @@ def test_drift_result_contains_expected_fields():
     result = _run(detector.check_for_drift())
 
     assert result is not None
-    for field in ("drift_detected", "z_score", "current_median", "baseline_median", "severity", "detected_at"):
+    for field in (
+        "drift_detected",
+        "z_score",
+        "current_median",
+        "baseline_median",
+        "severity",
+        "detected_at",
+    ):
         assert field in result, f"Missing field: {field}"

@@ -111,15 +111,13 @@ def test_regression_JA4PROXY_2026_0022_broad_cidr_logs_critical() -> None:
     mgr.logger = MagicMock(spec=logging.Logger)
     # /8 is broader than /16, so CRITICAL fires.
     mgr._validate_upstream_trust({"trusted_cidrs": ["10.0.0.0/8"]})
-    assert mgr.logger.critical.called, (
-        "trusted CIDR broader than /16 must emit CRITICAL per 118h spec"
-    )
+    assert (
+        mgr.logger.critical.called
+    ), "trusted CIDR broader than /16 must emit CRITICAL per 118h spec"
     # /24 is narrow — no CRITICAL.
     mgr.logger.reset_mock()
     mgr._validate_upstream_trust({"trusted_cidrs": ["192.0.2.0/24"]})
-    assert not mgr.logger.critical.called, (
-        "narrow /24 must not trigger CRITICAL"
-    )
+    assert not mgr.logger.critical.called, "narrow /24 must not trigger CRITICAL"
 
 
 def test_regression_JA4PROXY_2026_0022_rfc1918_and_loopback_warn() -> None:
@@ -142,11 +140,11 @@ def test_regression_JA4PROXY_2026_0022_rfc1918_and_loopback_warn() -> None:
     assert not mgr.logger.critical.called
 
 
-def test_regression_JA4PROXY_2026_0022_validate_proxy_config_routes_through_helper() -> None:
+def test_regression_JA4PROXY_2026_0022_validate_proxy_config_routes_through_helper() -> (
+    None
+):
     """_validate_proxy_config must call _validate_upstream_trust when the key
     is present — otherwise the end-to-end config load path stays unprotected."""
     mgr = _mgr()
     with pytest.raises(ValidationError, match="dangerously broad"):
-        mgr._validate_proxy_config(
-            {"upstream_trust": {"trusted_cidrs": ["0.0.0.0/0"]}}
-        )
+        mgr._validate_proxy_config({"upstream_trust": {"trusted_cidrs": ["0.0.0.0/0"]}})

@@ -243,9 +243,7 @@ class ContributionClient:
             try:
                 self._serialize(payload)
             except ValueError:
-                logger.error(
-                    "ti_feed | event=contribution_rejected | reason=gdpr_gate"
-                )
+                logger.error("ti_feed | event=contribution_rejected | reason=gdpr_gate")
                 return False
 
         if aiohttp is None:  # pragma: no cover
@@ -266,9 +264,7 @@ class ContributionClient:
                     timeout=aiohttp.ClientTimeout(total=10),
                 ) as resp:
                     if resp.status // 100 != 2:
-                        self._warn_once(
-                            f"endpoint returned HTTP {resp.status}"
-                        )
+                        self._warn_once(f"endpoint returned HTTP {resp.status}")
                         return False
                     return True
         except asyncio.CancelledError:

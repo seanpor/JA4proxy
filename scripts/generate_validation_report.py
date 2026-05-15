@@ -79,7 +79,10 @@ def count_go_tests() -> dict[str, int]:
     fuzz_re = re.compile(r"^func\s+(Fuzz[A-Z]\w*)\s*\(", re.MULTILINE)
     bench_re = re.compile(r"^func\s+(Benchmark[A-Z]\w*)\s*\(", re.MULTILINE)
     property_re = re.compile(r"^func\s+(TestProperty\w*)\s*\(", re.MULTILINE)
-    chaos_re = re.compile(r"^func\s+(TestPipeline_(?:RedisOutage|PartialOutage|DialFlip)\w*)\s*\(", re.MULTILINE)
+    chaos_re = re.compile(
+        r"^func\s+(TestPipeline_(?:RedisOutage|PartialOutage|DialFlip)\w*)\s*\(",
+        re.MULTILINE,
+    )
 
     counts = {"tests": 0, "fuzz": 0, "bench": 0, "property": 0, "chaos": 0}
     for d in GO_TEST_DIRS:
@@ -185,7 +188,9 @@ def _section_deployment(repo_root: Path | None = None) -> str:
         content = dr_runbook.read_text()
         section = content.split("Runbook Exercise History", 1)[1].split("\n## ", 1)[0]
         lines.extend(section.strip().splitlines())
-    elif gameday_file.exists() and "Runbook Exercise History" in gameday_file.read_text():
+    elif (
+        gameday_file.exists() and "Runbook Exercise History" in gameday_file.read_text()
+    ):
         content = gameday_file.read_text()
         section = content.split("Runbook Exercise History", 1)[1].split("\n## ", 1)[0]
         lines.extend(section.strip().splitlines())
@@ -243,7 +248,9 @@ def build_report(extra_section: str | None = None) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--output", default=str(DEFAULT_OUTPUT), help="output markdown path")
+    ap.add_argument(
+        "--output", default=str(DEFAULT_OUTPUT), help="output markdown path"
+    )
     ap.add_argument("--stdout", action="store_true", help="also print to stdout")
     ap.add_argument(
         "--section",

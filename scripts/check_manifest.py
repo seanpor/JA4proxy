@@ -27,11 +27,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
-MANIFEST_PATH  = ROOT / "docs/phases/manifest.yaml"
-TODO_PATH      = ROOT / "docs/phases/TODO.md"
-STATUS_PATH    = ROOT / "docs/PROJECT_STATUS.md"
+MANIFEST_PATH = ROOT / "docs/phases/manifest.yaml"
+TODO_PATH = ROOT / "docs/phases/TODO.md"
+STATUS_PATH = ROOT / "docs/PROJECT_STATUS.md"
 CHANGELOG_PATH = ROOT / "CHANGELOG.md"
-CLAUDE_PATH    = ROOT / "CLAUDE.md"
+CLAUDE_PATH = ROOT / "CLAUDE.md"
 
 # Matches the auto-generated date line in PROJECT_STATUS.md so we can
 # normalise it before comparing (the date changes daily but is not meaningful
@@ -46,10 +46,12 @@ def _normalise(text: str) -> str:
 
 # ── Check 1: sync ─────────────────────────────────────────────────────────────
 
+
 def check_sync() -> list[str]:
     """Return a list of failure messages (empty = pass)."""
     # Import generation functions from sync-roadmap without executing __main__.
     import importlib.util
+
     spec = importlib.util.spec_from_file_location(
         "sync_roadmap", ROOT / "scripts/sync-roadmap.py"
     )
@@ -61,7 +63,7 @@ def check_sync() -> list[str]:
 
     # TODO.md — no date, so compare directly
     expected_todo = mod.generate_todo(manifest)
-    actual_todo   = TODO_PATH.read_text()
+    actual_todo = TODO_PATH.read_text()
     if expected_todo != actual_todo:
         failures.append(
             "docs/phases/TODO.md is out of sync with manifest.yaml — "
@@ -70,7 +72,7 @@ def check_sync() -> list[str]:
 
     # PROJECT_STATUS.md — normalise the date line before comparing
     expected_status = _normalise(mod.generate_status(manifest))
-    actual_status   = _normalise(STATUS_PATH.read_text())
+    actual_status = _normalise(STATUS_PATH.read_text())
     if expected_status != actual_status:
         failures.append(
             "docs/PROJECT_STATUS.md is out of sync with manifest.yaml — "
@@ -82,13 +84,14 @@ def check_sync() -> list[str]:
 
 # ── Check 2: changelog ────────────────────────────────────────────────────────
 
+
 def check_changelog() -> list[str]:
     """Return a list of failure messages (empty = pass)."""
     import yaml
 
-    manifest      = yaml.safe_load(MANIFEST_PATH.read_text())
-    changelog     = CHANGELOG_PATH.read_text().lower()
-    failures      = []
+    manifest = yaml.safe_load(MANIFEST_PATH.read_text())
+    changelog = CHANGELOG_PATH.read_text().lower()
+    failures = []
 
     for phase_id, data in manifest["phases"].items():
         if data["status"] != "COMPLETE":
@@ -108,13 +111,14 @@ def check_changelog() -> list[str]:
 
 # ── Check 3: CLAUDE.md phase table ───────────────────────────────────────────
 
+
 def check_claude_table() -> list[str]:
     """Return a list of failure messages (empty = pass)."""
     import yaml
 
-    manifest   = yaml.safe_load(MANIFEST_PATH.read_text())
-    claude     = CLAUDE_PATH.read_text()
-    failures   = []
+    manifest = yaml.safe_load(MANIFEST_PATH.read_text())
+    claude = CLAUDE_PATH.read_text()
+    failures = []
 
     for phase_id in manifest["phases"]:
         # Table rows look like: "| 16 | Extended fingerprinting | ..."
@@ -129,6 +133,7 @@ def check_claude_table() -> list[str]:
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
+
 def main() -> int:
     checks = [
         ("SYNC     ", check_sync),
@@ -139,7 +144,11 @@ def main() -> int:
     all_failures: list[str] = []
     for label, fn in checks:
         failures = fn()
-        status = "✓ PASS" if not failures else f"✗ FAIL ({len(failures)} issue{'s' if len(failures) != 1 else ''})"
+        status = (
+            "✓ PASS"
+            if not failures
+            else f"✗ FAIL ({len(failures)} issue{'s' if len(failures) != 1 else ''})"
+        )
         print(f"  {label}  {status}")
         all_failures.extend(failures)
 

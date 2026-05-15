@@ -1,6 +1,7 @@
 """
 Unit tests for src/tap/fingerprints/ja4l.py (Phase 20 Group 5-E).
 """
+
 import pytest
 
 from src.tap.fingerprints.ja4l import _C_FIBRE_KM_S, JA4LResult, extract_ja4l
@@ -79,6 +80,7 @@ class TestJA4L:
 
 # ── Missing-coverage additions ────────────────────────────────────────────────
 
+
 class TestJA4LCoverageGaps:
     """Cover lines 55-56 and 104 in ja4l.py.
 
@@ -93,6 +95,7 @@ class TestJA4LCoverageGaps:
         from unittest.mock import patch
 
         import src.tap.fingerprints.ja4l as _mod
+
         with patch.object(_mod, "_compute", side_effect=RuntimeError("injected")):
             result = _mod.extract_ja4l(syn_ts=0.0, synack_ts=0.1, ack_ts=0.2)
         assert result is not None

@@ -4,6 +4,7 @@ Builds raw TLS 1.3 / 1.2 ClientHello messages without relying on a live TLS
 stack.  Used to test proxy bypass decisions (ALPN, JA4 blacklist, etc.) by
 sending crafted ClientHellos and observing whether the proxy accepts or RSTs.
 """
+
 import os
 import socket
 import struct

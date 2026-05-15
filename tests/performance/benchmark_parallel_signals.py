@@ -25,15 +25,15 @@ security_policy:
   ja4_blacklist_bypass: {enabled: true}
   country_blacklist_bypass: {enabled: true}
 """
-    
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.yml', delete=False) as f:
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False) as f:
         f.write(config_text)
         config_path = f.name
 
     try:
         loader = ConfigLoader(config_path)
         config = await loader.load()
-        
+
         # Create mock Redis client
         mock_redis = MagicMock(spec=redis.Redis)
         mock_redis.ping = AsyncMock()
@@ -41,10 +41,10 @@ security_policy:
         mock_redis.hmget = AsyncMock(return_value={})
         mock_redis.zadd = AsyncMock()
         mock_redis.evalsha = AsyncMock(return_value={"connections_per_second": 0})
-        
+
         cache = LocalCache({})
         cache.dial = 0
-        
+
         return Pipeline(config=config, local_cache=cache, redis_client=mock_redis)
     finally:
         os.unlink(config_path)
@@ -60,27 +60,27 @@ async def create_test_context():
         tls_version="TLSv1.3",
         cipher_list=[0x1301, 0x1302],
         client_certificate=None,
-        country="US"
+        country="US",
     )
 
 
 async def benchmark_signal_collection(pipeline, ctx, num_iterations=100):
     """Benchmark signal collection performance."""
     print(f"Running {num_iterations} iterations...")
-    
+
     start_time = time.time()
-    
+
     for i in range(num_iterations):
         await pipeline._collect_signals(ctx)
-    
+
     end_time = time.time()
     total_time = end_time - start_time
     avg_time_per_call = (total_time / num_iterations) * 1000  # Convert to ms
-    
+
     print(f"Total time: {total_time:.3f} seconds")
     print(f"Average time per call: {avg_time_per_call:.3f} ms")
     print(f"Calls per second: {num_iterations / total_time:.1f}")
-    
+
     return avg_time_per_call
 
 
@@ -89,20 +89,20 @@ async def main():
     print("=== Parallel Signal Collection Benchmark ===")
     print("Testing Phase 26a implementation")
     print()
-    
+
     # Create pipeline and context
     pipeline = await create_test_pipeline()
     ctx = await create_test_context()
-    
+
     # Warm up
     print("Warming up...")
     for _ in range(10):
         await pipeline._collect_signals(ctx)
-    
+
     # Run benchmark
     print()
     avg_time = await benchmark_signal_collection(pipeline, ctx, num_iterations=100)
-    
+
     print()
     print("=== Results ===")
     print(f"Average signal collection time: {avg_time:.3f} ms")

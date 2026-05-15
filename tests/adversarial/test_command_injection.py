@@ -4,19 +4,23 @@ Purpose: Verify that command injection attempts are detected and blocked.
 Coverage: Common command injection patterns (e.g., ;, &&, |, `).
 Owner: Phase 45
 """
+
 import pytest
 
 
 class TestCommandInjection:
     """Test command injection detection and blocking."""
 
-    @pytest.mark.parametrize("malicious_input", [
-        "; rm -rf /",
-        "&& cat /etc/passwd",
-        "| ls -la",
-        "`whoami`",
-        "$(whoami)",
-    ])
+    @pytest.mark.parametrize(
+        "malicious_input",
+        [
+            "; rm -rf /",
+            "&& cat /etc/passwd",
+            "| ls -la",
+            "`whoami`",
+            "$(whoami)",
+        ],
+    )
     def test_command_injection_detected(self, malicious_input):
         """Command injection patterns should be detected."""
         # Check if the input contains command injection patterns
@@ -32,4 +36,6 @@ class TestCommandInjection:
         """Legitimate commands should not be blocked."""
         legitimate_input = "echo 'Hello, world!'"
         # Check if the input does not contain command injection patterns
-        assert not any(pattern in legitimate_input for pattern in [";", "&&", "|", "`", "$"])
+        assert not any(
+            pattern in legitimate_input for pattern in [";", "&&", "|", "`", "$"]
+        )

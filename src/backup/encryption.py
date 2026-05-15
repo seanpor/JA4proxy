@@ -46,10 +46,10 @@ class BackupEncryption:
         salt = os.urandom(self.SALT_SIZE)
         nonce = os.urandom(self.NONCE_SIZE)
         key = self._derive_key(salt)
-        
+
         aesgcm = AESGCM(key)
-        ciphertext = aesgcm.encrypt(nonce, data, None) # No associated data
-        
+        ciphertext = aesgcm.encrypt(nonce, data, None)  # No associated data
+
         return salt + nonce + ciphertext
 
     def decrypt(self, encrypted_data: bytes) -> bytes:
@@ -59,12 +59,12 @@ class BackupEncryption:
         """
         if len(encrypted_data) < self.SALT_SIZE + self.NONCE_SIZE + 16:
             raise ValueError("Invalid encrypted data format or too short")
-            
-        salt = encrypted_data[:self.SALT_SIZE]
+
+        salt = encrypted_data[: self.SALT_SIZE]
         nonce = encrypted_data[self.SALT_SIZE : self.SALT_SIZE + self.NONCE_SIZE]
         ciphertext = encrypted_data[self.SALT_SIZE + self.NONCE_SIZE :]
-        
+
         key = self._derive_key(salt)
         aesgcm = AESGCM(key)
-        
+
         return aesgcm.decrypt(nonce, ciphertext, None)

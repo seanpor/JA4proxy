@@ -64,14 +64,18 @@ async def fake_redis() -> AsyncGenerator[fakeredis.aioredis.FakeRedis, None]:
 # ── Helper: create a token of the given role via the admin client ─────────────
 
 
-async def _make_token(admin_client: AsyncClient, role: str, name: str | None = None) -> str:
+async def _make_token(
+    admin_client: AsyncClient, role: str, name: str | None = None
+) -> str:
     """Seed a bearer token with *role* and return the plaintext."""
     token_name = name or f"new-endpoints-test-{role}-{time.time_ns()}"
     r = await admin_client.post(
         "/api/v1/tokens",
         json={"name": token_name, "role": role},
     )
-    assert r.status_code == 201, f"Expected 201 creating {role} token, got {r.status_code}: {r.text}"
+    assert (
+        r.status_code == 201
+    ), f"Expected 201 creating {role} token, got {r.status_code}: {r.text}"
     return r.json()["token"]
 
 
@@ -172,12 +176,16 @@ async def test_get_connections_returns_seeded_events(
         assert len(data["connections"]) == 3
         returned_ips = {conn["ip"] for conn in data["connections"]}
         returned_ja4s = {conn["ja4"] for conn in data["connections"]}
-        assert returned_ips == {"10.0.0.1", "10.0.0.2", "10.0.0.3"}, (
-            f"Expected IPs {{10.0.0.1, 10.0.0.2, 10.0.0.3}}, got {returned_ips}"
-        )
-        assert returned_ja4s == {"t13d_aaa", "t13d_bbb", "t13d_ccc"}, (
-            f"Expected ja4s {{t13d_aaa, t13d_bbb, t13d_ccc}}, got {returned_ja4s}"
-        )
+        assert returned_ips == {
+            "10.0.0.1",
+            "10.0.0.2",
+            "10.0.0.3",
+        }, f"Expected IPs {{10.0.0.1, 10.0.0.2, 10.0.0.3}}, got {returned_ips}"
+        assert returned_ja4s == {
+            "t13d_aaa",
+            "t13d_bbb",
+            "t13d_ccc",
+        }, f"Expected ja4s {{t13d_aaa, t13d_bbb, t13d_ccc}}, got {returned_ja4s}"
         for conn in data["connections"]:
             assert conn.get("risk_score") is not None
             assert conn.get("action_taken") is not None
@@ -240,7 +248,9 @@ async def test_get_connections_limit_param(
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
         assert r_all.status_code == 200
-        assert r_all.json()["count"] == 10, "All 10 seeded events must be returned without limit"
+        assert (
+            r_all.json()["count"] == 10
+        ), "All 10 seeded events must be returned without limit"
 
         # With limit=3
         r = await client.get(
@@ -251,9 +261,9 @@ async def test_get_connections_limit_param(
         data = r.json()
         assert len(data["connections"]) == 3
         assert data["count"] == 3
-        assert data["truncated"] is True, (
-            "truncated must be True when limit < total stream length"
-        )
+        assert (
+            data["truncated"] is True
+        ), "truncated must be True when limit < total stream length"
         for conn in data["connections"]:
             assert conn["ip"].startswith("10.0.0.")
 
@@ -373,10 +383,12 @@ async def test_get_fingerprint_history(
         assert len(data["events"]) == 3
         # Chronological — earliest first
         returned_ts = [e["timestamp"] for e in data["events"]]
-        assert returned_ts == sorted(returned_ts), "Events must be in chronological order"
-        assert set(returned_ts) == set(seeded_timestamps), (
-            f"Returned timestamps {set(returned_ts)} must match seeded {set(seeded_timestamps)}"
-        )
+        assert returned_ts == sorted(
+            returned_ts
+        ), "Events must be in chronological order"
+        assert set(returned_ts) == set(
+            seeded_timestamps
+        ), f"Returned timestamps {set(returned_ts)} must match seeded {set(seeded_timestamps)}"
         for e in data["events"]:
             assert e.get("ja4") == "t13d_hist" or e.get("fingerprint") == "t13d_hist"
 
@@ -466,16 +478,18 @@ async def test_get_nodes_returns_live_nodes(
         node = data["nodes"][0]
         assert node["host"] == "proxy-a"
         assert node["port"] in ("8080", 8080)
-        assert node["version"] == "2.3.1", f"version must be '2.3.1', got {node['version']!r}"
-        assert int(node.get("connections_total", -1)) == 500, (
-            f"connections_total must be 500, got {node.get('connections_total')!r}"
-        )
-        assert node["started_at"] == "2026-04-07T08:00:00Z", (
-            f"started_at must be the seeded value, got {node['started_at']!r}"
-        )
-        assert node["last_seen"] == "2026-04-07T10:00:00Z", (
-            f"last_seen must be the seeded value, got {node['last_seen']!r}"
-        )
+        assert (
+            node["version"] == "2.3.1"
+        ), f"version must be '2.3.1', got {node['version']!r}"
+        assert (
+            int(node.get("connections_total", -1)) == 500
+        ), f"connections_total must be 500, got {node.get('connections_total')!r}"
+        assert (
+            node["started_at"] == "2026-04-07T08:00:00Z"
+        ), f"started_at must be the seeded value, got {node['started_at']!r}"
+        assert (
+            node["last_seen"] == "2026-04-07T10:00:00Z"
+        ), f"last_seen must be the seeded value, got {node['last_seen']!r}"
 
 
 @pytest.mark.asyncio
@@ -505,7 +519,9 @@ async def test_post_node_reload_publishes_to_channel(
     """POST /api/v1/nodes/{host}/reload actually publishes a message to a Redis channel."""
     # Subscribe to the expected control channel before making the request
     pubsub = fake_redis.pubsub()
-    await pubsub.psubscribe("*reload*")   # broad pattern to catch whatever channel name the impl uses
+    await pubsub.psubscribe(
+        "*reload*"
+    )  # broad pattern to catch whatever channel name the impl uses
     await pubsub.get_message(timeout=0.1)  # drain subscription confirmation
 
     async with _bearer_client("admin", fake_redis) as (client, token):
@@ -628,7 +644,8 @@ async def test_get_webhooks_shows_created(
     """A created webhook appears in the list with correct url and events."""
     async with _bearer_client("operator", fake_redis) as (client, token):
         await _create_webhook(
-            client, token,
+            client,
+            token,
             url="https://example.com/hook",
             events=["connection.blocked"],
         )
@@ -652,12 +669,18 @@ async def test_put_webhook_updates_url(
 ) -> None:
     """PUT /api/v1/webhooks/{id} updates the url and GET reflects the change."""
     async with _bearer_client("operator", fake_redis) as (client, token):
-        created = await _create_webhook(client, token, url="https://old.example.com/hook")
+        created = await _create_webhook(
+            client, token, url="https://old.example.com/hook"
+        )
         webhook_id = created["id"]
 
         r = await client.put(
             f"/api/v1/webhooks/{webhook_id}",
-            json={"url": "https://new.example.com/hook", "events": ["ban.created"], "active": True},
+            json={
+                "url": "https://new.example.com/hook",
+                "events": ["ban.created"],
+                "active": True,
+            },
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
         assert r.status_code == 200
@@ -675,13 +698,13 @@ async def test_put_webhook_updates_url(
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
         list_data = r_list.json()
-        assert list_data["count"] == 1, (
-            f"PUT must update in-place, not create a second record; count={list_data['count']}"
-        )
+        assert (
+            list_data["count"] == 1
+        ), f"PUT must update in-place, not create a second record; count={list_data['count']}"
         urls_in_list = [w["url"] for w in list_data["webhooks"]]
-        assert "https://old.example.com/hook" not in urls_in_list, (
-            "Old URL must be gone from list after PUT"
-        )
+        assert (
+            "https://old.example.com/hook" not in urls_in_list
+        ), "Old URL must be gone from list after PUT"
         assert "https://new.example.com/hook" in urls_in_list
 
 
@@ -775,10 +798,12 @@ async def test_webhook_secret_stored_as_bcrypt(
         webhook_id = created["id"]
 
         raw = await fake_redis.hgetall(f"webhook:{webhook_id}")
-        assert "secret_hash" in raw, f"Expected secret_hash in Hash, got keys: {list(raw)}"
-        assert raw["secret_hash"].startswith("$2b$"), (
-            f"Expected bcrypt hash starting with $2b$, got: {raw['secret_hash'][:10]!r}"
-        )
+        assert (
+            "secret_hash" in raw
+        ), f"Expected secret_hash in Hash, got keys: {list(raw)}"
+        assert raw["secret_hash"].startswith(
+            "$2b$"
+        ), f"Expected bcrypt hash starting with $2b$, got: {raw['secret_hash'][:10]!r}"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -827,9 +852,9 @@ async def test_get_metrics_summary_reflects_ban_count(
         )
         assert r.status_code == 200
         data = r.json()
-        assert data["active_bans"] == 3, (
-            f"active_bans must count only ban:* keys, not noise keys; got {data['active_bans']}"
-        )
+        assert (
+            data["active_bans"] == 3
+        ), f"active_bans must count only ban:* keys, not noise keys; got {data['active_bans']}"
 
 
 @pytest.mark.asyncio
@@ -977,9 +1002,9 @@ async def test_get_connections_filter_by_action(
         data = r.json()
         assert data["count"] == 2
         for conn in data["connections"]:
-            assert conn["action_taken"] == "block", (
-                f"Filter ?action=block must exclude allow events; got: {conn['action_taken']}"
-            )
+            assert (
+                conn["action_taken"] == "block"
+            ), f"Filter ?action=block must exclude allow events; got: {conn['action_taken']}"
         returned_ips = {conn["ip"] for conn in data["connections"]}
         assert "1.1.1.1" not in returned_ips, "IP with allow action must be excluded"
 
@@ -1015,9 +1040,10 @@ async def test_webhook_events_list_is_stored_correctly(
         data = r2.json()
         assert "events" in data, "Webhook must return events subscription list"
         returned_events = set(data["events"])
-        assert returned_events == {"ban.created", "dial.changed"}, (
-            f"Stored events must match submitted events; got {returned_events}"
-        )
+        assert returned_events == {
+            "ban.created",
+            "dial.changed",
+        }, f"Stored events must match submitted events; got {returned_events}"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

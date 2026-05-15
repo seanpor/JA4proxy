@@ -58,7 +58,9 @@ def compute_dropped_ids(
     unit-tested without a Redis backend.
     """
     return sorted(
-        (stix_id, handle) for stix_id, handle in previous.items() if stix_id not in current
+        (stix_id, handle)
+        for stix_id, handle in previous.items()
+        if stix_id not in current
     )
 
 
@@ -156,7 +158,9 @@ class FeedState:
     async def get_blocklist_uuids(self, feed_id: str) -> set[str]:
         """Return every blocklist UUID currently attributed to this feed."""
         try:
-            members = await self._redis.smembers(_KEY_BLOCKLIST_UUIDS.format(feed_id=feed_id))
+            members = await self._redis.smembers(
+                _KEY_BLOCKLIST_UUIDS.format(feed_id=feed_id)
+            )
             return {m.decode() if isinstance(m, bytes) else m for m in members}
         except Exception as exc:  # noqa: BLE001
             logger.warning(
@@ -210,7 +214,9 @@ class FeedState:
         try:
             raw = await self._redis.hgetall(_KEY_ACTIVE_STIX.format(feed_id=feed_id))
             return {
-                (k.decode() if isinstance(k, bytes) else k): (v.decode() if isinstance(v, bytes) else v)
+                (k.decode() if isinstance(k, bytes) else k): (
+                    v.decode() if isinstance(v, bytes) else v
+                )
                 for k, v in raw.items()
             }
         except Exception as exc:  # noqa: BLE001
@@ -416,7 +422,9 @@ class FeedState:
         try:
             raw = await self._redis.hgetall(_KEY_POLL_STATE.format(feed_id=feed_id))
             return {
-                (k.decode() if isinstance(k, bytes) else k): (v.decode() if isinstance(v, bytes) else v)
+                (k.decode() if isinstance(k, bytes) else k): (
+                    v.decode() if isinstance(v, bytes) else v
+                )
                 for k, v in raw.items()
             }
         except Exception as exc:  # noqa: BLE001
@@ -447,7 +455,12 @@ class FeedState:
                 "last_removed": str(removed),
                 "last_duration_s": f"{duration_s:.3f}",
                 "consecutive_successes": str(
-                    int((await self.get_poll_state(feed_id)).get("consecutive_successes", "0")) + 1
+                    int(
+                        (await self.get_poll_state(feed_id)).get(
+                            "consecutive_successes", "0"
+                        )
+                    )
+                    + 1
                 ),
                 "failure_count": "0",
                 "last_error": "",

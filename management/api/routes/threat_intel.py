@@ -75,6 +75,7 @@ async def _check_poll_rate_limit(feed_id: str, redis) -> None:
     place to escalate.
     """
     import time
+
     key = f"{_POLL_RATE_KEY_PREFIX}{feed_id}"
     now = time.time()
     cutoff = now - _POLL_RATE_WINDOW_S
@@ -111,8 +112,7 @@ async def _check_poll_rate_limit(feed_id: str, redis) -> None:
         raise
     except Exception as exc:  # noqa: BLE001 — fail-open
         logger.warning(
-            "threat_intel | event=poll_rate_limit_check_failed | "
-            "feed=%s | err=%s",
+            "threat_intel | event=poll_rate_limit_check_failed | " "feed=%s | err=%s",
             feed_id,
             exc,
         )
@@ -137,9 +137,7 @@ async def _load_feed_configs() -> list[dict[str, Any]]:
     try:
         cfg = get_proxy_config()
     except Exception as exc:  # noqa: BLE001
-        logger.warning(
-            "threat_intel | event=config_load_failed | error=%s", exc
-        )
+        logger.warning("threat_intel | event=config_load_failed | error=%s", exc)
         return []
     if not isinstance(cfg, dict):
         return []
@@ -191,9 +189,7 @@ async def _load_feed_status(
         ) or {}
     except Exception:  # noqa: BLE001
         pass
-    poll_state = {
-        _decode(k): _decode(v) for k, v in poll_state_raw.items()
-    }
+    poll_state = {_decode(k): _decode(v) for k, v in poll_state_raw.items()}
 
     # indicators managed (HLEN on the active HASH)
     indicators_managed = 0
@@ -229,9 +225,7 @@ async def _load_feed_status(
         try:
             from datetime import timedelta
 
-            next_poll_at = (
-                last_dt + timedelta(minutes=interval_minutes)
-            ).isoformat()
+            next_poll_at = (last_dt + timedelta(minutes=interval_minutes)).isoformat()
         except Exception:  # noqa: BLE001
             pass
 

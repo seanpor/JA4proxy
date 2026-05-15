@@ -1,6 +1,7 @@
 """
 Unit tests for src/tap/fingerprints/ja4s.py (Phase 20 Group 5-B).
 """
+
 import struct
 
 import pytest
@@ -33,7 +34,7 @@ def _build_server_hello(
         sv_body = struct.pack("!H", supported_versions_ext)
         ext_blob += struct.pack("!HH", 43, len(sv_body)) + sv_body
 
-    for ext_type in (extensions or []):
+    for ext_type in extensions or []:
         ext_blob += struct.pack("!HH", ext_type, 0)
 
     ext_section = struct.pack("!H", len(ext_blob)) + ext_blob if ext_blob else b""
@@ -42,7 +43,7 @@ def _build_server_hello(
 
     body = (
         struct.pack("!H", version)
-        + b"\x00" * 32           # random
+        + b"\x00" * 32  # random
         + sid_section
         + struct.pack("!H", cipher)
         + struct.pack("!B", 0)  # compression = null
@@ -135,6 +136,7 @@ class TestExtractJA4S:
 
 # ── Missing-coverage tests ────────────────────────────────────────────────────
 
+
 class TestJA4STruncationPaths:
     """Cover boundary-return-None paths in _parse() (lines 53-102).
 
@@ -175,7 +177,7 @@ class TestJA4STruncationPaths:
     def test_hs_end_exceeds_buffer_returns_none(self):
         """hs_len claims more bytes than buffer → None (line 71-72).
         So what: crafted oversized hs_len must not overread."""
-        body = bytes([0x02]) + b"\x00\xFF\xFF" + b"\x00" * 5
+        body = bytes([0x02]) + b"\x00\xff\xff" + b"\x00" * 5
         rec = struct.pack("!BHH", 0x16, 0x0303, len(body))
         assert extract_ja4s(rec + body) is None
 
@@ -210,14 +212,21 @@ class TestJA4STruncationPaths:
 
     def test_truncated_before_cipher_returns_none(self):
         """sid present but < 2 bytes for cipher_suite → None (line 95-96)."""
-        hs_body = struct.pack("!H", 0x0303) + b"\x00" * 32 + bytes([0]) + b"\x13"  # 1 cipher byte
+        hs_body = (
+            struct.pack("!H", 0x0303) + b"\x00" * 32 + bytes([0]) + b"\x13"
+        )  # 1 cipher byte
         hs_hdr = bytes([0x02]) + struct.pack("!I", len(hs_body))[1:]
         rec = struct.pack("!BHH", 0x16, 0x0303, len(hs_hdr) + len(hs_body))
         assert extract_ja4s(rec + hs_hdr + hs_body) is None
 
     def test_truncated_before_compression_returns_none(self):
         """cipher present but no compression byte → None (line 101-102)."""
-        hs_body = struct.pack("!H", 0x0303) + b"\x00" * 32 + bytes([0]) + struct.pack("!H", 0x1301)
+        hs_body = (
+            struct.pack("!H", 0x0303)
+            + b"\x00" * 32
+            + bytes([0])
+            + struct.pack("!H", 0x1301)
+        )
         hs_hdr = bytes([0x02]) + struct.pack("!I", len(hs_body))[1:]
         rec = struct.pack("!BHH", 0x16, 0x0303, len(hs_hdr) + len(hs_body))
         assert extract_ja4s(rec + hs_hdr + hs_body) is None
@@ -240,8 +249,12 @@ class TestJA4STruncationPaths:
         ext_blob = struct.pack("!HH", 43, len(sv_body)) + sv_body
         ext_section = struct.pack("!H", len(ext_blob)) + ext_blob
         body = (
-            struct.pack("!H", 0x0303) + b"\x00" * 32 + bytes([0])
-            + struct.pack("!H", 0x1301) + bytes([0]) + ext_section
+            struct.pack("!H", 0x0303)
+            + b"\x00" * 32
+            + bytes([0])
+            + struct.pack("!H", 0x1301)
+            + bytes([0])
+            + ext_section
         )
         hs_hdr = bytes([0x02]) + struct.pack("!I", len(body))[1:]
         rec = struct.pack("!BHH", 0x16, 0x0303, len(hs_hdr) + len(body))
@@ -255,23 +268,27 @@ class TestJA4SAlpnChars:
     def test_alpn_chars_two_char_protocol(self):
         """2-char protocol 'h2' → 'h2' (first + last)."""
         from src.tap.fingerprints.ja4s import _alpn_chars
+
         assert _alpn_chars("h2") == "h2"
 
     def test_alpn_chars_single_char_protocol(self):
         """1-char protocol 'h' → 'h0' (line 170-171).
         So what: single-char ALPN must not IndexError in fingerprint assembly."""
         from src.tap.fingerprints.ja4s import _alpn_chars
+
         assert _alpn_chars("h") == "h0"
 
     def test_alpn_chars_none_returns_00(self):
         """None → '00' (line 166-167)."""
         from src.tap.fingerprints.ja4s import _alpn_chars
+
         assert _alpn_chars(None) == "00"
 
     def test_alpn_chars_empty_string_returns_00(self):
         """Empty string → '00' (line 172).
         So what: zero-length ALPN must not raise IndexError."""
         from src.tap.fingerprints.ja4s import _alpn_chars
+
         assert _alpn_chars("") == "00"
 
 
@@ -284,11 +301,13 @@ class TestJA4SHashExtsGREASEOnly:
         fingerprint databases with garbage entries."""
         from src.tap.fingerprints.ja4 import _GREASE
         from src.tap.fingerprints.ja4s import _hash_exts
+
         grease_list = list(_GREASE)[:3]
         assert _hash_exts(grease_list) == "000000000000"
 
 
 # ── Missing-coverage additions ────────────────────────────────────────────────
+
 
 class TestJA4SCoverageGaps:
     """Cover lines 44-45, 122, 136-137, 172 in ja4s.py.
@@ -304,6 +323,7 @@ class TestJA4SCoverageGaps:
         from unittest.mock import patch
 
         import src.tap.fingerprints.ja4s as _mod
+
         with patch.object(_mod, "_parse", side_effect=RuntimeError("injected")):
             result = _mod.extract_ja4s(b"\x16\x03\x03" + b"\x00" * 50)
         assert result is None
@@ -315,12 +335,17 @@ class TestJA4SCoverageGaps:
         import struct
 
         from src.tap.fingerprints.ja4s import extract_ja4s
+
         # Minimal body up to extensions then add corrupt ext
         ext_blob = struct.pack("!HH", 0x0010, 9999)  # ALPN, ext_len=9999 (overrun)
         ext_section = struct.pack("!H", len(ext_blob)) + ext_blob
         body = (
-            struct.pack("!H", 0x0303) + b"\x00" * 32 + bytes([0])
-            + struct.pack("!H", 0x1301) + bytes([0]) + ext_section
+            struct.pack("!H", 0x0303)
+            + b"\x00" * 32
+            + bytes([0])
+            + struct.pack("!H", 0x1301)
+            + bytes([0])
+            + ext_section
         )
         hs_hdr = bytes([0x02]) + struct.pack("!I", len(body))[1:]
         rec = struct.pack("!BHH", 0x16, 0x0303, len(hs_hdr) + len(body))
@@ -334,13 +359,18 @@ class TestJA4SCoverageGaps:
         import struct
 
         from src.tap.fingerprints.ja4s import extract_ja4s
+
         # 1-byte supported_versions payload (needs 2 for unpack)
         sv_body = b"\x01"
         ext_blob = struct.pack("!HH", 43, len(sv_body)) + sv_body
         ext_section = struct.pack("!H", len(ext_blob)) + ext_blob
         body = (
-            struct.pack("!H", 0x0303) + b"\x00" * 32 + bytes([0])
-            + struct.pack("!H", 0x1301) + bytes([0]) + ext_section
+            struct.pack("!H", 0x0303)
+            + b"\x00" * 32
+            + bytes([0])
+            + struct.pack("!H", 0x1301)
+            + bytes([0])
+            + ext_section
         )
         hs_hdr = bytes([0x02]) + struct.pack("!I", len(body))[1:]
         rec = struct.pack("!BHH", 0x16, 0x0303, len(hs_hdr) + len(body))
@@ -351,4 +381,5 @@ class TestJA4SCoverageGaps:
         """_alpn_chars('') → '00' (line 172).
         So what: a zero-length ALPN string must not cause IndexError."""
         from src.tap.fingerprints.ja4s import _alpn_chars
+
         assert _alpn_chars("") == "00"

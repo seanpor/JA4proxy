@@ -39,26 +39,32 @@ def mock_session():
 
 @pytest.mark.asyncio
 async def test_misp_provider_signal_logic(mock_redis, mock_local_cache, mock_session):
-    config = MISPConfig(enabled=True, api_key="test", base_url="https://misp.test", attribute_score=20, score_cap=50)
+    config = MISPConfig(
+        enabled=True,
+        api_key="test",
+        base_url="https://misp.test",
+        attribute_score=20,
+        score_cap=50,
+    )
     provider = MISPProvider(config, mock_redis, mock_local_cache, mock_session)
-    
+
     # Test 1 attribute
     data = {"attribute_count": 1}
     signal = provider._to_signal("1.2.3.4", data)
     assert signal.name == "misp"
     assert signal.score == 20
     assert "1 attribute" in signal.reason
-    
+
     # Test multiple attributes
     data = {"attribute_count": 2}
     signal = provider._to_signal("1.2.3.4", data)
     assert signal.score == 40
-    
+
     # Test score capping
     data = {"attribute_count": 10}
     signal = provider._to_signal("1.2.3.4", data)
     assert signal.score == 50  # capped at 50
-    
+
     # Test no attributes (should return None)
     data = {"attribute_count": 0}
     signal = provider._to_signal("1.2.3.4", data)
@@ -69,26 +75,28 @@ async def test_misp_provider_signal_logic(mock_redis, mock_local_cache, mock_ses
 async def test_misp_api_lookup(mock_redis, mock_local_cache, mock_session):
     config = MISPConfig(enabled=True, api_key="test", base_url="https://misp.test")
     provider = MISPProvider(config, mock_redis, mock_local_cache, mock_session)
-    
+
     # Mock successful response
     mock_resp = AsyncMock()
     mock_resp.status = 200
-    mock_resp.json = AsyncMock(return_value={
-        "response": [
-            {"id": "1", "value": "1.2.3.4", "type": "ip-dst"},
-            {"id": "2", "value": "1.2.3.4", "type": "ip-dst"}
-        ]
-    })
-    
+    mock_resp.json = AsyncMock(
+        return_value={
+            "response": [
+                {"id": "1", "value": "1.2.3.4", "type": "ip-dst"},
+                {"id": "2", "value": "1.2.3.4", "type": "ip-dst"},
+            ]
+        }
+    )
+
     # aiohttp session.post() returns an object that is an async context manager
     mock_ctx = MagicMock()
     mock_ctx.__aenter__ = AsyncMock(return_value=mock_resp)
     mock_ctx.__aexit__ = AsyncMock(return_value=None)
     mock_session.post.return_value = mock_ctx
-    
+
     # Test the lookup process
     await provider._process_lookup("1.2.3.4")
-    
+
     # Verify Redis was called to cache the result
     mock_redis.setex.assert_called_once()
     call_args = mock_redis.setex.call_args
@@ -101,11 +109,11 @@ async def test_misp_api_lookup(mock_redis, mock_local_cache, mock_session):
 async def test_misp_provider_disabled(mock_redis, mock_local_cache, mock_session):
     config = MISPConfig(enabled=False)
     provider = MISPProvider(config, mock_redis, mock_local_cache, mock_session)
-    
+
     # Should return None when disabled
     signal = provider.get_signal("1.2.3.4")
     assert signal is None
-    
+
     # Start/stop should be no-ops
     await provider.start()
     await provider.stop()
@@ -114,17 +122,19 @@ async def test_misp_provider_disabled(mock_redis, mock_local_cache, mock_session
 
 @pytest.mark.asyncio
 async def test_misp_cache_hit(mock_redis, mock_local_cache, mock_session):
-    config = MISPConfig(enabled=True, api_key="test", base_url="https://misp.test", score_cap=100)
+    config = MISPConfig(
+        enabled=True, api_key="test", base_url="https://misp.test", score_cap=100
+    )
     provider = MISPProvider(config, mock_redis, mock_local_cache, mock_session)
-    
+
     # Mock cache hit
     cached_data = {"attribute_count": 3}
     mock_local_cache.misp_scores.get.return_value = cached_data
-    
+
     signal = provider.get_signal("1.2.3.4")
     assert signal is not None
     assert signal.score == 60  # 3 * 20
-    
+
     # Verify no API lookup was triggered (cache hit)
     mock_session.post.assert_not_called()
 
@@ -133,16 +143,16 @@ async def test_misp_cache_hit(mock_redis, mock_local_cache, mock_session):
 async def test_misp_config_reload(mock_redis, mock_local_cache, mock_session):
     config = MISPConfig(enabled=True, api_key="old_key", base_url="https://old.test")
     provider = MISPProvider(config, mock_redis, mock_local_cache, mock_session)
-    
+
     new_config_dict = {
         "misp": {
             "enabled": True,
             "api_key": "new_key",
             "base_url": "https://new.test",
-            "attribute_score": 25
+            "attribute_score": 25,
         }
     }
-    
+
     provider.on_config_reload(new_config_dict)
     assert provider._config.api_key == "new_key"
     assert provider._config.base_url == "https://new.test"
@@ -170,9 +180,13 @@ def test_misp_config_from_config_env_vars(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_misp_start_enabled_spawns_workers(mock_redis, mock_local_cache, mock_session):
+async def test_misp_start_enabled_spawns_workers(
+    mock_redis, mock_local_cache, mock_session
+):
     """start() creates worker tasks when enabled."""
-    config = MISPConfig(enabled=True, api_key="key", base_url="https://misp.test", worker_count=2)
+    config = MISPConfig(
+        enabled=True, api_key="key", base_url="https://misp.test", worker_count=2
+    )
     provider = MISPProvider(config, mock_redis, mock_local_cache, mock_session)
 
     await provider.start()
@@ -191,7 +205,9 @@ async def test_misp_start_enabled_spawns_workers(mock_redis, mock_local_cache, m
 @pytest.mark.asyncio
 async def test_misp_stop_cancels_workers(mock_redis, mock_local_cache, mock_session):
     """stop() cancels running workers without raising."""
-    config = MISPConfig(enabled=True, api_key="key", base_url="https://misp.test", worker_count=1)
+    config = MISPConfig(
+        enabled=True, api_key="key", base_url="https://misp.test", worker_count=1
+    )
     provider = MISPProvider(config, mock_redis, mock_local_cache, mock_session)
     await provider.start()
     assert len(provider._workers) == 1
@@ -213,7 +229,11 @@ async def test_misp_get_signal_cache_hit_adaptive_cache_recorded(
     adaptive_cache.record_cache_hit = AsyncMock()
 
     provider = MISPProvider(
-        config, mock_redis, mock_local_cache, mock_session, adaptive_cache=adaptive_cache
+        config,
+        mock_redis,
+        mock_local_cache,
+        mock_session,
+        adaptive_cache=adaptive_cache,
     )
     mock_local_cache.misp_scores.get.return_value = {"attribute_count": 1}
 
@@ -228,7 +248,9 @@ async def test_misp_get_signal_cache_hit_adaptive_cache_recorded(
 
 
 @pytest.mark.asyncio
-async def test_misp_get_signal_cache_miss_returns_none(mock_redis, mock_local_cache, mock_session):
+async def test_misp_get_signal_cache_miss_returns_none(
+    mock_redis, mock_local_cache, mock_session
+):
     """Cache miss returns None and fires background lookup."""
     config = MISPConfig(enabled=True, api_key="key", base_url="https://misp.test")
     provider = MISPProvider(config, mock_redis, mock_local_cache, mock_session)
@@ -259,7 +281,9 @@ async def test_misp_maybe_lookup_redis_hit(mock_redis, mock_local_cache, mock_se
 
 
 @pytest.mark.asyncio
-async def test_misp_maybe_lookup_redis_error_continues(mock_redis, mock_local_cache, mock_session):
+async def test_misp_maybe_lookup_redis_error_continues(
+    mock_redis, mock_local_cache, mock_session
+):
     """Redis read error is swallowed; lookup proceeds to bloom/queue."""
     config = MISPConfig(enabled=True, api_key="key", base_url="https://misp.test")
     provider = MISPProvider(config, mock_redis, mock_local_cache, mock_session)
@@ -270,7 +294,9 @@ async def test_misp_maybe_lookup_redis_error_continues(mock_redis, mock_local_ca
 
 
 @pytest.mark.asyncio
-async def test_misp_maybe_lookup_bloom_already_seen(mock_redis, mock_local_cache, mock_session):
+async def test_misp_maybe_lookup_bloom_already_seen(
+    mock_redis, mock_local_cache, mock_session
+):
     """Bloom filter returning 0 (already seen) skips queue."""
     config = MISPConfig(enabled=True, api_key="key", base_url="https://misp.test")
     provider = MISPProvider(config, mock_redis, mock_local_cache, mock_session)
@@ -283,9 +309,13 @@ async def test_misp_maybe_lookup_bloom_already_seen(mock_redis, mock_local_cache
 
 
 @pytest.mark.asyncio
-async def test_misp_maybe_lookup_queue_full_swallowed(mock_redis, mock_local_cache, mock_session):
+async def test_misp_maybe_lookup_queue_full_swallowed(
+    mock_redis, mock_local_cache, mock_session
+):
     """QueueFull is silently swallowed."""
-    config = MISPConfig(enabled=True, api_key="key", base_url="https://misp.test", queue_size=1)
+    config = MISPConfig(
+        enabled=True, api_key="key", base_url="https://misp.test", queue_size=1
+    )
     provider = MISPProvider(config, mock_redis, mock_local_cache, mock_session)
     provider._queue.put_nowait("2.3.4.5")
 
@@ -301,7 +331,9 @@ async def test_misp_maybe_lookup_queue_full_swallowed(mock_redis, mock_local_cac
 
 
 @pytest.mark.asyncio
-async def test_misp_process_lookup_no_api_key_skips(mock_redis, mock_local_cache, mock_session):
+async def test_misp_process_lookup_no_api_key_skips(
+    mock_redis, mock_local_cache, mock_session
+):
     """When api_key is empty, _process_lookup returns immediately."""
     config = MISPConfig(enabled=True, api_key="", base_url="https://misp.test")
     provider = MISPProvider(config, mock_redis, mock_local_cache, mock_session)
@@ -311,7 +343,9 @@ async def test_misp_process_lookup_no_api_key_skips(mock_redis, mock_local_cache
 
 
 @pytest.mark.asyncio
-async def test_misp_process_lookup_no_base_url_skips(mock_redis, mock_local_cache, mock_session):
+async def test_misp_process_lookup_no_base_url_skips(
+    mock_redis, mock_local_cache, mock_session
+):
     """When base_url is empty, _process_lookup returns immediately."""
     config = MISPConfig(enabled=True, api_key="key", base_url="")
     provider = MISPProvider(config, mock_redis, mock_local_cache, mock_session)
@@ -326,7 +360,9 @@ async def test_misp_process_lookup_no_base_url_skips(mock_redis, mock_local_cach
 
 
 @pytest.mark.asyncio
-async def test_misp_process_lookup_circuit_open_skips(mock_redis, mock_local_cache, mock_session):
+async def test_misp_process_lookup_circuit_open_skips(
+    mock_redis, mock_local_cache, mock_session
+):
     """When circuit is open, _process_lookup returns without calling the API."""
     from src.security.feed_health import FeedHealthMonitor
 
@@ -350,7 +386,9 @@ async def test_misp_process_lookup_circuit_open_skips(mock_redis, mock_local_cac
 
 
 @pytest.mark.asyncio
-async def test_misp_process_lookup_404_caches_zero(mock_redis, mock_local_cache, mock_session):
+async def test_misp_process_lookup_404_caches_zero(
+    mock_redis, mock_local_cache, mock_session
+):
     """404 response is treated as not found and cached with zero attributes."""
     config = MISPConfig(enabled=True, api_key="key", base_url="https://misp.test")
     provider = MISPProvider(config, mock_redis, mock_local_cache, mock_session)
@@ -408,17 +446,26 @@ async def test_misp_process_lookup_http_error_records_cb_failure(
 
 
 @pytest.mark.asyncio
-async def test_misp_process_lookup_uses_adaptive_ttl(mock_redis, mock_local_cache, mock_session):
+async def test_misp_process_lookup_uses_adaptive_ttl(
+    mock_redis, mock_local_cache, mock_session
+):
     """When adaptive_cache is set, TTL comes from get_adaptive_ttl()."""
     adaptive_cache = MagicMock()
     adaptive_cache.get_adaptive_ttl.return_value = 7200
     adaptive_cache.record_cache_miss = AsyncMock()
 
     config = MISPConfig(
-        enabled=True, api_key="key", base_url="https://misp.test", cache_ttl_seconds=3600
+        enabled=True,
+        api_key="key",
+        base_url="https://misp.test",
+        cache_ttl_seconds=3600,
     )
     provider = MISPProvider(
-        config, mock_redis, mock_local_cache, mock_session, adaptive_cache=adaptive_cache
+        config,
+        mock_redis,
+        mock_local_cache,
+        mock_session,
+        adaptive_cache=adaptive_cache,
     )
 
     mock_resp = AsyncMock()
@@ -441,7 +488,9 @@ async def test_misp_process_lookup_uses_adaptive_ttl(mock_redis, mock_local_cach
 
 
 @pytest.mark.asyncio
-async def test_misp_process_lookup_records_cache_miss(mock_redis, mock_local_cache, mock_session):
+async def test_misp_process_lookup_records_cache_miss(
+    mock_redis, mock_local_cache, mock_session
+):
     """record_cache_miss is called after successful lookup when adaptive_cache is set."""
     adaptive_cache = MagicMock()
     adaptive_cache.get_adaptive_ttl.return_value = 3600
@@ -449,7 +498,11 @@ async def test_misp_process_lookup_records_cache_miss(mock_redis, mock_local_cac
 
     config = MISPConfig(enabled=True, api_key="key", base_url="https://misp.test")
     provider = MISPProvider(
-        config, mock_redis, mock_local_cache, mock_session, adaptive_cache=adaptive_cache
+        config,
+        mock_redis,
+        mock_local_cache,
+        mock_session,
+        adaptive_cache=adaptive_cache,
     )
 
     mock_resp = AsyncMock()
@@ -531,7 +584,9 @@ async def test_misp_process_lookup_generic_exception_records_failure(
 
 
 @pytest.mark.asyncio
-async def test_misp_worker_loop_cancellation(mock_redis, mock_local_cache, mock_session):
+async def test_misp_worker_loop_cancellation(
+    mock_redis, mock_local_cache, mock_session
+):
     """Worker loop exits cleanly when cancelled."""
     config = MISPConfig(enabled=True, api_key="key", base_url="https://misp.test")
     provider = MISPProvider(config, mock_redis, mock_local_cache, mock_session)
@@ -564,7 +619,9 @@ async def test_misp_maybe_lookup_bloom_exception_swallowed(
 
 
 @pytest.mark.asyncio
-async def test_misp_worker_loop_processes_item(mock_redis, mock_local_cache, mock_session):
+async def test_misp_worker_loop_processes_item(
+    mock_redis, mock_local_cache, mock_session
+):
     """Worker dequeues item and calls _process_lookup with task_done (lines 200-203).
     So what: task_done must be called or queue.join() hangs during shutdown."""
     config = MISPConfig(enabled=True, api_key="key", base_url="https://misp.test")
@@ -586,7 +643,9 @@ async def test_misp_worker_loop_processes_item(mock_redis, mock_local_cache, moc
 
 
 @pytest.mark.asyncio
-async def test_misp_worker_loop_exception_logged(mock_redis, mock_local_cache, mock_session):
+async def test_misp_worker_loop_exception_logged(
+    mock_redis, mock_local_cache, mock_session
+):
     """Exception from _process_lookup is caught and logged (lines 206-207).
     So what: a corrupt MISP response must not kill the worker task."""
     config = MISPConfig(enabled=True, api_key="key", base_url="https://misp.test")
@@ -679,7 +738,11 @@ async def test_misp_process_lookup_existing_redis_value_parsed(
 
     config = MISPConfig(enabled=True, api_key="key", base_url="https://misp.test")
     provider = MISPProvider(
-        config, mock_redis, mock_local_cache, mock_session, adaptive_cache=adaptive_cache
+        config,
+        mock_redis,
+        mock_local_cache,
+        mock_session,
+        adaptive_cache=adaptive_cache,
     )
 
     # Redis already has cached data for this IP

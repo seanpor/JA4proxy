@@ -47,7 +47,9 @@ async def get_nodes(
                 if fields:
                     nodes.append(fields)
             except Exception as exc:  # noqa: BLE001
-                logger.warning("nodes | event=hgetall_error | key=%s | error=%s", key, exc)
+                logger.warning(
+                    "nodes | event=hgetall_error | key=%s | error=%s", key, exc
+                )
     except Exception as exc:  # noqa: BLE001
         logger.warning("nodes | event=scan_error | error=%s", exc)
 
@@ -71,9 +73,15 @@ async def reload_node(
     payload = json.dumps({"action": "reload", "host": host})
     try:
         await redis.publish(_RELOAD_CHANNEL, payload)
-        logger.info("nodes | event=reload_published | host=%s | channel=%s", host, _RELOAD_CHANNEL)
+        logger.info(
+            "nodes | event=reload_published | host=%s | channel=%s",
+            host,
+            _RELOAD_CHANNEL,
+        )
     except Exception as exc:  # noqa: BLE001
         logger.warning("nodes | event=publish_error | host=%s | error=%s", host, exc)
-        raise HTTPException(status_code=503, detail="Failed to publish reload signal") from exc
+        raise HTTPException(
+            status_code=503, detail="Failed to publish reload signal"
+        ) from exc
 
     return {"published": True, "host": host}

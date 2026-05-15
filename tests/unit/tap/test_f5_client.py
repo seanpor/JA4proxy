@@ -1,6 +1,7 @@
 """
 Unit tests for src/tap/export/f5_client.py — Phase 20, Group 9.
 """
+
 import asyncio
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -12,6 +13,7 @@ from src.tap.export.f5_client import F5Client
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_config(**overrides) -> dict:
     cfg = {
@@ -44,6 +46,7 @@ def _make_session(*responses) -> MagicMock:
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 class TestFullSync:
     @pytest.mark.asyncio
@@ -139,6 +142,7 @@ class TestRateLimit:
 # Additional tests targeting previously uncovered lines
 # ---------------------------------------------------------------------------
 
+
 class TestAcquireRateSlot:
     """Lines 63-66: rate slot waits when max_rps is already at capacity."""
 
@@ -156,6 +160,7 @@ class TestAcquireRateSlot:
         # Lines 59-60: timestamps older than 1 second are removed before each check.
         # Without eviction, _request_times grows unbounded and always triggers waits.
         import time as _time
+
         client = F5Client(_make_config(max_rps=10), MagicMock())
         # Inject a timestamp 2 seconds in the past
         client._request_times.append(_time.monotonic() - 2.0)
@@ -168,7 +173,10 @@ class TestAcquireRateSlot:
         # Lines 63-66: when _request_times is at capacity, sleep until a slot frees.
         # Without this sleep, max_rps would be exceeded, potentially triggering F5 429s.
         import time as _time
-        with patch("src.tap.export.f5_client.asyncio.sleep", new=AsyncMock()) as mock_sleep:
+
+        with patch(
+            "src.tap.export.f5_client.asyncio.sleep", new=AsyncMock()
+        ) as mock_sleep:
             client = F5Client(_make_config(max_rps=2), MagicMock())
             # Pre-fill request_times to simulate being at max_rps
             now = _time.monotonic()
@@ -243,6 +251,7 @@ class TestPatchDataGroupEdgeCases:
         # full_sync catches it and logs an exception. This guards against future code changes
         # that remove the internal try/except from _patch_data_group.
         from unittest.mock import AsyncMock
+
         session = MagicMock()
         client = F5Client(_make_config(), session)
         client._patch_data_group = AsyncMock(side_effect=RuntimeError("unexpected"))
@@ -253,6 +262,7 @@ class TestPatchDataGroupEdgeCases:
         # Lines 92-93: if _patch_data_group raises unexpectedly, delta_push catches it
         # and logs an exception. Ensures a single bad IP push never aborts the export pipeline.
         from unittest.mock import AsyncMock
+
         session = MagicMock()
         client = F5Client(_make_config(), session)
         client._patch_data_group = AsyncMock(side_effect=RuntimeError("unexpected"))

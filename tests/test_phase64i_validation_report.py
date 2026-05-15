@@ -1,4 +1,5 @@
 """TDD tests for Phase 64i — validation report deployment section."""
+
 import importlib
 import importlib.util
 import io
@@ -25,7 +26,9 @@ class TestDeploymentSectionFunction:
 
     def test_function_exists(self):
         mod = _load_module()
-        assert hasattr(mod, "_section_deployment"), "_section_deployment function missing"
+        assert hasattr(
+            mod, "_section_deployment"
+        ), "_section_deployment function missing"
 
     def test_returns_string(self):
         mod = _load_module()

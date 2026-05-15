@@ -1,6 +1,7 @@
 """
 Unit tests for src/tap/reassembler.py (Phase 20 Group 4).
 """
+
 import random
 import time
 from unittest.mock import MagicMock
@@ -10,7 +11,14 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from src.tap.capture import ParsedPacket
-from src.tap.reassembler import TCP_ACK, TCP_FIN, TCP_RST, TCP_SYN, StreamReassembler, TCPStream
+from src.tap.reassembler import (
+    TCP_ACK,
+    TCP_FIN,
+    TCP_RST,
+    TCP_SYN,
+    StreamReassembler,
+    TCPStream,
+)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -93,18 +101,26 @@ class TestDataReassembly:
     def test_in_order_segments_assembled_correctly(self):
         r = _make_reassembler()
         stream = _handshake(r)
-        r.on_packet(_pkt("1.2.3.4", 1000, "5.6.7.8", 443, TCP_ACK, seq=1, data=b"Hello"))
-        r.on_packet(_pkt("1.2.3.4", 1000, "5.6.7.8", 443, TCP_ACK, seq=6, data=b"World"))
+        r.on_packet(
+            _pkt("1.2.3.4", 1000, "5.6.7.8", 443, TCP_ACK, seq=1, data=b"Hello")
+        )
+        r.on_packet(
+            _pkt("1.2.3.4", 1000, "5.6.7.8", 443, TCP_ACK, seq=6, data=b"World")
+        )
         assert bytes(stream.client_data) == b"HelloWorld"
 
     def test_out_of_order_segment_buffered_then_flushed(self):
         r = _make_reassembler()
         stream = _handshake(r)
         # Send second segment first
-        r.on_packet(_pkt("1.2.3.4", 1000, "5.6.7.8", 443, TCP_ACK, seq=6, data=b"World"))
+        r.on_packet(
+            _pkt("1.2.3.4", 1000, "5.6.7.8", 443, TCP_ACK, seq=6, data=b"World")
+        )
         assert bytes(stream.client_data) == b""  # still waiting for first
         # Now send first segment
-        r.on_packet(_pkt("1.2.3.4", 1000, "5.6.7.8", 443, TCP_ACK, seq=1, data=b"Hello"))
+        r.on_packet(
+            _pkt("1.2.3.4", 1000, "5.6.7.8", 443, TCP_ACK, seq=1, data=b"Hello")
+        )
         assert bytes(stream.client_data) == b"HelloWorld"
 
     @settings(max_examples=30)
@@ -205,9 +221,7 @@ class TestSharding:
             _pkt("5.6.7.8", 443, "1.2.3.4", 1000, TCP_SYN | TCP_ACK, seq=50, ack=1)
         )
         # Data in both directions
-        r.on_packet(
-            _pkt("1.2.3.4", 1000, "5.6.7.8", 443, TCP_ACK, seq=1, data=b"req")
-        )
+        r.on_packet(_pkt("1.2.3.4", 1000, "5.6.7.8", 443, TCP_ACK, seq=1, data=b"req"))
         r.on_packet(
             _pkt("5.6.7.8", 443, "1.2.3.4", 1000, TCP_ACK, seq=51, data=b"resp")
         )
@@ -226,9 +240,7 @@ class TestIPv6:
         """Reassembler receives a ParsedPacket (post-fragment-reassembly)
         so this test verifies that IPv6 addresses work as stream keys."""
         r = _make_reassembler()
-        r.on_packet(
-            _pkt("2001:db8::1", 1000, "2001:db8::2", 443, TCP_SYN, seq=0)
-        )
+        r.on_packet(_pkt("2001:db8::1", 1000, "2001:db8::2", 443, TCP_SYN, seq=0))
         assert len(r._streams) == 1
         stream = list(r._streams.values())[0]
         assert stream.client_ip == "2001:db8::1"
@@ -257,6 +269,7 @@ class TestFlushReorderBuf:
         stream = _handshake(r)
         # Manually buffer an out-of-order segment for the client direction
         from sortedcontainers import SortedList
+
         stream.client_buf = SortedList()
         stream.client_buf.add((6, b"World"))
         stream.client_seq = 6  # pretend we are now at seq 6
@@ -275,6 +288,7 @@ class TestFlushReorderBuf:
         r = _make_reassembler()
         stream = _handshake(r)
         from sortedcontainers import SortedList
+
         stream.server_buf = SortedList()
         stream.server_buf.add((101, b"resp"))
         stream.server_seq = 101
@@ -294,6 +308,7 @@ class TestFlushReorderBuf:
         r = _make_reassembler()
         stream = _handshake(r)
         from sortedcontainers import SortedList
+
         # Simulate: seq already advanced to 5, but buffer has a segment
         # starting at 3 with 4 bytes — overlap of 2 bytes
         stream.client_seq = 5
@@ -319,6 +334,7 @@ class TestFlushReorderBuf:
         r = _make_reassembler()
         stream = _handshake(r)
         from sortedcontainers import SortedList
+
         stream.client_seq = 1
         stream.client_buf = SortedList()
         stream.client_buf.add((1, b"Hello"))
@@ -412,10 +428,21 @@ class TestReassemblerCoverageGaps:
         stream state for all subsequent packets on that worker."""
         r = _make_reassembler()
         udp_pkt = ParsedPacket(
-            src_ip="1.2.3.4", dst_ip="5.6.7.8", src_port=1234, dst_port=53,
-            proto="udp", seq=0, ack=0, flags=0, data=b"hello",
-            timestamp=0.0, tcp_options_raw=b"", window_size=0,
-            ip_ttl=64, ip_df=False, ip_id=0,
+            src_ip="1.2.3.4",
+            dst_ip="5.6.7.8",
+            src_port=1234,
+            dst_port=53,
+            proto="udp",
+            seq=0,
+            ack=0,
+            flags=0,
+            data=b"hello",
+            timestamp=0.0,
+            tcp_options_raw=b"",
+            window_size=0,
+            ip_ttl=64,
+            ip_df=False,
+            ip_id=0,
         )
         r.on_packet(udp_pkt)  # must not raise; no stream created
         assert len(r._streams) == 0
@@ -453,5 +480,15 @@ class TestReassemblerCoverageGaps:
         r = _make_reassembler(extractor=extractor)
         stream = _handshake(r)
         # Send a data packet (non-empty)
-        r.on_packet(_pkt("1.2.3.4", 1000, "5.6.7.8", 443, TCP_ACK, seq=1, data=b"GET / HTTP/1.1\r\n"))
+        r.on_packet(
+            _pkt(
+                "1.2.3.4",
+                1000,
+                "5.6.7.8",
+                443,
+                TCP_ACK,
+                seq=1,
+                data=b"GET / HTTP/1.1\r\n",
+            )
+        )
         extractor.on_stream_data.assert_called_once_with(stream)

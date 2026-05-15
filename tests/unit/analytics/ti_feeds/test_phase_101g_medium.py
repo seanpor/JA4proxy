@@ -22,7 +22,9 @@ class TestM8BundleSizeCap:
         from src.analytics.ti_feeds.base import FeedConfig
 
         cfg = FeedConfig(id="test", type="taxii2")
-        assert hasattr(cfg, "max_bundle_bytes"), "FeedConfig should have max_bundle_bytes"
+        assert hasattr(
+            cfg, "max_bundle_bytes"
+        ), "FeedConfig should have max_bundle_bytes"
         assert cfg.max_bundle_bytes > 0, "max_bundle_bytes should have a default"
 
 
@@ -45,9 +47,9 @@ class TestM10GaugeToCounter:
         """ja4proxy_ti_feed_indicators_managed should be defined."""
         with open("src/analytics/ti_feeds/metrics.py") as f:
             content = f.read()
-        assert "ti_feed_indicators_managed" in content or "indicators_managed" in content, (
-            "Should have indicators_managed"
-        )
+        assert (
+            "ti_feed_indicators_managed" in content or "indicators_managed" in content
+        ), "Should have indicators_managed"
 
 
 class TestM11StableOrderedDropped:
@@ -63,9 +65,9 @@ class TestM11StableOrderedDropped:
 
         result = compute_dropped_ids({"sid-a": "h-a", "sid-b": "h-b"}, set())
         assert isinstance(result, list), f"expected list, got {type(result).__name__}"
-        assert all(isinstance(item, tuple) and len(item) == 2 for item in result), (
-            "every item must be a (stix_id, handle) tuple"
-        )
+        assert all(
+            isinstance(item, tuple) and len(item) == 2 for item in result
+        ), "every item must be a (stix_id, handle) tuple"
 
     def test_sorted_by_stix_id_ascending(self):
         """Output must be sorted by stix_id ascending — deterministic across runs."""
@@ -114,7 +116,12 @@ class TestM12ExplicitExceptions:
         from pathlib import Path
 
         offenders: list[str] = []
-        for filename in ["taxii.py", "crowdstrike.py", "recorded_future.py", "rest_generic.py"]:
+        for filename in [
+            "taxii.py",
+            "crowdstrike.py",
+            "recorded_future.py",
+            "rest_generic.py",
+        ]:
             path = Path(f"src/analytics/ti_feeds/{filename}")
             tree = ast.parse(path.read_text())
             for node in ast.walk(tree):
@@ -124,9 +131,10 @@ class TestM12ExplicitExceptions:
                 # ``except Exception:`` → ``ast.Name(id="Exception")``
                 if isinstance(t, ast.Name) and t.id == "Exception":
                     offenders.append(f"{filename}:{node.lineno}")
-        assert not offenders, (
-            "M12 violated — bare ``except Exception`` survives at: "
-            + ", ".join(offenders)
+        assert (
+            not offenders
+        ), "M12 violated — bare ``except Exception`` survives at: " + ", ".join(
+            offenders
         )
 
 
@@ -160,21 +168,21 @@ class TestM12ExplicitExceptionsRuntime:
 
         assert issubclass(ManagementAPIError, _FEED_WRITE_ERRORS)
         for exc_type in _FEED_FETCH_ERRORS:
-            assert issubclass(exc_type, _FEED_WRITE_ERRORS), (
-                f"{exc_type.__name__} should also be caught by _FEED_WRITE_ERRORS"
-            )
+            assert issubclass(
+                exc_type, _FEED_WRITE_ERRORS
+            ), f"{exc_type.__name__} should also be caught by _FEED_WRITE_ERRORS"
 
     def test_fetch_errors_does_not_catch_programmer_bugs(self):
         """``AttributeError``, ``KeyError``, ``TypeError`` must propagate."""
         from src.analytics.ti_feeds.taxii import _FEED_FETCH_ERRORS, _FEED_WRITE_ERRORS
 
         for bug_type in (AttributeError, KeyError, TypeError, ImportError, NameError):
-            assert not issubclass(bug_type, _FEED_FETCH_ERRORS), (
-                f"{bug_type.__name__} should NOT be caught — it indicates a bug"
-            )
-            assert not issubclass(bug_type, _FEED_WRITE_ERRORS), (
-                f"{bug_type.__name__} should NOT be caught — it indicates a bug"
-            )
+            assert not issubclass(
+                bug_type, _FEED_FETCH_ERRORS
+            ), f"{bug_type.__name__} should NOT be caught — it indicates a bug"
+            assert not issubclass(
+                bug_type, _FEED_WRITE_ERRORS
+            ), f"{bug_type.__name__} should NOT be caught — it indicates a bug"
 
     def test_all_four_clients_expose_fetch_error_tuple(self):
         """Every client module must expose ``_FEED_FETCH_ERRORS`` (re-imported
@@ -187,13 +195,13 @@ class TestM12ExplicitExceptionsRuntime:
         )
 
         for module in (taxii, crowdstrike, recorded_future, rest_generic):
-            assert hasattr(module, "_FEED_FETCH_ERRORS"), (
-                f"{module.__name__} must expose _FEED_FETCH_ERRORS"
-            )
+            assert hasattr(
+                module, "_FEED_FETCH_ERRORS"
+            ), f"{module.__name__} must expose _FEED_FETCH_ERRORS"
             assert isinstance(module._FEED_FETCH_ERRORS, tuple)
-            assert len(module._FEED_FETCH_ERRORS) >= 4, (
-                f"{module.__name__}._FEED_FETCH_ERRORS too narrow"
-            )
+            assert (
+                len(module._FEED_FETCH_ERRORS) >= 4
+            ), f"{module.__name__}._FEED_FETCH_ERRORS too narrow"
 
 
 class TestM13SeedFileLeaderLock:
@@ -212,10 +220,10 @@ class TestM13SeedFileLeaderLock:
         seed = tmp_path / "seed.yml"
         seed.write_text(
             "fingerprints:\n"
-            "  - ja4: \"t10d170900_9dc949161b6c_b64c0ad42cb7\"\n"
-            "    name: \"X\"\n"
-            "    category: \"c2_framework\"\n"
-            "    source: \"https://example.test\"\n"
+            '  - ja4: "t10d170900_9dc949161b6c_b64c0ad42cb7"\n'
+            '    name: "X"\n'
+            '    category: "c2_framework"\n'
+            '    source: "https://example.test"\n'
             "    confidence: 95\n"
         )
 
@@ -230,9 +238,7 @@ class TestM13SeedFileLeaderLock:
         )
 
         assert summary == {"loaded": 0, "created": 0, "rejected": 0, "errors": 0}
-        state.try_acquire_leader.assert_awaited_once_with(
-            "replica-A", ttl_seconds=60
-        )
+        state.try_acquire_leader.assert_awaited_once_with("replica-A", ttl_seconds=60)
         mgmt.post_blocklist.assert_not_called()
         state.mark.assert_not_called()
 
@@ -244,10 +250,10 @@ class TestM13SeedFileLeaderLock:
         seed = tmp_path / "seed.yml"
         seed.write_text(
             "fingerprints:\n"
-            "  - ja4: \"t10d170900_9dc949161b6c_b64c0ad42cb7\"\n"
-            "    name: \"X\"\n"
-            "    category: \"c2_framework\"\n"
-            "    source: \"https://example.test\"\n"
+            '  - ja4: "t10d170900_9dc949161b6c_b64c0ad42cb7"\n'
+            '    name: "X"\n'
+            '    category: "c2_framework"\n'
+            '    source: "https://example.test"\n'
             "    confidence: 95\n"
         )
 
@@ -265,9 +271,7 @@ class TestM13SeedFileLeaderLock:
 
         assert summary["loaded"] == 1
         assert summary["created"] == 1
-        state.try_acquire_leader.assert_awaited_once_with(
-            "replica-A", ttl_seconds=60
-        )
+        state.try_acquire_leader.assert_awaited_once_with("replica-A", ttl_seconds=60)
         mgmt.post_blocklist.assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -278,10 +282,10 @@ class TestM13SeedFileLeaderLock:
         seed = tmp_path / "seed.yml"
         seed.write_text(
             "fingerprints:\n"
-            "  - ja4: \"t10d170900_9dc949161b6c_b64c0ad42cb7\"\n"
-            "    name: \"X\"\n"
-            "    category: \"c2_framework\"\n"
-            "    source: \"https://example.test\"\n"
+            '  - ja4: "t10d170900_9dc949161b6c_b64c0ad42cb7"\n'
+            '    name: "X"\n'
+            '    category: "c2_framework"\n'
+            '    source: "https://example.test"\n'
             "    confidence: 95\n"
         )
 
@@ -327,4 +331,6 @@ class TestM14AuditLogEnableDisable:
                     has_disable = True
 
         if has_enable or has_disable:
-            assert "audit" in content.lower() or "log" in content.lower(), "Enable/disable should have audit logging"
+            assert (
+                "audit" in content.lower() or "log" in content.lower()
+            ), "Enable/disable should have audit logging"

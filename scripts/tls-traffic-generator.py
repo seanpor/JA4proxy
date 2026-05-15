@@ -24,19 +24,20 @@ from typing import Dict, List, Optional
 
 
 class Colors:
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKCYAN = '\033[96m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
+    HEADER = "\033[95m"
+    OKBLUE = "\033[94m"
+    OKCYAN = "\033[96m"
+    OKGREEN = "\033[92m"
+    WARNING = "\033[93m"
+    FAIL = "\033[91m"
+    ENDC = "\033[0m"
+    BOLD = "\033[1m"
 
 
 @dataclass
 class ClientProfile:
     """Profile for a simulated TLS client"""
+
     name: str
     description: str
     malicious: bool
@@ -180,14 +181,14 @@ MALICIOUS_CLIENTS = [
 MIX_BUCKETS: Dict[str, List[ClientProfile]] = {
     "browser_alpn": list(LEGITIMATE_CLIENTS),
     "automation": [
-        p for p in MALICIOUS_CLIENTS
+        p
+        for p in MALICIOUS_CLIENTS
         if p.name in {"Sliver_C2", "Python_Requests_Bot", "Evilginx_Phishing"}
     ],
-    "scanner": [
-        p for p in MALICIOUS_CLIENTS if p.name == "Masscan_Scanner"
-    ],
+    "scanner": [p for p in MALICIOUS_CLIENTS if p.name == "Masscan_Scanner"],
     "malicious": [
-        p for p in MALICIOUS_CLIENTS
+        p
+        for p in MALICIOUS_CLIENTS
         if p.name in {"CobaltStrike_Beacon", "Credential_Stuffer"}
     ],
 }
@@ -211,15 +212,11 @@ def parse_fingerprint_mix(spec: str) -> Dict[str, int]:
         k, v = pair.split("=", 1)
         k = k.strip()
         if k not in MIX_BUCKETS:
-            raise ValueError(
-                f"unknown mix bucket {k!r}; valid: {sorted(MIX_BUCKETS)}"
-            )
+            raise ValueError(f"unknown mix bucket {k!r}; valid: {sorted(MIX_BUCKETS)}")
         out[k] = int(v)
     total = sum(out.values())
     if total != 100:
-        raise ValueError(
-            f"fingerprint-mix weights must sum to 100, got {total}: {out}"
-        )
+        raise ValueError(f"fingerprint-mix weights must sum to 100, got {total}: {out}")
     return out
 
 
@@ -260,10 +257,16 @@ def create_ssl_context(profile: ClientProfile) -> ssl.SSLContext:
 
 class TrafficGenerator:
     """Generates real TLS traffic to test JA4proxy"""
-    
-    def __init__(self, target_host="localhost", target_port=443,
-                 duration=60, good_traffic_percent=15, workers=50,
-                 fingerprint_mix: Optional[Dict[str, int]] = None):
+
+    def __init__(
+        self,
+        target_host="localhost",
+        target_port=443,
+        duration=60,
+        good_traffic_percent=15,
+        workers=50,
+        fingerprint_mix: Optional[Dict[str, int]] = None,
+    ):
         self.target_host = target_host
         self.target_port = target_port
         self.duration = duration
@@ -272,13 +275,13 @@ class TrafficGenerator:
         # Phase 86i: when set, overrides good/bad split and dispatches
         # workers per-bucket according to the fingerprint-mix weights.
         self.fingerprint_mix = fingerprint_mix
-        
-        self.stats = defaultdict(lambda: {
-            "connections": 0, "success": 0, "blocked": 0, "errors": 0
-        })
+
+        self.stats = defaultdict(
+            lambda: {"connections": 0, "success": 0, "blocked": 0, "errors": 0}
+        )
         self.start_time = None
         self.running = True
-        
+
     def make_tls_connection(self, profile: ClientProfile) -> Dict:
         """Make a real TLS connection through the proxy/LB."""
         result = {
@@ -287,19 +290,19 @@ class TrafficGenerator:
             "blocked": False,
             "error": None,
         }
-        
+
         sock = None
         tls_sock = None
         try:
             ctx = create_ssl_context(profile)
-            
+
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(5)
             sock.connect((self.target_host, self.target_port))
-            
+
             # Wrap with TLS — this sends the ClientHello
             tls_sock = ctx.wrap_socket(sock, server_hostname=profile.sni)
-            
+
             # If we get here, TLS handshake succeeded — connection was allowed
             # Send a simple HTTP request over TLS
             request = (
@@ -309,7 +312,7 @@ class TrafficGenerator:
                 f"\r\n"
             ).encode()
             tls_sock.send(request)
-            
+
             # Try to read response
             try:
                 response = tls_sock.recv(4096)
@@ -324,7 +327,7 @@ class TrafficGenerator:
                 # Timeout reading response = backend slow, not blocked.
                 result["status"] = "timeout_reading"
                 self.stats[profile.name]["success"] += 1
-                
+
         except ssl.SSLError as e:
             # TLS handshake failed — could be blocked OR backend issue
             # In monitor mode (dial=0), proxy should never block, so this is likely a backend issue
@@ -354,87 +357,142 @@ class TrafficGenerator:
                     sock.close()
             except Exception:
                 pass
-        
+
         self.stats[profile.name]["connections"] += 1
         return result
-    
+
     def worker(self, profile: ClientProfile, num_connections: int):
         """Worker that generates TLS connections for a client profile."""
         interval = 1.0 / profile.request_rate if profile.request_rate > 0 else 1.0
-        
+
         for i in range(num_connections):
             if not self.running:
                 break
-                
+
             try:
                 result = self.make_tls_connection(profile)
-                
+
                 if result["blocked"]:
                     if random.random() < 0.1:  # Log 10% of blocks
-                        print(f"{Colors.WARNING}✗ BLOCKED{Colors.ENDC} {profile.name} ({result.get('error', 'blocked')})")
+                        print(
+                            f"{Colors.WARNING}✗ BLOCKED{Colors.ENDC} {profile.name} ({result.get('error', 'blocked')})"
+                        )
                 elif result["error"]:
                     if random.random() < 0.2:
-                        print(f"{Colors.FAIL}✗ ERROR{Colors.ENDC} {profile.name}: {result['error']}")
+                        print(
+                            f"{Colors.FAIL}✗ ERROR{Colors.ENDC} {profile.name}: {result['error']}"
+                        )
                 elif random.random() < 0.05:  # Log 5% of success
-                    print(f"{Colors.OKGREEN}✓{Colors.ENDC} {profile.name} -> {result['status']}")
-                    
+                    print(
+                        f"{Colors.OKGREEN}✓{Colors.ENDC} {profile.name} -> {result['status']}"
+                    )
+
             except Exception as e:
                 if random.random() < 0.1:
                     print(f"{Colors.FAIL}Exception: {e}{Colors.ENDC}")
-            
+
             time.sleep(interval)
-    
+
     def print_stats(self):
         """Print traffic generation statistics."""
         elapsed = time.time() - self.start_time
-        
+
         print(f"\n{Colors.HEADER}{'='*85}{Colors.ENDC}")
-        print(f"{Colors.HEADER}TLS Traffic Statistics (Elapsed: {elapsed:.1f}s){Colors.ENDC}")
+        print(
+            f"{Colors.HEADER}TLS Traffic Statistics (Elapsed: {elapsed:.1f}s){Colors.ENDC}"
+        )
         print(f"{Colors.HEADER}{'='*85}{Colors.ENDC}\n")
-        
+
         total = sum(s["connections"] for s in self.stats.values())
         total_ok = sum(s["success"] for s in self.stats.values())
         total_blocked = sum(s["blocked"] for s in self.stats.values())
         total_errors = sum(s["errors"] for s in self.stats.values())
-        
+
         print(f"{Colors.BOLD}Overall:{Colors.ENDC}")
         print(f"  Total Connections: {total:,}")
         if total > 0:
             print(f"  Successful:        {total_ok:,} ({total_ok/total*100:.1f}%)")
-            print(f"  Blocked:           {total_blocked:,} ({total_blocked/total*100:.1f}%)")
-            print(f"  Errors:            {total_errors:,} ({total_errors/total*100:.1f}%)")
+            print(
+                f"  Blocked:           {total_blocked:,} ({total_blocked/total*100:.1f}%)"
+            )
+            print(
+                f"  Errors:            {total_errors:,} ({total_errors/total*100:.1f}%)"
+            )
             print(f"  Connections/sec:   {total/elapsed:.2f}")
-            
+
             # Note about monitor mode
             if total_blocked == 0 and total_errors > 0:
-                print(f"{Colors.WARNING}  Note: Running in monitor mode - all connections allowed through proxy{Colors.ENDC}")
-        
+                print(
+                    f"{Colors.WARNING}  Note: Running in monitor mode - all connections allowed through proxy{Colors.ENDC}"
+                )
+
         # Separate legitimate vs malicious
-        legit_ok = sum(self.stats[p.name]["success"] for p in LEGITIMATE_CLIENTS if p.name in self.stats)
-        legit_total = sum(self.stats[p.name]["connections"] for p in LEGITIMATE_CLIENTS if p.name in self.stats)
-        legit_blocked = sum(self.stats[p.name]["blocked"] for p in LEGITIMATE_CLIENTS if p.name in self.stats)
-        
-        mal_ok = sum(self.stats[p.name]["success"] for p in MALICIOUS_CLIENTS if p.name in self.stats)
-        mal_total = sum(self.stats[p.name]["connections"] for p in MALICIOUS_CLIENTS if p.name in self.stats)
-        mal_blocked = sum(self.stats[p.name]["blocked"] for p in MALICIOUS_CLIENTS if p.name in self.stats)
-        
+        legit_ok = sum(
+            self.stats[p.name]["success"]
+            for p in LEGITIMATE_CLIENTS
+            if p.name in self.stats
+        )
+        legit_total = sum(
+            self.stats[p.name]["connections"]
+            for p in LEGITIMATE_CLIENTS
+            if p.name in self.stats
+        )
+        legit_blocked = sum(
+            self.stats[p.name]["blocked"]
+            for p in LEGITIMATE_CLIENTS
+            if p.name in self.stats
+        )
+
+        mal_ok = sum(
+            self.stats[p.name]["success"]
+            for p in MALICIOUS_CLIENTS
+            if p.name in self.stats
+        )
+        mal_total = sum(
+            self.stats[p.name]["connections"]
+            for p in MALICIOUS_CLIENTS
+            if p.name in self.stats
+        )
+        mal_blocked = sum(
+            self.stats[p.name]["blocked"]
+            for p in MALICIOUS_CLIENTS
+            if p.name in self.stats
+        )
+
         print(f"\n{Colors.BOLD}Security Effectiveness:{Colors.ENDC}")
         if legit_total > 0:
-            print(f"  {Colors.OKGREEN}Legitimate traffic:{Colors.ENDC} {legit_ok}/{legit_total} allowed ({legit_ok/legit_total*100:.1f}%), {legit_blocked} blocked")
+            print(
+                f"  {Colors.OKGREEN}Legitimate traffic:{Colors.ENDC} {legit_ok}/{legit_total} allowed ({legit_ok/legit_total*100:.1f}%), {legit_blocked} blocked"
+            )
         if mal_total > 0:
-            print(f"  {Colors.FAIL}Malicious traffic:{Colors.ENDC}  {mal_blocked}/{mal_total} blocked ({mal_blocked/mal_total*100:.1f}%), {mal_ok} leaked through")
-        
+            print(
+                f"  {Colors.FAIL}Malicious traffic:{Colors.ENDC}  {mal_blocked}/{mal_total} blocked ({mal_blocked/mal_total*100:.1f}%), {mal_ok} leaked through"
+            )
+
         print(f"\n{Colors.BOLD}By Profile:{Colors.ENDC}\n")
-        print(f"{'Profile':<25} {'Type':<12} {'Conns':<10} {'OK':<10} {'Blocked':<10} {'Errors':<10}")
+        print(
+            f"{'Profile':<25} {'Type':<12} {'Conns':<10} {'OK':<10} {'Blocked':<10} {'Errors':<10}"
+        )
         print("-" * 77)
-        
-        for name, stats in sorted(self.stats.items(), key=lambda x: x[1]["connections"], reverse=True):
-            profile = next((p for p in LEGITIMATE_CLIENTS + MALICIOUS_CLIENTS if p.name == name), None)
-            ptype = f"{Colors.FAIL}Malicious{Colors.ENDC}" if profile and profile.malicious else f"{Colors.OKGREEN}Legit{Colors.ENDC}"
-            print(f"{name:<25} {ptype:<21} {stats['connections']:<10} {stats['success']:<10} {stats['blocked']:<10} {stats['errors']:<10}")
-        
+
+        for name, stats in sorted(
+            self.stats.items(), key=lambda x: x[1]["connections"], reverse=True
+        ):
+            profile = next(
+                (p for p in LEGITIMATE_CLIENTS + MALICIOUS_CLIENTS if p.name == name),
+                None,
+            )
+            ptype = (
+                f"{Colors.FAIL}Malicious{Colors.ENDC}"
+                if profile and profile.malicious
+                else f"{Colors.OKGREEN}Legit{Colors.ENDC}"
+            )
+            print(
+                f"{name:<25} {ptype:<21} {stats['connections']:<10} {stats['success']:<10} {stats['blocked']:<10} {stats['errors']:<10}"
+            )
+
         print(f"\n{Colors.HEADER}{'='*85}{Colors.ENDC}\n")
-    
+
     def run(self):
         """Run traffic generation."""
         print(f"{Colors.HEADER}")
@@ -442,7 +500,7 @@ class TrafficGenerator:
         print("║          JA4proxy TLS Traffic Generator                           ║")
         print("╚════════════════════════════════════════════════════════════════════╝")
         print(f"{Colors.ENDC}\n")
-        
+
         print("Configuration:")
         print(f"  Target:            {self.target_host}:{self.target_port}")
         print(f"  Duration:          {self.duration}s")
@@ -450,9 +508,9 @@ class TrafficGenerator:
         print(f"  Bad Traffic:       {100 - self.good_traffic_percent}%")
         print(f"  Workers:           {self.workers}")
         print()
-        
+
         self.start_time = time.time()
-        
+
         # Calculate connections per worker based on duration and rate
         max_connections = max(10, self.duration * 5)
 
@@ -482,8 +540,7 @@ class TrafficGenerator:
 
             with ThreadPoolExecutor(max_workers=self.workers) as executor:
                 tasks = [
-                    executor.submit(self.worker, p, max_connections)
-                    for p in slots
+                    executor.submit(self.worker, p, max_connections) for p in slots
                 ]
 
                 print(f"{Colors.OKBLUE}TLS traffic generation started...{Colors.ENDC}")
@@ -502,8 +559,12 @@ class TrafficGenerator:
                         pass
 
             self.print_stats()
-            print(f"{Colors.OKCYAN}Tip:{Colors.ENDC} Check Grafana at http://localhost:3001")
-            print(f"{Colors.OKCYAN}Tip:{Colors.ENDC} Check Prometheus at http://localhost:9091")
+            print(
+                f"{Colors.OKCYAN}Tip:{Colors.ENDC} Check Grafana at http://localhost:3001"
+            )
+            print(
+                f"{Colors.OKCYAN}Tip:{Colors.ENDC} Check Prometheus at http://localhost:9091"
+            )
             print()
             return
 
@@ -527,27 +588,31 @@ class TrafficGenerator:
                 profile = random.choice(MALICIOUS_CLIENTS)
                 future = executor.submit(self.worker, profile, max_connections)
                 tasks.append(future)
-            
+
             print(f"{Colors.OKBLUE}TLS traffic generation started...{Colors.ENDC}")
             print("Press Ctrl+C to stop early\n")
-            
+
             try:
                 time.sleep(self.duration)
             except KeyboardInterrupt:
                 print(f"\n{Colors.WARNING}Stopping...{Colors.ENDC}")
-            
+
             self.running = False
-            
+
             for future in as_completed(tasks):
                 try:
                     future.result()
                 except Exception:
                     pass
-        
+
         self.print_stats()
-        
-        print(f"{Colors.OKCYAN}Tip:{Colors.ENDC} Check Grafana at http://localhost:3001")
-        print(f"{Colors.OKCYAN}Tip:{Colors.ENDC} Check Prometheus at http://localhost:9091")
+
+        print(
+            f"{Colors.OKCYAN}Tip:{Colors.ENDC} Check Grafana at http://localhost:3001"
+        )
+        print(
+            f"{Colors.OKCYAN}Tip:{Colors.ENDC} Check Prometheus at http://localhost:9091"
+        )
         print()
 
 
@@ -555,11 +620,29 @@ def main():
     parser = argparse.ArgumentParser(
         description="Generate realistic TLS traffic for JA4proxy testing",
     )
-    parser.add_argument("--target-host", default=os.environ.get("TARGET_HOST", "proxy"), help="Target host (default: proxy)")
-    parser.add_argument("--target-port", type=int, default=int(os.environ.get("TARGET_PORT", "8080")), help="Target port (default: 8080)")
-    parser.add_argument("--duration", type=int, default=60, help="Duration in seconds (default: 60)")
-    parser.add_argument("--good-percent", type=int, default=15, help="Percent legitimate traffic (default: 15)")
-    parser.add_argument("--workers", type=int, default=50, help="Worker threads (default: 50)")
+    parser.add_argument(
+        "--target-host",
+        default=os.environ.get("TARGET_HOST", "proxy"),
+        help="Target host (default: proxy)",
+    )
+    parser.add_argument(
+        "--target-port",
+        type=int,
+        default=int(os.environ.get("TARGET_PORT", "8080")),
+        help="Target port (default: 8080)",
+    )
+    parser.add_argument(
+        "--duration", type=int, default=60, help="Duration in seconds (default: 60)"
+    )
+    parser.add_argument(
+        "--good-percent",
+        type=int,
+        default=15,
+        help="Percent legitimate traffic (default: 15)",
+    )
+    parser.add_argument(
+        "--workers", type=int, default=50, help="Worker threads (default: 50)"
+    )
     parser.add_argument(
         "--fingerprint-mix",
         default=None,
@@ -592,7 +675,7 @@ def main():
         workers=args.workers,
         fingerprint_mix=fingerprint_mix,
     )
-    
+
     try:
         generator.run()
     except KeyboardInterrupt:

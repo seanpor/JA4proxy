@@ -27,6 +27,7 @@ Design notes:
 - This module deliberately does NOT import ``interpreters`` at module level so it
   remains importable on Python 3.10/3.11/3.12/3.13 without errors.
 """
+
 from __future__ import annotations
 
 import sys
@@ -49,6 +50,7 @@ def create_pool(workers: int):
     """
     try:
         import interpreters  # Python 3.14+ stdlib module  # noqa: F401
+
         return _SubinterpreterPool(workers)
     except ImportError:
         return ThreadPoolExecutor(

@@ -3,6 +3,7 @@ Unit tests for TapHttpServer (Phase 20 Group 2).
 
 Uses aiohttp.test_utils.TestServer/TestClient so no real port is bound.
 """
+
 import json
 from unittest.mock import AsyncMock, MagicMock
 
@@ -14,6 +15,7 @@ from src.tap.http_server import TapHttpServer
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _mock_redis(ping_ok: bool = True) -> MagicMock:
     r = MagicMock()
@@ -191,6 +193,7 @@ class TestFpJa4Endpoint:
 # Coverage gap additions — lines 146-149, 154-155, 176-177
 # ---------------------------------------------------------------------------
 
+
 class TestHttpServerCoverageGaps:
     """Missing branches: sensor-delegated IP history, Redis exceptions, count exception."""
 
@@ -211,9 +214,12 @@ class TestHttpServerCoverageGaps:
     async def test_fp_ip_sensor_returns_history_gives_200(self):
         """Line 146-149: sensor with get_ip_history returns list → 200 with connections.
         So what: without this delegation, the sensor's assembled history is never used
-        and the API always falls back to raw Redis zrange, losing enriched connection data."""
+        and the API always falls back to raw Redis zrange, losing enriched connection data.
+        """
         sensor = MagicMock()
-        sensor.get_ip_history = AsyncMock(return_value=[{"conn_id": "abc", "timestamp": "2024"}])
+        sensor.get_ip_history = AsyncMock(
+            return_value=[{"conn_id": "abc", "timestamp": "2024"}]
+        )
         srv = _make_http_server(sensor=sensor)
         async with _client(srv) as c:
             resp = await c.get("/api/v1/fingerprints/ip/1.2.3.4")
@@ -264,8 +270,9 @@ class TestServerLifecycle:
         mock_site = MagicMock()
         mock_site.start = AsyncMock(return_value=None)
 
-        with patch("aiohttp.web.AppRunner", return_value=mock_runner), \
-             patch("aiohttp.web.TCPSite", return_value=mock_site):
+        with patch("aiohttp.web.AppRunner", return_value=mock_runner), patch(
+            "aiohttp.web.TCPSite", return_value=mock_site
+        ):
             await srv.start()
             assert srv._runner is not None
             await srv.stop()
@@ -282,8 +289,9 @@ class TestServerLifecycle:
         mock_site = MagicMock()
         mock_site.start = AsyncMock(return_value=None)
 
-        with patch("aiohttp.web.AppRunner", return_value=mock_runner), \
-             patch("aiohttp.web.TCPSite", return_value=mock_site):
+        with patch("aiohttp.web.AppRunner", return_value=mock_runner), patch(
+            "aiohttp.web.TCPSite", return_value=mock_site
+        ):
             await srv.start()
             await srv.stop()
         assert srv._runner is None

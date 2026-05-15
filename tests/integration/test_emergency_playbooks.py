@@ -49,11 +49,14 @@ def _get_vars(playbook):
 class TestAllPlaybooksRequireAuth:
     """Every playbook must require ja4proxy_token and pass Bearer auth."""
 
-    @pytest.mark.parametrize("filename", [
-        "emergency-ban-cidr.yml",
-        "temp-whitelist-ip.yml",
-        "maintenance-dial-zero.yml",
-    ])
+    @pytest.mark.parametrize(
+        "filename",
+        [
+            "emergency-ban-cidr.yml",
+            "temp-whitelist-ip.yml",
+            "maintenance-dial-zero.yml",
+        ],
+    )
     def test_requires_token_variable(self, filename):
         playbook = _load_playbook(filename)
         tasks = _get_tasks(playbook)
@@ -67,11 +70,14 @@ class TestAllPlaybooksRequireAuth:
                 break
         assert has_token_check, f"{filename} does not validate ja4proxy_token is set"
 
-    @pytest.mark.parametrize("filename", [
-        "emergency-ban-cidr.yml",
-        "temp-whitelist-ip.yml",
-        "maintenance-dial-zero.yml",
-    ])
+    @pytest.mark.parametrize(
+        "filename",
+        [
+            "emergency-ban-cidr.yml",
+            "temp-whitelist-ip.yml",
+            "maintenance-dial-zero.yml",
+        ],
+    )
     def test_uses_bearer_auth(self, filename):
         playbook = _load_playbook(filename)
         tasks = _get_tasks(playbook)
@@ -130,9 +136,14 @@ class TestEmergencyBanCidr:
         tasks = _get_tasks(playbook)
         for t in tasks:
             uri = t.get("ansible.builtin.uri", {})
-            if "slack" in str(uri.get("url", "")).lower() or "slack" in str(t.get("name", "")).lower():
+            if (
+                "slack" in str(uri.get("url", "")).lower()
+                or "slack" in str(t.get("name", "")).lower()
+            ):
                 when = t.get("when", "")
-                assert "slack_enabled" in str(when), "Slack step must check slack_enabled"
+                assert "slack_enabled" in str(
+                    when
+                ), "Slack step must check slack_enabled"
 
 
 # ── Temporary Whitelist ────────────────────────────────────────────────────
@@ -198,8 +209,9 @@ class TestMaintenanceDialZero:
             if "timeout" in wait:
                 has_wait = True
                 # Timeout should include duration_minutes * 60
-                assert "duration_minutes" in str(wait["timeout"]), \
-                    "Wait timeout must reference duration_minutes"
+                assert "duration_minutes" in str(
+                    wait["timeout"]
+                ), "Wait timeout must reference duration_minutes"
         assert has_wait, "Must wait for the specified duration"
 
     def test_restores_dial_after_wait(self):
@@ -211,19 +223,24 @@ class TestMaintenanceDialZero:
             uri = t.get("ansible.builtin.uri", {})
             if uri.get("method") == "PATCH" and "dial" in str(uri.get("url", "")):
                 patch_count += 1
-        assert patch_count >= 2, \
-            f"Expected >=2 PATCH tasks (zero + restore), got {patch_count}"
+        assert (
+            patch_count >= 2
+        ), f"Expected >=2 PATCH tasks (zero + restore), got {patch_count}"
 
     def test_servicenow_optional(self):
         playbook = _load_playbook("maintenance-dial-zero.yml")
         tasks = _get_tasks(playbook)
         for t in tasks:
             uri = t.get("ansible.builtin.uri", {})
-            if "servicenow" in str(uri.get("url", "")).lower() or \
-               "change_request" in str(uri.get("body", {}).get("short_description", "")):
+            if "servicenow" in str(
+                uri.get("url", "")
+            ).lower() or "change_request" in str(
+                uri.get("body", {}).get("short_description", "")
+            ):
                 when = t.get("when", "")
-                assert "servicenow_enabled" in str(when), \
-                    "ServiceNow step must check servicenow_enabled"
+                assert "servicenow_enabled" in str(
+                    when
+                ), "ServiceNow step must check servicenow_enabled"
                 return
         # ServiceNow integration is optional
         pass

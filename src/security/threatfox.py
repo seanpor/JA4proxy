@@ -56,6 +56,7 @@ _CACHE_HIT_RATIO = Gauge(
 @dataclass
 class ThreatFoxConfig(TIProviderConfig):
     """Configuration for ThreatFoxProvider."""
+
     ioc_score: int = 25  # Score per ThreatFox IOC match
 
     @classmethod
@@ -106,13 +107,15 @@ class ThreatFoxProvider(TIProvider):
             for i in range(self._config.worker_count)
         ]
         logger.info(
-            json.dumps({
-                "type": "system",
-                "level": "INFO",
-                "subsystem": "threatfox",
-                "event": "started",
-                "worker_count": self._config.worker_count
-            })
+            json.dumps(
+                {
+                    "type": "system",
+                    "level": "INFO",
+                    "subsystem": "threatfox",
+                    "event": "started",
+                    "worker_count": self._config.worker_count,
+                }
+            )
         )
 
     async def stop(self) -> None:
@@ -131,11 +134,11 @@ class ThreatFoxProvider(TIProvider):
         if cached is not None:
             self._hits += 1
             self._update_metrics()
-            
+
             # Record cache hit for adaptive caching
             if self._adaptive_cache:
                 asyncio.create_task(self._adaptive_cache.record_cache_hit("threatfox"))
-            
+
             return self._to_signal(ip, cached)
 
         # Tier 2+: Async lookup
@@ -148,7 +151,9 @@ class ThreatFoxProvider(TIProvider):
             _CACHE_HIT_RATIO.set(self._hits / self._total)
         _QUEUE_DEPTH.set(self._queue.qsize())
 
-    def _to_signal(self, ip: str, data: dict, confidence_weight: float = 1.0) -> Optional[RiskSignal]:
+    def _to_signal(
+        self, ip: str, data: dict, confidence_weight: float = 1.0
+    ) -> Optional[RiskSignal]:
         """Convert cached ThreatFox data to a RiskSignal."""
         ioc_count = data.get("ioc_count", 0)
         if ioc_count == 0:
@@ -161,7 +166,7 @@ class ThreatFoxProvider(TIProvider):
             name="threatfox",
             score=score,
             reason=f"ThreatFox associated with {ioc_count} IOC(s)",
-            weight=confidence_weight
+            weight=confidence_weight,
         )
 
     async def _maybe_lookup(self, ip: str) -> None:
@@ -229,7 +234,9 @@ class ThreatFoxProvider(TIProvider):
                 url,
                 headers=headers,
                 json=payload,
-                timeout=aiohttp.ClientTimeout(total=self._config.lookup_timeout_seconds),
+                timeout=aiohttp.ClientTimeout(
+                    total=self._config.lookup_timeout_seconds
+                ),
             ) as resp:
                 if resp.status == 200:
                     data = await resp.json()
@@ -243,7 +250,8 @@ class ThreatFoxProvider(TIProvider):
                 else:
                     logger.warning(
                         "threatfox | event=api_error | status=%d | ip=%s",
-                        resp.status, ip,
+                        resp.status,
+                        ip,
                     )
                     _LOOKUP_TOTAL.labels(result="error").inc()
                     raise RuntimeError(f"threatfox API error: status={resp.status}")
@@ -280,7 +288,9 @@ class ThreatFoxProvider(TIProvider):
 
             # Record cache miss with volatility detection
             if self._adaptive_cache:
-                await self._adaptive_cache.record_cache_miss("threatfox", old_value, result)
+                await self._adaptive_cache.record_cache_miss(
+                    "threatfox", old_value, result
+                )
 
             if cb:
                 cb.record_success(time.monotonic() - t0)

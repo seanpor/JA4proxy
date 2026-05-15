@@ -79,7 +79,9 @@ def _fetch(url: str, token: str) -> dict:
         req.add_header("Authorization", f"Bearer {token}")
     ctx = _build_tls_context(url)
     try:
-        with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
+        with urllib.request.urlopen(
+            req, timeout=10, context=ctx
+        ) as resp:  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
             return json.loads(resp.read().decode())
     except urllib.error.HTTPError as exc:
         print(f"UNKNOWN - HTTP {exc.code} from {url} | ", file=sys.stdout)
@@ -93,16 +95,25 @@ def _perfdata(metrics: dict) -> str:
     """Format key metrics as Nagios perfdata."""
     parts = []
     for key, label, warn, crit, vmin, vmax in [
-        ("redis_latency_ms", "redis_latency",
-         REDIS_LATENCY_WARN_MS, REDIS_LATENCY_CRIT_MS, 0, 1000),
-        ("active_connections", "active_connections",
-         None, None, 0, None),
-        ("dial", "dial_setting",
-         None, None, 0, 100),
-        ("cert_days_remaining", "cert_days_remaining",
-         CERT_DAYS_WARN, CERT_DAYS_CRIT, 0, None),
-        ("block_rate_pct", "block_rate",
-         None, None, 0, 100),
+        (
+            "redis_latency_ms",
+            "redis_latency",
+            REDIS_LATENCY_WARN_MS,
+            REDIS_LATENCY_CRIT_MS,
+            0,
+            1000,
+        ),
+        ("active_connections", "active_connections", None, None, 0, None),
+        ("dial", "dial_setting", None, None, 0, 100),
+        (
+            "cert_days_remaining",
+            "cert_days_remaining",
+            CERT_DAYS_WARN,
+            CERT_DAYS_CRIT,
+            0,
+            None,
+        ),
+        ("block_rate_pct", "block_rate", None, None, 0, 100),
     ]:
         val = metrics.get(key)
         if val is None:
@@ -126,8 +137,10 @@ def check_health(data: dict, _args: argparse.Namespace) -> int:
         print(f"OK - All nodes healthy | {pd}")
         return OK
     if status == "degraded":
-        print(f"WARNING - Degraded (redis_latency={redis_ms}ms, "
-              f"active_connections={active}) | {pd}")
+        print(
+            f"WARNING - Degraded (redis_latency={redis_ms}ms, "
+            f"active_connections={active}) | {pd}"
+        )
         return WARNING
     print(f"CRITICAL - Status: {status} | {pd}")
     return CRITICAL
@@ -155,10 +168,14 @@ def check_redis(data: dict, _args: argparse.Namespace) -> int:
         print(f"CRITICAL - Redis not connected | {pd}")
         return CRITICAL
     if redis_ms > REDIS_LATENCY_CRIT_MS:
-        print(f"CRITICAL - Redis latency {redis_ms}ms > {REDIS_LATENCY_CRIT_MS}ms | {pd}")
+        print(
+            f"CRITICAL - Redis latency {redis_ms}ms > {REDIS_LATENCY_CRIT_MS}ms | {pd}"
+        )
         return CRITICAL
     if redis_ms > REDIS_LATENCY_WARN_MS:
-        print(f"WARNING - Redis latency {redis_ms}ms > {REDIS_LATENCY_WARN_MS}ms | {pd}")
+        print(
+            f"WARNING - Redis latency {redis_ms}ms > {REDIS_LATENCY_WARN_MS}ms | {pd}"
+        )
         return WARNING
     print(f"OK - Redis latency {redis_ms}ms | {pd}")
     return OK
@@ -197,14 +214,24 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Nagios check plugin for JA4proxy health monitoring.",
     )
-    parser.add_argument("--url", required=True,
-                        help="Management API base URL (e.g. https://ja4proxy-mgmt)")
-    parser.add_argument("--token", default="",
-                        help="API authentication token")
-    parser.add_argument("--check", required=True, choices=list(CHECKS.keys()),
-                        help="Check type: health, dial, redis, cert")
-    parser.add_argument("--expected-dial", type=int, default=None,
-                        help="Expected dial value (for --check dial)")
+    parser.add_argument(
+        "--url",
+        required=True,
+        help="Management API base URL (e.g. https://ja4proxy-mgmt)",
+    )
+    parser.add_argument("--token", default="", help="API authentication token")
+    parser.add_argument(
+        "--check",
+        required=True,
+        choices=list(CHECKS.keys()),
+        help="Check type: health, dial, redis, cert",
+    )
+    parser.add_argument(
+        "--expected-dial",
+        type=int,
+        default=None,
+        help="Expected dial value (for --check dial)",
+    )
     args = parser.parse_args()
 
     url = f"{args.url.rstrip('/')}/api/v1/health/deep"

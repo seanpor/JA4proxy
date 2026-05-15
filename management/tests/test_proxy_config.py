@@ -59,9 +59,10 @@ def test_get_sso_role_mapping_from_yaml(tmp_path: Path) -> None:
         else:
             os.environ.pop("MANAGEMENT_PROXY_CONFIG_PATH", None)
 
-    assert mapping == {"SOC-Analysts": "analyst", "Security-Admins": "admin"}, (
-        f"Expected correct role mapping, got {mapping}"
-    )
+    assert mapping == {
+        "SOC-Analysts": "analyst",
+        "Security-Admins": "admin",
+    }, f"Expected correct role mapping, got {mapping}"
 
 
 def test_get_sso_role_mapping_missing_file() -> None:
@@ -100,9 +101,7 @@ def test_get_sso_role_mapping_no_sso_section(tmp_path: Path) -> None:
 def test_get_sso_role_mapping_caches_result(tmp_path: Path) -> None:
     """Two calls within TTL use the cached value without re-reading the file."""
     cfg_file = tmp_path / "proxy.yml"
-    cfg_file.write_text(
-        "sso:\n  role_mapping:\n    Group-A: admin\n"
-    )
+    cfg_file.write_text("sso:\n  role_mapping:\n    Group-A: admin\n")
 
     saved = os.environ.get("MANAGEMENT_PROXY_CONFIG_PATH")
     try:
@@ -115,9 +114,9 @@ def test_get_sso_role_mapping_caches_result(tmp_path: Path) -> None:
         # Overwrite the file — second call should still return cached value
         cfg_file.write_text("sso:\n  role_mapping:\n    Group-B: analyst\n")
         mapping2 = proxy_config.get_sso_role_mapping()
-        assert mapping2 == {"Group-A": "admin"}, (
-            "Second call within TTL should return cached value, not re-read file"
-        )
+        assert mapping2 == {
+            "Group-A": "admin"
+        }, "Second call within TTL should return cached value, not re-read file"
     finally:
         if saved is not None:
             os.environ["MANAGEMENT_PROXY_CONFIG_PATH"] = saved
@@ -142,9 +141,9 @@ def test_get_sso_role_mapping_after_cache_clear(tmp_path: Path) -> None:
         proxy_config._clear_cache()
 
         mapping2 = proxy_config.get_sso_role_mapping()
-        assert mapping2 == {"Group-B": "analyst"}, (
-            f"After _clear_cache(), should read updated file: {mapping2}"
-        )
+        assert mapping2 == {
+            "Group-B": "analyst"
+        }, f"After _clear_cache(), should read updated file: {mapping2}"
     finally:
         if saved is not None:
             os.environ["MANAGEMENT_PROXY_CONFIG_PATH"] = saved
@@ -170,7 +169,9 @@ def test_load_proxy_config_malformed_yaml(tmp_path: Path) -> None:
         else:
             os.environ.pop("MANAGEMENT_PROXY_CONFIG_PATH", None)
 
-    assert isinstance(result, dict), f"Expected dict on malformed YAML, got {type(result)}"
+    assert isinstance(
+        result, dict
+    ), f"Expected dict on malformed YAML, got {type(result)}"
     # May return {} or partial data — most important: no exception raised
 
 

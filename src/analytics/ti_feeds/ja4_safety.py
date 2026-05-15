@@ -20,7 +20,9 @@ logger = logging.getLogger(__name__)
 
 # Default corpus location — repo-root ``fixtures/ti_feeds/ja4_fp_corpus.txt``.
 # parents[3] walks ja4_safety.py → ti_feeds → analytics → src → repo root.
-_DEFAULT_CORPUS_PATH = Path(__file__).parents[3] / "fixtures" / "ti_feeds" / "ja4_fp_corpus.txt"
+_DEFAULT_CORPUS_PATH = (
+    Path(__file__).parents[3] / "fixtures" / "ti_feeds" / "ja4_fp_corpus.txt"
+)
 
 # Load corpus once at import
 _JA4_FP_CORPUS: Optional[frozenset[str]] = None
@@ -40,7 +42,11 @@ def _load_corpus(path: Path) -> frozenset[str]:
         path = Path(corpus_path)
         if path.exists():
             with open(path) as f:
-                ja4s = {line.strip() for line in f if line.strip() and not line.startswith("#")}
+                ja4s = {
+                    line.strip()
+                    for line in f
+                    if line.strip() and not line.startswith("#")
+                }
             _JA4_FP_CORPUS = frozenset(ja4s)
             logger.info(
                 "ti_feed | event=ja4_corpus_loaded | path=%s | count=%d",

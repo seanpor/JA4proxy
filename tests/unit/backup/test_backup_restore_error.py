@@ -1,6 +1,7 @@
 """
 Tests for RestoreError key-failure threshold in BackupRestorer (P19-G4).
 """
+
 import hashlib
 import json
 import shutil
@@ -18,6 +19,7 @@ from src.backup.restorer import BackupRestorer, RestoreError
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _write_backup(dest: Path, entries: list[tuple[str, bytes]]) -> tuple[Path, Path]:
     """Write a minimal backup artifact + manifest; return (backup_path, manifest_path)."""
     data = b"".join(encode_entry(k, v) for k, v in entries)
@@ -27,16 +29,20 @@ def _write_backup(dest: Path, entries: list[tuple[str, bytes]]) -> tuple[Path, P
     bp = dest / filename
     mp = dest / f"{filename}.manifest.json"
     bp.write_bytes(data)
-    mp.write_text(json.dumps({
-        "filename": filename,
-        "created_at": "2026-01-01T00:00:00Z",
-        "backup_type": "full",
-        "keys_count": len(entries),
-        "checksum_sha256": checksum,
-        "size_bytes": len(data),
-        "included_patterns": ["*"],
-        "excluded_patterns": [],
-    }))
+    mp.write_text(
+        json.dumps(
+            {
+                "filename": filename,
+                "created_at": "2026-01-01T00:00:00Z",
+                "backup_type": "full",
+                "keys_count": len(entries),
+                "checksum_sha256": checksum,
+                "size_bytes": len(data),
+                "included_patterns": ["*"],
+                "excluded_patterns": [],
+            }
+        )
+    )
     return bp, mp
 
 
@@ -62,6 +68,7 @@ def _make_mock_redis(fail_keys: set[str] | None = None):
 # RestoreError constructor tests
 # ---------------------------------------------------------------------------
 
+
 class TestRestoreErrorConstructor:
     def test_default_attributes(self):
         err = RestoreError("msg")
@@ -83,6 +90,7 @@ class TestRestoreErrorConstructor:
 # ---------------------------------------------------------------------------
 # Threshold enforcement tests
 # ---------------------------------------------------------------------------
+
 
 class TestRestoreErrorThreshold:
     def setup_method(self):
@@ -146,8 +154,8 @@ class TestRestoreErrorThreshold:
             self._restore(restorer, entries, fail_keys)
 
         msg = str(exc_info.value)
-        assert "3" in msg   # failed count
-        assert "4" in msg   # total count
+        assert "3" in msg  # failed count
+        assert "4" in msg  # total count
 
     def test_restore_threshold_zero_means_any_failure_raises(self):
         restorer = _make_restorer(threshold=0.0)
@@ -180,6 +188,7 @@ class TestRestoreErrorThreshold:
 # ---------------------------------------------------------------------------
 # Coverage gap additions — lines 227, 258-272, 391-393, 437-438, 460-470
 # ---------------------------------------------------------------------------
+
 
 class TestRestorerCoverageGaps:
     """Missing coverage for restorer.py lines 227, 258-272, 391-393, 437-438, 460-470."""
@@ -243,9 +252,13 @@ class TestRestorerCoverageGaps:
     def test_restore_from_bytes_restores_keys(self):
         """Lines 460-470: _restore_from_bytes() iterates decoded entries and restores them.
         So what: this is the only code path executed for encrypted backups — if broken,
-        all encrypted backup restores silently restore 0 keys, losing the Redis state."""
+        all encrypted backup restores silently restore 0 keys, losing the Redis state.
+        """
         from src.backup.format import encode_entry
-        data = encode_entry("key:foo", b"dump-data") + encode_entry("key:bar", b"dump-data-2")
+
+        data = encode_entry("key:foo", b"dump-data") + encode_entry(
+            "key:bar", b"dump-data-2"
+        )
 
         mock_redis = MagicMock()
         mock_redis.restore.return_value = None
@@ -262,6 +275,7 @@ class TestRestorerCoverageGaps:
         So what: without this handler, one bad key in an encrypted backup aborts the entire
         restore, losing all subsequent keys even though they were valid."""
         from src.backup.format import encode_entry
+
         data = encode_entry("bad:key", b"corrupt") + encode_entry("good:key", b"valid")
 
         mock_redis = MagicMock()
@@ -286,6 +300,7 @@ class TestRestorerCoverageGaps:
         encrypted but no decryption key provided' or silently fall through to unencrypted
         path, producing garbage data in Redis."""
         from src.backup.format import encode_entry
+
         raw_data = encode_entry("secret:key", b"secret-dump")
 
         # Write a backup with encryption flag in manifest
@@ -295,19 +310,24 @@ class TestRestorerCoverageGaps:
         mp = self.tmpdir / f"{filename}.manifest.json"
 
         import hashlib
+
         checksum = hashlib.sha256(raw_data).hexdigest()
         bp.write_bytes(raw_data)  # unencrypted bytes (encryption.decrypt is mocked)
-        mp.write_text(json.dumps({
-            "filename": filename,
-            "created_at": "2026-01-01T00:00:00Z",
-            "backup_type": "full",
-            "keys_count": 1,
-            "checksum_sha256": checksum,
-            "size_bytes": len(raw_data),
-            "included_patterns": ["*"],
-            "excluded_patterns": [],
-            "encryption": {"enabled": True},
-        }))
+        mp.write_text(
+            json.dumps(
+                {
+                    "filename": filename,
+                    "created_at": "2026-01-01T00:00:00Z",
+                    "backup_type": "full",
+                    "keys_count": 1,
+                    "checksum_sha256": checksum,
+                    "size_bytes": len(raw_data),
+                    "included_patterns": ["*"],
+                    "excluded_patterns": [],
+                    "encryption": {"enabled": True},
+                }
+            )
+        )
 
         mock_redis = MagicMock()
         mock_redis.ping.return_value = True
@@ -315,7 +335,9 @@ class TestRestorerCoverageGaps:
         mock_redis.restore.return_value = None
 
         mock_encryption = MagicMock()
-        mock_encryption.decrypt.return_value = raw_data  # "decrypt" returns raw_data unchanged
+        mock_encryption.decrypt.return_value = (
+            raw_data  # "decrypt" returns raw_data unchanged
+        )
 
         restorer = BackupRestorer(encryption_key="dummy-key")
         restorer.encryption = mock_encryption  # inject mock
@@ -332,6 +354,7 @@ class TestRestorerCoverageGaps:
         import hashlib
 
         from src.backup.format import encode_entry
+
         raw_data = encode_entry("k", b"v")
         ts = "20260102T000000Z"
         filename = f"backup_{ts}.bin"
@@ -339,17 +362,21 @@ class TestRestorerCoverageGaps:
         mp = self.tmpdir / f"{filename}.manifest.json"
         checksum = hashlib.sha256(raw_data).hexdigest()
         bp.write_bytes(raw_data)
-        mp.write_text(json.dumps({
-            "filename": filename,
-            "created_at": "2026-01-02T00:00:00Z",
-            "backup_type": "full",
-            "keys_count": 1,
-            "checksum_sha256": checksum,
-            "size_bytes": len(raw_data),
-            "included_patterns": ["*"],
-            "excluded_patterns": [],
-            "encryption": {"enabled": True},
-        }))
+        mp.write_text(
+            json.dumps(
+                {
+                    "filename": filename,
+                    "created_at": "2026-01-02T00:00:00Z",
+                    "backup_type": "full",
+                    "keys_count": 1,
+                    "checksum_sha256": checksum,
+                    "size_bytes": len(raw_data),
+                    "included_patterns": ["*"],
+                    "excluded_patterns": [],
+                    "encryption": {"enabled": True},
+                }
+            )
+        )
         return bp, mp
 
     def test_encrypted_backup_no_key_raises_restore_error(self):

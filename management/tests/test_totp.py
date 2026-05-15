@@ -122,9 +122,9 @@ async def test_totp_setup_returns_qr_code(
         pytest.fail(f"qr_code is not valid base64: {exc}")
 
     # Must be a PNG (magic bytes: 0x89 0x50 0x4E 0x47)
-    assert raw[:4] == b"\x89PNG", (
-        f"qr_code bytes do not start with PNG magic: {raw[:8]!r}"
-    )
+    assert (
+        raw[:4] == b"\x89PNG"
+    ), f"qr_code bytes do not start with PNG magic: {raw[:8]!r}"
 
 
 @pytest.mark.asyncio
@@ -141,9 +141,9 @@ async def test_totp_setup_returns_backup_codes(
     assert len(codes) == 8, f"Expected 8 backup codes, got {len(codes)}"
     # Each code must be a non-empty string
     for code in codes:
-        assert isinstance(code, str) and len(code) >= 6, (
-            f"Backup code too short or wrong type: {code!r}"
-        )
+        assert (
+            isinstance(code, str) and len(code) >= 6
+        ), f"Backup code too short or wrong type: {code!r}"
     # All codes must be unique
     assert len(set(codes)) == 8, "Backup codes are not all unique"
 
@@ -163,10 +163,12 @@ async def test_totp_setup_stores_encrypted_secret(
 
     # Stored value must NOT be a raw base32 string
     # (raw pyotp secrets are 16–32 uppercase base32 chars)
-    is_raw_base32 = stored.isupper() and all(c in "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567=" for c in stored)
-    assert not is_raw_base32, (
-        f"Secret appears to be stored unencrypted (raw base32): {stored!r}"
+    is_raw_base32 = stored.isupper() and all(
+        c in "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567=" for c in stored
     )
+    assert (
+        not is_raw_base32
+    ), f"Secret appears to be stored unencrypted (raw base32): {stored!r}"
 
     # Must decrypt to a valid TOTP secret
     fernet = Fernet(_TEST_FERNET_KEY.encode())
@@ -190,19 +192,14 @@ async def test_totp_setup_stores_hashed_backup_codes(
     plaintext_codes = r.json()["backup_codes"]
 
     stored_hashes = await fake_redis.lrange("mgmt:totp:backup:admin", 0, -1)
-    assert len(stored_hashes) == 8, (
-        f"Expected 8 backup code hashes in Redis, got {len(stored_hashes)}"
-    )
+    assert (
+        len(stored_hashes) == 8
+    ), f"Expected 8 backup code hashes in Redis, got {len(stored_hashes)}"
 
     # Each returned plaintext code must bcrypt-match exactly one stored hash
     for code in plaintext_codes:
-        matched = any(
-            _bcrypt.checkpw(code.encode(), h.encode())
-            for h in stored_hashes
-        )
-        assert matched, (
-            f"Plaintext backup code {code!r} does not match any stored hash"
-        )
+        matched = any(_bcrypt.checkpw(code.encode(), h.encode()) for h in stored_hashes)
+        assert matched, f"Plaintext backup code {code!r} does not match any stored hash"
 
 
 @pytest.mark.asyncio
@@ -268,9 +265,9 @@ async def test_totp_verify_valid_code_returns_200(
         json={"code": valid_code},
     )
     assert r.status_code == 200, f"Expected 200, got {r.status_code}: {r.text}"
-    assert r.json().get("verified") is True, (
-        f"Expected {{\"verified\": true}}, got {r.json()}"
-    )
+    assert (
+        r.json().get("verified") is True
+    ), f'Expected {{"verified": true}}, got {r.json()}'
 
 
 @pytest.mark.asyncio
@@ -298,9 +295,9 @@ async def test_totp_verify_not_enrolled_returns_404(
         "/auth/mfa/totp/verify",
         json={"code": "123456"},
     )
-    assert r.status_code == 404, (
-        f"Expected 404 when not enrolled, got {r.status_code}: {r.text}"
-    )
+    assert (
+        r.status_code == 404
+    ), f"Expected 404 when not enrolled, got {r.status_code}: {r.text}"
 
 
 @pytest.mark.asyncio
@@ -340,12 +337,14 @@ async def test_backup_code_valid_returns_200(
         "/auth/mfa/totp/verify",
         json={"code": backup_code},
     )
-    assert r.status_code == 200, f"Expected 200 for backup code, got {r.status_code}: {r.text}"
+    assert (
+        r.status_code == 200
+    ), f"Expected 200 for backup code, got {r.status_code}: {r.text}"
     body = r.json()
     assert body.get("verified") is True
-    assert body.get("backup_code_used") is True, (
-        f"Expected backup_code_used=true, got {body}"
-    )
+    assert (
+        body.get("backup_code_used") is True
+    ), f"Expected backup_code_used=true, got {body}"
 
 
 @pytest.mark.asyncio
@@ -369,9 +368,9 @@ async def test_backup_code_is_single_use(
         "/auth/mfa/totp/verify",
         json={"code": backup_code},
     )
-    assert r2.status_code == 401, (
-        f"Second use of same backup code should be 401, got {r2.status_code}"
-    )
+    assert (
+        r2.status_code == 401
+    ), f"Second use of same backup code should be 401, got {r2.status_code}"
 
 
 @pytest.mark.asyncio
@@ -386,14 +385,12 @@ async def test_backup_code_failure_does_not_reveal_count(
         "/auth/mfa/totp/verify",
         json={"code": "INVALID-BACKUP-CODE"},
     )
-    assert r.status_code in (401, 404), (
-        f"Expected 401 or 404, got {r.status_code}"
-    )
+    assert r.status_code in (401, 404), f"Expected 401 or 404, got {r.status_code}"
     body_text = r.text.lower()
     # Must not mention how many codes remain — "remaining" is the tell
-    assert "remaining" not in body_text, (
-        f"Response reveals remaining backup code count: {r.text!r}"
-    )
+    assert (
+        "remaining" not in body_text
+    ), f"Response reveals remaining backup code count: {r.text!r}"
 
 
 @pytest.mark.asyncio
@@ -412,9 +409,9 @@ async def test_used_backup_code_removed_from_redis(
     assert r.status_code == 200
 
     hashes_after = await fake_redis.lrange("mgmt:totp:backup:admin", 0, -1)
-    assert len(hashes_after) == 7, (
-        f"Expected 7 backup hashes after use, got {len(hashes_after)}"
-    )
+    assert (
+        len(hashes_after) == 7
+    ), f"Expected 7 backup hashes after use, got {len(hashes_after)}"
 
 
 # ── Section 4: Fernet encryption ─────────────────────────────────────────────
@@ -432,9 +429,9 @@ async def test_stored_secret_is_not_plaintext(
 
     # Fernet tokens always start with "gAAAAA" (base64url-encoded version byte + timestamp).
     # A raw pyotp secret or base64-encoded secret would not have this prefix.
-    assert stored.startswith("gAAAAA"), (
-        f"Stored value is not a Fernet token (expected 'gAAAAA' prefix): {stored!r}"
-    )
+    assert stored.startswith(
+        "gAAAAA"
+    ), f"Stored value is not a Fernet token (expected 'gAAAAA' prefix): {stored!r}"
 
 
 @pytest.mark.asyncio
@@ -451,9 +448,9 @@ async def test_fernet_decryption_yields_valid_totp_secret(
 
     # Must not raise and must generate a 6-digit string
     code = pyotp.TOTP(decrypted).now()
-    assert code.isdigit() and len(code) == 6, (
-        f"Decrypted TOTP secret yields malformed code: {code!r}"
-    )
+    assert (
+        code.isdigit() and len(code) == 6
+    ), f"Decrypted TOTP secret yields malformed code: {code!r}"
 
 
 @pytest.mark.asyncio
@@ -473,9 +470,9 @@ async def test_totp_setup_fails_without_encryption_key(
         ) as client:
             r = await client.get("/auth/mfa/totp/setup")
         await _redis_module.close_redis()
-        assert r.status_code == 500, (
-            f"Expected 500 without encryption key, got {r.status_code}: {r.text}"
-        )
+        assert (
+            r.status_code == 500
+        ), f"Expected 500 without encryption key, got {r.status_code}: {r.text}"
     finally:
         # Restore so other tests are not affected
         if original is not None:
@@ -519,9 +516,9 @@ async def test_admin_without_mfa_cannot_change_dial(
 
         # Attempt write without MFA verification
         r = await client.put("/api/v1/dial", json={"value": 1})
-        assert r.status_code == 403, (
-            f"Expected 403 (MFA not verified) for dial change, got {r.status_code}: {r.text}"
-        )
+        assert (
+            r.status_code == 403
+        ), f"Expected 403 (MFA not verified) for dial change, got {r.status_code}: {r.text}"
 
     await _redis_module.close_redis()
 
@@ -557,9 +554,9 @@ async def test_admin_after_mfa_can_change_dial(
 
         # Should now be able to change dial
         r = await client.put("/api/v1/dial", json={"value": 1})
-        assert r.status_code == 200, (
-            f"Expected 200 after MFA verified, got {r.status_code}: {r.text}"
-        )
+        assert (
+            r.status_code == 200
+        ), f"Expected 200 after MFA verified, got {r.status_code}: {r.text}"
 
     await _redis_module.close_redis()
 
@@ -596,8 +593,8 @@ async def test_bearer_token_user_not_subject_to_mfa_gate(
             json={"value": 1},
             headers={"Authorization": f"Bearer {bearer}"},
         )
-        assert r.status_code == 200, (
-            f"Bearer-token user should not be blocked by MFA gate, got {r.status_code}: {r.text}"
-        )
+        assert (
+            r.status_code == 200
+        ), f"Bearer-token user should not be blocked by MFA gate, got {r.status_code}: {r.text}"
 
     await _redis_module.close_redis()

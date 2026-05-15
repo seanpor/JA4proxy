@@ -50,18 +50,20 @@ class TestActionPlanLinkPreservesPrefix:
         """An IN_PROGRESS phase with an archive/ action_plan path must include
         the archive/ prefix in the generated link, not just the bare filename.
         """
-        manifest = _make_manifest("docs/phases/archive/PHASE_05.md", status="IN_PROGRESS")
+        manifest = _make_manifest(
+            "docs/phases/archive/PHASE_05.md", status="IN_PROGRESS"
+        )
         output = sync_roadmap.generate_todo(manifest)
 
         # The link text and href should NOT be the bare filename
-        assert "[PHASE_05.md](PHASE_05.md)" not in output, (
-            "os.path.basename() is stripping the archive/ prefix from the link"
-        )
+        assert (
+            "[PHASE_05.md](PHASE_05.md)" not in output
+        ), "os.path.basename() is stripping the archive/ prefix from the link"
 
         # The link should preserve the archive/ prefix
-        assert "archive/PHASE_05.md" in output, (
-            "The archive/ prefix must be preserved in the generated action_plan link"
-        )
+        assert (
+            "archive/PHASE_05.md" in output
+        ), "The archive/ prefix must be preserved in the generated action_plan link"
 
     def test_archive_prefix_preserved_planned(self):
         """A PROPOSED phase with an archive/ action_plan path must also preserve
@@ -70,12 +72,12 @@ class TestActionPlanLinkPreservesPrefix:
         manifest = _make_manifest("docs/phases/archive/PHASE_05.md", status="PROPOSED")
         output = sync_roadmap.generate_todo(manifest)
 
-        assert "[PHASE_05.md](PHASE_05.md)" not in output, (
-            "os.path.basename() is stripping the archive/ prefix from the link"
-        )
-        assert "archive/PHASE_05.md" in output, (
-            "The archive/ prefix must be preserved in the generated action_plan link"
-        )
+        assert (
+            "[PHASE_05.md](PHASE_05.md)" not in output
+        ), "os.path.basename() is stripping the archive/ prefix from the link"
+        assert (
+            "archive/PHASE_05.md" in output
+        ), "The archive/ prefix must be preserved in the generated action_plan link"
 
     def test_plain_phase_path_still_works(self):
         """A standard docs/phases/PHASE_13.md path (no subdirectory) should
@@ -94,7 +96,9 @@ class TestActionPlanLinkPreservesPrefix:
 
         For docs/phases/archive/PHASE_05.md the href must be archive/PHASE_05.md.
         """
-        manifest = _make_manifest("docs/phases/archive/PHASE_05.md", status="IN_PROGRESS")
+        manifest = _make_manifest(
+            "docs/phases/archive/PHASE_05.md", status="IN_PROGRESS"
+        )
         output = sync_roadmap.generate_todo(manifest)
 
         # Confirm the exact expected markdown link fragment appears

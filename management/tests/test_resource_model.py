@@ -96,9 +96,9 @@ async def _make_token(
         "/api/v1/tokens",
         json={"name": token_name, "role": role},
     )
-    assert r.status_code == 201, (
-        f"Expected 201 creating {role} token, got {r.status_code}: {r.text}"
-    )
+    assert (
+        r.status_code == 201
+    ), f"Expected 201 creating {role} token, got {r.status_code}: {r.text}"
     return r.json()["token"]
 
 
@@ -180,7 +180,9 @@ async def test_post_allowlist_returns_full_resource(
         assert r.status_code == 201, f"Expected 201, got {r.status_code}: {r.text}"
         data = r.json()
         assert "id" in data, "Response must include 'id'"
-        assert _UUID4_RE.match(data["id"]), f"'id' must be UUID4 format, got: {data['id']}"
+        assert _UUID4_RE.match(
+            data["id"]
+        ), f"'id' must be UUID4 format, got: {data['id']}"
         assert data["entry"] == "t13d1516h2_abc"
         assert data["managed_by"] == "operator"
         assert data["note"] == "test"
@@ -193,14 +195,18 @@ async def test_post_allowlist_returns_full_resource(
         # POST a second entry and verify IDs are unique
         r2 = await client.post(
             "/api/v1/allowlist",
-            json={"entry": "t13d1516h2_abc_second", "managed_by": "operator", "note": "test2"},
+            json={
+                "entry": "t13d1516h2_abc_second",
+                "managed_by": "operator",
+                "note": "test2",
+            },
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
         assert r2.status_code == 201
         data2 = r2.json()
-        assert data["id"] != data2["id"], (
-            "Each POST must generate a unique UUID — a stub returning a hardcoded UUID would fail this"
-        )
+        assert (
+            data["id"] != data2["id"]
+        ), "Each POST must generate a unique UUID — a stub returning a hardcoded UUID would fail this"
 
 
 @pytest.mark.asyncio
@@ -217,9 +223,9 @@ async def test_post_allowlist_requires_operator_role(
             json={"entry": "t13d1516h2_abc", "managed_by": "operator", "note": ""},
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
-        assert r.status_code == 403, (
-            f"Auditor on POST /api/v1/allowlist must return 403, got {r.status_code}"
-        )
+        assert (
+            r.status_code == 403
+        ), f"Auditor on POST /api/v1/allowlist must return 403, got {r.status_code}"
 
 
 @pytest.mark.asyncio
@@ -236,9 +242,9 @@ async def test_post_allowlist_missing_entry_returns_422(
             json={"managed_by": "operator", "note": "no entry"},
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
-        assert r.status_code == 422, (
-            f"Missing 'entry' must return 422, got {r.status_code}: {r.text}"
-        )
+        assert (
+            r.status_code == 422
+        ), f"Missing 'entry' must return 422, got {r.status_code}: {r.text}"
 
 
 @pytest.mark.asyncio
@@ -259,9 +265,9 @@ async def test_post_allowlist_invalid_managed_by_returns_422(
             },
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
-        assert r.status_code == 422, (
-            f"Invalid managed_by='robot' must return 422, got {r.status_code}: {r.text}"
-        )
+        assert (
+            r.status_code == 422
+        ), f"Invalid managed_by='robot' must return 422, got {r.status_code}: {r.text}"
 
 
 @pytest.mark.asyncio
@@ -275,7 +281,9 @@ async def test_get_allowlist_returns_list(
     """
     async with _bearer_client("operator", fake_redis) as (client, token):
         await _post_entry(
-            client, token, "/api/v1/allowlist",
+            client,
+            token,
+            "/api/v1/allowlist",
             {"entry": "t13d1516h2_abc", "managed_by": "operator", "note": ""},
         )
         r = await client.get(
@@ -303,12 +311,24 @@ async def test_get_allowlist_managed_by_filter(
     """
     async with _bearer_client("operator", fake_redis) as (client, token):
         await _post_entry(
-            client, token, "/api/v1/allowlist",
-            {"entry": "t13d1516h2_terraform", "managed_by": "terraform", "note": "tf entry"},
+            client,
+            token,
+            "/api/v1/allowlist",
+            {
+                "entry": "t13d1516h2_terraform",
+                "managed_by": "terraform",
+                "note": "tf entry",
+            },
         )
         await _post_entry(
-            client, token, "/api/v1/allowlist",
-            {"entry": "t13d1516h2_operator", "managed_by": "operator", "note": "op entry"},
+            client,
+            token,
+            "/api/v1/allowlist",
+            {
+                "entry": "t13d1516h2_operator",
+                "managed_by": "operator",
+                "note": "op entry",
+            },
         )
         r = await client.get(
             "/api/v1/allowlist?managed_by=terraform",
@@ -316,9 +336,9 @@ async def test_get_allowlist_managed_by_filter(
         )
         assert r.status_code == 200, f"Expected 200, got {r.status_code}: {r.text}"
         data = r.json()
-        assert data["count"] == 1, (
-            f"Filter managed_by=terraform must return 1 entry, got {data['count']}"
-        )
+        assert (
+            data["count"] == 1
+        ), f"Filter managed_by=terraform must return 1 entry, got {data['count']}"
         assert data["entries"][0]["managed_by"] == "terraform"
         assert data["entries"][0]["entry"] == "t13d1516h2_terraform"
         assert all(
@@ -339,7 +359,9 @@ async def test_get_allowlist_by_id(
     """
     async with _bearer_client("operator", fake_redis) as (client, token):
         created = await _post_entry(
-            client, token, "/api/v1/allowlist",
+            client,
+            token,
+            "/api/v1/allowlist",
             {"entry": "t13d1516h2_abc", "managed_by": "operator", "note": "by id test"},
         )
         resource_id = created["id"]
@@ -366,9 +388,9 @@ async def test_get_allowlist_nonexistent_id_returns_404(
             f"/api/v1/allowlist/{_UUID_NIL}",
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
-        assert r.status_code == 404, (
-            f"Non-existent UUID must return 404, got {r.status_code}"
-        )
+        assert (
+            r.status_code == 404
+        ), f"Non-existent UUID must return 404, got {r.status_code}"
 
 
 @pytest.mark.asyncio
@@ -381,7 +403,9 @@ async def test_delete_allowlist_entry_by_id(
     """
     async with _bearer_client("operator", fake_redis) as (client, token):
         created = await _post_entry(
-            client, token, "/api/v1/allowlist",
+            client,
+            token,
+            "/api/v1/allowlist",
             {"entry": "t13d1516h2_delete_me", "managed_by": "operator", "note": ""},
         )
         resource_id = created["id"]
@@ -389,16 +413,14 @@ async def test_delete_allowlist_entry_by_id(
             f"/api/v1/allowlist/{resource_id}",
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
-        assert r_del.status_code == 204, (
-            f"DELETE must return 204, got {r_del.status_code}: {r_del.text}"
-        )
+        assert (
+            r_del.status_code == 204
+        ), f"DELETE must return 204, got {r_del.status_code}: {r_del.text}"
         r_get = await client.get(
             f"/api/v1/allowlist/{resource_id}",
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
-        assert r_get.status_code == 404, (
-            "After DELETE, GET must return 404"
-        )
+        assert r_get.status_code == 404, "After DELETE, GET must return 404"
         # Also verify the proxy SET is cleaned up (both halves of dual-write must be removed)
         is_member = await fake_redis.sismember("ja4:whitelist", "t13d1516h2_delete_me")
         assert not is_member, (
@@ -420,9 +442,9 @@ async def test_delete_allowlist_nonexistent_is_idempotent(
             f"/api/v1/allowlist/{_UUID_NIL}",
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
-        assert r.status_code == 204, (
-            f"DELETE of non-existent resource must return 204, got {r.status_code}"
-        )
+        assert (
+            r.status_code == 204
+        ), f"DELETE of non-existent resource must return 204, got {r.status_code}"
 
 
 @pytest.mark.asyncio
@@ -438,9 +460,9 @@ async def test_delete_allowlist_requires_operator_role(
             f"/api/v1/allowlist/{_UUID_NIL}",
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
-        assert r.status_code == 403, (
-            f"Auditor on DELETE /api/v1/allowlist must return 403, got {r.status_code}"
-        )
+        assert (
+            r.status_code == 403
+        ), f"Auditor on DELETE /api/v1/allowlist must return 403, got {r.status_code}"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -470,15 +492,19 @@ async def test_post_allowlist_writes_to_proxy_set(
 
         # Verify Hash record exists with all fields (management-side)
         hash_record = await fake_redis.hgetall(f"allowlist:entry:{resource_id}")
-        assert hash_record, f"Hash record allowlist:entry:{resource_id} must exist immediately after POST"
-        assert hash_record.get("entry") == fingerprint, (
-            f"Hash 'entry' field must be '{fingerprint}', got: {hash_record.get('entry')}"
-        )
+        assert (
+            hash_record
+        ), f"Hash record allowlist:entry:{resource_id} must exist immediately after POST"
+        assert (
+            hash_record.get("entry") == fingerprint
+        ), f"Hash 'entry' field must be '{fingerprint}', got: {hash_record.get('entry')}"
         assert hash_record.get("managed_by") == "operator"
 
     # After context: verify proxy SET populated
     is_member = await fake_redis.sismember("ja4:whitelist", fingerprint)
-    assert is_member, f"'{fingerprint}' must be in ja4:whitelist after POST — dual-write failed"
+    assert (
+        is_member
+    ), f"'{fingerprint}' must be in ja4:whitelist after POST — dual-write failed"
 
     # No cross-list contamination
     in_blacklist = await fake_redis.sismember("ja4:blacklist", fingerprint)
@@ -499,7 +525,9 @@ async def test_delete_allowlist_removes_from_proxy_set(
     fingerprint = "t13d1516h2_delete_from_set"
     async with _bearer_client("operator", fake_redis) as (client, token):
         created = await _post_entry(
-            client, token, "/api/v1/allowlist",
+            client,
+            token,
+            "/api/v1/allowlist",
             {"entry": fingerprint, "managed_by": "operator", "note": ""},
         )
         resource_id = created["id"]
@@ -508,9 +536,9 @@ async def test_delete_allowlist_removes_from_proxy_set(
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
     is_member = await fake_redis.sismember("ja4:whitelist", fingerprint)
-    assert not is_member, (
-        f"'{fingerprint}' must be removed from ja4:whitelist after DELETE"
-    )
+    assert (
+        not is_member
+    ), f"'{fingerprint}' must be removed from ja4:whitelist after DELETE"
 
 
 @pytest.mark.asyncio
@@ -535,9 +563,9 @@ async def test_post_ip_allowlist_writes_to_static_set(
         )
         assert r.status_code == 201, f"Expected 201, got {r.status_code}: {r.text}"
     is_member = await fake_redis.sismember("static:allowlist", ip_entry)
-    assert is_member, (
-        f"'{ip_entry}' must be in static:allowlist after POST with list_type='ip'"
-    )
+    assert (
+        is_member
+    ), f"'{ip_entry}' must be in static:allowlist after POST with list_type='ip'"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -557,7 +585,11 @@ async def test_post_blocklist_returns_full_resource(
     async with _bearer_client("operator", fake_redis) as (client, token):
         r = await client.post(
             "/api/v1/blocklist",
-            json={"entry": "t13d1516h2_bad_bot", "managed_by": "operator", "note": "bad"},
+            json={
+                "entry": "t13d1516h2_bad_bot",
+                "managed_by": "operator",
+                "note": "bad",
+            },
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
         assert r.status_code == 201, f"Expected 201, got {r.status_code}: {r.text}"
@@ -580,7 +612,11 @@ async def test_post_blocklist_writes_to_proxy_set(
     async with _bearer_client("operator", fake_redis) as (client, token):
         r = await client.post(
             "/api/v1/blocklist",
-            json={"entry": fingerprint, "managed_by": "operator", "note": "block dual write"},
+            json={
+                "entry": fingerprint,
+                "managed_by": "operator",
+                "note": "block dual write",
+            },
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
         assert r.status_code == 201
@@ -609,7 +645,9 @@ async def test_delete_blocklist_removes_from_proxy_set(
     fingerprint = "t13d1516h2_blocklist_delete"
     async with _bearer_client("operator", fake_redis) as (client, token):
         created = await _post_entry(
-            client, token, "/api/v1/blocklist",
+            client,
+            token,
+            "/api/v1/blocklist",
             {"entry": fingerprint, "managed_by": "operator", "note": ""},
         )
         resource_id = created["id"]
@@ -618,9 +656,9 @@ async def test_delete_blocklist_removes_from_proxy_set(
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
     is_member = await fake_redis.sismember("ja4:blacklist", fingerprint)
-    assert not is_member, (
-        f"'{fingerprint}' must be removed from ja4:blacklist after DELETE"
-    )
+    assert (
+        not is_member
+    ), f"'{fingerprint}' must be removed from ja4:blacklist after DELETE"
 
 
 @pytest.mark.asyncio
@@ -633,11 +671,15 @@ async def test_get_blocklist_managed_by_filter(
     """
     async with _bearer_client("operator", fake_redis) as (client, token):
         await _post_entry(
-            client, token, "/api/v1/blocklist",
+            client,
+            token,
+            "/api/v1/blocklist",
             {"entry": "t13d1516h2_bl_tf", "managed_by": "terraform", "note": ""},
         )
         await _post_entry(
-            client, token, "/api/v1/blocklist",
+            client,
+            token,
+            "/api/v1/blocklist",
             {"entry": "t13d1516h2_bl_op", "managed_by": "operator", "note": ""},
         )
         r = await client.get(
@@ -672,7 +714,11 @@ async def test_post_watchlist_returns_full_resource(
     async with _bearer_client("operator", fake_redis) as (client, token):
         r = await client.post(
             "/api/v1/watchlist",
-            json={"entry": "t13d1516h2_suspect", "managed_by": "operator", "note": "watch"},
+            json={
+                "entry": "t13d1516h2_suspect",
+                "managed_by": "operator",
+                "note": "watch",
+            },
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
         assert r.status_code == 201, f"Expected 201, got {r.status_code}: {r.text}"
@@ -695,7 +741,11 @@ async def test_post_watchlist_writes_to_proxy_set(
     async with _bearer_client("operator", fake_redis) as (client, token):
         r = await client.post(
             "/api/v1/watchlist",
-            json={"entry": fingerprint, "managed_by": "operator", "note": "watch dual write"},
+            json={
+                "entry": fingerprint,
+                "managed_by": "operator",
+                "note": "watch dual write",
+            },
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
         assert r.status_code == 201
@@ -727,9 +777,9 @@ async def test_get_watchlist_requires_auditor(
             "/api/v1/watchlist",
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
-        assert r.status_code == 200, (
-            f"Auditor on GET /api/v1/watchlist must return 200, got {r.status_code}: {r.text}"
-        )
+        assert (
+            r.status_code == 200
+        ), f"Auditor on GET /api/v1/watchlist must return 200, got {r.status_code}: {r.text}"
         # Also verify that unauthenticated request is rejected (proves auth is not absent)
         r_unauth = await client.get(
             "/api/v1/watchlist",
@@ -756,9 +806,9 @@ async def test_post_watchlist_requires_operator(
             json={"entry": "t13d1516h2_analyst", "managed_by": "operator", "note": ""},
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
-        assert r.status_code == 403, (
-            f"Analyst on POST /api/v1/watchlist must return 403, got {r.status_code}"
-        )
+        assert (
+            r.status_code == 403
+        ), f"Analyst on POST /api/v1/watchlist must return 403, got {r.status_code}"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -796,12 +846,12 @@ async def test_migration_runs_on_startup_for_existing_entries(
         data = r.json()
         entries = data["entries"]
         legacy_entries = [e for e in entries if e.get("entry") == "legacy_fp_abc"]
-        assert len(legacy_entries) == 1, (
-            "Legacy entry 'legacy_fp_abc' must appear in allowlist after migration"
-        )
-        assert legacy_entries[0]["managed_by"] == "legacy", (
-            "Migrated entries must have managed_by='legacy'"
-        )
+        assert (
+            len(legacy_entries) == 1
+        ), "Legacy entry 'legacy_fp_abc' must appear in allowlist after migration"
+        assert (
+            legacy_entries[0]["managed_by"] == "legacy"
+        ), "Migrated entries must have managed_by='legacy'"
 
     # Migration flag must be set
     flag = await fake_redis.exists("allowlist:migrated")
@@ -811,10 +861,12 @@ async def test_migration_runs_on_startup_for_existing_entries(
     migrated_entry = next(
         (e for e in data["entries"] if e["entry"] == "legacy_fp_abc"), None
     )
-    assert migrated_entry is not None, "legacy_fp_abc must appear in allowlist after migration"
-    assert migrated_entry["managed_by"] == "legacy", (
-        f"Migrated entry must have managed_by='legacy', got: {migrated_entry['managed_by']}"
-    )
+    assert (
+        migrated_entry is not None
+    ), "legacy_fp_abc must appear in allowlist after migration"
+    assert (
+        migrated_entry["managed_by"] == "legacy"
+    ), f"Migrated entry must have managed_by='legacy', got: {migrated_entry['managed_by']}"
     hash_record = await fake_redis.hgetall(f"allowlist:entry:{migrated_entry['id']}")
     assert hash_record, (
         f"Hash record allowlist:entry:{migrated_entry['id']} must exist — "
@@ -845,7 +897,9 @@ async def test_migration_is_idempotent(
         base_url="http://test",
         cookies=admin_cookie,
     ) as client1:
-        r1 = await client1.get("/api/v1/allowlist", headers={"Accept": "application/json"})
+        r1 = await client1.get(
+            "/api/v1/allowlist", headers={"Accept": "application/json"}
+        )
         assert r1.status_code == 200
     await _redis_module.close_redis()
 
@@ -855,7 +909,9 @@ async def test_migration_is_idempotent(
 
     before_keys = await fake_redis.keys("allowlist:entry:*")
     before_count = len(before_keys)
-    assert before_count >= 1, "First migration must have created at least one Hash record"
+    assert (
+        before_count >= 1
+    ), "First migration must have created at least one Hash record"
 
     # Second startup — migration must be a no-op (allowlist:migrated already set)
     app2 = create_app()
@@ -865,13 +921,17 @@ async def test_migration_is_idempotent(
         base_url="http://test",
         cookies=admin_cookie,
     ) as client2:
-        r2 = await client2.get("/api/v1/allowlist", headers={"Accept": "application/json"})
+        r2 = await client2.get(
+            "/api/v1/allowlist", headers={"Accept": "application/json"}
+        )
         assert r2.status_code == 200
         data = r2.json()
-        matching = [e for e in data["entries"] if e.get("entry") == "legacy_fp_idempotent"]
-        assert len(matching) == 1, (
-            f"Idempotent migration must not duplicate entries; found {len(matching)}"
-        )
+        matching = [
+            e for e in data["entries"] if e.get("entry") == "legacy_fp_idempotent"
+        ]
+        assert (
+            len(matching) == 1
+        ), f"Idempotent migration must not duplicate entries; found {len(matching)}"
     await _redis_module.close_redis()
 
     # After second startup teardown:
@@ -906,9 +966,9 @@ async def test_migration_preserves_proxy_set(
         await client.get("/api/v1/health")
 
     is_member = await fake_redis.sismember("ja4:whitelist", "legacy_fp_preserved")
-    assert is_member, (
-        "Migration must not remove 'legacy_fp_preserved' from ja4:whitelist"
-    )
+    assert (
+        is_member
+    ), "Migration must not remove 'legacy_fp_preserved' from ja4:whitelist"
 
     await _redis_module.close_redis()
 
@@ -934,7 +994,9 @@ async def test_migration_generates_stable_uuid(
         base_url="http://test",
         cookies=admin_cookie,
     ) as client1:
-        r1 = await client1.get("/api/v1/allowlist", headers={"Accept": "application/json"})
+        r1 = await client1.get(
+            "/api/v1/allowlist", headers={"Accept": "application/json"}
+        )
         assert r1.status_code == 200
         data1 = r1.json()
         entries1 = [e for e in data1["entries"] if e["entry"] == fingerprint]
@@ -961,7 +1023,9 @@ async def test_migration_generates_stable_uuid(
         base_url="http://test",
         cookies=admin_cookie,
     ) as client2:
-        r2 = await client2.get("/api/v1/allowlist", headers={"Accept": "application/json"})
+        r2 = await client2.get(
+            "/api/v1/allowlist", headers={"Accept": "application/json"}
+        )
         assert r2.status_code == 200
         data2 = r2.json()
         entries2 = [e for e in data2["entries"] if e["entry"] == fingerprint]
@@ -991,11 +1055,15 @@ async def test_managed_by_terraform_filter_excludes_operator_entries(
     """
     async with _bearer_client("operator", fake_redis) as (client, token):
         await _post_entry(
-            client, token, "/api/v1/allowlist",
+            client,
+            token,
+            "/api/v1/allowlist",
             {"entry": "t13d_tf_only", "managed_by": "terraform", "note": "tf"},
         )
         await _post_entry(
-            client, token, "/api/v1/allowlist",
+            client,
+            token,
+            "/api/v1/allowlist",
             {"entry": "t13d_op_only", "managed_by": "operator", "note": "op"},
         )
         r = await client.get(
@@ -1022,13 +1090,13 @@ async def test_entry_id_is_stable_uuid4_format(
     """
     async with _bearer_client("operator", fake_redis) as (client, token):
         data = await _post_entry(
-            client, token, "/api/v1/allowlist",
+            client,
+            token,
+            "/api/v1/allowlist",
             {"entry": "t13d_uuid4_check", "managed_by": "operator", "note": ""},
         )
         id = data["id"]
-        assert _UUID4_RE.match(id), (
-            f"id must match UUID4 pattern, got: {id!r}"
-        )
+        assert _UUID4_RE.match(id), f"id must match UUID4 pattern, got: {id!r}"
         r2 = await client.post(
             "/api/v1/allowlist",
             json={"entry": "t13d1516h2_uuid_check_2", "managed_by": "operator"},
@@ -1054,17 +1122,23 @@ async def test_get_after_post_is_immediately_consistent(
     """
     async with _bearer_client("operator", fake_redis) as (client, token):
         created = await _post_entry(
-            client, token, "/api/v1/allowlist",
-            {"entry": "t13d_immediate_consistency", "managed_by": "operator", "note": ""},
+            client,
+            token,
+            "/api/v1/allowlist",
+            {
+                "entry": "t13d_immediate_consistency",
+                "managed_by": "operator",
+                "note": "",
+            },
         )
         resource_id = created["id"]
         r = await client.get(
             f"/api/v1/allowlist/{resource_id}",
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
-        assert r.status_code == 200, (
-            f"GET immediately after POST must return 200, got {r.status_code}"
-        )
+        assert (
+            r.status_code == 200
+        ), f"GET immediately after POST must return 200, got {r.status_code}"
         assert r.json()["id"] == resource_id
 
 
@@ -1100,18 +1174,19 @@ async def test_old_list_routes_still_return_200(
             "/api/v1/lists/ja4/whitelist/t13d_legacy_entry",
             headers={"Accept": "application/json"},
         )
-        assert r_post.status_code in (200, 201), (
-            f"Old POST route must still work, got {r_post.status_code}: {r_post.text}"
-        )
+        assert r_post.status_code in (
+            200,
+            201,
+        ), f"Old POST route must still work, got {r_post.status_code}: {r_post.text}"
 
         # Old read route must still work
         r_get = await client.get(
             "/api/v1/lists/ja4/whitelist",
             headers={"Accept": "application/json"},
         )
-        assert r_get.status_code == 200, (
-            f"Old GET route must still return 200, got {r_get.status_code}"
-        )
+        assert (
+            r_get.status_code == 200
+        ), f"Old GET route must still return 200, got {r_get.status_code}"
         data = r_get.json()
         assert "entries" in data, f"Old route must return 'entries' field, got: {data}"
         assert len(data["entries"]) >= 1
@@ -1154,24 +1229,39 @@ async def test_cross_list_contamination_prevention(
             r = await client.post(
                 path,
                 json={"entry": fp, "managed_by": "operator"},
-                headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Accept": "application/json",
+                },
             )
             assert r.status_code == 201, f"POST to {path} failed: {r.status_code}"
 
     # allowlist fingerprint only in whitelist
     assert await fake_redis.sismember("ja4:whitelist", allow_fp)
-    assert not await fake_redis.sismember("ja4:blacklist", allow_fp), "allow_fp must not be in blacklist"
-    assert not await fake_redis.sismember("ja4:watchlist", allow_fp), "allow_fp must not be in watchlist"
+    assert not await fake_redis.sismember(
+        "ja4:blacklist", allow_fp
+    ), "allow_fp must not be in blacklist"
+    assert not await fake_redis.sismember(
+        "ja4:watchlist", allow_fp
+    ), "allow_fp must not be in watchlist"
 
     # blocklist fingerprint only in blacklist
     assert await fake_redis.sismember("ja4:blacklist", block_fp)
-    assert not await fake_redis.sismember("ja4:whitelist", block_fp), "block_fp must not be in whitelist"
-    assert not await fake_redis.sismember("ja4:watchlist", block_fp), "block_fp must not be in watchlist"
+    assert not await fake_redis.sismember(
+        "ja4:whitelist", block_fp
+    ), "block_fp must not be in whitelist"
+    assert not await fake_redis.sismember(
+        "ja4:watchlist", block_fp
+    ), "block_fp must not be in watchlist"
 
     # watchlist fingerprint only in watchlist
     assert await fake_redis.sismember("ja4:watchlist", watch_fp)
-    assert not await fake_redis.sismember("ja4:whitelist", watch_fp), "watch_fp must not be in whitelist"
-    assert not await fake_redis.sismember("ja4:blacklist", watch_fp), "watch_fp must not be in blacklist"
+    assert not await fake_redis.sismember(
+        "ja4:whitelist", watch_fp
+    ), "watch_fp must not be in whitelist"
+    assert not await fake_redis.sismember(
+        "ja4:blacklist", watch_fp
+    ), "watch_fp must not be in blacklist"
 
 
 @pytest.mark.asyncio
@@ -1199,13 +1289,15 @@ async def test_duplicate_post_is_idempotent(
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
         # Must either return the existing entry (200/201 same id) or 409 Conflict
-        assert r2.status_code in (200, 201, 409), (
-            f"Duplicate POST must return existing entry or 409, got {r2.status_code}"
-        )
+        assert r2.status_code in (
+            200,
+            201,
+            409,
+        ), f"Duplicate POST must return existing entry or 409, got {r2.status_code}"
         if r2.status_code in (200, 201):
-            assert r2.json()["id"] == id1, (
-                "Duplicate POST must return the same id as the original"
-            )
+            assert (
+                r2.json()["id"] == id1
+            ), "Duplicate POST must return the same id as the original"
 
     # Only one Hash record should exist
     assert len(await fake_redis.keys("allowlist:entry:*")) == 1
@@ -1236,17 +1328,26 @@ async def test_expired_entries_excluded_from_list(
         # Create an expired entry
         r_expired = await client.post(
             "/api/v1/allowlist",
-            json={"entry": "t13d_expired", "managed_by": "operator", "expires_at": past},
+            json={
+                "entry": "t13d_expired",
+                "managed_by": "operator",
+                "expires_at": past,
+            },
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
-        assert r_expired.status_code in (201, 422), (
-            "Past expires_at should either be rejected (422) or accepted but filtered on read"
-        )
+        assert r_expired.status_code in (
+            201,
+            422,
+        ), "Past expires_at should either be rejected (422) or accepted but filtered on read"
 
         # Create a non-expired entry for contrast
         r_valid = await client.post(
             "/api/v1/allowlist",
-            json={"entry": "t13d_valid", "managed_by": "operator", "expires_at": future},
+            json={
+                "entry": "t13d_valid",
+                "managed_by": "operator",
+                "expires_at": future,
+            },
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
         assert r_valid.status_code == 201
@@ -1255,13 +1356,16 @@ async def test_expired_entries_excluded_from_list(
         if r_expired.status_code == 201:
             r_list = await client.get(
                 "/api/v1/allowlist",
-                headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Accept": "application/json",
+                },
             )
             entries = r_list.json()["entries"]
             expired_in_list = [e for e in entries if e["entry"] == "t13d_expired"]
-            assert not expired_in_list, (
-                "Expired entry must not appear in GET /api/v1/allowlist listing"
-            )
+            assert (
+                not expired_in_list
+            ), "Expired entry must not appear in GET /api/v1/allowlist listing"
 
 
 @pytest.mark.asyncio
@@ -1277,14 +1381,26 @@ async def test_hash_record_has_all_required_fields(
     async with _bearer_client("operator", fake_redis) as (client, token):
         r = await client.post(
             "/api/v1/allowlist",
-            json={"entry": fingerprint, "managed_by": "operator", "note": "completeness check"},
+            json={
+                "entry": fingerprint,
+                "managed_by": "operator",
+                "note": "completeness check",
+            },
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
         assert r.status_code == 201
         resource_id = r.json()["id"]
 
         record = await fake_redis.hgetall(f"allowlist:entry:{resource_id}")
-        required_fields = {"id", "entry", "managed_by", "note", "created_at", "created_by", "list_type"}
+        required_fields = {
+            "id",
+            "entry",
+            "managed_by",
+            "note",
+            "created_at",
+            "created_by",
+            "list_type",
+        }
         missing = required_fields - set(record.keys())
         assert not missing, (
             f"Hash record is missing required fields: {missing}. "
@@ -1319,8 +1435,12 @@ async def test_delete_atomicity_both_structures_removed(
         resource_id = r.json()["id"]
 
         # Verify both exist before DELETE
-        assert await fake_redis.exists(f"allowlist:entry:{resource_id}"), "Hash must exist before DELETE"
-        assert await fake_redis.sismember("ja4:whitelist", fingerprint), "SET must have entry before DELETE"
+        assert await fake_redis.exists(
+            f"allowlist:entry:{resource_id}"
+        ), "Hash must exist before DELETE"
+        assert await fake_redis.sismember(
+            "ja4:whitelist", fingerprint
+        ), "SET must have entry before DELETE"
 
         r_del = await client.delete(
             f"/api/v1/allowlist/{resource_id}",

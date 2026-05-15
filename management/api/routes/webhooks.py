@@ -84,7 +84,11 @@ def _validate_webhook_url(url: str) -> str:
     if not host:
         raise ValueError("webhook URL must include a hostname")
 
-    if host in _BLOCKED_HOSTNAMES or host.endswith(".localhost") or host.endswith(".local"):
+    if (
+        host in _BLOCKED_HOSTNAMES
+        or host.endswith(".localhost")
+        or host.endswith(".local")
+    ):
         raise ValueError(f"webhook URL hostname '{host}' refers to a local address")
 
     try:
@@ -189,6 +193,7 @@ async def create_webhook(
     The secret is NOT stored; only its bcrypt hash is persisted.
     """
     import uuid
+
     webhook_id = str(uuid.uuid4())
     raw_secret = secrets.token_urlsafe(32)
     secret_hash = _hash_secret(raw_secret)
@@ -241,7 +246,9 @@ async def list_webhooks(
         try:
             fields = await redis.hgetall(f"webhook:{webhook_id}")
         except Exception as exc:  # noqa: BLE001
-            logger.warning("webhooks | event=hgetall_error | id=%s | error=%s", webhook_id, exc)
+            logger.warning(
+                "webhooks | event=hgetall_error | id=%s | error=%s", webhook_id, exc
+            )
             continue
         if fields:
             webhooks.append(_decode_webhook(fields))
@@ -259,7 +266,9 @@ async def get_webhook(
     try:
         fields = await redis.hgetall(f"webhook:{webhook_id}")
     except Exception as exc:  # noqa: BLE001
-        logger.warning("webhooks | event=hgetall_error | id=%s | error=%s", webhook_id, exc)
+        logger.warning(
+            "webhooks | event=hgetall_error | id=%s | error=%s", webhook_id, exc
+        )
         raise HTTPException(status_code=500, detail="Redis error") from exc
 
     if not fields:
@@ -320,6 +329,8 @@ async def delete_webhook(
         pipe.srem(_WEBHOOK_IDX, webhook_id)
         await pipe.execute()
     except Exception as exc:  # noqa: BLE001
-        logger.warning("webhooks | event=delete_error | id=%s | error=%s", webhook_id, exc)
+        logger.warning(
+            "webhooks | event=delete_error | id=%s | error=%s", webhook_id, exc
+        )
 
     return Response(status_code=204)

@@ -52,9 +52,7 @@ async def health(
         keys = await redis.keys("proxy:heartbeat:*")
         proxy_instances = len(keys) if keys else 0
     except Exception as exc:  # noqa: BLE001
-        logger.warning(
-            "health | event=redis_unavailable | error=%s", exc
-        )
+        logger.warning("health | event=redis_unavailable | error=%s", exc)
 
     # ── GeoIP check ───────────────────────────────────────────────────────────
     geoip_status = _check_geoip()
@@ -72,9 +70,7 @@ async def health(
 
 def _check_geoip() -> str:
     """Check whether the GeoIP database file is present."""
-    geoip_path = os.environ.get(
-        "GEOIP_DB_PATH", "/opt/geoip/GeoLite2-City.mmdb"
-    )
+    geoip_path = os.environ.get("GEOIP_DB_PATH", "/opt/geoip/GeoLite2-City.mmdb")
     if os.path.exists(geoip_path):
         return "ok"
     return "unavailable"

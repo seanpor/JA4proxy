@@ -84,7 +84,9 @@ class TestJSONFormatterOutputIsValidJSON:
 
     def test_message_with_special_characters(self):
         fmt = JSONFormatter()
-        record = _make_record('reason="quota exceeded" url="https://example.com/path?q=1&r=2"')
+        record = _make_record(
+            'reason="quota exceeded" url="https://example.com/path?q=1&r=2"'
+        )
         output = fmt.format(record)
         parsed = json.loads(output)
         assert "quota exceeded" in parsed["message"]
@@ -298,9 +300,9 @@ class TestInitLoggingFormatterSelection:
         logger = server.logger
         for handler in logger.handlers:
             filters = handler.filters
-            assert any(isinstance(f, SensitiveDataFilter) for f in filters), (
-                "SensitiveDataFilter must be on the handler regardless of formatter"
-            )
+            assert any(
+                isinstance(f, SensitiveDataFilter) for f in filters
+            ), "SensitiveDataFilter must be on the handler regardless of formatter"
 
 
 # ---------------------------------------------------------------------------

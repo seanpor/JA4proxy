@@ -131,7 +131,7 @@ _JA4_VERSION_PREFIX_MAP: dict[str, int] = {
     "t12": TLS12,  # TLS 1.2
     "t11": TLS11,  # TLS 1.1
     "t10": TLS10,  # TLS 1.0
-    "s30": SSL3,   # SSLv3
+    "s30": SSL3,  # SSLv3
 }
 
 
@@ -172,7 +172,9 @@ def _version_label(version: int | str) -> str:
 # ---------------------------------------------------------------------------
 
 
-def check_ja4_tls_mismatch(ja4: str, tls_version: int | str | None) -> "RiskSignal | None":
+def check_ja4_tls_mismatch(
+    ja4: str, tls_version: int | str | None
+) -> "RiskSignal | None":
     """Detect a mismatch between the TLS version claimed in a JA4 fingerprint
     and the actual negotiated TLS version.
 
@@ -253,9 +255,7 @@ def check_ja4_tls_mismatch(ja4: str, tls_version: int | str | None) -> "RiskSign
         )
     except Exception as exc:  # noqa: BLE001
         # Fail open — any parse error must not propagate.
-        logger.debug(
-            "tls_enforcer | event=ja4_tls_mismatch_error | error=%s", exc
-        )
+        logger.debug("tls_enforcer | event=ja4_tls_mismatch_error | error=%s", exc)
         return None
 
 

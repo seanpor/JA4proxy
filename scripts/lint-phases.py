@@ -10,6 +10,7 @@ Checks:
 
 Exit 0 = clean. Exit 1 = violations found (details printed).
 """
+
 from __future__ import annotations
 
 import os
@@ -77,9 +78,7 @@ def check_heading_numbers(phases: dict) -> None:
         # e.g. "Phase 44: ..." → "44".  Numbers appearing mid-heading as
         # sub-series identifiers ("- Phase 2: Redis Optimization") are intentional
         # and must not be flagged.
-        lead_match = re.match(
-            r"^(?:PHASE|Phase)\s+(\d+)\b", heading, re.IGNORECASE
-        )
+        lead_match = re.match(r"^(?:PHASE|Phase)\s+(\d+)\b", heading, re.IGNORECASE)
         if not lead_match:
             continue
         heading_lead = lead_match.group(1).lstrip("0") or "0"
@@ -88,7 +87,7 @@ def check_heading_numbers(phases: dict) -> None:
                 f"Phase {phase_id} ({Path(plan).name}): "
                 f"H1 heading starts with 'Phase {lead_match.group(1)}' but "
                 f"filename number is '{file_num}' and phase ID is '{phase_id}'. "
-                f"Heading: \"{heading}\""
+                f'Heading: "{heading}"'
             )
 
 

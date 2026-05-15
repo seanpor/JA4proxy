@@ -46,6 +46,7 @@ def _make_server_stub() -> ProxyServer:
         "geoip": {"country_whitelist": [], "country_blacklist": []},
     }
     import logging
+
     s.logger = MagicMock()
     s._tarpit_concurrent = 0
     s._tarpit_per_ip = {}
@@ -88,8 +89,12 @@ class TestGlobalConcurrentCap:
         server = _make_server_stub()
         server.config["tarpit"]["max_concurrent_connections"] = 10
         # Manually set counter to 0 — cap not reached
-        with patch("proxy.asyncio.open_connection", side_effect=ConnectionRefusedError()):
-            await server._redirect_to_tarpit(b"", _make_reader(), _make_writer(), "1.2.3.4")
+        with patch(
+            "proxy.asyncio.open_connection", side_effect=ConnectionRefusedError()
+        ):
+            await server._redirect_to_tarpit(
+                b"", _make_reader(), _make_writer(), "1.2.3.4"
+            )
         # After the call finishes (ConnectionRefused counts as done), counter back to 0
         assert server._tarpit_concurrent == 0  # decremented in finally
 
@@ -113,12 +118,16 @@ class TestGlobalConcurrentCap:
     @pytest.mark.asyncio
     async def test_global_cap_overflow_increments_prometheus(self):
         server = _make_server_stub()
-        server._tarpit_concurrent = server.config["tarpit"]["max_concurrent_connections"]
+        server._tarpit_concurrent = server.config["tarpit"][
+            "max_concurrent_connections"
+        ]
 
         with patch("proxy._TARPIT_OVERFLOW") as mock_overflow:
             labels_mock = MagicMock()
             mock_overflow.labels = MagicMock(return_value=labels_mock)
-            await server._redirect_to_tarpit(b"", _make_reader(), _make_writer(), "1.2.3.4")
+            await server._redirect_to_tarpit(
+                b"", _make_reader(), _make_writer(), "1.2.3.4"
+            )
 
         mock_overflow.labels.assert_called_once_with(action="block")
         labels_mock.inc.assert_called_once()
@@ -126,7 +135,9 @@ class TestGlobalConcurrentCap:
     @pytest.mark.asyncio
     async def test_global_cap_logs_overflow_event(self):
         server = _make_server_stub()
-        server._tarpit_concurrent = server.config["tarpit"]["max_concurrent_connections"]
+        server._tarpit_concurrent = server.config["tarpit"][
+            "max_concurrent_connections"
+        ]
 
         await server._redirect_to_tarpit(b"", _make_reader(), _make_writer(), "5.5.5.5")
 
@@ -175,7 +186,9 @@ class TestPerIPCap:
             raise ConnectionRefusedError()
 
         with patch("proxy.asyncio.open_connection", side_effect=fake_connect):
-            await server._redirect_to_tarpit(b"", _make_reader(), _make_writer(), "10.0.0.2")
+            await server._redirect_to_tarpit(
+                b"", _make_reader(), _make_writer(), "10.0.0.2"
+            )
 
         assert arrived, "IP B should have entered the tarpit path, not overflowed"
 
@@ -185,8 +198,12 @@ class TestPerIPCap:
         server.config["tarpit"]["max_per_ip"] = 5
         server.config["tarpit"]["max_concurrent_connections"] = 100
 
-        with patch("proxy.asyncio.open_connection", side_effect=ConnectionRefusedError()):
-            await server._redirect_to_tarpit(b"", _make_reader(), _make_writer(), "1.2.3.4")
+        with patch(
+            "proxy.asyncio.open_connection", side_effect=ConnectionRefusedError()
+        ):
+            await server._redirect_to_tarpit(
+                b"", _make_reader(), _make_writer(), "1.2.3.4"
+            )
 
         # Entry removed when count drops to 0
         assert "1.2.3.4" not in server._tarpit_per_ip
@@ -202,8 +219,12 @@ class TestPerIPCap:
         server._tarpit_per_ip["1.2.3.4"] = 1
         server._tarpit_concurrent = 1
 
-        with patch("proxy.asyncio.open_connection", side_effect=ConnectionRefusedError()):
-            await server._redirect_to_tarpit(b"", _make_reader(), _make_writer(), "1.2.3.4")
+        with patch(
+            "proxy.asyncio.open_connection", side_effect=ConnectionRefusedError()
+        ):
+            await server._redirect_to_tarpit(
+                b"", _make_reader(), _make_writer(), "1.2.3.4"
+            )
 
         # Was 1 pre-seeded + 1 acquired = 2, then decremented → should be 1
         assert server._tarpit_per_ip.get("1.2.3.4") == 1
@@ -221,8 +242,12 @@ class TestCounterDecrement:
         server = _make_server_stub()
         server.config["tarpit"]["max_concurrent_connections"] = 100
 
-        with patch("proxy.asyncio.open_connection", side_effect=ConnectionRefusedError()):
-            await server._redirect_to_tarpit(b"", _make_reader(), _make_writer(), "1.2.3.4")
+        with patch(
+            "proxy.asyncio.open_connection", side_effect=ConnectionRefusedError()
+        ):
+            await server._redirect_to_tarpit(
+                b"", _make_reader(), _make_writer(), "1.2.3.4"
+            )
 
         assert server._tarpit_concurrent == 0
 
@@ -250,7 +275,9 @@ class TestCounterDecrement:
             ),
             patch("proxy.asyncio.gather", side_effect=OSError("connection reset")),
         ):
-            await server._redirect_to_tarpit(b"", _make_reader(), _make_writer(), "1.2.3.4")
+            await server._redirect_to_tarpit(
+                b"", _make_reader(), _make_writer(), "1.2.3.4"
+            )
 
         assert server._tarpit_concurrent == 0
 
@@ -261,8 +288,12 @@ class TestCounterDecrement:
         server._tarpit_concurrent = 0
 
         # Manually call the decrement path via a full redirect that errors
-        with patch("proxy.asyncio.open_connection", side_effect=ConnectionRefusedError()):
-            await server._redirect_to_tarpit(b"", _make_reader(), _make_writer(), "1.2.3.4")
+        with patch(
+            "proxy.asyncio.open_connection", side_effect=ConnectionRefusedError()
+        ):
+            await server._redirect_to_tarpit(
+                b"", _make_reader(), _make_writer(), "1.2.3.4"
+            )
 
         assert server._tarpit_concurrent == 0
 
@@ -276,7 +307,9 @@ class TestOverflowActions:
     @pytest.mark.asyncio
     async def test_overflow_block_closes_writer(self):
         server = _make_server_stub()
-        server._tarpit_concurrent = server.config["tarpit"]["max_concurrent_connections"]
+        server._tarpit_concurrent = server.config["tarpit"][
+            "max_concurrent_connections"
+        ]
         server.config["tarpit"]["overflow_action"] = "block"
 
         writer = _make_writer()
@@ -286,7 +319,9 @@ class TestOverflowActions:
     @pytest.mark.asyncio
     async def test_overflow_rst_closes_writer(self):
         server = _make_server_stub()
-        server._tarpit_concurrent = server.config["tarpit"]["max_concurrent_connections"]
+        server._tarpit_concurrent = server.config["tarpit"][
+            "max_concurrent_connections"
+        ]
         server.config["tarpit"]["overflow_action"] = "rst"
 
         writer = _make_writer()
@@ -296,11 +331,15 @@ class TestOverflowActions:
     @pytest.mark.asyncio
     async def test_overflow_allow_forwards_to_backend(self):
         server = _make_server_stub()
-        server._tarpit_concurrent = server.config["tarpit"]["max_concurrent_connections"]
+        server._tarpit_concurrent = server.config["tarpit"][
+            "max_concurrent_connections"
+        ]
         server.config["tarpit"]["overflow_action"] = "allow"
         server._forward_to_backend = AsyncMock()
 
-        await server._redirect_to_tarpit(b"hello", _make_reader(), _make_writer(), "1.2.3.4")
+        await server._redirect_to_tarpit(
+            b"hello", _make_reader(), _make_writer(), "1.2.3.4"
+        )
 
         server._forward_to_backend.assert_called_once()
         # First positional arg is the data bytes
@@ -309,7 +348,9 @@ class TestOverflowActions:
     @pytest.mark.asyncio
     async def test_overflow_allow_does_not_close_writer(self):
         server = _make_server_stub()
-        server._tarpit_concurrent = server.config["tarpit"]["max_concurrent_connections"]
+        server._tarpit_concurrent = server.config["tarpit"][
+            "max_concurrent_connections"
+        ]
         server.config["tarpit"]["overflow_action"] = "allow"
         server._forward_to_backend = AsyncMock()
 
@@ -342,10 +383,14 @@ class TestPrometheusGauge:
     async def test_gauge_not_set_on_overflow(self):
         """Overflow path must NOT call _TARPIT_CONCURRENT.set() for the slot."""
         server = _make_server_stub()
-        server._tarpit_concurrent = server.config["tarpit"]["max_concurrent_connections"]
+        server._tarpit_concurrent = server.config["tarpit"][
+            "max_concurrent_connections"
+        ]
 
         with patch("proxy._TARPIT_CONCURRENT") as mock_gauge:
-            await server._redirect_to_tarpit(b"", _make_reader(), _make_writer(), "9.9.9.9")
+            await server._redirect_to_tarpit(
+                b"", _make_reader(), _make_writer(), "9.9.9.9"
+            )
 
         # set() should NOT be called (no slot was acquired/released)
         mock_gauge.set.assert_not_called()

@@ -50,7 +50,10 @@ _DEFAULT_RESPONSES: dict[str, Any] = {
     "/api/v1/watchlist": {"status": "ok", "message": "added to watchlist"},
     "/api/v1/allowlist": {"status": "ok", "message": "allowlist entry created"},
     "/api/v1/connections": {"connections": []},
-    "/api/v1/fingerprints": {"fingerprint": "t13d1516h2_aabbccddeeff_aabbccddeeff", "ips": []},
+    "/api/v1/fingerprints": {
+        "fingerprint": "t13d1516h2_aabbccddeeff_aabbccddeeff",
+        "ips": [],
+    },
     "/api/v1/health/deep": {"status": "ok", "nodes": 1},
     "/api/v1/dial": {"dial": 0},
     "/api/v1/tokens": {"token": "new-token-value"},
@@ -80,7 +83,9 @@ class SOARMock:
     def __init__(self, token: str = "test-operator-token") -> None:
         self.token = token
         self.requests: list[dict] = []
-        self._overrides: dict[tuple[str, str], dict] = {}  # (METHOD, path) → response body
+        self._overrides: dict[tuple[str, str], dict] = (
+            {}
+        )  # (METHOD, path) → response body
         self._status_overrides: dict[tuple[str, str], int] = {}
         self._app: web.Application | None = None
         self._runner: web.AppRunner | None = None
@@ -126,7 +131,8 @@ class SOARMock:
     def requests_for(self, method: str, path: str) -> list[dict]:
         """Return all requests matching a (method, path) pair."""
         return [
-            r for r in self.requests
+            r
+            for r in self.requests
             if r["method"] == method.upper() and r["path"] == path
         ]
 

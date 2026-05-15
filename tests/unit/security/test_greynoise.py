@@ -58,7 +58,9 @@ def _make_ctx(status: int, body: dict):
 
 
 @pytest.mark.asyncio
-async def test_greynoise_no_health_monitor_works(mock_redis, mock_local_cache, mock_session):
+async def test_greynoise_no_health_monitor_works(
+    mock_redis, mock_local_cache, mock_session
+):
     """Provider works normally without a health_monitor (backwards compat)."""
     config = GreyNoiseConfig(enabled=True, api_key="key")
     provider = GreyNoiseProvider(config, mock_redis, mock_local_cache, mock_session)
@@ -77,7 +79,9 @@ async def test_greynoise_no_health_monitor_works(mock_redis, mock_local_cache, m
 
 
 @pytest.mark.asyncio
-async def test_greynoise_circuit_open_skips_api(mock_redis, mock_local_cache, mock_session):
+async def test_greynoise_circuit_open_skips_api(
+    mock_redis, mock_local_cache, mock_session
+):
     """When the circuit is open, _process_lookup returns without calling the API."""
     monitor = FeedHealthMonitor()
     cb = monitor.get_circuit_breaker("greynoise", failure_threshold=1)
@@ -99,7 +103,9 @@ async def test_greynoise_circuit_open_skips_api(mock_redis, mock_local_cache, mo
 
 
 @pytest.mark.asyncio
-async def test_greynoise_circuit_records_success(mock_redis, mock_local_cache, mock_session):
+async def test_greynoise_circuit_records_success(
+    mock_redis, mock_local_cache, mock_session
+):
     """Successful API call causes record_success() to be invoked on the circuit breaker."""
     monitor = FeedHealthMonitor()
     cb = monitor.get_circuit_breaker("greynoise")
@@ -155,7 +161,9 @@ async def test_greynoise_circuit_records_failure_on_exception(
 
 
 @pytest.mark.asyncio
-async def test_greynoise_retry_twice_then_succeed(mock_redis, mock_local_cache, mock_session):
+async def test_greynoise_retry_twice_then_succeed(
+    mock_redis, mock_local_cache, mock_session
+):
     """API fails twice then succeeds; the session is called 3 times total."""
     config = GreyNoiseConfig(enabled=True, api_key="key")
     provider = GreyNoiseProvider(config, mock_redis, mock_local_cache, mock_session)
@@ -189,18 +197,26 @@ async def test_greynoise_retry_twice_then_succeed(mock_redis, mock_local_cache, 
 
 @pytest.mark.asyncio
 async def test_greynoise_signal_logic(mock_redis, mock_local_cache, mock_session):
-    config = GreyNoiseConfig(enabled=True, api_key="key", noise_score=25, riot_score_reduction=15)
+    config = GreyNoiseConfig(
+        enabled=True, api_key="key", noise_score=25, riot_score_reduction=15
+    )
     provider = GreyNoiseProvider(config, mock_redis, mock_local_cache, mock_session)
 
-    signal = provider._to_signal("1.2.3.4", {"noise": True, "riot": False, "classification": "malicious"})
+    signal = provider._to_signal(
+        "1.2.3.4", {"noise": True, "riot": False, "classification": "malicious"}
+    )
     assert signal is not None
     assert signal.score == 25
 
-    signal = provider._to_signal("1.2.3.4", {"noise": False, "riot": True, "classification": "unknown"})
+    signal = provider._to_signal(
+        "1.2.3.4", {"noise": False, "riot": True, "classification": "unknown"}
+    )
     assert signal is not None
     assert signal.score == -15
 
-    signal = provider._to_signal("1.2.3.4", {"noise": False, "riot": False, "classification": "unknown"})
+    signal = provider._to_signal(
+        "1.2.3.4", {"noise": False, "riot": False, "classification": "unknown"}
+    )
     assert signal is None
 
 
@@ -219,7 +235,9 @@ def test_greynoise_config_from_config_env_key(monkeypatch):
 
 def test_greynoise_config_from_config_explicit_key():
     """Explicit config key takes precedence over env var."""
-    cfg = GreyNoiseConfig.from_config({"greynoise": {"api_key": "explicit", "enabled": True}})
+    cfg = GreyNoiseConfig.from_config(
+        {"greynoise": {"api_key": "explicit", "enabled": True}}
+    )
     assert cfg.api_key == "explicit"
     assert cfg.enabled is True
 
@@ -230,7 +248,9 @@ def test_greynoise_config_from_config_explicit_key():
 
 
 @pytest.mark.asyncio
-async def test_greynoise_start_enabled_spawns_workers(mock_redis, mock_local_cache, mock_session):
+async def test_greynoise_start_enabled_spawns_workers(
+    mock_redis, mock_local_cache, mock_session
+):
     """start() creates worker_count tasks when enabled."""
     config = GreyNoiseConfig(enabled=True, api_key="key", worker_count=2)
     provider = GreyNoiseProvider(config, mock_redis, mock_local_cache, mock_session)
@@ -245,7 +265,9 @@ async def test_greynoise_start_enabled_spawns_workers(mock_redis, mock_local_cac
 
 
 @pytest.mark.asyncio
-async def test_greynoise_start_disabled_no_workers(mock_redis, mock_local_cache, mock_session):
+async def test_greynoise_start_disabled_no_workers(
+    mock_redis, mock_local_cache, mock_session
+):
     """start() is a no-op when disabled."""
     config = GreyNoiseConfig(enabled=False)
     provider = GreyNoiseProvider(config, mock_redis, mock_local_cache, mock_session)
@@ -259,7 +281,9 @@ async def test_greynoise_start_disabled_no_workers(mock_redis, mock_local_cache,
 
 
 @pytest.mark.asyncio
-async def test_greynoise_stop_cancels_workers(mock_redis, mock_local_cache, mock_session):
+async def test_greynoise_stop_cancels_workers(
+    mock_redis, mock_local_cache, mock_session
+):
     """stop() cancels running workers without raising."""
     config = GreyNoiseConfig(enabled=True, api_key="key", worker_count=1)
     provider = GreyNoiseProvider(config, mock_redis, mock_local_cache, mock_session)
@@ -312,7 +336,9 @@ async def test_greynoise_get_signal_cache_hit_updates_ratio(
     config = GreyNoiseConfig(enabled=True, api_key="key", noise_score=25)
     provider = GreyNoiseProvider(config, mock_redis, mock_local_cache, mock_session)
     mock_local_cache.greynoise_scores.get.return_value = {
-        "noise": True, "riot": False, "classification": "malicious"
+        "noise": True,
+        "riot": False,
+        "classification": "malicious",
     }
 
     signal = provider.get_signal("1.2.3.4")
@@ -334,7 +360,9 @@ async def test_greynoise_maybe_lookup_redis_hit_populates_local_cache(
     config = GreyNoiseConfig(enabled=True, api_key="key")
     provider = GreyNoiseProvider(config, mock_redis, mock_local_cache, mock_session)
 
-    cached_payload = json.dumps({"noise": True, "riot": False, "classification": "malicious"})
+    cached_payload = json.dumps(
+        {"noise": True, "riot": False, "classification": "malicious"}
+    )
     mock_redis.get.return_value = cached_payload
 
     await provider._maybe_lookup("1.2.3.4")
@@ -503,7 +531,9 @@ def test_greynoise_on_config_reload(mock_redis, mock_local_cache, mock_session):
     config = GreyNoiseConfig(enabled=True, api_key="old", noise_score=25)
     provider = GreyNoiseProvider(config, mock_redis, mock_local_cache, mock_session)
 
-    provider.on_config_reload({"greynoise": {"enabled": True, "api_key": "new", "noise_score": 40}})
+    provider.on_config_reload(
+        {"greynoise": {"enabled": True, "api_key": "new", "noise_score": 40}}
+    )
     assert provider._config.api_key == "new"
     assert provider._config.noise_score == 40
 
@@ -514,7 +544,9 @@ def test_greynoise_on_config_reload(mock_redis, mock_local_cache, mock_session):
 
 
 @pytest.mark.asyncio
-async def test_greynoise_worker_loop_cancellation(mock_redis, mock_local_cache, mock_session):
+async def test_greynoise_worker_loop_cancellation(
+    mock_redis, mock_local_cache, mock_session
+):
     """Worker loop exits cleanly when cancelled."""
     config = GreyNoiseConfig(enabled=True, api_key="key")
     provider = GreyNoiseProvider(config, mock_redis, mock_local_cache, mock_session)
@@ -531,7 +563,9 @@ async def test_greynoise_worker_loop_cancellation(mock_redis, mock_local_cache, 
 # ── Missing-coverage additions ────────────────────────────────────────────────
 
 
-def test_greynoise_get_signal_disabled_returns_none(mock_redis, mock_local_cache, mock_session):
+def test_greynoise_get_signal_disabled_returns_none(
+    mock_redis, mock_local_cache, mock_session
+):
     """get_signal() when disabled returns None immediately (line 127).
     So what: a disabled provider must not fire async lookups or count traffic."""
     config = GreyNoiseConfig(enabled=False)
@@ -557,7 +591,9 @@ async def test_greynoise_maybe_lookup_bloom_exception_swallowed(
 
 
 @pytest.mark.asyncio
-async def test_greynoise_worker_loop_processes_item(mock_redis, mock_local_cache, mock_session):
+async def test_greynoise_worker_loop_processes_item(
+    mock_redis, mock_local_cache, mock_session
+):
     """Worker dequeues item, calls _process_lookup, calls task_done (lines 206-209).
     So what: if the inner try/finally is never exercised, task_done is never called
     and the queue's join() will hang forever — blocking graceful shutdown."""
@@ -581,7 +617,9 @@ async def test_greynoise_worker_loop_processes_item(mock_redis, mock_local_cache
 
 
 @pytest.mark.asyncio
-async def test_greynoise_worker_loop_exception_logged(mock_redis, mock_local_cache, mock_session):
+async def test_greynoise_worker_loop_exception_logged(
+    mock_redis, mock_local_cache, mock_session
+):
     """Exception from _process_lookup is caught and logged, not propagated (lines 212-213).
     So what: a single corrupt lookup must not kill the worker; all subsequent
     IPs in the queue must still be processed."""

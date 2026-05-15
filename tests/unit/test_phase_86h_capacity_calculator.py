@@ -152,6 +152,6 @@ def test_require_measured_flag_succeeds_on_real_numbers(tmp_path: Path):
         f"stdout={result.stdout!r} stderr={result.stderr!r}"
     )
     # Should NOT include the estimated banner
-    assert "ESTIMATED — NOT MEASURED" not in result.stdout, (
-        f"Report must NOT contain the ESTIMATED banner when benchmarks are real. stdout={result.stdout!r}"
-    )
+    assert (
+        "ESTIMATED — NOT MEASURED" not in result.stdout
+    ), f"Report must NOT contain the ESTIMATED banner when benchmarks are real. stdout={result.stdout!r}"

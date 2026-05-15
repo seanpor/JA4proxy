@@ -50,14 +50,12 @@ def test_benchmarks_md_has_hardware_header():
     required_fields = ["CPU", "OS", "Redis", "Go", "Python"]
     for field in required_fields:
         # Expect a table row `| field | actual value |`.
-        row = re.search(
-            rf"\|\s*{re.escape(field)}[^|]*\|\s*([^|]+)\|", ref
-        )
+        row = re.search(rf"\|\s*{re.escape(field)}[^|]*\|\s*([^|]+)\|", ref)
         assert row, f"Reference Hardware row for {field!r} not found"
         value = row.group(1).strip()
-        assert value and not re.match(r"_\(.*\)_", value), (
-            f"Reference Hardware field {field!r} still unpopulated: {value!r}"
-        )
+        assert value and not re.match(
+            r"_\(.*\)_", value
+        ), f"Reference Hardware field {field!r} still unpopulated: {value!r}"
 
     # Go Proxy Benchmarks section must show a real Git SHA.
     go_section_match = re.search(
@@ -68,9 +66,7 @@ def test_benchmarks_md_has_hardware_header():
     sha_line = re.search(r"Git SHA:\s*([A-Za-z0-9_()]+)", go)
     assert sha_line, "Git SHA line missing from Go Proxy Benchmarks"
     sha_val = sha_line.group(1).strip()
-    assert not sha_val.startswith("_("), (
-        f"Git SHA still a placeholder: {sha_val!r}"
-    )
+    assert not sha_val.startswith("_("), f"Git SHA still a placeholder: {sha_val!r}"
 
 
 # ── PHASE_101 M26: numeric + SHA shape validation ──────────────────────────
@@ -109,14 +105,12 @@ def test_reference_hardware_required_fields_present():
     ref = ref_section_match.group(1)
     for field in ("CPU", "OS", "Redis", "Go", "Python"):
         row = re.search(rf"\|\s*{re.escape(field)}\s*\|\s*([^|]+)\|", ref)
-        assert row, (
-            f"PHASE_101 M26: Reference Hardware row {field!r} missing"
-        )
+        assert row, f"PHASE_101 M26: Reference Hardware row {field!r} missing"
         value = row.group(1).strip()
         assert value, f"PHASE_101 M26: {field!r} row is empty"
-        assert not re.match(r"_\(.*\)_", value), (
-            f"PHASE_101 M26: {field!r} still has placeholder: {value!r}"
-        )
+        assert not re.match(
+            r"_\(.*\)_", value
+        ), f"PHASE_101 M26: {field!r} still has placeholder: {value!r}"
 
 
 def test_run_date_present_and_iso():
@@ -131,8 +125,7 @@ def test_run_date_present_and_iso():
     go = go_section_match.group(1)
     date_match = re.search(r"Run date:\s*(\d{4}-\d{2}-\d{2})\b", go)
     assert date_match, (
-        "PHASE_101 M26: Go Proxy Benchmarks must include "
-        "`Run date: YYYY-MM-DD`"
+        "PHASE_101 M26: Go Proxy Benchmarks must include " "`Run date: YYYY-MM-DD`"
     )
 
 
@@ -142,16 +135,14 @@ def test_historical_runs_throughput_parses_as_positive_finite_float():
     rejected). Catches typos like an extra unit, a placeholder, or a
     wrapped notebook value."""
     text = _read()
-    hist_match = re.search(
-        r"## Historical Runs(.*?)(?=\n## |\Z)", text, re.DOTALL
-    )
+    hist_match = re.search(r"## Historical Runs(.*?)(?=\n## |\Z)", text, re.DOTALL)
     assert hist_match, "Historical Runs section missing"
     hist = hist_match.group(1)
     # Skip the header row and separator. Each data row has 6 pipes.
     rows = [
-        ln for ln in hist.splitlines()
-        if ln.strip().startswith("|")
-        and not re.match(r"^\|[\s\-:|]+$", ln.strip())
+        ln
+        for ln in hist.splitlines()
+        if ln.strip().startswith("|") and not re.match(r"^\|[\s\-:|]+$", ln.strip())
     ]
     assert len(rows) >= 2, "Historical Runs needs header + ≥1 data row"
     # Drop the table header.
@@ -159,9 +150,7 @@ def test_historical_runs_throughput_parses_as_positive_finite_float():
     assert data_rows, "PHASE_101 M26: Historical Runs has no data rows"
     for row in data_rows:
         cells = [c.strip() for c in row.split("|")[1:-1]]
-        assert len(cells) >= 4, (
-            f"PHASE_101 M26: malformed historical row: {row!r}"
-        )
+        assert len(cells) >= 4, f"PHASE_101 M26: malformed historical row: {row!r}"
         throughput_cell = cells[3]
         # Strip thousands separators and any trailing unit token.
         numeric = re.match(r"([0-9.]+)", throughput_cell.replace(",", ""))
@@ -178,6 +167,7 @@ def test_historical_runs_throughput_parses_as_positive_finite_float():
         # parse of a leading-digit string, but be explicit so a future
         # cell containing a literal "NaN" is caught before it propagates.
         import math
-        assert math.isfinite(value), (
-            f"PHASE_101 M26: throughput must be finite, got {value}"
-        )
+
+        assert math.isfinite(
+            value
+        ), f"PHASE_101 M26: throughput must be finite, got {value}"

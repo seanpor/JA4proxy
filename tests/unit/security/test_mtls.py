@@ -13,47 +13,53 @@ from src.security.mtls import MTLSHandler
 
 def generate_self_signed_ca():
     private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    subject = issuer = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, u"Test CA")])
-    cert = x509.CertificateBuilder().subject_name(
-        subject
-    ).issuer_name(
-        issuer
-    ).public_key(
-        private_key.public_key()
-    ).serial_number(
-        x509.random_serial_number()
-    ).not_valid_before(
-        __import__('datetime').datetime.utcnow()
-    ).not_valid_after(
-        __import__('datetime').datetime.utcnow() + __import__('datetime').timedelta(days=1)
-    ).add_extension(
-        x509.BasicConstraints(ca=True, path_length=None), critical=True,
-    ).sign(private_key, hashes.SHA256())
+    subject = issuer = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "Test CA")])
+    cert = (
+        x509.CertificateBuilder()
+        .subject_name(subject)
+        .issuer_name(issuer)
+        .public_key(private_key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(__import__("datetime").datetime.utcnow())
+        .not_valid_after(
+            __import__("datetime").datetime.utcnow()
+            + __import__("datetime").timedelta(days=1)
+        )
+        .add_extension(
+            x509.BasicConstraints(ca=True, path_length=None),
+            critical=True,
+        )
+        .sign(private_key, hashes.SHA256())
+    )
     return cert, private_key
+
 
 def generate_signed_cert(ca_cert, ca_key):
     private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    subject = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, u"Test Client")])
-    cert = x509.CertificateBuilder().subject_name(
-        subject
-    ).issuer_name(
-        ca_cert.subject
-    ).public_key(
-        private_key.public_key()
-    ).serial_number(
-        x509.random_serial_number()
-    ).not_valid_before(
-        __import__('datetime').datetime.utcnow()
-    ).not_valid_after(
-        __import__('datetime').datetime.utcnow() + __import__('datetime').timedelta(days=1)
-    ).sign(ca_key, hashes.SHA256())
+    subject = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "Test Client")])
+    cert = (
+        x509.CertificateBuilder()
+        .subject_name(subject)
+        .issuer_name(ca_cert.subject)
+        .public_key(private_key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(__import__("datetime").datetime.utcnow())
+        .not_valid_after(
+            __import__("datetime").datetime.utcnow()
+            + __import__("datetime").timedelta(days=1)
+        )
+        .sign(ca_key, hashes.SHA256())
+    )
     return cert, private_key
+
 
 class TestMTLSHandler(unittest.TestCase):
 
     def setUp(self):
         self.ca_cert, self.ca_key = generate_self_signed_ca()
-        self.client_cert, self.client_key = generate_signed_cert(self.ca_cert, self.ca_key)
+        self.client_cert, self.client_key = generate_signed_cert(
+            self.ca_cert, self.ca_key
+        )
 
         self.ca_cert_path = "test_ca.pem"
         with open(self.ca_cert_path, "wb") as f:
@@ -64,7 +70,7 @@ class TestMTLSHandler(unittest.TestCase):
                 "enabled": True,
                 "ca_cert_path": self.ca_cert_path,
                 "require_client_cert": False,
-                "cert_cn_allowlist": ["Test Client"]
+                "cert_cn_allowlist": ["Test Client"],
             }
         }
         self.mtls_handler = MTLSHandler(self.config)
@@ -82,9 +88,13 @@ class TestMTLSHandler(unittest.TestCase):
         # Create a cert signed by a different CA
         other_ca_cert, other_ca_key = generate_self_signed_ca()
         invalid_client_cert, _ = generate_signed_cert(other_ca_cert, other_ca_key)
-        invalid_client_cert_pem = invalid_client_cert.public_bytes(serialization.Encoding.PEM)
-        
-        ctx = ConnectionContext(client_ip="1.2.3.4", client_certificate=invalid_client_cert_pem)
+        invalid_client_cert_pem = invalid_client_cert.public_bytes(
+            serialization.Encoding.PEM
+        )
+
+        ctx = ConnectionContext(
+            client_ip="1.2.3.4", client_certificate=invalid_client_cert_pem
+        )
         self.assertFalse(self.mtls_handler.verify_client_cert(ctx))
 
     def test_cn_allowlist_enforcement(self):
@@ -94,7 +104,8 @@ class TestMTLSHandler(unittest.TestCase):
         ctx = ConnectionContext(client_ip="1.2.3.4", client_certificate=client_cert_pem)
         self.assertFalse(self.mtls_handler.verify_client_cert(ctx))
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()
 
 
@@ -113,6 +124,7 @@ class TestMTLSMissingPaths:
         client_cert, _ = generate_signed_cert(ca_cert, ca_key)
         import os
         import tempfile
+
         with tempfile.NamedTemporaryFile(suffix=".pem", delete=False) as f:
             f.write(ca_cert.public_bytes(serialization.Encoding.PEM))
             path = f.name
@@ -127,11 +139,15 @@ class TestMTLSMissingPaths:
         Triggers lines 46-48: logs error and returns False.
         So what: if the CA cert failed to load, a presented client cert must be rejected,
         not silently accepted — prevents privilege escalation."""
-        handler = MTLSHandler({"mtls": {"enabled": True, "ca_cert_path": "/nonexistent/ca.pem"}})
+        handler = MTLSHandler(
+            {"mtls": {"enabled": True, "ca_cert_path": "/nonexistent/ca.pem"}}
+        )
         assert handler._ca_cert is None  # confirm load failed
         ctx = MagicMock()
         ctx.has_valid_client_cert = False
-        ctx.client_certificate = b"-----BEGIN CERTIFICATE-----\nfake\n-----END CERTIFICATE-----"
+        ctx.client_certificate = (
+            b"-----BEGIN CERTIFICATE-----\nfake\n-----END CERTIFICATE-----"
+        )
         assert handler.verify_client_cert(ctx) is False
 
     def test_malformed_pem_raises_value_error_caught(self):
@@ -142,6 +158,7 @@ class TestMTLSMissingPaths:
         # Make a new temp CA file
         import os
         import tempfile
+
         with tempfile.NamedTemporaryFile(suffix=".pem", delete=False) as f:
             f.write(ca_cert.public_bytes(serialization.Encoding.PEM))
             path = f.name
@@ -159,13 +176,16 @@ class TestMTLSMissingPaths:
         """CA cert path does not exist → FileNotFoundError logged (lines 103-106).
         So what: a missing CA cert file at startup must not crash the proxy,
         just disable mTLS."""
-        handler = MTLSHandler({"mtls": {"enabled": True, "ca_cert_path": "/no/such/file.pem"}})
+        handler = MTLSHandler(
+            {"mtls": {"enabled": True, "ca_cert_path": "/no/such/file.pem"}}
+        )
         assert handler._ca_cert is None
 
     def test_load_ca_cert_os_error_returns_none(self):
         """CA cert path is a directory → OSError logged (lines 107-108).
         So what: misconfigured path must fail gracefully, not crash."""
         import tempfile
+
         with tempfile.TemporaryDirectory() as d:
             handler = MTLSHandler({"mtls": {"enabled": True, "ca_cert_path": d}})
         assert handler._ca_cert is None
@@ -183,7 +203,9 @@ class TestMTLSCoverageGaps:
         So what: if this guard is missing, the function proceeds to try parsing
         None as a certificate, raising an uncaught AttributeError or crashing the
         proxy instead of a clean False."""
-        handler = MTLSHandler({"mtls": {"enabled": True, "ca_cert_path": "/nonexistent/ca.pem"}})
+        handler = MTLSHandler(
+            {"mtls": {"enabled": True, "ca_cert_path": "/nonexistent/ca.pem"}}
+        )
         ctx = MagicMock(spec=[])  # no attributes at all
         ctx.has_valid_client_cert = False
         # Ensure client_certificate attr does not exist
@@ -196,11 +218,15 @@ class TestMTLSCoverageGaps:
         So what: if this guard is missing, the code continues to ca_cert.verify(...)
         on a None object — AttributeError crashes the connection handling coroutine
         rather than cleanly rejecting the unverifiable client certificate."""
-        handler = MTLSHandler({"mtls": {"enabled": True, "ca_cert_path": "/nonexistent/ca.pem"}})
+        handler = MTLSHandler(
+            {"mtls": {"enabled": True, "ca_cert_path": "/nonexistent/ca.pem"}}
+        )
         assert handler._ca_cert is None
         ctx = MagicMock()
         ctx.has_valid_client_cert = False
-        ctx.client_certificate = b"-----BEGIN CERTIFICATE-----\nZmFrZQ==\n-----END CERTIFICATE-----"
+        ctx.client_certificate = (
+            b"-----BEGIN CERTIFICATE-----\nZmFrZQ==\n-----END CERTIFICATE-----"
+        )
         result = handler.verify_client_cert(ctx)
         assert result is False
 
@@ -214,15 +240,20 @@ class TestMTLSCoverageGaps2:
         certificate parsing, potentially blocking connections that should be allowed."""
         handler = MTLSHandler({"mtls": {"enabled": False}})
         from unittest.mock import MagicMock
+
         ctx = MagicMock()
         assert handler.verify_client_cert(ctx) is False
 
     def test_has_valid_client_cert_flag_returns_true(self):
         """Lines 39-40: ctx.has_valid_client_cert=True → verified counter inc + return True.
         So what: without this shortcut, valid TLS-layer-verified client certs would
-        go through full x509 parsing on the hot path, adding latency and potential crashes."""
-        handler = MTLSHandler({"mtls": {"enabled": True, "ca_cert_path": "/nonexistent/ca.pem"}})
+        go through full x509 parsing on the hot path, adding latency and potential crashes.
+        """
+        handler = MTLSHandler(
+            {"mtls": {"enabled": True, "ca_cert_path": "/nonexistent/ca.pem"}}
+        )
         from unittest.mock import MagicMock
+
         ctx = MagicMock()
         ctx.has_valid_client_cert = True
         assert handler.verify_client_cert(ctx) is True

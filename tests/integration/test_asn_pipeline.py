@@ -170,9 +170,10 @@ class TestASNPipelineIntegration:
         pipeline = _make_pipeline(dial=100)
         # Add a mock signal to simulate another signal source
         from unittest.mock import AsyncMock
-        mock_signals = AsyncMock(return_value=[
-            RiskSignal(name="missing_sni", score=30, reason="no sni")
-        ])
+
+        mock_signals = AsyncMock(
+            return_value=[RiskSignal(name="missing_sni", score=30, reason="no sni")]
+        )
         pipeline._sni_analyzer.analyze = mock_signals
 
         result = _run(pipeline.process(_ctx(sni=None)))

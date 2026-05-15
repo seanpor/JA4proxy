@@ -68,7 +68,9 @@ def _make_pipeline(extra_config: dict | None = None) -> Pipeline:
         )
     )
     decider = MagicMock()
-    decider.decide = MagicMock(side_effect=lambda score, dial: "block" if score >= 70 else "allow")
+    decider.decide = MagicMock(
+        side_effect=lambda score, dial: "block" if score >= 70 else "allow"
+    )
     decider.counterfactuals = MagicMock(return_value={})
     pipeline.update_scorer(scorer, decider)
     return pipeline
@@ -137,10 +139,12 @@ class TestExtractJA4XFromCert(unittest.TestCase):
             from cryptography.x509.oid import NameOID
 
             key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-            subject = issuer = x509.Name([
-                x509.NameAttribute(NameOID.COMMON_NAME, "test.example.com"),
-                x509.NameAttribute(NameOID.ORGANIZATION_NAME, "Test Org"),
-            ])
+            subject = issuer = x509.Name(
+                [
+                    x509.NameAttribute(NameOID.COMMON_NAME, "test.example.com"),
+                    x509.NameAttribute(NameOID.ORGANIZATION_NAME, "Test Org"),
+                ]
+            )
             cert = (
                 x509.CertificateBuilder()
                 .subject_name(subject)
@@ -148,7 +152,9 @@ class TestExtractJA4XFromCert(unittest.TestCase):
                 .public_key(key.public_key())
                 .serial_number(x509.random_serial_number())
                 .not_valid_before(datetime.datetime.utcnow())
-                .not_valid_after(datetime.datetime.utcnow() + datetime.timedelta(days=365))
+                .not_valid_after(
+                    datetime.datetime.utcnow() + datetime.timedelta(days=365)
+                )
                 .add_extension(
                     x509.SubjectAlternativeName([x509.DNSName("test.example.com")]),
                     critical=False,
@@ -179,9 +185,11 @@ class TestExtractJA4XFromCert(unittest.TestCase):
             from cryptography.x509.oid import NameOID
 
             key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-            subject = issuer = x509.Name([
-                x509.NameAttribute(NameOID.COMMON_NAME, "nosantest"),
-            ])
+            subject = issuer = x509.Name(
+                [
+                    x509.NameAttribute(NameOID.COMMON_NAME, "nosantest"),
+                ]
+            )
             cert = (
                 x509.CertificateBuilder()
                 .subject_name(subject)
@@ -189,7 +197,9 @@ class TestExtractJA4XFromCert(unittest.TestCase):
                 .public_key(key.public_key())
                 .serial_number(x509.random_serial_number())
                 .not_valid_before(datetime.datetime.utcnow())
-                .not_valid_after(datetime.datetime.utcnow() + datetime.timedelta(days=365))
+                .not_valid_after(
+                    datetime.datetime.utcnow() + datetime.timedelta(days=365)
+                )
                 .sign(key, hashes.SHA256())
             )
             cert_der = cert.public_bytes(serialization.Encoding.DER)
@@ -396,9 +406,11 @@ class TestJA4XCertExtraction(unittest.TestCase):
             from cryptography.x509.oid import NameOID
 
             key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-            subject = issuer = x509.Name([
-                x509.NameAttribute(NameOID.COMMON_NAME, "client.example.com"),
-            ])
+            subject = issuer = x509.Name(
+                [
+                    x509.NameAttribute(NameOID.COMMON_NAME, "client.example.com"),
+                ]
+            )
             cert = (
                 x509.CertificateBuilder()
                 .subject_name(subject)
@@ -406,7 +418,9 @@ class TestJA4XCertExtraction(unittest.TestCase):
                 .public_key(key.public_key())
                 .serial_number(x509.random_serial_number())
                 .not_valid_before(datetime.datetime.utcnow())
-                .not_valid_after(datetime.datetime.utcnow() + datetime.timedelta(days=365))
+                .not_valid_after(
+                    datetime.datetime.utcnow() + datetime.timedelta(days=365)
+                )
                 .sign(key, hashes.SHA256())
             )
             cert_der = cert.public_bytes(serialization.Encoding.DER)

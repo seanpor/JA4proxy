@@ -256,7 +256,7 @@ def test_unknown_pattern_type_skipped(stub_management_client):
                 "id": "indicator--unknown-pt",
                 "spec_version": "2.1",
                 "pattern_type": "yara",
-                "pattern": "rule something { strings: $ = \"foo\" condition: any of them }",
+                "pattern": 'rule something { strings: $ = "foo" condition: any of them }',
                 "confidence": 90,
                 "valid_from": "2026-04-01T00:00:00Z",
             }

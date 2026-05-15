@@ -52,6 +52,7 @@ Options:
     --fast-backend-port P   Port of the fast TLS echo backend (default: 8444).
                             Start it with: python3 scripts/bench-tls-backend.py --port 8444
 """
+
 from __future__ import annotations
 
 import argparse
@@ -80,6 +81,7 @@ BENCHMARK_VERSION = "1.0.0"
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 
+
 @dataclasses.dataclass
 class BenchmarkConfig:
     python_host: str = "127.0.0.1"
@@ -87,8 +89,8 @@ class BenchmarkConfig:
     go_host: str = "127.0.0.1"
     go_port: int = 8082
     output_dir: Optional[Path] = None
-    duration_quick: int = 15   # seconds per short scenario
-    duration_long: int = 60    # seconds per sustained scenario
+    duration_quick: int = 15  # seconds per short scenario
+    duration_long: int = 60  # seconds per sustained scenario
     max_threads: int = 32
     scenarios: list = dataclasses.field(default_factory=list)
     redis_host: str = "127.0.0.1"
@@ -96,12 +98,12 @@ class BenchmarkConfig:
     redis_password: str = ""
     flush_redis: bool = True
     quick: bool = False
-    proxy_filter: Optional[str] = None   # "python" | "go" | None (both)
+    proxy_filter: Optional[str] = None  # "python" | "go" | None (both)
     connect_timeout: float = 2.0
     use_proxy_protocol: bool = False
     source_ip_pool_size: int = 1000
-    attack_rate: int = 500           # target conn/s for attack_500 scenario
-    fast_backend_port: int = 8444    # port of bench-tls-backend.py
+    attack_rate: int = 500  # target conn/s for attack_500 scenario
+    fast_backend_port: int = 8444  # port of bench-tls-backend.py
 
     def __post_init__(self) -> None:
         if self.quick:
@@ -132,16 +134,18 @@ ALL_SCENARIOS = [
 
 # ── Result types ──────────────────────────────────────────────────────────────
 
+
 @dataclasses.dataclass
 class ConnectionSample:
     latency_ms: float
-    outcome: str   # "allowed" | "blocked" | "error" | "timeout"
+    outcome: str  # "allowed" | "blocked" | "error" | "timeout"
     error_detail: str = ""
 
 
 @dataclasses.dataclass
 class ThroughputRun:
     """One measurement of connections-per-second over a fixed window."""
+
     threads: int
     duration_s: float
     total: int
@@ -166,7 +170,8 @@ class ThroughputRun:
 @dataclasses.dataclass
 class ProxyResult:
     """All measurements for one proxy in one scenario."""
-    proxy_name: str           # "python" | "go"
+
+    proxy_name: str  # "python" | "go"
     samples: list[ConnectionSample] = dataclasses.field(default_factory=list)
     throughput_runs: list[ThroughputRun] = dataclasses.field(default_factory=list)
     extra: dict = dataclasses.field(default_factory=dict)
@@ -228,13 +233,14 @@ class ScenarioResult:
 
 # ── TLS contexts ──────────────────────────────────────────────────────────────
 
+
 def _make_browser_ctx() -> ssl.SSLContext:
     """TLS context that mimics a modern browser (h2 ALPN, TLS 1.2/1.3)."""
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
     ctx.check_hostname = False
     ctx.verify_mode = ssl.CERT_NONE
     ctx.minimum_version = ssl.TLSVersion.TLSv1_2
-    ctx.set_ciphers("ECDHE+AESGCM:ECDHE+CHACHA20:DHE+AESGCM:!aNULL:!MD5") # nosemgrep
+    ctx.set_ciphers("ECDHE+AESGCM:ECDHE+CHACHA20:DHE+AESGCM:!aNULL:!MD5")  # nosemgrep
     ctx.set_alpn_protocols(["h2", "http/1.1"])
     return ctx
 
@@ -245,7 +251,7 @@ def _make_bot_ctx() -> ssl.SSLContext:
     ctx.check_hostname = False
     ctx.verify_mode = ssl.CERT_NONE
     ctx.minimum_version = ssl.TLSVersion.TLSv1_2
-    ctx.set_ciphers("ECDHE+AESGCM:ECDHE+CHACHA20:!aNULL:!MD5") # nosemgrep
+    ctx.set_ciphers("ECDHE+AESGCM:ECDHE+CHACHA20:!aNULL:!MD5")  # nosemgrep
     return ctx
 
 
@@ -256,7 +262,7 @@ def _make_tls12_only_ctx() -> ssl.SSLContext:
     ctx.verify_mode = ssl.CERT_NONE
     ctx.minimum_version = ssl.TLSVersion.TLSv1_2
     ctx.maximum_version = ssl.TLSVersion.TLSv1_2
-    ctx.set_ciphers("AES256-SHA:AES128-SHA:ECDHE+AESGCM") # nosemgrep
+    ctx.set_ciphers("AES256-SHA:AES128-SHA:ECDHE+AESGCM")  # nosemgrep
     return ctx
 
 
@@ -280,13 +286,13 @@ def _make_pp2_header(src_ip: str, dst_ip: str, dst_port: int) -> bytes:
     src_port = random.randint(1024, 65535)
     return (
         _PP2_SIG
-        + b"\x21"                          # version=2, command=PROXY
-        + b"\x11"                          # family=AF_INET, proto=STREAM
-        + b"\x00\x0c"                      # addr block length = 12 bytes
-        + socket.inet_aton(src_ip)         # source IPv4
-        + socket.inet_aton(dst_ip)         # destination IPv4
-        + src_port.to_bytes(2, "big")      # source port
-        + dst_port.to_bytes(2, "big")      # destination port
+        + b"\x21"  # version=2, command=PROXY
+        + b"\x11"  # family=AF_INET, proto=STREAM
+        + b"\x00\x0c"  # addr block length = 12 bytes
+        + socket.inet_aton(src_ip)  # source IPv4
+        + socket.inet_aton(dst_ip)  # destination IPv4
+        + src_port.to_bytes(2, "big")  # source port
+        + dst_port.to_bytes(2, "big")  # destination port
     )
 
 
@@ -304,12 +310,13 @@ def _build_ip_pool(size: int) -> list[str]:
 
 # ── Token bucket rate controller ──────────────────────────────────────────────
 
+
 class _TokenBucket:
     """Thread-safe token bucket for rate-controlled connection sending."""
 
     def __init__(self, rate: float) -> None:
-        self._rate = rate          # tokens (= connections) per second
-        self._tokens = rate        # start full
+        self._rate = rate  # tokens (= connections) per second
+        self._tokens = rate  # start full
         self._last = time.monotonic()
         self._lock = threading.Lock()
 
@@ -324,10 +331,11 @@ class _TokenBucket:
                 if self._tokens >= 1.0:
                     self._tokens -= 1.0
                     return
-            time.sleep(0.0005)   # 0.5 ms poll — low overhead at 500 conn/s
+            time.sleep(0.0005)  # 0.5 ms poll — low overhead at 500 conn/s
 
 
 # ── Core measurement functions ─────────────────────────────────────────────────
+
 
 def _check_port(host: str, port: int, timeout: float = 1.0) -> bool:
     """Return True if the host:port is accepting TCP connections."""
@@ -375,23 +383,27 @@ def _connect_once(
     except ssl.SSLError as exc:
         elapsed_ms = (time.perf_counter() - t0) * 1000
         # SSLError after partial handshake = proxy likely sent RST → "blocked"
-        return ConnectionSample(latency_ms=elapsed_ms, outcome="blocked",
-                                error_detail=str(exc))
+        return ConnectionSample(
+            latency_ms=elapsed_ms, outcome="blocked", error_detail=str(exc)
+        )
     except (ConnectionResetError, ConnectionRefusedError, BrokenPipeError) as exc:
         elapsed_ms = (time.perf_counter() - t0) * 1000
-        return ConnectionSample(latency_ms=elapsed_ms, outcome="blocked",
-                                error_detail=str(exc))
+        return ConnectionSample(
+            latency_ms=elapsed_ms, outcome="blocked", error_detail=str(exc)
+        )
     except TimeoutError as exc:
         elapsed_ms = (time.perf_counter() - t0) * 1000
-        return ConnectionSample(latency_ms=elapsed_ms, outcome="timeout",
-                                error_detail=str(exc))
+        return ConnectionSample(
+            latency_ms=elapsed_ms, outcome="timeout", error_detail=str(exc)
+        )
     except OSError as exc:
         elapsed_ms = (time.perf_counter() - t0) * 1000
         # ConnectionRefusedError is an OSError subclass
         detail = str(exc)
         outcome = "blocked" if "refused" in detail.lower() else "error"
-        return ConnectionSample(latency_ms=elapsed_ms, outcome=outcome,
-                                error_detail=detail)
+        return ConnectionSample(
+            latency_ms=elapsed_ms, outcome=outcome, error_detail=detail
+        )
     finally:
         for sock in (tls, raw):
             if sock is not None:
@@ -410,12 +422,14 @@ def _connect_tcp_only(host: str, port: int, timeout: float) -> ConnectionSample:
             return ConnectionSample(latency_ms=elapsed_ms, outcome="allowed")
     except TimeoutError as exc:
         elapsed_ms = (time.perf_counter() - t0) * 1000
-        return ConnectionSample(latency_ms=elapsed_ms, outcome="timeout",
-                                error_detail=str(exc))
+        return ConnectionSample(
+            latency_ms=elapsed_ms, outcome="timeout", error_detail=str(exc)
+        )
     except OSError as exc:
         elapsed_ms = (time.perf_counter() - t0) * 1000
-        return ConnectionSample(latency_ms=elapsed_ms, outcome="error",
-                                error_detail=str(exc))
+        return ConnectionSample(
+            latency_ms=elapsed_ms, outcome="error", error_detail=str(exc)
+        )
 
 
 def _connect_send_garbage(host: str, port: int, timeout: float) -> ConnectionSample:
@@ -432,12 +446,14 @@ def _connect_send_garbage(host: str, port: int, timeout: float) -> ConnectionSam
         return ConnectionSample(latency_ms=elapsed_ms, outcome="allowed")
     except (ConnectionResetError, ConnectionRefusedError, BrokenPipeError) as exc:
         elapsed_ms = (time.perf_counter() - t0) * 1000
-        return ConnectionSample(latency_ms=elapsed_ms, outcome="blocked",
-                                error_detail=str(exc))
+        return ConnectionSample(
+            latency_ms=elapsed_ms, outcome="blocked", error_detail=str(exc)
+        )
     except OSError as exc:
         elapsed_ms = (time.perf_counter() - t0) * 1000
-        return ConnectionSample(latency_ms=elapsed_ms, outcome="error",
-                                error_detail=str(exc))
+        return ConnectionSample(
+            latency_ms=elapsed_ms, outcome="error", error_detail=str(exc)
+        )
 
 
 def _connect_immediate_close(host: str, port: int, timeout: float) -> ConnectionSample:
@@ -450,8 +466,9 @@ def _connect_immediate_close(host: str, port: int, timeout: float) -> Connection
         return ConnectionSample(latency_ms=elapsed_ms, outcome="allowed")
     except OSError as exc:
         elapsed_ms = (time.perf_counter() - t0) * 1000
-        return ConnectionSample(latency_ms=elapsed_ms, outcome="error",
-                                error_detail=str(exc))
+        return ConnectionSample(
+            latency_ms=elapsed_ms, outcome="error", error_detail=str(exc)
+        )
 
 
 def _measure_sequential(
@@ -510,6 +527,7 @@ def _measure_throughput(
 
 # ── Redis flush utility ────────────────────────────────────────────────────────
 
+
 def _flush_redis(cfg: BenchmarkConfig) -> bool:
     """Flush Redis to clear rate-limit keys between scenarios. Returns success."""
     if not cfg.flush_redis:
@@ -517,27 +535,38 @@ def _flush_redis(cfg: BenchmarkConfig) -> bool:
     try:
         cmd = [
             "redis-cli",
-            "-h", cfg.redis_host,
-            "-p", str(cfg.redis_port),
+            "-h",
+            cfg.redis_host,
+            "-p",
+            str(cfg.redis_port),
         ]
         if cfg.redis_password:
             cmd += ["-a", cfg.redis_password, "--no-auth-warning"]
         cmd += ["FLUSHDB"]
-        result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=5
-        )
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
         return result.returncode == 0
     except (subprocess.SubprocessError, FileNotFoundError, OSError):
         # redis-cli not available; try via docker
         try:
-            pw_arg = f"-a {cfg.redis_password} --no-auth-warning " if cfg.redis_password else ""
+            pw_arg = (
+                f"-a {cfg.redis_password} --no-auth-warning "
+                if cfg.redis_password
+                else ""
+            )
             docker_cmd = [
-                "docker", "exec", "ja4proxy-redis",
-                "redis-cli", pw_arg.strip(), "FLUSHDB",
+                "docker",
+                "exec",
+                "ja4proxy-redis",
+                "redis-cli",
+                pw_arg.strip(),
+                "FLUSHDB",
             ]
             result = subprocess.run(
-                " ".join(docker_cmd), shell=True,  # noqa: S602 — non-user input  # nosemgrep: subprocess-shell-true
-                capture_output=True, text=True, timeout=5
+                " ".join(docker_cmd),
+                shell=True,  # noqa: S602 — non-user input  # nosemgrep: subprocess-shell-true
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
             return result.returncode == 0
         except (subprocess.SubprocessError, OSError):
@@ -545,6 +574,7 @@ def _flush_redis(cfg: BenchmarkConfig) -> bool:
 
 
 # ── System information ─────────────────────────────────────────────────────────
+
 
 def _collect_system_info() -> dict:
     """Collect host system information for the report."""
@@ -582,8 +612,10 @@ def _get_proxy_version(host: str, port: int) -> str:
     try:
         # The Go proxy exposes /health; Python proxy exposes /metrics
         import urllib.request  # noqa: PLC0415
+
         with urllib.request.urlopen(  # nosemgrep: dynamic-urllib-use-detected
-            f"http://{host}:{port + 10}/health", timeout=2  # metrics port = proxy_port + 10
+            f"http://{host}:{port + 10}/health",
+            timeout=2,  # metrics port = proxy_port + 10
         ) as resp:
             data = json.loads(resp.read())
             return data.get("version", "unknown")
@@ -614,6 +646,7 @@ def _progress(msg: str) -> None:
 
 
 # ── Scenarios ─────────────────────────────────────────────────────────────────
+
 
 class BenchmarkSuite:
     """
@@ -665,7 +698,9 @@ class BenchmarkSuite:
         ctx: ssl.SSLContext = BROWSER_CTX,
     ) -> ThroughputRun:
         _progress(f"{label}: {threads} threads × {duration:.0f}s ...")
-        run = _measure_throughput(host, port, ctx, duration, threads, self.cfg.connect_timeout)
+        run = _measure_throughput(
+            host, port, ctx, duration, threads, self.cfg.connect_timeout
+        )
         _progress(
             f"  → {run.conn_per_sec:.0f} conn/s  "
             f"(ok={run.allowed} blk={run.blocked} err={run.errors})"
@@ -691,7 +726,10 @@ class BenchmarkSuite:
     # ── Scenario 1: Baseline latency ──────────────────────────────────────────
 
     def scenario_baseline_latency(self) -> ScenarioResult:
-        _scenario_header("baseline_latency", "100 sequential browser-like TLS connections, latency distribution")
+        _scenario_header(
+            "baseline_latency",
+            "100 sequential browser-like TLS connections, latency distribution",
+        )
         t0 = time.monotonic()
         result = ScenarioResult(
             name="baseline_latency",
@@ -708,8 +746,10 @@ class BenchmarkSuite:
     # ── Scenario 2: Throughput vs concurrency ────────────────────────────────
 
     def scenario_throughput_scaling(self) -> ScenarioResult:
-        _scenario_header("throughput_scaling",
-                         "Increase thread count 1→2→4→8→16→N, measure conn/s at each step")
+        _scenario_header(
+            "throughput_scaling",
+            "Increase thread count 1→2→4→8→16→N, measure conn/s at each step",
+        )
         t0 = time.monotonic()
         result = ScenarioResult(
             name="throughput_scaling",
@@ -738,8 +778,9 @@ class BenchmarkSuite:
     # ── Scenario 3: Peak throughput ───────────────────────────────────────────
 
     def scenario_peak_throughput(self) -> ScenarioResult:
-        _scenario_header("peak_throughput",
-                         f"Max conn/s at {self.cfg.max_threads} threads sustained")
+        _scenario_header(
+            "peak_throughput", f"Max conn/s at {self.cfg.max_threads} threads sustained"
+        )
         t0 = time.monotonic()
         result = ScenarioResult(
             name="peak_throughput",
@@ -759,8 +800,10 @@ class BenchmarkSuite:
     # ── Scenario 4: Mixed traffic ─────────────────────────────────────────────
 
     def scenario_mixed_traffic(self) -> ScenarioResult:
-        _scenario_header("mixed_traffic",
-                         "Browser (h2 ALPN) vs bot (no ALPN) ratio sweep: 100/0, 75/25, 50/50, 25/75, 0/100")
+        _scenario_header(
+            "mixed_traffic",
+            "Browser (h2 ALPN) vs bot (no ALPN) ratio sweep: 100/0, 75/25, 50/50, 25/75, 0/100",
+        )
         t0 = time.monotonic()
         result = ScenarioResult(
             name="mixed_traffic",
@@ -777,12 +820,18 @@ class BenchmarkSuite:
 
             for browser_pct, bot_pct in ratios:
                 self._flush()
-                _progress(f"{label}: {browser_pct}% browser / {bot_pct}% bot ({threads} threads) ...")
+                _progress(
+                    f"{label}: {browser_pct}% browser / {bot_pct}% bot ({threads} threads) ..."
+                )
 
                 deadline = time.monotonic() + dur
                 counters: dict = {
-                    "browser_allowed": 0, "browser_blocked": 0, "browser_error": 0,
-                    "bot_allowed": 0, "bot_blocked": 0, "bot_error": 0,
+                    "browser_allowed": 0,
+                    "browser_blocked": 0,
+                    "browser_error": 0,
+                    "bot_allowed": 0,
+                    "bot_blocked": 0,
+                    "bot_error": 0,
                     "total": 0,
                 }
                 lock = threading.Lock()
@@ -805,15 +854,19 @@ class BenchmarkSuite:
                 # bind browser_pct in closure
                 bpct_val = browser_pct
                 with concurrent.futures.ThreadPoolExecutor(max_workers=threads) as pool:
-                    futures = [pool.submit(_mixed_worker, bpct_val) for _ in range(threads)]
+                    futures = [
+                        pool.submit(_mixed_worker, bpct_val) for _ in range(threads)
+                    ]
                     for f in concurrent.futures.as_completed(futures):
                         f.result()
 
-                ratio_results.append({
-                    "browser_pct": browser_pct,
-                    "bot_pct": bot_pct,
-                    **counters,
-                })
+                ratio_results.append(
+                    {
+                        "browser_pct": browser_pct,
+                        "bot_pct": bot_pct,
+                        **counters,
+                    }
+                )
                 _progress(
                     f"  → total={counters['total']} "
                     f"browser_pass={counters['browser_allowed']} "
@@ -826,15 +879,17 @@ class BenchmarkSuite:
             for rr in ratio_results:
                 if rr["browser_pct"] == 50:
                     synthetic_total = rr["total"]
-                    pr.throughput_runs.append(ThroughputRun(
-                        threads=threads,
-                        duration_s=dur,
-                        total=synthetic_total,
-                        allowed=rr["browser_allowed"] + rr["bot_allowed"],
-                        blocked=rr["browser_blocked"] + rr["bot_blocked"],
-                        errors=rr["browser_error"] + rr["bot_error"],
-                        elapsed_s=dur,
-                    ))
+                    pr.throughput_runs.append(
+                        ThroughputRun(
+                            threads=threads,
+                            duration_s=dur,
+                            total=synthetic_total,
+                            allowed=rr["browser_allowed"] + rr["bot_allowed"],
+                            blocked=rr["browser_blocked"] + rr["bot_blocked"],
+                            errors=rr["browser_error"] + rr["bot_error"],
+                            elapsed_s=dur,
+                        )
+                    )
                     break
             setattr(result, label, pr)
 
@@ -844,8 +899,10 @@ class BenchmarkSuite:
     # ── Scenario 5: Sustained load ────────────────────────────────────────────
 
     def scenario_sustained_load(self) -> ScenarioResult:
-        _scenario_header("sustained_load",
-                         "60 s sustained load at multiple rates; look for throughput degradation")
+        _scenario_header(
+            "sustained_load",
+            "60 s sustained load at multiple rates; look for throughput degradation",
+        )
         t0 = time.monotonic()
         result = ScenarioResult(
             name="sustained_load",
@@ -864,14 +921,19 @@ class BenchmarkSuite:
                 _progress(f"{label}: {threads} threads × {dur:.0f}s (6 windows) ...")
                 for w in range(6):
                     wr = _measure_throughput(
-                        host, port, BROWSER_CTX, window_s, threads,
+                        host,
+                        port,
+                        BROWSER_CTX,
+                        window_s,
+                        threads,
                         self.cfg.connect_timeout,
                     )
                     window_results.append(wr.conn_per_sec)
                     _progress(f"  window {w+1}: {wr.conn_per_sec:.0f} conn/s")
                 # Combine into one ThroughputRun
-                run = _measure_throughput(host, port, BROWSER_CTX, dur, threads,
-                                         self.cfg.connect_timeout)
+                run = _measure_throughput(
+                    host, port, BROWSER_CTX, dur, threads, self.cfg.connect_timeout
+                )
                 pr.throughput_runs.append(run)
                 pr.extra.setdefault("sustained_windows", {})[threads] = window_results
             setattr(result, label, pr)
@@ -897,8 +959,10 @@ class BenchmarkSuite:
     # ── Scenario 6: Warm cache ────────────────────────────────────────────────
 
     def scenario_warm_cache(self) -> ScenarioResult:
-        _scenario_header("warm_cache",
-                         "Small pool of 10 IPs recycled — Redis hit path via PROXY-protocol spoofing workaround")
+        _scenario_header(
+            "warm_cache",
+            "Small pool of 10 IPs recycled — Redis hit path via PROXY-protocol spoofing workaround",
+        )
         t0 = time.monotonic()
         result = ScenarioResult(
             name="warm_cache",
@@ -932,8 +996,10 @@ class BenchmarkSuite:
     # ── Scenario 7: Cold cache ─────────────────────────────────────────────────
 
     def scenario_cold_cache(self) -> ScenarioResult:
-        _scenario_header("cold_cache",
-                         "Fresh Redis flush before each run — every decision hits Redis miss path")
+        _scenario_header(
+            "cold_cache",
+            "Fresh Redis flush before each run — every decision hits Redis miss path",
+        )
         t0 = time.monotonic()
         result = ScenarioResult(
             name="cold_cache",
@@ -955,8 +1021,10 @@ class BenchmarkSuite:
     # ── Scenario 8: Burst load ────────────────────────────────────────────────
 
     def scenario_burst_load(self) -> ScenarioResult:
-        _scenario_header("burst_load",
-                         "Ramp from 1→max threads over 10 s, hold at max for 20 s, drop back to 1")
+        _scenario_header(
+            "burst_load",
+            "Ramp from 1→max threads over 10 s, hold at max for 20 s, drop back to 1",
+        )
         t0 = time.monotonic()
         result = ScenarioResult(
             name="burst_load",
@@ -976,12 +1044,21 @@ class BenchmarkSuite:
             _progress(f"{label}: burst (ramp / peak / recovery) ...")
             for phase_name, threads, dur in phases:
                 run = _measure_throughput(
-                    host, port, BROWSER_CTX, float(dur), threads,
-                    self.cfg.connect_timeout
+                    host,
+                    port,
+                    BROWSER_CTX,
+                    float(dur),
+                    threads,
+                    self.cfg.connect_timeout,
                 )
                 pr.throughput_runs.append(run)
-                phase_data.append({"phase": phase_name, "threads": threads,
-                                   "conn_per_sec": run.conn_per_sec})
+                phase_data.append(
+                    {
+                        "phase": phase_name,
+                        "threads": threads,
+                        "conn_per_sec": run.conn_per_sec,
+                    }
+                )
                 _progress(f"  {phase_name}: {run.conn_per_sec:.0f} conn/s")
             pr.extra["burst_phases"] = phase_data
             setattr(result, label, pr)
@@ -992,8 +1069,10 @@ class BenchmarkSuite:
     # ── Scenario 9: Adversarial TLS ───────────────────────────────────────────
 
     def scenario_adversarial_tls(self) -> ScenarioResult:
-        _scenario_header("adversarial_tls",
-                         "Incomplete handshakes, garbage data, immediate closes, TLS 1.2-only")
+        _scenario_header(
+            "adversarial_tls",
+            "Incomplete handshakes, garbage data, immediate closes, TLS 1.2-only",
+        )
         t0 = time.monotonic()
         result = ScenarioResult(
             name="adversarial_tls",
@@ -1018,8 +1097,10 @@ class BenchmarkSuite:
                 "error": sum(1 for s in garbage_samples if s.outcome == "error"),
                 "mean_ms": statistics.mean(s.latency_ms for s in garbage_samples),
             }
-            _progress(f"  blocked={adv_results['garbage']['blocked']}, "
-                      f"mean={adv_results['garbage']['mean_ms']:.1f}ms")
+            _progress(
+                f"  blocked={adv_results['garbage']['blocked']}, "
+                f"mean={adv_results['garbage']['mean_ms']:.1f}ms"
+            )
 
             # Type 2: Immediate close (zero-byte connection)
             _progress(f"{label}: {count} immediate-close connections ...")
@@ -1033,8 +1114,10 @@ class BenchmarkSuite:
                 "error": sum(1 for s in close_samples if s.outcome == "error"),
                 "mean_ms": statistics.mean(s.latency_ms for s in close_samples),
             }
-            _progress(f"  accepted={adv_results['immediate_close']['allowed']}, "
-                      f"mean={adv_results['immediate_close']['mean_ms']:.1f}ms")
+            _progress(
+                f"  accepted={adv_results['immediate_close']['allowed']}, "
+                f"mean={adv_results['immediate_close']['mean_ms']:.1f}ms"
+            )
 
             # Type 3: TLS 1.2-only (older scanner fingerprint)
             _progress(f"{label}: {count} TLS-1.2-only connections ...")
@@ -1049,8 +1132,10 @@ class BenchmarkSuite:
                 "blocked": sum(1 for s in tls12_samples if s.outcome == "blocked"),
                 "mean_ms": statistics.mean(s.latency_ms for s in tls12_samples),
             }
-            _progress(f"  allowed={adv_results['tls12_only']['allowed']}, "
-                      f"mean={adv_results['tls12_only']['mean_ms']:.1f}ms")
+            _progress(
+                f"  allowed={adv_results['tls12_only']['allowed']}, "
+                f"mean={adv_results['tls12_only']['mean_ms']:.1f}ms"
+            )
 
             # Type 4: Bot-like TLS (no ALPN)
             _progress(f"{label}: {count} bot-fingerprint connections ...")
@@ -1065,8 +1150,10 @@ class BenchmarkSuite:
                 "blocked": sum(1 for s in bot_samples if s.outcome == "blocked"),
                 "mean_ms": statistics.mean(s.latency_ms for s in bot_samples),
             }
-            _progress(f"  allowed={adv_results['bot_noalpn']['allowed']}, "
-                      f"mean={adv_results['bot_noalpn']['mean_ms']:.1f}ms")
+            _progress(
+                f"  allowed={adv_results['bot_noalpn']['allowed']}, "
+                f"mean={adv_results['bot_noalpn']['mean_ms']:.1f}ms"
+            )
 
             pr.extra["adversarial"] = adv_results
             setattr(result, label, pr)
@@ -1077,8 +1164,10 @@ class BenchmarkSuite:
     # ── Scenario 10: Deep latency percentiles ─────────────────────────────────
 
     def scenario_latency_percentiles(self) -> ScenarioResult:
-        _scenario_header("latency_percentiles",
-                         "500 sequential connections; full p50/p90/p95/p99/p99.9 distribution")
+        _scenario_header(
+            "latency_percentiles",
+            "500 sequential connections; full p50/p90/p95/p99/p99.9 distribution",
+        )
         t0 = time.monotonic()
         result = ScenarioResult(
             name="latency_percentiles",
@@ -1096,8 +1185,8 @@ class BenchmarkSuite:
 
     def scenario_attack_500(self) -> ScenarioResult:
         rate = self.cfg.attack_rate
-        good_pct = 5    # % browser (h2 ALPN) — the legitimate traffic
-        bad_pct = 95    # % bot (no ALPN)      — the attack traffic
+        good_pct = 5  # % browser (h2 ALPN) — the legitimate traffic
+        bad_pct = 95  # % bot (no ALPN)      — the attack traffic
         dur = self.cfg.duration_long
         n_threads = max(8, rate // 40)  # threads needed to sustain the rate
 
@@ -1105,8 +1194,7 @@ class BenchmarkSuite:
             f"PPv2 source-IP injection enabled: {self.cfg.source_ip_pool_size} "
             "synthetic IPs from 10.0.0.0/8."
             if self.cfg.use_proxy_protocol
-            else
-            "PPv2 disabled: all connections appear from the benchmark host. "
+            else "PPv2 disabled: all connections appear from the benchmark host. "
             "Per-IP rate limiting may cap throughput below the target."
         )
         _scenario_header(
@@ -1118,7 +1206,9 @@ class BenchmarkSuite:
 
         ip_pool: list[str] = []
         if self.cfg.use_proxy_protocol:
-            _progress(f"Building IP pool ({self.cfg.source_ip_pool_size} addresses) ...")
+            _progress(
+                f"Building IP pool ({self.cfg.source_ip_pool_size} addresses) ..."
+            )
             ip_pool = _build_ip_pool(self.cfg.source_ip_pool_size)
 
         t0_scenario = time.monotonic()
@@ -1143,8 +1233,12 @@ class BenchmarkSuite:
             deadline = time.monotonic() + dur
             counters: dict[str, int] = {
                 "total": 0,
-                "good_allowed": 0, "good_blocked": 0, "good_error": 0,
-                "bad_allowed":  0, "bad_blocked":  0, "bad_error":  0,
+                "good_allowed": 0,
+                "good_blocked": 0,
+                "good_error": 0,
+                "bad_allowed": 0,
+                "bad_blocked": 0,
+                "bad_error": 0,
             }
             ctr_lock = threading.Lock()
 
@@ -1165,7 +1259,9 @@ class BenchmarkSuite:
                         src_ip = random.choice(_ip_pool)  # noqa: S311 — not crypto
                         pre_send = _make_pp2_header(src_ip, _host, _port)
                     sample = _connect_once(
-                        _host, _port, ctx,
+                        _host,
+                        _port,
+                        ctx,
                         self.cfg.connect_timeout,
                         pre_send=pre_send,
                     )
@@ -1188,10 +1284,14 @@ class BenchmarkSuite:
 
             actual_rate = counters["total"] / elapsed if elapsed > 0 else 0.0
             good_total = (
-                counters["good_allowed"] + counters["good_blocked"] + counters["good_error"]
+                counters["good_allowed"]
+                + counters["good_blocked"]
+                + counters["good_error"]
             )
             bad_total = (
-                counters["bad_allowed"] + counters["bad_blocked"] + counters["bad_error"]
+                counters["bad_allowed"]
+                + counters["bad_blocked"]
+                + counters["bad_error"]
             )
             good_pass_pct = (
                 counters["good_allowed"] / good_total * 100 if good_total else 0.0
@@ -1200,9 +1300,7 @@ class BenchmarkSuite:
                 counters["bad_blocked"] / bad_total * 100 if bad_total else 0.0
             )
 
-            _progress(
-                f"  → {actual_rate:.0f} conn/s actual  (target={rate})"
-            )
+            _progress(f"  → {actual_rate:.0f} conn/s actual  (target={rate})")
             _progress(
                 f"     good (browser): {good_total} total, "
                 f"{good_pass_pct:.1f}% pass, "
@@ -1215,28 +1313,30 @@ class BenchmarkSuite:
             )
 
             pr = ProxyResult(proxy_name=label)
-            pr.throughput_runs.append(ThroughputRun(
-                threads=n_threads,
-                duration_s=dur,
-                total=counters["total"],
-                allowed=counters["good_allowed"] + counters["bad_allowed"],
-                blocked=counters["good_blocked"] + counters["bad_blocked"],
-                errors=counters["good_error"] + counters["bad_error"],
-                elapsed_s=elapsed,
-            ))
+            pr.throughput_runs.append(
+                ThroughputRun(
+                    threads=n_threads,
+                    duration_s=dur,
+                    total=counters["total"],
+                    allowed=counters["good_allowed"] + counters["bad_allowed"],
+                    blocked=counters["good_blocked"] + counters["bad_blocked"],
+                    errors=counters["good_error"] + counters["bad_error"],
+                    elapsed_s=elapsed,
+                )
+            )
             pr.extra["attack_detail"] = {
-                "target_rate":           rate,
-                "actual_rate":           round(actual_rate, 1),
-                "good_pct":              good_pct,
-                "bad_pct":               bad_pct,
-                "good_allowed":          counters["good_allowed"],
-                "good_blocked":          counters["good_blocked"],
-                "bad_allowed":           counters["bad_allowed"],
-                "bad_blocked":           counters["bad_blocked"],
-                "good_pass_pct":         round(good_pass_pct, 2),
-                "bad_block_pct":         round(bad_block_pct, 2),
-                "proxy_protocol":        self.cfg.use_proxy_protocol,
-                "ip_pool_size":          len(ip_pool),
+                "target_rate": rate,
+                "actual_rate": round(actual_rate, 1),
+                "good_pct": good_pct,
+                "bad_pct": bad_pct,
+                "good_allowed": counters["good_allowed"],
+                "good_blocked": counters["good_blocked"],
+                "bad_allowed": counters["bad_allowed"],
+                "bad_blocked": counters["bad_blocked"],
+                "good_pass_pct": round(good_pass_pct, 2),
+                "bad_block_pct": round(bad_block_pct, 2),
+                "proxy_protocol": self.cfg.use_proxy_protocol,
+                "ip_pool_size": len(ip_pool),
             }
             setattr(result, label, pr)
             self._flush()
@@ -1247,17 +1347,17 @@ class BenchmarkSuite:
     # ── Dispatcher ────────────────────────────────────────────────────────────
 
     _DISPATCH = {
-        "baseline_latency":    scenario_baseline_latency,
-        "throughput_scaling":  scenario_throughput_scaling,
-        "peak_throughput":     scenario_peak_throughput,
-        "mixed_traffic":       scenario_mixed_traffic,
-        "sustained_load":      scenario_sustained_load,
-        "warm_cache":          scenario_warm_cache,
-        "cold_cache":          scenario_cold_cache,
-        "burst_load":          scenario_burst_load,
-        "adversarial_tls":     scenario_adversarial_tls,
+        "baseline_latency": scenario_baseline_latency,
+        "throughput_scaling": scenario_throughput_scaling,
+        "peak_throughput": scenario_peak_throughput,
+        "mixed_traffic": scenario_mixed_traffic,
+        "sustained_load": scenario_sustained_load,
+        "warm_cache": scenario_warm_cache,
+        "cold_cache": scenario_cold_cache,
+        "burst_load": scenario_burst_load,
+        "adversarial_tls": scenario_adversarial_tls,
         "latency_percentiles": scenario_latency_percentiles,
-        "attack_500":          scenario_attack_500,
+        "attack_500": scenario_attack_500,
     }
 
     def run_scenarios(self) -> None:
@@ -1288,6 +1388,7 @@ class BenchmarkSuite:
 
 # ── ASCII chart ────────────────────────────────────────────────────────────────
 
+
 def _ascii_bar_chart(
     data: list[tuple[str, float]],
     title: str,
@@ -1316,6 +1417,7 @@ def _sparkline(values: list[float], width: int = 20) -> str:
 
 
 # ── Markdown report ───────────────────────────────────────────────────────────
+
 
 class ReportGenerator:
     """Renders benchmark results to Markdown and JSON."""
@@ -1379,8 +1481,10 @@ class ReportGenerator:
                 f"(range: {min_speedup:.1f}–{max_speedup:.1f}× across scenarios)\n"
             )
         else:
-            lines.append("*Both proxies tested. Throughput comparison not available "
-                         "(only one proxy reached).*\n")
+            lines.append(
+                "*Both proxies tested. Throughput comparison not available "
+                "(only one proxy reached).*\n"
+            )
 
         if latency_improvements:
             avg_lat = statistics.mean(v for _, v in latency_improvements)
@@ -1397,10 +1501,13 @@ class ReportGenerator:
             py_tp = sr.python.peak_throughput() if sr.python else None
             speedup = sr.speedup()
             lines.append(
-                f"| {sr.name} "
-                f"| {go_tp:.0f}" if go_tp is not None else "| —"
-                + f"| {py_tp:.0f}" if py_tp is not None else " | —"
-                + f"| {self._fmt_ratio(speedup)} |"
+                f"| {sr.name} " f"| {go_tp:.0f}"
+                if go_tp is not None
+                else (
+                    "| —" + f"| {py_tp:.0f}"
+                    if py_tp is not None
+                    else " | —" + f"| {self._fmt_ratio(speedup)} |"
+                )
             )
 
         # Build proper table
@@ -1417,15 +1524,22 @@ class ReportGenerator:
         return "\n".join(
             ["## Executive Summary\n"]
             + (
-                [f"**Go proxy throughput advantage:** {avg_speedup:.1f}× average "
-                 f"(range: {min_speedup:.1f}–{max_speedup:.1f}×)\n"]
-                if speedups else
-                ["*Throughput comparison unavailable — only one proxy reachable.*\n"]
+                [
+                    f"**Go proxy throughput advantage:** {avg_speedup:.1f}× average "
+                    f"(range: {min_speedup:.1f}–{max_speedup:.1f}×)\n"
+                ]
+                if speedups
+                else [
+                    "*Throughput comparison unavailable — only one proxy reachable.*\n"
+                ]
             )
             + (
-                [f"**Go proxy p99 latency improvement:** {avg_lat:.1f}× "
-                 f"(Python p99 / Go p99)\n"]
-                if latency_improvements else []
+                [
+                    f"**Go proxy p99 latency improvement:** {avg_lat:.1f}× "
+                    f"(Python p99 / Go p99)\n"
+                ]
+                if latency_improvements
+                else []
             )
             + [""]
             + lines2
@@ -1436,14 +1550,18 @@ class ReportGenerator:
         lines.append(f"- **Date:**       {self.sys.get('timestamp', 'unknown')}")
         lines.append(f"- **Host:**       {self.sys.get('hostname', 'unknown')}")
         lines.append(f"- **Platform:**   {self.sys.get('platform', 'unknown')}")
-        lines.append(f"- **CPU:**        {self.sys.get('cpu_model', 'unknown')} "
-                     f"({self.sys.get('cpu_count', '?')} logical cores)")
+        lines.append(
+            f"- **CPU:**        {self.sys.get('cpu_model', 'unknown')} "
+            f"({self.sys.get('cpu_count', '?')} logical cores)"
+        )
         lines.append(f"- **Memory:**     {self.sys.get('memory_gb', '?')} GB")
         lines.append(f"- **Python:**     {self.sys.get('python_version', 'unknown')}")
         lines.append(f"- **Benchmark v:** {BENCHMARK_VERSION}")
         lines.append("")
         lines.append("### Proxy Configuration")
-        lines.append(f"- **Python proxy:** {self.cfg.python_host}:{self.cfg.python_port}")
+        lines.append(
+            f"- **Python proxy:** {self.cfg.python_host}:{self.cfg.python_port}"
+        )
         lines.append(f"- **Go proxy:**     {self.cfg.go_host}:{self.cfg.go_port}")
         lines.append(f"- **Quick duration:** {self.cfg.duration_quick}s")
         lines.append(f"- **Long duration:**  {self.cfg.duration_long}s")
@@ -1462,10 +1580,7 @@ class ReportGenerator:
             lines.append("")
 
         # ── Latency table (for scenarios with sequential samples) ──
-        has_samples = (
-            (sr.python and sr.python.samples) or
-            (sr.go and sr.go.samples)
-        )
+        has_samples = (sr.python and sr.python.samples) or (sr.go and sr.go.samples)
         if has_samples:
             lines.append("### Latency Distribution\n")
             lines.append("| Proxy | Mean | StdDev | p50 | p90 | p95 | p99 |")
@@ -1479,14 +1594,17 @@ class ReportGenerator:
             lines.append("")
 
         # ── Throughput table (for scenarios with throughput runs) ──
-        has_tp = (
-            (sr.python and sr.python.throughput_runs) or
-            (sr.go and sr.go.throughput_runs)
+        has_tp = (sr.python and sr.python.throughput_runs) or (
+            sr.go and sr.go.throughput_runs
         )
         if has_tp:
             lines.append("### Throughput Results\n")
-            lines.append("| Proxy | Threads | conn/s | Total | Allowed | Blocked | Errors |")
-            lines.append("|-------|---------|--------|-------|---------|---------|--------|")
+            lines.append(
+                "| Proxy | Threads | conn/s | Total | Allowed | Blocked | Errors |"
+            )
+            lines.append(
+                "|-------|---------|--------|-------|---------|---------|--------|"
+            )
             for label, pr in (("Python", sr.python), ("Go", sr.go)):
                 if pr is None:
                     continue
@@ -1504,7 +1622,9 @@ class ReportGenerator:
             lines.append("### Comparison\n")
             if speedup is not None:
                 icon = "✅" if speedup >= 5 else ("⚠️" if speedup >= 2 else "❌")
-                lines.append(f"- **Throughput speedup:** {speedup:.1f}× (Go/Python) {icon}")
+                lines.append(
+                    f"- **Throughput speedup:** {speedup:.1f}× (Go/Python) {icon}"
+                )
             if lat_imp is not None:
                 icon = "✅" if lat_imp >= 3 else ("⚠️" if lat_imp >= 1.5 else "❌")
                 lines.append(f"- **p99 latency improvement:** {lat_imp:.1f}× {icon}")
@@ -1520,16 +1640,24 @@ class ReportGenerator:
                 chart_data = [
                     (f"{r.threads} threads", r.conn_per_sec) for r in pr.throughput_runs
                 ]
-                chart = _ascii_bar_chart(chart_data, f"{label} proxy: throughput vs threads")
+                chart = _ascii_bar_chart(
+                    chart_data, f"{label} proxy: throughput vs threads"
+                )
                 lines.append(f"```\n{chart}\n```\n")
 
         if sr.name == "mixed_traffic":
             for label, pr in (("Python", sr.python), ("Go", sr.go)):
                 if pr is None or "ratio_results" not in pr.extra:
                     continue
-                lines.append(f"### {label.capitalize()} proxy: browser/bot ratio sweep\n")
-                lines.append("| Browser% | Bot% | Total | Browser pass | Bot pass | Bot block |")
-                lines.append("|----------|------|-------|--------------|----------|-----------|")
+                lines.append(
+                    f"### {label.capitalize()} proxy: browser/bot ratio sweep\n"
+                )
+                lines.append(
+                    "| Browser% | Bot% | Total | Browser pass | Bot pass | Bot block |"
+                )
+                lines.append(
+                    "|----------|------|-------|--------------|----------|-----------|"
+                )
                 for rr in pr.extra["ratio_results"]:
                     total = rr["total"]
                     ba = rr["browser_allowed"]
@@ -1550,9 +1678,15 @@ class ReportGenerator:
                     spark = _sparkline(windows)
                     mn = min(windows)
                     mx = max(windows)
-                    drift = (windows[-1] - windows[0]) / windows[0] * 100 if windows[0] else 0
-                    lines.append(f"- **{threads} threads:** {spark}  "
-                                 f"min={mn:.0f} max={mx:.0f} drift={drift:+.0f}%")
+                    drift = (
+                        (windows[-1] - windows[0]) / windows[0] * 100
+                        if windows[0]
+                        else 0
+                    )
+                    lines.append(
+                        f"- **{threads} threads:** {spark}  "
+                        f"min={mn:.0f} max={mx:.0f} drift={drift:+.0f}%"
+                    )
                 lines.append("")
 
         if sr.name == "burst_load":
@@ -1588,7 +1722,9 @@ class ReportGenerator:
                 if pr is None or "attack_detail" not in pr.extra:
                     continue
                 d = pr.extra["attack_detail"]
-                lines.append(f"### {label.capitalize()} proxy: DDoS simulation detail\n")
+                lines.append(
+                    f"### {label.capitalize()} proxy: DDoS simulation detail\n"
+                )
                 lines.append(
                     f"- **Target rate:** {d['target_rate']} conn/s  "
                     f"**Actual rate:** {d['actual_rate']:.0f} conn/s  "
@@ -1652,20 +1788,27 @@ class ReportGenerator:
                     f"(required: 5×, from PHASE_15.md §Acceptance Criteria)"
                 )
             else:
-                lines.append("- ⚠️ Throughput comparison unavailable (only one proxy tested)")
+                lines.append(
+                    "- ⚠️ Throughput comparison unavailable (only one proxy tested)"
+                )
         else:
             lines.append("- ⚠️ `peak_throughput` scenario not run")
 
         # 1000 conn/s sustained 60s with FP rate < 0.1%
-        sustained_sr = next((r for r in self.results if r.name == "sustained_load"), None)
+        sustained_sr = next(
+            (r for r in self.results if r.name == "sustained_load"), None
+        )
         if sustained_sr:
             for label, pr in (("Python", sustained_sr.python), ("Go", sustained_sr.go)):
                 if pr is None:
                     continue
-                max_run = max(pr.throughput_runs, key=lambda r: r.conn_per_sec,
-                              default=None)
+                max_run = max(
+                    pr.throughput_runs, key=lambda r: r.conn_per_sec, default=None
+                )
                 if max_run:
-                    fp_pct = max_run.blocked / max_run.total * 100 if max_run.total else 0
+                    fp_pct = (
+                        max_run.blocked / max_run.total * 100 if max_run.total else 0
+                    )
                     meets_rate = max_run.conn_per_sec >= 1000
                     meets_fp = fp_pct < 0.1
                     r_icon = "✅" if meets_rate else "❌"
@@ -1699,9 +1842,7 @@ class ReportGenerator:
                 "p95_ms": pr.latency_percentile(95),
                 "p99_ms": pr.latency_percentile(99),
                 "total_connections": pr.total_connections(),
-                "throughput_runs": [
-                    dataclasses.asdict(r) for r in pr.throughput_runs
-                ],
+                "throughput_runs": [dataclasses.asdict(r) for r in pr.throughput_runs],
                 "extra": pr.extra,
             }
 
@@ -1737,6 +1878,7 @@ class ReportGenerator:
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
 
+
 def _parse_args() -> BenchmarkConfig:
     p = argparse.ArgumentParser(
         description="JA4proxy comprehensive benchmark: Go vs Python proxy",
@@ -1751,29 +1893,46 @@ def _parse_args() -> BenchmarkConfig:
     p.add_argument("--duration-quick", type=int, default=15)
     p.add_argument("--duration-long", type=int, default=60)
     p.add_argument("--max-threads", type=int, default=32)
-    p.add_argument("--scenarios", default="all",
-                   help="Comma-separated scenario names or 'all'")
+    p.add_argument(
+        "--scenarios", default="all", help="Comma-separated scenario names or 'all'"
+    )
     p.add_argument("--redis-host", default="127.0.0.1")
     p.add_argument("--redis-port", type=int, default=6379)
-    p.add_argument("--redis-password",
-                   default=os.environ.get("REDIS_PASSWORD", ""))
+    p.add_argument("--redis-password", default=os.environ.get("REDIS_PASSWORD", ""))
     p.add_argument("--no-redis-flush", action="store_true")
-    p.add_argument("--quick", action="store_true",
-                   help="10s per scenario, fewer threads")
-    p.add_argument("--proxy", choices=["python", "go"], default=None,
-                   dest="proxy_filter")
+    p.add_argument(
+        "--quick", action="store_true", help="10s per scenario, fewer threads"
+    )
+    p.add_argument(
+        "--proxy", choices=["python", "go"], default=None, dest="proxy_filter"
+    )
     p.add_argument("--connect-timeout", type=float, default=2.0)
-    p.add_argument("--use-proxy-protocol", action="store_true",
-                   help="Prepend PPv2 header with rotating synthetic source IP")
-    p.add_argument("--source-ip-pool-size", type=int, default=1000,
-                   metavar="N",
-                   help="Number of synthetic source IPs to rotate through (default: 1000)")
-    p.add_argument("--attack-rate", type=int, default=500,
-                   metavar="N",
-                   help="Target connections/second for attack_500 scenario (default: 500)")
-    p.add_argument("--fast-backend-port", type=int, default=8444,
-                   metavar="PORT",
-                   help="Port of the fast TLS echo backend (default: 8444)")
+    p.add_argument(
+        "--use-proxy-protocol",
+        action="store_true",
+        help="Prepend PPv2 header with rotating synthetic source IP",
+    )
+    p.add_argument(
+        "--source-ip-pool-size",
+        type=int,
+        default=1000,
+        metavar="N",
+        help="Number of synthetic source IPs to rotate through (default: 1000)",
+    )
+    p.add_argument(
+        "--attack-rate",
+        type=int,
+        default=500,
+        metavar="N",
+        help="Target connections/second for attack_500 scenario (default: 500)",
+    )
+    p.add_argument(
+        "--fast-backend-port",
+        type=int,
+        default=8444,
+        metavar="PORT",
+        help="Port of the fast TLS echo backend (default: 8444)",
+    )
     args = p.parse_args()
 
     scenarios: list[str]
@@ -1816,7 +1975,10 @@ def main() -> None:
     _log(f"  Python proxy:  {cfg.python_host}:{cfg.python_port}", prefix="")
     _log(f"  Go proxy:      {cfg.go_host}:{cfg.go_port}", prefix="")
     _log(f"  Output dir:    {cfg.output_dir}", prefix="")
-    _log(f"  Duration:      quick={cfg.duration_quick}s  long={cfg.duration_long}s", prefix="")
+    _log(
+        f"  Duration:      quick={cfg.duration_quick}s  long={cfg.duration_long}s",
+        prefix="",
+    )
     _log(f"  Threads (max): {cfg.max_threads}", prefix="")
     _log(f"  Quick mode:    {cfg.quick}", prefix="")
     _log("=" * 72, prefix="")
@@ -1857,7 +2019,12 @@ def main() -> None:
     summary_start = md.find("## Executive Summary")
     summary_end = md.find("\n## ", summary_start + 1)
     if summary_start >= 0:
-        print("\n" + md[summary_start:summary_end if summary_end > 0 else summary_start + 2000])
+        print(
+            "\n"
+            + md[
+                summary_start : summary_end if summary_end > 0 else summary_start + 2000
+            ]
+        )
 
 
 if __name__ == "__main__":

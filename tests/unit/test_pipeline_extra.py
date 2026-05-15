@@ -533,7 +533,9 @@ class TestPipelineWiringMethods:
         mi = MagicMock()
         tf = MagicMock()
         vt = MagicMock()
-        p.set_ti_providers(greynoise=gn, alienvault=av, misp=mi, threatfox=tf, virustotal=vt)
+        p.set_ti_providers(
+            greynoise=gn, alienvault=av, misp=mi, threatfox=tf, virustotal=vt
+        )
         assert p._greynoise_provider is gn
         assert p._alienvault_provider is av
         assert p._misp_provider is mi
@@ -692,6 +694,7 @@ class TestGetAnalyticsSignals:
 
     def test_redis_connection_error_returns_empty(self):
         """Lines 498-508: ConnectionError from Redis → [] returned, fail open."""
+
         async def side_effect(key):
             raise ConnectionError("Redis down")
 
@@ -704,6 +707,7 @@ class TestGetAnalyticsSignals:
         Security consequence: Redis bugs or protocol errors must not crash analytics
         — the signal must be skipped, not the whole pipeline.
         """
+
         async def side_effect(key):
             raise RuntimeError("unexpected error")
 
@@ -1348,6 +1352,7 @@ class TestEmitLogCounterfactuals:
         p.update_scorer(mock_scorer, mock_decider)
 
         import logging
+
         log_records = []
 
         class CapturingHandler(logging.Handler):
@@ -1388,6 +1393,7 @@ class TestEmitLogCounterfactuals:
         p.update_scorer(mock_scorer, mock_decider)
 
         import logging
+
         log_records = []
 
         class CapturingHandler(logging.Handler):
@@ -1672,7 +1678,10 @@ class TestCollectSignalsErrorPaths:
         p = self._make_signal_pipeline()
         # check_ja4_tls_mismatch is imported inside the function body, so patch
         # it at the source module (tls_enforcer).
-        with patch("src.security.tls_enforcer.check_ja4_tls_mismatch", side_effect=RuntimeError("mismatch boom")):
+        with patch(
+            "src.security.tls_enforcer.check_ja4_tls_mismatch",
+            side_effect=RuntimeError("mismatch boom"),
+        ):
             ctx = _ctx(client_ip="1.2.3.4")
             result = _run(p.process(ctx))
         # Must not raise and must still allow
@@ -1697,7 +1706,9 @@ class TestCollectSignalsErrorPaths:
         hard-blocked by the bypass check, missing the chance to blend with other signals.
         """
         p = self._make_signal_pipeline()
-        p._blocklist_manager.get_signals = MagicMock(side_effect=RuntimeError("blocklist crash"))
+        p._blocklist_manager.get_signals = MagicMock(
+            side_effect=RuntimeError("blocklist crash")
+        )
         ctx = _ctx(client_ip="1.2.3.4")
         result = _run(p.process(ctx))
         assert result.action == "allow"
@@ -1795,7 +1806,9 @@ class TestCollectSignalsErrorPaths:
 
         p = self._make_signal_pipeline()
         if p._rate_tracker is not None:
-            p._rate_tracker.track_connection = AsyncMock(side_effect=asyncio.TimeoutError())
+            p._rate_tracker.track_connection = AsyncMock(
+                side_effect=asyncio.TimeoutError()
+            )
         ctx = _ctx(client_ip="1.2.3.4")
         result = _run(p.process(ctx))
         assert result.action == "allow"
@@ -1815,7 +1828,9 @@ class TestCollectSignalsErrorPaths:
         from unittest.mock import AsyncMock
 
         p = self._make_signal_pipeline()
-        p._beaconing_detector.get_signal = AsyncMock(side_effect=RuntimeError("beacon crash"))
+        p._beaconing_detector.get_signal = AsyncMock(
+            side_effect=RuntimeError("beacon crash")
+        )
         ctx = _ctx(client_ip="1.2.3.4")
         result = _run(p.process(ctx))
         assert result.action == "allow"
@@ -1836,9 +1851,11 @@ class TestCollectSignalsErrorPaths:
         p.set_abuseipdb_checker(mock_checker)
 
         seen = []
+
         def capture(signals):
             seen.extend(signals)
             return MagicMock(total_score=70, signals=[], recommended_action="block")
+
         p._scorer.score.side_effect = capture
 
         ctx = _ctx(client_ip="1.2.3.4")
@@ -1849,6 +1866,7 @@ class TestCollectSignalsErrorPaths:
     def test_abuseipdb_timeout_skipped(self):
         """Lines 1066-1075: TimeoutError from abuseipdb.get_signal → skipped."""
         import asyncio
+
         p = self._make_signal_pipeline()
         mock_checker = MagicMock()
         mock_checker.get_signal.side_effect = asyncio.TimeoutError()
@@ -1884,9 +1902,11 @@ class TestCollectSignalsErrorPaths:
         p.set_rdap_enricher(mock_enricher)
 
         seen = []
+
         def capture(signals):
             seen.extend(signals)
             return MagicMock(total_score=50, signals=[], recommended_action="flag")
+
         p._scorer.score.side_effect = capture
 
         ctx = _ctx(client_ip="1.2.3.4")
@@ -1897,6 +1917,7 @@ class TestCollectSignalsErrorPaths:
     def test_rdap_timeout_skipped(self):
         """Lines 1092-1101: TimeoutError from rdap enricher → skipped, fail open."""
         import asyncio
+
         p = self._make_signal_pipeline()
         mock_enricher = MagicMock()
         mock_enricher.get_signal.side_effect = asyncio.TimeoutError()
@@ -1942,7 +1963,9 @@ class TestTracerSpanAttributes:
         mock_tracer_obj.get_tracer.return_value = mock_tracer_instance
         p._tracer = mock_tracer_obj
 
-        ctx = _ctx(client_ip="1.2.3.4", ja4x="abc123_def456_789012", sni="test.example.com")
+        ctx = _ctx(
+            client_ip="1.2.3.4", ja4x="abc123_def456_789012", sni="test.example.com"
+        )
         _run(p.process(ctx))
 
         # Verify span attributes were set for ja4x and sni
@@ -1965,7 +1988,9 @@ class TestJA4XCertExtraction:
         """
         p = _make_full_pipeline()
         # Patch _extract_ja4x_from_cert to return a known value
-        with patch.object(p, "_extract_ja4x_from_cert", return_value="extracted_fp") as mock_extract:
+        with patch.object(
+            p, "_extract_ja4x_from_cert", return_value="extracted_fp"
+        ) as mock_extract:
             ctx = _ctx(client_ip="1.2.3.4", ja4x=None, client_certificate=b"\x30\x00")
             _run(p.process(ctx))
             mock_extract.assert_called_once_with(b"\x30\x00")
@@ -2014,12 +2039,16 @@ class TestRateLimiterSignalLogic:
         mock_metrics[strategy_b] = MockMetric()
 
         p._rate_tracker.track_connection = AsyncMock(return_value=mock_metrics)
-        p._rate_tracker.get_strategy_config = MagicMock(return_value=MockStrategyConfig())
+        p._rate_tracker.get_strategy_config = MagicMock(
+            return_value=MockStrategyConfig()
+        )
 
         seen = []
+
         def capture(signals):
             seen.extend(signals)
             return MagicMock(total_score=90, signals=[], recommended_action="ban")
+
         p._scorer.score.side_effect = capture
 
         ctx = _ctx(client_ip="1.2.3.4")
@@ -2075,9 +2104,11 @@ class TestRateLimiterSignalLogic:
         p._rate_tracker.get_strategy_config = MagicMock(side_effect=get_config)
 
         seen = []
+
         def capture(signals):
             seen.extend(signals)
             return MagicMock(total_score=90, signals=[], recommended_action="ban")
+
         p._scorer.score.side_effect = capture
 
         ctx = _ctx(client_ip="1.2.3.4")
@@ -2114,12 +2145,16 @@ class TestRateLimiterSignalLogic:
         mock_metrics = {strategy_a: MockMetric(), strategy_b: MockMetric()}
 
         p._rate_tracker.track_connection = AsyncMock(return_value=mock_metrics)
-        p._rate_tracker.get_strategy_config = MagicMock(return_value=MockStrategyConfig())
+        p._rate_tracker.get_strategy_config = MagicMock(
+            return_value=MockStrategyConfig()
+        )
 
         seen = []
+
         def capture(signals):
             seen.extend(signals)
             return MagicMock(total_score=60, signals=[], recommended_action="block")
+
         p._scorer.score.side_effect = capture
 
         ctx = _ctx(client_ip="1.2.3.4")
@@ -2154,12 +2189,16 @@ class TestRateLimiterSignalLogic:
         mock_metrics = {strategy_a: MockMetric(), strategy_b: MockMetric()}
 
         p._rate_tracker.track_connection = AsyncMock(return_value=mock_metrics)
-        p._rate_tracker.get_strategy_config = MagicMock(return_value=MockStrategyConfig())
+        p._rate_tracker.get_strategy_config = MagicMock(
+            return_value=MockStrategyConfig()
+        )
 
         seen = []
+
         def capture(signals):
             seen.extend(signals)
             return MagicMock(total_score=20, signals=[], recommended_action="allow")
+
         p._scorer.score.side_effect = capture
 
         ctx = _ctx(client_ip="1.2.3.4")
@@ -2177,7 +2216,9 @@ class TestRateLimiterSignalLogic:
         p = _make_full_pipeline()
         if p._rate_tracker is None:
             return
-        p._rate_tracker.track_connection = AsyncMock(side_effect=RuntimeError("rate limiter crash"))
+        p._rate_tracker.track_connection = AsyncMock(
+            side_effect=RuntimeError("rate limiter crash")
+        )
         ctx = _ctx(client_ip="1.2.3.4")
         result = _run(p.process(ctx))
         assert result.action == "allow"
@@ -2201,13 +2242,20 @@ class TestTLSMismatchSignalAppended:
         from src.security.models import RiskSignal
 
         p = _make_full_pipeline()
-        mismatch_sig = RiskSignal(name="ja4_tls_mismatch", score=40, reason="mismatch detected")
+        mismatch_sig = RiskSignal(
+            name="ja4_tls_mismatch", score=40, reason="mismatch detected"
+        )
 
-        with patch("src.security.tls_enforcer.check_ja4_tls_mismatch", return_value=mismatch_sig):
+        with patch(
+            "src.security.tls_enforcer.check_ja4_tls_mismatch",
+            return_value=mismatch_sig,
+        ):
             seen = []
+
             def capture(signals):
                 seen.extend(signals)
                 return MagicMock(total_score=40, signals=[], recommended_action="flag")
+
             p._scorer.score.side_effect = capture
 
             ctx = _ctx(client_ip="1.2.3.4")
@@ -2242,9 +2290,11 @@ class TestExtractJA4xFromCertSuccess:
         # Generate a minimal self-signed cert with a SAN extension to exercise
         # the san extraction branch (line 1321)
         key = ec.generate_private_key(ec.SECP256R1())
-        subject = issuer = x509.Name([
-            x509.NameAttribute(NameOID.COMMON_NAME, "test"),
-        ])
+        subject = issuer = x509.Name(
+            [
+                x509.NameAttribute(NameOID.COMMON_NAME, "test"),
+            ]
+        )
         cert = (
             x509.CertificateBuilder()
             .subject_name(subject)
@@ -2293,9 +2343,11 @@ class TestExtractJA4xFromCertSuccess:
 
         # Generate a cert with NO SAN extension
         key = ec.generate_private_key(ec.SECP256R1())
-        subject = issuer = x509.Name([
-            x509.NameAttribute(NameOID.COMMON_NAME, "no-san-test"),
-        ])
+        subject = issuer = x509.Name(
+            [
+                x509.NameAttribute(NameOID.COMMON_NAME, "no-san-test"),
+            ]
+        )
         cert = (
             x509.CertificateBuilder()
             .subject_name(subject)

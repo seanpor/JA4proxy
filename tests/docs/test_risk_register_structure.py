@@ -120,9 +120,9 @@ def register_text() -> str:
 
 def test_at_least_30_rows(register_text: str) -> None:
     rows = _all_risk_rows(register_text)
-    assert len(rows) >= 30, (
-        f"RISK_REGISTER.md must have >= 30 risk rows; found {len(rows)}"
-    )
+    assert (
+        len(rows) >= 30
+    ), f"RISK_REGISTER.md must have >= 30 risk rows; found {len(rows)}"
 
 
 def test_required_columns_present(register_text: str) -> None:
@@ -146,9 +146,8 @@ def test_no_empty_mitigation(register_text: str) -> None:
         mitigation = _cell(row, "Mitigation").strip()
         if mitigation.lower() in EMPTY_PLACEHOLDERS:
             bad.append((rid, mitigation))
-    assert not bad, (
-        "Rows with empty/placeholder Mitigation column: "
-        + ", ".join(f"{rid!r}={val!r}" for rid, val in bad)
+    assert not bad, "Rows with empty/placeholder Mitigation column: " + ", ".join(
+        f"{rid!r}={val!r}" for rid, val in bad
     )
 
 
@@ -178,9 +177,7 @@ def test_each_row_has_source_link(register_text: str) -> None:
         joined = " ".join(row.values())
         if not MARKDOWN_LINK_RE.search(joined):
             bad.append(rid)
-    assert not bad, (
-        f"Rows missing any markdown link to a source: {bad}"
-    )
+    assert not bad, f"Rows missing any markdown link to a source: {bad}"
 
 
 def test_internal_links_resolve(register_text: str) -> None:
@@ -199,7 +196,6 @@ def test_internal_links_resolve(register_text: str) -> None:
         resolved = (base / path_part).resolve()
         if not resolved.exists():
             missing.append((text, target))
-    assert not missing, (
-        "Unresolved relative markdown links: "
-        + ", ".join(f"[{t}]({u})" for t, u in missing)
+    assert not missing, "Unresolved relative markdown links: " + ", ".join(
+        f"[{t}]({u})" for t, u in missing
     )

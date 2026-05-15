@@ -1,6 +1,7 @@
 """
 Unit tests for src/tap/fingerprints/ja4ssh.py (Phase 20 Group 5-G).
 """
+
 import struct
 
 import pytest
@@ -38,8 +39,8 @@ def _build_kexinit(
         lang_s2c or [],
     ]
 
-    payload = bytes([0x14])             # MSG_KEXINIT
-    payload += b"\xaa" * 16            # cookie
+    payload = bytes([0x14])  # MSG_KEXINIT
+    payload += b"\xaa" * 16  # cookie
     for lst in lists:
         s = ",".join(lst).encode("ascii")
         payload += struct.pack("!I", len(s)) + s
@@ -110,10 +111,15 @@ class TestJA4SSH:
         assert "02" in result.fingerprint
 
     def test_kex_algorithms_list_populated(self):
-        data = _build_kexinit(kex=["curve25519-sha256", "diffie-hellman-group14-sha256"])
+        data = _build_kexinit(
+            kex=["curve25519-sha256", "diffie-hellman-group14-sha256"]
+        )
         result = extract_ja4ssh(data, direction="client")
         assert result is not None
-        assert result.kex_algorithms == ["curve25519-sha256", "diffie-hellman-group14-sha256"]
+        assert result.kex_algorithms == [
+            "curve25519-sha256",
+            "diffie-hellman-group14-sha256",
+        ]
 
     def test_encryption_lists_populated(self):
         data = _build_kexinit(
@@ -126,6 +132,7 @@ class TestJA4SSH:
 
 
 # ── Missing-coverage tests ────────────────────────────────────────────────────
+
 
 class TestJA4SSHEdgeCases:
     """Cover boundary paths in _parse() and helpers (lines 47-48, 53, 72, 118, 122, 131).
@@ -140,6 +147,7 @@ class TestJA4SSHEdgeCases:
         from unittest.mock import patch
 
         import src.tap.fingerprints.ja4ssh as _mod
+
         with patch.object(_mod, "_parse", side_effect=RuntimeError("injected")):
             result = _mod.extract_ja4ssh(_build_kexinit(), "client")
         assert result is None
@@ -165,6 +173,7 @@ class TestJA4SSHEdgeCases:
         So what: a crafted packet with a length field straddling a boundary must
         not cause struct.unpack_from to overread."""
         from src.tap.fingerprints.ja4ssh import _read_name_list
+
         data = b"\x00\x00"  # Only 2 bytes — too short for uint32
         result, pos = _read_name_list(data, 0)
         assert result is None
@@ -174,6 +183,7 @@ class TestJA4SSHEdgeCases:
         So what: an oversized length field must not cause a slice overread that
         returns garbage algorithm names and corrupts the fingerprint."""
         from src.tap.fingerprints.ja4ssh import _read_name_list
+
         data = struct.pack("!I", 9999) + b"short"
         result, pos = _read_name_list(data, 0)
         assert result is None
@@ -184,4 +194,5 @@ class TestJA4SSHEdgeCases:
         rather than a SHA-256 of an empty string, ensuring cross-implementation
         fingerprint compatibility."""
         from src.tap.fingerprints.ja4ssh import _hash12
+
         assert _hash12("") == "000000000000"

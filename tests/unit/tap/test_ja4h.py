@@ -1,6 +1,7 @@
 """
 Unit tests for src/tap/fingerprints/ja4h.py (Phase 20 Group 5-D).
 """
+
 import pytest
 
 from src.tap.fingerprints.ja4h import JA4HResult, extract_ja4h
@@ -72,8 +73,12 @@ class TestJA4H:
 
     def test_header_order_preserved_in_hash(self):
         """Two requests with same headers in different order → different name hash."""
-        data1 = _req(headers={"Host": "x", "Accept": "text/html", "Connection": "keep-alive"})
-        data2 = _req(headers={"Connection": "keep-alive", "Accept": "text/html", "Host": "x"})
+        data1 = _req(
+            headers={"Host": "x", "Accept": "text/html", "Connection": "keep-alive"}
+        )
+        data2 = _req(
+            headers={"Connection": "keep-alive", "Accept": "text/html", "Host": "x"}
+        )
         r1 = extract_ja4h(data1)
         r2 = extract_ja4h(data2)
         assert r1 is not None and r2 is not None
@@ -117,6 +122,7 @@ class TestJA4H:
 
 # ── Missing-coverage tests ────────────────────────────────────────────────────
 
+
 class TestJA4HEdgeCases:
     """Cover boundary paths in _parse() and helpers (lines 40-41, 58, 64, 68, 76-81, 88, 141).
 
@@ -130,6 +136,7 @@ class TestJA4HEdgeCases:
         from unittest.mock import patch
 
         import src.tap.fingerprints.ja4h as _mod
+
         with patch.object(_mod, "_parse", side_effect=RuntimeError("injected")):
             result = _mod.extract_ja4h(b"GET / HTTP/1.1\r\nHost: a.com\r\n\r\n")
         assert result is None
@@ -142,7 +149,8 @@ class TestJA4HEdgeCases:
 
     def test_method_with_digits_returns_none(self):
         """Non-alpha method (contains digit) → None (line 67-68).
-        So what: injection attempt using a digit-padded method must not produce a fingerprint."""
+        So what: injection attempt using a digit-padded method must not produce a fingerprint.
+        """
         data = b"G3T / HTTP/1.1\r\n\r\n"
         assert extract_ja4h(data) is None
 
@@ -178,7 +186,8 @@ class TestJA4HEdgeCases:
 
     def test_header_line_without_colon_skipped(self):
         """A header line without ':' is skipped (line 87-88).
-        So what: malformed header line must not cause a partition error or wrong parse."""
+        So what: malformed header line must not cause a partition error or wrong parse.
+        """
         data = b"GET / HTTP/1.1\r\nHost: example.com\r\nBadLine\r\n\r\n"
         result = extract_ja4h(data)
         assert result is not None
@@ -187,14 +196,17 @@ class TestJA4HEdgeCases:
 
     def test_hash_header_names_only_cookie_and_referer(self):
         """Header list with only cookie/referer → '000000000000' (line 141).
-        So what: cookie-only requests must produce a valid (zero) name hash, not crash."""
+        So what: cookie-only requests must produce a valid (zero) name hash, not crash.
+        """
         from src.tap.fingerprints.ja4h import _hash_header_names
+
         result = _hash_header_names(["cookie", "referer"])
         assert result == "000000000000"
 
     def test_referrer_alternate_spelling(self):
         """'Referrer' header (double-r) is also captured as referer (line 97).
-        So what: both spellings of the header must set has_referer='r' in fingerprint."""
+        So what: both spellings of the header must set has_referer='r' in fingerprint.
+        """
         data = _req(headers={"Host": "x.com", "Referrer": "https://prev.example.com/"})
         result = extract_ja4h(data)
         assert result is not None
@@ -205,6 +217,7 @@ class TestJA4HEdgeCases:
 # ---------------------------------------------------------------------------
 # Coverage gap additions — lines 48-49, 58
 # ---------------------------------------------------------------------------
+
 
 class TestJA4HCoverageGaps:
     """Lines 48-49: decode exception; line 58: empty lines guard (defensive)."""

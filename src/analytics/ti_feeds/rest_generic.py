@@ -52,9 +52,7 @@ except ImportError:  # pragma: no cover
     JsonPathParserError = Exception  # type: ignore
 
     def jsonpath_parse(expr: str):  # type: ignore
-        raise RuntimeError(
-            "jsonpath-ng is required for the REST generic feed client"
-        )
+        raise RuntimeError("jsonpath-ng is required for the REST generic feed client")
 
 
 from .base import FeedClient, FeedConfig, FeedPollResult
@@ -143,9 +141,7 @@ class RESTGenericClient(FeedClient):
             return result
 
         if self._ip_expr is None and self._ja4_expr is None:
-            result.errors.append(
-                "rest feed missing both ip_jsonpath and ja4_jsonpath"
-            )
+            result.errors.append("rest feed missing both ip_jsonpath and ja4_jsonpath")
             _POLL_TOTAL.labels(feed_id=feed_id, result="failure").inc()
             result.poll_duration_s = time.monotonic() - start
             return result

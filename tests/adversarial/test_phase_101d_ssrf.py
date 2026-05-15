@@ -5,7 +5,10 @@ H6 — SSRF mitigation via is_publicly_routable_ip()
 
 import pytest
 
-from src.analytics.ti_feeds.safe_resolver import is_publicly_routable_ip, resolve_host_safe
+from src.analytics.ti_feeds.safe_resolver import (
+    is_publicly_routable_ip,
+    resolve_host_safe,
+)
 
 
 class TestSSRFProtection:

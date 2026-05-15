@@ -204,10 +204,12 @@ class TestSignalClamping:
         assert result.total_score == 100  # Clamped at composite level too
 
     def test_individual_signal_under_minus_100_clamped(self, scorer):
-        result = scorer.score([
-            RiskSignal("good", 50, "test"),
-            RiskSignal("very_trusted", -200, "test"),
-        ])
+        result = scorer.score(
+            [
+                RiskSignal("good", 50, "test"),
+                RiskSignal("very_trusted", -200, "test"),
+            ]
+        )
         assert result.total_score == 0  # Clamped to 0
 
 
@@ -236,9 +238,9 @@ class TestThresholdBoundaries:
     )
     def test_threshold_boundary(self, score, expected_action):
         result = _derive_action(score, THRESHOLDS)
-        assert result == expected_action, (
-            f"score={score}: expected {expected_action}, got {result}"
-        )
+        assert (
+            result == expected_action
+        ), f"score={score}: expected {expected_action}, got {result}"
 
 
 # ---------------------------------------------------------------------------

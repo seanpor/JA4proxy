@@ -91,7 +91,9 @@ class FeedRunner:
         self._config = config
         self._instance_id = instance_id or f"runner-{uuid4().hex[:8]}"
 
-        cb_cfg = CircuitBreakerConfig(**(config.get("threat_intel", {}).get("circuit_breaker", {}) or {}))
+        cb_cfg = CircuitBreakerConfig(
+            **(config.get("threat_intel", {}).get("circuit_breaker", {}) or {})
+        )
         self._breakers = CircuitBreakerManager(cb_cfg)
 
         self._clients: dict[str, FeedClient] = {}
@@ -116,7 +118,9 @@ class FeedRunner:
         """Start the runner: open the mgmt client, load seed, spawn feed tasks."""
         ti_cfg = self._config.get("threat_intel") or {}
         if not ti_cfg.get("enabled", False):
-            logger.info("ti_feed | event=runner_disabled | reason=threat_intel.enabled=false")
+            logger.info(
+                "ti_feed | event=runner_disabled | reason=threat_intel.enabled=false"
+            )
             return
 
         try:
@@ -146,7 +150,9 @@ class FeedRunner:
         await self._rebuild_clients(ti_cfg)
 
         # Spawn the manual-poll trigger consumer.
-        self._trigger_task = asyncio.create_task(self._consume_trigger_stream(), name="ti_feed:trigger_consumer")
+        self._trigger_task = asyncio.create_task(
+            self._consume_trigger_stream(), name="ti_feed:trigger_consumer"
+        )
 
     async def stop(self) -> None:
         """Stop the runner. Cancels every poll task and closes the mgmt client."""
@@ -223,7 +229,9 @@ class FeedRunner:
                 continue
             client = client_cls(config=cfg, mgmt=self._mgmt, state=self._state)
             self._clients[feed_id] = client
-            self._tasks[feed_id] = asyncio.create_task(self._poll_loop(feed_id), name=f"ti_feed:{feed_id}")
+            self._tasks[feed_id] = asyncio.create_task(
+                self._poll_loop(feed_id), name=f"ti_feed:{feed_id}"
+            )
             logger.info(
                 "ti_feed | event=feed_started | feed=%s | type=%s | enabled=%s",
                 feed_id,
@@ -275,7 +283,9 @@ class FeedRunner:
                 lock = self._poll_locks.setdefault(feed_id, asyncio.Lock())
                 try:
                     async with lock:
-                        await asyncio.wait_for(self._poll_once(feed_id), timeout=poll_timeout)
+                        await asyncio.wait_for(
+                            self._poll_once(feed_id), timeout=poll_timeout
+                        )
                 except asyncio.CancelledError:
                     raise
                 except asyncio.TimeoutError:
@@ -312,7 +322,9 @@ class FeedRunner:
 
         breaker = self._breakers.for_feed(feed_id)
         if not breaker.allow_poll():
-            _CIRCUIT_STATE.labels(feed_id=feed_id).set(_CIRCUIT_STATE_VALUE[breaker.state])
+            _CIRCUIT_STATE.labels(feed_id=feed_id).set(
+                _CIRCUIT_STATE_VALUE[breaker.state]
+            )
             _POLL_TOTAL.labels(feed_id=feed_id, result="circuit_open").inc()
             return
 
@@ -340,7 +352,9 @@ class FeedRunner:
             result = await client.poll()
         except Exception as exc:  # noqa: BLE001
             breaker.record_failure()
-            _CIRCUIT_STATE.labels(feed_id=feed_id).set(_CIRCUIT_STATE_VALUE[breaker.state])
+            _CIRCUIT_STATE.labels(feed_id=feed_id).set(
+                _CIRCUIT_STATE_VALUE[breaker.state]
+            )
             await self._state.record_poll_failure(
                 feed_id,
                 error_message=str(exc),
@@ -412,7 +426,9 @@ class FeedRunner:
         if skip_cleanup_first_empty:
             # Preserve the existing snapshot; do not delete anything this poll.
             breaker.record_success()
-            _CIRCUIT_STATE.labels(feed_id=feed_id).set(_CIRCUIT_STATE_VALUE[breaker.state])
+            _CIRCUIT_STATE.labels(feed_id=feed_id).set(
+                _CIRCUIT_STATE_VALUE[breaker.state]
+            )
             _LAST_SUCCESS_TS.labels(feed_id=feed_id).set(time.time())
             _INDICATORS_MANAGED.labels(feed_id=feed_id).set(len(previous_ids))
             await self._state.record_poll_success(
@@ -463,7 +479,9 @@ class FeedRunner:
                 dropped = dropped[:cap]
 
         ban_ips = await self._state.get_ban_ips(feed_id) if dropped else set()
-        blocklist_uuids = await self._state.get_blocklist_uuids(feed_id) if dropped else set()
+        blocklist_uuids = (
+            await self._state.get_blocklist_uuids(feed_id) if dropped else set()
+        )
         # C7 (architect review): per-indicator cleanup is now a two-step
         # ordered operation:
         #   1. Management API delete (idempotent — 404 treated as success).
@@ -477,7 +495,9 @@ class FeedRunner:
         for stix_id, handle in dropped:
             if not handle:
                 # No resource to delete — just drop the snapshot entry.
-                await self._state.clear_handle(feed_id, stix_id, handle="", kind="unknown")
+                await self._state.clear_handle(
+                    feed_id, stix_id, handle="", kind="unknown"
+                )
                 continue
             try:
                 if handle in ban_ips:
@@ -492,9 +512,13 @@ class FeedRunner:
                         feed_id,
                         stix_id,
                     )
-                    await self._state.clear_handle(feed_id, stix_id, handle=handle, kind="unknown")
+                    await self._state.clear_handle(
+                        feed_id, stix_id, handle=handle, kind="unknown"
+                    )
                     continue
-                await self._state.clear_handle(feed_id, stix_id, handle=handle, kind=kind)
+                await self._state.clear_handle(
+                    feed_id, stix_id, handle=handle, kind=kind
+                )
                 removed_count += 1
             except Exception as exc:  # noqa: BLE001
                 logger.warning(
@@ -547,7 +571,11 @@ class FeedRunner:
             },
             "feed": {
                 "id": feed_id,
-                "type": (self._clients[feed_id].config.type if feed_id in self._clients else "unknown"),
+                "type": (
+                    self._clients[feed_id].config.type
+                    if feed_id in self._clients
+                    else "unknown"
+                ),
                 "poll_duration_ms": int(result.poll_duration_s * 1000),
                 "indicators_seen": len(result.stix_ids_seen),
                 "created": len(result.created),
@@ -591,7 +619,9 @@ class FeedRunner:
                             entry_id = entry_id.decode()
                         self._trigger_last_id = entry_id
                         decoded = {
-                            (k.decode() if isinstance(k, bytes) else k): (v.decode() if isinstance(v, bytes) else v)
+                            (k.decode() if isinstance(k, bytes) else k): (
+                                v.decode() if isinstance(v, bytes) else v
+                            )
                             for k, v in fields.items()
                         }
                         feed_id = decoded.get("feed_id", "")

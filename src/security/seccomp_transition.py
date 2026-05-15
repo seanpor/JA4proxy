@@ -61,7 +61,11 @@ def is_supported() -> bool:
         release = platform.release()
         major_minor = release.split(".")[:2]
         major = int(major_minor[0])
-        minor = int(major_minor[1].split("-")[0].split("+")[0]) if len(major_minor) > 1 else 0
+        minor = (
+            int(major_minor[1].split("-")[0].split("+")[0])
+            if len(major_minor) > 1
+            else 0
+        )
         return (major, minor) >= (3, 5)
     except Exception as exc:
         logger.debug("seccomp | event=is_supported_error | error=%s", exc)
@@ -158,6 +162,7 @@ def _apply(profile_path: Optional[str]) -> bool:
     # Try using the seccomp Python library (cleanest approach)
     try:
         import seccomp as _seccomp  # type: ignore[import]
+
         return _apply_via_seccomp_lib(_seccomp, profile_data, profile_path)
     except ImportError:
         logger.info(
@@ -168,7 +173,9 @@ def _apply(profile_path: Optional[str]) -> bool:
         return False
 
 
-def _apply_via_seccomp_lib(seccomp_module: object, profile_data: dict, profile_path: str) -> bool:
+def _apply_via_seccomp_lib(
+    seccomp_module: object, profile_data: dict, profile_path: str
+) -> bool:
     """Apply the OCI profile via the ``seccomp`` Python library.
 
     The ``seccomp`` library (python-libseccomp) exposes a Pythonic API over
@@ -199,9 +206,7 @@ def _apply_via_seccomp_lib(seccomp_module: object, profile_data: dict, profile_p
                     )
 
         ctx.load()  # type: ignore[attr-defined]
-        logger.info(
-            "seccomp | event=runtime_profile_applied | path=%s", profile_path
-        )
+        logger.info("seccomp | event=runtime_profile_applied | path=%s", profile_path)
         return True
     except Exception as exc:
         logger.warning(

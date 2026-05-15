@@ -240,7 +240,9 @@ class TestRedisPasswordForm:
             # (python-legacy overlay intentionally uses :- as it's always layered
             # on top of poc.yml which enforces :?)
             # We flag only :-changeme and similar non-empty weak defaults
-            if ":-changeme" in entry or (":-" in entry and ":-}" not in entry and ":-}" not in entry):
+            if ":-changeme" in entry or (
+                ":-" in entry and ":-}" not in entry and ":-}" not in entry
+            ):
                 # Check it's not the empty fallback pattern :-}
                 raw = entry
                 # Allow ${REDIS_PASSWORD:-} but reject ${REDIS_PASSWORD:-changeme}
@@ -257,8 +259,15 @@ class TestRedisPasswordForm:
 # ---------------------------------------------------------------------------
 
 PERMANENT_POC_SERVICES = [
-    "proxy", "redis", "backend", "tarpit", "analytics", "admin-api",
-    "trafficgen", "haproxy", "management",
+    "proxy",
+    "redis",
+    "backend",
+    "tarpit",
+    "analytics",
+    "admin-api",
+    "trafficgen",
+    "haproxy",
+    "management",
 ]
 
 
@@ -271,9 +280,9 @@ class TestRestartPolicy:
         compose = load_compose(compose_path)
         services = compose.get("services") or {}
         for svc_name in PERMANENT_POC_SERVICES:
-            assert svc_name in services, (
-                f"{compose_path}: expected service '{svc_name}' not found."
-            )
+            assert (
+                svc_name in services
+            ), f"{compose_path}: expected service '{svc_name}' not found."
             restart = services[svc_name].get("restart")
             assert restart == "unless-stopped", (
                 f"{compose_path}: service '{svc_name}' has restart={restart!r}, "
@@ -291,23 +300,23 @@ class TestDockerReadme:
 
     def test_readme_exists(self):
         """deploy/docker/README.md must exist."""
-        assert (REPO_ROOT / "deploy" / "docker" / "README.md").exists(), (
-            "deploy/docker/README.md does not exist — create it per Phase 89h."
-        )
+        assert (
+            REPO_ROOT / "deploy" / "docker" / "README.md"
+        ).exists(), "deploy/docker/README.md does not exist — create it per Phase 89h."
 
     def test_readme_references_poc_compose(self):
         """deploy/docker/README.md must reference deploy/docker/docker-compose.poc.yml."""
         content = (REPO_ROOT / "deploy" / "docker" / "README.md").read_text()
-        assert "deploy/docker/docker-compose.poc.yml" in content, (
-            "deploy/docker/README.md must reference deploy/docker/docker-compose.poc.yml."
-        )
+        assert (
+            "deploy/docker/docker-compose.poc.yml" in content
+        ), "deploy/docker/README.md must reference deploy/docker/docker-compose.poc.yml."
 
     def test_readme_references_monitoring_compose(self):
         """deploy/docker/README.md must reference docker-compose.monitoring.yml."""
         content = (REPO_ROOT / "deploy" / "docker" / "README.md").read_text()
-        assert "docker-compose.monitoring.yml" in content, (
-            "deploy/docker/README.md must reference docker-compose.monitoring.yml."
-        )
+        assert (
+            "docker-compose.monitoring.yml" in content
+        ), "deploy/docker/README.md must reference docker-compose.monitoring.yml."
 
     def test_readme_local_links_resolve(self):
         """All local markdown links in deploy/docker/README.md must reference existing files."""
@@ -323,9 +332,9 @@ class TestDockerReadme:
             # Try relative to deploy/docker/ first, then relative to repo root
             resolved = (REPO_ROOT / "deploy" / "docker" / link_path).resolve()
             resolved_root = (REPO_ROOT / link_path).resolve()
-            assert resolved.exists() or resolved_root.exists(), (
-                f"deploy/docker/README.md links to non-existent file: {link!r}"
-            )
+            assert (
+                resolved.exists() or resolved_root.exists()
+            ), f"deploy/docker/README.md links to non-existent file: {link!r}"
 
 
 # ---------------------------------------------------------------------------
@@ -336,16 +345,19 @@ class TestDockerReadme:
 class TestDockerfileLocationLabels:
     """89i: src/analytics/Dockerfile and src/tarpit/Dockerfile must carry location LABEL."""
 
-    @pytest.mark.parametrize("df_path", [
-        "src/analytics/Dockerfile",
-        "src/tarpit/Dockerfile",
-    ])
+    @pytest.mark.parametrize(
+        "df_path",
+        [
+            "src/analytics/Dockerfile",
+            "src/tarpit/Dockerfile",
+        ],
+    )
     def test_dockerfile_has_location_label(self, df_path: str):
         """Module Dockerfiles must contain LABEL dockerfile.location=\"module\"."""
         full_path = REPO_ROOT / df_path
         assert full_path.exists(), f"{df_path} not found."
         content = full_path.read_text()
         assert 'dockerfile.location="module"' in content, (
-            f"{df_path} is missing LABEL dockerfile.location=\"module\" (Phase 89i). "
+            f'{df_path} is missing LABEL dockerfile.location="module" (Phase 89i). '
             f"Add after the FROM line."
         )

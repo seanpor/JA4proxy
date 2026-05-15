@@ -220,16 +220,17 @@ async def test_bearer_takes_precedence_over_cookie(
 
     # The audit log must attribute the action to the token identity, not "admin"
     import json as _json
+
     raw_entries = await fake_redis.lrange("management:audit_log", 0, 0)
     assert raw_entries, "No audit log entry was written"
     entry = _json.loads(raw_entries[0])
     # MFA/SSO Hardening C5: enhanced audit schema uses actor_id, not user
-    assert entry.get("actor_id") != "admin", (
-        f"Audit log actor_id is 'admin' — bearer identity did not take precedence. Entry: {entry}"
-    )
-    assert token_name in entry.get("actor_id", "") or "token:" in entry.get("actor_id", ""), (
-        f"Expected audit log actor_id to reference the token identity, got: {entry.get('actor_id')}"
-    )
+    assert (
+        entry.get("actor_id") != "admin"
+    ), f"Audit log actor_id is 'admin' — bearer identity did not take precedence. Entry: {entry}"
+    assert token_name in entry.get("actor_id", "") or "token:" in entry.get(
+        "actor_id", ""
+    ), f"Expected audit log actor_id to reference the token identity, got: {entry.get('actor_id')}"
 
 
 @pytest.mark.asyncio
@@ -284,7 +285,10 @@ async def test_expired_cookie_valid_bearer_succeeds(fake_redis) -> None:
         r2 = await client.get(
             "/api/v1/dial",
             cookies={"token": expired_cookie},
-            headers={"Authorization": "Bearer not-a-real-token", "Accept": "application/json"},
+            headers={
+                "Authorization": "Bearer not-a-real-token",
+                "Accept": "application/json",
+            },
         )
         assert r2.status_code == 401
 
@@ -292,7 +296,10 @@ async def test_expired_cookie_valid_bearer_succeeds(fake_redis) -> None:
         r3 = await client.get(
             "/api/v1/dial",
             cookies={"token": expired_cookie},
-            headers={"Authorization": f"Bearer {valid_bearer}", "Accept": "application/json"},
+            headers={
+                "Authorization": f"Bearer {valid_bearer}",
+                "Accept": "application/json",
+            },
         )
         assert r3.status_code == 200, (
             f"Expired cookie + valid bearer must return 200; got {r3.status_code}. "

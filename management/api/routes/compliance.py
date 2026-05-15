@@ -140,23 +140,33 @@ def _validate_logo(raw_base64: Optional[str]) -> str:
 
 
 class PciDssPackRequest(BaseModel):
-    from_date: str = Field(..., description="ISO-8601 start of evidence period (e.g. 2026-01-01)")
-    to_date: str = Field(..., description="ISO-8601 end of evidence period (e.g. 2026-03-31)")
+    from_date: str = Field(
+        ..., description="ISO-8601 start of evidence period (e.g. 2026-01-01)"
+    )
+    to_date: str = Field(
+        ..., description="ISO-8601 end of evidence period (e.g. 2026-03-31)"
+    )
     format: str = Field(default="pdf+jsonl", description="pdf+jsonl | pdf | jsonl")
 
 
 class ReportRequest(BaseModel):
-    period_label: str = Field(default="", description="Human-readable label (e.g. 'Q1 2026')")
+    period_label: str = Field(
+        default="", description="Human-readable label (e.g. 'Q1 2026')"
+    )
     from_date: str = Field(..., description="ISO-8601 start of report period")
     to_date: str = Field(..., description="ISO-8601 end of report period")
     format: str = Field(default="html", description="html | pdf")
     include_shadow_mode: bool = Field(default=False)
-    logo_base64: Optional[str] = Field(default=None, description="Base64-encoded PNG/SVG logo ≤1MB")
+    logo_base64: Optional[str] = Field(
+        default=None, description="Base64-encoded PNG/SVG logo ≤1MB"
+    )
     cost_per_connection_usd: float = Field(default=0.50)
 
 
 class DSARErase(BaseModel):
-    ticket: str = Field(..., min_length=1, description="ITSM ticket reference (mandatory)")
+    ticket: str = Field(
+        ..., min_length=1, description="ITSM ticket reference (mandatory)"
+    )
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -289,7 +299,9 @@ def _load_signal_categories_config() -> dict[str, Any] | None:
             return sig_cats
         return None
     except Exception as exc:
-        logger.warning("compliance | event=signal_categories_load_failed | error=%s", exc)
+        logger.warning(
+            "compliance | event=signal_categories_load_failed | error=%s", exc
+        )
         return None
 
 
@@ -417,12 +429,14 @@ async def dsar_export(
             for _, fields in batch:
                 if fields.get("ip") != ip:
                     continue
-                connection_history.append({
-                    "timestamp": fields.get("timestamp", ""),
-                    "action": fields.get("action_taken", ""),
-                    "ja4": fields.get("ja4", ""),
-                    "risk_score": fields.get("risk_score", ""),
-                })
+                connection_history.append(
+                    {
+                        "timestamp": fields.get("timestamp", ""),
+                        "action": fields.get("action_taken", ""),
+                        "ja4": fields.get("ja4", ""),
+                        "risk_score": fields.get("risk_score", ""),
+                    }
+                )
                 ja4 = fields.get("ja4", "")
                 if ja4:
                     ts = fields.get("timestamp", "")
@@ -488,7 +502,10 @@ async def dsar_export(
     if partial_failures:
         payload["partial_failures"] = partial_failures
         payload["data_unavailable"] = True
-        logger.warning("compliance | event=dsar_partial_failure | failed_categories=%s", partial_failures)
+        logger.warning(
+            "compliance | event=dsar_partial_failure | failed_categories=%s",
+            partial_failures,
+        )
         # 101a-M7 metric: one INCRBY per failed category so the analytics
         # node sees a real per-category count, not just per-request.
         try:
@@ -534,7 +551,9 @@ async def dsar_erase(
     # 2. beacon:{ip}:* — beaconing sorted sets
     cursor = 0
     while True:
-        cursor, keys = await redis.scan(cursor=cursor, match=f"beacon:{ip}:*", count=100)
+        cursor, keys = await redis.scan(
+            cursor=cursor, match=f"beacon:{ip}:*", count=100
+        )
         for key in keys:
             await redis.delete(key)
             erased_keys.append(key)
@@ -555,7 +574,9 @@ async def dsar_erase(
         target_ip = None
     cursor = 0
     while True:
-        cursor, keys = await redis.scan(cursor=cursor, match="watchlist:entry:*", count=100)
+        cursor, keys = await redis.scan(
+            cursor=cursor, match="watchlist:entry:*", count=100
+        )
         for key in keys:
             entry_value = await redis.hget(key, "entry")
             if entry_value is None:
@@ -745,7 +766,9 @@ async def _iter_dsar_stream_batches(redis: Any, batch_size: Optional[int] = None
     next_id = "-"
     while True:
         try:
-            batch = await redis.xrange(_STREAM_KEY, min=next_id, max="+", count=batch_size)
+            batch = await redis.xrange(
+                _STREAM_KEY, min=next_id, max="+", count=batch_size
+            )
         except TypeError:
             # Some fakeredis / aioredis builds don't accept named kwargs;
             # fall back to positional.
@@ -766,7 +789,9 @@ async def _iter_dsar_stream_batches(redis: Any, batch_size: Optional[int] = None
             return
 
 
-async def _dsar_connection_history(redis: Any, ip: str, stream_data: Optional[list] = None) -> list[dict]:
+async def _dsar_connection_history(
+    redis: Any, ip: str, stream_data: Optional[list] = None
+) -> list[dict]:
     """Read connection events for this IP from the stream.
 
     JA4PROXY-2026-0035 — when ``stream_data`` is not supplied, the stream
@@ -795,12 +820,14 @@ async def _dsar_connection_history(redis: Any, ip: str, stream_data: Optional[li
         async for batch in _iter_dsar_stream_batches(redis):
             for _, f in batch:
                 if f.get("ip") == ip:
-                    out.append({
-                        "timestamp": f.get("timestamp", ""),
-                        "action": f.get("action_taken", ""),
-                        "ja4": f.get("ja4", ""),
-                        "risk_score": f.get("risk_score", ""),
-                    })
+                    out.append(
+                        {
+                            "timestamp": f.get("timestamp", ""),
+                            "action": f.get("action_taken", ""),
+                            "ja4": f.get("ja4", ""),
+                            "risk_score": f.get("risk_score", ""),
+                        }
+                    )
     except Exception:
         return []
     return out
@@ -821,7 +848,9 @@ async def _dsar_ban_history(redis: Any, ip: str) -> list[dict]:
             "reason": reason,
             "ttl_remaining": ttl if ttl > 0 else None,
             "erasure_exempt": erasure_exempt,
-            "erasure_exempt_reason": ("Active security ban — legitimate interest override" if active else None),
+            "erasure_exempt_reason": (
+                "Active security ban — legitimate interest override" if active else None
+            ),
         }
     ]
 
@@ -839,7 +868,9 @@ async def _dsar_watchlist_entries(redis: Any, ip: str) -> list[dict]:
 
     cursor = 0
     while True:
-        cursor, keys = await redis.scan(cursor=cursor, match="watchlist:entry:*", count=100)
+        cursor, keys = await redis.scan(
+            cursor=cursor, match="watchlist:entry:*", count=100
+        )
         for key in keys:
             entry_value = await redis.hget(key, "entry")
             if entry_value is None:
@@ -865,7 +896,9 @@ async def _dsar_beaconing_records(redis: Any, ip: str) -> list[dict]:
     records = []
     cursor = 0
     while True:
-        cursor, keys = await redis.scan(cursor=cursor, match=f"beacon:{ip}:*", count=100)
+        cursor, keys = await redis.scan(
+            cursor=cursor, match=f"beacon:{ip}:*", count=100
+        )
         for key in keys:
             members = await redis.zrange(key, 0, -1, withscores=True)
             for member, score in members:
@@ -875,7 +908,9 @@ async def _dsar_beaconing_records(redis: Any, ip: str) -> list[dict]:
     return records
 
 
-async def _dsar_fingerprint_associations(redis: Any, ip: str, stream_data: Optional[list] = None) -> list[dict]:
+async def _dsar_fingerprint_associations(
+    redis: Any, ip: str, stream_data: Optional[list] = None
+) -> list[dict]:
     """Return JA4 fingerprints seen for this IP from the event stream.
 
     JA4PROXY-2026-0035 — when ``stream_data`` is not supplied, the stream
@@ -937,14 +972,16 @@ async def _build_report_data(
     # windows and mix live-stream data with real aggregates elsewhere in the
     # report (see Phase 101 C2).  Counting fallback_months gives us an
     # unambiguous "aggregates completely absent" signal.
-    connections_total, connections_blocked, months_using_fallback = await _aggregate_from_monthly_hashes(
-        redis, from_dt, to_dt
+    connections_total, connections_blocked, months_using_fallback = (
+        await _aggregate_from_monthly_hashes(redis, from_dt, to_dt)
     )
 
     expected_month_count = _count_months_in_range(from_dt, to_dt)
     if expected_month_count > 0 and len(months_using_fallback) == expected_month_count:
         # No monthly aggregate data at all → use live stream as source of truth.
-        connections_total, connections_blocked = await _aggregate_from_stream(redis, from_dt, to_dt)
+        connections_total, connections_blocked = await _aggregate_from_stream(
+            redis, from_dt, to_dt
+        )
 
     # Audit entry count for the period
     audit_count = await _count_audit_entries(redis, from_dt, to_dt)
@@ -969,7 +1006,8 @@ async def _build_report_data(
     logo_data_uri = _validate_logo(body.logo_base64)
 
     return ReportData(
-        period_label=body.period_label or f"{from_dt.strftime('%Y-%m-%d')} to {to_dt.strftime('%Y-%m-%d')}",
+        period_label=body.period_label
+        or f"{from_dt.strftime('%Y-%m-%d')} to {to_dt.strftime('%Y-%m-%d')}",
         from_iso=from_iso,
         to_iso=to_iso,
         generated_at=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%MZ"),
@@ -984,7 +1022,9 @@ async def _build_report_data(
     )
 
 
-async def _aggregate_from_monthly_hashes(redis: Any, from_dt: datetime, to_dt: datetime) -> tuple[int, int, list[str]]:
+async def _aggregate_from_monthly_hashes(
+    redis: Any, from_dt: datetime, to_dt: datetime
+) -> tuple[int, int, list[str]]:
     """Sum monthly aggregate hashes across the requested period."""
     total = 0
     blocked = 0
@@ -1030,7 +1070,9 @@ async def _aggregate_from_monthly_hashes(redis: Any, from_dt: datetime, to_dt: d
     return total, blocked, fallback_months
 
 
-async def _aggregate_from_stream(redis: Any, from_dt: datetime, to_dt: datetime) -> tuple[int, int]:
+async def _aggregate_from_stream(
+    redis: Any, from_dt: datetime, to_dt: datetime
+) -> tuple[int, int]:
     """Count total and blocked events from the stream (fallback for live data)."""
     try:
         raw = await redis.xrange(_STREAM_KEY)
@@ -1066,7 +1108,9 @@ async def _count_audit_entries(redis: Any, from_dt: datetime, to_dt: datetime) -
     return count
 
 
-async def _build_category_counts(redis: Any, from_dt: datetime, to_dt: datetime) -> list[tuple[str, int]]:
+async def _build_category_counts(
+    redis: Any, from_dt: datetime, to_dt: datetime
+) -> list[tuple[str, int]]:
     """Build sorted category count list from blocked stream events."""
     try:
         raw = await redis.xrange(_STREAM_KEY)

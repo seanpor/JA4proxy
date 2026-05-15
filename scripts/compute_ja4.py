@@ -10,6 +10,7 @@ This script parses the raw binary ClientHello without Scapy (which expects
 network-captured packets), using the same algorithm as proxy.py JA4Generator
 but operating directly on the parsed byte fields.
 """
+
 import hashlib
 import pathlib
 import struct
@@ -19,10 +20,22 @@ sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 
 # GREASE values per RFC 8701
 GREASE_VALUES = {
-    0x0A0A, 0x1A1A, 0x2A2A, 0x3A3A,
-    0x4A4A, 0x5A5A, 0x6A6A, 0x7A7A,
-    0x8A8A, 0x9A9A, 0xAAAA, 0xBABA,
-    0xCACA, 0xDADA, 0xEAEA, 0xFAFA,
+    0x0A0A,
+    0x1A1A,
+    0x2A2A,
+    0x3A3A,
+    0x4A4A,
+    0x5A5A,
+    0x6A6A,
+    0x7A7A,
+    0x8A8A,
+    0x9A9A,
+    0xAAAA,
+    0xBABA,
+    0xCACA,
+    0xDADA,
+    0xEAEA,
+    0xFAFA,
 }
 
 
@@ -38,7 +51,7 @@ def _parse_raw_clienthello(data: bytes) -> dict:
     if len(data) < 5 + record_len:
         raise ValueError("truncated TLS record")
 
-    body = data[5:5 + record_len]
+    body = data[5 : 5 + record_len]
     if len(body) < 4:
         raise ValueError("truncated handshake header")
     if body[0] != 0x01:
@@ -48,7 +61,7 @@ def _parse_raw_clienthello(data: bytes) -> dict:
     if len(body) < 4 + hello_len:
         raise ValueError("truncated ClientHello body")
 
-    hello = body[4:4 + hello_len]
+    hello = body[4 : 4 + hello_len]
 
     # legacy_version (2) + random (32) = 34 bytes minimum
     if len(hello) < 34:
@@ -97,7 +110,7 @@ def _parse_raw_clienthello(data: bytes) -> dict:
             ext_type = struct.unpack_from(">H", hello, pos)[0]
             ext_len = struct.unpack_from(">H", hello, pos + 2)[0]
             pos += 4
-            ext_body = hello[pos:pos + ext_len]
+            ext_body = hello[pos : pos + ext_len]
             pos += ext_len
 
             extensions.append(ext_type)
@@ -108,7 +121,9 @@ def _parse_raw_clienthello(data: bytes) -> dict:
                     if list_len >= 3 and 2 + list_len <= len(ext_body):
                         name_len = struct.unpack_from(">H", ext_body, 3)[0]
                         if 5 + name_len <= len(ext_body):
-                            sni = ext_body[5:5 + name_len].decode("ascii", errors="ignore")
+                            sni = ext_body[5 : 5 + name_len].decode(
+                                "ascii", errors="ignore"
+                            )
 
             elif ext_type == 0x0010:  # ALPN
                 if len(ext_body) >= 2:
@@ -120,10 +135,12 @@ def _parse_raw_clienthello(data: bytes) -> dict:
                         ep += 1
                         if ep + plen > end:
                             break
-                        alpn.append(ext_body[ep:ep + plen].decode("ascii", errors="ignore"))
+                        alpn.append(
+                            ext_body[ep : ep + plen].decode("ascii", errors="ignore")
+                        )
                         ep += plen
 
-            elif ext_type == 0x002b:  # supported_versions
+            elif ext_type == 0x002B:  # supported_versions
                 if len(ext_body) >= 1:
                     vlist_len = ext_body[0]
                     for vi in range(0, vlist_len, 2):

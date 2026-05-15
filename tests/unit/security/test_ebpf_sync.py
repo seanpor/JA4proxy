@@ -26,6 +26,7 @@ SCRIPTS_DIR = Path(__file__).parent.parent.parent.parent / "scripts"
 # Helpers — dynamic import of the script as a module (once per session)
 # ---------------------------------------------------------------------------
 
+
 # Import once at module level to avoid Prometheus counter duplicate registration
 # errors that occur when exec_module() is called multiple times.
 def _import_redis_to_ebpf():
@@ -114,14 +115,17 @@ class TestBpftoolUpdate:
         mod = _import_redis_to_ebpf()
 
         with caplog.at_level(logging.WARNING):
-            with patch("subprocess.run", side_effect=FileNotFoundError("bpftool: not found")):
+            with patch(
+                "subprocess.run", side_effect=FileNotFoundError("bpftool: not found")
+            ):
                 result = mod._bpftool_update(42, "0a 00 00 01")
 
         assert result is False
-        warning_msgs = [r.message for r in caplog.records if r.levelno >= logging.WARNING]
+        warning_msgs = [
+            r.message for r in caplog.records if r.levelno >= logging.WARNING
+        ]
         assert any(
-            "bpftool" in msg.lower() or "ebpf" in msg.lower()
-            for msg in warning_msgs
+            "bpftool" in msg.lower() or "ebpf" in msg.lower() for msg in warning_msgs
         ), f"Expected WARNING about bpftool, got: {warning_msgs}"
 
     def test_permission_error_returns_false_does_not_raise(self, caplog):
@@ -129,13 +133,19 @@ class TestBpftoolUpdate:
         mod = _import_redis_to_ebpf()
 
         with caplog.at_level(logging.WARNING):
-            with patch("subprocess.run", side_effect=PermissionError("Operation not permitted")):
+            with patch(
+                "subprocess.run", side_effect=PermissionError("Operation not permitted")
+            ):
                 result = mod._bpftool_update(42, "0a 00 00 01")
 
         assert result is False
-        warning_msgs = [r.message for r in caplog.records if r.levelno >= logging.WARNING]
+        warning_msgs = [
+            r.message for r in caplog.records if r.levelno >= logging.WARNING
+        ]
         assert any(
-            "permission" in msg.lower() or "cap_bpf" in msg.lower() or "ebpf" in msg.lower()
+            "permission" in msg.lower()
+            or "cap_bpf" in msg.lower()
+            or "ebpf" in msg.lower()
             for msg in warning_msgs
         ), f"Expected WARNING about permission denial, got: {warning_msgs}"
 
@@ -153,7 +163,9 @@ class TestBpftoolUpdate:
         """TimeoutExpired → returns False."""
         mod = _import_redis_to_ebpf()
 
-        with patch("subprocess.run", side_effect=subprocess.TimeoutExpired(["bpftool"], 5)):
+        with patch(
+            "subprocess.run", side_effect=subprocess.TimeoutExpired(["bpftool"], 5)
+        ):
             result = mod._bpftool_update(42, "0a 00 00 01")
 
         assert result is False
@@ -284,8 +296,7 @@ class TestCollectBlockedIps:
         assert result == {}
         error_msgs = [r.message for r in caplog.records if r.levelno >= logging.ERROR]
         assert any(
-            "redis" in msg.lower() or "error" in msg.lower()
-            for msg in error_msgs
+            "redis" in msg.lower() or "error" in msg.lower() for msg in error_msgs
         ), f"Expected ERROR log about Redis failure, got: {error_msgs}"
 
     def test_does_not_call_write_operations(self):
@@ -321,9 +332,9 @@ class TestCollectBlockedIps:
 
         _run(mod._collect_blocked_ips(r))
 
-        assert "ban:*" in scan_iter_calls, (
-            f"scan_iter should be called with 'ban:*', got: {scan_iter_calls}"
-        )
+        assert (
+            "ban:*" in scan_iter_calls
+        ), f"scan_iter should be called with 'ban:*', got: {scan_iter_calls}"
 
     def test_reads_ip_blacklist_set(self):
         """smembers is called with 'ip:blacklist'."""

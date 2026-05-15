@@ -27,7 +27,12 @@ def _import_stix_ja4():
 
 def test_is_ja4_pattern_returns_true_for_canonical_form():
     sj = _import_stix_ja4()
-    assert sj.is_ja4_pattern("[x-ja4-fingerprint:value = 't10d170900_9dc949161b6c_b64c0ad42cb7']") is True
+    assert (
+        sj.is_ja4_pattern(
+            "[x-ja4-fingerprint:value = 't10d170900_9dc949161b6c_b64c0ad42cb7']"
+        )
+        is True
+    )
 
 
 def test_is_ja4_pattern_returns_false_for_ip_indicator():

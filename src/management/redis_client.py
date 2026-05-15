@@ -8,6 +8,7 @@ import redis.asyncio as redis
 
 logger = logging.getLogger(__name__)
 
+
 class RedisManager:
     def __init__(self, host: str, port: int, db: int, password: Optional[str] = None):
         self.host = host
@@ -24,7 +25,7 @@ class RedisManager:
                 port=self.port,
                 db=self.db,
                 password=self.password,
-                decode_responses=True
+                decode_responses=True,
             )
             await self._client.ping()
         return self._client
@@ -43,20 +44,18 @@ class RedisManager:
         client = await self.connect()
         # Authoritative value is in config:dial
         await client.set("config:dial", str(value))
-        
+
         # Notify proxy instances via pub/sub
-        msg = {
-            "type": "dial_change",
-            "value": str(value)
-        }
-        
+        msg = {"type": "dial_change", "value": str(value)}
+
         if self._signing_key:
             import hashlib
             import hmac
+
             data = f"dial_change:{value}".encode("utf-8")
             h = hmac.new(self._signing_key.encode("utf-8"), data, hashlib.sha256)
             msg["signature"] = h.hexdigest()
-            
+
         await client.publish("ja4proxy:invalidate", json.dumps(msg))
 
     async def get_list(self, list_name: str) -> List[str]:
@@ -69,33 +68,28 @@ class RedisManager:
         client = await self.connect()
         key = f"ja4:{list_name}"
         await client.sadd(key, value)
-        
+
         # If blacklisting, notify proxy instances immediately
         if list_name == "blacklist":
-            msg = {
-                "type": "ja4_blacklist_add",
-                "value": value
-            }
+            msg = {"type": "ja4_blacklist_add", "value": value}
             if self._signing_key:
                 import hashlib
                 import hmac
+
                 data = f"ja4_blacklist_add:{value}".encode("utf-8")
                 h = hmac.new(self._signing_key.encode("utf-8"), data, hashlib.sha256)
                 msg["signature"] = h.hexdigest()
-            
+
             await client.publish("ja4proxy:invalidate", json.dumps(msg))
 
     async def remove_from_list(self, list_name: str, value: str):
         client = await self.connect()
         key = f"ja4:{list_name}"
         await client.srem(key, value)
-        
+
         # If removing from whitelist, notify proxy instances to invalidate cache
         if list_name == "whitelist":
-            msg = {
-                "type": "whitelist_remove",
-                "value": value
-            }
+            msg = {"type": "whitelist_remove", "value": value}
             await client.publish("ja4proxy:invalidate", json.dumps(msg))
 
     async def get_events(self):

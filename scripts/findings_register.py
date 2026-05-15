@@ -14,6 +14,7 @@ Subcommands:
     show                      Print a single finding by ID.
     verify-regression-tests   Run just the regression tests listed in the register.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -125,8 +126,15 @@ def _earliest_discovered(finding: dict[str, Any]) -> date | None:
 # ---------------------------------------------------------------------------
 
 REQUIRED_AT_CREATION = {
-    "id", "title", "severity", "severity_rationale", "source_refs",
-    "discovered", "due", "status", "lane",
+    "id",
+    "title",
+    "severity",
+    "severity_rationale",
+    "source_refs",
+    "discovered",
+    "due",
+    "status",
+    "lane",
 }
 
 
@@ -187,7 +195,9 @@ def cmd_validate(args: argparse.Namespace) -> int:
                     errors.append(f"{where}.cvss_v3_1.score: must be numeric")
                 vec = cvss.get("vector", "")
                 if vec and not CVSS_RE.match(vec):
-                    errors.append(f"{where}.cvss_v3_1.vector: {vec!r} not CVSS:3.1 form")
+                    errors.append(
+                        f"{where}.cvss_v3_1.vector: {vec!r} not CVSS:3.1 form"
+                    )
 
         # Dates + SLA consistency
         try:
@@ -205,7 +215,9 @@ def cmd_validate(args: argparse.Namespace) -> int:
         # DUPLICATE must set supersedes
         if f["status"] == "DUPLICATE":
             if not f.get("supersedes"):
-                errors.append(f"{where}: status=DUPLICATE requires non-empty supersedes")
+                errors.append(
+                    f"{where}: status=DUPLICATE requires non-empty supersedes"
+                )
             else:
                 for sup in f["supersedes"]:
                     if sup not in {g["id"] for g in reg.findings}:
@@ -235,7 +247,9 @@ def cmd_validate(args: argparse.Namespace) -> int:
                 try:
                     _parse_date(f["verified_on"])
                 except (ValueError, TypeError):
-                    errors.append(f"{where}: verified_on must be ISO date (got {f['verified_on']!r})")
+                    errors.append(
+                        f"{where}: verified_on must be ISO date (got {f['verified_on']!r})"
+                    )
 
         # remediation_phases referential: only strings accepted, don't hard-check phase existence here
         rps = f.get("remediation_phases") or []
@@ -288,6 +302,7 @@ def _regression_test_exists(nodeid: str) -> bool:
 # list
 # ---------------------------------------------------------------------------
 
+
 def cmd_list(args: argparse.Namespace) -> int:
     reg = Register.load()
     today = date.today()
@@ -335,6 +350,7 @@ def cmd_list(args: argparse.Namespace) -> int:
 # add
 # ---------------------------------------------------------------------------
 
+
 def cmd_add(args: argparse.Namespace) -> int:
     reg = Register.load()
     discovered = _parse_date(args.discovered) if args.discovered else date.today()
@@ -350,7 +366,8 @@ def cmd_add(args: argparse.Namespace) -> int:
         "id": reg.next_id(),
         "title": args.title,
         "severity": severity,
-        "severity_rationale": args.severity_rationale or "TODO — populate per SEVERITY_RUBRIC.md",
+        "severity_rationale": args.severity_rationale
+        or "TODO — populate per SEVERITY_RUBRIC.md",
         "source_refs": [
             {
                 "report": args.source,
@@ -384,6 +401,7 @@ def cmd_add(args: argparse.Namespace) -> int:
 # dedup-hint
 # ---------------------------------------------------------------------------
 
+
 def cmd_dedup_hint(args: argparse.Namespace) -> int:
     reg = Register.load()
     query = args.query.lower()
@@ -403,6 +421,7 @@ def cmd_dedup_hint(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 # render
 # ---------------------------------------------------------------------------
+
 
 def cmd_render(args: argparse.Namespace) -> int:
     reg = Register.load()
@@ -479,13 +498,16 @@ def cmd_render(args: argparse.Namespace) -> int:
     _, after = rest.split(end, 1)
     new_text = f"{before}{start}\n{body}\n{end}{after}"
     MARKDOWN_PATH.write_text(new_text)
-    print(f"rendered {len(reg.findings)} finding(s) into {MARKDOWN_PATH.relative_to(REPO_ROOT)}")
+    print(
+        f"rendered {len(reg.findings)} finding(s) into {MARKDOWN_PATH.relative_to(REPO_ROOT)}"
+    )
     return 0
 
 
 # ---------------------------------------------------------------------------
 # promote-verified
 # ---------------------------------------------------------------------------
+
 
 def cmd_promote_verified(args: argparse.Namespace) -> int:
     reg = Register.load()
@@ -519,6 +541,7 @@ def cmd_promote_verified(args: argparse.Namespace) -> int:
 # verify-regression-tests
 # ---------------------------------------------------------------------------
 
+
 def cmd_verify_regression_tests(args: argparse.Namespace) -> int:
     """Run only the regression tests listed in the register.
 
@@ -543,9 +566,18 @@ def cmd_verify_regression_tests(args: argparse.Namespace) -> int:
             if status in ("FIXED", "VERIFIED", "CLOSED"):
                 missing.append(f"{f['id']} ({status}): no regression_test")
             continue
-        if rt.startswith("tests/") or rt.startswith("src/") or rt.startswith("management/"):
+        if (
+            rt.startswith("tests/")
+            or rt.startswith("src/")
+            or rt.startswith("management/")
+        ):
             py_nodes.append(rt)
-        elif rt.startswith("internal/") or rt.startswith("cmd/") or rt.endswith("_test.go") or "::Test" in rt:
+        elif (
+            rt.startswith("internal/")
+            or rt.startswith("cmd/")
+            or rt.endswith("_test.go")
+            or "::Test" in rt
+        ):
             go_nodes.append(rt)
         else:
             # Best-effort default: treat as pytest nodeid
@@ -563,8 +595,14 @@ def cmd_verify_regression_tests(args: argparse.Namespace) -> int:
             print(f"verify-regression-tests: {msg} — exiting 0 (stub-green mode)")
             return 0
         print(f"verify-regression-tests: {msg}", file=sys.stderr)
-        print("  Run with --stub-green to allow this, or populate regression_test", file=sys.stderr)
-        print("  on FIXED/VERIFIED/CLOSED findings per docs/TESTING_STRATEGY.md §6.", file=sys.stderr)
+        print(
+            "  Run with --stub-green to allow this, or populate regression_test",
+            file=sys.stderr,
+        )
+        print(
+            "  on FIXED/VERIFIED/CLOSED findings per docs/TESTING_STRATEGY.md §6.",
+            file=sys.stderr,
+        )
         return 1
 
     failures = 0
@@ -578,8 +616,10 @@ def cmd_verify_regression_tests(args: argparse.Namespace) -> int:
         for n in py_nodes:
             top = "management" if n.startswith("management/") else "."
             groups.setdefault(top, []).append(n)
-        print(f"verify-regression-tests: running {len(py_nodes)} pytest nodeid(s) "
-              f"across {len(groups)} group(s)")
+        print(
+            f"verify-regression-tests: running {len(py_nodes)} pytest nodeid(s) "
+            f"across {len(groups)} group(s)"
+        )
         for _group, nodes in groups.items():
             rc = subprocess.call(
                 ["python3", "-m", "pytest", "-q", "--no-header", *nodes],
@@ -594,7 +634,9 @@ def cmd_verify_regression_tests(args: argparse.Namespace) -> int:
             path_part, _, name = n.partition("::")
             pkg_dir = str(Path(path_part).parent)
             pkgs.setdefault(pkg_dir, []).append(name or ".")
-        print(f"verify-regression-tests: running {len(go_nodes)} go test(s) across {len(pkgs)} package(s)")
+        print(
+            f"verify-regression-tests: running {len(go_nodes)} go test(s) across {len(pkgs)} package(s)"
+        )
         for pkg, names in pkgs.items():
             run_arg = "|".join(n for n in names if n != ".")
             cmd = ["go", "test", "-count=1"]
@@ -606,7 +648,10 @@ def cmd_verify_regression_tests(args: argparse.Namespace) -> int:
                 failures += 1
 
     if failures:
-        print(f"verify-regression-tests: {failures} test invocation(s) failed", file=sys.stderr)
+        print(
+            f"verify-regression-tests: {failures} test invocation(s) failed",
+            file=sys.stderr,
+        )
         return 1
     print("verify-regression-tests: all regression tests passed")
     return 0
@@ -615,6 +660,7 @@ def cmd_verify_regression_tests(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 # show
 # ---------------------------------------------------------------------------
+
 
 def cmd_show(args: argparse.Namespace) -> int:
     reg = Register.load()
@@ -629,6 +675,7 @@ def cmd_show(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 # main
 # ---------------------------------------------------------------------------
+
 
 def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description=__doc__)
@@ -649,7 +696,9 @@ def _build_parser() -> argparse.ArgumentParser:
     pa.add_argument("--severity", required=True)
     pa.add_argument("--severity-rationale")
     pa.add_argument("--source", required=True, help="Source report tag, e.g. PHASE_118")
-    pa.add_argument("--source-id", required=True, help="Original ID in the source, e.g. 118a-01")
+    pa.add_argument(
+        "--source-id", required=True, help="Original ID in the source, e.g. 118a-01"
+    )
     pa.add_argument("--discovered", help="ISO date (default: today)")
     pa.add_argument("--lane", required=True, choices=VALID_LANES)
     pa.add_argument("--owner", help="GitHub handle, e.g. @seanpor")
@@ -658,7 +707,9 @@ def _build_parser() -> argparse.ArgumentParser:
     pa.add_argument("--remediation-phases", nargs="*", help="Phase IDs, e.g. 118a 109")
     pa.add_argument("--notes")
 
-    pd = sub.add_parser("dedup-hint", help="Fuzzy match a title against existing findings")
+    pd = sub.add_parser(
+        "dedup-hint", help="Fuzzy match a title against existing findings"
+    )
     pd.add_argument("query")
     pd.add_argument("--limit", type=int, default=5)
     pd.add_argument("--cutoff", type=float, default=0.55)

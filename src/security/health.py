@@ -42,14 +42,14 @@ class HealthMonitor:
         self._success_count = 0
         self._failure_count = 0
         self._start_time = time.time()
-        
+
         # Component status
         self._components: Dict[str, Dict[str, Any]] = {
             "redis": {"status": "unknown", "latency_ms": 0},
             "geoip": {"status": "unknown"},
             "filesystem": {"status": "unknown"},
         }
-        
+
         # Performance tracking
         self._pipeline_latencies: List[float] = []
         self._max_latencies = 100
@@ -80,7 +80,7 @@ class HealthMonitor:
             latency_ms = int((time.perf_counter() - t0) * 1000)
             self._components["redis"] = {
                 "status": "healthy" if latency_ms < 500 else "degraded",
-                "latency_ms": latency_ms
+                "latency_ms": latency_ms,
             }
             redis_ok = latency_ms < 1000
         except Exception as e:
@@ -91,10 +91,16 @@ class HealthMonitor:
         if self.geoip_path:
             p = Path(self.geoip_path)
             if p.exists() and p.stat().st_size > 1024:
-                self._components["geoip"] = {"status": "healthy", "size_bytes": p.stat().st_size}
+                self._components["geoip"] = {
+                    "status": "healthy",
+                    "size_bytes": p.stat().st_size,
+                }
                 geoip_ok = True
             else:
-                self._components["geoip"] = {"status": "unhealthy", "error": "file missing or too small"}
+                self._components["geoip"] = {
+                    "status": "unhealthy",
+                    "error": "file missing or too small",
+                }
                 geoip_ok = False
         else:
             geoip_ok = True  # Optional
@@ -113,13 +119,17 @@ class HealthMonitor:
             self._success_count += 1
             if not self._is_healthy and self._success_count >= self._rise_threshold:
                 self._is_healthy = True
-                logger.info('{"type":"system","level":"INFO","subsystem":"health","event":"state_changed","status":"healthy"}')
+                logger.info(
+                    '{"type":"system","level":"INFO","subsystem":"health","event":"state_changed","status":"healthy"}'
+                )
         else:
             self._success_count = 0
             self._failure_count += 1
             if self._is_healthy and self._failure_count >= self._fall_threshold:
                 self._is_healthy = False
-                logger.warning('{"type":"system","level":"WARN","subsystem":"health","event":"state_changed","status":"unhealthy"}')
+                logger.warning(
+                    '{"type":"system","level":"WARN","subsystem":"health","event":"state_changed","status":"unhealthy"}'
+                )
 
         return self._is_healthy
 
@@ -136,7 +146,7 @@ class HealthMonitor:
             "dial": self.config.get("dial", 0),
             "pipeline_latency_avg_ms": round(avg_latency, 2),
             "components": self._components,
-            "ts": datetime.now(timezone.utc).isoformat() + "Z"
+            "ts": datetime.now(timezone.utc).isoformat() + "Z",
         }
 
 
@@ -150,15 +160,19 @@ class HealthServer:
         self.host = host
         self.port = port
         self.app = web.Application()
-        self.app.add_routes([
-            web.get("/metrics", self.handle_metrics),
-            web.get("/health", self.handle_health),
-            web.get("/ready", self.handle_ready),
-        ])
+        self.app.add_routes(
+            [
+                web.get("/metrics", self.handle_metrics),
+                web.get("/health", self.handle_health),
+                web.get("/ready", self.handle_ready),
+            ]
+        )
         self.runner: Optional[web.AppRunner] = None
 
     async def handle_metrics(self, request):
-        return web.Response(body=generate_latest(), headers={"Content-Type": CONTENT_TYPE_LATEST})
+        return web.Response(
+            body=generate_latest(), headers={"Content-Type": CONTENT_TYPE_LATEST}
+        )
 
     async def handle_health(self, request):
         report = self.monitor.get_status_report()
@@ -169,7 +183,7 @@ class HealthServer:
         status_code = 200 if self.monitor.is_ready else 503
         return web.json_response(
             {"status": "ready" if self.monitor.is_ready else "not_ready"},
-            status=status_code
+            status=status_code,
         )
 
     async def start(self):
@@ -179,10 +193,13 @@ class HealthServer:
         await site.start()
         logger.info(
             '{"type":"system","level":"INFO","subsystem":"health","event":"server_started","host":"%s","port":%d}',
-            self.host, self.port
+            self.host,
+            self.port,
         )
 
     async def stop(self):
         if self.runner:
             await self.runner.cleanup()
-            logger.info('{"type":"system","level":"INFO","subsystem":"health","event":"server_stopped"}')
+            logger.info(
+                '{"type":"system","level":"INFO","subsystem":"health","event":"server_stopped"}'
+            )

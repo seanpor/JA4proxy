@@ -240,6 +240,7 @@ def test_ensure_token_missing_credentials(stub_management_client):
 def test_ensure_token_http_error(stub_management_client, monkeypatch):
     """A non-200 from the Falcon auth endpoint is caught and reported."""
     import aiohttp
+
     CrowdStrikeClient = _import_cs()
 
     # Mock aiohttp.ClientSession to simulate HTTP 401
@@ -272,6 +273,7 @@ def test_ensure_token_http_error(stub_management_client, monkeypatch):
 def test_ensure_token_missing_access_token(stub_management_client, monkeypatch):
     """Auth response without access_token raises RuntimeError."""
     import aiohttp
+
     CrowdStrikeClient = _import_cs()
 
     mock_resp = AsyncMock()
@@ -305,19 +307,24 @@ def test_ensure_token_skips_refresh_when_fresh(stub_management_client, monkeypat
     import time as time_mod
 
     import aiohttp
+
     CrowdStrikeClient = _import_cs()
 
     fetch_count = {"n": 0}
 
     mock_resp = AsyncMock()
     mock_resp.status = 200
-    mock_resp.json = AsyncMock(return_value={"access_token": "test-tok-xxx", "expires_in": 1800})
+    mock_resp.json = AsyncMock(
+        return_value={"access_token": "test-tok-xxx", "expires_in": 1800}
+    )
     mock_resp.__aenter__ = AsyncMock(return_value=mock_resp)
     mock_resp.__aexit__ = AsyncMock(return_value=False)
 
     mock_get_resp = AsyncMock()
     mock_get_resp.status = 200
-    mock_get_resp.json = AsyncMock(return_value={"resources": [], "meta": {"pagination": {}}})
+    mock_get_resp.json = AsyncMock(
+        return_value={"resources": [], "meta": {"pagination": {}}}
+    )
     mock_get_resp.__aenter__ = AsyncMock(return_value=mock_get_resp)
     mock_get_resp.__aexit__ = AsyncMock(return_value=False)
 
@@ -399,7 +406,11 @@ def test_pagination_stops_on_missing_offset(stub_management_client):
         call_count["n"] += 1
         return {
             "resources": [
-                {"id": f"ind-{call_count['n']}", "indicator": f"203.0.113.{call_count['n']}", "malicious_confidence": "high"},
+                {
+                    "id": f"ind-{call_count['n']}",
+                    "indicator": f"203.0.113.{call_count['n']}",
+                    "malicious_confidence": "high",
+                },
             ],
             "meta": {"pagination": {}},  # no offset key
         }
@@ -420,15 +431,21 @@ def test_pagination_follows_string_offset(stub_management_client):
 
     pages = [
         {
-            "resources": [{"id": "a1", "indicator": "203.0.113.1", "malicious_confidence": "high"}],
+            "resources": [
+                {"id": "a1", "indicator": "203.0.113.1", "malicious_confidence": "high"}
+            ],
             "meta": {"pagination": {"offset": "cursor-abc"}},
         },
         {
-            "resources": [{"id": "a2", "indicator": "203.0.113.2", "malicious_confidence": "high"}],
+            "resources": [
+                {"id": "a2", "indicator": "203.0.113.2", "malicious_confidence": "high"}
+            ],
             "meta": {"pagination": {"offset": "cursor-def"}},
         },
         {
-            "resources": [{"id": "a3", "indicator": "203.0.113.3", "malicious_confidence": "high"}],
+            "resources": [
+                {"id": "a3", "indicator": "203.0.113.3", "malicious_confidence": "high"}
+            ],
             "meta": {"pagination": {}},
         },
     ]
@@ -462,8 +479,16 @@ def test_ban_create_error_continues_processing(stub_management_client):
     async def _fetch(filters, offset=None, **kwargs):
         return {
             "resources": [
-                {"id": "f1", "indicator": "203.0.113.1", "malicious_confidence": "high"},
-                {"id": "f2", "indicator": "203.0.113.2", "malicious_confidence": "high"},
+                {
+                    "id": "f1",
+                    "indicator": "203.0.113.1",
+                    "malicious_confidence": "high",
+                },
+                {
+                    "id": "f2",
+                    "indicator": "203.0.113.2",
+                    "malicious_confidence": "high",
+                },
             ],
             "meta": {"pagination": {}},
         }
@@ -492,7 +517,11 @@ def test_state_mark_called_for_ban(stub_management_client):
     async def _fetch(filters, offset=None, **kwargs):
         return {
             "resources": [
-                {"id": "f1", "indicator": "203.0.113.1", "malicious_confidence": "high"},
+                {
+                    "id": "f1",
+                    "indicator": "203.0.113.1",
+                    "malicious_confidence": "high",
+                },
             ],
             "meta": {"pagination": {}},
         }
@@ -524,7 +553,11 @@ def test_non_string_indicator_skipped(stub_management_client):
             "resources": [
                 {"id": "f1", "indicator": 12345, "malicious_confidence": "high"},
                 {"id": "f2", "indicator": None, "malicious_confidence": "high"},
-                {"id": "f3", "indicator": "203.0.113.1", "malicious_confidence": "high"},
+                {
+                    "id": "f3",
+                    "indicator": "203.0.113.1",
+                    "malicious_confidence": "high",
+                },
             ],
             "meta": {"pagination": {}},
         }
@@ -586,12 +619,15 @@ def test_resolve_falcon_urls_eu():
 def test_poll_all_pages_http_error(stub_management_client, monkeypatch):
     """A non-200 from the indicators endpoint is caught and reported."""
     import aiohttp
+
     CrowdStrikeClient = _import_cs()
 
     # Mock auth to succeed
     mock_auth_resp = AsyncMock()
     mock_auth_resp.status = 200
-    mock_auth_resp.json = AsyncMock(return_value={"access_token": "test-tok-xxx", "expires_in": 1800})
+    mock_auth_resp.json = AsyncMock(
+        return_value={"access_token": "test-tok-xxx", "expires_in": 1800}
+    )
     mock_auth_resp.__aenter__ = AsyncMock(return_value=mock_auth_resp)
     mock_auth_resp.__aexit__ = AsyncMock(return_value=False)
 
@@ -639,7 +675,9 @@ def test_null_meta_stops_pagination(stub_management_client):
 
     async def _fetch(filters, offset=None, **kwargs):
         return {
-            "resources": [{"id": "x1", "indicator": "203.0.113.1", "malicious_confidence": "high"}],
+            "resources": [
+                {"id": "x1", "indicator": "203.0.113.1", "malicious_confidence": "high"}
+            ],
             "meta": None,
         }
 

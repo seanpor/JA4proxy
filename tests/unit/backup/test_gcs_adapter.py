@@ -40,7 +40,9 @@ except (ImportError, TypeError) as _gcs_exc:
         allow_module_level=True,
     )
 
-from src.backup.storage_adapter import StorageMetadata  # noqa: E402 — after importorskip
+from src.backup.storage_adapter import (
+    StorageMetadata,
+)  # noqa: E402 — after importorskip
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -56,6 +58,7 @@ def _make_gcs_error(message: str = "simulated GCS error"):
     """Return a GoogleAPIError-compatible exception."""
     try:
         from google.api_core.exceptions import GoogleAPIError
+
         exc = GoogleAPIError(message)
     except ImportError:
         exc = Exception(message)
@@ -299,7 +302,9 @@ class TestPrometheusCounterSuccess:
         mock_blob = MagicMock()
         adapter._bucket.blob.return_value = mock_blob
 
-        before = CLOUD_UPLOAD_TOTAL.labels(provider="gcs", result="success")._value.get()
+        before = CLOUD_UPLOAD_TOTAL.labels(
+            provider="gcs", result="success"
+        )._value.get()
         run(adapter.upload(sample_file, {}))
         after = CLOUD_UPLOAD_TOTAL.labels(provider="gcs", result="success")._value.get()
 
@@ -320,7 +325,9 @@ class TestPrometheusCounterFailure:
         adapter._bucket.blob.return_value = mock_blob
         adapter.MAX_RETRIES = 1
 
-        before = CLOUD_UPLOAD_TOTAL.labels(provider="gcs", result="failure")._value.get()
+        before = CLOUD_UPLOAD_TOTAL.labels(
+            provider="gcs", result="failure"
+        )._value.get()
         run(adapter.upload(sample_file, {}))
         after = CLOUD_UPLOAD_TOTAL.labels(provider="gcs", result="failure")._value.get()
 

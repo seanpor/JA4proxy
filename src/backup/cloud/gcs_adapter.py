@@ -87,9 +87,7 @@ class GCSStorageAdapter(StorageAdapter):
     # StorageAdapter interface
     # ------------------------------------------------------------------
 
-    async def upload(
-        self, local_path: Path, manifest: dict
-    ) -> StorageMetadata | None:
+    async def upload(self, local_path: Path, manifest: dict) -> StorageMetadata | None:
         """Upload artifact to GCS.
 
         Returns ``StorageMetadata`` on success, ``None`` on failure (fail-open).
@@ -206,9 +204,7 @@ class GCSStorageAdapter(StorageAdapter):
         blob = self._bucket.blob(blob_name)
         await asyncio.to_thread(blob.delete)
 
-    async def verify_checksum(
-        self, remote_uri: str, expected_sha256: str
-    ) -> bool:
+    async def verify_checksum(self, remote_uri: str, expected_sha256: str) -> bool:
         """Verify the SHA-256 checksum of a stored artifact.
 
         The checksum is read from the object's user-defined metadata

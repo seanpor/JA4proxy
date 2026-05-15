@@ -1,6 +1,7 @@
 """
 Unit tests for src/tap/export/taxii_server.py — Phase 20, Group 9.
 """
+
 import json
 import time
 from datetime import datetime, timezone
@@ -13,6 +14,7 @@ from src.tap.export.taxii_server import TaxiiServer
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_config(**overrides) -> dict:
     taxii = {
@@ -63,6 +65,7 @@ def _make_request(
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 class TestDiscovery:
     @pytest.mark.asyncio
@@ -118,12 +121,14 @@ class TestObjects:
     async def test_objects_endpoint_returns_stix_bundle(self):
         """GET objects must return a STIX bundle with type='bundle'."""
         bans = {
-            "ban:1.2.3.4": json.dumps({
-                "ip": "1.2.3.4",
-                "score": 80,
-                "reason": "test",
-                "timestamp": time.time(),
-            }),
+            "ban:1.2.3.4": json.dumps(
+                {
+                    "ip": "1.2.3.4",
+                    "score": 80,
+                    "reason": "test",
+                    "timestamp": time.time(),
+                }
+            ),
         }
         server = TaxiiServer(_make_config(), _make_redis(bans))
         req = _make_request()
@@ -143,24 +148,26 @@ class TestObjects:
         new_ts = time.time()
 
         bans = {
-            "ban:1.2.3.4": json.dumps({
-                "ip": "1.2.3.4",
-                "score": 80,
-                "reason": "old",
-                "timestamp": old_ts,
-            }),
-            "ban:5.6.7.8": json.dumps({
-                "ip": "5.6.7.8",
-                "score": 80,
-                "reason": "new",
-                "timestamp": new_ts,
-            }),
+            "ban:1.2.3.4": json.dumps(
+                {
+                    "ip": "1.2.3.4",
+                    "score": 80,
+                    "reason": "old",
+                    "timestamp": old_ts,
+                }
+            ),
+            "ban:5.6.7.8": json.dumps(
+                {
+                    "ip": "5.6.7.8",
+                    "score": 80,
+                    "reason": "new",
+                    "timestamp": new_ts,
+                }
+            ),
         }
 
         # Filter to only include entries added after 30 minutes ago
-        cutoff = datetime.fromtimestamp(
-            time.time() - 1800, tz=timezone.utc
-        ).isoformat()
+        cutoff = datetime.fromtimestamp(time.time() - 1800, tz=timezone.utc).isoformat()
 
         server = TaxiiServer(_make_config(), _make_redis(bans))
         req = _make_request(query={"added_after": cutoff})
@@ -170,8 +177,12 @@ class TestObjects:
 
         body = json.loads(resp.text)
         indicator_names = [obj.get("name", "") for obj in body.get("objects", [])]
-        assert not any("1.2.3.4" in n for n in indicator_names), "Old entry should be filtered"
-        assert any("5.6.7.8" in n for n in indicator_names), "New entry should be included"
+        assert not any(
+            "1.2.3.4" in n for n in indicator_names
+        ), "Old entry should be filtered"
+        assert any(
+            "5.6.7.8" in n for n in indicator_names
+        ), "New entry should be included"
 
     @pytest.mark.asyncio
     async def test_api_key_required_for_objects(self):
@@ -232,6 +243,7 @@ class TestStixIndicator:
 # Additional tests targeting previously uncovered lines
 # ---------------------------------------------------------------------------
 
+
 class TestTaxiiServerLifecycle:
     """Lines 55-62, 66-71, 85-87: _create_app, start, close lifecycle."""
 
@@ -255,8 +267,9 @@ class TestTaxiiServerLifecycle:
         mock_runner = AsyncMock()
         mock_site = AsyncMock()
 
-        with patch("src.tap.export.taxii_server.web.AppRunner", return_value=mock_runner), \
-             patch("src.tap.export.taxii_server.web.TCPSite", return_value=mock_site):
+        with patch(
+            "src.tap.export.taxii_server.web.AppRunner", return_value=mock_runner
+        ), patch("src.tap.export.taxii_server.web.TCPSite", return_value=mock_site):
             server = TaxiiServer(_make_config(), _make_redis())
             await server.start()
             assert server._runner is mock_runner
@@ -329,7 +342,9 @@ class TestObjectsResponseEdgeCases:
         # Lines 165-166: an unparseable added_after must be silently ignored (no crash).
         # A malformed query parameter must never cause an outage for STIX consumers.
         bans = {
-            "ban:1.2.3.4": json.dumps({"ip": "1.2.3.4", "score": 80, "reason": "r", "timestamp": time.time()})
+            "ban:1.2.3.4": json.dumps(
+                {"ip": "1.2.3.4", "score": 80, "reason": "r", "timestamp": time.time()}
+            )
         }
         server = TaxiiServer(_make_config(), _make_redis(bans))
         req = _make_request(query={"added_after": "not-a-date"})

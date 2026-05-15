@@ -72,7 +72,7 @@ async def list_bans(
             count=100,
         )
         for key in keys:
-            ip = key[len(_BAN_KEY_PREFIX):]
+            ip = key[len(_BAN_KEY_PREFIX) :]
             reason = await redis.get(key)
             if reason is None:
                 continue  # Key expired between SCAN and GET

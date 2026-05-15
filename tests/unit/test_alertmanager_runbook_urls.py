@@ -24,7 +24,13 @@ import yaml
 # Helpers
 # ---------------------------------------------------------------------------
 
-RULES_DIR = Path(__file__).parent.parent.parent / "deploy" / "monitoring" / "alertmanager" / "rules"
+RULES_DIR = (
+    Path(__file__).parent.parent.parent
+    / "deploy"
+    / "monitoring"
+    / "alertmanager"
+    / "rules"
+)
 
 
 def _collect_all_rules() -> list[tuple[str, str, dict]]:
@@ -52,10 +58,7 @@ def _collect_all_rules() -> list[tuple[str, str, dict]]:
 def _all_rule_ids():
     """Parametrize IDs for all alert rules."""
     try:
-        return [
-            f"{fname}::{alertname}"
-            for fname, alertname, _ in _collect_all_rules()
-        ]
+        return [f"{fname}::{alertname}" for fname, alertname, _ in _collect_all_rules()]
     except Exception:
         return []  # Let the test body handle the failure
 
@@ -79,6 +82,7 @@ else:
 # Test: every rule has an annotations block
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.parametrize("fname,alertname,rule", ALL_RULES, ids=RULE_IDS)
 def test_no_rule_file_is_missing_annotations(fname: str, alertname: str, rule: dict):
     """Every alert rule must have an 'annotations' block.
@@ -94,6 +98,7 @@ def test_no_rule_file_is_missing_annotations(fname: str, alertname: str, rule: d
 # ---------------------------------------------------------------------------
 # Test: every rule has a non-empty runbook_url annotation
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.parametrize("fname,alertname,rule", ALL_RULES, ids=RULE_IDS)
 def test_all_rule_files_have_runbook_url(fname: str, alertname: str, rule: dict):
@@ -114,6 +119,7 @@ def test_all_rule_files_have_runbook_url(fname: str, alertname: str, rule: dict)
 # ---------------------------------------------------------------------------
 # Test: runbook_url is not a catch-all (must be specific to this alert)
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.parametrize("fname,alertname,rule", ALL_RULES, ids=RULE_IDS)
 def test_runbook_url_contains_alertname(fname: str, alertname: str, rule: dict):
@@ -151,8 +157,10 @@ def test_runbook_url_contains_alertname(fname: str, alertname: str, rule: dict):
     # Accept any URL that has a meaningful path (not just a bare root like "https://host/")
     # A meaningful path contains at least one path segment with >3 characters
     import re as _re
+
     path_segments = [
-        seg for seg in _re.split(r"[/\\]", runbook_url.rstrip("/"))
+        seg
+        for seg in _re.split(r"[/\\]", runbook_url.rstrip("/"))
         if len(seg) > 3 and not seg.startswith("http")
     ]
     has_specific_path = len(path_segments) >= 1
@@ -168,6 +176,7 @@ def test_runbook_url_contains_alertname(fname: str, alertname: str, rule: dict):
 # ---------------------------------------------------------------------------
 # Smoke test: rule collection works at all
 # ---------------------------------------------------------------------------
+
 
 def test_rule_collection_succeeds():
     """Sanity check: we can parse rule files and find at least one rule."""

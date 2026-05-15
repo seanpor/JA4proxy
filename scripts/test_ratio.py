@@ -18,8 +18,12 @@ def count_lines_in_directory(directory: str, extensions: list) -> int:
             if any(file.endswith(ext) for ext in extensions):
                 filepath = os.path.join(root, file)
                 try:
-                    with open(filepath, 'r', encoding='utf-8') as f:
-                        lines += sum(1 for line in f if line.strip() and not line.strip().startswith('#'))
+                    with open(filepath, "r", encoding="utf-8") as f:
+                        lines += sum(
+                            1
+                            for line in f
+                            if line.strip() and not line.strip().startswith("#")
+                        )
                 except (UnicodeDecodeError, PermissionError):
                     pass
     return lines
@@ -27,21 +31,21 @@ def count_lines_in_directory(directory: str, extensions: list) -> int:
 
 def count_test_lines() -> int:
     """Count lines in test files."""
-    return count_lines_in_directory('tests', ['.py'])
+    return count_lines_in_directory("tests", [".py"])
 
 
 def count_production_lines() -> int:
     """Count lines in production code."""
     # Python production code
-    python_lines = count_lines_in_directory('src', ['.py'])
-    
+    python_lines = count_lines_in_directory("src", [".py"])
+
     # Go production code
     go_lines = 0
-    if os.path.exists('cmd'):
-        go_lines += count_lines_in_directory('cmd', ['.go'])
-    if os.path.exists('internal'):
-        go_lines += count_lines_in_directory('internal', ['.go'])
-    
+    if os.path.exists("cmd"):
+        go_lines += count_lines_in_directory("cmd", [".go"])
+    if os.path.exists("internal"):
+        go_lines += count_lines_in_directory("internal", [".go"])
+
     return python_lines + go_lines
 
 
@@ -49,15 +53,15 @@ def get_test_count() -> int:
     """Get current test count from pytest."""
     try:
         result = subprocess.run(
-            ['python3', '-m', 'pytest', 'tests/', '--collect-only', '-q'],
+            ["python3", "-m", "pytest", "tests/", "--collect-only", "-q"],
             capture_output=True,
             text=True,
-            timeout=30
+            timeout=30,
         )
-        
+
         # Parse test count from output
-        for line in result.stdout.split('\n'):
-            if 'collected' in line:
+        for line in result.stdout.split("\n"):
+            if "collected" in line:
                 parts = line.split()
                 for part in parts:
                     if part.isdigit():
@@ -73,12 +77,12 @@ def main():
     print("=" * 60)
     print("JA4proxy — Test-to-Code Ratio")
     print("=" * 60)
-    
+
     # Count lines
     test_lines = count_test_lines()
     prod_lines = count_production_lines()
     test_count = get_test_count()
-    
+
     # Calculate ratios
     if prod_lines > 0:
         line_ratio = test_lines / prod_lines
@@ -86,7 +90,7 @@ def main():
     else:
         line_ratio = 0
         test_per_prod = 0
-    
+
     # Print results
     print("\n📊 Code Metrics:")
     print(f"  Production code: {prod_lines:,} lines")
@@ -96,7 +100,7 @@ def main():
     print(f"  Test-to-code (lines): {line_ratio:.2f}:1")
     print(f"  Tests per prod line:  {test_per_prod:.4f}")
     print("  Target:              ≥1.3:1")
-    
+
     # Status
     if line_ratio >= 1.3:
         status = "✅ EXCELLENT"
@@ -107,15 +111,15 @@ def main():
     else:
         status = "❌ LOW"
         color = "\033[91m"
-    
+
     print(f"\n{color}Status: {status}\033[0m")
-    
+
     if line_ratio < 1.3:
         print("\n💡 Suggestion: Add more tests to reach the 1.3:1 target ratio.")
         print(f"   Needed: {int((1.3 * prod_lines) - test_lines):,} more test lines")
-    
+
     print("=" * 60)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -113,7 +113,9 @@ class DeadManSwitch:
         self._poll = poll_interval_seconds
         self._enabled = enabled
         self._start_time: float = (
-            _start_time_override if _start_time_override is not None else time.monotonic()
+            _start_time_override
+            if _start_time_override is not None
+            else time.monotonic()
         )
         self._trigger_counter = _TriggerCounterShim()
         self._fired: bool = False  # fire only once — repeated SIGTERM is pointless
@@ -184,9 +186,7 @@ class DeadManSwitch:
 
         # Never-ran guard: 0 or None means the monitor hasn't had its first run.
         if not last_check:
-            logger.debug(
-                "dead_man_switch | event=monitor_never_ran | action=noop"
-            )
+            logger.debug("dead_man_switch | event=monitor_never_ran | action=noop")
             return
 
         # Check staleness.

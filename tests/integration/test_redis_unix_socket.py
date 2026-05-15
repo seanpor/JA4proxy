@@ -28,17 +28,17 @@ redis:
   db: 0
   password: "testpass"
 """
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False) as f:
             f.write(config_text)
             config_path = f.name
 
         try:
             loader = ConfigLoader(config_path)
             config = await loader.load()
-            
-            assert config['redis']['unix_socket_path'] == "/var/run/redis/redis.sock"
-            assert config['redis']['host'] == "localhost"
-            assert config['redis']['port'] == 6379
+
+            assert config["redis"]["unix_socket_path"] == "/var/run/redis/redis.sock"
+            assert config["redis"]["host"] == "localhost"
+            assert config["redis"]["port"] == 6379
         finally:
             os.unlink(config_path)
 
@@ -51,23 +51,25 @@ redis:
   db: 0
   password: "testpass"
 """
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False) as f:
             f.write(config_text)
             config_path = f.name
 
         try:
             loader = ConfigLoader(config_path)
             config = await loader.load()
-            
-            assert 'unix_socket_path' not in config['redis']
-            assert config['redis']['host'] == "localhost"
-            assert config['redis']['port'] == 6379
+
+            assert "unix_socket_path" not in config["redis"]
+            assert config["redis"]["host"] == "localhost"
+            assert config["redis"]["port"] == 6379
         finally:
             os.unlink(config_path)
 
-    @patch('proxy.ProxyServer._init_from_config')
-    @patch('proxy.ProxyServer._init_redis')
-    async def test_proxy_uses_unix_socket_when_configured(self, mock_init_redis, mock_init_from_config):
+    @patch("proxy.ProxyServer._init_from_config")
+    @patch("proxy.ProxyServer._init_redis")
+    async def test_proxy_uses_unix_socket_when_configured(
+        self, mock_init_redis, mock_init_from_config
+    ):
         """Test that ProxyServer initializes Redis with Unix socket when configured."""
         from proxy import ProxyServer
 
@@ -83,7 +85,7 @@ redis:
   db: 0
   password: "testpass"
 """
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False) as f:
             f.write(config_text)
             config_path = f.name
 
@@ -103,9 +105,11 @@ redis:
         finally:
             os.unlink(config_path)
 
-    @patch('proxy.ProxyServer._init_from_config')
-    @patch('proxy.ProxyServer._init_redis')
-    async def test_proxy_uses_tcp_when_unix_socket_not_configured(self, mock_init_redis, mock_init_from_config):
+    @patch("proxy.ProxyServer._init_from_config")
+    @patch("proxy.ProxyServer._init_redis")
+    async def test_proxy_uses_tcp_when_unix_socket_not_configured(
+        self, mock_init_redis, mock_init_from_config
+    ):
         """Test that ProxyServer initializes Redis with TCP when Unix socket is not configured."""
         from proxy import ProxyServer
 
@@ -120,7 +124,7 @@ redis:
   db: 0
   password: "testpass"
 """
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False) as f:
             f.write(config_text)
             config_path = f.name
 

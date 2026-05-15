@@ -356,10 +356,12 @@ class TestDNSEnrichmentIntegration:
 
         # Patch get_signal to return a known signal without touching DNS
         from src.security.models import RiskSignal
+
         no_ptr_signal = RiskSignal(name="no_ptr", score=15, reason="No PTR record")
 
         with patch.object(
-            pipeline._dns_enrichment, "get_signal",
+            pipeline._dns_enrichment,
+            "get_signal",
             new=AsyncMock(return_value=no_ptr_signal),
         ):
             result = _run(pipeline.process(_ctx()))
@@ -373,19 +375,23 @@ class TestDNSEnrichmentIntegration:
 
         pipeline = _make_pipeline(dial=0)
         from src.security.models import RiskSignal
-        res_signal = RiskSignal(name="residential_ptr", score=-10,
-                                reason="Residential PTR")
+
+        res_signal = RiskSignal(
+            name="residential_ptr", score=-10, reason="Residential PTR"
+        )
 
         # Baseline: no DNS signal
         with patch.object(
-            pipeline._dns_enrichment, "get_signal",
+            pipeline._dns_enrichment,
+            "get_signal",
             new=AsyncMock(return_value=None),
         ):
             baseline = _run(pipeline.process(_ctx()))
 
         # With residential signal
         with patch.object(
-            pipeline._dns_enrichment, "get_signal",
+            pipeline._dns_enrichment,
+            "get_signal",
             new=AsyncMock(return_value=res_signal),
         ):
             result = _run(pipeline.process(_ctx()))
@@ -400,7 +406,8 @@ class TestDNSEnrichmentIntegration:
         pipeline = _make_pipeline(dial=0)
 
         with patch.object(
-            pipeline._dns_enrichment, "get_signal",
+            pipeline._dns_enrichment,
+            "get_signal",
             new=AsyncMock(return_value=None),
         ):
             result = _run(pipeline.process(_ctx()))
@@ -418,7 +425,8 @@ class TestDNSEnrichmentIntegration:
         pipeline = _make_pipeline(dial=0)
 
         with patch.object(
-            pipeline._dns_enrichment, "get_signal",
+            pipeline._dns_enrichment,
+            "get_signal",
             new=AsyncMock(side_effect=Exception("DNS internal error")),
         ):
             result = _run(pipeline.process(_ctx()))
@@ -468,7 +476,9 @@ class TestAbuseIPDBIntegration:
         mock_obj.set_score("185.220.101.5", 90)
 
         redis_mock = MagicMock()
-        checker = AbuseIPDBChecker(cfg, redis_mock, local_cache, mock_obj.make_session())
+        checker = AbuseIPDBChecker(
+            cfg, redis_mock, local_cache, mock_obj.make_session()
+        )
         pipeline.set_abuseipdb_checker(checker)
 
         result = _run(pipeline.process(_ctx(sni="example.com")))
@@ -585,22 +595,36 @@ class TestPipelineRDAPIntegration:
             min_enqueue_score=20,
             lookup_timeout_seconds=5,
             org_reputation=_OrgReputationConfig(enabled=True, score=45),
-            new_netblock_flagging=_NewNetblockConfig(enabled=True, max_age_days=90, score=20),
+            new_netblock_flagging=_NewNetblockConfig(
+                enabled=True, max_age_days=90, score=20
+            ),
             block_expansion=_BlockExpansionConfig(enabled=False),
         )
         redis_mock = MagicMock()
-        enricher = RDAPEnricher(config, redis_mock, local_cache, MagicMock(),
-                                known_bad_orgs_path="config/known_bad_orgs.yml")
+        enricher = RDAPEnricher(
+            config,
+            redis_mock,
+            local_cache,
+            MagicMock(),
+            known_bad_orgs_path="config/known_bad_orgs.yml",
+        )
         enricher._known_bad = [
-            {"handle": "FRANTECH", "name": "Frantech Solutions", "reason": "BP", "score": 45}
+            {
+                "handle": "FRANTECH",
+                "name": "Frantech Solutions",
+                "reason": "BP",
+                "score": 45,
+            }
         ]
         pipeline.set_rdap_enricher(enricher)
 
-        result = _run(pipeline.process(_ctx(client_ip="185.220.101.5", sni="example.com")))
-        signal_names = [s.name for s in result.signals]
-        assert "rdap_known_bad_org" in signal_names, (
-            f"Expected rdap_known_bad_org in signals, got: {signal_names}"
+        result = _run(
+            pipeline.process(_ctx(client_ip="185.220.101.5", sni="example.com"))
         )
+        signal_names = [s.name for s in result.signals]
+        assert (
+            "rdap_known_bad_org" in signal_names
+        ), f"Expected rdap_known_bad_org in signals, got: {signal_names}"
 
     def test_rdap_lru_miss_does_not_block_connection(self):
         """RDAP LRU miss (cache empty) → pipeline returns allow/monitor; no crash."""
@@ -626,19 +650,33 @@ class TestPipelineRDAPIntegration:
             min_enqueue_score=20,
             lookup_timeout_seconds=5,
             org_reputation=_OrgReputationConfig(enabled=True, score=45),
-            new_netblock_flagging=_NewNetblockConfig(enabled=True, max_age_days=90, score=20),
+            new_netblock_flagging=_NewNetblockConfig(
+                enabled=True, max_age_days=90, score=20
+            ),
             block_expansion=_BlockExpansionConfig(enabled=False),
         )
         redis_mock = MagicMock()
-        enricher = RDAPEnricher(config, redis_mock, local_cache, MagicMock(),
-                                known_bad_orgs_path="config/known_bad_orgs.yml")
+        enricher = RDAPEnricher(
+            config,
+            redis_mock,
+            local_cache,
+            MagicMock(),
+            known_bad_orgs_path="config/known_bad_orgs.yml",
+        )
         enricher._known_bad = []
         pipeline.set_rdap_enricher(enricher)
 
         # Pipeline should process without crashing
         result = _run(pipeline.process(_ctx(client_ip="10.0.0.1", sni="example.com")))
         assert result is not None
-        assert result.action in ("allow", "block", "ban", "flag", "rate_limit", "tarpit")
+        assert result.action in (
+            "allow",
+            "block",
+            "ban",
+            "flag",
+            "rate_limit",
+            "tarpit",
+        )
 
     def test_rdap_disabled_no_signal(self):
         """Disabled RDAP enricher → no rdap signals in result."""
@@ -656,6 +694,7 @@ class TestPipelineRDAPIntegration:
 
         # Pre-populate LRU with a known-bad result (would produce signal if enabled)
         from src.security.rdap_enrichment import RDAPResult
+
         rdap_result = RDAPResult(
             netblock="1.2.3.0/24",
             org_name="Frantech Solutions",
@@ -671,13 +710,25 @@ class TestPipelineRDAPIntegration:
         config = RDAPConfig(
             enabled=False,  # Disabled
             org_reputation=_OrgReputationConfig(enabled=True, score=45),
-            new_netblock_flagging=_NewNetblockConfig(enabled=True, max_age_days=90, score=20),
+            new_netblock_flagging=_NewNetblockConfig(
+                enabled=True, max_age_days=90, score=20
+            ),
             block_expansion=_BlockExpansionConfig(enabled=False),
         )
-        enricher = RDAPEnricher(config, MagicMock(), local_cache, MagicMock(),
-                                known_bad_orgs_path="config/known_bad_orgs.yml")
+        enricher = RDAPEnricher(
+            config,
+            MagicMock(),
+            local_cache,
+            MagicMock(),
+            known_bad_orgs_path="config/known_bad_orgs.yml",
+        )
         enricher._known_bad = [
-            {"handle": "FRANTECH", "name": "Frantech Solutions", "reason": "BP", "score": 45}
+            {
+                "handle": "FRANTECH",
+                "name": "Frantech Solutions",
+                "reason": "BP",
+                "score": 45,
+            }
         ]
         pipeline.set_rdap_enricher(enricher)
 
@@ -694,6 +745,7 @@ class TestPipelineRDAPIntegration:
 def _make_shutdown_server_stub(drain_timeout: float = 0.5, active: int = 0):
     """Minimal ProxyServer stub for shutdown integration tests."""
     from proxy import ProxyServer
+
     s = object.__new__(ProxyServer)
     s.config = {
         "proxy": {
@@ -729,6 +781,7 @@ def _make_shutdown_server_stub(drain_timeout: float = 0.5, active: int = 0):
     s.health_server.start = AsyncMock()
     s.health_server.stop = AsyncMock()
     from src.security.feed_health import FeedHealthMonitor
+
     s._feed_health_monitor = FeedHealthMonitor()
     s.greynoise_provider = MagicMock()
     s.greynoise_provider.start = AsyncMock()
@@ -791,6 +844,7 @@ class TestGracefulShutdownIntegration:
 
         async def run():
             with patch("proxy.asyncio.start_server", AsyncMock(return_value=mock_srv)):
+
                 async def trigger():
                     await asyncio.sleep(0.02)
                     shutdown_event.set()
@@ -801,9 +855,9 @@ class TestGracefulShutdownIntegration:
         asyncio.run(run())
 
         log_msgs = " ".join(str(c) for c in server.logger.info.call_args_list)
-        assert "shutdown_initiated" in log_msgs, (
-            f"shutdown_initiated not logged; got: {log_msgs!r}"
-        )
+        assert (
+            "shutdown_initiated" in log_msgs
+        ), f"shutdown_initiated not logged; got: {log_msgs!r}"
 
     def test_shutdown_with_active_connections_drains_before_exit(self):
         """Connections that finish during drain window are counted as drained."""
@@ -813,6 +867,7 @@ class TestGracefulShutdownIntegration:
 
         async def run():
             with patch("proxy.asyncio.start_server", AsyncMock(return_value=mock_srv)):
+
                 async def trigger():
                     await asyncio.sleep(0.02)
                     shutdown_event.set()
@@ -825,6 +880,6 @@ class TestGracefulShutdownIntegration:
         asyncio.run(run())
 
         log_msgs = " ".join(str(c) for c in server.logger.info.call_args_list)
-        assert "shutdown_complete" in log_msgs, (
-            f"shutdown_complete not logged; got: {log_msgs!r}"
-        )
+        assert (
+            "shutdown_complete" in log_msgs
+        ), f"shutdown_complete not logged; got: {log_msgs!r}"

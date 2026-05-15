@@ -105,9 +105,9 @@ async def test_post_allowlist_with_operator_k8s_returns_201(
         "note": "K8s operator managed entry",
     }
     resp = await operator_client.post("/api/v1/allowlist", json=body)
-    assert resp.status_code == 201, (
-        f"Expected 201, got {resp.status_code}: {resp.text[:200]}"
-    )
+    assert (
+        resp.status_code == 201
+    ), f"Expected 201, got {resp.status_code}: {resp.text[:200]}"
     data = resp.json()
     assert data["managed_by"] == "operator_k8s"
     assert data["entry"] == "t13d1516h2_aabbccddeeff_001122334455"
@@ -146,9 +146,9 @@ async def test_get_allowlist_filter_by_operator_k8s(
     data = resp.json()
     assert data["count"] >= 1
     for entry in data["entries"]:
-        assert entry["managed_by"] == "operator_k8s", (
-            f"Expected all entries to have managed_by=operator_k8s, got {entry['managed_by']}"
-        )
+        assert (
+            entry["managed_by"] == "operator_k8s"
+        ), f"Expected all entries to have managed_by=operator_k8s, got {entry['managed_by']}"
 
 
 # ── Test 3: Regression — all other enum values still work ────────────────────
@@ -177,8 +177,9 @@ async def test_post_allowlist_existing_enum_values_still_work(
         "note": f"Regression test for {managed_by}",
     }
     resp = await operator_client.post("/api/v1/allowlist", json=body)
-    assert resp.status_code in (200, 201), (
-        f"Expected 200 or 201 for managed_by={managed_by}, got {resp.status_code}: {resp.text[:200]}"
-    )
+    assert resp.status_code in (
+        200,
+        201,
+    ), f"Expected 200 or 201 for managed_by={managed_by}, got {resp.status_code}: {resp.text[:200]}"
     data = resp.json()
     assert data["managed_by"] == managed_by

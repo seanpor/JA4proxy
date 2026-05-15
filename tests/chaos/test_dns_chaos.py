@@ -17,6 +17,7 @@ from src.security.dns_enrichment import DNSEnrichment
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _run(coro):
     return asyncio.run(coro)
 
@@ -54,6 +55,7 @@ def _make_enrichment(enabled: bool = True, queue_size: int = 1000) -> DNSEnrichm
 # DNS resolver unreachable
 # ---------------------------------------------------------------------------
 
+
 class TestDNSResolverUnreachable:
     """Fail open when DNS resolver is unreachable."""
 
@@ -66,7 +68,9 @@ class TestDNSResolverUnreachable:
 
         # Simulate resolver failure on gethostbyaddr
         mock_resolver = MagicMock()
-        mock_resolver.gethostbyaddr = AsyncMock(side_effect=Exception("connection refused"))
+        mock_resolver.gethostbyaddr = AsyncMock(
+            side_effect=Exception("connection refused")
+        )
         enrichment._resolver = mock_resolver
 
         before = _DNS_RESOLVER_ERRORS._value.get()
@@ -92,13 +96,12 @@ class TestDNSResolverUnreachable:
             _run(enrichment._fcrdns_check("1.2.3.4"))
 
         json_logs = [
-            json.loads(r.message) for r in caplog.records
-            if r.message.startswith("{")
+            json.loads(r.message) for r in caplog.records if r.message.startswith("{")
         ]
         assert any(
-            log.get("event") == "resolver_error" and
-            log.get("subsystem") == "dns" and
-            "ip" in log
+            log.get("event") == "resolver_error"
+            and log.get("subsystem") == "dns"
+            and "ip" in log
             for log in json_logs
         )
 
@@ -114,6 +117,7 @@ class TestDNSResolverUnreachable:
 # ---------------------------------------------------------------------------
 # DNS timeout
 # ---------------------------------------------------------------------------
+
 
 class TestDNSTimeout:
     """Fail open when DNS queries time out."""
@@ -154,9 +158,7 @@ class TestDNSTimeout:
         """Timeout is caught; no coroutine left pending."""
         enrichment = _make_enrichment()
         mock_resolver = MagicMock()
-        mock_resolver.gethostbyaddr = AsyncMock(
-            side_effect=asyncio.TimeoutError()
-        )
+        mock_resolver.gethostbyaddr = AsyncMock(side_effect=asyncio.TimeoutError())
         enrichment._resolver = mock_resolver
 
         loop = asyncio.new_event_loop()
@@ -174,6 +176,7 @@ class TestDNSTimeout:
 # ---------------------------------------------------------------------------
 # Malformed PTR response
 # ---------------------------------------------------------------------------
+
 
 class TestMalformedPTRResponse:
     """Malformed DNS responses are handled gracefully."""
@@ -196,8 +199,11 @@ class TestMalformedPTRResponse:
         result = _run(enrichment._fcrdns_check("1.2.3.4"))
         # Should not raise; classification determined
         assert result.classification in (
-            "confirmed", "fcrdns_failed", "residential",
-            "datacenter_confirmed", "no_ptr",
+            "confirmed",
+            "fcrdns_failed",
+            "residential",
+            "datacenter_confirmed",
+            "no_ptr",
         )
 
     def test_ptr_exception_after_partial_result_fails_open(self):
@@ -217,6 +223,7 @@ class TestMalformedPTRResponse:
 # ---------------------------------------------------------------------------
 # Queue overflow
 # ---------------------------------------------------------------------------
+
 
 class TestQueueOverflow:
     """Queue overflow drops items silently with counter increment."""
@@ -247,13 +254,12 @@ class TestQueueOverflow:
             _run(enrichment.enqueue("1.2.3.4"))
 
         json_logs = [
-            json.loads(r.message) for r in caplog.records
-            if r.message.startswith("{")
+            json.loads(r.message) for r in caplog.records if r.message.startswith("{")
         ]
         assert any(
-            log.get("event") == "queue_full" and
-            log.get("subsystem") == "dns" and
-            "dropped_ip" in log
+            log.get("event") == "queue_full"
+            and log.get("subsystem") == "dns"
+            and "dropped_ip" in log
             for log in json_logs
         )
 

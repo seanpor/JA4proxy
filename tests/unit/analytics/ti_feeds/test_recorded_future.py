@@ -77,9 +77,7 @@ def test_collection_ids_configurable(stub_management_client):
     RecordedFutureClient = _import_rf()
 
     cfg = _make_rf_config(feeds=["custom_feed_a", "custom_feed_b"])
-    client = RecordedFutureClient(
-        config=cfg, mgmt=stub_management_client, state=None
-    )
+    client = RecordedFutureClient(config=cfg, mgmt=stub_management_client, state=None)
     assert client.collection_ids == ["custom_feed_a", "custom_feed_b"]
 
 
@@ -141,7 +139,9 @@ def test_pagination_cursor_advances(stub_management_client):
 
     assert cursor_calls == [None, "cursor-page-2"]
     # Both pages' indicators were processed
-    paths = [r["path"] for r in stub_management_client.requests if r["method"] == "POST"]
+    paths = [
+        r["path"] for r in stub_management_client.requests if r["method"] == "POST"
+    ]
     assert any("203.0.113.1" in p for p in paths)
     assert any("203.0.113.2" in p for p in paths)
 
@@ -178,4 +178,6 @@ def test_inherits_min_confidence_from_taxii_logic(stub_management_client):
     )
     result = _run(client.poll())
     assert result.skipped_below_confidence >= 1
-    assert not any("203.0.113.99" in r.get("path", "") for r in stub_management_client.requests)
+    assert not any(
+        "203.0.113.99" in r.get("path", "") for r in stub_management_client.requests
+    )

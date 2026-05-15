@@ -18,6 +18,7 @@ Usage:
 Requirements:
     scapy  (pip install scapy)
 """
+
 from __future__ import annotations
 
 import argparse
@@ -49,7 +50,9 @@ def _build_client_hello(
             ext_bytes += struct.pack("!HH", 0, len(list_bytes)) + list_bytes
         elif ext_type == 43:
             versions = struct.pack("!H", 0x0304)
-            ext_bytes += struct.pack("!HHB", 43, len(versions) + 1, len(versions)) + versions
+            ext_bytes += (
+                struct.pack("!HHB", 43, len(versions) + 1, len(versions)) + versions
+            )
         elif ext_type == grease_val:
             ext_bytes += struct.pack("!HH", grease_val, 0)
         else:
@@ -82,8 +85,8 @@ def _write_pcap(path: Path, packets: list[bytes], *, link_type: int = 1) -> None
         PCAP_MAGIC,
         PCAP_VERSION_MAJOR,
         PCAP_VERSION_MINOR,
-        0,      # GMT offset
-        0,      # timestamp accuracy
+        0,  # GMT offset
+        0,  # timestamp accuracy
         SNAPLEN,
         link_type,
     )
@@ -124,27 +127,27 @@ def _eth_ip_tcp(
         "!HHIIBBHHH",
         sport,
         dport,
-        0,       # seq
-        0,       # ack
+        0,  # seq
+        0,  # ack
         (tcp_offset << 4),
         flags,
-        65535,   # window
-        0,       # checksum (0 for test pcap)
-        0,       # urgent
+        65535,  # window
+        0,  # checksum (0 for test pcap)
+        0,  # urgent
     )
 
     # IPv4 header (no options)
     ip_total_len = 20 + len(tcp_header) + len(payload)
     ip_header = struct.pack(
         "!BBHHHBBH4s4s",
-        0x45,        # version+IHL
-        0,           # DSCP+ECN
+        0x45,  # version+IHL
+        0,  # DSCP+ECN
         ip_total_len,
-        0,           # id
-        0x40 << 8,   # flags+fragment offset (DF)
-        64,          # TTL
-        6,           # protocol = TCP
-        0,           # checksum
+        0,  # id
+        0x40 << 8,  # flags+fragment offset (DF)
+        64,  # TTL
+        6,  # protocol = TCP
+        0,  # checksum
         ip_to_bytes(src_ip),
         ip_to_bytes(dst_ip),
     )
@@ -156,7 +159,7 @@ def _eth_ip_tcp(
 def generate_chrome_pcap(output_dir: Path) -> None:
     """Chrome-like TLS 1.3 ClientHello with GREASE."""
     ch = _build_client_hello(
-        ciphers=[0x1301, 0x1302, 0x1303, 0x00ff],
+        ciphers=[0x1301, 0x1302, 0x1303, 0x00FF],
         extensions=[0, 11, 10, 16, 22, 23, 13, 43, 45, 51, 21],
         sni="example.com",
         grease=True,
@@ -172,7 +175,7 @@ def generate_chrome_pcap(output_dir: Path) -> None:
 def generate_firefox_pcap(output_dir: Path) -> None:
     """Firefox-like TLS 1.3 ClientHello."""
     ch = _build_client_hello(
-        ciphers=[0x1301, 0x1302, 0x1303, 0xc02b, 0xc02c],
+        ciphers=[0x1301, 0x1302, 0x1303, 0xC02B, 0xC02C],
         extensions=[0, 23, 65281, 10, 11, 16, 5, 34, 51, 43, 13, 45, 21],
         sni="example.com",
         grease=False,

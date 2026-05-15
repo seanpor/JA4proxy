@@ -1,6 +1,7 @@
 """
 Unit tests for src/tap/export/edl_server.py — Phase 20, Group 9.
 """
+
 import json
 import time
 from unittest.mock import AsyncMock, MagicMock
@@ -12,6 +13,7 @@ from src.tap.export.edl_server import EDLServer
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_config(**overrides) -> dict:
     edl = {
@@ -92,13 +94,18 @@ async def _make_server_with_bans(
 # Tests
 # ---------------------------------------------------------------------------
 
+
 class TestBannedIPsList:
     @pytest.mark.asyncio
     async def test_banned_ips_list_contains_active_bans_only(self):
         """Only active ban entries should appear in the list."""
         bans = {
-            "ban:1.2.3.4": json.dumps({"ip": "1.2.3.4", "score": 80, "timestamp": time.time()}),
-            "ban:5.6.7.8": json.dumps({"ip": "5.6.7.8", "score": 70, "timestamp": time.time()}),
+            "ban:1.2.3.4": json.dumps(
+                {"ip": "1.2.3.4", "score": 80, "timestamp": time.time()}
+            ),
+            "ban:5.6.7.8": json.dumps(
+                {"ip": "5.6.7.8", "score": 70, "timestamp": time.time()}
+            ),
         }
         server = await _make_server_with_bans(bans)
         req = _make_request()
@@ -114,8 +121,12 @@ class TestBannedIPsList:
         """Entries whose timestamp is older than max_age_hours must be excluded."""
         old_ts = time.time() - 25 * 3600  # 25 hours ago
         bans = {
-            "ban:1.2.3.4": json.dumps({"ip": "1.2.3.4", "score": 80, "timestamp": old_ts}),
-            "ban:9.9.9.9": json.dumps({"ip": "9.9.9.9", "score": 80, "timestamp": time.time()}),
+            "ban:1.2.3.4": json.dumps(
+                {"ip": "1.2.3.4", "score": 80, "timestamp": old_ts}
+            ),
+            "ban:9.9.9.9": json.dumps(
+                {"ip": "9.9.9.9", "score": 80, "timestamp": time.time()}
+            ),
         }
         server = await _make_server_with_bans(bans, {"max_age_hours": 24})
         req = _make_request()
@@ -129,8 +140,12 @@ class TestBannedIPsList:
     async def test_entries_below_min_score_excluded(self):
         """Entries with score < min_score must be excluded."""
         bans = {
-            "ban:1.2.3.4": json.dumps({"ip": "1.2.3.4", "score": 30, "timestamp": time.time()}),
-            "ban:9.9.9.9": json.dumps({"ip": "9.9.9.9", "score": 80, "timestamp": time.time()}),
+            "ban:1.2.3.4": json.dumps(
+                {"ip": "1.2.3.4", "score": 30, "timestamp": time.time()}
+            ),
+            "ban:9.9.9.9": json.dumps(
+                {"ip": "9.9.9.9", "score": 80, "timestamp": time.time()}
+            ),
         }
         server = await _make_server_with_bans(bans, {"min_score": 50})
         req = _make_request()
@@ -143,7 +158,11 @@ class TestBannedIPsList:
     @pytest.mark.asyncio
     async def test_etag_returned_with_response(self):
         """ETag header must be present in a 200 response."""
-        bans = {"ban:1.2.3.4": json.dumps({"ip": "1.2.3.4", "score": 80, "timestamp": time.time()})}
+        bans = {
+            "ban:1.2.3.4": json.dumps(
+                {"ip": "1.2.3.4", "score": 80, "timestamp": time.time()}
+            )
+        }
         server = await _make_server_with_bans(bans)
         req = _make_request()
         response = await server.handle_edl_request("banned_ips", req)
@@ -154,7 +173,11 @@ class TestBannedIPsList:
     @pytest.mark.asyncio
     async def test_304_returned_when_etag_matches(self):
         """When If-None-Match matches the current ETag, return 304."""
-        bans = {"ban:1.2.3.4": json.dumps({"ip": "1.2.3.4", "score": 80, "timestamp": time.time()})}
+        bans = {
+            "ban:1.2.3.4": json.dumps(
+                {"ip": "1.2.3.4", "score": 80, "timestamp": time.time()}
+            )
+        }
         server = await _make_server_with_bans(bans)
 
         # First request to get ETag
@@ -207,7 +230,11 @@ class TestBannedIPsList:
     @pytest.mark.asyncio
     async def test_comments_included_when_include_comments_true(self):
         """When include_comments=True, response body starts with a '#' comment line."""
-        bans = {"ban:1.2.3.4": json.dumps({"ip": "1.2.3.4", "score": 80, "timestamp": time.time()})}
+        bans = {
+            "ban:1.2.3.4": json.dumps(
+                {"ip": "1.2.3.4", "score": 80, "timestamp": time.time()}
+            )
+        }
         server = await _make_server_with_bans(bans, {"include_comments": True})
         req = _make_request()
         response = await server.handle_edl_request("banned_ips", req)
@@ -219,8 +246,12 @@ class TestBannedIPsList:
     async def test_combined_list_is_union_of_banned_ips_and_cidrs(self):
         """Combined list should contain both IPs and CIDRs."""
         bans = {
-            "ban:1.2.3.4": json.dumps({"ip": "1.2.3.4", "score": 80, "timestamp": time.time()}),
-            "ban:10.0.0.0/8": json.dumps({"ip": "10.0.0.0/8", "score": 80, "timestamp": time.time()}),
+            "ban:1.2.3.4": json.dumps(
+                {"ip": "1.2.3.4", "score": 80, "timestamp": time.time()}
+            ),
+            "ban:10.0.0.0/8": json.dumps(
+                {"ip": "10.0.0.0/8", "score": 80, "timestamp": time.time()}
+            ),
         }
         server = await _make_server_with_bans(bans)
         req = _make_request()
@@ -234,6 +265,7 @@ class TestBannedIPsList:
 # ---------------------------------------------------------------------------
 # Additional tests targeting previously uncovered lines
 # ---------------------------------------------------------------------------
+
 
 class TestEDLServerLifecycle:
     """Lines 67-69, 73-79: _create_app and start()."""
@@ -260,8 +292,9 @@ class TestEDLServerLifecycle:
         config = _make_config()
         redis = _make_redis({})
 
-        with patch("src.tap.export.edl_server.web.AppRunner", return_value=mock_runner), \
-             patch("src.tap.export.edl_server.web.TCPSite", return_value=mock_site):
+        with patch(
+            "src.tap.export.edl_server.web.AppRunner", return_value=mock_runner
+        ), patch("src.tap.export.edl_server.web.TCPSite", return_value=mock_site):
             server = EDLServer(config, redis)
             await server.start()
             assert server._runner is mock_runner
@@ -346,10 +379,12 @@ class TestRebuildListsEdgeCases:
         # A single bad entry must not prevent the remaining valid entries from appearing.
         redis = MagicMock()
         redis.keys.return_value = [b"ban:bad", b"ban:8.8.8.8"]
+
         def get_side(key):
             if key == b"ban:bad":
                 raise RuntimeError("corrupted")
             return json.dumps({"ip": "8.8.8.8", "score": 80}).encode()
+
         redis.get.side_effect = get_side
         config = _make_config()
         server = EDLServer(config, redis)
@@ -364,7 +399,11 @@ class TestHandleEdlRequestEdgeCases:
     async def test_handle_request_private_method_routes_to_public(self):
         # Lines 180-181: _handle_request is the aiohttp route callback.
         # It must delegate correctly to handle_edl_request.
-        bans = {"ban:1.2.3.4": json.dumps({"ip": "1.2.3.4", "score": 80, "timestamp": time.time()})}
+        bans = {
+            "ban:1.2.3.4": json.dumps(
+                {"ip": "1.2.3.4", "score": 80, "timestamp": time.time()}
+            )
+        }
         server = await _make_server_with_bans(bans)
         req = _make_request()
         req.match_info = {"list_name": "banned_ips"}

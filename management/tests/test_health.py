@@ -84,9 +84,7 @@ async def test_health_redis_unavailable_returns_degraded(
 @pytest.mark.asyncio
 async def test_health_is_public(test_client: AsyncClient) -> None:
     """Health endpoint is public — no auth token needed (used by Docker healthcheck)."""
-    r = await test_client.get(
-        "/api/v1/health", headers={"Accept": "application/json"}
-    )
+    r = await test_client.get("/api/v1/health", headers={"Accept": "application/json"})
     assert r.status_code == 200, (
         f"Health endpoint returned {r.status_code}; expected 200. "
         "Docker healthcheck calls /api/v1/health without a token — it must be public."

@@ -6,6 +6,7 @@ export backends (EDL, F5, Palo Alto, Kafka, Syslog, TAXII, MISP).  Every
 backend failure must be isolated — one broken exporter must never prevent others
 from receiving events.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -18,6 +19,7 @@ from src.tap.export.export_manager import ExportManager
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _cfg(**enabled_backends) -> dict:
     """Build a minimal proxy config dict with specific backends enabled."""
@@ -39,6 +41,7 @@ def _manager(**enabled_backends) -> ExportManager:
 # start() — exporter instantiation
 # ---------------------------------------------------------------------------
 
+
 class TestExportManagerStart:
     """Cover lines 53-137: each per-backend branch in start()."""
 
@@ -48,6 +51,7 @@ class TestExportManagerStart:
         So what: if start() isn't called, the EDL HTTP server never binds — no
         firewall can pull the dynamic ban list."""
         import src.tap.export.edl_server as _edl_mod
+
         config = {"intelligence_export": {"edl": {"enabled": True}}}
         mgr = ExportManager(config=config, redis=MagicMock())
         mock_edl = AsyncMock()
@@ -83,10 +87,16 @@ class TestExportManagerStart:
         mock_kafka.start = AsyncMock()
 
         with (
-            patch("src.tap.export.edl_server.EDLServer",
-                  side_effect=RuntimeError("edl init failed"), create=True),
-            patch("src.tap.export.kafka_producer.KafkaExporter",
-                  return_value=mock_kafka, create=True),
+            patch(
+                "src.tap.export.edl_server.EDLServer",
+                side_effect=RuntimeError("edl init failed"),
+                create=True,
+            ),
+            patch(
+                "src.tap.export.kafka_producer.KafkaExporter",
+                return_value=mock_kafka,
+                create=True,
+            ),
         ):
             await mgr.start()  # must not raise
 
@@ -94,12 +104,19 @@ class TestExportManagerStart:
     async def test_start_kafka_when_enabled(self):
         """KafkaExporter is instantiated and started when kafka.enabled=True (lines 95-105).
         So what: without Kafka, security events don't reach the SIEM."""
-        config = {"intelligence_export": {"kafka": {"enabled": True, "brokers": "localhost:9092"}}}
+        config = {
+            "intelligence_export": {
+                "kafka": {"enabled": True, "brokers": "localhost:9092"}
+            }
+        }
         mgr = ExportManager(config=config, redis=MagicMock())
         mock_kafka = AsyncMock()
         mock_kafka.start = AsyncMock()
-        with patch("src.tap.export.kafka_producer.KafkaExporter",
-                   return_value=mock_kafka, create=True):
+        with patch(
+            "src.tap.export.kafka_producer.KafkaExporter",
+            return_value=mock_kafka,
+            create=True,
+        ):
             await mgr.start()
         mock_kafka.start.assert_awaited_once()
         assert mgr._kafka is mock_kafka
@@ -110,8 +127,11 @@ class TestExportManagerStart:
         config = {"intelligence_export": {"syslog": {"enabled": True}}}
         mgr = ExportManager(config=config, redis=MagicMock())
         mock_syslog = MagicMock()
-        with patch("src.tap.export.syslog_exporter.SyslogExporter",
-                   return_value=mock_syslog, create=True):
+        with patch(
+            "src.tap.export.syslog_exporter.SyslogExporter",
+            return_value=mock_syslog,
+            create=True,
+        ):
             await mgr.start()
         assert mgr._syslog is mock_syslog
 
@@ -121,8 +141,9 @@ class TestExportManagerStart:
         config = {"intelligence_export": {"misp": {"enabled": True}}}
         mgr = ExportManager(config=config, redis=MagicMock(), http_session=MagicMock())
         mock_misp = MagicMock()
-        with patch("src.tap.export.misp_client.MISPClient",
-                   return_value=mock_misp, create=True):
+        with patch(
+            "src.tap.export.misp_client.MISPClient", return_value=mock_misp, create=True
+        ):
             await mgr.start()
         assert mgr._misp is mock_misp
 
@@ -131,13 +152,15 @@ class TestExportManagerStart:
 # on_fingerprint()
 # ---------------------------------------------------------------------------
 
+
 class TestOnFingerprint:
     """Lines 141-162: fingerprint fan-out."""
 
     @pytest.mark.asyncio
     async def test_on_fingerprint_calls_kafka_send(self):
         """on_fingerprint() calls kafka.send_fingerprint when kafka is wired (lines 149-150).
-        So what: if Kafka doesn't receive fingerprints, the SIEM has no JA4 telemetry."""
+        So what: if Kafka doesn't receive fingerprints, the SIEM has no JA4 telemetry.
+        """
         mgr = ExportManager(config={}, redis=MagicMock())
         mock_kafka = AsyncMock()
         mgr._kafka = mock_kafka
@@ -166,6 +189,7 @@ class TestOnFingerprint:
 # on_ban()
 # ---------------------------------------------------------------------------
 
+
 class TestOnBan:
     """Lines 164-209: ban fan-out to all backends."""
 
@@ -181,8 +205,11 @@ class TestOnBan:
     @pytest.mark.asyncio
     async def test_on_ban_calls_f5_delta_push(self):
         """on_ban() calls f5.delta_push when f5 is wired."""
-        mgr = ExportManager(config={"intelligence_export": {}}, redis=MagicMock(),
-                            http_session=MagicMock())
+        mgr = ExportManager(
+            config={"intelligence_export": {}},
+            redis=MagicMock(),
+            http_session=MagicMock(),
+        )
         mock_f5 = AsyncMock()
         mgr._f5 = mock_f5
         await mgr.on_ban("1.2.3.4", score=80, ttl=1800, reason="bot")
@@ -191,7 +218,8 @@ class TestOnBan:
     @pytest.mark.asyncio
     async def test_on_ban_syslog_action_mapping_signal_ban(self):
         """score>=85 maps to 'signal_ban' action for syslog (lines 187-196).
-        So what: wrong action label means SIEM cannot correctly classify ban severity."""
+        So what: wrong action label means SIEM cannot correctly classify ban severity.
+        """
         mgr = ExportManager(config={"intelligence_export": {}}, redis=MagicMock())
         mock_syslog = MagicMock()
         mock_syslog.send = MagicMock()
@@ -231,6 +259,7 @@ class TestOnBan:
 # ---------------------------------------------------------------------------
 # close()
 # ---------------------------------------------------------------------------
+
 
 class TestClose:
     """Lines 211-233: teardown of all running exporters."""
@@ -293,6 +322,7 @@ class TestClose:
 # Additional start() coverage — F5, PaloAlto, TAXII, exception paths
 # ---------------------------------------------------------------------------
 
+
 class TestExportManagerStartAdditional:
     """Cover lines 70-76 (F5), 81-91 (PaloAlto), 102-103 (Kafka exc),
     113-114 (Syslog exc), 119-126 (TAXII), 136-137 (MISP exc)."""
@@ -304,7 +334,9 @@ class TestExportManagerStartAdditional:
         config = {"intelligence_export": {"f5": {"enabled": True}}}
         mgr = ExportManager(config=config, redis=MagicMock(), http_session=MagicMock())
         mock_f5 = MagicMock()
-        with patch("src.tap.export.f5_client.F5Client", return_value=mock_f5, create=True):
+        with patch(
+            "src.tap.export.f5_client.F5Client", return_value=mock_f5, create=True
+        ):
             await mgr.start()
         assert mgr._f5 is mock_f5
 
@@ -314,8 +346,11 @@ class TestExportManagerStartAdditional:
         So what: broken ADC config must not prevent other exporters from starting."""
         config = {"intelligence_export": {"f5": {"enabled": True}}}
         mgr = ExportManager(config=config, redis=MagicMock(), http_session=MagicMock())
-        with patch("src.tap.export.f5_client.F5Client",
-                   side_effect=RuntimeError("f5 init failed"), create=True):
+        with patch(
+            "src.tap.export.f5_client.F5Client",
+            side_effect=RuntimeError("f5 init failed"),
+            create=True,
+        ):
             await mgr.start()  # must not raise
         assert mgr._f5 is None
 
@@ -326,8 +361,11 @@ class TestExportManagerStartAdditional:
         config = {"intelligence_export": {"palo_alto": {"enabled": True}}}
         mgr = ExportManager(config=config, redis=MagicMock(), http_session=MagicMock())
         mock_pa = MagicMock()
-        with patch("src.tap.export.palo_alto_client.PaloAltoClient",
-                   return_value=mock_pa, create=True):
+        with patch(
+            "src.tap.export.palo_alto_client.PaloAltoClient",
+            return_value=mock_pa,
+            create=True,
+        ):
             await mgr.start()
         assert mgr._palo_alto is mock_pa
 
@@ -337,8 +375,11 @@ class TestExportManagerStartAdditional:
         So what: broken Palo Alto config must not prevent Kafka from starting."""
         config = {"intelligence_export": {"palo_alto": {"enabled": True}}}
         mgr = ExportManager(config=config, redis=MagicMock(), http_session=MagicMock())
-        with patch("src.tap.export.palo_alto_client.PaloAltoClient",
-                   side_effect=RuntimeError("pa init failed"), create=True):
+        with patch(
+            "src.tap.export.palo_alto_client.PaloAltoClient",
+            side_effect=RuntimeError("pa init failed"),
+            create=True,
+        ):
             await mgr.start()  # must not raise
         assert mgr._palo_alto is None
 
@@ -350,8 +391,11 @@ class TestExportManagerStartAdditional:
         mgr = ExportManager(config=config, redis=MagicMock())
         mock_kafka = AsyncMock()
         mock_kafka.start.side_effect = RuntimeError("kafka broker down")
-        with patch("src.tap.export.kafka_producer.KafkaExporter",
-                   return_value=mock_kafka, create=True):
+        with patch(
+            "src.tap.export.kafka_producer.KafkaExporter",
+            return_value=mock_kafka,
+            create=True,
+        ):
             await mgr.start()  # must not raise
 
     @pytest.mark.asyncio
@@ -360,20 +404,25 @@ class TestExportManagerStartAdditional:
         So what: broken syslog config must not prevent MISP from starting."""
         config = {"intelligence_export": {"syslog": {"enabled": True}}}
         mgr = ExportManager(config=config, redis=MagicMock())
-        with patch("src.tap.export.syslog_exporter.SyslogExporter",
-                   side_effect=RuntimeError("syslog init failed"), create=True):
+        with patch(
+            "src.tap.export.syslog_exporter.SyslogExporter",
+            side_effect=RuntimeError("syslog init failed"),
+            create=True,
+        ):
             await mgr.start()  # must not raise
         assert mgr._syslog is None
 
     @pytest.mark.asyncio
     async def test_start_taxii_when_enabled(self):
         """TaxiiServer is instantiated and started when taxii.enabled=True (lines 119-128).
-        So what: without TAXII start, threat intel sharing with partner SOCs never flows."""
+        So what: without TAXII start, threat intel sharing with partner SOCs never flows.
+        """
         config = {"intelligence_export": {"taxii": {"enabled": True}}}
         mgr = ExportManager(config=config, redis=MagicMock())
         mock_taxii = AsyncMock()
         mock_taxii.start = AsyncMock()
         import src.tap.export.taxii_server as _taxii_mod
+
         with patch.object(_taxii_mod, "TaxiiServer", return_value=mock_taxii):
             await mgr.start()
         mock_taxii.start.assert_awaited_once()
@@ -385,8 +434,11 @@ class TestExportManagerStartAdditional:
         So what: broken MISP config must not prevent other exporters from starting."""
         config = {"intelligence_export": {"misp": {"enabled": True}}}
         mgr = ExportManager(config=config, redis=MagicMock(), http_session=MagicMock())
-        with patch("src.tap.export.misp_client.MISPClient",
-                   side_effect=RuntimeError("misp init failed"), create=True):
+        with patch(
+            "src.tap.export.misp_client.MISPClient",
+            side_effect=RuntimeError("misp init failed"),
+            create=True,
+        ):
             await mgr.start()  # must not raise
         assert mgr._misp is None
 
@@ -395,15 +447,20 @@ class TestExportManagerStartAdditional:
 # on_ban() PaloAlto path
 # ---------------------------------------------------------------------------
 
+
 class TestOnBanAdditional:
     """Cover lines 178-180 (PaloAlto ban path) and syslog score-flag boundaries."""
 
     @pytest.mark.asyncio
     async def test_on_ban_calls_palo_alto_register_ip(self):
         """on_ban() calls palo_alto.register_ip when palo_alto is wired (lines 178-180).
-        So what: if PaloAlto register_ip isn't called, firewall tags are never applied."""
-        mgr = ExportManager(config={"intelligence_export": {}}, redis=MagicMock(),
-                            http_session=MagicMock())
+        So what: if PaloAlto register_ip isn't called, firewall tags are never applied.
+        """
+        mgr = ExportManager(
+            config={"intelligence_export": {}},
+            redis=MagicMock(),
+            http_session=MagicMock(),
+        )
         mock_pa = AsyncMock()
         mgr._palo_alto = mock_pa
         await mgr.on_ban("2.3.4.5", score=75, ttl=1800, reason="scanner")
@@ -412,7 +469,8 @@ class TestOnBanAdditional:
     @pytest.mark.asyncio
     async def test_on_ban_syslog_flag_action_for_low_score(self):
         """score < 70 → action='flag' for syslog (line 190).
-        So what: wrong action label means SIEM classifies low-risk bans as high-priority."""
+        So what: wrong action label means SIEM classifies low-risk bans as high-priority.
+        """
         mgr = ExportManager(config={"intelligence_export": {}}, redis=MagicMock())
         mock_syslog = MagicMock()
         mock_syslog.send = MagicMock()
@@ -439,13 +497,15 @@ class TestOnBanAdditional:
 # close() syslog exception path
 # ---------------------------------------------------------------------------
 
+
 class TestCloseAdditional:
     """Cover line 230-231: syslog.close() raises → logged, not re-raised."""
 
     @pytest.mark.asyncio
     async def test_close_syslog_exception_logged_not_raised(self):
         """syslog.close() raising → logged, not re-raised (lines 228-233).
-        So what: a broken syslog exporter must not prevent kafka from closing cleanly."""
+        So what: a broken syslog exporter must not prevent kafka from closing cleanly.
+        """
         mgr = ExportManager(config={}, redis=MagicMock())
         mock_syslog = MagicMock()
         mock_syslog.close.side_effect = RuntimeError("syslog close failed")
@@ -471,6 +531,7 @@ class TestExportManagerCoverageGaps:
         mock_taxii = AsyncMock()
         mock_taxii.start.side_effect = RuntimeError("TAXII server failed to start")
         import src.tap.export.taxii_server as _taxii_mod
+
         with patch.object(_taxii_mod, "TaxiiServer", return_value=mock_taxii):
             await mgr.start()  # must not raise
         # _taxii should not be set (exception occurred during start)

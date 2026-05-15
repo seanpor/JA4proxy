@@ -56,6 +56,7 @@ _CACHE_HIT_RATIO = Gauge(
 @dataclass
 class MISPConfig(TIProviderConfig):
     """Configuration for MISPProvider."""
+
     attribute_score: int = 20  # Score per MISP attribute match
     base_url: str = ""  # MISP instance base URL
 
@@ -73,7 +74,7 @@ class MISPConfig(TIProviderConfig):
             queue_size=int(cfg.get("queue_size", 500)),
             worker_count=int(cfg.get("worker_count", 2)),
             attribute_score=int(cfg.get("attribute_score", 20)),
-            base_url=base_url
+            base_url=base_url,
         )
 
 
@@ -110,13 +111,15 @@ class MISPProvider(TIProvider):
             for i in range(self._config.worker_count)
         ]
         logger.info(
-            json.dumps({
-                "type": "system",
-                "level": "INFO",
-                "subsystem": "misp",
-                "event": "started",
-                "worker_count": self._config.worker_count
-            })
+            json.dumps(
+                {
+                    "type": "system",
+                    "level": "INFO",
+                    "subsystem": "misp",
+                    "event": "started",
+                    "worker_count": self._config.worker_count,
+                }
+            )
         )
 
     async def stop(self) -> None:
@@ -135,11 +138,11 @@ class MISPProvider(TIProvider):
         if cached is not None:
             self._hits += 1
             self._update_metrics()
-            
+
             # Record cache hit for adaptive caching
             if self._adaptive_cache:
                 asyncio.create_task(self._adaptive_cache.record_cache_hit("misp"))
-            
+
             return self._to_signal(ip, cached)
 
         # Tier 2+: Async lookup
@@ -152,20 +155,24 @@ class MISPProvider(TIProvider):
             _CACHE_HIT_RATIO.set(self._hits / self._total)
         _QUEUE_DEPTH.set(self._queue.qsize())
 
-    def _to_signal(self, ip: str, data: dict, confidence_weight: float = 1.0) -> Optional[RiskSignal]:
+    def _to_signal(
+        self, ip: str, data: dict, confidence_weight: float = 1.0
+    ) -> Optional[RiskSignal]:
         """Convert cached MISP data to a RiskSignal."""
         attribute_count = data.get("attribute_count", 0)
         if attribute_count == 0:
             return None
 
         # Score scales with attribute count up to cap
-        score = min(attribute_count * self._config.attribute_score, self._config.score_cap)
+        score = min(
+            attribute_count * self._config.attribute_score, self._config.score_cap
+        )
 
         return RiskSignal(
             name="misp",
             score=score,
             reason=f"MISP associated with {attribute_count} attribute(s)",
-            weight=confidence_weight
+            weight=confidence_weight,
         )
 
     async def _maybe_lookup(self, ip: str) -> None:
@@ -222,17 +229,12 @@ class MISPProvider(TIProvider):
         headers = {
             "Authorization": self._config.api_key,
             "Accept": "application/json",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         }
-        
+
         # Search for IP address attributes
-        payload = {
-            "returnFormat": "json",
-            "limit": 100,
-            "value": ip,
-            "type": "ip-dst"
-        }
-        
+        payload = {"returnFormat": "json", "limit": 100, "value": ip, "type": "ip-dst"}
+
         # Get old cached value for volatility detection
         old_value = None
         try:
@@ -241,14 +243,16 @@ class MISPProvider(TIProvider):
                 old_value = json.loads(old_data)
         except Exception:
             pass
-        
+
         t0 = time.monotonic()
         try:
             async with self._session.post(
                 url,
                 headers=headers,
                 json=payload,
-                timeout=aiohttp.ClientTimeout(total=self._config.lookup_timeout_seconds)
+                timeout=aiohttp.ClientTimeout(
+                    total=self._config.lookup_timeout_seconds
+                ),
             ) as resp:
                 if resp.status == 200:
                     data = await resp.json()
@@ -263,7 +267,8 @@ class MISPProvider(TIProvider):
                 else:
                     logger.warning(
                         "misp | event=api_error | status=%d | ip=%s",
-                        resp.status, ip,
+                        resp.status,
+                        ip,
                     )
                     _LOOKUP_TOTAL.labels(result="error").inc()
                     if cb:
@@ -272,20 +277,20 @@ class MISPProvider(TIProvider):
 
                 # Get adaptive TTL if adaptive cache manager is available
                 ttl_seconds = self._config.cache_ttl_seconds
-                if hasattr(self, '_adaptive_cache') and self._adaptive_cache:
+                if hasattr(self, "_adaptive_cache") and self._adaptive_cache:
                     ttl_seconds = int(self._adaptive_cache.get_adaptive_ttl("misp"))
 
                 # Cache result
                 await self._redis.setex(
-                    f"misp:data:{ip}",
-                    ttl_seconds,
-                    json.dumps(result)
+                    f"misp:data:{ip}", ttl_seconds, json.dumps(result)
                 )
                 self._local_cache.misp_scores.set(ip, result)
 
                 # Record cache miss with volatility detection
-                if hasattr(self, '_adaptive_cache') and self._adaptive_cache:
-                    await self._adaptive_cache.record_cache_miss("misp", old_value, result)
+                if hasattr(self, "_adaptive_cache") and self._adaptive_cache:
+                    await self._adaptive_cache.record_cache_miss(
+                        "misp", old_value, result
+                    )
 
                 if cb:
                     cb.record_success(time.monotonic() - t0)

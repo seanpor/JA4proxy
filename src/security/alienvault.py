@@ -55,6 +55,7 @@ _CACHE_HIT_RATIO = Gauge(
 @dataclass
 class OTXConfig(TIProviderConfig):
     """Configuration for AlienVaultOTXProvider."""
+
     pulse_score: int = 15  # Score per pulse the IP is associated with
 
     @classmethod
@@ -69,7 +70,7 @@ class OTXConfig(TIProviderConfig):
             score_cap=int(cfg.get("score_cap", 45)),
             queue_size=int(cfg.get("queue_size", 500)),
             worker_count=int(cfg.get("worker_count", 2)),
-            pulse_score=int(cfg.get("pulse_score", 15))
+            pulse_score=int(cfg.get("pulse_score", 15)),
         )
 
 
@@ -104,13 +105,15 @@ class AlienVaultOTXProvider(TIProvider):
             for i in range(self._config.worker_count)
         ]
         logger.info(
-            json.dumps({
-                "type": "system",
-                "level": "INFO",
-                "subsystem": "alienvault",
-                "event": "started",
-                "worker_count": self._config.worker_count
-            })
+            json.dumps(
+                {
+                    "type": "system",
+                    "level": "INFO",
+                    "subsystem": "alienvault",
+                    "event": "started",
+                    "worker_count": self._config.worker_count,
+                }
+            )
         )
 
     async def stop(self) -> None:
@@ -153,7 +156,7 @@ class AlienVaultOTXProvider(TIProvider):
         return RiskSignal(
             name="alienvault_otx",
             score=score,
-            reason=f"AlienVault OTX associated with {pulse_count} pulse(s)"
+            reason=f"AlienVault OTX associated with {pulse_count} pulse(s)",
         )
 
     async def _maybe_lookup(self, ip: str) -> None:
@@ -211,7 +214,11 @@ class AlienVaultOTXProvider(TIProvider):
 
         async def _do_request():
             async with self._session.get(
-                url, headers=headers, timeout=aiohttp.ClientTimeout(total=self._config.lookup_timeout_seconds)
+                url,
+                headers=headers,
+                timeout=aiohttp.ClientTimeout(
+                    total=self._config.lookup_timeout_seconds
+                ),
             ) as resp:
                 if resp.status == 200:
                     data = await resp.json()
@@ -225,7 +232,8 @@ class AlienVaultOTXProvider(TIProvider):
                 else:
                     logger.warning(
                         "alienvault | event=api_error | status=%d | ip=%s",
-                        resp.status, ip,
+                        resp.status,
+                        ip,
                     )
                     _LOOKUP_TOTAL.labels(result="error").inc()
                     raise RuntimeError(f"alienvault API error: status={resp.status}")

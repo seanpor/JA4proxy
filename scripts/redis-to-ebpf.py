@@ -145,9 +145,7 @@ def _bpftool_update(map_id: int, ip_hex: str) -> bool:
         EBPF_SYNC_ERRORS.inc()
         return False
     except subprocess.TimeoutExpired:
-        logger.warning(
-            "ebpf | event=bpftool_timeout | cmd=%s", " ".join(cmd)
-        )
+        logger.warning("ebpf | event=bpftool_timeout | cmd=%s", " ".join(cmd))
         EBPF_SYNC_ERRORS.inc()
         return False
 
@@ -167,7 +165,12 @@ def _bpftool_delete(map_id: int, ip_hex: str) -> bool:
     try:
         subprocess.run(cmd, check=True, capture_output=True, timeout=5)
         return True
-    except (FileNotFoundError, PermissionError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
+    except (
+        FileNotFoundError,
+        PermissionError,
+        subprocess.CalledProcessError,
+        subprocess.TimeoutExpired,
+    ):
         return False
 
 
@@ -188,7 +191,11 @@ def _read_drop_counters(map_id: int) -> Dict[str, int]:
         entries = json.loads(result.stdout)
     except FileNotFoundError:
         return {}
-    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, json.JSONDecodeError):
+    except (
+        subprocess.CalledProcessError,
+        subprocess.TimeoutExpired,
+        json.JSONDecodeError,
+    ):
         return {}
 
     counters: Dict[str, int] = {}
@@ -203,9 +210,7 @@ def _read_drop_counters(map_id: int) -> Dict[str, int]:
                 continue
             # value is a list of per-CPU values (hex strings or ints)
             values = entry.get("value", [])
-            total = sum(
-                int(v, 16) if isinstance(v, str) else int(v) for v in values
-            )
+            total = sum(int(v, 16) if isinstance(v, str) else int(v) for v in values)
             counters[reason] = total
         except (KeyError, ValueError, TypeError):
             continue
@@ -243,9 +248,7 @@ async def _collect_blocked_ips(redis_client: aioredis.Redis) -> Dict[str, str]:
                 result[ip] = "blacklist"
 
     except Exception as exc:
-        logger.error(
-            "ebpf | event=redis_collect_error | error=%s", exc
-        )
+        logger.error("ebpf | event=redis_collect_error | error=%s", exc)
     return result
 
 
@@ -262,7 +265,7 @@ async def _sync_loop(
 ) -> None:
     """Continuously sync Redis block lists into the BPF map."""
     redis_client = aioredis.from_url(redis_url, decode_responses=False)
-    synced: Set[str] = set()      # IPs already in the BPF map
+    synced: Set[str] = set()  # IPs already in the BPF map
     prev_drop_counts: Dict[str, int] = {}
 
     logger.info(
@@ -304,9 +307,7 @@ async def _sync_loop(
                         if ip_hex:
                             _bpftool_delete(map_id, ip_hex)
                         synced.discard(ip)
-                        logger.debug(
-                            "ebpf | event=ip_removed | ip=%s", ip
-                        )
+                        logger.debug("ebpf | event=ip_removed | ip=%s", ip)
 
                 # ── Update Prometheus counters from BPF map ──────────────────
                 if drop_counters_map_id is not None:
@@ -322,9 +323,7 @@ async def _sync_loop(
                 logger.info("ebpf | event=sync_stopped")
                 raise  # propagate so asyncio.Task cleanup works correctly
             except Exception as exc:
-                logger.error(
-                    "ebpf | event=sync_error | error=%s", exc
-                )
+                logger.error("ebpf | event=sync_error | error=%s", exc)
                 EBPF_SYNC_ERRORS.inc()
 
             await asyncio.sleep(interval)
@@ -384,9 +383,7 @@ async def _async_main(args: argparse.Namespace) -> None:
     if args.metrics_port:
         try:
             start_http_server(args.metrics_port)
-            logger.info(
-                "ebpf | event=metrics_started | port=%d", args.metrics_port
-            )
+            logger.info("ebpf | event=metrics_started | port=%d", args.metrics_port)
         except OSError as exc:
             logger.warning(
                 "ebpf | event=metrics_port_error | port=%d | error=%s",

@@ -20,6 +20,7 @@ Exit codes:
 Requires only stdlib — no extra installs needed.
 Compatible with Python 3.10+.
 """
+
 from __future__ import annotations
 
 import json
@@ -92,7 +93,9 @@ def _fetch_pypi(package: str) -> dict | None:
     """Fetch package metadata from PyPI. Returns None on failure."""
     url = PYPI_URL.format(package=package.lower())
     try:
-        with urllib.request.urlopen(url, timeout=10) as resp:  # noqa: S310  # nosemgrep: dynamic-urllib-use-detected
+        with urllib.request.urlopen(
+            url, timeout=10
+        ) as resp:  # noqa: S310  # nosemgrep: dynamic-urllib-use-detected
             return json.loads(resp.read())
     except urllib.error.HTTPError as exc:
         if exc.code == 404:
@@ -147,7 +150,9 @@ def _check_wheel_compat(data: dict) -> tuple[str, str]:
 
         if re.search(r"\bcp314\b", tag_segment):
             has_cp314_wheel = True
-        if re.search(r"\bpy3\b", tag_segment) or re.search(r"\bpy2\.py3\b", tag_segment):
+        if re.search(r"\bpy3\b", tag_segment) or re.search(
+            r"\bpy2\.py3\b", tag_segment
+        ):
             has_py3_wheel = True
             has_pure_python_wheel = True
         if re.search(r"none-any$", tag_segment):

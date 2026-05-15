@@ -5,6 +5,7 @@ The Tranco top-10k test requires the corpus file — it's skipped if not present
 The synthetic FP rate test runs always and verifies browser-like traffic doesn't
 trigger high-severity signals.
 """
+
 import uuid
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
@@ -66,9 +67,9 @@ class TestFingerprintFPRate:
         fp = _browser_fp()
         signals = self.pipeline._fingerprints_to_signals(fp)
         high_severity = [s for s in signals if s.score >= 20]
-        assert len(high_severity) == 0, (
-            f"Browser FP should produce 0 signals ≥ 20, got: {high_severity}"
-        )
+        assert (
+            len(high_severity) == 0
+        ), f"Browser FP should produce 0 signals ≥ 20, got: {high_severity}"
 
     def test_modern_ja4_no_scanner_signal(self):
         """t13 prefix → no scanner_ja4 signal."""
@@ -98,9 +99,9 @@ class TestFingerprintFPRate:
             if total >= 20:
                 fp_count += 1
         rate = fp_count / len(fps)
-        assert rate == 0.0, (
-            f"Browser FP rate should be 0%, got {rate:.1%} ({fp_count}/100)"
-        )
+        assert (
+            rate == 0.0
+        ), f"Browser FP rate should be 0%, got {rate:.1%} ({fp_count}/100)"
 
     def test_fp_rate_tranco_top10k_below_0_5_percent(self):
         """< 0.5% of 1 000 synthetic browser fingerprints should score ≥ 70.

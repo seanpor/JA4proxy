@@ -16,6 +16,7 @@ import redis
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_enr(redis_client=None):
     """Build a DNSEnrichment with workers disabled (no running loop at import)."""
     from src.security.dns_enrichment import DNSEnrichment
@@ -32,6 +33,7 @@ def _make_enr(redis_client=None):
     enr._residential_reduction = 10
     enr._workers = []
     import asyncio as _asyncio
+
     enr._queue = _asyncio.Queue(maxsize=10)
     enr._resolver = None
     return enr
@@ -47,14 +49,21 @@ def _make_clf(config=None):
     clf._enabled = True
     clf._redis_client = None
     import logging
+
     clf.logger = logging.getLogger("test.asn_classifier")
     clf._datacenter_asns = {}
     clf._tor_exit_ips = set()
     clf._tor_refresh_task = None
     clf._tor_list_initialized = True  # skip lazy init
     clf._instance_id = "test-instance"
-    clf._risk_scores = {"tor": 40, "datacenter": 20, "vpn": 10, "unknown": 5,
-                        "residential": 0, "mobile": 0}
+    clf._risk_scores = {
+        "tor": 40,
+        "datacenter": 20,
+        "vpn": 10,
+        "unknown": 5,
+        "residential": 0,
+        "mobile": 0,
+    }
     clf._maxmind_reader = None
     return clf
 
@@ -87,12 +96,14 @@ def _make_pipeline(collectors=None):
 
 def _make_ctx(ip="1.2.3.4"):
     from src.security.models import ConnectionContext
+
     return ConnectionContext(client_ip=ip)
 
 
 # ---------------------------------------------------------------------------
 # DNSEnrichment tests
 # ---------------------------------------------------------------------------
+
 
 class TestDNSEnrichmentExceptions(unittest.TestCase):
 
@@ -136,7 +147,11 @@ class TestDNSEnrichmentExceptions(unittest.TestCase):
 
     def test_get_cached_result_cache_hit_returns_dict(self):
         """Valid cached JSON → _get_cached_result returns the decoded dict."""
-        data = {"ptr": "host.example.com", "confirmed": True, "classification": "residential"}
+        data = {
+            "ptr": "host.example.com",
+            "confirmed": True,
+            "classification": "residential",
+        }
         redis_mock = AsyncMock()
         redis_mock.get = AsyncMock(return_value=json.dumps(data).encode())
         enr = _make_enr(redis_client=redis_mock)
@@ -167,9 +182,11 @@ class TestDNSEnrichmentExceptions(unittest.TestCase):
         from src.security.dns_enrichment import _DNS_PTR_ERRORS
 
         enr = _make_enr()
+
         # Create an exception whose class name contains "nxdomain"
         class NXDomainError(Exception):
             pass
+
         NXDomainError.__name__ = "NXDomainError"
 
         resolver = MagicMock()
@@ -202,6 +219,7 @@ class TestDNSEnrichmentExceptions(unittest.TestCase):
 # ASNClassifier tests
 # ---------------------------------------------------------------------------
 
+
 class TestASNClassifierExceptions(unittest.TestCase):
 
     def test_signals_attribute_error_maxmind_returns_empty(self):
@@ -232,7 +250,9 @@ class TestASNClassifierExceptions(unittest.TestCase):
         """TypeError from MaxMind reader → signals() returns []."""
         clf = _make_clf()
         bad_reader = MagicMock()
-        bad_reader.get = MagicMock(side_effect=TypeError("NoneType is not subscriptable"))
+        bad_reader.get = MagicMock(
+            side_effect=TypeError("NoneType is not subscriptable")
+        )
         clf._maxmind_reader = bad_reader
 
         ctx = _make_ctx("1.2.3.4")
@@ -278,10 +298,12 @@ class TestASNClassifierExceptions(unittest.TestCase):
 # BlocklistManager tests
 # ---------------------------------------------------------------------------
 
+
 class TestBlocklistManagerExceptions(unittest.TestCase):
 
     def _make_mgr(self):
         from src.security.blocklists import BlocklistManager
+
         return BlocklistManager()
 
     def test_is_blocked_empty_trie_returns_false(self):
@@ -315,6 +337,7 @@ class TestBlocklistManagerExceptions(unittest.TestCase):
     def test_get_signals_no_feed_config_returns_empty(self):
         """Match found but no FeedConfig registered → get_signals returns []."""
         from src.security.blocklists import BlocklistManager
+
         mgr = BlocklistManager()
         # Load a CIDR without a FeedConfig (feed_config=None → no entry in _feed_configs)
         mgr.load_cidrs(["10.0.0.0/8"], "test_feed", None)
@@ -336,10 +359,12 @@ class TestBlocklistManagerExceptions(unittest.TestCase):
 # FeedManager tests
 # ---------------------------------------------------------------------------
 
+
 class TestFeedManagerExceptions(unittest.TestCase):
 
     def _make_feed_manager(self, redis_client=None):
         from src.security.blocklists import BlocklistManager, FeedManager
+
         config = {
             "blocklists": {
                 "feeds": [
@@ -392,10 +417,15 @@ class TestFeedManagerExceptions(unittest.TestCase):
         fm = self._make_feed_manager(redis_client=redis_mock)
 
         from src.security.blocklists import FeedConfig
+
         feed_cfg = FeedConfig(
-            name="test_drop", url="http://example.com/drop.txt",
-            format="spamhaus", is_bypass=True, action="block",
-            score=60, refresh_interval_seconds=43200,
+            name="test_drop",
+            url="http://example.com/drop.txt",
+            format="spamhaus",
+            is_bypass=True,
+            action="block",
+            score=60,
+            refresh_interval_seconds=43200,
         )
 
         result = asyncio.run(fm._try_become_leader(feed_cfg))
@@ -407,10 +437,15 @@ class TestFeedManagerExceptions(unittest.TestCase):
         fm = self._make_feed_manager(redis_client=None)
 
         from src.security.blocklists import FeedConfig
+
         feed_cfg = FeedConfig(
-            name="test_drop", url="http://example.com/drop.txt",
-            format="spamhaus", is_bypass=True, action="block",
-            score=60, refresh_interval_seconds=43200,
+            name="test_drop",
+            url="http://example.com/drop.txt",
+            format="spamhaus",
+            is_bypass=True,
+            action="block",
+            score=60,
+            refresh_interval_seconds=43200,
         )
 
         result = asyncio.run(fm._try_become_leader(feed_cfg))
@@ -422,10 +457,12 @@ class TestFeedManagerExceptions(unittest.TestCase):
 # Pipeline._collect_signals injection tests
 # ---------------------------------------------------------------------------
 
+
 class TestPipelineCollectorExceptions(unittest.TestCase):
 
     def test_collector_exception_does_not_propagate(self):
         """Exception in injected collector → logged, not re-raised."""
+
         class BrokenCollector:
             async def get_signal(self, ctx):
                 raise RuntimeError("intentional test failure")
@@ -461,6 +498,7 @@ class TestPipelineCollectorExceptions(unittest.TestCase):
 
     def test_collector_returning_none_not_appended(self):
         """Collector returning None → signal list stays empty."""
+
         class NoneCollector:
             async def get_signal(self, ctx):
                 return None
@@ -482,7 +520,9 @@ class TestPipelineCollectorExceptions(unittest.TestCase):
         ctx = _make_ctx("1.2.3.4")
 
         # Force _process_inner to raise by corrupting _cache
-        pipeline._cache.dial = None  # will cause TypeError in Prometheus Gauge.set(float(None))
+        pipeline._cache.dial = (
+            None  # will cause TypeError in Prometheus Gauge.set(float(None))
+        )
 
         before = _PIPELINE_UNEXPECTED_ERRORS.labels(phase="process")._value.get()
 
@@ -521,10 +561,12 @@ class TestPipelineCollectorExceptions(unittest.TestCase):
 # RDAP enrichment fail-open tests
 # ---------------------------------------------------------------------------
 
+
 class TestRDAPExceptions(unittest.TestCase):
 
     def _make_rdap_enricher(self, redis_client=None, local_cache=None):
         from src.security.rdap_enrichment import RDAPConfig, RDAPEnricher
+
         config = RDAPConfig(enabled=True, min_enqueue_score=0)
         lc = local_cache or MagicMock()
         lc.rdap_results = MagicMock()
@@ -546,6 +588,7 @@ class TestRDAPExceptions(unittest.TestCase):
         self.assertIsNone(enricher._queue)
 
         from src.security.models import ConnectionContext
+
         ctx = ConnectionContext(client_ip="1.2.3.4")
 
         result = enricher.get_signal(ctx.client_ip, trigger_score=30)
@@ -561,7 +604,9 @@ class TestRDAPExceptions(unittest.TestCase):
         local_cache.rdap_results = MagicMock()
         local_cache.rdap_results.get = MagicMock(return_value=None)
 
-        enricher = self._make_rdap_enricher(redis_client=redis_mock, local_cache=local_cache)
+        enricher = self._make_rdap_enricher(
+            redis_client=redis_mock, local_cache=local_cache
+        )
 
         # start() downloads bootstrap via aiohttp and scans Redis for existing ban_cidr keys.
         # Patch aiohttp to prevent real network calls.
@@ -574,10 +619,12 @@ class TestRDAPExceptions(unittest.TestCase):
     def test_rate_limiter_timeout_error_does_not_raise(self):
         """asyncio.TimeoutError on rate limiter acquire → enricher does not raise."""
         from src.security.rdap_enrichment import RegistryRateLimiter
+
         limiter = RegistryRateLimiter()
 
         # Replace semaphore with one that is already exhausted (count=0)
         import asyncio as _asyncio
+
         limiter._semaphores["rdap.arin.net"] = _asyncio.Semaphore(0)
 
         async def run():

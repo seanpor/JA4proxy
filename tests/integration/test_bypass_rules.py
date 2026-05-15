@@ -55,7 +55,9 @@ def _ctx(**kwargs) -> ConnectionContext:
     return ConnectionContext(**defaults)
 
 
-def _load_bypass_feed(pipeline: Pipeline, cidrs: list[str], feed_name: str = "spamhaus_drop"):
+def _load_bypass_feed(
+    pipeline: Pipeline, cidrs: list[str], feed_name: str = "spamhaus_drop"
+):
     cfg = FeedConfig(
         name=feed_name,
         url="",
@@ -68,7 +70,9 @@ def _load_bypass_feed(pipeline: Pipeline, cidrs: list[str], feed_name: str = "sp
     pipeline._blocklist_manager.load_cidrs(cidrs, feed_name, cfg)
 
 
-def _load_scored_feed(pipeline: Pipeline, cidrs: list[str], feed_name: str = "custom_list"):
+def _load_scored_feed(
+    pipeline: Pipeline, cidrs: list[str], feed_name: str = "custom_list"
+):
     cfg = FeedConfig(
         name=feed_name,
         url="",
@@ -84,6 +88,7 @@ def _load_scored_feed(pipeline: Pipeline, cidrs: list[str], feed_name: str = "cu
 # ---------------------------------------------------------------------------
 # Bypass feed: blocked before scorer
 # ---------------------------------------------------------------------------
+
 
 class TestBypassFeedHardBlock:
     """is_bypass=true feed: connection rejected before scorer is called."""
@@ -167,6 +172,7 @@ class TestBypassFeedHardBlock:
 # ---------------------------------------------------------------------------
 # Scored feed: RiskSignal emitted
 # ---------------------------------------------------------------------------
+
 
 class TestScoredFeedSignal:
     """is_bypass=false feed: RiskSignal emitted; connection scored normally."""

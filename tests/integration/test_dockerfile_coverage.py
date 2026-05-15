@@ -182,9 +182,9 @@ def test_standalone_compose_files_validate():
             capture_output=True,
             cwd=str(REPO_ROOT),
         )
-        assert result.returncode == 0, (
-            f"{compose_file} failed validation:\n{result.stderr.decode()}"
-        )
+        assert (
+            result.returncode == 0
+        ), f"{compose_file} failed validation:\n{result.stderr.decode()}"
 
 
 # ---------------------------------------------------------------------------
@@ -195,7 +195,9 @@ def test_standalone_compose_files_validate():
 def test_monitoring_overlay_references_valid_poc_networks():
     """External network names in monitoring overlay must match explicit name: in poc."""
     poc = load_compose(REPO_ROOT / "deploy" / "docker" / "docker-compose.poc.yml")
-    monitoring = load_compose(REPO_ROOT / "deploy" / "docker" / "docker-compose.monitoring.yml")
+    monitoring = load_compose(
+        REPO_ROOT / "deploy" / "docker" / "docker-compose.monitoring.yml"
+    )
 
     # Collect the Docker-level names of all POC networks
     # (uses explicit name: field if present, falls back to the YAML key)

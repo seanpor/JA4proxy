@@ -31,20 +31,24 @@ async def test_audit_log_returns_entries(
     fake_redis,
 ) -> None:
     """GET /api/v1/audit returns entries from management:audit_log."""
-    entry1 = json.dumps({
-        "timestamp": "2024-01-01T00:00:00Z",
-        "action": "dial_changed",
-        "user": "admin",
-        "detail": {"from": 0, "to": 10},
-        "ip": "1.2.3.4",
-    })
-    entry2 = json.dumps({
-        "timestamp": "2024-01-01T00:01:00Z",
-        "action": "ban_created",
-        "user": "admin",
-        "detail": {"ip": "5.6.7.8"},
-        "ip": "1.2.3.4",
-    })
+    entry1 = json.dumps(
+        {
+            "timestamp": "2024-01-01T00:00:00Z",
+            "action": "dial_changed",
+            "user": "admin",
+            "detail": {"from": 0, "to": 10},
+            "ip": "1.2.3.4",
+        }
+    )
+    entry2 = json.dumps(
+        {
+            "timestamp": "2024-01-01T00:01:00Z",
+            "action": "ban_created",
+            "user": "admin",
+            "detail": {"ip": "5.6.7.8"},
+            "ip": "1.2.3.4",
+        }
+    )
 
     # LPUSH so newest is at head
     await fake_redis.lpush("management:audit_log", entry1)
@@ -63,20 +67,24 @@ async def test_audit_log_newest_first(
     fake_redis,
 ) -> None:
     """Audit entries are returned newest-first (LRANGE from head)."""
-    older = json.dumps({
-        "timestamp": "2024-01-01T00:00:00Z",
-        "action": "first_action",
-        "user": "admin",
-        "detail": {},
-        "ip": "1.2.3.4",
-    })
-    newer = json.dumps({
-        "timestamp": "2024-01-01T00:01:00Z",
-        "action": "second_action",
-        "user": "admin",
-        "detail": {},
-        "ip": "1.2.3.4",
-    })
+    older = json.dumps(
+        {
+            "timestamp": "2024-01-01T00:00:00Z",
+            "action": "first_action",
+            "user": "admin",
+            "detail": {},
+            "ip": "1.2.3.4",
+        }
+    )
+    newer = json.dumps(
+        {
+            "timestamp": "2024-01-01T00:01:00Z",
+            "action": "second_action",
+            "user": "admin",
+            "detail": {},
+            "ip": "1.2.3.4",
+        }
+    )
 
     await fake_redis.lpush("management:audit_log", older)
     await fake_redis.lpush("management:audit_log", newer)  # newest is now at head
@@ -106,13 +114,15 @@ async def test_audit_entries_are_trimmed_to_1000(
     """Audit log does not grow beyond 1000 entries (verified by write ops)."""
     # We write 1010 entries via lpush/ltrim to simulate being over the limit
     for i in range(1010):
-        entry = json.dumps({
-            "timestamp": "2024-01-01T00:00:00Z",
-            "action": f"action_{i}",
-            "user": "admin",
-            "detail": {},
-            "ip": "1.2.3.4",
-        })
+        entry = json.dumps(
+            {
+                "timestamp": "2024-01-01T00:00:00Z",
+                "action": f"action_{i}",
+                "user": "admin",
+                "detail": {},
+                "ip": "1.2.3.4",
+            }
+        )
         await fake_redis.lpush("management:audit_log", entry)
     # Trim to 1000 manually as the route should do
     await fake_redis.ltrim("management:audit_log", 0, 999)

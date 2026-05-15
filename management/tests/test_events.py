@@ -40,13 +40,15 @@ async def test_events_route_registered(authenticated_client: AsyncClient) -> Non
     would be returned immediately (not block), so any block indicates
     the route is registered and responding.
     """
+
     # Use asyncio.wait_for to cancel cleanly after 0.3s
     async def _quick_check():
         async with authenticated_client.stream("GET", "/api/v1/events") as r:
             # If we get here at all, the status was not 404/405
-            assert r.status_code not in (404, 405), (
-                f"Route returned {r.status_code}, expected SSE (200)"
-            )
+            assert r.status_code not in (
+                404,
+                405,
+            ), f"Route returned {r.status_code}, expected SSE (200)"
             # Don't read any lines — just confirm the response started
             return r.status_code
 

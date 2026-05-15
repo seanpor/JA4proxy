@@ -72,7 +72,13 @@ class _RecordingSession:
 
     def post(self, url: str, json=None, headers=None, **kwargs):
         self.calls.append(
-            {"method": "POST", "url": url, "json": json, "headers": headers, "kwargs": kwargs}
+            {
+                "method": "POST",
+                "url": url,
+                "json": json,
+                "headers": headers,
+                "kwargs": kwargs,
+            }
         )
         if not self._post_responses:
             return _RecordingResponse(500, {"error": "no response queued"})
@@ -170,7 +176,9 @@ def test_post_blocklist_uses_resource_create_body():
 def test_authorization_header_is_set_on_every_call():
     ManagementClient = _import_client()
     sess = _RecordingSession()
-    sess.queue_post(201, {"id": "uuid-1", "entry": "x", "managed_by": "feed", "note": ""})
+    sess.queue_post(
+        201, {"id": "uuid-1", "entry": "x", "managed_by": "feed", "note": ""}
+    )
 
     client = ManagementClient(
         base_url="https://mgmt.test", token="my-secret-token", session=sess
@@ -274,7 +282,10 @@ def test_bulk_blocklist_paces_50_per_batch():
         )
 
     client = ManagementClient(
-        base_url="https://mgmt.test", token="tok", session=sess, batch_size=50,
+        base_url="https://mgmt.test",
+        token="tok",
+        session=sess,
+        batch_size=50,
         inter_batch_sleep_s=0.05,
     )
     entries = [
@@ -316,9 +327,7 @@ def test_bulk_blocklist_uses_return_exceptions_per_batch():
         batch_size=50,
         inter_batch_sleep_s=0.0,
     )
-    entries = [
-        {"entry": f"x{i}", "managed_by": "feed", "note": ""} for i in range(50)
-    ]
+    entries = [{"entry": f"x{i}", "managed_by": "feed", "note": ""} for i in range(50)]
 
     async def _fake_sleep(s: float) -> None:
         return None
@@ -340,7 +349,9 @@ def test_connect_noop_with_injected_session():
     ManagementClient = _import_client()
     sess = _RecordingSession()
     client = ManagementClient(
-        base_url="https://mgmt.test", token="tok", session=sess,
+        base_url="https://mgmt.test",
+        token="tok",
+        session=sess,
     )
     _run(client.connect())
     # Session should still be the injected one
@@ -352,7 +363,9 @@ def test_close_noop_with_injected_session():
     ManagementClient = _import_client()
     sess = _RecordingSession()
     client = ManagementClient(
-        base_url="https://mgmt.test", token="tok", session=sess,
+        base_url="https://mgmt.test",
+        token="tok",
+        session=sess,
     )
     _run(client.close())
     # Session should still be set (not cleared)
@@ -363,7 +376,8 @@ def test_close_swallows_session_close_error():
     """close() swallows errors from session.close()."""
     ManagementClient = _import_client()
     client = ManagementClient(
-        base_url="https://mgmt.test", token="tok",
+        base_url="https://mgmt.test",
+        token="tok",
     )
     # Manually set a session that raises on close
     mock_session = MagicMock()
@@ -379,7 +393,8 @@ def test_close_clears_session():
     """close() sets session to None after closing."""
     ManagementClient = _import_client()
     client = ManagementClient(
-        base_url="https://mgmt.test", token="tok",
+        base_url="https://mgmt.test",
+        token="tok",
     )
     mock_session = MagicMock()
     mock_session.close = AsyncMock()
@@ -398,7 +413,9 @@ def test_open_request_unsupported_method_raises():
     ManagementClient = _import_client()
     sess = _RecordingSession()
     client = ManagementClient(
-        base_url="https://mgmt.test", token="tok", session=sess,
+        base_url="https://mgmt.test",
+        token="tok",
+        session=sess,
     )
     with pytest.raises(RuntimeError, match="unsupported method"):
         client._open_request("PATCH", "https://mgmt.test/api/v1/test")
@@ -414,7 +431,9 @@ def test_no_token_raises_401():
 
     sess = _RecordingSession()
     client = ManagementClient(
-        base_url="https://mgmt.test", token="", session=sess,
+        base_url="https://mgmt.test",
+        token="",
+        session=sess,
     )
 
     with pytest.raises(ManagementAPIError) as exc_info:
@@ -433,14 +452,19 @@ def test_network_error_retries_and_exhausts():
     class FailingSession:
         def post(self, url, json=None, headers=None, **kwargs):
             raise ConnectionError("network down")
+
         def delete(self, url, headers=None, **kwargs):
             raise ConnectionError("network down")
+
         def get(self, url, headers=None, **kwargs):
             raise ConnectionError("network down")
 
     client = ManagementClient(
-        base_url="https://mgmt.test", token="tok", session=FailingSession(),
-        max_retries=2, backoff_initial_s=0.0,
+        base_url="https://mgmt.test",
+        token="tok",
+        session=FailingSession(),
+        max_retries=2,
+        backoff_initial_s=0.0,
     )
 
     with pytest.raises(ManagementAPIError) as exc_info:
@@ -459,7 +483,9 @@ def test_post_ban_rejects_private_ip():
 
     sess = _RecordingSession()
     client = ManagementClient(
-        base_url="https://mgmt.test", token="tok", session=sess,
+        base_url="https://mgmt.test",
+        token="tok",
+        session=sess,
     )
 
     with pytest.raises(ManagementAPIError) as exc_info:
@@ -475,7 +501,9 @@ def test_post_ban_rejects_loopback():
 
     sess = _RecordingSession()
     client = ManagementClient(
-        base_url="https://mgmt.test", token="tok", session=sess,
+        base_url="https://mgmt.test",
+        token="tok",
+        session=sess,
     )
 
     with pytest.raises(ManagementAPIError) as exc_info:
@@ -492,7 +520,9 @@ def test_delete_ban_swallows_404():
     sess = _RecordingSession()
     sess.queue_delete(404, {"detail": "not found"})
     client = ManagementClient(
-        base_url="https://mgmt.test", token="tok", session=sess,
+        base_url="https://mgmt.test",
+        token="tok",
+        session=sess,
     )
     # Should not raise
     _run(client.delete_ban("1.2.3.4"))
@@ -506,7 +536,9 @@ def test_delete_ban_raises_on_non_404_error():
     sess = _RecordingSession()
     sess.queue_delete(403, {"detail": "forbidden"})
     client = ManagementClient(
-        base_url="https://mgmt.test", token="tok", session=sess,
+        base_url="https://mgmt.test",
+        token="tok",
+        session=sess,
     )
 
     with pytest.raises(ManagementAPIError) as exc_info:
@@ -523,7 +555,9 @@ def test_delete_blocklist_swallows_404():
     sess = _RecordingSession()
     sess.queue_delete(404, {"detail": "not found"})
     client = ManagementClient(
-        base_url="https://mgmt.test", token="tok", session=sess,
+        base_url="https://mgmt.test",
+        token="tok",
+        session=sess,
     )
     # Should not raise
     _run(client.delete_blocklist("uuid-does-not-exist"))
@@ -537,8 +571,11 @@ def test_delete_blocklist_raises_on_non_404():
     sess = _RecordingSession()
     sess.queue_delete(500, {"detail": "server error"})
     client = ManagementClient(
-        base_url="https://mgmt.test", token="tok", session=sess,
-        max_retries=0, backoff_initial_s=0.0,
+        base_url="https://mgmt.test",
+        token="tok",
+        session=sess,
+        max_retries=0,
+        backoff_initial_s=0.0,
     )
 
     with pytest.raises(ManagementAPIError):
@@ -553,11 +590,16 @@ def test_bulk_post_single_batch_no_sleep():
     ManagementClient = _import_client()
     sess = _RecordingSession()
     for i in range(10):
-        sess.queue_post(201, {"id": f"u-{i}", "entry": f"x{i}", "managed_by": "feed", "note": ""})
+        sess.queue_post(
+            201, {"id": f"u-{i}", "entry": f"x{i}", "managed_by": "feed", "note": ""}
+        )
 
     client = ManagementClient(
-        base_url="https://mgmt.test", token="tok", session=sess,
-        batch_size=50, inter_batch_sleep_s=0.05,
+        base_url="https://mgmt.test",
+        token="tok",
+        session=sess,
+        batch_size=50,
+        inter_batch_sleep_s=0.05,
     )
     entries = [{"entry": f"x{i}", "note": ""} for i in range(10)]
 
@@ -590,7 +632,9 @@ def test_open_request_get_method():
 
     sess = GetSession()
     client = ManagementClient(
-        base_url="https://mgmt.test", token="tok", session=sess,
+        base_url="https://mgmt.test",
+        token="tok",
+        session=sess,
     )
     ctx = client._open_request("GET", "https://mgmt.test/api/v1/test")
     # Just verify it returns without error
@@ -605,7 +649,9 @@ def test_post_ban_requires_ttl():
     ManagementClient = _import_client()
     sess = _RecordingSession()
     client = ManagementClient(
-        base_url="https://mgmt.test", token="tok", session=sess,
+        base_url="https://mgmt.test",
+        token="tok",
+        session=sess,
     )
     with pytest.raises(TypeError, match="ttl_s"):
         _run(client.post_ban("1.2.3.4", reason="test"))
@@ -622,8 +668,11 @@ def test_429_rate_limit_triggers_retry():
     sess.queue_post(201, {"id": "u-1", "entry": "x", "managed_by": "feed", "note": ""})
 
     client = ManagementClient(
-        base_url="https://mgmt.test", token="tok", session=sess,
-        max_retries=3, backoff_initial_s=0.0,
+        base_url="https://mgmt.test",
+        token="tok",
+        session=sess,
+        max_retries=3,
+        backoff_initial_s=0.0,
     )
 
     async def _noop_sleep(s):

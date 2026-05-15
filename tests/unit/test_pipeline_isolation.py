@@ -16,6 +16,7 @@ from src.security.protocols import SignalCollector
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_local_cache(dial=0):
     cache = MagicMock()
     cache.dial = dial
@@ -70,6 +71,7 @@ class MockCollector:
 # ---------------------------------------------------------------------------
 # TestPipelineIsolation
 # ---------------------------------------------------------------------------
+
 
 class TestPipelineIsolation(unittest.TestCase):
 

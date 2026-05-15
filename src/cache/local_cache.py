@@ -182,30 +182,30 @@ class LocalCache:
         # Phase 23: Threat Intelligence caches
         self.greynoise_scores = LRUCache(
             max_size=_get("greynoise_scores", "max_size", 50_000),
-            ttl_seconds=_get("greynoise_scores", "ttl_seconds", 21_600), # 6h
+            ttl_seconds=_get("greynoise_scores", "ttl_seconds", 21_600),  # 6h
             name="greynoise_scores",
         )
         self.alienvault_scores = LRUCache(
             max_size=_get("alienvault_scores", "max_size", 50_000),
-            ttl_seconds=_get("alienvault_scores", "ttl_seconds", 3600), # 1h
+            ttl_seconds=_get("alienvault_scores", "ttl_seconds", 3600),  # 1h
             name="alienvault_scores",
         )
         # Phase 46: MISP Threat Intelligence cache
         self.misp_scores = LRUCache(
             max_size=_get("misp_scores", "max_size", 50_000),
-            ttl_seconds=_get("misp_scores", "ttl_seconds", 3600), # 1h
+            ttl_seconds=_get("misp_scores", "ttl_seconds", 3600),  # 1h
             name="misp_scores",
         )
         # Phase 46: ThreatFox Threat Intelligence cache
         self.threatfox_scores = LRUCache(
             max_size=_get("threatfox_scores", "max_size", 50_000),
-            ttl_seconds=_get("threatfox_scores", "ttl_seconds", 3600), # 1h
+            ttl_seconds=_get("threatfox_scores", "ttl_seconds", 3600),  # 1h
             name="threatfox_scores",
         )
         # Phase 46: VirusTotal Threat Intelligence cache
         self.virustotal_scores = LRUCache(
             max_size=_get("virustotal_scores", "max_size", 50_000),
-            ttl_seconds=_get("virustotal_scores", "ttl_seconds", 3600), # 1h
+            ttl_seconds=_get("virustotal_scores", "ttl_seconds", 3600),  # 1h
             name="virustotal_scores",
         )
         # Dial has no TTL — updated only by pub/sub or config reload.

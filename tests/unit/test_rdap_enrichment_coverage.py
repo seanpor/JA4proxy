@@ -45,7 +45,9 @@ def _make_config(**kwargs) -> RDAPConfig:
         lookup_timeout_seconds=5,
         delegate_to_analytics=False,
         org_reputation=_OrgReputationConfig(enabled=True, score=45),
-        new_netblock_flagging=_NewNetblockConfig(enabled=True, max_age_days=90, score=20),
+        new_netblock_flagging=_NewNetblockConfig(
+            enabled=True, max_age_days=90, score=20
+        ),
         block_expansion=_BlockExpansionConfig(
             enabled=True,
             min_trigger_score=75,
@@ -101,7 +103,10 @@ def _make_enricher(**kwargs):
     blocklist_manager = kwargs.pop("blocklist_manager", None)
     known_bad_orgs_path = kwargs.pop("known_bad_orgs_path", "config/known_bad_orgs.yml")
     return RDAPEnricher(
-        config, redis, local_cache, session,
+        config,
+        redis,
+        local_cache,
+        session,
         blocklist_manager=blocklist_manager,
         known_bad_orgs_path=known_bad_orgs_path,
         **kwargs,
@@ -321,7 +326,11 @@ class TestOnConfigReload(unittest.TestCase):
                 "lookup_timeout_seconds": 5,
                 "delegate_to_analytics": False,
                 "org_reputation": {"enabled": True, "score": 45},
-                "new_netblock_flagging": {"enabled": True, "max_age_days": 90, "score": 20},
+                "new_netblock_flagging": {
+                    "enabled": True,
+                    "max_age_days": 90,
+                    "score": 20,
+                },
                 "block_expansion": {
                     "enabled": True,
                     "min_trigger_score": 75,
@@ -559,8 +568,11 @@ class TestProcessLookup(unittest.TestCase):
         enricher = _make_enricher()
 
         async def run():
-            with patch.object(enricher, "get_rdap_base_url",
-                              new=AsyncMock(side_effect=Exception("bootstrap error"))):
+            with patch.object(
+                enricher,
+                "get_rdap_base_url",
+                new=AsyncMock(side_effect=Exception("bootstrap error")),
+            ):
                 await enricher._process_lookup("1.2.3.4")
 
         _run(run())
@@ -570,10 +582,16 @@ class TestProcessLookup(unittest.TestCase):
         enricher = _make_enricher()
 
         async def run():
-            with patch.object(enricher, "get_rdap_base_url",
-                              new=AsyncMock(return_value="https://rdap.arin.net/registry/")):
-                with patch.object(enricher, "_api_lookup",
-                                  new=AsyncMock(side_effect=asyncio.TimeoutError())):
+            with patch.object(
+                enricher,
+                "get_rdap_base_url",
+                new=AsyncMock(return_value="https://rdap.arin.net/registry/"),
+            ):
+                with patch.object(
+                    enricher,
+                    "_api_lookup",
+                    new=AsyncMock(side_effect=asyncio.TimeoutError()),
+                ):
                     await enricher._process_lookup("1.2.3.4")
 
         _run(run())
@@ -581,13 +599,20 @@ class TestProcessLookup(unittest.TestCase):
     def test_process_lookup_redirect_limit_error(self):
         """_RedirectLimitError → counter incremented, returns (lines 655-657)."""
         from src.security.rdap_enrichment import _RedirectLimitError
+
         enricher = _make_enricher()
 
         async def run():
-            with patch.object(enricher, "get_rdap_base_url",
-                              new=AsyncMock(return_value="https://rdap.arin.net/registry/")):
-                with patch.object(enricher, "_api_lookup",
-                                  new=AsyncMock(side_effect=_RedirectLimitError("too many"))):
+            with patch.object(
+                enricher,
+                "get_rdap_base_url",
+                new=AsyncMock(return_value="https://rdap.arin.net/registry/"),
+            ):
+                with patch.object(
+                    enricher,
+                    "_api_lookup",
+                    new=AsyncMock(side_effect=_RedirectLimitError("too many")),
+                ):
                     await enricher._process_lookup("1.2.3.4")
 
         _run(run())
@@ -595,15 +620,26 @@ class TestProcessLookup(unittest.TestCase):
     def test_process_lookup_not_found_stores_unknown(self):
         """_NotFoundError → stores is_unknown=True result (lines 658-670)."""
         from src.security.rdap_enrichment import _NotFoundError
+
         enricher = _make_enricher()
 
         async def run():
-            with patch.object(enricher, "get_rdap_base_url",
-                              new=AsyncMock(return_value="https://rdap.arin.net/registry/")):
-                with patch.object(enricher, "_api_lookup",
-                                  new=AsyncMock(side_effect=_NotFoundError("1.2.3.4"))):
-                    with patch.object(enricher, "_cache_result", new=AsyncMock()) as mock_cache:
-                        with patch.object(enricher, "maybe_expand_block", new=AsyncMock()):
+            with patch.object(
+                enricher,
+                "get_rdap_base_url",
+                new=AsyncMock(return_value="https://rdap.arin.net/registry/"),
+            ):
+                with patch.object(
+                    enricher,
+                    "_api_lookup",
+                    new=AsyncMock(side_effect=_NotFoundError("1.2.3.4")),
+                ):
+                    with patch.object(
+                        enricher, "_cache_result", new=AsyncMock()
+                    ) as mock_cache:
+                        with patch.object(
+                            enricher, "maybe_expand_block", new=AsyncMock()
+                        ):
                             await enricher._process_lookup("1.2.3.4")
                             if mock_cache.called:
                                 rdap_arg = mock_cache.call_args[0][1]
@@ -620,10 +656,16 @@ class TestProcessLookup(unittest.TestCase):
         enricher = _make_enricher()
 
         async def run():
-            with patch.object(enricher, "get_rdap_base_url",
-                              new=AsyncMock(return_value="https://rdap.arin.net/registry/")):
-                with patch.object(enricher, "_api_lookup",
-                                  new=AsyncMock(side_effect=Exception("network error"))):
+            with patch.object(
+                enricher,
+                "get_rdap_base_url",
+                new=AsyncMock(return_value="https://rdap.arin.net/registry/"),
+            ):
+                with patch.object(
+                    enricher,
+                    "_api_lookup",
+                    new=AsyncMock(side_effect=Exception("network error")),
+                ):
                     await enricher._process_lookup("1.2.3.4")
 
         _run(run())
@@ -634,12 +676,22 @@ class TestProcessLookup(unittest.TestCase):
         rdap = _make_rdap_result()
 
         async def run():
-            with patch.object(enricher, "get_rdap_base_url",
-                              new=AsyncMock(return_value="https://rdap.arin.net/registry/")):
-                with patch.object(enricher, "_api_lookup", new=AsyncMock(return_value=rdap)):
-                    with patch.object(enricher, "_cache_result", new=AsyncMock()) as mock_cache:
-                        with patch.object(enricher, "maybe_expand_block",
-                                          new=AsyncMock(return_value=False)) as mock_expand:
+            with patch.object(
+                enricher,
+                "get_rdap_base_url",
+                new=AsyncMock(return_value="https://rdap.arin.net/registry/"),
+            ):
+                with patch.object(
+                    enricher, "_api_lookup", new=AsyncMock(return_value=rdap)
+                ):
+                    with patch.object(
+                        enricher, "_cache_result", new=AsyncMock()
+                    ) as mock_cache:
+                        with patch.object(
+                            enricher,
+                            "maybe_expand_block",
+                            new=AsyncMock(return_value=False),
+                        ) as mock_expand:
                             await enricher._process_lookup("1.2.3.4")
                             return mock_cache.called, mock_expand.called
 
@@ -693,6 +745,7 @@ class TestRdapToSignals(unittest.TestCase):
     def test_rdap_to_signals_with_new_netblock_enabled(self):
         """new_netblock_flagging enabled → new netblock signal included (line 759+)."""
         from datetime import timedelta
+
         recent = (datetime.now(timezone.utc) - timedelta(days=30)).date().isoformat()
         enricher = _make_enricher()
         enricher._known_bad = [
@@ -722,8 +775,12 @@ class TestLoadBootstrap(unittest.TestCase):
     def test_load_bootstrap_from_redis_cache(self):
         """_load_bootstrap loads from Redis when both keys present (lines 770-784)."""
         redis = _make_redis()
-        v4_data = json.dumps([{"prefixes": ["1.0.0.0/8"], "urls": ["https://rdap.arin.net/"]}])
-        v6_data = json.dumps([{"prefixes": ["2001::/32"], "urls": ["https://rdap.arin.net/"]}])
+        v4_data = json.dumps(
+            [{"prefixes": ["1.0.0.0/8"], "urls": ["https://rdap.arin.net/"]}]
+        )
+        v6_data = json.dumps(
+            [{"prefixes": ["2001::/32"], "urls": ["https://rdap.arin.net/"]}]
+        )
         redis.get = AsyncMock(side_effect=[v4_data.encode(), v6_data.encode()])
         enricher = _make_enricher(redis=redis)
 
@@ -741,8 +798,11 @@ class TestLoadBootstrap(unittest.TestCase):
         enricher = _make_enricher(redis=redis)
 
         async def run():
-            with patch.object(enricher, "_try_become_bootstrap_leader",
-                              new=AsyncMock(return_value=True)):
+            with patch.object(
+                enricher,
+                "_try_become_bootstrap_leader",
+                new=AsyncMock(return_value=True),
+            ):
                 with patch.object(enricher, "_download_bootstrap", new=AsyncMock()):
                     await enricher._load_bootstrap()
 
@@ -752,8 +812,12 @@ class TestLoadBootstrap(unittest.TestCase):
         """Non-leader waits for Redis bootstrap data (lines 799-810)."""
         redis = _make_redis()
         # First get returns None (bootstrap not ready), second returns data
-        v4_data = json.dumps([{"prefixes": ["1.0.0.0/8"], "urls": ["https://rdap.arin.net/"]}])
-        v6_data = json.dumps([{"prefixes": ["2001::/32"], "urls": ["https://rdap.arin.net/"]}])
+        v4_data = json.dumps(
+            [{"prefixes": ["1.0.0.0/8"], "urls": ["https://rdap.arin.net/"]}]
+        )
+        v6_data = json.dumps(
+            [{"prefixes": ["2001::/32"], "urls": ["https://rdap.arin.net/"]}]
+        )
         call_count = [0]
 
         async def get_side_effect(key):
@@ -768,8 +832,11 @@ class TestLoadBootstrap(unittest.TestCase):
         enricher = _make_enricher(redis=redis)
 
         async def run():
-            with patch.object(enricher, "_try_become_bootstrap_leader",
-                              new=AsyncMock(return_value=False)):
+            with patch.object(
+                enricher,
+                "_try_become_bootstrap_leader",
+                new=AsyncMock(return_value=False),
+            ):
                 with patch("asyncio.sleep", AsyncMock(return_value=None)):
                     await enricher._load_bootstrap()
 
@@ -782,8 +849,11 @@ class TestLoadBootstrap(unittest.TestCase):
         enricher = _make_enricher(redis=redis)
 
         async def run():
-            with patch.object(enricher, "_try_become_bootstrap_leader",
-                              new=AsyncMock(return_value=False)):
+            with patch.object(
+                enricher,
+                "_try_become_bootstrap_leader",
+                new=AsyncMock(return_value=False),
+            ):
                 with patch("asyncio.sleep", AsyncMock(return_value=None)):
                     await enricher._load_bootstrap()
 
@@ -797,8 +867,11 @@ class TestLoadBootstrap(unittest.TestCase):
         enricher = _make_enricher(redis=redis)
 
         async def run():
-            with patch.object(enricher, "_try_become_bootstrap_leader",
-                              new=AsyncMock(side_effect=Exception("redis down"))):
+            with patch.object(
+                enricher,
+                "_try_become_bootstrap_leader",
+                new=AsyncMock(side_effect=Exception("redis down")),
+            ):
                 with patch.object(enricher, "_download_bootstrap", new=AsyncMock()):
                     await enricher._load_bootstrap()
 
@@ -871,22 +944,27 @@ class TestDownloadBootstrap(unittest.TestCase):
         session = MagicMock()
         mock_resp = MagicMock()
         mock_resp.raise_for_status = MagicMock()
-        mock_resp.json = AsyncMock(return_value={
-            "services": [
-                [["1.0.0.0/8", "2.0.0.0/8"], ["https://rdap.arin.net/registry/"]]
-            ]
-        })
+        mock_resp.json = AsyncMock(
+            return_value={
+                "services": [
+                    [["1.0.0.0/8", "2.0.0.0/8"], ["https://rdap.arin.net/registry/"]]
+                ]
+            }
+        )
         mock_resp.__aenter__ = AsyncMock(return_value=mock_resp)
         mock_resp.__aexit__ = AsyncMock(return_value=None)
         session.get = MagicMock(return_value=mock_resp)
 
         import aiohttp
+
         redis = _make_redis()
         enricher = _make_enricher(session=session, redis=redis)
 
         async def run():
-            with patch("src.security.rdap_enrichment.aiohttp.ClientTimeout",
-                       return_value=MagicMock()):
+            with patch(
+                "src.security.rdap_enrichment.aiohttp.ClientTimeout",
+                return_value=MagicMock(),
+            ):
                 await enricher._download_bootstrap()
 
         _run(run())
@@ -903,8 +981,10 @@ class TestDownloadBootstrap(unittest.TestCase):
         enricher = _make_enricher(session=session)
 
         async def run():
-            with patch("src.security.rdap_enrichment.aiohttp.ClientTimeout",
-                       return_value=MagicMock()):
+            with patch(
+                "src.security.rdap_enrichment.aiohttp.ClientTimeout",
+                return_value=MagicMock(),
+            ):
                 await enricher._download_bootstrap()  # must not raise
 
         _run(run())
@@ -924,8 +1004,10 @@ class TestDownloadBootstrap(unittest.TestCase):
         enricher = _make_enricher(session=session, redis=redis)
 
         async def run():
-            with patch("src.security.rdap_enrichment.aiohttp.ClientTimeout",
-                       return_value=MagicMock()):
+            with patch(
+                "src.security.rdap_enrichment.aiohttp.ClientTimeout",
+                return_value=MagicMock(),
+            ):
                 await enricher._download_bootstrap()  # must not raise
 
         _run(run())
@@ -1012,8 +1094,9 @@ class TestGetRdapBaseUrl(unittest.TestCase):
 
 class TestApiLookup(unittest.TestCase):
 
-    def _make_session_response(self, status=200, json_data=None, raise_exc=None,
-                               location=None):
+    def _make_session_response(
+        self, status=200, json_data=None, raise_exc=None, location=None
+    ):
         """Build a mock aiohttp response."""
         resp = MagicMock()
         resp.status = status
@@ -1033,6 +1116,7 @@ class TestApiLookup(unittest.TestCase):
     def test_api_lookup_404_raises_not_found(self):
         """404 response → _NotFoundError (lines 955-956)."""
         from src.security.rdap_enrichment import _NotFoundError
+
         resp = self._make_session_response(status=404)
         session = MagicMock()
         session.get = MagicMock(return_value=resp)
@@ -1040,8 +1124,11 @@ class TestApiLookup(unittest.TestCase):
 
         async def run():
             import aiohttp
-            with patch("src.security.rdap_enrichment.aiohttp.ClientTimeout",
-                       return_value=MagicMock()):
+
+            with patch(
+                "src.security.rdap_enrichment.aiohttp.ClientTimeout",
+                return_value=MagicMock(),
+            ):
                 await enricher._api_lookup("1.2.3.4", "https://rdap.arin.net/registry/")
 
         with self.assertRaises(Exception):  # _NotFoundError
@@ -1050,25 +1137,38 @@ class TestApiLookup(unittest.TestCase):
     def test_api_lookup_redirect_followed(self):
         """301 redirect → follows Location header (lines 957-967)."""
         from src.security.rdap_enrichment import _RedirectLimitError
-        resp1 = self._make_session_response(status=301, location="https://rdap.ripe.net/ip/1.2.3.4")
-        resp2 = self._make_session_response(status=301, location="https://rdap.lacnic.net/ip/1.2.3.4")
-        resp3 = self._make_session_response(status=301, location="https://rdap.afrinic.net/ip/1.2.3.4")
-        resp4 = self._make_session_response(status=301, location="https://another.net/ip/1.2.3.4")
+
+        resp1 = self._make_session_response(
+            status=301, location="https://rdap.ripe.net/ip/1.2.3.4"
+        )
+        resp2 = self._make_session_response(
+            status=301, location="https://rdap.lacnic.net/ip/1.2.3.4"
+        )
+        resp3 = self._make_session_response(
+            status=301, location="https://rdap.afrinic.net/ip/1.2.3.4"
+        )
+        resp4 = self._make_session_response(
+            status=301, location="https://another.net/ip/1.2.3.4"
+        )
 
         call_count = [0]
         responses = [resp1, resp2, resp3, resp4]
 
         session = MagicMock()
+
         def get_side_effect(*args, **kwargs):
             r = responses[call_count[0]]
             call_count[0] += 1
             return r
+
         session.get = MagicMock(side_effect=get_side_effect)
         enricher = _make_enricher(session=session)
 
         async def run():
-            with patch("src.security.rdap_enrichment.aiohttp.ClientTimeout",
-                       return_value=MagicMock()):
+            with patch(
+                "src.security.rdap_enrichment.aiohttp.ClientTimeout",
+                return_value=MagicMock(),
+            ):
                 await enricher._api_lookup("1.2.3.4", "https://rdap.arin.net/registry/")
 
         with self.assertRaises(Exception):  # _RedirectLimitError
@@ -1088,9 +1188,13 @@ class TestApiLookup(unittest.TestCase):
         enricher = _make_enricher(session=session)
 
         async def run():
-            with patch("src.security.rdap_enrichment.aiohttp.ClientTimeout",
-                       return_value=MagicMock()):
-                return await enricher._api_lookup("1.2.3.4", "https://rdap.arin.net/registry/")
+            with patch(
+                "src.security.rdap_enrichment.aiohttp.ClientTimeout",
+                return_value=MagicMock(),
+            ):
+                return await enricher._api_lookup(
+                    "1.2.3.4", "https://rdap.arin.net/registry/"
+                )
 
         result = _run(run())
         self.assertIsInstance(result, RDAPResult)
@@ -1112,15 +1216,20 @@ class TestParseRdapResponse(unittest.TestCase):
             "cidrLength": 24,
             "country": "US",
             "autnums": [{"handle": "15169"}],
-            "events": [{"eventAction": "registration", "eventDate": "2020-01-15T00:00:00Z"}],
+            "events": [
+                {"eventAction": "registration", "eventDate": "2020-01-15T00:00:00Z"}
+            ],
             "entities": [
                 {
                     "roles": ["registrant"],
                     "handle": "GOOGLE",
-                    "vcardArray": ["vcard", [
-                        ["version", {}, "text", "4.0"],
-                        ["fn", {}, "text", "Google LLC"],
-                    ]],
+                    "vcardArray": [
+                        "vcard",
+                        [
+                            ["version", {}, "text", "4.0"],
+                            ["fn", {}, "text", "Google LLC"],
+                        ],
+                    ],
                 }
             ],
         }
@@ -1162,7 +1271,9 @@ class TestParseRdapResponse(unittest.TestCase):
         data = {
             "startAddress": "4.5.6.0",
             "cidrLength": 24,
-            "events": [{"eventAction": "registration", "eventDate": "2021-06-15T12:34:56Z"}],
+            "events": [
+                {"eventAction": "registration", "eventDate": "2021-06-15T12:34:56Z"}
+            ],
             "entities": [],
         }
         result = enricher._parse_rdap_response(data, "4.5.6.7")
@@ -1185,6 +1296,7 @@ class TestLoadKnownBadOrgs(unittest.TestCase):
     def test_load_known_bad_orgs_yaml_error_raises_runtime(self):
         """YAML parse error raises RuntimeError (lines 1059-1063)."""
         import yaml
+
         enricher = _make_enricher(known_bad_orgs_path="config/known_bad_orgs.yml")
         with (
             patch("os.path.exists", return_value=True),
@@ -1224,9 +1336,13 @@ class TestMaybeExpandBlock(unittest.TestCase):
         """Block expansion disabled → returns False (line 1134-1135)."""
         cfg = _make_config(
             block_expansion=_BlockExpansionConfig(
-                enabled=False, min_trigger_score=75, max_prefix_length_v4=24,
-                max_prefix_length_v6=48, require_no_browser_traffic=True,
-                require_known_bad_org=True, expansion_ban_duration=3600,
+                enabled=False,
+                min_trigger_score=75,
+                max_prefix_length_v4=24,
+                max_prefix_length_v6=48,
+                require_no_browser_traffic=True,
+                require_known_bad_org=True,
+                expansion_ban_duration=3600,
                 max_expansions_per_hour=10,
             )
         )
@@ -1319,8 +1435,11 @@ class TestMaybeExpandBlock(unittest.TestCase):
         rdap = _make_rdap_result()
 
         async def run():
-            with patch.object(enricher, "_check_expansion_rate_limit",
-                              new=AsyncMock(return_value=False)):
+            with patch.object(
+                enricher,
+                "_check_expansion_rate_limit",
+                new=AsyncMock(return_value=False),
+            ):
                 return await enricher.maybe_expand_block("1.2.3.4", rdap, 80, True)
 
         result = _run(run())
@@ -1334,11 +1453,18 @@ class TestMaybeExpandBlock(unittest.TestCase):
         rdap = _make_rdap_result()
 
         async def run():
-            with patch.object(enricher, "_check_expansion_rate_limit",
-                              new=AsyncMock(return_value=True)):
+            with patch.object(
+                enricher,
+                "_check_expansion_rate_limit",
+                new=AsyncMock(return_value=True),
+            ):
                 with patch.object(enricher, "_apply_expansion", new=AsyncMock()):
-                    with patch.object(enricher, "_log_expansion_audit", new=AsyncMock()):
-                        return await enricher.maybe_expand_block("1.2.3.4", rdap, 80, True)
+                    with patch.object(
+                        enricher, "_log_expansion_audit", new=AsyncMock()
+                    ):
+                        return await enricher.maybe_expand_block(
+                            "1.2.3.4", rdap, 80, True
+                        )
 
         result = _run(run())
         self.assertTrue(result)
@@ -1518,7 +1644,9 @@ class TestScanExistingBanCidrs(unittest.TestCase):
     def test_scan_existing_ban_cidrs_loads_into_trie(self):
         """Scan finds ban_cidr:* keys and loads into blocklist (lines 1301-1322)."""
         redis = _make_redis()
-        redis.scan = AsyncMock(return_value=(0, [b"ban_cidr:1.2.3.0/24", b"ban_cidr:5.6.7.0/24"]))
+        redis.scan = AsyncMock(
+            return_value=(0, [b"ban_cidr:1.2.3.0/24", b"ban_cidr:5.6.7.0/24"])
+        )
         bm = MagicMock()
         enricher = _make_enricher(redis=redis, blocklist_manager=bm)
 
@@ -1546,10 +1674,12 @@ class TestScanExistingBanCidrs(unittest.TestCase):
     def test_scan_multi_page(self):
         """Multi-page scan (cursor != 0) iterates correctly."""
         redis = _make_redis()
-        redis.scan = AsyncMock(side_effect=[
-            (1, [b"ban_cidr:1.2.3.0/24"]),  # cursor=1 → continue
-            (0, [b"ban_cidr:5.6.7.0/24"]),  # cursor=0 → done
-        ])
+        redis.scan = AsyncMock(
+            side_effect=[
+                (1, [b"ban_cidr:1.2.3.0/24"]),  # cursor=1 → continue
+                (0, [b"ban_cidr:5.6.7.0/24"]),  # cursor=0 → done
+            ]
+        )
         bm = MagicMock()
         enricher = _make_enricher(redis=redis, blocklist_manager=bm)
 
@@ -1621,10 +1751,12 @@ class TestExtractNetblock(unittest.TestCase):
 
     def test_method2_network_end_address_ipv6(self):
         """Method 2 fallback: endAddress → /48 for IPv6 (line 1375)."""
-        data = {"network": {
-            "startAddress": "2001:db8::",
-            "endAddress": "2001:db8:ffff:ffff:ffff:ffff:ffff:ffff"
-        }}
+        data = {
+            "network": {
+                "startAddress": "2001:db8::",
+                "endAddress": "2001:db8:ffff:ffff:ffff:ffff:ffff:ffff",
+            }
+        }
         result = _extract_netblock(data, "2001:db8::1")
         self.assertIn("/48", result)
 
@@ -1639,6 +1771,7 @@ class TestExtractNetblock(unittest.TestCase):
         data = {}
         result = _extract_netblock(data, "2001:db8::1")
         import ipaddress
+
         net = ipaddress.ip_network(result, strict=False)
         self.assertEqual(net.prefixlen, 48)
 
@@ -1659,14 +1792,19 @@ class TestExtractOrg(unittest.TestCase):
     def test_extract_org_from_registrant_entity(self):
         """Registrant entity with vcard → org_name, org_handle extracted."""
         data = {
-            "entities": [{
-                "roles": ["registrant"],
-                "handle": "TEST-HDL",
-                "vcardArray": ["vcard", [
-                    ["version", {}, "text", "4.0"],
-                    ["fn", {}, "text", "Test Corporation"],
-                ]],
-            }]
+            "entities": [
+                {
+                    "roles": ["registrant"],
+                    "handle": "TEST-HDL",
+                    "vcardArray": [
+                        "vcard",
+                        [
+                            ["version", {}, "text", "4.0"],
+                            ["fn", {}, "text", "Test Corporation"],
+                        ],
+                    ],
+                }
+            ]
         }
         name, handle = _extract_org(data)
         self.assertEqual(name, "Test Corporation")
@@ -1675,13 +1813,18 @@ class TestExtractOrg(unittest.TestCase):
     def test_extract_org_from_administrative_entity(self):
         """Administrative entity also accepted (line 1397)."""
         data = {
-            "entities": [{
-                "roles": ["administrative"],
-                "handle": "ADMIN-HDL",
-                "vcardArray": ["vcard", [
-                    ["fn", {}, "text", "Admin Org"],
-                ]],
-            }]
+            "entities": [
+                {
+                    "roles": ["administrative"],
+                    "handle": "ADMIN-HDL",
+                    "vcardArray": [
+                        "vcard",
+                        [
+                            ["fn", {}, "text", "Admin Org"],
+                        ],
+                    ],
+                }
+            ]
         }
         name, handle = _extract_org(data)
         self.assertEqual(name, "Admin Org")
@@ -1689,11 +1832,13 @@ class TestExtractOrg(unittest.TestCase):
     def test_extract_org_nic_hdl_fallback(self):
         """nic-hdl used when handle not present (line 1401)."""
         data = {
-            "entities": [{
-                "roles": ["registrant"],
-                "nic-hdl": "RIPE-NCC",
-                "vcardArray": ["vcard", [["fn", {}, "text", "RIPE NCC"]]],
-            }]
+            "entities": [
+                {
+                    "roles": ["registrant"],
+                    "nic-hdl": "RIPE-NCC",
+                    "vcardArray": ["vcard", [["fn", {}, "text", "RIPE NCC"]]],
+                }
+            ]
         }
         name, handle = _extract_org(data)
         self.assertEqual(handle, "RIPE-NCC")
@@ -1701,12 +1846,17 @@ class TestExtractOrg(unittest.TestCase):
     def test_extract_org_vcard_org_entry(self):
         """vCard 'org' entry extracted (line 1412)."""
         data = {
-            "entities": [{
-                "roles": ["registrant"],
-                "vcardArray": ["vcard", [
-                    ["org", {}, "text", "My Company Ltd"],
-                ]],
-            }]
+            "entities": [
+                {
+                    "roles": ["registrant"],
+                    "vcardArray": [
+                        "vcard",
+                        [
+                            ["org", {}, "text", "My Company Ltd"],
+                        ],
+                    ],
+                }
+            ]
         }
         name, _ = _extract_org(data)
         self.assertEqual(name, "My Company Ltd")
@@ -1714,12 +1864,17 @@ class TestExtractOrg(unittest.TestCase):
     def test_extract_org_vcard_name_as_list(self):
         """vCard name value as list → joined (lines 1414-1415)."""
         data = {
-            "entities": [{
-                "roles": ["registrant"],
-                "vcardArray": ["vcard", [
-                    ["fn", {}, "text", ["Google", "LLC"]],
-                ]],
-            }]
+            "entities": [
+                {
+                    "roles": ["registrant"],
+                    "vcardArray": [
+                        "vcard",
+                        [
+                            ["fn", {}, "text", ["Google", "LLC"]],
+                        ],
+                    ],
+                }
+            ]
         }
         name, _ = _extract_org(data)
         self.assertIn("Google", name)
@@ -1727,11 +1882,13 @@ class TestExtractOrg(unittest.TestCase):
     def test_extract_org_skips_non_registrant(self):
         """Entity without registrant/administrative role is skipped (line 1397-1398)."""
         data = {
-            "entities": [{
-                "roles": ["noc"],
-                "handle": "NOC-1",
-                "vcardArray": ["vcard", [["fn", {}, "text", "NOC Org"]]],
-            }]
+            "entities": [
+                {
+                    "roles": ["noc"],
+                    "handle": "NOC-1",
+                    "vcardArray": ["vcard", [["fn", {}, "text", "NOC Org"]]],
+                }
+            ]
         }
         name, handle = _extract_org(data)
         self.assertEqual(name, "")
@@ -1772,10 +1929,12 @@ class TestExtractOrg(unittest.TestCase):
     def test_extract_org_short_vcard_entry_skipped(self):
         """vCard entry with < 4 elements is skipped (lines 1410-1411)."""
         data = {
-            "entities": [{
-                "roles": ["registrant"],
-                "vcardArray": ["vcard", [["fn", {}]]],  # Only 2 elements
-            }]
+            "entities": [
+                {
+                    "roles": ["registrant"],
+                    "vcardArray": ["vcard", [["fn", {}]]],  # Only 2 elements
+                }
+            ]
         }
         name, _ = _extract_org(data)
         self.assertEqual(name, "")
@@ -1798,6 +1957,7 @@ class TestRDAPCoverageGaps2(unittest.TestCase):
         """Line 438: stop() calls w.cancel() for each worker task.
         So what: without this, shutdown leaves worker coroutines running forever,
         preventing clean process exit and leaking event-loop resources."""
+
         async def run():
             enricher = _make_enricher()
             # Inject a fake long-running worker task
@@ -1814,6 +1974,7 @@ class TestRDAPCoverageGaps2(unittest.TestCase):
         """Line 584: bloom filter expire raises RedisError → suppressed.
         So what: without this except, a transient Redis error after successful
         bf().add() propagates and aborts the enqueue path, losing the RDAP lookup."""
+
         async def run():
             redis = _make_redis()
             # bf().add returns 1 (new entry), but expire raises
@@ -1834,6 +1995,7 @@ class TestRDAPCoverageGaps2(unittest.TestCase):
         """Lines 657-658: urlparse raises → registry_host set to 'unknown'.
         So what: without this fallback, a malformed RDAP registry URL crashes the
         entire lookup goroutine, silently dropping the enrichment signal."""
+
         async def run():
             enricher = _make_enricher()
             enricher._rate_limiter = MagicMock()
@@ -1841,7 +2003,9 @@ class TestRDAPCoverageGaps2(unittest.TestCase):
             enricher._api_lookup = AsyncMock(side_effect=asyncio.TimeoutError())
 
             with patch("urllib.parse.urlparse", side_effect=Exception("parse error")):
-                enricher.get_rdap_base_url = AsyncMock(return_value="https://malformed-url")
+                enricher.get_rdap_base_url = AsyncMock(
+                    return_value="https://malformed-url"
+                )
                 try:
                     await enricher._process_lookup("1.2.3.4")
                 except Exception:
@@ -1855,6 +2019,7 @@ class TestRDAPCoverageGaps2(unittest.TestCase):
         """Lines 663-664: rate_limiter.acquire() raises RedisError → suppressed.
         So what: without this except, a Redis outage in the rate limiter would
         prevent all RDAP lookups globally even though the RDAP service is healthy."""
+
         async def run():
             enricher = _make_enricher()
             enricher._rate_limiter = MagicMock()
@@ -1862,7 +2027,9 @@ class TestRDAPCoverageGaps2(unittest.TestCase):
                 side_effect=redis_lib.RedisError("rate limiter down")
             )
             enricher._api_lookup = AsyncMock(side_effect=asyncio.TimeoutError())
-            enricher.get_rdap_base_url = AsyncMock(return_value="https://rdap.arin.net/registry")
+            enricher.get_rdap_base_url = AsyncMock(
+                return_value="https://rdap.arin.net/registry"
+            )
 
             # Should not raise — rate limiter error suppressed, TimeoutError caught further down
             await enricher._process_lookup("1.2.3.4")
@@ -1876,11 +2043,13 @@ class TestRDAPCoverageGaps2(unittest.TestCase):
         So what: without this except, a transient Redis outage during bootstrap
         propagates out of _load_bootstrap(), leaving the enricher permanently unable
         to route lookups to the correct RIR."""
+
         async def run():
             enricher = _make_enricher()
             enricher._redis.set = AsyncMock(return_value=None)  # follower (no lock)
 
             call_count = [0]
+
             async def _get(key):
                 call_count[0] += 1
                 if call_count[0] <= 2:
@@ -1903,6 +2072,7 @@ class TestRDAPCoverageGaps2(unittest.TestCase):
         """Line 1011: redirect response with no Location header → raises Exception.
         So what: without this guard, the url variable stays unchanged and the loop
         retries the same URL forever, hanging the lookup goroutine until timeout."""
+
         async def run():
             enricher = _make_enricher()
             import aiohttp
@@ -1915,7 +2085,9 @@ class TestRDAPCoverageGaps2(unittest.TestCase):
             enricher._session.get = MagicMock(return_value=resp)
 
             with self.assertRaises(Exception):
-                await enricher._api_lookup("1.2.3.4", "https://rdap.arin.net/registry/ip/1.2.3.4")
+                await enricher._api_lookup(
+                    "1.2.3.4", "https://rdap.arin.net/registry/ip/1.2.3.4"
+                )
 
         _run(run())
 
@@ -1925,6 +2097,7 @@ class TestRDAPCoverageGaps2(unittest.TestCase):
         """Lines 1021-1035: _parse_rdap_response raises → logged then re-raised.
         So what: without this block, parse errors are silent — the caller never
         knows the lookup failed, and the stale/missing cache entry persists."""
+
         async def run():
             enricher = _make_enricher()
             import aiohttp
@@ -1936,10 +2109,14 @@ class TestRDAPCoverageGaps2(unittest.TestCase):
             resp.__aenter__ = AsyncMock(return_value=resp)
             resp.__aexit__ = AsyncMock(return_value=None)
             enricher._session.get = MagicMock(return_value=resp)
-            enricher._parse_rdap_response = MagicMock(side_effect=ValueError("bad response"))
+            enricher._parse_rdap_response = MagicMock(
+                side_effect=ValueError("bad response")
+            )
 
             with self.assertRaises((ValueError, Exception)):
-                await enricher._api_lookup("1.2.3.4", "https://rdap.arin.net/registry/ip/1.2.3.4")
+                await enricher._api_lookup(
+                    "1.2.3.4", "https://rdap.arin.net/registry/ip/1.2.3.4"
+                )
 
         _run(run())
 
@@ -1948,7 +2125,9 @@ class TestRDAPCoverageGaps2(unittest.TestCase):
     def test_expansion_rate_limit_exception_fails_open(self):
         """Lines 1288-1292: exception in rate-limit check → returns True (fail open).
         So what: without this, a Redis outage in the rate limiter would block ALL block
-        expansions globally, leaving known malicious CIDRs un-blocked during an attack."""
+        expansions globally, leaving known malicious CIDRs un-blocked during an attack.
+        """
+
         async def run():
             redis = _make_redis()
             # Make the pipeline execute raise
@@ -1974,6 +2153,7 @@ class TestRDAPCoverageGaps2(unittest.TestCase):
         So what: without this, an audit-log write failure propagates out of
         _log_expansion_audit, aborting the _maybe_block_expand flow and silently
         skipping the expansion even though the CIDR was already written to Redis."""
+
         async def run():
             redis = _make_redis()
             # Make the pipeline execute raise
@@ -1989,7 +2169,9 @@ class TestRDAPCoverageGaps2(unittest.TestCase):
             enricher = _make_enricher(redis=redis)
             rdap = _make_rdap_result()
             # Should not raise
-            await enricher._log_expansion_audit("1.2.3.4", "1.2.3.0/24", rdap, trigger_score=80)
+            await enricher._log_expansion_audit(
+                "1.2.3.4", "1.2.3.0/24", rdap, trigger_score=80
+            )
 
         _run(run())
 
@@ -2000,6 +2182,7 @@ class TestRDAPCoverageGaps2(unittest.TestCase):
         So what: without this except, a malformed RDAP network sub-object crashes
         block expansion entirely, preventing CIDR banning for the offending org."""
         from src.security.rdap_enrichment import _extract_netblock
+
         # network.startAddress is invalid, so ip_network raises
         data = {"network": {"startAddress": "not-an-ip", "cidrLength": 24}}
         result = _extract_netblock(data, "1.2.3.4")
@@ -2013,6 +2196,7 @@ class TestRDAPCoverageGaps2(unittest.TestCase):
         So what: without this except, a malformed endAddress in the RDAP response
         crashes the expansion, leaving a known-bad netblock without a ban entry."""
         from src.security.rdap_enrichment import _extract_netblock
+
         # network.startAddress is invalid IP, so ip_address() raises
         data = {"network": {"startAddress": "bad-ip", "endAddress": "1.2.3.255"}}
         result = _extract_netblock(data, "1.2.3.4")

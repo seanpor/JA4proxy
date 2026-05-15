@@ -48,9 +48,9 @@ def test_regression_JA4PROXY_2026_0024_secure_on_production(
     # marked Secure because ENVIRONMENT=production.
     for env_val in ("production", "PRODUCTION", "prod"):
         monkeypatch.setenv("ENVIRONMENT", env_val)
-        assert _should_set_secure_cookie(_request_with_scheme("http")) is True, (
-            f"ENVIRONMENT={env_val!r} must force secure cookies even on HTTP"
-        )
+        assert (
+            _should_set_secure_cookie(_request_with_scheme("http")) is True
+        ), f"ENVIRONMENT={env_val!r} must force secure cookies even on HTTP"
 
 
 def test_regression_JA4PROXY_2026_0024_not_secure_on_dev_http(
@@ -60,9 +60,9 @@ def test_regression_JA4PROXY_2026_0024_not_secure_on_dev_http(
     # (browsers reject Secure cookies on plain HTTP).
     for env_val in ("", "dev", "development", "staging", "test"):
         monkeypatch.setenv("ENVIRONMENT", env_val)
-        assert _should_set_secure_cookie(_request_with_scheme("http")) is False, (
-            f"ENVIRONMENT={env_val!r} on plain HTTP must leave Secure off"
-        )
+        assert (
+            _should_set_secure_cookie(_request_with_scheme("http")) is False
+        ), f"ENVIRONMENT={env_val!r} on plain HTTP must leave Secure off"
 
 
 def test_regression_JA4PROXY_2026_0024_login_endpoint_emits_secure_cookie(
@@ -92,7 +92,7 @@ def test_regression_JA4PROXY_2026_0024_login_endpoint_emits_secure_cookie(
         assert r.status_code in (200, 302), r.text
         set_cookie_header = r.headers.get("set-cookie", "")
         assert "token=" in set_cookie_header
-        assert "Secure" in set_cookie_header, (
-            f"Secure flag missing in production Set-Cookie: {set_cookie_header!r}"
-        )
+        assert (
+            "Secure" in set_cookie_header
+        ), f"Secure flag missing in production Set-Cookie: {set_cookie_header!r}"
         assert "HttpOnly" in set_cookie_header

@@ -54,12 +54,26 @@ AGGREGATE_REQUIRED_DEPS = {
     "lint-go": ["go-lint", "lint-go-full", "lint-go-mod"],
     "lint-sast": ["lint-semgrep", "lint-checkov"],
     "lint-infra": [
-        "lint-docker", "lint-shell", "lint-yaml", "lint-lua", "lint-json",
-        "lint-haproxy", "lint-makefiles", "lint-toml", "lint-ansible", "lint-helm",
+        "lint-docker",
+        "lint-shell",
+        "lint-yaml",
+        "lint-lua",
+        "lint-json",
+        "lint-haproxy",
+        "lint-makefiles",
+        "lint-toml",
+        "lint-ansible",
+        "lint-helm",
     ],
     "lint-observability": ["lint-prom", "lint-alertmanager"],
     "lint-supply-chain": ["lint-secrets", "lint-deps"],
-    "lint-docs-all": ["lint-docs", "lint-phases", "link-check", "lint-markdown", "lint-spelling"],
+    "lint-docs-all": [
+        "lint-docs",
+        "lint-phases",
+        "link-check",
+        "lint-markdown",
+        "lint-spelling",
+    ],
 }
 
 LINT_ALL_REQUIRED_SUBS = [
@@ -102,7 +116,7 @@ def _makefile_text():
 def _targets_from_makefile(text):
     targets = set()
     for line in text.splitlines():
-        m = re.match(r'^([a-zA-Z0-9_][a-zA-Z0-9_\-]*):', line)
+        m = re.match(r"^([a-zA-Z0-9_][a-zA-Z0-9_\-]*):", line)
         if m:
             targets.add(m.group(1))
     return targets
@@ -117,7 +131,7 @@ def _phony_from_makefile(text):
         line = lines[i]
         if line.startswith(".PHONY:"):
             # Accumulate continuation lines
-            content = line[len(".PHONY:"):]
+            content = line[len(".PHONY:") :]
             while content.rstrip().endswith("\\"):
                 content = content.rstrip()[:-1]  # strip trailing backslash
                 i += 1
@@ -131,7 +145,7 @@ def _phony_from_makefile(text):
 def _deps_for_target(text, target):
     """Return the list of prerequisites for a named target (first occurrence)."""
     for line in text.splitlines():
-        m = re.match(rf'^{re.escape(target)}:\s*(.*)$', line)
+        m = re.match(rf"^{re.escape(target)}:\s*(.*)$", line)
         if m:
             return m.group(1).split()
     return []
@@ -166,15 +180,15 @@ def test_individual_lint_target_has_recipe(target):
     in_target = False
     has_recipe = False
     for line in lines:
-        if re.match(rf'^{re.escape(target)}:', line):
+        if re.match(rf"^{re.escape(target)}:", line):
             in_target = True
             continue
         if in_target:
-            if line.startswith('\t'):
+            if line.startswith("\t"):
                 has_recipe = True
                 break
             # New target or blank line — stop looking
-            if re.match(r'^[a-zA-Z0-9_][a-zA-Z0-9_\-]*:', line):
+            if re.match(r"^[a-zA-Z0-9_][a-zA-Z0-9_\-]*:", line):
                 break
     assert has_recipe, f"Target '{target}' has no recipe lines (tab-indented)"
 
@@ -203,7 +217,9 @@ def test_aggregate_target_is_phony(target):
 # =============================================================================
 
 
-@pytest.mark.parametrize("aggregate,required_deps", list(AGGREGATE_REQUIRED_DEPS.items()))
+@pytest.mark.parametrize(
+    "aggregate,required_deps", list(AGGREGATE_REQUIRED_DEPS.items())
+)
 def test_aggregate_deps_are_correct(aggregate, required_deps):
     """Each aggregate must list all its required leaf/sub-aggregate deps."""
     text = _makefile_text()
@@ -212,23 +228,25 @@ def test_aggregate_deps_are_correct(aggregate, required_deps):
     lines = text.splitlines()
     in_target = False
     for i, line in enumerate(lines):
-        if re.match(rf'^{re.escape(aggregate)}:', line):
+        if re.match(rf"^{re.escape(aggregate)}:", line):
             in_target = True
             # Deps on the same line
-            m = re.match(rf'^{re.escape(aggregate)}:\s*(.*)', line)
+            m = re.match(rf"^{re.escape(aggregate)}:\s*(.*)", line)
             if m:
-                all_deps.update(m.group(1).replace('\\', '').split())
+                all_deps.update(m.group(1).replace("\\", "").split())
             continue
         if in_target:
             stripped = line.strip()
-            if stripped.endswith('\\'):
+            if stripped.endswith("\\"):
                 all_deps.update(stripped[:-1].split())
-            elif stripped and not line.startswith('\t') and not stripped.startswith('#'):
+            elif (
+                stripped and not line.startswith("\t") and not stripped.startswith("#")
+            ):
                 # Another target definition or blank — stop
-                if re.match(r'^[a-zA-Z0-9_]', line):
+                if re.match(r"^[a-zA-Z0-9_]", line):
                     break
                 all_deps.update(stripped.split())
-            elif line.startswith('\t'):
+            elif line.startswith("\t"):
                 # Recipe line — stop collecting deps
                 break
 
@@ -253,21 +271,23 @@ def test_lint_all_includes_sub_aggregate(sub):
     lines = text.splitlines()
     in_target = False
     for line in lines:
-        if re.match(r'^lint-all:', line):
+        if re.match(r"^lint-all:", line):
             in_target = True
-            m = re.match(r'^lint-all:\s*(.*)', line)
+            m = re.match(r"^lint-all:\s*(.*)", line)
             if m:
-                all_deps.update(m.group(1).replace('\\', '').split())
+                all_deps.update(m.group(1).replace("\\", "").split())
             continue
         if in_target:
             stripped = line.strip()
-            if stripped.endswith('\\'):
+            if stripped.endswith("\\"):
                 all_deps.update(stripped[:-1].split())
-            elif stripped and not line.startswith('\t') and not stripped.startswith('#'):
-                if re.match(r'^[a-zA-Z0-9_]', line):
+            elif (
+                stripped and not line.startswith("\t") and not stripped.startswith("#")
+            ):
+                if re.match(r"^[a-zA-Z0-9_]", line):
                     break
                 all_deps.update(stripped.split())
-            elif line.startswith('\t'):
+            elif line.startswith("\t"):
                 break
     assert sub in all_deps, (
         f"lint-all does not include sub-aggregate '{sub}'\n"
@@ -304,10 +324,12 @@ def test_make_help_exits_zero(make_help_result):
 @pytest.mark.parametrize("expected_string", HELP_STRINGS)
 def test_make_help_mentions_lint_target(make_help_result, expected_string):
     """make help output must mention each lint target."""
-    assert make_help_result.returncode == 0, f"make help failed: {make_help_result.stderr[:500]}"
-    assert expected_string in make_help_result.stdout, (
-        f"make help output does not mention '{expected_string}'"
-    )
+    assert (
+        make_help_result.returncode == 0
+    ), f"make help failed: {make_help_result.stderr[:500]}"
+    assert (
+        expected_string in make_help_result.stdout
+    ), f"make help output does not mention '{expected_string}'"
 
 
 # =============================================================================
@@ -326,11 +348,11 @@ def test_lint_toml_recipe_has_no_heredoc():
     lines = text.splitlines()
     in_lint_toml = False
     for line in lines:
-        if re.match(r'^lint-toml:', line):
+        if re.match(r"^lint-toml:", line):
             in_lint_toml = True
             continue
         if in_lint_toml:
-            if re.match(r'^[a-zA-Z0-9_][a-zA-Z0-9_\-]*:', line):
+            if re.match(r"^[a-zA-Z0-9_][a-zA-Z0-9_\-]*:", line):
                 break
             if "<<" in line and ("EOF" in line or "HEREDOC" in line):
                 pytest.fail(
@@ -353,20 +375,20 @@ def _lint_toml_validation_source():
     in_lint_toml = False
     recipe_lines = []
     for line in lines:
-        if re.match(r'^lint-toml:', line):
+        if re.match(r"^lint-toml:", line):
             in_lint_toml = True
             continue
         if in_lint_toml:
-            if re.match(r'^[a-zA-Z0-9_][a-zA-Z0-9_\-]*:', line):
+            if re.match(r"^[a-zA-Z0-9_][a-zA-Z0-9_\-]*:", line):
                 break
-            if line.startswith('\t'):
+            if line.startswith("\t"):
                 recipe_lines.append(line)
 
     recipe = "\n".join(recipe_lines)
 
     # If the recipe delegates to a Python script, include that script's source too.
     script_source = ""
-    script_match = re.search(r'python3\s+(scripts/\S+\.py)', recipe)
+    script_match = re.search(r"python3\s+(scripts/\S+\.py)", recipe)
     if script_match:
         script_path = REPO_ROOT / script_match.group(1)
         if script_path.exists():
@@ -378,17 +400,17 @@ def _lint_toml_validation_source():
 def test_lint_toml_recipe_validates_pyproject_toml():
     """lint-toml logic (recipe + helper script) must reference pyproject.toml."""
     source = _lint_toml_validation_source()
-    assert "pyproject.toml" in source, (
-        "lint-toml validation logic must reference 'pyproject.toml'"
-    )
+    assert (
+        "pyproject.toml" in source
+    ), "lint-toml validation logic must reference 'pyproject.toml'"
 
 
 def test_lint_toml_recipe_validates_gitleaks_toml():
     """lint-toml logic (recipe + helper script) must reference .gitleaks.toml."""
     source = _lint_toml_validation_source()
-    assert ".gitleaks.toml" in source, (
-        "lint-toml validation logic must reference '.gitleaks.toml'"
-    )
+    assert (
+        ".gitleaks.toml" in source
+    ), "lint-toml validation logic must reference '.gitleaks.toml'"
 
 
 def test_lint_toml_recipe_uses_python3():
@@ -398,13 +420,13 @@ def test_lint_toml_recipe_uses_python3():
     in_lint_toml = False
     recipe_lines = []
     for line in lines:
-        if re.match(r'^lint-toml:', line):
+        if re.match(r"^lint-toml:", line):
             in_lint_toml = True
             continue
         if in_lint_toml:
-            if re.match(r'^[a-zA-Z0-9_][a-zA-Z0-9_\-]*:', line):
+            if re.match(r"^[a-zA-Z0-9_][a-zA-Z0-9_\-]*:", line):
                 break
-            if line.startswith('\t'):
+            if line.startswith("\t"):
                 recipe_lines.append(line)
     recipe = "\n".join(recipe_lines)
     assert "python3" in recipe, "lint-toml recipe must invoke python3"
@@ -425,14 +447,18 @@ def test_test_phase_92_target_exists():
     """test-lint-hierarchy target must be defined in the Makefile."""
     text = _makefile_text()
     targets = _targets_from_makefile(text)
-    assert "test-lint-hierarchy" in targets, "test-lint-hierarchy target not found in Makefile"
+    assert (
+        "test-lint-hierarchy" in targets
+    ), "test-lint-hierarchy target not found in Makefile"
 
 
 def test_test_phase_92_is_phony():
     """test-lint-hierarchy must be declared in .PHONY."""
     text = _makefile_text()
     phony = _phony_from_makefile(text)
-    assert "test-lint-hierarchy" in phony, "test-lint-hierarchy not in .PHONY declaration"
+    assert (
+        "test-lint-hierarchy" in phony
+    ), "test-lint-hierarchy not in .PHONY declaration"
 
 
 def test_test_phase_92_runs_pytest():
@@ -442,17 +468,19 @@ def test_test_phase_92_runs_pytest():
     in_target = False
     recipe_lines = []
     for line in lines:
-        if re.match(r'^test-lint-hierarchy:', line):
+        if re.match(r"^test-lint-hierarchy:", line):
             in_target = True
             continue
         if in_target:
-            if re.match(r'^[a-zA-Z0-9_][a-zA-Z0-9_\-]*:', line):
+            if re.match(r"^[a-zA-Z0-9_][a-zA-Z0-9_\-]*:", line):
                 break
-            if line.startswith('\t'):
+            if line.startswith("\t"):
                 recipe_lines.append(line)
     recipe = "\n".join(recipe_lines)
     assert "pytest" in recipe, "test-lint-hierarchy must invoke pytest"
-    assert "tests/lint-hierarchy" in recipe, "test-lint-hierarchy must point to tests/lint-hierarchy/"
+    assert (
+        "tests/lint-hierarchy" in recipe
+    ), "test-lint-hierarchy must point to tests/lint-hierarchy/"
 
 
 # =============================================================================
@@ -467,18 +495,20 @@ def test_lint_all_has_success_echo():
     in_target = False
     recipe_lines = []
     for line in lines:
-        if re.match(r'^lint-all:', line):
+        if re.match(r"^lint-all:", line):
             in_target = True
             continue
         if in_target:
-            if re.match(r'^[a-zA-Z0-9_][a-zA-Z0-9_\-]*:', line):
+            if re.match(r"^[a-zA-Z0-9_][a-zA-Z0-9_\-]*:", line):
                 break
-            if line.startswith('\t'):
+            if line.startswith("\t"):
                 recipe_lines.append(line)
     recipe = "\n".join(recipe_lines)
-    assert "lint-all" in recipe.lower() or "complete" in recipe.lower() or "passed" in recipe.lower(), (
-        "lint-all recipe must print a completion/success message"
-    )
+    assert (
+        "lint-all" in recipe.lower()
+        or "complete" in recipe.lower()
+        or "passed" in recipe.lower()
+    ), "lint-all recipe must print a completion/success message"
 
 
 # =============================================================================
@@ -486,15 +516,20 @@ def test_lint_all_has_success_echo():
 # =============================================================================
 
 
-@pytest.mark.parametrize("target", LINTHIERARCHY_INDIVIDUAL_TARGETS + LINTHIERARCHY_AGGREGATE_TARGETS + ["test-lint-hierarchy"])
+@pytest.mark.parametrize(
+    "target",
+    LINTHIERARCHY_INDIVIDUAL_TARGETS
+    + LINTHIERARCHY_AGGREGATE_TARGETS
+    + ["test-lint-hierarchy"],
+)
 def test_no_duplicate_target_definition(target):
     """Each target must be defined exactly once in the Makefile."""
     text = _makefile_text()
-    pattern = re.compile(rf'^{re.escape(target)}:', re.MULTILINE)
+    pattern = re.compile(rf"^{re.escape(target)}:", re.MULTILINE)
     matches = pattern.findall(text)
-    assert len(matches) == 1, (
-        f"Target '{target}' is defined {len(matches)} times (expected 1)"
-    )
+    assert (
+        len(matches) == 1
+    ), f"Target '{target}' is defined {len(matches)} times (expected 1)"
 
 
 # =============================================================================
@@ -564,13 +599,13 @@ def test_lint_docker_includes_scale_compose():
     in_target = False
     recipe_lines = []
     for line in lines:
-        if re.match(r'^lint-docker:', line):
+        if re.match(r"^lint-docker:", line):
             in_target = True
             continue
         if in_target:
-            if re.match(r'^[a-zA-Z0-9_][a-zA-Z0-9_\-]*:', line):
+            if re.match(r"^[a-zA-Z0-9_][a-zA-Z0-9_\-]*:", line):
                 break
-            if line.startswith('\t'):
+            if line.startswith("\t"):
                 recipe_lines.append(line)
     recipe = "\n".join(recipe_lines)
     assert "docker-compose.scale.yml" in recipe, (

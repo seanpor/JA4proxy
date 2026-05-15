@@ -9,6 +9,7 @@ uses this form for ``slsa-framework/slsa-github-generator``).
 Every workflow must also declare a top-level ``permissions:`` block so the
 default ``GITHUB_TOKEN`` scope is explicitly narrowed.
 """
+
 from __future__ import annotations
 
 import glob
@@ -168,10 +169,9 @@ def test_every_uses_line_is_sha_pinned():
                 continue
             if not SHA_PIN_RE.match(use + " "):
                 failures.append(f"{f.name}: {use}")
-    assert not failures, (
-        "Unpinned uses: entries found (must be 40-char SHA):\n  "
-        + "\n  ".join(failures)
-    )
+    assert (
+        not failures
+    ), "Unpinned uses: entries found (must be 40-char SHA):\n  " + "\n  ".join(failures)
 
 
 def test_every_workflow_has_top_level_permissions():
@@ -181,10 +181,9 @@ def test_every_workflow_has_top_level_permissions():
             doc = yaml.safe_load(fh)
         if not isinstance(doc, dict) or "permissions" not in doc:
             failures.append(f.name)
-    assert not failures, (
-        "Workflows missing top-level permissions block:\n  "
-        + "\n  ".join(failures)
-    )
+    assert (
+        not failures
+    ), "Workflows missing top-level permissions block:\n  " + "\n  ".join(failures)
 
 
 def test_branch_protection_script_executable():

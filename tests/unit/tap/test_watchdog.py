@@ -128,9 +128,9 @@ class TestRapidCrashDetection:
         warning_msgs = [
             r.message for r in caplog.records if r.levelno == logging.WARNING
         ]
-        assert any("rapid-crash" in m for m in warning_msgs), (
-            f"Expected rapid-crash warning; got: {warning_msgs}"
-        )
+        assert any(
+            "rapid-crash" in m for m in warning_msgs
+        ), f"Expected rapid-crash warning; got: {warning_msgs}"
 
 
 class TestCleanShutdown:

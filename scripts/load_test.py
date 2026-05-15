@@ -51,27 +51,27 @@ TLS_TRAFFIC_GEN_PY = REPO_ROOT / "scripts" / "tls-traffic-generator.py"
 SCENARIOS: Dict[str, Dict[str, int]] = {
     "bypass-only": {
         "browser_alpn": 100,
-        "automation":    0,
-        "scanner":       0,
-        "malicious":     0,
+        "automation": 0,
+        "scanner": 0,
+        "malicious": 0,
     },
     "full-signal": {
-        "browser_alpn":  0,
-        "automation":  100,
-        "scanner":       0,
-        "malicious":     0,
+        "browser_alpn": 0,
+        "automation": 100,
+        "scanner": 0,
+        "malicious": 0,
     },
     "attack-wave": {
-        "browser_alpn":  0,
-        "automation":    0,
-        "scanner":      50,
-        "malicious":    50,
+        "browser_alpn": 0,
+        "automation": 0,
+        "scanner": 50,
+        "malicious": 50,
     },
     "mixed": {
         "browser_alpn": 70,
-        "automation":   20,
-        "scanner":       5,
-        "malicious":     5,
+        "automation": 20,
+        "scanner": 5,
+        "malicious": 5,
     },
 }
 
@@ -100,7 +100,15 @@ def _load_tls_traffic_generator():
 # ── Pushgateway support ─────────────────────────────────────────────────────
 
 _LATENCY_BUCKETS = (
-    0.0001, 0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.5, 1.0,
+    0.0001,
+    0.001,
+    0.005,
+    0.01,
+    0.025,
+    0.05,
+    0.1,
+    0.5,
+    1.0,
 )
 
 
@@ -210,9 +218,7 @@ def push_loadtest_metrics(
 
     try:
         if grouping_key:
-            push_to_gateway(
-                url, job=job, registry=registry, grouping_key=grouping_key
-            )
+            push_to_gateway(url, job=job, registry=registry, grouping_key=grouping_key)
         else:
             push_to_gateway(url, job=job, registry=registry)
     except Exception as exc:
@@ -251,11 +257,16 @@ def run_benchmark(target: str, duration: int, rps: int, scenario: str) -> dict:
     mix_arg = _format_mix(distribution)
 
     cmd = [
-        sys.executable, str(TLS_TRAFFIC_GEN_PY),
-        "--target-host", host,
-        "--target-port", str(port),
-        "--duration", str(duration),
-        "--fingerprint-mix", mix_arg,
+        sys.executable,
+        str(TLS_TRAFFIC_GEN_PY),
+        "--target-host",
+        host,
+        "--target-port",
+        str(port),
+        "--duration",
+        str(duration),
+        "--fingerprint-mix",
+        mix_arg,
     ]
 
     start = time.monotonic()
@@ -305,8 +316,7 @@ def run_benchmark(target: str, duration: int, rps: int, scenario: str) -> dict:
         "exit_code": exit_code,
         "report_text": report_text,
         "raw_data": {
-            k: v for k, v in raw_data.items()
-            if isinstance(v, (int, float, str))
+            k: v for k, v in raw_data.items() if isinstance(v, (int, float, str))
         },
     }
 
@@ -333,11 +343,13 @@ def generate_summary(results: dict) -> str:
         lines.append("")
 
     if results.get("report_text"):
-        lines.extend([
-            "Benchmark Report Excerpt:",
-            "-" * 50,
-            results["report_text"],
-        ])
+        lines.extend(
+            [
+                "Benchmark Report Excerpt:",
+                "-" * 50,
+                results["report_text"],
+            ]
+        )
 
     return "\n".join(lines)
 
@@ -357,39 +369,63 @@ def main() -> None:
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--target", required=True,
-                        help="Target proxy host:port (e.g. localhost:8080)")
-    parser.add_argument("--duration", type=int, default=60,
-                        help="Duration per scenario in seconds (default: 60)")
-    parser.add_argument("--rps", type=int, default=1000,
-                        help="Target connections per second (documented; "
-                             "benchmark engine runs at native max throughput)")
-    parser.add_argument("--scenario", default="mixed",
-                        choices=sorted(SCENARIOS.keys()),
-                        help=(
-                            "Scenario: bypass-only, full-signal, attack-wave, "
-                            "mixed (default: mixed). See epilog for fingerprint "
-                            "distributions."
-                        ))
-    parser.add_argument("--output", type=str, default=None,
-                        help="Output directory (default: auto-generated)")
-    parser.add_argument("--push-gateway", type=str, default=None,
-                        help="Optional Prometheus Pushgateway URL; if set, "
-                             "emits ja4proxy_loadtest_* metrics after the run")
+    parser.add_argument(
+        "--target", required=True, help="Target proxy host:port (e.g. localhost:8080)"
+    )
+    parser.add_argument(
+        "--duration",
+        type=int,
+        default=60,
+        help="Duration per scenario in seconds (default: 60)",
+    )
+    parser.add_argument(
+        "--rps",
+        type=int,
+        default=1000,
+        help="Target connections per second (documented; "
+        "benchmark engine runs at native max throughput)",
+    )
+    parser.add_argument(
+        "--scenario",
+        default="mixed",
+        choices=sorted(SCENARIOS.keys()),
+        help=(
+            "Scenario: bypass-only, full-signal, attack-wave, "
+            "mixed (default: mixed). See epilog for fingerprint "
+            "distributions."
+        ),
+    )
+    parser.add_argument(
+        "--output",
+        type=str,
+        default=None,
+        help="Output directory (default: auto-generated)",
+    )
+    parser.add_argument(
+        "--push-gateway",
+        type=str,
+        default=None,
+        help="Optional Prometheus Pushgateway URL; if set, "
+        "emits ja4proxy_loadtest_* metrics after the run",
+    )
     args = parser.parse_args()
 
     # Load tls-traffic-generator for scenario-driven fingerprint dispatch.
     # It's a big module; only import when actually running the test.
     _load_tls_traffic_generator()
 
-    print(f"Starting load test: target={args.target}, duration={args.duration}s, "
-          f"rps={args.rps}, scenario={args.scenario} "
-          f"(distribution: {SCENARIOS[args.scenario]})")
+    print(
+        f"Starting load test: target={args.target}, duration={args.duration}s, "
+        f"rps={args.rps}, scenario={args.scenario} "
+        f"(distribution: {SCENARIOS[args.scenario]})"
+    )
 
     results = run_benchmark(args.target, args.duration, args.rps, args.scenario)
 
-    output_dir = Path(args.output) if args.output else (
-        REPO_ROOT / "test-results" / "load-test" / results["timestamp"]
+    output_dir = (
+        Path(args.output)
+        if args.output
+        else (REPO_ROOT / "test-results" / "load-test" / results["timestamp"])
     )
     output_dir.mkdir(parents=True, exist_ok=True)
 

@@ -1,6 +1,7 @@
 """
 Unit tests for src/tap/fingerprints/ja4t.py (Phase 20 Group 5-C).
 """
+
 import struct
 
 import pytest
@@ -21,7 +22,7 @@ def _opts(*args: tuple) -> bytes:
     out = b""
     for item in args:
         kind = item[0]
-        if kind == 0:   # EOL
+        if kind == 0:  # EOL
             out += bytes([0])
         elif kind == 1:  # NOP
             out += bytes([1])
@@ -121,6 +122,7 @@ class TestJA4T:
 
 # ── Missing-coverage additions ────────────────────────────────────────────────
 
+
 class TestJA4TCoverageGaps:
     """Cover lines 62-63, 85, 107, 132 in ja4t.py.
 
@@ -135,6 +137,7 @@ class TestJA4TCoverageGaps:
         from unittest.mock import patch
 
         import src.tap.fingerprints.ja4t as _mod
+
         with patch.object(_mod, "_parse", side_effect=RuntimeError("injected")):
             result = extract_ja4t_from_syn(b"\x02\x04\x05\xb4", window_size=1024)
         assert result is not None
@@ -155,7 +158,7 @@ class TestJA4TCoverageGaps:
         the reference tool, causing parity failures in bot classification."""
         # SACK (kind=5, len=10, 8 bytes of block data)
         sack_opt = bytes([5, 10]) + b"\x00" * 8
-        mss_opt = bytes([2, 4, 0x05, 0xb4])  # MSS=1460
+        mss_opt = bytes([2, 4, 0x05, 0xB4])  # MSS=1460
         opts = mss_opt + sack_opt
         result = extract_ja4t_from_syn(opts, window_size=65535)
         assert result is not None
@@ -166,7 +169,7 @@ class TestJA4TCoverageGaps:
         So what: if EOL is not handled, options after EOL are parsed, producing
         a wrong fingerprint that misidentifies the OS."""
         # MSS then EOL — nothing after EOL should be parsed
-        opts = bytes([2, 4, 0x05, 0xb4, 0])  # MSS=1460 then EOL
+        opts = bytes([2, 4, 0x05, 0xB4, 0])  # MSS=1460 then EOL
         result = extract_ja4t_from_syn(opts, window_size=65535)
         assert result is not None
         # Only MSS should be in options (EOL stops the loop)

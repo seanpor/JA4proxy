@@ -40,9 +40,7 @@ class TestRunbookFiles:
             pytest.skip(f"{filename} not found — caught by test_runbook_exists")
         content = filepath.read_text()
         for section in REQUIRED_SECTIONS:
-            assert section in content, (
-                f"Runbook {filename} missing section: {section}"
-            )
+            assert section in content, f"Runbook {filename} missing section: {section}"
 
     @pytest.mark.parametrize("filename", EXPECTED_RUNBOOKS)
     def test_runbook_not_empty(self, filename):

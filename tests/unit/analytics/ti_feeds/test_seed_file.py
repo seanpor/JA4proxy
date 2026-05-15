@@ -158,16 +158,19 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 def _import_parse_entries():
     from src.analytics.ti_feeds.seed_file import _parse_entries
+
     return _parse_entries
 
 
 def _import_load_seed_file():
     from src.analytics.ti_feeds.seed_file import load_seed_file
+
     return load_seed_file
 
 
 def _import_run_once():
     from src.analytics.ti_feeds.seed_file import run_once
+
     return run_once
 
 
@@ -188,136 +191,152 @@ def test_parse_entries_entry_not_dict():
 def test_parse_entries_invalid_ja4():
     """Entry with invalid JA4 is skipped."""
     parse = _import_parse_entries()
-    result = parse({
-        "fingerprints": [
-            {
-                "ja4": "invalid-ja4",
-                "name": "test",
-                "category": "c2",
-                "source": "https://example.test",
-                "confidence": 90,
-            }
-        ]
-    })
+    result = parse(
+        {
+            "fingerprints": [
+                {
+                    "ja4": "invalid-ja4",
+                    "name": "test",
+                    "category": "c2",
+                    "source": "https://example.test",
+                    "confidence": 90,
+                }
+            ]
+        }
+    )
     assert result == []
 
 
 def test_parse_entries_non_string_ja4():
     """Entry with non-string JA4 is skipped."""
     parse = _import_parse_entries()
-    result = parse({
-        "fingerprints": [
-            {
-                "ja4": 12345,
-                "name": "test",
-                "category": "c2",
-                "source": "https://example.test",
-                "confidence": 90,
-            }
-        ]
-    })
+    result = parse(
+        {
+            "fingerprints": [
+                {
+                    "ja4": 12345,
+                    "name": "test",
+                    "category": "c2",
+                    "source": "https://example.test",
+                    "confidence": 90,
+                }
+            ]
+        }
+    )
     assert result == []
 
 
 def test_parse_entries_missing_metadata():
     """Entry with empty name/category/source is skipped."""
     parse = _import_parse_entries()
-    result = parse({
-        "fingerprints": [
-            {
-                "ja4": "t10d170900_9dc949161b6c_b64c0ad42cb7",
-                "name": "",
-                "category": "c2",
-                "source": "https://example.test",
-                "confidence": 90,
-            }
-        ]
-    })
+    result = parse(
+        {
+            "fingerprints": [
+                {
+                    "ja4": "t10d170900_9dc949161b6c_b64c0ad42cb7",
+                    "name": "",
+                    "category": "c2",
+                    "source": "https://example.test",
+                    "confidence": 90,
+                }
+            ]
+        }
+    )
     assert result == []
 
 
 def test_parse_entries_non_string_metadata():
     """Entry with non-string name is skipped."""
     parse = _import_parse_entries()
-    result = parse({
-        "fingerprints": [
-            {
-                "ja4": "t10d170900_9dc949161b6c_b64c0ad42cb7",
-                "name": 123,
-                "category": "c2",
-                "source": "https://example.test",
-                "confidence": 90,
-            }
-        ]
-    })
+    result = parse(
+        {
+            "fingerprints": [
+                {
+                    "ja4": "t10d170900_9dc949161b6c_b64c0ad42cb7",
+                    "name": 123,
+                    "category": "c2",
+                    "source": "https://example.test",
+                    "confidence": 90,
+                }
+            ]
+        }
+    )
     assert result == []
 
 
 def test_parse_entries_bad_confidence_type():
     """Entry with non-numeric confidence is skipped."""
     parse = _import_parse_entries()
-    result = parse({
-        "fingerprints": [
-            {
-                "ja4": "t10d170900_9dc949161b6c_b64c0ad42cb7",
-                "name": "test",
-                "category": "c2",
-                "source": "https://example.test",
-                "confidence": "not-a-number",
-            }
-        ]
-    })
+    result = parse(
+        {
+            "fingerprints": [
+                {
+                    "ja4": "t10d170900_9dc949161b6c_b64c0ad42cb7",
+                    "name": "test",
+                    "category": "c2",
+                    "source": "https://example.test",
+                    "confidence": "not-a-number",
+                }
+            ]
+        }
+    )
     assert result == []
 
 
 def test_parse_entries_confidence_out_of_range_negative():
     """Entry with negative confidence is skipped."""
     parse = _import_parse_entries()
-    result = parse({
-        "fingerprints": [
-            {
-                "ja4": "t10d170900_9dc949161b6c_b64c0ad42cb7",
-                "name": "test",
-                "category": "c2",
-                "source": "https://example.test",
-                "confidence": -5,
-            }
-        ]
-    })
+    result = parse(
+        {
+            "fingerprints": [
+                {
+                    "ja4": "t10d170900_9dc949161b6c_b64c0ad42cb7",
+                    "name": "test",
+                    "category": "c2",
+                    "source": "https://example.test",
+                    "confidence": -5,
+                }
+            ]
+        }
+    )
     assert result == []
 
 
 def test_parse_entries_confidence_out_of_range_high():
     """Entry with confidence > 100 is skipped."""
     parse = _import_parse_entries()
-    result = parse({
-        "fingerprints": [
-            {
-                "ja4": "t10d170900_9dc949161b6c_b64c0ad42cb7",
-                "name": "test",
-                "category": "c2",
-                "source": "https://example.test",
-                "confidence": 150,
-            }
-        ]
-    })
+    result = parse(
+        {
+            "fingerprints": [
+                {
+                    "ja4": "t10d170900_9dc949161b6c_b64c0ad42cb7",
+                    "name": "test",
+                    "category": "c2",
+                    "source": "https://example.test",
+                    "confidence": 150,
+                }
+            ]
+        }
+    )
     assert result == []
 
 
 def test_parse_entries_valid_entry_passes():
     """A valid entry is parsed and returned."""
     parse = _import_parse_entries()
-    result = parse({
-        "fingerprints": [
-            {
-                "ja4": "t10d170900_9dc949161b6c_b64c0ad42cb7",
-                "name": "Cobalt Strike",
-                "category": "c2_framework",
-                "source": "https://example.test",
-                "confidence": 95,
-            }
-        ]
-    })
+    result = parse(
+        {
+            "fingerprints": [
+                {
+                    "ja4": "t10d170900_9dc949161b6c_b64c0ad42cb7",
+                    "name": "Cobalt Strike",
+                    "category": "c2_framework",
+                    "source": "https://example.test",
+                    "confidence": 95,
+                }
+            ]
+        }
+    )
     assert len(result) == 1
     assert result[0].ja4 == "t10d170900_9dc949161b6c_b64c0ad42cb7"
     assert result[0].confidence == 95
@@ -326,25 +345,27 @@ def test_parse_entries_valid_entry_passes():
 def test_parse_entries_mixed_valid_and_invalid():
     """Valid entries pass, invalid are skipped — no crash."""
     parse = _import_parse_entries()
-    result = parse({
-        "fingerprints": [
-            {
-                "ja4": "t10d170900_9dc949161b6c_b64c0ad42cb7",
-                "name": "Valid",
-                "category": "c2",
-                "source": "https://example.test",
-                "confidence": 80,
-            },
-            "not-a-dict",
-            {
-                "ja4": "invalid",
-                "name": "Bad",
-                "category": "c2",
-                "source": "https://example.test",
-                "confidence": 80,
-            },
-        ]
-    })
+    result = parse(
+        {
+            "fingerprints": [
+                {
+                    "ja4": "t10d170900_9dc949161b6c_b64c0ad42cb7",
+                    "name": "Valid",
+                    "category": "c2",
+                    "source": "https://example.test",
+                    "confidence": 80,
+                },
+                "not-a-dict",
+                {
+                    "ja4": "invalid",
+                    "name": "Bad",
+                    "category": "c2",
+                    "source": "https://example.test",
+                    "confidence": 80,
+                },
+            ]
+        }
+    )
     assert len(result) == 1
 
 
@@ -576,7 +597,9 @@ fingerprints:
     p = tmp_path / "seed.yml"
     p.write_text(yaml_text)
 
-    with patch("src.analytics.ti_feeds.seed_file._SEED_ENTRIES_LOADED", _mock_seed_metric()):
+    with patch(
+        "src.analytics.ti_feeds.seed_file._SEED_ENTRIES_LOADED", _mock_seed_metric()
+    ):
         result = await run_once(mgmt=mgmt, state=state, path=p, min_entries=10)
     assert result["loaded"] == 1
     assert result["created"] == 1
@@ -595,7 +618,9 @@ async def test_run_once_api_error(tmp_path):
     state = FeedState(redis_client)
 
     mgmt = AsyncMock()
-    mgmt.post_blocklist = AsyncMock(side_effect=ManagementAPIError(status_code=500, message="server error"))
+    mgmt.post_blocklist = AsyncMock(
+        side_effect=ManagementAPIError(status_code=500, message="server error")
+    )
 
     yaml_text = """
 fingerprints:
@@ -608,7 +633,9 @@ fingerprints:
     p = tmp_path / "seed.yml"
     p.write_text(yaml_text)
 
-    with patch("src.analytics.ti_feeds.seed_file._SEED_ENTRIES_LOADED", _mock_seed_metric()):
+    with patch(
+        "src.analytics.ti_feeds.seed_file._SEED_ENTRIES_LOADED", _mock_seed_metric()
+    ):
         result = await run_once(mgmt=mgmt, state=state, path=p, min_entries=1)
     assert result["errors"] == 1
     assert result["created"] == 0
@@ -639,7 +666,9 @@ fingerprints:
     p = tmp_path / "seed.yml"
     p.write_text(yaml_text)
 
-    with patch("src.analytics.ti_feeds.seed_file._SEED_ENTRIES_LOADED", _mock_seed_metric()):
+    with patch(
+        "src.analytics.ti_feeds.seed_file._SEED_ENTRIES_LOADED", _mock_seed_metric()
+    ):
         result = await run_once(mgmt=mgmt, state=state, path=p, min_entries=1)
     assert result["errors"] == 1
     assert result["created"] == 0
@@ -674,7 +703,9 @@ fingerprints:
     p = tmp_path / "seed.yml"
     p.write_text(yaml_text)
 
-    with patch("src.analytics.ti_feeds.seed_file._SEED_ENTRIES_LOADED", _mock_seed_metric()):
+    with patch(
+        "src.analytics.ti_feeds.seed_file._SEED_ENTRIES_LOADED", _mock_seed_metric()
+    ):
         result = await run_once(mgmt=mgmt, state=state, path=p, min_entries=1)
     assert result["created"] == 2
     assert result["errors"] == 0

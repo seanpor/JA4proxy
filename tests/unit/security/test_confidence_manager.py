@@ -24,12 +24,12 @@ async def test_confidence_manager_initialization(mock_redis):
     """Test that confidence manager initializes with default values."""
     manager = ConfidenceManager(mock_redis)
     await manager.initialize()
-    
+
     # Should have default feeds
     assert manager._initialized is True
     assert "misp" in manager._feeds
     assert "virustotal" in manager._feeds
-    
+
     # Check default confidence values
     misp_confidence = manager._feeds["misp"]
     assert misp_confidence.accuracy_score == 0.9
@@ -45,14 +45,14 @@ async def test_confidence_manager_load_from_redis(mock_redis):
             "true_positives": 100,
             "false_positives": 5,
             "last_updated": time.time() - 3600,
-            "manual_override": None
+            "manual_override": None,
         }
     }
     mock_redis.get.return_value = json.dumps(stored_data)
-    
+
     manager = ConfidenceManager(mock_redis)
     await manager.initialize()
-    
+
     # Should load from Redis
     misp_confidence = manager._feeds["misp"]
     assert misp_confidence.accuracy_score == 0.95
@@ -65,11 +65,11 @@ async def test_get_confidence_weight(mock_redis):
     """Test confidence weight calculation."""
     manager = ConfidenceManager(mock_redis)
     await manager.initialize()
-    
+
     # Test default weights
     assert manager.get_confidence_weight("misp") == 0.9 * 1.0 + 0.5  # 0.5 + (0.9 * 1.0)
     assert manager.get_confidence_weight("virustotal") == 0.95 * 1.0 + 0.5
-    
+
     # Test unknown feed
     assert manager.get_confidence_weight("unknown_feed") == 1.0
 
@@ -79,12 +79,12 @@ async def test_record_validation(mock_redis):
     """Test recording validation events."""
     manager = ConfidenceManager(mock_redis)
     await manager.initialize()
-    
+
     # Record some validations
     await manager.record_validation("misp", is_true_positive=True)  # TP
     await manager.record_validation("misp", is_true_positive=True)  # TP
     await manager.record_validation("misp", is_true_positive=False)  # FP
-    
+
     stats = manager.get_feed_stats("misp")
     assert stats["true_positives"] == 2
     assert stats["false_positives"] == 1
@@ -96,14 +96,14 @@ async def test_manual_override(mock_redis):
     """Test manual confidence override."""
     manager = ConfidenceManager(mock_redis)
     await manager.initialize()
-    
+
     # Set manual override
     await manager.set_manual_override("misp", 1.2)
-    
+
     stats = manager.get_feed_stats("misp")
     assert stats["manual_override"] == 1.2
     assert stats["effective_weight"] == 1.2
-    
+
     # Clear override
     await manager.clear_manual_override("misp")
     stats = manager.get_feed_stats("misp")
@@ -115,16 +115,16 @@ async def test_confidence_adjustment_blending(mock_redis):
     """Test that confidence adjustments blend old and new scores."""
     manager = ConfidenceManager(mock_redis)
     await manager.initialize()
-    
+
     # Start with a feed that has some history
     feed = manager._feeds["misp"]
     feed.true_positives = 10
     feed.false_positives = 0
     feed.accuracy_score = 1.0  # Perfect so far
-    
+
     # Add a false positive
     await manager.record_validation("misp", is_true_positive=False)
-    
+
     # Score should blend: (1.0 * 0.8) + (0.909 * 0.2) ≈ 0.9818
     stats = manager.get_feed_stats("misp")
     assert 0.95 < stats["accuracy_score"] < 1.0
@@ -135,19 +135,19 @@ async def test_state_persistence(mock_redis):
     """Test that state is saved to Redis."""
     manager = ConfidenceManager(mock_redis)
     await manager.initialize()
-    
+
     # Make some changes
     await manager.record_validation("misp", is_true_positive=True)
     await manager.set_manual_override("virustotal", 1.1)
-    
+
     # Trigger save
     await manager.save_state()
-    
+
     # Should have called Redis setex
     mock_redis.setex.assert_called()
     call_args = mock_redis.setex.call_args
     assert call_args[0][0] == "ja4proxy:confidence:state"
-    
+
     # Verify saved data contains our changes
     saved_data = json.loads(call_args[0][2])
     assert "misp" in saved_data
@@ -160,11 +160,11 @@ async def test_weight_clamping(mock_redis):
     """Test that weights are properly clamped to 0.5-1.5 range."""
     manager = ConfidenceManager(mock_redis)
     await manager.initialize()
-    
+
     # Test manual override clamping
     await manager.set_manual_override("misp", 2.0)  # Too high
     assert manager.get_confidence_weight("misp") == 1.5
-    
+
     await manager.set_manual_override("misp", 0.1)  # Too low
     assert manager.get_confidence_weight("misp") == 0.5
 
@@ -174,11 +174,11 @@ async def test_fallback_when_uninitialized(mock_redis):
     """Test behavior when manager is not initialized."""
     manager = ConfidenceManager(mock_redis)
     # Don't call initialize()
-    
+
     # Should return default values
     weight = manager.get_confidence_weight("misp")
     assert weight == 0.9  # Default from constructor
-    
+
     # Validation should be no-op
     await manager.record_validation("misp", is_true_positive=True)
     # No exception should be raised

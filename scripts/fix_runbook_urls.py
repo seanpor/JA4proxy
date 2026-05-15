@@ -65,9 +65,7 @@ def load_mapping(path: Path) -> dict[str, str]:
     return {str(k): str(v) for k, v in data.items()}
 
 
-def validate_mapping_targets(
-    mapping: dict[str, str], runbooks_dir: Path
-) -> list[str]:
+def validate_mapping_targets(mapping: dict[str, str], runbooks_dir: Path) -> list[str]:
     """Return a list of error strings for mapping entries whose target file
     does not resolve under `runbooks_dir`. Empty list means all targets valid.
     """
@@ -139,9 +137,9 @@ def plan_file_rewrite(
                 )
                 out.append(line)
                 continue
-            canonical = f'{CANONICAL_PREFIX}{target}'
+            canonical = f"{CANONICAL_PREFIX}{target}"
             indent = runbook_match.group("indent")
-            newline_suffix = line[len(stripped):]  # preserve original \n or \r\n
+            newline_suffix = line[len(stripped) :]  # preserve original \n or \r\n
             new_line = f'{indent}runbook_url: "{canonical}"{newline_suffix}'
             if new_line != line:
                 changed = True
@@ -251,7 +249,9 @@ def main() -> None:
     args = parser.parse_args()
 
     if not args.rules_dir.is_dir():
-        print(f"error: --rules-dir {args.rules_dir} is not a directory", file=sys.stderr)
+        print(
+            f"error: --rules-dir {args.rules_dir} is not a directory", file=sys.stderr
+        )
         sys.exit(1)
     if not args.mapping.is_file():
         print(f"error: --mapping {args.mapping} is not a file", file=sys.stderr)

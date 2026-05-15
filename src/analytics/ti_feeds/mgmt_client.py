@@ -188,9 +188,7 @@ class ManagementClient:
             try:
                 await self._session.close()
             except Exception as exc:  # noqa: BLE001 — best-effort shutdown
-                logger.debug(
-                    "ti_feed | event=mgmt_client_close_error | error=%s", exc
-                )
+                logger.debug("ti_feed | event=mgmt_client_close_error | error=%s", exc)
             self._session = None
 
     def _default_headers(self) -> dict[str, str]:
@@ -265,9 +263,7 @@ class ManagementClient:
 
         while attempt <= self._max_retries:
             try:
-                async with self._open_request(
-                    method, url, json_body=json_body
-                ) as resp:
+                async with self._open_request(method, url, json_body=json_body) as resp:
                     status = resp.status
                     text = await resp.text()
                     # phase-85 §2.5: retry 5xx and 429 (rate limit). Other
@@ -285,9 +281,7 @@ class ManagementClient:
                         _MGMT_API_ERRORS.labels(
                             feed_id=feed_id, status_code=str(status)
                         ).inc()
-                        raise ManagementAPIError(
-                            status_code=status, message=text[:512]
-                        )
+                        raise ManagementAPIError(status_code=status, message=text[:512])
                     body: dict[str, Any] = {}
                     if text:
                         try:
@@ -301,9 +295,7 @@ class ManagementClient:
             except ManagementAPIError:
                 raise
             except Exception as exc:  # noqa: BLE001
-                _MGMT_API_ERRORS.labels(
-                    feed_id=feed_id, status_code="network"
-                ).inc()
+                _MGMT_API_ERRORS.labels(feed_id=feed_id, status_code="network").inc()
                 last_error = f"network: {exc}"
                 await self._sleep_backoff(attempt)
                 attempt += 1
@@ -315,7 +307,7 @@ class ManagementClient:
 
     async def _sleep_backoff(self, attempt: int) -> None:
         """Exponential backoff: ``base * 2**attempt`` seconds."""
-        delay = self._backoff_base_s * (2 ** attempt)
+        delay = self._backoff_base_s * (2**attempt)
         await asyncio.sleep(delay)
 
     # ── high-level helpers ───────────────────────────────────────────────

@@ -62,7 +62,9 @@ def _scan_file_for_overclaims(path: Path) -> list[tuple[int, str]]:
 
 
 @pytest.mark.parametrize(
-    "scan_target", SCAN_TARGETS, ids=[str(p.relative_to(REPO_ROOT)) for p in SCAN_TARGETS]
+    "scan_target",
+    SCAN_TARGETS,
+    ids=[str(p.relative_to(REPO_ROOT)) for p in SCAN_TARGETS],
 )
 def test_no_overclaim_language(scan_target: Path) -> None:
     """No ``certified`` / ``compliant`` claims in compliance docs (S-2 regression guard).

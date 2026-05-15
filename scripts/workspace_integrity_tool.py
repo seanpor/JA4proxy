@@ -17,17 +17,36 @@ from collections import defaultdict
 from pathlib import Path
 
 # Configuration
-EXCLUDE_DIRS = {".git", "__pycache__", ".mypy_cache", ".pytest_cache", ".ruff_cache", "node_modules", ".claude", "reports", "geoip", "venv", ".venv"}
+EXCLUDE_DIRS = {
+    ".git",
+    "__pycache__",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    "node_modules",
+    ".claude",
+    "reports",
+    "geoip",
+    "venv",
+    ".venv",
+}
 SOURCE_EXTS = {".py", ".sh", ".go", ".yml", ".yaml", ".md", ".json", ".txt"}
-DOCKER_FILES = {"Dockerfile", "Dockerfile-go", "Dockerfile.test", "Dockerfile.trafficgen", "Dockerfile.mockbackend"}
+DOCKER_FILES = {
+    "Dockerfile",
+    "Dockerfile-go",
+    "Dockerfile.test",
+    "Dockerfile.trafficgen",
+    "Dockerfile.mockbackend",
+}
+
 
 class WorkspaceIntegrityTool:
     def __init__(self, root_dir):
         self.root_dir = Path(root_dir)
         self.all_files = set()
         self.graph = defaultdict(set)  # src -> {dsts}
-        self.incoming = defaultdict(set) # dst -> {srcs}
-        self.broken_refs = defaultdict(list) # src -> [broken_path]
+        self.incoming = defaultdict(set)  # dst -> {srcs}
+        self.broken_refs = defaultdict(list)  # src -> [broken_path]
 
     def scan_workspace(self):
         """Build a list of all files in the workspace."""
@@ -70,20 +89,26 @@ class WorkspaceIntegrityTool:
                     else:
                         if node.module:
                             modules = [node.module]
-                    
+
                     for mod in modules:
                         mod_path = mod.replace(".", "/")
-                        candidates = [f"{mod_path}.py", f"{mod_path}/__init__.py", f"src/{mod_path}.py", f"scripts/{mod_path}.py", f"internal/{mod_path}.py"]
+                        candidates = [
+                            f"{mod_path}.py",
+                            f"{mod_path}/__init__.py",
+                            f"src/{mod_path}.py",
+                            f"scripts/{mod_path}.py",
+                            f"internal/{mod_path}.py",
+                        ]
                         for c in candidates:
                             if c in self.all_files:
                                 self.add_edge(file_path, c)
                                 break
-                
+
                 # Look for string literals that look like paths
                 if isinstance(node, ast.Constant) and isinstance(node.value, str):
                     if "/" in node.value or "." in node.value:
                         if any(node.value.endswith(ext) for ext in SOURCE_EXTS):
-                             self.add_edge(file_path, node.value)
+                            self.add_edge(file_path, node.value)
 
         except Exception:
             pass
@@ -93,10 +118,13 @@ class WorkspaceIntegrityTool:
             with open(self.root_dir / file_path, "r", encoding="utf-8") as f:
                 content = f.read()
                 # Matches: source file.sh, . file.sh, bash file.sh, python3 file.py
-                matches = re.findall(r'(?:source|\.|bash|sh|python3?|go run)\s+([./a-zA-Z0-9_-]+\.[a-z]+)', content)
+                matches = re.findall(
+                    r"(?:source|\.|bash|sh|python3?|go run)\s+([./a-zA-Z0-9_-]+\.[a-z]+)",
+                    content,
+                )
                 for m in matches:
                     self.add_edge(file_path, m)
-                
+
                 # Generic path-like strings in quotes
                 matches = re.findall(r'["\']([./a-zA-Z0-9_-]+\.[a-z]+)["\']', content)
                 for m in matches:
@@ -110,7 +138,7 @@ class WorkspaceIntegrityTool:
             with open(self.root_dir / file_path, "r", encoding="utf-8") as f:
                 for line in f:
                     # COPY and ADD
-                    match = re.search(r'(?:COPY|ADD)\s+(?:--[a-z]+=\S+\s+)?(\S+)', line)
+                    match = re.search(r"(?:COPY|ADD)\s+(?:--[a-z]+=\S+\s+)?(\S+)", line)
                     if match:
                         path = match.group(1).strip('"')
                         # Docker COPY can be a dir or file. We check for files.
@@ -121,9 +149,11 @@ class WorkspaceIntegrityTool:
                             for f_name in self.all_files:
                                 if f_name.startswith(path):
                                     self.add_edge(file_path, f_name)
-                    
+
                     # ENTRYPOINT/CMD with scripts
-                    match = re.search(r'(?:ENTRYPOINT|CMD)\s+\[?"?([\w./-]+\.sh)"?', line)
+                    match = re.search(
+                        r'(?:ENTRYPOINT|CMD)\s+\[?"?([\w./-]+\.sh)"?', line
+                    )
                     if match:
                         self.add_edge(file_path, match.group(1))
         except Exception:
@@ -134,27 +164,27 @@ class WorkspaceIntegrityTool:
             with open(self.root_dir / file_path, "r", encoding="utf-8") as f:
                 content = f.read()
                 # Look for Dockerfiles in compose
-                matches = re.findall(r'dockerfile:\s*(\S+)', content)
+                matches = re.findall(r"dockerfile:\s*(\S+)", content)
                 for m in matches:
                     self.add_edge(file_path, m)
-                
+
                 # Look for env_file
-                matches = re.findall(r'env_file:\s*(\S+)', content)
+                matches = re.findall(r"env_file:\s*(\S+)", content)
                 for m in matches:
                     self.add_edge(file_path, m)
 
                 # Look for volumes (local:remote)
-                matches = re.findall(r'-\s*([./\w_-]+):[/\w_-]+', content)
+                matches = re.findall(r"-\s*([./\w_-]+):[/\w_-]+", content)
                 for m in matches:
                     self.add_edge(file_path, m)
-                
+
                 # Generic path-like strings
-                matches = re.findall(r'path:\s*(\S+)', content)
+                matches = re.findall(r"path:\s*(\S+)", content)
                 for m in matches:
                     self.add_edge(file_path, m)
-                
+
                 # Matches for keys ending in _path or _file
-                matches = re.findall(r'[\w_-]+(?:_path|_file):\s*(\S+)', content)
+                matches = re.findall(r"[\w_-]+(?:_path|_file):\s*(\S+)", content)
                 for m in matches:
                     self.add_edge(file_path, m)
 
@@ -166,13 +196,13 @@ class WorkspaceIntegrityTool:
             with open(self.root_dir / file_path, "r", encoding="utf-8") as f:
                 content = f.read()
                 # Matches [text](path)
-                matches = re.findall(r'\[.*?\]\(([./a-zA-Z0-9_-]+\.[a-z]+)\)', content)
+                matches = re.findall(r"\[.*?\]\(([./a-zA-Z0-9_-]+\.[a-z]+)\)", content)
                 for m in matches:
                     if not m.startswith("http"):
                         self.add_edge(file_path, m)
-                
+
                 # Matches `path`
-                matches = re.findall(r'`([./a-zA-Z0-9_-]+\.[a-z]+)`', content)
+                matches = re.findall(r"`([./a-zA-Z0-9_-]+\.[a-z]+)`", content)
                 for m in matches:
                     if any(m.endswith(ext) for ext in SOURCE_EXTS):
                         self.add_edge(file_path, m)
@@ -180,7 +210,7 @@ class WorkspaceIntegrityTool:
             pass
 
     def parse_go(self, file_path):
-         try:
+        try:
             with open(self.root_dir / file_path, "r", encoding="utf-8") as f:
                 content = f.read()
                 # Matches internal JA4proxy2 imports
@@ -193,13 +223,13 @@ class WorkspaceIntegrityTool:
                             self.add_edge(file_path, f_name)
                             found = True
                     if not found:
-                         self.broken_refs[file_path].append(m)
-         except Exception:
-             pass
+                        self.broken_refs[file_path].append(m)
+        except Exception:
+            pass
 
     def run(self):
         self.scan_workspace()
-        
+
         for f in sorted(self.all_files):
             if f.endswith(".py"):
                 self.parse_python(f)
@@ -213,7 +243,7 @@ class WorkspaceIntegrityTool:
                 self.parse_yaml(f)
             elif os.path.basename(f) in DOCKER_FILES or f.startswith("deploy/docker/"):
                 self.parse_dockerfile(f)
-            
+
             # Special case: Makefile
             if f == "Makefile":
                 self.parse_shell(f)
@@ -229,9 +259,18 @@ class WorkspaceIntegrityTool:
             if f.startswith("docs/phases/"):
                 continue  # Phase docs are records
             if f in {
-                "README.md", "LICENSE", "CHANGELOG.md", "go.mod", "go.sum",
-                "pyproject.toml", "requirements.txt", "Makefile",
-                "CONTRIBUTING.md", "SECURITY.md", ".gitignore", "AGENTS.md",
+                "README.md",
+                "LICENSE",
+                "CHANGELOG.md",
+                "go.mod",
+                "go.sum",
+                "pyproject.toml",
+                "requirements.txt",
+                "Makefile",
+                "CONTRIBUTING.md",
+                "SECURITY.md",
+                ".gitignore",
+                "AGENTS.md",
             }:
                 continue
             if f.startswith("data/geoip/"):
@@ -245,6 +284,7 @@ class WorkspaceIntegrityTool:
 
         return orphans, self.broken_refs
 
+
 def main():
     root = "."
     wit = WorkspaceIntegrityTool(root)
@@ -254,12 +294,18 @@ def main():
     report_dir.mkdir(exist_ok=True)
 
     with open(report_dir / "workspace_audit.json", "w") as jf:
-        json.dump({
-            "orphans": orphans,
-            "broken_references": {k: list(v) for k, v in broken.items() if v}
-        }, jf, indent=2)
+        json.dump(
+            {
+                "orphans": orphans,
+                "broken_references": {k: list(v) for k, v in broken.items() if v},
+            },
+            jf,
+            indent=2,
+        )
 
-    print(f"Audit complete. Found {len(orphans)} potential orphans and {len(broken)} files with broken references.")
+    print(
+        f"Audit complete. Found {len(orphans)} potential orphans and {len(broken)} files with broken references."
+    )
     print("Full report saved to reports/workspace_audit.json")
 
     if "--list-orphans" in sys.argv:
@@ -274,6 +320,7 @@ def main():
                 print(f"{src}:")
                 for r in refs:
                     print(f"  -> {r}")
+
 
 if __name__ == "__main__":
     main()

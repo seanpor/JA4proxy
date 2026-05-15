@@ -8,6 +8,7 @@ Exit codes:
   0 — no violations found
   1 — one or more violations found
 """
+
 import ast
 import sys
 from pathlib import Path

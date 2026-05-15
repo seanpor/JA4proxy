@@ -160,19 +160,19 @@ async def test_rest_generic_refuses_chrome_120(monkeypatch: pytest.MonkeyPatch) 
     result = FeedPollResult(feed_id=cfg.id, stix_ids_seen=set(), created=[])
     await client._apply_body(body, result)
 
-    assert mgmt.posts == [], (
-        f"FP corpus gate breached in rest_generic: {mgmt.posts!r}"
-    )
-    assert any("false positive" in err.lower() for err in result.errors), (
-        f"expected an explicit FP-blocked error entry, got {result.errors!r}"
-    )
+    assert mgmt.posts == [], f"FP corpus gate breached in rest_generic: {mgmt.posts!r}"
+    assert any(
+        "false positive" in err.lower() for err in result.errors
+    ), f"expected an explicit FP-blocked error entry, got {result.errors!r}"
 
 
 # ── seed_file path ──────────────────────────────────────────────────────────
 
 
 @pytest.mark.asyncio
-async def test_seed_file_refuses_chrome_120(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_seed_file_refuses_chrome_120(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """The YAML seed-file loader must reject a Chrome 120 JA4 entry."""
     _require_in_corpus(_CHROME_120_JA4)
 
@@ -210,10 +210,10 @@ async def test_seed_file_refuses_chrome_120(tmp_path, monkeypatch: pytest.Monkey
 
     # Exactly one post: the non-browser JA4. The Chrome 120 entry is
     # counted as rejected.
-    assert len(mgmt.posts) == 1, (
-        f"expected exactly one post (the attacker JA4), got {mgmt.posts!r}"
-    )
+    assert (
+        len(mgmt.posts) == 1
+    ), f"expected exactly one post (the attacker JA4), got {mgmt.posts!r}"
     assert mgmt.posts[0].entry == "t13d1111h2_000000000000_deadbeefcafe"
-    assert summary["rejected"] >= 1, (
-        f"expected >=1 rejection for the FP-corpus JA4, got summary={summary!r}"
-    )
+    assert (
+        summary["rejected"] >= 1
+    ), f"expected >=1 rejection for the FP-corpus JA4, got summary={summary!r}"

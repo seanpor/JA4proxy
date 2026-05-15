@@ -22,10 +22,7 @@ def mock_redis():
 def monitor(mock_redis):
     config = {"version": "1.4.2", "dial": 75}
     return HealthMonitor(
-        redis_client=mock_redis,
-        config=config,
-        rise_threshold=3,
-        fall_threshold=2
+        redis_client=mock_redis, config=config, rise_threshold=3, fall_threshold=2
     )
 
 
@@ -40,11 +37,11 @@ async def test_health_monitor_rise_hysteresis(monitor, mock_redis):
     # Success 1
     await monitor.check()
     assert monitor.is_healthy is False
-    
+
     # Success 2
     await monitor.check()
     assert monitor.is_healthy is False
-    
+
     # Success 3 -> Healthy
     await monitor.check()
     assert monitor.is_healthy is True
@@ -57,12 +54,12 @@ async def test_health_monitor_fall_hysteresis(monitor, mock_redis):
     for _ in range(3):
         await monitor.check()
     assert monitor.is_healthy is True
-    
+
     # Failure 1
     mock_redis.ping.side_effect = Exception("Redis Down")
     await monitor.check()
     assert monitor.is_healthy is True  # Still healthy due to fall_threshold=2
-    
+
     # Failure 2 -> Unhealthy
     await monitor.check()
     assert monitor.is_healthy is False
@@ -75,11 +72,11 @@ async def test_health_monitor_geoip_check(mock_redis):
         # Mock file missing
         mock_path.return_value.exists.return_value = False
         monitor = HealthMonitor(mock_redis, {}, geoip_path="/tmp/fake.mmdb")
-        
+
         await monitor.check()
         report = monitor.get_status_report()
         assert report["components"]["geoip"]["status"] == "unhealthy"
-        
+
         # Mock file exists
         mock_path.return_value.exists.return_value = True
         mock_path.return_value.stat.return_value.st_size = 2048
@@ -101,7 +98,7 @@ async def test_health_server_ready_grace_period(monitor):
     # Mocking time to be past grace period
     with patch("time.time", return_value=time.time() + 20):
         assert monitor.is_ready is False
-        
+
     # Becomes ready if healthy even if past grace period
     for _ in range(3):
         await monitor.check()
@@ -110,6 +107,7 @@ async def test_health_server_ready_grace_period(monitor):
 
 
 # ── Missing-coverage tests ────────────────────────────────────────────────────
+
 
 class TestHealthMonitorLatencyBuffer:
     """Line 72: eviction when pipeline latency buffer exceeds max_latencies."""
@@ -133,14 +131,17 @@ class TestHealthServerHandlers:
         mon = MagicMock()
         mon.is_healthy = healthy
         mon.is_ready = ready
-        mon.get_status_report.return_value = {"status": "healthy" if healthy else "unhealthy"}
+        mon.get_status_report.return_value = {
+            "status": "healthy" if healthy else "unhealthy"
+        }
         server = HealthServer(monitor=mon, host="127.0.0.1", port=9090)
         return server
 
     @pytest.mark.asyncio
     async def test_handle_metrics_returns_prometheus_text(self):
         """GET /metrics returns Prometheus text content (line 161).
-        So what: if /metrics is broken, Prometheus scrapes fail silently — no alerts fire."""
+        So what: if /metrics is broken, Prometheus scrapes fail silently — no alerts fire.
+        """
         server = self._make_server()
         resp = await server.handle_metrics(MagicMock())
         assert resp.status == 200
@@ -220,5 +221,7 @@ class TestHealthServerStartStop:
         mon = MagicMock()
         mon.is_healthy = healthy
         mon.is_ready = ready
-        mon.get_status_report.return_value = {"status": "healthy" if healthy else "unhealthy"}
+        mon.get_status_report.return_value = {
+            "status": "healthy" if healthy else "unhealthy"
+        }
         return HealthServer(monitor=mon, host="127.0.0.1", port=9090)

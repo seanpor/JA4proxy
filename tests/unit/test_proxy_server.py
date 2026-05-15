@@ -757,7 +757,9 @@ class TestRedirectToTarpit:
         client_writer.close.side_effect = Exception("write failed")
 
         # Must not raise — exception in writer.close() is silenced
-        _run(server._redirect_to_tarpit(b"data", client_reader, client_writer, "1.2.3.4"))
+        _run(
+            server._redirect_to_tarpit(b"data", client_reader, client_writer, "1.2.3.4")
+        )
 
     def test_tarpit_writer_close_exception_silenced(self):
         """tarpit_writer.close() exception in finally is silenced (lines 1869-1870)."""
@@ -770,7 +772,9 @@ class TestRedirectToTarpit:
         tarpit_writer = MagicMock()
         tarpit_writer.drain = AsyncMock()
         tarpit_writer.close.side_effect = Exception("close failed")
-        tarpit_writer.wait_closed = AsyncMock(side_effect=Exception("wait_closed failed"))
+        tarpit_writer.wait_closed = AsyncMock(
+            side_effect=Exception("wait_closed failed")
+        )
         tarpit_reader = AsyncMock()
         tarpit_reader.read = AsyncMock(return_value=b"")  # EOF immediately
 
@@ -779,7 +783,11 @@ class TestRedirectToTarpit:
             AsyncMock(return_value=(tarpit_reader, tarpit_writer)),
         ):
             # Must not raise — exception in tarpit_writer cleanup is silenced
-            _run(server._redirect_to_tarpit(b"data", client_reader, client_writer, "1.2.3.4"))
+            _run(
+                server._redirect_to_tarpit(
+                    b"data", client_reader, client_writer, "1.2.3.4"
+                )
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -825,7 +833,9 @@ class TestAnalyzeTlsHandshake:
     def server(self):
         return _make_server()
 
-    def test_regression_JA4PROXY_2026_0005_non_tls_http_ja4_header_ignored(self, server):
+    def test_regression_JA4PROXY_2026_0005_non_tls_http_ja4_header_ignored(
+        self, server
+    ):
         # JA4PROXY-2026-0005 regression: plain HTTP with a spoofed
         # X-JA4-Fingerprint header used to flow through
         # _extract_ja4_from_http and set fp.ja4 to the attacker's value,
@@ -855,8 +865,9 @@ class TestAnalyzeTlsHandshake:
         server.redis_client.expire = MagicMock()
         # Patch the pure-Python parser (returns None → falls through to Scapy)
         # and the Scapy executor fallback (raises → ja4 stays "unknown").
-        with patch("src.tls.parser.parse_client_hello", return_value=None), \
-             patch("proxy._parse_tls_task", side_effect=Exception("Scapy parse failed")):
+        with patch("src.tls.parser.parse_client_hello", return_value=None), patch(
+            "proxy._parse_tls_task", side_effect=Exception("Scapy parse failed")
+        ):
             fp = _run(server._analyze_tls_handshake(data, "2.3.4.5"))
         assert fp.ja4 in ("unknown", "error")
 
@@ -887,6 +898,7 @@ class TestAnalyzeTlsHandshake:
 
             # Verify it was offloaded to the executor
             from proxy import _parse_tls_task
+
             mock_loop.run_in_executor.assert_called_once_with(
                 server.executor, _parse_tls_task, data
             )
@@ -1210,7 +1222,9 @@ class TestHandleConnection:
         server = _make_server()
         reader, writer = _mock_stream_pair(b"data")
         server._analyze_tls_handshake = AsyncMock(
-            side_effect=ssl.SSLError("SSLV3_ALERT_HANDSHAKE_FAILURE: alert handshake failure")
+            side_effect=ssl.SSLError(
+                "SSLV3_ALERT_HANDSHAKE_FAILURE: alert handshake failure"
+            )
         )
         with caplog.at_level(logging.WARNING, logger="proxy"):
             _run(server.handle_connection(reader, writer))
@@ -1221,7 +1235,9 @@ class TestHandleConnection:
         server = _make_server()
         reader, writer = _mock_stream_pair(b"data")
         server._analyze_tls_handshake = AsyncMock(
-            side_effect=ssl.SSLError("CERTIFICATE_VERIFY_FAILED: unable to get local issuer")
+            side_effect=ssl.SSLError(
+                "CERTIFICATE_VERIFY_FAILED: unable to get local issuer"
+            )
         )
         with caplog.at_level(logging.WARNING, logger="proxy"):
             _run(server.handle_connection(reader, writer))
@@ -1249,18 +1265,19 @@ _PP2_SIG = b"\x0d\x0a\x0d\x0a\x00\x0d\x0a\x51\x55\x49\x54\x0a"
 def _make_pp2_ipv4(src_ip: str, extra: bytes = b"") -> bytes:
     """Build a minimal PROXY v2 IPv4 header with optional TLV bytes appended."""
     import socket as _socket
+
     addr_block = (
-        _socket.inet_aton(src_ip)       # 4 bytes src
-        + _socket.inet_aton("10.0.0.1") # 4 bytes dst
-        + b"\x30\x39"                   # src port 12345
-        + b"\x01\xbb"                   # dst port 443
+        _socket.inet_aton(src_ip)  # 4 bytes src
+        + _socket.inet_aton("10.0.0.1")  # 4 bytes dst
+        + b"\x30\x39"  # src port 12345
+        + b"\x01\xbb"  # dst port 443
     )  # 12 bytes
     tlv_bytes = extra
     addr_len = len(addr_block) + len(tlv_bytes)
     header = (
         _PP2_SIG
-        + b"\x21"                         # version=2, cmd=PROXY
-        + b"\x11"                         # AF_INET + STREAM
+        + b"\x21"  # version=2, cmd=PROXY
+        + b"\x11"  # AF_INET + STREAM
         + struct.pack("!H", addr_len)
         + addr_block
         + tlv_bytes
@@ -1338,6 +1355,7 @@ class TestFeedHealthMonitorWiring:
     def test_all_providers_receive_same_monitor(self):
         """Each provider's _health_monitor must be the same FeedHealthMonitor instance."""
         from unittest.mock import MagicMock
+
         monitor = FeedHealthMonitor()
 
         # Simulate what proxy __init__ does when wiring providers

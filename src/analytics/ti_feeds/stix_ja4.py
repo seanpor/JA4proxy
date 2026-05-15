@@ -60,9 +60,7 @@ JA4_REGEX = re.compile(
 # and two 12-char hex blocks separated by underscores. Used by the pattern
 # extractor so we don't miss vendor-specific variants; validation is stricter
 # via :func:`validate_ja4`.
-_JA4_EXTRACT_REGEX = re.compile(
-    r"^t[0-9a-z]{6,10}_[0-9a-f]{12}_[0-9a-f]{12}$"
-)
+_JA4_EXTRACT_REGEX = re.compile(r"^t[0-9a-z]{6,10}_[0-9a-f]{12}_[0-9a-f]{12}$")
 
 #: ``[x-ja4-fingerprint:value = '...']`` — the only JA4 pattern we accept.
 JA4_PATTERN_REGEX = re.compile(

@@ -4,6 +4,7 @@ Unit tests for GDPR delete functionality in src/tap/security.py — Group 12 (Ph
 Tests the ``gdpr_delete`` async function that implements the right-to-erasure
 for fingerprint data stored under ``fp:*`` Redis keys.
 """
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, call, patch
@@ -16,6 +17,7 @@ from src.tap.security import gdpr_delete
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_redis(conn_ids: list[bytes] = None, delete_return: int = 1) -> MagicMock:
     """Return a mock synchronous redis-py client pre-configured for fp:* ops."""
     redis = MagicMock()
@@ -27,6 +29,7 @@ def _make_redis(conn_ids: list[bytes] = None, delete_return: int = 1) -> MagicMo
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 class TestGdprDelete:
     @pytest.mark.asyncio

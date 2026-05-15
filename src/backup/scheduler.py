@@ -166,7 +166,5 @@ class BackupScheduler:
                     manifest = json.loads(manifest_path.read_text())
                 await self._storage_adapter.upload(path, manifest)
             except Exception as exc:  # noqa: BLE001
-                logger.error(
-                    "backup | event=cloud_upload_exception | error=%s", exc
-                )
+                logger.error("backup | event=cloud_upload_exception | error=%s", exc)
                 # fail-open: local backup already written

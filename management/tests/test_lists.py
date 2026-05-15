@@ -41,9 +41,7 @@ async def test_get_whitelist_empty(authenticated_client: AsyncClient) -> None:
 @pytest.mark.asyncio
 async def test_add_to_whitelist(authenticated_client: AsyncClient) -> None:
     """POST to whitelist adds an entry."""
-    r = await authenticated_client.post(
-        f"/api/v1/lists/ja4/whitelist/{VALID_JA4}"
-    )
+    r = await authenticated_client.post(f"/api/v1/lists/ja4/whitelist/{VALID_JA4}")
     assert r.status_code == 200
     assert VALID_JA4 in r.json()["entry"]
 
@@ -96,9 +94,7 @@ async def test_delete_nonexistent_from_whitelist_returns_404(
 @pytest.mark.asyncio
 async def test_add_to_blacklist(authenticated_client: AsyncClient) -> None:
     """POST to blacklist adds an entry."""
-    r = await authenticated_client.post(
-        f"/api/v1/lists/ja4/blacklist/{VALID_JA4}"
-    )
+    r = await authenticated_client.post(f"/api/v1/lists/ja4/blacklist/{VALID_JA4}")
     assert r.status_code == 200
 
     r2 = await authenticated_client.get("/api/v1/lists/ja4/blacklist")
@@ -109,10 +105,9 @@ async def test_add_to_blacklist(authenticated_client: AsyncClient) -> None:
 async def test_add_to_ip_allowlist(authenticated_client: AsyncClient) -> None:
     """POST to IP allowlist adds an entry."""
     import urllib.parse
+
     encoded_ip = urllib.parse.quote(VALID_IP, safe="")
-    r = await authenticated_client.post(
-        f"/api/v1/lists/ip/allowlist/{encoded_ip}"
-    )
+    r = await authenticated_client.post(f"/api/v1/lists/ip/allowlist/{encoded_ip}")
     assert r.status_code == 200
 
 

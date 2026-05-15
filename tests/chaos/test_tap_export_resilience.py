@@ -5,6 +5,7 @@ Verifies that:
 - One exporter failing never prevents other exporters from running.
 - All exporters failing logs errors but does not crash.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -18,6 +19,7 @@ from src.tap.export.export_manager import ExportManager
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_export_manager() -> ExportManager:
     """Return an ExportManager with no exporters enabled (we inject them manually)."""
@@ -38,6 +40,7 @@ def _make_fp() -> MagicMock:
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 class TestExporterIsolation:
     @pytest.mark.asyncio

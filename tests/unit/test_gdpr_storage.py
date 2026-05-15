@@ -18,6 +18,7 @@ from src.security.gdpr_storage import DataCategory, GDPRStorage
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_storage(ping_ok=True, audit_enabled=True):
     """Build a GDPRStorage with a mocked Redis client."""
     redis_mock = MagicMock()
@@ -32,6 +33,7 @@ def _make_storage(ping_ok=True, audit_enabled=True):
 # ---------------------------------------------------------------------------
 # cleanup_expired (lines 272-290)
 # ---------------------------------------------------------------------------
+
 
 class TestCleanupExpired:
     def test_no_keys_returns_zero(self):
@@ -76,6 +78,7 @@ class TestCleanupExpired:
 # get_retention_report — exception path (lines 327-328)
 # ---------------------------------------------------------------------------
 
+
 class TestGetRetentionReport:
     def test_returns_report_with_categories(self):
         storage, redis_mock = _make_storage()
@@ -99,6 +102,7 @@ class TestGetRetentionReport:
 # ---------------------------------------------------------------------------
 # _audit_log — exception path (lines 346-347)
 # ---------------------------------------------------------------------------
+
 
 class TestAuditLog:
     def test_audit_log_writes_to_redis(self):
@@ -130,6 +134,7 @@ class TestAuditLog:
 # ---------------------------------------------------------------------------
 # get_audit_logs (lines 359-378)
 # ---------------------------------------------------------------------------
+
 
 class TestGetAuditLogs:
     def test_returns_empty_when_no_audit_keys(self):
@@ -187,6 +192,7 @@ class TestGetAuditLogs:
 # verify_compliance — exception path (already in existing tests but double-check)
 # ---------------------------------------------------------------------------
 
+
 class TestVerifyCompliance:
     def test_no_ttl_key_is_violation(self):
         """TTL=-1 means key has no expiry → GDPR violation."""
@@ -209,6 +215,7 @@ class TestVerifyCompliance:
 # ---------------------------------------------------------------------------
 # store — custom TTL edge cases
 # ---------------------------------------------------------------------------
+
 
 class TestStoreCustomTtl:
     def test_custom_ttl_exceeding_max_is_clamped(self):
@@ -289,7 +296,10 @@ class TestGDPRStorageCoverageGaps:
             }
         }
         storage = GDPRStorage(redis_client=redis_mock, config=config)
-        assert storage.retention_periods[DataCategory.RATE_TRACKING] == DataCategory.RATE_TRACKING.get_max_ttl()
+        assert (
+            storage.retention_periods[DataCategory.RATE_TRACKING]
+            == DataCategory.RATE_TRACKING.get_max_ttl()
+        )
 
     def test_store_valid_custom_ttl_uses_custom_value(self):
         """Line 188: valid custom_ttl (positive, within max) → stored with that exact TTL.

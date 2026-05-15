@@ -44,7 +44,9 @@ import fakeredis.aioredis
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
-from webauthn.authentication.verify_authentication_response import VerifiedAuthentication
+from webauthn.authentication.verify_authentication_response import (
+    VerifiedAuthentication,
+)
 from webauthn.helpers import base64url_to_bytes, bytes_to_base64url
 from webauthn.helpers.structs import (
     AttestationFormat,
@@ -135,7 +137,9 @@ async def _seed_auth_challenge(
     """Directly write an auth challenge into Redis (simulates auth/begin)."""
     await fake_redis.set(
         f"mgmt:webauthn:challenge:{user_id}",
-        json.dumps({"challenge": bytes_to_base64url(challenge), "type": "authentication"}),
+        json.dumps(
+            {"challenge": bytes_to_base64url(challenge), "type": "authentication"}
+        ),
         ex=300,
     )
 
@@ -291,9 +295,9 @@ async def test_webauthn_register_complete_stores_credential(
 
     # User SET must contain the credential ID
     members = await fake_redis.smembers("mgmt:webauthn:user:admin:credentials")
-    assert _FAKE_CRED_ID_B64 in members, (
-        f"Credential ID not found in user SET. Members: {members}"
-    )
+    assert (
+        _FAKE_CRED_ID_B64 in members
+    ), f"Credential ID not found in user SET. Members: {members}"
 
 
 @pytest.mark.asyncio
@@ -309,7 +313,9 @@ async def test_webauthn_register_complete_no_challenge_returns_400(
             "/auth/mfa/webauthn/register/complete",
             json={"id": _FAKE_CRED_ID_B64, "type": "public-key"},
         )
-    assert r.status_code == 400, f"Expected 400 with no challenge, got {r.status_code}: {r.text}"
+    assert (
+        r.status_code == 400
+    ), f"Expected 400 with no challenge, got {r.status_code}: {r.text}"
 
 
 @pytest.mark.asyncio
@@ -328,7 +334,9 @@ async def test_webauthn_register_complete_verification_failure_returns_400(
             "/auth/mfa/webauthn/register/complete",
             json={"id": _FAKE_CRED_ID_B64, "type": "public-key"},
         )
-    assert r.status_code == 400, f"Expected 400 on verification failure, got {r.status_code}"
+    assert (
+        r.status_code == 400
+    ), f"Expected 400 on verification failure, got {r.status_code}"
 
 
 # ── Section 3: Authentication begin ──────────────────────────────────────────
@@ -367,7 +375,9 @@ async def test_webauthn_auth_begin_no_credentials_returns_404(
 ) -> None:
     """auth/begin returns 404 when no credentials are enrolled."""
     r = await admin_client.post("/auth/mfa/webauthn/auth/begin")
-    assert r.status_code == 404, f"Expected 404 with no credentials, got {r.status_code}: {r.text}"
+    assert (
+        r.status_code == 404
+    ), f"Expected 404 with no credentials, got {r.status_code}: {r.text}"
 
 
 @pytest.mark.asyncio
@@ -457,7 +467,9 @@ async def test_webauthn_auth_complete_updates_sign_count(
         )
     assert r.status_code == 200
 
-    updated = await fake_redis.hget(f"mgmt:webauthn:credential:{_FAKE_CRED_ID_B64}", "sign_count")
+    updated = await fake_redis.hget(
+        f"mgmt:webauthn:credential:{_FAKE_CRED_ID_B64}", "sign_count"
+    )
     assert updated == "5", f"Expected sign_count='5', got {updated!r}"
 
 
@@ -477,7 +489,9 @@ async def test_webauthn_auth_complete_no_challenge_returns_400(
             "/auth/mfa/webauthn/auth/complete",
             json={"id": _FAKE_CRED_ID_B64, "type": "public-key"},
         )
-    assert r.status_code == 400, f"Expected 400 with no challenge, got {r.status_code}: {r.text}"
+    assert (
+        r.status_code == 400
+    ), f"Expected 400 with no challenge, got {r.status_code}: {r.text}"
 
 
 @pytest.mark.asyncio
@@ -492,7 +506,9 @@ async def test_webauthn_auth_complete_unknown_credential_returns_404(
         "/auth/mfa/webauthn/auth/complete",
         json={"id": "dW5rbm93bi1jcmVk", "type": "public-key"},
     )
-    assert r.status_code == 404, f"Expected 404 for unknown credential, got {r.status_code}: {r.text}"
+    assert (
+        r.status_code == 404
+    ), f"Expected 404 for unknown credential, got {r.status_code}: {r.text}"
 
 
 @pytest.mark.asyncio
@@ -512,7 +528,9 @@ async def test_webauthn_auth_complete_verification_failure_returns_401(
             "/auth/mfa/webauthn/auth/complete",
             json={"id": _FAKE_CRED_ID_B64, "type": "public-key"},
         )
-    assert r.status_code == 401, f"Expected 401 on verification failure, got {r.status_code}"
+    assert (
+        r.status_code == 401
+    ), f"Expected 401 on verification failure, got {r.status_code}"
 
 
 # ── Section 5: Credential management ─────────────────────────────────────────
@@ -567,9 +585,9 @@ async def test_webauthn_register_begin_excludes_existing_credentials(
     data = r.json()
     # excludeCredentials must be present and list the seeded credential
     exclude = data.get("excludeCredentials", [])
-    assert len(exclude) >= 1, (
-        f"Expected excludeCredentials to list existing credential, got {exclude!r}"
-    )
+    assert (
+        len(exclude) >= 1
+    ), f"Expected excludeCredentials to list existing credential, got {exclude!r}"
 
 
 @pytest.mark.asyncio
@@ -582,7 +600,9 @@ async def test_webauthn_auth_complete_wrong_user_credential_returns_403(
     authenticate with a credential registered to user B.
     """
     # Seed credential owned by "other-user", not "admin"
-    await _seed_credential(fake_redis, user_id="other-user", cred_id_b64=_FAKE_CRED_ID_B64)
+    await _seed_credential(
+        fake_redis, user_id="other-user", cred_id_b64=_FAKE_CRED_ID_B64
+    )
     # Seed auth challenge for "admin" (the authenticated caller)
     await _seed_auth_challenge(fake_redis, user_id="admin")
 
@@ -603,6 +623,7 @@ async def test_webauthn_auth_complete_wrong_user_credential_returns_403(
         f"got {r.status_code}: {r.text}"
     )
 
+
 # ── Section 6: Credential management — list and delete (Gap 3 — Production Readiness) ───
 
 
@@ -616,9 +637,9 @@ async def test_webauthn_list_credentials_empty(
     assert r.status_code == 200, f"Expected 200, got {r.status_code}: {r.text}"
     data = r.json()
     assert "credentials" in data, f"Expected 'credentials' key in response: {data}"
-    assert data["credentials"] == [], (
-        f"Expected empty list for unenrolled user, got {data['credentials']}"
-    )
+    assert (
+        data["credentials"] == []
+    ), f"Expected empty list for unenrolled user, got {data['credentials']}"
 
 
 @pytest.mark.asyncio
@@ -634,12 +655,12 @@ async def test_webauthn_list_credentials_returns_enrolled(
     assert r.status_code == 200, f"Expected 200, got {r.status_code}: {r.text}"
     data = r.json()
     cred_ids = {c["credential_id"] for c in data["credentials"]}
-    assert _FAKE_CRED_ID_B64 in cred_ids, (
-        f"Expected {_FAKE_CRED_ID_B64!r} in credentials, got {cred_ids}"
-    )
-    assert _FAKE_CRED_ID_B64_2 in cred_ids, (
-        f"Expected {_FAKE_CRED_ID_B64_2!r} in credentials, got {cred_ids}"
-    )
+    assert (
+        _FAKE_CRED_ID_B64 in cred_ids
+    ), f"Expected {_FAKE_CRED_ID_B64!r} in credentials, got {cred_ids}"
+    assert (
+        _FAKE_CRED_ID_B64_2 in cred_ids
+    ), f"Expected {_FAKE_CRED_ID_B64_2!r} in credentials, got {cred_ids}"
 
 
 @pytest.mark.asyncio
@@ -675,9 +696,9 @@ async def test_webauthn_delete_credential_success(
 
     # SET member must be removed
     members = await fake_redis.smembers("mgmt:webauthn:user:admin:credentials")
-    assert _FAKE_CRED_ID_B64 not in members, (
-        f"Credential ID should be removed from user SET, but still in: {members}"
-    )
+    assert (
+        _FAKE_CRED_ID_B64 not in members
+    ), f"Credential ID should be removed from user SET, but still in: {members}"
 
 
 @pytest.mark.asyncio
@@ -687,7 +708,9 @@ async def test_webauthn_delete_credential_not_found(
 ) -> None:
     """DELETE on a non-existent credential ID returns 404."""
     r = await admin_client.delete("/auth/mfa/webauthn/credentials/nonexistent-cred-id")
-    assert r.status_code == 404, f"Expected 404 for missing credential, got {r.status_code}: {r.text}"
+    assert (
+        r.status_code == 404
+    ), f"Expected 404 for missing credential, got {r.status_code}: {r.text}"
 
 
 @pytest.mark.asyncio
@@ -698,7 +721,9 @@ async def test_webauthn_delete_credential_wrong_user_returns_403(
 
     User 'other-user' owns the credential; 'admin' tries to delete it.
     """
-    await _seed_credential(fake_redis, user_id="other-user", cred_id_b64=_FAKE_CRED_ID_B64)
+    await _seed_credential(
+        fake_redis, user_id="other-user", cred_id_b64=_FAKE_CRED_ID_B64
+    )
 
     app = create_app()
     await _redis_module.init_redis(override_client=fake_redis)
@@ -710,6 +735,6 @@ async def test_webauthn_delete_credential_wrong_user_returns_403(
         r = await client.delete(f"/auth/mfa/webauthn/credentials/{_FAKE_CRED_ID_B64}")
     await _redis_module.close_redis()
 
-    assert r.status_code == 403, (
-        f"Expected 403 when deleting another user's credential, got {r.status_code}: {r.text}"
-    )
+    assert (
+        r.status_code == 403
+    ), f"Expected 403 when deleting another user's credential, got {r.status_code}: {r.text}"

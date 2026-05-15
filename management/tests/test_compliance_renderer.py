@@ -29,6 +29,7 @@ from management.compliance.report_renderer import (
 def _weasyprint_available() -> bool:
     try:
         import weasyprint  # noqa: F401
+
         return True
     except Exception:
         return False
@@ -134,8 +135,18 @@ def test_html_trend_table_present_when_data_provided():
     """Trend months appear in the output when provided."""
     data = _minimal_data(
         trend_months=[
-            TrendMonth(month="2026-01", connections_blocked=1000, fp_rate_ppm=1, dial_setting=70),
-            TrendMonth(month="2026-02", connections_blocked=2000, fp_rate_ppm=2, dial_setting=70),
+            TrendMonth(
+                month="2026-01",
+                connections_blocked=1000,
+                fp_rate_ppm=1,
+                dial_setting=70,
+            ),
+            TrendMonth(
+                month="2026-02",
+                connections_blocked=2000,
+                fp_rate_ppm=2,
+                dial_setting=70,
+            ),
         ]
     )
     html = _default_renderer().render_html(data)
@@ -185,7 +196,9 @@ def test_html_period_label_is_html_escaped():
     # If auto-escape is broken, "{{ 7*7 }}" would become "49" in the output.
     hostile = "{{ 7*7 }}"
     html = _default_renderer().render_html(_minimal_data(period_label=hostile))
-    assert "49" not in html, "Jinja2 template injection via period_label was NOT escaped"
+    assert (
+        "49" not in html
+    ), "Jinja2 template injection via period_label was NOT escaped"
 
 
 def test_html_xss_in_period_label_escaped():
@@ -225,6 +238,7 @@ def test_render_pdf_returns_pdf_bytes():
 def test_render_pdf_raises_when_weasyprint_missing(monkeypatch):
     """When WeasyPrint cannot be imported, WeasyPrintNotAvailable is raised."""
     import builtins
+
     original_import = builtins.__import__
 
     def mock_import(name, *args, **kwargs):
@@ -250,7 +264,9 @@ def test_custom_template_renders_unique_marker():
         template_path = os.path.join(tmpdir, "report_template.html")
         # Use string concatenation, NOT f-string, so {{ }} is not Python-escaped.
         with open(template_path, "w") as f:
-            f.write("<html><body>" + unique_marker + " {{ period_label }}</body></html>")
+            f.write(
+                "<html><body>" + unique_marker + " {{ period_label }}</body></html>"
+            )
 
         renderer = ReportRenderer(template_dir=tmpdir)
         html = renderer.render_html(_minimal_data(period_label="test period"))

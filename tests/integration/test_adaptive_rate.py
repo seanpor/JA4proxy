@@ -141,13 +141,26 @@ class TestAdaptiveRatePublishReadIntegration:
     async def test_adaptive_threshold_clamped_to_min(self) -> None:
         """Threshold below min_threshold_rps is clamped up."""
         sm, fake_redis = _make_security_manager(
-            {"rate_limiter": {"adaptive": {"enabled": True, "min_threshold_rps": 50, "max_threshold_rps": 1000}}}
+            {
+                "rate_limiter": {
+                    "adaptive": {
+                        "enabled": True,
+                        "min_threshold_rps": 50,
+                        "max_threshold_rps": 1000,
+                    }
+                }
+            }
         )
 
         # Inject a key with very low threshold but high confidence directly
         await fake_redis.hset(
             "rate:adaptive:10.0.0.0",
-            {"threshold_rps": "3", "confidence": "0.95", "ewma_rps": "1.5", "windows": "10"},
+            {
+                "threshold_rps": "3",
+                "confidence": "0.95",
+                "ewma_rps": "1.5",
+                "windows": "10",
+            },
         )
 
         threshold = await sm._get_adaptive_rate_threshold("10.0.0.1")
@@ -157,12 +170,25 @@ class TestAdaptiveRatePublishReadIntegration:
     async def test_adaptive_threshold_clamped_to_max(self) -> None:
         """Threshold above max_threshold_rps is clamped down."""
         sm, fake_redis = _make_security_manager(
-            {"rate_limiter": {"adaptive": {"enabled": True, "min_threshold_rps": 5, "max_threshold_rps": 200}}}
+            {
+                "rate_limiter": {
+                    "adaptive": {
+                        "enabled": True,
+                        "min_threshold_rps": 5,
+                        "max_threshold_rps": 200,
+                    }
+                }
+            }
         )
 
         await fake_redis.hset(
             "rate:adaptive:172.16.1.0",
-            {"threshold_rps": "9999", "confidence": "0.99", "ewma_rps": "4999", "windows": "20"},
+            {
+                "threshold_rps": "9999",
+                "confidence": "0.99",
+                "ewma_rps": "4999",
+                "windows": "20",
+            },
         )
 
         threshold = await sm._get_adaptive_rate_threshold("172.16.1.1")
@@ -185,7 +211,12 @@ class TestAdaptiveRateConfidenceGate:
         # Inject key with low confidence
         await fake_redis.hset(
             "rate:adaptive:1.2.3.0",
-            {"threshold_rps": "25", "confidence": "0.5", "ewma_rps": "12", "windows": "1"},
+            {
+                "threshold_rps": "25",
+                "confidence": "0.5",
+                "ewma_rps": "12",
+                "windows": "1",
+            },
         )
 
         threshold = await sm._get_adaptive_rate_threshold("1.2.3.4")
@@ -198,7 +229,12 @@ class TestAdaptiveRateConfidenceGate:
 
         await fake_redis.hset(
             "rate:adaptive:1.2.3.0",
-            {"threshold_rps": "42", "confidence": "0.85", "ewma_rps": "21", "windows": "6"},
+            {
+                "threshold_rps": "42",
+                "confidence": "0.85",
+                "ewma_rps": "21",
+                "windows": "6",
+            },
         )
 
         threshold = await sm._get_adaptive_rate_threshold("1.2.3.4")
@@ -211,7 +247,12 @@ class TestAdaptiveRateConfidenceGate:
 
         await fake_redis.hset(
             "rate:adaptive:5.6.7.0",
-            {"threshold_rps": "60", "confidence": "0.7000", "ewma_rps": "30", "windows": "3"},
+            {
+                "threshold_rps": "60",
+                "confidence": "0.7000",
+                "ewma_rps": "30",
+                "windows": "3",
+            },
         )
 
         threshold = await sm._get_adaptive_rate_threshold("5.6.7.8")
@@ -240,7 +281,12 @@ class TestAdaptiveRateKeyEviction:
 
         await fake_redis.hset(
             "rate:adaptive:9.9.9.0",
-            {"threshold_rps": "75", "confidence": "0.9", "ewma_rps": "37", "windows": "8"},
+            {
+                "threshold_rps": "75",
+                "confidence": "0.9",
+                "ewma_rps": "37",
+                "windows": "8",
+            },
         )
         # Confirm it was picked up
         threshold_before = await sm._get_adaptive_rate_threshold("9.9.9.1")
@@ -290,7 +336,12 @@ class TestAdaptiveRateDisabledConfig:
         # Inject an adaptive key — should NOT be consulted
         await fake_redis.hset(
             "rate:adaptive:2.3.4.0",
-            {"threshold_rps": "10", "confidence": "0.99", "ewma_rps": "5", "windows": "10"},
+            {
+                "threshold_rps": "10",
+                "confidence": "0.99",
+                "ewma_rps": "5",
+                "windows": "10",
+            },
         )
         # Mock atomic rate-limit Lua path (JA4PROXY-2026-0038).
         fake_redis_mock = MagicMock()
@@ -336,7 +387,12 @@ class TestAdaptiveRateIPv6:
         # /64 of 2001:db8::1 is 2001:db8::
         await fake_redis.hset(
             "rate:adaptive:2001:db8::",
-            {"threshold_rps": "88", "confidence": "0.9", "ewma_rps": "44", "windows": "5"},
+            {
+                "threshold_rps": "88",
+                "confidence": "0.9",
+                "ewma_rps": "44",
+                "windows": "5",
+            },
         )
 
         threshold = await sm._get_adaptive_rate_threshold("2001:db8::1")

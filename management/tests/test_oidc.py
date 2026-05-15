@@ -51,18 +51,25 @@ os.environ.setdefault("MANAGEMENT_JWT_SECRET", "test-secret-do-not-use-in-produc
 os.environ.setdefault("MANAGEMENT_ADMIN_USER", "admin")
 os.environ.setdefault("MANAGEMENT_ADMIN_PASSWORD", "testpassword")
 os.environ.setdefault("MANAGEMENT_TEST_MODE", "1")
-os.environ.setdefault("MANAGEMENT_OIDC_DISCOVERY_URL", "http://mock-idp.test/.well-known/openid-configuration")
+os.environ.setdefault(
+    "MANAGEMENT_OIDC_DISCOVERY_URL",
+    "http://mock-idp.test/.well-known/openid-configuration",
+)
 os.environ.setdefault("MANAGEMENT_OIDC_CLIENT_ID", "ja4proxy-test")
 os.environ.setdefault("MANAGEMENT_OIDC_CLIENT_SECRET", "test-secret-oidc")
-os.environ.setdefault("MANAGEMENT_OIDC_REDIRECT_URI", "http://localhost:8090/auth/sso/oidc/callback")
+os.environ.setdefault(
+    "MANAGEMENT_OIDC_REDIRECT_URI", "http://localhost:8090/auth/sso/oidc/callback"
+)
 os.environ.setdefault(
     "MANAGEMENT_OIDC_ROLE_MAPPING",
-    json.dumps({
-        "Security-Admins": "admin",
-        "SecOps-Operators": "operator",
-        "SOC-Analysts": "analyst",
-        "Audit-Team": "auditor",
-    }),
+    json.dumps(
+        {
+            "Security-Admins": "admin",
+            "SecOps-Operators": "operator",
+            "SOC-Analysts": "analyst",
+            "Audit-Team": "auditor",
+        }
+    ),
 )
 os.environ.setdefault("MANAGEMENT_OIDC_DEFAULT_ROLE", "")
 os.environ.setdefault("MANAGEMENT_OIDC_GROUPS_CLAIM", "groups")
@@ -88,16 +95,24 @@ def _fake_id_token(
     groups: list[str] | None = None,
 ) -> str:
     """Build a fake (unsigned) JWT id_token for testing."""
-    header = base64.urlsafe_b64encode(b'{"alg":"RS256","typ":"JWT"}').rstrip(b"=").decode()
-    payload = base64.urlsafe_b64encode(
-        json.dumps({
-            "sub": sub,
-            "email": email,
-            "groups": groups or ["Security-Admins"],
-            "exp": 9999999999,
-            "iat": 1000000000,
-        }).encode()
-    ).rstrip(b"=").decode()
+    header = (
+        base64.urlsafe_b64encode(b'{"alg":"RS256","typ":"JWT"}').rstrip(b"=").decode()
+    )
+    payload = (
+        base64.urlsafe_b64encode(
+            json.dumps(
+                {
+                    "sub": sub,
+                    "email": email,
+                    "groups": groups or ["Security-Admins"],
+                    "exp": 9999999999,
+                    "iat": 1000000000,
+                }
+            ).encode()
+        )
+        .rstrip(b"=")
+        .decode()
+    )
     return f"{header}.{payload}.fakesignature"
 
 
@@ -154,13 +169,17 @@ async def test_oidc_login_redirects_to_idp(
         new=AsyncMock(return_value=_FAKE_DISCOVERY),
     ):
         r = await public_client.get("/auth/sso/oidc/login", follow_redirects=False)
-    assert r.status_code in (301, 302, 303, 307, 308), (
-        f"Expected redirect, got {r.status_code}: {r.text}"
-    )
+    assert r.status_code in (
+        301,
+        302,
+        303,
+        307,
+        308,
+    ), f"Expected redirect, got {r.status_code}: {r.text}"
     location = r.headers.get("location", "")
-    assert "mock-idp.test/auth" in location, (
-        f"Expected redirect to IdP auth endpoint, got location={location!r}"
-    )
+    assert (
+        "mock-idp.test/auth" in location
+    ), f"Expected redirect to IdP auth endpoint, got location={location!r}"
 
 
 @pytest.mark.asyncio
@@ -213,12 +232,12 @@ async def test_oidc_login_redirect_contains_code_challenge(
     ):
         r = await public_client.get("/auth/sso/oidc/login", follow_redirects=False)
     location = r.headers.get("location", "")
-    assert "code_challenge=" in location, (
-        f"Expected code_challenge in redirect URL: {location!r}"
-    )
-    assert "code_challenge_method=S256" in location, (
-        f"Expected code_challenge_method=S256: {location!r}"
-    )
+    assert (
+        "code_challenge=" in location
+    ), f"Expected code_challenge in redirect URL: {location!r}"
+    assert (
+        "code_challenge_method=S256" in location
+    ), f"Expected code_challenge_method=S256: {location!r}"
 
 
 @pytest.mark.asyncio
@@ -234,14 +253,16 @@ async def test_oidc_login_not_configured_returns_503(
             transport=ASGITransport(app=app), base_url="http://test"
         ) as client:
             r = await client.get("/auth/sso/oidc/login", follow_redirects=False)
-        assert r.status_code == 503, (
-            f"Expected 503 when OIDC not configured, got {r.status_code}: {r.text}"
-        )
+        assert (
+            r.status_code == 503
+        ), f"Expected 503 when OIDC not configured, got {r.status_code}: {r.text}"
     finally:
         if saved is not None:
             os.environ["MANAGEMENT_OIDC_DISCOVERY_URL"] = saved
         else:
-            os.environ["MANAGEMENT_OIDC_DISCOVERY_URL"] = "http://mock-idp.test/.well-known/openid-configuration"
+            os.environ["MANAGEMENT_OIDC_DISCOVERY_URL"] = (
+                "http://mock-idp.test/.well-known/openid-configuration"
+            )
         await _redis_module.close_redis()
 
 
@@ -261,9 +282,10 @@ async def test_oidc_login_is_public(
         ):
             r = await client.get("/auth/sso/oidc/login", follow_redirects=False)
     await _redis_module.close_redis()
-    assert r.status_code not in (401, 403), (
-        f"Login endpoint must be public, got {r.status_code}"
-    )
+    assert r.status_code not in (
+        401,
+        403,
+    ), f"Login endpoint must be public, got {r.status_code}"
 
 
 # ── Section 2: Callback ───────────────────────────────────────────────────────
@@ -307,10 +329,13 @@ async def test_oidc_callback_valid_sets_cookie(
             f"/auth/sso/oidc/callback?code=authcode123&state={state}",
             follow_redirects=False,
         )
-    assert r.status_code in (200, 302), f"Expected redirect, got {r.status_code}: {r.text}"
-    assert "token" in r.cookies, (
-        f"Expected 'token' cookie to be set. Cookies: {dict(r.cookies)}"
-    )
+    assert r.status_code in (
+        200,
+        302,
+    ), f"Expected redirect, got {r.status_code}: {r.text}"
+    assert (
+        "token" in r.cookies
+    ), f"Expected 'token' cookie to be set. Cookies: {dict(r.cookies)}"
 
 
 @pytest.mark.asyncio
@@ -334,10 +359,12 @@ async def test_oidc_callback_role_embedded_in_jwt(
             ),
             patch(
                 "management.api.routes.oidc._exchange_code_for_tokens",
-                new=AsyncMock(return_value=_fake_token_response(
-                    sub="op@example.com",
-                    groups=["SecOps-Operators"],
-                )),
+                new=AsyncMock(
+                    return_value=_fake_token_response(
+                        sub="op@example.com",
+                        groups=["SecOps-Operators"],
+                    )
+                ),
             ),
         ):
             r = await client.get(
@@ -350,11 +377,13 @@ async def test_oidc_callback_role_embedded_in_jwt(
     token_value = r.cookies.get("token")
     assert token_value is not None, "No token cookie"
 
-    secret = os.environ.get("MANAGEMENT_JWT_SECRET", "test-secret-do-not-use-in-production")
-    payload = _jwt.decode(token_value, secret, algorithms=["HS256"])
-    assert payload.get("role") == "operator", (
-        f"Expected role='operator', got {payload.get('role')!r}"
+    secret = os.environ.get(
+        "MANAGEMENT_JWT_SECRET", "test-secret-do-not-use-in-production"
     )
+    payload = _jwt.decode(token_value, secret, algorithms=["HS256"])
+    assert (
+        payload.get("role") == "operator"
+    ), f"Expected role='operator', got {payload.get('role')!r}"
 
 
 @pytest.mark.asyncio
@@ -366,9 +395,9 @@ async def test_oidc_callback_invalid_state_returns_400(
         "/auth/sso/oidc/callback?code=authcode123&state=nonexistent-state",
         follow_redirects=False,
     )
-    assert r.status_code == 400, (
-        f"Expected 400 for unknown state, got {r.status_code}: {r.text}"
-    )
+    assert (
+        r.status_code == 400
+    ), f"Expected 400 for unknown state, got {r.status_code}: {r.text}"
 
 
 @pytest.mark.asyncio
@@ -380,8 +409,14 @@ async def test_oidc_callback_state_is_single_use(
     state = await _do_login_get_state(public_client, fake_redis)
 
     with (
-        patch("management.api.routes.oidc._fetch_oidc_discovery", new=AsyncMock(return_value=_FAKE_DISCOVERY)),
-        patch("management.api.routes.oidc._exchange_code_for_tokens", new=AsyncMock(return_value=_fake_token_response())),
+        patch(
+            "management.api.routes.oidc._fetch_oidc_discovery",
+            new=AsyncMock(return_value=_FAKE_DISCOVERY),
+        ),
+        patch(
+            "management.api.routes.oidc._exchange_code_for_tokens",
+            new=AsyncMock(return_value=_fake_token_response()),
+        ),
     ):
         r1 = await public_client.get(
             f"/auth/sso/oidc/callback?code=authcode123&state={state}",
@@ -391,16 +426,22 @@ async def test_oidc_callback_state_is_single_use(
 
     # Second use of same state
     with (
-        patch("management.api.routes.oidc._fetch_oidc_discovery", new=AsyncMock(return_value=_FAKE_DISCOVERY)),
-        patch("management.api.routes.oidc._exchange_code_for_tokens", new=AsyncMock(return_value=_fake_token_response())),
+        patch(
+            "management.api.routes.oidc._fetch_oidc_discovery",
+            new=AsyncMock(return_value=_FAKE_DISCOVERY),
+        ),
+        patch(
+            "management.api.routes.oidc._exchange_code_for_tokens",
+            new=AsyncMock(return_value=_fake_token_response()),
+        ),
     ):
         r2 = await public_client.get(
             f"/auth/sso/oidc/callback?code=authcode456&state={state}",
             follow_redirects=False,
         )
-    assert r2.status_code == 400, (
-        f"Second use of same state should be 400, got {r2.status_code}"
-    )
+    assert (
+        r2.status_code == 400
+    ), f"Second use of same state should be 400, got {r2.status_code}"
 
 
 @pytest.mark.asyncio
@@ -412,7 +453,10 @@ async def test_oidc_callback_unmapped_group_returns_403(
     state = await _do_login_get_state(public_client, fake_redis)
 
     with (
-        patch("management.api.routes.oidc._fetch_oidc_discovery", new=AsyncMock(return_value=_FAKE_DISCOVERY)),
+        patch(
+            "management.api.routes.oidc._fetch_oidc_discovery",
+            new=AsyncMock(return_value=_FAKE_DISCOVERY),
+        ),
         patch(
             "management.api.routes.oidc._exchange_code_for_tokens",
             new=AsyncMock(return_value=_fake_token_response(groups=["Unknown-Group"])),
@@ -422,7 +466,9 @@ async def test_oidc_callback_unmapped_group_returns_403(
             f"/auth/sso/oidc/callback?code=authcode123&state={state}",
             follow_redirects=False,
         )
-    assert r.status_code == 403, f"Expected 403 for unmapped group, got {r.status_code}: {r.text}"
+    assert (
+        r.status_code == 403
+    ), f"Expected 403 for unmapped group, got {r.status_code}: {r.text}"
 
 
 @pytest.mark.asyncio
@@ -434,7 +480,10 @@ async def test_oidc_callback_token_exchange_failure_returns_401(
     state = await _do_login_get_state(public_client, fake_redis)
 
     with (
-        patch("management.api.routes.oidc._fetch_oidc_discovery", new=AsyncMock(return_value=_FAKE_DISCOVERY)),
+        patch(
+            "management.api.routes.oidc._fetch_oidc_discovery",
+            new=AsyncMock(return_value=_FAKE_DISCOVERY),
+        ),
         patch(
             "management.api.routes.oidc._exchange_code_for_tokens",
             new=AsyncMock(side_effect=Exception("token endpoint error")),
@@ -444,9 +493,9 @@ async def test_oidc_callback_token_exchange_failure_returns_401(
             f"/auth/sso/oidc/callback?code=badcode&state={state}",
             follow_redirects=False,
         )
-    assert r.status_code == 401, (
-        f"Expected 401 for failed token exchange, got {r.status_code}: {r.text}"
-    )
+    assert (
+        r.status_code == 401
+    ), f"Expected 401 for failed token exchange, got {r.status_code}: {r.text}"
 
 
 # ── Section 3: PKCE validation ────────────────────────────────────────────────
@@ -467,9 +516,9 @@ async def test_oidc_pkce_code_verifier_stored_in_state(
     keys = await fake_redis.keys("mgmt:oidc:state:*")
     stored = json.loads(await fake_redis.get(keys[0]))
     verifier = stored.get("code_verifier", "")
-    assert len(verifier) >= 43, (
-        f"code_verifier too short (RFC 7636 min 43 chars): {verifier!r}"
-    )
+    assert (
+        len(verifier) >= 43
+    ), f"code_verifier too short (RFC 7636 min 43 chars): {verifier!r}"
 
 
 @pytest.mark.asyncio
@@ -496,9 +545,9 @@ async def test_oidc_pkce_challenge_is_s256_of_verifier(
     )
 
     location = r.headers.get("location", "")
-    assert expected in location, (
-        f"Expected S256 code_challenge {expected!r} in URL: {location!r}"
-    )
+    assert (
+        expected in location
+    ), f"Expected S256 code_challenge {expected!r} in URL: {location!r}"
 
 
 # ── Section 4: Role mapping unit tests ───────────────────────────────────────
@@ -556,9 +605,9 @@ async def test_oidc_login_discovery_failure_returns_502(
         new=AsyncMock(side_effect=Exception("network error")),
     ):
         r = await public_client.get("/auth/sso/oidc/login", follow_redirects=False)
-    assert r.status_code == 502, (
-        f"Expected 502 on discovery failure, got {r.status_code}: {r.text}"
-    )
+    assert (
+        r.status_code == 502
+    ), f"Expected 502 on discovery failure, got {r.status_code}: {r.text}"
 
 
 @pytest.mark.asyncio
@@ -582,9 +631,9 @@ async def test_oidc_callback_discovery_failure_returns_502(
             f"/auth/sso/oidc/callback?code=authcode&state={state}",
             follow_redirects=False,
         )
-    assert r.status_code == 502, (
-        f"Expected 502 on discovery failure during callback, got {r.status_code}: {r.text}"
-    )
+    assert (
+        r.status_code == 502
+    ), f"Expected 502 on discovery failure during callback, got {r.status_code}: {r.text}"
 
 
 @pytest.mark.asyncio
@@ -603,18 +652,19 @@ async def test_oidc_callback_idp_error_param_returns_401(
         f"&error_description=User+cancelled&state={state}",
         follow_redirects=False,
     )
-    assert r.status_code == 401, (
-        f"Expected 401 for IdP error response, got {r.status_code}: {r.text}"
-    )
-    assert "access_denied" in r.text or "cancelled" in r.text.lower(), (
-        f"Expected error description in response body: {r.text!r}"
-    )
+    assert (
+        r.status_code == 401
+    ), f"Expected 401 for IdP error response, got {r.status_code}: {r.text}"
+    assert (
+        "access_denied" in r.text or "cancelled" in r.text.lower()
+    ), f"Expected error description in response body: {r.text!r}"
 
     # State must have been consumed despite the error
     remaining = await fake_redis.get(f"mgmt:oidc:state:{state}")
-    assert remaining is None, (
-        "State should be consumed even on IdP error, but key still exists"
-    )
+    assert (
+        remaining is None
+    ), "State should be consumed even on IdP error, but key still exists"
+
 
 # ── Section 8: Integration test stubs (Gap 5 — Production Readiness) ────────────────────
 
@@ -630,6 +680,7 @@ async def test_oidc_live_entra_login() -> None:
     To run: ENTRA_OIDC_DISCOVERY_URL=https://login.microsoftonline.com/... pytest -m integration
     """
     pytest.skip("Not yet implemented — stub for future live-IdP test")
+
 
 # ── Section 9: Audit log events (Gap 2 — Production Readiness) ──────────────────────────
 
@@ -660,21 +711,25 @@ async def test_oidc_callback_success_writes_audit_entry(
             f"/auth/sso/oidc/callback?code=authcode&state={state}",
             follow_redirects=False,
         )
-    assert r.status_code in (200, 302), f"Expected login success, got {r.status_code}: {r.text}"
+    assert r.status_code in (
+        200,
+        302,
+    ), f"Expected login success, got {r.status_code}: {r.text}"
 
     entries = await fake_redis.lrange("management:audit_log", 0, 0)
     assert entries, "Expected at least one audit entry in management:audit_log"
 
     entry = json.loads(entries[0])
-    assert entry.get("action_type") == "sso.login", (
-        f"Expected action_type='sso.login', got {entry.get('action_type')!r}"
-    )
-    assert entry.get("actor_id") == "oidc-user-audit", (
-        f"Expected actor_id='oidc-user-audit' (the sub claim), got {entry.get('actor_id')!r}"
-    )
-    assert entry.get("resource_type") == "session", (
-        f"Expected resource_type='session', got {entry.get('resource_type')!r}"
-    )
+    assert (
+        entry.get("action_type") == "sso.login"
+    ), f"Expected action_type='sso.login', got {entry.get('action_type')!r}"
+    assert (
+        entry.get("actor_id") == "oidc-user-audit"
+    ), f"Expected actor_id='oidc-user-audit' (the sub claim), got {entry.get('actor_id')!r}"
+    assert (
+        entry.get("resource_type") == "session"
+    ), f"Expected resource_type='session', got {entry.get('resource_type')!r}"
+
 
 # ── Section 10: SSO-delegated MFA trust (Gap 4 — Production Readiness) ──────────────────
 
@@ -695,7 +750,11 @@ async def test_oidc_callback_idp_mfa_amr_sets_session_key(
 
         token_resp = _fake_token_response(sub="mfa-oidc-user")
         # Inject amr claim into the id_token
-        header = base64.urlsafe_b64encode(b'{"alg":"RS256","typ":"JWT"}').rstrip(b"=").decode()
+        header = (
+            base64.urlsafe_b64encode(b'{"alg":"RS256","typ":"JWT"}')
+            .rstrip(b"=")
+            .decode()
+        )
         payload_data = {
             "sub": "mfa-oidc-user",
             "email": "mfa@example.com",
@@ -704,9 +763,11 @@ async def test_oidc_callback_idp_mfa_amr_sets_session_key(
             "exp": 9999999999,
             "iat": 1000000000,
         }
-        payload = base64.urlsafe_b64encode(
-            json.dumps(payload_data).encode()
-        ).rstrip(b"=").decode()
+        payload = (
+            base64.urlsafe_b64encode(json.dumps(payload_data).encode())
+            .rstrip(b"=")
+            .decode()
+        )
         token_resp["id_token"] = f"{header}.{payload}.fakesig"
 
         saved = os.environ.get("MANAGEMENT_SSO_TRUST_IDP_MFA")
@@ -733,15 +794,18 @@ async def test_oidc_callback_idp_mfa_amr_sets_session_key(
                 os.environ.pop("MANAGEMENT_SSO_TRUST_IDP_MFA", None)
     await _redis_module.close_redis()
 
-    assert r.status_code in (200, 302), f"Expected login success, got {r.status_code}: {r.text}"
+    assert r.status_code in (
+        200,
+        302,
+    ), f"Expected login success, got {r.status_code}: {r.text}"
     token_value = r.cookies.get("token")
     assert token_value, "No token cookie issued"
 
     mfa_key = "mgmt:mfa:session:" + hashlib.sha256(token_value.encode()).hexdigest()
     value = await fake_redis.get(mfa_key)
-    assert value == "verified", (
-        f"Expected MFA session key='verified' when amr=['mfa'] and trust enabled, got {value!r}"
-    )
+    assert (
+        value == "verified"
+    ), f"Expected MFA session key='verified' when amr=['mfa'] and trust enabled, got {value!r}"
 
 
 @pytest.mark.asyncio
@@ -755,7 +819,9 @@ async def test_oidc_callback_idp_mfa_trust_disabled_no_session_key(
     state = await _do_login_get_state(public_client, fake_redis)
 
     token_resp = _fake_token_response()
-    header = base64.urlsafe_b64encode(b'{"alg":"RS256","typ":"JWT"}').rstrip(b"=").decode()
+    header = (
+        base64.urlsafe_b64encode(b'{"alg":"RS256","typ":"JWT"}').rstrip(b"=").decode()
+    )
     payload_data = {
         "sub": "user-no-trust",
         "email": "notrust@example.com",
@@ -764,9 +830,11 @@ async def test_oidc_callback_idp_mfa_trust_disabled_no_session_key(
         "exp": 9999999999,
         "iat": 1000000000,
     }
-    payload = base64.urlsafe_b64encode(
-        json.dumps(payload_data).encode()
-    ).rstrip(b"=").decode()
+    payload = (
+        base64.urlsafe_b64encode(json.dumps(payload_data).encode())
+        .rstrip(b"=")
+        .decode()
+    )
     token_resp["id_token"] = f"{header}.{payload}.fakesig"
 
     saved = os.environ.pop("MANAGEMENT_SSO_TRUST_IDP_MFA", None)
@@ -794,9 +862,10 @@ async def test_oidc_callback_idp_mfa_trust_disabled_no_session_key(
     if token_value:
         mfa_key = "mgmt:mfa:session:" + hashlib.sha256(token_value.encode()).hexdigest()
         value = await fake_redis.get(mfa_key)
-        assert value is None, (
-            f"MFA session key must NOT be set when trust flag is off, got {value!r}"
-        )
+        assert (
+            value is None
+        ), f"MFA session key must NOT be set when trust flag is off, got {value!r}"
+
 
 # ── Section 11: OIDC JWKS signature verification (Gap 1 — Production Readiness) ─────────
 
@@ -810,6 +879,7 @@ def _make_rs256_key_pair():
     """Generate a real RS256 key pair for signing test JWTs."""
     from cryptography.hazmat.primitives import serialization
     from cryptography.hazmat.primitives.asymmetric import rsa
+
     private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     return private_key
 
@@ -823,6 +893,7 @@ def _sign_id_token(
 ) -> str:
     """Sign a minimal ID token with the given RS256 private key using authlib."""
     from authlib.jose import jwt as authlib_jwt
+
     now = int(_time.time())
     claims = {
         "sub": sub,
@@ -840,6 +911,7 @@ def _sign_id_token(
 def _make_jwks_keyset(private_key):
     """Build a JsonWebKey keyset from an RSA private key (public part only)."""
     from authlib.jose import JsonWebKey
+
     public_key = private_key.public_key()
     key = JsonWebKey.import_key(public_key, {"kty": "RSA"})
     return JsonWebKey.import_key_set({"keys": [dict(key)]})
@@ -883,7 +955,7 @@ async def test_extract_claims_wrong_key_raises_401() -> None:
     private_key = _make_rs256_key_pair()
     wrong_key = _make_rs256_key_pair()  # different key
     key_set = _make_jwks_keyset(wrong_key)  # publish wrong key's JWK
-    id_token = _sign_id_token(private_key)   # sign with correct key
+    id_token = _sign_id_token(private_key)  # sign with correct key
 
     _clear_jwks_cache()
     saved = os.environ.pop("MANAGEMENT_TEST_MODE", None)
@@ -898,9 +970,9 @@ async def test_extract_claims_wrong_key_raises_401() -> None:
         if saved is not None:
             os.environ["MANAGEMENT_TEST_MODE"] = saved
 
-    assert exc_info.value.status_code == 401, (
-        f"Expected 401 on signature mismatch, got {exc_info.value.status_code}"
-    )
+    assert (
+        exc_info.value.status_code == 401
+    ), f"Expected 401 on signature mismatch, got {exc_info.value.status_code}"
 
 
 @pytest.mark.asyncio
@@ -928,9 +1000,9 @@ async def test_extract_claims_expired_token_raises_401() -> None:
         if saved is not None:
             os.environ["MANAGEMENT_TEST_MODE"] = saved
 
-    assert exc_info.value.status_code == 401, (
-        f"Expected 401 for expired token, got {exc_info.value.status_code}"
-    )
+    assert (
+        exc_info.value.status_code == 401
+    ), f"Expected 401 for expired token, got {exc_info.value.status_code}"
 
 
 @pytest.mark.asyncio
@@ -956,6 +1028,6 @@ async def test_fetch_jwks_caches_on_second_call() -> None:
         await _fetch_jwks("http://mock-idp.test/certs")
         await _fetch_jwks("http://mock-idp.test/certs")
 
-    assert call_count == 1, (
-        f"Expected exactly 1 HTTP request due to caching, got {call_count}"
-    )
+    assert (
+        call_count == 1
+    ), f"Expected exactly 1 HTTP request due to caching, got {call_count}"

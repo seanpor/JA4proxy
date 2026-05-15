@@ -6,6 +6,7 @@ Tests verify that:
 - Missing named pipes are logged without crashing.
 - pub/sub disconnect triggers reconnect (not crash).
 """
+
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -16,6 +17,7 @@ from src.tap.enforcement_bridge import EnforcementBridge
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_config(iptables=True, bgp=True, webhook=True, session=None) -> dict:
     return {
@@ -39,7 +41,9 @@ def _make_config(iptables=True, bgp=True, webhook=True, session=None) -> dict:
     }
 
 
-def _make_bridge(iptables=True, bgp=True, webhook=True, session=None) -> EnforcementBridge:
+def _make_bridge(
+    iptables=True, bgp=True, webhook=True, session=None
+) -> EnforcementBridge:
     return EnforcementBridge(
         config=_make_config(iptables=iptables, bgp=bgp, webhook=webhook),
         redis=MagicMock(),
@@ -50,6 +54,7 @@ def _make_bridge(iptables=True, bgp=True, webhook=True, session=None) -> Enforce
 # ---------------------------------------------------------------------------
 # Backend isolation
 # ---------------------------------------------------------------------------
+
 
 class TestBackendIsolation:
     @pytest.mark.asyncio
@@ -135,6 +140,7 @@ class TestBackendIsolation:
 # Pub/sub reconnect
 # ---------------------------------------------------------------------------
 
+
 class TestPubSubReconnect:
     @pytest.mark.asyncio
     async def test_redis_pubsub_reconnects_after_disconnect(self):
@@ -176,6 +182,6 @@ class TestPubSubReconnect:
                 pass  # Acceptable — just verify reconnect happened
 
         # pubsub() was called at least twice (initial + reconnect)
-        assert redis.pubsub.call_count >= 2, (
-            f"Expected ≥2 pubsub() calls (reconnect), got {redis.pubsub.call_count}"
-        )
+        assert (
+            redis.pubsub.call_count >= 2
+        ), f"Expected ≥2 pubsub() calls (reconnect), got {redis.pubsub.call_count}"

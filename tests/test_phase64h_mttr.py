@@ -51,14 +51,12 @@ class TestShebangAndStrictMode:
     """Bash shebang and strict mode at the top of the script."""
 
     def test_shebang_line(self, script_lines):
-        assert script_lines[0] == "#!/usr/bin/env bash", (
-            "First line must be #!/usr/bin/env bash"
-        )
+        assert (
+            script_lines[0] == "#!/usr/bin/env bash"
+        ), "First line must be #!/usr/bin/env bash"
 
     def test_strict_mode(self, script_text):
-        assert "set -euo pipefail" in script_text, (
-            "Script must use 'set -euo pipefail'"
-        )
+        assert "set -euo pipefail" in script_text, "Script must use 'set -euo pipefail'"
 
 
 class TestDockerComposeV2:
@@ -72,14 +70,14 @@ class TestDockerComposeV2:
             stripped = line.lstrip()
             if stripped.startswith("#"):
                 continue
-            assert "docker-compose" not in line, (
-                f"Line {i} uses docker-compose v1 syntax: {line.strip()}"
-            )
+            assert (
+                "docker-compose" not in line
+            ), f"Line {i} uses docker-compose v1 syntax: {line.strip()}"
 
     def test_compose_variable_defined(self, script_text):
-        assert re.search(r'COMPOSE=.*docker compose', script_text), (
-            "Script must define COMPOSE variable defaulting to 'docker compose'"
-        )
+        assert re.search(
+            r"COMPOSE=.*docker compose", script_text
+        ), "Script must define COMPOSE variable defaulting to 'docker compose'"
 
     def test_uses_compose_variable(self, script_text):
         # All compose invocations should use $COMPOSE, not bare 'docker compose'
@@ -119,23 +117,23 @@ class TestHealthURL:
         assert "HEALTH_URL" in script_text, "Script must reference HEALTH_URL"
 
     def test_health_url_default(self, script_text):
-        assert "http://localhost:8090/api/v1/health/deep" in script_text, (
-            "HEALTH_URL default must be http://localhost:8090/api/v1/health/deep"
-        )
+        assert (
+            "http://localhost:8090/api/v1/health/deep" in script_text
+        ), "HEALTH_URL default must be http://localhost:8090/api/v1/health/deep"
 
 
 class TestOutputFile:
     """Script must produce MTTR_BASELINE.md."""
 
     def test_output_variable(self, script_text):
-        assert re.search(r'OUTPUT=.*MTTR_BASELINE\.md', script_text), (
-            "Script must set OUTPUT to MTTR_BASELINE.md"
-        )
+        assert re.search(
+            r"OUTPUT=.*MTTR_BASELINE\.md", script_text
+        ), "Script must set OUTPUT to MTTR_BASELINE.md"
 
     def test_writes_output_file(self, script_text):
-        assert re.search(r'cat\s*>\s*"\$OUTPUT"', script_text), (
-            "Script must write to $OUTPUT via heredoc"
-        )
+        assert re.search(
+            r'cat\s*>\s*"\$OUTPUT"', script_text
+        ), "Script must write to $OUTPUT via heredoc"
 
 
 class TestScenarios:
@@ -143,47 +141,41 @@ class TestScenarios:
 
     def test_scenario_1_redis_failure(self, script_text):
         assert "Scenario 1" in script_text, "Must include Scenario 1: Redis failure"
-        assert re.search(r'MEASURED_S\[1\]', script_text), (
-            "Must record MEASURED_S[1]"
-        )
+        assert re.search(r"MEASURED_S\[1\]", script_text), "Must record MEASURED_S[1]"
 
     def test_scenario_2_single_node(self, script_text):
-        assert "Scenario 2" in script_text, "Must include Scenario 2: Single node failure"
-        assert re.search(r'MEASURED_S\[2\]', script_text), (
-            "Must record MEASURED_S[2]"
-        )
+        assert (
+            "Scenario 2" in script_text
+        ), "Must include Scenario 2: Single node failure"
+        assert re.search(r"MEASURED_S\[2\]", script_text), "Must record MEASURED_S[2]"
 
     def test_scenario_4_dial_corruption(self, script_text):
         assert "Scenario 4" in script_text, "Must include Scenario 4: Dial corruption"
-        assert re.search(r'MEASURED_S\[4\]', script_text), (
-            "Must record MEASURED_S[4]"
-        )
+        assert re.search(r"MEASURED_S\[4\]", script_text), "Must record MEASURED_S[4]"
 
     def test_scenario_5_redis_data_loss(self, script_text):
         assert "Scenario 5" in script_text, "Must include Scenario 5: Redis data loss"
-        assert re.search(r'MEASURED_S\[5\]', script_text), (
-            "Must record MEASURED_S[5]"
-        )
+        assert re.search(r"MEASURED_S\[5\]", script_text), "Must record MEASURED_S[5]"
 
     def test_no_scenario_3(self, script_text):
         # Scenario 3 is GameDay-only, should not be automated
-        assert not re.search(r'MEASURED_S\[3\]', script_text), (
-            "Scenario 3 must NOT be automated (GameDay-only)"
-        )
+        assert not re.search(
+            r"MEASURED_S\[3\]", script_text
+        ), "Scenario 3 must NOT be automated (GameDay-only)"
 
     def test_scenario_3_mentioned_as_gameday(self, script_text):
-        assert "GameDay" in script_text or "gameday" in script_text.lower(), (
-            "Script should mention Scenario 3 is GameDay-only"
-        )
+        assert (
+            "GameDay" in script_text or "gameday" in script_text.lower()
+        ), "Script should mention Scenario 3 is GameDay-only"
 
 
 class TestDynamicRedisVolume:
     """Redis volume name must be derived dynamically, never hardcoded."""
 
     def test_derives_redis_volume(self, script_text):
-        assert re.search(r'REDIS_VOLUME=.*volume\s+ls', script_text), (
-            "REDIS_VOLUME must be derived from 'volume ls' command"
-        )
+        assert re.search(
+            r"REDIS_VOLUME=.*volume\s+ls", script_text
+        ), "REDIS_VOLUME must be derived from 'volume ls' command"
 
     def test_no_hardcoded_redis_volume(self, script_text):
         # Common hardcoded patterns to reject
@@ -193,23 +185,23 @@ class TestDynamicRedisVolume:
             "redis-data",
         ]
         for pattern in hardcoded:
-            assert pattern not in script_text, (
-                f"Redis volume name must not be hardcoded as '{pattern}'"
-            )
+            assert (
+                pattern not in script_text
+            ), f"Redis volume name must not be hardcoded as '{pattern}'"
 
 
 class TestRequireHealthy:
     """Script must have a require_healthy function."""
 
     def test_require_healthy_function_defined(self, script_text):
-        assert re.search(r'require_healthy\s*\(\)', script_text), (
-            "Script must define a require_healthy() function"
-        )
+        assert re.search(
+            r"require_healthy\s*\(\)", script_text
+        ), "Script must define a require_healthy() function"
 
     def test_require_healthy_uses_curl(self, script_text):
         # Extract the function body (rough: from definition to next function or end)
         match = re.search(
-            r'require_healthy\s*\(\)\s*\{(.*?)\n\}',
+            r"require_healthy\s*\(\)\s*\{(.*?)\n\}",
             script_text,
             re.DOTALL,
         )
@@ -219,15 +211,15 @@ class TestRequireHealthy:
 
     def test_require_healthy_has_timeout(self, script_text):
         match = re.search(
-            r'require_healthy\s*\(\)\s*\{(.*?)\n\}',
+            r"require_healthy\s*\(\)\s*\{(.*?)\n\}",
             script_text,
             re.DOTALL,
         )
         assert match, "Could not find require_healthy function body"
         body = match.group(1)
-        assert "timeout" in body.lower(), (
-            "require_healthy must support a timeout parameter"
-        )
+        assert (
+            "timeout" in body.lower()
+        ), "require_healthy must support a timeout parameter"
 
 
 class TestRTOTargets:
@@ -272,25 +264,21 @@ class TestRedisKeyNames:
                 )
 
     def test_config_dial_present(self, script_text):
-        assert "config:dial" in script_text, (
-            "Script must reference the correct Redis key 'config:dial'"
-        )
+        assert (
+            "config:dial" in script_text
+        ), "Script must reference the correct Redis key 'config:dial'"
 
     def test_config_reload_present(self, script_text):
-        assert "config:reload" in script_text, (
-            "Script must reference the correct Redis channel 'config:reload'"
-        )
+        assert (
+            "config:reload" in script_text
+        ), "Script must reference the correct Redis channel 'config:reload'"
 
 
 class TestOverallResult:
     """Script must compute and report overall PASS/FAIL."""
 
     def test_overall_result(self, script_text):
-        assert "OVERALL" in script_text, (
-            "Script must compute an OVERALL result"
-        )
+        assert "OVERALL" in script_text, "Script must compute an OVERALL result"
 
     def test_exits_nonzero_on_failure(self, script_text):
-        assert "exit 1" in script_text, (
-            "Script must exit 1 on overall failure"
-        )
+        assert "exit 1" in script_text, "Script must exit 1 on overall failure"

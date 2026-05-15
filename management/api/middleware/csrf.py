@@ -174,10 +174,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         # deployments never set this flag; the _is_production check is
         # the backstop. Tests that verify CSRF enforcement (test_csrf.py)
         # explicitly unset the flag in their module-level env.
-        if (
-            os.environ.get("MANAGEMENT_DISABLE_CSRF") == "1"
-            and not _is_production()
-        ):
+        if os.environ.get("MANAGEMENT_DISABLE_CSRF") == "1" and not _is_production():
             return await call_next(request)
 
         # Not an API route → middleware is a no-op.

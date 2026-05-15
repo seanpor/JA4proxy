@@ -95,7 +95,8 @@ class ManagementAPIMock:
     def requests_for(self, method: str, path_prefix: str) -> list[dict]:
         """Return all requests matching a method and path prefix."""
         return [
-            r for r in self.requests_made
+            r
+            for r in self.requests_made
             if r["method"] == method.upper() and r["path"].startswith(path_prefix)
         ]
 
@@ -262,20 +263,36 @@ class ManagementAPIMock:
         self._app = web.Application()
 
         # Route specific paths before the catch-all
-        self._app.router.add_route("GET",    "/api/v1/allowlist",        self._handle_allowlist_collection)
-        self._app.router.add_route("POST",   "/api/v1/allowlist",        self._handle_allowlist_collection)
-        self._app.router.add_route("DELETE", "/api/v1/allowlist/{id}",   self._handle_allowlist_item)
-        self._app.router.add_route("GET",    "/api/v1/blocklist",        self._handle_blocklist_collection)
-        self._app.router.add_route("POST",   "/api/v1/blocklist",        self._handle_blocklist_collection)
-        self._app.router.add_route("PATCH",  "/api/v1/dial",             self._handle_dial)
-        self._app.router.add_route("GET",    "/api/v1/decisions",        self._handle_decisions)
-        self._app.router.add_route("PATCH",  "/api/v1/config",           self._handle_config)
+        self._app.router.add_route(
+            "GET", "/api/v1/allowlist", self._handle_allowlist_collection
+        )
+        self._app.router.add_route(
+            "POST", "/api/v1/allowlist", self._handle_allowlist_collection
+        )
+        self._app.router.add_route(
+            "DELETE", "/api/v1/allowlist/{id}", self._handle_allowlist_item
+        )
+        self._app.router.add_route(
+            "GET", "/api/v1/blocklist", self._handle_blocklist_collection
+        )
+        self._app.router.add_route(
+            "POST", "/api/v1/blocklist", self._handle_blocklist_collection
+        )
+        self._app.router.add_route("PATCH", "/api/v1/dial", self._handle_dial)
+        self._app.router.add_route("GET", "/api/v1/decisions", self._handle_decisions)
+        self._app.router.add_route("PATCH", "/api/v1/config", self._handle_config)
         for resource in ("allowlist", "blocklist", "watchlist"):
-            self._app.router.add_route("GET",    f"/api/v1/{resource}/ips",       self._handle_ip_collection)
-            self._app.router.add_route("POST",   f"/api/v1/{resource}/ips",       self._handle_ip_collection)
-            self._app.router.add_route("DELETE", f"/api/v1/{resource}/ips/{{id}}", self._handle_ip_item)
+            self._app.router.add_route(
+                "GET", f"/api/v1/{resource}/ips", self._handle_ip_collection
+            )
+            self._app.router.add_route(
+                "POST", f"/api/v1/{resource}/ips", self._handle_ip_collection
+            )
+            self._app.router.add_route(
+                "DELETE", f"/api/v1/{resource}/ips/{{id}}", self._handle_ip_item
+            )
         # Catch-all must be last
-        self._app.router.add_route("*",      "/{path_info:.*}",          self._handle_catchall)
+        self._app.router.add_route("*", "/{path_info:.*}", self._handle_catchall)
 
         self._runner = web.AppRunner(self._app)
         await self._runner.setup()

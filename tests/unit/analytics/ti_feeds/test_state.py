@@ -50,7 +50,9 @@ def test_record_created_for_blocklist_resource(fake_redis):
 
     active = fake_redis.hgetall("ti_feed:taxii-isac:active_stix_ids")
     assert active.get("indicator--aaaa") == "resource-uuid-1"
-    assert "resource-uuid-1" in fake_redis.smembers("ti_feed:taxii-isac:blocklist_uuids")
+    assert "resource-uuid-1" in fake_redis.smembers(
+        "ti_feed:taxii-isac:blocklist_uuids"
+    )
 
 
 def test_record_created_for_ban(fake_redis):
@@ -67,7 +69,10 @@ def test_record_created_for_ban(fake_redis):
         )
     )
 
-    assert fake_redis.hget("ti_feed:rf:active_stix_ids", "indicator--bbbb") == "198.51.100.42"
+    assert (
+        fake_redis.hget("ti_feed:rf:active_stix_ids", "indicator--bbbb")
+        == "198.51.100.42"
+    )
     assert "198.51.100.42" in fake_redis.smembers("ti_feed:rf:ban_ips")
 
 
@@ -322,6 +327,7 @@ class _BrokenRedis:
     def __getattr__(self, name):
         def _raise(*args, **kwargs):
             raise self._error
+
         return _raise
 
     def pipeline(self):
@@ -335,6 +341,7 @@ class _BrokenPipeline:
     def __getattr__(self, name):
         def _noop(*args, **kwargs):
             return self
+
         return _noop
 
     async def execute(self):
@@ -344,6 +351,7 @@ class _BrokenPipeline:
 def _make_broken_state(error=None):
     """Build a FeedState backed by a broken Redis that raises on every call."""
     from src.analytics.ti_feeds.state import FeedState, _SyncRedisShim
+
     broken = _BrokenRedis(error)
     # Wrap in shim so FeedState sees async methods
     state = FeedState.__new__(FeedState)
@@ -351,18 +359,21 @@ def _make_broken_state(error=None):
     return state
 
 
-@pytest.mark.parametrize("method_name,args,expected", [
-    ("add_blocklist_uuid", ("feed1", "uuid-1"), None),
-    ("remove_blocklist_uuid", ("feed1", "uuid-1"), None),
-    ("get_blocklist_uuids", ("feed1",), set()),
-    ("add_ban_ip", ("feed1", "1.2.3.4"), None),
-    ("remove_ban_ip", ("feed1", "1.2.3.4"), None),
-    ("get_ban_ips", ("feed1",), set()),
-    ("get_active_stix_ids", ("feed1",), {}),
-    ("get_poll_state", ("feed1",), {}),
-    ("get_runtime_override", ("feed1",), None),
-    ("set_runtime_override", ("feed1", True), None),
-])
+@pytest.mark.parametrize(
+    "method_name,args,expected",
+    [
+        ("add_blocklist_uuid", ("feed1", "uuid-1"), None),
+        ("remove_blocklist_uuid", ("feed1", "uuid-1"), None),
+        ("get_blocklist_uuids", ("feed1",), set()),
+        ("add_ban_ip", ("feed1", "1.2.3.4"), None),
+        ("remove_ban_ip", ("feed1", "1.2.3.4"), None),
+        ("get_ban_ips", ("feed1",), set()),
+        ("get_active_stix_ids", ("feed1",), {}),
+        ("get_poll_state", ("feed1",), {}),
+        ("get_runtime_override", ("feed1",), None),
+        ("set_runtime_override", ("feed1", True), None),
+    ],
+)
 def test_redis_error_returns_neutral(method_name, args, expected):
     """Every FeedState method swallows Redis errors and returns a neutral value."""
     state = _make_broken_state()
@@ -427,36 +438,42 @@ def test_replace_active_stix_ids_empty_swallows_redis_error():
 def test_record_poll_success_swallows_redis_error():
     """record_poll_success swallows Redis errors."""
     state = _make_broken_state()
-    _run(state.record_poll_success(
-        "feed1",
-        indicators_seen=10,
-        created=5,
-        removed=2,
-        duration_s=1.5,
-    ))
+    _run(
+        state.record_poll_success(
+            "feed1",
+            indicators_seen=10,
+            created=5,
+            removed=2,
+            duration_s=1.5,
+        )
+    )
 
 
 def test_record_poll_success_with_added_after_swallows_error():
     """record_poll_success with added_after swallows Redis errors."""
     state = _make_broken_state()
-    _run(state.record_poll_success(
-        "feed1",
-        indicators_seen=10,
-        created=5,
-        removed=2,
-        duration_s=1.5,
-        added_after="2026-04-08T00:00:00Z",
-    ))
+    _run(
+        state.record_poll_success(
+            "feed1",
+            indicators_seen=10,
+            created=5,
+            removed=2,
+            duration_s=1.5,
+            added_after="2026-04-08T00:00:00Z",
+        )
+    )
 
 
 def test_record_poll_failure_swallows_redis_error():
     """record_poll_failure swallows Redis errors."""
     state = _make_broken_state()
-    _run(state.record_poll_failure(
-        "feed1",
-        error_message="test error",
-        circuit_state="open",
-    ))
+    _run(
+        state.record_poll_failure(
+            "feed1",
+            error_message="test error",
+            circuit_state="open",
+        )
+    )
 
 
 def test_set_circuit_state_swallows_redis_error():

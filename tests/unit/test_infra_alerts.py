@@ -76,9 +76,9 @@ class TestAlertsYAML:
         for rule in rules:
             if "alert" in rule:  # skip recording rules if any
                 annotations = rule.get("annotations", {})
-                assert "runbook_url" in annotations, (
-                    f"Alert {rule['alert']} missing runbook_url"
-                )
+                assert (
+                    "runbook_url" in annotations
+                ), f"Alert {rule['alert']} missing runbook_url"
 
     def test_all_new_alerts_have_alert_type(self, alerts_data):
         """Every rule in new groups must have an alert_type label."""
@@ -86,9 +86,9 @@ class TestAlertsYAML:
         for rule in rules:
             if "alert" in rule:
                 labels = rule.get("labels", {})
-                assert "alert_type" in labels, (
-                    f"Alert {rule['alert']} missing alert_type label"
-                )
+                assert (
+                    "alert_type" in labels
+                ), f"Alert {rule['alert']} missing alert_type label"
 
     def test_existing_groups_present(self, alerts_data):
         """Pre-existing alert groups must still be present."""
@@ -105,9 +105,9 @@ class TestAlertsYAML:
             None,
         )
         assert rule is not None, "ConnectionRateSpike alert not found"
-        assert "clamp_min" in rule["expr"], (
-            "ConnectionRateSpike expr must use clamp_min to prevent division by zero at startup"
-        )
+        assert (
+            "clamp_min" in rule["expr"]
+        ), "ConnectionRateSpike expr must use clamp_min to prevent division by zero at startup"
 
     def test_syn_flood_expr_uses_recording_rule(self, alerts_data):
         """SYNFloodIndicator must reference the ja4proxy:network_avg_pkt_size_bytes recording rule."""
@@ -118,9 +118,9 @@ class TestAlertsYAML:
             None,
         )
         assert rule is not None, "SYNFloodIndicator alert not found"
-        assert "ja4proxy:network_avg_pkt_size_bytes" in rule["expr"], (
-            "SYNFloodIndicator must reference ja4proxy:network_avg_pkt_size_bytes recording rule"
-        )
+        assert (
+            "ja4proxy:network_avg_pkt_size_bytes" in rule["expr"]
+        ), "SYNFloodIndicator must reference ja4proxy:network_avg_pkt_size_bytes recording rule"
 
     def test_oom_alert_fires_immediately(self, alerts_data):
         """ContainerOOMKilled must have for: 0m — OOM kills should alert immediately."""
@@ -131,9 +131,9 @@ class TestAlertsYAML:
             None,
         )
         assert rule is not None, "ContainerOOMKilled alert not found"
-        assert rule.get("for") == "0m", (
-            f"ContainerOOMKilled should have 'for: 0m', got {rule.get('for')!r}"
-        )
+        assert (
+            rule.get("for") == "0m"
+        ), f"ContainerOOMKilled should have 'for: 0m', got {rule.get('for')!r}"
 
     def test_haproxy_queue_thresholds_are_distinct(self, alerts_data):
         """HAProxyBackendQueueing (>0) and HAProxyQueueSignalsCapacityAttack (>5) must be distinct."""
@@ -144,7 +144,11 @@ class TestAlertsYAML:
 
         # HAProxyBackendQueueing should use threshold 0 (early warning)
         queueing = next(
-            (r for r in haproxy_group["rules"] if r.get("alert") == "HAProxyBackendQueueing"),
+            (
+                r
+                for r in haproxy_group["rules"]
+                if r.get("alert") == "HAProxyBackendQueueing"
+            ),
             None,
         )
         assert queueing is not None
@@ -152,7 +156,11 @@ class TestAlertsYAML:
 
         # HAProxyQueueSignalsCapacityAttack should use threshold 5 (attack signal)
         attack = next(
-            (r for r in attack_group["rules"] if r.get("alert") == "HAProxyQueueSignalsCapacityAttack"),
+            (
+                r
+                for r in attack_group["rules"]
+                if r.get("alert") == "HAProxyQueueSignalsCapacityAttack"
+            ),
             None,
         )
         assert attack is not None
@@ -189,9 +197,9 @@ class TestRecordingRules:
             "Stale metric 'ja4_requests_total' still in recording_rules.yml — "
             "should be 'ja4proxy_connections_total'"
         )
-        assert "ja4_blocked_requests_total" not in content, (
-            "Stale metric 'ja4_blocked_requests_total' still in recording_rules.yml"
-        )
+        assert (
+            "ja4_blocked_requests_total" not in content
+        ), "Stale metric 'ja4_blocked_requests_total' still in recording_rules.yml"
 
     def test_infra_recording_rules_have_clamp_min(self, recording_data):
         """Division expressions in infra recording rules must use clamp_min."""
@@ -203,9 +211,9 @@ class TestRecordingRules:
             if "container_spec_memory_limit_bytes" in expr or (
                 "/" in expr and "rate(" in expr
             ):
-                assert "clamp_min" in expr, (
-                    f"Recording rule {rule['record']!r} divides without clamp_min guard"
-                )
+                assert (
+                    "clamp_min" in expr
+                ), f"Recording rule {rule['record']!r} divides without clamp_min guard"
 
     def test_six_infra_recording_rules(self, recording_data):
         """ja4proxy_infra_aggregations must have exactly 6 recording rules."""

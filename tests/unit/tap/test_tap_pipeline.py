@@ -6,6 +6,7 @@ Tests cover:
 - TapPipeline._fingerprints_to_signals(): per-signal conditions
 - TapPipeline._score_to_tap_action(): score → action mapping
 """
+
 import asyncio
 import struct
 import uuid
@@ -26,6 +27,7 @@ from src.tap.tap_pipeline import (
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_fp(**kwargs) -> ConnectionFingerprints:
     defaults = {
@@ -89,6 +91,7 @@ def _no_grease_tls_ext() -> JA4TLSExtValues:
 # _score_to_tap_action
 # ---------------------------------------------------------------------------
 
+
 class TestScoreToTapAction:
     def setup_method(self):
         self.pipeline = _make_pipeline()
@@ -132,6 +135,7 @@ class TestScoreToTapAction:
 # ---------------------------------------------------------------------------
 # _fingerprints_to_signals — individual signal conditions
 # ---------------------------------------------------------------------------
+
 
 class TestFingerprintsToSignals:
     def setup_method(self):
@@ -281,6 +285,7 @@ class TestFingerprintsToSignals:
 # ---------------------------------------------------------------------------
 # TapPipeline.process() — Redis interaction
 # ---------------------------------------------------------------------------
+
 
 class TestTapPipelineProcess:
     def _make_redis_mock(self) -> MagicMock:
@@ -727,7 +732,9 @@ class TestFingerprintExtractorOnStreamData:
             fingerprints={},
             client_data=b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n" + b"\x00" * 20,
         )
-        with patch("src.tap.tap_pipeline.extract_h2_fingerprint", return_value=mock_result):
+        with patch(
+            "src.tap.tap_pipeline.extract_h2_fingerprint", return_value=mock_result
+        ):
             ext.on_stream_data(stream)
         assert stream.fingerprints.get("h2_fingerprint") == "h2fp_aabbccdd"
         assert stream.fingerprints.get("_h2_matched_client") == "chrome_120"
@@ -742,7 +749,9 @@ class TestFingerprintExtractorOnStreamData:
             fingerprints={},
             client_data=b"PRI * HTTP/2.0" + b"\x00" * 20,
         )
-        with patch("src.tap.tap_pipeline.extract_h2_fingerprint", return_value=mock_result):
+        with patch(
+            "src.tap.tap_pipeline.extract_h2_fingerprint", return_value=mock_result
+        ):
             ext.on_stream_data(stream)
         assert "_h2_matched_client" not in stream.fingerprints
 
@@ -779,7 +788,9 @@ class TestFingerprintExtractorOnStreamClose:
         stream = _make_stream(syn_tcp_opts=syn_opts)
         mock_result = MagicMock()
         mock_result.fingerprint = "ja4t_65535_1460_0_0"
-        with patch("src.tap.tap_pipeline.extract_ja4t_from_syn", return_value=mock_result):
+        with patch(
+            "src.tap.tap_pipeline.extract_ja4t_from_syn", return_value=mock_result
+        ):
             result = ext.on_stream_close(stream)
         assert result.ja4t == "ja4t_65535_1460_0_0"
 
@@ -901,7 +912,9 @@ class TestFingerprintExtractorOnStreamClose:
         stream = _make_stream(
             fingerprints={"_ja4_result": mock_ja4_result},
         )
-        with patch("src.tap.tap_pipeline.extract_tls_ext_values", return_value=mock_tls_ext):
+        with patch(
+            "src.tap.tap_pipeline.extract_tls_ext_values", return_value=mock_tls_ext
+        ):
             result = ext.on_stream_close(stream)
         assert result.tls_ext_values is mock_tls_ext
 

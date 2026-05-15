@@ -1171,8 +1171,13 @@ class Pipeline:
                 signal = self._misp_provider.get_signal(ctx.client_ip)
                 if signal is not None:
                     # Apply confidence weight if confidence manager is available
-                    if hasattr(self, '_confidence_manager') and self._confidence_manager:
-                        confidence_weight = self._confidence_manager.get_confidence_weight("misp")
+                    if (
+                        hasattr(self, "_confidence_manager")
+                        and self._confidence_manager
+                    ):
+                        confidence_weight = (
+                            self._confidence_manager.get_confidence_weight("misp")
+                        )
                         signal.weight = confidence_weight
                 return [signal] if signal is not None else []
             except Exception as exc:
@@ -1192,8 +1197,13 @@ class Pipeline:
                 signal = self._threatfox_provider.get_signal(ctx.client_ip)
                 if signal is not None:
                     # Apply confidence weight if confidence manager is available
-                    if hasattr(self, '_confidence_manager') and self._confidence_manager:
-                        confidence_weight = self._confidence_manager.get_confidence_weight("threatfox")
+                    if (
+                        hasattr(self, "_confidence_manager")
+                        and self._confidence_manager
+                    ):
+                        confidence_weight = (
+                            self._confidence_manager.get_confidence_weight("threatfox")
+                        )
                         signal.weight = confidence_weight
                 return [signal] if signal is not None else []
             except Exception as exc:
@@ -1213,8 +1223,13 @@ class Pipeline:
                 signal = self._virustotal_provider.get_signal(ctx.client_ip)
                 if signal is not None:
                     # Apply confidence weight if confidence manager is available
-                    if hasattr(self, '_confidence_manager') and self._confidence_manager:
-                        confidence_weight = self._confidence_manager.get_confidence_weight("virustotal")
+                    if (
+                        hasattr(self, "_confidence_manager")
+                        and self._confidence_manager
+                    ):
+                        confidence_weight = (
+                            self._confidence_manager.get_confidence_weight("virustotal")
+                        )
                         signal.weight = confidence_weight
                 return [signal] if signal is not None else []
             except Exception as exc:

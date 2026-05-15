@@ -55,6 +55,7 @@ _CACHE_HIT_RATIO = Gauge(
 @dataclass
 class GreyNoiseConfig(TIProviderConfig):
     """Configuration for GreyNoiseProvider."""
+
     # Specific settings for GreyNoise
     noise_score: int = 25  # Contribution if IP is classified as 'noise'
     riot_score_reduction: int = 15  # Reduction if IP is in 'riot' (known benign)
@@ -72,7 +73,7 @@ class GreyNoiseConfig(TIProviderConfig):
             queue_size=int(cfg.get("queue_size", 500)),
             worker_count=int(cfg.get("worker_count", 2)),
             noise_score=int(cfg.get("noise_score", 25)),
-            riot_score_reduction=int(cfg.get("riot_score_reduction", 15))
+            riot_score_reduction=int(cfg.get("riot_score_reduction", 15)),
         )
 
 
@@ -107,13 +108,15 @@ class GreyNoiseProvider(TIProvider):
             for i in range(self._config.worker_count)
         ]
         logger.info(
-            json.dumps({
-                "type": "system",
-                "level": "INFO",
-                "subsystem": "greynoise",
-                "event": "started",
-                "worker_count": self._config.worker_count
-            })
+            json.dumps(
+                {
+                    "type": "system",
+                    "level": "INFO",
+                    "subsystem": "greynoise",
+                    "event": "started",
+                    "worker_count": self._config.worker_count,
+                }
+            )
         )
 
     async def stop(self) -> None:
@@ -156,7 +159,7 @@ class GreyNoiseProvider(TIProvider):
         if noise:
             score += self._config.noise_score
             reasons.append(f"GreyNoise noise ({classification})")
-        
+
         if riot:
             score -= self._config.riot_score_reduction
             reasons.append("GreyNoise RIOT (known benign)")
@@ -167,11 +170,7 @@ class GreyNoiseProvider(TIProvider):
         # Cap score but allow negative (reductions)
         score = max(-100, min(score, self._config.score_cap))
 
-        return RiskSignal(
-            name="greynoise",
-            score=score,
-            reason=", ".join(reasons)
-        )
+        return RiskSignal(name="greynoise", score=score, reason=", ".join(reasons))
 
     async def _maybe_lookup(self, ip: str) -> None:
         """Check Redis; if miss, enqueue API lookup."""
@@ -229,7 +228,11 @@ class GreyNoiseProvider(TIProvider):
 
         async def _do_request():
             async with self._session.get(
-                url, headers=headers, timeout=aiohttp.ClientTimeout(total=self._config.lookup_timeout_seconds)
+                url,
+                headers=headers,
+                timeout=aiohttp.ClientTimeout(
+                    total=self._config.lookup_timeout_seconds
+                ),
             ) as resp:
                 if resp.status == 200:
                     data = await resp.json()
@@ -240,12 +243,17 @@ class GreyNoiseProvider(TIProvider):
                     }
                     _LOOKUP_TOTAL.labels(result="success").inc()
                 elif resp.status == 404:
-                    result = {"noise": False, "riot": False, "classification": "unknown"}
+                    result = {
+                        "noise": False,
+                        "riot": False,
+                        "classification": "unknown",
+                    }
                     _LOOKUP_TOTAL.labels(result="not_found").inc()
                 else:
                     logger.warning(
                         "greynoise | event=api_error | status=%d | ip=%s",
-                        resp.status, ip,
+                        resp.status,
+                        ip,
                     )
                     _LOOKUP_TOTAL.labels(result="error").inc()
                     raise RuntimeError(f"greynoise API error: status={resp.status}")

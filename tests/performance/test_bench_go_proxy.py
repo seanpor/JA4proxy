@@ -10,6 +10,7 @@ Environment variables (see integration tests for full list):
   GO_PROXY_HOST, GO_PROXY_PORT  -- Go proxy address (default 127.0.0.1:8082)
   PYTHON_PROXY_HOST, PYTHON_PROXY_PORT -- Python proxy (default 127.0.0.1:8081)
 """
+
 import concurrent.futures
 import os
 import socket
@@ -38,16 +39,14 @@ GO_VS_PYTHON_MIN_RATIO = 2.0
 pytestmark = [
     pytest.mark.live_services,
     pytest.mark.skipif(
-        not (
-            os.path.exists(GO_BINARY)
-            or os.path.exists("/usr/local/bin/ja4proxy")
-        ),
+        not (os.path.exists(GO_BINARY) or os.path.exists("/usr/local/bin/ja4proxy")),
         reason="Go binary not built",
     ),
 ]
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 def _check_port(host: str, port: int, timeout: float = 1.0) -> bool:
     try:
@@ -97,6 +96,7 @@ def _connections_in_duration(
 
 # ── Tests ─────────────────────────────────────────────────────────────────────
 
+
 def test_go_proxy_connection_throughput():
     """Go proxy must sustain a measurable connection rate under multithreaded load.
 
@@ -104,9 +104,7 @@ def test_go_proxy_connection_throughput():
     Asserts that the proxy accepts at least 1 conn/s (sanity floor only).
     """
     if not _check_port(GO_PROXY_HOST, GO_PROXY_PORT):
-        pytest.skip(
-            f"Go proxy not reachable at {GO_PROXY_HOST}:{GO_PROXY_PORT}"
-        )
+        pytest.skip(f"Go proxy not reachable at {GO_PROXY_HOST}:{GO_PROXY_PORT}")
 
     total, elapsed = _connections_in_duration(
         GO_PROXY_HOST, GO_PROXY_PORT, THROUGHPUT_DURATION, THROUGHPUT_THREADS
@@ -118,9 +116,7 @@ def test_go_proxy_connection_throughput():
         f"= {rate:.1f} conn/s ({THROUGHPUT_THREADS} threads)"
     )
 
-    assert rate > 1.0, (
-        f"Go proxy accepted only {rate:.1f} conn/s — expected > 1 conn/s"
-    )
+    assert rate > 1.0, f"Go proxy accepted only {rate:.1f} conn/s — expected > 1 conn/s"
 
 
 def test_go_vs_python_throughput_ratio():
@@ -191,9 +187,9 @@ def test_go_proxy_p99_latency():
         f"  p99:   {p99_ms:.2f}ms"
     )
 
-    assert p99_ms < 1000.0, (
-        f"p99 latency {p99_ms:.2f}ms exceeds 1000ms — proxy may be overloaded"
-    )
+    assert (
+        p99_ms < 1000.0
+    ), f"p99 latency {p99_ms:.2f}ms exceeds 1000ms — proxy may be overloaded"
 
 
 def test_go_proxy_sustained_load():

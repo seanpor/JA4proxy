@@ -23,7 +23,7 @@ def makefile_targets(makefile_text):
     """Return set of all target names declared in the Makefile."""
     targets = set()
     for line in makefile_text.splitlines():
-        m = re.match(r'^([a-zA-Z0-9_][a-zA-Z0-9_\-]*):', line)
+        m = re.match(r"^([a-zA-Z0-9_][a-zA-Z0-9_\-]*):", line)
         if m:
             targets.add(m.group(1))
     return targets
@@ -35,7 +35,7 @@ def phony_targets(makefile_text):
     phony = set()
     for line in makefile_text.splitlines():
         if line.startswith(".PHONY:"):
-            phony.update(line[len(".PHONY:"):].split())
+            phony.update(line[len(".PHONY:") :].split())
     return phony
 
 
@@ -50,4 +50,3 @@ def make_help_output():
         timeout=30,
     )
     return result
-

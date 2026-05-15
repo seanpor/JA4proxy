@@ -96,9 +96,7 @@ def test_compose_monitoring_requires_credentials(var_name: str) -> None:
 
     pattern = re.compile(r"\$\{" + re.escape(var_name) + r"(:[^}]*)?\}")
     matches = pattern.findall(text)
-    assert matches, (
-        f"{var_name} not referenced at all in {MONITORING_COMPOSE.name}"
-    )
+    assert matches, f"{var_name} not referenced at all in {MONITORING_COMPOSE.name}"
 
     bad_default = re.compile(r"\$\{" + re.escape(var_name) + r":-[^}]*\}")
     bad = bad_default.findall(text)
@@ -132,9 +130,10 @@ def test_no_default_admin_fallbacks_anywhere() -> None:
                 offenders.append(
                     (str(path.relative_to(REPO_ROOT)), lineno, line.strip())
                 )
-    assert not offenders, (
-        "Weak default credential fallbacks found in deploy/docker/:\n"
-        + "\n".join(f"  {p}:{n}: {ln}" for p, n, ln in offenders)
+    assert (
+        not offenders
+    ), "Weak default credential fallbacks found in deploy/docker/:\n" + "\n".join(
+        f"  {p}:{n}: {ln}" for p, n, ln in offenders
     )
 
 
@@ -183,9 +182,9 @@ def test_test_redis_bound_to_loopback() -> None:
             )
         elif isinstance(entry, dict):
             host_ip = entry.get("host_ip")
-            assert host_ip == "127.0.0.1", (
-                f"redis ports entry {entry!r} lacks host_ip=127.0.0.1."
-            )
+            assert (
+                host_ip == "127.0.0.1"
+            ), f"redis ports entry {entry!r} lacks host_ip=127.0.0.1."
         else:
             raise AssertionError(
                 f"Unexpected ports entry type {type(entry)}: {entry!r}"
@@ -213,9 +212,10 @@ def test_test_redis_has_password() -> None:
         f"environment variable (or it is empty). Set it to "
         f"`${{REDIS_TEST_PASSWORD:-test-fixtures-pw}}` or similar."
     )
-    assert password.strip() not in {'""', "''"}, (
-        f"redis service {name!r} REDIS_PASSWORD is literally empty: {password!r}"
-    )
+    assert password.strip() not in {
+        '""',
+        "''",
+    }, f"redis service {name!r} REDIS_PASSWORD is literally empty: {password!r}"
 
     # 2. `--requirepass` is passed to redis-server via `command:`.
     command = svc.get("command")
@@ -310,8 +310,10 @@ def _clean_env() -> dict[str, str]:
     """An env with every phase-202 secret variable removed, so we can test
     that `docker compose config` correctly refuses to interpolate."""
     env = {
-        k: v for k, v in os.environ.items()
-        if k not in {
+        k: v
+        for k, v in os.environ.items()
+        if k
+        not in {
             "MANAGEMENT_JWT_SECRET",
             "MANAGEMENT_ADMIN_USER",
             "MANAGEMENT_ADMIN_PASSWORD",

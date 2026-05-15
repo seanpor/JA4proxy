@@ -34,6 +34,7 @@ CANONICAL_PREFIX = "https://github.com/seanpor/JA4proxy/blob/main/docs/runbooks/
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _iter_rule_files() -> list[Path]:
     files = sorted(RULES_DIR.glob("*.yml"))
     assert files, f"No rule files found in {RULES_DIR}"
@@ -64,6 +65,7 @@ def _iter_alert_names() -> list[str]:
 # Bug 1 Flavor A — no example.com placeholders
 # ---------------------------------------------------------------------------
 
+
 def test_no_dead_example_com_urls_in_rules():
     offenders: list[str] = []
     for filepath in _iter_rule_files():
@@ -80,6 +82,7 @@ def test_no_dead_example_com_urls_in_rules():
 # Bug 1 Flavor B — no wrong owner / wrong case github URLs
 # ---------------------------------------------------------------------------
 
+
 def test_no_wrong_owner_github_urls_in_rules():
     offenders: list[tuple[str, str]] = []
     for filepath in _iter_rule_files():
@@ -89,7 +92,9 @@ def test_no_wrong_owner_github_urls_in_rules():
             offenders.append((str(filepath.relative_to(REPO_ROOT)), "seanoriordain"))
         # wrong repo case (lowercase ja4proxy under seanpor)
         if "github.com/seanpor/ja4proxy" in text:
-            offenders.append((str(filepath.relative_to(REPO_ROOT)), "seanpor/ja4proxy (lowercase)"))
+            offenders.append(
+                (str(filepath.relative_to(REPO_ROOT)), "seanpor/ja4proxy (lowercase)")
+            )
     assert not offenders, (
         "Found wrong-owner or wrong-case github.com URLs in rule files: "
         f"{offenders}. Phase 86h Bug 1 Flavor B must be fixed. "
@@ -101,6 +106,7 @@ def test_no_wrong_owner_github_urls_in_rules():
 # Bug 2 — all runbook_url values are absolute github URLs
 # ---------------------------------------------------------------------------
 
+
 def test_all_runbook_urls_are_absolute_github():
     offenders: list[tuple[str, str, str]] = []
     for filepath, alert, url in _iter_runbook_urls():
@@ -109,14 +115,15 @@ def test_all_runbook_urls_are_absolute_github():
             continue
         if not url.startswith(CANONICAL_PREFIX):
             offenders.append((str(filepath.relative_to(REPO_ROOT)), alert, url))
-    assert not offenders, (
-        f"Every runbook_url must start with {CANONICAL_PREFIX!r}. Offenders: {offenders}"
-    )
+    assert (
+        not offenders
+    ), f"Every runbook_url must start with {CANONICAL_PREFIX!r}. Offenders: {offenders}"
 
 
 # ---------------------------------------------------------------------------
 # Bug 2 — every URL resolves to a real file in docs/runbooks/
 # ---------------------------------------------------------------------------
+
 
 def test_all_runbook_urls_point_to_existing_files():
     missing: list[tuple[str, str, str]] = []
@@ -124,20 +131,19 @@ def test_all_runbook_urls_point_to_existing_files():
         if not url.startswith(CANONICAL_PREFIX):
             missing.append((str(filepath.relative_to(REPO_ROOT)), alert, url))
             continue
-        rel = url[len(CANONICAL_PREFIX):]
+        rel = url[len(CANONICAL_PREFIX) :]
         # strip any anchor / query
         rel = rel.split("#", 1)[0].split("?", 1)[0]
         target = RUNBOOKS_DIR / rel
         if not target.is_file():
             missing.append((str(filepath.relative_to(REPO_ROOT)), alert, url))
-    assert not missing, (
-        f"runbook_url values reference non-existent files: {missing}"
-    )
+    assert not missing, f"runbook_url values reference non-existent files: {missing}"
 
 
 # ---------------------------------------------------------------------------
 # Mapping file coverage
 # ---------------------------------------------------------------------------
+
 
 def test_runbook_mapping_covers_every_alert():
     assert MAPPING_PATH.exists(), (
@@ -145,13 +151,11 @@ def test_runbook_mapping_covers_every_alert():
         "Phase 86h Step 2 must create it."
     )
     mapping = yaml.safe_load(MAPPING_PATH.read_text()) or {}
-    assert isinstance(mapping, dict), (
-        f"Mapping file must be a YAML dict, got {type(mapping).__name__}"
-    )
+    assert isinstance(
+        mapping, dict
+    ), f"Mapping file must be a YAML dict, got {type(mapping).__name__}"
     missing = [name for name in _iter_alert_names() if name not in mapping]
-    assert not missing, (
-        f"Mapping file is missing entries for alerts: {missing}"
-    )
+    assert not missing, f"Mapping file is missing entries for alerts: {missing}"
     # Every mapped runbook filename must exist on disk
     bad_targets: list[tuple[str, str]] = []
     for alert, runbook_name in mapping.items():
@@ -161,9 +165,9 @@ def test_runbook_mapping_covers_every_alert():
         target = RUNBOOKS_DIR / runbook_name
         if not target.is_file():
             bad_targets.append((alert, runbook_name))
-    assert not bad_targets, (
-        f"Mapping entries point to missing runbook files: {bad_targets}"
-    )
+    assert (
+        not bad_targets
+    ), f"Mapping entries point to missing runbook files: {bad_targets}"
 
 
 # ---------------------------------------------------------------------------
@@ -247,26 +251,30 @@ def test_fix_runbook_urls_idempotent(tmp_path: Path):
     rules_dir, mapping_file = _write_fixture(tmp_path, _DIRTY_RULE_FIXTURE)
 
     first = _run_fixer(
-        "--rules-dir", str(rules_dir),
-        "--mapping", str(mapping_file),
+        "--rules-dir",
+        str(rules_dir),
+        "--mapping",
+        str(mapping_file),
     )
-    assert first.returncode == 0, (
-        f"fixer first run failed: stdout={first.stdout!r} stderr={first.stderr!r}"
-    )
+    assert (
+        first.returncode == 0
+    ), f"fixer first run failed: stdout={first.stdout!r} stderr={first.stderr!r}"
     after_first = (rules_dir / "fixture.yml").read_text()
 
     second = _run_fixer(
-        "--rules-dir", str(rules_dir),
-        "--mapping", str(mapping_file),
+        "--rules-dir",
+        str(rules_dir),
+        "--mapping",
+        str(mapping_file),
     )
-    assert second.returncode == 0, (
-        f"fixer second run failed: stdout={second.stdout!r} stderr={second.stderr!r}"
-    )
+    assert (
+        second.returncode == 0
+    ), f"fixer second run failed: stdout={second.stdout!r} stderr={second.stderr!r}"
     after_second = (rules_dir / "fixture.yml").read_text()
 
-    assert after_first == after_second, (
-        "fix_runbook_urls.py is not idempotent — second run produced different output"
-    )
+    assert (
+        after_first == after_second
+    ), "fix_runbook_urls.py is not idempotent — second run produced different output"
     # Sanity: the dead URLs are gone after rewrite.
     assert "docs.ja4proxy.example.com" not in after_first
     assert "github.com/seanoriordain" not in after_first
@@ -275,8 +283,10 @@ def test_fix_runbook_urls_idempotent(tmp_path: Path):
 def test_fix_runbook_urls_check_mode_exits_nonzero_when_dirty(tmp_path: Path):
     rules_dir, mapping_file = _write_fixture(tmp_path, _DIRTY_RULE_FIXTURE)
     result = _run_fixer(
-        "--rules-dir", str(rules_dir),
-        "--mapping", str(mapping_file),
+        "--rules-dir",
+        str(rules_dir),
+        "--mapping",
+        str(mapping_file),
         "--check",
     )
     assert result.returncode != 0, (
@@ -290,8 +300,10 @@ def test_fix_runbook_urls_check_mode_exits_nonzero_when_dirty(tmp_path: Path):
 def test_fix_runbook_urls_check_mode_exits_zero_when_clean(tmp_path: Path):
     rules_dir, mapping_file = _write_fixture(tmp_path, _CLEAN_RULE_FIXTURE)
     result = _run_fixer(
-        "--rules-dir", str(rules_dir),
-        "--mapping", str(mapping_file),
+        "--rules-dir",
+        str(rules_dir),
+        "--mapping",
+        str(mapping_file),
         "--check",
     )
     assert result.returncode == 0, (
@@ -303,6 +315,7 @@ def test_fix_runbook_urls_check_mode_exits_zero_when_clean(tmp_path: Path):
 # ---------------------------------------------------------------------------
 # Review-round guards: mapping target validation + atomic-on-error
 # ---------------------------------------------------------------------------
+
 
 def test_fix_runbook_urls_rejects_mapping_with_nonexistent_target(tmp_path: Path):
     """MAJOR 1: a mapping whose target file does not exist under
@@ -329,26 +342,32 @@ def test_fix_runbook_urls_rejects_mapping_with_nonexistent_target(tmp_path: Path
 
     # Apply mode
     result = _run_fixer(
-        "--rules-dir", str(rules_dir),
-        "--mapping", str(mapping_file),
-        "--runbooks-dir", str(runbooks_dir),
+        "--rules-dir",
+        str(rules_dir),
+        "--mapping",
+        str(mapping_file),
+        "--runbooks-dir",
+        str(runbooks_dir),
     )
     assert result.returncode != 0, (
         "Fixer must exit non-zero when a mapping target does not exist "
         f"under --runbooks-dir. stdout={result.stdout!r} stderr={result.stderr!r}"
     )
-    assert "this_runbook_does_not_exist.md" in result.stderr, (
-        f"Error message must name the missing target. stderr={result.stderr!r}"
-    )
-    assert rule_file.read_bytes() == original_bytes, (
-        "Fixer must NOT modify the rule file when the mapping is invalid."
-    )
+    assert (
+        "this_runbook_does_not_exist.md" in result.stderr
+    ), f"Error message must name the missing target. stderr={result.stderr!r}"
+    assert (
+        rule_file.read_bytes() == original_bytes
+    ), "Fixer must NOT modify the rule file when the mapping is invalid."
 
     # --check mode: same invariant
     result_check = _run_fixer(
-        "--rules-dir", str(rules_dir),
-        "--mapping", str(mapping_file),
-        "--runbooks-dir", str(runbooks_dir),
+        "--rules-dir",
+        str(rules_dir),
+        "--mapping",
+        str(mapping_file),
+        "--runbooks-dir",
+        str(runbooks_dir),
         "--check",
     )
     assert result_check.returncode != 0
@@ -375,9 +394,12 @@ def test_fix_runbook_urls_no_partial_writes_on_error(tmp_path: Path):
     mapping_file.write_text("FixtureAlertOne: ja4proxy_node_unhealthy.md\n")
 
     result = _run_fixer(
-        "--rules-dir", str(rules_dir),
-        "--mapping", str(mapping_file),
-        "--runbooks-dir", str(runbooks_dir),
+        "--rules-dir",
+        str(rules_dir),
+        "--mapping",
+        str(mapping_file),
+        "--runbooks-dir",
+        str(runbooks_dir),
     )
     assert result.returncode != 0, (
         "Fixer must exit non-zero when any alert is unmapped. "
@@ -388,6 +410,6 @@ def test_fix_runbook_urls_no_partial_writes_on_error(tmp_path: Path):
         "is unmapped. Got partial write."
     )
     # And the error must name the unmapped alert.
-    assert "FixtureAlertTwo" in result.stderr, (
-        f"Error must name the unmapped alert. stderr={result.stderr!r}"
-    )
+    assert (
+        "FixtureAlertTwo" in result.stderr
+    ), f"Error must name the unmapped alert. stderr={result.stderr!r}"

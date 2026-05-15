@@ -42,7 +42,9 @@ class _RespondingSession:
         self.calls: list[dict[str, Any]] = []
 
     def post(self, url: str, json=None, headers=None, **kwargs):
-        self.calls.append({"method": "POST", "url": url, "json": json, "headers": headers})
+        self.calls.append(
+            {"method": "POST", "url": url, "json": json, "headers": headers}
+        )
         status = self._statuses.pop(0) if self._statuses else 201
 
         class _Resp:
@@ -50,7 +52,12 @@ class _RespondingSession:
                 self.status = status
 
             async def json(self):
-                return {"id": "x", "entry": (json or {}).get("entry", ""), "managed_by": "feed", "note": ""}
+                return {
+                    "id": "x",
+                    "entry": (json or {}).get("entry", ""),
+                    "managed_by": "feed",
+                    "note": "",
+                }
 
             async def text(self):
                 return str(status)

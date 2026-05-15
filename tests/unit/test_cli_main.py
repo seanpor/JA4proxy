@@ -2,6 +2,7 @@
 Tests for src/cli/main.py — CLI entry point.
 Phase 104: coverage gap closure.
 """
+
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -16,6 +17,7 @@ def runner():
 
 
 # ── top-level group ──────────────────────────────────────────────────────────
+
 
 class TestCLIGroup:
     def test_cli_help(self, runner):
@@ -40,6 +42,7 @@ class TestCLIGroup:
 
 # ── health command ───────────────────────────────────────────────────────────
 
+
 class TestHealthCommand:
     @patch("src.cli.main.WorkspaceIntegrityTool", create=True)
     def test_health_pass_table(self, mock_wit_cls, runner):
@@ -47,11 +50,14 @@ class TestHealthCommand:
         mock_wit = MagicMock()
         mock_wit.run.return_value = (["orphan1.py"], {})
         # The import happens inside the command; patch at the import target
-        with patch.dict("sys.modules", {
-            "scripts.workspace_integrity_tool": MagicMock(
-                WorkspaceIntegrityTool=MagicMock(return_value=mock_wit)
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "scripts.workspace_integrity_tool": MagicMock(
+                    WorkspaceIntegrityTool=MagicMock(return_value=mock_wit)
+                ),
+            },
+        ):
             result = runner.invoke(cli, ["health"])
         assert result.exit_code == 0
         assert "PASS" in result.output
@@ -64,11 +70,14 @@ class TestHealthCommand:
             [],
             {"docs/README.md": ["missing_link.md"]},
         )
-        with patch.dict("sys.modules", {
-            "scripts.workspace_integrity_tool": MagicMock(
-                WorkspaceIntegrityTool=MagicMock(return_value=mock_wit)
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "scripts.workspace_integrity_tool": MagicMock(
+                    WorkspaceIntegrityTool=MagicMock(return_value=mock_wit)
+                ),
+            },
+        ):
             result = runner.invoke(cli, ["health"])
         assert result.exit_code == 0
         assert "FAIL" in result.output
@@ -78,14 +87,18 @@ class TestHealthCommand:
         """JSON format for health output."""
         mock_wit = MagicMock()
         mock_wit.run.return_value = (["orphan.py"], {})
-        with patch.dict("sys.modules", {
-            "scripts.workspace_integrity_tool": MagicMock(
-                WorkspaceIntegrityTool=MagicMock(return_value=mock_wit)
-            ),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "scripts.workspace_integrity_tool": MagicMock(
+                    WorkspaceIntegrityTool=MagicMock(return_value=mock_wit)
+                ),
+            },
+        ):
             result = runner.invoke(cli, ["--format", "json", "health"])
         assert result.exit_code == 0
         import json
+
         # First line is "Running Workspace Integrity Audit..." — skip it
         json_text = result.output.split("\n", 1)[1]
         data = json.loads(json_text)
@@ -94,6 +107,7 @@ class TestHealthCommand:
 
 
 # ── proxy scale command ──────────────────────────────────────────────────────
+
 
 class TestProxyScale:
     def test_proxy_scale_success(self, runner):
@@ -108,6 +122,7 @@ class TestProxyScale:
 
     def test_proxy_scale_failure(self, runner):
         import subprocess
+
         with patch("src.cli.main.subprocess.run") as mock_run:
             mock_run.side_effect = subprocess.CalledProcessError(1, "cmd")
             result = runner.invoke(cli, ["proxy", "scale", "5"])
@@ -126,6 +141,7 @@ class TestProxyScale:
 
 # ── threat group ─────────────────────────────────────────────────────────────
 
+
 class TestThreatGroup:
     def test_threat_help(self, runner):
         result = runner.invoke(cli, ["threat", "--help"])
@@ -134,6 +150,7 @@ class TestThreatGroup:
 
 
 # ── geoip commands ───────────────────────────────────────────────────────────
+
 
 class TestGeoIPCommands:
     def test_geoip_help(self, runner):
@@ -152,6 +169,7 @@ class TestGeoIPCommands:
 
     def test_geoip_update_failure(self, runner):
         import subprocess
+
         with patch("src.cli.main.subprocess.run") as mock_run:
             mock_run.side_effect = subprocess.CalledProcessError(1, "cmd")
             result = runner.invoke(cli, ["geoip", "update"])

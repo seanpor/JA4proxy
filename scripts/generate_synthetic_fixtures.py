@@ -15,20 +15,35 @@ Fixtures generated:
   synthetic_tls13_no_sni.bin  -- TLS 1.3, no SNI extension
   synthetic_grease.bin        -- TLS 1.3 with GREASE values (must be filtered)
 """
+
 import hashlib
 import json
 import pathlib
 import struct
 import sys
 
-FIXTURES_DIR = pathlib.Path(__file__).parent.parent / "tests" / "fixtures" / "clienthello"
+FIXTURES_DIR = (
+    pathlib.Path(__file__).parent.parent / "tests" / "fixtures" / "clienthello"
+)
 
 # GREASE values per RFC 8701
 GREASE_VALUES = {
-    0x0A0A, 0x1A1A, 0x2A2A, 0x3A3A,
-    0x4A4A, 0x5A5A, 0x6A6A, 0x7A7A,
-    0x8A8A, 0x9A9A, 0xAAAA, 0xBABA,
-    0xCACA, 0xDADA, 0xEAEA, 0xFAFA,
+    0x0A0A,
+    0x1A1A,
+    0x2A2A,
+    0x3A3A,
+    0x4A4A,
+    0x5A5A,
+    0x6A6A,
+    0x7A7A,
+    0x8A8A,
+    0x9A9A,
+    0xAAAA,
+    0xBABA,
+    0xCACA,
+    0xDADA,
+    0xEAEA,
+    0xFAFA,
 }
 
 # Well-known cipher suites
@@ -53,6 +68,7 @@ EXT_KEY_SHARE = 0x0033
 
 
 # ── Low-level builders ────────────────────────────────────────────────────────
+
 
 def _ext(ext_type: int, data: bytes) -> bytes:
     return struct.pack(">HH", ext_type, len(data)) + data
@@ -100,7 +116,7 @@ def _build_record(ciphers: list, extensions_bytes: bytes) -> bytes:
     cipher_bytes = struct.pack(f">{len(ciphers)}H", *ciphers)
     cipher_suites_field = struct.pack(">H", len(cipher_bytes)) + cipher_bytes
 
-    random_bytes = b"\xAB" * 32
+    random_bytes = b"\xab" * 32
     session_id = b"\x00"  # empty
     compression = b"\x01\x00"  # 1 method: null
 
@@ -130,6 +146,7 @@ def _build_record(ciphers: list, extensions_bytes: bytes) -> bytes:
 
 
 # ── JA4 computation (pure Python, no Scapy) ────────────────────────────────
+
 
 def _tls_version_str(v: int) -> str:
     return {0x0301: "10", 0x0302: "11", 0x0303: "12", 0x0304: "13"}.get(v, "00")
@@ -184,6 +201,7 @@ def compute_ja4(
 
 # ── Fixture definitions ────────────────────────────────────────────────────────
 
+
 def make_synthetic_tls13_basic():
     """TLS 1.3: AES-GCM ciphers, SNI, standard extensions."""
     ciphers = [
@@ -199,8 +217,13 @@ def make_synthetic_tls13_basic():
         + _signature_algorithms_ext([0x0403, 0x0804, 0x0401, 0x0503])
         + _session_ticket_ext()
     )
-    ext_types = [EXT_SNI, EXT_SUPPORTED_VERSIONS, EXT_SUPPORTED_GROUPS,
-                 EXT_SIGNATURE_ALGORITHMS, EXT_SESSION_TICKET]
+    ext_types = [
+        EXT_SNI,
+        EXT_SUPPORTED_VERSIONS,
+        EXT_SUPPORTED_GROUPS,
+        EXT_SIGNATURE_ALGORITHMS,
+        EXT_SESSION_TICKET,
+    ]
     record = _build_record(ciphers, exts_bytes)
     ja4 = compute_ja4(
         ciphers=ciphers,
@@ -228,8 +251,13 @@ def make_synthetic_tls12_basic():
         + _signature_algorithms_ext([0x0401, 0x0501, 0x0601, 0x0403])
         + _session_ticket_ext()
     )
-    ext_types = [EXT_SNI, EXT_SUPPORTED_GROUPS, EXT_EC_POINT_FORMATS,
-                 EXT_SIGNATURE_ALGORITHMS, EXT_SESSION_TICKET]
+    ext_types = [
+        EXT_SNI,
+        EXT_SUPPORTED_GROUPS,
+        EXT_EC_POINT_FORMATS,
+        EXT_SIGNATURE_ALGORITHMS,
+        EXT_SESSION_TICKET,
+    ]
     record = _build_record(ciphers, exts_bytes)
     # No 0x0304 in supported_versions -> legacy_version 0x0303 -> version "12"
     ja4 = compute_ja4(
@@ -285,8 +313,13 @@ def make_synthetic_grease():
         + _signature_algorithms_ext([0x0403, 0x0401])
     )
     # Extension types as they appear (GREASE included for accurate count/hash computation)
-    ext_types = [EXT_SNI, 0x0A0A, EXT_SUPPORTED_VERSIONS, EXT_SUPPORTED_GROUPS,
-                 EXT_SIGNATURE_ALGORITHMS]
+    ext_types = [
+        EXT_SNI,
+        0x0A0A,
+        EXT_SUPPORTED_VERSIONS,
+        EXT_SUPPORTED_GROUPS,
+        EXT_SIGNATURE_ALGORITHMS,
+    ]
     record = _build_record(ciphers, exts_bytes)
     ja4 = compute_ja4(
         ciphers=ciphers,
@@ -299,6 +332,7 @@ def make_synthetic_grease():
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
+
 
 def main():
     FIXTURES_DIR.mkdir(parents=True, exist_ok=True)

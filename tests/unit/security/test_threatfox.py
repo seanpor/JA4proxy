@@ -40,27 +40,29 @@ def mock_session():
 
 
 @pytest.mark.asyncio
-async def test_threatfox_provider_signal_logic(mock_redis, mock_local_cache, mock_session):
+async def test_threatfox_provider_signal_logic(
+    mock_redis, mock_local_cache, mock_session
+):
     config = ThreatFoxConfig(enabled=True, api_key="test", ioc_score=25, score_cap=60)
     provider = ThreatFoxProvider(config, mock_redis, mock_local_cache, mock_session)
-    
+
     # Test 1 IOC
     data = {"ioc_count": 1}
     signal = provider._to_signal("1.2.3.4", data)
     assert signal.name == "threatfox"
     assert signal.score == 25
     assert "1 IOC" in signal.reason
-    
+
     # Test multiple IOCs
     data = {"ioc_count": 2}
     signal = provider._to_signal("1.2.3.4", data)
     assert signal.score == 50
-    
+
     # Test score capping
     data = {"ioc_count": 3}
     signal = provider._to_signal("1.2.3.4", data)
     assert signal.score == 60  # capped at 60
-    
+
     # Test no IOCs (should return None)
     data = {"ioc_count": 0}
     signal = provider._to_signal("1.2.3.4", data)
@@ -71,27 +73,29 @@ async def test_threatfox_provider_signal_logic(mock_redis, mock_local_cache, moc
 async def test_threatfox_api_lookup(mock_redis, mock_local_cache, mock_session):
     config = ThreatFoxConfig(enabled=True, api_key="test")
     provider = ThreatFoxProvider(config, mock_redis, mock_local_cache, mock_session)
-    
+
     # Mock successful response
     mock_resp = AsyncMock()
     mock_resp.status = 200
-    mock_resp.json = AsyncMock(return_value={
-        "query": "search_ioc",
-        "data": [
-            {"id": "1", "ioc": "1.2.3.4", "threat_type": "malware"},
-            {"id": "2", "ioc": "1.2.3.4", "threat_type": "botnet"}
-        ]
-    })
-    
+    mock_resp.json = AsyncMock(
+        return_value={
+            "query": "search_ioc",
+            "data": [
+                {"id": "1", "ioc": "1.2.3.4", "threat_type": "malware"},
+                {"id": "2", "ioc": "1.2.3.4", "threat_type": "botnet"},
+            ],
+        }
+    )
+
     # aiohttp session.post() returns an object that is an async context manager
     mock_ctx = MagicMock()
     mock_ctx.__aenter__ = AsyncMock(return_value=mock_resp)
     mock_ctx.__aexit__ = AsyncMock(return_value=None)
     mock_session.post.return_value = mock_ctx
-    
+
     # Test the lookup process
     await provider._process_lookup("1.2.3.4")
-    
+
     # Verify Redis was called to cache the result
     mock_redis.setex.assert_called_once()
     call_args = mock_redis.setex.call_args
@@ -104,11 +108,11 @@ async def test_threatfox_api_lookup(mock_redis, mock_local_cache, mock_session):
 async def test_threatfox_provider_disabled(mock_redis, mock_local_cache, mock_session):
     config = ThreatFoxConfig(enabled=False)
     provider = ThreatFoxProvider(config, mock_redis, mock_local_cache, mock_session)
-    
+
     # Should return None when disabled
     signal = provider.get_signal("1.2.3.4")
     assert signal is None
-    
+
     # Start/stop should be no-ops
     await provider.start()
     await provider.stop()
@@ -119,15 +123,15 @@ async def test_threatfox_provider_disabled(mock_redis, mock_local_cache, mock_se
 async def test_threatfox_cache_hit(mock_redis, mock_local_cache, mock_session):
     config = ThreatFoxConfig(enabled=True, api_key="test", score_cap=100)
     provider = ThreatFoxProvider(config, mock_redis, mock_local_cache, mock_session)
-    
+
     # Mock cache hit
     cached_data = {"ioc_count": 2}
     mock_local_cache.threatfox_scores.get.return_value = cached_data
-    
+
     signal = provider.get_signal("1.2.3.4")
     assert signal is not None
     assert signal.score == 50  # 2 * 25
-    
+
     # Verify no API lookup was triggered (cache hit)
     mock_session.post.assert_not_called()
 
@@ -136,15 +140,11 @@ async def test_threatfox_cache_hit(mock_redis, mock_local_cache, mock_session):
 async def test_threatfox_config_reload(mock_redis, mock_local_cache, mock_session):
     config = ThreatFoxConfig(enabled=True, api_key="old_key")
     provider = ThreatFoxProvider(config, mock_redis, mock_local_cache, mock_session)
-    
+
     new_config_dict = {
-        "threatfox": {
-            "enabled": True,
-            "api_key": "new_key",
-            "ioc_score": 30
-        }
+        "threatfox": {"enabled": True, "api_key": "new_key", "ioc_score": 30}
     }
-    
+
     provider.on_config_reload(new_config_dict)
     assert provider._config.api_key == "new_key"
     assert provider._config.ioc_score == 30
@@ -173,7 +173,9 @@ _TF_OK_BODY = {
 
 
 @pytest.mark.asyncio
-async def test_threatfox_no_health_monitor_works(mock_redis, mock_local_cache, mock_session):
+async def test_threatfox_no_health_monitor_works(
+    mock_redis, mock_local_cache, mock_session
+):
     """Provider works normally without a health_monitor (backwards compat)."""
     config = ThreatFoxConfig(enabled=True, api_key="key")
     provider = ThreatFoxProvider(config, mock_redis, mock_local_cache, mock_session)
@@ -184,7 +186,9 @@ async def test_threatfox_no_health_monitor_works(mock_redis, mock_local_cache, m
 
 
 @pytest.mark.asyncio
-async def test_threatfox_circuit_open_skips_api(mock_redis, mock_local_cache, mock_session):
+async def test_threatfox_circuit_open_skips_api(
+    mock_redis, mock_local_cache, mock_session
+):
     """When the circuit is open, _process_lookup returns without calling the API."""
     monitor = FeedHealthMonitor()
     cb = monitor.get_circuit_breaker("threatfox", failure_threshold=1)
@@ -201,7 +205,9 @@ async def test_threatfox_circuit_open_skips_api(mock_redis, mock_local_cache, mo
 
 
 @pytest.mark.asyncio
-async def test_threatfox_circuit_records_success(mock_redis, mock_local_cache, mock_session):
+async def test_threatfox_circuit_records_success(
+    mock_redis, mock_local_cache, mock_session
+):
     """Successful API call causes record_success() to be invoked."""
     monitor = FeedHealthMonitor()
     cb = monitor.get_circuit_breaker("threatfox")
@@ -240,7 +246,9 @@ async def test_threatfox_circuit_records_failure_on_exception(
 
 
 @pytest.mark.asyncio
-async def test_threatfox_retry_twice_then_succeed(mock_redis, mock_local_cache, mock_session):
+async def test_threatfox_retry_twice_then_succeed(
+    mock_redis, mock_local_cache, mock_session
+):
     """API fails twice then succeeds; session.post called 3 times."""
     config = ThreatFoxConfig(enabled=True, api_key="key")
     provider = ThreatFoxProvider(config, mock_redis, mock_local_cache, mock_session)
@@ -283,7 +291,9 @@ def test_threatfox_config_from_config_defaults():
 
 
 @pytest.mark.asyncio
-async def test_threatfox_start_enabled_spawns_workers(mock_redis, mock_local_cache, mock_session):
+async def test_threatfox_start_enabled_spawns_workers(
+    mock_redis, mock_local_cache, mock_session
+):
     """start() creates worker tasks when enabled."""
     config = ThreatFoxConfig(enabled=True, api_key="key", worker_count=2)
     provider = ThreatFoxProvider(config, mock_redis, mock_local_cache, mock_session)
@@ -302,7 +312,9 @@ async def test_threatfox_start_enabled_spawns_workers(mock_redis, mock_local_cac
 
 
 @pytest.mark.asyncio
-async def test_threatfox_stop_cancels_workers(mock_redis, mock_local_cache, mock_session):
+async def test_threatfox_stop_cancels_workers(
+    mock_redis, mock_local_cache, mock_session
+):
     """stop() cancels running workers without raising."""
     config = ThreatFoxConfig(enabled=True, api_key="key", worker_count=1)
     provider = ThreatFoxProvider(config, mock_redis, mock_local_cache, mock_session)
@@ -326,7 +338,11 @@ async def test_threatfox_get_signal_cache_hit_adaptive_recorded(
     adaptive_cache.record_cache_hit = AsyncMock()
 
     provider = ThreatFoxProvider(
-        config, mock_redis, mock_local_cache, mock_session, adaptive_cache=adaptive_cache
+        config,
+        mock_redis,
+        mock_local_cache,
+        mock_session,
+        adaptive_cache=adaptive_cache,
     )
     mock_local_cache.threatfox_scores.get.return_value = {"ioc_count": 2}
 
@@ -361,7 +377,9 @@ async def test_threatfox_get_signal_cache_miss_returns_none(
 
 
 @pytest.mark.asyncio
-async def test_threatfox_maybe_lookup_redis_hit(mock_redis, mock_local_cache, mock_session):
+async def test_threatfox_maybe_lookup_redis_hit(
+    mock_redis, mock_local_cache, mock_session
+):
     """Redis cache hit populates local cache and skips queue."""
     config = ThreatFoxConfig(enabled=True, api_key="key")
     provider = ThreatFoxProvider(config, mock_redis, mock_local_cache, mock_session)
@@ -387,7 +405,9 @@ async def test_threatfox_maybe_lookup_redis_error_continues(
 
 
 @pytest.mark.asyncio
-async def test_threatfox_maybe_lookup_bloom_already_seen(mock_redis, mock_local_cache, mock_session):
+async def test_threatfox_maybe_lookup_bloom_already_seen(
+    mock_redis, mock_local_cache, mock_session
+):
     """Bloom filter returning 0 (already seen) skips queue."""
     config = ThreatFoxConfig(enabled=True, api_key="key")
     provider = ThreatFoxProvider(config, mock_redis, mock_local_cache, mock_session)
@@ -400,7 +420,9 @@ async def test_threatfox_maybe_lookup_bloom_already_seen(mock_redis, mock_local_
 
 
 @pytest.mark.asyncio
-async def test_threatfox_maybe_lookup_queue_full_swallowed(mock_redis, mock_local_cache, mock_session):
+async def test_threatfox_maybe_lookup_queue_full_swallowed(
+    mock_redis, mock_local_cache, mock_session
+):
     """QueueFull is silently swallowed — proxy must not crash on backpressure."""
     config = ThreatFoxConfig(enabled=True, api_key="key", queue_size=1)
     provider = ThreatFoxProvider(config, mock_redis, mock_local_cache, mock_session)
@@ -418,7 +440,9 @@ async def test_threatfox_maybe_lookup_queue_full_swallowed(mock_redis, mock_loca
 
 
 @pytest.mark.asyncio
-async def test_threatfox_process_lookup_no_api_key_skips(mock_redis, mock_local_cache, mock_session):
+async def test_threatfox_process_lookup_no_api_key_skips(
+    mock_redis, mock_local_cache, mock_session
+):
     """When api_key is empty, _process_lookup returns without API call."""
     config = ThreatFoxConfig(enabled=True, api_key="")
     provider = ThreatFoxProvider(config, mock_redis, mock_local_cache, mock_session)
@@ -433,7 +457,9 @@ async def test_threatfox_process_lookup_no_api_key_skips(mock_redis, mock_local_
 
 
 @pytest.mark.asyncio
-async def test_threatfox_process_lookup_404_caches_zero(mock_redis, mock_local_cache, mock_session):
+async def test_threatfox_process_lookup_404_caches_zero(
+    mock_redis, mock_local_cache, mock_session
+):
     """404 response is treated as not found and cached with zero IOC count."""
     config = ThreatFoxConfig(enabled=True, api_key="key")
     provider = ThreatFoxProvider(config, mock_redis, mock_local_cache, mock_session)
@@ -491,7 +517,11 @@ async def test_threatfox_process_lookup_uses_adaptive_ttl(
 
     config = ThreatFoxConfig(enabled=True, api_key="key", cache_ttl_seconds=3600)
     provider = ThreatFoxProvider(
-        config, mock_redis, mock_local_cache, mock_session, adaptive_cache=adaptive_cache
+        config,
+        mock_redis,
+        mock_local_cache,
+        mock_session,
+        adaptive_cache=adaptive_cache,
     )
 
     mock_session.post.return_value = _make_ctx(200, _TF_OK_BODY)
@@ -518,7 +548,11 @@ async def test_threatfox_process_lookup_records_cache_miss(
 
     config = ThreatFoxConfig(enabled=True, api_key="key")
     provider = ThreatFoxProvider(
-        config, mock_redis, mock_local_cache, mock_session, adaptive_cache=adaptive_cache
+        config,
+        mock_redis,
+        mock_local_cache,
+        mock_session,
+        adaptive_cache=adaptive_cache,
     )
 
     mock_session.post.return_value = _make_ctx(200, _TF_OK_BODY)
@@ -562,7 +596,9 @@ async def test_threatfox_process_lookup_timeout_records_failure(
 
 
 @pytest.mark.asyncio
-async def test_threatfox_process_lookup_fetches_old_value(mock_redis, mock_local_cache, mock_session):
+async def test_threatfox_process_lookup_fetches_old_value(
+    mock_redis, mock_local_cache, mock_session
+):
     """Before API call, old cached value is fetched for volatility comparison."""
     adaptive_cache = MagicMock()
     adaptive_cache.get_adaptive_ttl.return_value = 3600
@@ -570,7 +606,11 @@ async def test_threatfox_process_lookup_fetches_old_value(mock_redis, mock_local
 
     config = ThreatFoxConfig(enabled=True, api_key="key")
     provider = ThreatFoxProvider(
-        config, mock_redis, mock_local_cache, mock_session, adaptive_cache=adaptive_cache
+        config,
+        mock_redis,
+        mock_local_cache,
+        mock_session,
+        adaptive_cache=adaptive_cache,
     )
 
     old_data = {"ioc_count": 1}
@@ -588,7 +628,9 @@ async def test_threatfox_process_lookup_fetches_old_value(mock_redis, mock_local
 
 
 @pytest.mark.asyncio
-async def test_threatfox_worker_loop_cancellation(mock_redis, mock_local_cache, mock_session):
+async def test_threatfox_worker_loop_cancellation(
+    mock_redis, mock_local_cache, mock_session
+):
     """Worker loop exits cleanly when cancelled."""
     config = ThreatFoxConfig(enabled=True, api_key="key")
     provider = ThreatFoxProvider(config, mock_redis, mock_local_cache, mock_session)
@@ -621,7 +663,9 @@ async def test_threatfox_maybe_lookup_bloom_exception_swallowed(
 
 
 @pytest.mark.asyncio
-async def test_threatfox_worker_loop_processes_item(mock_redis, mock_local_cache, mock_session):
+async def test_threatfox_worker_loop_processes_item(
+    mock_redis, mock_local_cache, mock_session
+):
     """Worker dequeues item and calls _process_lookup with task_done (lines 196-199).
     So what: task_done must fire or shutdown hangs."""
     config = ThreatFoxConfig(enabled=True, api_key="key")
@@ -643,7 +687,9 @@ async def test_threatfox_worker_loop_processes_item(mock_redis, mock_local_cache
 
 
 @pytest.mark.asyncio
-async def test_threatfox_worker_loop_exception_logged(mock_redis, mock_local_cache, mock_session):
+async def test_threatfox_worker_loop_exception_logged(
+    mock_redis, mock_local_cache, mock_session
+):
     """Exception from _process_lookup is caught and logged (lines 202-203).
     So what: a corrupt ThreatFox response must not kill the worker task."""
     config = ThreatFoxConfig(enabled=True, api_key="key")

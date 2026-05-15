@@ -152,9 +152,7 @@ def _verify_password(plain: str) -> bool:
 
         return hmac.compare_digest(plain, pw_plain)
 
-    logger.warning(
-        "auth | no admin password configured — all logins will fail"
-    )
+    logger.warning("auth | no admin password configured — all logins will fail")
     return False
 
 
@@ -216,9 +214,7 @@ async def _check_rate_limit(ip: str, redis) -> None:
     try:
         ttl = await redis.ttl(f"{LOGIN_LOCKOUT_KEY_PREFIX}{ip}")
     except Exception as exc:  # pragma: no cover — fail-open branch
-        logger.warning(
-            "auth | event=rate_limit_check_failed | ip=%s | err=%s", ip, exc
-        )
+        logger.warning("auth | event=rate_limit_check_failed | ip=%s | err=%s", ip, exc)
         return
 
     # redis-py returns -2 for missing keys, -1 for keys with no TTL.
@@ -442,6 +438,7 @@ def require_role(minimum_role: Role):
         A FastAPI dependency function that returns the current user tuple
         or raises HTTP 403 if the role is insufficient.
     """
+
     async def _check(
         current_user: Tuple[str, Role] = Depends(get_current_user),
     ) -> Tuple[str, Role]:

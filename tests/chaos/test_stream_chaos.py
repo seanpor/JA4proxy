@@ -156,6 +156,7 @@ def test_valid_event_passes_validation():
 
 def test_malformed_event_raises_invalid_event_error():
     from src.analytics.stream_consumer import InvalidEventError
+
     consumer = _make_consumer()
     # Missing required fields
     with pytest.raises(InvalidEventError):
@@ -164,6 +165,7 @@ def test_malformed_event_raises_invalid_event_error():
 
 def test_event_with_empty_src_ip_raises():
     from src.analytics.stream_consumer import InvalidEventError
+
     consumer = _make_consumer()
     bad = _valid_event()
     bad["src_ip"] = ""
@@ -173,6 +175,7 @@ def test_event_with_empty_src_ip_raises():
 
 def test_event_with_invalid_action_raises():
     from src.analytics.stream_consumer import InvalidEventError
+
     consumer = _make_consumer()
     bad = _valid_event()
     bad["action"] = "nuke"  # not in enum
@@ -188,6 +191,7 @@ def test_event_with_invalid_action_raises():
 def test_stream_lag_metric_exists():
     """The stream lag Gauge must be importable and settable."""
     from src.analytics.stream_consumer import _STREAM_LAG
+
     # Should not raise
     _STREAM_LAG.set(0.0)
     _STREAM_LAG.set(42.7)

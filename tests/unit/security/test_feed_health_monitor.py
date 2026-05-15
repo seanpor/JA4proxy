@@ -20,6 +20,7 @@ from src.security.feed_health import CircuitBreaker, CircuitState, FeedHealthMon
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _cb(name: str = "test_feed", threshold: int = 3) -> CircuitBreaker:
     return CircuitBreaker(name, failure_threshold=threshold)
 
@@ -27,6 +28,7 @@ def _cb(name: str = "test_feed", threshold: int = 3) -> CircuitBreaker:
 # ---------------------------------------------------------------------------
 # History tracking on CircuitBreaker
 # ---------------------------------------------------------------------------
+
 
 class TestCircuitBreakerHistory:
 
@@ -76,6 +78,7 @@ class TestCircuitBreakerHistory:
 # ---------------------------------------------------------------------------
 # Periodic probing
 # ---------------------------------------------------------------------------
+
 
 class TestFeedProbing:
 
@@ -165,6 +168,7 @@ class TestFeedProbing:
 # Alert callback
 # ---------------------------------------------------------------------------
 
+
 class TestAlertCallback:
 
     def test_alert_callback_on_circuit_open(self):
@@ -179,7 +183,9 @@ class TestAlertCallback:
 
         cb.record_failure()  # should open and trigger callback
 
-        circuit_opened = [(fn, ev, ctx) for fn, ev, ctx in alerts if ev == "circuit_opened"]
+        circuit_opened = [
+            (fn, ev, ctx) for fn, ev, ctx in alerts if ev == "circuit_opened"
+        ]
         assert len(circuit_opened) >= 1
         fn, ev, ctx = circuit_opened[0]
         assert fn == "alertfeed"
@@ -198,7 +204,9 @@ class TestAlertCallback:
         monitor.set_alert_callback(on_alert)
         monitor.get_circuit_breaker("newfeed")
 
-        reg_events = [(fn, ev, ctx) for fn, ev, ctx in alerts if ev == "feed_registered"]
+        reg_events = [
+            (fn, ev, ctx) for fn, ev, ctx in alerts if ev == "feed_registered"
+        ]
         assert len(reg_events) == 1
         fn, ev, ctx = reg_events[0]
         assert fn == "newfeed"
@@ -230,6 +238,7 @@ class TestAlertCallback:
 # ---------------------------------------------------------------------------
 # Regression: get_health_summary still works after Phase 59b changes
 # ---------------------------------------------------------------------------
+
 
 class TestGetHealthSummaryRegression:
 
@@ -270,7 +279,8 @@ class TestCircuitBreakerIsOpenCoverage:
         """Line 142: is_open() returns True when circuit is OPEN and recovery window
         has not elapsed.
         So what: if this returns False when the circuit is genuinely OPEN, requests
-        are forwarded to a broken TI feed — the circuit breaker provides no protection."""
+        are forwarded to a broken TI feed — the circuit breaker provides no protection.
+        """
         cb = _cb(threshold=1, name="open_block")
         cb.record_failure()  # opens circuit (threshold=1)
         assert cb.state == CircuitState.OPEN
@@ -286,7 +296,9 @@ class TestCircuitBreakerIsOpenCoverage:
         import time as _time
         from unittest.mock import patch
 
-        cb = CircuitBreaker("recovery_test", failure_threshold=1, recovery_probe_interval=30.0)
+        cb = CircuitBreaker(
+            "recovery_test", failure_threshold=1, recovery_probe_interval=30.0
+        )
         cb.record_failure()  # opens circuit
         assert cb.state == CircuitState.OPEN
 
@@ -308,7 +320,9 @@ class TestCircuitBreakerIsOpenCoverage:
         import time as _time
         from unittest.mock import patch
 
-        cb = CircuitBreaker("close_test", failure_threshold=1, recovery_probe_interval=10.0)
+        cb = CircuitBreaker(
+            "close_test", failure_threshold=1, recovery_probe_interval=10.0
+        )
         cb.record_failure()  # opens circuit
         assert cb.state == CircuitState.OPEN
 

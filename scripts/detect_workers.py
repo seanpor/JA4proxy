@@ -9,6 +9,7 @@ Usage:
     python3 scripts/detect_workers.py          # detect and store
     python3 scripts/detect_workers.py --show   # print stored config
 """
+
 import os
 import subprocess
 import sys
@@ -28,10 +29,18 @@ def detect() -> dict:
 
     start = time.monotonic()
     result = subprocess.run(
-        [sys.executable, "-m", "pytest", SAMPLE_MODULE,
-         "-q", "--no-header", "--tb=no",
-         "-p", "no:timeout",           # don't apply timeout during calibration
-         "--ignore=tests/integration/test_docker_stack.py"],
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            SAMPLE_MODULE,
+            "-q",
+            "--no-header",
+            "--tb=no",
+            "-p",
+            "no:timeout",  # don't apply timeout during calibration
+            "--ignore=tests/integration/test_docker_stack.py",
+        ],
         capture_output=True,
         timeout=120,
     )
@@ -45,9 +54,9 @@ def detect() -> dict:
     # Heuristic: on a fast machine (<2s for the sample file), use all cores.
     # On a slow machine (>5s), halve to avoid thrashing.
     if elapsed < 2.0:
-        workers = ncpus          # fast — use everything
+        workers = ncpus  # fast — use everything
     elif elapsed < 5.0:
-        workers = ncpus          # still fine
+        workers = ncpus  # still fine
     else:
         workers = max(2, ncpus // 2)  # slow — be conservative
 

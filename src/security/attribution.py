@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 _ATTRIBUTION_HITS = Counter(
     "ja4proxy_attribution_hits_total",
     "Connections attributed to a known threat actor profile",
-    ["category"] # category: malicious, suspicious, unknown
+    ["category"],  # category: malicious, suspicious, unknown
 )
 
 _KNOWN_ACTORS = Gauge(
@@ -44,8 +44,9 @@ _CORRELATION_EVENTS = Counter(
 @dataclass
 class AttackerProfile:
     """Metadata for an attributed threat actor."""
+
     fingerprint: str
-    category: str = "unknown" # malicious, suspicious, research, unknown
+    category: str = "unknown"  # malicious, suspicious, research, unknown
     first_seen: float = field(default_factory=lambda: time.time())
     last_seen: float = field(default_factory=lambda: time.time())
     associated_ips: Set[str] = field(default_factory=set)
@@ -81,13 +82,9 @@ class AttributionManager:
         Compute a stable, cross-IP Attacker Fingerprint.
         Combines JA4 (TLS), JA4X (Cert), and JA4T (TCP).
         """
-        components = [
-            ctx.ja4 or "unknown",
-            ctx.ja4x or "none",
-            ctx.tcp_ja4t or "none"
-        ]
+        components = [ctx.ja4 or "unknown", ctx.ja4x or "none", ctx.tcp_ja4t or "none"]
         raw = "|".join(components).encode("utf-8")
-        return hashlib.sha256(raw).hexdigest()[:16] # 16-char hash is enough
+        return hashlib.sha256(raw).hexdigest()[:16]  # 16-char hash is enough
 
     async def get_signal(self, ctx: ConnectionContext) -> Optional[RiskSignal]:
         """
@@ -97,7 +94,7 @@ class AttributionManager:
             return None
 
         afp = self.compute_fingerprint(ctx)
-        
+
         # 1. Update Correlation (Async/Fire-and-forget)
         asyncio.create_task(self._update_correlation(afp, ctx.client_ip))
 
@@ -107,20 +104,20 @@ class AttributionManager:
             return None
 
         profile = AttackerProfile.from_json(profile_json)
-        
+
         if profile.category == "malicious":
             _ATTRIBUTION_HITS.labels(category="malicious").inc()
             return RiskSignal(
                 name="attribution_malicious",
-                score=40, # High base contribution
-                reason=f"Attributed to known malicious actor ({afp}). Tags: {', '.join(profile.tags)}"
+                score=40,  # High base contribution
+                reason=f"Attributed to known malicious actor ({afp}). Tags: {', '.join(profile.tags)}",
             )
         elif profile.category == "suspicious":
             _ATTRIBUTION_HITS.labels(category="suspicious").inc()
             return RiskSignal(
                 name="attribution_suspicious",
                 score=20,
-                reason=f"Attributed to suspicious pattern ({afp})"
+                reason=f"Attributed to suspicious pattern ({afp})",
             )
 
         return None
@@ -140,20 +137,19 @@ class AttributionManager:
             # 2. Update or create profile
             profile_key = f"attribution:profile:{afp}"
             profile_json = await self._redis.get(profile_key)
-            
+
             if profile_json:
                 profile = AttackerProfile.from_json(profile_json)
                 profile.last_seen = time.time()
                 profile.associated_ips.add(ip)
             else:
-                profile = AttackerProfile(
-                    fingerprint=afp,
-                    associated_ips={ip}
-                )
+                profile = AttackerProfile(fingerprint=afp, associated_ips={ip})
                 _KNOWN_ACTORS.inc()
 
             # Auto-promote to suspicious if seen from many IPs
-            if len(profile.associated_ips) >= self._config.get("min_ips_for_suspicious", 3):
+            if len(profile.associated_ips) >= self._config.get(
+                "min_ips_for_suspicious", 3
+            ):
                 if profile.category == "unknown":
                     profile.category = "suspicious"
                     profile.tags.append("multi_ip_actor")
@@ -163,7 +159,9 @@ class AttributionManager:
             await self._redis.expire(profile_key, 7776000)
 
         except Exception as e:
-            logger.error(f"attribution | event=correlation_error | fp={afp} | error={e}")
+            logger.error(
+                f"attribution | event=correlation_error | fp={afp} | error={e}"
+            )
 
     def on_config_reload(self, new_config: dict):
         self._config = new_config.get("attribution", {})

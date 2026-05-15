@@ -12,8 +12,12 @@ import pytest
 
 ROOT = Path(__file__).parent.parent.parent
 
-INFRA_DASHBOARD = ROOT / "deploy/monitoring/grafana/dashboards/ja4proxy-infrastructure.json"
-OVERVIEW_DASHBOARD = ROOT / "deploy/monitoring/grafana/dashboards/ja4proxy-overview.json"
+INFRA_DASHBOARD = (
+    ROOT / "deploy/monitoring/grafana/dashboards/ja4proxy-infrastructure.json"
+)
+OVERVIEW_DASHBOARD = (
+    ROOT / "deploy/monitoring/grafana/dashboards/ja4proxy-overview.json"
+)
 
 REQUIRED_ROW_TITLES = [
     "Fleet Status",
@@ -46,9 +50,9 @@ class TestInfraDashboard:
         templating = infra_dash.get("templating", {})
         variables = templating.get("list", [])
         names = [v.get("name") for v in variables]
-        assert "container" in names, (
-            f"No 'container' template variable found. Variables: {names}"
-        )
+        assert (
+            "container" in names
+        ), f"No 'container' template variable found. Variables: {names}"
 
     def test_container_variable_excludes_numeric_suffix(self, infra_dash):
         """Container variable query must exclude numeric-suffix names (system containers)."""
@@ -59,7 +63,9 @@ class TestInfraDashboard:
         )
         assert container_var is not None
         # The query or definition should have the exclusion regex
-        definition = container_var.get("definition", "") or container_var.get("query", "")
+        definition = container_var.get("definition", "") or container_var.get(
+            "query", ""
+        )
         if isinstance(definition, dict):
             definition = definition.get("query", "")
         assert ".+_[0-9]+" in definition, (
@@ -70,15 +76,11 @@ class TestInfraDashboard:
     def test_dashboard_has_all_six_row_sections(self, infra_dash):
         """Dashboard must have all 6 named row sections."""
         panels = infra_dash.get("panels", [])
-        row_titles = [
-            p.get("title", "")
-            for p in panels
-            if p.get("type") == "row"
-        ]
+        row_titles = [p.get("title", "") for p in panels if p.get("type") == "row"]
         for required in REQUIRED_ROW_TITLES:
-            assert any(required in title for title in row_titles), (
-                f"Missing row section '{required}'. Found rows: {row_titles}"
-            )
+            assert any(
+                required in title for title in row_titles
+            ), f"Missing row section '{required}'. Found rows: {row_titles}"
 
     def test_dashboard_alert_annotations_enabled(self, infra_dash):
         """Dashboard must have Grafana alert annotations enabled."""
@@ -94,9 +96,9 @@ class TestInfraDashboard:
         links = infra_dash.get("links", [])
         # Serialise the links list to check for overview dashboard reference
         all_link_text = json.dumps(links)
-        assert "ja4proxy-overview" in all_link_text or "ja4proxy_overview" in all_link_text, (
-            "Dashboard should link to ja4proxy-overview security dashboard"
-        )
+        assert (
+            "ja4proxy-overview" in all_link_text or "ja4proxy_overview" in all_link_text
+        ), "Dashboard should link to ja4proxy-overview security dashboard"
 
     def test_dashboard_has_fleet_status_stat_panels(self, infra_dash):
         """Fleet Status section must contain stat panels (one per container)."""
@@ -111,9 +113,7 @@ class TestInfraDashboard:
                 if panel.get("type") == "row":
                     break
                 fleet_panel_types.append(panel.get("type"))
-        assert "stat" in fleet_panel_types, (
-            "Fleet Status row must contain stat panels"
-        )
+        assert "stat" in fleet_panel_types, "Fleet Status row must contain stat panels"
 
 
 class TestOverviewDashboardUnchanged:
@@ -142,31 +142,31 @@ class TestPrometheusConfig:
         """prometheus.yml must contain a cadvisor scrape job."""
         prom_file = ROOT / "deploy/monitoring/prometheus/prometheus.yml"
         content = prom_file.read_text()
-        assert "job_name: 'cadvisor'" in content or 'job_name: "cadvisor"' in content, (
-            "prometheus.yml missing cadvisor scrape job"
-        )
+        assert (
+            "job_name: 'cadvisor'" in content or 'job_name: "cadvisor"' in content
+        ), "prometheus.yml missing cadvisor scrape job"
 
     def test_haproxy_exporter_scrape_job_present(self):
         """prometheus.yml must contain a haproxy scrape job."""
         prom_file = ROOT / "deploy/monitoring/prometheus/prometheus.yml"
         content = prom_file.read_text()
-        assert "job_name: 'haproxy'" in content or 'job_name: "haproxy"' in content, (
-            "prometheus.yml missing haproxy scrape job"
-        )
+        assert (
+            "job_name: 'haproxy'" in content or 'job_name: "haproxy"' in content
+        ), "prometheus.yml missing haproxy scrape job"
 
     def test_cadvisor_drops_blkio_metrics(self):
         """cAdvisor scrape config must drop high-cardinality blkio metrics."""
         prom_file = ROOT / "deploy/monitoring/prometheus/prometheus.yml"
         content = prom_file.read_text()
-        assert "blkio" in content, (
-            "cAdvisor scrape config should have metric_relabel_configs dropping blkio series"
-        )
+        assert (
+            "blkio" in content
+        ), "cAdvisor scrape config should have metric_relabel_configs dropping blkio series"
 
     def test_container_variable_excludes_numeric_suffix(self):
         """Infra dashboard container variable query must use numeric-suffix exclusion."""
         if not INFRA_DASHBOARD.exists():
             pytest.skip("ja4proxy-infrastructure.json not yet created")
         content = INFRA_DASHBOARD.read_text()
-        assert ".+_[0-9]+" in content, (
-            "Container variable query must exclude numeric-suffix containers"
-        )
+        assert (
+            ".+_[0-9]+" in content
+        ), "Container variable query must exclude numeric-suffix containers"

@@ -8,6 +8,7 @@ Fixtures:
 Classes:
     SyntheticPacketBuilder — builds lists of ParsedPacket for protocol replays
 """
+
 from __future__ import annotations
 
 import struct
@@ -82,10 +83,21 @@ class SyntheticPacketBuilder:
         tcp_opts = self._build_tcp_options(mss=mss, wscale=wscale, sack=True, ts=False)
         self._packets.append(
             ParsedPacket(
-                src_ip=src, dst_ip=dst, src_port=sport, dst_port=dport,
-                proto="tcp", seq=self._client_seq, ack=0, flags=_SYN,
-                data=b"", timestamp=self._ts, tcp_options_raw=tcp_opts,
-                window_size=window_size, ip_ttl=ttl, ip_df=True, ip_id=1,
+                src_ip=src,
+                dst_ip=dst,
+                src_port=sport,
+                dst_port=dport,
+                proto="tcp",
+                seq=self._client_seq,
+                ack=0,
+                flags=_SYN,
+                data=b"",
+                timestamp=self._ts,
+                tcp_options_raw=tcp_opts,
+                window_size=window_size,
+                ip_ttl=ttl,
+                ip_df=True,
+                ip_id=1,
             )
         )
         self._ts += 0.001
@@ -101,12 +113,21 @@ class SyntheticPacketBuilder:
         tcp_opts = self._build_tcp_options(mss=mss, wscale=wscale, sack=True, ts=False)
         self._packets.append(
             ParsedPacket(
-                src_ip=self._dst_ip, dst_ip=self._src_ip,
-                src_port=self._dst_port, dst_port=self._src_port,
-                proto="tcp", seq=self._server_seq,
-                ack=self._client_seq + 1, flags=_SYNACK,
-                data=b"", timestamp=self._ts, tcp_options_raw=tcp_opts,
-                window_size=window_size, ip_ttl=ttl, ip_df=True, ip_id=1,
+                src_ip=self._dst_ip,
+                dst_ip=self._src_ip,
+                src_port=self._dst_port,
+                dst_port=self._src_port,
+                proto="tcp",
+                seq=self._server_seq,
+                ack=self._client_seq + 1,
+                flags=_SYNACK,
+                data=b"",
+                timestamp=self._ts,
+                tcp_options_raw=tcp_opts,
+                window_size=window_size,
+                ip_ttl=ttl,
+                ip_df=True,
+                ip_id=1,
             )
         )
         self._ts += 0.001
@@ -117,12 +138,21 @@ class SyntheticPacketBuilder:
         self._server_seq += 1  # after SYN-ACK
         self._packets.append(
             ParsedPacket(
-                src_ip=self._src_ip, dst_ip=self._dst_ip,
-                src_port=self._src_port, dst_port=self._dst_port,
-                proto="tcp", seq=self._client_seq,
-                ack=self._server_seq, flags=_ACK,
-                data=b"", timestamp=self._ts, tcp_options_raw=b"",
-                window_size=65535, ip_ttl=64, ip_df=True, ip_id=2,
+                src_ip=self._src_ip,
+                dst_ip=self._dst_ip,
+                src_port=self._src_port,
+                dst_port=self._dst_port,
+                proto="tcp",
+                seq=self._client_seq,
+                ack=self._server_seq,
+                flags=_ACK,
+                data=b"",
+                timestamp=self._ts,
+                tcp_options_raw=b"",
+                window_size=65535,
+                ip_ttl=64,
+                ip_df=True,
+                ip_id=2,
             )
         )
         self._ts += 0.0005
@@ -137,7 +167,7 @@ class SyntheticPacketBuilder:
     ) -> "SyntheticPacketBuilder":
         """Add a TCP data packet containing a synthetic TLS ClientHello."""
         if ciphers is None:
-            ciphers = [0x1301, 0x1302, 0x1303, 0x00ff]
+            ciphers = [0x1301, 0x1302, 0x1303, 0x00FF]
         if extensions is None:
             extensions = [0, 11, 10, 16, 22, 23, 13, 43, 45, 51, 21]
         data = self._build_client_hello(ciphers, extensions, sni, grease)
@@ -181,12 +211,21 @@ class SyntheticPacketBuilder:
     def fin(self) -> "SyntheticPacketBuilder":
         self._packets.append(
             ParsedPacket(
-                src_ip=self._src_ip, dst_ip=self._dst_ip,
-                src_port=self._src_port, dst_port=self._dst_port,
-                proto="tcp", seq=self._client_seq, ack=self._server_seq,
-                flags=_FINACK, data=b"", timestamp=self._ts,
-                tcp_options_raw=b"", window_size=65535,
-                ip_ttl=64, ip_df=True, ip_id=100,
+                src_ip=self._src_ip,
+                dst_ip=self._dst_ip,
+                src_port=self._src_port,
+                dst_port=self._dst_port,
+                proto="tcp",
+                seq=self._client_seq,
+                ack=self._server_seq,
+                flags=_FINACK,
+                data=b"",
+                timestamp=self._ts,
+                tcp_options_raw=b"",
+                window_size=65535,
+                ip_ttl=64,
+                ip_df=True,
+                ip_id=100,
             )
         )
         self._ts += 0.001
@@ -195,12 +234,21 @@ class SyntheticPacketBuilder:
     def rst(self) -> "SyntheticPacketBuilder":
         self._packets.append(
             ParsedPacket(
-                src_ip=self._src_ip, dst_ip=self._dst_ip,
-                src_port=self._src_port, dst_port=self._dst_port,
-                proto="tcp", seq=self._client_seq, ack=self._server_seq,
-                flags=_RST, data=b"", timestamp=self._ts,
-                tcp_options_raw=b"", window_size=0,
-                ip_ttl=64, ip_df=False, ip_id=0,
+                src_ip=self._src_ip,
+                dst_ip=self._dst_ip,
+                src_port=self._src_port,
+                dst_port=self._dst_port,
+                proto="tcp",
+                seq=self._client_seq,
+                ack=self._server_seq,
+                flags=_RST,
+                data=b"",
+                timestamp=self._ts,
+                tcp_options_raw=b"",
+                window_size=0,
+                ip_ttl=64,
+                ip_df=False,
+                ip_id=0,
             )
         )
         return self
@@ -214,12 +262,21 @@ class SyntheticPacketBuilder:
 
     def _add_client_data(self, data: bytes) -> None:
         pkt = ParsedPacket(
-            src_ip=self._src_ip, dst_ip=self._dst_ip,
-            src_port=self._src_port, dst_port=self._dst_port,
-            proto="tcp", seq=self._client_seq, ack=self._server_seq,
-            flags=_ACK, data=data, timestamp=self._ts,
-            tcp_options_raw=b"", window_size=65535,
-            ip_ttl=64, ip_df=True, ip_id=10,
+            src_ip=self._src_ip,
+            dst_ip=self._dst_ip,
+            src_port=self._src_port,
+            dst_port=self._dst_port,
+            proto="tcp",
+            seq=self._client_seq,
+            ack=self._server_seq,
+            flags=_ACK,
+            data=data,
+            timestamp=self._ts,
+            tcp_options_raw=b"",
+            window_size=65535,
+            ip_ttl=64,
+            ip_df=True,
+            ip_id=10,
         )
         self._client_seq += len(data)
         self._ts += 0.0001
@@ -227,12 +284,21 @@ class SyntheticPacketBuilder:
 
     def _add_server_data(self, data: bytes) -> None:
         pkt = ParsedPacket(
-            src_ip=self._dst_ip, dst_ip=self._src_ip,
-            src_port=self._dst_port, dst_port=self._src_port,
-            proto="tcp", seq=self._server_seq, ack=self._client_seq,
-            flags=_ACK, data=data, timestamp=self._ts,
-            tcp_options_raw=b"", window_size=65535,
-            ip_ttl=64, ip_df=True, ip_id=20,
+            src_ip=self._dst_ip,
+            dst_ip=self._src_ip,
+            src_port=self._dst_port,
+            dst_port=self._src_port,
+            proto="tcp",
+            seq=self._server_seq,
+            ack=self._client_seq,
+            flags=_ACK,
+            data=data,
+            timestamp=self._ts,
+            tcp_options_raw=b"",
+            window_size=65535,
+            ip_ttl=64,
+            ip_df=True,
+            ip_id=20,
         )
         self._server_seq += len(data)
         self._ts += 0.0001
@@ -282,7 +348,9 @@ class SyntheticPacketBuilder:
             elif ext_type == 43:  # supported_versions
                 # TLS 1.3 = 0x0304
                 versions = struct.pack("!H", 0x0304)
-                ext_bytes += struct.pack("!HHB", 43, len(versions) + 1, len(versions)) + versions
+                ext_bytes += (
+                    struct.pack("!HHB", 43, len(versions) + 1, len(versions)) + versions
+                )
             elif ext_type == grease_val:
                 ext_bytes += struct.pack("!HH", grease_val, 0)
             else:
@@ -293,12 +361,12 @@ class SyntheticPacketBuilder:
         # ClientHello body
         random_bytes = b"\x00" * 32
         body = (
-            b"\x03\x03"           # client version TLS 1.2
-            + random_bytes        # random
-            + b"\x00"             # session ID length = 0
-            + cipher_section      # cipher suites
-            + b"\x01\x00"         # compression methods (1 byte, null)
-            + ext_section         # extensions
+            b"\x03\x03"  # client version TLS 1.2
+            + random_bytes  # random
+            + b"\x00"  # session ID length = 0
+            + cipher_section  # cipher suites
+            + b"\x01\x00"  # compression methods (1 byte, null)
+            + ext_section  # extensions
         )
 
         # Handshake header: type=1 (ClientHello), 3-byte length
@@ -321,12 +389,12 @@ class SyntheticPacketBuilder:
         ext_section = struct.pack("!H", len(ext_bytes)) + ext_bytes
 
         body = (
-            b"\x03\x03"           # server version TLS 1.2
-            + random_bytes        # random
-            + b"\x00"             # session ID length = 0
+            b"\x03\x03"  # server version TLS 1.2
+            + random_bytes  # random
+            + b"\x00"  # session ID length = 0
             + struct.pack("!H", cipher)  # cipher suite
-            + b"\x00"             # compression method
-            + ext_section         # extensions
+            + b"\x00"  # compression method
+            + ext_section  # extensions
         )
         handshake = bytes([0x02]) + struct.pack("!I", len(body))[1:] + body
         record = b"\x16\x03\x01" + struct.pack("!H", len(handshake)) + handshake

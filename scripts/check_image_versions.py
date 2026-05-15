@@ -9,6 +9,7 @@ Does NOT call external APIs. Reads compose files and reports:
 Exit 0 = no problems.
 Exit 1 = :latest tags found or version drift detected.
 """
+
 from __future__ import annotations
 
 import sys
@@ -18,14 +19,16 @@ from typing import NamedTuple
 try:
     import yaml
 except ImportError:
-    print("ERROR: PyYAML is required. Install with: pip install pyyaml", file=sys.stderr)
+    print(
+        "ERROR: PyYAML is required. Install with: pip install pyyaml", file=sys.stderr
+    )
     sys.exit(2)
 
 
 class ImageRef(NamedTuple):
-    name: str      # e.g. "grafana/grafana"
-    version: str   # e.g. "10.2.0" or "latest"
-    source: str    # compose file path
+    name: str  # e.g. "grafana/grafana"
+    version: str  # e.g. "10.2.0" or "latest"
+    source: str  # compose file path
 
 
 def _extract_images(compose_path: Path) -> list[ImageRef]:
@@ -51,14 +54,16 @@ def _extract_images(compose_path: Path) -> list[ImageRef]:
 
 # First-party images are built locally via 'make build' and tagged :latest by convention.
 # They have no external registry to pin against, so :latest is expected and correct.
-FIRST_PARTY_IMAGES: frozenset[str] = frozenset({
-    "ja4proxy",
-    "ja4proxy-analytics",
-    "ja4proxy-tarpit",
-    "ja4proxy-mockbackend",
-    "ja4proxy-test",
-    "ja4proxy-trafficgen",
-})
+FIRST_PARTY_IMAGES: frozenset[str] = frozenset(
+    {
+        "ja4proxy",
+        "ja4proxy-analytics",
+        "ja4proxy-tarpit",
+        "ja4proxy-mockbackend",
+        "ja4proxy-test",
+        "ja4proxy-trafficgen",
+    }
+)
 
 
 def check(
@@ -102,9 +107,7 @@ def check(
         versions = {r.version for r in refs}
         if len(versions) > 1:
             details = ", ".join(f"{r.version} ({r.source})" for r in refs)
-            warnings.append(
-                f"Version drift for {name}: {details}"
-            )
+            warnings.append(f"Version drift for {name}: {details}")
 
     return errors, warnings
 
@@ -132,7 +135,9 @@ def main() -> int:
         for e in errors:
             print(f"  ✗  {e}")
         print()
-        print(f"✗ check-image-versions failed: {len(errors)} error(s), {len(warnings)} warning(s)")
+        print(
+            f"✗ check-image-versions failed: {len(errors)} error(s), {len(warnings)} warning(s)"
+        )
         return 1
 
     if warnings:

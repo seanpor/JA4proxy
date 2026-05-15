@@ -53,7 +53,9 @@ async def test_put_dial_success(authenticated_client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_put_dial_first_change_from_zero(authenticated_client: AsyncClient) -> None:
+async def test_put_dial_first_change_from_zero(
+    authenticated_client: AsyncClient,
+) -> None:
     """First dial change from 0 can go up to 10 (max ±10)."""
     response = await authenticated_client.put("/api/v1/dial", json={"value": 10})
     assert response.status_code == 200

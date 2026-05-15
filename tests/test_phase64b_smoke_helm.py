@@ -32,9 +32,9 @@ class TestHelmKindSmokeScript:
         assert mode & stat.S_IXUSR, "Script must be executable (user)"
 
     def test_shebang(self, script_content):
-        assert script_content.startswith("#!/usr/bin/env bash"), (
-            "Script must start with #!/usr/bin/env bash"
-        )
+        assert script_content.startswith(
+            "#!/usr/bin/env bash"
+        ), "Script must start with #!/usr/bin/env bash"
 
     def test_strict_mode(self, script_content):
         assert "set -euo pipefail" in script_content
@@ -53,9 +53,9 @@ class TestHelmKindSmokeScript:
             if "command -v helm" in line:
                 # Look at surrounding lines for fail (not exit 0)
                 context = "\n".join(lines[max(0, i - 2) : i + 4])
-                assert "fail" in context.lower(), (
-                    "Missing helm should call fail(), not exit 0"
-                )
+                assert (
+                    "fail" in context.lower()
+                ), "Missing helm should call fail(), not exit 0"
                 break
 
     def test_cluster_name(self, script_content):
@@ -76,6 +76,6 @@ class TestHelmKindSmokeScript:
 
     def test_no_docker_compose_v1(self, script_content):
         # Must not use hyphenated docker-compose (v1 syntax)
-        assert "docker-compose" not in script_content, (
-            "Script must not use docker-compose (v1). Use 'docker compose' (v2) if needed."
-        )
+        assert (
+            "docker-compose" not in script_content
+        ), "Script must not use docker-compose (v1). Use 'docker compose' (v2) if needed."

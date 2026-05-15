@@ -7,6 +7,7 @@ Usage (inside Docker):
 
 Prerequisites: playwright install --with-deps chromium firefox
 """
+
 import argparse
 import pathlib
 import sys

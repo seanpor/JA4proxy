@@ -52,7 +52,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["mfa"])
 
-_CHALLENGE_TTL = 300          # 5 minutes
+_CHALLENGE_TTL = 300  # 5 minutes
 _MFA_SESSION_TTL = 8 * 3600  # 8 hours, matches JWT expiry
 
 
@@ -139,10 +139,12 @@ async def webauthn_register_begin(
 
     await redis.set(
         _challenge_key(user_id),
-        json.dumps({
-            "challenge": bytes_to_base64url(options.challenge),
-            "type": "registration",
-        }),
+        json.dumps(
+            {
+                "challenge": bytes_to_base64url(options.challenge),
+                "type": "registration",
+            }
+        ),
         ex=_CHALLENGE_TTL,
     )
 
@@ -189,7 +191,9 @@ async def webauthn_register_complete(
             expected_origin=_origin(),
         )
     except Exception as exc:
-        logger.warning("mfa | event=webauthn_register_failed | user=%s | error=%s", user_id, exc)
+        logger.warning(
+            "mfa | event=webauthn_register_failed | user=%s | error=%s", user_id, exc
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Registration verification failed",
@@ -264,10 +268,12 @@ async def webauthn_auth_begin(
 
     await redis.set(
         _challenge_key(user_id),
-        json.dumps({
-            "challenge": bytes_to_base64url(options.challenge),
-            "type": "authentication",
-        }),
+        json.dumps(
+            {
+                "challenge": bytes_to_base64url(options.challenge),
+                "type": "authentication",
+            }
+        ),
         ex=_CHALLENGE_TTL,
     )
 
@@ -348,7 +354,9 @@ async def webauthn_auth_complete(
             credential_current_sign_count=current_sign_count,
         )
     except Exception as exc:
-        logger.warning("mfa | event=webauthn_auth_failed | user=%s | error=%s", user_id, exc)
+        logger.warning(
+            "mfa | event=webauthn_auth_failed | user=%s | error=%s", user_id, exc
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication verification failed",
@@ -357,7 +365,11 @@ async def webauthn_auth_complete(
     # Update sign count atomically
     # Note: challenge already consumed in _load_challenge above (single-use on any code path)
     pipe = redis.pipeline()
-    pipe.hset(_credential_key(credential_id_b64), "sign_count", str(verification.new_sign_count))
+    pipe.hset(
+        _credential_key(credential_id_b64),
+        "sign_count",
+        str(verification.new_sign_count),
+    )
     await pipe.execute()
 
     # Mark session as MFA-verified
@@ -394,10 +406,12 @@ async def webauthn_list_credentials(
     result = []
     for cid in credential_ids:
         fields = await redis.hgetall(_credential_key(cid))
-        result.append({
-            "credential_id": cid,
-            "created_at": fields.get("created_at"),
-        })
+        result.append(
+            {
+                "credential_id": cid,
+                "created_at": fields.get("created_at"),
+            }
+        )
     return JSONResponse(content={"credentials": result})
 
 
@@ -421,7 +435,9 @@ async def webauthn_delete_credential(
 
     cred = await redis.hgetall(_credential_key(credential_id_b64))
     if not cred:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Credential not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Credential not found"
+        )
     if cred.get("user_id") != user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

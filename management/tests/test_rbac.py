@@ -50,10 +50,10 @@ from management.api.main import create_app  # noqa: E402
 _ALL_ROLES = ["auditor", "analyst", "operator", "admin"]
 
 # Concrete endpoints used as role-tier targets
-_AUDITOR_GET_ENDPOINT = "/api/v1/dial"          # min=auditor (GET)
-_ANALYST_GET_ENDPOINT = "/api/v1/events"        # min=analyst (GET)
-_OPERATOR_POST_BAN = "/api/v1/bans/1.2.3.4"    # min=operator (POST)
-_ADMIN_PUT_DIAL = "/api/v1/dial"                # min=admin (PUT)
+_AUDITOR_GET_ENDPOINT = "/api/v1/dial"  # min=auditor (GET)
+_ANALYST_GET_ENDPOINT = "/api/v1/events"  # min=analyst (GET)
+_OPERATOR_POST_BAN = "/api/v1/bans/1.2.3.4"  # min=operator (POST)
+_ADMIN_PUT_DIAL = "/api/v1/dial"  # min=admin (PUT)
 
 # ── Per-test fake Redis ───────────────────────────────────────────────────────
 #
@@ -90,9 +90,9 @@ async def _make_token(
         "/api/v1/tokens",
         json={"name": token_name, "role": role},
     )
-    assert r.status_code == 201, (
-        f"Expected 201 creating {role} token, got {r.status_code}: {r.text}"
-    )
+    assert (
+        r.status_code == 201
+    ), f"Expected 201 creating {role} token, got {r.status_code}: {r.text}"
     return r.json()["token"]
 
 
@@ -150,12 +150,16 @@ async def test_require_role_admin_accepts_admin_token(
             json={"value": 5},
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
-        assert r.status_code == 200, (
-            f"Admin token on PUT /api/v1/dial must return 200, got {r.status_code}: {r.text}"
-        )
+        assert (
+            r.status_code == 200
+        ), f"Admin token on PUT /api/v1/dial must return 200, got {r.status_code}: {r.text}"
         body = r.json()
-        assert "value" in body, f"Expected DialValue body with 'value' field, got: {body}"
-        assert isinstance(body["value"], int), f"'value' must be int, got: {type(body['value'])}"
+        assert (
+            "value" in body
+        ), f"Expected DialValue body with 'value' field, got: {body}"
+        assert isinstance(
+            body["value"], int
+        ), f"'value' must be int, got: {type(body['value'])}"
 
 
 @pytest.mark.asyncio
@@ -172,9 +176,9 @@ async def test_require_role_admin_rejects_operator_token(
             json={"value": 5},
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
-        assert r.status_code == 403, (
-            f"Operator on admin-only PUT /api/v1/dial must return 403, got {r.status_code}"
-        )
+        assert (
+            r.status_code == 403
+        ), f"Operator on admin-only PUT /api/v1/dial must return 403, got {r.status_code}"
 
 
 @pytest.mark.asyncio
@@ -191,9 +195,9 @@ async def test_require_role_admin_rejects_analyst_token(
             json={"value": 5},
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
-        assert r.status_code == 403, (
-            f"Analyst on admin-only PUT /api/v1/dial must return 403, got {r.status_code}"
-        )
+        assert (
+            r.status_code == 403
+        ), f"Analyst on admin-only PUT /api/v1/dial must return 403, got {r.status_code}"
 
 
 @pytest.mark.asyncio
@@ -210,9 +214,9 @@ async def test_require_role_admin_rejects_auditor_token(
             json={"value": 5},
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
-        assert r.status_code == 403, (
-            f"Auditor on admin-only PUT /api/v1/dial must return 403, got {r.status_code}"
-        )
+        assert (
+            r.status_code == 403
+        ), f"Auditor on admin-only PUT /api/v1/dial must return 403, got {r.status_code}"
 
 
 @pytest.mark.asyncio
@@ -228,11 +232,14 @@ async def test_require_role_operator_accepts_operator_token(
             _OPERATOR_POST_BAN,
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
-        assert r.status_code in (200, 201), (
-            f"Operator on POST /api/v1/bans/ip must return 200/201, got {r.status_code}: {r.text}"
-        )
+        assert r.status_code in (
+            200,
+            201,
+        ), f"Operator on POST /api/v1/bans/ip must return 200/201, got {r.status_code}: {r.text}"
         body = r.json()
-        assert body.get("ip") == "1.2.3.4", f"Expected ban response with ip=1.2.3.4, got: {body}"
+        assert (
+            body.get("ip") == "1.2.3.4"
+        ), f"Expected ban response with ip=1.2.3.4, got: {body}"
 
 
 @pytest.mark.asyncio
@@ -248,11 +255,14 @@ async def test_require_role_operator_accepts_admin_token(
             _OPERATOR_POST_BAN,
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
-        assert r.status_code in (200, 201), (
-            f"Admin on operator-min POST /api/v1/bans/ip must return 200/201, got {r.status_code}"
-        )
+        assert r.status_code in (
+            200,
+            201,
+        ), f"Admin on operator-min POST /api/v1/bans/ip must return 200/201, got {r.status_code}"
         body = r.json()
-        assert body.get("ip") == "1.2.3.4", f"Expected ban response with ip=1.2.3.4, got: {body}"
+        assert (
+            body.get("ip") == "1.2.3.4"
+        ), f"Expected ban response with ip=1.2.3.4, got: {body}"
 
 
 @pytest.mark.asyncio
@@ -268,9 +278,9 @@ async def test_require_role_operator_rejects_analyst_token(
             _OPERATOR_POST_BAN,
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
-        assert r.status_code == 403, (
-            f"Analyst on operator-min POST /api/v1/bans/ip must return 403, got {r.status_code}"
-        )
+        assert (
+            r.status_code == 403
+        ), f"Analyst on operator-min POST /api/v1/bans/ip must return 403, got {r.status_code}"
 
 
 @pytest.mark.asyncio
@@ -286,9 +296,9 @@ async def test_require_role_operator_rejects_auditor_token(
             _OPERATOR_POST_BAN,
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
-        assert r.status_code == 403, (
-            f"Auditor on operator-min POST /api/v1/bans/ip must return 403, got {r.status_code}"
-        )
+        assert (
+            r.status_code == 403
+        ), f"Auditor on operator-min POST /api/v1/bans/ip must return 403, got {r.status_code}"
 
 
 @pytest.mark.asyncio
@@ -305,9 +315,9 @@ async def test_require_role_analyst_accepts_analyst_token(
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
         # SSE endpoint returns 200; we only care it's not 4xx auth/authz error
-        assert r.status_code == 200, (
-            f"Expected 200, got {r.status_code}: {r.text[:200]}"
-        )
+        assert (
+            r.status_code == 200
+        ), f"Expected 200, got {r.status_code}: {r.text[:200]}"
 
 
 @pytest.mark.asyncio
@@ -323,9 +333,9 @@ async def test_require_role_analyst_accepts_operator_token(
             _ANALYST_GET_ENDPOINT,
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
-        assert r.status_code == 200, (
-            f"Expected 200, got {r.status_code}: {r.text[:200]}"
-        )
+        assert (
+            r.status_code == 200
+        ), f"Expected 200, got {r.status_code}: {r.text[:200]}"
 
 
 @pytest.mark.asyncio
@@ -341,9 +351,9 @@ async def test_require_role_analyst_accepts_admin_token(
             _ANALYST_GET_ENDPOINT,
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
-        assert r.status_code == 200, (
-            f"Expected 200, got {r.status_code}: {r.text[:200]}"
-        )
+        assert (
+            r.status_code == 200
+        ), f"Expected 200, got {r.status_code}: {r.text[:200]}"
 
 
 @pytest.mark.asyncio
@@ -359,9 +369,9 @@ async def test_require_role_analyst_rejects_auditor_token(
             _ANALYST_GET_ENDPOINT,
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
-        assert r.status_code == 403, (
-            f"Auditor on analyst-min GET /api/v1/events must return 403, got {r.status_code}"
-        )
+        assert (
+            r.status_code == 403
+        ), f"Auditor on analyst-min GET /api/v1/events must return 403, got {r.status_code}"
 
 
 @pytest.mark.asyncio
@@ -402,9 +412,9 @@ async def test_get_dial_requires_auditor(
             "/api/v1/dial",
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
-        assert r.status_code == 200, (
-            f"Auditor reading dial must return 200, got {r.status_code}: {r.text}"
-        )
+        assert (
+            r.status_code == 200
+        ), f"Auditor reading dial must return 200, got {r.status_code}: {r.text}"
         body = r.json()
         assert "value" in body, f"Expected DialValue body, got: {body}"
         assert isinstance(body["value"], int)
@@ -425,9 +435,9 @@ async def test_put_dial_requires_admin(
             json={"value": 5},
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
-        assert r.status_code == 403, (
-            f"Operator on PUT /api/v1/dial must return 403, got {r.status_code}"
-        )
+        assert (
+            r.status_code == 403
+        ), f"Operator on PUT /api/v1/dial must return 403, got {r.status_code}"
 
 
 @pytest.mark.asyncio
@@ -444,9 +454,9 @@ async def test_put_dial_admin_token_succeeds(
             json={"value": 5},
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
-        assert r.status_code == 200, (
-            f"Admin on PUT /api/v1/dial must return 200, got {r.status_code}: {r.text}"
-        )
+        assert (
+            r.status_code == 200
+        ), f"Admin on PUT /api/v1/dial must return 200, got {r.status_code}: {r.text}"
         body = r.json()
         assert body.get("value") == 5, f"Expected dial set to 5, got: {body}"
 
@@ -465,9 +475,9 @@ async def test_put_dial_analyst_token_rejected(
             json={"value": 5},
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
-        assert r.status_code == 403, (
-            f"Analyst on PUT /api/v1/dial must return 403, got {r.status_code}"
-        )
+        assert (
+            r.status_code == 403
+        ), f"Analyst on PUT /api/v1/dial must return 403, got {r.status_code}"
 
 
 @pytest.mark.asyncio
@@ -489,9 +499,9 @@ async def test_put_dial_no_auth_rejected(
             json={"value": 5},
             headers={"Accept": "application/json"},
         )
-        assert r.status_code == 401, (
-            f"Unauthenticated PUT /api/v1/dial must return 401, got {r.status_code}"
-        )
+        assert (
+            r.status_code == 401
+        ), f"Unauthenticated PUT /api/v1/dial must return 401, got {r.status_code}"
     await _redis_module.close_redis()
 
 
@@ -511,9 +521,9 @@ async def test_get_bans_auditor_can_read(
             "/api/v1/bans",
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
-        assert r.status_code == 200, (
-            f"Auditor reading bans must return 200, got {r.status_code}: {r.text}"
-        )
+        assert (
+            r.status_code == 200
+        ), f"Auditor reading bans must return 200, got {r.status_code}: {r.text}"
         body = r.json()
         assert "bans" in body, f"Expected BanList body with 'bans' field, got: {body}"
         assert "count" in body, f"Expected BanList body with 'count' field, got: {body}"
@@ -532,11 +542,14 @@ async def test_post_ban_operator_can_write(
             "/api/v1/bans/10.0.0.1",
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
-        assert r.status_code in (200, 201), (
-            f"Operator on POST /api/v1/bans/ip must return 200/201, got {r.status_code}: {r.text}"
-        )
+        assert r.status_code in (
+            200,
+            201,
+        ), f"Operator on POST /api/v1/bans/ip must return 200/201, got {r.status_code}: {r.text}"
         body = r.json()
-        assert body.get("ip") == "10.0.0.1", f"Expected ban response with ip=10.0.0.1, got: {body}"
+        assert (
+            body.get("ip") == "10.0.0.1"
+        ), f"Expected ban response with ip=10.0.0.1, got: {body}"
 
 
 @pytest.mark.asyncio
@@ -552,9 +565,9 @@ async def test_post_ban_analyst_rejected(
             "/api/v1/bans/10.0.0.2",
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
-        assert r.status_code == 403, (
-            f"Analyst on POST /api/v1/bans/ip must return 403, got {r.status_code}"
-        )
+        assert (
+            r.status_code == 403
+        ), f"Analyst on POST /api/v1/bans/ip must return 403, got {r.status_code}"
 
 
 @pytest.mark.asyncio
@@ -570,9 +583,9 @@ async def test_post_ban_auditor_rejected(
             "/api/v1/bans/10.0.0.3",
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
-        assert r.status_code == 403, (
-            f"Auditor on POST /api/v1/bans/ip must return 403, got {r.status_code}"
-        )
+        assert (
+            r.status_code == 403
+        ), f"Auditor on POST /api/v1/bans/ip must return 403, got {r.status_code}"
 
 
 @pytest.mark.asyncio
@@ -610,9 +623,9 @@ async def test_delete_ban_analyst_rejected(
             "/api/v1/bans/10.0.0.6",
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
-        assert r.status_code == 403, (
-            f"Analyst on DELETE /api/v1/bans/ip must return 403, got {r.status_code}"
-        )
+        assert (
+            r.status_code == 403
+        ), f"Analyst on DELETE /api/v1/bans/ip must return 403, got {r.status_code}"
 
 
 # ── Section 4: Lists role enforcement ─────────────────────────────────────────
@@ -631,11 +644,13 @@ async def test_get_list_auditor_can_read(
             "/api/v1/lists/ja4/whitelist",
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
-        assert r.status_code == 200, (
-            f"Auditor reading list must return 200, got {r.status_code}: {r.text}"
-        )
+        assert (
+            r.status_code == 200
+        ), f"Auditor reading list must return 200, got {r.status_code}: {r.text}"
         body = r.json()
-        assert "entries" in body, f"Expected ListEntries body with 'entries' field, got: {body}"
+        assert (
+            "entries" in body
+        ), f"Expected ListEntries body with 'entries' field, got: {body}"
         assert isinstance(body["entries"], list)
 
 
@@ -652,11 +667,14 @@ async def test_post_list_entry_operator_can_write(
             "/api/v1/lists/ja4/whitelist/t13d1715h2_5b57614c22b0_bca4e439f9ad",
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
-        assert r.status_code in (200, 201), (
-            f"Operator adding list entry must return 200/201, got {r.status_code}: {r.text}"
-        )
+        assert r.status_code in (
+            200,
+            201,
+        ), f"Operator adding list entry must return 200/201, got {r.status_code}: {r.text}"
         body = r.json()
-        assert "entry" in body, f"Expected list entry response with 'entry' field, got: {body}"
+        assert (
+            "entry" in body
+        ), f"Expected list entry response with 'entry' field, got: {body}"
 
 
 @pytest.mark.asyncio
@@ -672,9 +690,9 @@ async def test_post_list_entry_analyst_rejected(
             "/api/v1/lists/ja4/whitelist/t13d1715h2_analyst_attempt",
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
-        assert r.status_code == 403, (
-            f"Analyst adding list entry must return 403, got {r.status_code}"
-        )
+        assert (
+            r.status_code == 403
+        ), f"Analyst adding list entry must return 403, got {r.status_code}"
 
 
 @pytest.mark.asyncio
@@ -692,12 +710,15 @@ async def test_delete_list_entry_operator_can_delete(
             "/api/v1/lists/ja4/whitelist/t13d1715h2_delete_me_operator",
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
-        assert r.status_code in (200, 204), (
-            f"Operator deleting list entry must return 200/204, got {r.status_code}: {r.text}"
-        )
+        assert r.status_code in (
+            200,
+            204,
+        ), f"Operator deleting list entry must return 200/204, got {r.status_code}: {r.text}"
         if r.status_code == 200:
             body = r.json()
-            assert "entry" in body, f"Expected list entry response body on 200, got: {body}"
+            assert (
+                "entry" in body
+            ), f"Expected list entry response body on 200, got: {body}"
 
 
 @pytest.mark.asyncio
@@ -715,9 +736,9 @@ async def test_delete_list_entry_auditor_rejected(
             "/api/v1/lists/ja4/whitelist/t13d1715h2_auditor_cant_touch",
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
-        assert r.status_code == 403, (
-            f"Auditor deleting list entry must return 403, got {r.status_code}"
-        )
+        assert (
+            r.status_code == 403
+        ), f"Auditor deleting list entry must return 403, got {r.status_code}"
 
 
 # ── Section 5: Config reload role enforcement ─────────────────────────────────
@@ -731,11 +752,14 @@ async def test_config_reload_operator_rejected(
     async with _bearer_client("operator", fake_redis) as (client, op_token):
         r = await client.post(
             "/api/v1/config/reload",
-            headers={"Authorization": f"Bearer {op_token}", "Accept": "application/json"},
+            headers={
+                "Authorization": f"Bearer {op_token}",
+                "Accept": "application/json",
+            },
         )
-        assert r.status_code == 403, (
-            f"Operator must not trigger config reload; got {r.status_code}: {r.text}"
-        )
+        assert (
+            r.status_code == 403
+        ), f"Operator must not trigger config reload; got {r.status_code}: {r.text}"
 
 
 @pytest.mark.asyncio
@@ -746,13 +770,19 @@ async def test_config_reload_admin_succeeds(
     async with _bearer_client("admin", fake_redis) as (client, admin_token):
         r = await client.post(
             "/api/v1/config/reload",
-            headers={"Authorization": f"Bearer {admin_token}", "Accept": "application/json"},
+            headers={
+                "Authorization": f"Bearer {admin_token}",
+                "Accept": "application/json",
+            },
         )
-        assert r.status_code in (200, 202), (
-            f"Admin must be able to trigger config reload; got {r.status_code}: {r.text}"
-        )
+        assert r.status_code in (
+            200,
+            202,
+        ), f"Admin must be able to trigger config reload; got {r.status_code}: {r.text}"
         body = r.json()
-        assert "message" in body, f"Expected response body with 'message' field, got: {body}"
+        assert (
+            "message" in body
+        ), f"Expected response body with 'message' field, got: {body}"
 
 
 @pytest.mark.asyncio
@@ -768,9 +798,9 @@ async def test_config_reload_auditor_rejected(
             "/api/v1/config/reload",
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
-        assert r.status_code == 403, (
-            f"Auditor on POST /api/v1/config/reload must return 403, got {r.status_code}"
-        )
+        assert (
+            r.status_code == 403
+        ), f"Auditor on POST /api/v1/config/reload must return 403, got {r.status_code}"
 
 
 # ── Section 6: Audit log role enforcement ────────────────────────────────────
@@ -790,12 +820,16 @@ async def test_get_audit_auditor_can_read(
             "/api/v1/audit",
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
-        assert r.status_code == 200, (
-            f"Auditor reading audit log must return 200, got {r.status_code}: {r.text}"
-        )
+        assert (
+            r.status_code == 200
+        ), f"Auditor reading audit log must return 200, got {r.status_code}: {r.text}"
         body = r.json()
-        assert "entries" in body, f"Expected AuditLog body with 'entries' field, got: {body}"
-        assert "count" in body, f"Expected AuditLog body with 'count' field, got: {body}"
+        assert (
+            "entries" in body
+        ), f"Expected AuditLog body with 'entries' field, got: {body}"
+        assert (
+            "count" in body
+        ), f"Expected AuditLog body with 'count' field, got: {body}"
         assert isinstance(body["entries"], list)
 
 
@@ -818,9 +852,9 @@ async def test_get_audit_no_auth_rejected(
             "/api/v1/audit",
             headers={"Accept": "application/json"},
         )
-        assert r.status_code == 401, (
-            f"Unauthenticated GET /api/v1/audit must return 401, got {r.status_code}"
-        )
+        assert (
+            r.status_code == 401
+        ), f"Unauthenticated GET /api/v1/audit must return 401, got {r.status_code}"
     await _redis_module.close_redis()
 
 
@@ -841,9 +875,9 @@ async def test_get_events_analyst_can_access(
             "/api/v1/events",
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
-        assert r.status_code == 200, (
-            f"Expected 200, got {r.status_code}: {r.text[:200]}"
-        )
+        assert (
+            r.status_code == 200
+        ), f"Expected 200, got {r.status_code}: {r.text[:200]}"
 
 
 @pytest.mark.asyncio
@@ -860,9 +894,9 @@ async def test_get_events_auditor_rejected(
             "/api/v1/events",
             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
         )
-        assert r.status_code == 403, (
-            f"Auditor on GET /api/v1/events must return 403, got {r.status_code}"
-        )
+        assert (
+            r.status_code == 403
+        ), f"Auditor on GET /api/v1/events must return 403, got {r.status_code}"
 
 
 @pytest.mark.asyncio
@@ -883,9 +917,9 @@ async def test_get_events_no_auth_rejected(
             "/api/v1/events",
             headers={"Accept": "application/json"},
         )
-        assert r.status_code == 401, (
-            f"Unauthenticated GET /api/v1/events must return 401, got {r.status_code}"
-        )
+        assert (
+            r.status_code == 401
+        ), f"Unauthenticated GET /api/v1/events must return 401, got {r.status_code}"
     await _redis_module.close_redis()
 
 
@@ -929,9 +963,9 @@ async def test_403_response_has_detail_field(
         )
         assert r.status_code == 403
         body = r.json()
-        assert "detail" in body, (
-            f"403 response must have a 'detail' field; got keys: {list(body.keys())}"
-        )
+        assert (
+            "detail" in body
+        ), f"403 response must have a 'detail' field; got keys: {list(body.keys())}"
         assert body["detail"], "The 'detail' field must not be empty"
 
 
@@ -953,17 +987,27 @@ async def test_operator_cannot_delete_tokens(
 
     # Create a dummy token ID in Redis for the operator to try to delete
     dummy_id = str(uuid.uuid4())
-    await fake_redis.hset(f"mgmt:token:{dummy_id}", mapping={
-        "id": dummy_id, "name": "victim", "role": "auditor",
-        "hash": "fakehash", "created_at": "2026-01-01T00:00:00Z",
-        "expires_at": "", "last_used_at": "",
-    })
+    await fake_redis.hset(
+        f"mgmt:token:{dummy_id}",
+        mapping={
+            "id": dummy_id,
+            "name": "victim",
+            "role": "auditor",
+            "hash": "fakehash",
+            "created_at": "2026-01-01T00:00:00Z",
+            "expires_at": "",
+            "last_used_at": "",
+        },
+    )
     await fake_redis.sadd("mgmt:token:idx", dummy_id)
 
     async with _bearer_client("operator", fake_redis) as (client, op_token):
         r = await client.delete(
             f"/api/v1/tokens/{dummy_id}",
-            headers={"Authorization": f"Bearer {op_token}", "Accept": "application/json"},
+            headers={
+                "Authorization": f"Bearer {op_token}",
+                "Accept": "application/json",
+            },
         )
         assert r.status_code == 403, (
             f"Operator must not delete tokens; got {r.status_code}. "
@@ -1019,7 +1063,10 @@ async def test_role_preserved_across_token_rotation(
         r = await anon_client.post(
             "/api/v1/bans/192.168.1.1",
             json={"ttl": 3600},
-            headers={"Authorization": f"Bearer {new_plaintext}", "Accept": "application/json"},
+            headers={
+                "Authorization": f"Bearer {new_plaintext}",
+                "Accept": "application/json",
+            },
         )
         assert r.status_code == 403, (
             f"Rotated auditor token must still get 403 on operator endpoint, got {r.status_code}. "
@@ -1047,7 +1094,8 @@ async def test_role_downgrade_in_redis_enforced_immediately(
         cookies={"token": _create_access_token("admin")},
     ) as admin_client:
         create_r = await admin_client.post(
-            "/api/v1/tokens", json={"name": "downgrade-test", "role": "operator"},
+            "/api/v1/tokens",
+            json={"name": "downgrade-test", "role": "operator"},
         )
         assert create_r.status_code == 201
         token_id = create_r.json()["id"]
@@ -1064,7 +1112,10 @@ async def test_role_downgrade_in_redis_enforced_immediately(
         r = await anon_client.post(
             "/api/v1/bans/10.0.0.99",
             json={"ttl": 3600},
-            headers={"Authorization": f"Bearer {plaintext}", "Accept": "application/json"},
+            headers={
+                "Authorization": f"Bearer {plaintext}",
+                "Accept": "application/json",
+            },
         )
         assert r.status_code == 403, (
             f"Token with downgraded role must get 403, got {r.status_code}. "
@@ -1116,7 +1167,8 @@ async def test_expired_bearer_token_returns_401_not_403(
         cookies={"token": _create_access_token("admin")},
     ) as admin_client:
         create_r = await admin_client.post(
-            "/api/v1/tokens", json={"name": "expired-token-test", "role": "admin"},
+            "/api/v1/tokens",
+            json={"name": "expired-token-test", "role": "admin"},
         )
         assert create_r.status_code == 201
         token_id = create_r.json()["id"]
@@ -1132,7 +1184,10 @@ async def test_expired_bearer_token_returns_401_not_403(
     ) as anon_client:
         r = await anon_client.get(
             "/api/v1/dial",
-            headers={"Authorization": f"Bearer {plaintext}", "Accept": "application/json"},
+            headers={
+                "Authorization": f"Bearer {plaintext}",
+                "Accept": "application/json",
+            },
         )
         assert r.status_code == 401, (
             f"Expired bearer token must return 401, got {r.status_code}. "

@@ -32,7 +32,9 @@ async def test_login_page_renders(test_client: AsyncClient) -> None:
     """GET /login returns 200 with HTML (no auth needed)."""
     response = await test_client.get("/login")
     assert response.status_code == 200
-    assert _is_html(response), f"Expected text/html, got: {response.headers.get('content-type')}"
+    assert _is_html(
+        response
+    ), f"Expected text/html, got: {response.headers.get('content-type')}"
 
 
 @pytest.mark.asyncio
@@ -62,11 +64,15 @@ async def test_dashboard_renders(authenticated_client: AsyncClient) -> None:
     """GET / returns 200 with HTML for authenticated user."""
     response = await authenticated_client.get("/")
     assert response.status_code == 200
-    assert _is_html(response), f"Expected text/html, got: {response.headers.get('content-type')}"
+    assert _is_html(
+        response
+    ), f"Expected text/html, got: {response.headers.get('content-type')}"
 
 
 @pytest.mark.asyncio
-async def test_dashboard_contains_key_sections(authenticated_client: AsyncClient) -> None:
+async def test_dashboard_contains_key_sections(
+    authenticated_client: AsyncClient,
+) -> None:
     """Dashboard must contain nav links and meaningful content."""
     response = await authenticated_client.get("/")
     body = response.text
@@ -102,9 +108,10 @@ async def test_lists_page_contains_list_ui(authenticated_client: AsyncClient) ->
     """Lists page must reference fingerprint or allowlist concepts."""
     response = await authenticated_client.get("/lists")
     body = response.text.lower()
-    assert any(word in body for word in ("whitelist", "blacklist", "allowlist", "fingerprint", "list")), (
-        "Lists page must contain list management UI elements"
-    )
+    assert any(
+        word in body
+        for word in ("whitelist", "blacklist", "allowlist", "fingerprint", "list")
+    ), "Lists page must contain list management UI elements"
 
 
 @pytest.mark.asyncio

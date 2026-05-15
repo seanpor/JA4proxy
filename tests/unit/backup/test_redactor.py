@@ -59,6 +59,7 @@ class TestRedactIPInJsonValue:
         assert count == 1, "expected one redaction"
         # Entry must still be present — decode and inspect
         from src.backup.format import decode_entries
+
         entries = list(decode_entries(result_bytes))
         assert len(entries) == 1, "entry should be kept (field-redacted, not dropped)"
         key, val = entries[0]
@@ -78,6 +79,7 @@ class TestRedactIPInJsonValue:
 
         assert count == 0
         from src.backup.format import decode_entries
+
         entries = list(decode_entries(result_bytes))
         assert len(entries) == 1
         parsed = json.loads(entries[0][1].decode("utf-8"))
@@ -100,6 +102,7 @@ class TestRedactNestedIPInJsonValue:
 
         assert count == 1
         from src.backup.format import decode_entries
+
         entries = list(decode_entries(result_bytes))
         assert len(entries) == 1
         parsed = json.loads(entries[0][1].decode("utf-8"))
@@ -122,6 +125,7 @@ class TestRedactIPInListWithinJson:
 
         assert count == 1
         from src.backup.format import decode_entries
+
         entries = list(decode_entries(result_bytes))
         assert len(entries) == 1
         parsed = json.loads(entries[0][1].decode("utf-8"))
@@ -137,17 +141,20 @@ class TestRedactIPInListWithinJson:
 class TestKeyNameRedactionStillWorks:
     def test_key_name_redaction_excludes_entry(self):
         """Entry whose key name matches target IP is excluded entirely (old behavior)."""
-        data = _make_artifact([
-            ("ban:192.0.2.1", b"somevalue"),
-            ("visitor:192.0.2.1", b"othervalue"),
-            ("ja4:whitelist", b"unrelated"),
-        ])
+        data = _make_artifact(
+            [
+                ("ban:192.0.2.1", b"somevalue"),
+                ("visitor:192.0.2.1", b"othervalue"),
+                ("ja4:whitelist", b"unrelated"),
+            ]
+        )
 
         redactor = BackupRedactor()
         result_bytes, count = redactor.redact(data, ["192.0.2.1"])
 
         assert count == 2
         from src.backup.format import decode_entries
+
         remaining_keys = [k for k, _ in decode_entries(result_bytes)]
         assert "ban:192.0.2.1" not in remaining_keys
         assert "visitor:192.0.2.1" not in remaining_keys
@@ -156,17 +163,20 @@ class TestKeyNameRedactionStillWorks:
     def test_key_name_redaction_coexists_with_value_redaction(self):
         """Both key-name and value redactions can happen in the same call."""
         value_with_ip = json.dumps({"actor_ip": "192.0.2.1"}).encode("utf-8")
-        data = _make_artifact([
-            ("ban:192.0.2.1", b"val"),          # excluded by key name
-            ("audit:log", value_with_ip),         # field-redacted by value scan
-            ("unrelated", b"clean"),
-        ])
+        data = _make_artifact(
+            [
+                ("ban:192.0.2.1", b"val"),  # excluded by key name
+                ("audit:log", value_with_ip),  # field-redacted by value scan
+                ("unrelated", b"clean"),
+            ]
+        )
 
         redactor = BackupRedactor()
         result_bytes, count = redactor.redact(data, ["192.0.2.1"])
 
         assert count == 2  # one key exclusion + one value field-redaction
         from src.backup.format import decode_entries
+
         remaining = {k: v for k, v in decode_entries(result_bytes)}
         assert "ban:192.0.2.1" not in remaining
         assert "audit:log" in remaining
@@ -191,6 +201,7 @@ class TestNonJsonValueNotAffected:
 
         assert count == 0
         from src.backup.format import decode_entries
+
         entries = list(decode_entries(result_bytes))
         assert len(entries) == 1
         assert entries[0][1] == binary_value
@@ -199,16 +210,19 @@ class TestNonJsonValueNotAffected:
         """Non-JSON value that happens to contain the target IP bytes → excluded (safe default)."""
         # Raw bytes that contain the IP string but aren't valid JSON
         raw_value = b"\x00\x01192.0.2.1\xff"
-        data = _make_artifact([
-            ("rdb:dump:somekey", raw_value),
-            ("clean:key", b"no-ip-here"),
-        ])
+        data = _make_artifact(
+            [
+                ("rdb:dump:somekey", raw_value),
+                ("clean:key", b"no-ip-here"),
+            ]
+        )
 
         redactor = BackupRedactor()
         result_bytes, count = redactor.redact(data, ["192.0.2.1"])
 
         assert count == 1, "non-JSON value containing IP should be excluded"
         from src.backup.format import decode_entries
+
         remaining_keys = [k for k, _ in decode_entries(result_bytes)]
         assert "rdb:dump:somekey" not in remaining_keys
         assert "clean:key" in remaining_keys
@@ -233,17 +247,22 @@ class TestNonJsonValueNotAffected:
 class TestRedactEntireEntryOption:
     def test_redact_entire_entry_excludes_when_value_matches(self):
         """When redact_entire_entry=True, entry with IP in value is excluded wholly."""
-        payload = json.dumps({"actor_ip": "192.0.2.1", "event": "login"}).encode("utf-8")
-        data = _make_artifact([
-            ("management:audit_log", payload),
-            ("unrelated", b"clean"),
-        ])
+        payload = json.dumps({"actor_ip": "192.0.2.1", "event": "login"}).encode(
+            "utf-8"
+        )
+        data = _make_artifact(
+            [
+                ("management:audit_log", payload),
+                ("unrelated", b"clean"),
+            ]
+        )
 
         redactor = BackupRedactor(redact_entire_entry=True)
         result_bytes, count = redactor.redact(data, ["192.0.2.1"])
 
         assert count == 1
         from src.backup.format import decode_entries
+
         remaining_keys = [k for k, _ in decode_entries(result_bytes)]
         assert "management:audit_log" not in remaining_keys
         assert "unrelated" in remaining_keys
@@ -257,6 +276,7 @@ class TestRedactEntireEntryOption:
 
         assert count == 0
         from src.backup.format import decode_entries
+
         assert len(list(decode_entries(result_bytes))) == 1
 
     def test_default_redact_entire_entry_is_false(self):
@@ -268,6 +288,7 @@ class TestRedactEntireEntryOption:
         result_bytes, count = redactor.redact(data, ["192.0.2.1"])
 
         from src.backup.format import decode_entries
+
         entries = list(decode_entries(result_bytes))
         assert len(entries) == 1, "entry should be kept with field-redacted value"
 
@@ -382,6 +403,7 @@ class TestRedactValuesFalseSkipsValueScanning:
 
         assert count == 0
         from src.backup.format import decode_entries
+
         entries = list(decode_entries(result_bytes))
         assert len(entries) == 1
         parsed = json.loads(entries[0][1].decode("utf-8"))
@@ -389,16 +411,19 @@ class TestRedactValuesFalseSkipsValueScanning:
 
     def test_redact_values_false_still_redacts_key_names(self):
         """Key-name matching still happens even when value scanning is disabled."""
-        data = _make_artifact([
-            ("ban:192.0.2.1", b"val"),
-            ("clean:key", b"other"),
-        ])
+        data = _make_artifact(
+            [
+                ("ban:192.0.2.1", b"val"),
+                ("clean:key", b"other"),
+            ]
+        )
 
         redactor = BackupRedactor(redact_values=False)
         result_bytes, count = redactor.redact(data, ["192.0.2.1"])
 
         assert count == 1
         from src.backup.format import decode_entries
+
         remaining_keys = [k for k, _ in decode_entries(result_bytes)]
         assert "ban:192.0.2.1" not in remaining_keys
         assert "clean:key" in remaining_keys

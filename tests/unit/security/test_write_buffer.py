@@ -46,8 +46,10 @@ def _make_async_redis_mock() -> MagicMock:
     """
     mock = MagicMock()
     pipe = MagicMock()
-    pipe.__aenter__ = asyncio.coroutine(lambda self: pipe) if False else (
-        lambda self: _async_return(pipe)
+    pipe.__aenter__ = (
+        asyncio.coroutine(lambda self: pipe)
+        if False
+        else (lambda self: _async_return(pipe))
     )
     pipe.__aexit__ = lambda self, *a: _async_return(False)
     pipe.execute = lambda: _async_return(None)
@@ -81,9 +83,9 @@ class TestCheckAsyncRedisImportError:
 
         # When redis.asyncio cannot be imported, _is_async must be False.
         # This ensures the sync pipeline path is used — no crash.
-        assert buf._is_async is False, (
-            "WriteBuffer must default to sync mode when redis.asyncio is unavailable"
-        )
+        assert (
+            buf._is_async is False
+        ), "WriteBuffer must default to sync mode when redis.asyncio is unavailable"
 
 
 # ---------------------------------------------------------------------------
@@ -109,9 +111,9 @@ class TestStartAlreadyStarted:
         assert first_task is not None
 
         await buf.start()  # second call — must be a no-op
-        assert buf._flush_task is first_task, (
-            "Second start() must not replace the running task — would cause double-flush"
-        )
+        assert (
+            buf._flush_task is first_task
+        ), "Second start() must not replace the running task — would cause double-flush"
 
         await buf.stop()
 
@@ -169,7 +171,9 @@ class TestStopExceptionPaths:
 
         # stop() must not propagate CancelledError
         await buf.stop()
-        assert buf._flush_task is None, "stop() must clear _flush_task even after CancelledError"
+        assert (
+            buf._flush_task is None
+        ), "stop() must clear _flush_task even after CancelledError"
 
     async def test_stop_swallows_generic_exception(self):
         """Lines 133-134: non-CancelledError from flush task is logged, not propagated."""
@@ -185,7 +189,9 @@ class TestStopExceptionPaths:
 
         # stop() must not propagate the RuntimeError
         await buf.stop()
-        assert buf._flush_task is None, "stop() must clear _flush_task even after RuntimeError"
+        assert (
+            buf._flush_task is None
+        ), "stop() must clear _flush_task even after RuntimeError"
 
 
 # ---------------------------------------------------------------------------
@@ -216,9 +222,9 @@ class TestStopFinalFlush:
         await buf.stop()
 
         # After stop(), the queue must be empty (final flush happened)
-        assert len(buf.queue) == 0, (
-            "stop() must flush remaining operations — missing final flush loses security data"
-        )
+        assert (
+            len(buf.queue) == 0
+        ), "stop() must flush remaining operations — missing final flush loses security data"
 
 
 # ---------------------------------------------------------------------------
@@ -260,19 +266,21 @@ class TestEnqueuePriorityLoadShedding:
 
         # A non-priority write when queue_len=10 (> 9.0) must be dropped
         non_prio_result = await buf.enqueue("set", "non_prio", "v", priority=False)
-        assert non_prio_result is False, (
-            "Non-priority write must be load-shed above 90% — prevents memory exhaustion DoS"
-        )
+        assert (
+            non_prio_result is False
+        ), "Non-priority write must be load-shed above 90% — prevents memory exhaustion DoS"
         # Queue length must not have changed — the item was dropped, not added
         assert len(buf.queue) == 10, "Dropped item must not change queue length"
 
         # A priority write at queue_len=10 (> 9.0) bypasses the load-shed check.
         # It hits the overflow path (>= max_queue_size), evicts oldest, then appends.
         prio_result = await buf.enqueue("set", "ban:attacker", "1", priority=True)
-        assert prio_result is True, (
-            "Priority write must bypass load shedding — dropping ban records weakens security"
-        )
-        assert len(buf.queue) == 10, "Overflow eviction must keep queue at max_queue_size"
+        assert (
+            prio_result is True
+        ), "Priority write must bypass load shedding — dropping ban records weakens security"
+        assert (
+            len(buf.queue) == 10
+        ), "Overflow eviction must keep queue at max_queue_size"
 
         await buf.stop()
 
@@ -312,9 +320,10 @@ class TestEnqueueOverflow:
 
         # The oldest item must have been dropped
         current_front_args = buf.queue[0][1]
-        assert current_front_args != ("key:0", "v"), (
-            "Oldest item must be evicted on overflow — bounded memory prevents DoS"
-        )
+        assert current_front_args != (
+            "key:0",
+            "v",
+        ), "Oldest item must be evicted on overflow — bounded memory prevents DoS"
 
         await buf.stop()
 
@@ -448,13 +457,13 @@ class TestFlushLoopAdaptiveTiming:
         await buf.stop()
 
         # After stop(), queue should be empty (flushed by loop + final flush)
-        assert len(buf.queue) == 0, (
-            "Flush loop must drain the queue — stale security writes indicate loop is broken"
-        )
+        assert (
+            len(buf.queue) == 0
+        ), "Flush loop must drain the queue — stale security writes indicate loop is broken"
         # Redis pipeline must have been invoked
-        assert mock_redis.pipeline.called, (
-            "Flush loop must have called redis.pipeline — writes must reach Redis"
-        )
+        assert (
+            mock_redis.pipeline.called
+        ), "Flush loop must have called redis.pipeline — writes must reach Redis"
 
     async def test_flush_loop_above_90_percent_uses_fast_sleep(self):
         """Lines 204-205: >90% fill → sleep_time=0.0001 (aggressive flush).
@@ -467,7 +476,7 @@ class TestFlushLoopAdaptiveTiming:
         buf = WriteBuffer(
             mock_redis,
             flush_interval_ms=500,  # long default interval
-            max_batch_size=1,       # flush one item at a time
+            max_batch_size=1,  # flush one item at a time
             max_queue_size=10,
         )
 
@@ -483,9 +492,9 @@ class TestFlushLoopAdaptiveTiming:
         await buf.stop()
 
         # The fast path must have drained the queue far below 90%
-        assert mock_redis.pipeline.called, (
-            "Aggressive flush path must invoke redis.pipeline to drain the overloaded queue"
-        )
+        assert (
+            mock_redis.pipeline.called
+        ), "Aggressive flush path must invoke redis.pipeline to drain the overloaded queue"
 
     async def test_flush_loop_above_70_percent_uses_medium_sleep(self):
         """Lines 206-207: >70% fill → sleep_time=0.001.
@@ -671,7 +680,10 @@ class TestExecuteBatchAsync:
         buf = WriteBuffer(mock_redis, flush_interval_ms=50, max_queue_size=100)
         buf._is_async = True  # force async mode
 
-        batch = [("set", ("ban:1.2.3.4", "1"), {}), ("expire", ("ban:1.2.3.4", 300), {})]
+        batch = [
+            ("set", ("ban:1.2.3.4", "1"), {}),
+            ("expire", ("ban:1.2.3.4", 300), {}),
+        ]
         await buf._execute_batch(batch)
 
         pipe.execute.assert_called_once()

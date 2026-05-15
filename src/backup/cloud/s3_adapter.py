@@ -65,9 +65,7 @@ class S3StorageAdapter(StorageAdapter):
     # StorageAdapter interface
     # ------------------------------------------------------------------
 
-    async def upload(
-        self, local_path: Path, manifest: dict
-    ) -> StorageMetadata | None:
+    async def upload(self, local_path: Path, manifest: dict) -> StorageMetadata | None:
         """Upload artifact to S3.
 
         Returns ``StorageMetadata`` on success, ``None`` on failure (fail-open).
@@ -195,13 +193,9 @@ class S3StorageAdapter(StorageAdapter):
         """
         key = remote_uri.removeprefix(f"s3://{self.bucket}/")
         # delete_object is idempotent — it succeeds even if the key is absent
-        await asyncio.to_thread(
-            self._client.delete_object, Bucket=self.bucket, Key=key
-        )
+        await asyncio.to_thread(self._client.delete_object, Bucket=self.bucket, Key=key)
 
-    async def verify_checksum(
-        self, remote_uri: str, expected_sha256: str
-    ) -> bool:
+    async def verify_checksum(self, remote_uri: str, expected_sha256: str) -> bool:
         """Verify the SHA-256 checksum of a stored artifact.
 
         The checksum is read from the object's user-defined metadata

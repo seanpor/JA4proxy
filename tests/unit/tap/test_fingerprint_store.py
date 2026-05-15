@@ -1,6 +1,7 @@
 """
 Unit tests for src/tap/fingerprint_store.py — Group 7 (Phase 20).
 """
+
 import json
 import uuid
 from datetime import datetime, timezone
@@ -23,6 +24,7 @@ from src.tap.fingerprints.correlation import ConnectionFingerprints
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_fp(**kwargs) -> ConnectionFingerprints:
     defaults = {
@@ -63,6 +65,7 @@ def _make_store(redis: MagicMock = None) -> tuple[FingerprintStore, MagicMock]:
 # Write: fp:conn
 # ---------------------------------------------------------------------------
 
+
 class TestWriteConn:
     @pytest.mark.asyncio
     async def test_write_creates_fp_conn_key_with_7_day_ttl(self):
@@ -75,8 +78,7 @@ class TestWriteConn:
 
         expire_calls = [str(c) for c in redis.expire.call_args_list]
         assert any(
-            f"fp:conn:{fp.conn_id}" in c and str(_CONN_TTL) in c
-            for c in expire_calls
+            f"fp:conn:{fp.conn_id}" in c and str(_CONN_TTL) in c for c in expire_calls
         )
 
     @pytest.mark.asyncio
@@ -87,8 +89,7 @@ class TestWriteConn:
 
         # The hset call's mapping kwarg must contain client_ip
         hset_call = next(
-            c for c in redis.hset.call_args_list
-            if f"fp:conn:{fp.conn_id}" in str(c)
+            c for c in redis.hset.call_args_list if f"fp:conn:{fp.conn_id}" in str(c)
         )
         mapping = hset_call.kwargs.get("mapping") or hset_call.args[1]
         assert mapping.get("client_ip") == "9.8.7.6"
@@ -97,6 +98,7 @@ class TestWriteConn:
 # ---------------------------------------------------------------------------
 # Write: fp:ip sorted set
 # ---------------------------------------------------------------------------
+
 
 class TestWriteIpSortedSet:
     @pytest.mark.asyncio
@@ -125,15 +127,13 @@ class TestWriteIpSortedSet:
         await store.write(fp)
 
         expire_calls = [str(c) for c in redis.expire.call_args_list]
-        assert any(
-            "fp:ip:1.2.3.4" in c and str(_IP_TTL) in c
-            for c in expire_calls
-        )
+        assert any("fp:ip:1.2.3.4" in c and str(_IP_TTL) in c for c in expire_calls)
 
 
 # ---------------------------------------------------------------------------
 # Write: fp:ja4:hll and fp:ja4:count
 # ---------------------------------------------------------------------------
+
 
 class TestWriteJA4:
     @pytest.mark.asyncio
@@ -144,8 +144,7 @@ class TestWriteJA4:
 
         pfadd_calls = [str(c) for c in redis.pfadd.call_args_list]
         assert any(
-            "fp:ja4:hll:t13d1516h2_aabbccddeeff_001122334455" in c
-            for c in pfadd_calls
+            "fp:ja4:hll:t13d1516h2_aabbccddeeff_001122334455" in c for c in pfadd_calls
         )
 
     @pytest.mark.asyncio
@@ -156,8 +155,7 @@ class TestWriteJA4:
 
         incr_calls = [str(c) for c in redis.incr.call_args_list]
         assert any(
-            "fp:ja4:count:t13d1516h2_aabbccddeeff_001122334455" in c
-            for c in incr_calls
+            "fp:ja4:count:t13d1516h2_aabbccddeeff_001122334455" in c for c in incr_calls
         )
 
     @pytest.mark.asyncio
@@ -173,6 +171,7 @@ class TestWriteJA4:
 # ---------------------------------------------------------------------------
 # Write: fp:os:count and fp:os:ip
 # ---------------------------------------------------------------------------
+
 
 class TestWriteOS:
     @pytest.mark.asyncio
@@ -206,6 +205,7 @@ class TestWriteOS:
 # ---------------------------------------------------------------------------
 # Write: fp:ja4_to_ja4s correlation map
 # ---------------------------------------------------------------------------
+
 
 class TestWriteJA4ToJA4S:
     @pytest.mark.asyncio
@@ -242,14 +242,14 @@ class TestWriteJA4ToJA4S:
 
         expire_calls = [str(c) for c in redis.expire.call_args_list]
         assert any(
-            "fp:ja4_to_ja4s:" in c and str(_JA4S_MAP_TTL) in c
-            for c in expire_calls
+            "fp:ja4_to_ja4s:" in c and str(_JA4S_MAP_TTL) in c for c in expire_calls
         )
 
 
 # ---------------------------------------------------------------------------
 # Reads
 # ---------------------------------------------------------------------------
+
 
 class TestGetIpHistory:
     @pytest.mark.asyncio

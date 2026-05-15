@@ -34,6 +34,7 @@ from datetime import datetime, timedelta, timezone
 def _import_validator():
     """Import the policy validator module. Raises ImportError if not present."""
     from src.governance import policy_validator as pv  # type: ignore[import]
+
     return pv
 
 
@@ -81,13 +82,13 @@ def test_valid_minimal_policy():
 
     result = pv.validate_policy(_VALID_MINIMAL_YAML)
 
-    assert isinstance(result, dict), (
-        f"Expected validate_policy() to return a dict, got {type(result)!r}"
-    )
+    assert isinstance(
+        result, dict
+    ), f"Expected validate_policy() to return a dict, got {type(result)!r}"
     # The returned dict must contain the parsed dial setting
-    assert result.get("dial", {}).get("setting") == 10, (
-        f"Expected dial.setting=10 in returned dict, got: {result.get('dial')!r}"
-    )
+    assert (
+        result.get("dial", {}).get("setting") == 10
+    ), f"Expected dial.setting=10 in returned dict, got: {result.get('dial')!r}"
 
 
 # ===========================================================================
@@ -103,13 +104,14 @@ def test_invalid_yaml_syntax():
     bad_yaml = "meta:\n\tversion: '1.0'\n"
 
     import pytest
+
     with pytest.raises(pv.PolicySyntaxError) as exc_info:
         pv.validate_policy(bad_yaml)
 
     # The exception must be a PolicySyntaxError (not a generic Exception).
-    assert isinstance(exc_info.value, pv.PolicySyntaxError), (
-        f"Expected PolicySyntaxError, got {type(exc_info.value)!r}"
-    )
+    assert isinstance(
+        exc_info.value, pv.PolicySyntaxError
+    ), f"Expected PolicySyntaxError, got {type(exc_info.value)!r}"
 
 
 # ===========================================================================
@@ -128,13 +130,14 @@ def test_unknown_field_raises():
     """)
 
     import pytest
+
     with pytest.raises(pv.PolicySchemaError) as exc_info:
         pv.validate_policy(yaml_with_rogue)
 
     err_str = str(exc_info.value).lower()
-    assert "rogue_key" in err_str or "unknown" in err_str or "field" in err_str, (
-        f"Expected error message to mention 'rogue_key' or 'unknown field', got: {exc_info.value!r}"
-    )
+    assert (
+        "rogue_key" in err_str or "unknown" in err_str or "field" in err_str
+    ), f"Expected error message to mention 'rogue_key' or 'unknown field', got: {exc_info.value!r}"
 
 
 # ===========================================================================
@@ -167,12 +170,13 @@ def test_expired_ttl_detected():
     """)
 
     import pytest
+
     with pytest.raises(pv.PolicyTTLError) as exc_info:
         pv.validate_policy(yaml_text)
 
-    assert isinstance(exc_info.value, pv.PolicyTTLError), (
-        f"Expected PolicyTTLError, got {type(exc_info.value)!r}"
-    )
+    assert isinstance(
+        exc_info.value, pv.PolicyTTLError
+    ), f"Expected PolicyTTLError, got {type(exc_info.value)!r}"
 
 
 # ===========================================================================
@@ -197,14 +201,16 @@ def test_dial_increase_gt_20_without_flag():
     """)
 
     import pytest
+
     # current_dial=50 → increase of 25 → requires shadow_mode_approved: true
     with pytest.raises(pv.PolicyValidationError) as exc_info:
         pv.validate_policy(yaml_text, current_dial=50)
 
     err_str = str(exc_info.value).lower()
-    assert any(keyword in err_str for keyword in ("shadow_mode", "approval", "approved", "increase")), (
-        f"Expected error message about shadow_mode_approved, got: {exc_info.value!r}"
-    )
+    assert any(
+        keyword in err_str
+        for keyword in ("shadow_mode", "approval", "approved", "increase")
+    ), f"Expected error message about shadow_mode_approved, got: {exc_info.value!r}"
 
 
 # ===========================================================================
@@ -232,15 +238,15 @@ def test_dial_increase_gt_20_with_flag():
     # Must not raise; must return a dict with the dial setting
     result = pv.validate_policy(yaml_text, current_dial=50)
 
-    assert isinstance(result, dict), (
-        f"Expected dict result when shadow_mode_approved=true, got {type(result)!r}"
-    )
-    assert result.get("dial", {}).get("setting") == 75, (
-        f"Expected dial.setting=75, got: {result.get('dial')!r}"
-    )
-    assert result.get("dial", {}).get("shadow_mode_approved") is True, (
-        f"Expected dial.shadow_mode_approved=true, got: {result.get('dial')!r}"
-    )
+    assert isinstance(
+        result, dict
+    ), f"Expected dict result when shadow_mode_approved=true, got {type(result)!r}"
+    assert (
+        result.get("dial", {}).get("setting") == 75
+    ), f"Expected dial.setting=75, got: {result.get('dial')!r}"
+    assert (
+        result.get("dial", {}).get("shadow_mode_approved") is True
+    ), f"Expected dial.shadow_mode_approved=true, got: {result.get('dial')!r}"
 
 
 # ===========================================================================
@@ -267,12 +273,12 @@ def test_dial_decrease_no_flag_required():
     # current_dial=80, new=50 → decrease → no shadow_mode_approved needed
     result = pv.validate_policy(yaml_text, current_dial=80)
 
-    assert isinstance(result, dict), (
-        f"Expected dict result on dial decrease, got {type(result)!r}"
-    )
-    assert result.get("dial", {}).get("setting") == 50, (
-        f"Expected dial.setting=50, got: {result.get('dial')!r}"
-    )
+    assert isinstance(
+        result, dict
+    ), f"Expected dict result on dial decrease, got {type(result)!r}"
+    assert (
+        result.get("dial", {}).get("setting") == 50
+    ), f"Expected dial.setting=50, got: {result.get('dial')!r}"
 
 
 # ===========================================================================
@@ -303,13 +309,14 @@ def test_invalid_cidr_notation():
     """)
 
     import pytest
+
     with pytest.raises(pv.PolicySchemaError) as exc_info:
         pv.validate_policy(yaml_text)
 
     err_str = str(exc_info.value).lower()
-    assert any(keyword in err_str for keyword in ("cidr", "invalid", "network", "address")), (
-        f"Expected error mentioning CIDR/address issue, got: {exc_info.value!r}"
-    )
+    assert any(
+        keyword in err_str for keyword in ("cidr", "invalid", "network", "address")
+    ), f"Expected error mentioning CIDR/address issue, got: {exc_info.value!r}"
 
 
 # ===========================================================================
@@ -340,13 +347,15 @@ def test_invalid_ja4_format():
     """)
 
     import pytest
+
     with pytest.raises(pv.PolicySchemaError) as exc_info:
         pv.validate_policy(yaml_text)
 
     err_str = str(exc_info.value).lower()
-    assert any(keyword in err_str for keyword in ("ja4", "fingerprint", "format", "pattern", "invalid")), (
-        f"Expected error mentioning JA4/fingerprint format, got: {exc_info.value!r}"
-    )
+    assert any(
+        keyword in err_str
+        for keyword in ("ja4", "fingerprint", "format", "pattern", "invalid")
+    ), f"Expected error mentioning JA4/fingerprint format, got: {exc_info.value!r}"
 
 
 # ===========================================================================
@@ -380,13 +389,21 @@ def test_duplicate_allowlist_entries():
     """)
 
     import pytest
+
     with pytest.raises(pv.PolicyDuplicateError) as exc_info:
         pv.validate_policy(yaml_text)
 
     err_str = str(exc_info.value).lower()
-    assert any(keyword in err_str for keyword in ("duplicate", "already", "twice", "fingerprint", _JA4_VALID_1.lower()[:10])), (
-        f"Expected error mentioning duplicate entry, got: {exc_info.value!r}"
-    )
+    assert any(
+        keyword in err_str
+        for keyword in (
+            "duplicate",
+            "already",
+            "twice",
+            "fingerprint",
+            _JA4_VALID_1.lower()[:10],
+        )
+    ), f"Expected error mentioning duplicate entry, got: {exc_info.value!r}"
 
 
 # ===========================================================================
@@ -415,10 +432,12 @@ def test_bypass_toggle_unknown_key():
     """)
 
     import pytest
+
     with pytest.raises(pv.PolicySchemaError) as exc_info:
         pv.validate_policy(yaml_text)
 
     err_str = str(exc_info.value).lower()
-    assert any(keyword in err_str for keyword in ("unknown_bypass", "unknown", "bypass", "invalid")), (
-        f"Expected error mentioning unknown bypass key, got: {exc_info.value!r}"
-    )
+    assert any(
+        keyword in err_str
+        for keyword in ("unknown_bypass", "unknown", "bypass", "invalid")
+    ), f"Expected error mentioning unknown bypass key, got: {exc_info.value!r}"

@@ -30,13 +30,13 @@ class TestEffectiveThreshold:
     @pytest.mark.parametrize(
         "configured,dial,expected",
         [
-            (70, 0, 101),   # dial=0 → always 101 (unreachable)
+            (70, 0, 101),  # dial=0 → always 101 (unreachable)
             (70, 100, 70),  # dial=100 → exact configured
-            (70, 50, 86),   # round(101 - 0.5*31) = round(85.5) = 86
-            (70, 25, 93),   # round(101 - 0.25*31) = round(93.25) = 93
-            (70, 75, 78),   # round(101 - 0.75*31) = round(77.75) = 78
-            (85, 10, 99),   # round(101 - 0.1*16) = round(99.4) = 99
-            (20, 50, 60),   # round(101 - 0.5*81) = round(60.5) = 60 (banker's rounding)
+            (70, 50, 86),  # round(101 - 0.5*31) = round(85.5) = 86
+            (70, 25, 93),  # round(101 - 0.25*31) = round(93.25) = 93
+            (70, 75, 78),  # round(101 - 0.75*31) = round(77.75) = 78
+            (85, 10, 99),  # round(101 - 0.1*16) = round(99.4) = 99
+            (20, 50, 60),  # round(101 - 0.5*81) = round(60.5) = 60 (banker's rounding)
         ],
     )
     def test_effective_threshold(self, configured, dial, expected):
@@ -88,9 +88,9 @@ class TestDialHundredFullBlocking:
     )
     def test_at_dial_100(self, decider, score, expected):
         result = decider.decide(score=score, dial=100)
-        assert result == expected, (
-            f"dial=100, score={score}: expected {expected}, got {result}"
-        )
+        assert (
+            result == expected
+        ), f"dial=100, score={score}: expected {expected}, got {result}"
 
 
 # ---------------------------------------------------------------------------
@@ -159,12 +159,12 @@ class TestCounterfactuals:
     def test_high_score_shows_actions_at_higher_dials(self, decider):
         """score=75 → allow at dial=0, flag at dial=50, block at dial=100."""
         result = decider.counterfactuals(score=75, dial_values=[0, 50, 100])
-        assert result[0] == "allow"   # dial=0 → always allow
+        assert result[0] == "allow"  # dial=0 → always allow
         # effective_block@50 = round(101 - 0.5*(101-70)) = round(101-15.5) = 86
         # score=75 < 86 → not block; effective_tarpit@50 = round(101-0.5*46)=78; 75<78
         # effective_rate_limit@50 = round(101-0.5*66)=68; 75>=68 → rate_limit
         assert result[50] == "rate_limit"
-        assert result[100] == "block"   # score=75 >= block threshold=70
+        assert result[100] == "block"  # score=75 >= block threshold=70
 
     def test_dial_values_preserved_as_keys(self, decider):
         result = decider.counterfactuals(score=0, dial_values=[25, 50, 75, 100])
@@ -236,6 +236,7 @@ class TestBanDuration:
 class TestDialManager:
     def _make_redis_mock(self, get_return=None):
         from unittest.mock import AsyncMock
+
         m = AsyncMock()
         m.get.return_value = get_return
         m.set.return_value = True
@@ -255,6 +256,7 @@ class TestDialManager:
     async def test_initialize_redis_error_uses_default(self):
         """Redis raises → returns config default (0)."""
         from unittest.mock import AsyncMock
+
         m = AsyncMock()
         m.get.side_effect = redis.ConnectionError("down")
         m.set.side_effect = redis.ConnectionError("down")
@@ -313,6 +315,7 @@ class TestDialManager:
     async def test_validate_change_redis_error_counts_as_zero(self):
         """Redis error reading count → treated as 0, change allowed."""
         from unittest.mock import AsyncMock
+
         m = AsyncMock()
         m.get.side_effect = redis.ConnectionError("down")
         m.incr.return_value = 1
@@ -339,10 +342,12 @@ class TestDialManagerRecordRedisError:
         from unittest.mock import AsyncMock
 
         import redis as _redis
+
         m = AsyncMock()
-        m.get.return_value = None   # count = 0 → change allowed
+        m.get.return_value = None  # count = 0 → change allowed
         m.incr.side_effect = _redis.ConnectionError("Redis down")
         from src.security.action_decider import DialManager
+
         dm = DialManager({"monitor_mode": {"max_dial_change_per_hour": 25}})
         # Must not raise — incr failure in the record step is non-fatal
         await dm.validate_change(0, 10, m)

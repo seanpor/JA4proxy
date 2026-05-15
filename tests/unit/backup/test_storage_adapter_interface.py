@@ -53,6 +53,7 @@ class TestStorageAdapterABC:
 
     def test_missing_upload_raises_type_error(self) -> None:
         """Subclass missing upload → TypeError on instantiation."""
+
         class BadAdapter(StorageAdapter):
             async def download(self, remote_uri, local_path): ...
             async def list_backups(self, prefix=""): ...
@@ -104,6 +105,7 @@ class TestStorageAdapterABC:
 
     def test_complete_subclass_instantiates_ok(self) -> None:
         """A class implementing all five methods must NOT raise TypeError."""
+
         class GoodAdapter(StorageAdapter):
             async def upload(self, local_path, manifest): ...
             async def download(self, remote_uri, local_path): ...
