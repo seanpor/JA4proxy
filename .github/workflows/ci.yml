@@ -104,7 +104,7 @@ jobs:
           # Full history required for TruffleHog to diff commits on PRs.
           fetch-depth: 0
       - name: TruffleHog OSS
-        uses: trufflesecurity/trufflehog@47e7b7cd74f578e1e3145d48f669f22fd1330ca6  # v3.94.3
+        uses: trufflesecurity/trufflehog@37b77001d0174ebec2fcca2bd83ff83a6d45a3ab  # v3.95.3
         with:
           path: ./
           # phase-61 review-fix #2 (B3): on a `push` to main, base=default_branch
@@ -178,7 +178,7 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
-      - uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48  # v4.9.0
+      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294  # v5.0.0
         continue-on-error: true  # The action hard-errors when GitHub Dependency Graph is not enabled on the repo. Job-level continue-on-error already prevents PR-block; this also keeps the step display green.
         with:
           fail-on-severity: high
