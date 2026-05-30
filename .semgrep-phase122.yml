@@ -1,0 +1,83 @@
+rules:
+  - id: phase-122-fstring-logging
+    languages: [python]
+    message: >
+      F-string in logging call. Use lazy %s formatting per AGENTS.md Phase 18.
+      F-strings evaluate eagerly and can leak sensitive data (Redis passwords,
+      TLS keys) into log output even when the log level would suppress the message.
+    severity: WARNING
+    patterns:
+      - pattern-either:
+          - pattern: self.logger.info(f"...")
+          - pattern: self.logger.warning(f"...")
+          - pattern: self.logger.error(f"...")
+          - pattern: self.logger.debug(f"...")
+          - pattern: self.logger.critical(f"...")
+          - pattern: logger.info(f"...")
+          - pattern: logger.warning(f"...")
+          - pattern: logger.error(f"...")
+          - pattern: logger.debug(f"...")
+          - pattern: logger.critical(f"...")
+    metadata:
+      category: security
+      subcategory: [audit]
+      confidence: HIGH
+      finding: Phase-122 H-3
+
+  - id: phase-122-untrusted-xff
+    languages: [python]
+    message: >
+      X-Forwarded-For header read without trusted-proxy CIDR check.
+      Use management.api.auth._client_ip() which validates the socket peer
+      against MANAGEMENT_TRUSTED_PROXY_CIDRS before trusting XFF.
+    severity: ERROR
+    patterns:
+      - pattern: request.headers.get("X-Forwarded-For")
+      - pattern-not-inside: |
+          def _client_ip(...):
+              ...
+              trusted = _get_trusted_proxy_networks()
+              ...
+    metadata:
+      category: security
+      subcategory: [vulnerability]
+      confidence: HIGH
+      finding: Phase-122 C-2
+      cwe: CWE-290
+
+  - id: phase-122-external-cdn-in-template
+    languages: [generic]
+    message: >
+      External CDN reference in template. Production pages must not load
+      JavaScript or CSS from external CDNs (availability, privacy, integrity risk).
+      Vendor resources locally.
+    severity: WARNING
+    patterns:
+      - pattern-either:
+          - pattern: cdn.tailwindcss.com
+          - pattern: unpkg.com
+          - pattern: cdn.jsdelivr.net
+    paths:
+      include:
+        - "*.html"
+    metadata:
+      category: security
+      subcategory: [audit]
+      confidence: HIGH
+      finding: Phase-122 M-3
+
+  - id: phase-122-redis-password-in-url-fstring
+    languages: [python]
+    message: >
+      Redis password interpolated into URL string via f-string.
+      This can leak into exception tracebacks and debug logs.
+      Use urllib.parse.urlunparse or pass discrete keyword arguments.
+    severity: WARNING
+    patterns:
+      - pattern: f"...redis://:...{...}..."
+    metadata:
+      category: security
+      subcategory: [vulnerability]
+      confidence: HIGH
+      finding: Phase-122 M-2
+      cwe: CWE-532
