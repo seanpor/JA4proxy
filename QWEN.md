@@ -204,7 +204,7 @@ GOROOT=/snap/go/current go test ./...
 
 ### Git & Version Control
 
-- **Never commit directly to `main`** — always work on `claude/phase-XX-description` branches
+- **Never commit directly to `main`** — always work on `phase-XX-description` branches
 - **Atomic commits:** One commit per phase or logical sub-task
 - **Commit messages:** Follow format `type(scope): brief description` (e.g., `feat(security): add JA4X fingerprinting`)
 - **Push only when phase is fully complete** — orchestrator handles merging to `main`

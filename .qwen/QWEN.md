@@ -155,7 +155,7 @@ This project uses a **manifest-driven roadmap**. Every feature/change lives in a
 1. **Check `docs/phases/manifest.yaml`** for the next available phase number and current status.
 2. **Create `docs/phases/PHASE_XX.md`** using the standard template before writing any code.
 3. **Wait for explicit user approval** before implementing.
-4. **Implement** on a named branch: `claude/phase-XX-description`
+4. **Implement** on a named branch: `phase-XX-description`
 5. **Close out** following the checklist in AGENTS.md (tests pass, lint clean, changelog updated, manifest updated, sync script run).
 
 **Roadmap sync:** After any manifest change, run `python3 scripts/sync-roadmap.py` to regenerate `docs/phases/TODO.md` and `docs/PROJECT_STATUS.md`.

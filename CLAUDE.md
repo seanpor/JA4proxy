@@ -27,7 +27,7 @@ agents ignore file ownership or push to the wrong branch. Follow these rules exa
 
 ### Git Rules
 
-- Never commit directly to `main`. Always work on `claude/phase-XX-description`.
+- Never commit directly to `main`. Always work on `phase-XX-description`.
 - Commit often after each meaningful chunk. Stage only files you own.
 - Push your branch when finished. **Do not merge to main yourself** — the
   orchestrator handles merging.
@@ -341,7 +341,7 @@ invariants that affect every phase:
 2. Read `docs/phases/PHASE_XX.md` (create it first if missing — see note above).
 3. Read existing code in `proxy.py` / `src/security/` / `internal/` before writing.
 4. Read `config/proxy.yml` to understand the config structure.
-5. Branch: `git checkout main && git pull && git checkout -b claude/phase-XX-description`
+5. Branch: `git checkout main && git pull && git checkout -b phase-XX-description`
 
 ### Implementing
 6. Implement, following the acceptance criteria in the phase file.
@@ -354,5 +354,5 @@ invariants that affect every phase:
 11. Run `make sync` — regenerates `docs/phases/TODO.md` and `docs/PROJECT_STATUS.md`.
 12. Commit code, `CHANGELOG.md`, `manifest.yaml`, `TODO.md`, and `PROJECT_STATUS.md`
     as one atomic commit.
-13. Push: `git push origin claude/phase-XX-description`
+13. Push: `git push origin phase-XX-description`
 14. Do not start the next phase until all acceptance criteria pass.
