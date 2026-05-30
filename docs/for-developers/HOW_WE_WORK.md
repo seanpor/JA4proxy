@@ -25,8 +25,8 @@ The repository is **trunk-based**:
 
 - `main` is the only long-lived branch. All work happens on short-lived
   feature branches and merges back to `main`.
-- Phase work uses `claude/phase-NN-short-description` (e.g.
-  `claude/phase-105-docs-restructure`).
+- Phase work uses `phase-NN-short-description` (e.g.
+  `phase-105-docs-restructure`).
 - Non-phase work uses `feat/short-description`, `fix/short-description`, or
   `chore/short-description`.
 - Branches are short-lived: open a PR within a day or two of branching, merge

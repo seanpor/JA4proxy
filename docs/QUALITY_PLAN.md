@@ -121,7 +121,7 @@ is in [`docs/engineering-method/README.md`](engineering-method/README.md);
 the rules below are the load-bearing summary.
 
 - **Code author** — writes code and unit tests, TDD where the spec allows.
-  Owns the phase branch (`claude/phase-XX-description`). Responsible for
+  Owns the phase branch (`phase-XX-description`). Responsible for
   passing the pre-phase-close gate before requesting merge.
 - **Reviewer** — peer agent or human, often invoked via `/review-phase`.
   Reviews PRs against the phase's acceptance criteria, not just the diff.

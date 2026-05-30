@@ -79,7 +79,7 @@ You (the PM) do this step yourself. Do not delegate it.
 9. If a `/review-phase` output exists at `docs/phases/PHASE_XX_review.md`, read it
    and use its sub-task decomposition as the starting work breakdown.
 
-**Create a branch:** `git checkout -b claude/phase-XX-description` from latest `main`.
+**Create a branch:** `git checkout -b phase-XX-description` from latest `main`.
 
 **Produce a work plan** with:
 - File ownership map: which files each agent will touch (no overlaps within a wave)

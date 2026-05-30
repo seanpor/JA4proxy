@@ -49,11 +49,11 @@ the phase notes.
 ## Branch naming
 
 ```
-claude/phase-NN-short-description
+phase-NN-short-description
 ```
 
-Examples in this repo: `claude/phase-105-docs-restructure`,
-`claude/phase-202-supply-chain`. The number matches the manifest entry; the
+Examples in this repo: `phase-105-docs-restructure`,
+`phase-202-supply-chain`. The number matches the manifest entry; the
 description is two to four kebab-case words.
 
 Non-phase work uses `feat/`, `fix/`, or `chore/` prefixes — see
@@ -62,7 +62,7 @@ Non-phase work uses `feat/`, `fix/`, or `chore/` prefixes — see
 ```bash
 git checkout main
 git pull
-git checkout -b claude/phase-NN-description
+git checkout -b phase-NN-description
 ```
 
 ---

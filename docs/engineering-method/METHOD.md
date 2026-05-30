@@ -74,7 +74,7 @@ changelog. The rules that prevent this from corrupting the trunk are
 collected in [`CLAUDE.md`](../../CLAUDE.md) §"Multi-Agent Coordination":
 
 - **Named branches only.** Every agent works on
-  `claude/phase-NN-description`. No agent commits directly to `main`.
+  `phase-NN-description`. No agent commits directly to `main`.
 - **File-ownership map.** Shared files (`Makefile`, `README.md`,
   `CHANGELOG.md`, `requirements.txt`, `config/proxy.yml`,
   `docs/phases/manifest.yaml`, `docker-compose*.yml`) have explicit rules

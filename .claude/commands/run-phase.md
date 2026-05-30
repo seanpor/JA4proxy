@@ -74,7 +74,7 @@ You (the PM) do this step yourself. Do not delegate it.
     Python side only when the task explicitly involves prototyping." Brief all agents
     with which language this phase targets.
 
-**Create a branch:** `git checkout -b claude/phase-XX-description` from latest `main`.
+**Create a branch:** `git checkout -b phase-XX-description` from latest `main`.
 If the branch already exists, check it out. If it has diverged from main, rebase first.
 
 **Produce a work plan** with:

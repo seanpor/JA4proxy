@@ -142,7 +142,7 @@ verified by the self-review in step 3):
   - Propose a draft message before executing the commit.
   - Follow the format: `type(scope): brief description` (e.g., `feat(security): add JA4X fingerprinting`).
   - Focus on **why** a change was made, not just **what** changed.
-- **Pushing:** Push only when a phase is fully complete and all close-out checklist items pass (`git push origin claude/phase-XX-description`). Do not push mid-phase or for speculative work. The orchestrator handles merging to `main` — never push directly there.
+- **Pushing:** Push only when a phase is fully complete and all close-out checklist items pass (`git push origin phase-XX-description`). Do not push mid-phase or for speculative work. The orchestrator handles merging to `main` — never push directly there.
 
 ---
 
