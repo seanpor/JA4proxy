@@ -279,7 +279,7 @@ disagrees with the negotiated TLS version.
    ```go
    func (e *TLSEnforcer) CheckJA4TLSMismatch(ja4 string, actualTLSVersion uint16) *RiskSignal
    ```
-   Returns `nil` on match or unparseable JA4 (fail open). Returns
+   Returns `nil` on match or unparsable JA4 (fail open). Returns
    `*RiskSignal{Name:"ja4_tls_mismatch", Score: 35, Weight: 1.0}` on mismatch.
 2. Parse JA4 first 3 chars: `t13` → `0x0304`, `t12` → `0x0303`,
    `t11` → `0x0302`, `t10` → `0x0301`, `s30` → `0x0300`.

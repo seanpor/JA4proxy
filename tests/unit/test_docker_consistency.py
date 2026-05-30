@@ -107,18 +107,18 @@ class TestPythonBaseImage:
 
 
 class TestGoBaseImage:
-    """89b: All golang: tags must be exactly golang:1.25-alpine."""
+    """89b: All golang: tags must be pinned to golang:1.25.x-alpine."""
 
     @pytest.mark.parametrize("df_path,lines", collect_dockerfiles())
     def test_golang_tag_is_pinned(self, df_path: Path, lines: list[str]):
-        """Any FROM golang:* must use exactly golang:1.25-alpine."""
+        """Any FROM golang:* must use golang:1.25.x-alpine (pinned patch version)."""
         for lineno, image_ref in collect_from_lines(lines):
             if not image_ref.startswith("golang:"):
                 continue
-            assert image_ref == "golang:1.25-alpine", (
+            assert re.match(r"^golang:1\.25\.\d+-alpine$", image_ref), (
                 f"{df_path}:{lineno} — "
-                f"expected FROM golang:1.25-alpine, got FROM {image_ref}. "
-                f"Tags like '1.23-alpine' or '1.24-alpine' are rejected."
+                f"expected FROM golang:1.25.x-alpine, got FROM {image_ref}. "
+                f"Tags must be pinned to a specific patch version (e.g., 1.25.9-alpine)."
             )
 
 

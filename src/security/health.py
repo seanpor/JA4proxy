@@ -155,7 +155,7 @@ class HealthServer:
     Lightweight aiohttp server serving /metrics, /health, and /ready.
     """
 
-    def __init__(self, monitor: HealthMonitor, host: str = "0.0.0.0", port: int = 9090):
+    def __init__(self, monitor: HealthMonitor, host: str = "127.0.0.1", port: int = 9090):
         self.monitor = monitor
         self.host = host
         self.port = port

@@ -1,19 +1,24 @@
-FROM golang:1.25-alpine AS go-builder
+FROM golang:1.25.9-alpine AS go-builder
 WORKDIR /app
 COPY go.mod go.sum ./
-RUN go mod download
+RUN --mount=type=cache,target=/go/pkg/mod,sharing=locked \
+    go mod download
 COPY . .
 RUN go build -o /ja4check ./cmd/ja4check
 RUN go build -o /ja4proxy ./cmd/proxy
 
 FROM python:3.14.0-slim
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    rm -f /etc/apt/apt.conf.d/docker-clean && \
+    apt-get update && apt-get install -y --no-install-recommends \
     curl openssl redis-tools netcat-openbsd \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY requirements*.txt ./
-RUN pip install --no-cache-dir pytest pytest-asyncio requests redis 2>/dev/null || \
-    pip install --no-cache-dir pytest requests redis
+RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked \
+    pip install pytest pytest-asyncio requests redis 2>/dev/null || \
+    pip install pytest requests redis
 COPY . .
 COPY --from=go-builder /ja4check /usr/local/bin/ja4check
 COPY --from=go-builder /ja4proxy /usr/local/bin/ja4proxy

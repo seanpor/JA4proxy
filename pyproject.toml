@@ -103,7 +103,7 @@ extend-ignore = ["E203", "W503", "E501", "E402", "F841"]
 
 [tool.ruff]
 # Phase 16f baseline — check src/ and proxy.py; tests are advisory only.
-target-version = "py314"
+target-version = "py313"
 line-length = 120
 
 [tool.ruff.lint]

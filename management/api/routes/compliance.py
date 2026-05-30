@@ -40,7 +40,7 @@ from management.compliance.report_renderer import (
 )
 
 from ..audit_utils import write_audit
-from ..auth import require_role
+from ..auth import _client_ip, require_role
 from ..models import Role
 from ..redis_client import get_redis
 
@@ -172,15 +172,6 @@ class DSARErase(BaseModel):
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 
-def _client_ip(request: Request) -> str:
-    forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    if request.client:
-        return request.client.host
-    return "unknown"
-
-
 def _parse_date(date_str: str, field_name: str) -> datetime:
     """Parse ISO-8601 date string into an aware datetime (UTC).
 
@@ -210,7 +201,7 @@ def _parse_date(date_str: str, field_name: str) -> datetime:
 def _parse_ts(ts: str) -> Optional[datetime]:
     """Best-effort parse of a stored ISO-8601 timestamp into aware UTC.
 
-    Returns None if *ts* is empty or unparseable.  Accepts ``Z`` suffix, naive
+    Returns None if *ts* is empty or unparsable.  Accepts ``Z`` suffix, naive
     strings (assumed UTC), and offset-aware strings.  Used for window filters
     — NEVER compare raw ISO strings lexicographically: producers emit
     timestamps in multiple formats (``...Z``, ``...+00:00``, naive) and
@@ -230,7 +221,7 @@ def _parse_ts(ts: str) -> Optional[datetime]:
 def _ts_in_window(ts: str, from_dt: datetime, to_dt: datetime) -> bool:
     """Return True iff *ts* parses to a datetime within [from_dt, to_dt].
 
-    Unparseable or missing timestamps are included (fail-open for compliance
+    Unparsable or missing timestamps are included (fail-open for compliance
     — a missing timestamp should not silently drop audit evidence)."""
     dt = _parse_ts(ts)
     if dt is None:

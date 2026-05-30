@@ -114,7 +114,7 @@ func redactPath(p string) string {
 
 // redactAddr preserves the ":port" suffix and replaces the host portion.
 // Handles both IPv4 ("10.0.0.5:443") and bracketed IPv6 ("[::1]:443").
-// Unparseable inputs become the plain "<redacted>" sentinel.
+// Unparsable inputs become the plain "<redacted>" sentinel.
 func redactAddr(addr string) string {
 	if addr == "" {
 		return addr

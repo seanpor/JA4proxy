@@ -60,6 +60,18 @@ class EnforcementBridge:
         self._session = http_session
         cfg = config.get("tap_enforcement", {})
 
+        # Phase 122 M-4: HMAC verification for pub/sub messages.
+        # Matches the Go proxy's verifyPubSubHMAC pattern: the message
+        # envelope is {"type": ..., "value": ..., "signature": hex-hmac-sha256}
+        # and the HMAC is computed over "<type>:<value>".
+        security_cfg = config.get("security", {})
+        self._hmac_secret: str = security_cfg.get("pubsub_hmac_secret", "")
+        if not self._hmac_secret:
+            logger.warning(
+                "enforcement_bridge | event=hmac_not_configured | "
+                "ban messages will be accepted without signature verification"
+            )
+
         # iptables/ipset backend
         self._iptables_enabled: bool = cfg.get("iptables", {}).get("enabled", False)
         self._ipset_name: str = cfg.get("iptables", {}).get(
@@ -143,9 +155,56 @@ class EnforcementBridge:
                 )
                 await asyncio.sleep(5)
 
+    def _verify_hmac(self, envelope: dict) -> bool:
+        """Verify HMAC-SHA256 signature on a pub/sub message envelope.
+
+        Returns True if the signature is valid or if HMAC is not configured.
+        Returns False if the signature is missing, malformed, or invalid.
+        """
+        if not self._hmac_secret:
+            return True
+
+        signature_hex = envelope.get("signature", "")
+        if not signature_hex:
+            logger.warning("enforcement_bridge | event=hmac_signature_missing")
+            return False
+
+        msg_type = envelope.get("type", BAN_CHANNEL)
+        value = str(envelope.get("value", ""))
+        data_to_sign = f"{msg_type}:{value}".encode("utf-8")
+
+        expected = hmac.new(
+            self._hmac_secret.encode("utf-8"), data_to_sign, hashlib.sha256
+        ).hexdigest()
+
+        if not hmac.compare_digest(expected, signature_hex):
+            logger.warning("enforcement_bridge | event=hmac_verification_failed")
+            return False
+
+        return True
+
     async def _handle_message(self, msg: dict) -> None:
         try:
-            data = json.loads(msg["data"])
+            raw_data = msg["data"]
+            if isinstance(raw_data, bytes):
+                raw_data = raw_data.decode("utf-8")
+
+            envelope = json.loads(raw_data)
+
+            # Phase 122 M-4: verify HMAC before processing
+            if not self._verify_hmac(envelope):
+                logger.warning(
+                    "enforcement_bridge | event=message_dropped | reason=hmac_failed"
+                )
+                return
+
+            # Support both HMAC envelope format {"type", "value", "signature"}
+            # and legacy flat format {"ip", "ttl", "reason"}
+            if "value" in envelope:
+                data = json.loads(envelope["value"])
+            else:
+                data = envelope
+
             ip = data["ip"]
             ttl = int(data.get("ttl", 3600))
             reason = data.get("reason", "")

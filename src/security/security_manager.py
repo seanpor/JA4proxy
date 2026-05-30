@@ -12,7 +12,7 @@ Security Considerations:
 - Fail-secure: Errors result in blocking
 - Comprehensive logging for audit trail
 - GDPR compliance by default
-- Multi-layer defense in depth
+- Multi-layer defence in depth
 """
 
 import logging
@@ -169,7 +169,7 @@ class SecurityManager:
 
             # Step 4: Determine if action should be applied
             if not self.threat_evaluator.should_apply_action(threat_evaluations):
-                # All strategies show normal behavior
+                # All strategies show normal behaviour
                 self.logger.debug(
                     "Allowed: IP=%s JA4=%s - Normal traffic", client_ip[:32], ja4[:16]
                 )

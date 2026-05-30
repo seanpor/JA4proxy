@@ -26,6 +26,7 @@ Security notes
 
 import asyncio
 import hashlib
+import ipaddress
 import logging
 import os
 from datetime import datetime, timedelta, timezone
@@ -193,14 +194,54 @@ def _decode_token(token: str) -> dict:
         ) from exc
 
 
+def _get_trusted_proxy_networks() -> list[ipaddress.IPv4Network | ipaddress.IPv6Network]:
+    """Parse MANAGEMENT_TRUSTED_PROXY_CIDRS into a list of network objects.
+
+    Returns an empty list when the env var is unset — in that case XFF is
+    never trusted and the socket-level peer address is always used.
+    """
+    raw = os.environ.get("MANAGEMENT_TRUSTED_PROXY_CIDRS", "").strip()
+    if not raw:
+        return []
+    networks: list[ipaddress.IPv4Network | ipaddress.IPv6Network] = []
+    for cidr in raw.split(","):
+        cidr = cidr.strip()
+        if not cidr:
+            continue
+        try:
+            networks.append(ipaddress.ip_network(cidr, strict=False))
+        except ValueError:
+            logger.warning("auth | event=invalid_trusted_proxy_cidr | cidr=%s", cidr)
+    return networks
+
+
 def _client_ip(request: Request) -> str:
-    """Extract the real client IP, honouring X-Forwarded-For if present."""
+    """Extract the real client IP, honouring X-Forwarded-For only from trusted proxies.
+
+    Phase 122 C-2: X-Forwarded-For is trusted only when the socket-level
+    peer is in the MANAGEMENT_TRUSTED_PROXY_CIDRS list. When the env var is
+    unset or the peer is not in the trusted list, the socket address is
+    used. This prevents an attacker from spoofing any IP via XFF to bypass
+    rate limiting, falsify audit logs, or evade IP-based bans.
+    """
+    socket_ip = request.client.host if request.client else "unknown"
     forwarded_for = request.headers.get("X-Forwarded-For")
-    if forwarded_for:
+    if not forwarded_for:
+        return socket_ip
+
+    trusted = _get_trusted_proxy_networks()
+    if not trusted:
+        return socket_ip
+
+    try:
+        peer = ipaddress.ip_address(socket_ip)
+    except ValueError:
+        return socket_ip
+
+    if any(peer in net for net in trusted):
         return forwarded_for.split(",")[0].strip()
-    if request.client:
-        return request.client.host
-    return "unknown"
+
+    return socket_ip
 
 
 async def _check_rate_limit(ip: str, redis) -> None:
@@ -213,9 +254,12 @@ async def _check_rate_limit(ip: str, redis) -> None:
     """
     try:
         ttl = await redis.ttl(f"{LOGIN_LOCKOUT_KEY_PREFIX}{ip}")
-    except Exception as exc:  # pragma: no cover — fail-open branch
+    except Exception as exc:
         logger.warning("auth | event=rate_limit_check_failed | ip=%s | err=%s", ip, exc)
-        return
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Rate limiter unavailable — login temporarily disabled",
+        ) from exc
 
     # redis-py returns -2 for missing keys, -1 for keys with no TTL.
     if ttl is not None and ttl > 0:
@@ -239,12 +283,16 @@ async def _record_failure(ip: str, redis) -> None:
             logger.warning(
                 "auth | event=lockout | ip=%s | reason=too_many_failures", ip
             )
-    except Exception as exc:  # pragma: no cover — fail-open branch
+    except Exception as exc:
         logger.warning(
             "auth | event=rate_limit_record_failure_failed | ip=%s | err=%s",
             ip,
             exc,
         )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Rate limiter unavailable — login temporarily disabled",
+        ) from exc
 
 
 async def _record_success(ip: str, redis) -> None:

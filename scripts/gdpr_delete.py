@@ -67,7 +67,7 @@ _HLL_PATTERNS = [
 # Sorted sets where the IP appears as a member value (key is not the IP).
 # Requires ZREM rather than DEL.  Format: (key_glob, member_prefix_template)
 _ZSET_MEMBER_PATTERNS = [
-    ("behavioral:burst:*", "{ip}:"),  # member format: {ip}:{ts_ms}
+    ("behavioural:burst:*", "{ip}:"),  # member format: {ip}:{ts_ms}
 ]
 
 # Patterns that need a SCAN (contain wildcard)

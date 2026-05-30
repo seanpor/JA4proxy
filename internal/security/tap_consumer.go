@@ -30,7 +30,7 @@ import (
 // canonicalIP returns the canonical string form of an IP address matching
 // what the Phase-20 TAP node writes (via Python's socket.inet_ntop).
 // Strips zone IDs, brackets, and leading zeros; lowercases hex octets.
-// Returns "" for unparseable input (caller treats as fail-open).
+// Returns "" for unparsable input (caller treats as fail-open).
 func canonicalIP(ip string) string {
 	// Strip IPv6 brackets if the caller accidentally left them on.
 	if len(ip) >= 2 && ip[0] == '[' && ip[len(ip)-1] == ']' {
@@ -148,7 +148,7 @@ func (t *TapConsumer) GetSignal(ctx context.Context, clientIP, ja4 string) *Risk
 		return nil
 	}
 	// Canonicalise IP to match what the Phase-20 TAP node stores.
-	// Unparseable IP → fail open (no signal).
+	// Unparsable IP → fail open (no signal).
 	canonIP := canonicalIP(clientIP)
 	if canonIP == "" {
 		return nil

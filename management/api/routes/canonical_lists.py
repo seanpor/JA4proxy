@@ -41,7 +41,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
 from ..audit_utils import write_audit
-from ..auth import require_role
+from ..auth import _client_ip, require_role
 from ..models import (
     ManagedBy,
     ResourceCreate,
@@ -85,16 +85,6 @@ LIST_CONFIG: dict[str, dict[str, str]] = {
 }
 
 _VALID_LIST_NAMES = frozenset(("allowlist", "blocklist", "watchlist"))
-
-
-def _client_ip(request: Request) -> str:
-    """Extract the real client IP, honouring X-Forwarded-For if present."""
-    forwarded_for = request.headers.get("X-Forwarded-For")
-    if forwarded_for:
-        return forwarded_for.split(",")[0].strip()
-    if request.client:
-        return request.client.host
-    return "unknown"
 
 
 def _is_ip_entry(entry: str) -> bool:

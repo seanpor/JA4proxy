@@ -563,7 +563,7 @@ def test_lint_toml_pyproject_is_valid_toml():
 def test_lint_toml_gitleaks_is_valid_toml():
     """.gitleaks.toml must parse successfully with tomllib/tomli.
 
-    So what? An unparseable .gitleaks.toml silently disables secret scanning.
+    So what? An unparsable .gitleaks.toml silently disables secret scanning.
     """
     try:
         import tomllib

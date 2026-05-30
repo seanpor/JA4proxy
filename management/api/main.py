@@ -103,6 +103,12 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("management | event=shutdown | service=management_ui")
 
 
+def _is_production() -> bool:
+    """True if ENVIRONMENT is set to a production-equivalent value."""
+    env = os.environ.get("ENVIRONMENT", "").strip().lower()
+    return env in {"production", "prod"}
+
+
 def _enforce_no_test_mode_in_production() -> None:
     """Refuse to build the app when test-mode bypasses are armed in production.
 
@@ -111,21 +117,32 @@ def _enforce_no_test_mode_in_production() -> None:
     alongside ENVIRONMENT=production. If an operator (or attacker-controlled
     env) sets both, fail loudly at startup so the condition cannot go
     unnoticed.
+
+    Phase 122 M-1: also refuses to start when MANAGEMENT_SAML_STRICT=false
+    in production — SAML signature verification must not be disabled.
     """
-    env = os.environ.get("ENVIRONMENT", "").strip().lower()
-    if env in {"production", "prod"} and os.environ.get("MANAGEMENT_TEST_MODE") == "1":
+    if _is_production() and os.environ.get("MANAGEMENT_TEST_MODE") == "1":
         raise RuntimeError(
             "refusing to start: ENVIRONMENT=production and MANAGEMENT_TEST_MODE=1 "
             "are mutually exclusive (test mode disables authentication checks). "
             "Unset MANAGEMENT_TEST_MODE or set ENVIRONMENT to dev/staging."
         )
     if (
-        env in {"production", "prod"}
+        _is_production()
         and os.environ.get("MANAGEMENT_DISABLE_CSRF") == "1"
     ):
         raise RuntimeError(
             "refusing to start: ENVIRONMENT=production and MANAGEMENT_DISABLE_CSRF=1 "
             "are mutually exclusive (CSRF bypass is a test-only escape hatch)."
+        )
+    if (
+        _is_production()
+        and os.environ.get("MANAGEMENT_SAML_STRICT", "true").lower() != "true"
+    ):
+        raise RuntimeError(
+            "refusing to start: ENVIRONMENT=production and MANAGEMENT_SAML_STRICT=false "
+            "are mutually exclusive (SAML signature verification must not be disabled "
+            "in production). Unset MANAGEMENT_SAML_STRICT or set it to 'true'."
         )
 
 
@@ -136,20 +153,44 @@ def create_app() -> FastAPI:
         Configured FastAPI instance.
     """
     _enforce_no_test_mode_in_production()
+
+    # Phase 122 C-1: disable OpenAPI docs in production to prevent
+    # unauthenticated API surface reconnaissance.
+    docs_url = None if _is_production() else "/api/docs"
+    redoc_url = None if _is_production() else "/api/redoc"
+    openapi_url = None if _is_production() else "/openapi.json"
+
     app = FastAPI(
         title="JA4proxy Management UI",
         description="Management interface for JA4proxy TLS security proxy",
         version="1.0.0",
-        docs_url="/api/docs",
-        redoc_url="/api/redoc",
+        docs_url=docs_url,
+        redoc_url=redoc_url,
+        openapi_url=openapi_url,
         lifespan=_lifespan,
     )
 
     # ── CORS (management UI is same-origin in production; wide open in dev) ──
-    cors_origins = os.environ.get("MANAGEMENT_CORS_ORIGINS", "http://localhost:8090")
+    # Phase 122 H-1: validate origins — reject wildcard and non-HTTPS origins
+    # in production when credentials are enabled.
+    cors_origins_raw = os.environ.get("MANAGEMENT_CORS_ORIGINS", "http://localhost:8090")
+    cors_origins = [o.strip() for o in cors_origins_raw.split(",") if o.strip()]
+    if _is_production():
+        for origin in cors_origins:
+            if origin == "*":
+                raise RuntimeError(
+                    "refusing to start: MANAGEMENT_CORS_ORIGINS contains wildcard '*' "
+                    "with allow_credentials=True in production. Specify explicit origins."
+                )
+            if origin.startswith("http://") and "localhost" not in origin and "127.0.0.1" not in origin:
+                logger.warning(
+                    "management | event=cors_insecure_origin | origin=%s | "
+                    "recommendation=use HTTPS in production",
+                    origin,
+                )
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=cors_origins.split(","),
+        allow_origins=cors_origins,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
         allow_headers=["*"],

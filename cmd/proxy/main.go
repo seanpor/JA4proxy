@@ -82,7 +82,8 @@ func main() {
 	// unsigned messages when configured.
 	pubsubHandler := redisclient.NewPubSubHandler(proxy.redis, log, func() {
 		if err := proxy.reload(); err != nil {
-			log.WithError(err).Warn("config reload failed")
+			metrics.ConfigReloadFailuresTotal.Inc()
+			log.WithError(err).Error("config reload failed")
 		}
 	}, func() {
 		loadSecurityLists(ctx, proxy.redis, proxy.pipeline)
@@ -92,6 +93,7 @@ func main() {
 	go pubsubHandler.Run(ctx)
 
 	// phase-201c: periodic Redis health check + auto script reload.
+	// phase-209: recover from panic so the goroutine keeps running.
 	go func() {
 		t := time.NewTicker(30 * time.Second)
 		defer t.Stop()
@@ -100,7 +102,15 @@ func main() {
 			case <-ctx.Done():
 				return
 			case <-t.C:
-				proxy.redis.HealthCheck(ctx)
+				func() {
+					defer func() {
+						if r := recover(); r != nil {
+							metrics.HealthCheckPanicsTotal.Inc()
+							log.WithField("panic", r).Error("health check panicked, continuing loop")
+						}
+					}()
+					proxy.redis.HealthCheck(ctx)
+				}()
 			}
 		}
 	}()
@@ -121,7 +131,8 @@ func main() {
 		case syscall.SIGHUP:
 			log.Info("SIGHUP received — reloading config")
 			if err := proxy.reload(); err != nil {
-				log.WithError(err).Warn("config reload failed")
+				metrics.ConfigReloadFailuresTotal.Inc()
+				log.WithError(err).Error("config reload failed")
 			}
 		case syscall.SIGINT, syscall.SIGTERM:
 			log.WithField("signal", sig).Info("shutdown signal received")
@@ -271,7 +282,6 @@ func newProxy(cfg *config.Config, cfgPath string, log *logrus.Logger) (*proxy, e
 			TimeoutSeconds:      e.TimeoutSeconds,
 		}
 	}
-	redisAddr := fmt.Sprintf("%s:%d", cfg.Redis.Host, cfg.Redis.Port.Int())
 	dispatcherCfg := webhook.DispatcherConfig{
 		Endpoints:      endpoints,
 		StreamKey:      cfg.Webhooks.StreamKey,
@@ -280,7 +290,7 @@ func newProxy(cfg *config.Config, cfgPath string, log *logrus.Logger) (*proxy, e
 		RetryBackoff:   5 * time.Second,
 		TimeoutSeconds: 30,
 	}
-	disp, err := webhook.NewDispatcher(dispatcherCfg, redisAddr, log)
+	disp, err := webhook.NewDispatcher(dispatcherCfg, rc.Raw(), log)
 	if err != nil {
 		log.WithError(err).Warn("proxy: webhook dispatcher init failed; webhooks disabled")
 	}

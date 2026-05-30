@@ -70,7 +70,7 @@ func (r *RateLimiter) Check(ctx context.Context, clientIP, ja4 string) []RiskSig
 	if !ok {
 		sum := sha256.Sum256([]byte(clientIP))
 		hash := hex.EncodeToString(sum[:])[:16]
-		r.log.WithField("ip_hash", hash).Warn("rate_limiter: rejected unparseable IP; skipping rate limit (fail-open)")
+		r.log.WithField("ip_hash", hash).Warn("rate_limiter: rejected unparsable IP; skipping rate limit (fail-open)")
 		return nil
 	}
 	clientIP, ja4 = canonIP, safeJA4

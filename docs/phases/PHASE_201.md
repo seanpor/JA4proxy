@@ -487,7 +487,7 @@ as the oracle, which handles v4, v6, v6+zone, and malformed input correctly.
    if !ok {
        // Log a hash of the raw input — never log raw bytes (log-injection risk).
        hash := fmt.Sprintf("%x", sha256.Sum256([]byte(clientIP)))[:16]
-       r.log.WithField("ip_hash", hash).Warn("rate_limiter: rejected unparseable IP; skipping rate limit (fail-open)")
+       r.log.WithField("ip_hash", hash).Warn("rate_limiter: rejected unparsable IP; skipping rate limit (fail-open)")
        return nil
    }
    clientIP, ja4 = canonIP, safeJA4
@@ -607,7 +607,7 @@ Implementation landed across four commits (b593f79 planning → b19786f final):
   the existing cancellable `ctx` from line 67.
 - **201d** (`174625a`): `sanitizeKey` helper in
   `internal/security/rate_limiter.go` uses `netip.ParseAddr` as the
-  validation oracle; unparseable IPs fail-open with a
+  validation oracle; unparsable IPs fail-open with a
   `sha256[:16]`-hashed `ip_hash` field (never raw bytes).
   `ja4` is truncated to 256 bytes.
 

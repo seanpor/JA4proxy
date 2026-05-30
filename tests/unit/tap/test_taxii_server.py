@@ -339,7 +339,7 @@ class TestObjectsResponseEdgeCases:
 
     @pytest.mark.asyncio
     async def test_added_after_invalid_timestamp_is_ignored(self):
-        # Lines 165-166: an unparseable added_after must be silently ignored (no crash).
+        # Lines 165-166: an unparsable added_after must be silently ignored (no crash).
         # A malformed query parameter must never cause an outage for STIX consumers.
         bans = {
             "ban:1.2.3.4": json.dumps(

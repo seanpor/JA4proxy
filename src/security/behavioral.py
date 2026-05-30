@@ -79,7 +79,7 @@ def _extract_burst_ip(member: bytes) -> str:
 
 class BehavioralAnalyzer:
     """
-    Analyzes multi-connection behavior to identify coordinated campaigns.
+    Analyzes multi-connection behaviour to identify coordinated campaigns.
     """
 
     def __init__(self, redis_client: redis.asyncio.Redis, config: dict):
@@ -94,7 +94,7 @@ class BehavioralAnalyzer:
 
     async def get_signals(self, ctx: ConnectionContext, afp: str) -> List[RiskSignal]:
         """
-        Analyze current connection and return behavioral signals.
+        Analyze current connection and return behavioural signals.
         afp: Attacker Fingerprint from AttributionManager
         """
         if not self._enabled:
@@ -132,12 +132,12 @@ class BehavioralAnalyzer:
             if count >= self._probing_threshold:
                 _PATTERN_DETECTED.labels(pattern_type="sequential_probing").inc()
                 return RiskSignal(
-                    name="behavioral_probing",
+                    name="behavioural_probing",
                     score=30,
                     reason=f"Sequential probing detected ({count} unique SNIs for fingerprint {afp})",
                 )
         except Exception as e:
-            logger.error(f"behavioral | event=probing_error | fp={afp} | error={e}")
+            logger.error(f"behavioural | event=probing_error | fp={afp} | error={e}")
         return None
 
     async def _check_coordinated_burst(
@@ -154,7 +154,7 @@ class BehavioralAnalyzer:
         # JA4PROXY-2026-0027 — hash the attacker-controlled SNI before
         # interpolating it into a Redis key. Raw SNI can carry colons,
         # asterisks, etc. that collide with the key namespace.
-        key = f"behavioral:burst:{_sni_key_hash(ctx.sni)}"
+        key = f"behavioural:burst:{_sni_key_hash(ctx.sni)}"
         try:
             # JA4PROXY-2026-0036 — use "|" as the IP↔timestamp delimiter.
             # The previous format "{ip}:{ms}" was ambiguous for IPv6: splitting
@@ -181,7 +181,7 @@ class BehavioralAnalyzer:
             if len(unique_ips) >= self._burst_count_threshold:
                 _PATTERN_DETECTED.labels(pattern_type="coordinated_burst").inc()
                 return RiskSignal(
-                    name="behavioral_burst",
+                    name="behavioural_burst",
                     score=25,
                     reason=f"Coordinated burst detected ({len(unique_ips)} IPs in {self._burst_window_ms}ms)",
                 )
@@ -189,7 +189,7 @@ class BehavioralAnalyzer:
             # Log the SNI hash (not raw SNI) so attacker-controlled bytes
             # can't smuggle ANSI/control chars into the log stream.
             logger.error(
-                f"behavioral | event=burst_error | sni_hash={_sni_key_hash(ctx.sni)} | error={e}"
+                f"behavioural | event=burst_error | sni_hash={_sni_key_hash(ctx.sni)} | error={e}"
             )
         return None
 
@@ -215,7 +215,7 @@ class BehavioralAnalyzer:
         if not ja4:
             return
 
-        key = "behavioral:known_ja4"
+        key = "behavioural:known_ja4"
         ttl_seconds = int(self._config.get("known_ja4_ttl_seconds", 90 * 24 * 3600))
         max_entries = int(self._config.get("known_ja4_max_entries", 100_000))
         now = int(time.time())
@@ -237,7 +237,7 @@ class BehavioralAnalyzer:
                         {
                             "type": "security",
                             "level": "WARN",
-                            "subsystem": "behavioral",
+                            "subsystem": "behavioural",
                             "event": "new_fingerprint_detected",
                             "ja4": ja4,
                             "message": "First time seeing this JA4 fingerprint in this environment",
@@ -245,10 +245,10 @@ class BehavioralAnalyzer:
                     )
                 )
         except Exception as e:
-            logger.error(f"behavioral | event=drift_error | ja4={ja4} | error={e}")
+            logger.error(f"behavioural | event=drift_error | ja4={ja4} | error={e}")
 
     def on_config_reload(self, new_config: dict):
-        self._config = new_config.get("behavioral", {})
+        self._config = new_config.get("behavioural", {})
         self._enabled = self._config.get("enabled", True)
         self._probing_threshold = self._config.get("probing_unique_sni_threshold", 5)
         self._burst_window_ms = self._config.get("burst_window_ms", 100)
