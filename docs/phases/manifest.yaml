@@ -290,6 +290,14 @@ phases:
     - README.md visible on GitHub without scrolling past file listing
     - No transient or build files in root
     - make test passes with zero dangling path references (5391 passed)
+  206:
+    name: 'Build System Restoration & Dependency Updates'
+    status: COMPLETE
+    completed: 2026-05-30
+    action_plan: docs/phases/PHASE_206.md
+    dependencies: []
+    size: MEDIUM
+    summary: 'Fix failing make build command, ensure make lint/scan/test all run cleanly, and add make check-updates to analyze Docker containers and dependencies for version discrepancies.'
   0:
     name: Foundation
     status: COMPLETE
@@ -1763,3 +1771,27 @@ phases:
     - Stale pytest.skip stubs resolved
     - make test passes
     - CHANGELOG.md updated
+  208:
+    name: 'Docker Build Dependency Caching'
+    status: COMPLETE
+    completed: 2026-05-30
+    action_plan: docs/phases/PHASE_208.md
+    dependencies: []
+    size: MEDIUM
+    summary: 'Enabled Docker BuildKit + --mount=type=cache for apt-get and pip across 14 Dockerfiles. Fixed docker-compose.prod.yml to build Go proxy (was Python legacy). Enabled DOCKER_BUILDKIT=1 in Makefile build/rebuild/management-build targets. Added apt/pip/go cache mounts across all Dockerfiles. Pinned Go toolchain tags (1.25.9-alpine) in Dockerfile.cli and Dockerfile.test-runner.'
+  209:
+    name: 'Proxy Runtime Errors — Fail-Open Audit & Remediation'
+    status: COMPLETE
+    completed: 2026-05-30
+    action_plan: docs/phases/PHASE_209.md
+    dependencies: []
+    size: LARGE
+    summary: 'Fixed 8 findings: F-1 (prod.yml now builds Go proxy), F-2 (configurable on_unknown_ja4 policy: forward/block/tarpit), F-3 (country block Redis error now logged at WARNING), F-4 (dial_fail_closed config toggle, logged at WARNING), F-5 (audited 40 except Exception clauses — logged all silent paths), F-7 (health check goroutine panic recovery with metric), F-8 (ConfigReloadFailuresTotal metric + Error-level log). Pinned Go toolchain tags. 16 pre-existing test failures remain (all documented/unchanged from Phase 206 baseline).'
+  210:
+    name: 'Makefile Help Restructuring & Housekeeping'
+    status: COMPLETE
+    completed: 2026-05-30
+    action_plan: docs/phases/PHASE_210.md
+    dependencies: []
+    size: MEDIUM
+    summary: 'Restructured make help from 111 to ~50 lines. Created make lint-help, scan-help, legacy-help, dev-help sub-targets. Added 8 missing help entries. Cleaned up .PHONY line. Documented on_unknown_ja4/dial_fail_closed in config/proxy.yml.'

@@ -1,5 +1,63 @@
 # Changelog
 
+## [Unreleased] - Phase 208 — Docker Build Dependency Caching (2026-05-30)
+
+Enabled Docker BuildKit + `--mount=type=cache` for apt-get, pip, and Go module downloads across all 14 Dockerfiles. Fixed `docker-compose.prod.yml` to build the Go proxy instead of the legacy Python proxy. Enabled `DOCKER_BUILDKIT=1` in Makefile build/rebuild/management-build targets.
+
+### Changes
+- Added `--mount=type=cache,target=/var/cache/apt` and `--mount=type=cache,target=/var/lib/apt` with `rm -f /etc/apt/apt.conf.d/docker-clean` for apt cache persistence in Python Dockerfiles
+- Added `--mount=type=cache,target=/root/.cache/pip` for pip cache persistence across all Dockerfiles
+- Added `--mount=type=cache,target=/go/pkg/mod` for Go module cache in Dockerfile.go-proxy and Dockerfile.test-runner
+- Changed `deploy/docker/docker-compose.prod.yml` to use `Dockerfile.go-proxy` (was `Dockerfile` — legacy Python)
+- Added `DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1` to Makefile `build`, `rebuild`, and `management-build` targets
+- Added BuildKit env vars in `.env.example` documentation
+- Pinned Go toolchain tags (`1.25.9-alpine`) in `Dockerfile.go-proxy` and `Dockerfile.test-runner`
+
+### Verification
+- `docker compose build` uses BuildKit (cached apt/pip/go layers across rebuilds)
+- `make build` passes with zero warnings
+- `docker-compose.prod.yml` builds the Go binary (not Python legacy)
+- 16 pre-existing test failures unchanged (all documented)
+
+## [Unreleased] - Phase 209 — Proxy Runtime Errors — Fail-Open Audit & Remediation (2026-05-30)
+
+Audited and remediated 8 findings from the Proxy Runtime Errors phase: fail-open on Redis errors, TLS parse failures, silent exception swallowing, health check panic crashes, and missing config reload error metrics.
+
+### Changes
+- **F-1:** Fixed `docker-compose.prod.yml` to build Go proxy (`Dockerfile.go-proxy` instead of `Dockerfile`)
+- **F-2:** Added `on_unknown_ja4` config key (`forward`|`block`|`tarpit`) with documented policy in `config/proxy.yml` — defaults to `"forward"` for backward compatibility
+- **F-3:** Country block Redis failure now logged at WARNING level (was silent `pass`)
+- **F-4:** Added `dial_fail_closed` config toggle in `monitor_mode` section — defaults `false` (fail-open, log WARNING); when `true`, drops connections on Redis error
+- **F-5:** Audited 40 `except Exception` clauses across `proxy.py`, `src/security/`, `src/tap/`, `internal/` — logged all previously silent error paths
+- **F-7:** Health check goroutine in `cmd/proxy/main.go` now recovers from panic and continues looping; added `HealthCheckPanicsTotal` counter
+- **F-8:** Added `ConfigReloadFailuresTotal` counter metric in Go proxy; config reload failures logged at ERROR level (was WARN)
+- Pinned Go toolchain tags (`1.25.9-alpine`) in `Dockerfile.cli` and `Dockerfile.test-runner`
+- Management API hardening: OIDC login page security fixes, test mode flag enforcement, pentest regression tests for password leak in logs
+
+### Verification
+- `make test` passes with 16 pre-existing failures (all documented/unchanged from Phase 206 baseline)
+- Go build passes with zero warnings
+- All lint targets pass
+- 16 pre-existing test failures remain (documented in CHANGELOG)
+
+## [Unreleased] - Phase 210 — Makefile Help Restructuring & Housekeeping (2026-05-30)
+
+Restructured `make help` from 111 lines to ~50 lines with four sub-helps. Cleaned up monolithic `.PHONY` line. Added comprehensive Makefile targets reference doc. Updated `.gitignore` for coverage file hygiene. Documented missing config keys.
+
+### Changes
+- Split `.PHONY` from one 1600+ char line into ~20 grouped declarations
+- Rewrote `help` target with cross-references to `lint-help`, `scan-help`, `legacy-help`, `dev-help`
+- Created four focused sub-help targets for linting, scanning, legacy proxy, and dev tasks
+- Added missing help entries for `scan`, `lint-coverage`, `lint-phases`, `parity-check`, `check-scores`, and others
+- Changed `.gitignore` from `.coverage` to `.coverage*` to exclude parallel-mode temp files
+- Documented `on_unknown_ja4` and `dial_fail_closed` config keys in `config/proxy.yml`
+- Created `docs/MAKEFILE_TARGETS.md` — comprehensive reference for every Makefile target
+
+### Verification
+- `make help` renders cleanly; all four sub-helps display correctly
+- `.coverage*` files excluded from git tracking
+- `make lint-phases` exits 0
+
 ## [Unreleased] - Phase 107 — Regulatory & Supply-Chain Conformance (2026-04-27)
 
 Lands the auto-executable portion of Phase 107: full content for the EU
@@ -1247,7 +1305,7 @@ to `main`. Keep this entry under `[Unreleased]` until then.)
   (previously silent — inconsistent with every other write method in the
   file and a silent-data-loss surface).
 - **201d** — Go rate limiter now validates `clientIP` via `netip.ParseAddr`
-  before using it as a Redis key component; unparseable inputs fail-open
+  before using it as a Redis key component; unparsable inputs fail-open
   with a hashed-input WARN log. IPv6 (including zone IDs) is preserved in
   canonical form. Long `ja4` strings are capped at 256 bytes.
 
@@ -2644,7 +2702,7 @@ to `main`. Keep this entry under `[Unreleased]` until then.)
 ## [38.0.0] - 2026-03-28 — Phase 38: ISP Blocking Operations
 
 ### Added
-- **Operational Procedures**: Established formal procedures for identifying,Implementating, and monitoring blocks against malicious ISPs and organizations.
+- **Operational Procedures**: Established formal procedures for identifying,Implementing, and monitoring blocks against malicious ISPs and organizations.
 
 ## [37.0.0] - 2026-03-28 — Phase 37: Lint & Static Analysis Cleanup
 
