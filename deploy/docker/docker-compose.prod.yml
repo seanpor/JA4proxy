@@ -55,7 +55,7 @@ services:
   proxy:
     build:
       context: ../..
-      dockerfile: deploy/docker/Dockerfile
+      dockerfile: deploy/docker/Dockerfile.go-proxy
     image: ja4proxy:1.0.0
     ports:
       - "8080"   # Proxy (HAProxy connects here)
@@ -72,8 +72,6 @@ services:
       - BACKEND_HOST=${BACKEND_HOST:?Set BACKEND_HOST to your upstream server IP/hostname}
       - BACKEND_PORT=${BACKEND_PORT:-443}
       - REDIS_UNIX_SOCKET_PATH=/var/run/redis/redis.sock
-      - PYTHONUNBUFFERED=1
-      - PYTHONDONTWRITEBYTECODE=1
     # JA4PROXY-2026-0042: GID 999 matches the redis user inside redis/redis-stack
     # (see deploy/helm/ja4proxy/templates/redis.yaml and
     # deploy/ansible/roles/redis-secure/tasks/main.yml, which both pin 999 for

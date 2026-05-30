@@ -9,7 +9,10 @@ RUN useradd -r -g proxy proxy 2>/dev/null || true
 
 # Install system dependencies
 # curl removed — wget used in HEALTHCHECK instead (smaller attack surface)
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    rm -f /etc/apt/apt.conf.d/docker-clean && \
+    apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     libpcap-dev \
     wget \
@@ -19,11 +22,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Upgrade pip and install packaging to resolve dependency conflicts
-RUN pip install --no-cache-dir --upgrade pip setuptools wheel packaging
+RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked \
+    pip install --upgrade pip setuptools wheel packaging
 
 # Copy requirements and install Python dependencies
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked \
+    pip install -r requirements.txt
 
 # Copy application code
 COPY proxy.py .
@@ -33,7 +38,8 @@ COPY src/ src/
 COPY data/geoip/ geoip/
 
 # Install IP2Location for country lookups
-RUN pip install --no-cache-dir IP2Location
+RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked \
+    pip install IP2Location
 
 # Create necessary directories
 RUN mkdir -p logs && \
