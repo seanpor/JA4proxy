@@ -258,6 +258,14 @@ phases:
     dependencies: [108, 118, 119, 120]
     size: XLARGE
     summary: 'Plan-only meta-phase that turns the 108–120 bug-hunt pile into a managed program: canonical findings register + tooling, severity rubric + SLA policy, dedup across ~98 sub-phases down to 54 canonical findings, rescope of 117/118/119/120 against the register (retires 120 as duplicate of 119), remediation waves DAG, closure verification protocol, intake runbook for the next red team report, CVSS version ADR. 11 sub-phases, no code fixes. All acceptance criteria met 2026-04-19; make phase-121-verify green.'
+  122:
+    name: 'Production Security Review — Internet-Facing Attack Surface Audit'
+    status: COMPLETE
+    completed: 2026-05-30
+    action_plan: docs/phases/PHASE_122.md
+    dependencies: []
+    size: LARGE
+    summary: '14 findings across Go proxy, Python proxy, Management API, and infrastructure. 2 CRITICAL (OpenAPI docs exposed, XFF trusted unconditionally), 5 HIGH (CORS wildcard, rate limiter fail-open, f-string logging, unauthenticated webhook Redis, OIDC test mode), 5 MEDIUM (SAML strict, Redis URL in password, external CDN, TAP HMAC, health bind), 2 LOW (plaintext admin password, O(N) KEYS). All remediated and verified with 24 regression tests and semgrep rules.'
   204:
     name: 'README Badges — License, Versions, CI, Security'
     status: COMPLETE

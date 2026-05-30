@@ -283,6 +283,7 @@ Alignment with international standards and regulatory frameworks.
 | 119 | Connection Lifecycle Hardening & Operational Security | COMPLETE | N/A | N/A |
 | 120 | Independent Red Team Findings: Design Flaws, Infrastructure & Logic Bugs (RETIRED) | DEFERRED | N/A | N/A |
 | 121 | Pentest Remediation Consolidation & Program Discipline | COMPLETE | N/A | N/A |
+| 122 | Production Security Review — Internet-Facing Attack Surface Audit | COMPLETE | N/A | N/A |
 | 200 | Go PROXY Protocol Trust + v2 Support | COMPLETE | N/A | N/A |
 | 201 | Go Redis TLS + Silent-Failure Hardening | COMPLETE | N/A | N/A |
 | 202 | CI Supply Chain + Default Credential Removal | COMPLETE | N/A | N/A |

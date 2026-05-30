@@ -1,5 +1,30 @@
 # Changelog
 
+## [Unreleased] - Phase 122 — Production Security Review — Internet-Facing Attack Surface Audit (2026-05-30)
+
+Critical independent security review of all internet-facing components. 14 findings (2 CRITICAL, 5 HIGH, 5 MEDIUM, 2 LOW) across the Go proxy, Python proxy, Management API, and infrastructure — all remediated and verified with 24 regression tests + semgrep rules.
+
+### Changes
+- **C-1:** OpenAPI/Swagger docs disabled when `ENVIRONMENT=production`
+- **C-2:** X-Forwarded-For centralized into `_client_ip()` with trusted-proxy CIDR check (`MANAGEMENT_TRUSTED_PROXY_CIDRS`)
+- **H-1:** CORS wildcard origin (`*`) rejected when `allow_credentials=True` in production
+- **H-2:** Login rate limiter (`_check_rate_limit`) fails closed (503) on Redis errors
+- **H-3:** 39 f-string logging calls converted to lazy %-style formatting across proxy.py
+- **H-4:** Webhook dispatcher receives authenticated Redis client (Go — no longer constructs bare addr)
+- **H-5:** OIDC test-mode signature bypass removed from `_extract_claims`
+- **M-1:** SAML `strict=false` rejected in production via `_enforce_no_test_mode_in_production()`
+- **M-2:** Analytics Redis URL constructed with keyword args (no password in f-string)
+- **M-3:** External CDN references removed from login template (SRI hash was fake)
+- **M-4:** TAP enforcement bridge verifies HMAC on pub/sub messages
+- **M-5:** Health server defaults to `127.0.0.1` (was `0.0.0.0`)
+- **L-1:** Plaintext admin password hardened in POC compose file (uses env var)
+- **L-2:** CountKeys migrated from KEYS to SCAN (non-blocking)
+
+### Verification
+- 24/24 regression tests pass
+- 4 semgrep rules active (C-2, H-3, M-2, M-3)
+- `make test` passes with same 16 pre-existing failures (unchanged)
+
 ## [Unreleased] - Phase 208 — Docker Build Dependency Caching (2026-05-30)
 
 Enabled Docker BuildKit + `--mount=type=cache` for apt-get, pip, and Go module downloads across all 14 Dockerfiles. Fixed `docker-compose.prod.yml` to build the Go proxy instead of the legacy Python proxy. Enabled `DOCKER_BUILDKIT=1` in Makefile build/rebuild/management-build targets.
