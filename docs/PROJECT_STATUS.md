@@ -5,7 +5,7 @@
 
 ## Current Status: Phase 101 (Phase 101 — Cross-Phase Gap Closure) Next
 
-**Last Updated:** 2026-04-27
+**Last Updated:** 2026-05-30
 
 ## Epics & Roadmap
 
@@ -289,7 +289,11 @@ Alignment with international standards and regulatory frameworks.
 | 203 | Go Missing Signals — TAP OS Mismatch, TLS Mismatch, Weak Ciphers, DGA, Health | COMPLETE | N/A | N/A |
 | 204 | README Badges — License, Versions, CI, Security | COMPLETE | N/A | N/A |
 | 205 | Repository Root Cleanup & File Organisation | COMPLETE | N/A | N/A |
+| 206 | Build System Restoration & Dependency Updates | COMPLETE | N/A | N/A |
 | 207 | Go Test Coverage Improvement & Repository Hygiene | COMPLETE | N/A | N/A |
+| 208 | Docker Build Dependency Caching | COMPLETE | N/A | N/A |
+| 209 | Proxy Runtime Errors — Fail-Open Audit & Remediation | COMPLETE | N/A | N/A |
+| 210 | Makefile Help Restructuring & Housekeeping | COMPLETE | N/A | N/A |
 
 ---
 
