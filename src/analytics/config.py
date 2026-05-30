@@ -30,7 +30,7 @@ def load_config(config_file: str) -> Dict[str, Any]:
 
     # phase-85: pull the `threat_intel` block out of proxy.yml so the analytics
     # container can run the feed runner without duplicating the operator-managed
-    # feed list. Missing or unparseable file → empty block; the runner sees
+    # feed list. Missing or unparsable file → empty block; the runner sees
     # ``enabled: false`` and short-circuits, no crash.
     proxy_yml_path = os.environ.get("JA4PROXY_PROXY_YML", "config/proxy.yml")
     try:

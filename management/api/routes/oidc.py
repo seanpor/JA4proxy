@@ -226,22 +226,9 @@ async def _extract_claims(id_token: str, jwks_uri: str) -> dict:
     Raises:
         HTTPException(401): On signature failure or claim validation failure.
     """
-    # JA4PROXY-2026-0023 — test-mode bypass is only honoured outside production.
-    from ..auth import is_test_mode
-
-    if is_test_mode():
-        # Test mode — decode without signature verification
-        try:
-            parts = id_token.split(".")
-            if len(parts) != 3:
-                raise ValueError("Invalid ID token format")
-            padding = "=" * (-len(parts[1]) % 4)
-            return json.loads(base64.urlsafe_b64decode(parts[1] + padding))
-        except Exception as exc:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Failed to extract claims from ID token",
-            ) from exc
+    # Phase 122 H-5: test-mode bypass removed. All environments now verify
+    # ID token signatures via JWKS. Tests should use mock JWKS fixtures
+    # instead of skipping signature verification.
 
     # JA4PROXY-2026-0032 — reject ``alg: none`` and symmetric-algorithm tokens
     # before we hand the payload to a key-set that might silently accept them.

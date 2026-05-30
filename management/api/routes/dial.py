@@ -19,7 +19,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from ..audit_utils import write_audit
-from ..auth import require_mfa_verified, require_role
+from ..auth import _client_ip, require_mfa_verified, require_role
 from ..models import DialUpdateRequest, DialValue, Role
 from ..redis_client import get_redis
 
@@ -41,16 +41,6 @@ async def _get_current_dial(redis) -> int:
     except ValueError:
         logger.warning("dial | event=invalid_value | raw=%r | defaulting_to=0", raw)
         return 0
-
-
-def _client_ip(request: Request) -> str:
-    """Extract the real client IP, honouring X-Forwarded-For if present."""
-    forwarded_for = request.headers.get("X-Forwarded-For")
-    if forwarded_for:
-        return forwarded_for.split(",")[0].strip()
-    if request.client:
-        return request.client.host
-    return "unknown"
 
 
 @router.get("/api/v1/dial", response_model=DialValue)

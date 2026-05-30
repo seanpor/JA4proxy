@@ -1,117 +1,157 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Login — JA4proxy Management</title>
-
-  <script src="https://cdn.tailwindcss.com" crossorigin="anonymous"></script> <!-- nosemgrep -->
-  <script src="https://unpkg.com/alpinejs@3.14.0/dist/cdn.min.js" integrity="sha384-6Xh8u3p1iZ6e8q6u5p4v3i2o1n0m9l8k7j6h5g4f3d2s1a0" crossorigin="anonymous" defer></script>
   <link rel="stylesheet" href="/static/custom.css" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      background: #0f172a; color: #f1f5f9;
+      font-family: system-ui, -apple-system, sans-serif;
+      display: flex; align-items: center; justify-content: center; padding: 1rem;
+    }
+    .card-wrap { width: 100%; max-width: 24rem; }
+    .brand { display: flex; flex-direction: column; align-items: center; margin-bottom: 2rem; }
+    .brand-icon {
+      display: flex; align-items: center; justify-content: center;
+      width: 3.5rem; height: 3.5rem; border-radius: 1rem;
+      background: #1e293b; border: 1px solid #334155; margin-bottom: 1rem;
+    }
+    .brand-icon svg { width: 2rem; height: 2rem; color: #0ea5e9; }
+    .brand h1 { font-size: 1.25rem; font-weight: 700; color: #f1f5f9; }
+    .brand p { font-size: 0.875rem; color: #94a3b8; margin-top: 0.25rem; }
+    .card {
+      background: #1e293b; border: 1px solid #334155;
+      border-radius: 0.75rem; padding: 1.5rem; box-shadow: 0 25px 50px -12px rgba(0,0,0,.25);
+    }
+    .card h2 { font-size: 1rem; font-weight: 600; color: #f1f5f9; margin-bottom: 1.25rem; }
+    .alert {
+      display: flex; align-items: center; gap: 0.5rem;
+      padding: 0.625rem 0.75rem; margin-bottom: 1rem;
+      border-radius: 0.5rem; background: rgba(220,38,38,.1);
+      border: 1px solid rgba(220,38,38,.4); color: #f87171; font-size: 0.875rem;
+    }
+    .alert svg { width: 1rem; height: 1rem; flex-shrink: 0; }
+    .field { margin-bottom: 1rem; }
+    .field label { display: block; font-size: 0.75rem; font-weight: 500; color: #94a3b8; margin-bottom: 0.375rem; }
+    .field input {
+      width: 100%; padding: 0.5rem 0.75rem; border-radius: 0.5rem;
+      background: #0f172a; border: 1px solid #334155; color: #f1f5f9;
+      font-size: 0.875rem; outline: none; transition: border-color .15s;
+    }
+    .field input::placeholder { color: #475569; }
+    .field input:focus { border-color: #0ea5e9; box-shadow: 0 0 0 2px rgba(14,165,233,.3); }
+    .pw-wrap { position: relative; }
+    .pw-wrap input { padding-right: 2.5rem; }
+    .pw-toggle {
+      position: absolute; right: 0.625rem; top: 50%; transform: translateY(-50%);
+      background: none; border: none; color: #475569; cursor: pointer; padding: 0;
+    }
+    .pw-toggle:hover { color: #94a3b8; }
+    .pw-toggle svg { width: 1rem; height: 1rem; }
+    .btn-submit {
+      margin-top: 1.25rem; width: 100%; display: flex; align-items: center;
+      justify-content: center; gap: 0.5rem; padding: 0.625rem 1rem;
+      border-radius: 0.5rem; background: #0ea5e9; border: none;
+      color: #fff; font-size: 0.875rem; font-weight: 500; cursor: pointer;
+      transition: background .15s;
+    }
+    .btn-submit:hover { background: #38bdf8; }
+    .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+    .btn-submit .spinner { display: none; width: 1rem; height: 1rem; animation: spin 1s linear infinite; }
+    .btn-submit.loading .spinner { display: inline-block; }
+    .btn-submit.loading .btn-label { display: none; }
+    .btn-submit.loading .btn-loading-label { display: inline; }
+    .btn-loading-label { display: none; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .footer { text-align: center; font-size: 0.75rem; color: #475569; margin-top: 1.5rem; }
+  </style>
 </head>
-<body class="h-full bg-[#0f172a] text-[#f1f5f9] font-[system-ui,sans-serif] flex items-center justify-center p-4">
-
-  <div class="w-full max-w-sm">
-
-    <!-- Brand header -->
-    <div class="flex flex-col items-center mb-8">
-      <div class="flex items-center justify-center w-14 h-14 rounded-2xl bg-[#1e293b] border border-[#334155] mb-4">
-        <svg class="w-8 h-8 text-[#0ea5e9]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+<body>
+  <div class="card-wrap">
+    <div class="brand">
+      <div class="brand-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 2l8 3v6c0 5-3.5 9.3-8 11C7.5 20.3 4 16 4 11V5l8-3z"/>
         </svg>
       </div>
-      <h1 class="text-xl font-bold text-[#f1f5f9]">JA4proxy</h1>
-      <p class="text-sm text-[#94a3b8] mt-1">Management Console</p>
+      <h1>JA4proxy</h1>
+      <p>Management Console</p>
     </div>
 
-    <!-- Login card -->
-    <div class="bg-[#1e293b] border border-[#334155] rounded-xl p-6 shadow-2xl">
+    <div class="card">
+      <h2>Sign in to your account</h2>
 
-      <h2 class="text-base font-semibold text-[#f1f5f9] mb-5">Sign in to your account</h2>
-
-      <!-- Error message -->
       {% if error %}
-      <div class="flex items-center gap-2 px-3 py-2.5 mb-4 rounded-lg bg-[#dc2626]/15 border border-[#dc2626]/40 text-[#f87171] text-sm"
-           role="alert">
-        <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+      <div class="alert" role="alert">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
         </svg>
         {{ error }}
       </div>
       {% endif %}
 
-      <form method="post" action="/auth/login" x-data="{ loading: false }" @submit="loading = true">
+      <form method="post" action="/auth/login" id="login-form">
         <input type="hidden" name="csrf_token" value="{{ csrf_token | default('') }}" />
 
-        <div class="space-y-4">
-          <!-- Username -->
-          <div>
-            <label for="username" class="block text-xs font-medium text-[#94a3b8] mb-1.5">Username</label>
-            <input
-              id="username"
-              name="username"
-              type="text"
-              required
-              autocomplete="username"
-              autofocus
-              class="w-full px-3 py-2 rounded-lg bg-[#0f172a] border border-[#334155] text-[#f1f5f9] text-sm
-                     placeholder-[#475569] focus:outline-none focus:ring-2 focus:ring-[#0ea5e9] focus:border-transparent
-                     transition-colors"
-              placeholder="admin"
-            />
-          </div>
+        <div class="field">
+          <label for="username">Username</label>
+          <input id="username" name="username" type="text" required
+                 autocomplete="username" autofocus placeholder="admin" />
+        </div>
 
-          <!-- Password -->
-          <div>
-            <label for="password" class="block text-xs font-medium text-[#94a3b8] mb-1.5">Password</label>
-            <div class="relative" x-data="{ show: false }">
-              <input
-                id="password"
-                name="password"
-                :type="show ? 'text' : 'password'"
-                required
-                autocomplete="current-password"
-                class="w-full px-3 py-2 pr-10 rounded-lg bg-[#0f172a] border border-[#334155] text-[#f1f5f9] text-sm
-                       placeholder-[#475569] focus:outline-none focus:ring-2 focus:ring-[#0ea5e9] focus:border-transparent
-                       transition-colors"
-                placeholder="••••••••"
-              />
-              <button type="button" @click="show = !show"
-                      class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#475569] hover:text-[#94a3b8] transition-colors"
-                      :aria-label="show ? 'Hide password' : 'Show password'">
-                <svg x-show="!show" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                </svg>
-                <svg x-show="show" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" style="display:none;">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>
-                </svg>
-              </button>
-            </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <div class="pw-wrap">
+            <input id="password" name="password" type="password" required
+                   autocomplete="current-password" placeholder="••••••••" />
+            <button type="button" class="pw-toggle" id="pw-toggle"
+                    aria-label="Show password">
+              <svg id="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+              </svg>
+              <svg id="eye-closed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" style="display:none;">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>
+              </svg>
+            </button>
           </div>
         </div>
 
-        <button
-          type="submit"
-          :disabled="loading"
-          class="mt-5 w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg
-                 bg-[#0ea5e9] hover:bg-sky-400 disabled:opacity-60 disabled:cursor-not-allowed
-                 text-white text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-[#0ea5e9] focus:ring-offset-2 focus:ring-offset-[#1e293b]"
-        >
-          <svg x-show="loading" class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" style="display:none;">
+        <button type="submit" class="btn-submit" id="submit-btn">
+          <svg class="spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
           </svg>
-          <span x-text="loading ? 'Signing in…' : 'Sign in'">Sign in</span>
+          <span class="btn-label">Sign in</span>
+          <span class="btn-loading-label">Signing in…</span>
         </button>
-
       </form>
     </div>
 
-    <!-- Footer -->
-    <p class="text-center text-xs text-[#475569] mt-6">
-      JA4proxy Management — Secure access only
-    </p>
-
+    <p class="footer">JA4proxy Management — Secure access only</p>
   </div>
+
+  <script>
+    (function() {
+      var toggle = document.getElementById('pw-toggle');
+      var pw = document.getElementById('password');
+      var eyeOpen = document.getElementById('eye-open');
+      var eyeClosed = document.getElementById('eye-closed');
+      toggle.addEventListener('click', function() {
+        var showing = pw.type === 'text';
+        pw.type = showing ? 'password' : 'text';
+        eyeOpen.style.display = showing ? '' : 'none';
+        eyeClosed.style.display = showing ? 'none' : '';
+        toggle.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+      });
+      document.getElementById('login-form').addEventListener('submit', function() {
+        document.getElementById('submit-btn').classList.add('loading');
+        document.getElementById('submit-btn').disabled = true;
+      });
+    })();
+  </script>
 </body>
 </html>

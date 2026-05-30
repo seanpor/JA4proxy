@@ -3,7 +3,7 @@
 Multi-strategy threat evaluation for JA4 proxy.
 
 This module evaluates threat levels based on connection patterns across
-multiple rate limiting strategies, implementing defense in depth.
+multiple rate limiting strategies, implementing defence in depth.
 
 Security Considerations:
 - Multiple independent strategies prevent bypass

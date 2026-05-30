@@ -1065,7 +1065,7 @@ class TestPcapReplayExtras:
         assert len(slept) >= 1  # asyncio.sleep was called for the delay
 
     @pytest.mark.asyncio
-    async def test_pcap_replay_skips_unparseable_scapy_packet(self, tmp_path):
+    async def test_pcap_replay_skips_unparsable_scapy_packet(self, tmp_path):
         """Packets where _scapy_to_parsed returns None must be silently skipped."""
         from scapy.all import Ether, wrpcap  # type: ignore[import]
 
@@ -1093,7 +1093,7 @@ class TestPcapReplayExtras:
 
 
 class TestDispatchEarlyReturn:
-    def test_dispatch_returns_early_on_unparseable_frame(self):
+    def test_dispatch_returns_early_on_unparsable_frame(self):
         """_dispatch must not call _route_to_worker for frames that parse as None."""
         cap = PacketCapture(config={"tap": {}}, workers=[])
         routed = []

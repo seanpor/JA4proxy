@@ -2,7 +2,7 @@ package security
 
 // Phase 203b — TDD red: ja4_tls_mismatch signal.
 // Contract: (*TLSEnforcer).CheckJA4TLSMismatch(ja4 string, actualTLSVersion uint16) *RiskSignal
-//   - nil on match or unparseable JA4 (fail open)
+//   - nil on match or unparsable JA4 (fail open)
 //   - *RiskSignal{Name:"ja4_tls_mismatch", Score:35, Weight:1.0} on mismatch
 // JA4 prefix → TLS version: t13→0x0304, t12→0x0303, t11→0x0302, t10→0x0301, s30→0x0300.
 

@@ -333,10 +333,10 @@ func TestTapConsumer_UnparseableIP_FailsOpen(t *testing.T) {
 	rc := &fakeRedis{values: map[string]string{}}
 	tc := NewTapConsumer(newTapConfig(), rc, nil)
 	if got := tc.GetSignal(context.Background(), "not-an-ip", chromeWindowsJA4); got != nil {
-		t.Errorf("unparseable IP must fail open; got %+v", got)
+		t.Errorf("unparsable IP must fail open; got %+v", got)
 	}
 	if rc.calls() != 0 {
-		t.Errorf("unparseable IP must not touch Redis; got %d calls", rc.calls())
+		t.Errorf("unparsable IP must not touch Redis; got %d calls", rc.calls())
 	}
 }
 

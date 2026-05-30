@@ -1101,7 +1101,7 @@ class RDAPEnricher:
     # ------------------------------------------------------------------
 
     def _load_known_bad_orgs(self) -> None:
-        """Load config/known_bad_orgs.yml. Fatal if missing or unparseable."""
+        """Load config/known_bad_orgs.yml. Fatal if missing or unparsable."""
         path = self._known_bad_orgs_path
         if not os.path.exists(path):
             raise FileNotFoundError(

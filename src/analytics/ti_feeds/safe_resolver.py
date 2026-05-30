@@ -127,6 +127,8 @@ def resolve_host_safe(host: str, port: int) -> list:
     results = []
     for family, socktype, proto, canonname, sockaddr in infos:
         ip_str = sockaddr[0]
+        # mypy needs help understanding that sockaddr[0] is str for AF_INET/AF_INET6
+        assert isinstance(ip_str, str), f"Expected str from sockaddr[0], got {type(ip_str)}"
         if not is_publicly_routable_ip(ip_str):
             raise ValueError(f"SSRF blocked: {host} resolved to private IP {ip_str}")
         results.append(sockaddr)

@@ -144,7 +144,7 @@ class TestCheckAccessNormal:
         rt.track_connection.assert_not_called()
 
     async def test_normal_traffic_allowed(self):
-        """All strategies show normal behavior → Allowed."""
+        """All strategies show normal behaviour → Allowed."""
         ae = MagicMock()
         ae.is_blocked.return_value = (False, "")
 

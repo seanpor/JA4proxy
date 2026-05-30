@@ -31,7 +31,7 @@ from typing import Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from ..audit_utils import write_audit
-from ..auth import require_role
+from ..auth import _client_ip, require_role
 from ..models import (
     Role,
     TIFeedListResponse,
@@ -116,16 +116,6 @@ async def _check_poll_rate_limit(feed_id: str, redis) -> None:
             feed_id,
             exc,
         )
-
-
-def _client_ip(request: Request) -> str:
-    """Extract the real client IP, honouring X-Forwarded-For."""
-    forwarded_for = request.headers.get("X-Forwarded-For")
-    if forwarded_for:
-        return forwarded_for.split(",")[0].strip()
-    if request.client:
-        return request.client.host
-    return "unknown"
 
 
 async def _load_feed_configs() -> list[dict[str, Any]]:

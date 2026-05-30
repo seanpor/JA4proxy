@@ -120,9 +120,11 @@ type Dispatcher struct {
 	sleep  func(time.Duration)
 }
 
-// NewDispatcher creates a new Dispatcher connected to the Redis instance at addr.
-func NewDispatcher(cfg DispatcherConfig, addr string, log *logrus.Logger) (*Dispatcher, error) {
-	rc := redis.NewClient(&redis.Options{Addr: addr})
+// NewDispatcher creates a new Dispatcher using the provided Redis client.
+// Phase 122 H-4: accepts an existing redis.UniversalClient so the caller's
+// authentication, TLS, and username configuration is reused instead of
+// creating a second unauthenticated connection.
+func NewDispatcher(cfg DispatcherConfig, rc redis.UniversalClient, log *logrus.Logger) (*Dispatcher, error) {
 	sleepFn := cfg.SleepFn
 	if sleepFn == nil {
 		sleepFn = time.Sleep

@@ -82,6 +82,12 @@ func buildFailoverOptions(cfg Config) *goredis.FailoverOptions {
 	return opts
 }
 
+// Raw returns the underlying go-redis client for use by packages that need
+// direct Redis access (e.g. webhook dispatcher). Phase 122 H-4.
+func (c *Client) Raw() goredis.UniversalClient {
+	return c.rdb
+}
+
 // newFromOptions is a test seam: constructs a Client from pre-built options.
 func newFromOptions(opts *goredis.Options, log *logrus.Logger) *Client {
 	if log == nil {

@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, Request
 
 from ..audit_utils import write_audit
-from ..auth import require_role
+from ..auth import _client_ip, require_role
 from ..models import ConfigReloadResponse, Role
 from ..redis_client import get_redis
 
@@ -24,15 +24,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["config"])
 
 _RELOAD_CHANNEL = "config.reload"
-
-
-def _client_ip(request: Request) -> str:
-    forwarded_for = request.headers.get("X-Forwarded-For")
-    if forwarded_for:
-        return forwarded_for.split(",")[0].strip()
-    if request.client:
-        return request.client.host
-    return "unknown"
 
 
 @router.post("/api/v1/config/reload", response_model=ConfigReloadResponse)

@@ -151,7 +151,7 @@ class TestIsSupportedEdgeCases:
             mock_plat.release.return_value = "6.1.0-20-amd64"
             assert is_supported() is True
 
-    def test_unparseable_release_returns_false(self):
+    def test_unparsable_release_returns_false(self):
         """Lines 66-68: platform.release() raises → False."""
         with patch("src.security.seccomp_transition.sys") as mock_sys, patch(
             "src.security.seccomp_transition.platform"

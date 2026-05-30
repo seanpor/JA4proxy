@@ -37,6 +37,7 @@ import base64
 import hashlib
 import json
 import os
+import time as _time
 from typing import AsyncGenerator
 from unittest.mock import AsyncMock, patch
 from urllib.parse import parse_qs, urlparse
@@ -89,31 +90,61 @@ _FAKE_DISCOVERY = {
 }
 
 
+def _make_rs256_key_pair():
+    """Generate a real RS256 key pair for signing test JWTs."""
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
+
+    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    return private_key
+
+
+def _sign_id_token(
+    private_key,
+    sub: str = "user-sig-test",
+    groups: list[str] | None = None,
+    exp_offset: int = 3600,
+    iss: str = "http://mock-idp.test",
+    amr: list[str] | None = None,
+) -> str:
+    """Sign a minimal ID token with the given RS256 private key using authlib."""
+    from authlib.jose import jwt as authlib_jwt
+
+    now = int(_time.time())
+    claims = {
+        "sub": sub,
+        "email": f"{sub}@example.com",
+        "groups": groups or ["Security-Admins"],
+        "iss": iss,
+        "aud": "ja4proxy-test",
+        "iat": now,
+        "exp": now + exp_offset,
+    }
+    if amr is not None:
+        claims["amr"] = amr
+    header = {"alg": "RS256"}
+    return authlib_jwt.encode(header, claims, private_key).decode()
+
+
+def _make_jwks_keyset(private_key):
+    """Build a JsonWebKey keyset from an RSA private key (public part only)."""
+    from authlib.jose import JsonWebKey
+
+    public_key = private_key.public_key()
+    key = JsonWebKey.import_key(public_key, {"kty": "RSA"})
+    return JsonWebKey.import_key_set({"keys": [dict(key)]})
+
+
+_TEST_PRIVATE_KEY = _make_rs256_key_pair()
+
+
 def _fake_id_token(
     sub: str = "user-123",
     email: str = "user@example.com",
     groups: list[str] | None = None,
 ) -> str:
-    """Build a fake (unsigned) JWT id_token for testing."""
-    header = (
-        base64.urlsafe_b64encode(b'{"alg":"RS256","typ":"JWT"}').rstrip(b"=").decode()
-    )
-    payload = (
-        base64.urlsafe_b64encode(
-            json.dumps(
-                {
-                    "sub": sub,
-                    "email": email,
-                    "groups": groups or ["Security-Admins"],
-                    "exp": 9999999999,
-                    "iat": 1000000000,
-                }
-            ).encode()
-        )
-        .rstrip(b"=")
-        .decode()
-    )
-    return f"{header}.{payload}.fakesignature"
+    """Build a properly signed RS256 JWT id_token for testing."""
+    return _sign_id_token(_TEST_PRIVATE_KEY, sub=sub, groups=groups)
 
 
 def _fake_token_response(
@@ -313,8 +344,12 @@ async def test_oidc_callback_valid_sets_cookie(
     fake_redis: fakeredis.aioredis.FakeRedis,
 ) -> None:
     """GET /auth/sso/oidc/callback with valid code+state sets JWT cookie."""
+    from management.api.routes.oidc import _clear_jwks_cache
+
     state = await _do_login_get_state(public_client, fake_redis)
 
+    _clear_jwks_cache()
+    key_set = _make_jwks_keyset(_TEST_PRIVATE_KEY)
     with (
         patch(
             "management.api.routes.oidc._fetch_oidc_discovery",
@@ -323,6 +358,10 @@ async def test_oidc_callback_valid_sets_cookie(
         patch(
             "management.api.routes.oidc._exchange_code_for_tokens",
             new=AsyncMock(return_value=_fake_token_response()),
+        ),
+        patch(
+            "management.api.routes.oidc._fetch_jwks",
+            new=AsyncMock(return_value=key_set),
         ),
     ):
         r = await public_client.get(
@@ -345,6 +384,8 @@ async def test_oidc_callback_role_embedded_in_jwt(
     """Callback JWT contains the role derived from OIDC groups claim."""
     from jose import jwt as _jwt
 
+    from management.api.routes.oidc import _clear_jwks_cache
+
     app = create_app()
     await _redis_module.init_redis(override_client=fake_redis)
     async with AsyncClient(
@@ -352,6 +393,8 @@ async def test_oidc_callback_role_embedded_in_jwt(
     ) as client:
         state = await _do_login_get_state(client, fake_redis)
 
+        _clear_jwks_cache()
+        key_set = _make_jwks_keyset(_TEST_PRIVATE_KEY)
         with (
             patch(
                 "management.api.routes.oidc._fetch_oidc_discovery",
@@ -365,6 +408,10 @@ async def test_oidc_callback_role_embedded_in_jwt(
                         groups=["SecOps-Operators"],
                     )
                 ),
+            ),
+            patch(
+                "management.api.routes.oidc._fetch_jwks",
+                new=AsyncMock(return_value=key_set),
             ),
         ):
             r = await client.get(
@@ -406,8 +453,12 @@ async def test_oidc_callback_state_is_single_use(
     fake_redis: fakeredis.aioredis.FakeRedis,
 ) -> None:
     """State can only be used once — second callback use returns 400."""
+    from management.api.routes.oidc import _clear_jwks_cache
+
     state = await _do_login_get_state(public_client, fake_redis)
 
+    _clear_jwks_cache()
+    key_set = _make_jwks_keyset(_TEST_PRIVATE_KEY)
     with (
         patch(
             "management.api.routes.oidc._fetch_oidc_discovery",
@@ -416,6 +467,10 @@ async def test_oidc_callback_state_is_single_use(
         patch(
             "management.api.routes.oidc._exchange_code_for_tokens",
             new=AsyncMock(return_value=_fake_token_response()),
+        ),
+        patch(
+            "management.api.routes.oidc._fetch_jwks",
+            new=AsyncMock(return_value=key_set),
         ),
     ):
         r1 = await public_client.get(
@@ -425,6 +480,7 @@ async def test_oidc_callback_state_is_single_use(
     assert r1.status_code in (200, 302), f"First callback failed: {r1.status_code}"
 
     # Second use of same state
+    _clear_jwks_cache()
     with (
         patch(
             "management.api.routes.oidc._fetch_oidc_discovery",
@@ -433,6 +489,10 @@ async def test_oidc_callback_state_is_single_use(
         patch(
             "management.api.routes.oidc._exchange_code_for_tokens",
             new=AsyncMock(return_value=_fake_token_response()),
+        ),
+        patch(
+            "management.api.routes.oidc._fetch_jwks",
+            new=AsyncMock(return_value=key_set),
         ),
     ):
         r2 = await public_client.get(
@@ -450,8 +510,12 @@ async def test_oidc_callback_unmapped_group_returns_403(
     fake_redis: fakeredis.aioredis.FakeRedis,
 ) -> None:
     """Callback returns 403 when OIDC groups have no role mapping."""
+    from management.api.routes.oidc import _clear_jwks_cache
+
     state = await _do_login_get_state(public_client, fake_redis)
 
+    _clear_jwks_cache()
+    key_set = _make_jwks_keyset(_TEST_PRIVATE_KEY)
     with (
         patch(
             "management.api.routes.oidc._fetch_oidc_discovery",
@@ -460,6 +524,10 @@ async def test_oidc_callback_unmapped_group_returns_403(
         patch(
             "management.api.routes.oidc._exchange_code_for_tokens",
             new=AsyncMock(return_value=_fake_token_response(groups=["Unknown-Group"])),
+        ),
+        patch(
+            "management.api.routes.oidc._fetch_jwks",
+            new=AsyncMock(return_value=key_set),
         ),
     ):
         r = await public_client.get(
@@ -695,8 +763,12 @@ async def test_oidc_callback_success_writes_audit_entry(
     Verifies Gap 2: SSO login events must appear in the audit trail.
     actor_id must equal the 'sub' claim from the ID token.
     """
+    from management.api.routes.oidc import _clear_jwks_cache
+
     state = await _do_login_get_state(public_client, fake_redis)
 
+    _clear_jwks_cache()
+    key_set = _make_jwks_keyset(_TEST_PRIVATE_KEY)
     with (
         patch(
             "management.api.routes.oidc._fetch_oidc_discovery",
@@ -705,6 +777,10 @@ async def test_oidc_callback_success_writes_audit_entry(
         patch(
             "management.api.routes.oidc._exchange_code_for_tokens",
             new=AsyncMock(return_value=_fake_token_response(sub="oidc-user-audit")),
+        ),
+        patch(
+            "management.api.routes.oidc._fetch_jwks",
+            new=AsyncMock(return_value=key_set),
         ),
     ):
         r = await public_client.get(
@@ -741,6 +817,8 @@ async def test_oidc_callback_idp_mfa_amr_sets_session_key(
     """When MANAGEMENT_SSO_TRUST_IDP_MFA=true and amr=['mfa'], MFA session key is set."""
     import hashlib
 
+    from management.api.routes.oidc import _clear_jwks_cache
+
     app = create_app()
     await _redis_module.init_redis(override_client=fake_redis)
     async with AsyncClient(
@@ -749,27 +827,12 @@ async def test_oidc_callback_idp_mfa_amr_sets_session_key(
         state = await _do_login_get_state(client, fake_redis)
 
         token_resp = _fake_token_response(sub="mfa-oidc-user")
-        # Inject amr claim into the id_token
-        header = (
-            base64.urlsafe_b64encode(b'{"alg":"RS256","typ":"JWT"}')
-            .rstrip(b"=")
-            .decode()
+        token_resp["id_token"] = _sign_id_token(
+            _TEST_PRIVATE_KEY, sub="mfa-oidc-user", amr=["mfa"]
         )
-        payload_data = {
-            "sub": "mfa-oidc-user",
-            "email": "mfa@example.com",
-            "groups": ["Security-Admins"],
-            "amr": ["mfa"],
-            "exp": 9999999999,
-            "iat": 1000000000,
-        }
-        payload = (
-            base64.urlsafe_b64encode(json.dumps(payload_data).encode())
-            .rstrip(b"=")
-            .decode()
-        )
-        token_resp["id_token"] = f"{header}.{payload}.fakesig"
 
+        _clear_jwks_cache()
+        key_set = _make_jwks_keyset(_TEST_PRIVATE_KEY)
         saved = os.environ.get("MANAGEMENT_SSO_TRUST_IDP_MFA")
         try:
             os.environ["MANAGEMENT_SSO_TRUST_IDP_MFA"] = "true"
@@ -781,6 +844,10 @@ async def test_oidc_callback_idp_mfa_amr_sets_session_key(
                 patch(
                     "management.api.routes.oidc._exchange_code_for_tokens",
                     new=AsyncMock(return_value=token_resp),
+                ),
+                patch(
+                    "management.api.routes.oidc._fetch_jwks",
+                    new=AsyncMock(return_value=key_set),
                 ),
             ):
                 r = await client.get(
@@ -816,27 +883,17 @@ async def test_oidc_callback_idp_mfa_trust_disabled_no_session_key(
     """When MANAGEMENT_SSO_TRUST_IDP_MFA is not set, MFA session key is NOT set."""
     import hashlib
 
+    from management.api.routes.oidc import _clear_jwks_cache
+
     state = await _do_login_get_state(public_client, fake_redis)
 
     token_resp = _fake_token_response()
-    header = (
-        base64.urlsafe_b64encode(b'{"alg":"RS256","typ":"JWT"}').rstrip(b"=").decode()
+    token_resp["id_token"] = _sign_id_token(
+        _TEST_PRIVATE_KEY, sub="user-no-trust", amr=["mfa"]
     )
-    payload_data = {
-        "sub": "user-no-trust",
-        "email": "notrust@example.com",
-        "groups": ["Security-Admins"],
-        "amr": ["mfa"],
-        "exp": 9999999999,
-        "iat": 1000000000,
-    }
-    payload = (
-        base64.urlsafe_b64encode(json.dumps(payload_data).encode())
-        .rstrip(b"=")
-        .decode()
-    )
-    token_resp["id_token"] = f"{header}.{payload}.fakesig"
 
+    _clear_jwks_cache()
+    key_set = _make_jwks_keyset(_TEST_PRIVATE_KEY)
     saved = os.environ.pop("MANAGEMENT_SSO_TRUST_IDP_MFA", None)
     try:
         with (
@@ -847,6 +904,10 @@ async def test_oidc_callback_idp_mfa_trust_disabled_no_session_key(
             patch(
                 "management.api.routes.oidc._exchange_code_for_tokens",
                 new=AsyncMock(return_value=token_resp),
+            ),
+            patch(
+                "management.api.routes.oidc._fetch_jwks",
+                new=AsyncMock(return_value=key_set),
             ),
         ):
             r = await public_client.get(
@@ -871,50 +932,6 @@ async def test_oidc_callback_idp_mfa_trust_disabled_no_session_key(
 
 # Tests for the new async _extract_claims(id_token, jwks_uri) and _fetch_jwks().
 # We generate a real RS256 key pair so the signature tests are meaningful.
-
-import time as _time
-
-
-def _make_rs256_key_pair():
-    """Generate a real RS256 key pair for signing test JWTs."""
-    from cryptography.hazmat.primitives import serialization
-    from cryptography.hazmat.primitives.asymmetric import rsa
-
-    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    return private_key
-
-
-def _sign_id_token(
-    private_key,
-    sub: str = "user-sig-test",
-    groups: list[str] | None = None,
-    exp_offset: int = 3600,
-    iss: str = "http://mock-idp.test",
-) -> str:
-    """Sign a minimal ID token with the given RS256 private key using authlib."""
-    from authlib.jose import jwt as authlib_jwt
-
-    now = int(_time.time())
-    claims = {
-        "sub": sub,
-        "email": f"{sub}@example.com",
-        "groups": groups or ["Security-Admins"],
-        "iss": iss,
-        "aud": "ja4proxy-test",
-        "iat": now,
-        "exp": now + exp_offset,
-    }
-    header = {"alg": "RS256"}
-    return authlib_jwt.encode(header, claims, private_key).decode()
-
-
-def _make_jwks_keyset(private_key):
-    """Build a JsonWebKey keyset from an RSA private key (public part only)."""
-    from authlib.jose import JsonWebKey
-
-    public_key = private_key.public_key()
-    key = JsonWebKey.import_key(public_key, {"kty": "RSA"})
-    return JsonWebKey.import_key_set({"keys": [dict(key)]})
 
 
 @pytest.mark.asyncio

@@ -104,15 +104,15 @@ def main():
     # Status
     if line_ratio >= 1.3:
         status = "✅ EXCELLENT"
-        color = "\033[92m"
+        colour = "\033[92m"
     elif line_ratio >= 1.0:
         status = "⚠️  GOOD"
-        color = "\033[93m"
+        colour = "\033[93m"
     else:
         status = "❌ LOW"
-        color = "\033[91m"
+        colour = "\033[91m"
 
-    print(f"\n{color}Status: {status}\033[0m")
+    print(f"\n{colour}Status: {status}\033[0m")
 
     if line_ratio < 1.3:
         print("\n💡 Suggestion: Add more tests to reach the 1.3:1 target ratio.")

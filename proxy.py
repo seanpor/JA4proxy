@@ -65,7 +65,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import redis
 import yaml
-from prometheus_client import Counter, Gauge, Histogram, Info, start_http_server
+from prometheus_client import Counter, Gauge, Histogram, Info
 
 # GeoIP country lookup
 try:
@@ -229,7 +229,10 @@ def _parse_tls_task(data: bytes) -> Optional[Dict]:
         tls_packet = TLS(data)
         parser = TLSParser()
         return parser.parse_client_hello(tls_packet)
-    except Exception:
+    except Exception as e:
+        logging.getLogger(__name__).debug(
+            "TLS parse failed for %d bytes: %s", len(data) if data else 0, e
+        )
         return None
 
 
@@ -325,10 +328,10 @@ class GeoIPLookup:
                     # IP2Location-Python doesn't have an explicit close() but we
                     # let the old object be garbage collected.
 
-                    self.logger.info(f"GeoIP database hot-reloaded: {p}")
+                    self.logger.info("GeoIP database hot-reloaded: %s", p)
                     return True
                 except Exception as e:
-                    self.logger.error(f"Failed to hot-reload GeoIP database {p}: {e}")
+                    self.logger.error("Failed to hot-reload GeoIP database %s: %s", p, e)
 
         if not self.db:
             self.logger.warning("No GeoIP database found - country lookup disabled")
@@ -347,6 +350,7 @@ class GeoIPLookup:
             code = rec.country_short
             return code if code and code != "-" else ""
         except Exception:
+            self.logger.debug("GeoIP lookup failed for %s", ip)
             return ""
 
 
@@ -387,7 +391,7 @@ class JA4Fingerprint:
             raise ValidationError("JA4 fingerprint must be string")
 
         ja4 = ja4.strip()
-        # Allow sentinel values for non-TLS or unparseable connections
+        # Allow sentinel values for non-TLS or unparsable connections
         if ja4 in ("unknown", "error"):
             return ja4
         if not VALID_JA4_PATTERN.match(ja4):
@@ -467,13 +471,13 @@ class TLSParser:
 
             return None
         except Exception as e:
-            self.logger.error(f"Error parsing Client Hello: {e}")
+            self.logger.error("Error parsing Client Hello: %s", e)
             return None
 
     def _extract_client_hello_fields(self, client_hello, depth: int = 0) -> Dict:
         """Extract fields from Client Hello message."""
         if depth > MAX_TLS_PARSER_DEPTH:
-            self.logger.warning(f"Max TLS parsing depth exceeded: {depth}")
+            self.logger.warning("Max TLS parsing depth exceeded: %d", depth)
             return {}
 
         fields = {
@@ -619,7 +623,7 @@ class JA4Generator:
             return ja4
 
         except Exception as e:
-            self.logger.error(f"Error generating JA4: {e}", exc_info=True)
+            self.logger.error("Error generating JA4: %s", e, exc_info=True)
             raise ValidationError(f"JA4 generation failed: {e}")
 
     def generate_ja4x(self, issuer: str, subject: str, san: str) -> str:
@@ -647,7 +651,7 @@ class JA4Generator:
             return ja4x
 
         except Exception as e:
-            self.logger.error(f"Error generating JA4X: {e}", exc_info=True)
+            self.logger.error("Error generating JA4X: %s", e, exc_info=True)
             # Return sentinel value for missing/invalid certificates
             return "000000000000_000000000000_000000000000"
 
@@ -712,10 +716,10 @@ class ConfigManager:
             )
             return self._default_config()
         except yaml.YAMLError as e:
-            self.logger.error(f"YAML parsing error: {e}")
+            self.logger.error("YAML parsing error: %s", e)
             raise ValidationError(f"Invalid configuration file: {e}")
         except Exception as e:
-            self.logger.error(f"Error loading config: {e}")
+            self.logger.error("Error loading config: %s", e)
             raise ValidationError(f"Configuration loading failed: {e}")
 
     def _validate_config(self, config: Dict) -> Dict:
@@ -898,10 +902,19 @@ class ConfigManager:
             "rate_limiting",
             "block_unknown_ja4",
             "tarpit_enabled",
+            "dial_fail_closed",
         ]
         for flag in bool_flags:
             if flag in security_config and not isinstance(security_config[flag], bool):
                 raise ValidationError(f"{flag} must be boolean")
+
+        # Validate on_unknown_ja4 policy (must be "forward", "block", or "tarpit")
+        on_unknown = security_config.get("on_unknown_ja4", "forward")
+        if on_unknown not in ("forward", "block", "tarpit"):
+            raise ValidationError(
+                f"Invalid on_unknown_ja4 value: {on_unknown!r}. "
+                "Must be 'forward', 'block', or 'tarpit'."
+            )
 
         # Validate numeric values
         if "max_requests_per_minute" in security_config:
@@ -969,6 +982,8 @@ class ConfigManager:
                 "rate_limiting": True,
                 "max_requests_per_minute": 100,
                 "block_unknown_ja4": False,
+                "on_unknown_ja4": "forward",
+                "dial_fail_closed": False,
                 "tarpit_enabled": False,
                 "tarpit_duration": 10,
             },
@@ -1059,7 +1074,7 @@ class SecurityManager:
                 )
 
         except Exception as e:
-            self.logger.error(f"Error loading security lists: {e}")
+            self.logger.error("Error loading security lists: %s", e)
             # Do NOT clear existing lists on error — preserve last known good state
 
     async def check_access(
@@ -1073,8 +1088,27 @@ class SecurityManager:
                 dial_val = await self.redis.get("dial")
                 if dial_val:
                     dial = int(dial_val)
-            except Exception:
-                pass  # Use default dial=0 on error
+            except Exception as e:
+                # Log warning on every Redis failure.
+                # Default to dial=0 (monitor mode) for backward compatibility.
+                # Set security.dial_fail_closed: true in config to fail
+                # restricted (dial=100) when Redis is unavailable.
+                fail_closed = self.config.get("security", {}).get(
+                    "dial_fail_closed", False
+                )
+                if fail_closed:
+                    self.logger.error(
+                        "FAIL_CLOSED: Redis unreachable for dial read (%s), "
+                        "defaulting to dial=100 (most restrictive)",
+                        e,
+                    )
+                    dial = 100
+                else:
+                    self.logger.warning(
+                        "FAIL_OPEN: Redis unreachable for dial read (%s), "
+                        "defaulting to dial=0 (monitor mode, all traffic allowed)",
+                        e,
+                    )
 
             # At dial=0 (monitor mode), NEVER block - just log what would happen
             if dial == 0:
@@ -1086,7 +1120,7 @@ class SecurityManager:
                 "alpn_browser_bypass", {}
             )
             if alpn_bypass.get("enabled", True) and alpn in ("h2", "http/1.1", "h1"):
-                self.logger.debug(f"ALPN bypass: {alpn} - skipping rate limit")
+                self.logger.debug("ALPN bypass: %s - skipping rate limit", alpn)
                 # Still check blacklist/whitelist but skip rate limiting
                 return self._check_list_based_access(fingerprint)
 
@@ -1101,7 +1135,7 @@ class SecurityManager:
             return self._check_list_based_access(fingerprint)
 
         except Exception as e:
-            self.logger.error(f"Error checking access: {e}")
+            self.logger.error("Error checking access: %s", e)
             return False, "Internal error"
 
     def _check_list_based_access(self, fingerprint: JA4Fingerprint) -> Tuple[bool, str]:
@@ -1148,6 +1182,9 @@ class SecurityManager:
                     ipaddress.IPv6Network(f"{ip_obj}/64", strict=False).network_address
                 )
         except Exception:
+            self.logger.warning(
+                "Failed to compute subnet for %s, disabling adaptive rate limiting", client_ip
+            )
             subnet = "unknown"
 
         # Read adaptive threshold from Redis
@@ -1171,7 +1208,7 @@ class SecurityManager:
                     # Clamp to configured bounds
                     return max(min_threshold, min(threshold, max_threshold))
         except Exception as e:
-            self.logger.debug(f"Adaptive rate data read failed: {e}")
+            self.logger.debug("Adaptive rate data read failed: %s", e)
 
         # Fallback to static configuration
         return self.config["security"].get("max_requests_per_minute", 100)
@@ -1224,7 +1261,7 @@ class SecurityManager:
 
         except redis.ConnectionError as e:
             # SECURITY FIX: Fail closed on Redis connection errors
-            self.logger.error(f"Rate limit check failed - Redis connection error: {e}")
+            self.logger.error("Rate limit check failed - Redis connection error: %s", e)
             SECURITY_EVENTS.labels(
                 event_type="rate_limit_error", severity="critical", source="redis"
             ).inc()
@@ -1232,7 +1269,7 @@ class SecurityManager:
             return False
 
         except redis.TimeoutError as e:
-            self.logger.error(f"Rate limit check failed - Redis timeout: {e}")
+            self.logger.error("Rate limit check failed - Redis timeout: %s", e)
             SECURITY_EVENTS.labels(
                 event_type="rate_limit_timeout", severity="critical", source="redis"
             ).inc()
@@ -1262,7 +1299,7 @@ class TarpitManager:
             return
 
         delay = duration or self.config["security"]["tarpit_duration"]
-        self.logger.info(f"Applying TARPIT delay of {delay}s")
+        self.logger.info("Applying TARPIT delay of %ss", delay)
 
         try:
             await asyncio.sleep(delay)
@@ -1647,8 +1684,6 @@ class ProxyServer:
                 AbuseIPDBConfig.from_config(new_config)
             )
         if hasattr(self, "_rdap_enricher") and self._rdap_enricher:
-            from src.security.rdap_enrichment import RDAPConfig
-
             self._rdap_enricher.on_config_reload(new_config)
 
         # 4. Update Health Monitor
@@ -1666,14 +1701,14 @@ class ProxyServer:
         if whitelist:
             for fp in whitelist:
                 await self.redis_client.sadd("ja4:whitelist", fp.encode())
-            self.logger.info(f"Loaded {len(whitelist)} whitelist entries")
+            self.logger.info("Loaded %d whitelist entries", len(whitelist))
 
         # Populate blacklist
         blacklist = security_config.get("blacklist", [])
         if blacklist:
             for fp in blacklist:
                 await self.redis_client.sadd("ja4:blacklist", fp.encode())
-            self.logger.info(f"Loaded {len(blacklist)} blacklist entries")
+            self.logger.info("Loaded %d blacklist entries", len(blacklist))
 
         # Reload security lists
         await self.security_manager._load_security_lists()
@@ -1683,7 +1718,7 @@ class ProxyServer:
         if safe_countries:
             for cc in safe_countries:
                 await self.redis_client.sadd("geoip:safe_countries", cc.upper())
-            self.logger.info(f"Loaded {len(safe_countries)} safe countries")
+            self.logger.info("Loaded %d safe countries", len(safe_countries))
 
     async def _refresh_cidr_blocks(self) -> None:
         """Reload CIDR block list from Redis if cache is stale (every 30s)."""
@@ -1703,7 +1738,7 @@ class ProxyServer:
             self._cidr_blocks = nets
             self._cidr_blocks_loaded_at = time.monotonic()
         except Exception as e:
-            self.logger.debug(f"CIDR block refresh skipped: {e}")
+            self.logger.debug("CIDR block refresh skipped: %s", e)
 
     def _is_cidr_blocked(self, ip: str) -> Optional[str]:
         """Return the matching CIDR string if this IP is blocked, else None."""
@@ -1776,7 +1811,7 @@ class ProxyServer:
             unix_socket_path = redis_config.get("unix_socket_path")
             if unix_socket_path:
                 # Use Unix domain socket
-                self.logger.info(f"Using Redis Unix domain socket: {unix_socket_path}")
+                self.logger.info("Using Redis Unix domain socket: %s", unix_socket_path)
                 redis_client = redis.asyncio.Redis(
                     unix_socket_path=unix_socket_path,
                     db=db,
@@ -1813,13 +1848,13 @@ class ProxyServer:
 
         except redis.AuthenticationError as e:
             # Must precede ConnectionError: AuthenticationError is a subclass of it.
-            self.logger.error(f"Redis authentication failed: {e}")
+            self.logger.error("Redis authentication failed: %s", e)
             raise SecurityError(f"Redis authentication failed - check credentials: {e}")
         except redis.ConnectionError as e:
-            self.logger.error(f"Redis connection failed: {e}")
+            self.logger.error("Redis connection failed: %s", e)
             raise SecurityError(f"Cannot establish secure Redis connection: {e}")
         except Exception as e:
-            self.logger.error(f"Redis initialization error: {e}")
+            self.logger.error("Redis initialization error: %s", e)
             raise
 
     def _init_logging(self) -> logging.Logger:
@@ -1897,7 +1932,7 @@ class ProxyServer:
                     try:
                         await self.health_monitor.check()
                     except Exception as e:
-                        self.logger.error(f"Error in health check loop: {e}")
+                        self.logger.error("Error in health check loop: %s", e)
                     await asyncio.sleep(2)
 
             self._health_task = asyncio.create_task(_health_checker_loop())
@@ -2014,9 +2049,9 @@ class ProxyServer:
             import aiohttp as _aiohttp
 
             t0 = _t.monotonic()
-            async with _probe_session.head(
+            async with _probe_session.head(  # pylint: disable=not-async-context-manager
                 url, timeout=_aiohttp.ClientTimeout(total=5)
-            ) as r:  # pylint: disable=not-async-context-manager
+            ) as r:
                 if r.status >= 500:
                     raise RuntimeError(f"{feed} probe returned HTTP {r.status}")
             return _t.monotonic() - t0
@@ -2103,7 +2138,7 @@ class ProxyServer:
         bind_addr = (
             f"{self.config['proxy']['bind_host']}:{self.config['proxy']['bind_port']}"
         )
-        self.logger.info(f"Proxy server listening on {bind_addr}")
+        self.logger.info("Proxy server listening on %s", bind_addr)
 
         # Phase 56b: Apply runtime seccomp profile — narrower than startup profile.
         # Startup (Docker seccomp JSON) allows file loading and module imports;
@@ -2260,18 +2295,18 @@ class ProxyServer:
                 try:
                     await self._abuseipdb_checker.stop()
                 except Exception as exc:
-                    self.logger.warning(f"abuseipdb | event=stop_error | error={exc}")
+                    self.logger.warning("abuseipdb | event=stop_error | error=%s", exc)
             # Phase 11: Graceful shutdown of RDAP enricher workers
             if getattr(self, "_rdap_enricher", None) is not None:
                 try:
                     await self._rdap_enricher.stop()
                 except Exception as exc:
-                    self.logger.warning(f"rdap | event=stop_error | error={exc}")
+                    self.logger.warning("rdap | event=stop_error | error=%s", exc)
             if getattr(self, "_aiohttp_session", None) is not None:
                 try:
                     await self._aiohttp_session.close()
                 except Exception as exc:
-                    self.logger.warning(f"aiohttp | event=close_error | error={exc}")
+                    self.logger.warning("aiohttp | event=close_error | error=%s", exc)
 
             # Phase 28a: Shutdown isolated TLS parsing executor
             if getattr(self, "executor", None) is not None:
@@ -2428,8 +2463,12 @@ class ProxyServer:
                                 attack_type="geo_block",
                             ).inc()
                             return
-                    except Exception:
-                        pass  # fail open on Redis error
+                    except Exception as e:
+                        self.logger.warning(
+                            "FAIL_OPEN: country block check failed for %s "
+                            "(Redis error: %s), allowing connection",
+                            client_ip, e,
+                        )
 
                 # --- CIDR block check (Redis-backed, 30s cache) — Phase 6 TODO: move into Pipeline ---
                 await self._refresh_cidr_blocks()
@@ -2453,14 +2492,55 @@ class ProxyServer:
                     ).inc()
                     return
 
-                # --- FAIL OPEN for unparseable TLS ---
+                # --- Policy for unparsable TLS ---
                 # If we couldn't extract a JA4 fingerprint (Scapy parse failure, non-TLS
                 # protocol, or unusual TLS extension), pipeline scoring on "unknown"/"error"
-                # adds no value. Forward and let the backend decide.
+                # adds no value. Configurable via security.on_unknown_ja4:
+                #   "forward" — send to backend (current default, backward compatible)
+                #   "block"   — close connection with TLS alert
+                #   "tarpit"  — redirect to tarpit for analysis
                 if ja4 in ("unknown", "error"):
+                    on_unknown = self.config.get("security", {}).get(
+                        "on_unknown_ja4", "forward"
+                    )
+                    if on_unknown == "block":
+                        self.logger.warning(
+                            "UNKNOWN_JA4_BLOCKED: %s | Country: %s | "
+                            "TLS version: %s",
+                            client_ip, country or "N/A", fingerprint.tls_version,
+                        )
+                        REQUEST_COUNT.labels(
+                            fingerprint_name="Unknown",
+                            action="blocked",
+                            source_country=country,
+                            tls_version=fingerprint.tls_version,
+                        ).inc()
+                        BLOCKED_REQUESTS.labels(
+                            reason="unknown_ja4",
+                            source_country=country or "",
+                            attack_type="tls_parse_fail",
+                        ).inc()
+                        await self._close_connection(writer, "unknown_ja4_block")
+                        return
+                    elif on_unknown == "tarpit":
+                        self.logger.info(
+                            "UNKNOWN_JA4_TARPIT: %s | Country: %s | "
+                            "Redirecting to tarpit",
+                            client_ip, country or "N/A",
+                        )
+                        REQUEST_COUNT.labels(
+                            fingerprint_name="Unknown",
+                            action="tarpit",
+                            source_country=country,
+                            tls_version=fingerprint.tls_version,
+                        ).inc()
+                        await self._redirect_to_tarpit(data, reader, writer, fingerprint)
+                        return
+                    # default: forward
                     self.logger.info(
-                        f"UNKNOWN_JA4: {client_ip} | Country: {country or 'N/A'} | "
-                        f"Forwarding (TLS parse failed — fail open)"
+                        "UNKNOWN_JA4: %s | Country: %s | "
+                        "Forwarding (TLS parse failed — fail open)",
+                        client_ip, country or "N/A",
                     )
                     REQUEST_COUNT.labels(
                         fingerprint_name="Unknown",
@@ -2535,18 +2615,18 @@ class ProxyServer:
                     return
 
             except asyncio.TimeoutError:
-                self.logger.warning(f"TIMEOUT: {client_ip} | Connection timed out")
+                self.logger.warning("TIMEOUT: %s | Connection timed out", client_ip)
                 TLS_HANDSHAKE_ERRORS.labels(
                     error_type="timeout", tls_version="unknown"
                 ).inc()
             except ValidationError as e:
-                self.logger.warning(f"VALIDATION_ERROR: {client_ip} | {e}")
+                self.logger.warning("VALIDATION_ERROR: %s | %s", client_ip, e)
                 SECURITY_EVENTS.labels(
                     event_type="validation_error", severity="warning", source=client_ip
                 ).inc()
             except ssl.SSLError as e:
                 error_msg = str(e)
-                self.logger.warning(f"TLS_ERROR: {client_ip} | {error_msg}")
+                self.logger.warning("TLS_ERROR: %s | %s", client_ip, error_msg)
                 error_type = "generic_ssl_error"
                 if "SSLV3_ALERT_HANDSHAKE_FAILURE" in error_msg:
                     error_type = "handshake_failure"
@@ -2563,7 +2643,7 @@ class ProxyServer:
                     source=client_ip,
                 ).inc()
             except Exception as e:
-                self.logger.error(f"ERROR: {client_ip} | {e}", exc_info=False)
+                self.logger.error("ERROR: %s | %s", client_ip, e, exc_info=False)
                 SECURITY_EVENTS.labels(
                     event_type="connection_error", severity="error", source=client_ip
                 ).inc()
@@ -2690,8 +2770,8 @@ class ProxyServer:
                         return ip
                     except ValueError:
                         return ""
-        except Exception:
-            pass
+        except Exception as e:
+            self.logger.debug("HTTP IP extraction failed: %s", e)
         return ""
 
     async def _redirect_to_tarpit(
@@ -2758,7 +2838,7 @@ class ProxyServer:
                 asyncio.open_connection(tarpit_host, tarpit_port), timeout=5
             )
 
-            self.logger.info(f"Redirecting to tarpit at {tarpit_host}:{tarpit_port}")
+            self.logger.info("Redirecting to tarpit at %s:%s", tarpit_host, tarpit_port)
 
             # Forward initial data to tarpit
             tarpit_writer.write(data)
@@ -2772,7 +2852,7 @@ class ProxyServer:
             )
 
         except Exception as e:
-            self.logger.debug(f"Tarpit redirect ended: {e}")
+            self.logger.debug("Tarpit redirect ended: %s", e)
         finally:
             if tarpit_writer is not None:
                 try:
@@ -2887,7 +2967,7 @@ class ProxyServer:
             return fingerprint
 
         except Exception as e:
-            self.logger.error(f"Error analyzing TLS handshake: {e}")
+            self.logger.error("Error analyzing TLS handshake: %s", e)
             return JA4Fingerprint(
                 ja4="error", source_ip=client_ip, timestamp=time.time()
             )
@@ -2922,7 +3002,7 @@ class ProxyServer:
             await self.redis_client.expire(key, 3600)  # 1 hour TTL
 
         except Exception as e:
-            self.logger.error(f"Error storing fingerprint: {e}")
+            self.logger.error("Error storing fingerprint: %s", e)
 
     async def _forward_to_backend(
         self,
@@ -2952,7 +3032,7 @@ class ProxyServer:
                 timeout=connect_timeout,
             )
 
-            self.logger.info(f"Forwarding connection with JA4: {fingerprint.ja4}")
+            self.logger.info("Forwarding connection with JA4: %s", fingerprint.ja4)
 
             # Send initial data to backend
             backend_writer.write(initial_data)
@@ -2976,7 +3056,7 @@ class ProxyServer:
                 self.config["proxy"]["backend_port"],
             )
         except Exception as e:
-            self.logger.error(f"Error forwarding to backend: {e}")
+            self.logger.error("Error forwarding to backend: %s", e)
         finally:
             if backend_writer is not None:
                 try:
@@ -2999,7 +3079,7 @@ class ProxyServer:
                 await writer.drain()
 
         except Exception as e:
-            self.logger.debug(f"Connection closed ({direction}): {e}")
+            self.logger.debug("Connection closed (%s): %s", direction, e)
 
 
 def _luhn_check(digits: str) -> bool:

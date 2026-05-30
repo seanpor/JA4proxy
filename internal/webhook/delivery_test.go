@@ -34,7 +34,8 @@ func newTestDispatcher(t *testing.T, cfg DispatcherConfig) (*Dispatcher, *minire
 	}
 	log := logrus.New()
 	log.SetLevel(logrus.ErrorLevel)
-	d, err := NewDispatcher(cfg, mr.Addr(), log)
+	rc := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+	d, err := NewDispatcher(cfg, rc, log)
 	if err != nil {
 		mr.Close()
 		t.Fatalf("NewDispatcher: %v", err)

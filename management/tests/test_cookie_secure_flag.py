@@ -76,11 +76,20 @@ def test_regression_JA4PROXY_2026_0024_login_endpoint_emits_secure_cookie(
     monkeypatch.delenv("MANAGEMENT_TEST_MODE", raising=False)
     # phase-101 H8: prod create_app rejects MANAGEMENT_DISABLE_CSRF too.
     monkeypatch.delenv("MANAGEMENT_DISABLE_CSRF", raising=False)
+    # phase-122 M-1: prod create_app rejects MANAGEMENT_SAML_STRICT=false.
+    monkeypatch.delenv("MANAGEMENT_SAML_STRICT", raising=False)
 
     # Import after env is set so create_app honours the prod config.
+    import fakeredis
+    import fakeredis.aioredis
     from fastapi.testclient import TestClient
 
+    from management.api import redis_client as _redis_module
     from management.api.main import create_app
+
+    server = fakeredis.FakeServer()
+    fake_r = fakeredis.aioredis.FakeRedis(server=server, decode_responses=True)
+    _redis_module._redis_client = fake_r
 
     app = create_app()
     with TestClient(app) as client:
@@ -96,3 +105,5 @@ def test_regression_JA4PROXY_2026_0024_login_endpoint_emits_secure_cookie(
             "Secure" in set_cookie_header
         ), f"Secure flag missing in production Set-Cookie: {set_cookie_header!r}"
         assert "HttpOnly" in set_cookie_header
+
+    _redis_module._redis_client = None

@@ -35,7 +35,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
-from ..auth import require_role
+from ..auth import _client_ip, require_role
 from ..models import ListAddResponse, ListEntries, ListRemoveResponse, Role
 from ..redis_client import get_redis
 
@@ -87,15 +87,6 @@ async def _write_audit(
     )
     await redis.lpush(_AUDIT_KEY, entry)
     await redis.ltrim(_AUDIT_KEY, 0, 999)
-
-
-def _client_ip(request: Request) -> str:
-    forwarded_for = request.headers.get("X-Forwarded-For")
-    if forwarded_for:
-        return forwarded_for.split(",")[0].strip()
-    if request.client:
-        return request.client.host
-    return "unknown"
 
 
 @router.get("/api/v1/lists/{list_type}/{list_name}", response_model=ListEntries)

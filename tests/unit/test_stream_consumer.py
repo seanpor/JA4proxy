@@ -864,7 +864,7 @@ class TestStreamConsumerCoverageGaps:
         await c.consume_events(detection_interval=9999, monitoring_interval=0)
         c.monitoring_system.run_monitoring_cycle.assert_called()
 
-    async def test_consume_events_unparseable_event_id_skips_lag_update(self):
+    async def test_consume_events_unparsable_event_id_skips_lag_update(self):
         """ValueError from non-integer stream ID is swallowed (lines 234-235).
         So what: an attacker injecting malformed message IDs must not crash the
         consumer loop — every connection after the bad one would go unprocessed."""

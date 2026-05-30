@@ -332,15 +332,15 @@ class ActionEnforcer:
         # Result: 300s → 600s → 1200s → 2400s → 4800s → … capped at 86400s (24h)
         try:
             repeat_key = f"repeat_block:{entity_id}"
-            offense_count = int(self.redis.incr(repeat_key))
+            offence_count = int(self.redis.incr(repeat_key))
             self.redis.expire(repeat_key, 86400)  # reset counter after 24h of no blocks
-            if offense_count > 1:
-                multiplier = min(2 ** (offense_count - 1), 86400 // max(duration, 1))
+            if offence_count > 1:
+                multiplier = min(2 ** (offence_count - 1), 86400 // max(duration, 1))
                 duration = min(duration * multiplier, 86400)
                 self.logger.info(
-                    "REPEAT_OFFENDER: %s offense #%s → block duration escalated to %ss",
+                    "REPEAT_OFFENDER: %s offence #%s → block duration escalated to %ss",
                     entity_id[:32],
-                    offense_count,
+                    offence_count,
                     duration,
                 )
         except (redis.RedisError, TypeError, ValueError) as e:

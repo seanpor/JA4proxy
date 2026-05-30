@@ -25,7 +25,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from ..audit_utils import write_audit
-from ..auth import require_role
+from ..auth import _client_ip, require_role
 from ..models import (
     BanCreateRequest,
     BanCreateResponse,
@@ -43,15 +43,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["bans"])
 
 _BAN_KEY_PREFIX = "ban:"
-
-
-def _client_ip(request: Request) -> str:
-    forwarded_for = request.headers.get("X-Forwarded-For")
-    if forwarded_for:
-        return forwarded_for.split(",")[0].strip()
-    if request.client:
-        return request.client.host
-    return "unknown"
 
 
 @router.get("/api/v1/bans", response_model=BanList)

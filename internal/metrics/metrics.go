@@ -37,6 +37,12 @@ var (
 	ConfigReloadsTotal = prometheus.NewCounter(
 		prometheus.CounterOpts{Name: "ja4proxy_config_reloads_total", Help: "Total config reloads"},
 	)
+	ConfigReloadFailuresTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{Name: "ja4proxy_config_reload_failures_total", Help: "Failed config reloads"},
+	)
+	HealthCheckPanicsTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{Name: "ja4proxy_health_check_panics_total", Help: "Health check goroutine panics recovered"},
+	)
 	BypassTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{Name: "ja4proxy_bypass_total", Help: "Connections handled by each bypass rule"},
 		[]string{"rule"},
@@ -306,6 +312,8 @@ func Register() {
 		StreamEventQueueDepth, StreamEventDropsTotal, StreamEventWriteErrorsTotal,
 		// JA4PROXY-2026-0050
 		RedisACLEnabled,
+		// phase-209
+		ConfigReloadFailuresTotal, HealthCheckPanicsTotal,
 	)
 	for _, action := range []string{"allow", "flag", "rate_limit", "tarpit", "block", "ban"} {
 		ConnectionsTotal.WithLabelValues(action)
