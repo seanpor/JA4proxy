@@ -17,7 +17,10 @@ ENV PIP_DEFAULT_TIMEOUT=100
 RUN groupadd -r analytics && useradd -r -g analytics analytics
 
 # Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    rm -f /etc/apt/apt.conf.d/docker-clean && \
+    apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libssl-dev \
     && rm -rf /var/lib/apt/lists/*
@@ -27,8 +30,9 @@ WORKDIR /app
 
 # Install Python dependencies
 COPY requirements-analytics.txt ./
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements-analytics.txt
+RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked \
+    pip install --upgrade pip && \
+    pip install -r requirements-analytics.txt
 
 # Copy application code
 COPY src/analytics /app/src/analytics

@@ -3,7 +3,8 @@ LABEL dockerfile.location="module" \
       dockerfile.module="tarpit" \
       dockerfile.build-context="module-local"
 
-RUN pip install --no-cache-dir prometheus_client
+RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked \
+    pip install prometheus_client
 
 RUN useradd -r -s /bin/false tarpit
 USER tarpit
