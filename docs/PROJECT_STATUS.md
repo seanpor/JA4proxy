@@ -5,7 +5,7 @@
 
 ## Current Status: Phase 101 (Phase 101 — Cross-Phase Gap Closure) Next
 
-**Last Updated:** 2026-05-30
+**Last Updated:** 2026-06-01
 
 ## Epics & Roadmap
 
@@ -295,6 +295,7 @@ Alignment with international standards and regulatory frameworks.
 | 208 | Docker Build Dependency Caching | COMPLETE | N/A | N/A |
 | 209 | Proxy Runtime Errors — Fail-Open Audit & Remediation | COMPLETE | N/A | N/A |
 | 210 | Makefile Help Restructuring & Housekeeping | COMPLETE | N/A | N/A |
+| 212 | Resolve Third-Party Image CVEs (CRITICAL) | COMPLETE | N/A | N/A |
 
 ---
 

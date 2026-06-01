@@ -2078,3 +2078,16 @@ phases:
     summary: Restructured make help from 111 to ~50 lines. Created make lint-help,
       scan-help, legacy-help, dev-help sub-targets. Added 8 missing help entries.
       Cleaned up .PHONY line. Documented on_unknown_ja4/dial_fail_closed in config/proxy.yml.
+  212:
+    name: Resolve Third-Party Image CVEs (CRITICAL)
+    status: COMPLETE
+    completed: 2026-06-01
+    action_plan: docs/phases/PHASE_212.md
+    dependencies: []
+    size: MEDIUM
+    summary: 'Bumped 9 third-party images: haproxy 2.8.5→2.8.24-alpine, redis-stack
+      7.4.0-v3→v8, redis_exporter v1.55.0→v1.84.0, prom/prometheus v2.48.0→v3.12.0,
+      alertmanager v0.26.0→v0.32.1, node-exporter v1.7.0→v1.11.1, grafana 10.2.2→13.0.1-ubuntu,
+      loki 3.3.2→3.7.2, promtail 3.3.2→3.6.11. Added .trivyignore for pgx CVE-2026-33816
+      (Grafana SQLite-only config). Fixed scan-images CRITICAL-count grep bug (matched
+      Total summary line). Fixed check_image_versions.py compose path (docker/→deploy/docker/).'

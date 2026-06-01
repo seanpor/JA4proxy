@@ -115,11 +115,11 @@ def check(
 def main() -> int:
     repo_root = Path(__file__).parent.parent
     compose_files = [
-        repo_root / "docker" / "docker-compose.prod.yml",
-        repo_root / "docker" / "docker-compose.monitoring.yml",
-        repo_root / "docker" / "docker-compose.poc.yml",
-        repo_root / "docker" / "docker-compose.scale.yml",
-        repo_root / "docker" / "docker-compose.test.yml",
+        repo_root / "deploy" / "docker" / "docker-compose.prod.yml",
+        repo_root / "deploy" / "docker" / "docker-compose.monitoring.yml",
+        repo_root / "deploy" / "docker" / "docker-compose.poc.yml",
+        repo_root / "deploy" / "docker" / "docker-compose.scale.yml",
+        repo_root / "deploy" / "docker" / "docker-compose.test.yml",
     ]
 
     errors, warnings = check(compose_files)

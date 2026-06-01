@@ -24,7 +24,7 @@
 
 services:
   haproxy:
-    image: haproxy:2.8.5-alpine
+    image: haproxy:2.8.24-alpine
     ports:
       - "443:443"
       - "80:80"
@@ -109,7 +109,7 @@ services:
           memory: 128M
 
   redis:
-    image: redis/redis-stack:7.4.0-v3
+    image: redis/redis-stack:7.4.0-v8
     environment:
       # Password injected via Docker secret mounted at /run/secrets/redis_password
       # redis/redis-stack reads REDIS_ARGS for extra flags
@@ -221,7 +221,7 @@ services:
   # ── Monitoring ────────────────────────────────────────────────────────────
 
   redis-exporter:
-    image: oliver006/redis_exporter:v1.55.0
+    image: oliver006/redis_exporter:v1.84.0
     environment:
       - REDIS_ADDR=redis:6379
       - REDIS_PASSWORD_FILE=/run/secrets/redis_password
@@ -242,7 +242,7 @@ services:
           cpus: '0.5'
 
   prometheus:
-    image: prom/prometheus:v2.48.0
+    image: prom/prometheus:v3.12.0
     ports:
       - "9091:9090"   # Prometheus UI (internal only)
     volumes:
@@ -273,7 +273,7 @@ services:
           cpus: '1.0'
 
   grafana:
-    image: grafana/grafana:10.2.2
+    image: grafana/grafana:13.0.1-ubuntu
     ports:
       # JA4PROXY-2026-0045: bind to loopback — the comment claims
       # "internal only" but the previous form "3001:3000" published
@@ -308,7 +308,7 @@ services:
           memory: 128M
 
   loki:
-    image: grafana/loki:3.3.2
+    image: grafana/loki:3.7.2
     ports:
       - "3100:3100"   # Loki API (internal only)
     volumes:
@@ -332,7 +332,7 @@ services:
           cpus: '0.5'
 
   promtail:
-    image: grafana/promtail:3.3.2
+    image: grafana/promtail:3.6.11
     volumes:
       - ../monitoring/loki/promtail-config.yml:/etc/promtail/config.yml:ro
       - ../../logs:/var/log/ja4proxy:ro

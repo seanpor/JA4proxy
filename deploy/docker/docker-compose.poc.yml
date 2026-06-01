@@ -2,7 +2,7 @@ name: ja4proxy
 
 services:
   haproxy:
-    image: haproxy:2.8.5-alpine
+    image: haproxy:2.8.24-alpine
     ports:
       - "${AGENT_BIND_IP:-127.0.0.1}:${HOST_PORT_INGRESS:-443}:443"
       - "${AGENT_BIND_IP:-127.0.0.1}:8404:8404"
@@ -94,7 +94,7 @@ services:
         max-file: "3"
 
   redis:
-    image: redis/redis-stack:7.4.0-v3
+    image: redis/redis-stack:7.4.0-v8
     # No host port exposure — internal to ja4proxy-data only.
     # Tests use `docker exec` + redis-cli for state manipulation.
     restart: unless-stopped
