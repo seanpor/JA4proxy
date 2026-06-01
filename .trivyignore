@@ -27,3 +27,4 @@
 # Adding a line here is a reviewable signal that a CVE was accepted as
 # non-blocking with a named owner and a deadline.
 # -----------------------------------------------------------------------------
+CVE-2026-33816 # reason: Grafana pgx PostgreSQL driver memory-safety CVE; Grafana configured with SQLite in our stack so code path is unreachable; expires: 2026-09-01; owner: seanpor

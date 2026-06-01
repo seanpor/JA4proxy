@@ -409,15 +409,15 @@ lint-shell:
 # Scans only pinned third-party images (not images we build ourselves — use scan-first-party for those).
 # Covers images deployed in deploy/docker/docker-compose.prod.yml + deploy/docker/docker-compose.monitoring.yml.
 # Keep versions here in sync with those compose files.
-TRIVY_IMAGES := haproxy:2.8.5-alpine \
-	redis/redis-stack:7.4.0-v3 \
-	oliver006/redis_exporter:v1.55.0 \
-	prom/prometheus:v2.48.0 \
-	prom/alertmanager:v0.26.0 \
-	prom/node-exporter:v1.7.0 \
-	grafana/grafana:10.2.2 \
-	grafana/loki:3.3.2 \
-	grafana/promtail:3.3.2
+TRIVY_IMAGES := haproxy:2.8.24-alpine \
+	redis/redis-stack:7.4.0-v8 \
+	oliver006/redis_exporter:v1.84.0 \
+	prom/prometheus:v3.12.0 \
+	prom/alertmanager:v0.32.1 \
+	prom/node-exporter:v1.11.1 \
+	grafana/grafana:13.0.1-ubuntu \
+	grafana/loki:3.7.2 \
+	grafana/promtail:3.6.11
 
 # Manifest consistency check — run before committing a phase close-out.
 # Verifies: TODO.md + PROJECT_STATUS.md in sync with manifest.yaml,
@@ -429,20 +429,22 @@ check-manifest:
 scan-images:
 	@echo "=== Trivy: third-party image CVE scan (HIGH + CRITICAL) ==="
 	@echo "    Fails on CRITICAL; HIGH findings are reported but advisory."
+	@echo "    CVEs listed in .trivyignore are documented exceptions."
 	@echo ""
 	@fail=0; \
 	for img in $(TRIVY_IMAGES); do \
 		echo "  Scanning $$img ..."; \
-		result=$$(docker run --rm aquasec/trivy:0.69.3 image \
+		result=$$(docker run --rm -v "$(PWD):/scan:ro" aquasec/trivy:0.69.3 image \
 			--severity HIGH,CRITICAL --exit-code 0 \
 			--no-progress --scanners vuln \
+			--ignorefile /scan/.trivyignore \
 			--format table "$$img" 2>&1 | grep -E "CRITICAL|HIGH|Total:" || true); \
-		critical=$$(echo "$$result" | grep -c "CRITICAL" || true); \
+		critical=$$(echo "$$result" | grep -c "^│.*CRITICAL" || true); \
 		echo "    $$result"; \
-		[ "$$critical" -eq 0 ] || { echo "    ^^^ CRITICAL findings in $$img — update image version"; fail=1; }; \
+		[ "$$critical" -eq 0 ] || { echo "    ^^^ CRITICAL findings in $$img — update image version or add to .trivyignore"; fail=1; }; \
 		echo ""; \
 	done; \
-	[ $$fail -eq 0 ] || { echo "✗ CRITICAL CVEs found — update image versions in compose files"; exit 1; }
+	[ $$fail -eq 0 ] || { echo "✗ CRITICAL CVEs found — see .trivyignore for documented exceptions"; exit 1; }
 	@echo "✓ Image scan complete"
 
 # Trivy misconfiguration scan of Dockerfiles and compose files.
