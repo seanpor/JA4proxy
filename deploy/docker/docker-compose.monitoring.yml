@@ -1,6 +1,6 @@
 services:
   prometheus:
-    image: prom/prometheus:v2.48.0
+    image: prom/prometheus:v3.12.0
     container_name: ja4proxy-prometheus-monitoring
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
@@ -41,7 +41,7 @@ services:
       retries: 3
 
   alertmanager:
-    image: prom/alertmanager:v0.26.0
+    image: prom/alertmanager:v0.32.1
     container_name: ja4proxy-alertmanager
     command:
       - '--config.file=/etc/alertmanager/alertmanager.yml'
@@ -74,7 +74,7 @@ services:
       retries: 3
 
   grafana:
-    image: grafana/grafana:10.2.2
+    image: grafana/grafana:13.0.1-ubuntu
     container_name: ja4proxy-grafana
     ports:
       # JA4PROXY-2026-0045: bind to loopback only — consistent with the
@@ -120,7 +120,7 @@ services:
       retries: 3
 
   node-exporter:
-    image: prom/node-exporter:v1.7.0
+    image: prom/node-exporter:v1.11.1
     container_name: ja4proxy-node-exporter
     command:
       - '--path.procfs=/host/proc'
@@ -147,7 +147,7 @@ services:
           cpus: '0.5'
 
   redis-exporter:
-    image: oliver006/redis_exporter:v1.55.0
+    image: oliver006/redis_exporter:v1.84.0
     container_name: ja4proxy-redis-exporter
     environment:
       - REDIS_ADDR=redis:6379
@@ -169,7 +169,7 @@ services:
           cpus: '0.5'
 
   loki:
-    image: grafana/loki:3.3.2
+    image: grafana/loki:3.7.2
     container_name: ja4proxy-loki
     # Not exposed to host — only accessible from monitoring network
     volumes:
@@ -228,7 +228,7 @@ services:
           cpus: '0.2'
 
   promtail:
-    image: grafana/promtail:3.3.2
+    image: grafana/promtail:3.6.11
     container_name: ja4proxy-promtail
     # JA4PROXY-2026-0017 — no more /var/run/docker.sock mount. Promtail
     # now reads container metadata from docker-socket-proxy over TCP

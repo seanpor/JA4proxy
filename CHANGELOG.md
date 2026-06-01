@@ -1,5 +1,28 @@
 # Changelog
 
+## [Unreleased] - Phase 212 — Resolve Third-Party Image CVEs (CRITICAL) (2026-06-01)
+
+Bumped 9 third-party Docker images to versions with zero CRITICAL CVEs. Fixed the `scan-images` CRITICAL-count grep bug (matched the `Total:` summary line instead of actual CVE rows). Fixed `check_image_versions.py` compose path (pointed at `docker/` instead of `deploy/docker/`). Added `.trivyignore` for pgx CVE-2026-33816 in Grafana (documented exception — Grafana configured with SQLite, code path unreachable).
+
+### Changes
+- **haproxy** `2.8.5-alpine` → `2.8.24-alpine` (prod, poc, scale)
+- **redis/redis-stack** `7.4.0-v3` → `7.4.0-v8` (prod, poc)
+- **oliver006/redis_exporter** `v1.55.0` → `v1.84.0` (prod, monitoring)
+- **prom/prometheus** `v2.48.0` → `v3.12.0` (prod, monitoring)
+- **prom/alertmanager** `v0.26.0` → `v0.32.1` (monitoring)
+- **prom/node-exporter** `v1.7.0` → `v1.11.1` (monitoring)
+- **grafana/grafana** `10.2.2` → `13.0.1-ubuntu` (prod, monitoring)
+- **grafana/loki** `3.3.2` → `3.7.2` (prod, monitoring)
+- **grafana/promtail** `3.3.2` → `3.6.11` (prod, monitoring)
+- Fixed `scan-images` CRITICAL-count grep: now uses `^│.*CRITICAL` to count actual CVE rows instead of the `Total:` summary line
+- Fixed `check_image_versions.py` compose paths: `docker/` → `deploy/docker/`
+- Added `.trivyignore` for `CVE-2026-33816` (pgx PostgreSQL driver in Grafana; SQLite-only config)
+- Mounted project root into Trivy container for `.trivyignore` access
+
+### Verification
+- `make scan-images` — 9 images scanned, 0 CRITICAL findings
+- `make check-image-versions` — passes (pre-existing `ja4proxy` version drift warning only)
+
 ## [Unreleased] - Phase 122 — Production Security Review — Internet-Facing Attack Surface Audit (2026-05-30)
 
 Critical independent security review of all internet-facing components. 14 findings (2 CRITICAL, 5 HIGH, 5 MEDIUM, 2 LOW) across the Go proxy, Python proxy, Management API, and infrastructure — all remediated and verified with 24 regression tests + semgrep rules.
