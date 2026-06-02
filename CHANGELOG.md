@@ -1,5 +1,24 @@
 # Changelog
 
+## [Unreleased] - Phase 213 — Dependency Update Checker (make check-updates) (2026-06-01)
+
+Created `scripts/check_updates.py` and `make check-updates` target that checks all 4 dependency categories for available upstream updates. Replaced an existing inline Makefile implementation with a structured, well-documented Python script. Output is color-coded by update severity (major/minor/patch). All sections handle missing tools gracefully.
+
+### Changes
+- Created `scripts/check_updates.py`:
+  - **Docker images**: Parses TRIVY_IMAGES from Makefile + compose files. Queries Docker Hub API (and GCR for cAdvisor) for newer tags matching the current version prefix.
+  - **Go modules**: Runs `go list -u -m all` in `cmd/proxy` and `deploy/terraform-provider`. Parses `[new_version]` annotations.
+  - **Python packages**: Runs `pip list --outdated --format=json`. Skips if no venv active.
+  - **Node packages**: Runs `npm outdated --json` for `sql.js`.
+  - Color-coded terminal output (green=up to date, yellow=minor/patch, red=major).
+  - Graceful skips with clear warnings when tools are missing.
+- Added `check-updates` to `.PHONY` and help section.
+- Removed old inline `check-updates` Makefile target (basic `head -20` implementation).
+
+### Verification
+- `make check-updates` — 84 updates found: 1 major, 61 minor, 22 patch (all informational)
+- `ruff` + `mypy` — clean
+
 ## [Unreleased] - Phase 212 — Resolve Third-Party Image CVEs (CRITICAL) (2026-06-01)
 
 Bumped 9 third-party Docker images to versions with zero CRITICAL CVEs. Fixed the `scan-images` CRITICAL-count grep bug (matched the `Total:` summary line instead of actual CVE rows). Fixed `check_image_versions.py` compose path (pointed at `docker/` instead of `deploy/docker/`). Added `.trivyignore` for pgx CVE-2026-33816 in Grafana (documented exception — Grafana configured with SQLite, code path unreachable).

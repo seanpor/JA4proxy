@@ -13,7 +13,7 @@
 .PHONY: lint-docker lint-shell lint-yaml lint-lua lint-json lint-haproxy lint-helm lint-github-actions lint-ansible
 .PHONY: lint-prom lint-alertmanager lint-secrets lint-deps lint-go-full lint-go-mod lint-makefiles lint-toml lint-markdown lint-spelling
 .PHONY: lint-docs lint-phases link-check lint-all
-.PHONY: scan-images scan-dockerfiles scan-first-party check-image-versions scan
+.PHONY: scan-images scan-dockerfiles scan-first-party check-image-versions check-updates scan
 .PHONY: go-build go-test go-lint go-start go-stop go-switch go-rollback go-parity check-scores parity-check
 .PHONY: bench bench-quick bench-go bench-python
 .PHONY: gdpr-delete
@@ -98,6 +98,7 @@ scan-help:
 	@echo "  scan-first-party   - Trivy scan of 1st-party Python/Go deps"
 	@echo "  scan               - All three Trivy scans combined"
 	@echo "  check-image-versions - Check base image tags against Dockerfiles"
+	@echo "  check-updates      - Check all deps (Docker, Go, Python, Node) for updates"
 
 # ── Legacy (Python) sub-help ─────────────────────────────────────────────
 legacy-help:
@@ -815,28 +816,7 @@ scan: scan-images scan-dockerfiles scan-first-party
 
 # Analyze Docker containers and dependencies for version discrepancies
 check-updates:
-	@echo "=== Checking Python dependencies ==="
-	@pip list --outdated 2>/dev/null | head -20 || echo "No outdated Python packages found or pip not available"
-	@echo ""
-	@echo "=== Checking Go dependencies ==="
-	@if command -v go >/dev/null 2>&1; then \
-		cd cmd/proxy && go list -u -m -json all 2>/dev/null | grep -E '"Path"|"Version"' | head -20 || echo "No outdated Go packages found"; \
-	else \
-		echo "Go not installed"; \
-	fi
-	@echo ""
-	@echo "=== Checking Docker images ==="
-	@if command -v docker >/dev/null 2>&1; then \
-		echo "Checking base images in docker-compose files:"; \
-		grep -h "image:" deploy/docker/docker-compose*.yml | sort | uniq | head -10 || echo "No docker-compose files found"; \
-	else \
-		echo "Docker not installed"; \
-	fi
-	@echo ""
-	@echo "=== For detailed checks, see: ==="
-	@echo "  - Python: pip list --outdated"
-	@echo "  - Go: go list -u -m all"
-	@echo "  - Docker: docker images"
+	@python3 scripts/check_updates.py
 
 # Start Python legacy proxy alongside the Go proxy for parity comparison.
 # Both proxies share the same Redis instance.
