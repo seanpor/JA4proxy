@@ -2091,3 +2091,15 @@ phases:
       loki 3.3.2→3.7.2, promtail 3.3.2→3.6.11. Added .trivyignore for pgx CVE-2026-33816
       (Grafana SQLite-only config). Fixed scan-images CRITICAL-count grep bug (matched
       Total summary line). Fixed check_image_versions.py compose path (docker/→deploy/docker/).'
+  213:
+    name: Dependency Update Checker (make check-updates)
+    status: COMPLETE
+    completed: 2026-06-01
+    action_plan: docs/phases/PHASE_213.md
+    dependencies: []
+    size: MEDIUM
+    summary: 'Created scripts/check_updates.py and make check-updates target. Checks
+      4 categories: Docker images (Docker Hub/GCR API), Go modules (go list -u -m
+      all), Python packages (pip list --outdated), Node packages (npm outdated). Color-coded
+      output (major/minor/patch). Graceful skip if tools missing. Replaced basic inline
+      make target with structured script. ruff+ mypy clean.'

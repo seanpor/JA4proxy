@@ -1,7 +1,7 @@
 ---
 phase: 213
 title: "Dependency Update Checker (`make check-updates`)"
-status: PROPOSED
+status: COMPLETE
 size: MEDIUM
 created: 2026-06-01
 audience: [developer]
