@@ -47,13 +47,13 @@ func checkNTP(log *logrus.Logger) {
 // Returns drift in seconds.
 func getNTPDrift() (float64, error) {
 	// Try chronyc first
-	out, err := exec.Command("chronyc", "tracking").Output()
+	out, err := exec.Command("/usr/bin/chronyc", "tracking").Output()
 	if err == nil {
 		return parseChronycTracking(string(out))
 	}
 
 	// Fallback to ntpstat if chronyc is not available
-	out, err = exec.Command("ntpstat").Output()
+	out, err = exec.Command("/usr/bin/ntpstat").Output()
 	if err == nil {
 		return parseNtpstat(string(out))
 	}

@@ -12,6 +12,8 @@ Constraints on PUT
 Redis key: config:dial (String, value is str(int))
 """
 
+import hashlib
+import hmac
 import logging
 from datetime import datetime, timezone
 from typing import Optional
@@ -87,6 +89,23 @@ async def update_dial(
                 f"Make multiple smaller changes."
             ),
         )
+
+    # JA4PROXY-2026-0040: Signed Dial (Control Plane Integrity)
+    # If an integrity key is configured, sign the new dial value.
+    from ..proxy_config import get_proxy_config
+    cfg = get_proxy_config()
+    key_path = (cfg.get("sync") or {}).get("integrity_key_file")
+    
+    if key_path and os.path.exists(key_path):
+        try:
+            with open(key_path, "rb") as f:
+                key = f.read().strip()
+            if key:
+                sig = hmac.new(key, str(body.value).encode(), hashlib.sha256).hexdigest()
+                await redis.set(_DIAL_KEY + ":sig", sig)
+                logger.info("dial | event=signed | key_path=%s", key_path)
+        except Exception as e:
+            logger.error("dial | event=sign_failed | error=%s", e)
 
     await redis.set(_DIAL_KEY, str(body.value))
     logger.info(

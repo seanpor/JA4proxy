@@ -39,6 +39,9 @@ func ParseClientHello(data []byte) (*ClientHelloInfo, error) {
 		return nil, ErrNotTLS
 	}
 	recordLen := int(binary.BigEndian.Uint16(data[3:5]))
+	if recordLen > 16384 {
+		return nil, errors.New("TLS record too large")
+	}
 	if len(data) < 5+recordLen {
 		return nil, ErrTruncated
 	}

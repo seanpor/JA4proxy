@@ -580,12 +580,17 @@ def check_python_packages() -> list[Update]:
     else:
         pip_cmd = ["pip"]
 
-    # Check if we're in a virtual environment
-    in_venv = sys.prefix != sys.base_prefix
-    if not in_venv:
-        print(f"    {YELLOW}no virtual environment active — skipping Python checks{RESET}")
-        return updates
-
+    # If in a container or no venv, use requirements files directly
+    # Note: 'pip list --outdated' only works for INSTALLED packages.
+    # In a container, we can install them into a temp location to check versions.
+    # For now, let's just run it; if we are in the update-checker container,
+    # we might need to 'pip install -r requirements.txt' first or use a different tool.
+    # But for now, we'll just try to run it.
+    # Install requirements if we are in the update-checker container
+    if os.path.exists("/.dockerenv"):
+        for req_file in PYTHON_REQUIREMENTS:
+            if req_file.exists():
+                _run(pip_cmd + ["install", "-r", str(req_file), "--quiet"])
     stdout, _, rc = _run(pip_cmd + ["list", "--outdated", "--format=json"], timeout=30)
     if rc != 0:
         print(f"    {YELLOW}pip list --outdated failed{RESET}")

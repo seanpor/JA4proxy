@@ -21,6 +21,8 @@ type SNIAnalyzerConfig struct {
 	DGAScoreCap          int
 	UnexpectedSNIEnabled bool
 	UnexpectedSNIScore   int
+	MaliciousSNIEnabled  bool
+	MaliciousSNIScore    int
 	ExpectedHostnames    map[string]bool
 }
 
@@ -51,6 +53,18 @@ func (a *SNIAnalyzer) Analyze(sni string) (signals []RiskSignal) {
 			signals = nil
 		}
 	}()
+
+	// JA4PROXY-2026-0042: SNI Sanitization & Grading
+	sni, valid := CanonicalizeSNI(sni)
+	if !valid && a.cfg.MaliciousSNIEnabled {
+		metrics.SNISignalTotal.WithLabelValues("malicious_sni").Inc()
+		signals = append(signals, RiskSignal{
+			Name:   "malicious_sni",
+			Score:  a.cfg.MaliciousSNIScore,
+			Reason: "malformed or malicious SNI string",
+			Weight: 1.0,
+		})
+	}
 
 	// Missing SNI
 	if sni == "" {
@@ -132,6 +146,24 @@ var skipPrefixes = map[string]bool{
 
 // dgaDigitRun matches 4+ consecutive digits anywhere in the label
 // (Python's re.search(r"\d{4,}")).
+// maliciousSNIRegex matches RFC 1123 / RFC 952 compliant hostnames.
+// Anything else is suspect (smuggling, command injection, etc.)
+var maliciousSNIRegex = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$`)
+
+// CanonicalizeSNI normalizes and validates an SNI hostname.
+// Returns normalized string and true if it matches RFC rules.
+func CanonicalizeSNI(sni string) (string, bool) {
+	sni = strings.ToLower(strings.TrimSpace(sni))
+	if sni == "" {
+		return "", true
+	}
+	// Basic RFC 1123 / 952 hostname validation
+	if !maliciousSNIRegex.MatchString(sni) {
+		return sni, false
+	}
+	return sni, true
+}
+
 var dgaDigitRun = regexp.MustCompile(`\d{4,}`)
 
 // dgaVowels mirrors Python's VOWELS = frozenset("aeiou"). ASCII-only.

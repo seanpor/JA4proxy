@@ -92,7 +92,7 @@ services:
       # AppArmor profile (Phase 34d): must be loaded on host before enabling.
       # Load with: sudo apparmor_parser -r config/apparmor/ja4proxy
       # Then uncomment the line below:
-      # - apparmor:ja4proxy
+      - apparmor:ja4proxy-docker
     tmpfs:
       - /tmp:noexec,nosuid,nodev,size=100m
       - /var/run:noexec,nosuid,nodev,size=10m

@@ -68,7 +68,7 @@
         dest: "{{ ja4proxy_binary_path }}"
         mode: "0750"
         owner: root
-        group: root
+        group: "{{ ja4proxy_group }}"
 
     - name: Copy binary from control node
       when: ja4proxy_binary_src is not match("https?://.*")
@@ -77,7 +77,7 @@
         dest: "{{ ja4proxy_binary_path }}"
         mode: "0750"
         owner: root
-        group: root
+        group: "{{ ja4proxy_group }}"
   rescue:
     - name: Handle binary installation failure
       ansible.builtin.fail:
@@ -100,3 +100,18 @@
     enabled: true
     state: started
     daemon_reload: true
+
+# ── Firewalling (Phase 123) ─────────────────────────────────
+
+- name: Apply firewall rules
+  ansible.builtin.iptables:
+    chain: INPUT
+    protocol: tcp
+    destination_port: "{{ item }}"
+    ctstate: NEW
+    jump: ACCEPT
+    source: "{{ ja4proxy_trusted_networks | default(['127.0.0.1']) | join(',') }}"
+  loop:
+    - "{{ ja4proxy_port }}"
+    - "{{ ja4proxy_metrics_port }}"
+  when: ja4proxy_apply_firewall | default(false) | bool

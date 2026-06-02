@@ -26,19 +26,24 @@ func isGREASE(v uint16) bool {
 // Format: {proto}{version}{sni}{cipher_count:02d}{ext_count:02d}{alpn}_{cipher_hash}_{ext_hash}
 // Example: t13d1516h2_8daaf6152771_02713d6af862
 //
-// Algorithm is byte-for-byte identical to the Python proxy.py JA4Generator.
+// Aligned with FoxIO JA4 Specification.
 func ComputeJA4(info *ClientHelloInfo) string {
 	// ── Protocol ──────────────────────────────────────────────────────────
 	// Always 't' for TLS; 'q' for QUIC (not handled here — placeholder 't').
 	proto := "t"
 
 	// ── TLS Version ───────────────────────────────────────────────────────
-	// Use supported_versions extension if 0x0304 present (TLS 1.3 negotiation).
+	// Use supported_versions extension if present, otherwise legacy_version.
 	version := tlsVersionString(info.LegacyVersion)
-	for _, sv := range info.SupportedVersions {
-		if sv == 0x0304 {
-			version = "13"
-			break
+	if len(info.SupportedVersions) > 0 {
+		highest := uint16(0)
+		for _, v := range info.SupportedVersions {
+			if !isGREASE(v) && v > highest {
+				highest = v
+			}
+		}
+		if highest != 0 {
+			version = tlsVersionString(highest)
 		}
 	}
 
@@ -58,6 +63,9 @@ func ComputeJA4(info *ClientHelloInfo) string {
 		}
 	}
 	cipherCount := len(filteredCiphers)
+	if cipherCount > 99 {
+		cipherCount = 99
+	}
 	cipherHash := hashCiphers(filteredCiphers)
 
 	// ── Extensions ────────────────────────────────────────────────────────
@@ -67,13 +75,25 @@ func ComputeJA4(info *ClientHelloInfo) string {
 	for _, ext := range info.Extensions {
 		if !isGREASE(ext) {
 			filteredExts = append(filteredExts, ext)
-			if ext != 0x0000 { // exclude SNI (type 0) from hash
+			// Exclude SNI (0x0000) and ALPN (0x0010) from hash per spec.
+			if ext != 0x0000 && ext != 0x0010 {
 				hashableExts = append(hashableExts, ext)
 			}
 		}
 	}
 	extCount := len(filteredExts)
-	extHash := hashExtensions(hashableExts)
+	if extCount > 99 {
+		extCount = 99
+	}
+
+	// ── Section C Hash (Extensions + Signature Algorithms) ────────────────
+	var filteredSigAlgs []uint16
+	for _, sa := range info.SignatureAlgorithms {
+		if !isGREASE(sa) {
+			filteredSigAlgs = append(filteredSigAlgs, sa)
+		}
+	}
+	extHash := hashSectionC(hashableExts, filteredSigAlgs)
 
 	// ── ALPN ──────────────────────────────────────────────────────────────
 	// First + last char of first ALPN value, or "00" if none.
@@ -87,23 +107,23 @@ func ComputeJA4(info *ClientHelloInfo) string {
 }
 
 // ComputeJA4FromFields generates the JA4 fingerprint from raw fields.
-// Provided for callers that have already decomposed the ClientHello.
-// Parameters must match the Python JA4Generator.generate_ja4 signature.
 func ComputeJA4FromFields(
 	legacyVersion uint16,
 	cipherSuites []uint16,
-	extensionTypes []uint16, // all extensions in order including SNI
+	extensionTypes []uint16,
 	supportedVersions []uint16,
 	alpnProtocols []string,
+	signatureAlgorithms []uint16,
 	sniPresent bool,
 ) string {
 	info := &ClientHelloInfo{
-		LegacyVersion:     legacyVersion,
-		CipherSuites:      cipherSuites,
-		Extensions:        extensionTypes,
-		SupportedVersions: supportedVersions,
-		ALPNProtocols:     alpnProtocols,
-		SNIPresent:        sniPresent,
+		LegacyVersion:       legacyVersion,
+		CipherSuites:        cipherSuites,
+		Extensions:          extensionTypes,
+		SupportedVersions:   supportedVersions,
+		ALPNProtocols:       alpnProtocols,
+		SignatureAlgorithms: signatureAlgorithms,
+		SNIPresent:          sniPresent,
 	}
 	return ComputeJA4(info)
 }
@@ -119,13 +139,14 @@ func tlsVersionString(v uint16) string {
 		return "12"
 	case 0x0304:
 		return "13"
+	case 0x0300:
+		return "03"
 	default:
 		return "00"
 	}
 }
 
-// alpnString returns the JA4 ALPN component from a list of ALPN protocol names.
-// Returns first + last char of first protocol, or "00" if list is empty.
+// alpnString returns the JA4 ALPN component.
 func alpnString(protocols []string) string {
 	if len(protocols) == 0 {
 		return "00"
@@ -141,9 +162,7 @@ func alpnString(protocols []string) string {
 	}
 }
 
-// hashCiphers returns the first 12 hex chars of the SHA-256 of sorted cipher
-// suite values formatted as comma-separated lowercase 4-hex-digit strings.
-// Returns "000000000000" for empty input (matches Python behaviour).
+// hashCiphers returns the Section B component.
 func hashCiphers(ciphers []uint16) string {
 	if len(ciphers) == 0 {
 		return "000000000000"
@@ -161,23 +180,36 @@ func hashCiphers(ciphers []uint16) string {
 	return fmt.Sprintf("%x", h)[:12]
 }
 
-// hashExtensions returns the first 12 hex chars of the SHA-256 of sorted
-// extension type values (excluding SNI/type-0 and GREASE) formatted as
-// comma-separated lowercase 4-hex-digit strings.
-// Returns "000000000000" for empty input.
-func hashExtensions(exts []uint16) string {
+// hashSectionC returns the Section C component.
+func hashSectionC(exts []uint16, sigAlgs []uint16) string {
 	if len(exts) == 0 {
 		return "000000000000"
 	}
-	sorted := make([]uint16, len(exts))
-	copy(sorted, exts)
-	sort.Slice(sorted, func(i, j int) bool { return sorted[i] < sorted[j] })
 
-	parts := make([]string, len(sorted))
-	for i, ext := range sorted {
-		parts[i] = fmt.Sprintf("%04x", ext)
+	// 1. Sort Extensions
+	sortedExts := make([]uint16, len(exts))
+	copy(sortedExts, exts)
+	sort.Slice(sortedExts, func(i, j int) bool { return sortedExts[i] < sortedExts[j] })
+
+	extParts := make([]string, len(sortedExts))
+	for i, ext := range sortedExts {
+		extParts[i] = fmt.Sprintf("%04x", ext)
 	}
-	s := strings.Join(parts, ",")
-	h := sha256.Sum256([]byte(s))
+	extStr := strings.Join(extParts, ",")
+
+	// 2. Original order for SigAlgs
+	var combined string
+	if len(sigAlgs) > 0 {
+		sigParts := make([]string, len(sigAlgs))
+		for i, sa := range sigAlgs {
+			sigParts[i] = fmt.Sprintf("%04x", sa)
+		}
+		sigStr := strings.Join(sigParts, ",")
+		combined = extStr + "_" + sigStr
+	} else {
+		combined = extStr
+	}
+
+	h := sha256.Sum256([]byte(combined))
 	return fmt.Sprintf("%x", h)[:12]
 }

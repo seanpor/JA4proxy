@@ -65,7 +65,7 @@ func Load() (*CLIConfig, error) {
 		return nil, err
 	}
 
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) // #nosec G304
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return NewDefaultCLIConfig(), nil

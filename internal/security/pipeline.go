@@ -100,7 +100,9 @@ type PipelineConfig struct {
 	DGAEnabled           bool
 	DGAScoreCap          int
 	UnexpectedSNIEnabled bool
+	MaliciousSNIEnabled  bool
 	UnexpectedSNIScore   int
+	MaliciousSNIScore    int
 	ExpectedHostnames    map[string]bool
 
 	// Rate limiter (Group 3)
@@ -328,7 +330,7 @@ func (p *Pipeline) Process(ctx context.Context, conn *ConnectionContext) *Pipeli
 	signals = append(signals, blSigs...)
 
 	// TLS enforcement (hard block check first)
-	if tlsSigs, hardBlock := p.tlsEnforcer.Check(uint16(conn.TLSVersion), uint16s(conn.CipherList)); hardBlock { //nolint:gosec // TLS version is always uint16 range
+	if tlsSigs, hardBlock := p.tlsEnforcer.Check(uint16(conn.TLSVersion), uint16s(conn.CipherList)); hardBlock { // #nosec G115 // TLS version is always uint16 range
 		return &PipelineResult{Action: "block", Score: 100, BypassReason: "tls_enforcement"}
 	} else {
 		signals = append(signals, tlsSigs...)
@@ -336,7 +338,7 @@ func (p *Pipeline) Process(ctx context.Context, conn *ConnectionContext) *Pipeli
 
 	// Phase 203b — JA4 prefix vs negotiated TLS version mismatch.
 	if conn.JA4 != "" {
-		if sig := p.tlsEnforcer.CheckJA4TLSMismatch(conn.JA4, uint16(conn.TLSVersion)); sig != nil { //nolint:gosec // TLS version always uint16
+		if sig := p.tlsEnforcer.CheckJA4TLSMismatch(conn.JA4, uint16(conn.TLSVersion)); sig != nil { // #nosec G115 // TLS version always uint16
 			signals = append(signals, *sig)
 		}
 	}
@@ -405,7 +407,7 @@ func (p *Pipeline) Process(ctx context.Context, conn *ConnectionContext) *Pipeli
 	action := p.decider.Decide(assessment.TotalScore, dial)
 
 	// Record beaconing timestamp (async, non-blocking)
-	go p.beaconing.MaybeRecord(context.Background(), conn, action)
+	go p.beaconing.MaybeRecord(ctx, conn, action)
 
 	// Build counterfactuals for monitor-mode logging
 	var counterfactuals map[int]string
@@ -571,6 +573,8 @@ func buildSNIAnalyzerConfig(cfg *PipelineConfig) *SNIAnalyzerConfig {
 		DGAScoreCap:          defaultInt(cfg.DGAScoreCap, 40),
 		UnexpectedSNIEnabled: cfg.UnexpectedSNIEnabled,
 		UnexpectedSNIScore:   defaultInt(cfg.UnexpectedSNIScore, 15),
+		MaliciousSNIEnabled:  cfg.MaliciousSNIEnabled,
+		MaliciousSNIScore:    defaultInt(cfg.MaliciousSNIScore, 100),
 		ExpectedHostnames:    cfg.ExpectedHostnames,
 	}
 }
@@ -688,7 +692,7 @@ func defaultInt(v, def int) int {
 func uint16s(in []int) []uint16 {
 	out := make([]uint16, len(in))
 	for i, v := range in {
-		out[i] = uint16(v) //nolint:gosec // cipher suite IDs are uint16 by TLS spec
+		out[i] = uint16(v) // #nosec G115 // cipher suite IDs are uint16 by TLS spec
 	}
 	return out
 }

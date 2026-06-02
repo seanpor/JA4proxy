@@ -582,7 +582,7 @@ func buildPolicyCmd() *cobra.Command {
 				fmt.Fprintln(os.Stderr, "Error: --file is required")
 				osExit(1)
 			}
-			yamlText, err := os.ReadFile(validateFile)
+			yamlText, err := os.ReadFile(validateFile) // #nosec G304
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error reading %s: %v\n", validateFile, err)
 				osExit(1)
@@ -608,7 +608,7 @@ func buildPolicyCmd() *cobra.Command {
 				fmt.Fprintln(os.Stderr, "Error: --file is required")
 				osExit(1)
 			}
-			yamlText, err := os.ReadFile(applyFile)
+			yamlText, err := os.ReadFile(applyFile) // #nosec G304
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error reading %s: %v\n", applyFile, err)
 				osExit(1)
@@ -653,7 +653,7 @@ func buildPolicyCmd() *cobra.Command {
 				fmt.Fprintln(os.Stderr, "Error: --file is required")
 				osExit(1)
 			}
-			yamlText, err := os.ReadFile(diffFile)
+			yamlText, err := os.ReadFile(diffFile) // #nosec G304
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error reading %s: %v\n", diffFile, err)
 				osExit(1)
@@ -849,7 +849,7 @@ func buildReportCmd() *cobra.Command {
 				handleError(commands.RunReportGenerate(cmd.Context(), c, reportSince, reportUntil, format, os.Stdout))
 				return
 			}
-			f, err := os.Create(reportOut)
+			f, err := os.Create(reportOut) // #nosec G304
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error creating output file %s: %v\n", reportOut, err)
 				osExit(1)

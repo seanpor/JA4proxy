@@ -717,10 +717,10 @@ func TestHashExtensions_ExcludesSNI(t *testing.T) {
 	// The logic is in ComputeJA4 which excludes SNI before calling hashExtensions.
 	// This tests that hashExtensions of the same non-SNI exts gives same result.
 	exts := []uint16{0x000b, 0x000a, 0x0010}
-	h1 := hashExtensions(exts)
-	h2 := hashExtensions([]uint16{0x000a, 0x000b, 0x0010}) // different order
+	h1 := hashSectionC(exts, nil)
+	h2 := hashSectionC([]uint16{0x000a, 0x000b, 0x0010}, nil) // different order
 	if h1 != h2 {
-		t.Errorf("hashExtensions should sort: %q vs %q", h1, h2)
+		t.Errorf("hashSectionC should sort: %q vs %q", h1, h2)
 	}
 }
 
@@ -743,7 +743,7 @@ func TestComputeJA4FromFields(t *testing.T) {
 	}
 
 	fromStruct := ComputeJA4(info)
-	fromFields := ComputeJA4FromFields(0x0303, ciphers, exts, svs, alpns, true)
+	fromFields := ComputeJA4FromFields(0x0303, ciphers, exts, svs, alpns, nil, true)
 
 	if fromStruct != fromFields {
 		t.Errorf("ComputeJA4 and ComputeJA4FromFields differ: %q vs %q", fromStruct, fromFields)

@@ -10,7 +10,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
+	"net/url"
+	"os"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -267,8 +270,40 @@ func (d *Dispatcher) deliverToEndpoint(ep WebhookEndpoint, event WebhookEvent) e
 	return lastErr
 }
 
+// isPrivateTarget reports whether the URL resolves to a private or loopback IP.
+// JA4PROXY-2026-0043: Webhook SSRF protection.
+func isPrivateTarget(u string) bool {
+	if os.Getenv("JA4PROXY_TEST_ALLOW_LOOPBACK") == "true" {
+		return false
+	}
+	parsed, err := url.Parse(u)
+	if err != nil {
+		return true // invalid URL
+	}
+	host := parsed.Hostname()
+	// Check if host is already an IP
+	if ip := net.ParseIP(host); ip != nil {
+		return ip.IsLoopback() || ip.IsPrivate() || ip.IsUnspecified() || ip.IsLinkLocalUnicast()
+	}
+	// Resolve and check all IPs
+	ips, err := net.LookupIP(host)
+	if err != nil {
+		return true // resolution failure
+	}
+	for _, ip := range ips {
+		if ip.IsLoopback() || ip.IsPrivate() || ip.IsUnspecified() || ip.IsLinkLocalUnicast() {
+			return true
+		}
+	}
+	return false
+}
+
 // doHTTPPost performs a single HTTP POST attempt using the provided client.
+
 func (d *Dispatcher) doHTTPPost(client *http.Client, ep WebhookEndpoint, payload []byte, sig string) error {
+	if isPrivateTarget(ep.URL) {
+		return fmt.Errorf("webhook: blocked private/loopback target (SSRF prevention): %s", ep.URL)
+	}
 	req, err := http.NewRequest(http.MethodPost, ep.URL, bytes.NewReader(payload))
 	if err != nil {
 		return fmt.Errorf("webhook: create request: %w", err)

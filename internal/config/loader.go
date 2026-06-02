@@ -54,7 +54,7 @@ var envVarPattern = regexp.MustCompile(`\$\{([^}:]+)(?::-([^}]*))?\}`)
 //
 // Fails open: missing keys return Go zero values / struct defaults.
 func Load(path string) (*Config, error) {
-	raw, err := os.ReadFile(path)
+	raw, err := os.ReadFile(path) // #nosec G304
 	if err != nil {
 		return nil, fmt.Errorf("config: read %q: %w", path, err)
 	}
@@ -609,6 +609,10 @@ type SNIAnalyzerConfigYAML struct {
 		Enabled bool `yaml:"enabled"`
 		Score   int  `yaml:"score"`
 	} `yaml:"unexpected_sni"`
+	MaliciousSNI struct {
+		Enabled bool `yaml:"enabled"`
+		Score   int  `yaml:"score"`
+	} `yaml:"malicious_sni"`
 	ExpectedHostnames []string `yaml:"expected_hostnames"`
 }
 

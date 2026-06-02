@@ -1,6 +1,9 @@
 package metrics
 
-import "github.com/prometheus/client_golang/prometheus"
+import (
+	"sync"
+	"github.com/prometheus/client_golang/prometheus"
+)
 
 var (
 	ConnectionsTotal = prometheus.NewCounterVec(
@@ -319,3 +322,37 @@ func Register() {
 		ConnectionsTotal.WithLabelValues(action)
 	}
 }
+
+// CardinalityGuard prevents label cardinality DoS by limiting unique label values.
+// JA4PROXY-2026-0045: Observability safety.
+type CardinalityGuard struct {
+	maxUnique int
+	values    map[string]struct{}
+	mu        sync.Mutex
+}
+
+func NewCardinalityGuard(maxUnique int) *CardinalityGuard {
+	return &CardinalityGuard{
+		maxUnique: maxUnique,
+		values:    make(map[string]struct{}, maxUnique),
+	}
+}
+
+func (g *CardinalityGuard) GetLabel(val string) string {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if _, ok := g.values[val]; ok {
+		return val
+	}
+	if len(g.values) >= g.maxUnique {
+		return "other"
+	}
+	g.values[val] = struct{}{}
+	return val
+}
+
+// Global guards for high-cardinality labels
+var (
+	SNIGuard = NewCardinalityGuard(1000)
+	JA4Guard = NewCardinalityGuard(1000)
+)

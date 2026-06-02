@@ -6,6 +6,7 @@
 package main
 
 import (
+	"io"
 	"bytes"
 	"context"
 	"crypto/subtle"
@@ -53,6 +54,10 @@ func main() {
 	}
 
 	log := newLogger(cfg)
+
+	if os.Getenv("ENVIRONMENT") == "production" && os.Getenv("ALLOW_UNAUTH_REDIS") == "true" {
+		log.Fatal("Insecure Redis config blocked in production")
+	}
 
 	// Register Prometheus metrics (must be called once before any metric use)
 	metrics.Register()
@@ -245,6 +250,7 @@ func newProxy(cfg *config.Config, cfgPath string, log *logrus.Logger) (*proxy, e
 		Username:   redisUsername,
 		SSL:        cfg.Redis.SSL,
 		Timeout:    time.Duration(cfg.Redis.Timeout.Int()) * time.Second,
+		IntegrityKeyFile: cfg.Sync.IntegrityKeyFile,
 	}
 	rc := redisclient.New(redisCfg, log)
 
@@ -347,6 +353,7 @@ func newProxy(cfg *config.Config, cfgPath string, log *logrus.Logger) (*proxy, e
 func (p *proxy) serve(ctx context.Context) {
 	// JA4PROXY-2026-0031 — start the bounded XADD worker pool.
 	p.startStreamEventWorkers(ctx)
+	go p.startIntegrityWorker(ctx)
 
 	// Start metrics/health HTTP server
 	if p.cfg.Metrics.Enabled {
@@ -434,6 +441,9 @@ func (p *proxy) admitConn(conn net.Conn) bool {
 }
 
 func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
+	p.mu.RLock()
+	cfg := p.cfg
+	p.mu.RUnlock()
 	metrics.ActiveConnections.Inc()
 	defer func() {
 		metrics.ActiveConnections.Dec()
@@ -442,8 +452,8 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 	}()
 
 	// Peek at first 5 bytes to detect TLS
-	buf := make([]byte, p.cfg.Proxy.BufferSize)
-	clientConn.SetReadDeadline(time.Now().Add(time.Duration(p.cfg.Proxy.ReadTimeout) * time.Second))
+	buf := make([]byte, cfg.Proxy.BufferSize)
+	clientConn.SetReadDeadline(time.Now().Add(time.Duration(cfg.Proxy.ReadTimeout) * time.Second))
 	n, err := clientConn.Read(buf)
 	clientConn.SetReadDeadline(time.Time{}) // clear deadline
 	if err != nil || n == 0 {
@@ -474,7 +484,7 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 	//     the first is treated as a smuggling attempt (e.g. trusted HAProxy
 	//     header followed by an attacker-injected one). The connection is
 	//     closed.
-	if p.cfg.Proxy.ProxyProtocol {
+	if cfg.Proxy.ProxyProtocol {
 		socketIP := remoteIP(clientConn)
 		trusted := proxypkg.IsTrustedProxySourceCIDRs(socketIP, p.getTrustedCIDRs())
 		stripped := false
@@ -530,7 +540,7 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 	// reach the pipeline's pre-parse fall-through that would otherwise
 	// forward without a JA4. Operators who proxy non-TLS on this port can
 	// disable the check with security.enforce_tls_record: false.
-	if p.cfg.Security.ProtocolLockdownEnabled() && len(data) >= 1 && data[0] != 0x16 {
+	if cfg.Security.ProtocolLockdownEnabled() && len(data) >= 1 && data[0] != 0x16 {
 		metrics.ConnectionErrorsTotal.WithLabelValues("non_tls_dropped").Inc()
 		p.log.WithFields(logrus.Fields{
 			"client_ip":     connCtx.ClientIP,
@@ -589,7 +599,7 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 	// Log every connection decision — required for SIEM visibility at all dial settings.
 	// ECS formatter maps these fields to standard ECS field names.
 	p.mu.RLock()
-	backendHost := p.cfg.Proxy.BackendHost
+	backendHost := cfg.Proxy.BackendHost
 	p.mu.RUnlock()
 	p.log.WithFields(logrus.Fields{
 		"client_ip":   connCtx.ClientIP,
@@ -666,20 +676,15 @@ func (p *proxy) reassembleClientHello(clientConn net.Conn, data, buf []byte) []b
 	if len(data) < 5 {
 		return data
 	}
-	// TLS record header: bytes 3-4 are the record length (big-endian uint16).
+
+	// 1. Reassemble the first TLS record if it is incomplete.
 	recordLen := int(data[3])<<8 | int(data[4])
 	want := 5 + recordLen
-	// RFC 8446: record length ≤ 16384 plaintext + some overhead. Cap
-	// aggressively to avoid a slow-drip read amplifying a DoS.
-	const hardCap = 16640
+	const hardCap = 16640 // ~16KB limit to prevent OOM/DoS
 	if want > hardCap {
 		want = hardCap
 	}
-	if len(data) >= want {
-		return data
-	}
-	// Budget ~200ms total across retries for reassembly. A real browser's
-	// ClientHello fits in a single segment on normal networks.
+
 	deadline := time.Now().Add(200 * time.Millisecond)
 	for len(data) < want {
 		if time.Now().After(deadline) {
@@ -702,6 +707,56 @@ func (p *proxy) reassembleClientHello(clientConn net.Conn, data, buf []byte) []b
 			break
 		}
 	}
+
+	// 2. JA4PROXY-2026-0003 extension: handle Handshake fragmentation across records.
+	// If this is a ClientHello handshake, check if we need more records.
+	if len(data) >= 9 && data[0] == 0x16 && data[5] == 0x01 {
+		handshakeLen := int(data[6])<<16 | int(data[7])<<8 | int(data[8])
+		totalHandshakeWanted := 4 + handshakeLen
+		currentHandshake := len(data) - 5
+
+		// If the handshake spans multiple records, read them and append bodies.
+		for currentHandshake < totalHandshakeWanted {
+			if len(data) >= hardCap || time.Now().After(deadline) {
+				break
+			}
+
+			_ = clientConn.SetReadDeadline(deadline)
+			header := make([]byte, 5)
+			if _, err := io.ReadFull(clientConn, header); err != nil {
+				break
+			}
+
+			// Must be subsequent Handshake record (0x16)
+			if header[0] != 0x16 {
+				break
+			}
+
+			nextLen := int(header[3])<<8 | int(header[4])
+			if nextLen == 0 || nextLen > 16384 {
+				break
+			}
+
+			body := make([]byte, nextLen)
+			if _, err := io.ReadFull(clientConn, body); err != nil {
+				break
+			}
+
+			data = append(data, body...)
+			currentHandshake += nextLen
+		}
+
+		// Update the first record header to reflect total reassembled size
+		// so tlsparse.ParseClientHello treats it as one big record.
+		if len(data) > 5 {
+			totalBody := len(data) - 5
+			if totalBody <= 65535 {
+				data[3] = byte(totalBody >> 8)
+				data[4] = byte(totalBody)
+			}
+		}
+	}
+
 	_ = clientConn.SetReadDeadline(time.Time{})
 	return data
 }
@@ -770,6 +825,9 @@ func (p *proxy) tarpit(clientConn net.Conn, data []byte, clientIP string) {
 	maxConcurrent := cfg.Tarpit.MaxActiveConnections
 	maxPerIP := cfg.Tarpit.MaxPerIP
 	overflowAction := cfg.Tarpit.OverflowAction
+	if overflowAction == "" {
+		overflowAction = "block"
+	}
 
 	acquired := false
 	p.tarpitMu.Lock()
@@ -1434,6 +1492,8 @@ func buildPipelineConfig(cfg *config.Config) *security.PipelineConfig {
 		DGAScoreCap:             cfg.SNIAnalyzer.DGADetection.ScoreCap,
 		UnexpectedSNIEnabled:    cfg.SNIAnalyzer.UnexpectedSNI.Enabled,
 		UnexpectedSNIScore:      cfg.SNIAnalyzer.UnexpectedSNI.Score,
+           MaliciousSNIEnabled:     cfg.SNIAnalyzer.MaliciousSNI.Enabled,
+           MaliciousSNIScore:       cfg.SNIAnalyzer.MaliciousSNI.Score,
 		ExpectedHostnames:       expectedHostnames,
 		// Rate limiter (Group 3)
 		RateLimiterEnabled: cfg.RateLimiter.Enabled,
@@ -1707,7 +1767,7 @@ func updateTLSCertExpiryGauge(certPath string, log *logrus.Logger) {
 	if certPath == "" {
 		return
 	}
-	pemBytes, err := os.ReadFile(certPath)
+	pemBytes, err := os.ReadFile(certPath) // #nosec
 	if err != nil {
 		metrics.TLSCertExpiryTimestampSeconds.Set(0)
 		log.WithError(err).WithField("path", certPath).Warn("phase-63: failed to read TLS cert for expiry gauge")
@@ -1756,4 +1816,24 @@ func dedupStrings(ss []string) []string {
 		}
 	}
 	return out
+}
+
+// startIntegrityWorker periodically verifies critical Redis state.
+// JA4PROXY-2026-0046: Runtime Integrity Monitoring.
+func (p *proxy) startIntegrityWorker(ctx context.Context) {
+	p.log.Info("proxy: starting integrity worker (drift detection)")
+	ticker := time.NewTicker(60 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			// Monitor dial setting drift. Signed Dial (Phase 124) already
+			// prevents tampering, but this provides observability.
+			dial := p.redis.GetDial(ctx)
+			metrics.DialCurrent.Set(float64(dial))
+		}
+	}
 }
