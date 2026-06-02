@@ -160,8 +160,8 @@ failure-mode triage) lives in
 
 ## Implementation references
 
-- Phase doc: [`../phases/PHASE_107.md`](../phases/PHASE_107.md) §107c
-- Sub-task breakdown: [`../phases/PHASE_107_review.md`](../phases/PHASE_107_review.md) §"Phase 2 — Core content" sub-tasks 107c.2, 107c.3, 107c.4, 107c.5, 107c.6
+- Phase doc: [`../phases/complete/PHASE_107.md`](../phases/complete/PHASE_107.md) §107c
+- Sub-task breakdown: [`../phases/complete/PHASE_107_review.md`](../phases/complete/PHASE_107_review.md) §"Phase 2 — Core content" sub-tasks 107c.2, 107c.3, 107c.4, 107c.5, 107c.6
 - Existing keyless-cosign decision: [`ADR-202d.md`](ADR-202d.md)
 - Verifier runbook: [`../for-architects/SLSA_VERIFICATION.md`](../for-architects/SLSA_VERIFICATION.md) (created by 107c.5)
 - Test workflow: [`../../.github/workflows/slsa-verify.yml`](../../.github/workflows/slsa-verify.yml) (created by 107c.2)

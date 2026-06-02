@@ -150,9 +150,9 @@ def _post_ban(
 
     ctx = _build_tls_context(endpoint)
     try:
-        with urllib.request.urlopen(
+        with urllib.request.urlopen(  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
             request, timeout=10, context=ctx
-        ) as response:  # nosemgrep: dynamic-urllib-use-detected
+        ) as response:
             status = response.getcode()
             response_body = response.read().decode("utf-8", errors="replace")
             if status in (200, 201):
