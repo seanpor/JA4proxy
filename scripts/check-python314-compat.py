@@ -93,9 +93,9 @@ def _fetch_pypi(package: str) -> dict | None:
     """Fetch package metadata from PyPI. Returns None on failure."""
     url = PYPI_URL.format(package=package.lower())
     try:
-        with urllib.request.urlopen(
+        with urllib.request.urlopen(  # noqa: S310  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
             url, timeout=10
-        ) as resp:  # noqa: S310  # nosemgrep: dynamic-urllib-use-detected
+        ) as resp:
             return json.loads(resp.read())
     except urllib.error.HTTPError as exc:
         if exc.code == 404:

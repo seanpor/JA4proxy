@@ -296,7 +296,7 @@ def _docker_hub_tags(image: str) -> list[str]:
 
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "ja4proxy-check-updates/1.0"})
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=10) as resp:  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
             data = json.loads(resp.read().decode())
             for entry in data.get("results", []):
                 name = entry["name"]
@@ -327,7 +327,7 @@ def _gcr_tags(image: str) -> list[str]:
 
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "ja4proxy-check-updates/1.0"})
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=10) as resp:  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
             data = json.loads(resp.read().decode())
             return data.get("child", []) or data.get("tags", [])
     except (urllib.error.HTTPError, urllib.error.URLError, json.JSONDecodeError) as e:
@@ -356,10 +356,6 @@ def _find_newer_tags(current_tag: str, all_tags: list[str]) -> str | None:
     # Determine version prefix — use the first two segments (major.minor)
     # to find matching tags (e.g. '2.8.x' for '2.8.5')
     prefix = ".".join(str(p) for p in current_ver[:2])
-
-    # Extract the version from the tag (strip the '-alpine' etc. suffix)
-    # The "base version" is the numeric part before the first hyphen
-    current_base = current_tag.split("-")[0]
 
     candidates: list[tuple[tuple[int, ...], str]] = []
     for tag in all_tags:
@@ -697,7 +693,7 @@ def main() -> int:
         1 if a tool crashed or encountered an unrecoverable error.
     """
     print(f"{BOLD}{CYAN}=== Dependency Update Checker ==={RESET}")
-    print(f"  Checking Docker, Go, Python, and Node dependencies.")
+    print("  Checking Docker, Go, Python, and Node dependencies.")
     print(f"  This is read-only — nothing is installed or modified.{RESET}")
     print()
 
