@@ -4,6 +4,8 @@
 // an in-process miniredis instance.
 package webhook
 
+import "os"
+
 import (
 	"context"
 	"crypto/hmac"
@@ -26,6 +28,10 @@ import (
 
 // newTestDispatcher creates a Dispatcher wired to a miniredis instance.
 // The caller is responsible for closing mr.
+func init() {
+	os.Setenv("JA4PROXY_TEST_ALLOW_LOOPBACK", "true")
+}
+
 func newTestDispatcher(t *testing.T, cfg DispatcherConfig) (*Dispatcher, *miniredis.Miniredis) {
 	t.Helper()
 	mr, err := miniredis.Run()

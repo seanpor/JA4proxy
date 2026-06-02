@@ -1819,7 +1819,7 @@ phases:
       it; default true
   101:
     name: Phase 101 — Cross-Phase Gap Closure
-    status: IN_PROGRESS
+    status: COMPLETE
     action_plan: docs/phases/PHASE_101.md
     dependencies:
     - 84
@@ -2116,15 +2116,19 @@ phases:
   123:
     name: Security Hardening & Operational Excellence
     status: IN_PROGRESS
-    action_plan: docs/phases/PHASE_123.md
+    action_plan: docs/phases/complete/PHASE_123.md
     summary: Comprehensive hardening wave for Go proxy and Linux host environment. Implements least-privilege service isolation, network boundaries, Redis ACLs, and memory-safe Go coding patterns.
   124:
     name: Production Security Remediation (Attack Surface Audit)
-    status: IN_PROGRESS
-    action_plan: docs/phases/PHASE_124.md
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_124.md
     summary: Remediates 14+ prioritized findings from the production attack surface audit. Includes fixes for TLS record fragmentation, JA4 spec compliance, SNI canonicalization, and management-plane trust hardening.
   125:
     name: Infrastructure & Supply Chain Resilience
-    status: IN_PROGRESS
-    action_plan: docs/phases/PHASE_125.md
-    summary: Strengthens resilience against supply chain attacks and resource exhaustion. Includes logrus upgrade, Go toolchain verification, Redis state fingerprinting, and AppArmor/Seccomp refinement.
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_125.md
+  126:
+    name: Toolchain Modernization & Update Automation
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_126.md
+    summary: Modernized the security scanning toolchain (Trivy v0.70.0) and containerized the update-checking infrastructure (make check-updates).

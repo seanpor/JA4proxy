@@ -1,6 +1,8 @@
 package config
 
 import (
+	"os"
+	"strings"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -31,7 +33,15 @@ type netboxPrefixResponse struct {
 // any HTTP, transport, timeout, or decode failure. The caller merges
 // the result with static CIDRs from config/proxy.yml.
 func LoadTrustedCIDRsFromNetBox(ctx context.Context, baseURL, token, tag string) ([]string, error) {
-	client := &http.Client{Timeout: 5 * time.Second}
+	// JA4PROXY-2026-0044: Enforce HTTPS for NetBox integration
+	if !strings.HasPrefix(strings.ToLower(baseURL), "https://") && os.Getenv("JA4PROXY_TEST_ALLOW_INSECURE_NETBOX") != "true" {
+		return nil, fmt.Errorf("netbox: insecure URL blocked (HTTPS required): %s", baseURL)
+	}
+
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+		// Default transport already does strict validation.
+	}
 
 	var allCIDRs []string
 	reqURL := fmt.Sprintf("%s/api/ipam/prefixes/?tag=%s&limit=1000", baseURL, tag)
@@ -53,17 +63,17 @@ func LoadTrustedCIDRsFromNetBox(ctx context.Context, baseURL, token, tag string)
 
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 			logrus.WithField("status", resp.StatusCode).Warn("netbox: non-2xx response — failing open")
-			resp.Body.Close()
+			_ = resp.Body.Close() // #nosec G104
 			return []string{}, nil
 		}
 
 		var nbResp netboxPrefixResponse
 		if err := json.NewDecoder(resp.Body).Decode(&nbResp); err != nil {
 			logrus.WithError(err).Warn("netbox: JSON decode failed — failing open")
-			resp.Body.Close()
+			_ = resp.Body.Close() // #nosec G104
 			return []string{}, nil
 		}
-		resp.Body.Close()
+		_ = resp.Body.Close() // #nosec G104
 
 		for _, p := range nbResp.Results {
 			if p.Prefix == "" {

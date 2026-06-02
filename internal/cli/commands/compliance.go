@@ -177,7 +177,7 @@ func RunConnectionsExport(ctx context.Context, c *client.Client, since, until, o
 		outPath = fmt.Sprintf("connections-export-%s.jsonl", ts)
 	}
 
-	f, err := os.Create(outPath)
+	f, err := os.Create(outPath) // #nosec G304
 	if err != nil {
 		return nil, fmt.Errorf("creating output file: %w", err)
 	}

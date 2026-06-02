@@ -50,7 +50,7 @@ func run(args []string) (string, error) {
 	if len(args) < 1 {
 		return "", fmt.Errorf("usage: ja4check <clienthello.bin>")
 	}
-	data, err := os.ReadFile(args[0])
+	data, err := os.ReadFile(args[0]) // #nosec
 	if err != nil {
 		return "", err
 	}

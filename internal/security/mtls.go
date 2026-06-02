@@ -18,7 +18,7 @@ func NewMTLSVerifier(pemPath string) *MTLSVerifier {
 	if pemPath == "" {
 		return &MTLSVerifier{}
 	}
-	data, err := os.ReadFile(pemPath)
+	data, err := os.ReadFile(pemPath) // #nosec G304
 	if err != nil {
 		return &MTLSVerifier{}
 	}

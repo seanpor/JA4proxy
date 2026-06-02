@@ -50,7 +50,7 @@ redis_allowed_clients:
 
 # ACL — proxy user restricted to ja4:* key namespace
 redis_proxy_acl_keys: "~ja4:*"
-redis_proxy_acl_commands: "+get +set +del +exists +expire +ttl +incr +incrby +scan +keys +ping +info"
+redis_proxy_acl_commands: "-@all +@read +set +del"
 
 # Monitoring
 redis_auth_failure_alert_threshold: 5   # alert after N failures in 5 min

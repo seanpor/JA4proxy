@@ -40,6 +40,11 @@ func main() {
 		"addr": cfg.Sync.ListenAddr,
 	}).Info("ja4proxy-syncagent starting")
 
+	// JA4PROXY-2026-0041: Mesh Integrity (Fail Closed)
+	if cfg.Sync.IntegrityKeyFile == "" {
+		baseLog.Fatal("Integrity key required for sync mesh (JA4PROXY-2026-0041)")
+	}
+
 	// Redis Setup
 	redisCfg := redis.Config{
 		Host:       cfg.Redis.Host,

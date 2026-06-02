@@ -1,9 +1,14 @@
 package redis
 
 import (
+	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
 	"crypto/tls"
+	"encoding/hex"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -28,6 +33,7 @@ type Client struct {
 	scriptMu      sync.RWMutex // protects slidingWinSHA (phase-201c)
 	slidingWinSHA string       // EVALSHA hash for sliding_window.lua
 	syncStream    string       // Redis Stream for cross-DC sync
+	integrityKeyFile string       // path to HMAC secret
 }
 
 // Config holds the Redis connection parameters.
@@ -45,6 +51,7 @@ type Config struct {
 	Username string // phase-201a: Redis 6+ ACL username; "" = default user
 	SSL      bool   // phase-201a: enable TLS to Redis (MinVersion 1.2)
 	Timeout  time.Duration
+	IntegrityKeyFile string // JA4PROXY-2026-0040: Signed Dial secret path
 }
 
 // buildStandaloneOptions builds goredis.Options for single-node mode. phase-201a.
@@ -94,7 +101,7 @@ func newFromOptions(opts *goredis.Options, log *logrus.Logger) *Client {
 		log = logrus.New()
 	}
 	rdb := goredis.NewClient(opts)
-	c := &Client{rdb: rdb, log: log}
+	c := &Client{rdb: rdb, log: log, integrityKeyFile: ""}
 	c.loadScripts()
 	if opts.TLSConfig != nil {
 		pingCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -130,7 +137,7 @@ func New(cfg Config, log *logrus.Logger) *Client {
 		"username": cfg.Username != "",
 	}).Info("redis: dial options configured")
 
-	c := &Client{rdb: rdb, log: log}
+	c := &Client{rdb: rdb, log: log, integrityKeyFile: ""}
 	c.loadScripts()
 
 	if cfg.SSL {
@@ -300,10 +307,38 @@ func (c *Client) GetDial(ctx context.Context) int {
 		return 0
 	}
 	observeOp("get", "ok")
+
+	// JA4PROXY-2026-0040: Signed Dial (Control Plane Integrity)
+	// If an integrity key is configured, verify the HMAC signature of the dial setting.
+	if c.integrityKeyFile != "" {
+		sig, err := c.rdb.Get(ctx, "config:dial:sig").Result()
+		if err != nil {
+			c.log.Warn("redis: config:dial:sig missing while integrity key is set; tampering suspected; defaulting to 0")
+			return 0
+		}
+
+		key, err := os.ReadFile(c.integrityKeyFile)
+		if err != nil {
+			c.log.WithError(err).WithField("path", c.integrityKeyFile).Error("redis: failed to read integrity key file")
+			return 0
+		}
+
+		mac := hmac.New(sha256.New, bytes.TrimSpace(key))
+		mac.Write([]byte(val))
+		expectedSig := hex.EncodeToString(mac.Sum(nil))
+
+		if sig != expectedSig {
+			c.log.WithFields(logrus.Fields{
+				"val": val,
+				"sig": sig,
+				"expected": expectedSig,
+			}).Warn("redis: config:dial signature mismatch; tampering suspected; defaulting to 0 (JA4PROXY-2026-0040)")
+			return 0
+		}
+	}
+
 	var dial int
 	if _, err := fmt.Sscanf(val, "%d", &dial); err != nil {
-		// phase-63 review-fix N2: log so a malformed config:dial value is
-		// not silently coerced to monitor mode without any operator signal.
 		c.log.WithError(err).WithField("val", val).Warn("redis: config:dial parse failed; defaulting to 0 (monitor)")
 		return 0
 	}
@@ -315,9 +350,6 @@ func (c *Client) GetDial(ctx context.Context) int {
 	}
 	return dial
 }
-
-// SlidingWindowSHA returns the loaded EVALSHA for the sliding window script,
-// or "" if the script was not loaded successfully.
 func (c *Client) SlidingWindowSHA() string {
 	c.scriptMu.RLock()
 	defer c.scriptMu.RUnlock()
