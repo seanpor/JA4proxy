@@ -192,9 +192,9 @@ def scrape_metrics(
         req.add_header("Authorization", f"Bearer {api_token}")
     try:
         ctx = ssl.create_default_context() if url.startswith("https") else None
-        with urllib.request.urlopen(
+        with urllib.request.urlopen(  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
             req, timeout=timeout, context=ctx
-        ) as resp:  # nosemgrep
+        ) as resp:
             body = resp.read().decode("utf-8", errors="replace")
     except Exception as exc:  # OSError, HTTPError, URLError, ssl.SSLError
         _log.error("ja4proxy dynatrace scrape failed: url=%s err=%s", url, exc)
