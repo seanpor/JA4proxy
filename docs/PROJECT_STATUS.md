@@ -266,6 +266,8 @@ Alignment with international standards and regulatory frameworks.
 | 100 | Phase 100 — Cross-Phase Gap Closure (rolling) | COMPLETE | N/A | N/A |
 | 101 | Phase 101 — Cross-Phase Gap Closure | IN_PROGRESS | N/A | N/A |
 | 102 | Phase 93 Finishing Work: ADRs, Runbook Audit, Drift-Detection Decision | COMPLETE | N/A | N/A |
+| 103 | Manifest Gap Cleanup | COMPLETE | N/A | N/A |
+| 104 | Code Health & Coverage Gap Closure | COMPLETE | N/A | N/A |
 | 105 | Documentation Restructure by Audience | COMPLETE | N/A | N/A |
 | 106 | SWEBOK v4 Alignment & Quality Plan | COMPLETE | N/A | N/A |
 | 107 | Regulatory Conformance (CRA, NIST, ISO) | COMPLETE | N/A | N/A |
@@ -284,6 +286,9 @@ Alignment with international standards and regulatory frameworks.
 | 120 | Independent Red Team Findings: Design Flaws, Infrastructure & Logic Bugs (RETIRED) | DEFERRED | N/A | N/A |
 | 121 | Pentest Remediation Consolidation & Program Discipline | COMPLETE | N/A | N/A |
 | 122 | Production Security Review — Internet-Facing Attack Surface Audit | COMPLETE | N/A | N/A |
+| 123 | Security Hardening & Operational Excellence | IN_PROGRESS | N/A | N/A |
+| 124 | Production Security Remediation (Attack Surface Audit) | IN_PROGRESS | N/A | N/A |
+| 125 | Infrastructure & Supply Chain Resilience | IN_PROGRESS | N/A | N/A |
 | 200 | Go PROXY Protocol Trust + v2 Support | COMPLETE | N/A | N/A |
 | 201 | Go Redis TLS + Silent-Failure Hardening | COMPLETE | N/A | N/A |
 | 202 | CI Supply Chain + Default Credential Removal | COMPLETE | N/A | N/A |

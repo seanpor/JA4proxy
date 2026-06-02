@@ -11,46 +11,58 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **IN_PROGRESS** (Rolling cross-phase register of deferred review gaps from Phase 84 (compliance), Phase 85 (threat-intel hardening), Phase 62 (Go test parity), Phase 64 (deploy validation), Phase 86i (capacity hardening), and Phase 93 (Terraform provider). 12 sub-phases bundling 38 open gaps (3 critical, 13 high, 19 medium, 9 low). 16 items already closed. 4 documented limitations (external processes or blocked on hardware).)
 *   **Action Plan:** [PHASE_101.md](PHASE_101.md)
 
+### Phase 123 — Security Hardening & Operational Excellence
+*   **Status:** **IN_PROGRESS** (Comprehensive hardening wave for Go proxy and Linux host environment. Implements least-privilege service isolation, network boundaries, Redis ACLs, and memory-safe Go coding patterns.)
+*   **Action Plan:** [PHASE_123.md](PHASE_123.md)
+
+### Phase 124 — Production Security Remediation (Attack Surface Audit)
+*   **Status:** **IN_PROGRESS** (Remediates 14+ prioritized findings from the production attack surface audit. Includes fixes for TLS record fragmentation, JA4 spec compliance, SNI canonicalization, and management-plane trust hardening.)
+*   **Action Plan:** [PHASE_124.md](PHASE_124.md)
+
+### Phase 125 — Infrastructure & Supply Chain Resilience
+*   **Status:** **IN_PROGRESS** (Comprehensive supply-chain hardening: SHA-pinned Docker base images, reproducible Go builds with -trimpath, dependency audit automation, and infrastructure-as-code security scanning.)
+*   **Action Plan:** [PHASE_125.md](PHASE_125.md)
+
 ---
 
 ## 🔵 Planned & Open Phases
 
 ### Phase 109 — PROXY Protocol Hardening & Scrubbing
 *   **Status:** **DEFERRED** (Superseded by Phase 118 — PROXY-header scrubbing closed via findings register (118a/b, 116a).)
-*   **Action Plan:** [PHASE_109.md](PHASE_109.md)
+*   **Action Plan:** [cancelled/PHASE_109.md](cancelled/PHASE_109.md)
 
 ### Phase 110 — Management API Security Hardening
 *   **Status:** **DEFERRED** (Superseded by Phase 118 — CSRF, bearer-token lookup, Webhook SSRF, Redis-blocking health checks closed via findings register (110e, 118c/d/e/h).)
-*   **Action Plan:** [PHASE_110.md](PHASE_110.md)
+*   **Action Plan:** [cancelled/PHASE_110.md](cancelled/PHASE_110.md)
 
 ### Phase 111 — Security Logic & Tarpit Hardening
 *   **Status:** **DEFERRED** (Superseded by Phase 118 — fail-closed tarpit and BlockNonTLS enforcement closed via findings register (111a).)
-*   **Action Plan:** [PHASE_111.md](PHASE_111.md)
+*   **Action Plan:** [cancelled/PHASE_111.md](cancelled/PHASE_111.md)
 
 ### Phase 112 — Session & Data Integrity Hardening
 *   **Status:** **DEFERRED** (Superseded by Phase 118 — GDPR erasure, JWT JTI blacklisting, audit-log reliability closed via findings register (118f/g/m).)
-*   **Action Plan:** [PHASE_112.md](PHASE_112.md)
+*   **Action Plan:** [cancelled/PHASE_112.md](cancelled/PHASE_112.md)
 
 ### Phase 113 — Proxy Stability & Audit Instrumentation
 *   **Status:** **DEFERRED** (Superseded by Phase 118 — beaconing bounds, non-blocking tarpit writes, token-mutation audit logs closed via findings register.)
-*   **Action Plan:** [PHASE_113.md](PHASE_113.md)
+*   **Action Plan:** [cancelled/PHASE_113.md](cancelled/PHASE_113.md)
 
 ### Phase 114 — Supply Chain & Infrastructure Hygiene
 *   **Status:** **DEFERRED** (Superseded by Phase 118 — Jenkinsfile/Makefile command injection and idempotent cron deployment closed via findings register.)
-*   **Action Plan:** [PHASE_114.md](PHASE_114.md)
+*   **Action Plan:** [cancelled/PHASE_114.md](cancelled/PHASE_114.md)
 
 ### Phase 115 — Web & Rendering Security
 *   **Status:** **DEFERRED** (Superseded by Phase 118 — HTMX XSS and WeasyPrint SSRF/LFI closed via findings register.)
-*   **Action Plan:** [PHASE_115.md](PHASE_115.md)
+*   **Action Plan:** [cancelled/PHASE_115.md](cancelled/PHASE_115.md)
 
 ### Phase 116 — Protocol Parser Hardening
 *   **Status:** **DEFERRED** (Superseded by Phase 118 — fail-closed PROXY parsing on trusted connections closed via findings register (116a, 118a/b).)
-*   **Action Plan:** [PHASE_116.md](PHASE_116.md)
+*   **Action Plan:** [cancelled/PHASE_116.md](cancelled/PHASE_116.md)
 
 ### Phase 117 — DMZ Network Hardening & Anti-Smuggling
 *   **Status:** **DEFERRED** (Superseded by Phase 118 — full pentest remediation including Redis ACLs and auth hardening.)
-*   **Action Plan:** [PHASE_117.md](PHASE_117.md)
+*   **Action Plan:** [cancelled/PHASE_117.md](cancelled/PHASE_117.md)
 
 ### Phase 120 — Independent Red Team Findings: Design Flaws, Infrastructure & Logic Bugs (RETIRED)
 *   **Status:** **DEFERRED** (Retired 2026-04-19 under Phase 121e as duplicate of Phase 119. All 20 findings were either duplicates of 119 entries or already folded into the canonical findings register (docs/security/findings.yaml) with remediation_phases pointing at 119 or its successor phases. See PHASE_120.md redirect stub.)
-*   **Action Plan:** [PHASE_120.md](PHASE_120.md)
+*   **Action Plan:** [cancelled/PHASE_120.md](cancelled/PHASE_120.md)

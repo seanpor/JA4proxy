@@ -201,7 +201,7 @@ phases:
   109:
     name: PROXY Protocol Hardening & Scrubbing
     status: DEFERRED
-    action_plan: docs/phases/PHASE_109.md
+    action_plan: docs/phases/cancelled/PHASE_109.md
     dependencies:
     - 108
     size: MEDIUM
@@ -211,7 +211,7 @@ phases:
   110:
     name: Management API Security Hardening
     status: DEFERRED
-    action_plan: docs/phases/PHASE_110.md
+    action_plan: docs/phases/cancelled/PHASE_110.md
     dependencies:
     - 108
     size: MEDIUM
@@ -221,7 +221,7 @@ phases:
   111:
     name: Security Logic & Tarpit Hardening
     status: DEFERRED
-    action_plan: docs/phases/PHASE_111.md
+    action_plan: docs/phases/cancelled/PHASE_111.md
     dependencies:
     - 108
     size: SMALL
@@ -231,7 +231,7 @@ phases:
   112:
     name: Session & Data Integrity Hardening
     status: DEFERRED
-    action_plan: docs/phases/PHASE_112.md
+    action_plan: docs/phases/cancelled/PHASE_112.md
     dependencies:
     - 108
     size: MEDIUM
@@ -241,7 +241,7 @@ phases:
   113:
     name: Proxy Stability & Audit Instrumentation
     status: DEFERRED
-    action_plan: docs/phases/PHASE_113.md
+    action_plan: docs/phases/cancelled/PHASE_113.md
     dependencies:
     - 108
     size: SMALL
@@ -251,7 +251,7 @@ phases:
   114:
     name: Supply Chain & Infrastructure Hygiene
     status: DEFERRED
-    action_plan: docs/phases/PHASE_114.md
+    action_plan: docs/phases/cancelled/PHASE_114.md
     dependencies:
     - 108
     size: SMALL
@@ -261,7 +261,7 @@ phases:
   115:
     name: Web & Rendering Security
     status: DEFERRED
-    action_plan: docs/phases/PHASE_115.md
+    action_plan: docs/phases/cancelled/PHASE_115.md
     dependencies:
     - 108
     size: SMALL
@@ -271,7 +271,7 @@ phases:
   116:
     name: Protocol Parser Hardening
     status: DEFERRED
-    action_plan: docs/phases/PHASE_116.md
+    action_plan: docs/phases/cancelled/PHASE_116.md
     dependencies:
     - 108
     size: SMALL
@@ -281,7 +281,7 @@ phases:
   117:
     name: DMZ Network Hardening & Anti-Smuggling
     status: DEFERRED
-    action_plan: docs/phases/PHASE_117.md
+    action_plan: docs/phases/cancelled/PHASE_117.md
     dependencies:
     - 108
     size: MEDIUM
@@ -317,7 +317,7 @@ phases:
     name: 'Independent Red Team Findings: Design Flaws, Infrastructure & Logic Bugs
       (RETIRED)'
     status: DEFERRED
-    action_plan: docs/phases/PHASE_120.md
+    action_plan: docs/phases/cancelled/PHASE_120.md
     dependencies:
     - 108
     size: LARGE
@@ -1550,7 +1550,7 @@ phases:
       URLs, and fixed the capacity calculator so that hardcoded engineering estimates
       are no longer presented as measurements (ESTIMATED banner + --require-measured
       flag).
-    action_plan: docs/phases/PHASE_86h.md
+    action_plan: docs/phases/complete/PHASE_86h.md
     dependencies:
     - 86
     size: SMALL
@@ -1582,7 +1582,7 @@ phases:
       mixed) reusing the existing TLS traffic generator; --push-gateway flag added
       with 5 new loadtest metrics. Grafana 04_capacity.json capacity planning dashboard
       shipped. OBSERVABILITY_STANDARDS updated with the new loadtest metric section.
-    action_plan: docs/phases/PHASE_86i.md
+    action_plan: docs/phases/complete/PHASE_86i.md
     dependencies:
     - 86
     - 86h
@@ -2092,7 +2092,7 @@ phases:
     name: Resolve Third-Party Image CVEs (CRITICAL)
     status: COMPLETE
     completed: 2026-06-01
-    action_plan: docs/phases/PHASE_212.md
+    action_plan: docs/phases/complete/PHASE_212.md
     dependencies: []
     size: MEDIUM
     summary: 'Bumped 9 third-party images: haproxy 2.8.5→2.8.24-alpine, redis-stack
@@ -2105,7 +2105,7 @@ phases:
     name: Dependency Update Checker (make check-updates)
     status: COMPLETE
     completed: 2026-06-01
-    action_plan: docs/phases/PHASE_213.md
+    action_plan: docs/phases/complete/PHASE_213.md
     dependencies: []
     size: MEDIUM
     summary: 'Created scripts/check_updates.py and make check-updates target. Checks
@@ -2140,3 +2140,8 @@ phases:
     name: Infrastructure & Supply Chain Resilience
     status: IN_PROGRESS
     action_plan: docs/phases/PHASE_125.md
+    dependencies: []
+    size: LARGE
+    summary: 'Comprehensive supply-chain hardening: SHA-pinned Docker base images,
+      reproducible Go builds with -trimpath, dependency audit automation, and
+      infrastructure-as-code security scanning.'

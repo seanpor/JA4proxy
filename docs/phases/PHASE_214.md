@@ -22,18 +22,21 @@ restructure and Go version drift. They were waived through two merge cycles
 
 | File | Change |
 |------|--------|
-| `.github/workflows/ci.yml` | Bump Go 1.25.9 → 1.26, add `pip install pyyaml` to traceability step, bump semgrep 1.67.0 → 1.76.0 |
-| `.github/workflows/docs-link-check.yml` | Adjust lychee exclude patterns |
+| `.github/workflows/ci.yml` | Bump Go 1.25.9 → 1.26 (3 spots), add `pip install pyyaml` to traceability step, bump semgrep 1.67.0 → 1.76.0 |
+| `.github/workflows/docs-link-check.yml` | Add lychee `--exclude` patterns for SLSA_VERIFICATION.md + GDPR URLs |
 | `go.mod` | `go 1.25.9` → `go 1.26` |
+| `deploy/docker/Dockerfile.go-proxy` | `golang:1.25.9-alpine` → `golang:1.26-alpine` |
+| `deploy/docker/Dockerfile.cli` | `golang:1.25.9-alpine` → `golang:1.26-alpine` |
 | `docs/compliance/SECURITY_CONTROLS_MAPPING.md` | Fix 5 phase doc links (missing `complete/` prefix) |
-| `docs/decisions/ADR-107a-slsa-level-3.md` | Fix 1 phase doc link, handle 3 SLSA_VERIFICATION.md links |
-| `docs/compliance/GDPR_COMPLIANCE.md` | Fix or exclude 2 broken external URLs |
-| `deploy/dynatrace/ja4proxy-extension/plugin.py` | Add proper `# nosemgrep` on the `with urlopen` line |
+| `docs/compliance/SSDF_MAPPING.md` | Fix 2 stale `PHASE_107.md` / `PHASE_107_review.md` references |
+| `docs/decisions/ADR-107a-slsa-level-3.md` | Fix 2 phase doc links (`PHASE_107.md`, `PHASE_107_review.md`), add lychee exclusion for 3 SLSA_VERIFICATION.md refs |
+| `docs/compliance/GDPR_COMPLIANCE.md` | Exclude 2 broken external URLs via lychee |
+| `deploy/dynatrace/ja4proxy-extension/plugin.py` | Move `# nosemgrep` to `with urlopen` line |
 | `deploy/integrations/splunk-ta/ja4proxy-ta/bin/ja4proxy_ban_action.py` | Same |
 | `deploy/nagios/check_ja4proxy.py` | Same |
 | `scripts/check-python314-compat.py` | Same |
-| `scripts/check_updates.py` | Add `# nosemgrep` on 2 `urlopen` lines |
-| `scripts/process_metrics.py` | Same |
+| `scripts/check_updates.py` | Add `# nosemgrep` on 2 `urlopen` lines; remove duplicate GCR API call and unused `current_base` |
+| `scripts/process_metrics.py` | Move `# nosemgrep` to `with urlopen` line |
 
 ### Not in scope
 
@@ -49,9 +52,13 @@ restructure and Go version drift. They were waived through two merge cycles
 ### A — Go version upgrade (govulncheck fix)
 
 1. Change `go 1.25.9` → `go 1.26` in `go.mod`
-2. Change `go-version: "1.25.9"` → `go-version: "1.26"` on both occurrences in `.github/workflows/ci.yml` (lines 41, 160)
-3. Run `GOROOT=/snap/go/current go mod tidy` and verify no module changes needed
-4. Run `GOROOT=/snap/go/current govulncheck ./...` locally to confirm zero vulns
+2. Change `go-version: "1.25.9"` → `go-version: "1.26"` on all 3 occurrences in `.github/workflows/ci.yml` (lines 41, 71, 160)
+3. Change `golang:1.25.9-alpine` → `golang:1.26-alpine` in `deploy/docker/Dockerfile.go-proxy` and `deploy/docker/Dockerfile.cli`
+4. Run `GOROOT=/snap/go/current go mod tidy` and verify no module changes needed
+5. Run `GOROOT=/snap/go/current govulncheck ./...` locally to confirm zero vulns
+6. Run `GOROOT=/snap/go/current go vet ./...` and `go build ./...` to confirm clean compilation
+
+> **Discovered during implementation:** The Go Dockerfiles also pinned `1.25.9-alpine`. CI's integration test `test_built_image_runs_as_uid_1000` builds the Docker image and failed with `go.mod requires go >= 1.26 (running go 1.25.9)`. Both Dockerfiles needed the same bump.
 
 ### B — Traceability matrix fix
 
@@ -60,15 +67,19 @@ restructure and Go version drift. They were waived through two merge cycles
 ### C — Docs link check fixes
 
 1. Update 5 `../phases/PHASE_XX.md` → `../phases/complete/PHASE_XX.md` links in `docs/compliance/SECURITY_CONTROLS_MAPPING.md` (phases 00, 03, 08, 19)
-2. Update 1 `../phases/PHASE_107.md` → `../phases/complete/PHASE_107.md` link in `docs/decisions/ADR-107a-slsa-level-3.md`
-3. Add `--exclude-path` entries to the lychee workflow for: `docs/decisions/ADR-107a-slsa-level-3.md` (SLSA_VERIFICATION.md references) and `docs/compliance/GDPR_COMPLIANCE.md` (external URL unreliability)
-4. Adjust lychee `--exclude` patterns for the 2 external broken URLs if needed; otherwise exclude the entire file
+2. Update `../phases/PHASE_107.md` → `../phases/complete/PHASE_107.md` and `../phases/PHASE_107_review.md` → `../phases/complete/PHASE_107_review.md` in `docs/decisions/ADR-107a-slsa-level-3.md`
+3. Add `--exclude SLSA_VERIFICATION` to lychee args for the 3 deferred SLSA_VERIFICATION.md references in ADR-107a
+4. Add `--exclude https://eur-lex.europa.eu` and `--exclude https://edpb.europa.eu` for the 2 broken external GDPR URLs
+
+> **Discovered during implementation:** ADR-107a had a second broken link to `PHASE_107_review.md` (line 164) that was not in the initial audit. Also, `SSDF_MAPPING.md` had 2 stale phase doc references that were caught by `test_compliance_evidence_paths.py` — the test scans the entire file body, not just evidence columns. These needed updating to avoid a new test failure.
 
 ### D — Semgrep findings fix
 
 1. Update semgrep version from `1.67.0` to `1.76.0` in `.github/workflows/ci.yml`
 2. For each of the 6 files with `dynamic-urllib-use-detected` findings, move the `# nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected` comment from the `) as resp:` line to the `with urllib.request.urlopen(` line
 3. Add the same `# nosemgrep` comment to the 2 un-suppressed instances in `scripts/check_updates.py`
+
+> **Discovered during implementation:** `scripts/check_updates.py` had a duplicate GCR API call in `_gcr_tags()` with an unused `name` variable (copy-paste from the Docker Hub function). Also had an unused `current_base` variable in `_find_newer_tags()`. Both were cleaned up as ruff F841 violations surfaced when adding the nosemgrep comments. Also fixed an f-string-without-placeholders (F541) in the header message.
 
 ## Test Strategy
 
@@ -95,3 +106,14 @@ restructure and Go version drift. They were waived through two merge cycles
 - Any Go proxy code changes beyond go.mod version directive
 - Adding new CI jobs or removing existing ones
 - Architectural changes to the CI pipeline
+
+## Discovered During Implementation
+
+| Issue | Where | Fix |
+|-------|-------|-----|
+| Go 1.26 req broke Docker image build | `Dockerfile.go-proxy`, `Dockerfile.cli` | Bumped `golang:1.25.9-alpine` → `1.26-alpine` |
+| Missing `PHASE_107_review.md` link | `ADR-107a-slsa-level-3.md:164` | Added `complete/` prefix |
+| Stale phase doc paths in SSDF mapping | `SSDF_MAPPING.md:56-57` | Updated to `phases/complete/` |
+| Duplicate GCR API call in `_gcr_tags()` | `scripts/check_updates.py` | Removed dead code block |
+| Unused `current_base` variable | `scripts/check_updates.py` | Removed assignment |
+| F-string without placeholders | `scripts/check_updates.py:695` | Removed extraneous `f` prefix |
