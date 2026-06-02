@@ -121,6 +121,16 @@ epics:
   phases:
   - 107
 phases:
+  103:
+    name: Manifest Gap Cleanup
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_103.md
+    summary: Synchronized manifest.yaml with actual project state by removing resolved gaps from phases 33, 36, 57, and 87.
+  104:
+    name: Code Health & Coverage Gap Closure
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_104.md
+    summary: Closed quality gaps across Python and Go, fixed lint-all, and added make quality target. Major coverage goals addressed or superseded by Phase 207.
   105:
     name: Documentation Restructure by Audience
     status: COMPLETE
@@ -2116,3 +2126,17 @@ phases:
       exclusions for SLSA_VERIFICATION.md + GDPR external URLs. Fixed 7 semgrep
       dynamic-urllib-use-detected findings (moved nosemgrep to urlopen line, added
       2 missing). Bumped semgrep 1.67.0→1.76.0.'
+  123:
+    name: Security Hardening & Operational Excellence
+    status: IN_PROGRESS
+    action_plan: docs/phases/PHASE_123.md
+    summary: Comprehensive hardening wave for Go proxy and Linux host environment. Implements least-privilege service isolation, network boundaries, Redis ACLs, and memory-safe Go coding patterns.
+  124:
+    name: Production Security Remediation (Attack Surface Audit)
+    status: IN_PROGRESS
+    action_plan: docs/phases/PHASE_124.md
+    summary: Remediates 14+ prioritized findings from the production attack surface audit. Includes fixes for TLS record fragmentation, JA4 spec compliance, SNI canonicalization, and management-plane trust hardening.
+  125:
+    name: Infrastructure & Supply Chain Resilience
+    status: IN_PROGRESS
+    action_plan: docs/phases/PHASE_125.md

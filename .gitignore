@@ -64,7 +64,7 @@ deploy/ssl/certs/*.pem
 
 # Logs that might contain sensitive data
 logs/*
-*.log
+#*.log # dup
 !logs/.gitkeep
 
 # Server process files
@@ -144,7 +144,6 @@ test-results/
 /ja4proxy-cli
 /cmd/proxy/proxy
 /proxy
-/cmd/proxy/proxy
 
 # LaTeX build artifacts (docs/pdf/)
 *.aux
@@ -164,10 +163,8 @@ test-results/
 *.vrb
 
 # Python cache
-__pycache__/
 *.pyc
 *.pyo
-.pytest_cache/
 .claude/scheduled_tasks.lock
 secrets/
-secrets/
+.aider*
