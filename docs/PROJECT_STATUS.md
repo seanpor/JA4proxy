@@ -5,7 +5,7 @@
 
 ## Current Status: Phase 101 (Phase 101 — Cross-Phase Gap Closure) Next
 
-**Last Updated:** 2026-06-01
+**Last Updated:** 2026-06-02
 
 ## Epics & Roadmap
 
@@ -296,6 +296,7 @@ Alignment with international standards and regulatory frameworks.
 | 209 | Proxy Runtime Errors — Fail-Open Audit & Remediation | COMPLETE | N/A | N/A |
 | 210 | Makefile Help Restructuring & Housekeeping | COMPLETE | N/A | N/A |
 | 212 | Resolve Third-Party Image CVEs (CRITICAL) | COMPLETE | N/A | N/A |
+| 213 | Dependency Update Checker (make check-updates) | COMPLETE | N/A | N/A |
 
 ---
 
