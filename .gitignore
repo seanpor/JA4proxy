@@ -170,4 +170,3 @@ __pycache__/
 .pytest_cache/
 .claude/scheduled_tasks.lock
 secrets/
-secrets/
