@@ -39,7 +39,7 @@ This document maps JA4proxy's implemented security controls to the **ISO 27001:2
 | **A.5.4: Management responsibilities** | ✅ Incident response procedures | [Incident Response Runbook](../INCIDENT_RESPONSE.md) | None |
 | **A.5.5: Contact with authorities** | ✅ Breach notification template | [GDPR Compliance §9.3](../compliance/GDPR_COMPLIANCE.md#93-notification-template) | None |
 | **A.5.6: Contact with special interest groups** | ❌ Not applicable | Open source community engagement | N/A |
-| **A.5.7: Threat intelligence** | ✅ Spamhaus, AbuseIPDB integration | [Phase 8 & 10 documentation](../phases/PHASE_08.md) | None |
+| **A.5.7: Threat intelligence** | ✅ Spamhaus, AbuseIPDB integration | [Phase 8 & 10 documentation](../phases/complete/PHASE_08.md) | None |
 | **A.5.8: Information security in project management** | ✅ Phase-based security gates | [TESTING_STRATEGY.md](../TESTING_STRATEGY.md) | None |
 
 ### A.6: People Controls
@@ -127,7 +127,7 @@ This document maps JA4proxy's implemented security controls to the **ISO 27001:2
 |---------|--------------------------|----------|-----|
 | **A.10.1.1: Cryptographic controls policy** | ✅ Encryption policy documented | [Deployment Security Model](../DEPLOYMENT_SECURITY_MODEL.md) | None |
 | **A.10.1.2: Key management** | ✅ TLS key management | HAProxy TLS termination | None |
-| **A.10.1.3: Cryptographic techniques** | ✅ Strong cipher suites | [Phase 3: TLS Enforcement](../phases/PHASE_03.md) | None |
+| **A.10.1.3: Cryptographic techniques** | ✅ Strong cipher suites | [Phase 3: TLS Enforcement](../phases/complete/PHASE_03.md) | None |
 
 ### A.11: Physical Security
 
@@ -138,11 +138,11 @@ This document maps JA4proxy's implemented security controls to the **ISO 27001:2
 | Control | JA4proxy Implementation | Evidence | Gap |
 |---------|--------------------------|----------|-----|
 | **A.12.1.1: Documented operating procedures** | ✅ Comprehensive runbooks | [Operator Documentation](../operator/) | None |
-| **A.12.1.2: Change management** | ✅ Configuration hot-reload | [Phase 0: Hot Reload](../phases/PHASE_00.md) | None |
+| **A.12.1.2: Change management** | ✅ Configuration hot-reload | [Phase 0: Hot Reload](../phases/complete/PHASE_00.md) | None |
 | **A.12.1.3: Capacity management** | ✅ Resource monitoring | [Monitoring Setup §Capacity Planning](../MONITORING_SETUP.md) | None |
 | **A.12.1.4: Separation of development, testing and production** | ✅ Environment isolation | Docker Compose environment variables | None |
 | **A.12.2.1: Controls against malware** | ✅ Container scanning | Trivy integration in CI/CD | None |
-| **A.12.2.2: Information backup** | ✅ Backup and restore | [Phase 19: Backup & Restore](../phases/PHASE_19.md) | None |
+| **A.12.2.2: Information backup** | ✅ Backup and restore | [Phase 19: Backup & Restore](../phases/complete/PHASE_19.md) | None |
 | **A.12.2.3: Logging** | ✅ Comprehensive logging | [Observability Standards](../OBSERVABILITY_STANDARDS.md) | None |
 | **A.12.2.4: Monitoring** | ✅ Prometheus + Grafana | [Monitoring Setup](../MONITORING_SETUP.md) | None |
 | **A.12.2.5: Clock synchronization** | ✅ NTP configuration | Docker container time sync | None |
@@ -211,7 +211,7 @@ This document maps JA4proxy's implemented security controls to the **ISO 27001:2
 | **A.17.1.2: Business continuity implementation** | ✅ Redis replication | Docker Compose HA setup | None |
 | **A.17.1.3: Business continuity strategy** | ✅ Failover procedures | HAProxy configuration | None |
 | **A.17.2.1: Availability of information processing facilities** | ✅ Redundant deployment | Multi-instance architecture | None |
-| **A.17.2.2: Information backup** | ✅ Backup and restore | [Phase 19 Documentation](../phases/PHASE_19.md) | None |
+| **A.17.2.2: Information backup** | ✅ Backup and restore | [Phase 19 Documentation](../phases/complete/PHASE_19.md) | None |
 
 ### A.18: Compliance
 
