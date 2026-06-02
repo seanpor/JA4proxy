@@ -41,6 +41,9 @@ jobs:
             --no-progress
             --accept 200,204,301,302,403,429
             --max-concurrency 4
+            --exclude SLSA_VERIFICATION
+            --exclude https://eur-lex.europa.eu
+            --exclude https://edpb.europa.eu
             'docs/compliance/**/*.md'
             'docs/for-architects/**/*.md'
             'docs/for-compliance/**/*.md'

@@ -79,9 +79,9 @@ def _fetch(url: str, token: str) -> dict:
         req.add_header("Authorization", f"Bearer {token}")
     ctx = _build_tls_context(url)
     try:
-        with urllib.request.urlopen(
+        with urllib.request.urlopen(  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
             req, timeout=10, context=ctx
-        ) as resp:  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
+        ) as resp:
             return json.loads(resp.read().decode())
     except urllib.error.HTTPError as exc:
         print(f"UNKNOWN - HTTP {exc.code} from {url} | ", file=sys.stdout)
