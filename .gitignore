@@ -167,3 +167,4 @@ test-results/
 *.pyo
 .claude/scheduled_tasks.lock
 secrets/
+.aider*
