@@ -2185,3 +2185,8 @@ phases:
     status: COMPLETE
     action_plan: docs/phases/complete/PHASE_134.md
     summary: Resolves outstanding findings from the OpenSSF Scorecard local run, specifically auditing Token-Permissions across GitHub Actions and investigating/patching 92 OSV-detected vulnerabilities.
+  135:
+    name: README Revamp & Badge Governance
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_135.md
+    summary: Inspired by Microsoft AGT, this phase audits and modernizes the project README. It introduces high-value trust badges (OpenSSF Scorecard, SLSA, Go Report Card), removes obsolete Python-proxy warnings, and aligns documentation links with the flattened file structure from Phase 127.
