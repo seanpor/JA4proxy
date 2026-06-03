@@ -417,6 +417,12 @@ func (p *proxy) serve(ctx context.Context) {
 		atomic.AddInt64(&p.activeConns, 1)
 		go func() {
 			defer func() { <-p.acceptSem }()
+			defer func() {
+				if r := recover(); r != nil {
+					p.log.WithField("panic", r).Error("handler recovered from panic")
+					metrics.HandlerPanicsTotal.Inc()
+				}
+			}()
 			p.handleConn(ctx, conn)
 		}()
 	}
@@ -716,9 +722,18 @@ func (p *proxy) reassembleClientHello(clientConn net.Conn, data, buf []byte) []b
 		totalHandshakeWanted := 4 + handshakeLen
 		currentHandshake := len(data) - 5
 
+		// Per-connection cap to prevent OOM under fragmentation attack (F-004).
+		const maxReassemblyBytes = 65536
+		totalReassemblyBytes := 0
+
 		// If the handshake spans multiple records, read them and append bodies.
 		for currentHandshake < totalHandshakeWanted {
 			if len(data) >= hardCap || time.Now().After(deadline) {
+				break
+			}
+			if totalReassemblyBytes >= maxReassemblyBytes {
+				p.log.WithField("remote", clientConn.RemoteAddr()).
+					Warn("reassembly: per-connection cap exceeded, closing")
 				break
 			}
 
@@ -730,6 +745,8 @@ func (p *proxy) reassembleClientHello(clientConn net.Conn, data, buf []byte) []b
 
 			// Must be subsequent Handshake record (0x16)
 			if header[0] != 0x16 {
+				p.log.WithField("content_type", header[0]).
+					Debug("reassembly: non-handshake record during fragment assembly")
 				break
 			}
 
@@ -745,6 +762,7 @@ func (p *proxy) reassembleClientHello(clientConn net.Conn, data, buf []byte) []b
 
 			data = append(data, body...)
 			currentHandshake += nextLen
+			totalReassemblyBytes += nextLen
 		}
 
 		// Update the first record header to reflect total reassembled size
@@ -1473,9 +1491,9 @@ func buildPipelineConfig(cfg *config.Config) *security.PipelineConfig {
 	return &security.PipelineConfig{
 		ALPNBrowserBypass:       cfg.SecurityPolicy.ALPNBrowserBypass.Enabled,
 		JA4WhitelistBypass:      cfg.SecurityPolicy.JA4WhitelistBypass.Enabled,
-		JA4BlacklistBypass:      cfg.SecurityPolicy.JA4BlacklistBypass.Enabled,
+		JA4BlockingEnabled:      cfg.SecurityPolicy.JA4BlockingEnabled.Enabled,
 		MTLSBypass:              cfg.SecurityPolicy.MTLSBypass.Enabled,
-		CountryBlacklistBypass:  cfg.SecurityPolicy.CountryBlacklistBypass.Enabled,
+		CountryBlockingEnabled:  cfg.SecurityPolicy.CountryBlockingEnabled.Enabled,
 		Whitelist:               whitelist,
 		WhitelistSuffs:          cfg.Security.WhitelistPatterns,
 		Blacklist:               blacklist,

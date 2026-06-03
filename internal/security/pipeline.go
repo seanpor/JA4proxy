@@ -38,6 +38,15 @@ type RedisReader interface {
 //  4. Action decision (ActionDecider + dial)
 //
 // Fail open: any module error is logged; a zero/neutral signal is used instead.
+// beaconingJob is a unit of work for the bounded beaconing worker.
+type beaconingJob struct {
+	ctx    context.Context
+	conn   *ConnectionContext
+	action string
+}
+
+const beaconingJobBuf = 256
+
 type Pipeline struct {
 	cfg           *PipelineConfig
 	scorer        *RiskScorer
@@ -56,6 +65,9 @@ type Pipeline struct {
 	rdap          *RDAPEnricher
 	tapConsumer   *TapConsumer // phase-203a
 
+	// Bounded beaconing worker (F-002)
+	beaconingJobs chan beaconingJob
+
 	// JA4 lists (dynamic, synchronized with Redis)
 	Whitelist   map[string]bool
 	Blacklist   map[string]bool
@@ -73,9 +85,9 @@ type PipelineConfig struct {
 	// Bypass toggles (from security_policy in proxy.yml)
 	ALPNBrowserBypass      bool
 	JA4WhitelistBypass     bool
-	JA4BlacklistBypass     bool
+	JA4BlockingEnabled     bool
 	MTLSBypass             bool
-	CountryBlacklistBypass bool
+	CountryBlockingEnabled bool
 
 	// JA4 lists (from security.whitelist / security.blacklist)
 	Whitelist      map[string]bool
@@ -184,7 +196,7 @@ type PipelineConfig struct {
 	// JA4X configuration (Group 6)
 	JA4XEnabled         bool
 	JA4XWhitelistBypass bool
-	JA4XBlacklistBypass bool
+	JA4XBlockingEnabled bool
 	JA4XBlacklistScore  int
 
 	// Phase 203a — TAP-consumed JA4T OS mismatch signal.
@@ -223,6 +235,8 @@ func NewPipeline(cfg *PipelineConfig, redis RedisReader, log *logrus.Logger) *Pi
 	p.abuseipdb = NewAbuseIPDB(buildAbuseIPDBConfig(cfg), redis, log)
 	p.rdap = NewRDAPEnricher(buildRDAPConfig(cfg), redis, log)
 	p.tapConsumer = NewTapConsumer(buildTapConsumerConfig(cfg), redisReaderGetter{redis}, log) // phase-203a
+	p.beaconingJobs = make(chan beaconingJob, beaconingJobBuf)
+	go p.beaconingWorker()
 	return p
 }
 
@@ -261,6 +275,15 @@ func durationSeconds(s, def int) time.Duration {
 		s = def
 	}
 	return time.Duration(s) * time.Second
+}
+
+// beaconingWorker processes beaconing jobs from the bounded channel (F-002).
+// Runs in a single goroutine — the channel buffer absorbs bursts and
+// non-blocking sends prevent the pipeline from blocking on a saturated worker.
+func (p *Pipeline) beaconingWorker() {
+	for job := range p.beaconingJobs {
+		p.beaconing.MaybeRecord(job.ctx, job.conn, job.action)
+	}
 }
 
 // StartBackgroundWorkers starts all async background workers.
@@ -349,7 +372,7 @@ func (p *Pipeline) Process(ctx context.Context, conn *ConnectionContext) *Pipeli
 	}
 
 	// JA4X blacklist signal (non-hard-block case)
-	if conn.JA4X != "" && p.cfg.JA4XEnabled && !p.cfg.JA4XBlacklistBypass {
+	if conn.JA4X != "" && p.cfg.JA4XEnabled && !p.cfg.JA4XBlockingEnabled {
 		p.mu.RLock()
 		ja4xBlacklist := p.JA4XBlacklist
 		blacklistScore := p.cfg.JA4XBlacklistScore
@@ -406,8 +429,12 @@ func (p *Pipeline) Process(ctx context.Context, conn *ConnectionContext) *Pipeli
 	// ── 5. ACTION DECISION ───────────────────────────────────────────────
 	action := p.decider.Decide(assessment.TotalScore, dial)
 
-	// Record beaconing timestamp (async, non-blocking)
-	go p.beaconing.MaybeRecord(ctx, conn, action)
+	// Record beaconing timestamp (bounded worker, F-002)
+	select {
+	case p.beaconingJobs <- beaconingJob{ctx: ctx, conn: conn, action: action}:
+	default:
+		// Worker saturated — drop rather than block the pipeline
+	}
 
 	// Build counterfactuals for monitor-mode logging
 	var counterfactuals map[int]string
@@ -522,19 +549,19 @@ func (p *Pipeline) checkHardBlocks(conn *ConnectionContext) (bool, string) {
 	defer p.mu.RUnlock()
 
 	// JA4 blacklist
-	if p.cfg.JA4BlacklistBypass && conn.JA4 != "" && p.Blacklist[conn.JA4] {
+	if p.cfg.JA4BlockingEnabled && conn.JA4 != "" && p.Blacklist[conn.JA4] {
 		return true, "ja4_blacklist"
 	}
 
 	// JA4X blacklist
-	if p.cfg.JA4XBlacklistBypass && conn.JA4X != "" && p.cfg.JA4XEnabled {
+	if p.cfg.JA4XBlockingEnabled && conn.JA4X != "" && p.cfg.JA4XEnabled {
 		if p.JA4XBlacklist[conn.JA4X] {
 			return true, "ja4x_blacklist"
 		}
 	}
 
 	// Country blacklist
-	if p.cfg.CountryBlacklistBypass && conn.Country != "" && p.cfg.CountryBlacklist[conn.Country] {
+	if p.cfg.CountryBlockingEnabled && conn.Country != "" && p.cfg.CountryBlacklist[conn.Country] {
 		return true, "country_blacklist"
 	}
 

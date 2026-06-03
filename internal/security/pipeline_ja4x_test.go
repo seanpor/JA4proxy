@@ -39,7 +39,7 @@ func TestPipeline_JA4XBlacklistBlock(t *testing.T) {
 		ALPNBrowserBypass:   false,
 		JA4WhitelistBypass:  true,
 		JA4XEnabled:         true,
-		JA4XBlacklistBypass: true,
+		JA4XBlockingEnabled: true,
 		Whitelist:           map[string]bool{},
 	}
 	p := NewPipeline(cfg, &mockRedis{dial: 0}, nil)
@@ -70,7 +70,7 @@ func TestPipeline_JA4XBlacklistSignal(t *testing.T) {
 		ALPNBrowserBypass:   false,
 		JA4WhitelistBypass:  true,
 		JA4XEnabled:         true,
-		JA4XBlacklistBypass: false,
+		JA4XBlockingEnabled: false,
 		Whitelist:           map[string]bool{},
 		JA4XBlacklistScore:  80,
 	}

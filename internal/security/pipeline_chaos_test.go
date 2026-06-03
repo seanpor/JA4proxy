@@ -120,7 +120,7 @@ func newChaosPipeline(t *testing.T, redis *faultyRedis) *Pipeline {
 	cfg := &PipelineConfig{
 		ALPNBrowserBypass:  true,
 		JA4WhitelistBypass: true,
-		JA4BlacklistBypass: true,
+		JA4BlockingEnabled: true,
 		MTLSBypass:         true,
 		Whitelist:          map[string]bool{},
 		Blacklist:          map[string]bool{},

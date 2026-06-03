@@ -483,12 +483,12 @@ func TestHandleConn_BlockAction(t *testing.T) {
 	loadSecurityLists(ctx, prx.redis, prx.pipeline)
 
 	// Enable JA4 blacklist bypass
-	prx.cfg.SecurityPolicy.JA4BlacklistBypass.Enabled = true
+	prx.cfg.SecurityPolicy.JA4BlockingEnabled.Enabled = true
 
 	// Rebuild pipeline with blacklist enabled
 	prx.cfg.Security.Blacklist = []string{"t13d1516h2_aabbccddeeff_aabbccddeeff"}
 	pipeCfg := buildPipelineConfig(prx.cfg)
-	pipeCfg.JA4BlacklistBypass = true
+	pipeCfg.JA4BlockingEnabled = true
 	prx.pipeline = security.NewPipeline(pipeCfg, prx.redis, prx.log)
 	loadSecurityLists(ctx, prx.redis, prx.pipeline)
 
