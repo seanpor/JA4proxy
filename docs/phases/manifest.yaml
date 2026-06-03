@@ -2145,3 +2145,8 @@ phases:
     status: COMPLETE
     action_plan: docs/phases/complete/PHASE_126.md
     summary: Modernized the security scanning toolchain (Trivy v0.70.0) and containerized the update-checking infrastructure (make check-updates).
+  127:
+    name: Documentation Rationalization & Consolidation
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_127.md
+    summary: Aggressively simplifies the documentation suite by eradicating persona-based directories, consolidating operational guidance into a single guide, and pruning the 1,700-line testing strategy into a concise core.
