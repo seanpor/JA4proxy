@@ -3,12 +3,12 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"github.com/anomalyco/ja4proxy/internal/config"
+	"github.com/sirupsen/logrus"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
-	"github.com/sirupsen/logrus"
-	"github.com/anomalyco/ja4proxy/internal/config"
 )
 
 func init() {

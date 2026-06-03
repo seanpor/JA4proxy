@@ -6,7 +6,6 @@
 package main
 
 import (
-	"io"
 	"bytes"
 	"context"
 	"crypto/subtle"
@@ -15,6 +14,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"net"
 	"net/http"
@@ -241,15 +241,15 @@ func newProxy(cfg *config.Config, cfgPath string, log *logrus.Logger) (*proxy, e
 		}).Info("Redis effective ACL username resolved")
 	}
 	redisCfg := redisclient.Config{
-		Host:       cfg.Redis.Host,
-		Port:       cfg.Redis.Port.Int(),
-		MasterName: cfg.Redis.MasterName,
-		Sentinels:  cfg.Redis.Sentinels,
-		DB:         cfg.Redis.DB,
-		Password:   cfg.Redis.Password,
-		Username:   redisUsername,
-		SSL:        cfg.Redis.SSL,
-		Timeout:    time.Duration(cfg.Redis.Timeout.Int()) * time.Second,
+		Host:             cfg.Redis.Host,
+		Port:             cfg.Redis.Port.Int(),
+		MasterName:       cfg.Redis.MasterName,
+		Sentinels:        cfg.Redis.Sentinels,
+		DB:               cfg.Redis.DB,
+		Password:         cfg.Redis.Password,
+		Username:         redisUsername,
+		SSL:              cfg.Redis.SSL,
+		Timeout:          time.Duration(cfg.Redis.Timeout.Int()) * time.Second,
 		IntegrityKeyFile: cfg.Sync.IntegrityKeyFile,
 	}
 	rc := redisclient.New(redisCfg, log)
@@ -614,7 +614,7 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 		"ja4t":        connCtx.TCPJA4T,
 		"dial":        result.Dial,
 		"signals":     result.Signals,
-			"reason":      result.BypassReason,
+		"reason":      result.BypassReason,
 		"dst_ip":      backendHost, // phase-80: destination for ECS field mapping
 		"src_port":    connCtx.ClientPort,
 	}).Info("proxy: connection decision")
@@ -1493,8 +1493,8 @@ func buildPipelineConfig(cfg *config.Config) *security.PipelineConfig {
 		DGAScoreCap:             cfg.SNIAnalyzer.DGADetection.ScoreCap,
 		UnexpectedSNIEnabled:    cfg.SNIAnalyzer.UnexpectedSNI.Enabled,
 		UnexpectedSNIScore:      cfg.SNIAnalyzer.UnexpectedSNI.Score,
-           MaliciousSNIEnabled:     cfg.SNIAnalyzer.MaliciousSNI.Enabled,
-           MaliciousSNIScore:       cfg.SNIAnalyzer.MaliciousSNI.Score,
+		MaliciousSNIEnabled:     cfg.SNIAnalyzer.MaliciousSNI.Enabled,
+		MaliciousSNIScore:       cfg.SNIAnalyzer.MaliciousSNI.Score,
 		ExpectedHostnames:       expectedHostnames,
 		// Rate limiter (Group 3)
 		RateLimiterEnabled: cfg.RateLimiter.Enabled,
