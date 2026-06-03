@@ -33,6 +33,6 @@ Phase 22 enhances the Phase 19 backup system with **scheduling**, **pipeline bat
 
 ## 3. References
 
-- `docs/phases/PHASE_19.md` — Phase 19 foundation
+- `docs/phases/complete/PHASE_19.md` — Phase 19 foundation
 - `src/backup/` — Backup implementation
 - `tests/unit/backup/` — Backup unit tests

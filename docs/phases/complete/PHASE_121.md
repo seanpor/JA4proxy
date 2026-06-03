@@ -120,11 +120,11 @@ past and future.
 
 **Input documents (full list):**
 
-- `docs/phases/PHASE_108.md` (L1-NNN, L2-NNN, … L7-NNN)
-- `docs/phases/PHASE_109.md` through `PHASE_117.md` (per-phase findings, no IDs)
-- `docs/phases/PHASE_118.md` (18 sub-phases, 53 findings, IDs 118a…118r)
-- `docs/phases/PHASE_119.md` (R-NNN / RT-NNN — 17 findings)
-- `docs/phases/PHASE_120.md` (119a–t — 20 findings; overlaps 119)
+- `docs/phases/complete/PHASE_108.md` (L1-NNN, L2-NNN, … L7-NNN)
+- `docs/phases/complete/PHASE_109.md` through `PHASE_117.md` (per-phase findings, no IDs)
+- `docs/phases/complete/PHASE_118.md` (18 sub-phases, 53 findings, IDs 118a…118r)
+- `docs/phases/complete/PHASE_119.md` (R-NNN / RT-NNN — 17 findings)
+- `docs/phases/complete/PHASE_120.md` (119a–t — 20 findings; overlaps 119)
 - `docs/reports/2026-04-16_LEADER_PENTEST_CAMPAIGN.md`
 - `docs/reports/2026-04-17_RED_TEAM_AUDIT.md`
 - `docs/reports/2026-04-17_REDTEAM_WHITEBOX_ASSESSMENT.md`
@@ -421,7 +421,7 @@ bind the execution of 121b–121k.
 
 | File | Owner |
 |---|---|
-| `docs/phases/PHASE_121.md` | this phase |
+| `docs/phases/complete/PHASE_121.md` | this phase |
 | `docs/security/FINDINGS_REGISTER.md` | this phase (creates); all subsequent phases append to it |
 | `docs/security/{SEVERITY_RUBRIC,REMEDIATION_WAVES,CLOSURE_VERIFICATION,INTAKE_RUNBOOK,OWNERSHIP}.md` | this phase |
 | `docs/decisions/ADR-NNN-cvss-version.md` | this phase |

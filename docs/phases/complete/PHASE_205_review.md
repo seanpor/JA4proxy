@@ -2,7 +2,7 @@
 
 **Reviewed:** 2026-04-14 (updated; supersedes 2026-04-13 review)
 **Target:** Python + Go (repo-wide, no runtime code changes)
-**Phase doc:** `docs/phases/PHASE_205.md`
+**Phase doc:** `docs/phases/complete/PHASE_205.md`
 **Branch:** `claude/phase-205-repo-root-cleanup`
 
 ---
@@ -263,7 +263,7 @@ These sub-tasks close Phase 205. All are small and independent unless noted.
 **Size:** XS (15 min)
 **Depends on:** none
 **Parallel with:** all
-**Files to touch:** `docs/phases/PHASE_205.md`
+**Files to touch:** `docs/phases/complete/PHASE_205.md`
 **What to do:**
 - Change "≤14 visible on GitHub" to "≤20 visible on GitHub" (realistic for Go+Python repo)
 - Add a sentence explaining why `data/`, `management/`, and `proxy.py` stay visible

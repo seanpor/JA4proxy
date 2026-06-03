@@ -16,7 +16,7 @@ phase: 21
 **Note:** This content is outdated. See [GO_PORT_GUIDE.md](GO_PORT_GUIDE.md) for current information.
 
 This guide covers the architecture, key design decisions, and development workflow for
-the Go proxy (`cmd/proxy/` + `internal/`). Read `docs/phases/PHASE_15.md` for the
+the Go proxy (`cmd/proxy/` + `internal/`). Read `docs/phases/complete/PHASE_15.md` for the
 migration context and acceptance criteria.
 
 ---

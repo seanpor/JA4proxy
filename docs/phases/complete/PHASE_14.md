@@ -1,6 +1,6 @@
 # Phase 14 — Production Hardening
 
-Read `docs/DMZ_DEPLOYMENT_READINESS.md` and `docs/security/COMPREHENSIVE_SECURITY_AUDIT.md`
+Read `docs/DMZ_READINESS.md` and `docs/security/COMPREHENSIVE_SECURITY_AUDIT.md`
 before starting. Many of the audit's findings are already resolved — this plan addresses
 the genuine remaining gaps.
 
@@ -258,7 +258,7 @@ The distinction matters for future logging detail — keep both for semantic cla
 - [x] Overflow action configurable: `block` | `rst` | `allow`; `allow` fails open to backend
 - [x] `ja4proxy_tarpit_concurrent` gauge reflects current in-process count
 - [x] `ja4proxy_tarpit_overflow_total{action}` incremented on each overflow
-- [x] `docs/SECOPS_OPERATIONS.md` updated with tarpit resource sizing guidance
+- [x] `docs/OPERATIONS.md` updated with tarpit resource sizing guidance
 - [x] `docs/OBSERVABILITY_STANDARDS.md` updated with both new metrics
 - [x] Test: cap reached → overflow action taken; counter not incremented
 - [x] Test: per-IP cap → IP at limit gets overflow; other IPs unaffected
@@ -615,7 +615,7 @@ All Phase 14 config values are hot-reloadable (apply to next connection).
 - [x] All added to `docs/OBSERVABILITY_STANDARDS.md`
 
 ### Documentation
-- [x] `docs/SECOPS_OPERATIONS.md`: tarpit resource sizing guidance added
+- [x] `docs/OPERATIONS.md`: tarpit resource sizing guidance added
 - [x] `docs/security/SECURITY_CHECKLIST.md`: Phase 14 production hardening items added
 - [x] `docs/security/COMPREHENSIVE_SECURITY_AUDIT.md`: resolved findings marked ✅
 - [x] `CHANGELOG.md` updated

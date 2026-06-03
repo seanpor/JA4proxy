@@ -151,7 +151,7 @@ branch (`claude/phase-86i-hardening`):
 The 7 deferred items from the Phase 86i critical review (3 majors, 3
 minors, 1 low) have been moved to the rolling Cross-Phase Gap Register:
 
-- **`docs/phases/PHASE_101.md` → "Phase 86i Hardening Review (deferred items)"**
+- **`docs/phases/complete/PHASE_101.md` → "Phase 86i Hardening Review (deferred items)"**
   — IDs **H14** (capacity calculator estimates-as-measurements),
   **H15** (Dynatrace Prometheus parser robustness),
   **H16** (Datadog migration smoke check / runbook),

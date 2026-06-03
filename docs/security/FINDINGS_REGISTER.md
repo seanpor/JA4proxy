@@ -13,7 +13,7 @@ finding is opened once, fixed once, tested once, and closed once.
 
 Between April 2026 pentest campaigns and red team assessments, roughly 98
 sub-phase entries accumulated across 13 separate phase documents with no
-shared IDs and heavy duplication (see `docs/phases/PHASE_121.md` §1 for the
+shared IDs and heavy duplication (see `docs/phases/complete/PHASE_121.md` §1 for the
 full context). The register collapses that pile into a managed backlog with
 canonical IDs, unambiguous severity, SLA tracking, and a regression-test
 requirement for closure.

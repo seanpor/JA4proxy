@@ -86,7 +86,7 @@ default workflow — it exists only when you are prototyping a new signal.
 
 1. [`HOW_WE_WORK.md`](HOW_WE_WORK.md) — branch flow, keep-main-green, commit
    conventions. Read this **before** opening a branch.
-2. [`TDD_AND_TESTING.md`](TDD_AND_TESTING.md) — the test-first loop and the
+2. [`TESTING_STRATEGY.md`](TESTING_STRATEGY.md) — the test-first loop and the
    matrix of test categories.
 3. [`../../CONTRIBUTING.md`](../../CONTRIBUTING.md) — project structure, code
    style, completing-a-phase mechanics. Use as a reference, not a tutorial.

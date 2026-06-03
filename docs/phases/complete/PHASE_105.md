@@ -4,7 +4,7 @@
 > **Size:** LARGE (26 sub-tasks across 6 audience tracks)
 > **Dependencies:** None (docs-only; no code change)
 > **Triggered by:** Documentation audit 2026-04-16
-> **Review:** `docs/phases/PHASE_105_review.md` (to be written on close)
+> **Review:** `docs/phases/complete/PHASE_105_review.md` (to be written on close)
 
 ---
 
@@ -31,14 +31,14 @@ PDF-build scripts only.
 
 | # | Audience | Primary concern | Entry doc |
 |---|----------|-----------------|-----------|
-| 1 | **Website owner / CISO** (primary) | "Will this stop the bots hitting my forms without blocking customers?" | `docs/for-website-owners/README.md` |
-| 2 | **Security architect** (primary) | Threat model, control coverage, trust boundaries, SIEM integration, scope & limitations | `docs/for-architects/README.md` |
-| 3 | **SecOps operator** (secondary) | Start/stop, dial tuning, incident response, dashboards, alerts | `docs/for-operators/README.md` |
-| 4 | **Compliance / audit** (secondary) | Data handling, retention, PII posture, audit trail, control mapping | `docs/for-compliance/README.md` |
-| 5 | **Developer / contributor** (secondary) | Local dev, phase protocol, TDD, keep-main-green rules, CI gates, how to land a PR | `docs/for-developers/README.md` |
+| 1 | **Website owner / CISO** (primary) | "Will this stop the bots hitting my forms without blocking customers?" | `README.md` |
+| 2 | **Security architect** (primary) | Threat model, control coverage, trust boundaries, SIEM integration, scope & limitations | `README.md` |
+| 3 | **SecOps operator** (secondary) | Start/stop, dial tuning, incident response, dashboards, alerts | `README.md` |
+| 4 | **Compliance / audit** (secondary) | Data handling, retention, PII posture, audit trail, control mapping | `README.md` |
+| 5 | **Developer / contributor** (secondary) | Local dev, phase protocol, TDD, keep-main-green rules, CI gates, how to land a PR | `README.md` |
 
 The top-level `README.md` becomes a role-router that dispatches to these five.
-`docs/INDEX.md` remains the exhaustive map for power users.
+`docs/README.md` remains the exhaustive map for power users.
 
 ---
 
@@ -52,11 +52,11 @@ Full audit in this phase's opening commit message. Issues actioned below:
 | F2 | CRITICAL | No website-owner one-pager / buyer's guide; brochure buried in `docs/pdf/` |
 | F3 | HIGH | `README.md` mixes 4 audiences; no clear entry point per role |
 | F4 | HIGH | No developer-onboarding track covering TDD, trunk discipline, CI gates |
-| F5 | HIGH | Stale pre-Phase 200 reports read as current (`ENTERPRISE_REVIEW.md`, `GEMINI_CRITIQUE.md`, `DMZ_DEPLOYMENT_READINESS.md`) |
+| F5 | HIGH | Stale pre-Phase 200 reports read as current (`ENTERPRISE_REVIEW.md`, `GEMINI_CRITIQUE.md`, `DMZ_READINESS.md`) |
 | F6 | MEDIUM | 4 overlapping TESTING docs, 3 overlapping deployment docs, 4 overlapping blocking docs |
 | F7 | MEDIUM | Missing architect docs: SIEM/SOAR integration runbooks, "what JA4proxy is NOT" scope doc |
 | F8 | MEDIUM | PDF brochure / user guide / reference manual reference Phase-15-era reality; not discoverable from README |
-| F9 | MEDIUM | `docs/INDEX.md` last reviewed Phase 21; positioned at end of README, not top |
+| F9 | MEDIUM | `docs/README.md` last reviewed Phase 21; positioned at end of README, not top |
 | F10 | LOW | Minor link issues (README → `docs/enterprise/` directory, not file); possibly stale perf numbers |
 
 ---
@@ -106,10 +106,10 @@ it's in `docs/pdf/brochure/` and not linked from any top-level doc.
 
 | File | Content |
 |------|---------|
-| `docs/for-website-owners/README.md` | Role router: problem framing → links to the three below |
-| `docs/for-website-owners/WHY_JA4PROXY.md` | Problem statement in business language. Credential-stuffing, form-abuse, scraper costs. Before/after narrative. "Zero false-positives by design" without jargon |
-| `docs/for-website-owners/DEPLOYMENT_OPTIONS.md` | Cloud / on-prem / managed-service summary. Time-to-deploy. Integration prerequisites. Who operates it |
-| `docs/for-website-owners/FAQ.md` | 12–15 Q&A: cost model, risk of blocking real users, does it work behind Cloudflare/AWS ALB, GDPR posture, uptime impact, how we know it's working |
+| `README.md` | Role router: problem framing → links to the three below |
+| `WHY_JA4PROXY.md` | Problem statement in business language. Credential-stuffing, form-abuse, scraper costs. Before/after narrative. "Zero false-positives by design" without jargon |
+| `DEPLOYMENT_OPTIONS.md` | Cloud / on-prem / managed-service summary. Time-to-deploy. Integration prerequisites. Who operates it |
+| `FAQ.md` | 12–15 Q&A: cost model, risk of blocking real users, does it work behind Cloudflare/AWS ALB, GDPR posture, uptime impact, how we know it's working |
 
 The existing `docs/FAQ.md` is operator-focused and stays; the new one is
 buyer-focused.
@@ -132,7 +132,7 @@ runbooks (Splunk, QRadar, Sentinel, Wazuh) despite log schema being published.
 
 ### Fix
 
-Create `docs/for-architects/README.md` as a curated index (not a duplicate) of:
+Create `README.md` as a curated index (not a duplicate) of:
 
 - Threat model (`docs/security/threat-model.md`)
 - Control coverage matrix (`docs/compliance/SECURITY_CONTROLS_MAPPING.md`)
@@ -144,17 +144,17 @@ New content to write:
 
 | File | Content |
 |------|---------|
-| `docs/for-architects/SCOPE_AND_LIMITATIONS.md` | What JA4proxy does NOT do. Not a WAF, does not decrypt, does not inspect HTTP bodies, does not prevent SQLi/XSS, does not re-encrypt, does not detect insider threats. Explicit non-goals |
-| `docs/for-architects/SIEM_INTEGRATION.md` | Log schema recap (ECS 8.x, pointer to `docs/api/ecs_extension.md`) + Splunk / QRadar / Sentinel / Wazuh ingestion recipes (forwarder config, index/parser snippets, sample correlation rules) |
-| `docs/for-architects/EVALUATION_CHECKLIST.md` | Short checklist for architects running a POC: what to monitor, what "good" looks like after 7/30 days, how to raise the dial safely |
+| `SCOPE_AND_LIMITATIONS.md` | What JA4proxy does NOT do. Not a WAF, does not decrypt, does not inspect HTTP bodies, does not prevent SQLi/XSS, does not re-encrypt, does not detect insider threats. Explicit non-goals |
+| `SIEM_INTEGRATION.md` | Log schema recap (ECS 8.x, pointer to `docs/api/ecs_extension.md`) + Splunk / QRadar / Sentinel / Wazuh ingestion recipes (forwarder config, index/parser snippets, sample correlation rules) |
+| `EVALUATION_CHECKLIST.md` | Short checklist for architects running a POC: what to monitor, what "good" looks like after 7/30 days, how to raise the dial safely |
 
 Retire / restamp the following as historical:
 
 | File | Action |
 |------|--------|
-| `docs/reports/ENTERPRISE_REVIEW.md` | Move to `docs/reports/archive/ENTERPRISE_REVIEW_2026-02-15.md`, add banner "Snapshot pre-Phase 200 hardening. Current posture: see `docs/for-architects/`" |
+| `docs/reports/ENTERPRISE_REVIEW.md` | Move to `docs/reports/archive/ENTERPRISE_REVIEW_2026-02-15.md`, add banner "Snapshot pre-Phase 200 hardening. Current posture: see ``" |
 | `docs/GEMINI_CRITIQUE.md` | Move to `docs/reports/archive/GEMINI_CRITIQUE_2026-03-21.md`, add banner listing which findings are remediated (Phase 13/51/52 Management UI; Phase 200-series hardening) |
-| `docs/DMZ_DEPLOYMENT_READINESS.md` | Re-date and re-scope against Phase 200-series controls, or archive and supersede with a fresh readiness doc |
+| `docs/DMZ_READINESS.md` | Re-date and re-scope against Phase 200-series controls, or archive and supersede with a fresh readiness doc |
 
 ### Size
 
@@ -169,22 +169,22 @@ plus archival/restamp work on three existing reports.
 
 Operator docs are numerous but overlapping. Four blocking docs, three testing
 docs (which leak into dev territory), sparse capacity-planning coverage.
-`docs/operator/` sits alongside top-level operator docs (`SECOPS_OPERATIONS.md`,
+`docs/operator/` sits alongside top-level operator docs (`OPERATIONS.md`,
 `INCIDENT_RESPONSE.md`, `MONITORING_SETUP.md`, `SCALING_GUIDE.md`) with no
 clear hierarchy.
 
 ### Fix
 
-Create `docs/for-operators/README.md` as the single entry point. Keep existing
+Create `README.md` as the single entry point. Keep existing
 runbooks in `docs/runbooks/` — they are well-organised and referenced by alert
 rules. Consolidate:
 
 | Action | Files |
 |--------|-------|
 | **Merge** into `docs/operator/BLOCKING_OPERATIONS.md` | `docs/operator/blocking-guide.md` + `BLOCKING_ANALYSIS.md` + `blocking-test-analysis.md` + `FINAL_BLOCKING_TEST_SUMMARY.md` |
-| **Promote** to top-level operator entry | `docs/SECOPS_OPERATIONS.md`, `docs/INCIDENT_RESPONSE.md`, `docs/QUICK_REFERENCE.md`, `docs/MONITORING_SETUP.md` (link, don't move) |
+| **Promote** to top-level operator entry | `docs/OPERATIONS.md`, `docs/INCIDENT_RESPONSE.md`, `docs/QUICK_REFERENCE.md`, `docs/MONITORING_SETUP.md` (link, don't move) |
 | **Expand** | `docs/SCALING_GUIDE.md` — add worked capacity-planning examples (3 scenarios: small site / enterprise / high-volume API) |
-| **Add** | `docs/for-operators/UPGRADE_PATH.md` summarising the already-existing `docs/runbooks/rolling_upgrade.md` + version compatibility matrix |
+| **Add** | `UPGRADE_PATH.md` summarising the already-existing `docs/runbooks/rolling_upgrade.md` + version compatibility matrix |
 
 ### Size
 
@@ -207,9 +207,9 @@ documented for auditors.
 
 | File | Action |
 |------|--------|
-| `docs/for-compliance/README.md` | New — role router linking the four existing compliance docs |
-| `docs/for-compliance/AUDIT_TRAIL.md` | New — what gets logged, where, for how long; policy-change audit (`management:policy_audit` LIST); operator action log; Redis key retention summary; cross-reference `docs/REDIS_SCHEMA.md` |
-| `docs/for-compliance/CHANGE_MANAGEMENT.md` | New — how config changes are proposed, reviewed, applied, reverted (SIGHUP + UI + pub/sub). Maps to auditor-expected CM evidence |
+| `README.md` | New — role router linking the four existing compliance docs |
+| `AUDIT_TRAIL.md` | New — what gets logged, where, for how long; policy-change audit (`management:policy_audit` LIST); operator action log; Redis key retention summary; cross-reference `docs/REDIS_SCHEMA.md` |
+| `CHANGE_MANAGEMENT.md` | New — how config changes are proposed, reviewed, applied, reverted (SIGHUP + UI + pub/sub). Maps to auditor-expected CM evidence |
 
 ### Size
 
@@ -230,17 +230,17 @@ for AI agents and are over-dense for a human contributor on day one. The
 audit surfaced that new human contributors have no equivalent onboarding
 track.
 
-### Fix — establish `docs/for-developers/` as the human-contributor home
+### Fix — establish `` as the human-contributor home
 
 | File | Content |
 |------|---------|
-| `docs/for-developers/README.md` | Role router: pick your path — first-time contributor, returning contributor, maintainer |
-| `docs/for-developers/GETTING_STARTED.md` | Local dev in 30 min. Go and Python prereqs. Build, test, run. Points at `CONTRIBUTING.md` for deeper reference (do not duplicate) |
-| `docs/for-developers/HOW_WE_WORK.md` | **The team process doc.** Trunk-based development with short-lived `claude/phase-NN-*` and `feat/*` branches. Never commit direct to `main`. Keep-main-green rule: any red CI on `main` is treated as an incident; fix or revert within 1 hour. Phase protocol summary (link to `CLAUDE.md` + `AGENTS.md` for agent-specific rules). Commit message convention. PR size expectations. Review etiquette |
-| `docs/for-developers/TDD_AND_TESTING.md` | TDD loop the team uses: write the failing test first, smallest change to green, refactor, ratio target ~1.3× test-to-code. Test category matrix (unit / integration / chaos / adversarial / FP corpus / performance / E2E) with "when to write each". Link to `docs/TESTING_STRATEGY.md` as the deep reference. Explain mocks-in-`tests/mocks` rule, no-real-API rule, phase-gate-must-pass rule |
-| `docs/for-developers/CI_AND_QUALITY_GATES.md` | What `.github/workflows/ci.yml` enforces: test-go, test-python, lint, secrets-scan, SAST, dep audits (Py + Go), dependency review, SHA-pinned-actions check. Weekly CVE sweep cron. What a green PR looks like. How to reproduce a CI failure locally (`make quality`, `make test`, `make lint-all`). SBOM + Cosign signing in `go-proxy-image.yml`. Policy-bundle CI in `ja4proxy-policy.yml`. Release gate in `release-cli.yml` |
-| `docs/for-developers/PHASE_LIFECYCLE.md` | How to run a phase end-to-end, human edition. Mandatory planning protocol (phase doc before code). Branch naming. Commit cadence. `make sync` to regenerate TODO/PROJECT_STATUS. Manifest update + CHANGELOG entry. Phase-close checklist. Link to `AGENTS.md` for the agent-orchestration variant |
-| `docs/for-developers/SIGNAL_DEVELOPMENT.md` | Already exists at `docs/developer/SIGNAL_DEVELOPMENT.md` — move or link |
+| `README.md` | Role router: pick your path — first-time contributor, returning contributor, maintainer |
+| `GETTING_STARTED.md` | Local dev in 30 min. Go and Python prereqs. Build, test, run. Points at `CONTRIBUTING.md` for deeper reference (do not duplicate) |
+| `HOW_WE_WORK.md` | **The team process doc.** Trunk-based development with short-lived `claude/phase-NN-*` and `feat/*` branches. Never commit direct to `main`. Keep-main-green rule: any red CI on `main` is treated as an incident; fix or revert within 1 hour. Phase protocol summary (link to `CLAUDE.md` + `AGENTS.md` for agent-specific rules). Commit message convention. PR size expectations. Review etiquette |
+| `TESTING_STRATEGY.md` | TDD loop the team uses: write the failing test first, smallest change to green, refactor, ratio target ~1.3× test-to-code. Test category matrix (unit / integration / chaos / adversarial / FP corpus / performance / E2E) with "when to write each". Link to `docs/TESTING_STRATEGY.md` as the deep reference. Explain mocks-in-`tests/mocks` rule, no-real-API rule, phase-gate-must-pass rule |
+| `QUALITY_PLAN.md` | What `.github/workflows/ci.yml` enforces: test-go, test-python, lint, secrets-scan, SAST, dep audits (Py + Go), dependency review, SHA-pinned-actions check. Weekly CVE sweep cron. What a green PR looks like. How to reproduce a CI failure locally (`make quality`, `make test`, `make lint-all`). SBOM + Cosign signing in `go-proxy-image.yml`. Policy-bundle CI in `ja4proxy-policy.yml`. Release gate in `release-cli.yml` |
+| `PHASE_LIFECYCLE.md` | How to run a phase end-to-end, human edition. Mandatory planning protocol (phase doc before code). Branch naming. Commit cadence. `make sync` to regenerate TODO/PROJECT_STATUS. Manifest update + CHANGELOG entry. Phase-close checklist. Link to `AGENTS.md` for the agent-orchestration variant |
+| `SIGNAL_DEVELOPMENT.md` | Already exists at `docs/developer/SIGNAL_DEVELOPMENT.md` — move or link |
 
 Content source: much of this already exists in `CLAUDE.md`, `AGENTS.md`,
 `CONTRIBUTING.md`, `docs/TESTING_STRATEGY.md`, and the workflow YAML headers
@@ -261,14 +261,14 @@ existing material.
 
 Six docs on testing with heavy overlap: `docs/TESTING.md` (Phase 0 baseline),
 `docs/TESTING_STRATEGY.md` (Phase 21 canonical), `docs/TESTING_GO.md` (Go
-specific), `docs/TEST_ORGANIZATION.md` (file layout), `docs/TEST_SUITE.md`
+specific), `docs/TESTING_STRATEGY.md` (file layout), `docs/TEST_SUITE.md`
 (categories), `docs/SECURITY_TESTING.md` (JA4 validation, unique scope).
 
 ### Fix
 
 Make `docs/TESTING_STRATEGY.md` the single canonical reference. Merge:
 
-- `docs/TEST_ORGANIZATION.md` → appendix "Test File Organisation" in
+- `docs/TESTING_STRATEGY.md` → appendix "Test File Organisation" in
   TESTING_STRATEGY
 - `docs/TEST_SUITE.md` → appendix "Test Categories" in TESTING_STRATEGY
 - `docs/TESTING.md` → delete; replace with a stub that redirects
@@ -276,7 +276,7 @@ Make `docs/TESTING_STRATEGY.md` the single canonical reference. Merge:
 
 Keep `docs/SECURITY_TESTING.md` — unique JA4-fingerprint scope.
 
-Ensure `docs/for-developers/TDD_AND_TESTING.md` links to the consolidated doc.
+Ensure `TESTING_STRATEGY.md` links to the consolidated doc.
 
 ### Size
 
@@ -309,18 +309,18 @@ Refresh pass on each PDF source tree:
 
 | Artefact | Action |
 |----------|--------|
-| `docs/pdf/brochure/brochure-body.tex` | Light refresh — update "current state" claims, add Phase-200-series security posture line, link to `docs/for-website-owners/README.md`. Verify numbers in brochure match `docs/performance/BENCHMARK_HISTORY.md` |
+| `docs/pdf/brochure/brochure-body.tex` | Light refresh — update "current state" claims, add Phase-200-series security posture line, link to `README.md`. Verify numbers in brochure match `docs/performance/BENCHMARK_HISTORY.md` |
 | `docs/pdf/user-guide/chapters/ch01-introduction.tex` | Remove "Phase 15 introduction" framing; position as current Go-production guide |
 | `docs/pdf/user-guide/chapters/ch02-installation.tex` | Update to reflect current Dockerfile.go-proxy non-root + USER directive, env-var credential requirements (Phase 202) |
 | `docs/pdf/user-guide/chapters/ch04-configuration.tex` | Reconcile against current `config/proxy.yml` |
-| `docs/pdf/user-guide/chapters/ch05-operations.tex` | Reconcile against `docs/SECOPS_OPERATIONS.md` |
+| `docs/pdf/user-guide/chapters/ch05-operations.tex` | Reconcile against `docs/OPERATIONS.md` |
 | `docs/pdf/user-guide/chapters/ch07-incident-response.tex` | Reconcile against `docs/INCIDENT_RESPONSE.md` |
 | `docs/pdf/reference-manual/chapters/ch01-architecture.tex` | Refresh with current Go runtime as primary, Python as prototyping |
 | `docs/pdf/reference-manual/chapters/ch04-signals.tex` | Add Phase 203 signals: TAP OS-mismatch, JA4 TLS-version mismatch, expanded weak-cipher set, DGA parity, deep-health |
 | `docs/pdf/reference-manual/chapters/ch06-redis-schema.tex` | Reconcile against `docs/REDIS_SCHEMA.md` current state |
 | `docs/pdf/reference-manual/chapters/ch09-security-ref.tex` | Add Phase 200-series hardening (Redis TLS, PROXY v2, default-credential removal) |
 | `docs/pdf/reference-manual/chapters/ch10-compliance.tex` | Reconcile against `docs/compliance/` current state |
-| `docs/pdf/Makefile` | Verify `make` builds all three PDFs reproducibly; document `latexmk` / `tectonic` prerequisite in `docs/for-developers/GETTING_STARTED.md` |
+| `docs/pdf/Makefile` | Verify `make` builds all three PDFs reproducibly; document `latexmk` / `tectonic` prerequisite in `GETTING_STARTED.md` |
 
 Add a CI job (new workflow or extension of `ci.yml`) that rebuilds the three
 PDFs on every change under `docs/pdf/**` and publishes them as workflow
@@ -339,11 +339,11 @@ against existing living docs rather than original writing.
 
 The following docs reference Phase 14/19/21-era state as if current:
 
-- `docs/DMZ_DEPLOYMENT_READINESS.md` — "Phase 14 gap analysis" (Phase 14 is 90
+- `docs/DMZ_READINESS.md` — "Phase 14 gap analysis" (Phase 14 is 90
   phases ago)
 - `docs/DEPLOYMENT_SECURITY_MODEL.md` — "Phase 19 backup" references
 - `docs/README.md` — header says `last_reviewed: 2026-03-27, phase: 21`
-- `docs/INDEX.md` — last reviewed Phase 21
+- `docs/README.md` — last reviewed Phase 21
 - `docs/GEMINI_CRITIQUE.md` — "Phase 13 Management UI deferred" (Phase 13/51/52
   now complete)
 
@@ -352,10 +352,10 @@ Python-vs-Go confusion in README lines 16–25 (badges + buried warning) and
 
 ### Fix
 
-- `docs/README.md` and `docs/INDEX.md`: update frontmatter to current date +
+- `docs/README.md` and `docs/README.md`: update frontmatter to current date +
   `phase: 104` (or whatever is latest at close time) and re-audit every table
   row for stale entries
-- `docs/DMZ_DEPLOYMENT_READINESS.md`: either rewrite against current Phase
+- `docs/DMZ_READINESS.md`: either rewrite against current Phase
   200-series controls, or archive with supersede banner (decide in 105c)
 - `docs/DEPLOYMENT_SECURITY_MODEL.md`: re-date; remove Phase-19-specific
   hedging; reference current backup runbook
@@ -407,7 +407,7 @@ this explicitly.
 
 ### Fix
 
-Anchor the policy in `docs/for-developers/HOW_WE_WORK.md` (see 105f) with:
+Anchor the policy in `HOW_WE_WORK.md` (see 105f) with:
 
 - Definition of "red main" (any `ci.yml` job failure on the default branch)
 - Response SLA (acknowledge within 15 min during working hours, fix or revert
@@ -432,26 +432,26 @@ the runbook is the step-by-step.
 - [ ] `README.md` is ≤ 150 lines and opens with a "Start by role" table linking to the five `docs/for-*/README.md` entry points
 - [ ] `README.md` contains an unambiguous "Production runtime is the Go proxy" banner above the fold
 - [ ] `README.md` has a PDF-downloads row linking brochure, user guide, reference manual
-- [ ] `docs/INDEX.md` frontmatter `last_reviewed` and `phase` fields match the phase in `docs/phases/manifest.yaml` at close time
+- [ ] `docs/README.md` frontmatter `last_reviewed` and `phase` fields match the phase in `docs/phases/manifest.yaml` at close time
 
 **Audience entry points**
-- [ ] `docs/for-website-owners/README.md` exists with 3 sub-docs (WHY_JA4PROXY, DEPLOYMENT_OPTIONS, FAQ)
-- [ ] `docs/for-architects/README.md` exists with SCOPE_AND_LIMITATIONS, SIEM_INTEGRATION, EVALUATION_CHECKLIST
-- [ ] `docs/for-operators/README.md` exists and links (not copies) existing operator docs and runbooks
-- [ ] `docs/for-compliance/README.md` exists with AUDIT_TRAIL and CHANGE_MANAGEMENT
-- [ ] `docs/for-developers/README.md` exists with GETTING_STARTED, HOW_WE_WORK, TDD_AND_TESTING, CI_AND_QUALITY_GATES, PHASE_LIFECYCLE
+- [ ] `README.md` exists with 3 sub-docs (WHY_JA4PROXY, DEPLOYMENT_OPTIONS, FAQ)
+- [ ] `README.md` exists with SCOPE_AND_LIMITATIONS, SIEM_INTEGRATION, EVALUATION_CHECKLIST
+- [ ] `README.md` exists and links (not copies) existing operator docs and runbooks
+- [ ] `README.md` exists with AUDIT_TRAIL and CHANGE_MANAGEMENT
+- [ ] `README.md` exists with GETTING_STARTED, HOW_WE_WORK, TDD_AND_TESTING, CI_AND_QUALITY_GATES, PHASE_LIFECYCLE
 
 **Developer track specifics**
 - [ ] `HOW_WE_WORK.md` documents trunk-based flow, branch naming, keep-main-green rule, PR size expectations, review etiquette
-- [ ] `TDD_AND_TESTING.md` documents the TDD loop and references `docs/TESTING_STRATEGY.md` as canonical
-- [ ] `CI_AND_QUALITY_GATES.md` describes every job in `.github/workflows/ci.yml`, `go-proxy-image.yml`, `ja4proxy-policy.yml`, `release-cli.yml`
+- [ ] `TESTING_STRATEGY.md` documents the TDD loop and references `docs/TESTING_STRATEGY.md` as canonical
+- [ ] `QUALITY_PLAN.md` describes every job in `.github/workflows/ci.yml`, `go-proxy-image.yml`, `ja4proxy-policy.yml`, `release-cli.yml`
 
 **Consolidation**
 - [ ] Blocking operations merged into `docs/operator/BLOCKING_OPERATIONS.md`; the 4 old blocking docs redirect or are archived
 - [ ] `docs/TESTING_STRATEGY.md` absorbs TEST_ORGANIZATION, TEST_SUITE, TESTING_GO as appendices; `docs/TESTING.md` is a redirect stub
 
 **Staleness repair**
-- [ ] `docs/DMZ_DEPLOYMENT_READINESS.md` is either rewritten against Phase 200-series controls or archived with a supersede banner
+- [ ] `docs/DMZ_READINESS.md` is either rewritten against Phase 200-series controls or archived with a supersede banner
 - [ ] `docs/GEMINI_CRITIQUE.md` and `docs/reports/ENTERPRISE_REVIEW.md` are under `docs/reports/archive/` with snapshot-date banners
 - [ ] No doc under `docs/` claims "Phase N" as current where N < latest-complete-phase in manifest
 
@@ -477,27 +477,27 @@ the runbook is the step-by-step.
 |------|--------|
 | `README.md` | Rewrite as role-router (≤150 lines) |
 | `docs/README.md` | Add links to five `for-*` entry points; update frontmatter |
-| `docs/INDEX.md` | Re-audit every row; update frontmatter |
-| `CONTRIBUTING.md` | Re-order project structure; link `docs/for-developers/` |
-| `docs/for-website-owners/README.md` | New |
-| `docs/for-website-owners/WHY_JA4PROXY.md` | New |
-| `docs/for-website-owners/DEPLOYMENT_OPTIONS.md` | New |
-| `docs/for-website-owners/FAQ.md` | New |
-| `docs/for-architects/README.md` | New |
-| `docs/for-architects/SCOPE_AND_LIMITATIONS.md` | New |
-| `docs/for-architects/SIEM_INTEGRATION.md` | New |
-| `docs/for-architects/EVALUATION_CHECKLIST.md` | New |
-| `docs/for-operators/README.md` | New |
-| `docs/for-operators/UPGRADE_PATH.md` | New |
-| `docs/for-compliance/README.md` | New |
-| `docs/for-compliance/AUDIT_TRAIL.md` | New |
-| `docs/for-compliance/CHANGE_MANAGEMENT.md` | New |
-| `docs/for-developers/README.md` | New |
-| `docs/for-developers/GETTING_STARTED.md` | New |
-| `docs/for-developers/HOW_WE_WORK.md` | New |
-| `docs/for-developers/TDD_AND_TESTING.md` | New |
-| `docs/for-developers/CI_AND_QUALITY_GATES.md` | New |
-| `docs/for-developers/PHASE_LIFECYCLE.md` | New |
+| `docs/README.md` | Re-audit every row; update frontmatter |
+| `CONTRIBUTING.md` | Re-order project structure; link `` |
+| `README.md` | New |
+| `WHY_JA4PROXY.md` | New |
+| `DEPLOYMENT_OPTIONS.md` | New |
+| `FAQ.md` | New |
+| `README.md` | New |
+| `SCOPE_AND_LIMITATIONS.md` | New |
+| `SIEM_INTEGRATION.md` | New |
+| `EVALUATION_CHECKLIST.md` | New |
+| `README.md` | New |
+| `UPGRADE_PATH.md` | New |
+| `README.md` | New |
+| `AUDIT_TRAIL.md` | New |
+| `CHANGE_MANAGEMENT.md` | New |
+| `README.md` | New |
+| `GETTING_STARTED.md` | New |
+| `HOW_WE_WORK.md` | New |
+| `TESTING_STRATEGY.md` | New |
+| `QUALITY_PLAN.md` | New |
+| `PHASE_LIFECYCLE.md` | New |
 | `docs/operator/BLOCKING_OPERATIONS.md` | New (merge of 4 existing) |
 | `docs/operator/blocking-guide.md` | Redirect stub or delete |
 | `docs/operator/BLOCKING_ANALYSIS.md` | Redirect stub or delete |
@@ -505,11 +505,11 @@ the runbook is the step-by-step.
 | `docs/operator/FINAL_BLOCKING_TEST_SUMMARY.md` | Redirect stub or delete |
 | `docs/TESTING_STRATEGY.md` | Absorb TEST_ORGANIZATION, TEST_SUITE, TESTING_GO |
 | `docs/TESTING.md` | Redirect stub |
-| `docs/TEST_ORGANIZATION.md` | Redirect stub or delete |
+| `docs/TESTING_STRATEGY.md` | Redirect stub or delete |
 | `docs/TEST_SUITE.md` | Redirect stub or delete |
 | `docs/TESTING_GO.md` | Redirect stub or delete |
 | `docs/SCALING_GUIDE.md` | Expand with three worked examples |
-| `docs/DMZ_DEPLOYMENT_READINESS.md` | Rewrite against Phase 200-series **or** archive |
+| `docs/DMZ_READINESS.md` | Rewrite against Phase 200-series **or** archive |
 | `docs/DEPLOYMENT_SECURITY_MODEL.md` | Re-date; drop Phase-19 hedging |
 | `docs/GEMINI_CRITIQUE.md` | Move to `docs/reports/archive/GEMINI_CRITIQUE_2026-03-21.md` with banner |
 | `docs/reports/ENTERPRISE_REVIEW.md` | Move to `docs/reports/archive/ENTERPRISE_REVIEW_2026-02-15.md` with banner |

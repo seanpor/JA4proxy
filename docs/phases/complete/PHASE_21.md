@@ -55,7 +55,7 @@ The distribution and quality grades are:
 - Phase 15 status contradicts itself across CLAUDE.md, CHANGELOG.md, and PHASE_15.md.
 - `docs/OBSERVABILITY_STANDARDS.md §4` references a single alert file; Phase 14e split
   it into three files.
-- `docs/TEST_ORGANIZATION.md` states 1,174 tests; actual suite has 1,536.
+- `docs/TESTING_STRATEGY.md` states 1,174 tests; actual suite has 1,536.
 - `PHASE_04A.md` and `PHASE_05A.md` are undocumented sub-files with no index entry.
 - ADR-004 through ADR-012 are required by `docs/DOCUMENTATION_STANDARDS.md §5` but
   do not exist.
@@ -77,7 +77,7 @@ Rough per-stream sizing to aid sprint planning:
 | Stream | Effort | Parallelisable? |
 |--------|--------|----------------|
 | 21a — Critical fixes | S (~4h) | Yes — each sub-task is independent |
-| 21b — Navigation | M (~1 day) | Partially — INDEX.md after audience stamps |
+| 21b — Navigation | M (~1 day) | Partially — README.md after audience stamps |
 | 21c — ADRs (9 documents) | L (~2 days) | Yes — each ADR is independent |
 | 21d — Compliance | M (~1 day) | Yes |
 | 21e — Operator pack | M (~1 day) | Yes — each runbook independent |
@@ -135,7 +135,7 @@ porting a module to Go.
 **Knowledge:** Python / Go. May be new to the project.
 **Goal:** Understand the conventions, write code that matches the existing style, write
 tests that pass the completion gate, get their PR merged without rework.
-**Reading order:** CONTRIBUTING.md → STYLE_GUIDE.md → TEST_ORGANIZATION.md → the
+**Reading order:** CONTRIBUTING.md → STYLE_GUIDE.md → TESTING_STRATEGY.md → the
 specific phase file for what they're building.
 **Failure mode:** Writes a module without Prometheus metrics (violates STYLE_GUIDE).
 Writes tests that don't meet the ratio (fails the gate). Doesn't know PR requirements.
@@ -172,7 +172,7 @@ for a component that does not exist.
 > **[DEPRECATED — Phase 13 Management UI was removed in v13.2.0]**
 >
 > The Management UI will be re-implemented after the Go rewrite (Phase 15) completes.
-> See `docs/phases/PHASE_13b.md` for the deferred implementation plan.
+> See `docs/phases/complete/PHASE_13b.md` for the deferred implementation plan.
 > This runbook is retained as a reference for the planned future implementation.
 > **Do not follow these instructions against a running proxy — the endpoints do not exist.**
 ```
@@ -220,9 +220,9 @@ per-subsystem Go implementation plan."` Do not remove it or merge it.
 | `../../monitoring/alertmanager/rules/security.rules.yml` | High score rate, bypass disabled, blacklist size anomalies |
 ```
 
-### 21a-4 Update Test Count in TEST_ORGANIZATION.md
+### 21a-4 Update Test Count in TESTING_STRATEGY.md
 
-**Problem:** `docs/TEST_ORGANIZATION.md` states the test suite has ~1,174 tests.
+**Problem:** `docs/TESTING_STRATEGY.md` states the test suite has ~1,174 tests.
 The actual count (as of March 2026) is 1,536.
 
 **Action:** Replace the specific count with a query-derived reference:
@@ -400,9 +400,9 @@ Apply this header to every document in:
 This is mechanical but high-value: any reader opening a document immediately knows if
 they're in the right place.
 
-### 21b-3 Create a Documentation Index (docs/INDEX.md)
+### 21b-3 Create a Documentation Index (docs/README.md)
 
-Create `../INDEX.md` as the single navigable map of all documentation. Structure it
+Create `../README.md` as the single navigable map of all documentation. Structure it
 by persona rather than by file type. This is the document a new reader should find
 first if they open the `docs/` directory.
 
@@ -458,12 +458,12 @@ first if they open the `docs/` directory.
 ...
 ```
 
-Link `../INDEX.md` from `README.md` as `"Full documentation index → docs/INDEX.md"`.
+Link `../README.md` from `README.md` as `"Full documentation index → docs/README.md"`.
 
-### 21b-4 Add a Unified ADR Index (docs/decisions/INDEX.md)
+### 21b-4 Add a Unified ADR Index (docs/decisions/README.md)
 
 The five existing ADRs are discoverable only by listing the directory. Create
-`../decisions/INDEX.md`:
+`../decisions/README.md`:
 
 ```markdown
 # Architectural Decision Records
@@ -944,15 +944,15 @@ For contributors porting Python signal modules to Go (Phase 15 work):
 
 ### 21g-1 Consolidate Readiness Documents
 
-`docs/DMZ_DEPLOYMENT_READINESS.md` and `docs/reports/ENTERPRISE_READINESS_REPORT.md`
+`docs/DMZ_READINESS.md` and `docs/reports/ENTERPRISE_READINESS_REPORT.md`
 cover overlapping content (production hardening gaps, remediation status). Merge them:
 
-- Keep `docs/DMZ_DEPLOYMENT_READINESS.md` as the authoritative source (more detailed,
+- Keep `docs/DMZ_READINESS.md` as the authoritative source (more detailed,
   better structured, referenced from CLAUDE.md).
-- Add a `## Enterprise Readiness` section to `../DMZ_DEPLOYMENT_READINESS.md` that absorbs
+- Add a `## Enterprise Readiness` section to `../DMZ_READINESS.md` that absorbs
   any non-overlapping content from `ENTERPRISE_READINESS_REPORT.md`.
 - Replace `docs/reports/ENTERPRISE_READINESS_REPORT.md` with a redirect notice:
-  `> This document has been merged into [DMZ_DEPLOYMENT_READINESS.md](../DMZ_DEPLOYMENT_READINESS.md).`
+  `> This document has been merged into [DMZ_READINESS.md](../DMZ_READINESS.md).`
 
 ### 21g-2 Mark Old TESTING.md as Superseded
 
@@ -972,7 +972,7 @@ cover overlapping content (production hardening gaps, remediation status). Merge
 - `docs/developer/test-audit.md`: replace with a pointer to `make test-ratio` and
   delete (outdated counts are worse than no counts).
 - `docs/docker_container_test_layers_expanded.md`: evaluate whether this belongs in
-  `docs/TEST_ORGANIZATION.md` (merge) or is obsolete (delete).
+  `docs/TESTING_STRATEGY.md` (merge) or is obsolete (delete).
 
 ### 21g-4 Consolidate Enterprise/ Docs
 
@@ -988,7 +988,7 @@ network policy, secrets management with Vault. Reference realistic cloud provide
 ```markdown
 > **[ASPIRATIONAL]** This document describes a target enterprise architecture that has
 > not yet been validated in production. Treat as a starting point, not a specification.
-> See `docs/DMZ_DEPLOYMENT_READINESS.md` for the validated single-node deployment model.
+> See `docs/DMZ_READINESS.md` for the validated single-node deployment model.
 ```
 
 Choose Option B unless enterprise Kubernetes deployment is actively being built.
@@ -1083,7 +1083,7 @@ Update `docs/DOCUMENTATION_STANDARDS.md §7` (per-phase documentation gate) to i
 - [x] New Redis keys documented in `docs/REDIS_SCHEMA.md`.
 - [x] New Prometheus metrics in `docs/OBSERVABILITY_STANDARDS.md §1d`.
 - [x] CHANGELOG.md entry added.
-- [x] If any ADR was promised and not written, an entry added to `../decisions/INDEX.md`
+- [x] If any ADR was promised and not written, an entry added to `../decisions/README.md`
   with status "Proposed" and a GitHub issue number.
 ```
 
@@ -1112,11 +1112,11 @@ complete. Without this, documentation debt silently re-accumulates.
 **Rule: Every new phase completion must include the following documentation steps
 (enforce via the gate checklist updated in 21h-3):**
 
-1. **New documents** created by the phase → add entry to `../INDEX.md` and apply
+1. **New documents** created by the phase → add entry to `../README.md` and apply
    the audience-stamp format (21b-2). Do not merge the PR until this is done.
 
 2. **New architectural decisions** → either write an ADR or add a "Proposed" entry to
-   `../decisions/INDEX.md` with a GitHub issue number for follow-up. Unwritten ADRs
+   `../decisions/README.md` with a GitHub issue number for follow-up. Unwritten ADRs
    that have no tracking entry constitute documentation debt.
 
 3. **New Redis keys** → document in `docs/REDIS_SCHEMA.md` before the PR merges.
@@ -1124,7 +1124,7 @@ complete. Without this, documentation debt silently re-accumulates.
 4. **New Prometheus metrics** → add to `docs/OBSERVABILITY_STANDARDS.md §1d`.
 
 5. **New runbooks or operator commands** → apply the runbook template (21e-1) and link
-   from the relevant persona section of `../INDEX.md`.
+   from the relevant persona section of `../README.md`.
 
 6. **If a phase modifies an existing architectural decision** (e.g., changes a config
    default, changes a signal score, changes a bypass rule) → review and update the
@@ -1150,7 +1150,7 @@ All of the following must be true before Phase 21 is complete.
   completion (✅/❌); `CHANGELOG.md` v15.0.0 entry is accurate.
 - [x] `docs/OBSERVABILITY_STANDARDS.md §4` references all three alert rule files in
   `monitoring/alertmanager/rules/`.
-- [x] `docs/TEST_ORGANIZATION.md` no longer contains a hard-coded test count; it
+- [x] `docs/TESTING_STRATEGY.md` no longer contains a hard-coded test count; it
   contains a `make` command to derive the live count.
 - [x] `docs/GEMINI.md` either has a clear header explaining its purpose or is removed.
 - [x] Every PHASE_NNa.md sub-file either has an explicit link from its parent or is
@@ -1167,14 +1167,14 @@ All of the following must be true before Phase 21 is complete.
   entry points.
 - [x] Every document in `docs/runbooks/`, `docs/operator/`, `docs/security/`,
   `docs/compliance/`, `docs/architecture/`, `docs/developer/` has an audience stamp.
-- [x] `../INDEX.md` exists, is structured by persona, and links to every active
+- [x] `../README.md` exists, is structured by persona, and links to every active
   document in `docs/`.
-- [x] `../decisions/INDEX.md` exists and lists all ADRs (existing and planned).
+- [x] `../decisions/README.md` exists and lists all ADRs (existing and planned).
 
 ### ADRs (21c)
 
 - [x] ADR-004 through ADR-012 exist in `docs/decisions/` and follow the template.
-- [x] Each ADR is listed in `../decisions/INDEX.md`.
+- [x] Each ADR is listed in `../decisions/README.md`.
 
 ### Compliance (21d)
 
@@ -1204,7 +1204,7 @@ All of the following must be true before Phase 21 is complete.
 ### Consolidation (21g)
 
 - [x] `docs/reports/ENTERPRISE_READINESS_REPORT.md` redirects to
-  `docs/DMZ_DEPLOYMENT_READINESS.md`.
+  `docs/DMZ_READINESS.md`.
 - [x] `../TESTING.md` has a SUPERSEDED header.
 - [x] `docs/developer/traffic-generator-fix.md` and `docs/developer/test-audit.md`
   are deleted or have DEPRECATED headers with all useful content extracted.
@@ -1235,7 +1235,7 @@ Before marking Phase 21 complete:
 
 3. **Frontmatter audit:** `make lint-docs` returns zero warnings.
 
-4. **ADR completeness:** `../decisions/INDEX.md` lists all ADRs with no "missing"
+4. **ADR completeness:** `../decisions/README.md` lists all ADRs with no "missing"
    entries.
 
 5. **Compliance review:** Have someone unfamiliar with the codebase read

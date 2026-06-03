@@ -23,13 +23,13 @@ restructure and Go version drift. They were waived through two merge cycles
 | File | Change |
 |------|--------|
 | `.github/workflows/ci.yml` | Bump Go 1.25.9 → 1.26 (3 spots), add `pip install pyyaml` to traceability step, bump semgrep 1.67.0 → 1.76.0 |
-| `.github/workflows/docs-link-check.yml` | Add lychee `--exclude` patterns for SLSA_VERIFICATION.md + GDPR URLs |
+| `.github/workflows/docs-link-check.yml` | Add lychee `--exclude` patterns for ADR-107a-slsa-level-3.md + GDPR URLs |
 | `go.mod` | `go 1.25.9` → `go 1.26` |
 | `deploy/docker/Dockerfile.go-proxy` | `golang:1.25.9-alpine` → `golang:1.26-alpine` |
 | `deploy/docker/Dockerfile.cli` | `golang:1.25.9-alpine` → `golang:1.26-alpine` |
 | `docs/compliance/SECURITY_CONTROLS_MAPPING.md` | Fix 5 phase doc links (missing `complete/` prefix) |
 | `docs/compliance/SSDF_MAPPING.md` | Fix 2 stale `PHASE_107.md` / `PHASE_107_review.md` references |
-| `docs/decisions/ADR-107a-slsa-level-3.md` | Fix 2 phase doc links (`PHASE_107.md`, `PHASE_107_review.md`), add lychee exclusion for 3 SLSA_VERIFICATION.md refs |
+| `docs/decisions/ADR-107a-slsa-level-3.md` | Fix 2 phase doc links (`PHASE_107.md`, `PHASE_107_review.md`), add lychee exclusion for 3 ADR-107a-slsa-level-3.md refs |
 | `docs/compliance/GDPR_COMPLIANCE.md` | Exclude 2 broken external URLs via lychee |
 | `deploy/dynatrace/ja4proxy-extension/plugin.py` | Move `# nosemgrep` to `with urlopen` line |
 | `deploy/integrations/splunk-ta/ja4proxy-ta/bin/ja4proxy_ban_action.py` | Same |
@@ -41,7 +41,7 @@ restructure and Go version drift. They were waived through two merge cycles
 ### Not in scope
 
 - Addressing the 2 CVE findings in Go stdlib (they're fixed by the Go upgrade)
-- Adding SLSA_VERIFICATION.md (deferred work; will use lychee exclusion instead)
+- Adding ADR-107a-slsa-level-3.md (deferred work; will use lychee exclusion instead)
 - Fixing the external GDPR URLs on the EDPB site (they 404/202 on the remote server; will exclude from lychee)
 - Any other CI improvements beyond these 4 failures
 - Phase doc content changes outside the link fixes
@@ -68,7 +68,7 @@ restructure and Go version drift. They were waived through two merge cycles
 
 1. Update 5 `../phases/PHASE_XX.md` → `../phases/complete/PHASE_XX.md` links in `docs/compliance/SECURITY_CONTROLS_MAPPING.md` (phases 00, 03, 08, 19)
 2. Update `../phases/PHASE_107.md` → `../phases/complete/PHASE_107.md` and `../phases/PHASE_107_review.md` → `../phases/complete/PHASE_107_review.md` in `docs/decisions/ADR-107a-slsa-level-3.md`
-3. Add `--exclude SLSA_VERIFICATION` to lychee args for the 3 deferred SLSA_VERIFICATION.md references in ADR-107a
+3. Add `--exclude SLSA_VERIFICATION` to lychee args for the 3 deferred ADR-107a-slsa-level-3.md references in ADR-107a
 4. Add `--exclude https://eur-lex.europa.eu` and `--exclude https://edpb.europa.eu` for the 2 broken external GDPR URLs
 
 > **Discovered during implementation:** ADR-107a had a second broken link to `PHASE_107_review.md` (line 164) that was not in the initial audit. Also, `SSDF_MAPPING.md` had 2 stale phase doc references that were caught by `test_compliance_evidence_paths.py` — the test scans the entire file body, not just evidence columns. These needed updating to avoid a new test failure.

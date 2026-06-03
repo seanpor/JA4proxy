@@ -142,7 +142,7 @@ Phase 85 engineer owns:
 - `CHANGELOG.md` — prepend new entry
 - `docs/phases/manifest.yaml` — flip Phase 85 status to `IN_PROGRESS`
 - `docs/decisions/ADR-024.md` (new file)
-- `docs/phases/PHASE_85_notes.md` (this file)
+- `docs/phases/complete/PHASE_85_notes.md` (this file)
 
 **Forbidden files:** `src/security/ti_provider.py`, `src/security/misp.py`,
 `src/security/pipeline.py`, `src/security/blocklists.py`, `src/tap/**`.

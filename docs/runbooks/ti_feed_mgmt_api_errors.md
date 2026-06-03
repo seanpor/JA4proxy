@@ -80,6 +80,6 @@ Page the security on-call engineer immediately. Include:
 
 ## Related
 
-- `docs/phases/PHASE_85.md` §2.5 — bulk-ingest batching and retry rules
+- `docs/phases/complete/PHASE_85.md` §2.5 — bulk-ingest batching and retry rules
 - `src/analytics/ti_feeds/mgmt_client.py`
 - `docs/runbooks/management_api_outage.md` (if it exists)

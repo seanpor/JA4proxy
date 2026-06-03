@@ -12,7 +12,7 @@ infrastructure. This document summarises the **current** posture against the
 controls a security team will typically check during pre-production review.
 
 > A more detailed pre-Phase-200 gap analysis is preserved at
-> [`docs/reports/archive/DMZ_DEPLOYMENT_READINESS_2026-03-15.md`](../reports/archive/DMZ_DEPLOYMENT_READINESS_2026-03-15.md)
+> [`docs/reports/archive/DMZ_DEPLOYMENT_READINESS_2026-03-15.md`](reports/archive/DMZ_DEPLOYMENT_READINESS_2026-03-15.md)
 > for audit traceability. The items below reflect Phase 200-series hardening
 > and the Go-runtime production promotion.
 
@@ -34,9 +34,9 @@ controls a security team will typically check during pre-production review.
 | PROXY protocol v2 | In place (Phase 200-series) | `internal/proxyproto/` |
 | Default-credential removal | In place (Phase 200-series) | Env-var-only secrets; CI guard |
 | Network segmentation | In place | Frontend / backend / monitoring Docker networks |
-| Centralised logging (ECS) | In place | [`docs/api/ecs_extension.md`](../api/ecs_extension.md) |
+| Centralised logging (ECS) | In place | [`docs/api/ecs_extension.md`](api/ecs_extension.md) |
 | SIEM integration recipes | In place | [SIEM Integration](SIEM_INTEGRATION.md) |
-| External Dynamic Lists (EDL) export | In place | [`docs/runbooks/tap_mode.md`](../runbooks/tap_mode.md) §EDL; [`docs/decisions/ADR-021.md`](../decisions/ADR-021.md) |
+| External Dynamic Lists (EDL) export | In place | [`docs/runbooks/tap_mode.md`](runbooks/tap_mode.md) §EDL; [`docs/decisions/ADR-021.md`](decisions/ADR-021.md) |
 | GeoIP filtering | In place | Phase 6; MaxMind GeoLite2 |
 | CSRF protection on Management UI | In place | Phase 13 |
 | Webhook HMAC signing | In place | `internal/webhook/delivery.go` |
@@ -73,7 +73,7 @@ Use this as the gate before exposing JA4proxy on a DMZ host:
 - [ ] Dial value is `0` at first start (monitor mode); see
       [Evaluation Checklist](EVALUATION_CHECKLIST.md)
 - [ ] Backup procedure tested against a non-production Redis
-- [ ] [`docs/INCIDENT_RESPONSE.md`](../INCIDENT_RESPONSE.md) walked through
+- [ ] [`docs/INCIDENT_RESPONSE.md`](INCIDENT_RESPONSE.md) walked through
       with the on-call team
 
 ---
@@ -106,9 +106,9 @@ Use this as the gate before exposing JA4proxy on a DMZ host:
 
 - [Scope and Limitations](SCOPE_AND_LIMITATIONS.md) — what JA4proxy does NOT
   cover
-- [`docs/DEPLOYMENT_SECURITY_MODEL.md`](../DEPLOYMENT_SECURITY_MODEL.md) —
+- [`docs/DEPLOYMENT_SECURITY_MODEL.md`](DEPLOYMENT_SECURITY_MODEL.md) —
   trust boundaries and OS user model
-- [`docs/enterprise/security-architecture.md`](../enterprise/security-architecture.md)
+- [`docs/enterprise/security-architecture.md`](enterprise/security-architecture.md)
   — full target security architecture
-- [`docs/reports/archive/DMZ_DEPLOYMENT_READINESS_2026-03-15.md`](../reports/archive/DMZ_DEPLOYMENT_READINESS_2026-03-15.md)
+- [`docs/reports/archive/DMZ_DEPLOYMENT_READINESS_2026-03-15.md`](reports/archive/DMZ_DEPLOYMENT_READINESS_2026-03-15.md)
   — historical pre-Phase-200 gap analysis

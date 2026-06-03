@@ -401,7 +401,7 @@ Do 16a–16e first — they unblock accurate coverage measurement for 16f–16k.
 Reference project-wide docs by path:
 
 ```markdown
-Read `docs/TEST_ORGANIZATION.md §10` before starting.
+Read `docs/TESTING_STRATEGY.md §10` before starting.
 See `docs/OBSERVABILITY_STANDARDS.md` for the full metric naming spec.
 ```
 

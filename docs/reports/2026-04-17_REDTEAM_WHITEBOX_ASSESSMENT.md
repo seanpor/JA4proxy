@@ -601,7 +601,7 @@ numbers confirmed.
 A second independent 4-agent team was launched after Phase 118 was written. Each agent
 had no knowledge of Phase 118 or the existing pentest campaign (Phases 108-117). They
 independently confirmed many Phase 118 findings and discovered 20 additional novel
-vulnerabilities documented in `docs/phases/PHASE_119.md`, including:
+vulnerabilities documented in `docs/phases/complete/PHASE_119.md`, including:
 
 - **119a (CRITICAL):** ALPN bypass — any client puts `h2` in ALPN and bypasses
   the entire security pipeline. Design-level flaw, not a code bug.

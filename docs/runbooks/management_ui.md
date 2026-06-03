@@ -10,7 +10,7 @@ phase: 21
 > **[DEPRECATED — Phase 13 Management UI was removed in v13.2.0]**
 >
 > The Management UI will be re-implemented after the Go rewrite (Phase 15) completes.
-> See `docs/phases/PHASE_13b.md` for the deferred implementation plan.
+> See `docs/phases/complete/PHASE_13b.md` for the deferred implementation plan.
 > This runbook is retained as a reference for the planned future implementation.
 > **Do not follow these instructions against a running proxy — the endpoints do not exist.**
 

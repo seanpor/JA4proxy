@@ -9,19 +9,19 @@ This document tracks the remaining work for both historical phases (gaps identif
 
 ### Phase 101 — Phase 101 — Cross-Phase Gap Closure
 *   **Status:** **IN_PROGRESS** (Rolling cross-phase register of deferred review gaps from Phase 84 (compliance), Phase 85 (threat-intel hardening), Phase 62 (Go test parity), Phase 64 (deploy validation), Phase 86i (capacity hardening), and Phase 93 (Terraform provider). 12 sub-phases bundling 38 open gaps (3 critical, 13 high, 19 medium, 9 low). 16 items already closed. 4 documented limitations (external processes or blocked on hardware).)
-*   **Action Plan:** [PHASE_101.md](PHASE_101.md)
+*   **Action Plan:** [PHASE_101.md](complete/PHASE_101.md)
 
 ### Phase 123 — Security Hardening & Operational Excellence
 *   **Status:** **IN_PROGRESS** (Comprehensive hardening wave for Go proxy and Linux host environment. Implements least-privilege service isolation, network boundaries, Redis ACLs, and memory-safe Go coding patterns.)
-*   **Action Plan:** [PHASE_123.md](PHASE_123.md)
+*   **Action Plan:** [PHASE_123.md](complete/PHASE_123.md)
 
 ### Phase 124 — Production Security Remediation (Attack Surface Audit)
 *   **Status:** **IN_PROGRESS** (Remediates 14+ prioritized findings from the production attack surface audit. Includes fixes for TLS record fragmentation, JA4 spec compliance, SNI canonicalization, and management-plane trust hardening.)
-*   **Action Plan:** [PHASE_124.md](PHASE_124.md)
+*   **Action Plan:** [PHASE_124.md](complete/PHASE_124.md)
 
 ### Phase 125 — Infrastructure & Supply Chain Resilience
 *   **Status:** **IN_PROGRESS** (Comprehensive supply-chain hardening: SHA-pinned Docker base images, reproducible Go builds with -trimpath, dependency audit automation, and infrastructure-as-code security scanning.)
-*   **Action Plan:** [PHASE_125.md](PHASE_125.md)
+*   **Action Plan:** [PHASE_125.md](complete/PHASE_125.md)
 
 ---
 

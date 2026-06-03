@@ -32,7 +32,7 @@ Add a comprehensive badge section to the top of README.md to provide at-a-glance
 
 ## Implementation plan
 
-1. Create phase document at `docs/phases/PHASE_204.md`
+1. Create phase document at `docs/phases/complete/PHASE_204.md`
 2. Add Phase 204 entry to `docs/phases/manifest.yaml` under the "Operational Excellence & Lifecycle Management" epic
 3. Run `python3 scripts/sync-roadmap.py` to regenerate TODO.md and PROJECT_STATUS.md
 4. Add badge markdown to README.md below the `# JA4proxy` heading, before the tagline paragraph

@@ -1761,7 +1761,7 @@ closed item.
 ## Phase 79 SSO/MFA Gaps (100-O through 100-T)
 
 > These items were identified during Phase 79 C7–C9 critical review (2026-04-07).
-> See `docs/phases/PHASE_100.md` original Phase 79 section for detailed implementation
+> See `docs/phases/complete/PHASE_100.md` original Phase 79 section for detailed implementation
 > guidance including exact code snippets, import paths, and test patterns.
 
 | Item | Gap | Effort | Blocker |

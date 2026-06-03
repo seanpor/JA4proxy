@@ -2,7 +2,7 @@ name: Go Proxy Image
 
 # Build, scan, SBOM, sign, and push the Go proxy container image.
 # See docs/decisions/ADR-202d.md for the signing backend decision (keyless cosign).
-# All `uses:` references are SHA-pinned per docs/phases/PHASE_202.md sub-phase 202a.
+# All `uses:` references are SHA-pinned per docs/phases/complete/PHASE_202.md sub-phase 202a.
 
 on:
   push:

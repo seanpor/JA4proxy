@@ -1,7 +1,7 @@
 # Phase 201 — Critical Review
 
 **Reviewed:** 2026-04-15
-**Phase doc:** `docs/phases/PHASE_201.md`
+**Phase doc:** `docs/phases/complete/PHASE_201.md`
 **Target:** Go (production runtime)
 **Dependencies:** Phase 15 (COMPLETE) ✅
 
@@ -138,10 +138,10 @@
 **Size:** XS (≤30 min)
 **Depends on:** none
 **Parallel with:** none
-**Files to touch:** `docs/phases/PHASE_201.md`, `docs/phases/manifest.yaml`
+**Files to touch:** `docs/phases/complete/PHASE_201.md`, `docs/phases/manifest.yaml`
 **What to do:**
 - Run `make check-scores`. Confirm exit 0.
-- Open `docs/phases/PHASE_201.md` and delete the entire "Sub-phase 201a" section.
+- Open `docs/phases/complete/PHASE_201.md` and delete the entire "Sub-phase 201a" section.
 - In `manifest.yaml` under phase 201 `sub_phases:`, remove `201a:` line.
 - Update the phase doc "Sub-phase index" table accordingly.
 **Done when:**

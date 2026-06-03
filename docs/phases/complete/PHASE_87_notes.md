@@ -153,7 +153,7 @@ HAProxy exporter URI.
 - [x] Host-saturation inhibition rule added to `alertmanager.yml`
 - [x] `docs/runbooks/infrastructure.md` present with 30 sections (spec said 29 — see notes)
 - [x] `make test-phase-87` passes with zero failures
-- [x] Agent E review complete; `docs/phases/PHASE_87_notes.md` written; all critical findings resolved
+- [x] Agent E review complete; `docs/phases/complete/PHASE_87_notes.md` written; all critical findings resolved
 - [ ] `CHANGELOG.md` updated — pending
 - [ ] `docs/phases/manifest.yaml` status set to `COMPLETE` — pending
 - [ ] `python3 scripts/sync-roadmap.py` run — pending

@@ -851,4 +851,4 @@ function test_isp_block() {
 - Phase 11: RDAP Enrichment & Block Expansion
 - INCIDENT_RESPONSE.md
 - DEPLOYMENT_SECURITY_MODEL.md
-- SECOPS_OPERATIONS.md
+- OPERATIONS.md

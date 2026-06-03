@@ -9,7 +9,7 @@ phase: 21
 
 > **Audience:** SecOps analysts, incident responders
 > **Prerequisites:** JA4proxy deployed; Redis and Prometheus accessible
-> **Related:** [SecOps Operations](SECOPS_OPERATIONS.md) · [Quick Reference](QUICK_REFERENCE.md)
+> **Related:** [SecOps Operations](OPERATIONS.md) · [Quick Reference](QUICK_REFERENCE.md)
 
 Quick reference for responding to active attacks. All commands take effect **immediately** — no proxy restart needed.
 

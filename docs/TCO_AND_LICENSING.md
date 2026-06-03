@@ -108,7 +108,7 @@ consistent — if you find drift, the runbook-linked targets in
   community commitments, not contractual SLAs.
 - **Incidents in your deployment.** You own them. Your on-call rotation,
   your runbooks, your post-mortems. The project's runbooks under
-  [`docs/runbooks/`](../runbooks/) are a starting point, not a
+  [`docs/runbooks/`](runbooks/) are a starting point, not a
   managed service.
 - **Upgrades.** You schedule them. The project follows semantic
   versioning and publishes a `CHANGELOG.md`, but there is no managed
@@ -323,8 +323,8 @@ basis** — the dominant cost of SSL inspection is compliance scope, not
 compute.
 
 For the underlying architecture rationale, see
-[`docs/enterprise/security-architecture.md`](../enterprise/security-architecture.md)
-and [`docs/architecture/system-architecture.md`](../architecture/system-architecture.md).
+[`docs/enterprise/security-architecture.md`](enterprise/security-architecture.md)
+and [`docs/architecture/system-architecture.md`](architecture/system-architecture.md).
 
 **^([1])** Estimate based on public pricing as of 2026-04-25. Your
 costs will vary by region, provider, and reservation strategy.
@@ -361,21 +361,21 @@ costs will vary by region, provider, and reservation strategy.
   responsible-disclosure policy, security-team contact
 - [`docs/SERVICE_TARGETS.md`](../SERVICE_TARGETS.md) — SLI / SLO / SLA
   posture (sibling Phase 106 deliverable)
-- [`docs/RISK_REGISTER.md`](../RISK_REGISTER.md) — operational and
+- [`docs/RISK_REGISTER.md`](RISK_REGISTER.md) — operational and
   security risk register (sibling Phase 106 deliverable; landing in
   the same phase as this document)
-- [`docs/for-website-owners/README.md`](README.md) — Phase 105
+- [`README.md`](../README.md) — Phase 105
   audience-doc placeholder; lists this file
-- [`docs/for-website-owners/DEPLOYMENT_OPTIONS.md`](DEPLOYMENT_OPTIONS.md)
+- [`DEPLOYMENT_OPTIONS.md`](DEPLOYMENT_OPTIONS.md)
   — Phase 105 deployment-shape catalogue (proposed, not yet landed
   at the time of writing)
-- [`docs/SCALING_GUIDE.md`](../SCALING_GUIDE.md) — multi-process
+- [`docs/SCALING_GUIDE.md`](SCALING_GUIDE.md) — multi-process
   scaling guide; informs Scenario 2 and 3 sizing
-- [`docs/enterprise/deployment.md`](../enterprise/deployment.md) —
+- [`docs/enterprise/deployment.md`](enterprise/deployment.md) —
   aspirational enterprise deployment reference
-- [`docs/enterprise/security-architecture.md`](../enterprise/security-architecture.md)
+- [`docs/enterprise/security-architecture.md`](enterprise/security-architecture.md)
   — security architecture rationale
-- [`docs/architecture/system-architecture.md`](../architecture/system-architecture.md)
+- [`docs/architecture/system-architecture.md`](architecture/system-architecture.md)
   — system-level component view
 
 ---

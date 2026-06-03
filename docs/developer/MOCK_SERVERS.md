@@ -11,7 +11,7 @@ phase: 21
 > **Purpose:** Comprehensive guide to test mock infrastructure
 > **Last Reviewed:** 2026-03-27
 > **Status:** Enterprise standard
-> **Related:** [Testing Strategy](../TESTING_STRATEGY.md) · [Test Organisation](../TEST_ORGANIZATION.md)
+> **Related:** [Testing Strategy](../TESTING_STRATEGY.md) · [Test Organisation](../TESTING_STRATEGY.md)
 
 ---
 

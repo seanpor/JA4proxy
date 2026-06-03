@@ -169,12 +169,12 @@ Read these before starting any phase:
 | Document | Purpose |
 |----------|---------|
 | `docs/STYLE_GUIDE.md` | Config syntax, log format, test format, doc language |
-| `docs/TEST_ORGANIZATION.md` | Test layout, conftest, fixtures, parametrize |
+| `docs/TESTING_STRATEGY.md` | Test layout, conftest, fixtures, parametrize |
 | `docs/OBSERVABILITY_STANDARDS.md` | Prometheus registry, JSON log schema, dashboards, alerts, SLIs |
 | `docs/TESTING_STRATEGY.md` | Full testing methodology and phase completion gate |
 | `docs/DOCUMENTATION_STANDARDS.md` | CHANGELOG, REDIS_SCHEMA, runbook, ADR formats |
 | `docs/REDIS_SCHEMA.md` | All Redis key patterns (update every phase) |
-| `docs/for-architects/DMZ_READINESS.md` | Read before Phase 14 (replaces archived DMZ_DEPLOYMENT_READINESS.md) |
+| `DMZ_READINESS.md` | Read before Phase 14 (replaces archived DMZ_READINESS.md) |
 | `docs/security/COMPREHENSIVE_SECURITY_AUDIT.md` | Read before Phase 14 |
 
 ---

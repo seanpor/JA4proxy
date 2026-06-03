@@ -722,7 +722,7 @@ but has **no GitHub remote**. Phase 101 covers:
 2. Add remote and push all commits
 3. Submit to Terraform Registry (requires HashiCorp partner review)
 
-See `docs/phases/PHASE_101.md` for full instructions.
+See `docs/phases/complete/PHASE_101.md` for full instructions.
 
 ### Test Scorecard
 

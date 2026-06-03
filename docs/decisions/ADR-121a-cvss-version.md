@@ -8,7 +8,7 @@
 
 ## Context
 
-`docs/phases/PHASE_108.md` acceptance criterion 108n specified that findings
+`docs/phases/complete/PHASE_108.md` acceptance criterion 108n specified that findings
 be scored with **CVSS v4**. Every downstream report produced since — the
 2026-04-16 leader pentest campaign, the 2026-04-17 red team audit, the
 2026-04-17 white-box assessment, and the fixes proposed in Phases 118, 119,
@@ -33,7 +33,7 @@ We must either:
 
 - The register schema keeps `cvss_v3_1` as the CVSS field name.
 - `scripts/findings_register.py validate` continues to reject non-v3.1 vectors.
-- `docs/phases/PHASE_108.md` acceptance criterion 108n is amended (separately
+- `docs/phases/complete/PHASE_108.md` acceptance criterion 108n is amended (separately
   under 121e) to specify **v3.1** instead of v4.
 - `SEVERITY_RUBRIC.md` is explicit that CVSS is recorded for reference but
   does not determine the severity label — the project rubric does. This
@@ -71,7 +71,7 @@ to rescore ≈ 2 engineer-hours + tooling update.
 
 ## Implementation notes
 
-1. `docs/phases/PHASE_108.md` §108n — amend "CVSS v4" → "CVSS v3.1" as part
+1. `docs/phases/complete/PHASE_108.md` §108n — amend "CVSS v4" → "CVSS v3.1" as part
    of Phase 121e (rescope of existing phase docs).
 2. `scripts/findings_register.py` — no change (already enforces v3.1).
 3. `docs/security/findings.yaml` — no change (schema already `cvss_v3_1`).

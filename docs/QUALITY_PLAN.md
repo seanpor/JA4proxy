@@ -21,7 +21,7 @@ that one page exists.
 **This is not:**
 
 - A test plan — see [`docs/TESTING_STRATEGY.md`](TESTING_STRATEGY.md).
-- A test-organization manual — see [`docs/TEST_ORGANIZATION.md`](TEST_ORGANIZATION.md).
+- A test-organization manual — see [`docs/TESTING_STRATEGY.md`](TESTING_STRATEGY.md).
 - An observability standard — see [`docs/OBSERVABILITY_STANDARDS.md`](OBSERVABILITY_STANDARDS.md).
 - A documentation style guide — see [`docs/DOCUMENTATION_STANDARDS.md`](DOCUMENTATION_STANDARDS.md).
 - A risk register — see [`docs/RISK_REGISTER.md`](RISK_REGISTER.md).
@@ -155,7 +155,7 @@ professional-practice docs respectively). KAs 15-17 (Computing /
 Mathematical / Engineering Foundations) are prerequisite knowledge and not
 project documentation.
 
-Table copied verbatim from [`docs/phases/PHASE_106.md`](phases/PHASE_106.md)
+Table copied verbatim from [`docs/phases/complete/PHASE_106.md`](phases/PHASE_106.md)
 §"SWEBOK v4 KA Coverage After Phase 106":
 
 | KA | Current | Phase 106 delivers | Post-106 |
@@ -188,7 +188,7 @@ Operational and engineering documents this plan touches:
 - [`docs/RISK_REGISTER.md`](RISK_REGISTER.md) — consolidated risk register (Phase 106b)
 - [`docs/TRACEABILITY.md`](TRACEABILITY.md) — requirements-to-test matrix (Phase 106d, generated)
 - [`docs/TESTING_STRATEGY.md`](TESTING_STRATEGY.md) — full test methodology and phase-completion gate
-- [`docs/TEST_ORGANIZATION.md`](TEST_ORGANIZATION.md) — test layout, conftest, fixtures
+- [`docs/TESTING_STRATEGY.md`](TESTING_STRATEGY.md) — test layout, conftest, fixtures
 - [`docs/DOCUMENTATION_STANDARDS.md`](DOCUMENTATION_STANDARDS.md) — CHANGELOG / Redis schema / runbook / ADR formats
 - [`docs/OBSERVABILITY_STANDARDS.md`](OBSERVABILITY_STANDARDS.md) — Prometheus naming, JSON log schema, dashboards, alerts, SLIs
 - [`docs/STYLE_GUIDE.md`](STYLE_GUIDE.md) — config syntax, log format, doc language, REQ-tagging convention
@@ -197,8 +197,8 @@ Operational and engineering documents this plan touches:
 - [`docs/security/COMPREHENSIVE_SECURITY_AUDIT.md`](security/COMPREHENSIVE_SECURITY_AUDIT.md) — security audit
 - [`docs/security/FINDINGS_REGISTER.md`](security/FINDINGS_REGISTER.md) — pentest findings + remediation status
 - [`SECURITY.md`](../SECURITY.md) — security reporting + SLAs
-- [`docs/for-architects/README.md`](for-architects/README.md) — architect entry point
-- [`docs/for-compliance/README.md`](for-compliance/README.md) — compliance entry point
+- [`README.md`](../README.md) — architect entry point
+- [`README.md`](../README.md) — compliance entry point
 - [`CLAUDE.md`](../CLAUDE.md) — agent master plan (multi-agent coordination, core asymmetry, cross-cutting requirements)
 
 ---

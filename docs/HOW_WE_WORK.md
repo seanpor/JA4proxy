@@ -192,7 +192,7 @@ maintainer reverts.
 
 The step-by-step for the on-call response — detect, acknowledge, decide,
 act, post-incident — lives in
-[`../runbooks/main_is_red.md`](../runbooks/main_is_red.md). This policy doc
+[`../runbooks/main_is_red.md`](runbooks/main_is_red.md). This policy doc
 defines the contract; the runbook is the playbook.
 
 ---
@@ -223,8 +223,8 @@ merge to main section is the canonical statement.
 - Day-1 mechanics, code style, project layout:
   [`../../CONTRIBUTING.md`](../../CONTRIBUTING.md)
 - TDD loop and test-category matrix:
-  [`TDD_AND_TESTING.md`](TDD_AND_TESTING.md)
+  [`TESTING_STRATEGY.md`](TESTING_STRATEGY.md)
 - Per-workflow CI gate descriptions:
-  [`CI_AND_QUALITY_GATES.md`](CI_AND_QUALITY_GATES.md)
+  [`QUALITY_PLAN.md`](QUALITY_PLAN.md)
 - Operational response when `main` is red:
-  [`../runbooks/main_is_red.md`](../runbooks/main_is_red.md)
+  [`../runbooks/main_is_red.md`](runbooks/main_is_red.md)

@@ -12,7 +12,7 @@ This document is for the buyer or website owner who has read
 know **how it actually gets in front of their site, who runs it, and
 how long it takes to stand up.** It is non-technical by design;
 operators and engineers should follow the link to
-[`docs/enterprise/deployment.md`](../enterprise/deployment.md) at the
+[`docs/enterprise/deployment.md`](enterprise/deployment.md) at the
 end of each section for the technical depth.
 
 ## Three deployment paths
@@ -54,7 +54,7 @@ Redis, so a connection blocked by one instance is also blocked by
 all the others.
 
 For technical depth see
-[`docs/enterprise/deployment.md`](../enterprise/deployment.md) and
+[`docs/enterprise/deployment.md`](enterprise/deployment.md) and
 the SCALING_GUIDE referenced from there.
 
 ### 2. On-premises — bare metal or VM
@@ -77,7 +77,7 @@ VM), but time-to-production is typically longer because of internal
 change-control processes that on-prem deployments tend to attract.
 
 For technical depth see
-[`docs/enterprise/deployment.md`](../enterprise/deployment.md).
+[`docs/enterprise/deployment.md`](enterprise/deployment.md).
 
 ### 3. Managed service — not currently offered
 
@@ -148,5 +148,5 @@ signal modules; it is not for production traffic. All references to
   for each shape, support posture, licence summary.
 - [`FAQ.md`](FAQ.md) — buyer-level answers on integration risk,
   GDPR, Cloudflare interoperability, and uptime.
-- [`docs/enterprise/deployment.md`](../enterprise/deployment.md) —
+- [`docs/enterprise/deployment.md`](enterprise/deployment.md) —
   technical reference for your platform team.

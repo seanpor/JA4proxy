@@ -2,7 +2,7 @@
 
 **Reviewer:** Claude (Opus 4.6) — Senior Cyber / DevOps / SRE / Architect hat
 **Date:** 2026-04-15
-**Target:** `docs/phases/PHASE_102.md` (423 lines, 9 gaps G1–G9, 8 sub-phases)
+**Target:** `docs/phases/complete/PHASE_102.md` (423 lines, 9 gaps G1–G9, 8 sub-phases)
 **Prerequisite:** Phase 93 — COMPLETE.
 **Go / Python:** Go (external repo `/home/sean/LLM/terraform-provider-ja4proxy`).
 
@@ -149,7 +149,7 @@ Given the staleness of the phase doc, the honest decomposition is small.
 #### Sub-task 0.1: Rewrite or narrow Phase 102 doc
 **Size:** S (1-1.5h)
 **Depends on:** none
-**Files:** `docs/phases/PHASE_102.md`
+**Files:** `docs/phases/complete/PHASE_102.md`
 **What to do:**
 - Replace §1 "Context" with the actual current state (provider is external).
 - Mark G1, G3, G4, G5, G7, and G1-webhook as **closed-by-prior-work** with
@@ -273,4 +273,4 @@ Given the staleness of the phase doc, the honest decomposition is small.
 - **Risk:** the phase as written will actively mislead a junior engineer.
   Do not run `/run-phase 102` until Sub-task 0.1 is complete.
 
-Written to: `docs/phases/PHASE_102_review.md` for `/run-phase 102` to consume.
+Written to: `docs/phases/complete/PHASE_102_review.md` for `/run-phase 102` to consume.

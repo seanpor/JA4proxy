@@ -14,9 +14,9 @@ phase: 105
 
 This page is a **summary**. The detailed step-by-step procedures live in:
 
-- [`docs/runbooks/rolling_upgrade.md`](../runbooks/rolling_upgrade.md) —
+- [`docs/runbooks/rolling_upgrade.md`](runbooks/rolling_upgrade.md) —
   zero-downtime rolling upgrade for Docker Compose and Kubernetes.
-- [`docs/runbooks/disaster_recovery.md`](../runbooks/disaster_recovery.md) —
+- [`docs/runbooks/disaster_recovery.md`](runbooks/disaster_recovery.md) —
   recovery procedures including post-rollback Redis-state restoration.
 
 Read this page first to confirm compatibility, then follow the runbooks.
@@ -33,7 +33,7 @@ the **phase number** in `docs/phases/manifest.yaml`. Each release artefact
 - **Config schema phase** — the phase that last introduced or changed a
   required key in `config/proxy.yml`.
 - **Redis schema phase** — the phase that last introduced or migrated a Redis
-  key family in [`docs/REDIS_SCHEMA.md`](../REDIS_SCHEMA.md).
+  key family in [`docs/REDIS_SCHEMA.md`](REDIS_SCHEMA.md).
 
 Each of those phases must be mutually compatible per the matrix below before
 you upgrade.
@@ -93,7 +93,7 @@ Before starting any upgrade, confirm all of the following:
 
 ## 4. Upgrade procedure (summary)
 
-The full procedure is in [`rolling_upgrade.md`](../runbooks/rolling_upgrade.md).
+The full procedure is in [`rolling_upgrade.md`](runbooks/rolling_upgrade.md).
 At a glance:
 
 ### Docker Compose
@@ -140,7 +140,7 @@ are breached:
 
 - **Docker Compose:** drain → recreate with `PREVIOUS_TAG` → wait for UP →
   verify health → re-enable backend. Detail:
-  [`rolling_upgrade.md` §4 "Rollback"](../runbooks/rolling_upgrade.md#4-rollback).
+  [`rolling_upgrade.md` §4 "Rollback"](runbooks/rolling_upgrade.md#4-rollback).
 - **Kubernetes:** `kubectl rollout undo deployment/ja4proxy` → `rollout status`
   → verify health. Detail: same section.
 
@@ -148,7 +148,7 @@ are breached:
 
 A normal rollback does **not** touch Redis state. If the upgrade was rolled
 back because of corrupted state (e.g. a botched migration), follow
-[`disaster_recovery.md` §5 "Redis data loss"](../runbooks/disaster_recovery.md)
+[`disaster_recovery.md` §5 "Redis data loss"](runbooks/disaster_recovery.md)
 to restore from the most recent Phase-19 backup. Set the dial to **0**
 (monitor mode) before restoring; restore the intended dial only after the
 restored state has been verified.
@@ -169,18 +169,18 @@ Within 15 minutes of completing the rollout:
    updated and noted in the change record).
 
 If any of the above is red after 15 minutes, treat as a P2 incident per
-[`INCIDENT_RESPONSE.md`](../INCIDENT_RESPONSE.md) and consider rollback.
+[`INCIDENT_RESPONSE.md`](INCIDENT_RESPONSE.md) and consider rollback.
 
 ---
 
 ## 7. Related runbooks
 
-- [`rolling_upgrade.md`](../runbooks/rolling_upgrade.md) — full upgrade detail.
-- [`disaster_recovery.md`](../runbooks/disaster_recovery.md) — DR procedures
+- [`rolling_upgrade.md`](runbooks/rolling_upgrade.md) — full upgrade detail.
+- [`disaster_recovery.md`](runbooks/disaster_recovery.md) — DR procedures
   including post-rollback Redis restore.
-- [`zero_downtime_rollouts.md`](../runbooks/zero_downtime_rollouts.md) —
+- [`zero_downtime_rollouts.md`](runbooks/zero_downtime_rollouts.md) —
   config-only rollouts (no binary swap).
-- [`credential_rotation.md`](../runbooks/credential_rotation.md) — Redis
+- [`credential_rotation.md`](runbooks/credential_rotation.md) — Redis
   password and API key rotation; required when adopting Phase 201/202.
-- [`go_proxy_migration.md`](../runbooks/go_proxy_migration.md) — historical
+- [`go_proxy_migration.md`](runbooks/go_proxy_migration.md) — historical
   Python-to-Go migration (Phase 15) — retained for reference only.

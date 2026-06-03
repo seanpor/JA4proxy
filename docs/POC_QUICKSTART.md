@@ -163,4 +163,4 @@ See the main [README](../README.md) for full configuration reference.
 - [Enterprise Deployment](enterprise/deployment.md) — Production hardening guide
 - [GDPR Compliance](compliance/GDPR_COMPLIANCE.md) — Data handling
 
-> ⚠️ **This is a POC environment.** See [DMZ Deployment Readiness](for-architects/DMZ_READINESS.md) for outstanding items before production use.
+> ⚠️ **This is a POC environment.** See [DMZ Deployment Readiness](DMZ_READINESS.md) for outstanding items before production use.

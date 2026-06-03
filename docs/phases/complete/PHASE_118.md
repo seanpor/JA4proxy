@@ -215,7 +215,7 @@ Redis is used for rate tracking, blocklists, and session storage. If Redis is co
      ports:
        - "127.0.0.1:6379:6379"  # Only localhost accessible
    ```
-3. **Credential Rotation**: Document in `docs/phases/PHASE_118.md` that Redis passwords should be rotated every 90 days via CI pipeline
+3. **Credential Rotation**: Document in `docs/phases/complete/PHASE_118.md` that Redis passwords should be rotated every 90 days via CI pipeline
 
 ### Test Criteria
 - [ ] Redis accepts connections only from ja4proxy and management containers

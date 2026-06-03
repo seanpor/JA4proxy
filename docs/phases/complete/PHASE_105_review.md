@@ -1,7 +1,7 @@
 # Phase 105 Review — Documentation Restructure by Audience
 
 > **Reviewed:** 2026-04-16
-> **Phase doc:** `docs/phases/PHASE_105.md`
+> **Phase doc:** `docs/phases/complete/PHASE_105.md`
 > **Phase status:** PROPOSED (manifest entry missing — see blocker B1)
 > **Review lens:** docs-only phase. Security / SRE / architecture lenses are narrow; documentation and DevOps lenses carry the weight.
 
@@ -33,7 +33,7 @@ existing workflows.
 | Check | Result |
 |-------|--------|
 | `CLAUDE.md` read | ✅ |
-| `docs/phases/PHASE_105.md` exists | ✅ |
+| `docs/phases/complete/PHASE_105.md` exists | ✅ |
 | `docs/phases/manifest.yaml` entry for 105 | ❌ **MISSING** (blocker B1) |
 | All declared dependencies complete | ✅ (phase declares "none") |
 | `config/proxy.yml` read | ✅ (no new config keys proposed — correct for docs phase) |
@@ -55,7 +55,7 @@ written into new docs, not around code execution.
 
 | # | Finding | Notes |
 |---|---------|-------|
-| S1 | **SIEM integration doc (105c) risks leaking internal log schema specifics that are customer-sensitive** | `docs/for-architects/SIEM_INTEGRATION.md` should reference the *public* ECS log schema (`docs/api/ecs_extension.md`) and not expose any internal correlation fingerprints or operator-only field names. Pair with the existing threat model. |
+| S1 | **SIEM integration doc (105c) risks leaking internal log schema specifics that are customer-sensitive** | `SIEM_INTEGRATION.md` should reference the *public* ECS log schema (`docs/api/ecs_extension.md`) and not expose any internal correlation fingerprints or operator-only field names. Pair with the existing threat model. |
 | S2 | **Brochure perf numbers must match `docs/performance/BENCHMARK_HISTORY.md`** | The phase doc flags this but does not say how to enforce it. Brochure claims that drift from measured numbers would be a reputational risk; add a sub-task that reconciles every number against the history doc before the PDF rebuild. |
 | S3 | **Archived reports must preserve evidence banners verbatim** | `ENTERPRISE_REVIEW.md` and `GEMINI_CRITIQUE.md` are part of the audit trail. Moving them is fine; editing their body contents is not. The banner must be additive, added above the original content, never in place of it. |
 | S4 | **No hardcoded secrets in any new doc** | Low risk for prose-only docs, but the SIEM integration doc will include forwarder config snippets. Any snippet must use obvious placeholders (`<YOUR_HEC_TOKEN>`, not real-looking hex). Add a grep-for-secret-shapes check to the acceptance. |
@@ -101,10 +101,10 @@ The architecture here is the **documentation architecture**, not the runtime.
 | # | Finding | Notes |
 |---|---------|-------|
 | A1 | **Duplication risk between `docs/for-*/` and existing topical dirs** | Plan says "for-* are curated indexes, not duplicates" but the line is easy to cross. SCOPE_AND_LIMITATIONS, SIEM_INTEGRATION, AUDIT_TRAIL, CHANGE_MANAGEMENT are **new** content that must live in `for-*/`. All the other links should be references to existing docs in `docs/compliance/`, `docs/enterprise/`, `docs/operator/`, `docs/runbooks/`. Enforce with a line-count cap per `for-*/README.md` (≤ 120 lines). |
-| A2 | **Name collision risk with existing dirs** | `docs/developer/` exists; `docs/for-developers/` is new. `docs/compliance/` exists; `docs/for-compliance/` is new. `docs/operator/` exists; `docs/for-operators/` is new. Dual directories are tolerable only if each has a distinct role — **`for-*` is the audience entry point, the unsuffixed dir is the topical content**. Every `for-*/README.md` must have a one-line disambiguation callout at the top. |
+| A2 | **Name collision risk with existing dirs** | `docs/developer/` exists; `` is new. `docs/compliance/` exists; `` is new. `docs/operator/` exists; `` is new. Dual directories are tolerable only if each has a distinct role — **`for-*` is the audience entry point, the unsuffixed dir is the topical content**. Every `for-*/README.md` must have a one-line disambiguation callout at the top. |
 | A3 | **README → INDEX → for-\*/README redirection depth** | Three-hop navigation (`README.md` → `docs/for-X/README.md` → topical doc) adds friction. Ensure every `docs/for-*/README.md` is reachable in **one click** from `README.md`. Add a direct "Start by role" table in root README per 105a. |
-| A4 | **INDEX.md preservation** | `docs/INDEX.md` is the exhaustive map for power users (phase doc correctly keeps it). Add a sub-task that re-validates every row after the restructure. |
-| A5 | **Single source of truth** | CI details live in `.github/workflows/*.yml`. The new `CI_AND_QUALITY_GATES.md` must be a **description**, not a duplication of the YAML. Link to the file + line ranges, don't transcribe job definitions. |
+| A4 | **README.md preservation** | `docs/README.md` is the exhaustive map for power users (phase doc correctly keeps it). Add a sub-task that re-validates every row after the restructure. |
+| A5 | **Single source of truth** | CI details live in `.github/workflows/*.yml`. The new `QUALITY_PLAN.md` must be a **description**, not a duplication of the YAML. Link to the file + line ranges, don't transcribe job definitions. |
 | A6 | **Cross-cutting `IPv6` / concurrency / Redis schema** | Not applicable for docs phase. |
 
 ### 2e. Testing Review
@@ -193,7 +193,7 @@ doc is wrong and needs another PR).
 **Files to touch:** `docs/phases/manifest.yaml`
 **What to do:**
 - Add a `105` entry under the appropriate epic (suggested: "Quality Assurance & Test Maturity")
-- Set `name: "Documentation Restructure by Audience"`, `status: PROPOSED`, `action_plan: docs/phases/PHASE_105.md`, `dependencies: []`, `size: LARGE`
+- Set `name: "Documentation Restructure by Audience"`, `status: PROPOSED`, `action_plan: docs/phases/complete/PHASE_105.md`, `dependencies: []`, `size: LARGE`
 - Include `sub_phases:` with the 11 tracks (a through k) and one-line summaries
 
 **Done when:**
@@ -209,14 +209,14 @@ doc is wrong and needs another PR).
 **Size:** XS (15 min)
 **Depends on:** none
 **Parallel with:** 105.0.1
-**Files to touch:** `docs/phases/PHASE_105.md`
+**Files to touch:** `docs/phases/complete/PHASE_105.md`
 **What to do:**
 - Remove the "prefer `tectonic`" line from 105h Notes
 - Replace with a line confirming `pdflatex + makeindex` per `docs/pdf/Makefile`
 - Add a line noting "future ADR may reconsider tectonic for reproducibility"
 
 **Done when:**
-- [ ] `grep -i tectonic docs/phases/PHASE_105.md` returns zero matches (or only the "future ADR" line)
+- [ ] `grep -i tectonic docs/phases/complete/PHASE_105.md` returns zero matches (or only the "future ADR" line)
 - [ ] `pdflatex` is the named toolchain in §105h
 
 **Watch out for:** Don't edit the `Files to Modify` table for PDF chapters — those paths are correct.
@@ -236,7 +236,7 @@ doc is wrong and needs another PR).
 
 **Done when:**
 - [ ] ADR exists at `docs/decisions/ADR-105a-pdf-ci-placement.md`
-- [ ] Linked from `docs/decisions/INDEX.md`
+- [ ] Linked from `docs/decisions/README.md`
 
 **Watch out for:** This ADR governs sub-task 105.8.13; block that sub-task until this one is approved.
 
@@ -248,11 +248,11 @@ doc is wrong and needs another PR).
 **Depends on:** none
 **Parallel with:** 105.0.1, 105.0.2, 105.0.3
 **Files to touch:**
-- `docs/for-website-owners/README.md` (placeholder)
-- `docs/for-architects/README.md` (placeholder)
-- `docs/for-operators/README.md` (placeholder)
-- `docs/for-compliance/README.md` (placeholder)
-- `docs/for-developers/README.md` (placeholder)
+- `README.md` (placeholder)
+- `README.md` (placeholder)
+- `README.md` (placeholder)
+- `README.md` (placeholder)
+- `README.md` (placeholder)
 **What to do:**
 - Each placeholder contains: H1 title, one-line purpose, a "PHASE 105 — content coming" banner, and the disambiguation callout distinguishing `for-X/` from any existing `docs/X/`
 - Keep each file ≤ 20 lines
@@ -288,12 +288,12 @@ doc is wrong and needs another PR).
 
 #### Track A — Website-owner docs (105b)
 
-##### Sub-task 105.1.1: Write `docs/for-website-owners/README.md`
+##### Sub-task 105.1.1: Write `README.md`
 
 **Size:** S (1–2 h)
 **Depends on:** 105.0.4
 **Parallel with:** all other Wave 1 sub-tasks
-**Files to touch:** `docs/for-website-owners/README.md`
+**Files to touch:** `README.md`
 **What to do:**
 - Replace placeholder with curated index linking to WHY_JA4PROXY, DEPLOYMENT_OPTIONS, FAQ (to be written in 105.1.2–4)
 - Open with a one-paragraph problem framing: credential-stuffing, form abuse, scraper costs
@@ -312,7 +312,7 @@ doc is wrong and needs another PR).
 **Size:** M (2–4 h)
 **Depends on:** 105.0.4
 **Parallel with:** all Wave 1
-**Files to touch:** `docs/for-website-owners/WHY_JA4PROXY.md`
+**Files to touch:** `WHY_JA4PROXY.md`
 **What to do:**
 - Problem statement in business language (no JA4 / TLS jargon in the first paragraph)
 - Cite the brochure `docs/pdf/brochure/brochure-body.tex` for the value-prop prose — extract and reframe, do not link unreachable PDF text
@@ -331,7 +331,7 @@ doc is wrong and needs another PR).
 **Size:** S (1–2 h)
 **Depends on:** 105.0.4
 **Parallel with:** all Wave 1
-**Files to touch:** `docs/for-website-owners/DEPLOYMENT_OPTIONS.md`
+**Files to touch:** `DEPLOYMENT_OPTIONS.md`
 **What to do:**
 - Three deployment paths: cloud (Docker / K8s), on-prem (RHEL/Podman), managed-service (if offered — otherwise mark "not currently offered; see README for self-host")
 - Time-to-deploy: "30 minutes to a POC"
@@ -344,12 +344,12 @@ doc is wrong and needs another PR).
 
 ---
 
-##### Sub-task 105.1.4: Write `docs/for-website-owners/FAQ.md`
+##### Sub-task 105.1.4: Write `FAQ.md`
 
 **Size:** M (2–4 h)
 **Depends on:** 105.0.4
 **Parallel with:** all Wave 1
-**Files to touch:** `docs/for-website-owners/FAQ.md`
+**Files to touch:** `FAQ.md`
 **What to do:**
 - 12–15 buyer questions. Source from: existing `docs/FAQ.md` (operator-focused — reframe), brochure Q&A, common security-evaluation questionnaires
 - Must include: cost model, risk of blocking real users, GDPR posture, works-behind-Cloudflare, uptime impact, how-we-know-it-works, integration with existing WAF, comparison to Cloudflare Bot Management
@@ -364,11 +364,11 @@ doc is wrong and needs another PR).
 
 #### Track B — Architect docs (105c)
 
-##### Sub-task 105.2.1: Write `docs/for-architects/README.md`
+##### Sub-task 105.2.1: Write `README.md`
 
 **Size:** S (1–2 h)
 **Depends on:** 105.0.4
-**Files to touch:** `docs/for-architects/README.md`
+**Files to touch:** `README.md`
 **What to do:**
 - Curated index linking: threat model (`docs/security/threat-model.md`), controls matrix (`docs/compliance/SECURITY_CONTROLS_MAPPING.md`), deployment security model (`docs/DEPLOYMENT_SECURITY_MODEL.md`), enterprise deployment (`docs/enterprise/deployment.md`), enterprise security architecture (`docs/enterprise/security-architecture.md`)
 - Then the three new docs written in 105.2.2–4
@@ -384,7 +384,7 @@ doc is wrong and needs another PR).
 
 **Size:** M (2–4 h)
 **Depends on:** 105.0.4
-**Files to touch:** `docs/for-architects/SCOPE_AND_LIMITATIONS.md`
+**Files to touch:** `SCOPE_AND_LIMITATIONS.md`
 **What to do:**
 - Explicit non-goals: not a WAF, does not decrypt, does not re-encrypt, does not inspect HTTP bodies, does not prevent SQLi/XSS/CSRF, does not detect insider threats, does not replace endpoint protection
 - For each non-goal: one sentence on *why* (architectural reason), and a pointer to the right tool category
@@ -404,7 +404,7 @@ doc is wrong and needs another PR).
 
 **Size:** M (2–4 h)
 **Depends on:** 105.0.4
-**Files to touch:** `docs/for-architects/SIEM_INTEGRATION.md`
+**Files to touch:** `SIEM_INTEGRATION.md`
 **What to do:**
 - Recap ECS 8.x log schema (link `docs/api/ecs_extension.md` — do not duplicate)
 - Four ingestion recipes: Splunk HEC, QRadar DSM, Microsoft Sentinel CEF, Wazuh syslog
@@ -425,7 +425,7 @@ doc is wrong and needs another PR).
 
 **Size:** S (1–2 h)
 **Depends on:** 105.0.4
-**Files to touch:** `docs/for-architects/EVALUATION_CHECKLIST.md`
+**Files to touch:** `EVALUATION_CHECKLIST.md`
 **What to do:**
 - 7-day POC checklist and 30-day evaluation checklist
 - Day 1–7: what metrics to watch (FP rate, score distribution, block rate at dial=0)
@@ -447,7 +447,7 @@ doc is wrong and needs another PR).
 **What to do:**
 - `git mv docs/GEMINI_CRITIQUE.md docs/reports/archive/GEMINI_CRITIQUE_2026-03-21.md`
 - `git mv docs/reports/ENTERPRISE_REVIEW.md docs/reports/archive/ENTERPRISE_REVIEW_2026-02-15.md`
-- Prepend a 5-line supersede banner to each: snapshot date, "pre-Phase 200 hardening", link to current equivalent in `docs/for-architects/`
+- Prepend a 5-line supersede banner to each: snapshot date, "pre-Phase 200 hardening", link to current equivalent in ``
 - **Do not edit the body** — banner is additive (per finding S3)
 
 **Done when:**
@@ -459,14 +459,14 @@ doc is wrong and needs another PR).
 
 ---
 
-##### Sub-task 105.2.6: Decide fate of `DMZ_DEPLOYMENT_READINESS.md`
+##### Sub-task 105.2.6: Decide fate of `DMZ_READINESS.md`
 
 **Size:** S (1–2 h)
 **Depends on:** none
-**Files to touch:** `docs/DMZ_DEPLOYMENT_READINESS.md` (rewrite or move)
+**Files to touch:** `docs/DMZ_READINESS.md` (rewrite or move)
 **What to do:**
 - 30-minute audit: walk every claim in the doc; mark each as "current" or "pre-Phase 200"
-- If ≥ 70% pre-Phase-200: archive to `docs/reports/archive/DMZ_DEPLOYMENT_READINESS_2026-03-15.md` with supersede banner and write a thin replacement `docs/for-architects/DMZ_READINESS.md` summarising current Phase-200-series state
+- If ≥ 70% pre-Phase-200: archive to `docs/reports/archive/DMZ_DEPLOYMENT_READINESS_2026-03-15.md` with supersede banner and write a thin replacement `DMZ_READINESS.md` summarising current Phase-200-series state
 - Otherwise: re-date, fix the stale claims, retain path
 
 **Done when:**
@@ -477,24 +477,24 @@ doc is wrong and needs another PR).
 
 #### Track C — Operator docs (105d)
 
-##### Sub-task 105.3.1: Write `docs/for-operators/README.md`
+##### Sub-task 105.3.1: Write `README.md`
 
 **Size:** S (1 h)
 **Depends on:** 105.0.4
-**Files to touch:** `docs/for-operators/README.md`
+**Files to touch:** `README.md`
 **What to do:**
-- Curated index; link (do not copy) `docs/SECOPS_OPERATIONS.md`, `docs/INCIDENT_RESPONSE.md`, `docs/QUICK_REFERENCE.md`, `docs/MONITORING_SETUP.md`, the runbooks, the new `BLOCKING_OPERATIONS.md` (from 105.4.2)
+- Curated index; link (do not copy) `docs/OPERATIONS.md`, `docs/INCIDENT_RESPONSE.md`, `docs/QUICK_REFERENCE.md`, `docs/MONITORING_SETUP.md`, the runbooks, the new `BLOCKING_OPERATIONS.md` (from 105.4.2)
 - Cap at 120 lines
 
 **Done when:** [ ] File ≤ 120 lines; all links present.
 
 ---
 
-##### Sub-task 105.3.2: Write `docs/for-operators/UPGRADE_PATH.md`
+##### Sub-task 105.3.2: Write `UPGRADE_PATH.md`
 
 **Size:** S (1–2 h)
 **Depends on:** 105.0.4
-**Files to touch:** `docs/for-operators/UPGRADE_PATH.md`
+**Files to touch:** `UPGRADE_PATH.md`
 **What to do:**
 - Summarise `docs/runbooks/rolling_upgrade.md` and `docs/runbooks/disaster_recovery.md`
 - Version-compatibility matrix (proxy version ↔ Redis schema version ↔ config version)
@@ -562,7 +562,7 @@ doc is wrong and needs another PR).
 
 #### Track D — Compliance docs (105e)
 
-##### Sub-task 105.5.1: Write `docs/for-compliance/README.md`
+##### Sub-task 105.5.1: Write `README.md`
 
 **Size:** XS (30 min)
 **Depends on:** 105.0.4
@@ -576,7 +576,7 @@ doc is wrong and needs another PR).
 
 **Size:** M (2–4 h)
 **Depends on:** 105.0.4
-**Files to touch:** `docs/for-compliance/AUDIT_TRAIL.md`
+**Files to touch:** `AUDIT_TRAIL.md`
 **What to do:**
 - What gets logged, where, for how long
 - Policy-change audit — reference `management:policy_audit` Redis list from `docs/REDIS_SCHEMA.md`
@@ -593,7 +593,7 @@ doc is wrong and needs another PR).
 
 **Size:** S (1–2 h)
 **Depends on:** 105.0.4
-**Files to touch:** `docs/for-compliance/CHANGE_MANAGEMENT.md`
+**Files to touch:** `CHANGE_MANAGEMENT.md`
 **What to do:**
 - How config changes are proposed, reviewed, applied, reverted
 - SIGHUP flow vs. UI flow vs. pub/sub propagation — cite `config/proxy.yml` hot-reload invariants from CLAUDE.md §Config-Driven
@@ -605,7 +605,7 @@ doc is wrong and needs another PR).
 
 #### Track E — Developer docs (105f)
 
-##### Sub-task 105.6.1: Write `docs/for-developers/README.md`
+##### Sub-task 105.6.1: Write `README.md`
 
 **Size:** XS (30 min)
 **Depends on:** 105.0.4
@@ -618,7 +618,7 @@ doc is wrong and needs another PR).
 
 **Size:** S (1–2 h)
 **Depends on:** 105.0.4
-**Files to touch:** `docs/for-developers/GETTING_STARTED.md`
+**Files to touch:** `GETTING_STARTED.md`
 **What to do:**
 - 30-minute-to-productive walkthrough: prereqs (Go 1.25.9, Python 3.14, Docker, Redis Stack), clone, build, test, run
 - Link to `CONTRIBUTING.md` for reference; don't duplicate its contents
@@ -632,7 +632,7 @@ doc is wrong and needs another PR).
 
 **Size:** M (2–4 h)
 **Depends on:** 105.0.4
-**Files to touch:** `docs/for-developers/HOW_WE_WORK.md`
+**Files to touch:** `HOW_WE_WORK.md`
 **What to do:**
 - Trunk-based development with short-lived `claude/phase-NN-*` and `feat/*` branches
 - Never commit to main (restate CLAUDE.md §Git Rules)
@@ -648,11 +648,11 @@ doc is wrong and needs another PR).
 
 ---
 
-##### Sub-task 105.6.4: Write `TDD_AND_TESTING.md`
+##### Sub-task 105.6.4: Write `TESTING_STRATEGY.md`
 
 **Size:** M (2–4 h)
 **Depends on:** 105.0.4
-**Files to touch:** `docs/for-developers/TDD_AND_TESTING.md`
+**Files to touch:** `TESTING_STRATEGY.md`
 **What to do:**
 - TDD loop: red → green → refactor
 - Ratio target ~1.3× test-to-code (cite current ratio from `make test-ratio`)
@@ -665,11 +665,11 @@ doc is wrong and needs another PR).
 
 ---
 
-##### Sub-task 105.6.5: Write `CI_AND_QUALITY_GATES.md`
+##### Sub-task 105.6.5: Write `QUALITY_PLAN.md`
 
 **Size:** M (2–4 h)
 **Depends on:** 105.0.4
-**Files to touch:** `docs/for-developers/CI_AND_QUALITY_GATES.md`
+**Files to touch:** `QUALITY_PLAN.md`
 **What to do:**
 - One paragraph per workflow: `ci.yml` (9 jobs: test-go, test-python, lint, secrets-scan, sast, dep-audit-py, dep-audit-go, dep-review, smoke-docker), `go-proxy-image.yml`, `ja4proxy-policy.yml`, `release-cli.yml`
 - Cite file paths with line ranges — do not transcribe YAML (finding A5)
@@ -690,7 +690,7 @@ doc is wrong and needs another PR).
 
 **Size:** S (1–2 h)
 **Depends on:** 105.0.4
-**Files to touch:** `docs/for-developers/PHASE_LIFECYCLE.md`
+**Files to touch:** `PHASE_LIFECYCLE.md`
 **What to do:**
 - Mandatory planning protocol (phase doc before code — cite AGENTS.md)
 - Branch naming, commit cadence, `make sync`
@@ -726,7 +726,7 @@ doc is wrong and needs another PR).
 **Depends on:** none
 **Files to touch:**
 - `docs/TESTING_STRATEGY.md` (expand)
-- `docs/TEST_ORGANIZATION.md` (redirect stub)
+- `docs/TESTING_STRATEGY.md` (redirect stub)
 - `docs/TEST_SUITE.md` (redirect stub)
 - `docs/TESTING_GO.md` (redirect stub)
 - `docs/TESTING.md` (redirect stub)
@@ -753,12 +753,12 @@ doc is wrong and needs another PR).
 **Depends on:** none
 **Files to touch:**
 - `docs/README.md` (frontmatter + content)
-- `docs/INDEX.md` (frontmatter + content)
+- `docs/README.md` (frontmatter + content)
 - `docs/DEPLOYMENT_SECURITY_MODEL.md`
 - `CONTRIBUTING.md`
 - Any doc with `proxy.py` mention lacking "prototyping" qualifier
 **What to do:**
-- Update `last_reviewed` and `phase` frontmatter fields in `docs/README.md` and `docs/INDEX.md` to today's date and current phase number from manifest
+- Update `last_reviewed` and `phase` frontmatter fields in `docs/README.md` and `docs/README.md` to today's date and current phase number from manifest
 - `grep -rn 'Phase 1[0-9] ' docs/ | grep -vE '(PHASE_|archive/|decisions/|manifest)'` — triage each hit, update or banner as stale
 - `grep -rn 'proxy\.py' README.md CONTRIBUTING.md docs/` — ensure every mention carries the "prototyping surface" qualifier
 
@@ -799,7 +799,7 @@ doc is wrong and needs another PR).
 **What to do:**
 - Reconcile every perf number against `docs/performance/BENCHMARK_HISTORY.md` (finding S2)
 - Add one paragraph on Phase 200-series hardening (Redis TLS, PROXY v2, default-cred removal)
-- Link (as plain URL) to `docs/for-website-owners/README.md`
+- Link (as plain URL) to `README.md`
 
 **Done when:** [ ] `make -C docs/pdf brochure` rebuilds clean.
 
@@ -883,7 +883,7 @@ Files: `ch01-architecture.tex`, `ch04-signals.tex`, `ch06-redis-schema.tex`, `ch
 **Files to touch:** `CONTRIBUTING.md`
 **What to do:**
 - Project-structure block: Go production (`cmd/proxy/`, `internal/`) first with "production runtime" header; `proxy.py` and `src/` second with "prototyping surface" header
-- Link `docs/for-developers/README.md` early in the doc
+- Link `README.md` early in the doc
 
 **Done when:** [ ] Go listed first; prototyping qualifier present.
 

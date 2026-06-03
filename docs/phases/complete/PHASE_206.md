@@ -25,7 +25,7 @@ Files to be created or modified:
 - pyproject.toml (fix target-version)
 - proxy.py (remove unused imports)
 - deploy/docker/Dockerfile.management (fix PyYAML installation)
-- docs/phases/PHASE_206.md (this document)
+- docs/phases/complete/PHASE_206.md (this document)
 - docs/phases/manifest.yaml (add phase entry)
 
 ## Implementation Plan

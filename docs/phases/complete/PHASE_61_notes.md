@@ -64,7 +64,7 @@ spec faithfully. Review-fix commit:
 
 1. Replaced the SHA in `.github/workflows/ci.yml` (3 lines) and
    `.github/workflows/ja4proxy-policy.yml` (2 lines).
-2. Corrected the spec in `docs/phases/PHASE_61.md` (2 places) so the next
+2. Corrected the spec in `docs/phases/complete/PHASE_61.md` (2 places) so the next
    re-implementation does not repeat the bug.
 3. Added `test_sha_matches_tag_comment` to `tests/test_workflow_pinning.py`
    with a vendored `KNOWN_ACTION_SHAS` allowlist (no network in tests). The

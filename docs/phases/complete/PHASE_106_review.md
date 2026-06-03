@@ -4,7 +4,7 @@
 > **Date:** 2026-04-24
 > **Target production stack:** documentation + tooling only (Python for scripts;
 > **no Go proxy code is touched** in this phase)
-> **Phase doc under review:** [docs/phases/PHASE_106.md](PHASE_106.md)
+> **Phase doc under review:** [docs/phases/complete/PHASE_106.md](PHASE_106.md)
 > **Status:** PROPOSED
 > **Dependencies declared:** Phase 105 (PROPOSED — **INCOMPLETE**)
 
@@ -30,7 +30,7 @@ any implementation begins, plus a number of smaller risks worth addressing.
 
 | # | Issue | Severity |
 |---|-------|----------|
-| B1 | **Dependency Phase 105 is still PROPOSED.** 106c/106a/106g explicitly target `docs/for-website-owners/`, `docs/for-operators/`, `docs/for-architects/` — none of which exist. 106 cannot land those docs in a yet-to-be-created audience tree without either guessing at Phase 105's structure or producing work that Phase 105 will later move. | HIGH |
+| B1 | **Dependency Phase 105 is still PROPOSED.** 106c/106a/106g explicitly target ``, ``, `` — none of which exist. 106 cannot land those docs in a yet-to-be-created audience tree without either guessing at Phase 105's structure or producing work that Phase 105 will later move. | HIGH |
 | B2 | **Phase doc references `docs/phases/STYLE_GUIDE.md`** (line 448) but the actual file is `docs/STYLE_GUIDE.md`. | MEDIUM |
 | B3 | **"SHA-pinned" CI acceptance criterion (line 410-411) is miscategorised.** The project SHA-pins third-party actions, not local workspace scripts. `scripts/traceability.py` is not a third-party action. | LOW (wording) |
 | B4 | **106d "CI blocks if any `REQ-*` tag has no `Verified by:` clause"** conflicts with the retroactive scope cap of seven phases. If CI enforces `Verified by:` for every `REQ-*` tag, only the seven tagged phases can use the tag — but future phases will need it too. The rule needs to be "CI blocks if any `REQ-*` tag has no `Verified by:` **AND the phase's acceptance-criteria section uses `REQ-*` at all**" (opt-in per phase until universal). | MEDIUM |
@@ -48,7 +48,7 @@ case-study selection for B5.
    rules (IPv6, async, fail-open, hot-reload) are **not applicable**. The
    core asymmetry (FP-cost ≫ FN-cost) surfaces only in 106a (SLOs cite FP
    rate targets) and 106b (risk register entries).
-2. ✅ `docs/phases/PHASE_106.md` — read in full (532 lines).
+2. ✅ `docs/phases/complete/PHASE_106.md` — read in full (532 lines).
 3. ✅ `docs/phases/manifest.yaml` — Phase 106 is PROPOSED. **Dependency
    Phase 105 is also PROPOSED** (see B1 above).
 4. ✅ `config/proxy.yml` — not touched by this phase.
@@ -254,12 +254,12 @@ as the dominant quality attribute — not as one of several equal ones.
 **Size:** XS (5 min)
 **Depends on:** none
 **Parallel with:** all of Phase 1
-**Files to touch:** `docs/phases/PHASE_106.md`
+**Files to touch:** `docs/phases/complete/PHASE_106.md`
 **What to do:**
 - Change `docs/phases/STYLE_GUIDE.md` → `docs/STYLE_GUIDE.md` on line 448
 - Verify no other references to the wrong path in the file
 **Done when:**
-- [ ] `grep -n "phases/STYLE_GUIDE" docs/phases/PHASE_106.md` returns nothing
+- [ ] `grep -n "phases/STYLE_GUIDE" docs/phases/complete/PHASE_106.md` returns nothing
 **Watch out for:** nothing — trivial fix.
 
 #### Sub-task 1.2: Pre-create audience-doc stub directories
@@ -267,11 +267,11 @@ as the dominant quality attribute — not as one of several equal ones.
 **Depends on:** none
 **Parallel with:** 1.1
 **Files to touch:**
-- `docs/for-website-owners/README.md` (new, minimal placeholder)
-- `docs/for-architects/README.md` (new, minimal placeholder)
-- `docs/for-operators/README.md` (new, minimal placeholder)
-- `docs/for-compliance/README.md` (new, minimal placeholder)
-- `docs/for-developers/README.md` (new, minimal placeholder)
+- `README.md` (new, minimal placeholder)
+- `README.md` (new, minimal placeholder)
+- `README.md` (new, minimal placeholder)
+- `README.md` (new, minimal placeholder)
+- `README.md` (new, minimal placeholder)
 **What to do:**
 - Each README starts with: `# <Audience> Documentation` then a single paragraph: "Placeholder — Phase 105 will land the full audience entry point. Phase 106 deliverables link into this directory and will be reconciled."
 - Make the file ≤ 20 lines. No content other than the placeholder.
@@ -327,7 +327,7 @@ marker makes its job easy (merge, don't overwrite).
 - SLA posture: "zero-commitment open source; commercial support not currently offered" (copy language from `SECURITY.md` if it exists)
 - Error-budget policy: cite existing alert rules (e.g. `JA4ProxyAvailabilityFastBurn`)
 - Reporting cadence: quarterly retrospective doc (link to 106e output)
-- Add links from `docs/for-operators/README.md` and `docs/for-architects/README.md` (the placeholder files from 1.2)
+- Add links from `README.md` and `README.md` (the placeholder files from 1.2)
 **Done when:**
 - [ ] `docs/SERVICE_TARGETS.md` exists with ≥ 4 SLIs (availability, FP rate, latency, Redis correctness)
 - [ ] Each SLI cites its source runbook by file path
@@ -345,7 +345,7 @@ marker makes its job easy (merge, don't overwrite).
   - `docs/security/findings.yaml` (1802 lines — canonical findings)
   - `docs/security/threat-model.md`
   - `docs/security/COMPREHENSIVE_SECURITY_AUDIT.md`
-  - `docs/DMZ_DEPLOYMENT_READINESS.md`
+  - `docs/DMZ_READINESS.md`
   - `docs/security/EXCEPTIONS.md`, `CVE_EXCEPTIONS.md`
 - **Dedup rule (document at top of file):** two risks are the same if they share (attack surface, failure mode, primary mitigation).
 - Produce a table: `| ID | Risk | Category | Likelihood | Impact | Owner | Mitigation | Residual | Status |`
@@ -353,7 +353,7 @@ marker makes its job easy (merge, don't overwrite).
 - Each row must link to the authoritative source doc
 - **Do not** include findings still under disclosure embargo (check `disclosure_status` field in findings.yaml if present)
 - **Minimum 30 rows** after dedup (acceptance criterion)
-- Add link from `docs/for-compliance/README.md` and `docs/for-architects/README.md`
+- Add link from `README.md` and `README.md`
 **Done when:**
 - [ ] Table has ≥ 30 distinct rows, each with a non-empty Mitigation column
 - [ ] Every row links to an authoritative source
@@ -361,11 +361,11 @@ marker makes its job easy (merge, don't overwrite).
 - [ ] No pre-disclosure vulnerabilities included
 **Watch out for:** Don't do new risk analysis. This is a curated index of existing risks — every entry must be traceable to an existing doc.
 
-#### Sub-task 2.3: Write `docs/for-website-owners/TCO_AND_LICENSING.md` (106c)
+#### Sub-task 2.3: Write `TCO_AND_LICENSING.md` (106c)
 **Size:** M (3h)
 **Depends on:** 1.2
 **Parallel with:** 2.1, 2.2, 2.7, 2.8
-**Files to touch:** `docs/for-website-owners/TCO_AND_LICENSING.md` (new)
+**Files to touch:** `TCO_AND_LICENSING.md` (new)
 **What to do:**
 - License section: cite `LICENSE` (MIT) — what it permits, what it does not
 - Commercial-support section: explicit statement ("community support only via GitHub Issues" unless something has changed — **ask** if unsure)
@@ -373,7 +373,7 @@ marker makes its job easy (merge, don't overwrite).
 - Hidden-costs section: GeoIP feed licensing, AbuseIPDB quota, Spamhaus, 3rd-party threat-intel
 - SSL-inspection comparison framing
 - **Every number must carry footnote:** "Estimates based on public pricing as of YYYY-MM-DD. Your costs will vary."
-- Add link from `docs/for-website-owners/README.md`
+- Add link from `README.md`
 **Done when:**
 - [ ] Three TCO scenarios present
 - [ ] Every dollar figure carries the estimate footnote
@@ -475,7 +475,7 @@ marker makes its job easy (merge, don't overwrite).
 - Review roles: who reviews what; multi-agent review points
 - SWEBOK v4 KA coverage table (from the phase doc's §"SWEBOK v4 KA Coverage After Phase 106")
 - ≤ 5 pages (~400 lines max)
-- Add link from `docs/for-architects/README.md` and `docs/for-compliance/README.md`
+- Add link from `README.md` and `README.md`
 **Done when:**
 - [ ] Doc is ≤ 400 lines
 - [ ] All sections present (attributes, defects, gates, roles, SWEBOK table)

@@ -312,7 +312,7 @@ docker compose logs proxy | grep -i security
 - [x] In-process counters always decremented in `finally` — no leak on abrupt disconnect
 - [x] `ja4proxy_tarpit_concurrent` Gauge reflects current in-process count
 - [x] `ja4proxy_tarpit_overflow_total{action}` Counter incremented on each overflow
-- [x] Tarpit resource sizing guidance in `docs/SECOPS_OPERATIONS.md`
+- [x] Tarpit resource sizing guidance in `docs/OPERATIONS.md`
 
 ### 14d — Rate Limit Memory Self-Protection
 - [x] `beaconing.max_suspects` (default 10 000) caps the `beacon:suspects` leaderboard

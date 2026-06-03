@@ -33,7 +33,7 @@ that obscure the ritual.
 
 ---
 
-## Stage 1 — Plan: `docs/phases/PHASE_104.md`
+## Stage 1 — Plan: `docs/phases/complete/PHASE_104.md`
 
 The plan is **mandatory before any code** — see
 [`AGENTS.md` §Mandatory Planning Protocol](../../AGENTS.md) and
@@ -47,7 +47,7 @@ The plan opens with a status header that forward-links to the review:
 > **Size:** LARGE (15 sub-tasks, all XS/S, all parallel)
 > **Dependencies:** None (standalone)
 > **Triggered by:** Code health audit 2026-04-16
-> **Review:** `docs/phases/PHASE_104_review.md`
+> **Review:** `docs/phases/complete/PHASE_104_review.md`
 ```
 
 What this teaches: every plan declares dependencies, sizing (LARGE in
@@ -104,7 +104,7 @@ is a sketch, longer is doing the review's job.
 
 ---
 
-## Stage 2 — Review: `docs/phases/PHASE_104_review.md`
+## Stage 2 — Review: `docs/phases/complete/PHASE_104_review.md`
 
 The review is produced by a separate agent invocation (`/review-phase`) —
 **not** an approval rubber-stamp but a structured critique through six
@@ -280,8 +280,8 @@ For Phase 104, the canonical artefacts are:
 
 | Artefact | Path / SHA |
 |----------|------------|
-| Plan | [`docs/phases/PHASE_104.md`](../phases/PHASE_104.md) |
-| Review | [`docs/phases/PHASE_104_review.md`](../phases/PHASE_104_review.md) |
+| Plan | [`docs/phases/complete/PHASE_104.md`](../phases/complete/PHASE_104.md) |
+| Review | [`docs/phases/complete/PHASE_104_review.md`](../phases/complete/PHASE_104_review.md) |
 | Wave 1 (scaffolding) | commit `809a3ae` |
 | Wave 2 (Python coverage) | commits `c22e25a`, `1e546be`, `005cb5c`, `2456206`, `65c8069` |
 | Wave 2 (Go coverage) | commits `2809fc7`, `4040e89`, `e47cad4` |

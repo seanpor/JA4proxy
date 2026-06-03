@@ -11,7 +11,7 @@ phase: 21
 > **Purpose:** Comprehensive guide for Phase 15 Go rewrite contributions
 > **Last Reviewed:** 2026-03-27
 > **Status:** Active development (Phase 15 — 87.5% complete)
-> **Related:** [Go Proxy Operations](../runbooks/go_proxy_operations.md) · [Phase 15 Documentation](../phases/PHASE_15.md)
+> **Related:** [Go Proxy Operations](../runbooks/go_proxy_operations.md) · [Phase 15 Documentation](../phases/complete/PHASE_15.md)
 
 ---
 

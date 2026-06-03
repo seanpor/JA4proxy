@@ -54,7 +54,7 @@ watchlist match in DSAR), M1 (Redis XTRIM MINID version check), M2 (rename
 `beaconing_records_cleaned` — breaking), M4 (paginate audit log reads),
 M7 (DSAR partial-failure reporting), L1 (Jinja2 env cache), L2 (JSONL
 newline invariant), L5 (DSAR retention text from config).  See
-`docs/phases/PHASE_101.md`.
+`docs/phases/complete/PHASE_101.md`.
 
 ### New tests
 

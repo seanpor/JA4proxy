@@ -70,7 +70,7 @@ incident — page security on-call.
 
 ## Related
 
-- `docs/phases/PHASE_101.md` §C4 — safety caps spec
+- `docs/phases/complete/PHASE_101.md` §C4 — safety caps spec
 - `src/analytics/ti_feeds/base.py` — `FeedConfig` cap fields
 - `src/analytics/ti_feeds/runner.py` — `_poll_once` cap enforcement
 - `docs/runbooks/ti_feed_fp_blocked.md`

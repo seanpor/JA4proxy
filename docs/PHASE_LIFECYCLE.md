@@ -85,7 +85,7 @@ phase with 800 lines of diff is a smell: rebase to split it before review.
 
 Follow the acceptance criteria in `docs/phases/PHASE_NN.md`. Run
 `make test` after each meaningful change — every section must be green
-([`TDD_AND_TESTING.md`](TDD_AND_TESTING.md) §Phase-gate-must-pass). If the
+([`TESTING_STRATEGY.md`](TESTING_STRATEGY.md) §Phase-gate-must-pass). If the
 phase touches scoring or pipeline logic, also run `make check-scores` and
 `make parity-check`.
 
@@ -161,8 +161,8 @@ critical review, post-merge verification — is in
 - Branch flow, commit conventions, keep-main-green policy:
   [`HOW_WE_WORK.md`](HOW_WE_WORK.md)
 - Test discipline and the phase gate:
-  [`TDD_AND_TESTING.md`](TDD_AND_TESTING.md)
+  [`TESTING_STRATEGY.md`](TESTING_STRATEGY.md)
 - CI workflows and quality gates:
-  [`CI_AND_QUALITY_GATES.md`](CI_AND_QUALITY_GATES.md)
+  [`QUALITY_PLAN.md`](QUALITY_PLAN.md)
 - Documentation standards (CHANGELOG, REDIS_SCHEMA, ADR formats):
   [`../DOCUMENTATION_STANDARDS.md`](../DOCUMENTATION_STANDARDS.md)

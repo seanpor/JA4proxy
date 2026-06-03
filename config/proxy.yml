@@ -725,7 +725,7 @@ rdap_enrichment:
     score: 20                       # Risk contribution for new netblock signal.
 
   block_expansion:
-    enabled: false                  # Default: false. Read docs/phases/PHASE_11.md before enabling.
+    enabled: false                  # Default: false. Read docs/phases/complete/PHASE_11.md before enabling.
                                     # Automatically blocks /24 (IPv4) or /48 (IPv6) containing attacker IP.
     min_trigger_score: 75           # Composite score the trigger IP must have reached for expansion.
     max_prefix_length_v4: 24        # Only expand if discovered netblock is /24 or smaller (prefixlen >= 24).
@@ -889,7 +889,7 @@ reporting:                              # phase-84
 # Never writes directly to proxy rule sets — all mutations go through
 # /api/v1/blocklist and /api/v1/bans/{ip:path}.
 #
-# See docs/phases/PHASE_85.md for the full spec.
+# See docs/phases/complete/PHASE_85.md for the full spec.
 threat_intel:
   # phase-85.1 (C4 — security review): defaults are now OFF on a fresh
   # install. Both the runner and the seed file have to be consciously

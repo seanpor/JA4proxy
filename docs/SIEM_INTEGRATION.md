@@ -14,7 +14,7 @@ required.
 
 This document provides ingestion recipes for the four most common enterprise
 SIEM platforms. For the complete field-level schema, see
-[`docs/api/ecs_extension.md`](../api/ecs_extension.md). This document does
+[`docs/api/ecs_extension.md`](api/ecs_extension.md). This document does
 **not** duplicate that reference; it shows how to **get the events into the
 SIEM** and what to **alert on** once they arrive.
 
@@ -31,7 +31,7 @@ SIEM** and what to **alert on** once they arrive.
 - ECS schema validated against `config/integrations/ecs-schema.json`
 - Time synchronisation: NTP on every JA4proxy node and every SIEM forwarder
 - Log volume planning: ~1 KB per connection event; see
-  [`docs/SCALING_GUIDE.md`](../SCALING_GUIDE.md) for retention sizing
+  [`docs/SCALING_GUIDE.md`](SCALING_GUIDE.md) for retention sizing
 
 ---
 
@@ -311,11 +311,11 @@ search the SIEM for the same `@timestamp` to confirm round-trip ingestion.
 
 ## Related reading
 
-- [`docs/api/ecs_extension.md`](../api/ecs_extension.md) — full ECS field
+- [`docs/api/ecs_extension.md`](api/ecs_extension.md) — full ECS field
   reference (canonical schema)
-- [`docs/for-architects/SCOPE_AND_LIMITATIONS.md`](SCOPE_AND_LIMITATIONS.md)
+- [`SCOPE_AND_LIMITATIONS.md`](SCOPE_AND_LIMITATIONS.md)
   — non-goals; SIEM is one of the named complementary controls
-- [`docs/for-architects/EVALUATION_CHECKLIST.md`](EVALUATION_CHECKLIST.md)
+- [`EVALUATION_CHECKLIST.md`](EVALUATION_CHECKLIST.md)
   — what to monitor in your SIEM during a POC
 - [`config/integrations/ecs-schema.json`](../../config/integrations/ecs-schema.json)
   — JSON Schema for CI validation of emitted events
