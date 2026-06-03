@@ -3,9 +3,9 @@
 
 # JA4 Proxy - Project Status
 
-## Current Status: Phase 101 (Phase 101 — Cross-Phase Gap Closure) Next
+## Current Status: Phase 109 (PROXY Protocol Hardening & Scrubbing) Next
 
-**Last Updated:** 2026-06-02
+**Last Updated:** 2026-06-03
 
 ## Epics & Roadmap
 
@@ -63,6 +63,7 @@ Deep security analysis, compliance, and audit remediation.
 | 118 | Pentest Remediation: Attack Surface & Data Leakage Hardening | COMPLETE | Rescoped under Phase 121e against the canonical findings register. All scoped findings (PROXY smuggling, fragmentation, XFF spoofing, SSRF, unauth metrics, Redis fail-open, backup encryption, integration TLS verification, Redis ACLs, auth rate limiting) closed via phase-118a…118vv chained-branch remediations. 54/54 findings FIXED in docs/security/findings.yaml. |
 | 119 | Connection Lifecycle Hardening & Operational Security | COMPLETE | Rescoped under Phase 121e against the canonical findings register. All 17 white-box findings (RT-001…RT-017: goroutine leaks, n-vs-len(data) JA4 bypass, unauth metrics, credential rotation, connection limits, tarpit timeouts, Redis KEYS blocking, trusted CIDR validation, SNI key injection, cookie secure flag, log sanitisation, OIDC token verification) closed via phase-119a…119t chained-branch remediations. |
 | 121 | Pentest Remediation Consolidation & Program Discipline | COMPLETE | Plan-only meta-phase that turns the 108–120 bug-hunt pile into a managed program: canonical findings register + tooling, severity rubric + SLA policy, dedup across ~98 sub-phases down to 54 canonical findings, rescope of 117/118/119/120 against the register (retires 120 as duplicate of 119), remediation waves DAG, closure verification protocol, intake runbook for the next red team report, CVSS version ADR. 11 sub-phases, no code fixes. All acceptance criteria met 2026-04-19; make phase-121-verify green. |
+| 215 | White-Box Penetration Test — Go Production Proxy | COMPLETE | Full white-box (source-code-aided) penetration test of the Go production proxy covering 9 layers: TCP/network, TLS/fingerprint, signal pipeline, risk scoring, Redis integration, webhook, metrics/health, config/crypto, and CLI. Python prototype proxy explicitly out of scope. Findings recorded in findings.yaml with regression tests. |
 
 ### Epic: Analytics & Intelligence
 Cross-instance behavior analysis and threat intelligence.
@@ -264,7 +265,7 @@ Alignment with international standards and regulatory frameworks.
 | 93.7 | Documentation + Integration Tests | COMPLETE | N/A | N/A |
 | 94 | Kubernetes Operator + CMDB/NetBox Integration | COMPLETE | N/A | N/A |
 | 100 | Phase 100 — Cross-Phase Gap Closure (rolling) | COMPLETE | N/A | N/A |
-| 101 | Phase 101 — Cross-Phase Gap Closure | IN_PROGRESS | N/A | N/A |
+| 101 | Phase 101 — Cross-Phase Gap Closure | COMPLETE | N/A | N/A |
 | 102 | Phase 93 Finishing Work: ADRs, Runbook Audit, Drift-Detection Decision | COMPLETE | N/A | N/A |
 | 103 | Manifest Gap Cleanup | COMPLETE | N/A | N/A |
 | 104 | Code Health & Coverage Gap Closure | COMPLETE | N/A | N/A |
@@ -286,9 +287,18 @@ Alignment with international standards and regulatory frameworks.
 | 120 | Independent Red Team Findings: Design Flaws, Infrastructure & Logic Bugs (RETIRED) | DEFERRED | N/A | N/A |
 | 121 | Pentest Remediation Consolidation & Program Discipline | COMPLETE | N/A | N/A |
 | 122 | Production Security Review — Internet-Facing Attack Surface Audit | COMPLETE | N/A | N/A |
-| 123 | Security Hardening & Operational Excellence | IN_PROGRESS | N/A | N/A |
-| 124 | Production Security Remediation (Attack Surface Audit) | IN_PROGRESS | N/A | N/A |
-| 125 | Infrastructure & Supply Chain Resilience | IN_PROGRESS | N/A | N/A |
+| 123 | Security Hardening & Operational Excellence | COMPLETE | N/A | N/A |
+| 124 | Production Security Remediation (Attack Surface Audit) | COMPLETE | N/A | N/A |
+| 125 | Infrastructure & Supply Chain Resilience | COMPLETE | N/A | N/A |
+| 126 | Toolchain Modernization & Update Automation | COMPLETE | N/A | N/A |
+| 127 | Documentation Rationalization & Consolidation | COMPLETE | N/A | N/A |
+| 128 | Python Legacy Proxy Deprecation & Archival | COMPLETE | N/A | N/A |
+| 129 | White-Box User Acceptance Testing (UAT) | COMPLETE | N/A | N/A |
+| 130 | Repository Housekeeping & Hygiene | COMPLETE | N/A | N/A |
+| 131 | OpenSSF Scorecard & Supply Chain Hardening | COMPLETE | N/A | N/A |
+| 132 | Build Stabilization & CI/CD Hygiene | COMPLETE | N/A | N/A |
+| 133 | CI Stabilization & Go Toolchain Update | COMPLETE | N/A | N/A |
+| 134 | Scorecard Remediation & Local Audit | COMPLETE | N/A | N/A |
 | 200 | Go PROXY Protocol Trust + v2 Support | COMPLETE | N/A | N/A |
 | 201 | Go Redis TLS + Silent-Failure Hardening | COMPLETE | N/A | N/A |
 | 202 | CI Supply Chain + Default Credential Removal | COMPLETE | N/A | N/A |
@@ -303,6 +313,7 @@ Alignment with international standards and regulatory frameworks.
 | 212 | Resolve Third-Party Image CVEs (CRITICAL) | COMPLETE | N/A | N/A |
 | 213 | Dependency Update Checker (make check-updates) | COMPLETE | N/A | N/A |
 | 214 | Fix Pre-Existing CI Failures | COMPLETE | N/A | N/A |
+| 215 | White-Box Penetration Test — Go Production Proxy | COMPLETE | N/A | N/A |
 
 ---
 
