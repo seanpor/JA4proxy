@@ -273,7 +273,7 @@ func (p *Pipeline) StartBackgroundWorkers(ctx context.Context) {
 // Process runs a connection through the full pipeline and returns the result.
 // It never panics; all module errors are caught and logged.
 func (p *Pipeline) Process(ctx context.Context, conn *ConnectionContext) *PipelineResult {
-	
+
 	// ── 1. HARD BLOCKS (Blacklists, etc.)
 	if block, reason := p.checkHardBlocks(conn); block {
 		p.log.WithFields(logrus.Fields{
@@ -317,7 +317,7 @@ func (p *Pipeline) Process(ctx context.Context, conn *ConnectionContext) *Pipeli
 			BypassReason: reason,
 		}
 	}
-// ── 2. DIAL (fetch once — cheap Redis GET) ────────────────────────────
+	// ── 2. DIAL (fetch once — cheap Redis GET) ────────────────────────────
 	dial := 0
 	if p.redis != nil {
 		dial = p.redis.GetDial(ctx)

@@ -1,13 +1,13 @@
 package config
 
 import (
-	"os"
-	"strings"
 	"context"
 	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"

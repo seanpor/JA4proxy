@@ -28,11 +28,11 @@ func observeOp(command, result string) {
 // Client wraps go-redis and exposes the operations used by the pipeline.
 // All methods fail open: errors are logged and a safe zero value is returned.
 type Client struct {
-	rdb           *goredis.Client
-	log           *logrus.Logger
-	scriptMu      sync.RWMutex // protects slidingWinSHA (phase-201c)
-	slidingWinSHA string       // EVALSHA hash for sliding_window.lua
-	syncStream    string       // Redis Stream for cross-DC sync
+	rdb              *goredis.Client
+	log              *logrus.Logger
+	scriptMu         sync.RWMutex // protects slidingWinSHA (phase-201c)
+	slidingWinSHA    string       // EVALSHA hash for sliding_window.lua
+	syncStream       string       // Redis Stream for cross-DC sync
 	integrityKeyFile string       // path to HMAC secret
 }
 
@@ -46,11 +46,11 @@ type Config struct {
 	MasterName string
 	Sentinels  []string
 
-	DB       int
-	Password string
-	Username string // phase-201a: Redis 6+ ACL username; "" = default user
-	SSL      bool   // phase-201a: enable TLS to Redis (MinVersion 1.2)
-	Timeout  time.Duration
+	DB               int
+	Password         string
+	Username         string // phase-201a: Redis 6+ ACL username; "" = default user
+	SSL              bool   // phase-201a: enable TLS to Redis (MinVersion 1.2)
+	Timeout          time.Duration
 	IntegrityKeyFile string // JA4PROXY-2026-0040: Signed Dial secret path
 }
 
@@ -329,8 +329,8 @@ func (c *Client) GetDial(ctx context.Context) int {
 
 		if sig != expectedSig {
 			c.log.WithFields(logrus.Fields{
-				"val": val,
-				"sig": sig,
+				"val":      val,
+				"sig":      sig,
 				"expected": expectedSig,
 			}).Warn("redis: config:dial signature mismatch; tampering suspected; defaulting to 0 (JA4PROXY-2026-0040)")
 			return 0

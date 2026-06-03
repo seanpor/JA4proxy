@@ -2175,3 +2175,8 @@ phases:
     status: COMPLETE
     action_plan: docs/phases/complete/PHASE_132.md
     summary: Fixes broken make targets and Docker contexts, archives legacy Python tests that were causing CI failures, and restores the project to a 'green' state for both local development and GitHub Actions.
+  133:
+    name: CI Stabilization & Go Toolchain Update
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_133.md
+    summary: Resolves remaining GitHub Actions failures by archiving a lingering legacy Python test, fixing Go formatting, and updating the Go toolchain to 1.26.4 to remediate standard library CVEs.
