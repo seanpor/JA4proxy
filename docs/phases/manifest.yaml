@@ -48,6 +48,7 @@ epics:
   - 118
   - 119
   - 121
+  - 215
 - name: 'Epic: Analytics & Intelligence'
   description: Cross-instance behavior analysis and threat intelligence.
   phases:
@@ -2126,6 +2127,17 @@ phases:
       exclusions for SLSA_VERIFICATION.md + GDPR external URLs. Fixed 7 semgrep
       dynamic-urllib-use-detected findings (moved nosemgrep to urlopen line, added
       2 missing). Bumped semgrep 1.67.0→1.76.0.'
+  215:
+    name: White-Box Penetration Test — Go Production Proxy
+    status: COMPLETE
+    completed: 2026-06-03
+    action_plan: docs/phases/PHASE_215.md
+    dependencies: []
+    size: LARGE
+    summary: 'Full white-box (source-code-aided) penetration test of the Go production proxy covering
+      9 layers: TCP/network, TLS/fingerprint, signal pipeline, risk scoring, Redis integration,
+      webhook, metrics/health, config/crypto, and CLI. Python prototype proxy explicitly out of
+      scope. Findings recorded in findings.yaml with regression tests.'
   123:
     name: Security Hardening & Operational Excellence
     status: COMPLETE

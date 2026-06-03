@@ -1,5 +1,29 @@
 # Changelog
 
+## [Unreleased] - Phase 215 — White-Box Penetration Test — Go Production Proxy (2026-06-03)
+
+Full white-box penetration test of the Go production proxy. Executed
+systematic coverage across 9 layers, discovering 7 security findings.
+
+### Changes
+- **Pentest report**: `docs/security/pentest/REPORT.md` with 7 findings
+  across TCP/network, TLS/fingerprint, signal pipeline, risk scoring,
+  Redis integration, webhook, metrics/health, config/crypto, and CLI.
+- **Findings register**: Registered all 7 findings in `findings.yaml`
+  (JA4PROXY-2026-0056 through 0062) — 1 CRITICAL, 1 HIGH, 2 MEDIUM,
+  2 LOW, 1 LOW (registered from INFO).
+- **Regression test**: `cmd/proxy/pentest_panic_recovery_test.go` —
+  static analysis test for F-001 (missing `recover()` in handler
+  goroutine). Confirms 7 goroutines without crash protection.
+- **Re-verification**: All 18 previously-closed findings from Phases
+  118/119/122 re-confirmed as CLOSED.
+
+### Verification
+- `GOROOT=/snap/go/current go vet ./cmd/proxy/...` — 0 violations
+- `python3 scripts/findings_register.py validate` — 0 new errors
+  (19 pre-existing from archived Python tests remain)
+- `python3 scripts/lint-phases.py` — 155/155 OK
+
 ## [Unreleased] - Phase 214 — Fix Pre-Existing CI Failures (2026-06-02)
 
 Resolved all 4 pre-existing CI pipeline failures on `main` that were
