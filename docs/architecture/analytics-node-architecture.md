@@ -361,6 +361,6 @@ VOLUME /var/lib/analytics/models
 
 ## References
 
-- [Phase 12 — Analytics Node](../phases/PHASE_12.md)
+- [Phase 12 — Analytics Node](../phases/complete/PHASE_12.md)
 - [Security Architecture](../security/threat-model.md)
 - [Testing Strategy](../developer/testing-analysis.md)

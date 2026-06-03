@@ -1164,7 +1164,7 @@ A phase opts in by setting `req_tagged: true` in its `manifest.yaml` entry:
   name: 'SWEBOK v4 Alignment'
   status: COMPLETE
   req_tagged: true
-  action_plan: docs/phases/PHASE_106.md
+  action_plan: docs/phases/complete/PHASE_106.md
 ```
 
 `scripts/traceability.py` enforces tagging only on phases where

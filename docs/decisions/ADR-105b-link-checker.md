@@ -117,6 +117,6 @@ link-check:
 
 - `Makefile:903` — existing `link-check` target
 - `.mlc.json` — link-check configuration
-- `docs/phases/PHASE_105.md` §105j cross-cutting
-- `docs/phases/PHASE_105_review.md` finding T1 (superseded by this ADR)
+- `docs/phases/complete/PHASE_105.md` §105j cross-cutting
+- `docs/phases/complete/PHASE_105_review.md` finding T1 (superseded by this ADR)
 - `tests/test_workflow_pinning.py` — SHA-pin enforcement (applies to CI step)

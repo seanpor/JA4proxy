@@ -197,6 +197,6 @@ short-term strategy; Phase 15 is the long-term solution.
 
 ## Related
 
-- `docs/phases/PHASE_15.md` — Go rewrite architecture
+- `docs/phases/complete/PHASE_15.md` — Go rewrite architecture
 - `docs/decisions/ADR-002.md` — Why Go for Phase 15
 - `docs/runbooks/redis_operations.md` — Redis health monitoring

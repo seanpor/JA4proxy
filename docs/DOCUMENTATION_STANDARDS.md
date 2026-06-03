@@ -85,7 +85,7 @@ The file lives at `docs/REDIS_SCHEMA.md`.
 
 ## §3. Runbook Update Policy
 
-The existing runbook documents (`docs/SECOPS_OPERATIONS.md`,
+The existing runbook documents (`docs/OPERATIONS.md`,
 `docs/INCIDENT_RESPONSE.md`, `docs/QUICK_REFERENCE.md`) must be updated when a
 phase adds a new service, new failure mode, or new operational command.
 
@@ -97,7 +97,7 @@ phase adds a new service, new failure mode, or new operational command.
 | New Redis key pattern | Add to REDIS_SCHEMA.md |
 | New failure mode documented in code | Add to INCIDENT_RESPONSE.md |
 | New management command | Add to QUICK_REFERENCE.md |
-| New config section | Add to SECOPS_OPERATIONS.md config reference |
+| New config section | Add to OPERATIONS.md config reference |
 | New Grafana panel | Add to MONITORING_SETUP.md |
 | New Prometheus alert | Add to INCIDENT_RESPONSE.md runbook section |
 
@@ -242,7 +242,7 @@ Documentation gate — must pass before phase is marked complete:
 [ ] docs/REDIS_SCHEMA.md updated for all new Redis keys
 [ ] README.md pipeline table updated (if new pipeline layer added)
 [ ] README.md services table updated (if new Docker service added)
-[ ] docs/SECOPS_OPERATIONS.md updated (if new operational procedure)
+[ ] docs/OPERATIONS.md updated (if new operational procedure)
 [ ] docs/INCIDENT_RESPONSE.md updated (if new failure mode or module)
 [ ] docs/QUICK_REFERENCE.md updated (if new commands)
 [ ] docs/MONITORING_SETUP.md updated (if new Grafana panels or alerts)

@@ -59,7 +59,7 @@ Two placements are viable:
   remember a separate workflow exists)
 
 **Mitigations:**
-- Workflow is referenced from `docs/for-developers/CI_AND_QUALITY_GATES.md`
+- Workflow is referenced from `QUALITY_PLAN.md`
 - Pre-existing pattern: `process-metrics.yml` (Phase 106) already proves the
   "narrow-scope dedicated workflow" pattern works for this repo
 
@@ -89,6 +89,6 @@ Two placements are viable:
 
 ## References
 
-- `docs/phases/PHASE_105.md` §105h
-- `docs/phases/PHASE_105_review.md` findings D1, D2, D3, S5
+- `docs/phases/complete/PHASE_105.md` §105h
+- `docs/phases/complete/PHASE_105_review.md` findings D1, D2, D3, S5
 - `tests/test_workflow_pinning.py` — SHA-pin enforcement

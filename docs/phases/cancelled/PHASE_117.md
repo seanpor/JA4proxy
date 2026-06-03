@@ -3,7 +3,7 @@
 > **Status:** SUPERSEDED by Phase 118 — rescoped under Phase 121e
 > **Size:** MEDIUM (4-6 engineer-days)
 > **Triggered by:** Phase 108 Pentest Finding [L1-018], [L1-019], [L4-028]
-> **Superseded by:** `docs/phases/PHASE_118.md` (§118a PROXY anti-smuggling, §118b TLS reassembly + protocol lockdown, §118c XFF hardening)
+> **Superseded by:** `docs/phases/complete/PHASE_118.md` (§118a PROXY anti-smuggling, §118b TLS reassembly + protocol lockdown, §118c XFF hardening)
 
 ---
 

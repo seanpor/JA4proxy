@@ -32,7 +32,7 @@ shipped as the production proxy. Python implementation kept on the bench as
 the prototype-of-record. 75+ Go unit tests pass; JA4 byte-for-byte parity
 with the Python reference for every fixture in `tests/fixtures/clienthello/`.
 
-**Plan vs. delivery.** The plan in `docs/phases/PHASE_15.md` and
+**Plan vs. delivery.** The plan in `docs/phases/complete/PHASE_15.md` and
 `docs/decisions/ADR-015.md` was deliberately late in the roadmap. We made the
 non-obvious choice to keep Phase 15 last instead of starting the rewrite at
 Phase 1. The rationale, captured in ADR-015 and the phase preamble, was that
@@ -99,7 +99,7 @@ applied via the Management API in CI/CD; ship shadow-mode simulation so a
 CISO can see "what would dial=80 have blocked last week" before raising the
 dial.
 
-**Outcome:** `docs/phases/PHASE_82.md` is fully retro-tagged with 19
+**Outcome:** `docs/phases/complete/PHASE_82.md` is fully retro-tagged with 19
 REQ-IDs. `docs/policy/schema.md` documents the YAML schema.
 `docs/decisions/ADR-082.md` records the shadow-mode storage decision
 (Redis with LZ4 compression for ≤ 50M connections/month; ClickHouse above
@@ -253,12 +253,12 @@ sweep for siblings before close.
   these case studies are an instance of.
 - [`PHASE_ANATOMY.md`](PHASE_ANATOMY.md) — annotated walk-through of one
   representative phase from plan through close.
-- [`docs/phases/PHASE_15.md`](../phases/PHASE_15.md),
-  [`docs/phases/PHASE_82.md`](../phases/PHASE_82.md),
-  [`docs/phases/PHASE_200.md`](../phases/PHASE_200.md) — the source phase
+- [`docs/phases/complete/PHASE_15.md`](../phases/complete/PHASE_15.md),
+  [`docs/phases/complete/PHASE_82.md`](../phases/complete/PHASE_82.md),
+  [`docs/phases/complete/PHASE_200.md`](../phases/complete/PHASE_200.md) — the source phase
   documents for each case study.
 - [`docs/decisions/ADR-015.md`](../decisions/ADR-015.md),
   [`docs/decisions/ADR-082.md`](../decisions/ADR-082.md) — the
   architectural-decision records cited above.
-- [`docs/phases/PHASE_201_review.md`](../phases/PHASE_201_review.md) —
+- [`docs/phases/complete/PHASE_201_review.md`](../phases/complete/PHASE_201_review.md) —
   the critical review that caught the false-premise sub-phase.

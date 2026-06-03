@@ -67,6 +67,6 @@ analytics container logs and the output of the metrics queries above.
 
 ## Related
 
-- `docs/phases/PHASE_85.md` §2.4 — circuit breaker design
+- `docs/phases/complete/PHASE_85.md` §2.4 — circuit breaker design
 - `docs/runbooks/ti_feed_health.md` — Phase 59 hot-path TI providers (different system)
 - `src/analytics/ti_feeds/circuit_breaker.py`

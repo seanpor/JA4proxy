@@ -12,7 +12,7 @@
 
 | Item | Status |
 |---|---|
-| `docs/phases/PHASE_107.md` | ✅ Exists (476 lines, well-structured) |
+| `docs/phases/complete/PHASE_107.md` | ✅ Exists (476 lines, well-structured) |
 | Dependency: Phase 105 (audience-scoped doc directories) | ✅ COMPLETE — `docs/for-{architects,compliance,website-owners}/` all populated |
 | Dependency: Phase 106 (`RISK_REGISTER.md` etc.) | ✅ COMPLETE — `docs/RISK_REGISTER.md` exists for new rows |
 | Dependency: Phase 202 (SBOM + Cosign baseline = SLSA L2) | ✅ COMPLETE — `.github/workflows/go-proxy-image.yml` already does keyless cosign + SBOM (see `ADR-202d`) |
@@ -52,7 +52,7 @@
 |---|---|
 | **R-1 (LOW)** No new metrics, log lines, alerts | Phase 107 is documentation/CI-only. Observability lens largely N/A. |
 | **R-2 (MEDIUM)** SLAs in CVD policy create operational obligations | The CVD doc commits the project to **2-day acknowledgement, 10-day triage, 30/60/90-day fix SLAs**. There is no oncall rotation today. Junior must **flag this commitment for human review** before publishing — these are promises with reputational cost if missed. |
-| **R-3 (LOW)** Runbook impact | Add CVD intake to `docs/security/INTAKE_RUNBOOK.md`. Add SLSA verification to `docs/runbooks/` (or link from `SLSA_VERIFICATION.md`). |
+| **R-3 (LOW)** Runbook impact | Add CVD intake to `docs/security/INTAKE_RUNBOOK.md`. Add SLSA verification to `docs/runbooks/` (or link from `ADR-107a-slsa-level-3.md`). |
 | **R-4 (LOW)** Fail-open principle | Not applicable — no proxy hot path touched. |
 
 ### 2d. Architecture review
@@ -60,7 +60,7 @@
 | Finding | Detail |
 |---|---|
 | **A-1 (LOW)** No pipeline impact | Pipeline (TCP accept → bypass → signals → scorer → action) untouched. |
-| **A-2 (LOW)** Doc topology already handles this | Phase 105 created `docs/for-architects/` and `docs/for-compliance/`. New docs slot in cleanly. Risk: link rot — every new doc must be added to its directory's `README.md` index in the same PR. |
+| **A-2 (LOW)** Doc topology already handles this | Phase 105 created `` and ``. New docs slot in cleanly. Risk: link rot — every new doc must be added to its directory's `README.md` index in the same PR. |
 | **A-3 (INFO)** ATT&CK mapping creates a coupling | `ATTACK_MAPPING.md` rows reference signal modules by file path. If those signal modules are renamed/moved, the mapping rots silently. Add a `make test-traceability` style check that grep-verifies each linked file still exists. |
 | **A-4 (LOW)** IPv6 N/A | No IP code paths changed. |
 | **A-5 (LOW)** Redis schema N/A | No new Redis keys. |
@@ -144,16 +144,16 @@
 
 #### Sub-task 107c.1: SLSA L3 ADR
 - **Size:** S (2h) · **Depends on:** none · **Parallel with:** all scaffolding
-- **Files to touch:** `docs/decisions/ADR-107a-slsa-level-3.md` (new), `docs/decisions/INDEX.md` (add row)
+- **Files to touch:** `docs/decisions/ADR-107a-slsa-level-3.md` (new), `docs/decisions/README.md` (add row)
 - **What to do:**
   - Copy structure from `docs/decisions/ADR-202d.md`: Status / Context / Decision / Consequences.
   - **Decision:** adopt SLSA Level 3 via `slsa-framework/slsa-github-generator` reusable workflow (vs in-toto custom).
   - **Context:** current state (L2 from Phase 202), buyer expectations, CRA prerequisite link.
   - **Consequences:** added `id-token: write` workflow-level permission; added `slsa-verify.yml` test workflow; `cosign verify-attestation` becomes operator-runnable.
-  - Add row to `docs/decisions/INDEX.md`.
+  - Add row to `docs/decisions/README.md`.
 - **Done when:**
   - [ ] ADR file follows ADR-202d shape (Status: Proposed initially)
-  - [ ] INDEX.md has new row
+  - [ ] README.md has new row
 - **Watch out for:** Status field — set to `Proposed` here; flip to `Accepted` only when 107c.2/3/4 land
 
 #### Sub-task 107d.1: ISO 27017 scaffold + applicability table
@@ -178,7 +178,7 @@
 
 #### Sub-task 107f.1: ATT&CK mapping scaffold
 - **Size:** XS (1h) · **Depends on:** none · **Parallel with:** all scaffolding
-- **Files to touch:** `docs/for-architects/ATTACK_MAPPING.md` (new)
+- **Files to touch:** `ATTACK_MAPPING.md` (new)
 - **What to do:**
   - Create file with two top-level views: `## Forward mapping (signal → ATT&CK)` and `## Reverse lookup (ATT&CK → signal)`.
   - Forward table columns: `Signal module | Detection | Tactic | Technique ID | Confidence (high/medium/low) | Source file`.
@@ -292,7 +292,7 @@
 
 #### Sub-task 107c.5: SLSA verification runbook
 - **Size:** S (2h) · **Depends on:** 107c.3 (need real artefact to test instructions against) · **Parallel with:** 107c.4
-- **Files to touch:** `docs/for-architects/SLSA_VERIFICATION.md` (new)
+- **Files to touch:** `ADR-107a-slsa-level-3.md` (new)
 - **What to do:**
   - Copy-paste-runnable runbook: install `cosign` + `slsa-verifier`, pull image, run verification, expected output.
   - Test the runbook by **running every command yourself on a clean shell** before committing.
@@ -345,7 +345,7 @@
 
 #### Sub-task 107f.2: ATT&CK — Recon + Resource Development + Initial Access tactics
 - **Size:** S (3h) · **Depends on:** 107f.1 · **Parallel with:** 107f.3
-- **Files to touch:** `docs/for-architects/ATTACK_MAPPING.md`
+- **Files to touch:** `ATTACK_MAPPING.md`
 - **What to do:**
   - Forward-mapping rows for: TA0043 (T1595 → TCP signals + per-IP rate limit), TA0042 (T1583 → ASN/datacenter classifier, RDAP enrichment), TA0001 (T1110.004 → by-IP-JA4-pair rate limit).
   - Each row: signal module file path + line range, technique URL, confidence (high/medium/low) **with a one-sentence justification**.
@@ -355,11 +355,11 @@
 
 #### Sub-task 107f.3: ATT&CK — C2 + Defense Evasion tactics + reverse view
 - **Size:** S (3h) · **Depends on:** 107f.1 · **Parallel with:** 107f.2
-- **Files to touch:** `docs/for-architects/ATTACK_MAPPING.md`
+- **Files to touch:** `ATTACK_MAPPING.md`
 - **What to do:**
   - Forward rows: TA0011 (T1573, T1071 → JA4 blacklist for Sliver/CobaltStrike/Evilginx), TA0005 (T1090 → Tor ASN, T1070 → beaconing-detector IAT-CV).
   - Reverse view: same data inverted (technique → signals).
-  - Add SIEM-integration section linking `docs/for-architects/SIEM_INTEGRATION.md` with example Splunk/Sentinel/QRadar searches.
+  - Add SIEM-integration section linking `SIEM_INTEGRATION.md` with example Splunk/Sentinel/QRadar searches.
 - **Done when:** [ ] Forward + reverse views consistent (every forward row appears reversed); SIEM section non-empty
 - **Watch out for:** Notes-for-Implementer §3 — do not inflate confidence; "low" is a perfectly honest label
 
@@ -418,18 +418,18 @@
 
 #### Sub-task 107w.1: README index updates
 - **Size:** XS (1h) · **Depends on:** all 107a/b/c/d/e/f/g content tasks · **Parallel with:** 107w.2, 107w.3
-- **Files to touch:** `docs/for-architects/README.md`, `docs/for-compliance/README.md`
+- **Files to touch:** `README.md`, `README.md`
 - **What to do:**
-  - `for-architects/README.md`: add links to `CRA_CONFORMANCE.md`, `SSDF_MAPPING.md`, `ATTACK_MAPPING.md`, `SLSA_VERIFICATION.md`.
-  - `for-compliance/README.md`: add links to `CRA_CONFORMANCE.md`, `SSDF_MAPPING.md`, `iso27017-mapping.md`, `iso29100-mapping.md`, `CVD_POLICY.md`.
+  - `README.md`: add links to `CRA_CONFORMANCE.md`, `SSDF_MAPPING.md`, `ATTACK_MAPPING.md`, `ADR-107a-slsa-level-3.md`.
+  - `README.md`: add links to `CRA_CONFORMANCE.md`, `SSDF_MAPPING.md`, `iso27017-mapping.md`, `iso29100-mapping.md`, `CVD_POLICY.md`.
 - **Done when:** [ ] Every new doc has at least one inbound link from its audience README
 - **Watch out for:** A-2 — link rot is the single biggest doc-PR risk
 
 #### Sub-task 107w.2: FAQ + risk register additions
 - **Size:** XS (1h) · **Depends on:** 107a content + 107c.5 done · **Parallel with:** 107w.1, 107w.3
-- **Files to touch:** `docs/for-website-owners/FAQ.md`, `docs/RISK_REGISTER.md`
+- **Files to touch:** `FAQ.md`, `docs/RISK_REGISTER.md`
 - **What to do:**
-  - FAQ: add Q "Are you CRA-compliant?" → "We have a self-assessed CRA conformance statement: [link]" — and Q "Do you support SLSA provenance verification?" → link `SLSA_VERIFICATION.md`.
+  - FAQ: add Q "Are you CRA-compliant?" → "We have a self-assessed CRA conformance statement: [link]" — and Q "Do you support SLSA provenance verification?" → link `ADR-107a-slsa-level-3.md`.
   - RISK_REGISTER: add rows for any *real* gap discovered during 107a/d/e content work (don't invent risks; link only to genuine TODO/gap entries in the new mapping docs).
 - **Done when:**
   - [ ] FAQ has both new entries
@@ -440,7 +440,7 @@
 - **Size:** S (2h) · **Depends on:** 107w.1, 107w.2 · **Parallel with:** none
 - **Files to touch:** `.github/workflows/docs-link-check.yml` (extend if exists, else new), `Makefile`
 - **What to do:**
-  - Use `lychee` (SHA-pinned) to walk `docs/compliance/`, `docs/for-architects/`, `docs/for-compliance/`, `docs/security/CVD_POLICY.md`.
+  - Use `lychee` (SHA-pinned) to walk `docs/compliance/`, ``, ``, `docs/security/CVD_POLICY.md`.
   - Reject internal broken links; allow external 4xx (vendor sites flake).
   - Add `make test-doc-links` target.
 - **Done when:**
@@ -528,4 +528,4 @@
 
 ---
 
-*This review was generated 2026-04-26 against `docs/phases/PHASE_107.md` rev as of commit `df542c9`. Re-run if the phase doc is materially edited.*
+*This review was generated 2026-04-26 against `docs/phases/complete/PHASE_107.md` rev as of commit `df542c9`. Re-run if the phase doc is materially edited.*

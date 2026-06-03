@@ -5,7 +5,7 @@
 > **Triggered by:** Independent deep-dive team (2026-04-17), cross-referenced against
 > Phases 108-118 to exclude duplicates
 > **Report:** `docs/reports/2026-04-17_REDTEAM_WHITEBOX_ASSESSMENT.md` (parent campaign)
-> **Absorbs:** Phase 120 (retired 2026-04-19 as duplicate — see `docs/phases/PHASE_120.md`)
+> **Absorbs:** Phase 120 (retired 2026-04-19 as duplicate — see `docs/phases/complete/PHASE_120.md`)
 
 ---
 

@@ -23,7 +23,7 @@ Welcome to the JA4proxy documentation. This guide is organized by role and topic
 - [System Architecture](architecture/system-architecture.md) — Data flow and trust model.
 - [Threat Model](security/threat-model.md) — STRIDE analysis and assumptions.
 - [DMZ Readiness](DMZ_READINESS.md) — Production hardening checklist.
-- [Architecture Decisions (ADRs)](decisions/INDEX.md) — Rationale for design choices.
+- [Architecture Decisions (ADRs)](decisions/README.md) — Rationale for design choices.
 
 ### Operators & SecOps
 - [Operations Guide](OPERATIONS.md) — **Single source of truth** for running JA4proxy.

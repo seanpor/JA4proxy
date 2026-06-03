@@ -82,7 +82,7 @@ suggest blocking these. If a feed does, exactly one of these is true:
 
 ## Related
 
-- `docs/phases/PHASE_101.md` §C6 — FP corpus check spec
+- `docs/phases/complete/PHASE_101.md` §C6 — FP corpus check spec
 - `fixtures/ti_feeds/ja4_fp_corpus.txt` — the corpus itself
 - `src/analytics/ti_feeds/ja4_safety.py` — `ja4_safe_to_block`
 - `docs/runbooks/ti_feed_caps_hit.md`

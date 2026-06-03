@@ -1112,7 +1112,7 @@ Do not change the group names or any rule names — only the `expr` fields.
 
 **Branch:** `claude/phase-87-review`
 
-After Agents A–D have pushed, Agent E reviews and produces `docs/phases/PHASE_87_notes.md`.
+After Agents A–D have pushed, Agent E reviews and produces `docs/phases/complete/PHASE_87_notes.md`.
 
 **Critical checks:**
 
@@ -1182,7 +1182,7 @@ test-phase-87-integration:
 | `tests/unit/test_infra_alerts.py` | D | New file |
 | `tests/unit/test_infra_dashboard.py` | D | New file |
 | `Makefile` | D | Add `test-phase-87` target at bottom only |
-| `docs/phases/PHASE_87_notes.md` | E | New file (review findings) |
+| `docs/phases/complete/PHASE_87_notes.md` | E | New file (review findings) |
 
 **Shared file rules:**
 - `monitoring/prometheus/alerts.yml` — Agent C **appends only**. Lines above the new
@@ -1259,7 +1259,7 @@ What is firing / Immediate check / Common causes / Resolution steps / Escalation
 - [ ] Host-saturation inhibition rule added to `alertmanager.yml`
 - [ ] `docs/runbooks/infrastructure.md` present with all 29 sections
 - [ ] `make test-phase-87` passes with zero failures
-- [ ] Agent E review complete; `docs/phases/PHASE_87_notes.md` written; all critical findings resolved
+- [ ] Agent E review complete; `docs/phases/complete/PHASE_87_notes.md` written; all critical findings resolved
 - [ ] `CHANGELOG.md` updated
 - [ ] `docs/phases/manifest.yaml` status set to `COMPLETE` with `completed:` date
 - [ ] `python3 scripts/sync-roadmap.py` run; `TODO.md` and `PROJECT_STATUS.md` regenerated

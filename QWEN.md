@@ -257,7 +257,7 @@ GOROOT=/snap/go/current go test ./...
 
 ## Documentation
 
-- **[Documentation Index](docs/INDEX.md)** — all docs organised by role
+- **[Documentation Index](docs/README.md)** — all docs organised by role
 - **[POC Quick Start](docs/POC_QUICKSTART.md)** — step-by-step from zero to traffic
 - **[Go Proxy Developer Guide](docs/developer/go_proxy_guide.md)** — building, testing, extending Go proxy
 - **[Signal Development Guide](docs/developer/SIGNAL_DEVELOPMENT.md)** — implementing new signal modules

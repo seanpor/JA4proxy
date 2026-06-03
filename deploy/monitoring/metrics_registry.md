@@ -37,7 +37,7 @@ Provenance model: feed-created rules are identifiable by the
 `managed_by="feed"` field on `ResourceResponse` objects returned from
 `/api/v1/blocklist` and by `reason="feed:{feed_id}"` on ban records. The
 runner maintains the six `ti_feed:{feed_id}:*` Redis keys documented in
-`docs/phases/PHASE_85.md` §2.2 as an internal sidecar index; those keys
+`docs/phases/complete/PHASE_85.md` §2.2 as an internal sidecar index; those keys
 are not exposed on `/metrics` but are readable by humans for debugging.
 
 ## Phase 101 — Cross-Phase Gap Closure (appended)

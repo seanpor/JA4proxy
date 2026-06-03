@@ -496,7 +496,7 @@ docker build --network host -f docker/Dockerfile.go-proxy .
 ```
 
 If your environment requires host networking for all builds, document this as a
-site-specific override in `docs/phases/PHASE_89_notes.md` rather than restoring
+site-specific override in `docs/phases/complete/PHASE_89_notes.md` rather than restoring
 `network: host` to the compose files.
 
 If a future Dockerfile genuinely requires host network access during build (e.g., to

@@ -1000,7 +1000,7 @@ class TestBackupFalsePositives:
 | `tests/chaos/test_backup_chaos.py` | New file — chaos/resilience tests (network partition, corruption) |
 | `tests/integration/test_backup_restore.py` | New file — integration tests using real Redis instance |
 | `tests/perf/test_backup_perf.py` | New file — performance benchmarks for large datasets |
-| `docs/phases/PHASE_19.md` | The backup plan itself |
+| `docs/phases/complete/PHASE_19.md` | The backup plan itself |
 | `docs/alerts/backup.yaml` | New file — Alertmanager rules (see 19d section) |
 
 ---

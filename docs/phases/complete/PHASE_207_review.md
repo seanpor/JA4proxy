@@ -2,7 +2,7 @@
 
 **Reviewer:** Claude Code (independent review)
 **Date:** 2026-04-16
-**Phase doc:** `docs/phases/PHASE_207.md`
+**Phase doc:** `docs/phases/complete/PHASE_207.md`
 **Status:** PROPOSED, no dependencies, no blockers
 
 ---

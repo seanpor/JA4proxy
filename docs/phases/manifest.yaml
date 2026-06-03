@@ -839,7 +839,7 @@ phases:
       for full session record.
     completed: '2026-04-06'
     action_plan: docs/phases/complete/PHASE_46.md
-    notes: docs/phases/PHASE_46_notes.md
+    notes: docs/phases/complete/PHASE_46_notes.md
     dependencies:
     - 45
     size: SMALL
@@ -1784,7 +1784,7 @@ phases:
       verification pass. 100-K verified already landed in Phase 79 (tokens/{id}/rotate);
       100-A and 100-F downgraded to PARTIAL; 100-D, 100-J, 100-L confirmed unblocked
       by the Phase 79 merge and now have real implementation work (Phase 82 mock API,
-      xMatters extend-ban, Splunk alert URL shape). 15 items remain. See docs/phases/PHASE_100.md
+      xMatters extend-ban, Splunk alert URL shape). 15 items remain. See docs/phases/complete/PHASE_100.md
       for per-item verified state, exact file paths with current line numbers, and
       junior-ready scoping.
     success_criteria:
@@ -1820,7 +1820,7 @@ phases:
   101:
     name: Phase 101 — Cross-Phase Gap Closure
     status: COMPLETE
-    action_plan: docs/phases/PHASE_101.md
+    action_plan: docs/phases/complete/PHASE_101.md
     dependencies:
     - 84
     - 85
@@ -2117,7 +2117,7 @@ phases:
     name: Fix Pre-Existing CI Failures
     status: COMPLETE
     completed: 2026-06-02
-    action_plan: docs/phases/PHASE_214.md
+    action_plan: docs/phases/complete/PHASE_214.md
     dependencies: []
     size: LARGE
     summary: 'Resolved all 4 pre-existing CI pipeline failures on main. Go 1.25.9→1.26
@@ -2190,3 +2190,8 @@ phases:
     status: COMPLETE
     action_plan: docs/phases/complete/PHASE_135.md
     summary: Inspired by Microsoft AGT, this phase audits and modernizes the project README. It introduces high-value trust badges (OpenSSF Scorecard, SLSA, Go Report Card), removes obsolete Python-proxy warnings, and aligns documentation links with the flattened file structure from Phase 127.
+  136:
+    name: Documentation Link Audit & Remediation
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_136.md
+    summary: Performed an exhaustive link rot audit across the repository using Lychee. Fixed hundreds of broken internal references caused by directory flattening and archival, and generated a formal documentation health report.

@@ -15,7 +15,7 @@
 > starting point for SLSA Level 3)
 > **Triggered by:** Best-practices alignment review 2026-04-16; EU CRA
 > December 2027 deadline
-> **Review:** `docs/phases/PHASE_107_review.md`
+> **Review:** `docs/phases/complete/PHASE_107_review.md`
 
 ---
 
@@ -181,7 +181,7 @@ Update `.github/workflows/release-cli.yml` similarly for the
 `ja4proxy-cli` binary.
 
 Document the verification procedure in
-`docs/for-architects/SLSA_VERIFICATION.md` — a short runbook showing
+`ADR-107a-slsa-level-3.md` — a short runbook showing
 buyers how to verify provenance at install time.
 
 ### Size
@@ -262,7 +262,7 @@ existing ATT&CK-based detection coverage.
 
 ### Fix
 
-Create `docs/for-architects/ATTACK_MAPPING.md`:
+Create `ATTACK_MAPPING.md`:
 
 - Mapping table: JA4proxy signal/detection → ATT&CK technique ID(s) →
   tactic
@@ -282,7 +282,7 @@ Create `docs/for-architects/ATTACK_MAPPING.md`:
 - Link each row to the source signal module
 - Include "reverse lookup" view: for each technique, which JA4proxy
   detection fires
-- SIEM-integration section (link to `docs/for-architects/SIEM_INTEGRATION.md`
+- SIEM-integration section (link to `SIEM_INTEGRATION.md`
   from Phase 105) showing how to express the ATT&CK mapping in Splunk /
   Sentinel / QRadar search queries
 
@@ -347,13 +347,13 @@ Cross-link from: Phase 107a (CRA Annex II), Phase 107b (SSDF RV practices).
       attestation and exits 0
 - [ ] `.github/workflows/release-cli.yml` produces SLSA L3 provenance for
       `ja4proxy-cli`
-- [ ] `docs/for-architects/SLSA_VERIFICATION.md` exists with a copy-paste
+- [ ] `ADR-107a-slsa-level-3.md` exists with a copy-paste
       verification procedure
 - [ ] `docs/compliance/iso27017-mapping.md` exists with all CLD.* controls
       addressed
 - [ ] `docs/compliance/iso29100-mapping.md` exists with all 11 privacy
       principles addressed
-- [ ] `docs/for-architects/ATTACK_MAPPING.md` exists with ≥ 15 MITRE
+- [ ] `ATTACK_MAPPING.md` exists with ≥ 15 MITRE
       technique mappings, each linked to a source signal module
 - [ ] `docs/security/CVD_POLICY.md` exists with submission, SLAs, safe
       harbour, ISO 29147/30111 alignment
@@ -361,16 +361,16 @@ Cross-link from: Phase 107a (CRA Annex II), Phase 107b (SSDF RV practices).
 
 **Integration**
 
-- [ ] `docs/for-architects/README.md` links CRA_CONFORMANCE, SSDF_MAPPING,
+- [ ] `README.md` links CRA_CONFORMANCE, SSDF_MAPPING,
       ATTACK_MAPPING, SLSA_VERIFICATION
-- [ ] `docs/for-compliance/README.md` links CRA_CONFORMANCE, SSDF_MAPPING,
+- [ ] `README.md` links CRA_CONFORMANCE, SSDF_MAPPING,
       iso27017-mapping, iso29100-mapping, CVD_POLICY
 - [ ] `docs/compliance/iso27001-annex-a-mapping.md` cross-links to
       iso27017-mapping
 - [ ] `docs/compliance/GDPR_COMPLIANCE.md` cross-links to iso29100-mapping
 - [ ] `docs/RISK_REGISTER.md` (from Phase 106b) has rows added for any
       gaps discovered during the mapping work
-- [ ] `docs/for-website-owners/FAQ.md` (from Phase 105) adds entries for
+- [ ] `FAQ.md` (from Phase 105) adds entries for
       "Are you CRA-compliant?" and "Do you support SLSA provenance
       verification?"
 
@@ -402,12 +402,12 @@ Cross-link from: Phase 107a (CRA Annex II), Phase 107b (SSDF RV practices).
 | `docs/compliance/iso27001-annex-a-mapping.md` | Cross-link to 27017 |
 | `docs/compliance/GDPR_COMPLIANCE.md` | Cross-link to 29100 |
 | `docs/decisions/ADR-107a-slsa-level-3.md` | New |
-| `docs/decisions/INDEX.md` | Add ADR-107a |
-| `docs/for-architects/SLSA_VERIFICATION.md` | New |
-| `docs/for-architects/ATTACK_MAPPING.md` | New |
-| `docs/for-architects/README.md` | Add four new links |
-| `docs/for-compliance/README.md` | Add five new links |
-| `docs/for-website-owners/FAQ.md` | Add CRA + SLSA entries |
+| `docs/decisions/README.md` | Add ADR-107a |
+| `ADR-107a-slsa-level-3.md` | New |
+| `ATTACK_MAPPING.md` | New |
+| `README.md` | Add four new links |
+| `README.md` | Add five new links |
+| `FAQ.md` | Add CRA + SLSA entries |
 | `docs/security/CVD_POLICY.md` | New |
 | `SECURITY.md` | Replace detailed content with pointer to CVD_POLICY |
 | `.github/workflows/go-proxy-image.yml` | Add SLSA generator; pin action |
@@ -458,7 +458,7 @@ working days, with 107c.2 sequential on top.
   is not the case. Use "aligned with", "conformant to", "mapped against".
 - **SLSA Level 3 verifier UX matters more than the attestation itself.**
   The whole point is buyers being able to verify provenance. The
-  `SLSA_VERIFICATION.md` runbook must be copy-paste-runnable and work on
+  `ADR-107a-slsa-level-3.md` runbook must be copy-paste-runnable and work on
   a clean machine with only `cosign` and `slsa-verifier` installed.
 - **ATT&CK mapping risks overclaiming.** A signal that *can* detect a
   technique under ideal conditions is not the same as reliably detecting
@@ -478,7 +478,7 @@ working days, with 107c.2 sequential on top.
   ~$1M+ engagement), PCI-DSS formal assessment, HIPAA BAA templates, CNCF
   graduation. These are product-maturity milestones, not phase work.
 - **Relation to Phase 105/106:** 107 adds content that slots into
-  `docs/for-architects/` and `docs/for-compliance/` entry points created
+  `` and `` entry points created
   by 105, and adds rows to the risk register created by 106. Running 107
   before 105 is possible but means temporary link-dangling; prefer
   sequencing 105 → 106 → 107.

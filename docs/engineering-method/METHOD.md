@@ -205,7 +205,7 @@ contributors recognise them:
    work began, and a structural assumption about a shared subsystem
    turned out to be wrong only once the implementation was halfway
    built. The branch was stranded. See
-   [`docs/phases/PHASE_101_review.md`](../phases/PHASE_101_review.md)
+   [`docs/phases/complete/PHASE_101_review.md`](../phases/complete/PHASE_101_review.md)
    for the post-mortem. The remedy is **revise the phase doc
    mid-flight** — explicitly, with a commit that updates the plan
    before more code is written. Pretending the original plan was right

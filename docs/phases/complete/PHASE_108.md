@@ -8,7 +8,7 @@
 > **Triggered by:** Pre-1.0 / pre-enterprise-readiness gate; CRA Annex I
 > "no known exploitable vulnerabilities at release" requirement; procurement
 > questionnaires increasingly demand a third-party pentest report.
-> **Review:** `docs/phases/PHASE_108_review.md` (to be written on close)
+> **Review:** `docs/phases/complete/PHASE_108_review.md` (to be written on close)
 
 ---
 
@@ -587,7 +587,7 @@ Create `docs/security/BUG_BOUNTY.md`:
 Integration:
 
 - `SECURITY.md` links BUG_BOUNTY.md
-- `docs/for-architects/README.md` links BUG_BOUNTY.md
+- `README.md` links BUG_BOUNTY.md
 - README badge added only after first live report is handled
   end-to-end (prevents over-promising)
 
@@ -624,7 +624,7 @@ Purple team:
   (i.e. operators) must detect and respond
 - Each exercise produces a `docs/security/pentest/purple/YYYYQN.md`
   with detection coverage, MTTD, MTTR
-- The calendar lives in `docs/for-architects/SECURITY_CADENCE.md`
+- The calendar lives in `SECURITY_CADENCE.md`
 
 CI wiring:
 
@@ -804,7 +804,7 @@ These "Cunning Plays" will be documented as a separate **"Red Team Playbook"** i
 - [ ] `tests/pentest/dast/baseline.json` exists; any Medium+ finding
       outside baseline fails the build
 - [ ] At least one full nightly DAST run has executed
-- [ ] `docs/for-architects/SECURITY_CADENCE.md` publishes the purple-team
+- [ ] `SECURITY_CADENCE.md` publishes the purple-team
       calendar
 
 **Findings discipline**
@@ -819,9 +819,9 @@ These "Cunning Plays" will be documented as a separate **"Red Team Playbook"** i
 
 **Integration**
 
-- [ ] `docs/for-architects/README.md` links the pentest summary and the
+- [ ] `README.md` links the pentest summary and the
       bug-bounty programme
-- [ ] `docs/for-compliance/README.md` links the EXECUTIVE_SUMMARY + CRA
+- [ ] `README.md` links the EXECUTIVE_SUMMARY + CRA
       conformance evidence
 - [ ] `docs/compliance/CRA_CONFORMANCE.md` (Phase 107a) cites the
       pentest executive summary as evidence for Annex I
@@ -854,8 +854,8 @@ These "Cunning Plays" will be documented as a separate **"Red Team Playbook"** i
 | `docs/security/pentest/findings/L7_OPERATIONAL.md` | New |
 | `docs/security/pentest/purple/YYYYQN.md` | New — one per quarter |
 | `docs/security/BUG_BOUNTY.md` | New |
-| `docs/for-architects/SECURITY_CADENCE.md` | New |
-| `docs/for-architects/ANNUAL_SECURITY_REPORT.md` | New — template |
+| `SECURITY_CADENCE.md` | New |
+| `ANNUAL_SECURITY_REPORT.md` | New — template |
 | `tests/pentest/layer1..layer7/` | New directories + test scripts |
 | `tests/pentest/dast/baseline.json` | New |
 | `tests/fuzz/tls_corpus/` | Seed expansion |
@@ -870,8 +870,8 @@ These "Cunning Plays" will be documented as a separate **"Red Team Playbook"** i
 | `Makefile` | Add `pentest-layer1..7`, `pentest-ci`, `pentest-full`, `pentest-report`, `fuzz-ci`, `fuzz-coverage` targets |
 | `SECURITY.md` | Link BUG_BOUNTY.md, FINDINGS_REGISTER.md |
 | `.github/PULL_REQUEST_TEMPLATE.md` | Require finding-ID reference when applicable |
-| `docs/for-architects/README.md` | Add pentest + bug-bounty links |
-| `docs/for-compliance/README.md` | Add executive summary link |
+| `README.md` | Add pentest + bug-bounty links |
+| `README.md` | Add executive summary link |
 | `docs/compliance/CRA_CONFORMANCE.md` | Cite executive summary |
 | `docs/RISK_REGISTER.md` | Add rows for deferred findings |
 | `docs/phases/manifest.yaml` | Add Phase 108 entry; mark COMPLETE |

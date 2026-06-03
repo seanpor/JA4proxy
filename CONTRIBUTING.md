@@ -213,7 +213,7 @@ Every new feature or change requires:
 3. **Chaos test** if the feature has a documented failure mode.
 4. **FP corpus test** for any new blocking signal (test against Tranco top-10k domains).
 
-See `docs/TEST_ORGANIZATION.md` for which file each test type goes in, and
+See `docs/TESTING_STRATEGY.md` for which file each test type goes in, and
 `docs/TESTING_STRATEGY.md` for the full methodology.
 
 The project maintains approximately a 1.3× test-to-code ratio. Adding new code without

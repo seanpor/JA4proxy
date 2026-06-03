@@ -65,7 +65,7 @@ You (the PM) do this step yourself. Do not delegate it.
      If not, abort and list which prerequisites are incomplete.
 4. Read `config/proxy.yml` for current config surface.
 5. Read `docs/REDIS_SCHEMA.md` if the phase touches Redis.
-6. Read `docs/STYLE_GUIDE.md` and `docs/TEST_ORGANIZATION.md`.
+6. Read `docs/STYLE_GUIDE.md` and `docs/TESTING_STRATEGY.md`.
 7. Read `docs/OBSERVABILITY_STANDARDS.md` if the phase adds metrics/alerts.
 8. Skim existing source files that the phase will modify or extend.
 9. If a `/review-phase` output exists at `docs/phases/PHASE_XX_review.md`, read it

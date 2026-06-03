@@ -99,7 +99,7 @@ residual gap so the repo-wide invariant holds.
 - [x] SLSA reusable is SHA-pinned (Path A, ADR-202a Accepted).
 - [x] `yamllint` passes on all workflow files.
 - [x] CHANGELOG entry written.
-- [x] `docs/phases/PHASE_202_notes.md` written (consolidated per repo convention).
+- [x] `docs/phases/complete/PHASE_202_notes.md` written (consolidated per repo convention).
 
 **Out of scope:** changes to existing pinned SHAs (those are current).
 
@@ -146,7 +146,7 @@ to set real secrets before `docker compose up` succeeds.
 - [x] `docs/runbooks/deploy_credentials.md` exists, references all 6 env vars.
 - [x] Makefile lint/test targets updated with placeholder injection to keep static validation runnable on a fresh checkout.
 - [x] CHANGELOG entry written.
-- [x] `docs/phases/PHASE_202_notes.md` written (consolidated).
+- [x] `docs/phases/complete/PHASE_202_notes.md` written (consolidated).
 
 **Out of scope:** Helm chart secrets (Kubernetes-native concern), Docker secrets
 migration, test compose file (separately 202e).
@@ -215,7 +215,7 @@ OCI labels make the image discoverable and traceable from a registry.
 - [x] `hadolint deploy/docker/Dockerfile.go-proxy` passes with zero errors.
 - [x] Image still builds and the proxy binary still runs.
 - [x] CHANGELOG entry written.
-- [x] `docs/phases/PHASE_202_notes.md` written (consolidated).
+- [x] `docs/phases/complete/PHASE_202_notes.md` written (consolidated).
 
 **Out of scope:** multi-arch builds, Trivy scanning (→ 202d), runtime seccomp
 profiles, Pod Security Admission configuration.
@@ -295,7 +295,7 @@ unverified source tree.
 - [x] `yamllint .github/workflows/go-proxy-image.yml` passes.
 - [x] ADR-202d is Accepted.
 - [x] CHANGELOG entry written.
-- [x] `docs/phases/PHASE_202_notes.md` written (consolidated).
+- [x] `docs/phases/complete/PHASE_202_notes.md` written (consolidated).
 =======
 - [ ] `.github/workflows/go-proxy-image.yml` builds, tests, SBOM-generates, signs, and pushes
 - [ ] All actions in the workflow are SHA-pinned
@@ -356,7 +356,7 @@ untrusted network, this is an unauthenticated open Redis.
 - [x] All integration tests that touch real Redis authenticate with the password.
 - [x] `make test` passes.
 - [x] `docker compose config` validates.
-- [x] `docs/phases/PHASE_202_notes.md` written (consolidated).
+- [x] `docs/phases/complete/PHASE_202_notes.md` written (consolidated).
 
 **Out of scope:** TLS on test Redis (separate phase), production Redis
 (already hardened in phase 201).

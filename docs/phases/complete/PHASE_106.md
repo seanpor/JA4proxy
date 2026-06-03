@@ -6,7 +6,7 @@
 > or complete so Phase 106 deliverables can be slotted into the right entry
 > points (`docs/for-*/`) without rework.
 > **Triggered by:** SWEBOK v4 gap analysis 2026-04-16
-> **Review:** `docs/phases/PHASE_106_review.md` (to be written on close)
+> **Review:** `docs/phases/complete/PHASE_106_review.md` (to be written on close)
 
 ---
 
@@ -77,8 +77,8 @@ Create `docs/SERVICE_TARGETS.md` that collects:
 - **Error-budget policy**: when an SLO is burned, what happens (pause
   feature work, page oncall, etc.)
 
-Cross-link from `docs/for-website-owners/DEPLOYMENT_OPTIONS.md`,
-`docs/for-architects/README.md`, `docs/for-operators/README.md`.
+Cross-link from `DEPLOYMENT_OPTIONS.md`,
+`README.md`, `README.md`.
 
 **Source material:** `docs/runbooks/slo_availability.md`,
 `docs/runbooks/slo_fp_rate.md`, `docs/runbooks/slo_latency.md`,
@@ -95,7 +95,7 @@ Cross-link from `docs/for-website-owners/DEPLOYMENT_OPTIONS.md`,
 ### Problem
 
 Risk discussion is scattered across `docs/security/COMPREHENSIVE_SECURITY_AUDIT.md`,
-`docs/security/threat-model.md`, `docs/DMZ_DEPLOYMENT_READINESS.md`, phase
+`docs/security/threat-model.md`, `docs/DMZ_READINESS.md`, phase
 review docs, and ADRs. SWEBOK KA 8 (Engineering Management) expects a
 consolidated risk register. SOC 2 and ISO 27001 auditors expect one too.
 
@@ -139,7 +139,7 @@ stating that explicitly.
 
 ### Fix
 
-Create `docs/for-website-owners/TCO_AND_LICENSING.md` (slot into the Phase
+Create `TCO_AND_LICENSING.md` (slot into the Phase
 105 website-owner track) containing:
 
 - **License:** MIT — what it permits, what it does not
@@ -321,7 +321,7 @@ Create `docs/engineering-method/`:
 | `docs/engineering-method/retrospectives/` | Populated by 106e |
 
 Link from root `README.md` as a single prominent line (per earlier advice)
-and from `docs/for-architects/README.md`.
+and from `README.md`.
 
 **Constraint:** narrative, not marketing. No "best practices". No
 "world-class". Show the work.
@@ -339,7 +339,7 @@ careful reading of source phase docs.
 
 Quality information is scattered across `docs/TESTING_STRATEGY.md`,
 `docs/DOCUMENTATION_STANDARDS.md`, coverage gates in `Makefile`, per-phase
-acceptance criteria, and `docs/for-developers/CI_AND_QUALITY_GATES.md`
+acceptance criteria, and `QUALITY_PLAN.md`
 (new in Phase 105). SWEBOK KA 11 (Software Quality) expects a single
 quality-plan artefact.
 
@@ -354,7 +354,7 @@ Create `docs/QUALITY_PLAN.md` as a short (~5 page) index covering:
   verified. Where the bug tracker lives. SLA for security bugs
   (cross-reference `SECURITY.md`)
 - **Quality gates**: what must be green before merge (link
-  `CI_AND_QUALITY_GATES.md`), what must be green before release (link
+  `QUALITY_PLAN.md`), what must be green before release (link
   `release-cli.yml`), what must be green before a phase closes (link
   `TESTING_STRATEGY.md §phase gate`)
 - **Quality-assurance roles**: who reviews what. Human review points in the
@@ -377,7 +377,7 @@ This doc should be mostly links. Its value is that one page exists.
       entry points that need it
 - [ ] `docs/RISK_REGISTER.md` exists with ≥ 30 rows, each with a non-empty
       Mitigation column and a link to the authoritative source
-- [ ] `docs/for-website-owners/TCO_AND_LICENSING.md` exists with three
+- [ ] `TCO_AND_LICENSING.md` exists with three
       TCO scenarios and an explicit commercial-support statement
 - [ ] `docs/TRACEABILITY.md` exists and is auto-generated from phase docs
 - [ ] `scripts/traceability.py` runs clean and is called from CI (non-blocking
@@ -397,12 +397,12 @@ This doc should be mostly links. Its value is that one page exists.
 
 - [ ] Root `README.md` links `docs/engineering-method/README.md` with a
       single prominent line
-- [ ] `docs/for-architects/README.md` links `docs/SERVICE_TARGETS.md`,
+- [ ] `README.md` links `docs/SERVICE_TARGETS.md`,
       `docs/RISK_REGISTER.md`, `docs/engineering-method/README.md`,
       `docs/QUALITY_PLAN.md`
-- [ ] `docs/for-compliance/README.md` links `docs/RISK_REGISTER.md`,
+- [ ] `README.md` links `docs/RISK_REGISTER.md`,
       `docs/TRACEABILITY.md`, `docs/QUALITY_PLAN.md`
-- [ ] `docs/for-website-owners/README.md` links `TCO_AND_LICENSING.md`
+- [ ] `README.md` links `TCO_AND_LICENSING.md`
 - [ ] No new doc exceeds its stated line-count target
 
 **Process**
@@ -430,21 +430,21 @@ This doc should be mostly links. Its value is that one page exists.
 | `docs/engineering-method/CASE_STUDIES.md` | New |
 | `docs/engineering-method/PHASE_ANATOMY.md` | New |
 | `docs/engineering-method/retrospectives/2026-Q2.md` | New — first retrospective |
-| `docs/for-website-owners/TCO_AND_LICENSING.md` | New |
-| `docs/for-architects/README.md` | Add links to SERVICE_TARGETS, RISK_REGISTER, engineering-method, QUALITY_PLAN |
-| `docs/for-compliance/README.md` | Add links to RISK_REGISTER, TRACEABILITY, QUALITY_PLAN |
-| `docs/for-website-owners/README.md` | Add link to TCO_AND_LICENSING |
-| `docs/for-operators/README.md` | Add link to SERVICE_TARGETS |
+| `TCO_AND_LICENSING.md` | New |
+| `README.md` | Add links to SERVICE_TARGETS, RISK_REGISTER, engineering-method, QUALITY_PLAN |
+| `README.md` | Add links to RISK_REGISTER, TRACEABILITY, QUALITY_PLAN |
+| `README.md` | Add link to TCO_AND_LICENSING |
+| `README.md` | Add link to SERVICE_TARGETS |
 | `README.md` | Add "How we build →" link to engineering-method |
 | `scripts/traceability.py` | New |
 | `scripts/process_metrics.py` | New |
-| `docs/phases/PHASE_15.md` | Retro-tag acceptance criteria with REQ-IDs |
-| `docs/phases/PHASE_79.md` | Retro-tag |
-| `docs/phases/PHASE_82.md` | Retro-tag |
-| `docs/phases/PHASE_102.md` | Retro-tag |
-| `docs/phases/PHASE_103.md` | Retro-tag |
-| `docs/phases/PHASE_104.md` | Retro-tag |
-| `docs/phases/PHASE_200.md` | Retro-tag |
+| `docs/phases/complete/PHASE_15.md` | Retro-tag acceptance criteria with REQ-IDs |
+| `docs/phases/complete/PHASE_79.md` | Retro-tag |
+| `docs/phases/complete/PHASE_82.md` | Retro-tag |
+| `docs/phases/complete/PHASE_102.md` | Retro-tag |
+| `docs/phases/complete/PHASE_103.md` | Retro-tag |
+| `docs/phases/complete/PHASE_104.md` | Retro-tag |
+| `docs/phases/complete/PHASE_200.md` | Retro-tag |
 | `docs/STYLE_GUIDE.md` | Add REQ-tagging convention to the acceptance-criteria section |
 | `.github/workflows/ci.yml` | Add traceability + process-metrics jobs (both `continue-on-error` for 14 days) |
 | `docs/phases/manifest.yaml` | Add Phase 106 entry; mark COMPLETE on close |
@@ -482,11 +482,11 @@ three in Wave 2: ~4 working days.
 Phase 106 depends on Phase 105's `docs/for-*/` entry points existing so that
 106 deliverables slot into the right audience tracks. Specifically:
 
-- 106c (TCO) lands in `docs/for-website-owners/` — Phase 105.1.x must have
+- 106c (TCO) lands in `` — Phase 105.1.x must have
   created the directory
-- 106a (SERVICE_TARGETS) is linked from `docs/for-operators/` and
-  `docs/for-architects/` — Phase 105.3.1 and 105.2.1 must have created those
-- 106g (engineering method) is linked from `docs/for-architects/` —
+- 106a (SERVICE_TARGETS) is linked from `` and
+  `` — Phase 105.3.1 and 105.2.1 must have created those
+- 106g (engineering method) is linked from `` —
   Phase 105.2.1 must exist
 
 **Preferred ordering:** finish Phase 105 Wave 1 (audience doc scaffolding),

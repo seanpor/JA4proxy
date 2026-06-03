@@ -684,8 +684,8 @@ remaining timer.
 
 - `docs/runbooks/external_api_failures.md` — AbuseIPDB, RDAP, DNS failure handling
 - `docs/runbooks/feed_management.md` — Spamhaus DROP/EDROP and GeoIP feed management
-- `docs/phases/PHASE_59.md` — Phase 59 implementation spec
-- `docs/phases/PHASE_58.md` — Confidence weighting and adaptive caching background
+- `docs/phases/complete/PHASE_59.md` — Phase 59 implementation spec
+- `docs/phases/complete/PHASE_58.md` — Confidence weighting and adaptive caching background
 - `src/security/feed_health.py` — `CircuitBreaker` and `FeedHealthMonitor` implementation
 - `src/security/confidence_manager.py` — `ConfidenceManager` and accuracy tracking
 - `src/security/adaptive_cache.py` — Adaptive TTL system

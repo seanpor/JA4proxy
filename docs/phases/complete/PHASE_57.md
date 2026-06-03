@@ -343,7 +343,7 @@ Close all documentation gates for phases 57a–57f. No new code.
   - `backup restore --fallback <path>` (repeatable)
   - `backup restore --verify` (post-restore key count check)
 - [ ] `CHANGELOG.md` — Phase 57 entry in standard format
-- [ ] `docs/SECOPS_OPERATIONS.md` — add "Cloud Backup Operations (Phase 57)" section
+- [ ] `docs/OPERATIONS.md` — add "Cloud Backup Operations (Phase 57)" section
 - [ ] `docs/phases/manifest.yaml` — mark Phase 57 COMPLETE after all sub-phases done
 - [ ] Run `python3 scripts/sync-roadmap.py`
 

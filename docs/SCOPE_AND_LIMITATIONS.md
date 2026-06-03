@@ -131,7 +131,7 @@ cover (non-goals #6, #7).
 Aggregates and correlates events from JA4proxy and every other security
 control. Examples: Splunk, Microsoft Sentinel, IBM QRadar, Wazuh, Elastic
 Security. JA4proxy emits ECS-formatted events designed for direct SIEM
-ingestion — see `docs/for-architects/SIEM_INTEGRATION.md`.
+ingestion — see `SIEM_INTEGRATION.md`.
 
 ### Security Orchestration, Automation, and Response (SOAR)
 
@@ -182,7 +182,7 @@ JA4proxy makes materially harder:
 
 For the full signal catalogue, see the canonical phase documentation in
 `docs/phases/` and the threat-model linked from
-`docs/for-architects/README.md`.
+`README.md`.
 
 ---
 
@@ -191,5 +191,5 @@ For the full signal catalogue, see the canonical phase documentation in
 - `docs/security/threat-model.md` — full STRIDE analysis and asset model
 - `docs/compliance/SECURITY_CONTROLS_MAPPING.md` — ISO 27001 control coverage
 - `docs/DEPLOYMENT_SECURITY_MODEL.md` — trust boundaries and OS user model
-- `docs/for-architects/SIEM_INTEGRATION.md` — log forwarding to your SIEM
-- `docs/for-architects/EVALUATION_CHECKLIST.md` — POC and 30-day evaluation
+- `SIEM_INTEGRATION.md` — log forwarding to your SIEM
+- `EVALUATION_CHECKLIST.md` — POC and 30-day evaluation

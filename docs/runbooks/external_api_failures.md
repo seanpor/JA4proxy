@@ -250,6 +250,6 @@ will resume automatically when the resolver becomes reachable.
 ## Related
 
 - `docs/runbooks/redis_operations.md` — Redis health (external API caches live in Redis)
-- `docs/phases/PHASE_07.md` — DNS enrichment architecture
-- `docs/phases/PHASE_10.md` — AbuseIPDB integration details
-- `docs/phases/PHASE_11.md` — RDAP enrichment and block expansion
+- `docs/phases/complete/PHASE_07.md` — DNS enrichment architecture
+- `docs/phases/complete/PHASE_10.md` — AbuseIPDB integration details
+- `docs/phases/complete/PHASE_11.md` — RDAP enrichment and block expansion

@@ -2,7 +2,7 @@
 
 **Reviewer:** Claude (Opus 4.6) — Senior Cyber / DevOps / SRE / Architect hat
 **Date:** 2026-04-15
-**Target:** `docs/phases/PHASE_101.md` (2121 lines, 12 sub-phases, 38 gaps)
+**Target:** `docs/phases/complete/PHASE_101.md` (2121 lines, 12 sub-phases, 38 gaps)
 **Prerequisite phases:** 84, 85, 62, 64, 86, 93 — all COMPLETE per manifest.
 
 ---
@@ -39,7 +39,7 @@ keys** (lines 1124 and 1435). YAML silently keeps only the last — this is a
 latent-bug; the narrow "Push Terraform Provider" scope at line 1124 is
 effectively shadowed. Must be reconciled before `/run-phase 101` runs.
 
-Written to: `docs/phases/PHASE_101_review.md` for `/run-phase 101` to consume.
+Written to: `docs/phases/complete/PHASE_101_review.md` for `/run-phase 101` to consume.
 
 ---
 
@@ -394,7 +394,7 @@ documented deferral, not incompleteness.
 #### Sub-task 5.1: CHANGELOG + manifest COMPLETE
 **Size:** XS (30 min)
 **Depends on:** all above
-**Files:** `CHANGELOG.md`, `docs/phases/manifest.yaml`, `docs/phases/PHASE_101.md`
+**Files:** `CHANGELOG.md`, `docs/phases/manifest.yaml`, `docs/phases/complete/PHASE_101.md`
 **What to do:** one consolidated CHANGELOG entry; manifest → COMPLETE with `completed: 2026-04-XX`; phase doc check-boxes updated; `make sync`.
 **Done when:** [ ] `bash scripts/close-phase.sh` exits 0.
 

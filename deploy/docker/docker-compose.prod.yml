@@ -4,7 +4,7 @@
 # non-existent files (Dockerfile.enterprise, config/enterprise.yml, redis cluster,
 # ELK stack, security-scanner).
 #
-# Deferred items (documented with rationale in docs/phases/PHASE_14.md §14f):
+# Deferred items (documented with rationale in docs/phases/complete/PHASE_14.md §14f):
 #   - Redis cluster (3 nodes): no HA requirement stated; Phase 15+
 #   - Redis TLS: Docker internal network isolation is adequate; Phase 15+
 #   - ELK stack: already have Loki/Promtail/Grafana; ELK is duplication

@@ -158,7 +158,7 @@ spikes per day. Cost-sensitive.
 | Per-instance ceiling (Python) | ~350 conn/s with real Redis | BENCHMARK_HISTORY 2026-03-07 |
 | Headroom per instance | ~250 conn/s (~70%) | Derived from above |
 | Redis sizing | 1 node, 256 MB max-memory, AOF on | (estimate; ban+rate-limit+HLL key set < 50 MB at this volume) |
-| Recommended dial progression | 0 → 25 → 50 over 14 days, observe FP rate at each step | `SECOPS_OPERATIONS.md` |
+| Recommended dial progression | 0 → 25 → 50 over 14 days, observe FP rate at each step | `OPERATIONS.md` |
 | Monitoring thresholds | `ja4proxy_active_connections` > 200 sustained → investigate; `ja4proxy_redis_errors_total` rate > 0 → page | `MONITORING_SETUP.md`, [`CAPACITY_PLANNING.md`](operator/CAPACITY_PLANNING.md) |
 
 **Notes for this scenario:**
@@ -184,7 +184,7 @@ traffic; predictable spikes. Operates on real hardware or sized cloud VMs.
 | Per-node CPU / memory | 4 cores, ~1.7 GB | This doc, "Resource Usage" table |
 | Redis sizing | 1 primary + 1 replica, 2 GB max-memory, AOF on, persistence to fast SSD | (estimate; ban + HLL + rate-limit volumes scale linearly with unique-IP count) |
 | `tarpit.max_per_ip` | 1 per worker (12 workers across 3 nodes) | Per "Worker Count and max_per_ip Adjustment" formula above |
-| Recommended dial progression | 0 → 25 → 50 → 75 over 30 days; hold at 50 for at least 7 days before final raise | `SECOPS_OPERATIONS.md`; [`CAPACITY_PLANNING.md`](operator/CAPACITY_PLANNING.md) |
+| Recommended dial progression | 0 → 25 → 50 → 75 over 30 days; hold at 50 for at least 7 days before final raise | `OPERATIONS.md`; [`CAPACITY_PLANNING.md`](operator/CAPACITY_PLANNING.md) |
 | Monitoring thresholds | Per-node `ja4proxy_active_connections` > 800 sustained → add a node; FP rate > 0.1% over 1 h → halt dial progression and investigate; HAProxy backend down > 30 s → page | `MONITORING_SETUP.md`, [`SERVICE_TARGETS.md`](SERVICE_TARGETS.md) |
 
 **Notes for this scenario:**
@@ -214,7 +214,7 @@ spikes.
 | Per-node CPU / memory | 8 cores, ~3.3 GB | This doc, "Resource Usage" table |
 | Redis sizing | Redis Cluster, 3 primaries + 3 replicas, 8 GB max-memory each, AOF every-second | (estimate; required because single-Redis throughput becomes the bottleneck above ~10K conn/s — see "Conclusion" section in this doc) |
 | `tarpit.max_per_ip` | 1 per worker (48 workers fleet-wide) | Per "Worker Count and max_per_ip Adjustment" formula |
-| Recommended dial progression | 0 → 10 → 25 → 50 → 75 over 60 days; hold ≥ 14 days at each non-zero step; pause at any FP rate > 0.05% | `SECOPS_OPERATIONS.md`; conservative due to traffic volume (estimate) |
+| Recommended dial progression | 0 → 10 → 25 → 50 → 75 over 60 days; hold ≥ 14 days at each non-zero step; pause at any FP rate > 0.05% | `OPERATIONS.md`; conservative due to traffic volume (estimate) |
 | Monitoring thresholds | Per-node `ja4proxy_active_connections` > 4,000 sustained → add a node; FP rate > 0.05% over 1 h → halt and roll back dial; Redis P99 latency > 5 ms → page; HAProxy backend down > 15 s → page | `MONITORING_SETUP.md`, [`SERVICE_TARGETS.md`](SERVICE_TARGETS.md) |
 
 **Notes for this scenario:**

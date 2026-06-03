@@ -12,7 +12,7 @@ Phase 203a calls for a JA4T-derived OS-class mismatch signal
 (`tap_os_mismatch`) in the Go production proxy. The original phase-doc draft
 proposed computing JA4T directly inside `handleConnection()` by reading socket
 options after `accept()`. The critical review
-(`docs/phases/PHASE_203_review.md`) found that premise unsound on three
+(`docs/phases/complete/PHASE_203_review.md`) found that premise unsound on three
 independent grounds:
 
 1. **Format mismatch.** The draft's proposed string
@@ -100,7 +100,7 @@ traffic and hand it to the proxy via a local Unix socket or shared memory.
 **Go proxy consumes Phase-20 TAP-produced JA4T / OS-class data from Redis
 and does not compute JA4T itself.**
 
-Concrete design (full spec in `docs/phases/PHASE_203.md` sub-phase 203a):
+Concrete design (full spec in `docs/phases/complete/PHASE_203.md` sub-phase 203a):
 
 - A new `TapConsumer` (`internal/security/tap_consumer.go`) exposes
   `GetSignal(ctx, clientIP, ja4) *RiskSignal`.

@@ -213,7 +213,7 @@ Created:
 - `docs/runbooks/slo_latency.md`
 - `docs/runbooks/slo_redis_correctness.md`
 - `docs/runbooks/slo_fp_rate.md`
-- `docs/phases/PHASE_63_notes.md` (this file)
+- `docs/phases/complete/PHASE_63_notes.md` (this file)
 
 ## Deferred / not done
 

@@ -1,6 +1,6 @@
 # Phase 202 — Critical Review
 
-> **Target:** `docs/phases/PHASE_202.md` — "CI Supply Chain + Default Credential Removal"
+> **Target:** `docs/phases/complete/PHASE_202.md` — "CI Supply Chain + Default Credential Removal"
 > **Scope:** infrastructure (CI/CD, compose, Dockerfile, test Redis) — no runtime Go/Python code.
 > **Dependencies:** none (manifest confirms). No phase blockers.
 > **Reviewer:** cybersecurity/DevOps/SRE lens, 2026-04-15.
@@ -105,14 +105,14 @@ All sub-tasks are SAFE: no production runtime touched. Worst-case failure is a C
 **Size:** S (1 h)
 **Depends on:** none
 **Parallel with:** none (gates everything else)
-**Files to touch:** `docs/phases/PHASE_202.md`
+**Files to touch:** `docs/phases/complete/PHASE_202.md`
 **What to do:**
 - Replace every `docker/` with `deploy/docker/` (also `monitoring/`, `config/` paths).
 - Rescope 202a to just "audit ALL workflows, pin SLSA reusable workflow OR document policy decision" and remove the stale `@v4→SHA` examples; provide the real canonical SHAs from `.github/workflows/ci.yml` instead.
 - Rescope 202c to "add explicit UID 1000 + OCI labels + (optional) digest-pin bases"; remove the "add USER directive" step because it's already there.
 - Correct the 202d trigger path filter.
 **Done when:**
-- [ ] `grep -n "docker/" docs/phases/PHASE_202.md | grep -v "deploy/docker"` returns nothing
+- [ ] `grep -n "docker/" docs/phases/complete/PHASE_202.md | grep -v "deploy/docker"` returns nothing
 - [ ] 202a and 202c scopes reflect 2026-04-15 state, not 2026-04-11 state
 **Watch out for:** don't rewrite the phase doc in place without committing — the refresh itself is a traceable artefact.
 
@@ -277,7 +277,7 @@ All sub-tasks are SAFE: no production runtime touched. Worst-case failure is a C
 ### Sub-task 5.1: CHANGELOG + manifest + phase-notes
 **Size:** XS (30 min)
 **Depends on:** all 2.x
-**Files to touch:** `CHANGELOG.md`, `docs/phases/manifest.yaml`, `docs/phases/PHASE_202_notes.md`
+**Files to touch:** `CHANGELOG.md`, `docs/phases/manifest.yaml`, `docs/phases/complete/PHASE_202_notes.md`
 **What to do:** one CHANGELOG block per sub-phase; manifest status flipped to COMPLETE; notes file summarising what changed vs the original phase doc (specifically: 202a already done, 202c rescope).
 
 ---

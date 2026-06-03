@@ -2,7 +2,7 @@
 
 > **Status:** RETIRED — superseded by Phase 119
 > **Retired under:** Phase 121e (Pentest Remediation Consolidation, 2026-04-19)
-> **DUPLICATE_OF:** `docs/phases/PHASE_119.md`
+> **DUPLICATE_OF:** `docs/phases/complete/PHASE_119.md`
 
 ---
 
@@ -26,7 +26,7 @@ Phase 121 program discipline is meant to enforce.
 
 - **For the canonical finding list:** `docs/security/findings.yaml`
   (human-readable view: `docs/security/FINDINGS_REGISTER.md`).
-- **For the remediation plan:** `docs/phases/PHASE_119.md`.
+- **For the remediation plan:** `docs/phases/complete/PHASE_119.md`.
 - **For the intake / triage process that prevents this pattern recurring:**
   `docs/security/INTAKE_RUNBOOK.md`.
 

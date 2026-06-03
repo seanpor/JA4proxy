@@ -32,7 +32,7 @@ Based on these results, the following documents require immediate surgical updat
 1.  **`README.md`**: Move the Go Proxy to the top of the "Deployment" section. Explicitly state the "Python for Dev / Go for Prod" split.
 2.  **`docs/architecture/system-architecture.md`**: Update the "Component Responsibilities" to mark the Python proxy as the "Research & Prototyping Engine" and the Go proxy as the "Dataplane Engine."
 3.  **`docs/SCALING_GUIDE.md`**: Update the scaling math. Python scaling is now documented as "Horizontal-only (Multi-node)," whereas Go is "Vertical-first (Multi-core)."
-4.  **`docs/phases/PHASE_78.md`**: Add a requirement for "Fail-Open Consistency" to ensure the Python core's error handling matches the Go core's resilience.
+4.  **`docs/phases/complete/PHASE_78.md`**: Add a requirement for "Fail-Open Consistency" to ensure the Python core's error handling matches the Go core's resilience.
 
 ---
 

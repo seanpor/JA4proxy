@@ -23,7 +23,7 @@ Reduce `make help` output from 111 lines of flat text to ~50 lines by sub-dividi
 - `docs/phases/manifest.yaml` — register Phase 210
 
 ### Files to create
-- `docs/phases/PHASE_210.md` — this document
+- `docs/phases/complete/PHASE_210.md` — this document
 - `docs/MAKEFILE_TARGETS.md` — comprehensive reference documenting every target
 
 ### Not in scope

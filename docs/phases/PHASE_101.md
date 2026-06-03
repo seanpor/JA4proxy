@@ -1151,7 +1151,7 @@ This was missed in Chunk G because the verification used a US tenant.
 2. `config/proxy.yml` recorded_future example — show the EU endpoint as
    a comment with a note about which tenants need it.
 
-3. `docs/phases/PHASE_85_notes.md` — append a "Chunk G addendum" line.
+3. `docs/phases/complete/PHASE_85_notes.md` — append a "Chunk G addendum" line.
 
 ##### Verify
 
@@ -1383,7 +1383,7 @@ so the target compiles and runs panic-free but exercises essentially
 zero v2 code path. The fuzz harness exists today so it is ready when
 the v2 reader lands.
 
-**Fix:** When [Phase 200](PHASE_200.md) implements the binary v2 PROXY
+**Fix:** When [Phase 200](complete/PHASE_200.md) implements the binary v2 PROXY
 protocol parser, repoint `FuzzReadProxyProtocolV2` at the new function
 and verify execution count climbs into the same range as the v1 target
 (~700 k execs / 10 s).
@@ -2108,7 +2108,7 @@ Until L10 lands, **the capacity calculator and the capacity dashboard
 both anchor on engineering estimates**, which is exactly the outcome
 86h's `--require-measured` flag was designed to make impossible. The
 Phase 86i merge accepted this gap explicitly (documented in
-`docs/phases/PHASE_86i_notes.md` Follow-ups section) on the grounds that
+`docs/phases/complete/PHASE_86i_notes.md` Follow-ups section) on the grounds that
 no representative hardware was available during the phase.
 
 #### Fix required
@@ -2191,7 +2191,7 @@ locally but not pushed.
 4. Create `v1.0.0` tag to trigger release workflow
 
 **Owner:** Junior engineer — full handoff instructions in Phase 101 action plan
-(`docs/phases/PHASE_93.md` §11 "Remaining Work").
+(`docs/phases/complete/PHASE_93.md` §11 "Remaining Work").
 
 ### M27 — Terraform Registry publication is external process
 

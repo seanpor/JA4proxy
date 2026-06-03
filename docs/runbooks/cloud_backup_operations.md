@@ -9,7 +9,7 @@ phase: 57
 
 > **Audience:** Infrastructure operators, SecOps analysts
 > **Prerequisites:** JA4proxy deployed; Phase 57 cloud adapters enabled
-> **Related:** [Redis Operations](redis_operations.md) · [SecOps Operations](../SECOPS_OPERATIONS.md)
+> **Related:** [Redis Operations](redis_operations.md) · [SecOps Operations](../OPERATIONS.md)
 
 ---
 

@@ -16,7 +16,7 @@ phase: 21
 >
 > For the security posture of the current implementation, see:
 > - [Comprehensive Security Audit](../security/COMPREHENSIVE_SECURITY_AUDIT.md) — what is actually implemented today
-> - [DMZ Deployment Readiness](../for-architects/DMZ_READINESS.md) — gap analysis between current and production-ready state
+> - [DMZ Deployment Readiness](../DMZ_READINESS.md) — gap analysis between current and production-ready state
 > - [Redis Security Review](../REDIS_SECURITY_REVIEW.md) — current Redis hardening status
 
 ## Executive Summary
@@ -720,7 +720,7 @@ API is required.
 - The agent requires outbound HTTPS to `*.xmatters.com` on port 443. It does not
   require any inbound internet connectivity.
 - Follow the xMatters On-Premise Agent installation guide for your OS. For RHEL 8/9
-  deployments using Podman/Quadlets, see `docs/phases/PHASE_76.md`.
+  deployments using Podman/Quadlets, see `docs/phases/complete/PHASE_76.md`.
 
 ### Default Recommendation
 

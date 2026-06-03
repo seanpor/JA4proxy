@@ -69,6 +69,6 @@ If multiple feeds are stale simultaneously, suspect a runner-wide issue
 
 ## Related
 
-- `docs/phases/PHASE_85.md` §2.3 — feed runner scheduling
+- `docs/phases/complete/PHASE_85.md` §2.3 — feed runner scheduling
 - `docs/runbooks/ti_feed_mgmt_api_errors.md`
 - `src/analytics/ti_feeds/runner.py`

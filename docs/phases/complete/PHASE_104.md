@@ -4,7 +4,7 @@
 > **Size:** LARGE (15 sub-tasks, all XS/S, all parallel)
 > **Dependencies:** None (standalone)
 > **Triggered by:** Code health audit 2026-04-16
-> **Review:** `docs/phases/PHASE_104_review.md`
+> **Review:** `docs/phases/complete/PHASE_104_review.md`
 
 ## Goal
 

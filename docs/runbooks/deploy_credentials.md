@@ -226,4 +226,4 @@ structural linting is needed.
 - [`security_incident_response.md`](security_incident_response.md) — emergency
   rotation after suspected compromise.
 - `docs/decisions/ADR-202d.md` — image signing (keyless cosign) rationale.
-- `docs/phases/PHASE_202.md` — sub-phase 202b acceptance criteria.
+- `docs/phases/complete/PHASE_202.md` — sub-phase 202b acceptance criteria.

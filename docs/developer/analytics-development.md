@@ -1379,7 +1379,7 @@ BREAKING CHANGE: Requires scikit-learn 1.0+
 
 ### References
 
-- [Phase 12 — Analytics Node](../phases/PHASE_12.md)
+- [Phase 12 — Analytics Node](../phases/complete/PHASE_12.md)
 - [System Architecture](../architecture/system-architecture.md)
 - [Security Guide](../security/COMPREHENSIVE_SECURITY_AUDIT.md)
 - [Testing Strategy](testing-analysis.md)

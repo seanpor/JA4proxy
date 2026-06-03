@@ -264,10 +264,10 @@ This document analyzes threats specific to the backup and restore framework impl
 
 ## References
 
-- `docs/phases/PHASE_19.md` — Functional requirements
-- `docs/phases/PHASE_19b.md` — Security supplement
+- `docs/phases/complete/PHASE_19.md` — Functional requirements
+- `docs/phases/complete/PHASE_19b.md` — Security supplement
 - `docs/REDIS_SCHEMA.md` — Redis key schema
-- `docs/SECOPS_OPERATIONS.md` — Operations guide
+- `docs/OPERATIONS.md` — Operations guide
 - `docs/OBSERVABILITY_STANDARDS.md` — Monitoring standards
 - `src/backup/` — Implementation code
 - `tests/unit/backup/` — Unit tests

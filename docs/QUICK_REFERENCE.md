@@ -323,5 +323,5 @@ curl -s http://localhost:9090/metrics | grep ja4proxy_restore
 **Need help?**
 - [FAQ](FAQ.md) — Common operational questions
 - [INCIDENT_RESPONSE.md](INCIDENT_RESPONSE.md) — Active attack playbooks
-- [SECOPS_OPERATIONS.md](SECOPS_OPERATIONS.md) — Full admin guide
+- [OPERATIONS.md](OPERATIONS.md) — Full admin guide
 - `make help` — All available commands

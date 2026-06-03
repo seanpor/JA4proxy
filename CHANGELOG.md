@@ -14,7 +14,7 @@ previously waived across multiple merge cycles.
   installed in the CI runner.
 - **Docs link check (lychee)**: Fixed 6 phase doc links
   (`phases/` → `phases/complete/`) across 2 files. Added `--exclude`
-  patterns for SLSA_VERIFICATION.md references (deferred work) and 2
+  patterns for ADR-107a-slsa-level-3.md references (deferred work) and 2
   unreliable external GDPR URLs (europa.eu).
 - **SAST (Semgrep)**: Fixed 7 `dynamic-urllib-use-detected` findings
   across 6 files by moving `# nosemgrep` comments from the `resp` line
@@ -198,7 +198,7 @@ for re-entry steps.
 - `docs/compliance/iso29100-mapping.md` — all 11 ISO 29100 privacy
   principles. Every row links to `GDPR_COMPLIANCE.md` or
   `docs/REDIS_SCHEMA.md` rather than duplicating PII content.
-- `docs/for-architects/ATTACK_MAPPING.md` — MITRE ATT&CK Enterprise
+- `ATTACK_MAPPING.md` — MITRE ATT&CK Enterprise
   technique mapping. 16 forward rows covering 6 tactics (TA0043, TA0042,
   TA0001, TA0011, TA0005, TA0040). Confidence distribution 4 high /
   9 medium / 3 low (no inflation). Reverse view + SIEM integration
@@ -263,12 +263,12 @@ for re-entry steps.
   CVD_POLICY §3-4), RR-045 No formal RCA template (Open).
 
 ### Changed — wiring (sub-tasks 107w.1, 107w.2)
-- `docs/for-architects/README.md` — new "Standards & conformance"
+- `README.md` — new "Standards & conformance"
   section linking CRA, SSDF, ATT&CK, ADR-107a. ADR-107a row added to
   the architecture-decisions list.
-- `docs/for-compliance/README.md` — five new index rows: CRA, SSDF,
+- `README.md` — five new index rows: CRA, SSDF,
   ISO 27017, ISO 29100, CVD policy.
-- `docs/for-website-owners/FAQ.md` — Q16 "Are you CRA-compliant?"
+- `FAQ.md` — Q16 "Are you CRA-compliant?"
   (uses self-assessed language, no number-of-years commitment), Q17
   "Do you support SLSA provenance verification?" (current L2 + path to
   L3, deferred runbook).
@@ -317,12 +317,12 @@ for re-entry steps.
   on `push:` triggers in a follow-up commit.
 - **107c.4** — same pattern for `.github/workflows/release-cli.yml`
   (CLI binary path, `generator-generic-slsa3.yml`).
-- **107c.5** — `docs/for-architects/SLSA_VERIFICATION.md` operator
+- **107c.5** — `ADR-107a-slsa-level-3.md` operator
   runbook. Depends on 107c.3 producing a real attested artefact to
   test the runbook commands against (per phase doc Notes-for-Implementer
   "verifier UX matters more than the attestation itself").
 
-When 107c.3 / 107c.4 ship, write a `docs/for-architects/SLSA_VERIFICATION.md`
+When 107c.3 / 107c.4 ship, write a `ADR-107a-slsa-level-3.md`
 runbook (107c.5) by **dry-running every command on a clean shell against
 the freshly attested artefact** and capturing expected output verbatim
 — per the phase doc's "verifier UX matters more than the attestation
@@ -352,7 +352,7 @@ switching `ja4proxy_ti_feed_indicators_managed` from `Gauge` to
 - `src/analytics/ti_feeds/metrics.py` — added inline rationale to
   `TI_INDICATORS_MANAGED` explaining why it stays a Gauge and pointing
   to `TI_CLEANUP_REMOVALS` for the cleanup-delta signal.
-- `docs/phases/PHASE_101.md` §3.7 — status flipped from PARTIAL →
+- `docs/phases/complete/PHASE_101.md` §3.7 — status flipped from PARTIAL →
   COMPLETE; added "M10 review — DECIDED-KEEP-AS-GAUGE" block with full
   rationale; both 101g acceptance boxes ticked.
 - `docs/phases/manifest.yaml` line 1592 — 101g flipped from PARTIAL
@@ -573,7 +573,7 @@ verified at file:line:
   `ja4proxy_dsar_xrange_len` (line 61).
 
 ### Changed
-- `docs/phases/PHASE_101.md`: ticked all 3 acceptance boxes for 101h
+- `docs/phases/complete/PHASE_101.md`: ticked all 3 acceptance boxes for 101h
   with file:line references; added Status block noting L7 caveat.
 - `docs/phases/manifest.yaml`: annotated 101h as COMPLETE 2026-04-26.
 
@@ -598,13 +598,13 @@ Phase 101 still cannot be marked COMPLETE: 101g remaining items + 101i/101l defe
 ## [Unreleased] - Phase 101 housekeeping — acceptance audit (2026-04-26)
 
 Docs-only sub-phase status reconciliation. No code changes. Audited every
-unticked acceptance box in `docs/phases/PHASE_101.md` against current
+unticked acceptance box in `docs/phases/complete/PHASE_101.md` against current
 `HEAD`; ticked the boxes whose underlying work was already in code (via
 prior Phase 84 review-fixes branch and prior 101 sub-phase landings) but
 whose acceptance criteria had not been formally checked off.
 
 ### Changed
-- `docs/phases/PHASE_101.md`:
+- `docs/phases/complete/PHASE_101.md`:
   - **101b** — all 6 boxes ticked (M1, M2, M4, L1, L2, L5 verified at
     file:line). `make test-phase-84` box left **unticked** because of a
     pre-existing `PciDssPackBuilder.__init__()` signature mismatch
@@ -764,7 +764,7 @@ open and is being tracked separately; H7 landed earlier today via PR
   `MANAGEMENT_DISABLE_CSRF` in their per-test prod-environment setup.
 
 ### Phase status
-- `docs/phases/PHASE_101.md`: H8 acceptance boxes ticked.
+- `docs/phases/complete/PHASE_101.md`: H8 acceptance boxes ticked.
 - `docs/phases/manifest.yaml`: 101d remains open (H6 connector-resolver
   wrap is the only acceptance criterion not yet met).
 
@@ -807,7 +807,7 @@ landed earlier. This commit lands the two remaining pieces and closes 101a:
 
 ### Phase status
 - `docs/phases/manifest.yaml`: `101a` annotated `COMPLETE 2026-04-26`.
-- `docs/phases/PHASE_101.md`: all 8 acceptance boxes ticked, status line
+- `docs/phases/complete/PHASE_101.md`: all 8 acceptance boxes ticked, status line
   updated. Still open: 101d-H8, 101l.
 
 ## [Unreleased] - Phase 101d H7 — manual-poll rate limit (2026-04-26)
@@ -877,7 +877,7 @@ three items (H14, H16, M26), allowing 101k to be marked COMPLETE in
 
 ### Phase status
 - `docs/phases/manifest.yaml`: `101k` annotated `COMPLETE 2026-04-26`.
-- `docs/phases/PHASE_101.md`: all 6 acceptance boxes ticked, status
+- `docs/phases/complete/PHASE_101.md`: all 6 acceptance boxes ticked, status
   block updated to COMPLETE, "Still open" header line refreshed.
 
 ## [Unreleased] - Phase 101k partial — Dynatrace H15 + M25, load_test M24 (2026-04-26)
@@ -974,7 +974,7 @@ ingestion paths.
   (releasing the leader lock between calls), then exercise the cleanup
   path on the second consecutive empty poll. Reflects the new gate
   semantics, not a behaviour change.
-- `docs/phases/PHASE_101.md`: 101c moved from Open to Landed; acceptance
+- `docs/phases/complete/PHASE_101.md`: 101c moved from Open to Landed; acceptance
   criteria checkboxes ticked; close-out summary block added
 - `docs/phases/manifest.yaml`: 101c sub-phase marked COMPLETE 2026-04-26
 
@@ -999,7 +999,7 @@ in `config/proxy.yml` so operators discover the option without reading source.
   in tree; verified green)
 
 ### Changed
-- `docs/phases/PHASE_101.md`: 101e moved from Open to Landed; acceptance
+- `docs/phases/complete/PHASE_101.md`: 101e moved from Open to Landed; acceptance
   criteria checkboxes ticked
 - `docs/phases/manifest.yaml`: 101e sub-phase marked COMPLETE 2026-04-26
 
@@ -1013,17 +1013,17 @@ build. Resolves Phase 106 architect Finding 2 (placeholder marker). No
 production code changed.
 
 ### Added
-- `docs/for-website-owners/{README,WHY_JA4PROXY,DEPLOYMENT_OPTIONS,FAQ}.md` —
+- `{README,WHY_JA4PROXY,DEPLOYMENT_OPTIONS,FAQ}.md` —
   CISO/website-owner audience track (the existing TCO_AND_LICENSING.md from
   Phase 106 is linked, not duplicated)
-- `docs/for-architects/{README,SCOPE_AND_LIMITATIONS,SIEM_INTEGRATION,EVALUATION_CHECKLIST,DMZ_READINESS}.md` —
+- `{README,SCOPE_AND_LIMITATIONS,SIEM_INTEGRATION,EVALUATION_CHECKLIST,DMZ_READINESS}.md` —
   security-architect track (12 non-goals, 4 vendor SIEM recipes, replacement
-  for the archived DMZ_DEPLOYMENT_READINESS.md)
-- `docs/for-operators/{README,UPGRADE_PATH}.md` — operator entry point that
+  for the archived DMZ_READINESS.md)
+- `{README,UPGRADE_PATH}.md` — operator entry point that
   links rather than duplicates the existing operator docs and runbooks
-- `docs/for-compliance/{README,AUDIT_TRAIL,CHANGE_MANAGEMENT}.md` —
+- `{README,AUDIT_TRAIL,CHANGE_MANAGEMENT}.md` —
   compliance/audit track with SOC 2 / ISO 27001 evidence mappings
-- `docs/for-developers/{README,GETTING_STARTED,HOW_WE_WORK,TDD_AND_TESTING,CI_AND_QUALITY_GATES,PHASE_LIFECYCLE}.md` —
+- `{README,GETTING_STARTED,HOW_WE_WORK,TDD_AND_TESTING,CI_AND_QUALITY_GATES,PHASE_LIFECYCLE}.md` —
   contributor onboarding (resolves Phase 106 architect Finding 2 — the
   placeholder marker is gone)
 - `docs/operator/BLOCKING_OPERATIONS.md` (530 lines) — single canonical
@@ -1049,10 +1049,10 @@ production code changed.
 - `README.md` — rewritten as a role-router: 441 → 88 lines, 5-row "Start by
   role" table above the fold, Production-runtime-is-Go banner, PDF downloads
   row
-- `docs/README.md` and `docs/INDEX.md` — feature the for-* entry points
+- `docs/README.md` and `docs/README.md` — feature the for-* entry points
   prominently; frontmatter `last_reviewed: 2026-04-25`, `phase: 105`
 - `docs/TESTING_STRATEGY.md` — canonical (480 → 1785 lines) absorbs
-  TEST_ORGANIZATION.md, TEST_SUITE.md, TESTING_GO.md as appendices A/B/C
+  TESTING_STRATEGY.md, TEST_SUITE.md, TESTING_GO.md as appendices A/B/C
 - `docs/SCALING_GUIDE.md` — expanded 378 → 507 lines with three worked
   scenarios (small / enterprise / high-volume)
 - `CONTRIBUTING.md` — project-structure block reordered: Go first as the
@@ -1070,19 +1070,19 @@ production code changed.
   parity, deep-health)
 - `docs/pdf/reference-manual/chapters/ch09-security-ref.tex` — Phase 200-
   series hardening (Redis TLS, PROXY v2, default-credential removal)
-- `docs/for-developers/GETTING_STARTED.md` — prereq line updated to
+- `GETTING_STARTED.md` — prereq line updated to
   `pdflatex` + `makeindex` (toolchain decision per Wave 0)
-- `docs/phases/PHASE_105.md` — toolchain note corrected (pdflatex, not
+- `docs/phases/complete/PHASE_105.md` — toolchain note corrected (pdflatex, not
   tectonic)
 
 ### Deprecated / Stubbed
-- `docs/TESTING.md`, `docs/TEST_ORGANIZATION.md`, `docs/TEST_SUITE.md`,
+- `docs/TESTING.md`, `docs/TESTING_STRATEGY.md`, `docs/TEST_SUITE.md`,
   `docs/TESTING_GO.md` — now ≤ 30-line redirect stubs to TESTING_STRATEGY.md
 - `docs/operator/blocking-guide.md`, `BLOCKING_ANALYSIS.md`,
   `blocking-test-analysis.md`, `FINAL_BLOCKING_TEST_SUMMARY.md` — now ≤ 30-
   line redirect stubs to BLOCKING_OPERATIONS.md
 - `docs/GEMINI_CRITIQUE.md`, `docs/reports/ENTERPRISE_REVIEW.md`,
-  `docs/DMZ_DEPLOYMENT_READINESS.md`,
+  `docs/DMZ_READINESS.md`,
   `docs/reports/CYBER_RISK_REVIEW_2026-04-09.md`,
   `docs/reports/strategic_security_architecture_review.md` — moved to
   `docs/reports/archive/` with date-stamped names and 5-line additive
@@ -1105,7 +1105,7 @@ the 2026-04-16 benchmarking exercise: 12 of 14 applicable KAs now green
   feed freshness, score stability, signal-collection error rate
 - `docs/RISK_REGISTER.md` — 42 rows across security, operational,
   technical, supply-chain, compliance, commercial categories (KA 8)
-- `docs/for-website-owners/TCO_AND_LICENSING.md` — three TCO scenarios
+- `TCO_AND_LICENSING.md` — three TCO scenarios
   + explicit "no commercial support today" statement (KA 14)
 - `docs/TRACEABILITY.md` — auto-generated REQ-ID → test matrix
   (90 REQ-IDs across 5 retro-tagged phases) (KA 1, 5)
@@ -1185,20 +1185,20 @@ program discipline.
   `make findings-render`
 
 ### Changed
-- `docs/phases/PHASE_117.md` — status SUPERSEDED by 118; 117a/b/c →
+- `docs/phases/complete/PHASE_117.md` — status SUPERSEDED by 118; 117a/b/c →
   118a/b/c mapping table
-- `docs/phases/PHASE_118.md` — merge-conflict resolved; unified leader
+- `docs/phases/complete/PHASE_118.md` — merge-conflict resolved; unified leader
   pentest (Track B) + white-box (Track A, preserved via register source_refs);
   added "Rescoped against canonical register" block (-508 lines net)
-- `docs/phases/PHASE_119.md` — header rescoped; documents Phase 120
+- `docs/phases/complete/PHASE_119.md` — header rescoped; documents Phase 120
   absorption
-- `docs/phases/PHASE_108.md` §108n — "Superseded implementation detail" note;
+- `docs/phases/complete/PHASE_108.md` §108n — "Superseded implementation detail" note;
   CVSS v4 → CVSS v3.1 per ADR-121a; references actual register location
 - `docs/phases/manifest.yaml` — phase 121 COMPLETE; phase 120 DEFERRED +
   superseded_by: 119
 
 ### Removed / Retired
-- `docs/phases/PHASE_120.md` — retired as redirect stub (DUPLICATE_OF 119).
+- `docs/phases/complete/PHASE_120.md` — retired as redirect stub (DUPLICATE_OF 119).
   All 20 "novel" findings were duplicates of 119 or already folded into the
   canonical register via `source_refs`.
 
@@ -1417,7 +1417,7 @@ to `main`. Keep this entry under `[Unreleased]` until then.)
 - The previously proposed "signal score drift fix" (earlier draft's 201a)
   was withdrawn as based on a false premise — `make check-scores` passes on
   `main` and the Go scores already match `config/signal_scores.yml`
-  exactly. See `docs/phases/PHASE_201_review.md` for the audit.
+  exactly. See `docs/phases/complete/PHASE_201_review.md` for the audit.
 ## Phase 101b — Compliance Hygiene (2026-04-15)
 
 ### Changed
@@ -1483,7 +1483,7 @@ to `main`. Keep this entry under `[Unreleased]` until then.)
 - Visible on GitHub: 45 → 25 (-20)
 - Acceptance criterion revised from "≤14 visible" (numerically unachievable
   given Go/Python conventions) to "≤22 visible / ≤25 tracked" — documented in
-  `docs/phases/PHASE_205.md`
+  `docs/phases/complete/PHASE_205.md`
 
 ### Tests
 - 5391 passed, 10 skipped, 9 xfailed (up from 2687 as of 2026-03-28; the
@@ -1622,7 +1622,7 @@ to `main`. Keep this entry under `[Unreleased]` until then.)
 - **100-E, 100-N** — still blocked (platform access / upstream items).
 
 ### Documentation
-- `docs/phases/PHASE_100.md` rewritten with a Status summary table,
+- `docs/phases/complete/PHASE_100.md` rewritten with a Status summary table,
   per-item "Verified state" notes, and current file:line references
   so any engineer can pick up an item without reading the originating
   phase.
@@ -1996,7 +1996,7 @@ to `main`. Keep this entry under `[Unreleased]` until then.)
 
 ### Added
 - 9 new tests in `management/tests/test_compliance_routes.py` covering C1, C3, H2, H4, H5, L3 (**test count: 112 Python + 36 Go = 148**, was 139)
-- `docs/phases/PHASE_101.md` — Phase 101 plan tracking the 9 deferred review items (H1 double-XRANGE, H3 CIDR watchlist match, M1 Redis version check, M2 metric rename, M4 audit log pagination, M7 DSAR partial failures, L1 Jinja2 env cache, L2 JSONL invariant doc, L5 DSAR retention text from config)
+- `docs/phases/complete/PHASE_101.md` — Phase 101 plan tracking the 9 deferred review items (H1 double-XRANGE, H3 CIDR watchlist match, M1 Redis version check, M2 metric rename, M4 audit log pagination, M7 DSAR partial failures, L1 Jinja2 env cache, L2 JSONL invariant doc, L5 DSAR retention text from config)
 
 ## [0.88.4] - 2026-04-09 - Multi-DC Observability & Security Hardening (ROBUST)
 ### Added
@@ -2684,7 +2684,7 @@ to `main`. Keep this entry under `[Unreleased]` until then.)
 ### Added
 - **Test Integrity Audit**: Completed a comprehensive audit of the entire test suite, ensuring all tests use genuine assertions and verify actual behavior.
 - **Adversarial Test Suite**: Added 28 new adversarial test cases covering complex attack patterns and bypass attempts.
-- **Test Documentation**: Created `docs/TESTING_STRATEGY.md` and `docs/TEST_ORGANIZATION.md` with clear guidelines for different test tiers.
+- **Test Documentation**: Created `docs/TESTING_STRATEGY.md` and `docs/TESTING_STRATEGY.md` with clear guidelines for different test tiers.
 
 ## [43.0.0] - 2026-03-31 — Phase 43: Blue/Green Deployment & Rollback Tooling
 
@@ -2849,7 +2849,7 @@ to `main`. Keep this entry under `[Unreleased]` until then.)
 ## [21.0.0] - 2026-03-27 — Phase 21: Documentation Excellence
 
 ### Added
-- **Audience-first navigation structure** in `docs/INDEX.md`
+- **Audience-first navigation structure** in `docs/README.md`
 - **Persona-based documentation packs**: Operator, Developer, Architect, Auditor
 - **Automatic roadmap synchronization tooling** (`scripts/sync-roadmap.py`)
 - **Strict documentation linting** in CI pipeline

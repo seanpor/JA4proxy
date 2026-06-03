@@ -15,7 +15,7 @@
 # paired 1h with 6h and 6h with 3d, which delayed the fast-burn alert by
 # ~6 hours on a real outage because the longer window cannot show high burn
 # until burn has been sustained for that window's duration. See
-# docs/phases/PHASE_63_notes.md "Review-fix B1".
+# docs/phases/complete/PHASE_63_notes.md "Review-fix B1".
 #
 # Plus FP-rate observation alerts (warning only — guarded by dial ≥ 50 to
 # avoid noise during monitor mode).

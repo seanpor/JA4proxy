@@ -11,7 +11,7 @@
 Before Phase 201 the Go Redis client (`internal/redis/client.go`) ignored the
 `redis.ssl` flag from `config/proxy.yml`. Operators enabling `ssl: true`
 received cleartext connections with no warning — a silent-failure class of bug
-(see `docs/phases/PHASE_201_review.md` blocker #3). The Python proxy already
+(see `docs/phases/complete/PHASE_201_review.md` blocker #3). The Python proxy already
 honours the flag (`proxy.py:1635-1678`) and has done since Phase 0.
 
 Phase 201 adds TLS support to the Go client. Two sub-decisions were required

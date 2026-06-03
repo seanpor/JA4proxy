@@ -61,9 +61,9 @@ This document does **not** itself answer the questions — it is a navigation ai
 ## E. Detection / SOC integration
 
 - [ ] **E1. Provide a MITRE ATT&CK technique mapping for your detections.**
-  Answer: [`../for-architects/ATTACK_MAPPING.md`](../for-architects/ATTACK_MAPPING.md). Forward + reverse views, 16 technique mappings across 6 tactics, every row carries an honest high/medium/low confidence label.
+  Answer: [`../ATTACK_MAPPING.md`](../ATTACK_MAPPING.md). Forward + reverse views, 16 technique mappings across 6 tactics, every row carries an honest high/medium/low confidence label.
 - [ ] **E2. How do we integrate JA4proxy events with our SIEM?**
-  Answer: [`../for-architects/SIEM_INTEGRATION.md`](../for-architects/SIEM_INTEGRATION.md) plus the SIEM section in ATTACK_MAPPING.md.
+  Answer: [`../SIEM_INTEGRATION.md`](../SIEM_INTEGRATION.md) plus the SIEM section in ATTACK_MAPPING.md.
 
 ## F. Operational risk
 

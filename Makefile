@@ -1578,17 +1578,13 @@ test-attack-mapping: ## Phase 107f.4 — fail if ATT&CK mapping rows lack confid
 	python -m pytest tests/test_attack_mapping.py -v
 
 # phase-107w.3: doc-link check (requires lychee installed locally — same tool the CI workflow runs)
-test-doc-links: ## Phase 107w.3 — lychee-check conformance + audience-scoped docs for broken internal links
+test-doc-links: ## Phase 107w.3 — lychee-check all docs for broken internal links
 	@command -v lychee >/dev/null 2>&1 || { \
 		echo "lychee not installed. Install: https://github.com/lycheeverse/lychee#installation"; \
-		echo "Or run via Docker: docker run --rm -v \$$PWD:/input lycheeverse/lychee --no-progress --accept 200,204,301,302,403,429 /input/docs/compliance /input/docs/for-architects /input/docs/for-compliance /input/docs/for-website-owners /input/docs/security/CVD_POLICY.md /input/docs/decisions/ADR-107a-slsa-level-3.md /input/SECURITY.md"; \
+		echo "Or run via Docker: docker run --rm -v \$$PWD:/input lycheeverse/lychee --no-progress --accept 200,204,301,302,403,429 --exclude-path /input/archive --exclude-path /input/node_modules \"/input/**/*.md\""; \
 		exit 1; \
 	}
 	lychee --no-progress --accept 200,204,301,302,403,429 \
-		'docs/compliance/**/*.md' \
-		'docs/for-architects/**/*.md' \
-		'docs/for-compliance/**/*.md' \
-		'docs/for-website-owners/**/*.md' \
-		'docs/security/CVD_POLICY.md' \
-		'docs/decisions/ADR-107*.md' \
-		'SECURITY.md'
+		--exclude-path archive \
+		--exclude-path node_modules \
+		"**/*.md"

@@ -35,7 +35,7 @@ This audit originally identified **18 critical and high-severity vulnerabilities
 | 3 | Unpinned Python Deps | ⚠️ DEFERRED | Phase 15 rewrite replaces Python dep tree; current `requirements.txt` uses pinned `==` versions |
 | 4 | Missing TLS to Backend | ℹ️ DESIGN | Proxy is TLS passthrough; backend TLS is backend's responsibility; not a proxy concern |
 | 5 | Redis Without TLS | ⚠️ DEFERRED | Docker-internal network; Phase 15 Go rewrite will add Redis TLS; ADR-014 §Redis-TLS |
-| 6 | Metrics Without Auth | ✅ MITIGATED | Metrics bound to `127.0.0.1:9090` (internal only); reverse proxy auth documented in SECOPS_OPERATIONS.md |
+| 6 | Metrics Without Auth | ✅ MITIGATED | Metrics bound to `127.0.0.1:9090` (internal only); reverse proxy auth documented in OPERATIONS.md |
 | 7 | Excessive Capabilities | ✅ RESOLVED | `deploy/docker/docker-compose.prod.yml`: `cap_drop: ALL`, `read_only`, `no-new-privileges` on all containers |
 | 8 | Tarpit No Concurrency Limit | ✅ RESOLVED | Phase 14c: `max_concurrent_connections`, `max_per_ip`, `overflow_action` in `proxy.py` `_redirect_to_tarpit()` |
 

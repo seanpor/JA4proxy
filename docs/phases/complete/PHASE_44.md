@@ -92,7 +92,7 @@ The test suite includes unit, integration, chaos, and adversarial tests. The goa
   - Coverage goals and reporting.
 
 ### Phase Documentation
-- **Location**: `docs/phases/PHASE_44.md`.
+- **Location**: `docs/phases/complete/PHASE_44.md`.
 - **Content**:
   - Summary of audit findings.
   - Recommendations for improving test coverage.

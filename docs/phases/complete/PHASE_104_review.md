@@ -1,7 +1,7 @@
 # Phase 104 Review — Code Health & Coverage Gap Closure (v2)
 
 > **Reviewer:** Claude Opus 4.6 | **Date:** 2026-04-16
-> **Phase doc:** `docs/phases/PHASE_104.md`
+> **Phase doc:** `docs/phases/complete/PHASE_104.md`
 > **Triggered by:** User request — comprehensive quality sweep
 > **Revision:** v2 — all sub-tasks broken to XS/S, no Medium tasks
 

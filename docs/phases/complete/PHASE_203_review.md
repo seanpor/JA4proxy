@@ -2,7 +2,7 @@
 
 **Reviewer:** Cybersecurity / DevOps / SRE / Architect lens, independent.
 **Date:** 2026-04-15
-**Phase doc:** `docs/phases/PHASE_203.md`
+**Phase doc:** `docs/phases/complete/PHASE_203.md`
 **Target runtime:** **Go (production)** — all five sub-phases live under
 `internal/` or `cmd/proxy/`. Python is read-only reference.
 
@@ -441,7 +441,7 @@ empty hostnames fixture file with a header comment.
 #### Sub-task 3.2: Phase notes file
 **Size:** XS
 **Depends on:** 2.1–2.4
-**Files:** `docs/phases/PHASE_203_notes.md`
+**Files:** `docs/phases/complete/PHASE_203_notes.md`
 **What to do:** Consolidated notes summarising what was done in 203b/c/d/e
 and what was deferred (203a → Phase 200).
 
