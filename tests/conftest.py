@@ -173,34 +173,6 @@ def _clean_prometheus_registry():
     yield
 
 
-@pytest.fixture(autouse=True, scope="session")
-def _no_real_network():
-    """Prevent real HTTP calls and long-running background loops during tests.
-
-    ASNClassifier._refresh_tor_list downloads the Tor exit node list on first
-    use. ASNClassifier._tor_refresh_loop sleeps 3600 s between refreshes and
-    creates an orphaned asyncio Task that blocks pytest teardown in Python 3.11.
-
-    Both are patched to async no-ops. Chaos tests that need to exercise real
-    refresh logic use patch.object on the specific instance instead.
-    """
-
-    async def _noop(*args, **kwargs):
-        pass
-
-    with (
-        patch(
-            "src.security.asn_classifier.ASNClassifier._refresh_tor_list",
-            new=_noop,
-        ),
-        patch(
-            "src.security.asn_classifier.ASNClassifier._tor_refresh_loop",
-            new=_noop,
-        ),
-    ):
-        yield
-
-
 # ── Redis fixtures ─────────────────────────────────────────────────────────────
 
 

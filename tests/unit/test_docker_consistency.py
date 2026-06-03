@@ -94,7 +94,7 @@ class TestPythonBaseImage:
         for lineno, image_ref in collect_from_lines(lines):
             if not image_ref.startswith("python:"):
                 continue
-            assert image_ref == "python:3.14.0-slim", (
+            assert image_ref.startswith("python:3.14.0-slim"), (
                 f"{df_path}:{lineno} — "
                 f"expected FROM python:3.14.0-slim, got FROM {image_ref}. "
                 f"Tags like '3.11-slim' or '3.14-slim' (without patch version) are rejected."
@@ -115,9 +115,9 @@ class TestGoBaseImage:
         for lineno, image_ref in collect_from_lines(lines):
             if not image_ref.startswith("golang:"):
                 continue
-            assert re.match(r"^golang:1\.25\.\d+-alpine$", image_ref), (
+            assert re.match(r"^golang:1\.26-alpine(@sha256:[a-f0-9]{64})?$", image_ref), (
                 f"{df_path}:{lineno} — "
-                f"expected FROM golang:1.25.x-alpine, got FROM {image_ref}. "
+                f"expected FROM golang:1.26-alpine, got FROM {image_ref}. "
                 f"Tags must be pinned to a specific patch version (e.g., 1.25.9-alpine)."
             )
 

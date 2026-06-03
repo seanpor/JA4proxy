@@ -2170,3 +2170,8 @@ phases:
     status: COMPLETE
     action_plan: docs/phases/complete/PHASE_131.md
     summary: Integrates OpenSSF Scorecard for automated security auditing, migrates Docker images to immutable digests, hardens GitHub Action permissions, and formalizes the security architecture.
+  132:
+    name: Build Stabilization & CI/CD Hygiene
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_132.md
+    summary: Fixes broken make targets and Docker contexts, archives legacy Python tests that were causing CI failures, and restores the project to a 'green' state for both local development and GitHub Actions.
