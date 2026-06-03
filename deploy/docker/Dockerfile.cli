@@ -12,7 +12,7 @@
 #     --url https://mgmt.example.com --token $TOKEN ip ban 198.51.100.1
 
 # ── Build stage ───────────────────────────────────────────────────────────────
-FROM golang:1.26-alpine AS builder
+FROM golang:1.26-alpine@sha256:f23e8b227fb4493eabe03bede4d5a32d04092da71962f1fb79b5f7d1e6c2a17f AS builder
 
 RUN apk add --no-cache ca-certificates git
 
@@ -31,7 +31,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
 
 # ── Runtime stage ─────────────────────────────────────────────────────────────
 # checkov:skip=CKV_DOCKER_2: CLI tool is short-lived and doesn't run a service
-FROM gcr.io/distroless/static-debian12:nonroot
+FROM gcr.io/distroless/static-debian12@sha256:d093aa3e30dbadd3efe1310db061a14da60299baff8450a17fe0ccc514a16639
 
 COPY --from=builder /build/ja4proxy-cli /usr/local/bin/ja4proxy-cli
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/

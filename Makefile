@@ -1419,7 +1419,15 @@ test-go-chaos-unit:
 bench-go-pipeline:
 	GOROOT=/snap/go/current go test -bench=BenchmarkPipeline -benchmem -run=^$$ ./cmd/proxy/
 
-validation-report:
+# Generate SBOM (Software Bill of Materials) for the Go proxy
+sbom:
+	@echo "Generating SBOM for Go proxy..."
+	@if command -v syft &>/dev/null; then \
+		syft bin/ja4proxy -o cyclonedx-json > reports/sbom-proxy.json; \
+		echo "✓ SBOM generated: reports/sbom-proxy.json"; \
+	else \
+		echo "✗ syft not found. Install with: curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh"; \
+	fi\n\nvalidation-report:
 	python3 scripts/generate_validation_report.py
 
 .PHONY: test-go-fuzz-smoke test-go-property test-go-chaos-unit bench-go-pipeline validation-report

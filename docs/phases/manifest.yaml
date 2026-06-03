@@ -2165,3 +2165,8 @@ phases:
     status: COMPLETE
     action_plan: docs/phases/complete/PHASE_130.md
     summary: Organizes the repository root by consolidating transient artifacts, reinforcing the ignore policy for modern toolchain caches, and enhancing build-system cleanup targets.
+  131:
+    name: OpenSSF Scorecard & Supply Chain Hardening
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_131.md
+    summary: Integrates OpenSSF Scorecard for automated security auditing, migrates Docker images to immutable digests, hardens GitHub Action permissions, and formalizes the security architecture.
