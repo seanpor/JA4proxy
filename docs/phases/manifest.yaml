@@ -2150,3 +2150,8 @@ phases:
     status: COMPLETE
     action_plan: docs/phases/complete/PHASE_127.md
     summary: Aggressively simplifies the documentation suite by eradicating persona-based directories, consolidating operational guidance into a single guide, and pruning the 1,700-line testing strategy into a concise core.
+  128:
+    name: Python Legacy Proxy Deprecation & Archival
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_128.md
+    summary: Formally deprecates and archives the original Python proxy codebase to reduce maintenance overhead while keeping Python-based Analytics and Management components.
