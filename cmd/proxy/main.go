@@ -614,6 +614,7 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 		"ja4t":        connCtx.TCPJA4T,
 		"dial":        result.Dial,
 		"signals":     result.Signals,
+			"reason":      result.BypassReason,
 		"dst_ip":      backendHost, // phase-80: destination for ECS field mapping
 		"src_port":    connCtx.ClientPort,
 	}).Info("proxy: connection decision")

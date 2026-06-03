@@ -2155,3 +2155,8 @@ phases:
     status: COMPLETE
     action_plan: docs/phases/complete/PHASE_128.md
     summary: Formally deprecates and archives the original Python proxy codebase to reduce maintenance overhead while keeping Python-based Analytics and Management components.
+  129:
+    name: White-Box User Acceptance Testing (UAT)
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_129.md
+    summary: Performs a thorough, end-to-end verification of the Go proxy security pipeline. Traces specific traffic paths (fragmented TLS, blacklisted JA4, malformed SNI, rate-limiting) to ensure absolute alignment between implemented code and operational logs/state.

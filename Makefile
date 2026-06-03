@@ -15,7 +15,7 @@
 .PHONY: lint-docs lint-phases link-check lint-all
 .PHONY: scan scan-all scan-container scan-local scan-dockerfiles scan-images check-updates check-updates-container check-updates-local scan-first-party check-image-versions check-updates
 .PHONY: check-scores parity-check
-.PHONY: bench bench-quick bench-go bench-python
+.PHONY: bench bench-go-pipeline
 .PHONY: gdpr-delete
 .PHONY: test-tap test-tap-live test-tap-perf
 .PHONY: doc-health test-ratio
@@ -915,21 +915,9 @@ test-go-redis-tls:
 #        make bench ARGS="--scenarios peak_throughput,sustained_load --duration-long 60"
 #        make bench ARGS="--proxy python"  # legacy Python proxy
 bench:
-	@./scripts/benchmark-go-python.sh $(ARGS)
-
-# Quick sanity benchmark (10 s per scenario, 16 threads).
-# Assumes proxies already running (--no-docker).
-bench-quick:
-	@./scripts/benchmark-go-python.sh --quick --no-docker $(ARGS)
-
-# Go proxy only (default).
-bench-go:
-	@./scripts/benchmark-go-python.sh --proxy go $(ARGS)
-
+	@echo "=== JA4proxy Go Performance Benchmark ==="
+	@python3 scripts/benchmark.py --host localhost --port 8081 --duration 30 --good-rate 10 --bad-rates 50,100,200
 # Legacy: Python proxy only (deprecated).
-bench-python:
-	@./scripts/benchmark-go-python.sh --proxy python $(ARGS)
-
 # Capture browser-specific ClientHello fixtures (requires Docker + recorder service)
 capture-fixtures-browser:
 	docker compose -f deploy/docker/docker-compose.test.yml run --rm browser \
