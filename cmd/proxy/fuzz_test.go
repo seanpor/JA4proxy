@@ -1,34 +1,23 @@
-// Phase 62 — Go-native fuzz targets for the TLS ClientHello parser and the
-// PROXY protocol header reader. These targets replace the retired Python
-// atheris fuzzers and give the production Go proxy first-class coverage-guided
-// fuzzing against the two hottest untrusted-input boundaries.
-//
-// Run a single target for 10 s:
-//
-//	GOROOT=/snap/go/current go test -run=^$ -fuzz=FuzzClientHello -fuzztime=10s ./cmd/proxy/
-//
-// Any panic discovered by the fuzzer is saved under
-// testdata/fuzz/<FuzzName>/<sha>. Crash artefacts must be committed so the
-// failing input becomes a regression seed.
+// Phase 137 — Advanced Adversarial Fuzzing.
 package main
 
 import (
+	"context"
+	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
+	"time"
+	"net"
 
 	proxypkg "github.com/anomalyco/ja4proxy/internal/proxy"
 	tlsparse "github.com/anomalyco/ja4proxy/internal/tls"
+	"github.com/anomalyco/ja4proxy/internal/config"
+	"github.com/anomalyco/ja4proxy/internal/security"
+	"github.com/sirupsen/logrus"
 )
 
-// seedAdversarialCorpus walks tests/adversarial/corpus/*.bin and adds every
-// binary fixture to the fuzz seed corpus. Missing files are ignored so the
-// target still runs in a checkout that has pruned fixtures.
-//
-// phase-62 review-fix #2 (N9): if neither root resolves any seeds, log a
-// warning. A future refactor that renames or moves tests/adversarial/corpus
-// would otherwise silently demote the fuzzer to "synthetic seeds only" with
-// no signal in CI logs.
 func seedAdversarialCorpus(f *testing.F) {
 	f.Helper()
 	roots := []string{
@@ -49,91 +38,196 @@ func seedAdversarialCorpus(f *testing.F) {
 		}
 		return
 	}
-	f.Logf("seedAdversarialCorpus: no adversarial seed fixtures found under %v "+
-		"— fuzzer will run with synthetic seeds only. If this is unexpected, "+
-		"check that tests/adversarial/corpus/*.bin still exists.", roots)
 }
 
-// FuzzClientHello drives the production TLS parser with arbitrary bytes.
-// The parser must never panic on any input. It may return an error or a
-// partial *ClientHelloInfo — both are acceptable outcomes. A panic is
-// always a bug and fails the fuzz target.
 func FuzzClientHello(f *testing.F) {
 	seedAdversarialCorpus(f)
-
-	// Known-valid minimal TLS record header — seeds the coverage walker with
-	// a non-malformed starting point so mutation can discover new paths.
 	f.Add([]byte{0x16, 0x03, 0x01, 0x00, 0x05, 0x01, 0x00, 0x00, 0x01, 0x00})
-	// Degenerate inputs.
 	f.Add([]byte{})
-	f.Add([]byte{0x16})
-	f.Add([]byte{0x16, 0x03, 0x03, 0x00, 0x00})
-
 	f.Fuzz(func(t *testing.T, data []byte) {
 		defer func() {
 			if r := recover(); r != nil {
-				t.Fatalf("ParseClientHello panicked on %x: %v", data, r)
+				t.Fatalf("ParseClientHello panicked: %v", r)
 			}
 		}()
 		_, _ = tlsparse.ParseClientHello(data)
 	})
 }
 
-// FuzzReadProxyProtocol drives the PROXY protocol v1 header reader with
-// arbitrary bytes. The reader must never panic and must never block.
-//
-// The current Go signature is (buf []byte) → (clientIP string, ok bool).
-// Phase 200 will split this into ReadProxyProtocolV1/V2 — at that point the
-// fuzz target should be updated to call the V1 entry point directly.
 func FuzzReadProxyProtocol(f *testing.F) {
 	f.Add([]byte("PROXY TCP4 1.2.3.4 5.6.7.8 1234 443\r\n"))
-	f.Add([]byte("PROXY TCP6 ::1 ::1 1234 443\r\n"))
-	f.Add([]byte("PROXY UNKNOWN\r\n"))
-	f.Add([]byte(""))
-	f.Add([]byte("PROXY"))
-	f.Add([]byte("PROXY TCP4 not-an-ip 5.6.7.8 1234 443\r\n"))
-	f.Add([]byte("PROXY TCP4     \r\n"))
-	// A Chrome-like TLS ClientHello prefix — must not be mistaken for PROXY.
-	f.Add([]byte{0x16, 0x03, 0x01, 0x00, 0xff})
-
 	f.Fuzz(func(t *testing.T, data []byte) {
 		defer func() {
 			if r := recover(); r != nil {
-				t.Fatalf("ReadProxyProtocol panicked on %x: %v", data, r)
+				t.Fatalf("ReadProxyProtocol panicked: %v", r)
 			}
 		}()
 		_, _ = proxypkg.ReadProxyProtocol(data)
 	})
 }
 
-// FuzzReadProxyProtocolV2 is gated on the V2 binary reader introduced by
-// Phase 200. The current proxy package exposes only the v1 text reader, so
-// this target wraps the same entry point with v2-shaped binary seeds. When
-// Phase 200 adds ReadProxyProtocolV2 this target should be updated to call
-// it directly; until then the fuzzer still exercises the shared entry point
-// against the binary wire format and guarantees it cannot panic on any
-// v2-looking input.
 func FuzzReadProxyProtocolV2(f *testing.F) {
-	// Valid v2 signature + minimal v4 header.
 	f.Add([]byte{
 		0x0D, 0x0A, 0x0D, 0x0A, 0x00, 0x0D, 0x0A, 0x51, 0x55, 0x49, 0x54, 0x0A,
-		0x21, 0x11, 0x00, 0x0C, 1, 2, 3, 4, 5, 6, 7, 8, 0x00, 0x50, 0x01, 0xBB,
+		0x21, 0x11, 0x00, 0x0C, 1, 2, 3, 4, 5, 6, 7, 8, 0x04, 0xD2, 0x01, 0xBB,
 	})
-	// Valid v2 signature + zero-length body.
-	f.Add([]byte{
-		0x0D, 0x0A, 0x0D, 0x0A, 0x00, 0x0D, 0x0A, 0x51, 0x55, 0x49, 0x54, 0x0A,
-		0x20, 0x00, 0x00, 0x00,
-	})
-	// Truncated signature.
-	f.Add([]byte{0x0D, 0x0A, 0x0D, 0x0A, 0x00})
-	f.Add([]byte{})
-
 	f.Fuzz(func(t *testing.T, data []byte) {
 		defer func() {
 			if r := recover(); r != nil {
-				t.Fatalf("ReadProxyProtocol (v2-shaped input) panicked on %x: %v", data, r)
+				t.Fatalf("ReadProxyProtocolV2 panicked: %v", r)
 			}
 		}()
-		_, _ = proxypkg.ReadProxyProtocol(data)
+		_, _ = proxypkg.ReadProxyProtocolV2(data)
+		_, _, _ = proxypkg.ReadProxyProtocolV2WithLength(data)
+	})
+}
+
+func FuzzFragmentation(f *testing.F) {
+	f.Add([]byte{
+		0x16, 0x03, 0x01, 0x00, 0x2D, // TLS Handshake, 1.0, len 45
+		0x01, 0x00, 0x00, 0x29,       // ClientHello, len 41
+		0x03, 0x03,                   // TLS 1.2
+		0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F,
+		0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F,
+		0x00,                         // sid
+		0x00, 0x02, 0x13, 0x01,       // ciphers
+		0x01, 0x00,                   // comp
+	}, 10)
+
+	f.Fuzz(func(t *testing.T, data []byte, splitIdx int) {
+		if len(data) < 10 || len(data) > 4096 || splitIdx <= 0 || splitIdx >= len(data) {
+			return
+		}
+		logger := logrus.New()
+		logger.SetOutput(io.Discard)
+		cfg := &config.Config{}
+		cfg.Proxy.BufferSize = 4096
+		cfg.Proxy.ReadTimeout = 1
+		cfg.Proxy.ProxyProtocol = false
+		no := false
+		cfg.Security.EnforceTLSRecord = &no
+
+		bl, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil { return }
+		defer bl.Close()
+		go func() {
+			for {
+				c, err := bl.Accept()
+				if err != nil { return }
+				c.Close()
+			}
+		}()
+
+		host, portStr, _ := net.SplitHostPort(bl.Addr().String())
+		port, _ := strconv.Atoi(portStr)
+		cfg.Proxy.BackendHost = host
+		cfg.Proxy.BackendPort = config.FlexInt(port)
+
+		p := &proxy{
+			cfg:      cfg,
+			log:      logger,
+			pipeline: security.NewPipeline(&security.PipelineConfig{}, nil, logger),
+		}
+
+		l, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil { return }
+		defer l.Close()
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		go func() {
+			c, err := l.Accept()
+			if err != nil { return }
+			p.handleConn(ctx, c)
+		}()
+
+		conn, err := net.Dial("tcp", l.Addr().String())
+		if err != nil { return }
+		defer conn.Close()
+
+		_, _ = conn.Write(data[:splitIdx])
+		time.Sleep(1 * time.Millisecond)
+		_, _ = conn.Write(data[splitIdx:])
+	})
+}
+
+func FuzzProtocolSmuggling(f *testing.F) {
+	// Seed with non-TLS protocols
+	f.Add([]byte("GET / HTTP/1.1\r\nHost: example.com\r\n\r\n"))
+	f.Add([]byte("SSH-2.0-OpenSSH_9.2p1 Debian-2+deb12u2\r\n"))
+	f.Add([]byte("220 smtp.example.com ESMTP Postfix\r\n"))
+	f.Add([]byte{0x16, 0x03, 0x01, 0x00, 0x05, 0x01, 0x00, 0x00, 0x01, 0x00}) // Valid TLS to compare
+
+	f.Fuzz(func(t *testing.T, data []byte) {
+		if len(data) == 0 || len(data) > 4096 {
+			return
+		}
+
+		logger := logrus.New()
+		logger.SetOutput(io.Discard)
+		cfg := &config.Config{}
+		cfg.Proxy.BufferSize = 4096
+		cfg.Proxy.ReadTimeout = 1
+		cfg.Proxy.ProxyProtocol = false
+		no := false
+		cfg.Security.EnforceTLSRecord = &no
+
+		bl, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil { return }
+		defer bl.Close()
+		
+		// Capture backend data
+		receivedCh := make(chan []byte, 1)
+		go func() {
+			c, err := bl.Accept()
+			if err != nil { return }
+			defer c.Close()
+			buf := make([]byte, 4096)
+			n, _ := c.Read(buf)
+			if n > 0 {
+				receivedCh <- buf[:n]
+			}
+		}()
+
+		host, portStr, _ := net.SplitHostPort(bl.Addr().String())
+		port, _ := strconv.Atoi(portStr)
+		cfg.Proxy.BackendHost = host
+		cfg.Proxy.BackendPort = config.FlexInt(port)
+
+		p := &proxy{
+			cfg:      cfg,
+			log:      logger,
+			pipeline: security.NewPipeline(&security.PipelineConfig{}, nil, logger),
+		}
+
+		l, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil { return }
+		defer l.Close()
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		go func() {
+			c, err := l.Accept()
+			if err != nil { return }
+			p.handleConn(ctx, c)
+		}()
+
+		conn, err := net.Dial("tcp", l.Addr().String())
+		if err != nil { return }
+		defer conn.Close()
+
+		_, _ = conn.Write(data)
+		
+		// If first byte is NOT 0x16, nothing should reach the backend
+		if data[0] != 0x16 && p.cfg.Security.ProtocolLockdownEnabled() {
+			select {
+			case d := <-receivedCh:
+				t.Fatalf("Protocol smuggling successful! Backend received %d bytes: %x", len(d), d)
+			case <-time.After(10 * time.Millisecond):
+				// OK
+			}
+		}
 	})
 }

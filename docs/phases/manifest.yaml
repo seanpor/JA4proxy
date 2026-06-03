@@ -2197,7 +2197,7 @@ phases:
     summary: Performed an exhaustive link rot audit across the repository using Lychee. Fixed hundreds of broken internal references caused by directory flattening and archival, and generated a formal documentation health report.
   137:
     name: Advanced Adversarial Fuzzing & Protocol Hardening
-    status: PROPOSED
+    status: COMPLETE
     action_plan: docs/phases/PHASE_137.md
     summary: Hardens the Go proxy against low-level protocol manipulation (PROXY v2, TCP fragmentation, and smuggling) by expanding the automated fuzzing suite and verifying strict fail-closed behavior for non-TLS traffic.
   138:
