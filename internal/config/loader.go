@@ -147,10 +147,10 @@ func DefaultConfig() *Config {
 			// JA4PROXY-2026-0004: ALPN is attacker-controlled. Default OFF.
 			ALPNBrowserBypass:      BypassConfig{Enabled: false},
 			JA4WhitelistBypass:     BypassConfig{Enabled: true},
-			JA4BlacklistBypass:     BypassConfig{Enabled: true},
+			JA4BlockingEnabled:     BypassConfig{Enabled: true},
 			MTLSBypass:             BypassConfig{Enabled: true},
 			StaticIPAllowlist:      BypassConfig{Enabled: true},
-			CountryBlacklistBypass: BypassConfig{Enabled: true},
+			CountryBlockingEnabled: BypassConfig{Enabled: true},
 			SpamhausBypass:         BypassConfig{Enabled: true},
 			TLSVersionBypass:       BypassConfig{Enabled: true},
 		},
@@ -502,10 +502,10 @@ type MonitorModeConfig struct {
 type SecurityPolicyConfig struct {
 	ALPNBrowserBypass      BypassConfig `yaml:"alpn_browser_bypass"`
 	JA4WhitelistBypass     BypassConfig `yaml:"ja4_whitelist_bypass"`
-	JA4BlacklistBypass     BypassConfig `yaml:"ja4_blacklist_bypass"`
+	JA4BlockingEnabled     BypassConfig `yaml:"ja4_blocking_enabled"`
 	MTLSBypass             BypassConfig `yaml:"mtls_bypass"`
 	StaticIPAllowlist      BypassConfig `yaml:"static_ip_allowlist"`
-	CountryBlacklistBypass BypassConfig `yaml:"country_blacklist_bypass"`
+	CountryBlockingEnabled BypassConfig `yaml:"country_blocking_enabled"`
 	SpamhausBypass         BypassConfig `yaml:"spamhaus_bypass"`
 	TLSVersionBypass       BypassConfig `yaml:"tls_version_bypass"`
 }

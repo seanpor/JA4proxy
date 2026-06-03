@@ -579,7 +579,7 @@ func TestPipeline_CheckHardBlocks_DynamicCIDR(t *testing.T) {
 	cfg := &PipelineConfig{
 		ALPNBrowserBypass:  true,
 		JA4WhitelistBypass: true,
-		JA4BlacklistBypass: true,
+		JA4BlockingEnabled: true,
 		Whitelist:          map[string]bool{},
 		Blacklist:          map[string]bool{},
 	}
@@ -600,7 +600,7 @@ func TestPipeline_CheckHardBlocks_DynamicCIDR(t *testing.T) {
 
 func TestPipeline_CheckHardBlocks_CountryBlacklist(t *testing.T) {
 	cfg := &PipelineConfig{
-		CountryBlacklistBypass: true,
+		CountryBlockingEnabled: true,
 		CountryBlacklist:       map[string]bool{"XX": true},
 		Whitelist:              map[string]bool{},
 		Blacklist:              map[string]bool{},
@@ -650,7 +650,7 @@ func TestPipeline_CheckBypasses_WhitelistPattern(t *testing.T) {
 
 func TestPipeline_CheckHardBlocks_JA4XBlacklist(t *testing.T) {
 	cfg := &PipelineConfig{
-		JA4XBlacklistBypass: true,
+		JA4XBlockingEnabled: true,
 		JA4XEnabled:         true,
 		Whitelist:           map[string]bool{},
 		Blacklist:           map[string]bool{},
@@ -1208,7 +1208,7 @@ func TestUint16s(t *testing.T) {
 func TestPipeline_JA4XBlacklistSignal_NonBypass(t *testing.T) {
 	cfg := &PipelineConfig{
 		JA4XEnabled:         true,
-		JA4XBlacklistBypass: false, // Not a hard-block bypass; signal only
+		JA4XBlockingEnabled: false, // Not a hard-block bypass; signal only
 		JA4XBlacklistScore:  50,
 		Whitelist:           map[string]bool{},
 		Blacklist:           map[string]bool{},
@@ -1220,7 +1220,7 @@ func TestPipeline_JA4XBlacklistSignal_NonBypass(t *testing.T) {
 		ClientIP: "1.2.3.4",
 		JA4X:     "badcert",
 	})
-	// Should not hard-block (JA4XBlacklistBypass=false), but signal should be present
+	// Should not hard-block (JA4XBlockingEnabled=false), but signal should be present
 	found := false
 	for _, s := range result.Signals {
 		if s.Name == "ja4x_blacklist" {

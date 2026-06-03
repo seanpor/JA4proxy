@@ -64,6 +64,7 @@ Deep security analysis, compliance, and audit remediation.
 | 119 | Connection Lifecycle Hardening & Operational Security | COMPLETE | Rescoped under Phase 121e against the canonical findings register. All 17 white-box findings (RT-001…RT-017: goroutine leaks, n-vs-len(data) JA4 bypass, unauth metrics, credential rotation, connection limits, tarpit timeouts, Redis KEYS blocking, trusted CIDR validation, SNI key injection, cookie secure flag, log sanitisation, OIDC token verification) closed via phase-119a…119t chained-branch remediations. |
 | 121 | Pentest Remediation Consolidation & Program Discipline | COMPLETE | Plan-only meta-phase that turns the 108–120 bug-hunt pile into a managed program: canonical findings register + tooling, severity rubric + SLA policy, dedup across ~98 sub-phases down to 54 canonical findings, rescope of 117/118/119/120 against the register (retires 120 as duplicate of 119), remediation waves DAG, closure verification protocol, intake runbook for the next red team report, CVSS version ADR. 11 sub-phases, no code fixes. All acceptance criteria met 2026-04-19; make phase-121-verify green. |
 | 215 | White-Box Penetration Test — Go Production Proxy | COMPLETE | Full white-box (source-code-aided) penetration test of the Go production proxy covering 9 layers: TCP/network, TLS/fingerprint, signal pipeline, risk scoring, Redis integration, webhook, metrics/health, config/crypto, and CLI. Python prototype proxy explicitly out of scope. Findings recorded in findings.yaml with regression tests. |
+| 216 | Penetration Test Remediation — All Phase 215 Findings | COMPLETE | Remediates all 7 findings from the Phase 215 white-box pentest: panic recovery in handler goroutine (F-001 CRITICAL), bounded beaconing goroutine (F-002 HIGH), inverted BlacklistBypass naming (F-003 MEDIUM), per-fragment TLS reassembly cap (F-004 MEDIUM), log level standardisation (F-005 LOW), active-connection gauge fix under panic (F-006 LOW), and MaxConnectionLimit wiring decision (F-007 LOW). |
 
 ### Epic: Analytics & Intelligence
 Cross-instance behavior analysis and threat intelligence.
@@ -314,6 +315,7 @@ Alignment with international standards and regulatory frameworks.
 | 213 | Dependency Update Checker (make check-updates) | COMPLETE | N/A | N/A |
 | 214 | Fix Pre-Existing CI Failures | COMPLETE | N/A | N/A |
 | 215 | White-Box Penetration Test — Go Production Proxy | COMPLETE | N/A | N/A |
+| 216 | Penetration Test Remediation — All Phase 215 Findings | COMPLETE | N/A | N/A |
 
 ---
 

@@ -24,6 +24,25 @@ systematic coverage across 9 layers, discovering 7 security findings.
   (19 pre-existing from archived Python tests remain)
 - `python3 scripts/lint-phases.py` — 155/155 OK
 
+## [Unreleased] - Phase 216 — Penetration Test Remediation (2026-06-03)
+
+Remediated all 7 findings from the Phase 215 white-box pentest:
+
+- **F-001 (CRITICAL)**: Added `defer/recover()` and `HandlerPanicsTotal` counter to handler goroutine.
+- **F-002 (HIGH)**: Replaced unbounded `go p.beaconing.MaybeRecord(...)` with bounded channel + worker goroutine (cap 256).
+- **F-003 (MEDIUM)**: Renamed `BlacklistBypass` → `BlockingEnabled` across all config structs, YAML tags, and references.
+- **F-004 (MEDIUM)**: Added per-connection 64KB cap on TLS record reassembly allocation (prevents OOM under fragmentation attack).
+- **F-005 (LOW)**: Changed reassembly log level from Info to Debug.
+- **F-006 (LOW)**: Active-connection gauge already covered by `handleConn`'s defer + new recover — no additional change needed.
+- **F-007 (LOW)**: `MaxConnections` already wired to `acceptSem` — confirmed, no change needed.
+- **Tests**: 3 new regression test files + 1 updated.
+
+### Verification
+- `GOROOT=/snap/go/current go vet ./cmd/proxy/... ./internal/...` — 0 violations
+- `GOROOT=/snap/go/current go test ./cmd/proxy/... ./internal/...` — ALL PASS
+- `python3 scripts/lint-phases.py` — 156/156 OK
+- `python3 scripts/sync-roadmap.py` — synced
+
 ## [Unreleased] - Phase 214 — Fix Pre-Existing CI Failures (2026-06-02)
 
 Resolved all 4 pre-existing CI pipeline failures on `main` that were
