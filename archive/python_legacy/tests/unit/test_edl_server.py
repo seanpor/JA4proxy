@@ -7,7 +7,6 @@ import time
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
 from src.tap.export.edl_server import EDLServer
 
 # ---------------------------------------------------------------------------
@@ -285,7 +284,7 @@ class TestEDLServerLifecycle:
     async def test_start_and_close_run_without_error(self):
         # start() (lines 71-89) and close() (lines 91-95) manage the aiohttp server.
         # A failure here silently kills the EDL feed consumed by NGFWs.
-        from unittest.mock import AsyncMock, patch
+        from unittest.mock import patch
 
         mock_runner = AsyncMock()
         mock_site = AsyncMock()

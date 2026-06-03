@@ -4,7 +4,6 @@ from unittest.mock import MagicMock
 
 import pytest
 import redis
-
 from src.security.action_decider import ActionDecider, DialManager, effective_threshold
 
 THRESHOLDS = {

@@ -13,7 +13,6 @@ import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from src.tap.watchdog import _RAPID_CRASH_THRESHOLD, _RAPID_CRASH_WINDOW, WorkerWatchdog
 
 # ---------------------------------------------------------------------------

@@ -7,7 +7,6 @@ import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from src.security.health import HealthMonitor, HealthServer
 
 

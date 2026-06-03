@@ -5,7 +5,6 @@ Unit tests for src/tap/fingerprints/ja4.py (Phase 20 Group 5-A).
 import struct
 
 import pytest
-
 from src.tap.fingerprints.ja4 import (
     _GREASE,
     JA4Result,
@@ -519,7 +518,6 @@ class TestJA4HelperEdgeCases:
         """Extension with GREASE type → added to grease_found, skip parse (lines 193-194).
         So what: GREASE values must be tracked for accurate browser fingerprinting
         but must NOT be passed to extension parsers (would produce wrong hashes)."""
-        from src.tap.fingerprints.ja4 import _GREASE
 
         grease_type = next(iter(_GREASE))
         # Build a minimal ClientHello with one GREASE extension

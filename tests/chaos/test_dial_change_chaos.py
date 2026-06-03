@@ -5,7 +5,6 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 import redis
-
 from src.cache.local_cache import LocalCache
 from src.security.action_decider import ActionDecider, DialManager
 from src.security.pipeline import ConnectionContext, Pipeline

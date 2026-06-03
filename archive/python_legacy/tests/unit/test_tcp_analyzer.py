@@ -3,7 +3,6 @@ import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import redis as redis_module
-
 from src.security.models import ConnectionContext, RiskSignal
 from src.security.tcp_analyzer import TCPAnalyzer, generate_ja4t
 

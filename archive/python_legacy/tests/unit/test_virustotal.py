@@ -8,7 +8,6 @@ import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from src.security.feed_health import CircuitBreaker, FeedHealthMonitor
 from src.security.models import RiskSignal
 from src.security.virustotal import VirusTotalConfig, VirusTotalProvider

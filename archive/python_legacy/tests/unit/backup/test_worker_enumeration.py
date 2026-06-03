@@ -6,7 +6,6 @@ Tests ordering, dedup, exclude filters, and max key cap.
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from src.backup.worker import BackupWorker
 
 

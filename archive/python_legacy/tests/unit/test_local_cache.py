@@ -4,7 +4,6 @@ import time
 from unittest.mock import patch
 
 import pytest
-
 from src.cache.local_cache import LocalCache, LRUCache
 
 

@@ -14,7 +14,6 @@ from typing import Dict, Optional, Set
 
 import aiohttp
 import yaml
-
 from src.security.models import RiskSignal
 
 try:

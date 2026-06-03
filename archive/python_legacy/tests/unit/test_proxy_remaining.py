@@ -37,7 +37,6 @@ import time
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
-
 from proxy import (
     MAX_CONCURRENT_CONNECTIONS,
     ConfigManager,

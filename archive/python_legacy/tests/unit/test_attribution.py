@@ -8,7 +8,6 @@ import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from src.security.attribution import AttackerProfile, AttributionManager
 from src.security.models import ConnectionContext, RiskSignal
 

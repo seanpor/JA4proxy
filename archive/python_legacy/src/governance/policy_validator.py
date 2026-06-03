@@ -23,7 +23,6 @@ from typing import Any
 
 import cerberus
 import yaml
-
 from src.governance.policy_schema import _JA4_PATTERN, POLICY_SCHEMA
 
 # ---------------------------------------------------------------------------

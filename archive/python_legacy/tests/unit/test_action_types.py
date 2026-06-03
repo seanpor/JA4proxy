@@ -6,7 +6,6 @@ Tests action type enums, action results, and configuration validation.
 """
 
 import pytest
-
 from src.security.action_types import (
     ActionConfig,
     ActionResult,

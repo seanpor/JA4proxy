@@ -6,7 +6,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 import redis.asyncio as redis
-
 from src.config.loader import ConfigLoader
 from src.security.pipeline import ConnectionContext, Pipeline
 

@@ -19,7 +19,6 @@ import logging
 from unittest.mock import MagicMock
 
 import pytest
-
 from proxy import ConfigManager, ValidationError
 
 

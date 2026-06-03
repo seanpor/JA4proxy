@@ -7,7 +7,6 @@ import os
 from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
-
 from src.backup.encryption import BackupEncryption
 from src.backup.format import encode_entry
 from src.backup.redactor import BackupRedactor

@@ -8,7 +8,6 @@ import os
 from pathlib import Path
 
 import pytest
-
 from src.backup.restorer import BackupRestorer, RestoreError
 
 

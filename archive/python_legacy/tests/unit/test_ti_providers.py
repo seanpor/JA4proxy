@@ -7,7 +7,6 @@ import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from src.security.alienvault import AlienVaultOTXProvider, OTXConfig
 from src.security.greynoise import GreyNoiseConfig, GreyNoiseProvider
 from src.security.models import RiskSignal

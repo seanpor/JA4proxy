@@ -10,7 +10,6 @@ import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from src.security.dns_enrichment import DNSEnrichment
 
 # ---------------------------------------------------------------------------

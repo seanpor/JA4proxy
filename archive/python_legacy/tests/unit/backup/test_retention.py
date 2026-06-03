@@ -9,7 +9,6 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
-
 from src.backup.worker import BackupWorker
 
 
@@ -173,10 +172,8 @@ def test_combined_retention_policy():
 # Coverage gap additions — lines 483, 489, 515-517, 520, 548-549, 555-556
 # ---------------------------------------------------------------------------
 
-import json
 import shutil
 import tempfile
-from pathlib import Path
 from unittest.mock import patch
 
 

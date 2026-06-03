@@ -13,7 +13,6 @@ import pytest
 from hypothesis import HealthCheck, assume, given, settings
 from hypothesis import strategies as st
 from hypothesis.stateful import Bundle, RuleBasedStateMachine, rule
-
 from proxy import JA4Fingerprint, JA4Generator, TLSParser
 from src.security.validation import SecurityError, SecurityValidator, ValidationError
 

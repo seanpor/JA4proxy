@@ -8,7 +8,6 @@ import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from src.security.behavioral import BehavioralAnalyzer
 from src.security.models import ConnectionContext, RiskSignal
 

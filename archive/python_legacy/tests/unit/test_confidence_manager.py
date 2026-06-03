@@ -7,7 +7,6 @@ import time
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
 from src.security.confidence_manager import ConfidenceManager, FeedConfidence
 
 

@@ -4,7 +4,6 @@ import asyncio
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from src.cache.local_cache import LocalCache
 from src.security.action_decider import ActionDecider
 from src.security.pipeline import ConnectionContext, Pipeline

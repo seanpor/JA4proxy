@@ -11,7 +11,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import redis
-
 from src.security.gdpr_storage import DataCategory, GDPRStorage
 
 # ---------------------------------------------------------------------------

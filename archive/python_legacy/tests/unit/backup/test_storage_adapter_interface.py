@@ -18,7 +18,6 @@ import hashlib
 from pathlib import Path
 
 import pytest
-
 from src.backup.storage_adapter import (
     LocalStorageAdapter,
     StorageAdapter,

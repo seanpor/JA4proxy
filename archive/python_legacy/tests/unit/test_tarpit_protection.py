@@ -17,7 +17,6 @@ import time
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
-
 from proxy import MAX_CONCURRENT_CONNECTIONS, ProxyServer
 from src.security.pipeline import PipelineResult
 

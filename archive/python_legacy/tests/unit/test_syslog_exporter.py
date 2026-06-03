@@ -6,7 +6,6 @@ import socket
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from src.tap.export.syslog_exporter import SyslogExporter
 
 # ---------------------------------------------------------------------------

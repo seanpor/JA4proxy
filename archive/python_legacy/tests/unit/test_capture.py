@@ -13,7 +13,6 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from src.config.loader import ConfigError
 from src.tap.capture import (
     ETH_P_8021AD,

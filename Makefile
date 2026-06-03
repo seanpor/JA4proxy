@@ -268,19 +268,19 @@ test-live:
 
 # Run unit tests only
 test-unit:
-	@python3 -m pytest tests/unit/ -n $(WORKERS) --dist=loadfile --timeout=60 --tb=short $(ARGS)
+	@python -m pytest tests/unit/ -n $(WORKERS) --dist=loadfile --timeout=60 --tb=short $(ARGS)
 
 # Run chaos/resilience tests only
 test-chaos:
-	@python3 -m pytest tests/chaos/ -n $(WORKERS) --dist=loadfile --timeout=60 --tb=short $(ARGS)
+	@python -m pytest tests/chaos/ -n $(WORKERS) --dist=loadfile --timeout=60 --tb=short $(ARGS)
 
 # Run adversarial/fuzz tests only (no parallelism — some are stateful)
 test-adversarial:
-	@python3 -m pytest tests/adversarial/ --timeout=60 --tb=short $(ARGS)
+	@python -m pytest tests/adversarial/ --timeout=60 --tb=short $(ARGS)
 
 # Benchmark this machine and store worker count in .local/machine.mk
 test-calibrate:
-	@python3 scripts/detect_workers.py
+	@python scripts/detect_workers.py
 
 # Run tests inside Docker (CI / clean environment)
 test-docker:
@@ -296,7 +296,7 @@ lint:
 
 # Security scanning with bandit (medium/high severity, skip B104 bind-all)
 lint-security:
-	@python3 -m bandit -r src/analytics/ src/management/ -ll --skip B104 && echo "  ✓ lint-security passed"
+	@python -m bandit -r src/analytics/ src/management/ -ll --skip B104 && echo "  ✓ lint-security passed"
 
 # Type checking with mypy (suppress output)
 lint-types:
@@ -310,13 +310,13 @@ lint-types:
 #   pip-audit: CVE scan of requirements.txt; urllib3 CVEs acknowledged (transitive, tracked backlog)
 lint-static:
 	@echo "=== mypy: type checking ==="
-	@python3 -m mypy src/analytics/ src/management/ && echo "  ✓ mypy passed"
+	@python -m mypy src/analytics/ src/management/ && echo "  ✓ mypy passed"
 	@echo ""
 	@echo "=== bandit: SAST (medium/high) ==="
-	@python3 -m bandit -r src/analytics/ src/management/ -ll -q --skip B104 && echo "  ✓ bandit passed"
+	@python -m bandit -r src/analytics/ src/management/ -ll -q --skip B104 && echo "  ✓ bandit passed"
 	@echo ""
 	@echo "=== ruff: linting ==="
-	@python3 -m ruff check src/analytics/ src/management/ && echo "  ✓ ruff passed (tests advisory only)"
+	@python -m ruff check src/analytics/ src/management/ && echo "  ✓ ruff passed (tests advisory only)"
 	@echo ""
 	@echo "=== pip-audit: CVE dependency scan ==="
 	@pip-audit -r requirements.txt \
@@ -335,7 +335,7 @@ lint-quality:
 
 # Coverage reporting with pytest-cov (Phase 16c gate: ≥80% all modules)
 lint-coverage:
-	python3 -m pytest tests/ --ignore=tests/integration/test_docker_stack.py \
+	python -m pytest tests/ --ignore=tests/integration/test_docker_stack.py \
 		--cov=src --cov=proxy \
 		--cov-fail-under=80 \
 		--cov-report=term-missing \
@@ -425,7 +425,7 @@ TRIVY_IMAGES := haproxy:2.8.24-alpine \
 #           every COMPLETE phase has a CHANGELOG entry,
 #           every manifest phase appears in CLAUDE.md's phase table.
 check-manifest:
-	@python3 scripts/check_manifest.py
+	@python scripts/check_manifest.py
 
 scan-images:
 	@echo "=== Trivy: third-party image CVE scan (HIGH + CRITICAL) ==="
@@ -502,7 +502,7 @@ scan-first-party:
 # Detect :latest tags and version drift between compose files.
 # Runs in < 5 seconds — no external calls, no Docker required.
 check-image-versions:
-	@python3 scripts/check_image_versions.py
+	@python scripts/check_image_versions.py
 
 # Lint YAML config and monitoring files with yamllint.
 # Line-length disabled (long Prometheus expressions are unavoidable).
@@ -581,7 +581,7 @@ lint-json:
 	for f in $(JSON_FILES); do \
 		[ -f "$$f" ] || continue; \
 		printf "  %-60s" "$$f"; \
-		if python3 -m json.tool "$$f" > /dev/null 2>&1; then echo "OK"; \
+		if python -m json.tool "$$f" > /dev/null 2>&1; then echo "OK"; \
 		else echo "FAIL"; fail=1; fi; \
 	done; \
 	[ $$fail -eq 0 ] || exit 1
@@ -759,7 +759,7 @@ perf-test:
 # Usage: make dial LEVEL=50
 dial:
 	@[ -n "$(LEVEL)" ] || (echo "Usage: make dial LEVEL=<0-100>"; exit 1)
-	@python3 scripts/set_dial.py $(LEVEL)
+	@python scripts/set_dial.py $(LEVEL)
 
 # ── Operations ────────────────────────────────────────────────────────────────
 
@@ -803,13 +803,25 @@ go-lint:
 
 # Audit Python and Go signal scores against registry (Phase 65)
 check-scores:
-	@python3 scripts/check-signal-scores.py
+	@python scripts/check-signal-scores.py
 
 # Live end-to-end decision parity verification (Phase 65)
 parity-check:
-	@python3 scripts/parity-check.py
+	@python scripts/parity-check.py
 
 # ── Security Scans ────────────────────────────────────────────────────────────
+# Run OpenSSF Scorecard locally via Docker (Phase 131)
+scorecard-local:
+	@echo "=== OpenSSF Scorecard (Local) ==="
+	@echo "Note: Full checks require a GitHub token with repo scope."
+	@echo "Run as: make scorecard-local GITHUB_AUTH_TOKEN=your_token"
+	@if [ -z "$$GITHUB_AUTH_TOKEN" ]; then \
+		echo "Warning: GITHUB_AUTH_TOKEN not set. Some checks (e.g. Branch-Protection, Code-Review) will be skipped or fail."; \
+		docker run --rm -v $$(pwd):/workspace gcr.io/openssf/scorecard:latest --local /workspace --format default; \
+	else \
+		docker run --rm -e GITHUB_AUTH_TOKEN=$$GITHUB_AUTH_TOKEN -v $$(pwd):/workspace gcr.io/openssf/scorecard:latest --local /workspace --format default; \
+	fi
+
 
 .PHONY: scan-container
 scan-container:
@@ -837,7 +849,7 @@ check-updates-container:
 .PHONY: check-updates-local
 check-updates-local:
 	@echo "=== Local Update Check (Go, Python, Docker, Node) ==="
-	@python3 scripts/check_updates.py
+	@python scripts/check_updates.py
 
 check-updates: check-updates-container
 
@@ -876,22 +888,22 @@ test-go-docker:
 
 # Run Go integration tests locally (requires Go proxy running on GO_PROXY_PORT)
 test-go-integration:
-	python3 -m pytest tests/integration/test_go_python_parity.py -v
+	python -m pytest tests/integration/test_go_python_parity.py -v
 
 # Run Go chaos tests locally (requires Go proxy running on GO_PROXY_PORT)
 test-go-chaos:
-	python3 -m pytest tests/chaos/test_go_proxy_chaos.py -v
+	python -m pytest tests/chaos/test_go_proxy_chaos.py -v
 
 # Run Go performance benchmarks locally (requires Go proxy running on GO_PROXY_PORT)
 test-go-perf:
-	python3 -m pytest tests/performance/test_bench_go_proxy.py -v -s
+	python -m pytest tests/performance/test_bench_go_proxy.py -v -s
 
 # Run all Go tests: build binaries, generate fixtures, then run test suite
 test-go:
 	$(MAKE) go-build
 	$(MAKE) go-build-ja4check
 	$(MAKE) capture-fixtures
-	python3 -m pytest \
+	python -m pytest \
 	  tests/integration/test_go_python_parity.py \
 	  tests/chaos/test_go_proxy_chaos.py \
 	  tests/performance/test_bench_go_proxy.py \
@@ -917,23 +929,23 @@ test-go-redis-tls:
 #        make bench ARGS="--proxy python"  # legacy Python proxy
 bench:
 	@echo "=== JA4proxy Go Performance Benchmark ==="
-	@python3 scripts/benchmark.py --host localhost --port 8081 --duration 30 --good-rate 10 --bad-rates 50,100,200
+	@python scripts/benchmark.py --host localhost --port 8081 --duration 30 --good-rate 10 --bad-rates 50,100,200
 # Legacy: Python proxy only (deprecated).
 # Capture browser-specific ClientHello fixtures (requires Docker + recorder service)
 capture-fixtures-browser:
 	docker compose -f deploy/docker/docker-compose.test.yml run --rm browser \
-	  python3 scripts/generate_fixtures_browser.py --recorder-host recorder
+	  python scripts/generate_fixtures_browser.py --recorder-host recorder
 
 # ── Docs ──────────────────────────────────────────────────────────────────────
 
 # Check all docs have frontmatter and aren't stale
 lint-docs:
 	@echo "Checking documentation frontmatter..."
-	@python3 scripts/check_doc_frontmatter.py
+	@python scripts/check_doc_frontmatter.py
 
 # Validate phase doc/manifest consistency (filename numbers, action_plan paths, statuses)
 lint-phases:
-	@python3 scripts/lint-phases.py
+	@python scripts/lint-phases.py
 
 # Check all internal Markdown links are valid
 link-check:
@@ -977,32 +989,32 @@ doc-health:
 # Show current test-to-code ratio
 test-ratio:
 	@echo "Calculating test-to-code ratio..."
-	@python3 scripts/test_ratio.py
+	@python scripts/test_ratio.py
 
 # ── TAP mode test targets ─────────────────────────────────────────────────────
 
 # Run all TAP mode unit/chaos/corpus tests (parallel, no live capture required).
 test-tap:
-	@python3 -m pytest tests/tap/ tests/unit/tap/ tests/chaos/test_tap_enforcement_resilience.py tests/chaos/test_tap_export_resilience.py -n $(WORKERS) --dist=loadfile --timeout=60 --tb=short $(ARGS)
+	@python -m pytest tests/tap/ tests/unit/tap/ tests/chaos/test_tap_enforcement_resilience.py tests/chaos/test_tap_export_resilience.py -n $(WORKERS) --dist=loadfile --timeout=60 --tb=short $(ARGS)
 
 # Run TAP integration tests that require a live capture interface.
 # Usage: make test-tap-live INTERFACE=eth1
 test-tap-live:
 	@[ -n "$(INTERFACE)" ] || (echo "Usage: make test-tap-live INTERFACE=eth1"; exit 1)
-	@sudo python3 -m pytest tests/tap/integration/ --timeout=120 -k requires_tap_interface -v $(ARGS)
+	@sudo python -m pytest tests/tap/integration/ --timeout=120 -k requires_tap_interface -v $(ARGS)
 
 # Run TAP throughput benchmark.
 # Usage: make test-tap-perf                        (synthetic, 200k packets)
 #        make test-tap-perf ARGS="--packets 1000000"
 #        make test-tap-perf ARGS="--mode pcap --pcap tests/pcap_corpus/chrome_tls13.pcap"
 test-tap-perf:
-	@python3 scripts/tap_benchmark.py $(ARGS)
+	@python scripts/tap_benchmark.py $(ARGS)
 
 # Delete all Redis data associated with a specific IP (GDPR right to erasure).
 # Usage: make gdpr-delete IP=1.2.3.4
 gdpr-delete:
 	@[ -n "$(IP)" ] || (echo "Usage: make gdpr-delete IP=1.2.3.4"; exit 1)
-	@python3 scripts/gdpr_delete.py --ip $(IP) $(if $(DRY_RUN),--dry-run,)
+	@python scripts/gdpr_delete.py --ip $(IP) $(if $(DRY_RUN),--dry-run,)
 
 ## ── Management UI ────────────────────────────────────────────────────────────
 management-build:
@@ -1033,7 +1045,7 @@ management-logs:
 	fi
 
 management-test:
-	export PYTHONPATH=$(PYTHONPATH):. && python3 -m pytest management/tests/ -v
+	export PYTHONPATH=$(PYTHONPATH):. && python -m pytest management/tests/ -v
 
 management-shell:
 	$(eval _AGENT := $(shell cat .current-agent 2>/dev/null))
@@ -1046,13 +1058,13 @@ management-shell:
 
 ## Management UI backend API targets
 test-mgmt-api:
-	export PYTHONPATH=$(PYTHONPATH):. && python3 -m pytest management/tests/ -v
+	export PYTHONPATH=$(PYTHONPATH):. && python -m pytest management/tests/ -v
 
 test-mgmt-api-unit:
-	export PYTHONPATH=$(PYTHONPATH):. && python3 -m pytest management/tests/test_auth.py management/tests/test_dial.py management/tests/test_lists.py management/tests/test_bans.py management/tests/test_health.py management/tests/test_config_ops.py management/tests/test_audit.py -v
+	export PYTHONPATH=$(PYTHONPATH):. && python -m pytest management/tests/test_auth.py management/tests/test_dial.py management/tests/test_lists.py management/tests/test_bans.py management/tests/test_health.py management/tests/test_config_ops.py management/tests/test_audit.py -v
 
 test-mgmt-api-events:
-	export PYTHONPATH=$(PYTHONPATH):. && python3 -m pytest management/tests/test_events.py -v
+	export PYTHONPATH=$(PYTHONPATH):. && python -m pytest management/tests/test_events.py -v
 
 ## ── Remote access tunnels ────────────────────────────────────────────────────
 # Print the SSH tunnel command for accessing a named agent's UIs from a remote
@@ -1111,7 +1123,7 @@ tunnel:
 
 ## Infrastructure monitoring targets
 test-infra-monitoring:
-	python3 -m pytest tests/unit/test_infra_alerts.py tests/unit/test_infra_dashboard.py -v
+	python -m pytest tests/unit/test_infra_alerts.py tests/unit/test_infra_dashboard.py -v
 
 test-infra-monitoring-integration:
 	@echo "Requires monitoring stack: cd docker && docker compose -f docker-compose.monitoring.yml up -d"
@@ -1120,11 +1132,11 @@ test-infra-monitoring-integration:
 
 ## Roadmap sync
 sync:
-	python3 scripts/sync-roadmap.py
+	python scripts/sync-roadmap.py
 
 ## Docker consistency targets
 test-docker-consistency:
-	python3 -m pytest tests/unit/test_docker_consistency.py \
+	python -m pytest tests/unit/test_docker_consistency.py \
 	                 tests/integration/test_dockerfile_coverage.py -v
 
 # Compose-config validation (docker-compose config --quiet on poc/test/prod).
@@ -1145,7 +1157,7 @@ test-compose-config-lint: lint-compose-config
 
 ## GDPR compliance targets
 test-gdpr-compliance:
-	python3 -m pytest tests/unit/test_gdpr_delete.py -v
+	python -m pytest tests/unit/test_gdpr_delete.py -v
 
 ## ── Lint target hierarchy ─────────────────────────────────────────────────
 # Individual new lint targets — each wraps one tool/domain.
@@ -1155,7 +1167,7 @@ test-gdpr-compliance:
 # code, attribute errors) that mypy and ruff don't cover.
 lint-pylint:
 	@echo "=== pylint: Python semantic analysis (errors only) ==="
-	@python3 -m pylint --errors-only src/analytics/ src/management/ \
+	@python -m pylint --errors-only src/analytics/ src/management/ \
 		&& echo "✓ pylint passed"
 
 # semgrep with auto-config: cross-language pattern matching for real bugs,
@@ -1262,7 +1274,7 @@ lint-spelling:
 # structure and types, not just character encoding.
 lint-toml:
 	@echo "=== TOML validation ==="
-	@python3 scripts/lint_toml.py
+	@python scripts/lint_toml.py
 	@echo "✓ TOML valid"
 
 # checkmake: Makefile semantic validation — missing .PHONY declarations,
@@ -1320,12 +1332,12 @@ lint-all: lint-python lint-go lint-sast lint-infra lint-observability \
 
 ## Lint hierarchy targets
 test-lint-hierarchy:
-	python3 -m pytest tests/lint-hierarchy/ -v
+	python -m pytest tests/lint-hierarchy/ -v
 
 ## Provisioning targets — Terraform Provider + Emergency Playbooks
 test-provisioning:
 	cd deploy/terraform-provider && GOROOT=/snap/go/current go test ./internal/... -v -count=1
-	python3 -m pytest tests/integration/test_emergency_playbooks.py -v
+	python -m pytest tests/integration/test_emergency_playbooks.py -v
 
 # PHONY declarations (appended per CLAUDE.md — do not modify line 3)
 .PHONY: lint-pylint lint-semgrep lint-checkov lint-haproxy lint-helm lint-ansible \
@@ -1354,22 +1366,22 @@ test-component-suites: test-mgmt-api test-slo test-logging-webhook test-policy-v
 ## Logging and webhook targets
 test-logging-webhook:
 	GOROOT=/snap/go/current go test ./internal/logging/... ./internal/webhook/... -v
-	python3 -m pytest tests/unit/test_ecs_logging.py -v
+	python -m pytest tests/unit/test_ecs_logging.py -v
 
 validate-ecs-schema:
-	python3 -c "import json,jsonschema; from jsonschema import Draft7Validator,FormatChecker; schema=json.load(open('config/integrations/ecs-schema.json')); sample=json.load(open('config/integrations/ecs-sample-event.json')); errors=list(Draft7Validator(schema,format_checker=FormatChecker()).iter_errors(sample)); [(__import__('sys').exit(1) or print('ERROR:',e.message)) for e in errors] if errors else print('ECS schema validation: OK')"
+	python -c "import json,jsonschema; from jsonschema import Draft7Validator,FormatChecker; schema=json.load(open('config/integrations/ecs-schema.json')); sample=json.load(open('config/integrations/ecs-sample-event.json')); errors=list(Draft7Validator(schema,format_checker=FormatChecker()).iter_errors(sample)); [(__import__('sys').exit(1) or print('ERROR:',e.message)) for e in errors] if errors else print('ECS schema validation: OK')"
 
 .PHONY: test-logging-webhook validate-ecs-schema
 
 ## Policy targets
 test-policy-validator:
-	python3 -m pytest tests/unit/test_policy_validator.py tests/integration/test_policy_apply.py -v
+	python -m pytest tests/unit/test_policy_validator.py tests/integration/test_policy_apply.py -v
 
 .PHONY: test-policy-validator
 
 ## OpenAPI targets
 openapi-spec:
-	MANAGEMENT_TEST_MODE=1 python3 management/scripts/export_openapi.py
+	MANAGEMENT_TEST_MODE=1 python management/scripts/export_openapi.py
 
 .PHONY: openapi-spec
 
@@ -1379,7 +1391,7 @@ test-cli:
 	GOROOT=/snap/go/current go build -o bin/ja4proxy-cli ./cmd/ja4proxy-cli/
 	GOROOT=/snap/go/current go vet ./internal/cli/...
 	GOROOT=/snap/go/current go test ./internal/cli/... -v -count=1
-	GOROOT=/snap/go/current python3 -m pytest tests/integration/test_cli_parity.py -v
+	GOROOT=/snap/go/current python -m pytest tests/integration/test_cli_parity.py -v
 .PHONY: test-cli
 
 ## Compliance targets
@@ -1387,17 +1399,17 @@ test-compliance:
 	GOROOT=/snap/go/current go vet ./internal/compliance/...
 	GOROOT=/snap/go/current go test ./internal/compliance/... -v -count=1
 	GOROOT=/snap/go/current go test ./internal/cli/commands/ -run "TestRunDSAR|TestRunPCIDSSPack|TestRunReportGenerate|TestRunPurgeExpired|TestRunSignalCategories|TestRunConnectionsExport" -v -count=1
-	python3 -m pytest management/tests/test_compliance_classifier.py management/tests/test_compliance_purge.py management/tests/test_compliance_pack.py management/tests/test_compliance_renderer.py management/tests/test_compliance_routes.py management/tests/test_connections_pagination.py -v
+	python -m pytest management/tests/test_compliance_classifier.py management/tests/test_compliance_purge.py management/tests/test_compliance_pack.py management/tests/test_compliance_renderer.py management/tests/test_compliance_routes.py management/tests/test_connections_pagination.py -v
 
 test-compliance-go:
 	GOROOT=/snap/go/current go test ./internal/compliance/... -v -count=1
 
 test-compliance-python:
-	python3 -m pytest management/tests/test_compliance_classifier.py management/tests/test_compliance_purge.py management/tests/test_compliance_pack.py management/tests/test_compliance_renderer.py management/tests/test_compliance_routes.py management/tests/test_connections_pagination.py -v
+	python -m pytest management/tests/test_compliance_classifier.py management/tests/test_compliance_purge.py management/tests/test_compliance_pack.py management/tests/test_compliance_renderer.py management/tests/test_compliance_routes.py management/tests/test_connections_pagination.py -v
 
 test-compliance-parity:
 	GOROOT=/snap/go/current go test ./internal/compliance/ -run TestCrossLanguageParity -v
-	python3 -m pytest management/tests/test_compliance_classifier.py -k "parity" -v
+	python -m pytest management/tests/test_compliance_classifier.py -k "parity" -v
 
 .PHONY: test-compliance test-compliance-go test-compliance-python test-compliance-parity
 
@@ -1428,7 +1440,7 @@ sbom:
 	else \
 		echo "✗ syft not found. Install with: curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh"; \
 	fi\n\nvalidation-report:
-	python3 scripts/generate_validation_report.py
+	python scripts/generate_validation_report.py
 
 .PHONY: test-go-fuzz-smoke test-go-property test-go-chaos-unit bench-go-pipeline validation-report
 
@@ -1439,28 +1451,28 @@ validate-slo-rules:
 		promtool check rules deploy/monitoring/alertmanager/rules/slo_alerts.yml; \
 		echo "SLO recording rules and alert rules are syntactically valid."; \
 	} || { \
-		python3 -c "import yaml; yaml.safe_load(open('deploy/monitoring/prometheus/slo_recording_rules.yml')); yaml.safe_load(open('deploy/monitoring/alertmanager/rules/slo_alerts.yml')); print('YAML structurally valid (promtool not installed)')"; \
+		python -c "import yaml; yaml.safe_load(open('deploy/monitoring/prometheus/slo_recording_rules.yml')); yaml.safe_load(open('deploy/monitoring/alertmanager/rules/slo_alerts.yml')); print('YAML structurally valid (promtool not installed)')"; \
 	}
 
 slo-report:
 	@echo "=== JA4proxy SLO Report ==="
 	@curl -sg 'http://localhost:9090/api/v1/query?query=job:ja4proxy_availability:ratio_rate5m' \
-		| python3 -c "import sys,json; d=json.load(sys.stdin); v=d['data']['result']; print('Availability (5m):', round(float(v[0]['value'][1])*100, 4) if v else 'NO DATA', '%')"
+		| python -c "import sys,json; d=json.load(sys.stdin); v=d['data']['result']; print('Availability (5m):', round(float(v[0]['value'][1])*100, 4) if v else 'NO DATA', '%')"
 	@curl -sg 'http://localhost:9090/api/v1/query?query=job:ja4proxy_latency_p99_good:ratio_rate5m' \
-		| python3 -c "import sys,json; d=json.load(sys.stdin); v=d['data']['result']; print('Latency    (5m):', round(float(v[0]['value'][1])*100, 4) if v else 'NO DATA', '%')"
+		| python -c "import sys,json; d=json.load(sys.stdin); v=d['data']['result']; print('Latency    (5m):', round(float(v[0]['value'][1])*100, 4) if v else 'NO DATA', '%')"
 	@curl -sg 'http://localhost:9090/api/v1/query?query=job:ja4proxy_redis_correctness:ratio_rate5m' \
-		| python3 -c "import sys,json; d=json.load(sys.stdin); v=d['data']['result']; print('Redis      (5m):', round(float(v[0]['value'][1])*100, 4) if v else 'NO DATA', '%')"
+		| python -c "import sys,json; d=json.load(sys.stdin); v=d['data']['result']; print('Redis      (5m):', round(float(v[0]['value'][1])*100, 4) if v else 'NO DATA', '%')"
 
 test-slo:
 	GOROOT=/snap/go/current go test ./internal/metrics/... ./internal/redis/... -count=1
-	python3 -c "import yaml; yaml.safe_load(open('deploy/monitoring/prometheus/slo_recording_rules.yml')); yaml.safe_load(open('deploy/monitoring/alertmanager/rules/slo_alerts.yml')); print('YAML OK')"
+	python -c "import yaml; yaml.safe_load(open('deploy/monitoring/prometheus/slo_recording_rules.yml')); yaml.safe_load(open('deploy/monitoring/alertmanager/rules/slo_alerts.yml')); print('YAML OK')"
 
 .PHONY: validate-slo-rules slo-report test-slo
 
 ## CI local targets
 ci-local: ## Run the same fast checks the CI workflow runs (Go + Python tests)
 	GOROOT=/snap/go/current go test ./...
-	python3 -m pytest tests/ --ignore=tests/integration/test_docker_stack.py -x -q --timeout=60
+	python -m pytest tests/ --ignore=tests/integration/test_docker_stack.py -x -q --timeout=60
 
 .PHONY: ci-local
 
@@ -1484,7 +1496,7 @@ measure-mttr: ## Measure MTTR for DR scenarios
 
 ## Phase 86b targets — Load testing harness
 load-test: ## Run JA4proxy load test
-	python3 scripts/load_test.py \
+	python scripts/load_test.py \
 		--target $(LOAD_TEST_TARGET) \
 		--duration $(LOAD_TEST_DURATION) \
 		--rps $(LOAD_TEST_RPS) \
@@ -1506,7 +1518,7 @@ load-test-report: ## Show latest load test reports
 ## Phase 86h targets
 lint-alert-urls: ## Verify Alertmanager runbook_url values are up to date
 	@echo "Checking alertmanager runbook URLs..."
-	@python3 scripts/fix_runbook_urls.py \
+	@python scripts/fix_runbook_urls.py \
 		--rules-dir deploy/monitoring/alertmanager/rules/ \
 		--mapping docs/phases/PHASE_86h_runbook_mapping.yml \
 		--check
@@ -1536,34 +1548,34 @@ quality: lint-all lint-coverage ## Run all linters + coverage checks in one shot
 
 # Canonical findings register
 verify-findings: ## Validate docs/security/findings.yaml schema and referential integrity
-	@python3 scripts/findings_register.py validate
+	@python scripts/findings_register.py validate
 
 verify-findings-green: ## Run only the regression tests backing findings.yaml entries (fast signal)
-	@python3 scripts/findings_register.py verify-regression-tests --stub-green
+	@python scripts/findings_register.py verify-regression-tests --stub-green
 
 findings-render: ## Regenerate docs/security/FINDINGS_REGISTER.md from findings.yaml
-	@python3 scripts/findings_register.py render
+	@python scripts/findings_register.py render
 
 findings-list: ## List open findings (add FINDINGS_ARGS=... to pass flags, e.g. --severity HIGH)
-	@python3 scripts/findings_register.py list $(FINDINGS_ARGS)
+	@python scripts/findings_register.py list $(FINDINGS_ARGS)
 
 verify-manifest-closeout: ## Manifest close-out gate — validate register, required docs, ADRs, manifest
-	@python3 scripts/phase_121_verify.py
+	@python scripts/phase_121_verify.py
 
 .PHONY: verify-findings verify-findings-green findings-render findings-list phase-121-verify verify-manifest-closeout test-compliance-language test-evidence-paths test-compliance test-attack-mapping test-doc-links
 
 # phase-107h: regulatory-conformance regression guards
 test-compliance-language: ## Phase 107h.1 — fail if "certified"/"compliant" appears in self-assessed compliance docs
-	@python3 -m pytest tests/test_compliance_language.py -v
+	@python -m pytest tests/test_compliance_language.py -v
 
 test-evidence-paths: ## Phase 107h.2 — fail if conformance docs cite repo paths that don't exist
-	@python3 -m pytest tests/test_compliance_evidence_paths.py -v
+	@python -m pytest tests/test_compliance_evidence_paths.py -v
 
 test-compliance: test-compliance-language test-evidence-paths ## Phase 107h — all regulatory-conformance regression guards
 
 # phase-107f: ATT&CK mapping CI gate
 test-attack-mapping: ## Phase 107f.4 — fail if ATT&CK mapping rows lack confidence labels or cite missing source files
-	python3 -m pytest tests/test_attack_mapping.py -v
+	python -m pytest tests/test_attack_mapping.py -v
 
 # phase-107w.3: doc-link check (requires lychee installed locally — same tool the CI workflow runs)
 test-doc-links: ## Phase 107w.3 — lychee-check conformance + audience-scoped docs for broken internal links

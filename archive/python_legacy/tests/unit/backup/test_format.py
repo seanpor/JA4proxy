@@ -9,7 +9,6 @@ is stable across calls.
 import struct
 
 import pytest
-
 from src.backup.format import decode_entries, encode_entry
 
 

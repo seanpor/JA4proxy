@@ -13,7 +13,6 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 import requests
-
 from proxy import ValidationError as ProxyValidationError
 from src.security.validation import SecurityError, SecurityValidator, ValidationError
 

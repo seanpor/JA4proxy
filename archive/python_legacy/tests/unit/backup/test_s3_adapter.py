@@ -25,7 +25,6 @@ import pytest
 from botocore.exceptions import ClientError
 from moto import mock_aws
 from prometheus_client import REGISTRY
-
 from src.backup.storage_adapter import StorageMetadata
 
 # ---------------------------------------------------------------------------

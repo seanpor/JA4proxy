@@ -14,7 +14,6 @@ import time
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
-
 from src.security import (
     ActionType,
     RateLimitStrategy,

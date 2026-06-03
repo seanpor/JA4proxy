@@ -11,7 +11,6 @@ and deterministic.
 """
 
 import pytest
-
 from src.backup.policy import KeyPolicy
 
 

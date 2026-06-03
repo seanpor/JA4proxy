@@ -1,7 +1,6 @@
 """Unit tests for src/security/risk_scorer.py — RiskScorer and RiskSignal."""
 
 import pytest
-
 from src.security.risk_scorer import (
     RiskAssessment,
     RiskScorer,

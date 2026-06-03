@@ -11,7 +11,6 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 import redis
-
 from proxy import (
     ConfigManager,
     JA4Fingerprint,

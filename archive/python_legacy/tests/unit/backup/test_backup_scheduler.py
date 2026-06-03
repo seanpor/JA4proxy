@@ -7,7 +7,6 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
-
 from src.backup.scheduler import BackupScheduler, _next_delay_s
 
 # ---------------------------------------------------------------------------

@@ -9,7 +9,6 @@ from unittest.mock import MagicMock
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
-
 from src.tap.capture import ParsedPacket
 from src.tap.reassembler import (
     TCP_ACK,

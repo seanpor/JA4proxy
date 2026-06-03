@@ -6,7 +6,6 @@ import uuid
 from datetime import datetime, timezone
 
 import pytest
-
 from src.tap.fingerprints.correlation import ConnectionFingerprints
 from src.tap.fingerprints.tls_ext_values import JA4TLSExtValues
 

@@ -11,7 +11,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 import redis
-
 from src.security.blocklists import (
     _BLOCKLIST_DOWNLOAD_ERRORS,
     BlocklistManager,

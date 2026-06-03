@@ -16,7 +16,6 @@ import time
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from src.security.dead_man_switch import DeadManSwitch
 
 # ---------------------------------------------------------------------------

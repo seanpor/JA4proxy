@@ -8,7 +8,6 @@ import asyncio
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from src.cache.local_cache import LocalCache
 from src.security.models import ConnectionContext, RiskSignal
 from src.security.pipeline import _SIGNAL_ERROR, _SIGNAL_SKIPPED, Pipeline

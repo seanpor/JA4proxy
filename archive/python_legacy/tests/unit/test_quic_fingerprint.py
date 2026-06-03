@@ -5,7 +5,6 @@ Unit tests for src/tap/fingerprints/quic_fingerprint.py (Phase 20 Group 5-K).
 import struct
 
 import pytest
-
 from src.tap.fingerprints.quic_fingerprint import (
     _QUIC_V1,
     QUICFingerprintResult,

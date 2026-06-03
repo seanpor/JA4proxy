@@ -19,7 +19,6 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Optional
 
 from sortedcontainers import SortedList  # type: ignore[import]
-
 from src.tap.capture import ParsedPacket
 
 if TYPE_CHECKING:

@@ -13,7 +13,6 @@ import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from src.cache.local_cache import LocalCache
 from src.security.action_decider import ActionDecider
 from src.security.pipeline import ConnectionContext, Pipeline
@@ -450,6 +449,7 @@ class TestAbuseIPDBIntegration:
 
         from src.cache.local_cache import LocalCache
         from src.security.abuseipdb import AbuseIPDBChecker, AbuseIPDBConfig
+
         from tests.mocks.abuseipdb_mock import AbuseIPDBMock
 
         # Build pipeline with a real scorer

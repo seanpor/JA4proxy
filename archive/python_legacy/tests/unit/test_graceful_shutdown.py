@@ -16,7 +16,6 @@ import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from proxy import MAX_CONCURRENT_CONNECTIONS, ProxyServer
 from src.security.feed_health import FeedHealthMonitor
 from src.security.pipeline import PipelineResult

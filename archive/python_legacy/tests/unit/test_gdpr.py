@@ -10,7 +10,6 @@ from __future__ import annotations
 from unittest.mock import MagicMock, call, patch
 
 import pytest
-
 from src.tap.security import gdpr_delete
 
 # ---------------------------------------------------------------------------

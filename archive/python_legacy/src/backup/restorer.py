@@ -14,7 +14,6 @@ from typing import Any, Dict, List, Optional
 
 import redis
 from prometheus_client import Counter, Gauge, Histogram
-
 from src.backup.encryption import BackupEncryption
 from src.backup.format import decode_entries
 

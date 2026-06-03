@@ -8,7 +8,6 @@ import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
 from src.cache.local_cache import LocalCache
 from src.security.action_decider import ActionDecider
 from src.security.blocklists import BlocklistManager, FeedConfig

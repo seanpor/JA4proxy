@@ -17,10 +17,12 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write  # required to push the regenerated metrics file to main
+  contents: read
 
 jobs:
   regenerate-metrics:
+    permissions:
+      contents: write
     name: Regenerate process metrics
     runs-on: ubuntu-latest
     steps:
@@ -38,7 +40,7 @@ jobs:
       - name: Regenerate metrics
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python3 scripts/process_metrics.py
+        run: python scripts/process_metrics.py
 
       - name: Commit and push if changed
         run: |

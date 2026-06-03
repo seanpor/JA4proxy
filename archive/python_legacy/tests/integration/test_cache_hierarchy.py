@@ -10,7 +10,6 @@ import time
 from unittest.mock import MagicMock, call, patch
 
 import pytest
-
 from src.cache.local_cache import LocalCache, LRUCache
 
 

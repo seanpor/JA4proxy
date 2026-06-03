@@ -6,7 +6,6 @@ Tests threat tier enums, configuration validation, and tier behavior.
 """
 
 import pytest
-
 from src.security.threat_tier import (
     ThreatTier,
     ThreatTierConfig,

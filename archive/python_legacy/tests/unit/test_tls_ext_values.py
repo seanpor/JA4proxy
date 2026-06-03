@@ -5,7 +5,6 @@ Unit tests for src/tap/fingerprints/tls_ext_values.py (Phase 20 Group 5-H).
 import struct
 
 import pytest
-
 from src.tap.fingerprints.ja4 import extract_ja4
 from src.tap.fingerprints.tls_ext_values import JA4TLSExtValues, extract_tls_ext_values
 

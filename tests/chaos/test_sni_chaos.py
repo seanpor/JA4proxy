@@ -4,7 +4,6 @@
 from unittest.mock import Mock
 
 import pytest
-
 from src.security.sni_analyzer import SNIAnalyzer
 
 

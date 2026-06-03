@@ -14,7 +14,7 @@
 #
 # Phase 83 migration note:
 #   When the compiled Go CLI binary ships, replace:
-#     python3 scripts/ja4proxy-policy.py ...
+#     python scripts/ja4proxy-policy.py ...
 #   with:
 #     ja4proxy-cli policy ...
 #   No other changes to this file are required.
@@ -52,7 +52,7 @@ jobs:
         run: pip install pyyaml cerberus
 
       - name: Validate policy YAML
-        run: python3 scripts/ja4proxy-policy.py validate --file ja4proxy-policy.yaml
+        run: python scripts/ja4proxy-policy.py validate --file ja4proxy-policy.yaml
 
   apply:
     name: Apply policy to production
@@ -83,6 +83,6 @@ jobs:
         env:
           JA4PROXY_TOKEN: ${{ secrets.JA4PROXY_OPERATOR_TOKEN }}
         run: |
-          python3 scripts/ja4proxy-policy.py apply \
+          python scripts/ja4proxy-policy.py apply \
             --file ja4proxy-policy.yaml \
             --url "${{ vars.JA4PROXY_URL }}"

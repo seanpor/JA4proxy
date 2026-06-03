@@ -19,7 +19,6 @@ import struct
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from proxy import (
     ConfigManager,
     ProxyServer,

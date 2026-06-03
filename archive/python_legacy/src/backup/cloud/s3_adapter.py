@@ -21,7 +21,6 @@ from pathlib import Path
 import boto3
 from botocore.exceptions import ClientError
 from prometheus_client import Counter
-
 from src.backup.storage_adapter import StorageAdapter, StorageMetadata
 
 logger = logging.getLogger(__name__)
