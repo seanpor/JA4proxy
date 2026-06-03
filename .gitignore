@@ -168,3 +168,8 @@ test-results/
 .claude/scheduled_tasks.lock
 secrets/
 .aider*
+
+# Tool caches (Phase 130)
+.ruff_cache/
+.mypy_cache/
+.qwen/

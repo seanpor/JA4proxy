@@ -609,7 +609,8 @@ clean:
 	fi
 	BACKEND_HOST=_ docker compose -f deploy/docker/docker-compose.prod.yml down -v --remove-orphans 2>/dev/null || true
 	# Remove reports and cache directories, ignoring errors (e.g., from container-created files with restrictive permissions)
-	rm -rf reports/ __pycache__/ .pytest_cache/ .mypy_cache/ 2>/dev/null || true
+	rm -rf reports/ test-results/ __pycache__/ .pytest_cache/ .mypy_cache/ .ruff_cache/ .hypothesis/ .qwen/ 2>/dev/null || true
+	rm -f ja4proxy ja4check ja4proxy-cli bin/ja4proxy bin/ja4check bin/ja4proxy-cli 2>/dev/null || true
 
 # Full clean rebuild from scratch — wipes volumes, removes built images, rebuilds, starts.
 # If .current-agent is set (i.e. an agent stack is active), rebuilds and restarts that
