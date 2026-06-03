@@ -7,7 +7,7 @@ redis==5.0.1
 aioredis==2.0.1
 
 # HTTP server for /health, /ready, /metrics endpoints
-aiohttp>=3.9,<4
+aiohttp>=3.10.11
 
 # Metrics
 prometheus-client==0.25.0

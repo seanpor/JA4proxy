@@ -3,7 +3,6 @@ Unit tests for src/tap/fingerprints/ja4h.py (Phase 20 Group 5-D).
 """
 
 import pytest
-
 from src.tap.fingerprints.ja4h import JA4HResult, extract_ja4h
 
 

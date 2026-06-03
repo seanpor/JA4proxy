@@ -9,7 +9,6 @@ import json
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
-
 from src.tap.enforcement_bridge import (
     _BGP_MIN_PREFIX_V4,
     _BGP_MIN_PREFIX_V6,

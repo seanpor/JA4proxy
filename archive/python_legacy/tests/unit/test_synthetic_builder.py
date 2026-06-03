@@ -3,9 +3,9 @@ Unit tests for SyntheticPacketBuilder (Phase 20, Group 13).
 """
 
 import pytest
-
 from src.tap.capture import ParsedPacket
 from src.tap.fingerprints.ja4 import extract_ja4
+
 from tests.tap.conftest import SyntheticPacketBuilder
 
 

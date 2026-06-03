@@ -6,7 +6,6 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 import redis as redis_lib
-
 from src.backup.worker import PIPELINE_BATCH_SIZE, BackupWorker
 
 

@@ -19,7 +19,6 @@ import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from src.security.alienvault import AlienVaultOTXProvider, OTXConfig
 from src.security.feed_health import CircuitBreaker, CircuitState, FeedHealthMonitor
 from src.security.greynoise import GreyNoiseConfig, GreyNoiseProvider

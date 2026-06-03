@@ -6,7 +6,6 @@ Tests success path and failure path assertions.
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from src.backup.worker import BackupWorker
 
 

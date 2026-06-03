@@ -6,7 +6,6 @@ Owner: Phase 16
 """
 
 import pytest
-
 from proxy import JA4Generator
 
 

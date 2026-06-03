@@ -587,7 +587,6 @@ class TestStartBackgroundMonitor:
     def test_shutdown_on_violation_calls_sys_exit(self, tmp_path):
         """When shutdown_on_violation is True, a tampered file triggers sys.exit(1)."""
         import sys
-        from unittest.mock import patch
 
         from src.security.integrity_monitor import IntegrityMonitor
 
@@ -641,7 +640,6 @@ class TestVerifyConfigSignatureCryptographyMissing:
         So what: if the dependency is stripped from the container at runtime, the
         proxy continues to operate rather than hard-failing every connection.
         """
-        from unittest.mock import patch
 
         config_path = tmp_path / "proxy.yml"
         config_path.write_text("dial: 0\n")
@@ -681,7 +679,7 @@ class TestVerifyConfigSignatureGenericVerifyException:
         So what: an attacker-controlled key that raises during verify must not
         be treated as a pass — the function must stay closed on unexpected errors.
         """
-        from unittest.mock import MagicMock, patch
+        from unittest.mock import MagicMock
 
         from src.security.integrity_monitor import IntegrityMonitor
 
@@ -753,7 +751,6 @@ class TestBackgroundMonitorHashPathsException:
         So what: a transient filesystem error (NFS stall, permissions change) must
         not take down the monitor permanently — integrity monitoring must be resilient.
         """
-        from unittest.mock import patch
 
         from src.security.integrity_monitor import IntegrityMonitor
 
@@ -808,7 +805,6 @@ class TestBackgroundMonitorHashPathsException:
         So what: if the event loop is shut down while the monitor is computing the
         baseline, it must exit cleanly without swallowing the cancellation.
         """
-        from unittest.mock import patch
 
         from src.security.integrity_monitor import IntegrityMonitor
 
@@ -842,7 +838,7 @@ class TestAppendAuditLogExceptionPath:
         So what: an audit log write failure (disk full, permissions) must not crash
         the proxy — it must fail open so legitimate traffic continues flowing.
         """
-        from unittest.mock import MagicMock, patch
+        from unittest.mock import MagicMock
 
         from src.security.integrity_monitor import IntegrityMonitor
 
@@ -925,7 +921,6 @@ class TestLoadPubkeyEdgePaths:
         from cryptography.hazmat.primitives.serialization import (
             PublicFormat as _PF,
         )
-
         from src.security.integrity_monitor import _load_pubkey
 
         _, pubkey = _generate_keypair()
@@ -950,7 +945,6 @@ class TestLoadPubkeyEdgePaths:
         from cryptography.hazmat.primitives.serialization import (
             PublicFormat as _PF,
         )
-
         from src.security.integrity_monitor import _load_pubkey
 
         _, pubkey = _generate_keypair()
@@ -992,7 +986,6 @@ class TestLoadPubkeyEdgePaths:
         from cryptography.hazmat.primitives.serialization import (
             PublicFormat as _PF,
         )
-
         from src.security.integrity_monitor import _load_pubkey
 
         _, pubkey = _generate_keypair()
@@ -1046,7 +1039,6 @@ class TestHashPathsEdgeCases:
         So what: a file with permissions that prevent reading must not abort
         monitoring of all other files in the same directory.
         """
-        from unittest.mock import patch
 
         from src.security.integrity_monitor import _hash_paths
 
@@ -1101,7 +1093,7 @@ class TestHashPathsEdgeCases:
         So what: a transient error on one monitored path must not blind the monitor
         to tampered files in all other paths.
         """
-        from unittest.mock import MagicMock, patch
+        from unittest.mock import MagicMock
 
         from src.security.integrity_monitor import _hash_paths
 
@@ -1166,7 +1158,7 @@ class TestReadLastLineHashEdgeCases:
         So what: a corrupt or unreadable log file must not prevent subsequent audit
         entries from being written — the chain can restart but monitoring continues.
         """
-        from unittest.mock import MagicMock, patch
+        from unittest.mock import MagicMock
 
         from src.security.integrity_monitor import _read_last_line_hash
 

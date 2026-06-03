@@ -9,7 +9,6 @@ import os
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from src.backup.restorer import (
     RESTORE_CURRENTLY_RUNNING,
     RESTORE_DURATION_SECONDS,

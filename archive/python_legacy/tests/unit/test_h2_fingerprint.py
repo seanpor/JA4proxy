@@ -5,7 +5,6 @@ Unit tests for src/tap/fingerprints/h2_fingerprint.py (Phase 20 Group 5-J).
 import struct
 
 import pytest
-
 from src.tap.fingerprints.h2_fingerprint import (
     _BUILTIN_DB,
     _H2_PREFACE,

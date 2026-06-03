@@ -11,7 +11,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import redis as redis_lib
-
 from src.backup.format import encode_entry
 from src.backup.restorer import BackupRestorer, RestoreError
 

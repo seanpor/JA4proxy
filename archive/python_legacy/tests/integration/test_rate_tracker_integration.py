@@ -15,7 +15,6 @@ import time
 
 import pytest
 import redis
-
 from src.security.rate_strategy import RateLimitStrategy
 from src.security.rate_tracker import (
     MultiStrategyRateTracker,

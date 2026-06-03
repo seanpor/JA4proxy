@@ -8,7 +8,6 @@ import logging
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from src.backup.restorer import BackupRestorer
 from src.backup.restorer import logger as restorer_logger
 from src.backup.worker import BackupWorker

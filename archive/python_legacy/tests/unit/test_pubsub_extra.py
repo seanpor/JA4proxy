@@ -13,7 +13,6 @@ import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from src.cache.local_cache import LocalCache
 from src.pubsub import CHANNEL, PubSubHandler
 

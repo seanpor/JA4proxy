@@ -6,7 +6,6 @@ import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import redis as redis_module
-
 from src.security.dns_enrichment import DNSEnrichment, FCrDNSResult
 
 

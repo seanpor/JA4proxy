@@ -7,7 +7,6 @@ import json
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from src.backup.policy import KeyPolicy
 from src.backup.worker import BackupWorker
 

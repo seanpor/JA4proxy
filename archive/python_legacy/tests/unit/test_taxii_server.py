@@ -8,7 +8,6 @@ from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
 from src.tap.export.taxii_server import TaxiiServer
 
 # ---------------------------------------------------------------------------
@@ -262,7 +261,7 @@ class TestTaxiiServerLifecycle:
     async def test_start_and_close_run_without_error(self):
         # start (lines 64-81) and close (lines 83-87) manage the HTTP server lifecycle.
         # A crash here means the TAXII feed silently stops serving to consumers.
-        from unittest.mock import AsyncMock, MagicMock, patch
+        from unittest.mock import MagicMock, patch
 
         mock_runner = AsyncMock()
         mock_site = AsyncMock()

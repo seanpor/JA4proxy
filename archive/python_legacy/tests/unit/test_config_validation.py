@@ -4,7 +4,6 @@ Tests invalid config cases (missing keys, invalid ranges, bad types).
 """
 
 import pytest
-
 from src.config.loader import ConfigLoader
 
 

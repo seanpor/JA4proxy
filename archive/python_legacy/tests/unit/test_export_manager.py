@@ -13,7 +13,6 @@ import asyncio
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
-
 from src.tap.export.export_manager import ExportManager
 
 # ---------------------------------------------------------------------------

@@ -11,7 +11,6 @@ from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
 import pytest
-
 from src.tap.fingerprints.correlation import ConnectionFingerprints
 from src.tap.fingerprints.tls_ext_values import JA4TLSExtValues
 from src.tap.tap_pipeline import TapPipeline

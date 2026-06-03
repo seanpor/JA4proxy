@@ -5,7 +5,6 @@ on_config_reload() helpers.
 """
 
 import pytest
-
 from src.security.tls_enforcer import (
     SSL3,
     TLS10,

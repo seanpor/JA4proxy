@@ -7,11 +7,11 @@ format from known synthetic inputs. Real-PCAP replay tests require the PCAP corp
 """
 
 import pytest
-
 from src.tap.fingerprints.ja4 import extract_ja4
 from src.tap.fingerprints.ja4h import extract_ja4h
 from src.tap.fingerprints.ja4s import extract_ja4s
 from src.tap.fingerprints.ja4t import extract_ja4t_from_syn
+
 from tests.tap.conftest import SyntheticPacketBuilder
 
 # Known fingerprint patterns from synthetic inputs

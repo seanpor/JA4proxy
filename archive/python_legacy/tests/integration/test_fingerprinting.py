@@ -18,7 +18,6 @@ import logging
 from unittest.mock import MagicMock
 
 import pytest
-
 from src.cache.local_cache import LocalCache
 from src.security.action_decider import ActionDecider
 from src.security.models import ConnectionContext

@@ -31,7 +31,6 @@ import ipaddress
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
 from src.cache.local_cache import LocalCache
 from src.security.models import ConnectionContext, RiskSignal
 

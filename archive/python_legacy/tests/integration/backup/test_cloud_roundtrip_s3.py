@@ -18,7 +18,6 @@ import boto3
 import fakeredis
 import pytest
 from moto import mock_aws
-
 from src.backup.restorer import BackupRestorer
 from src.backup.worker import BackupWorker
 

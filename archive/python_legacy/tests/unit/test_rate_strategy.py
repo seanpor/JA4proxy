@@ -12,7 +12,6 @@ Tests cover:
 import time
 
 import pytest
-
 from src.security.rate_strategy import (
     RateLimitStrategy,
     RateMetrics,

@@ -32,7 +32,6 @@ from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
 import redis as redis_lib
-
 from proxy import (
     MAX_CONCURRENT_CONNECTIONS,
     GeoIPLookup,

@@ -8,7 +8,6 @@ import time
 from unittest.mock import AsyncMock, MagicMock
 
 import redis.asyncio as redis
-
 from src.cache.local_cache import LocalCache
 from src.config.loader import ConfigLoader
 from src.security.pipeline import ConnectionContext, Pipeline

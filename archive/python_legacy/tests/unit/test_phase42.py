@@ -8,8 +8,8 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from src.config.loader import ConfigError, ConfigLoader
+
 from src.utils.atomic_swap import atomic_symlink_swap, atomic_write
 
 

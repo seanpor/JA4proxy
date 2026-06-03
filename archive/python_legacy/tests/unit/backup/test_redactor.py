@@ -17,7 +17,6 @@ import json
 from pathlib import Path
 
 import pytest
-
 from src.backup.format import encode_entry
 from src.backup.redactor import BackupRedactor
 from src.backup.storage_adapter import DSARComplianceError, LocalStorageAdapter

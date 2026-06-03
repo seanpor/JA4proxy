@@ -513,7 +513,6 @@ class TestTracingOtelImportBlock(unittest.TestCase):
         is correctly set to True, not left as False — without this, the enabled-tracing
         code path is never reachable in production even when the SDK is installed."""
         import importlib
-        import sys
         import types
 
         import src.telemetry.tracing as tracing_mod

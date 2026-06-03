@@ -10,7 +10,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 import redis
-
 from src.security.action_types import ActionType
 from src.security.security_manager import SecurityManager, create_security_manager
 from src.security.threat_tier import ThreatTier

@@ -20,7 +20,6 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
-
 from src.security.seccomp_transition import (
     _apply,
     _apply_via_seccomp_lib,

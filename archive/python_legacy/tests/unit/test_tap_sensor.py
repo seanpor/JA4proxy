@@ -5,7 +5,6 @@ Unit tests for src/tap/tap_sensor.py — TapSensor lifecycle (lines 32-46).
 import asyncio
 
 import pytest
-
 from src.tap.tap_sensor import TapSensor
 
 

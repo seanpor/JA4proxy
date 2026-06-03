@@ -5,7 +5,6 @@ Unit tests for src/tap/fingerprints/ja4ssh.py (Phase 20 Group 5-G).
 import struct
 
 import pytest
-
 from src.tap.fingerprints.ja4ssh import JA4SSHResult, extract_ja4ssh
 
 # ---------------------------------------------------------------------------

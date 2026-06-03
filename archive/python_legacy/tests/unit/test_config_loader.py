@@ -8,7 +8,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import yaml
-
 from src.config.loader import ConfigError, ConfigLoader, _expand_env_vars, _get_nested
 
 # ---------------------------------------------------------------------------

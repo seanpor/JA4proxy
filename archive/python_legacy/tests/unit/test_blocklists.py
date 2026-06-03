@@ -15,7 +15,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 import redis as redis_module
-
 from src.security.blocklists import (
     BlocklistManager,
     FeedConfig,

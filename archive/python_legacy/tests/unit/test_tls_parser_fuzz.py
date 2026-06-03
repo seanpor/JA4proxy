@@ -20,7 +20,6 @@ import os
 import struct
 
 import pytest
-
 from src.tls.parser import parse_client_hello
 
 # ---------------------------------------------------------------------------

@@ -9,7 +9,6 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from aiohttp.test_utils import TestClient, TestServer
-
 from src.tap.http_server import TapHttpServer
 
 # ---------------------------------------------------------------------------

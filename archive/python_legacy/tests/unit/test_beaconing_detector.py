@@ -6,7 +6,6 @@ import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import redis
-
 from src.security.beaconing_detector import (
     BeaconingDetector,
     beacon_score,

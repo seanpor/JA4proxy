@@ -8,7 +8,6 @@ from datetime import datetime, timezone
 from unittest.mock import MagicMock, call
 
 import pytest
-
 from src.tap.fingerprint_store import (
     _CONN_TTL,
     _IP_SORTED_SET_MAX,

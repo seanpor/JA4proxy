@@ -7,7 +7,6 @@ import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from src.security.misp import MISPConfig, MISPProvider
 from src.security.models import RiskSignal
 

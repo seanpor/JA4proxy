@@ -5,7 +5,6 @@ Unit tests for src/tap/fingerprints/ja4x.py (Phase 20 Group 5-F).
 import hashlib
 
 import pytest
-
 from src.tap.fingerprints.ja4x import JA4XResult, extract_ja4x
 
 # Try to import cryptography to check availability

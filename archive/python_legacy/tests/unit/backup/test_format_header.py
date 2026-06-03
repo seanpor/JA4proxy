@@ -13,7 +13,6 @@ Covers:
 import struct
 
 import pytest
-
 from src.backup.format import (
     FLAG_ENCRYPTED,
     FLAG_FULL,

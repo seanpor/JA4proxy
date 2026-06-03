@@ -5,7 +5,6 @@ Unit tests for src/tap/fingerprints/ja4s.py (Phase 20 Group 5-B).
 import struct
 
 import pytest
-
 from src.tap.fingerprints.ja4s import JA4SResult, extract_ja4s
 
 # ---------------------------------------------------------------------------

@@ -14,7 +14,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from cryptography import x509
-
 from src.security.validation import (
     AuditLogger,
     ComplianceError,

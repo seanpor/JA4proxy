@@ -18,7 +18,6 @@ from unittest.mock import patch
 
 import fakeredis
 import pytest
-
 from src.backup.restorer import BackupRestorer
 from src.backup.worker import BackupWorker
 

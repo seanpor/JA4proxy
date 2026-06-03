@@ -8,7 +8,6 @@ import struct
 from unittest.mock import MagicMock
 
 import pytest
-
 from src.tap.capture import ParsedPacket, _parse_ethernet_frame
 from src.tap.fingerprints.ja4 import extract_ja4
 from src.tap.fingerprints.ja4s import extract_ja4s

@@ -9,7 +9,6 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 import redis
-
 from src.security.action_enforcer import ActionEnforcer
 from src.security.action_types import ActionConfig, ActionType
 from src.security.rate_strategy import RateLimitStrategy

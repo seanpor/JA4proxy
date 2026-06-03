@@ -15,7 +15,6 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 import redis
-
 from src.security.rate_strategy import (
     RateLimitStrategy,
     RateMetrics,

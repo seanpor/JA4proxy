@@ -4,7 +4,6 @@ from cryptography import x509
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric import padding
 from prometheus_client import Counter
-
 from src.security.models import ConnectionContext
 
 _MTLS_VERIFIED = Counter(

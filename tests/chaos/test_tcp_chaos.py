@@ -3,7 +3,6 @@ import unittest
 from unittest.mock import AsyncMock, MagicMock
 
 import redis as redis_lib
-
 from src.cache.local_cache import LocalCache
 from src.security.models import ConnectionContext
 from src.security.pipeline import Pipeline
