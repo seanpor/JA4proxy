@@ -41,7 +41,7 @@
 #   notes               free-text, optional
 
 schema_version: 1
-last_allocated_id: 55
+last_allocated_id: 62
 findings:
 - id: JA4PROXY-2026-0001
   title: PROXY Protocol v2 Spoofing from Untrusted Source
@@ -184,9 +184,9 @@ findings:
     field in the ClientHello. Any bot, scanner, or tool can set ALPN=h2 and bypass JA4 blocklists, rate
     limiting, geo-blocking, risk scoring, and the entire security pipeline. This is the proxy's single
     biggest design flaw.
-  notes: 'Phase 119a offers three fix options: (1) downgrade to signal not bypass, (2) correlate ALPN
-    with other ClientHello features before granting bypass, (3) disable bypass by default. No obvious
-    single ''correct'' fix — requires architectural decision.'
+  notes: "Phase 119a offers three fix options: (1) downgrade to signal not bypass, (2) correlate ALPN\
+    \ with other ClientHello features before granting bypass, (3) disable bypass by default. No obvious\
+    \ single 'correct' fix \u2014 requires architectural decision."
 - id: JA4PROXY-2026-0005
   title: X-JA4-Fingerprint HTTP Header Injection Bypass
   severity: CRITICAL
@@ -300,9 +300,10 @@ findings:
     or http://10.0.0.1:8090/internal. When webhook fires, proxy sends the webhook secret and internal
     data to attacker-controlled URL. Enables exfiltration of AWS metadata, Redis credentials, and internal
     API access.
-  notes: Phase 118d closure — Pydantic field_validator on WebhookCreate.url and WebhookUpdate.url rejects
-    non-http(s) schemes, localhost / *.localhost / *.local hostnames, IPv4/IPv6 literals in private or reserved
-    ranges, and hostnames whose DNS resolution lands in an internal range or fails entirely.
+  notes: "Phase 118d closure \u2014 Pydantic field_validator on WebhookCreate.url and WebhookUpdate.url\
+    \ rejects non-http(s) schemes, localhost / *.localhost / *.local hostnames, IPv4/IPv6 literals in\
+    \ private or reserved ranges, and hostnames whose DNS resolution lands in an internal range or fails\
+    \ entirely."
 - id: JA4PROXY-2026-0008
   title: Unauthenticated /metrics and /health/deep Endpoints
   severity: CRITICAL
@@ -336,11 +337,11 @@ findings:
   depends_on: []
   regression_test: internal/config/TestRegression_JA4PROXY_2026_0008_refuses_remote_unauth_metrics
   closed_commit: c37dbc7
-  description: 'The metrics HTTP server (cmd/proxy/main.go) binds to 0.0.0.0:<port> (default 9090) with
-    no authentication. The config file has authentication.enabled: false (dead config — never implemented).
-    Endpoints /health/deep and /metrics are unauthenticated and expose: dial setting, active connections,
-    ban count, tarpit saturation, cert expiry, block rate %, and full Prometheus scrape. Attacker polls
-    endpoints for reconnaissance before launching attacks.'
+  description: "The metrics HTTP server (cmd/proxy/main.go) binds to 0.0.0.0:<port> (default 9090) with\
+    \ no authentication. The config file has authentication.enabled: false (dead config \u2014 never implemented).\
+    \ Endpoints /health/deep and /metrics are unauthenticated and expose: dial setting, active connections,\
+    \ ban count, tarpit saturation, cert expiry, block rate %, and full Prometheus scrape. Attacker polls\
+    \ endpoints for reconnaissance before launching attacks."
   notes: Phase 118c and 118h both address this. 118c is narrower (just metrics binding); 118h is full
     auth implementation. 118h is preferred as it allows metrics on privileged network while adding auth
     option.
@@ -792,10 +793,10 @@ findings:
   description: 'management/api/auth.py contains test secret fallback: if MANAGEMENT_TEST_MODE=1, JWT verification
     uses hardcoded "test-secret-do-not-use-in-production". If attacker can set env var (container escape,
     supply-chain compromise), JWT verification bypassed.'
-  notes: Phase 118e closure — auth.is_test_mode() ignores MANAGEMENT_TEST_MODE whenever ENVIRONMENT=production,
-    so both the JWT fallback secret and the OIDC signature-verification skip become unreachable in prod.
-    main._enforce_no_test_mode_in_production() refuses to boot create_app() when ENVIRONMENT=production
-    AND MANAGEMENT_TEST_MODE=1 are set together, converting a silent bypass into a loud failure.
+  notes: "Phase 118e closure \u2014 auth.is_test_mode() ignores MANAGEMENT_TEST_MODE whenever ENVIRONMENT=production,\
+    \ so both the JWT fallback secret and the OIDC signature-verification skip become unreachable in prod.\
+    \ main._enforce_no_test_mode_in_production() refuses to boot create_app() when ENVIRONMENT=production\
+    \ AND MANAGEMENT_TEST_MODE=1 are set together, converting a silent bypass into a loud failure."
 - id: JA4PROXY-2026-0024
   title: JWT Cookie Secure Flag Not Gated to Production
   severity: HIGH
@@ -1106,9 +1107,9 @@ findings:
   depends_on: []
   regression_test: tests/unit/test_pentest_tls_parser_isolation_regression.py::test_parse_tls_task_does_not_setrlimit
   closed_commit: 3ce47b9
-  description: proxy.py:1279-1281 uses ThreadPoolExecutor (not ProcessPoolExecutor). Original used ProcessPoolExecutor
-    for memory isolation — malformed TLS crash only kills child. With ThreadPoolExecutor, pathological
-    Scapy parsing consumes unlimited memory in main proxy process.
+  description: "proxy.py:1279-1281 uses ThreadPoolExecutor (not ProcessPoolExecutor). Original used ProcessPoolExecutor\
+    \ for memory isolation \u2014 malformed TLS crash only kills child. With ThreadPoolExecutor, pathological\
+    \ Scapy parsing consumes unlimited memory in main proxy process."
   notes: 'Phase 118p specifies: either revert to ProcessPoolExecutor for TLS parsing only, or add 16KB
     max input size check before Scapy, or memory watchdog (harder in Python).'
 - id: JA4PROXY-2026-0034
@@ -1290,12 +1291,12 @@ findings:
   closed_commit: 46db431ac8af7dc74328ee6332e952aefccb41f3
   description: proxy.py:2779-2781 credit card regex r"(\d{13,19})" matches Unix timestamps in milliseconds
     (13 digits), large counters, Redis keys. Operational log data corrupted with ***CARD_REDACTED***.
-  notes: 'Phase 119t specifies Luhn checksum validation before redacting. Phase 118uu fix: added
-    _luhn_check() + _redact_card_if_luhn() helpers in proxy.py. The credit-card regex is now
-    word-boundary anchored and uses a callback substitution that returns the original digits
-    unchanged unless they satisfy the Luhn mod-10 checksum. Regression asserts (a) 11 real PAN
-    test vectors still redact, (b) timestamps, counters, all-nines strings pass through intact,
-    (c) a mixed line redacts only the card, (d) the args-path pass also uses the Luhn gate.'
+  notes: 'Phase 119t specifies Luhn checksum validation before redacting. Phase 118uu fix: added _luhn_check()
+    + _redact_card_if_luhn() helpers in proxy.py. The credit-card regex is now word-boundary anchored
+    and uses a callback substitution that returns the original digits unchanged unless they satisfy the
+    Luhn mod-10 checksum. Regression asserts (a) 11 real PAN test vectors still redact, (b) timestamps,
+    counters, all-nines strings pass through intact, (c) a mixed line redacts only the card, (d) the args-path
+    pass also uses the Luhn gate.'
 - id: JA4PROXY-2026-0040
   title: start-poc.sh Echoes Passwords to Console
   severity: LOW
@@ -1326,15 +1327,13 @@ findings:
   description: scripts/start-poc.sh echoes Redis and Grafana passwords to stdout, appearing in terminal
     scrollback, CI logs, screen recordings.
   notes: 'Phase 118q specifies replacing password echo with confirmation messages (''Redis password: [generated]'')
-    without actual value.
-    Phase 118rr fixed three scripts at once: scripts/start-poc.sh (echoed REDIS_PW/GRAFANA_PW
-    after generation), scripts/status.sh (echoed GRAFANA_PASS in the Access URLs banner), and
-    scripts/start-monitoring.sh (echoed GRAFANA_PASSWORD with the even worse ":-admin" default
-    embedded in the fallback). All three now render "[see .env]" placeholders plus a grep
-    recipe. Regression test regex scans for echo/printf lines that expand any variable whose
-    name ends in PASS/PASSWORD/PW/SECRET/TOKEN/KEY, with explicit $$VAR-literal exclusion, and
-    self-tests the regex against pre-fix and post-fix shapes to guard against a future
-    "simplification" that breaks detection.'
+    without actual value. Phase 118rr fixed three scripts at once: scripts/start-poc.sh (echoed REDIS_PW/GRAFANA_PW
+    after generation), scripts/status.sh (echoed GRAFANA_PASS in the Access URLs banner), and scripts/start-monitoring.sh
+    (echoed GRAFANA_PASSWORD with the even worse ":-admin" default embedded in the fallback). All three
+    now render "[see .env]" placeholders plus a grep recipe. Regression test regex scans for echo/printf
+    lines that expand any variable whose name ends in PASS/PASSWORD/PW/SECRET/TOKEN/KEY, with explicit
+    $$VAR-literal exclusion, and self-tests the regex against pre-fix and post-fix shapes to guard against
+    a future "simplification" that breaks detection.'
 - id: JA4PROXY-2026-0041
   title: Config Reload Path Hardcoded (Ignores CONFIG_PATH)
   severity: LOW
@@ -1364,13 +1363,12 @@ findings:
   closed_commit: 8f29dff6a0483e429f7bf4341b0ff16dc5ec6543
   description: cmd/proxy/main.go:593 reload() always loads "config/proxy.yml" regardless of CONFIG_PATH
     env var used at startup. SIGHUP reload loads different config than startup.
-  notes: 'Phase 119m specifies storing config path at startup, reusing in reload(). Phase 118ss
-    fix: newProxy() now accepts a cfgPath argument and stores it on proxy.cfgPath; reload() reads
-    from p.cfgPath with a fallback to "config/proxy.yml" when the field is empty (preserves
-    test-fixture behaviour for structs built via literal). Regression test has three guards —
-    runtime round-trip against a temp file, struct-literal round-trip on the cfgPath field, and a
-    source-scan regex that fails if a future edit reintroduces config.Load("config/proxy.yml")
-    inside the reload() body.'
+  notes: "Phase 119m specifies storing config path at startup, reusing in reload(). Phase 118ss fix: newProxy()\
+    \ now accepts a cfgPath argument and stores it on proxy.cfgPath; reload() reads from p.cfgPath with\
+    \ a fallback to \"config/proxy.yml\" when the field is empty (preserves test-fixture behaviour for\
+    \ structs built via literal). Regression test has three guards \u2014 runtime round-trip against a\
+    \ temp file, struct-literal round-trip on the cfgPath field, and a source-scan regex that fails if\
+    \ a future edit reintroduces config.Load(\"config/proxy.yml\") inside the reload() body."
 - id: JA4PROXY-2026-0042
   title: Redis Unix Socket Permissions 777
   severity: LOW
@@ -1401,13 +1399,12 @@ findings:
   closed_commit: b4a9f1bb5012340ceec6040b48a331415bca6ae3
   description: deploy/docker/docker-compose.poc.yml and docker-compose.prod.yml Redis use --unixsocketperm
     777. Any container sharing redis-sock volume can connect without restriction.
-  notes: Phase 119n specifies --unixsocketperm 770 with volume shared only by proxy/analytics containers.
-    Phase 118oo tightened both compose files to 770 and added group_add ['999'] to the prod proxy
-    service (POC proxy uses TCP, no group_add needed). The GID 999 is canonical — already pinned
-    in deploy/helm/ja4proxy/templates/redis.yaml and deploy/ansible/roles/redis-secure/tasks/main.yml.
-    Regression test pins 'others' octal digit to 0 in both files, pins group_add on prod proxy,
-    and pins that no non-redis service mounts redis-sock in POC (so a future mount cannot
-    silently open the hardening gap).
+  notes: "Phase 119n specifies --unixsocketperm 770 with volume shared only by proxy/analytics containers.\
+    \ Phase 118oo tightened both compose files to 770 and added group_add ['999'] to the prod proxy service\
+    \ (POC proxy uses TCP, no group_add needed). The GID 999 is canonical \u2014 already pinned in deploy/helm/ja4proxy/templates/redis.yaml\
+    \ and deploy/ansible/roles/redis-secure/tasks/main.yml. Regression test pins 'others' octal digit\
+    \ to 0 in both files, pins group_add on prod proxy, and pins that no non-redis service mounts redis-sock\
+    \ in POC (so a future mount cannot silently open the hardening gap)."
 - id: JA4PROXY-2026-0043
   title: Redis ACL Users All Share Same Password
   severity: LOW
@@ -1469,12 +1466,12 @@ findings:
   description: management/requirements.txt uses >= minimum pins with no upper bounds. Vulnerable to dependency
     confusion and malicious version upgrades.
   notes: Phase 119p specifies pinning exact versions or pip-compile to generate lockfile with hashes.
-    Phase 118pp replaced every '>=' with an '==' at the same minimum version previously tolerated,
-    closing the floating-version exposure without changing installed-version behaviour. The file
-    header names the finding ID so future editors see the rationale inline. Long-term target
-    remains pip-compile + '--require-hashes' (tracked for a later phase); exact pins remove the
-    primary exposure in the interim. Regression test rejects '>=', '~=', '>', '<', '!=' and
-    bare package names, forcing any future edit to either keep '==' or use an explicit URL/VCS pin.
+    Phase 118pp replaced every '>=' with an '==' at the same minimum version previously tolerated, closing
+    the floating-version exposure without changing installed-version behaviour. The file header names
+    the finding ID so future editors see the rationale inline. Long-term target remains pip-compile +
+    '--require-hashes' (tracked for a later phase); exact pins remove the primary exposure in the interim.
+    Regression test rejects '>=', '~=', '>', '<', '!=' and bare package names, forcing any future edit
+    to either keep '==' or use an explicit URL/VCS pin.
 - id: JA4PROXY-2026-0045
   title: Grafana Bound to All Interfaces in Monitoring Stack
   severity: LOW
@@ -1505,11 +1502,11 @@ findings:
   closed_commit: e9bda6ad33b803d8ea1aa011f03b92630ad82070
   description: deploy/docker/docker-compose.monitoring.yml Grafana binds to 0.0.0.0:3001 while other services
     bind to 127.0.0.1. Exposes dashboards showing topology, bans, security state.
-  notes: Phase 119q specifies '127.0.0.1:3001:3000'. Dashboard still accessible via SSH tunnel.
-    Phase 118nn applied the fix to BOTH docker-compose.monitoring.yml and docker-compose.prod.yml
-    (prod had the same '3001:3000' short form). Regression test parses both files and asserts
-    every Grafana port entry uses the explicit '127.0.0.1:HOST:CONTAINER' three-field short form,
-    plus pins the two files to identical bindings to prevent drift.
+  notes: Phase 119q specifies '127.0.0.1:3001:3000'. Dashboard still accessible via SSH tunnel. Phase
+    118nn applied the fix to BOTH docker-compose.monitoring.yml and docker-compose.prod.yml (prod had
+    the same '3001:3000' short form). Regression test parses both files and asserts every Grafana port
+    entry uses the explicit '127.0.0.1:HOST:CONTAINER' three-field short form, plus pins the two files
+    to identical bindings to prevent drift.
 - id: JA4PROXY-2026-0046
   title: K8s DaemonSet Missing Probes and NetworkPolicy
   severity: LOW
@@ -1540,17 +1537,15 @@ findings:
   closed_commit: 7170c7f3854bc1ed511b7816d2ea7ac9f5d5b048
   description: deploy/helm/ja4proxy/templates/daemonset.yaml missing liveness/readiness probes. Hung proxy
     pods continue receiving traffic. No NetworkPolicy restricts Redis and metrics port ingress.
-  notes: Phase 119r specifies liveness/readiness probes on /health:9090, NetworkPolicy restricting Redis
-    to proxy pods, proxy ingress from HAProxy only.
-    Phase 118qq added both probes to the DaemonSet (tuned so readiness drains faster than
-    liveness kills) and shipped a new templates/networkpolicy.yaml with two policies —
-    ja4proxy-ingress (port 8080 from configurable client labels/CIDRs, port 9090 only from
-    pods carrying metricsScrapeLabels, default Prometheus label) and ja4proxy-egress (DNS to
-    kube-dns, Redis to app=ja4proxy-redis pods, backend port to any destination because
-    NetworkPolicy cannot match FQDNs — a cluster-wide CiliumNetworkPolicy or firewall should
-    pin the upstream IP). networkPolicy.enabled defaults to True (secure-by-default);
-    operators running a cluster-wide controller can opt out cleanly. Regression test renders
-    with `helm template` and pins eight invariants.
+  notes: "Phase 119r specifies liveness/readiness probes on /health:9090, NetworkPolicy restricting Redis\
+    \ to proxy pods, proxy ingress from HAProxy only. Phase 118qq added both probes to the DaemonSet (tuned\
+    \ so readiness drains faster than liveness kills) and shipped a new templates/networkpolicy.yaml with\
+    \ two policies \u2014 ja4proxy-ingress (port 8080 from configurable client labels/CIDRs, port 9090\
+    \ only from pods carrying metricsScrapeLabels, default Prometheus label) and ja4proxy-egress (DNS\
+    \ to kube-dns, Redis to app=ja4proxy-redis pods, backend port to any destination because NetworkPolicy\
+    \ cannot match FQDNs \u2014 a cluster-wide CiliumNetworkPolicy or firewall should pin the upstream\
+    \ IP). networkPolicy.enabled defaults to True (secure-by-default); operators running a cluster-wide\
+    \ controller can opt out cleanly. Regression test renders with `helm template` and pins eight invariants."
 - id: JA4PROXY-2026-0047
   title: Redis TLS Binds to All Interfaces (Duplicate/Related to 0015)
   severity: MEDIUM
@@ -1682,8 +1677,8 @@ findings:
   depends_on: []
   regression_test: internal/webhook/pentest_secret_redaction_regression_test.go::TestRegression_JA4PROXY_2026_0051_fmt_sprintf_does_not_leak
   closed_commit: 1b68920
-  description: internal/webhook/delivery.go computes HMAC using secret string held in memory for process
-    lifetime. Process compromise → secret exposure.
+  description: "internal/webhook/delivery.go computes HMAC using secret string held in memory for process\
+    \ lifetime. Process compromise \u2192 secret exposure."
   notes: Standard concern for in-process secrets. Recommend no changes unless secrets-engine integration
     (e.g., Vault) is deployed.
 - id: JA4PROXY-2026-0052
@@ -1740,11 +1735,11 @@ findings:
   closed_commit: 7c496d626630d16842f9df9289d92d07b08b9d65
   description: management/api/redis_client.py:70 may partially leak Redis password in connection error
     logs.
-  notes: 'Source document incomplete (cut off mid-sentence). Phase 118tt fix: introduced
-    _redact_redis_url() using urllib.parse.urlparse so the password field is masked regardless of
-    URL shape (bare, user+pass, password-with-@). init_redis() now logs only the redacted form on
-    success and on failure logs the redacted URL plus exception class name (never the exception
-    text, which can echo the raw URL back). Regression covers the helper + both init paths.'
+  notes: 'Source document incomplete (cut off mid-sentence). Phase 118tt fix: introduced _redact_redis_url()
+    using urllib.parse.urlparse so the password field is masked regardless of URL shape (bare, user+pass,
+    password-with-@). init_redis() now logs only the redacted form on success and on failure logs the
+    redacted URL plus exception class name (never the exception text, which can echo the raw URL back).
+    Regression covers the helper + both init paths.'
 - id: JA4PROXY-2026-0054
   title: Configuration Path Traversal Prevention
   severity: MEDIUM
@@ -1800,3 +1795,162 @@ findings:
     (deploy/integrations/splunk-ta/*, deploy/nagios/check_ja4proxy.py, deploy/dynatrace/ja4proxy-extension/plugin.py).
   notes: Phase 118k specifies ssl.create_default_context() for verified connections, with option for self-signed
     certs if needed.
+- id: JA4PROXY-2026-0056
+  title: No Panic Recovery in Connection Handler Goroutine
+  severity: CRITICAL
+  severity_rationale: 'C-1: process crash = full DoS'
+  source_refs:
+  - report: PHASE_215
+    id: F-001
+    discovered: '2026-06-03'
+  remediation_phases: []
+  owner: '@seanpor'
+  lane: go-proxy
+  discovered: '2026-06-03'
+  due: '2026-06-10'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  cvss_v3_1:
+    score: 7.5
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H
+  notes: 'handler goroutine at main.go:418 lacks recover(). A panic in any of 14+ signal modules or Redis
+    call crashes entire proxy. Fix: add defer/recover in go func() at main.go:418-421. Regression test:
+    cmd/proxy/pentest_panic_recovery_test.go'
+- id: JA4PROXY-2026-0057
+  title: Unbounded Beaconing Goroutine per Connection
+  severity: HIGH
+  severity_rationale: "H-1: unbounded goroutine growth \u2192 resource exhaustion"
+  source_refs:
+  - report: PHASE_215
+    id: F-002
+    discovered: '2026-06-03'
+  remediation_phases: []
+  owner: '@seanpor'
+  lane: go-proxy
+  discovered: '2026-06-03'
+  due: '2026-07-03'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  cvss_v3_1:
+    score: 5.3
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L
+  notes: pipeline.go:410 spawns goroutine per allowed connection. Not bounded by worker pool. Must migrate
+    to same bounded-worker pattern from JA4PROXY-2026-0031 fix.
+- id: JA4PROXY-2026-0058
+  title: BlacklistBypass Flag Naming is Inverted
+  severity: MEDIUM
+  severity_rationale: "M-1: misconfiguration risk \u2014 flag name says 'bypass' but true enables blocking"
+  source_refs:
+  - report: PHASE_215
+    id: F-003
+    discovered: '2026-06-03'
+  remediation_phases: []
+  owner: '@seanpor'
+  lane: go-proxy
+  discovered: '2026-06-03'
+  due: '2026-08-02'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  cvss_v3_1:
+    score: 4.3
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:N/A:L
+  notes: main.go:525 flips 'bypass' flag meaning. When bypass=true, hard-blocking is enabled instead of
+    bypassed. Rename or invert.
+- id: JA4PROXY-2026-0059
+  title: TLS Record Reassembly Allocates Per-Fragment Buffers
+  severity: MEDIUM
+  severity_rationale: "M-2: unbounded allocation per fragment \u2192 OOM under fragmentation attack"
+  source_refs:
+  - report: PHASE_215
+    id: F-004
+    discovered: '2026-06-03'
+  remediation_phases: []
+  owner: '@seanpor'
+  lane: go-proxy
+  discovered: '2026-06-03'
+  due: '2026-08-02'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  cvss_v3_1:
+    score: 5.3
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L
+  notes: main.go:654-741 allocates a new buffer per TLS record fragment. Under fragmentation attack, one
+    connection can exhaust proxy memory. Consider bounded reassembly.
+- id: JA4PROXY-2026-0060
+  title: Reassembly Buffer Purging Logged Inconsistently
+  severity: LOW
+  severity_rationale: "L-1: debug/info inconsistency \u2014 minor operational concern"
+  source_refs:
+  - report: PHASE_215
+    id: F-005
+    discovered: '2026-06-03'
+  remediation_phases: []
+  owner: '@seanpor'
+  lane: go-proxy
+  discovered: '2026-06-03'
+  due: '2026-10-01'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  cvss_v3_1:
+    score: 3.1
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L
+  notes: main.go:741 logs at Info level while similar events use Debug. Standardise to Debug per signal-pipeline
+    convention.
+- id: JA4PROXY-2026-0061
+  title: Active Connection Gauge May Overcount After Handler Panic
+  severity: LOW
+  severity_rationale: "L-2: metric inaccuracy under panic \u2014 minor"
+  source_refs:
+  - report: PHASE_215
+    id: F-006
+    discovered: '2026-06-03'
+  remediation_phases: []
+  owner: '@seanpor'
+  lane: go-proxy
+  discovered: '2026-06-03'
+  due: '2026-10-01'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  cvss_v3_1:
+    score: 3.1
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L
+  notes: main.go:417 increments activeConns before handler goroutine. If handler panics without recover,
+    decrement never runs. Metric drifts upward over time.
+- id: JA4PROXY-2026-0062
+  title: Config MaxConnectionLimit Field Not Implemented in Production Path
+  severity: LOW
+  severity_rationale: 'INFO: unused config field, registered as LOW due to rubric constraints'
+  source_refs:
+  - report: PHASE_215
+    id: F-007
+    discovered: '2026-06-03'
+  remediation_phases: []
+  owner: '@seanpor'
+  lane: go-proxy
+  discovered: '2026-06-03'
+  due: '2026-10-01'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  notes: Config struct defines MaxConnectionLimit but it's only read in Python proxy. Go proxy's acceptSem
+    semaphore does not read this value. Either wire it up or remove the field.

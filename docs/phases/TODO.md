@@ -22,7 +22,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 ### Phase 125 — Infrastructure & Supply Chain Resilience
 *   **Status:** **IN_PROGRESS** (Comprehensive supply-chain hardening: SHA-pinned Docker base images, reproducible Go builds with -trimpath, dependency audit automation, and infrastructure-as-code security scanning.)
 *   **Action Plan:** [PHASE_125.md](complete/PHASE_125.md)
-
 ---
 
 ## 🔵 Planned & Open Phases
