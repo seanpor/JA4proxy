@@ -273,21 +273,8 @@ func (p *Pipeline) StartBackgroundWorkers(ctx context.Context) {
 // Process runs a connection through the full pipeline and returns the result.
 // It never panics; all module errors are caught and logged.
 func (p *Pipeline) Process(ctx context.Context, conn *ConnectionContext) *PipelineResult {
-	// ── 1. BYPASS CHECKS ──────────────────────────────────────────────────
-	if bypass, reason := p.checkBypasses(conn); bypass {
-		p.log.WithFields(logrus.Fields{
-			"ip":     conn.ClientIP,
-			"ja4":    conn.JA4,
-			"bypass": reason,
-		}).Debug("pipeline: bypass")
-		return &PipelineResult{
-			Action:       "allow",
-			Bypassed:     true,
-			BypassReason: reason,
-		}
-	}
-
-	// Check hard-blocks before scoring
+	
+	// ── 1. HARD BLOCKS (Blacklists, etc.)
 	if block, reason := p.checkHardBlocks(conn); block {
 		p.log.WithFields(logrus.Fields{
 			"ip":     conn.ClientIP,
@@ -317,7 +304,20 @@ func (p *Pipeline) Process(ctx context.Context, conn *ConnectionContext) *Pipeli
 		return &PipelineResult{Action: "block", Score: 100, BypassReason: "blocklist"}
 	}
 
-	// ── 2. DIAL (fetch once — cheap Redis GET) ────────────────────────────
+	// ── 2. BYPASS CHECKS (Whitelists, etc.) ──────────────────────────────────────────────────
+	if bypass, reason := p.checkBypasses(conn); bypass {
+		p.log.WithFields(logrus.Fields{
+			"ip":     conn.ClientIP,
+			"ja4":    conn.JA4,
+			"bypass": reason,
+		}).Debug("pipeline: bypass")
+		return &PipelineResult{
+			Action:       "allow",
+			Bypassed:     true,
+			BypassReason: reason,
+		}
+	}
+// ── 2. DIAL (fetch once — cheap Redis GET) ────────────────────────────
 	dial := 0
 	if p.redis != nil {
 		dial = p.redis.GetDial(ctx)

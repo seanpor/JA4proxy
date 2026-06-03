@@ -143,8 +143,8 @@ security:
   # Pattern-based whitelist: match JA4 prefix patterns (survives OpenSSL version changes)
   # Whitelisted connections skip ALL rate limiting — they are never blocked.
   whitelist_patterns:
-    - "h2"   # HTTP/2 ALPN = modern browser (Chrome, Firefox, Safari, Edge)
-    - "h1"   # HTTP/1.1 ALPN = older browser or browser in fallback mode
+    # # - "h2"   # DISABLED per UAT Phase 129: too broad = modern browser (Chrome, Firefox, Safari, Edge)
+    # # - "h1"   # DISABLED per UAT Phase 129: too broad = older browser or browser in fallback mode
 
   # Known bad JA4 fingerprints (blacklisted)
   blacklist:
@@ -982,3 +982,27 @@ threat_intel:
       ttl_jsonpath: "$.indicators[*].expires_in"
       ban_ttl_hours: 24
       poll_interval_minutes: 15
+
+# SNI Analysis (JA4PROXY-2026-0042)
+sni_analyzer:
+  missing_sni:
+    enabled: true
+    score: 30
+  ip_literal_sni:
+    enabled: true
+    score: 25
+  dga_detection:
+    enabled: true
+    score_cap: 40
+  unexpected_sni:
+    enabled: true
+    score: 15
+  malicious_sni:
+    enabled: true
+    score: 100
+  expected_hostnames:
+    - "backend"
+    - "localhost"
+\nsync:\n  integrity_key_file: "config/integrity.key"
+sync:
+  integrity_key_file: "config/integrity.key"
