@@ -49,6 +49,7 @@ epics:
   - 119
   - 121
   - 215
+  - 216
 - name: 'Epic: Analytics & Intelligence'
   description: Cross-instance behavior analysis and threat intelligence.
   phases:
@@ -2138,6 +2139,18 @@ phases:
       9 layers: TCP/network, TLS/fingerprint, signal pipeline, risk scoring, Redis integration,
       webhook, metrics/health, config/crypto, and CLI. Python prototype proxy explicitly out of
       scope. Findings recorded in findings.yaml with regression tests.'
+  216:
+    name: Penetration Test Remediation — All Phase 215 Findings
+    status: COMPLETE
+    completed: 2026-06-03
+    action_plan: docs/phases/PHASE_216.md
+    dependencies: [215]
+    size: LARGE
+    summary: 'Remediates all 7 findings from the Phase 215 white-box pentest: panic recovery in handler
+      goroutine (F-001 CRITICAL), bounded beaconing goroutine (F-002 HIGH), inverted BlacklistBypass
+      naming (F-003 MEDIUM), per-fragment TLS reassembly cap (F-004 MEDIUM), log level standardisation
+      (F-005 LOW), active-connection gauge fix under panic (F-006 LOW), and MaxConnectionLimit wiring
+      decision (F-007 LOW).'
   123:
     name: Security Hardening & Operational Excellence
     status: COMPLETE

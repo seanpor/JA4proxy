@@ -146,8 +146,8 @@ func TestLoad_SecurityPolicyDefaults(t *testing.T) {
 	if !cfg.SecurityPolicy.JA4WhitelistBypass.Enabled {
 		t.Error("JA4WhitelistBypass should default to enabled")
 	}
-	if !cfg.SecurityPolicy.JA4BlacklistBypass.Enabled {
-		t.Error("JA4BlacklistBypass should default to enabled")
+	if !cfg.SecurityPolicy.JA4BlockingEnabled.Enabled {
+		t.Error("JA4BlockingEnabled should default to enabled")
 	}
 	if !cfg.SecurityPolicy.MTLSBypass.Enabled {
 		t.Error("MTLSBypass should default to enabled")
@@ -155,8 +155,8 @@ func TestLoad_SecurityPolicyDefaults(t *testing.T) {
 	if !cfg.SecurityPolicy.StaticIPAllowlist.Enabled {
 		t.Error("StaticIPAllowlist should default to enabled")
 	}
-	if !cfg.SecurityPolicy.CountryBlacklistBypass.Enabled {
-		t.Error("CountryBlacklistBypass should default to enabled")
+	if !cfg.SecurityPolicy.CountryBlockingEnabled.Enabled {
+		t.Error("CountryBlockingEnabled should default to enabled")
 	}
 	if !cfg.SecurityPolicy.SpamhausBypass.Enabled {
 		t.Error("SpamhausBypass should default to enabled")

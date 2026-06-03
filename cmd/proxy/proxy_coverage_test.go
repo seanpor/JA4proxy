@@ -23,9 +23,9 @@ func TestBuildPipelineConfig(t *testing.T) {
 	cfg := &config.Config{}
 	cfg.SecurityPolicy.ALPNBrowserBypass.Enabled = true
 	cfg.SecurityPolicy.JA4WhitelistBypass.Enabled = true
-	cfg.SecurityPolicy.JA4BlacklistBypass.Enabled = true
+	cfg.SecurityPolicy.JA4BlockingEnabled.Enabled = true
 	cfg.SecurityPolicy.MTLSBypass.Enabled = false
-	cfg.SecurityPolicy.CountryBlacklistBypass.Enabled = true
+	cfg.SecurityPolicy.CountryBlockingEnabled.Enabled = true
 	cfg.SecurityPolicy.TLSVersionBypass.Enabled = true
 
 	cfg.Security.Whitelist = []string{"fp1", "fp2"}
@@ -64,8 +64,8 @@ func TestBuildPipelineConfig(t *testing.T) {
 	if !pc.JA4WhitelistBypass {
 		t.Error("JA4WhitelistBypass should be true")
 	}
-	if !pc.JA4BlacklistBypass {
-		t.Error("JA4BlacklistBypass should be true")
+	if !pc.JA4BlockingEnabled {
+		t.Error("JA4BlockingEnabled should be true")
 	}
 	if pc.MTLSBypass {
 		t.Error("MTLSBypass should be false")

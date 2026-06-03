@@ -30,7 +30,7 @@ func newTestPipeline(dial int) *Pipeline {
 	cfg := &PipelineConfig{
 		ALPNBrowserBypass:  true,
 		JA4WhitelistBypass: true,
-		JA4BlacklistBypass: true,
+		JA4BlockingEnabled: true,
 		MTLSBypass:         true,
 		Whitelist:          map[string]bool{"t13d1516h2_8daaf6152771_02713d6af862": true},
 		Blacklist:          map[string]bool{"t13d190900_9dc949149365_97f8aa674fd9": true},
