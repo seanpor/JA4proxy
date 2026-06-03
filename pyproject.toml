@@ -56,6 +56,7 @@ filterwarnings = [
 
 # ── mypy configuration (consolidated from mypy.ini) ──────────────────────────
 [tool.mypy]
+exclude = ["^archive/", "^vendor/", "^node_modules/"]
 # Phase 16f baseline — --ignore-missing-imports --no-strict-optional
 # Goal: zero errors in new code; suppress known legacy patterns.
 # Phase 16g will tighten to --strict once Redis typing is resolved.
@@ -102,6 +103,7 @@ max-line-length = 88
 extend-ignore = ["E203", "W503", "E501", "E402", "F841"]
 
 [tool.ruff]
+exclude = ["archive", "vendor", "node_modules", "deploy/secrets"]
 # Phase 16f baseline — check src/ and proxy.py; tests are advisory only.
 target-version = "py313"
 line-length = 120
