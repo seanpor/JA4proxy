@@ -27,6 +27,23 @@ This document tracks the remaining work for both historical phases (gaps identif
 
 ## 🔵 Planned & Open Phases
 
+### Phase 137 — Advanced Adversarial Fuzzing & Protocol Hardening
+*   **Status:** **PROPOSED** (Harden Go proxy against PROXY v2, TCP fragmentation, and smuggling.)
+*   **Action Plan:** [PHASE_137.md](PHASE_137.md)
+
+### Phase 138 — Hot-Path Performance Optimization & Zero-Copy Refactoring
+*   **Status:** **PROPOSED** (Target <500ns latency via zero-copy refactoring and allocation audit.)
+*   **Action Plan:** [PHASE_138.md](PHASE_138.md)
+
+### Phase 139 — Open-Source Governance & OpenSSF Best Practices
+*   **Status:** **PROPOSED** (Achieve OpenSSF Best Practices badge and formalize governance docs.)
+*   **Action Plan:** [PHASE_139.md](PHASE_139.md)
+
+### Phase 140 — Observability Hardening & Signal Drift Detection
+*   **Status:** **PROPOSED** (Per-signal latency metrics and cross-node scoring drift detection.)
+*   **Action Plan:** [PHASE_140.md](PHASE_140.md)
+
+
 ### Phase 109 — PROXY Protocol Hardening & Scrubbing
 *   **Status:** **DEFERRED** (Superseded by Phase 118 — PROXY-header scrubbing closed via findings register (118a/b, 116a).)
 *   **Action Plan:** [cancelled/PHASE_109.md](cancelled/PHASE_109.md)

@@ -2195,3 +2195,23 @@ phases:
     status: COMPLETE
     action_plan: docs/phases/complete/PHASE_136.md
     summary: Performed an exhaustive link rot audit across the repository using Lychee. Fixed hundreds of broken internal references caused by directory flattening and archival, and generated a formal documentation health report.
+  137:
+    name: Advanced Adversarial Fuzzing & Protocol Hardening
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_137.md
+    summary: Hardens the Go proxy against low-level protocol manipulation (PROXY v2, TCP fragmentation, and smuggling) by expanding the automated fuzzing suite and verifying strict fail-closed behavior for non-TLS traffic.
+  138:
+    name: Hot-Path Performance Optimization & Zero-Copy Refactoring
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_138.md
+    summary: Targets sub-500ns allow-path latency by auditing allocations via pprof and refactoring the security pipeline to use zero-copy parsing for SNI, ALPN, and JA4 metadata.
+  139:
+    name: Open-Source Governance & OpenSSF Best Practices
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_139.md
+    summary: Formalizes the project governance model (CONTRIBUTING, CVD Policy, Code of Conduct) and fulfills the manual requirements for the OpenSSF Best Practices badge.
+  140:
+    name: Observability Hardening & Signal Drift Detection
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_140.md
+    summary: Enhances production monitoring by instrumenting per-signal execution latency and implementing a drift detection worker to ensure scoring consistency across the proxy mesh.
