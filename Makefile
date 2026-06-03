@@ -14,7 +14,7 @@
 .PHONY: lint-prom lint-alertmanager lint-secrets lint-deps lint-go-full lint-go-mod lint-makefiles lint-toml lint-markdown lint-spelling
 .PHONY: lint-docs lint-phases link-check lint-all
 .PHONY: scan scan-all scan-container scan-local scan-dockerfiles scan-images check-updates check-updates-container check-updates-local scan-first-party check-image-versions check-updates
-.PHONY: go-build go-test go-lint go-start go-stop go-switch go-rollback go-parity check-scores parity-check
+.PHONY: check-scores parity-check
 .PHONY: bench bench-quick bench-go bench-python
 .PHONY: gdpr-delete
 .PHONY: test-tap test-tap-live test-tap-perf
@@ -109,11 +109,6 @@ scan-help:
 legacy-help:
 	@echo ""
 	@echo "── Legacy Proxy (Python) ────────────────────────────────────"
-	@echo "  go-start          - Start Python legacy proxy alongside Go"
-	@echo "  go-stop           - Stop Python legacy proxy container"
-	@echo "  go-switch         - Show instructions: confirm Go primary"
-	@echo "  go-rollback       - Emergency: roll HAProxy back to Python"
-	@echo "  go-parity         - Cross-language parity tests"
 	@echo "  check-scores      - Audit scores against signal registry"
 	@echo "  parity-check      - Live end-to-end decision parity"
 
@@ -297,11 +292,11 @@ smoke-test:
 
 # Run linting
 lint:
-	docker run --rm -v $(PWD):/app python:3.13-slim sh -c "cd /app && pip install black flake8 mypy bandit pytest-cov ruff && ruff check proxy.py security/ src/ && echo \"✓ Linting passed\""
+	docker run --rm -v $(PWD):/app python:3.13-slim sh -c "cd /app && pip install black flake8 mypy bandit pytest-cov ruff && ruff check src/analytics/ src/management/ && echo \"✓ Linting passed\""
 
 # Security scanning with bandit (medium/high severity, skip B104 bind-all)
 lint-security:
-	@python3 -m bandit -r src/ proxy.py -ll --skip B104 && echo "  ✓ lint-security passed"
+	@python3 -m bandit -r src/analytics/ src/management/ -ll --skip B104 && echo "  ✓ lint-security passed"
 
 # Type checking with mypy (suppress output)
 lint-types:
@@ -315,13 +310,13 @@ lint-types:
 #   pip-audit: CVE scan of requirements.txt; urllib3 CVEs acknowledged (transitive, tracked backlog)
 lint-static:
 	@echo "=== mypy: type checking ==="
-	@python3 -m mypy src/ proxy.py && echo "  ✓ mypy passed"
+	@python3 -m mypy src/analytics/ src/management/ && echo "  ✓ mypy passed"
 	@echo ""
 	@echo "=== bandit: SAST (medium/high) ==="
-	@python3 -m bandit -r src/ proxy.py -ll -q --skip B104 && echo "  ✓ bandit passed"
+	@python3 -m bandit -r src/analytics/ src/management/ -ll -q --skip B104 && echo "  ✓ bandit passed"
 	@echo ""
 	@echo "=== ruff: linting ==="
-	@python3 -m ruff check src/ proxy.py && echo "  ✓ ruff passed (tests advisory only)"
+	@python3 -m ruff check src/analytics/ src/management/ && echo "  ✓ ruff passed (tests advisory only)"
 	@echo ""
 	@echo "=== pip-audit: CVE dependency scan ==="
 	@pip-audit -r requirements.txt \
@@ -336,7 +331,7 @@ lint-static:
 
 # Code quality with flake8 (suppress output)
 lint-quality:
-	docker run --rm -v $(PWD):/app python:3.14-slim sh -c "cd /app && pip install flake8 && flake8 proxy.py security/ src/ 2>/dev/null || echo 'Flake8 warnings above, see baseline docs/QUICK_REFERENCE.md'"
+	docker run --rm -v $(PWD):/app python:3.14-slim sh -c "cd /app && pip install flake8 && flake8 src/analytics/ src/management/ scripts/ tests/ 2>/dev/null || echo 'Flake8 warnings above, see baseline docs/QUICK_REFERENCE.md'"
 
 # Coverage reporting with pytest-cov (Phase 16c gate: ≥80% all modules)
 lint-coverage:
@@ -849,51 +844,16 @@ check-updates: check-updates-container
 # Both proxies share the same Redis instance.
 # Go proxy (primary): host port 8081 / metrics 9090
 # Python proxy (legacy): host port 8083 / metrics 9094
-go-start:
-	@echo "Starting Python legacy proxy (port 8083) for parity comparison..."
-	docker compose -f deploy/docker/docker-compose.poc.yml -f deploy/docker/docker-compose.python-legacy.yml --env-file .env up -d python-proxy
-	@echo ""
-	@echo "  Go proxy (primary): http://localhost:8081"
-	@echo "  Go metrics/health:  http://localhost:9090/health"
-	@echo "  Python proxy:       http://localhost:8083 (legacy, parity only)"
-	@echo ""
-	@echo "Run 'make go-parity' after 60s to validate decision parity."
 
 # Stop Python legacy proxy (Go proxy unaffected)
-go-stop:
-	docker compose -f deploy/docker/docker-compose.poc.yml -f deploy/docker/docker-compose.python-legacy.yml --env-file .env stop python-proxy
 
 # Confirm Go proxy is HAProxy primary (Go is the default — verify config is correct).
 # See docs/runbooks/go_proxy_migration.md for background.
-go-switch:
-	@echo "Go proxy is the production default. Confirm HAProxy config points to the proxy service:"
-	@echo ""
-	@echo "  backend ja4proxy"
-	@echo "      server go-proxy proxy:8080 check"
-	@echo ""
-	@echo "Then reload HAProxy if needed:"
-	@echo "  docker compose exec haproxy haproxy -sf \$$(cat /var/run/haproxy.pid)"
 
 # Emergency rollback: switch HAProxy to Python legacy proxy.
-# Prerequisites: Python proxy must be running (make go-start).
-go-rollback:
-	@echo "EMERGENCY ROLLBACK — switching HAProxy to Python legacy proxy..."
-	@echo ""
-	@echo "Start Python proxy first (if not already running): make go-start"
-	@echo ""
-	@echo "Update HAProxy config to:"
-	@echo "  backend ja4proxy"
-	@echo "      server python-proxy python-proxy:8080 check"
-	@echo ""
-	@echo "Then reload HAProxy:"
-	@echo "  docker compose exec haproxy haproxy -sf \$$(cat /var/run/haproxy.pid)"
-	@echo ""
-	@echo "Rollback complete. Run 'make go-switch' to restore Go proxy when ready."
 
 # Run cross-language parity tests.
 # Both proxies must be running: Python on :8080, Go on :8082.
-go-parity:
-	python3 -m pytest tests/integration/test_go_python_parity.py -v
 
 # ── Docker test harness ────────────────────────────────────────────────────────
 
@@ -1206,7 +1166,7 @@ test-gdpr-compliance:
 # code, attribute errors) that mypy and ruff don't cover.
 lint-pylint:
 	@echo "=== pylint: Python semantic analysis (errors only) ==="
-	@python3 -m pylint --errors-only src/ proxy.py security/ \
+	@python3 -m pylint --errors-only src/analytics/ src/management/ \
 		&& echo "✓ pylint passed"
 
 # semgrep with auto-config: cross-language pattern matching for real bugs,
