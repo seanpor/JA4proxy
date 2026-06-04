@@ -42,7 +42,12 @@ jobs:
       - name: go test
         env:
           GOFLAGS: "-count=1"
-        run: go test ./...
+        run: go test -v -coverprofile=coverage.txt -covermode=atomic ./...
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@0565863a330403ec3164bad3295982189680327f  # v6.1.0
+        with:
+          file: ./coverage.txt
+          fail_ci_if_error: false
 
   test-python:
     name: Python tests

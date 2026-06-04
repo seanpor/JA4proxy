@@ -1,7 +1,6 @@
 {
-  "synthetic_tls13_basic": "t13d030500_55b375c5d22e_ef2b5d879b42",
-  "synthetic_tls12_basic": "t12d040500_6826bf00caa0_020a1b99a7f1",
-  "synthetic_tls13_no_sni": "t13i020300_62ed6f6ca7ad_4f9fa6652b40",
-  "synthetic_grease": "t13d030400_55b375c5d22e_4f9fa6652b40",
-  "curl_tls13": "t13i0411h2_16476d049b0b_a908d7afddfc"
+  "synthetic_tls13_basic": "t13d030500_55b375c5d22e_a80244f201c9",
+  "synthetic_tls12_basic": "t12d040500_6826bf00caa0_8373daf1dfd8",
+  "synthetic_tls13_no_sni": "t13i020300_62ed6f6ca7ad_304562746881",
+  "synthetic_grease": "t13d030400_55b375c5d22e_304562746881"
 }
