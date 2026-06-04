@@ -309,7 +309,6 @@ Alignment with international standards and regulatory frameworks.
 | 141 | Repository Path Sanitization | COMPLETE | N/A | N/A |
 | 142 | Exhaustive Performance Benchmarking & Validation | COMPLETE | N/A | N/A |
 | 143 | Release & Coverage Strategy | COMPLETE | N/A | N/A |
-| 144 | Operational Excellence & Repo Pruning | PROPOSED | N/A | N/A |
 | 200 | Go PROXY Protocol Trust + v2 Support | COMPLETE | N/A | N/A |
 | 201 | Go Redis TLS + Silent-Failure Hardening | COMPLETE | N/A | N/A |
 | 202 | CI Supply Chain + Default Credential Removal | COMPLETE | N/A | N/A |

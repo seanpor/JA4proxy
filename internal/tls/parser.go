@@ -1,10 +1,10 @@
 package tls
 
 import (
-	"unsafe"
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"unsafe"
 )
 
 // Minimum valid ClientHello size:
@@ -103,7 +103,9 @@ func ParseClientHello(data []byte) (*ClientHelloInfo, error) {
 	}
 	for i := 0; i < csLen; i += 2 {
 		cs := binary.BigEndian.Uint16(hello[pos+i : pos+i+2])
-		if info.CipherSuites == nil { info.CipherSuites = make([]uint16, 0, csLen/2) }
+		if info.CipherSuites == nil {
+			info.CipherSuites = make([]uint16, 0, csLen/2)
+		}
 		info.CipherSuites = append(info.CipherSuites, cs)
 	}
 	pos += csLen
@@ -157,7 +159,9 @@ func parseExtensions(info *ClientHelloInfo, data []byte) error {
 		extBody := data[pos : pos+extLen]
 		pos += extLen
 
-		if info.Extensions == nil { info.Extensions = make([]uint16, 0, 16) }
+		if info.Extensions == nil {
+			info.Extensions = make([]uint16, 0, 16)
+		}
 		info.Extensions = append(info.Extensions, extType)
 
 		switch extType {
@@ -279,6 +283,7 @@ func parseSignatureAlgorithms(info *ClientHelloInfo, data []byte) {
 	}
 }
 
+// nosemgrep: go.lang.security.audit.unsafe — intentional zero-copy byte→string conversion
 func unsafeString(b []byte) string {
 	return unsafe.String(unsafe.SliceData(b), len(b))
 }

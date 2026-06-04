@@ -524,14 +524,16 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 		// Try v2 binary header first (HAProxy 2.x+, AWS NLB).
 		if realIP, ok, hdrLen := proxypkg.ReadProxyProtocolV2WithLength(data); ok {
 			if trusted {
-				connCtx.ClientIP = realIP; connCtx.ParsedIP = net.ParseIP(realIP)
+				connCtx.ClientIP = realIP
+				connCtx.ParsedIP = net.ParseIP(realIP)
 			}
 			data = data[hdrLen:]
 			stripped = true
 		} else if realIP, ok := proxypkg.ReadProxyProtocol(data); ok {
 			// Fall back to v1 text header.
 			if trusted {
-				connCtx.ClientIP = realIP; connCtx.ParsedIP = net.ParseIP(realIP)
+				connCtx.ClientIP = realIP
+				connCtx.ParsedIP = net.ParseIP(realIP)
 			}
 			if idx := bytes.Index(data, []byte("\r\n")); idx >= 0 {
 				data = data[idx+2:]
@@ -1452,7 +1454,8 @@ func remoteIP(conn net.Conn) (string, net.IP) {
 	if addr, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
 		return addr.IP.String(), addr.IP
 	}
-	s := conn.RemoteAddr().String(); return s, net.ParseIP(s)
+	s := conn.RemoteAddr().String()
+	return s, net.ParseIP(s)
 }
 
 func remotePort(conn net.Conn) int {

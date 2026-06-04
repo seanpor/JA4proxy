@@ -301,12 +301,12 @@ func (p *Pipeline) Process(ctx context.Context, conn *ConnectionContext) *Pipeli
 	// ── 1. HARD BLOCKS (Blacklists, etc.)
 	if block, reason := p.checkHardBlocks(conn); block {
 		if p.log.IsLevelEnabled(logrus.DebugLevel) {
-		p.log.WithFields(logrus.Fields{
-			"ip":     conn.ClientIP,
-			"ja4":    conn.JA4,
-			"reason": reason,
-		}).Debug("pipeline: hard block")
-	}
+			p.log.WithFields(logrus.Fields{
+				"ip":     conn.ClientIP,
+				"ja4":    conn.JA4,
+				"reason": reason,
+			}).Debug("pipeline: hard block")
+		}
 		return &PipelineResult{
 			Action:       "block",
 			Bypassed:     false,
@@ -333,12 +333,12 @@ func (p *Pipeline) Process(ctx context.Context, conn *ConnectionContext) *Pipeli
 	// ── 2. BYPASS CHECKS (Whitelists, etc.) ──────────────────────────────────────────────────
 	if bypass, reason := p.checkBypasses(conn); bypass {
 		if p.log.IsLevelEnabled(logrus.DebugLevel) {
-		p.log.WithFields(logrus.Fields{
-			"ip":     conn.ClientIP,
-			"ja4":    conn.JA4,
-			"bypass": reason,
-		}).Debug("pipeline: bypass")
-	}
+			p.log.WithFields(logrus.Fields{
+				"ip":     conn.ClientIP,
+				"ja4":    conn.JA4,
+				"bypass": reason,
+			}).Debug("pipeline: bypass")
+		}
 		return &PipelineResult{
 			Action:       "allow",
 			Bypassed:     true,
@@ -454,12 +454,12 @@ func (p *Pipeline) Process(ctx context.Context, conn *ConnectionContext) *Pipeli
 
 	if p.log.IsLevelEnabled(logrus.DebugLevel) {
 		p.log.WithFields(logrus.Fields{
-		"ip":     conn.ClientIP,
-		"ja4":    conn.JA4,
-		"score":  assessment.TotalScore,
-		"dial":   dial,
-		"action": action,
-	}).Debug("pipeline: decision")
+			"ip":     conn.ClientIP,
+			"ja4":    conn.JA4,
+			"score":  assessment.TotalScore,
+			"dial":   dial,
+			"action": action,
+		}).Debug("pipeline: decision")
 	}
 
 	return &PipelineResult{

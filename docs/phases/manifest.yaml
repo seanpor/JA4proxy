@@ -127,12 +127,14 @@ phases:
     name: Manifest Gap Cleanup
     status: COMPLETE
     action_plan: docs/phases/complete/PHASE_103.md
-    summary: Synchronized manifest.yaml with actual project state by removing resolved gaps from phases 33, 36, 57, and 87.
+    summary: Synchronized manifest.yaml with actual project state by removing resolved
+      gaps from phases 33, 36, 57, and 87.
   104:
     name: Code Health & Coverage Gap Closure
     status: COMPLETE
     action_plan: docs/phases/complete/PHASE_104.md
-    summary: Closed quality gaps across Python and Go, fixed lint-all, and added make quality target. Major coverage goals addressed or superseded by Phase 207.
+    summary: Closed quality gaps across Python and Go, fixed lint-all, and added make
+      quality target. Major coverage goals addressed or superseded by Phase 207.
   105:
     name: Documentation Restructure by Audience
     status: COMPLETE
@@ -1831,7 +1833,7 @@ phases:
   101:
     name: Phase 101 — Cross-Phase Gap Closure
     status: COMPLETE
-    action_plan: docs/phases/complete/PHASE_101.md
+    action_plan: docs/phases/PHASE_101.md
     dependencies:
     - 84
     - 85
@@ -2128,15 +2130,15 @@ phases:
     name: Fix Pre-Existing CI Failures
     status: COMPLETE
     completed: 2026-06-02
-    action_plan: docs/phases/complete/PHASE_214.md
+    action_plan: docs/phases/PHASE_214.md
     dependencies: []
     size: LARGE
     summary: 'Resolved all 4 pre-existing CI pipeline failures on main. Go 1.25.9→1.26
       (govulncheck: 0 stdlib GFEs). Added pip install pyyaml to traceability job.
       Fixed 6 phase doc links in SECURITY_CONTROLS_MAPPING.md + ADR-107a. Added lychee
-      exclusions for SLSA_VERIFICATION.md + GDPR external URLs. Fixed 7 semgrep
-      dynamic-urllib-use-detected findings (moved nosemgrep to urlopen line, added
-      2 missing). Bumped semgrep 1.67.0→1.76.0.'
+      exclusions for SLSA_VERIFICATION.md + GDPR external URLs. Fixed 7 semgrep dynamic-urllib-use-detected
+      findings (moved nosemgrep to urlopen line, added 2 missing). Bumped semgrep
+      1.67.0→1.76.0.'
   215:
     name: White-Box Penetration Test — Go Production Proxy
     status: COMPLETE
@@ -2144,32 +2146,39 @@ phases:
     action_plan: docs/phases/PHASE_215.md
     dependencies: []
     size: LARGE
-    summary: 'Full white-box (source-code-aided) penetration test of the Go production proxy covering
-      9 layers: TCP/network, TLS/fingerprint, signal pipeline, risk scoring, Redis integration,
-      webhook, metrics/health, config/crypto, and CLI. Python prototype proxy explicitly out of
-      scope. Findings recorded in findings.yaml with regression tests.'
+    summary: 'Full white-box (source-code-aided) penetration test of the Go production
+      proxy covering 9 layers: TCP/network, TLS/fingerprint, signal pipeline, risk
+      scoring, Redis integration, webhook, metrics/health, config/crypto, and CLI.
+      Python prototype proxy explicitly out of scope. Findings recorded in findings.yaml
+      with regression tests.'
   216:
     name: Penetration Test Remediation — All Phase 215 Findings
     status: COMPLETE
     completed: 2026-06-03
     action_plan: docs/phases/PHASE_216.md
-    dependencies: [215]
+    dependencies:
+    - 215
     size: LARGE
-    summary: 'Remediates all 7 findings from the Phase 215 white-box pentest: panic recovery in handler
-      goroutine (F-001 CRITICAL), bounded beaconing goroutine (F-002 HIGH), inverted BlacklistBypass
-      naming (F-003 MEDIUM), per-fragment TLS reassembly cap (F-004 MEDIUM), log level standardisation
-      (F-005 LOW), active-connection gauge fix under panic (F-006 LOW), and MaxConnectionLimit wiring
-      decision (F-007 LOW).'
+    summary: 'Remediates all 7 findings from the Phase 215 white-box pentest: panic
+      recovery in handler goroutine (F-001 CRITICAL), bounded beaconing goroutine
+      (F-002 HIGH), inverted BlacklistBypass naming (F-003 MEDIUM), per-fragment TLS
+      reassembly cap (F-004 MEDIUM), log level standardisation (F-005 LOW), active-connection
+      gauge fix under panic (F-006 LOW), and MaxConnectionLimit wiring decision (F-007
+      LOW).'
   123:
     name: Security Hardening & Operational Excellence
     status: COMPLETE
     action_plan: docs/phases/complete/PHASE_123.md
-    summary: Comprehensive hardening wave for Go proxy and Linux host environment. Implements least-privilege service isolation, network boundaries, Redis ACLs, and memory-safe Go coding patterns.
+    summary: Comprehensive hardening wave for Go proxy and Linux host environment.
+      Implements least-privilege service isolation, network boundaries, Redis ACLs,
+      and memory-safe Go coding patterns.
   124:
     name: Production Security Remediation (Attack Surface Audit)
     status: COMPLETE
     action_plan: docs/phases/complete/PHASE_124.md
-    summary: Remediates 14+ prioritized findings from the production attack surface audit. Includes fixes for TLS record fragmentation, JA4 spec compliance, SNI canonicalization, and management-plane trust hardening.
+    summary: Remediates 14+ prioritized findings from the production attack surface
+      audit. Includes fixes for TLS record fragmentation, JA4 spec compliance, SNI
+      canonicalization, and management-plane trust hardening.
   125:
     name: Infrastructure & Supply Chain Resilience
     status: COMPLETE
@@ -2178,94 +2187,127 @@ phases:
     name: Toolchain Modernization & Update Automation
     status: COMPLETE
     action_plan: docs/phases/complete/PHASE_126.md
-    summary: Modernized the security scanning toolchain (Trivy v0.70.0) and containerized the update-checking infrastructure (make check-updates).
+    summary: Modernized the security scanning toolchain (Trivy v0.70.0) and containerized
+      the update-checking infrastructure (make check-updates).
   127:
     name: Documentation Rationalization & Consolidation
     status: COMPLETE
     action_plan: docs/phases/complete/PHASE_127.md
-    summary: Aggressively simplifies the documentation suite by eradicating persona-based directories, consolidating operational guidance into a single guide, and pruning the 1,700-line testing strategy into a concise core.
+    summary: Aggressively simplifies the documentation suite by eradicating persona-based
+      directories, consolidating operational guidance into a single guide, and pruning
+      the 1,700-line testing strategy into a concise core.
   128:
     name: Python Legacy Proxy Deprecation & Archival
     status: COMPLETE
     action_plan: docs/phases/complete/PHASE_128.md
-    summary: Formally deprecates and archives the original Python proxy codebase to reduce maintenance overhead while keeping Python-based Analytics and Management components.
+    summary: Formally deprecates and archives the original Python proxy codebase to
+      reduce maintenance overhead while keeping Python-based Analytics and Management
+      components.
   129:
     name: White-Box User Acceptance Testing (UAT)
     status: COMPLETE
     action_plan: docs/phases/complete/PHASE_129.md
-    summary: Performs a thorough, end-to-end verification of the Go proxy security pipeline. Traces specific traffic paths (fragmented TLS, blacklisted JA4, malformed SNI, rate-limiting) to ensure absolute alignment between implemented code and operational logs/state.
+    summary: Performs a thorough, end-to-end verification of the Go proxy security
+      pipeline. Traces specific traffic paths (fragmented TLS, blacklisted JA4, malformed
+      SNI, rate-limiting) to ensure absolute alignment between implemented code and
+      operational logs/state.
   130:
     name: Repository Housekeeping & Hygiene
     status: COMPLETE
     action_plan: docs/phases/complete/PHASE_130.md
-    summary: Organizes the repository root by consolidating transient artifacts, reinforcing the ignore policy for modern toolchain caches, and enhancing build-system cleanup targets.
+    summary: Organizes the repository root by consolidating transient artifacts, reinforcing
+      the ignore policy for modern toolchain caches, and enhancing build-system cleanup
+      targets.
   131:
     name: OpenSSF Scorecard & Supply Chain Hardening
     status: COMPLETE
     action_plan: docs/phases/complete/PHASE_131.md
-    summary: Integrates OpenSSF Scorecard for automated security auditing, migrates Docker images to immutable digests, hardens GitHub Action permissions, and formalizes the security architecture.
+    summary: Integrates OpenSSF Scorecard for automated security auditing, migrates
+      Docker images to immutable digests, hardens GitHub Action permissions, and formalizes
+      the security architecture.
   132:
     name: Build Stabilization & CI/CD Hygiene
     status: COMPLETE
     action_plan: docs/phases/complete/PHASE_132.md
-    summary: Fixes broken make targets and Docker contexts, archives legacy Python tests that were causing CI failures, and restores the project to a 'green' state for both local development and GitHub Actions.
+    summary: Fixes broken make targets and Docker contexts, archives legacy Python
+      tests that were causing CI failures, and restores the project to a 'green' state
+      for both local development and GitHub Actions.
   133:
     name: CI Stabilization & Go Toolchain Update
     status: COMPLETE
     action_plan: docs/phases/complete/PHASE_133.md
-    summary: Resolves remaining GitHub Actions failures by archiving a lingering legacy Python test, fixing Go formatting, and updating the Go toolchain to 1.26.4 to remediate standard library CVEs.
+    summary: Resolves remaining GitHub Actions failures by archiving a lingering legacy
+      Python test, fixing Go formatting, and updating the Go toolchain to 1.26.4 to
+      remediate standard library CVEs.
   134:
     name: Scorecard Remediation & Local Audit
     status: COMPLETE
     action_plan: docs/phases/complete/PHASE_134.md
-    summary: Resolves outstanding findings from the OpenSSF Scorecard local run, specifically auditing Token-Permissions across GitHub Actions and investigating/patching 92 OSV-detected vulnerabilities.
+    summary: Resolves outstanding findings from the OpenSSF Scorecard local run, specifically
+      auditing Token-Permissions across GitHub Actions and investigating/patching
+      92 OSV-detected vulnerabilities.
   135:
     name: README Revamp & Badge Governance
     status: COMPLETE
     action_plan: docs/phases/complete/PHASE_135.md
-    summary: Inspired by Microsoft AGT, this phase audits and modernizes the project README. It introduces high-value trust badges (OpenSSF Scorecard, SLSA, Go Report Card), removes obsolete Python-proxy warnings, and aligns documentation links with the flattened file structure from Phase 127.
+    summary: Inspired by Microsoft AGT, this phase audits and modernizes the project
+      README. It introduces high-value trust badges (OpenSSF Scorecard, SLSA, Go Report
+      Card), removes obsolete Python-proxy warnings, and aligns documentation links
+      with the flattened file structure from Phase 127.
   136:
     name: Documentation Link Audit & Remediation
     status: COMPLETE
     action_plan: docs/phases/complete/PHASE_136.md
-    summary: Performed an exhaustive link rot audit across the repository using Lychee. Fixed hundreds of broken internal references caused by directory flattening and archival, and generated a formal documentation health report.
+    summary: Performed an exhaustive link rot audit across the repository using Lychee.
+      Fixed hundreds of broken internal references caused by directory flattening
+      and archival, and generated a formal documentation health report.
   137:
     name: Advanced Adversarial Fuzzing & Protocol Hardening
     status: COMPLETE
-    action_plan: docs/phases/PHASE_137.md
-    summary: Hardens the Go proxy against low-level protocol manipulation (PROXY v2, TCP fragmentation, and smuggling) by expanding the automated fuzzing suite and verifying strict fail-closed behavior for non-TLS traffic.
+    action_plan: docs/phases/complete/PHASE_137.md
+    summary: Hardens the Go proxy against low-level protocol manipulation (PROXY v2,
+      TCP fragmentation, and smuggling) by expanding the automated fuzzing suite and
+      verifying strict fail-closed behavior for non-TLS traffic.
   138:
     name: Hot-Path Performance Optimization & Zero-Copy Refactoring
     status: COMPLETE
-    action_plan: docs/phases/PHASE_138.md
-    summary: Targets sub-500ns allow-path latency by auditing allocations via pprof and refactoring the security pipeline to use zero-copy parsing for SNI, ALPN, and JA4 metadata.
+    action_plan: docs/phases/complete/PHASE_138.md
+    summary: Targets sub-500ns allow-path latency by auditing allocations via pprof
+      and refactoring the security pipeline to use zero-copy parsing for SNI, ALPN,
+      and JA4 metadata.
   139:
     name: Open-Source Governance & OpenSSF Best Practices
     status: COMPLETE
-    action_plan: docs/phases/PHASE_139.md
-    summary: Formalizes the project governance model (CONTRIBUTING, CVD Policy, Code of Conduct) and fulfills the manual requirements for the OpenSSF Best Practices badge.
+    action_plan: docs/phases/complete/PHASE_139.md
+    summary: Formalizes the project governance model (CONTRIBUTING, CVD Policy, Code
+      of Conduct) and fulfills the manual requirements for the OpenSSF Best Practices
+      badge.
   140:
     name: Observability Hardening & Signal Drift Detection
     status: COMPLETE
-    action_plan: docs/phases/PHASE_140.md
-    summary: Enhances production monitoring by instrumenting per-signal execution latency and implementing a drift detection worker to ensure scoring consistency across the proxy mesh.
+    action_plan: docs/phases/complete/PHASE_140.md
+    summary: Enhances production monitoring by instrumenting per-signal execution
+      latency and implementing a drift detection worker to ensure scoring consistency
+      across the proxy mesh.
   141:
     name: Repository Path Sanitization
     status: COMPLETE
     action_plan: docs/phases/complete/PHASE_141.md
-    summary: Identified and remediated absolute filesystem paths (specifically references to /home/sean) across all documentation and configuration files, converting them to repository-relative paths to ensure portability and privacy.
+    summary: Identified and remediated absolute filesystem paths (specifically references
+      to /home/sean) across all documentation and configuration files, converting
+      them to repository-relative paths to ensure portability and privacy.
   142:
     name: Exhaustive Performance Benchmarking & Validation
     status: COMPLETE
-    action_plan: docs/phases/PHASE_142.md
-    summary: Conducts a comprehensive performance audit of the Go proxy following Phase 138 optimizations. Measures latency matrices, concurrency limits, and resource efficiency to provide a definitive performance baseline for enterprise scale.
+    action_plan: docs/phases/complete/PHASE_142.md
+    summary: Conducts a comprehensive performance audit of the Go proxy following
+      Phase 138 optimizations. Measures latency matrices, concurrency limits, and
+      resource efficiency to provide a definitive performance baseline for enterprise
+      scale.
   143:
     name: Release & Coverage Strategy
     status: COMPLETE
-    action_plan: docs/phases/PHASE_143.md
-    summary: Formalizes the Go-centric stack as v2.0.0 and instruments visible quality signals on GitHub, including automated code coverage reporting and high-impact trust badges.
-  144:
-    name: Operational Excellence & Repo Pruning
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_144.md
-    summary: Streamlines the repository for enterprise evaluation by pruning legacy artifacts, enhancing the Go CLI with validation and simulation tools, and providing direct MITRE ATT&CK signal mappings for SecOps teams.
+    action_plan: docs/phases/complete/PHASE_143.md
+    summary: Formalizes the Go-centric stack as v2.0.0 and instruments visible quality
+      signals on GitHub, including automated code coverage reporting and high-impact
+      trust badges.
