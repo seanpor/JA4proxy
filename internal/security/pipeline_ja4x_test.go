@@ -1,6 +1,7 @@
 package security
 
 import (
+	"net"
 	"context"
 	"encoding/base64"
 	"testing"
@@ -21,7 +22,7 @@ func TestPipeline_JA4XWhitelistBypass(t *testing.T) {
 	)
 
 	result := p.Process(context.Background(), &ConnectionContext{
-		ClientIP: "1.2.3.4",
+		ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4",
 		JA4X:     "abc123def456_abc123def456_abc123def456",
 		ALPN:     "http/1.1",
 	})
@@ -49,7 +50,7 @@ func TestPipeline_JA4XBlacklistBlock(t *testing.T) {
 	)
 
 	result := p.Process(context.Background(), &ConnectionContext{
-		ClientIP: "1.2.3.4",
+		ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4",
 		JA4X:     "blocked_abc_def",
 		ALPN:     "http/1.1",
 	})
@@ -81,7 +82,7 @@ func TestPipeline_JA4XBlacklistSignal(t *testing.T) {
 	)
 
 	result := p.Process(context.Background(), &ConnectionContext{
-		ClientIP: "1.2.3.4",
+		ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4",
 		JA4X:     "signal_abc_def",
 		ALPN:     "http/1.1",
 	})
@@ -110,7 +111,7 @@ func TestPipeline_JA4XExtractionFromCert(t *testing.T) {
 	p := NewPipeline(cfg, &mockRedis{dial: 0}, nil)
 
 	ctx := &ConnectionContext{
-		ClientIP:          "1.2.3.4",
+		ParsedIP: net.ParseIP("1.2.3.4"), ClientIP:          "1.2.3.4",
 		ALPN:              "h2",
 		JA4X:              "",
 		ClientCertificate: []byte{},
@@ -141,7 +142,7 @@ func TestPipeline_JA4XExtractionFromRealCert(t *testing.T) {
 	p := NewPipeline(cfg, &mockRedis{dial: 0}, nil)
 
 	conn := &ConnectionContext{
-		ClientIP:          "1.2.3.4",
+		ParsedIP: net.ParseIP("1.2.3.4"), ClientIP:          "1.2.3.4",
 		ALPN:              "http/1.1",
 		JA4X:              "",
 		ClientCertificate: certDER,

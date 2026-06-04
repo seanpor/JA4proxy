@@ -1,6 +1,7 @@
 package security
 
 import (
+	"net"
 	"context"
 	"fmt"
 	"testing"
@@ -25,7 +26,7 @@ func TestRDAP_Disabled_NoSignals(t *testing.T) {
 	cfg := defaultRDAPCfg()
 	cfg.Enabled = false
 	r := NewRDAPEnricher(cfg, &mockRedis{}, nil)
-	sigs := r.GetSignals(context.Background(), &ConnectionContext{ClientIP: "1.2.3.4"}, 80)
+	sigs := r.GetSignals(context.Background(), &ConnectionContext{ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4"}, 80)
 	if len(sigs) != 0 {
 		t.Errorf("disabled: expected no signals, got %d", len(sigs))
 	}
@@ -33,7 +34,7 @@ func TestRDAP_Disabled_NoSignals(t *testing.T) {
 
 func TestRDAP_NoCachedData_EnqueuesAboveThreshold(t *testing.T) {
 	r := NewRDAPEnricher(defaultRDAPCfg(), &mockRedis{}, nil)
-	sigs := r.GetSignals(context.Background(), &ConnectionContext{ClientIP: "1.2.3.4"}, 80)
+	sigs := r.GetSignals(context.Background(), &ConnectionContext{ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4"}, 80)
 	if len(sigs) != 0 {
 		t.Errorf("no cached data: expected no signals, got %d", len(sigs))
 	}
@@ -50,7 +51,7 @@ func TestRDAP_NoCachedData_EnqueuesAboveThreshold(t *testing.T) {
 
 func TestRDAP_NoCachedData_BelowThreshold_NotEnqueued(t *testing.T) {
 	r := NewRDAPEnricher(defaultRDAPCfg(), &mockRedis{}, nil)
-	sigs := r.GetSignals(context.Background(), &ConnectionContext{ClientIP: "1.2.3.4"}, 30)
+	sigs := r.GetSignals(context.Background(), &ConnectionContext{ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4"}, 30)
 	if len(sigs) != 0 {
 		t.Errorf("below threshold: expected no signals, got %d", len(sigs))
 	}
@@ -69,7 +70,7 @@ func TestRDAP_KnownBadOrg_Signal(t *testing.T) {
 		},
 	}
 	r := NewRDAPEnricher(defaultRDAPCfg(), mock, nil)
-	sigs := r.GetSignals(context.Background(), &ConnectionContext{ClientIP: "1.2.3.4"}, 80)
+	sigs := r.GetSignals(context.Background(), &ConnectionContext{ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4"}, 80)
 	if len(sigs) == 0 {
 		t.Fatal("known bad org: expected signal")
 	}
@@ -88,7 +89,7 @@ func TestRDAP_NewNetblock_Signal(t *testing.T) {
 	cfg := defaultRDAPCfg()
 	cfg.RequireKnownBadOrg = false
 	r := NewRDAPEnricher(cfg, mock, nil)
-	sigs := r.GetSignals(context.Background(), &ConnectionContext{ClientIP: "1.2.3.4"}, 80)
+	sigs := r.GetSignals(context.Background(), &ConnectionContext{ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4"}, 80)
 	if len(sigs) == 0 {
 		t.Fatal("new netblock: expected signal")
 	}
@@ -114,7 +115,7 @@ func TestRDAP_OldNetblock_NoSignal(t *testing.T) {
 	cfg := defaultRDAPCfg()
 	cfg.RequireKnownBadOrg = false
 	r := NewRDAPEnricher(cfg, mock, nil)
-	sigs := r.GetSignals(context.Background(), &ConnectionContext{ClientIP: "1.2.3.4"}, 80)
+	sigs := r.GetSignals(context.Background(), &ConnectionContext{ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4"}, 80)
 	if len(sigs) != 0 {
 		t.Errorf("old netblock: expected no signals, got %v", sigs)
 	}

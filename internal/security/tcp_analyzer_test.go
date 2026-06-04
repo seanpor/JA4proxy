@@ -1,6 +1,7 @@
 package security
 
 import (
+	"net"
 	"context"
 	"fmt"
 	"testing"
@@ -45,7 +46,7 @@ func TestTCPAnalyzer_Disabled_NoSignals(t *testing.T) {
 		hashes:  map[string]map[string]string{"session:1.2.3.4": {"total": "100", "resumed": "0"}},
 		strings: map[string]string{"concurrent:1.2.3.4": "200"},
 	}, nil)
-	sigs := a.Analyze(context.Background(), &ConnectionContext{ClientIP: "1.2.3.4", ConnectionLifespanMS: 100})
+	sigs := a.Analyze(context.Background(), &ConnectionContext{ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4", ConnectionLifespanMS: 100})
 	if len(sigs) != 0 {
 		t.Errorf("disabled: expected no signals, got %d", len(sigs))
 	}
@@ -61,7 +62,7 @@ func TestTCPAnalyzer_SessionResumption_LowRate_Signal(t *testing.T) {
 			"session:1.2.3.4": {"total": "100", "resumed": "0"}, // 0% resumption — fires signal
 		},
 	}, nil)
-	sigs := a.Analyze(context.Background(), &ConnectionContext{ClientIP: "1.2.3.4"})
+	sigs := a.Analyze(context.Background(), &ConnectionContext{ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4"})
 	if len(sigs) == 0 {
 		t.Fatal("expected no_session_resumption signal")
 	}
@@ -80,7 +81,7 @@ func TestTCPAnalyzer_SessionResumption_GoodRate_NoSignal(t *testing.T) {
 			"session:1.2.3.4": {"total": "100", "resumed": "80"}, // 80% resumption — no signal
 		},
 	}, nil)
-	sigs := a.Analyze(context.Background(), &ConnectionContext{ClientIP: "1.2.3.4"})
+	sigs := a.Analyze(context.Background(), &ConnectionContext{ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4"})
 	if len(sigs) != 0 {
 		t.Errorf("good resumption rate: expected no signals, got %d", len(sigs))
 	}
@@ -93,7 +94,7 @@ func TestTCPAnalyzer_ShortLifespan_Signal(t *testing.T) {
 	cfg.ReturnVisitorEnabled = false
 	a := NewTCPAnalyzer(cfg, &mockRedisKV{}, nil)
 	sigs := a.Analyze(context.Background(), &ConnectionContext{
-		ClientIP:             "1.2.3.4",
+		ParsedIP: net.ParseIP("1.2.3.4"), ClientIP:             "1.2.3.4",
 		ConnectionLifespanMS: 100, // below 500ms threshold
 	})
 	if len(sigs) == 0 {
@@ -112,7 +113,7 @@ func TestTCPAnalyzer_ModerateConcurrency_Signal(t *testing.T) {
 	a := NewTCPAnalyzer(cfg, &mockRedisKV{
 		strings: map[string]string{"concurrent:1.2.3.4": "30"}, // 30 >= moderate(20)
 	}, nil)
-	sigs := a.Analyze(context.Background(), &ConnectionContext{ClientIP: "1.2.3.4"})
+	sigs := a.Analyze(context.Background(), &ConnectionContext{ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4"})
 	if len(sigs) == 0 {
 		t.Fatal("expected moderate_concurrency signal")
 	}
@@ -129,7 +130,7 @@ func TestTCPAnalyzer_SevereConcurrency_OnlyHighestFires(t *testing.T) {
 	a := NewTCPAnalyzer(cfg, &mockRedisKV{
 		strings: map[string]string{"concurrent:1.2.3.4": "150"}, // 150 >= severe(100)
 	}, nil)
-	sigs := a.Analyze(context.Background(), &ConnectionContext{ClientIP: "1.2.3.4"})
+	sigs := a.Analyze(context.Background(), &ConnectionContext{ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4"})
 	if len(sigs) == 0 {
 		t.Fatal("expected severe_concurrency signal")
 	}
@@ -159,7 +160,7 @@ func TestTCPAnalyzer_ReturnVisitor_HighAllowRate_NegativeSignal(t *testing.T) {
 			},
 		},
 	}, nil)
-	sigs := a.Analyze(context.Background(), &ConnectionContext{ClientIP: "1.2.3.4"})
+	sigs := a.Analyze(context.Background(), &ConnectionContext{ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4"})
 	if len(sigs) == 0 {
 		t.Fatal("expected return_visitor_trust signal")
 	}
@@ -180,7 +181,7 @@ func TestTCPAnalyzer_NoRedisData_NoSignal(t *testing.T) {
 		hashes:  map[string]map[string]string{}, // returns nil for any key
 		strings: map[string]string{},
 	}, nil)
-	sigs := a.Analyze(context.Background(), &ConnectionContext{ClientIP: "1.2.3.4"})
+	sigs := a.Analyze(context.Background(), &ConnectionContext{ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4"})
 	if len(sigs) != 0 {
 		t.Errorf("no redis data: expected no signals, got %d", len(sigs))
 	}

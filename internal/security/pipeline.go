@@ -9,6 +9,7 @@ import (
 	"time"
 
 	ja4tls "github.com/anomalyco/ja4proxy/internal/tls"
+	"github.com/anomalyco/ja4proxy/internal/metrics"
 	"github.com/sirupsen/logrus"
 	"github.com/yl2chen/cidranger"
 )
@@ -324,7 +325,7 @@ func (p *Pipeline) Process(ctx context.Context, conn *ConnectionContext) *Pipeli
 	// and again during signal collection, so a PubSub-driven blocklist
 	// update between the two calls could cause a hard-block decision and
 	// a soft-signal decision to disagree on the same connection.
-	blSigs, blHardBlock := p.blocklists.Check(conn.ParsedIP)
+	startBL := time.Now(); blSigs, blHardBlock := p.blocklists.Check(conn.ParsedIP); p.measure("blocklist", startBL)
 	if blHardBlock {
 		return &PipelineResult{Action: "block", Score: 100, BypassReason: "blocklist"}
 	}
@@ -394,41 +395,46 @@ func (p *Pipeline) Process(ctx context.Context, conn *ConnectionContext) *Pipeli
 	}
 
 	// SNI analysis
-	signals = append(signals, p.sniAnalyzer.Analyze(conn.SNI)...)
+	startSNI := time.Now(); signals = append(signals, p.sniAnalyzer.Analyze(conn.SNI)...); p.measure("sni", startSNI)
 
 	// Rate limiter
-	signals = append(signals, p.rateLimiter.Check(ctx, conn.ClientIP, conn.JA4)...)
+	startRL := time.Now(); signals = append(signals, p.rateLimiter.Check(ctx, conn.ClientIP, conn.JA4)...); p.measure("rate_limiter", startRL)
 
 	// TCP analyzer
-	signals = append(signals, p.tcpAnalyzer.Analyze(ctx, conn)...)
+	startTCP := time.Now(); signals = append(signals, p.tcpAnalyzer.Analyze(ctx, conn)...); p.measure("tcp_analyzer", startTCP)
 
 	// ASN classification
-	signals = append(signals, p.asnClassifier.Classify(conn.ClientIP)...)
+	startASN := time.Now(); signals = append(signals, p.asnClassifier.Classify(conn.ClientIP)...); p.measure("asn", startASN)
 
 	// DNS enrichment (cached result; lookup happens async)
-	if sig := p.dnsEnrichment.GetSignal(ctx, conn); sig != nil {
+	var sig *RiskSignal; startDNS := time.Now(); sig = p.dnsEnrichment.GetSignal(ctx, conn); p.measure("dns", startDNS); if sig != nil {
 		signals = append(signals, *sig)
 	}
 
 	// Beaconing detection
-	if sig := p.beaconing.GetSignal(ctx, conn); sig != nil {
+	startBeac := time.Now(); sig = p.beaconing.GetSignal(ctx, conn); p.measure("beaconing", startBeac); if sig != nil {
 		signals = append(signals, *sig)
 	}
 
 	// AbuseIPDB
-	if sig := p.abuseipdb.GetSignal(conn.ClientIP); sig != nil {
+	startAbuse := time.Now(); sig = p.abuseipdb.GetSignal(conn.ClientIP); p.measure("abuseipdb", startAbuse); if sig != nil {
 		signals = append(signals, *sig)
 	}
 
 	// RDAP — needs interim score to decide whether to enqueue
 	interimAssessment := p.scorer.Score(signals)
-	signals = append(signals, p.rdap.GetSignals(ctx, conn, interimAssessment.TotalScore)...)
+	startRDAP := time.Now(); signals = append(signals, p.rdap.GetSignals(ctx, conn, interimAssessment.TotalScore)...); p.measure("rdap", startRDAP)
 
 	// Analytics signals
-	signals = append(signals, GetAnalyticsSignals(ctx, p.redis, conn.ClientIP, p.log)...)
+	startAnal := time.Now(); signals = append(signals, GetAnalyticsSignals(ctx, p.redis, conn.ClientIP, p.log)...); p.measure("analytics", startAnal)
 
 	// ── 4. COMPOSITE SCORING ─────────────────────────────────────────────
 	assessment := p.scorer.Score(signals)
+
+	// Mesh Drift Detection (async)
+	if assessment.TotalScore > 0 {
+		go p.auditDecision(ctx, conn.ClientIP, assessment.TotalScore)
+	}
 
 	// ── 5. ACTION DECISION ───────────────────────────────────────────────
 	action := p.decider.Decide(assessment.TotalScore, dial)
@@ -728,4 +734,33 @@ func uint16s(in []int) []uint16 {
 		out[i] = uint16(v) // #nosec G115 // cipher suite IDs are uint16 by TLS spec
 	}
 	return out
+}
+
+func (p *Pipeline) measure(name string, start time.Time) {
+	metrics.SignalLatencySeconds.WithLabelValues(name).Observe(time.Since(start).Seconds())
+}
+
+func (p *Pipeline) auditDecision(ctx context.Context, ip string, currentScore int) {
+	if p.redis == nil {
+		return
+	}
+	key := "audit:last_score:" + ip
+	lastScoreStr := p.redis.GetString(ctx, key)
+	if lastScoreStr != "" {
+		var lastScore int
+		fmt.Sscanf(lastScoreStr, "%d", &lastScore)
+		diff := currentScore - lastScore
+		if diff < 0 {
+			diff = -diff
+		}
+		if diff > 20 { // 20 point threshold for "drift"
+			metrics.SignalDriftTotal.WithLabelValues("mesh", "score_divergence").Inc()
+			p.log.WithFields(logrus.Fields{
+				"ip":            ip,
+				"current_score": currentScore,
+				"last_score":    lastScore,
+			}).Warn("pipeline: score drift detected across mesh")
+		}
+	}
+	p.redis.SetString(ctx, key, fmt.Sprintf("%d", currentScore), 300)
 }
