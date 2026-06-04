@@ -4,7 +4,7 @@
 **Date:** 2026-04-15
 **Target:** `docs/phases/complete/PHASE_102.md` (423 lines, 9 gaps G1–G9, 8 sub-phases)
 **Prerequisite:** Phase 93 — COMPLETE.
-**Go / Python:** Go (external repo `/home/sean/LLM/terraform-provider-ja4proxy`).
+**Go / Python:** Go (external repo `../terraform-provider-ja4proxy`).
 
 ---
 
@@ -12,7 +12,7 @@
 
 **Phase 102 was authored against an in-tree `terraform-provider/` directory
 that no longer exists in this repository.** The provider was extracted to
-`/home/sean/LLM/terraform-provider-ja4proxy` as part of Phase 93/101 scope.
+`../terraform-provider-ja4proxy` as part of Phase 93/101 scope.
 Most of the gaps Phase 102 enumerates **have already been implemented there**.
 
 Verified against the external repo at 2026-04-15:
@@ -167,7 +167,7 @@ Given the staleness of the phase doc, the honest decomposition is small.
 **Size:** XS (30m)
 **Depends on:** 0.1
 **Parallel with:** 1.2, 1.3
-**Files:** (read-only) `/home/sean/LLM/terraform-provider-ja4proxy/internal/resources/list_resources.go`, `internal/data_sources/` if present
+**Files:** (read-only) `../terraform-provider-ja4proxy/internal/resources/list_resources.go`, `internal/data_sources/` if present
 **What to do:**
 - Grep for `ja4proxy_managed_entries`, `ModifyPlan`, `protect_unmanaged` usage.
 - If drift-detection data source + PlanModifier exists: mark G2 closed-by-prior-work.
@@ -259,7 +259,7 @@ Given the staleness of the phase doc, the honest decomposition is small.
    prior-work. Without this, `/run-phase` will spawn agents against a phase
    doc whose file paths don't exist — agents will flail.
 2. **External repo authorization:** any writes to
-   `/home/sean/LLM/terraform-provider-ja4proxy` must be explicit — PM must
+   `../terraform-provider-ja4proxy` must be explicit — PM must
    ask before pushing or committing there.
 
 ---

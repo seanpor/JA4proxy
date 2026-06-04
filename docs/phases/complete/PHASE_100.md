@@ -2111,7 +2111,7 @@ from ..auth import _create_access_token, _client_ip, mfa_session_key
 ## Gap 5 — SAML / OIDC Integration Test Markers Missing
 
 **Files**:
-- `/home/sean/LLM/JA4proxy4/pyproject.toml` (root-level, NOT under `management/`)
+- `.4/pyproject.toml` (root-level, NOT under `management/`)
 - `management/tests/test_saml.py`
 - `management/tests/test_oidc.py`
 

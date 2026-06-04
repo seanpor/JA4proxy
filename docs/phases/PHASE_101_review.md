@@ -121,7 +121,7 @@ code-logic changes.
   do not add partial scaffolding that implies completion.
 
 - **H17 provider push** lives in a different repo
-  (`/home/sean/LLM/terraform-provider-ja4proxy`). Needs explicit user
+  (`../terraform-provider-ja4proxy`). Needs explicit user
   authorization per CLAUDE.md "authorization stands for the scope specified".
 
 ### 2c. SRE Review
@@ -373,7 +373,7 @@ See PHASE_101.md §3.6 for file list. One sub-task per file, **done sequentially
 #### Sub-task 4.1: H17 — Provider repo push
 **Size:** S (1h active + HashiCorp review async)
 **Depends on:** user sign-off
-**Files:** `/home/sean/LLM/terraform-provider-ja4proxy` (external repo)
+**Files:** `../terraform-provider-ja4proxy` (external repo)
 **What to do:**
 - **PM must confirm with user before executing.**
 - Create GitHub repo under agreed org.

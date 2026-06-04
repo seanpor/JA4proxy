@@ -2240,3 +2240,8 @@ phases:
     status: COMPLETE
     action_plan: docs/phases/PHASE_140.md
     summary: Enhances production monitoring by instrumenting per-signal execution latency and implementing a drift detection worker to ensure scoring consistency across the proxy mesh.
+  141:
+    name: Repository Path Sanitization
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_141.md
+    summary: Identified and remediated absolute filesystem paths (specifically references to /home/sean) across all documentation and configuration files, converting them to repository-relative paths to ensure portability and privacy.

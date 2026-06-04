@@ -716,7 +716,7 @@ test-phase-93:
 
 ### Remaining Work (Phase 101)
 
-The provider repo at `/home/sean/LLM/terraform-provider-ja4proxy/` is fully functional
+The provider repo at `../terraform-provider-ja4proxy/` is fully functional
 but has **no GitHub remote**. Phase 101 covers:
 1. Create GitHub repo at `github.com/anomalyco/terraform-provider-ja4proxy`
 2. Add remote and push all commits
