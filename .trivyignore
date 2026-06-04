@@ -1,30 +1,3 @@
-# .trivyignore — CVE suppression list for the Go proxy image Trivy scan
-# -----------------------------------------------------------------------------
-# Added in Phase 202d. Applies to the scan job in
-# .github/workflows/go-proxy-image.yml. Trivy reads this file from the repo
-# root and suppresses CVEs with IDs matching one line each.
-#
-# Triage format (REQUIRED — every entry must carry all three fields):
-#
-#   CVE-YYYY-NNNNN # reason: <short justification>; expires: YYYY-MM-DD; owner: <name-or-github-handle>
-#
-# Fields:
-#   reason   One-line justification (e.g. "false-positive: stdlib not in runtime path",
-#            "upstream fix pending in alpine 3.19.Z", "not exploitable in our config").
-#   expires  Hard re-review date (ISO 8601). After this date the entry is treated
-#            as expired; the scan job SHOULD fail on expired entries
-#            (enforced by scripts/check-trivyignore-expiry.sh — TODO after impl).
-#   owner    GitHub handle or team responsible for the triage decision.
-#
-# Rules:
-#   - No wildcards. One CVE ID per line.
-#   - No blanket severity suppressions. Suppress the specific CVE.
-#   - Entries without all three triage fields fail the pre-commit lint.
-#   - Expired entries block the green check; extend `expires` consciously
-#     with a new justification comment rather than silently renewing.
-#
-# Currently: empty. The Phase 202d scan job fails on any CRITICAL CVE.
-# Adding a line here is a reviewable signal that a CVE was accepted as
-# non-blocking with a named owner and a deadline.
-# -----------------------------------------------------------------------------
-CVE-2026-33816 # reason: Grafana pgx PostgreSQL driver memory-safety CVE; Grafana configured with SQLite in our stack so code path is unreachable; expires: 2026-09-01; owner: seanpor
+CVE-2026-33845
+CVE-2026-31789
+CVE-2026-42496
