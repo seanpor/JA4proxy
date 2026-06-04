@@ -309,6 +309,8 @@ Alignment with international standards and regulatory frameworks.
 | 141 | Repository Path Sanitization | COMPLETE | N/A | N/A |
 | 142 | Exhaustive Performance Benchmarking & Validation | COMPLETE | N/A | N/A |
 | 143 | Release & Coverage Strategy | COMPLETE | N/A | N/A |
+| 145 | Official v2.0.0 Release | COMPLETE | N/A | N/A |
+| 146 | Makefile Ergonomics & Standardization | COMPLETE | N/A | N/A |
 | 200 | Go PROXY Protocol Trust + v2 Support | COMPLETE | N/A | N/A |
 | 201 | Go Redis TLS + Silent-Failure Hardening | COMPLETE | N/A | N/A |
 | 202 | CI Supply Chain + Default Credential Removal | COMPLETE | N/A | N/A |
@@ -327,7 +329,7 @@ Alignment with international standards and regulatory frameworks.
 | 216 | Penetration Test Remediation — All Phase 215 Findings | COMPLETE | N/A | N/A |
 | 217 | Fix Pre-Existing CI Pipeline Failures | COMPLETE | N/A | N/A |
 | 218 | SHA-Pin Preflight Check & Scorecard Fix | COMPLETE | N/A | N/A |
-| 219 | Restore Deleted Phase Documentation | PROPOSED | N/A | N/A |
+| 219 | Restore Deleted Phase Documentation | COMPLETE | N/A | N/A |
 
 ---
 
