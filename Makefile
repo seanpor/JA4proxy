@@ -257,8 +257,14 @@ build:
 
 # Run all tests locally in parallel (fast — no Docker required)
 # Skips tests marked @pytest.mark.live_services (require Go/Python proxy + Redis stack)
-test:
-	@./scripts/run-local-tests.sh $(ARGS)
+test: ## Phase 146 — Run the full test suite (Go + Python)
+	@echo "=== Running Go Native Tests ==="
+	@GOROOT=$${GOROOT:-/snap/go/current} go test ./...
+	@echo "=== Running Python Unit Tests ==="
+	@python -m pytest tests/unit/ -n auto --dist=loadfile --timeout=60 --tb=short
+	@echo "=== Running Integration Smoke Tests ==="
+	@python -m pytest tests/integration/ -k "not docker_stack" -x -q --timeout=60
+	@echo "✓ Full test suite passed"
 
 # Run full suite including live-service tests
 # Requires: Go proxy + Python proxy + Redis running (see docs/phases/PHASE_15.md)
@@ -291,8 +297,8 @@ smoke-test:
 	@./scripts/smoke-test.sh
 
 # Run linting
-lint:
-	docker run --rm -v $(PWD):/app python:3.13-slim sh -c "cd /app && pip install black flake8 mypy bandit pytest-cov ruff && ruff check src/analytics/ src/management/ && echo \"✓ Linting passed\""
+lint: ## Phase 146 — Run all linters (Python, Go, Infra, Docs)
+	@$(MAKE) lint-all
 
 # Security scanning with bandit (medium/high severity, skip B104 bind-all)
 lint-security:
@@ -833,7 +839,8 @@ scan-local:
 	@(gosec -fmt=text -exclude-dir=.claude ./... || true)
 
 .PHONY: scan
-scan: scan-container
+scan: ## Phase 146 — Run all security and container scans
+	@$(MAKE) scan-all
 
 .PHONY: scan-all
 scan-all: scan-container scan-dockerfiles scan-first-party scan-images
