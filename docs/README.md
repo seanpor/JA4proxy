@@ -1,3 +1,10 @@
+<!--
+title: JA4proxy Documentation Index
+audience: operator
+last_reviewed: 2026-06-04
+phase: v2.0
+-->
+
 # JA4proxy Documentation
 
 Welcome to the JA4proxy documentation. This guide is organized by role and topic to help you find what you need quickly.

@@ -1,3 +1,10 @@
+<!--
+title: Runbook: eBPF Volumetric Attack
+audience: operator
+last_reviewed: 2026-06-04
+phase: v2.0
+-->
+
 # Runbook: Kernel-Level Volumetric Attack (eBPF)
 
 **Status:** STUB - written in Phase 86h, to be expanded.

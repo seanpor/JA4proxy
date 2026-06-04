@@ -1,3 +1,10 @@
+<!--
+title: JA4proxy — Onboarding Guide
+audience: operator
+last_reviewed: 2026-06-04
+phase: v2.0
+-->
+
 # Welcome to JA4proxy
 
 ## How We Use Claude

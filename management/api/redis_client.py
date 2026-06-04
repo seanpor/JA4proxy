@@ -38,7 +38,7 @@ def _redact_redis_url(url: str) -> str:
     try:
         parts = urlparse(url)
     except ValueError:
-        return "<unparseable-redis-url>"
+        return "<unparsable-redis-url>"
     if parts.password is None:
         return url
     user = parts.username or ""

@@ -1,3 +1,10 @@
+<!--
+title: JA4proxy — Makefile Targets
+audience: operator
+last_reviewed: 2026-06-04
+phase: v2.0
+-->
+
 # Makefile Targets Reference
 
 > **Audience:** Developer, Operator  

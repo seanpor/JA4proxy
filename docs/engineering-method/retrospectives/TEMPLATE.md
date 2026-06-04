@@ -1,7 +1,8 @@
 <!--
-title: "Retrospective Template"
-audience: maintainers, contributors
-phase: 106e
+title: Retrospective Template
+audience: operator
+last_reviewed: 2026-06-04
+phase: v2.0
 -->
 
 # Retrospective: YYYY-QN

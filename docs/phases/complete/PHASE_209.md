@@ -15,7 +15,7 @@ dependencies: []
 The proxy has several classes of runtime errors where failures are silently swallowed or cause the proxy to operate in a degraded state without the operator's knowledge. The most critical are:
 
 1. **Fail-open on Redis errors** — when Redis is unreachable, country blocking, rate limiting, and dial computation silently disengage, forwarding all traffic.
-2. **TLS parse failure silently forwarded** — unparseable ClientHellos (malformed, fragmented, novel TLS stacks) are forwarded with no fingerprint instead of being inspected or blocked.
+2. **TLS parse failure silently forwarded** — unparsable ClientHellos (malformed, fragmented, novel TLS stacks) are forwarded with no fingerprint instead of being inspected or blocked.
 3. **`docker-compose.prod.yml` builds the wrong proxy** — deploys the legacy Python proxy instead of the production Go binary.
 4. **40 `except Exception: pass` clauses in proxy.py** — broad exception swallowing masks crashes, resource leaks, and degraded states.
 5. **15 pre-existing test failures** — documented and accepted in the last CHANGELOG with no remediation plan.
