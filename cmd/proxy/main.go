@@ -524,14 +524,16 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 		// Try v2 binary header first (HAProxy 2.x+, AWS NLB).
 		if realIP, ok, hdrLen := proxypkg.ReadProxyProtocolV2WithLength(data); ok {
 			if trusted {
-				connCtx.ClientIP = realIP; connCtx.ParsedIP = net.ParseIP(realIP)
+				connCtx.ClientIP = realIP
+				connCtx.ParsedIP = net.ParseIP(realIP)
 			}
 			data = data[hdrLen:]
 			stripped = true
 		} else if realIP, ok := proxypkg.ReadProxyProtocol(data); ok {
 			// Fall back to v1 text header.
 			if trusted {
-				connCtx.ClientIP = realIP; connCtx.ParsedIP = net.ParseIP(realIP)
+				connCtx.ClientIP = realIP
+				connCtx.ParsedIP = net.ParseIP(realIP)
 			}
 			if idx := bytes.Index(data, []byte("\r\n")); idx >= 0 {
 				data = data[idx+2:]
@@ -1452,7 +1454,8 @@ func remoteIP(conn net.Conn) (string, net.IP) {
 	if addr, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
 		return addr.IP.String(), addr.IP
 	}
-	s := conn.RemoteAddr().String(); return s, net.ParseIP(s)
+	s := conn.RemoteAddr().String()
+	return s, net.ParseIP(s)
 }
 
 func remotePort(conn net.Conn) int {
@@ -1900,7 +1903,7 @@ func runTestIP(cfg *config.Config, ipStr string) error {
 
 	logger := logrus.New()
 	logger.SetOutput(io.Discard)
-	
+
 	p := security.NewPipeline(&security.PipelineConfig{
 		ALPNBrowserBypass:      cfg.SecurityPolicy.ALPNBrowserBypass.Enabled,
 		JA4WhitelistBypass:     cfg.SecurityPolicy.JA4WhitelistBypass.Enabled,
@@ -1908,15 +1911,15 @@ func runTestIP(cfg *config.Config, ipStr string) error {
 		MTLSBypass:             cfg.SecurityPolicy.MTLSBypass.Enabled,
 		CountryBlockingEnabled: cfg.SecurityPolicy.CountryBlockingEnabled.Enabled,
 	}, nil, logger)
-	
+
 	ctx := context.Background()
 	conn := &security.ConnectionContext{
 		ClientIP: ipStr,
 		ParsedIP: ip,
 	}
-	
+
 	result := p.Process(ctx, conn)
-	
+
 	fmt.Printf("Results for IP: %s\n", ipStr)
 	fmt.Printf("Action: %s\n", result.Action)
 	fmt.Printf("Score:  %d\n", result.Score)
@@ -1927,7 +1930,7 @@ func runTestIP(cfg *config.Config, ipStr string) error {
 	for _, s := range result.Signals {
 		fmt.Printf(" - %s: %d (%s)\n", s.Name, s.Score, s.Reason)
 	}
-	
+
 	return nil
 }
 

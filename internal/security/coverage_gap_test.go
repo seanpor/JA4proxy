@@ -588,7 +588,7 @@ func TestPipeline_CheckHardBlocks_DynamicCIDR(t *testing.T) {
 
 	result := p.Process(context.Background(), &ConnectionContext{
 		ParsedIP: net.ParseIP("192.168.1.1"), ClientIP: "192.168.1.1",
-		JA4:      "t13d000000_000000000000_000000000000",
+		JA4: "t13d000000_000000000000_000000000000",
 	})
 	if result.Action != "block" {
 		t.Errorf("dynamic CIDR: action=%q, want 'block'", result.Action)
@@ -608,7 +608,7 @@ func TestPipeline_CheckHardBlocks_CountryBlacklist(t *testing.T) {
 	p := NewPipeline(cfg, &mockRedis{dial: 100}, nil)
 	result := p.Process(context.Background(), &ConnectionContext{
 		ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4",
-		Country:  "XX",
+		Country: "XX",
 	})
 	if result.Action != "block" || result.BypassReason != "country_blacklist" {
 		t.Errorf("country blacklist: action=%q reason=%q", result.Action, result.BypassReason)
@@ -641,7 +641,7 @@ func TestPipeline_CheckBypasses_WhitelistPattern(t *testing.T) {
 	p := NewPipeline(cfg, &mockRedis{dial: 100}, nil)
 	result := p.Process(context.Background(), &ConnectionContext{
 		ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4",
-		JA4:      "t13d1516h2_suffix",
+		JA4: "t13d1516h2_suffix",
 	})
 	if !result.Bypassed || result.BypassReason != "ja4_whitelist_pattern" {
 		t.Errorf("whitelist pattern: bypassed=%v reason=%q", result.Bypassed, result.BypassReason)
@@ -660,7 +660,7 @@ func TestPipeline_CheckHardBlocks_JA4XBlacklist(t *testing.T) {
 
 	result := p.Process(context.Background(), &ConnectionContext{
 		ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4",
-		JA4X:     "badx509",
+		JA4X: "badx509",
 	})
 	if result.Action != "block" || result.BypassReason != "ja4x_blacklist" {
 		t.Errorf("JA4X blacklist: action=%q reason=%q", result.Action, result.BypassReason)
@@ -679,7 +679,7 @@ func TestPipeline_CheckBypasses_JA4XWhitelist(t *testing.T) {
 
 	result := p.Process(context.Background(), &ConnectionContext{
 		ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4",
-		JA4X:     "goodx509",
+		JA4X: "goodx509",
 	})
 	if !result.Bypassed || result.BypassReason != "ja4x_whitelist" {
 		t.Errorf("JA4X whitelist: bypassed=%v reason=%q", result.Bypassed, result.BypassReason)
@@ -1218,7 +1218,7 @@ func TestPipeline_JA4XBlacklistSignal_NonBypass(t *testing.T) {
 
 	result := p.Process(context.Background(), &ConnectionContext{
 		ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4",
-		JA4X:     "badcert",
+		JA4X: "badcert",
 	})
 	// Should not hard-block (JA4XBlockingEnabled=false), but signal should be present
 	found := false

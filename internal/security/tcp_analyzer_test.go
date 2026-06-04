@@ -1,9 +1,9 @@
 package security
 
 import (
-	"net"
 	"context"
 	"fmt"
+	"net"
 	"testing"
 	"time"
 )
@@ -94,7 +94,7 @@ func TestTCPAnalyzer_ShortLifespan_Signal(t *testing.T) {
 	cfg.ReturnVisitorEnabled = false
 	a := NewTCPAnalyzer(cfg, &mockRedisKV{}, nil)
 	sigs := a.Analyze(context.Background(), &ConnectionContext{
-		ParsedIP: net.ParseIP("1.2.3.4"), ClientIP:             "1.2.3.4",
+		ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4",
 		ConnectionLifespanMS: 100, // below 500ms threshold
 	})
 	if len(sigs) == 0 {
