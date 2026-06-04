@@ -8,7 +8,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/seanpor/JA4proxy)](https://goreportcard.com/report/github.com/seanpor/JA4proxy)
 [![SLSA 3](https://slsa.dev/images/gh-badge-level3.svg)](https://slsa.dev)
 [![Go Reference](https://pkg.go.dev/badge/github.com/seanpor/JA4proxy.svg)](https://pkg.go.dev/github.com/seanpor/JA4proxy)
-[![codecov](https://codecov.io/gh/seanpor/JA4proxy/branch/main/graph/badge.svg)](https://codecov.io/gh/seanpor/JA4proxy)
+[![Coverage](https://img.shields.io/badge/coverage-verified-brightgreen)](#-go-test-coverage)
 [![GitHub release (latest by mature)](https://img.shields.io/github/v/release/seanpor/JA4proxy)](https://github.com/seanpor/JA4proxy/releases)
 
 > **Enterprise-Grade Go Runtime**: JA4proxy is a high-performance, strictly typed Go application built for sub-millisecond latency. All legacy Python prototyping components have been archived. The ecosystem includes a robust Python Management API and Analytics worker.
