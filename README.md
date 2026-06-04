@@ -30,7 +30,7 @@ Our governance model aligns with **OpenSSF** and **SLSA** best practices to ensu
 |------------|------------|
 | **Website owner / CISO** evaluating fit | [`docs/WHY_JA4PROXY.md`](docs/WHY_JA4PROXY.md) |
 | **Security architect** designing integration | [`docs/security/ARCHITECTURE.md`](docs/security/ARCHITECTURE.md) |
-| **Operator** running it day-to-day | [`docs/OPERATIONS.md`](docs/OPERATIONS.md) |
+| **Operator** running it day-to-day | [`docs/OPERATIONS_GUIDE.md`](docs/OPERATIONS_GUIDE.md) |
 | **Compliance / audit** | [`docs/compliance/`](docs/compliance/) |
 | **Developer / contributor** | [`docs/developer/`](docs/developer/) |
 
@@ -51,6 +51,15 @@ git clone https://github.com/seanpor/JA4proxy && cd JA4proxy
 cp .env.example .env
 make build
 make test-go test-unit
+```
+
+### Manual Testing
+```bash
+# Verify legitimate traffic
+curl -kv https://localhost:443/
+
+# Simulate security decision for an IP
+./bin/ja4p test ip 8.8.8.8
 ```
 
 ## Architecture (one-paragraph)

@@ -55,7 +55,44 @@ The **Dial (0-100)** is your primary lever for controlling proxy aggression.
 
 ---
 
-## 📚 Reference Links
+
+## 🧪 Manual Testing & Verification
+
+For a quick "smoke test" of a running system, use these commands:
+
+### 1. Test the "Allow" Path
+Verify the proxy correctly forwards legitimate traffic.
+```bash
+curl -kv https://localhost:443/
+```
+*Expected: 200 OK from the backend.*
+
+### 2. Test the "Security" Path (Pipeline Simulation)
+Use the CLI to see how the proxy would score a specific IP without sending real traffic.
+```bash
+./bin/ja4p test ip 8.8.8.8
+```
+*Expected: Detailed signal breakdown (e.g., "asn_classifier", "blocklist_spamhaus").*
+
+### 3. Test a "Block" Event
+Force a security violation by using an old TLS version.
+```bash
+curl -k --tls-max 1.1 https://localhost:443/
+```
+*Expected: Connection dropped or sent to Tarpit (if Dial > 0).*
+
+---
+
+## 📊 Viewing Logs & Assets
+
+| Asset | Location | Description |
+| :--- | :--- | :--- |
+| **Proxy Logs** | \`make logs\` | Real-time structured JSON logs (decisions, errors). |
+| **Metrics** | [localhost:9090/metrics](http://localhost:9090/metrics) | Raw Prometheus metrics from the Go proxy. |
+| **Grafana** | [localhost:3000](http://localhost:3000) | Visual dashboards (Security, Performance, Health). |
+| **Redis** | [localhost:8001](http://localhost:8001) | Redis Insight UI to inspect lists, dial state, and events. |
+| **Health API** | \`curl localhost:9090/health/deep\` | JSON status of the proxy, Redis, and Security pipeline. |
+\n## 📚 Reference Links
 - **[Signal Mapping (MITRE ATT&CK)](OPERATIONS_MAPPING.md)**
 - **[Runbook Index](runbooks/)**
 - **[Architecture Deep-Dive](security/ARCHITECTURE.md)**
