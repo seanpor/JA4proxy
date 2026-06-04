@@ -2346,3 +2346,8 @@ phases:
     status: COMPLETE
     action_plan: docs/phases/PHASE_147.md
     summary: Implements automated checks for the development environment itself. Introduces 'make doctor' for environment validation, Makefile linting to catch recursive variables, and aligns CI to use project-standard Make targets to prevent regression of basic hygiene.
+  149:
+    name: Guided Setup & Configuration Wizard
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_149.md
+    summary: Implements 'ja4p init', an interactive wizard that guides users through setting up their environment for POC, Development, Performance/Benchmarking, or Production scenarios. It handles secret generation, data provisioning (Tranco/GeoIP), and backend connectivity validation. It handles secret generation, backend connectivity validation, and optional feature configuration.

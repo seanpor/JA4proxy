@@ -50,3 +50,7 @@ This document tracks the remaining work for both historical phases (gaps identif
 ### Phase 120 — Independent Red Team Findings: Design Flaws, Infrastructure & Logic Bugs (RETIRED)
 *   **Status:** **DEFERRED** (Retired 2026-04-19 under Phase 121e as duplicate of Phase 119. All 20 findings were either duplicates of 119 entries or already folded into the canonical findings register (docs/security/findings.yaml) with remediation_phases pointing at 119 or its successor phases. See PHASE_120.md redirect stub.)
 *   **Action Plan:** [cancelled/PHASE_120.md](cancelled/PHASE_120.md)
+
+### Phase 149 — Guided Setup & Configuration Wizard
+*   **Status:** **PROPOSED** (Implements 'ja4p init', an interactive wizard that guides users through setting up their environment for POC, Development, Performance/Benchmarking, or Production scenarios. It handles secret generation, data provisioning (Tranco/GeoIP), and backend connectivity validation. It handles secret generation, backend connectivity validation, and optional feature configuration.)
+*   **Action Plan:** [PHASE_149.md](PHASE_149.md)
