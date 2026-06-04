@@ -22,8 +22,8 @@
 package main
 
 import (
-	"net"
 	"context"
+	"net"
 	"testing"
 
 	"github.com/anomalyco/ja4proxy/internal/security"

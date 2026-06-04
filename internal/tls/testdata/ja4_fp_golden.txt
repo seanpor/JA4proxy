@@ -1,7 +1,10 @@
 # JA4 fingerprint regression corpus — phase 62
 # Format: <fixture-filename> <ja4-string>
 # Regenerate: go test -run TestJA4_FPCorpus_NoRegression ./internal/tls/ -args -update
+curl_tls12.bin t12i2807h2_d943125447b4_dd0a478c1db3
 curl_tls13.bin t13i0411h2_16476d049b0b_a908d7afddfc
+openssl_tls13.bin t13i040800_16476d049b0b_1da349255cb8
+python_tls13.bin t13d181100_85036bcba153_d41ae481755e
 synthetic_grease.bin t13d030400_55b375c5d22e_4f9fa6652b40
 synthetic_tls12_basic.bin t12d040500_6826bf00caa0_020a1b99a7f1
 synthetic_tls13_basic.bin t13d030500_55b375c5d22e_ef2b5d879b42

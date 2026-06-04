@@ -89,7 +89,7 @@ log "Installing Helm chart..."
 # either provide an external Redis or enable the bundled one.
 # hpa.enabled=false and pdb.enabled=false: smoke test uses replicaCount=1 which
 # breaks HPA (minReplicas=2 > 1) and PDB validation.
-helm install ja4proxy deploy/helm/ja4proxy/ \
+helm install ja4proxy deploy/charts/ja4proxy/ \
   --wait --timeout=300s \
   --set image.tag=latest \
   --set image.pullPolicy=Never \
@@ -101,7 +101,7 @@ helm install ja4proxy deploy/helm/ja4proxy/ \
   2>>"$LOG" || fail "helm install failed"
 
 log "Checking Deployment status..."
-KIND=$(kubectl get -f deploy/helm/ja4proxy/templates/ -o jsonpath='{.items[0].kind}' 2>/dev/null || echo "Deployment")
+KIND=$(kubectl get -f deploy/charts/ja4proxy/templates/ -o jsonpath='{.items[0].kind}' 2>/dev/null || echo "Deployment")
 if [ "$KIND" = "DaemonSet" ]; then
   kubectl rollout status daemonset/ja4proxy --timeout=60s 2>>"$LOG" \
     || fail "DaemonSet did not become ready within 60s"

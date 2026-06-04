@@ -1,9 +1,9 @@
 package security
 
 import (
-	"net"
 	"context"
 	"fmt"
+	"net"
 	"testing"
 	"time"
 )

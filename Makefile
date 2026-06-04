@@ -435,7 +435,7 @@ scan-images:
 	@fail=0; \
 	for img in $(TRIVY_IMAGES); do \
 		echo "  Scanning $$img ..."; \
-		result=$$(docker run --rm -v "$(PWD):/scan:ro" aquasec/trivy:0.70.0 image \
+		result=$$(docker run --rm -v "$(PWD):/scan:ro" aquasec/trivy:0.71.0 image \
 			--severity HIGH,CRITICAL --exit-code 0 \
 			--no-progress --scanners vuln \
 			--ignorefile /scan/.trivyignore \
@@ -467,7 +467,7 @@ scan-dockerfiles:
 			echo "  ── Scanning $$f ──"; \
 			docker run --rm \
 				-v "$(PWD):/scan:ro" \
-				aquasec/trivy:0.70.0 config \
+				aquasec/trivy:0.71.0 config \
 				--severity HIGH,CRITICAL --exit-code 1 \
 				"/scan/$$f" || fail=1; \
 		fi; \
@@ -488,7 +488,7 @@ scan-first-party:
 	for img in ja4proxy:1.0.0 ja4proxy-analytics:1.0.0 ja4proxy-tarpit:1.0.0 ja4proxy-mockbackend:1.0.0 ja4proxy-test:1.0.0 ja4proxy-trafficgen:1.0.0; do \
 		echo "  Scanning $$img ..."; \
 		result=$$(docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-			aquasec/trivy:0.70.0 image --severity HIGH,CRITICAL --exit-code 0 \
+			aquasec/trivy:0.71.0 image --severity HIGH,CRITICAL --exit-code 0 \
 			--no-progress --scanners vuln --format table "$$img" 2>&1 \
 			| grep -E "CRITICAL|HIGH|Total:" || true); \
 		critical=$$(echo "$$result" | grep -c "CRITICAL" || true); \
@@ -1317,7 +1317,7 @@ lint-observability: lint-prom lint-alertmanager
 # Supply chain: secrets committed to history + CVE dep scan + image CVEs (advisory)
 lint-supply-chain: lint-secrets lint-deps
 	@echo "=== Supply Chain: Advisory image and filesystem scans ==="
-	@docker run --rm -v "$(PWD):/repo" aquasec/trivy:0.70.0 fs /repo --severity HIGH,CRITICAL --exit-code 0 || true
+	@docker run --rm -v "$(PWD):/repo" aquasec/trivy:0.71.0 fs /repo --severity HIGH,CRITICAL --exit-code 0 || true
 	@make scan-images || true
 	@make scan-first-party || true
 

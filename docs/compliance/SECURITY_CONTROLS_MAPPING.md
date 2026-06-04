@@ -137,7 +137,7 @@ This document maps JA4proxy's implemented security controls to the **ISO 27001:2
 
 | Control | JA4proxy Implementation | Evidence | Gap |
 |---------|--------------------------|----------|-----|
-| **A.12.1.1: Documented operating procedures** | ✅ Comprehensive runbooks | [Operator Documentation](../operator/) | None |
+| **A.12.1.1: Documented operating procedures** | ✅ Comprehensive runbooks | [Operator Documentation](../runbooks/) | None |
 | **A.12.1.2: Change management** | ✅ Configuration hot-reload | [Phase 0: Hot Reload](../phases/complete/PHASE_00.md) | None |
 | **A.12.1.3: Capacity management** | ✅ Resource monitoring | [Monitoring Setup §Capacity Planning](../MONITORING_SETUP.md) | None |
 | **A.12.1.4: Separation of development, testing and production** | ✅ Environment isolation | Docker Compose environment variables | None |
