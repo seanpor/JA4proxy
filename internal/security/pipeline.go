@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	ja4tls "github.com/anomalyco/ja4proxy/internal/tls"
 	"github.com/anomalyco/ja4proxy/internal/metrics"
+	ja4tls "github.com/anomalyco/ja4proxy/internal/tls"
 	"github.com/sirupsen/logrus"
 	"github.com/yl2chen/cidranger"
 )
@@ -325,7 +325,9 @@ func (p *Pipeline) Process(ctx context.Context, conn *ConnectionContext) *Pipeli
 	// and again during signal collection, so a PubSub-driven blocklist
 	// update between the two calls could cause a hard-block decision and
 	// a soft-signal decision to disagree on the same connection.
-	startBL := time.Now(); blSigs, blHardBlock := p.blocklists.Check(conn.ParsedIP); p.measure("blocklist", startBL)
+	startBL := time.Now()
+	blSigs, blHardBlock := p.blocklists.Check(conn.ParsedIP)
+	p.measure("blocklist", startBL)
 	if blHardBlock {
 		return &PipelineResult{Action: "block", Score: 100, BypassReason: "blocklist"}
 	}
@@ -395,38 +397,60 @@ func (p *Pipeline) Process(ctx context.Context, conn *ConnectionContext) *Pipeli
 	}
 
 	// SNI analysis
-	startSNI := time.Now(); signals = append(signals, p.sniAnalyzer.Analyze(conn.SNI)...); p.measure("sni", startSNI)
+	startSNI := time.Now()
+	signals = append(signals, p.sniAnalyzer.Analyze(conn.SNI)...)
+	p.measure("sni", startSNI)
 
 	// Rate limiter
-	startRL := time.Now(); signals = append(signals, p.rateLimiter.Check(ctx, conn.ClientIP, conn.JA4)...); p.measure("rate_limiter", startRL)
+	startRL := time.Now()
+	signals = append(signals, p.rateLimiter.Check(ctx, conn.ClientIP, conn.JA4)...)
+	p.measure("rate_limiter", startRL)
 
 	// TCP analyzer
-	startTCP := time.Now(); signals = append(signals, p.tcpAnalyzer.Analyze(ctx, conn)...); p.measure("tcp_analyzer", startTCP)
+	startTCP := time.Now()
+	signals = append(signals, p.tcpAnalyzer.Analyze(ctx, conn)...)
+	p.measure("tcp_analyzer", startTCP)
 
 	// ASN classification
-	startASN := time.Now(); signals = append(signals, p.asnClassifier.Classify(conn.ClientIP)...); p.measure("asn", startASN)
+	startASN := time.Now()
+	signals = append(signals, p.asnClassifier.Classify(conn.ClientIP)...)
+	p.measure("asn", startASN)
 
 	// DNS enrichment (cached result; lookup happens async)
-	var sig *RiskSignal; startDNS := time.Now(); sig = p.dnsEnrichment.GetSignal(ctx, conn); p.measure("dns", startDNS); if sig != nil {
+	var sig *RiskSignal
+	startDNS := time.Now()
+	sig = p.dnsEnrichment.GetSignal(ctx, conn)
+	p.measure("dns", startDNS)
+	if sig != nil {
 		signals = append(signals, *sig)
 	}
 
 	// Beaconing detection
-	startBeac := time.Now(); sig = p.beaconing.GetSignal(ctx, conn); p.measure("beaconing", startBeac); if sig != nil {
+	startBeac := time.Now()
+	sig = p.beaconing.GetSignal(ctx, conn)
+	p.measure("beaconing", startBeac)
+	if sig != nil {
 		signals = append(signals, *sig)
 	}
 
 	// AbuseIPDB
-	startAbuse := time.Now(); sig = p.abuseipdb.GetSignal(conn.ClientIP); p.measure("abuseipdb", startAbuse); if sig != nil {
+	startAbuse := time.Now()
+	sig = p.abuseipdb.GetSignal(conn.ClientIP)
+	p.measure("abuseipdb", startAbuse)
+	if sig != nil {
 		signals = append(signals, *sig)
 	}
 
 	// RDAP — needs interim score to decide whether to enqueue
 	interimAssessment := p.scorer.Score(signals)
-	startRDAP := time.Now(); signals = append(signals, p.rdap.GetSignals(ctx, conn, interimAssessment.TotalScore)...); p.measure("rdap", startRDAP)
+	startRDAP := time.Now()
+	signals = append(signals, p.rdap.GetSignals(ctx, conn, interimAssessment.TotalScore)...)
+	p.measure("rdap", startRDAP)
 
 	// Analytics signals
-	startAnal := time.Now(); signals = append(signals, GetAnalyticsSignals(ctx, p.redis, conn.ClientIP, p.log)...); p.measure("analytics", startAnal)
+	startAnal := time.Now()
+	signals = append(signals, GetAnalyticsSignals(ctx, p.redis, conn.ClientIP, p.log)...)
+	p.measure("analytics", startAnal)
 
 	// ── 4. COMPOSITE SCORING ─────────────────────────────────────────────
 	assessment := p.scorer.Score(signals)

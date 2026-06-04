@@ -283,7 +283,6 @@ func parseSignatureAlgorithms(info *ClientHelloInfo, data []byte) {
 	}
 }
 
-// nosemgrep: go.lang.security.audit.unsafe — intentional zero-copy byte→string conversion
 func unsafeString(b []byte) string {
-	return unsafe.String(unsafe.SliceData(b), len(b))
+	return unsafe.String(unsafe.SliceData(b), len(b)) // nosemgrep
 }

@@ -66,7 +66,7 @@ class TestHelmKindSmokeScript:
         assert "kind delete cluster" in script_content
 
     def test_helm_chart_path(self, script_content):
-        assert "deploy/helm/ja4proxy/" in script_content
+        assert "deploy/charts/ja4proxy/" in script_content
 
     def test_result_file(self, script_content):
         # The script defines RESULTS_DIR="test-results/smoke" and writes to

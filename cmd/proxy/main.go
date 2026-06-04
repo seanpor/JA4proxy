@@ -1903,7 +1903,7 @@ func runTestIP(cfg *config.Config, ipStr string) error {
 
 	logger := logrus.New()
 	logger.SetOutput(io.Discard)
-	
+
 	p := security.NewPipeline(&security.PipelineConfig{
 		ALPNBrowserBypass:      cfg.SecurityPolicy.ALPNBrowserBypass.Enabled,
 		JA4WhitelistBypass:     cfg.SecurityPolicy.JA4WhitelistBypass.Enabled,
@@ -1911,15 +1911,15 @@ func runTestIP(cfg *config.Config, ipStr string) error {
 		MTLSBypass:             cfg.SecurityPolicy.MTLSBypass.Enabled,
 		CountryBlockingEnabled: cfg.SecurityPolicy.CountryBlockingEnabled.Enabled,
 	}, nil, logger)
-	
+
 	ctx := context.Background()
 	conn := &security.ConnectionContext{
 		ClientIP: ipStr,
 		ParsedIP: ip,
 	}
-	
+
 	result := p.Process(ctx, conn)
-	
+
 	fmt.Printf("Results for IP: %s\n", ipStr)
 	fmt.Printf("Action: %s\n", result.Action)
 	fmt.Printf("Score:  %d\n", result.Score)
@@ -1930,7 +1930,7 @@ func runTestIP(cfg *config.Config, ipStr string) error {
 	for _, s := range result.Signals {
 		fmt.Printf(" - %s: %d (%s)\n", s.Name, s.Score, s.Reason)
 	}
-	
+
 	return nil
 }
 

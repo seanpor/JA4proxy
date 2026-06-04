@@ -175,7 +175,7 @@ var (
 	// ConnectionErrorsTotal counts unhandled errors in the connection handler
 	// before a policy decision was reached. Used as the "bad" term of the
 	// availability SLI.
-	
+
 	SignalLatencySeconds = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Name:    "ja4proxy_signal_latency_seconds",
@@ -314,7 +314,7 @@ func Register() {
 		ConnectionsTotal,
 		SignalLatencySeconds,
 		SignalDriftTotal,
- ActiveConnections, RiskScore,
+		ActiveConnections, RiskScore,
 		DialCurrent, DialChangesTotal, SecurityEventsTotal, TarpitConcurrent,
 		TarpitOverflowTotal, ConfigReloadsTotal, BypassTotal, SignalTotal,
 		AbuseIPDBQueueDroppedTotal, AbuseIPDBLookupsTotal, WeakCipherTotal, WriteBufferQueueDepth,

@@ -44,7 +44,7 @@ jobs:
           GOFLAGS: "-count=1"
         run: go test -v -coverprofile=coverage.txt -covermode=atomic ./...
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@0565863a330403ec3164bad3295982189680327f  # v6.1.0
+        uses: codecov/codecov-action@cddd853df119a48c5be31a973f8cd97e12e35e16  # v6.0.1
         with:
           file: ./coverage.txt
           fail_ci_if_error: false

@@ -1,8 +1,8 @@
 package security
 
 import (
-	"net"
 	"context"
+	"net"
 	"testing"
 )
 

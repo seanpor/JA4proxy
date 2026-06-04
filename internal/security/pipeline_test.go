@@ -1,8 +1,8 @@
 package security
 
 import (
-	"net"
 	"context"
+	"net"
 	"testing"
 )
 
@@ -17,13 +17,17 @@ func (m *mockRedis) SIsMember(_ context.Context, _ string, _ interface{}) bool {
 func (m *mockRedis) SlidingWindowCount(_ context.Context, _ string, _ float64, _ int) int {
 	return 0
 }
-func (m *mockRedis) HGetAll(_ context.Context, _ string) map[string]string          { return nil }
+func (m *mockRedis) HGetAll(_ context.Context, _ string) map[string]string { return nil }
 func (m *mockRedis) GetString(_ context.Context, key string) string {
-	if m.data == nil { return "" }
+	if m.data == nil {
+		return ""
+	}
 	return m.data[key]
 }
 func (m *mockRedis) SetString(_ context.Context, key, value string, _ int) {
-	if m.data == nil { m.data = make(map[string]string) }
+	if m.data == nil {
+		m.data = make(map[string]string)
+	}
 	m.data[key] = value
 }
 func (m *mockRedis) Exists(_ context.Context, _ string) bool                        { return false }
@@ -50,7 +54,7 @@ func TestPipeline_ALPNBrowserBypass_H2(t *testing.T) {
 	p := newTestPipeline(100)
 	result := p.Process(context.Background(), &ConnectionContext{
 		ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4",
-		ALPN:     "h2",
+		ALPN: "h2",
 	})
 	if !result.Bypassed {
 		t.Error("h2 ALPN should trigger browser bypass")
@@ -67,7 +71,7 @@ func TestPipeline_ALPNBrowserBypass_H1(t *testing.T) {
 	p := newTestPipeline(100)
 	result := p.Process(context.Background(), &ConnectionContext{
 		ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4",
-		ALPN:     "h1",
+		ALPN: "h1",
 	})
 	if !result.Bypassed {
 		t.Error("h1 ALPN should trigger browser bypass")
@@ -78,7 +82,7 @@ func TestPipeline_JA4Whitelist_Bypass(t *testing.T) {
 	p := newTestPipeline(100)
 	result := p.Process(context.Background(), &ConnectionContext{
 		ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4",
-		JA4:      "t13d1516h2_8daaf6152771_02713d6af862",
+		JA4: "t13d1516h2_8daaf6152771_02713d6af862",
 	})
 	if !result.Bypassed {
 		t.Error("whitelisted JA4 should bypass")
@@ -92,7 +96,7 @@ func TestPipeline_JA4Blacklist_Block(t *testing.T) {
 	p := newTestPipeline(100)
 	result := p.Process(context.Background(), &ConnectionContext{
 		ParsedIP: net.ParseIP("5.6.7.8"), ClientIP: "5.6.7.8",
-		JA4:      "t13d190900_9dc949149365_97f8aa674fd9",
+		JA4: "t13d190900_9dc949149365_97f8aa674fd9",
 	})
 	if result.Bypassed {
 		t.Error("blacklisted JA4 should not set bypassed=true")
@@ -108,7 +112,7 @@ func TestPipeline_JA4Blacklist_Block(t *testing.T) {
 func TestPipeline_MTLSBypass(t *testing.T) {
 	p := newTestPipeline(100)
 	result := p.Process(context.Background(), &ConnectionContext{
-		ParsedIP: net.ParseIP("1.2.3.4"), ClientIP:           "1.2.3.4",
+		ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4",
 		HasValidClientCert: true,
 	})
 	if !result.Bypassed {
@@ -123,7 +127,7 @@ func TestPipeline_MonitorMode_AlwaysAllow(t *testing.T) {
 	p := newTestPipeline(0) // dial=0 = monitor mode
 	result := p.Process(context.Background(), &ConnectionContext{
 		ParsedIP: net.ParseIP("5.6.7.8"), ClientIP: "5.6.7.8",
-		JA4:      "t13d000000_000000000000_000000000000",
+		JA4: "t13d000000_000000000000_000000000000",
 	})
 	if result.Action != "allow" {
 		t.Errorf("dial=0: action=%q, want 'allow'", result.Action)
@@ -141,7 +145,7 @@ func TestPipeline_FullBlocking_ScoreZero_IsAllow(t *testing.T) {
 	p := newTestPipeline(100)
 	result := p.Process(context.Background(), &ConnectionContext{
 		ParsedIP: net.ParseIP("5.6.7.8"), ClientIP: "5.6.7.8",
-		JA4:      "t13d000000_000000000000_000000000000",
+		JA4: "t13d000000_000000000000_000000000000",
 	})
 	if result.Action != "allow" {
 		t.Errorf("score=0 at dial=100: action=%q, want 'allow'", result.Action)
@@ -172,7 +176,7 @@ func TestPipeline_ALPNBypassDisabled(t *testing.T) {
 	p := NewPipeline(cfg, &mockRedis{dial: 0}, nil)
 	result := p.Process(context.Background(), &ConnectionContext{
 		ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4",
-		ALPN:     "h2",
+		ALPN: "h2",
 	})
 	if result.Bypassed {
 		t.Error("h2 ALPN should NOT bypass when alpn_browser_bypass is disabled")
