@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/anomalyco/ja4proxy/internal/config"
-	proxypkg "github.com/anomalyco/ja4proxy/internal/proxy"
-	"github.com/anomalyco/ja4proxy/internal/security"
-	tlsparse "github.com/anomalyco/ja4proxy/internal/tls"
+	"github.com/seanpor/ja4proxy/internal/config"
+	proxypkg "github.com/seanpor/ja4proxy/internal/proxy"
+	"github.com/seanpor/ja4proxy/internal/security"
+	tlsparse "github.com/seanpor/ja4proxy/internal/tls"
 	"github.com/sirupsen/logrus"
 )
 

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/anomalyco/ja4proxy/internal/cli/client"
+	"github.com/seanpor/ja4proxy/internal/cli/client"
 )
 
 // RunBlocklistAdd adds a JA4 fingerprint to the blocklist.

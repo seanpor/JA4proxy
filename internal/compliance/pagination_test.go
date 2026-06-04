@@ -11,8 +11,8 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/anomalyco/ja4proxy/internal/cli/client"
-	"github.com/anomalyco/ja4proxy/internal/compliance"
+	"github.com/seanpor/ja4proxy/internal/cli/client"
+	"github.com/seanpor/ja4proxy/internal/compliance"
 )
 
 // makePageServer builds an httptest.Server that serves N events across

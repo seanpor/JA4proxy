@@ -39,7 +39,7 @@ import (
 	"github.com/sirupsen/logrus"
 	logrustest "github.com/sirupsen/logrus/hooks/test"
 
-	"github.com/anomalyco/ja4proxy/internal/metrics"
+	"github.com/seanpor/ja4proxy/internal/metrics"
 )
 
 func resetHealthMetrics(t *testing.T) {

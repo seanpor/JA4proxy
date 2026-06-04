@@ -6,7 +6,7 @@ import (
 	"net"
 	"strings"
 
-	"github.com/anomalyco/ja4proxy/internal/config"
+	"github.com/seanpor/ja4proxy/internal/config"
 )
 
 // IsTrustedProxySource returns true if the peer IP is allowed to provide

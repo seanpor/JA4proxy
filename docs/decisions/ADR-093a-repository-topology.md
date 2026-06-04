@@ -15,7 +15,7 @@ early Phase 93 iterations, but it was extracted to a separate repository before
 publication:
 
 - **External repo (on-disk):** `../terraform-provider-ja4proxy`
-- **External repo (remote):** `github.com/anomalyco/terraform-provider-ja4proxy`
+- **External repo (remote):** `github.com/seanpor/terraform-provider-ja4proxy`
   (module path verbatim from the external `go.mod`)
 
 Two factors forced the split:

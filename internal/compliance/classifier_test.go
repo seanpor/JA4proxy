@@ -3,7 +3,7 @@ package compliance_test
 import (
 	"testing"
 
-	"github.com/anomalyco/ja4proxy/internal/compliance"
+	"github.com/seanpor/ja4proxy/internal/compliance"
 )
 
 // TestClassify_HighestWeightWins verifies that when multiple signals are fired,

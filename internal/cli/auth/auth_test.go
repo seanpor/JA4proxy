@@ -3,7 +3,7 @@ package auth_test
 import (
 	"testing"
 
-	"github.com/anomalyco/ja4proxy/internal/cli/auth"
+	"github.com/seanpor/ja4proxy/internal/cli/auth"
 )
 
 // TestResolveToken_FlagWins verifies that a non-empty flag value takes precedence

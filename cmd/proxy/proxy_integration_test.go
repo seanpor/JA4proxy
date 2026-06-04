@@ -5,8 +5,8 @@ import (
 	"encoding/binary"
 	"testing"
 
-	"github.com/anomalyco/ja4proxy/internal/config"
-	proxypkg "github.com/anomalyco/ja4proxy/internal/proxy"
+	"github.com/seanpor/ja4proxy/internal/config"
+	proxypkg "github.com/seanpor/ja4proxy/internal/proxy"
 )
 
 // buildV2HeaderForTest constructs a PROXY protocol v2 header with the given

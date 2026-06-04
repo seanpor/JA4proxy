@@ -3,7 +3,7 @@ package proxy
 import (
 	"testing"
 
-	"github.com/anomalyco/ja4proxy/internal/config"
+	"github.com/seanpor/ja4proxy/internal/config"
 )
 
 // TestIsTrustedProxySource_TrustedCIDR_IPv4 verifies that an IP matching

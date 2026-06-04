@@ -9,7 +9,7 @@
 
 ## Detailed Findings
 
-- **deploy/terraform/README.md**: [404] https://github.com/anomalyco/terraform-provider-ja4proxy (at 8:1) | Rejected status code: 404 Not Found
+- **deploy/terraform/README.md**: [404] https://github.com/seanpor/terraform-provider-ja4proxy (at 8:1) | Rejected status code: 404 Not Found
 - **docs/compliance/GDPR_COMPLIANCE.md**: [404] https://edpb.europa.eu/our-work-tools/our-documents/guidelines/guidelines-220205-legitimate-interest_en (at 696:3) | Rejected status code: 404 Not Found | Followed 1 redirect. Redirects: https://edpb.europa.eu/our-work-tools/our-documents/guidelines/guidelines-220205-legitimate-interest_en --[301]--> https://www.edpb.europa.eu/our-work-tools/our-documents/guidelines/guidelines-220205-legitimate-interest_en
 - **docs/compliance/SECURITY_CONTROLS_MAPPING.md**: [ERROR] file:///input/docs/operator (at 140:78) | File not found. Check if file exists and path is correct
 - **docs/design/README.md**: [ERROR] file:///input/archive/python_legacy/tests/unit/security/test_mtls.py (at 34:128) | File not found. Check if file exists and path is correct

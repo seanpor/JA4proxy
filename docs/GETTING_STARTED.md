@@ -36,7 +36,7 @@ Optional but recommended:
 ## Clone, build, test (the happy path)
 
 ```bash
-git clone https://github.com/anomalyco/JA4proxy.git
+git clone https://github.com/seanpor/JA4proxy.git
 cd JA4proxy
 
 # 1. Python deps (test infrastructure runs in Python)

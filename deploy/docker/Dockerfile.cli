@@ -5,10 +5,10 @@
 # Target runtime image size: ≤ 15MB.
 #
 # Build:
-#   docker build -f Dockerfile-cli -t ghcr.io/anomalyco/ja4proxy-cli:latest .
+#   docker build -f Dockerfile-cli -t ghcr.io/seanpor/ja4proxy-cli:latest .
 #
 # Run:
-#   docker run --rm ghcr.io/anomalyco/ja4proxy-cli:latest \
+#   docker run --rm ghcr.io/seanpor/ja4proxy-cli:latest \
 #     --url https://mgmt.example.com --token $TOKEN ip ban 198.51.100.1
 
 # ── Build stage ───────────────────────────────────────────────────────────────

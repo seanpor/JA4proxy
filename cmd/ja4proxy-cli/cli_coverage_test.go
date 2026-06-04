@@ -8,7 +8,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/anomalyco/ja4proxy/internal/cli/commands"
+	"github.com/seanpor/ja4proxy/internal/cli/commands"
 )
 
 // mockAPIServer holds state for a mock Management API.

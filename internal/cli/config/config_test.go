@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/anomalyco/ja4proxy/internal/cli/config"
+	"github.com/seanpor/ja4proxy/internal/cli/config"
 )
 
 // writeConfigUnderHome creates ~/.config/ja4proxy/cli.yaml inside dir

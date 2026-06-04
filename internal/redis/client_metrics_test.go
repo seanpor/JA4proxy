@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/anomalyco/ja4proxy/internal/metrics"
+	"github.com/seanpor/ja4proxy/internal/metrics"
 	dto "github.com/prometheus/client_model/go"
 )
 

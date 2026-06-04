@@ -191,7 +191,7 @@ OCI labels make the image discoverable and traceable from a registry.
    ```
 3. Add OCI labels after the `FROM alpine:3.19` line (before the `RUN`):
    ```dockerfile
-   LABEL org.opencontainers.image.source="https://github.com/anomalyco/JA4proxy" \
+   LABEL org.opencontainers.image.source="https://github.com/seanpor/JA4proxy" \
          org.opencontainers.image.title="ja4proxy" \
          org.opencontainers.image.description="TLS-aware passthrough security proxy" \
          org.opencontainers.image.licenses="Apache-2.0"
@@ -271,7 +271,7 @@ unverified source tree.
    set -euo pipefail
    image="${1:?image-ref required}"
    cosign verify "$image" \
-     --certificate-identity-regexp "^https://github.com/anomalyco/JA4proxy/" \
+     --certificate-identity-regexp "^https://github.com/seanpor/JA4proxy/" \
      --certificate-oidc-issuer "https://token.actions.githubusercontent.com"
    ```
 5. Write `docs/decisions/ADR-202d.md` covering:

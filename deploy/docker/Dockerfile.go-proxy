@@ -37,7 +37,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
 FROM alpine:3.19.3@sha256:95c16745f100f44cf9a0939fd3f357905f845f8b6fa7d0cde0e88c9764060185
 
 # OCI image labels for registry discoverability and provenance.
-LABEL org.opencontainers.image.source="https://github.com/anomalyco/JA4proxy" \
+LABEL org.opencontainers.image.source="https://github.com/seanpor/JA4proxy" \
       org.opencontainers.image.title="ja4proxy" \
       org.opencontainers.image.description="TLS-aware passthrough security proxy" \
       org.opencontainers.image.licenses="Apache-2.0"

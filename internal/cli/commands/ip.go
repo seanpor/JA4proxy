@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"net/url"
 
-	"github.com/anomalyco/ja4proxy/internal/cli/client"
+	"github.com/seanpor/ja4proxy/internal/cli/client"
 )
 
 // BanResult represents an active IP ban entry returned by the Management API.

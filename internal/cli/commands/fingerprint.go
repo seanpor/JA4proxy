@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/anomalyco/ja4proxy/internal/cli/client"
+	"github.com/seanpor/ja4proxy/internal/cli/client"
 )
 
 // RunFingerprintHistory retrieves historical connection data for a JA4 fingerprint.

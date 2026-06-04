@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"os"
 
-	gotls "github.com/anomalyco/ja4proxy/internal/tls"
+	gotls "github.com/seanpor/ja4proxy/internal/tls"
 )
 
 // osExit is overridden in tests to avoid calling os.Exit.

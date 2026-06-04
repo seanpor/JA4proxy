@@ -47,7 +47,7 @@ Each sub-phase is **SMALL** (S). 93a–93e can be started independently once 93a
 1. Create `docs/decisions/ADR-093a.md` — Repository topology. Decision: keep in-tree at `terraform-provider/` during development, extract to separate repo before Registry publication.
 2. Create `docs/decisions/ADR-093b.md` — Terraform Registry namespace. Decision: `ja4proxy/ja4proxy` (self-published).
 3. Create `docs/decisions/ADR-093c.md` — TTL renewal strategy. Decision: re-POST on apply (already implemented via Update method).
-4. Create `terraform-provider/go.mod` with module `github.com/anomalyco/terraform-provider-ja4proxy` and Go 1.25.0.
+4. Create `terraform-provider/go.mod` with module `github.com/seanpor/terraform-provider-ja4proxy` and Go 1.25.0.
 5. Create `terraform-provider/main.go` with provider entry point.
 6. Create `terraform-provider/internal/provider/provider.go` with schema (`api_url`, `api_token`), Configure method with health check, and Resources() returning empty slice for now.
 7. Create `terraform-provider/internal/client/client.go` with HTTP client (Bearer auth, URL encoding, 429 retry).
@@ -330,21 +330,21 @@ The Terraform provider **must** live in a separate repository. This is not optio
 - Provider version lifecycle (semver, changelog, registry webhooks) is independent of
   proxy releases
 
-**Repository:** `github.com/anomalyco/terraform-provider-ja4proxy`
+**Repository:** `github.com/seanpor/terraform-provider-ja4proxy`
 
 The Terraform Registry namespace (`ja4proxy/ja4proxy` vs `hashicorp/ja4proxy`) must be
 recorded in ADR-093b before the `go.mod` module path is written. The module path is
-`github.com/anomalyco/terraform-provider-ja4proxy` regardless of namespace; the
+`github.com/seanpor/terraform-provider-ja4proxy` regardless of namespace; the
 namespace only affects the `required_providers` block in customer Terraform configs.
 
 **Recommended namespace:** `ja4proxy/ja4proxy` (self-published, no Hashicorp
 partnership needed, full control over publish cadence).
 
-### 3.2 File Layout (in `github.com/anomalyco/terraform-provider-ja4proxy`)
+### 3.2 File Layout (in `github.com/seanpor/terraform-provider-ja4proxy`)
 
 ```
 terraform-provider-ja4proxy/
-  go.mod                          # module github.com/anomalyco/terraform-provider-ja4proxy
+  go.mod                          # module github.com/seanpor/terraform-provider-ja4proxy
   main.go                         # provider entry point
   internal/
     provider/
@@ -697,7 +697,7 @@ test-phase-93:
 ## 11. Acceptance Criteria
 
 - [x] ADR-093a (repo topology), ADR-093b (namespace), ADR-093c (TTL renewal) written before coding starts
-- [x] Provider repo exists with correct `go.mod` module path (`github.com/anomalyco/terraform-provider-ja4proxy`)
+- [x] Provider repo exists with correct `go.mod` module path (`github.com/seanpor/terraform-provider-ja4proxy`)
 - [x] All 6 resource types in §5 implemented with Create/Read/Delete (and Update where applicable)
 - [x] `ja4proxy_ban` handles both IP and CIDR via URL-encoded path parameter (no separate cidr_ban resource)
 - [ ] `protect_unmanaged_entries` — **DEFERRED**: documented in README as planned for follow-up release. Current behavior: Terraform only manages explicitly declared resources; out-of-band entries are untouched.
@@ -718,7 +718,7 @@ test-phase-93:
 
 The provider repo at `../terraform-provider-ja4proxy/` is fully functional
 but has **no GitHub remote**. Phase 101 covers:
-1. Create GitHub repo at `github.com/anomalyco/terraform-provider-ja4proxy`
+1. Create GitHub repo at `github.com/seanpor/terraform-provider-ja4proxy`
 2. Add remote and push all commits
 3. Submit to Terraform Registry (requires HashiCorp partner review)
 

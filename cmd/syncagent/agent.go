@@ -15,9 +15,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/anomalyco/ja4proxy/internal/config"
-	"github.com/anomalyco/ja4proxy/internal/metrics"
-	"github.com/anomalyco/ja4proxy/internal/redis"
+	"github.com/seanpor/ja4proxy/internal/config"
+	"github.com/seanpor/ja4proxy/internal/metrics"
+	"github.com/seanpor/ja4proxy/internal/redis"
 	goredis "github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 )

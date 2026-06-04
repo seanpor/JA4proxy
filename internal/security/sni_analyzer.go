@@ -7,7 +7,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/anomalyco/ja4proxy/internal/metrics"
+	"github.com/seanpor/ja4proxy/internal/metrics"
 	"github.com/sirupsen/logrus"
 )
 

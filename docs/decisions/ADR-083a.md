@@ -98,7 +98,7 @@ Reasons:
   ```
 - `.goreleaser.yml` is added to the repository root. It configures builds for all
   five target platforms, GPG signing, checksum generation, SLSA provenance, and Docker
-  image push to `ghcr.io/anomalyco/ja4proxy-cli`.
+  image push to `ghcr.io/seanpor/ja4proxy-cli`.
 - GitHub Actions secrets required: `GPG_SIGNING_KEY` (armored private key export),
   `GPG_FINGERPRINT` (used to select the key for signing).
 - The release public key is committed at `docs/developer/ja4proxy-release.asc` so

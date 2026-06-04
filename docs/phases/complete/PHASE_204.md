@@ -48,7 +48,7 @@ Add a comprehensive badge section to the top of README.md to provide at-a-glance
 
 **Dynamic badges will use GitHub workflow status:**
 ```markdown
-![CI](https://github.com/anomalyco/ja4proxy/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/seanpor/ja4proxy/actions/workflows/ci.yml/badge.svg)
 ```
 
 ## Test strategy
@@ -68,7 +68,7 @@ Add a comprehensive badge section to the top of README.md to provide at-a-glance
 
 ## Notes
 
-- **2026-04-12 fix:** Initial badge URLs used wrong repo owner (`anomalyco/ja4proxy`). Fixed to `seanpor/JA4proxy` on branch `claude/phase-204-fix-badges`.
+- **2026-04-12 fix:** Initial badge URLs used wrong repo owner (`seanpor/ja4proxy`). Fixed to `seanpor/JA4proxy` on branch `claude/phase-204-fix-badges`.
 
 ## Out of scope
 

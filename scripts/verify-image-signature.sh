@@ -9,8 +9,8 @@
 
 set -euo pipefail
 
-image="${1:?image-ref required (e.g. ghcr.io/anomalyco/ja4proxy-go:sha-abc123)}"
+image="${1:?image-ref required (e.g. ghcr.io/seanpor/ja4proxy-go:sha-abc123)}"
 
 cosign verify "$image" \
-  --certificate-identity-regexp "^https://github.com/anomalyco/JA4proxy/" \
+  --certificate-identity-regexp "^https://github.com/seanpor/JA4proxy/" \
   --certificate-oidc-issuer "https://token.actions.githubusercontent.com"

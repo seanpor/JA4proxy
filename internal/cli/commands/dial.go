@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/anomalyco/ja4proxy/internal/cli/client"
+	"github.com/seanpor/ja4proxy/internal/cli/client"
 )
 
 // DialValue holds the current dial setting returned by the Management API.

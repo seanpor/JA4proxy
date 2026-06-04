@@ -155,7 +155,7 @@ allowlist is the verification surface for the pin-and-tag-comment pairing
 `scripts/verify-image-signature.sh`:
 ```bash
 cosign verify "$image" \
-  --certificate-identity-regexp "^https://github.com/anomalyco/JA4proxy/" \
+  --certificate-identity-regexp "^https://github.com/seanpor/JA4proxy/" \
   --certificate-oidc-issuer "https://token.actions.githubusercontent.com"
 ```
 

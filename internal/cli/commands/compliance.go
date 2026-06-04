@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/anomalyco/ja4proxy/internal/cli/client"
-	"github.com/anomalyco/ja4proxy/internal/compliance"
+	"github.com/seanpor/ja4proxy/internal/cli/client"
+	"github.com/seanpor/ja4proxy/internal/compliance"
 )
 
 // ── DSAR ─────────────────────────────────────────────────────────────────────

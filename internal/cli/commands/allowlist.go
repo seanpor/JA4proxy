@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/anomalyco/ja4proxy/internal/cli/client"
+	"github.com/seanpor/ja4proxy/internal/cli/client"
 )
 
 // ListEntry represents a single allowlist or blocklist entry from the Management API.

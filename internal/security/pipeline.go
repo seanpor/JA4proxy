@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/anomalyco/ja4proxy/internal/metrics"
-	ja4tls "github.com/anomalyco/ja4proxy/internal/tls"
+	"github.com/seanpor/ja4proxy/internal/metrics"
+	ja4tls "github.com/seanpor/ja4proxy/internal/tls"
 	"github.com/sirupsen/logrus"
 	"github.com/yl2chen/cidranger"
 )

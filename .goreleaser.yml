@@ -60,7 +60,7 @@ sbom:
 
 release:
   github:
-    owner: anomalyco
+    owner: seanpor
     name: ja4proxy
   draft: false
   prerelease: auto
@@ -70,7 +70,7 @@ release:
 
     See [CHANGELOG.md](CHANGELOG.md) for details.
   footer: |
-    **Full Changelog**: https://github.com/anomalyco/ja4proxy/compare/{{ .PreviousTag }}...{{ .Tag }}
+    **Full Changelog**: https://github.com/seanpor/ja4proxy/compare/{{ .PreviousTag }}...{{ .Tag }}
 
 snapshot:
   name_template: "{{ incpatch .Version }}-dev+{{ .ShortCommit }}"
