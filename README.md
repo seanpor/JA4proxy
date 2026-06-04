@@ -48,7 +48,7 @@ A fresh clone should build cleanly and pass the full test suite:
 
 ```bash
 git clone https://github.com/seanpor/JA4proxy && cd JA4proxy
-cp .env.example .env
+cp template.env .env
 make build
 make test-go test-unit
 ```

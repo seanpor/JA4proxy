@@ -15,7 +15,7 @@ Welcome to the central manual for operating and maintaining JA4proxy. This guide
 
 | Action | Command | Description |
 |--------|---------|-------------|
-| **Start Production** | `make start` | Starts proxy, Redis, and monitoring stack via Docker. |
+| **Start Production** | `make start` |\n| **Start POC** | `make start-poc` | Starts proxy, Redis, and monitoring stack via Docker. |
 | **Stop All** | `make stop` | Stops all services (persists data). |
 | **Check Health** | `make status` | Shows container health and decision metrics. |
 
