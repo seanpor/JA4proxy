@@ -26,6 +26,11 @@ This document tracks the remaining work for both historical phases (gaps identif
 
 ## 🔵 Planned & Open Phases
 
+### Phase 144 — Operational Excellence & Repo Pruning
+*   **Status:** **PROPOSED** (Prune legacy artifacts, add CLI validation/simulation, and MITRE mapping.)
+*   **Action Plan:** [PHASE_144.md](PHASE_144.md)
+
+
 ### Phase 137 — Advanced Adversarial Fuzzing & Protocol Hardening
 *   **Status:** **PROPOSED** (Harden Go proxy against PROXY v2, TCP fragmentation, and smuggling.)
 *   **Action Plan:** [PHASE_137.md](PHASE_137.md)
