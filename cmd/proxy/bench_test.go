@@ -22,6 +22,7 @@
 package main
 
 import (
+	"net"
 	"context"
 	"testing"
 
@@ -63,6 +64,7 @@ func newBenchPipeline(_ testing.TB) *security.Pipeline {
 
 func benchH2Connection() *security.ConnectionContext {
 	return &security.ConnectionContext{
+		ParsedIP: net.ParseIP("198.51.100.10"),
 		ClientIP: "198.51.100.10",
 		JA4:      "t13d1516h2_8daaf6152771_02713d6af862",
 		ALPN:     "h2",
@@ -71,6 +73,7 @@ func benchH2Connection() *security.ConnectionContext {
 
 func benchSuspiciousConnection() *security.ConnectionContext {
 	return &security.ConnectionContext{
+		ParsedIP: net.ParseIP("192.0.2.55"),
 		ClientIP: "192.0.2.55",
 		JA4:      "t13d000000_aaaaaaaaaaaa_bbbbbbbbbbbb",
 	}
