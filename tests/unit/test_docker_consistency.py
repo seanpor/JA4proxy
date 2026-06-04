@@ -115,7 +115,7 @@ class TestGoBaseImage:
         for lineno, image_ref in collect_from_lines(lines):
             if not image_ref.startswith("golang:"):
                 continue
-            assert re.match(r"^golang:1\.26-alpine(@sha256:[a-f0-9]{64})?$", image_ref), (
+            assert re.match(r"^golang:1\.26(\.\d+)?-alpine(@sha256:[a-f0-9]{64})?$", image_ref), (
                 f"{df_path}:{lineno} — "
                 f"expected FROM golang:1.26-alpine, got FROM {image_ref}. "
                 f"Tags must be pinned to a specific patch version (e.g., 1.25.9-alpine)."
