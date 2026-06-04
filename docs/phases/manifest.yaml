@@ -2335,3 +2335,8 @@ phases:
     status: COMPLETE
     action_plan: docs/phases/complete/PHASE_145.md
     summary: Formally published JA4proxy v2.0.0 on GitHub, including a comprehensive CHANGELOG, detailed release notes, and high-impact trust signals for the new high-performance Go core.
+  146:
+    name: Makefile Ergonomics & Standardization
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_146.md
+    summary: Standardized the project's high-level Makefile targets. Updated 'lint', 'scan', and 'test' to be exhaustive aggregates, ensuring a single 'make lint scan test' command provides a complete quality and security validation signal.
