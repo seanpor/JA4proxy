@@ -2232,7 +2232,7 @@ phases:
     summary: Targets sub-500ns allow-path latency by auditing allocations via pprof and refactoring the security pipeline to use zero-copy parsing for SNI, ALPN, and JA4 metadata.
   139:
     name: Open-Source Governance & OpenSSF Best Practices
-    status: PROPOSED
+    status: COMPLETE
     action_plan: docs/phases/PHASE_139.md
     summary: Formalizes the project governance model (CONTRIBUTING, CVD Policy, Code of Conduct) and fulfills the manual requirements for the OpenSSF Best Practices badge.
   140:
