@@ -370,8 +370,9 @@ phases:
       recurrence.'
   219:
     name: Restore Deleted Phase Documentation
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_219.md
+    status: COMPLETE
+    completed: 2026-06-04
+    action_plan: docs/phases/complete/PHASE_219.md
     dependencies: [218]
     size: SMALL
     summary: 'Restore 98 phase documentation files deleted by Phase 144 to fix make lint-phases
