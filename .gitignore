@@ -20,6 +20,7 @@ deploy/ssl/certs/*.pem
 # visible to git even though `.env.*` would otherwise ignore it.
 .env
 .env.*
+!template.env
 !.env.example
 
 # Active agent tracker (written by: make agent-up NAME=<agent>)

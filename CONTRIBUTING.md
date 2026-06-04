@@ -15,7 +15,7 @@ git clone https://github.com/seanpor/JA4proxy
 cd JA4proxy
 
 # Initialize environment
-cp .env.example .env
+cp template.env .env
 
 # Build the Go proxy
 make build
