@@ -312,7 +312,9 @@ Alignment with international standards and regulatory frameworks.
 | 145 | Official v2.0.0 Release | COMPLETE | N/A | N/A |
 | 146 | Makefile Ergonomics & Standardization | COMPLETE | N/A | N/A |
 | 147 | Automated Quality Guardrails & Meta-Validation | COMPLETE | N/A | N/A |
+| 148 | Repository Brand & Path Alignment | COMPLETE | N/A | N/A |
 | 149 | Guided Setup & Configuration Wizard | PROPOSED | N/A | N/A |
+| 150 | Unified Go Operational CLI | PROPOSED | N/A | N/A |
 | 200 | Go PROXY Protocol Trust + v2 Support | COMPLETE | N/A | N/A |
 | 201 | Go Redis TLS + Silent-Failure Hardening | COMPLETE | N/A | N/A |
 | 202 | CI Supply Chain + Default Credential Removal | COMPLETE | N/A | N/A |
