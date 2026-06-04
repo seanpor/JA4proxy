@@ -34,12 +34,12 @@ This document maps JA4proxy's implemented security controls to the **ISO 27001:2
 | Control | JA4proxy Implementation | Evidence | Gap |
 |---------|--------------------------|----------|-----|
 | **A.5.1: Policies for information security** | ✅ Security policy documented | [Security Policy Runbook](../runbooks/security_policy.md) | None |
-| **A.5.2: Information security roles and responsibilities** | ✅ Roles defined in operations guides | [SecOps Operations Guide](../OPERATIONS.md) | None |
+| **A.5.2: Information security roles and responsibilities** | ✅ Roles defined in operations guides | [SecOps Operations Guide](../OPERATIONS_GUIDE.md) | None |
 | **A.5.3: Segregation of duties** | ⚠️ Partial — small team context | Configuration management separation | Document formal segregation for production |
 | **A.5.4: Management responsibilities** | ✅ Incident response procedures | [Incident Response Runbook](../INCIDENT_RESPONSE.md) | None |
 | **A.5.5: Contact with authorities** | ✅ Breach notification template | [GDPR Compliance §9.3](../compliance/GDPR_COMPLIANCE.md#93-notification-template) | None |
 | **A.5.6: Contact with special interest groups** | ❌ Not applicable | Open source community engagement | N/A |
-| **A.5.7: Threat intelligence** | ✅ Spamhaus, AbuseIPDB integration | [Phase 8 & 10 documentation](../phases/complete/PHASE_08.md) | None |
+| **A.5.7: Threat intelligence** | ✅ Spamhaus, AbuseIPDB integration | [Feed Management Runbook](../runbooks/feed_management.md) | None |
 | **A.5.8: Information security in project management** | ✅ Phase-based security gates | [TESTING_STRATEGY.md](../TESTING_STRATEGY.md) | None |
 
 ### A.6: People Controls
@@ -95,7 +95,7 @@ This document maps JA4proxy's implemented security controls to the **ISO 27001:2
 | Control | JA4proxy Implementation | Evidence | Gap |
 |---------|--------------------------|----------|-----|
 | **A.8.3.1: Access control policy** | ✅ Role-based access documented | [Security Policy Runbook](../runbooks/security_policy.md) | None |
-| **A.8.3.2: User access provisioning** | ✅ Configuration management | [SecOps Operations Guide](../OPERATIONS.md) | None |
+| **A.8.3.2: User access provisioning** | ✅ Configuration management | [SecOps Operations Guide](../OPERATIONS_GUIDE.md) | None |
 | **A.8.3.3: Management of privileged access rights** | ✅ Redis ACLs and firewall rules | [Redis Security Review](../REDIS_SECURITY_REVIEW.md) | None |
 | **A.8.3.4: Management of secret authentication information** | ✅ Password rotation procedures | [Incident Response §Breach Notification](../INCIDENT_RESPONSE.md) | None |
 | **A.8.3.5: Review of user access rights** | ⚠️ Partial — manual review | Quarterly access review procedure needed | Automate access reviews |
@@ -127,7 +127,7 @@ This document maps JA4proxy's implemented security controls to the **ISO 27001:2
 |---------|--------------------------|----------|-----|
 | **A.10.1.1: Cryptographic controls policy** | ✅ Encryption policy documented | [Deployment Security Model](../DEPLOYMENT_SECURITY_MODEL.md) | None |
 | **A.10.1.2: Key management** | ✅ TLS key management | HAProxy TLS termination | None |
-| **A.10.1.3: Cryptographic techniques** | ✅ Strong cipher suites | [Phase 3: TLS Enforcement](../phases/complete/PHASE_03.md) | None |
+| **A.10.1.3: Cryptographic techniques** | ✅ Strong cipher suites | [Observability Standards §TLS enforcement](../OBSERVABILITY_STANDARDS.md) | None |
 
 ### A.11: Physical Security
 
@@ -138,13 +138,13 @@ This document maps JA4proxy's implemented security controls to the **ISO 27001:2
 | Control | JA4proxy Implementation | Evidence | Gap |
 |---------|--------------------------|----------|-----|
 | **A.12.1.1: Documented operating procedures** | ✅ Comprehensive runbooks | [Operator Documentation](../runbooks/) | None |
-| **A.12.1.2: Change management** | ✅ Configuration hot-reload | [Phase 0: Hot Reload](../phases/complete/PHASE_00.md) | None |
-| **A.12.1.3: Capacity management** | ✅ Resource monitoring | [Monitoring Setup §Capacity Planning](../MONITORING_SETUP.md) | None |
+| **A.12.1.2: Change management** | ✅ Configuration hot-reload | [Change Management](../CHANGE_MANAGEMENT.md) | None |
+| **A.12.1.3: Capacity management** | ✅ Resource monitoring | [Observability Standards](../OBSERVABILITY_STANDARDS.md) | None |
 | **A.12.1.4: Separation of development, testing and production** | ✅ Environment isolation | Docker Compose environment variables | None |
 | **A.12.2.1: Controls against malware** | ✅ Container scanning | Trivy integration in CI/CD | None |
 | **A.12.2.2: Information backup** | ✅ Backup and restore | [Phase 19: Backup & Restore](../phases/complete/PHASE_19.md) | None |
 | **A.12.2.3: Logging** | ✅ Comprehensive logging | [Observability Standards](../OBSERVABILITY_STANDARDS.md) | None |
-| **A.12.2.4: Monitoring** | ✅ Prometheus + Grafana | [Monitoring Setup](../MONITORING_SETUP.md) | None |
+| **A.12.2.4: Monitoring** | ✅ Prometheus + Grafana | [Observability Standards](../OBSERVABILITY_STANDARDS.md) | None |
 | **A.12.2.5: Clock synchronization** | ✅ NTP configuration | Docker container time sync | None |
 | **A.12.2.6: Installation of software on operational systems** | ✅ Immutable containers | Docker image signing | None |
 | **A.12.3.1: Information handling procedures** | ✅ Data classification | [GDPR Compliance §2](../compliance/GDPR_COMPLIANCE.md) | None |
