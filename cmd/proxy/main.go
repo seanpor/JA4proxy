@@ -800,7 +800,7 @@ func (p *proxy) reassembleClientHello(clientConn net.Conn, data, buf []byte) []b
 			totalBody := len(data) - 5
 			if totalBody <= 65535 {
 				data[3] = byte(totalBody >> 8)
-				data[4] = byte(totalBody)
+				data[4] = byte(totalBody & 0xFF)
 			}
 		}
 	}

@@ -66,7 +66,7 @@ security:
   blacklist_enabled: true
   rate_limiting: true
   max_requests_per_minute: 100
-  # Phase 209 (F-2): policy for connections with unparseable TLS ClientHellos.
+  # Phase 209 (F-2): policy for connections with unparsable TLS ClientHellos.
   # "forward" — pass through unexamined (fail-open, backwards-compatible default).
   # "block"   — TCP RST the connection (fail-closed for unknown TLS stacks).
   # "tarpit"  — redirect to tarpit container (slow-drain, forensic capture).

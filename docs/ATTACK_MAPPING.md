@@ -1,3 +1,10 @@
+<!--
+title: JA4proxy — Attack Mapping
+audience: operator
+last_reviewed: 2026-06-04
+phase: v2.0
+-->
+
 # MITRE ATT&CK Technique Mapping
 
 > **Status:** DRAFT — self-assessed mapping

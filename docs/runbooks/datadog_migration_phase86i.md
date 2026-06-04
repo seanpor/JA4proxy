@@ -1,3 +1,10 @@
+<!--
+title: Runbook: Datadog Migration
+audience: operator
+last_reviewed: 2026-06-04
+phase: v2.0
+-->
+
 # Runbook — Datadog Two-Layer Migration (Phase 86i)
 
 **Audience:** SRE / oncall handling the OpenMetrics → narrowed-custom-check

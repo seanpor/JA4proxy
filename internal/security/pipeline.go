@@ -772,7 +772,7 @@ func (p *Pipeline) auditDecision(ctx context.Context, ip string, currentScore in
 	lastScoreStr := p.redis.GetString(ctx, key)
 	if lastScoreStr != "" {
 		var lastScore int
-		fmt.Sscanf(lastScoreStr, "%d", &lastScore)
+		_, _ = fmt.Sscanf(lastScoreStr, "%d", &lastScore)
 		diff := currentScore - lastScore
 		if diff < 0 {
 			diff = -diff

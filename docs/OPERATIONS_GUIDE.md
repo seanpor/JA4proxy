@@ -1,3 +1,10 @@
+<!--
+title: JA4proxy — Operations Guide
+audience: operator
+last_reviewed: 2026-06-04
+phase: v2.0
+-->
+
 # JA4proxy — Operations Guide (v2.0.0)
 
 Welcome to the central manual for operating and maintaining JA4proxy. This guide consolidates all operational procedures, blocking logic, capacity planning, and troubleshooting.

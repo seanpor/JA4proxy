@@ -329,7 +329,7 @@ func TestTapConsumer_IPv6_CanonicalForm(t *testing.T) {
 	}
 }
 
-func TestTapConsumer_UnparseableIP_FailsOpen(t *testing.T) {
+func TestTapConsumer_UnparsableIP_FailsOpen(t *testing.T) {
 	rc := &fakeRedis{values: map[string]string{}}
 	tc := NewTapConsumer(newTapConfig(), rc, nil)
 	if got := tc.GetSignal(context.Background(), "not-an-ip", chromeWindowsJA4); got != nil {

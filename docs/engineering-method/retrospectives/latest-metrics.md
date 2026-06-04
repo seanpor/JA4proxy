@@ -1,3 +1,10 @@
+<!--
+title: Retrospective: Latest Metrics
+audience: operator
+last_reviewed: 2026-06-04
+phase: v2.0
+-->
+
 # Engineering Process Metrics
 
 > Generated: 2026-06-01

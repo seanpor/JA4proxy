@@ -1,3 +1,10 @@
+<!--
+title: JA4proxy — Testing Strategy
+audience: operator
+last_reviewed: 2026-06-04
+phase: v2.0
+-->
+
 # JA4proxy — Testing Strategy
 
 This document outlines the testing methodology and quality gates for JA4proxy.

@@ -1,3 +1,10 @@
+<!--
+title: Runbook: Emergency Playbooks
+audience: operator
+last_reviewed: 2026-06-04
+phase: v2.0
+-->
+
 # Emergency Runbook Playbooks
 
 Three pre-packaged Ansible playbooks for the most common JA4proxy incident response

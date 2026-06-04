@@ -1,3 +1,10 @@
+<!--
+title: JA4proxy — MITRE ATT&CK Signal Mapping
+audience: operator
+last_reviewed: 2026-06-04
+phase: v2.0
+-->
+
 # JA4proxy — MITRE ATT&CK Signal Mapping
 
 This document maps JA4proxy security signals to the **MITRE ATT&CK** framework to assist SecOps teams in incident triage and threat hunting.
