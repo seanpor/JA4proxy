@@ -2322,3 +2322,8 @@ phases:
     summary: Formalizes the Go-centric stack as v2.0.0 and instruments visible quality
       signals on GitHub, including automated code coverage reporting and high-impact
       trust badges.
+  145:
+    name: Official v2.0.0 Release
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_145.md
+    summary: Formally published JA4proxy v2.0.0 on GitHub, including a comprehensive CHANGELOG, detailed release notes, and high-impact trust signals for the new high-performance Go core.
