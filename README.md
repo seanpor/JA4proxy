@@ -7,7 +7,7 @@
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/seanpor/JA4proxy/badge)](https://scorecard.dev/viewer/?uri=github.com/seanpor/JA4proxy)
 [![Go Report Card](https://goreportcard.com/badge/github.com/seanpor/JA4proxy)](https://goreportcard.com/report/github.com/seanpor/JA4proxy)
 [![SLSA 3](https://slsa.dev/images/gh-badge-level3.svg)](https://slsa.dev)
-[![Go Reference](https://pkg.go.dev/badge/github.com/seanpor/JA4proxy.svg)](https://pkg.go.dev/github.com/seanpor/JA4proxy)
+
 [![Coverage](https://img.shields.io/badge/coverage-verified-brightgreen)](#-go-test-coverage)
 [![GitHub release (latest by mature)](https://img.shields.io/github/v/release/seanpor/JA4proxy)](https://github.com/seanpor/JA4proxy/releases)
 
