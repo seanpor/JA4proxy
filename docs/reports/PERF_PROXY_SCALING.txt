@@ -1,0 +1,16 @@
+goos: linux
+goarch: amd64
+pkg: github.com/anomalyco/ja4proxy/cmd/proxy
+cpu: Intel(R) Core(TM) i9-9900K CPU @ 3.60GHz
+BenchmarkPipeline_Allow       	 4144423	       292.6 ns/op	      96 B/op	       1 allocs/op
+BenchmarkPipeline_Allow-2     	 4243240	       272.5 ns/op	      96 B/op	       1 allocs/op
+BenchmarkPipeline_Allow-4     	 4263445	       277.4 ns/op	      96 B/op	       1 allocs/op
+BenchmarkPipeline_Allow-8     	 4435744	       278.7 ns/op	      96 B/op	       1 allocs/op
+BenchmarkPipeline_Allow-16    	 4477790	       283.6 ns/op	      96 B/op	       1 allocs/op
+BenchmarkPipeline_Score       	  526681	      2322 ns/op	     240 B/op	       9 allocs/op
+BenchmarkPipeline_Score-2     	  510958	      2337 ns/op	     240 B/op	       9 allocs/op
+BenchmarkPipeline_Score-4     	  522819	      2350 ns/op	     240 B/op	       9 allocs/op
+BenchmarkPipeline_Score-8     	  499863	      2337 ns/op	     240 B/op	       9 allocs/op
+BenchmarkPipeline_Score-16    	  530870	      2378 ns/op	     240 B/op	       9 allocs/op
+PASS
+ok  	github.com/anomalyco/ja4proxy/cmd/proxy	13.747s
