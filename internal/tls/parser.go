@@ -284,5 +284,5 @@ func parseSignatureAlgorithms(info *ClientHelloInfo, data []byte) {
 }
 
 func unsafeString(b []byte) string {
-	return unsafe.String(unsafe.SliceData(b), len(b)) // nosemgrep
+	return unsafe.String(unsafe.SliceData(b), len(b)) // #nosec G103 // nosemgrep
 }
