@@ -9,7 +9,7 @@
 
 Phase 93 delivered a working Terraform provider. The phase doc originally
 listed ~40% of its acceptance criteria as DEFERRED/PARTIAL. Subsequent work
-(in the **external provider repo** at `/home/sean/LLM/terraform-provider-ja4proxy`)
+(in the **external provider repo** at `../terraform-provider-ja4proxy`)
 closed most of those gaps — `protect_unmanaged_entries`, `[terraform]` reason
 prefix, `ticket`/`ttl_hours`/`notes` fields, `PlanModifiers`, 24h-near-expiry
 TTL renewal, and SHA-pinned CI workflows are all in place.
@@ -21,8 +21,8 @@ a runbook audit, a README refresh, and one architectural decision to
 are sufficient).
 
 > **Important:** This phase touches **two repositories**:
-> - `/home/sean/LLM/JA4proxy` (this repo) — docs, runbook, README, manifest
-> - `/home/sean/LLM/terraform-provider-ja4proxy` (external repo) — verification only; no code changes planned in this phase
+> - `.` (this repo) — docs, runbook, README, manifest
+> - `../terraform-provider-ja4proxy` (external repo) — verification only; no code changes planned in this phase
 >
 > No code changes land in the external repo during Phase 102. Every task below is doc-only.
 
@@ -77,7 +77,7 @@ Total: 6 small tasks, one critical path (102a–d parallel → 102e → 102f).
 **What to do**
 1. Copy the structure of an existing ADR (e.g. `docs/decisions/ADR-094c.md`) as a template.
 2. Fill in these sections:
-   - **Context** — the provider was initially drafted in-tree in Phase 93 but was extracted to `/home/sean/LLM/terraform-provider-ja4proxy` (external GitHub: `github.com/anomalyco/terraform-provider-ja4proxy`) to enable independent versioning and Terraform Registry publication. Module path: `github.com/anomalyco/terraform-provider-ja4proxy` (verified in external `go.mod`).
+   - **Context** — the provider was initially drafted in-tree in Phase 93 but was extracted to `../terraform-provider-ja4proxy` (external GitHub: `github.com/anomalyco/terraform-provider-ja4proxy`) to enable independent versioning and Terraform Registry publication. Module path: `github.com/anomalyco/terraform-provider-ja4proxy` (verified in external `go.mod`).
    - **Decision** — provider lives in a separate repo. Contract boundary between the two repos is the Management API (versioned, tested). Main repo documents decisions; external repo owns implementation.
    - **Consequences** — cross-repo coordination overhead; two CI systems; ADRs in main repo must reference external symbols by name, never by line number.
    - **Status** — Accepted, 2026-04-15.
@@ -100,7 +100,7 @@ Total: 6 small tasks, one critical path (102a–d parallel → 102e → 102f).
 **Depends on:** none. **Parallel with:** 102a, 102c, 102d.
 
 **What to do**
-1. Read `/home/sean/LLM/terraform-provider-ja4proxy/go.mod` to confirm the exact module path. Use that path in the ADR rather than guessing.
+1. Read `../terraform-provider-ja4proxy/go.mod` to confirm the exact module path. Use that path in the ADR rather than guessing.
 2. Fill in:
    - **Context** — Terraform Registry requires a namespace. HashiCorp Partner Programme requires legal paperwork; self-publish route does not.
    - **Decision** — self-publish under the org/namespace reflected in the external repo's `go.mod` (verify: `github.com/anomalyco/terraform-provider-ja4proxy`). No HashiCorp partner status pursued at this time.
@@ -237,7 +237,7 @@ Total: 6 small tasks, one critical path (102a–d parallel → 102e → 102f).
 
 ## 4. Explicitly out of scope
 
-- Any code changes in `/home/sean/LLM/terraform-provider-ja4proxy`. If
+- Any code changes in `../terraform-provider-ja4proxy`. If
   verification in 102d or later reveals a genuine external-repo bug, file a
   separate issue; do not fix it inside Phase 102.
 - Terraform Registry submission (asynchronous, external process — tracked by ADR-093b).
@@ -265,7 +265,7 @@ wall-clock for two engineers working in parallel on the independent tasks.
 
 Before touching any file, confirm:
 
-- [ ] You have read-only access to `/home/sean/LLM/terraform-provider-ja4proxy` (needed for verification in 102a–102c).
+- [ ] You have read-only access to `../terraform-provider-ja4proxy` (needed for verification in 102a–102c).
 - [ ] You understand that **no code changes** go into the external repo in this phase.
 - [ ] You know the ADR template — read `docs/decisions/ADR-094c.md` as a worked example.
 - [ ] You are on a feature branch off `main`, not on `main` directly.

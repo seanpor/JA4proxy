@@ -28,7 +28,7 @@ Complete step-by-step guide to set up monitoring, alerting, and dashboards for J
 
 ```bash
 # 1. Deploy monitoring stack
-cd /home/sean/LLM/JA4proxy
+cd .
 docker compose -f docker-compose.monitoring.yml up -d
 
 # 2. Access services

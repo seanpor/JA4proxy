@@ -549,7 +549,7 @@ initiate Registry publication.
 
 | Gap | Severity | What | File |
 |-----|----------|------|------|
-| H17 | HIGH | Provider repo not pushed to GitHub | `/home/sean/LLM/terraform-provider-ja4proxy/` |
+| H17 | HIGH | Provider repo not pushed to GitHub | `../terraform-provider-ja4proxy/` |
 
 **What's ready:**
 - 43 Go tests pass, 0 failures, `go vet` clean
@@ -560,7 +560,7 @@ initiate Registry publication.
 
 **Steps:**
 
-1. Verify the local repo at `/home/sean/LLM/terraform-provider-ja4proxy/` is clean: run `go vet ./...`, `go test ./...`, and `git status` to confirm all 43 tests pass and there are no uncommitted changes.
+1. Verify the local repo at `../terraform-provider-ja4proxy/` is clean: run `go vet ./...`, `go test ./...`, and `git status` to confirm all 43 tests pass and there are no uncommitted changes.
 2. Create a GitHub repo at `github.com/anomalyco/terraform-provider-ja4proxy` (or `github.com/seanpor/terraform-provider-ja4proxy` if the former org is not available).
 3. In the local repo, run `git remote add origin <url>` and `git push -u origin main`.
 4. Create a `v1.0.0` tag: `git tag v1.0.0 && git push origin v1.0.0` to trigger the `.github/workflows/release.yml` workflow.
@@ -2171,7 +2171,7 @@ only gap is that the provider repo has no GitHub remote.
 **Status:** DEFERRED  
 **Source:** Phase 93 expert review (2026-04-11)
 
-The provider repo at `/home/sean/LLM/terraform-provider-ja4proxy/` is complete
+The provider repo at `../terraform-provider-ja4proxy/` is complete
 but has no `git remote`. All code, tests, ADRs, and CI workflows are committed
 locally but not pushed.
 
