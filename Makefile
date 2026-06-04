@@ -1,4 +1,12 @@
 PYTHON ?= $(shell command -v python || command -v python3 || echo python)
+GO ?= $(shell command -v go || echo go)
+
+# ── Phony targets ─────────────────────────────────────────────────────────────
+.PHONY: all help doctor reload lint scan test start start-poc stop status logs
+.PHONY: help-ops help-lint help-scan help-dev help-legacy
+.PHONY: build rebuild clean
+.PHONY: sync sbom scorecard-local
+.PHONY: go-build go-test go-lint ja4p-test-ip ja4p-validate
 # Makefile for JA4 Proxy
 
 # ── Phony targets
@@ -173,7 +181,7 @@ help-dev:
 	@echo "  smoke-k8s         - Helm/kind smoke test (skips if absent)"
 	@echo ""
 	@echo "── Go Proxy ──────────────────────────────────────────────────"
-	@echo "  go-build          - Build Go proxy binary to bin/ja4proxy"
+	@echo "  go-build          - Build Go proxy binary to bin/ja4p"
 	@echo "  go-test           - Run all Go unit tests"
 	@echo "  go-lint           - Run go vet on Go code"
 	@echo ""
@@ -187,7 +195,7 @@ help-dev:
 	@echo "  lint-docs         - Validate doc frontmatter"
 	@echo "  link-check        - Check internal Markdown links"
 	@echo "  doc-health        - Run all doc quality checks"
-	@echo "  test-ratio        - Show test-to-code ratio"
+	@echo "  test-ratio        - Show test-to-code ratio\n  sync              - Sync roadmap from manifest.yaml"
 	@echo ""
 	@echo "── Multi-Agent ───────────────────────────────────────────────"
 	@echo "  agent-up NAME=..   - Start isolated agent env"
@@ -631,7 +639,7 @@ clean:
 	BACKEND_HOST=_ docker compose -f deploy/docker/docker-compose.prod.yml down -v --remove-orphans 2>/dev/null || true
 	# Remove reports and cache directories, ignoring errors (e.g., from container-created files with restrictive permissions)
 	rm -rf reports/ test-results/ __pycache__/ .pytest_cache/ .mypy_cache/ .ruff_cache/ .hypothesis/ .qwen/ 2>/dev/null || true
-	rm -f ja4proxy ja4check ja4proxy-cli bin/ja4proxy bin/ja4check bin/ja4proxy-cli 2>/dev/null || true
+	rm -f ja4proxy ja4check ja4proxy-cli bin/ja4p bin/ja4check bin/ja4p-cli 2>/dev/null || true
 
 # Full clean rebuild from scratch — wipes volumes, removes built images, rebuilds, starts.
 # If .current-agent is set (i.e. an agent stack is active), rebuilds and restarts that
@@ -807,12 +815,12 @@ ssh-tunnels:
 GOROOT := $(shell if [ -d /snap/go/current ]; then echo /snap/go/current; elif [ -n "$$GOROOT" ]; then echo "$$GOROOT"; else go env GOROOT 2>/dev/null; fi)
 GO     := GOROOT=$(GOROOT) go
 
-# Build the Go proxy binary into bin/ja4proxy
+# Build the Go proxy binary into bin/ja4p
 go-build:
 	@echo "Building Go proxy..."
 	@mkdir -p bin
-	$(GO) build -o bin/ja4proxy ./cmd/proxy
-	@echo "✓ bin/ja4proxy"
+	$(GO) build -o bin/ja4p ./cmd/proxy
+	@echo "✓ bin/ja4p"
 
 # Run all Go unit tests
 go-test:
@@ -960,7 +968,7 @@ bench-macro: ## Run end-to-end load test (requires: make start)
 sbom:
 	@echo "Generating SBOM for Go proxy..."
 	@if command -v syft &>/dev/null; then \
-		syft bin/ja4proxy -o cyclonedx-json > reports/sbom-proxy.json; \
+		syft bin/ja4p -o cyclonedx-json > reports/sbom-proxy.json; \
 		echo "✓ SBOM generated: reports/sbom-proxy.json"; \
 	else \
 		echo "✗ syft not found. Install with: curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh"; \
@@ -1162,3 +1170,9 @@ lint-all: lint-meta lint-python lint-go lint-sast lint-infra lint-observability 
 	@echo "✓ lint-all complete"
 
 start-poc: deploy-poc ## Alias for starting the POC environment
+
+sync: ## Sync roadmap from manifest.yaml to PROJECT_STATUS.md
+	@$(PYTHON) scripts/sync-roadmap.py
+
+ja4p-validate: ## Validate proxy configuration YAML
+	@./bin/ja4p config validate
