@@ -21,11 +21,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/anomalyco/ja4proxy/internal/cli/auth"
-	"github.com/anomalyco/ja4proxy/internal/cli/client"
-	"github.com/anomalyco/ja4proxy/internal/cli/commands"
-	cliconfig "github.com/anomalyco/ja4proxy/internal/cli/config"
-	"github.com/anomalyco/ja4proxy/internal/cli/output"
+	"github.com/seanpor/ja4proxy/internal/cli/auth"
+	"github.com/seanpor/ja4proxy/internal/cli/client"
+	"github.com/seanpor/ja4proxy/internal/cli/commands"
+	cliconfig "github.com/seanpor/ja4proxy/internal/cli/config"
+	"github.com/seanpor/ja4proxy/internal/cli/output"
 )
 
 // globalFlags holds the values of persistent global flags.

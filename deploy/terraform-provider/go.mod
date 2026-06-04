@@ -1,4 +1,4 @@
-module github.com/anomalyco/terraform-provider-ja4proxy
+module github.com/seanpor/terraform-provider-ja4proxy
 
 go 1.26.4
 

@@ -3,7 +3,7 @@ package auth_test
 import (
 	"testing"
 
-	"github.com/anomalyco/ja4proxy/internal/cli/auth"
+	"github.com/seanpor/ja4proxy/internal/cli/auth"
 	"github.com/zalando/go-keyring"
 )
 

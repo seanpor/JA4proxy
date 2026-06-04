@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/anomalyco/ja4proxy/internal/cli/client"
+	"github.com/seanpor/ja4proxy/internal/cli/client"
 )
 
 // TestClient_SetsAuthHeader verifies that every HTTP request carries an

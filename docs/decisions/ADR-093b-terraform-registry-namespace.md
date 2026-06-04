@@ -17,7 +17,7 @@ namespace. Two publication paths are available:
 | **Self-publish (community tier)** | GitHub repo, signed release tags, goreleaser manifest, GPG key uploaded to Registry | No legal paperwork; same functional capability as Partner tier |
 
 The provider repository is already named
-`github.com/anomalyco/terraform-provider-ja4proxy` (module path verified in
+`github.com/seanpor/terraform-provider-ja4proxy` (module path verified in
 the external `go.mod`), so the self-publish namespace is effectively chosen
 by the GitHub org under which the repo sits.
 
@@ -26,7 +26,7 @@ by the GitHub org under which the repo sits.
 ## Decision
 
 **Self-publish the provider under the namespace reflected in the external
-repo's `go.mod`:** `anomalyco/ja4proxy`. No HashiCorp Partner Programme
+repo's `go.mod`:** `seanpor/ja4proxy`. No HashiCorp Partner Programme
 status is pursued at this time.
 
 The release process is **goreleaser-driven**, configured in the external
@@ -55,7 +55,7 @@ release — from which the Terraform Registry then ingests them.
   terraform {
     required_providers {
       ja4proxy = {
-        source  = "anomalyco/ja4proxy"
+        source  = "seanpor/ja4proxy"
         version = "~> 1.0"
       }
     }
@@ -66,7 +66,7 @@ release — from which the Terraform Registry then ingests them.
 
 ### Operational
 - Registry submission status: **pending registration** at the time this ADR
-  was written. The `anomalyco` org and GPG key exist; the final Registry
+  was written. The `seanpor` org and GPG key exist; the final Registry
   "publish" action has not yet been performed. The namespace above is the
   intended namespace, not a confirmed live listing.
 - When the Registry listing goes live, update this ADR with the activation

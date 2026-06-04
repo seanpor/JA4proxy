@@ -14,8 +14,8 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/anomalyco/ja4proxy/internal/cache"
-	"github.com/anomalyco/ja4proxy/internal/metrics"
+	"github.com/seanpor/ja4proxy/internal/cache"
+	"github.com/seanpor/ja4proxy/internal/metrics"
 )
 
 // ErrAbuseIPDBNonHTTPS is returned when lookup() refuses to send the API

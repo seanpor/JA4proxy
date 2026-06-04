@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/anomalyco/ja4proxy/internal/metrics"
+	"github.com/seanpor/ja4proxy/internal/metrics"
 	"github.com/sirupsen/logrus"
 	"github.com/yl2chen/cidranger"
 )

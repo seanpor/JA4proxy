@@ -561,7 +561,7 @@ initiate Registry publication.
 **Steps:**
 
 1. Verify the local repo at `../terraform-provider-ja4proxy/` is clean: run `go vet ./...`, `go test ./...`, and `git status` to confirm all 43 tests pass and there are no uncommitted changes.
-2. Create a GitHub repo at `github.com/anomalyco/terraform-provider-ja4proxy` (or `github.com/seanpor/terraform-provider-ja4proxy` if the former org is not available).
+2. Create a GitHub repo at `github.com/seanpor/terraform-provider-ja4proxy` (or `github.com/seanpor/terraform-provider-ja4proxy` if the former org is not available).
 3. In the local repo, run `git remote add origin <url>` and `git push -u origin main`.
 4. Create a `v1.0.0` tag: `git tag v1.0.0 && git push origin v1.0.0` to trigger the `.github/workflows/release.yml` workflow.
 5. Submit the provider to the Terraform Registry via registry.terraform.io (requires HashiCorp partner review, 1-2 weeks). Track separately as M27.
@@ -2181,10 +2181,10 @@ locally but not pushed.
 - 4 ADRs (093a–093d) documenting all design decisions
 - `.github/workflows/test.yml` and `.github/workflows/release.yml` ready
 - `.goreleaser.yml` configured for multi-arch release + Registry upload
-- Module path: `github.com/anomalyco/terraform-provider-ja4proxy`
+- Module path: `github.com/seanpor/terraform-provider-ja4proxy`
 
 **What's needed:**
-1. Create GitHub repo at `github.com/anomalyco/terraform-provider-ja4proxy`
+1. Create GitHub repo at `github.com/seanpor/terraform-provider-ja4proxy`
    (or `github.com/seanpor/terraform-provider-ja4proxy`)
 2. `git remote add origin <url>` and `git push -u origin main`
 3. Submit to Terraform Registry (requires HashiCorp partner review, 1–2 weeks)

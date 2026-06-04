@@ -10,7 +10,7 @@
 
 Phase 202d introduces the first CI workflow that builds, scans, SBOMs,
 signs, and pushes the Go proxy container image
-(`.github/workflows/go-proxy-image.yml` → `ghcr.io/anomalyco/ja4proxy-go`).
+(`.github/workflows/go-proxy-image.yml` → `ghcr.io/seanpor/ja4proxy-go`).
 A signing strategy must be chosen before the workflow is implemented so
 that downstream consumers (Helm chart, `scripts/verify-image-signature.sh`,
 any future admission controller) build against a stable verification model.
@@ -39,12 +39,12 @@ Concrete implications baked into the workflow:
 
 - `id-token: write` permission added to the `sign` job (required for
   OIDC token exchange).
-- `cosign sign --yes ghcr.io/anomalyco/ja4proxy-go@${IMAGE_DIGEST}` — no
+- `cosign sign --yes ghcr.io/seanpor/ja4proxy-go@${IMAGE_DIGEST}` — no
   `--key` flag, no `COSIGN_PRIVATE_KEY` / `COSIGN_PASSWORD` secrets.
 - Verification regex used by `scripts/verify-image-signature.sh`:
   ```
   cosign verify "$image" \
-    --certificate-identity-regexp "^https://github.com/anomalyco/JA4proxy/" \
+    --certificate-identity-regexp "^https://github.com/seanpor/JA4proxy/" \
     --certificate-oidc-issuer "https://token.actions.githubusercontent.com"
   ```
 
@@ -111,7 +111,7 @@ Concrete implications baked into the workflow:
   phase-202 close-out notes.
 - **Helm chart users:** verify before `helm install`; documented in the
   chart README.
-- **CI consumers:** PR workflows that pull `ghcr.io/anomalyco/ja4proxy-go`
+- **CI consumers:** PR workflows that pull `ghcr.io/seanpor/ja4proxy-go`
   should call `verify-image-signature.sh` before `docker run`.
 
 **Not yet enforced:** Kubernetes admission controller (Kyverno / Sigstore
@@ -119,7 +119,7 @@ policy-controller) verification at deploy time. Documented as future work
 — once the signed-image pipeline has run cleanly for a few releases, a
 follow-up phase can add a cluster admission policy. That work also needs
 to decide whether to pin to a single workflow ref or allow any workflow
-in the `anomalyco/JA4proxy` repo to sign, which affects the CI identity
+in the `seanpor/JA4proxy` repo to sign, which affects the CI identity
 regex above.
 
 ---
@@ -179,11 +179,11 @@ regex above.
   mode 755):
   ```bash
   cosign verify "$image" \
-    --certificate-identity-regexp "^https://github.com/anomalyco/JA4proxy/" \
+    --certificate-identity-regexp "^https://github.com/seanpor/JA4proxy/" \
     --certificate-oidc-issuer "https://token.actions.githubusercontent.com"
   ```
 - SBOM retrieval for an end user:
-  `cosign download sbom ghcr.io/anomalyco/ja4proxy-go:TAG > sbom.cdx.json`
+  `cosign download sbom ghcr.io/seanpor/ja4proxy-go:TAG > sbom.cdx.json`
 - Live sample output from the first signed build is deferred until
   after merge (the workflow has not run on `main` yet). See
   `PHASE_202_notes.md` for the explicit deferral note.

@@ -5,7 +5,7 @@ Manage JA4proxy security rules via Infrastructure as Code.
 ## Provider Repository
 
 The Terraform provider lives in a separate repository:
-[`github.com/anomalyco/terraform-provider-ja4proxy`](https://github.com/anomalyco/terraform-provider-ja4proxy)
+[`github.com/seanpor/terraform-provider-ja4proxy`](https://github.com/seanpor/terraform-provider-ja4proxy)
 
 ## Quick Start
 
@@ -13,7 +13,7 @@ The Terraform provider lives in a separate repository:
 terraform {
   required_providers {
     ja4proxy = {
-      source  = "anomalyco/ja4proxy"
+      source  = "seanpor/ja4proxy"
       version = "~> 1.0"
     }
   }
@@ -118,7 +118,7 @@ make lint       # go vet + gofmt
   explains why the provider code lives in a separate repository and how the
   Management API serves as the cross-repo contract boundary.
 - [ADR-093b — Terraform Registry namespace selection](../../docs/decisions/ADR-093b-terraform-registry-namespace.md)
-  records the self-publish route and the `anomalyco/ja4proxy` namespace.
+  records the self-publish route and the `seanpor/ja4proxy` namespace.
 - [ADR-093c — Ban TTL renewal and drift-detection strategy](../../docs/decisions/ADR-093c-ttl-renewal-and-drift-detection.md)
   covers the re-POST-on-apply renewal model and the rationale for
   `protect_unmanaged_entries` defaulting to `true`.

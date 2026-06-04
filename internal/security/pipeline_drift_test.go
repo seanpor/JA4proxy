@@ -6,7 +6,7 @@ import (
 	// "time"
 	// "net"
 
-	"github.com/anomalyco/ja4proxy/internal/metrics"
+	"github.com/seanpor/ja4proxy/internal/metrics"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 )
 

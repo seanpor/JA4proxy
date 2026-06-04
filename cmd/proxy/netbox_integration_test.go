@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"github.com/anomalyco/ja4proxy/internal/config"
+	"github.com/seanpor/ja4proxy/internal/config"
 	"github.com/sirupsen/logrus"
 	"net/http"
 	"net/http/httptest"

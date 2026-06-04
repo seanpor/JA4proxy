@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/anomalyco/ja4proxy/internal/cli/config"
+	"github.com/seanpor/ja4proxy/internal/cli/config"
 )
 
 // TestSave_CreatesFileAndDirs verifies Save writes a config file and creates

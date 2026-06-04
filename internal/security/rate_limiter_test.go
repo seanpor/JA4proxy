@@ -13,7 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 	logrustest "github.com/sirupsen/logrus/hooks/test"
 
-	redisclient "github.com/anomalyco/ja4proxy/internal/redis"
+	redisclient "github.com/seanpor/ja4proxy/internal/redis"
 )
 
 // mockRedisCounter implements RedisReader for rate limiter tests.

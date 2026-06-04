@@ -26,7 +26,7 @@ import (
 	"net"
 	"testing"
 
-	"github.com/anomalyco/ja4proxy/internal/security"
+	"github.com/seanpor/ja4proxy/internal/security"
 )
 
 // benchRedis is a no-op RedisReader that returns dial=100 (full blocking).

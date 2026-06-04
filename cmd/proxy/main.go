@@ -31,15 +31,15 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
 
-	"github.com/anomalyco/ja4proxy/internal/config"
-	"github.com/anomalyco/ja4proxy/internal/health"
-	jalogger "github.com/anomalyco/ja4proxy/internal/logging"
-	"github.com/anomalyco/ja4proxy/internal/metrics"
-	proxypkg "github.com/anomalyco/ja4proxy/internal/proxy"
-	redisclient "github.com/anomalyco/ja4proxy/internal/redis"
-	"github.com/anomalyco/ja4proxy/internal/security"
-	tlsparse "github.com/anomalyco/ja4proxy/internal/tls"
-	webhook "github.com/anomalyco/ja4proxy/internal/webhook"
+	"github.com/seanpor/ja4proxy/internal/config"
+	"github.com/seanpor/ja4proxy/internal/health"
+	jalogger "github.com/seanpor/ja4proxy/internal/logging"
+	"github.com/seanpor/ja4proxy/internal/metrics"
+	proxypkg "github.com/seanpor/ja4proxy/internal/proxy"
+	redisclient "github.com/seanpor/ja4proxy/internal/redis"
+	"github.com/seanpor/ja4proxy/internal/security"
+	tlsparse "github.com/seanpor/ja4proxy/internal/tls"
+	webhook "github.com/seanpor/ja4proxy/internal/webhook"
 )
 
 func main() {

@@ -1,4 +1,4 @@
-module github.com/anomalyco/ja4proxy
+module github.com/seanpor/ja4proxy
 
 go 1.26
 

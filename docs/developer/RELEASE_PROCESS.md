@@ -113,7 +113,7 @@ a downloaded binary.
 
 ```bash
 VERSION=v1.0.0
-BASE=https://github.com/anomalyco/ja4proxy/releases/download/${VERSION}
+BASE=https://github.com/seanpor/ja4proxy/releases/download/${VERSION}
 
 curl -LO ${BASE}/ja4proxy-cli_linux_amd64.tar.gz
 curl -LO ${BASE}/ja4proxy-cli_linux_amd64.tar.gz.asc
@@ -124,7 +124,7 @@ curl -LO ${BASE}/checksums.txt.asc
 ### Import the Project Release Key
 
 ```bash
-curl -s https://raw.githubusercontent.com/anomalyco/ja4proxy/main/docs/developer/ja4proxy-release.asc \
+curl -s https://raw.githubusercontent.com/seanpor/ja4proxy/main/docs/developer/ja4proxy-release.asc \
   | gpg --import
 ```
 
@@ -163,7 +163,7 @@ curl -LO ${BASE}/multiple.intoto.jsonl
 # Verify provenance
 slsa-verifier verify-artifact \
   --provenance-path multiple.intoto.jsonl \
-  --source-uri github.com/anomalyco/ja4proxy \
+  --source-uri github.com/seanpor/ja4proxy \
   ja4proxy-cli_linux_amd64.tar.gz
 ```
 

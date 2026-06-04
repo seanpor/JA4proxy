@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/anomalyco/ja4proxy/internal/cli/output"
+	"github.com/seanpor/ja4proxy/internal/cli/output"
 )
 
 // row is a simple test struct for verifying output rendering.

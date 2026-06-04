@@ -3,8 +3,8 @@ package provider
 import (
 	"context"
 
-	"github.com/anomalyco/terraform-provider-ja4proxy/internal/client"
-	"github.com/anomalyco/terraform-provider-ja4proxy/internal/resources"
+	"github.com/seanpor/terraform-provider-ja4proxy/internal/client"
+	"github.com/seanpor/terraform-provider-ja4proxy/internal/resources"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"

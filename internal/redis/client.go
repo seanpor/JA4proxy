@@ -16,7 +16,7 @@ import (
 	goredis "github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 
-	"github.com/anomalyco/ja4proxy/internal/metrics"
+	"github.com/seanpor/ja4proxy/internal/metrics"
 )
 
 // observeOp records a Redis operation outcome to the SLO counter (phase-63).

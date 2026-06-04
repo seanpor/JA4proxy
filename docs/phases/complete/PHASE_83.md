@@ -162,14 +162,14 @@ in `docs/developer/RELEASE_PROCESS.md`.
 
 Distributed as:
 - Standalone binary download from GitHub releases (linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64)
-- Container image `ghcr.io/anomalyco/ja4proxy-cli:latest` (`FROM scratch` + binary)
+- Container image `ghcr.io/seanpor/ja4proxy-cli:latest` (`FROM scratch` + binary)
 - Copied into the proxy container image at `/usr/local/bin/ja4proxy-cli` (update Dockerfile)
 
 ---
 
 ## 6. File Locations
 
-All CLI code lives in the **existing Go module** (`github.com/anomalyco/ja4proxy`,
+All CLI code lives in the **existing Go module** (`github.com/seanpor/ja4proxy`,
 root `go.mod`). No new module or repo required.
 
 ```

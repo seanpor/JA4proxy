@@ -124,8 +124,8 @@ For developers who want to share cache across machines (or CI runners), add:
 build-ci:
     docker buildx create --use --name=ja4proxy-builder --driver=docker-container
     docker buildx build \
-        --cache-from=type=registry,ref=ghcr.io/anomalyco/ja4proxy-buildcache \
-        --cache-to=type=registry,ref=ghcr.io/anomalyco/ja4proxy-buildcache,mode=max \
+        --cache-from=type=registry,ref=ghcr.io/seanpor/ja4proxy-buildcache \
+        --cache-to=type=registry,ref=ghcr.io/seanpor/ja4proxy-buildcache,mode=max \
         -f deploy/docker/Dockerfile.go-proxy \
         -t ja4proxy-go:latest .
 ```

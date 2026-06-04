@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/anomalyco/ja4proxy/internal/cli/commands"
+	"github.com/seanpor/ja4proxy/internal/cli/commands"
 )
 
 // validMinimalPolicy is a known-good policy YAML that passes all validation rules.

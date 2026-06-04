@@ -111,7 +111,7 @@ external-repo verification, not a MEDIUM-size phase.
 - **ADR-093a (repo topology):** now has something concrete to document —
   *the provider was extracted* — with the extraction procedure as evidence.
 - **ADR-093b (Registry namespace):** decision probably already reflected in
-  external repo's `go.mod` module path (`github.com/anomalyco/…`).
+  external repo's `go.mod` module path (`github.com/seanpor/…`).
 - **ADR-093c (TTL renewal):** document the "re-POST on apply is idempotent"
   decision; reference external-repo `ban_resource.go` by symbol name, not
   line number.
@@ -208,7 +208,7 @@ Given the staleness of the phase doc, the honest decomposition is small.
 **Files:** `docs/decisions/ADR-093a-repository-topology.md` (new)
 **What to do:**
 - Context: provider was initially in-tree, extracted to
-  `github.com/anomalyco/terraform-provider-ja4proxy` for Registry publication.
+  `github.com/seanpor/terraform-provider-ja4proxy` for Registry publication.
 - Decision: separate repo, independent CI, independent release cadence.
 - Consequences: cross-repo coordination cost; document contract boundary
   (Management API is the interface).

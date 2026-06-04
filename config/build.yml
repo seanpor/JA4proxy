@@ -9,7 +9,7 @@ go_proxy:
 build_opts:
   ldflags:                       # Default linker flags (override with make if needed)
     - "-s -w X-main=./cmd/proxy/main.go"  # Strip debug info, embed main path
-    - "-X github.com/anomalyco/ja4proxy/internal/config.BuildDate=$(date +%Y-%m-%dT%H:%M:%SZ)"
+    - "-X github.com/seanpor/ja4proxy/internal/config.BuildDate=$(date +%Y-%m-%dT%H:%M:%SZ)"
 
 # Binary size targets
 size_goals:

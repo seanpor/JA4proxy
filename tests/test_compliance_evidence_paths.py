@@ -140,7 +140,7 @@ def test_evidence_path_pattern_ignores_urls_and_absolute_paths() -> None:
     """The extraction regex must NOT match URLs or absolute paths."""
     sample = """
     See https://docs.example.com/foo.md or /etc/passwd or
-    https://github.com/anomalyco/JA4proxy/blob/main/docs/X.md
+    https://github.com/seanpor/JA4proxy/blob/main/docs/X.md
     """
     matches = {m.group("path") for m in EVIDENCE_PATH_PATTERN.finditer(sample)}
     assert matches == set(), f"Should not match URL/absolute paths, got: {matches}"

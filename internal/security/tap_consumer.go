@@ -22,8 +22,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/anomalyco/ja4proxy/internal/cache"
-	"github.com/anomalyco/ja4proxy/internal/metrics"
+	"github.com/seanpor/ja4proxy/internal/cache"
+	"github.com/seanpor/ja4proxy/internal/metrics"
 	"github.com/sirupsen/logrus"
 )
 

@@ -28,7 +28,7 @@ linters:
         - (*crypto/tls.Conn).Close
         - (*net.TCPConn).Close
         - (*github.com/redis/go-redis/v9.Client).Close
-        - (*github.com/anomalyco/ja4proxy/internal/redis.Client).Close
+        - (*github.com/seanpor/ja4proxy/internal/redis.Client).Close
         - (*github.com/redis/go-redis/v9.PubSub).Close
         - (net.Conn).SetReadDeadline
         - (net.Conn).SetWriteDeadline

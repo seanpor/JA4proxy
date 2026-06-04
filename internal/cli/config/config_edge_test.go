@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/anomalyco/ja4proxy/internal/cli/config"
+	"github.com/seanpor/ja4proxy/internal/cli/config"
 )
 
 // TestSave_ReadOnlyDirectory verifies Save returns an error when the parent

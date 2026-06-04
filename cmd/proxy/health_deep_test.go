@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/alicebob/miniredis/v2"
-	"github.com/anomalyco/ja4proxy/internal/config"
-	"github.com/anomalyco/ja4proxy/internal/metrics"
-	redisclient "github.com/anomalyco/ja4proxy/internal/redis"
+	"github.com/seanpor/ja4proxy/internal/config"
+	"github.com/seanpor/ja4proxy/internal/metrics"
+	redisclient "github.com/seanpor/ja4proxy/internal/redis"
 	"github.com/sirupsen/logrus"
 )
 

@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/anomalyco/ja4proxy/internal/cache"
+	"github.com/seanpor/ja4proxy/internal/cache"
 )
 
 func defaultAbuseIPDBCfg(apiURL string) *AbuseIPDBConfig {

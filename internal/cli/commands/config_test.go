@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/anomalyco/ja4proxy/internal/cli/client"
-	"github.com/anomalyco/ja4proxy/internal/cli/commands"
+	"github.com/seanpor/ja4proxy/internal/cli/client"
+	"github.com/seanpor/ja4proxy/internal/cli/commands"
 )
 
 // TestConfigReload_AllNodes verifies that RunConfigReload with an empty node

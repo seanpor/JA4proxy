@@ -180,7 +180,7 @@ All sub-tasks are SAFE: no production runtime touched. Worst-case failure is a C
 **What to do:**
 - Change `addgroup -S ja4proxy && adduser -S -G ja4proxy ja4proxy` to `addgroup -g 1000 -S ja4proxy && adduser -u 1000 -S -G ja4proxy ja4proxy`.
 - Change `USER ja4proxy` to `USER 1000:1000` (numeric for k8s `runAsNonRoot`).
-- Add `LABEL org.opencontainers.image.source="https://github.com/anomalyco/JA4proxy"`, `…image.title`, `…image.licenses`.
+- Add `LABEL org.opencontainers.image.source="https://github.com/seanpor/JA4proxy"`, `…image.title`, `…image.licenses`.
 - Optional: digest-pin `golang:1.25-alpine@sha256:…` and `alpine:3.19@sha256:…` — look up via `docker pull` + `docker inspect --format='{{index .RepoDigests 0}}'`.
 **Done when:**
 - [ ] `docker build -f deploy/docker/Dockerfile.go-proxy -t ja4proxy-go:test .` succeeds
@@ -241,7 +241,7 @@ All sub-tasks are SAFE: no production runtime touched. Worst-case failure is a C
 **What to do:** push branch, observe CI, fix any red, verify signed image in GHCR, verify `cosign verify` works, verify SBOM attached as OCI artifact.
 **Done when:**
 - [ ] Workflow runs green end-to-end on the branch
-- [ ] `cosign verify ghcr.io/anomalyco/ja4proxy-go:<sha>` succeeds
+- [ ] `cosign verify ghcr.io/seanpor/ja4proxy-go:<sha>` succeeds
 - [ ] SBOM artifact retrievable (`cosign download sbom …`)
 
 ### Testing

@@ -2038,7 +2038,7 @@ phases:
       refreshed with drift-protection guidance. docs/runbooks/emergency_playbooks.md
       audited against playbook YAML. Most of the phase's original scope (protect_unmanaged_entries,
       [terraform] prefix, ticket/ttl_hours/notes fields, PlanModifiers, SHA-pinned
-      CI) was pre-delivered in the external provider repo at github.com/anomalyco/terraform-provider-ja4proxy
+      CI) was pre-delivered in the external provider repo at github.com/seanpor/terraform-provider-ja4proxy
       before Phase 102 started.
     lessons_learned: 'Phase doc was stale — scope was ~85% pre-delivered in the external
       provider repo. Future cross-repo phases should begin with a ground-truth sweep
@@ -2051,7 +2051,7 @@ phases:
     size: SMALL
     success_criteria:
     - ADR-093a repository topology written
-    - ADR-093b Terraform Registry namespace written (namespace anomalyco/ja4proxy,
+    - ADR-093b Terraform Registry namespace written (namespace seanpor/ja4proxy,
       pending registration)
     - ADR-093c TTL renewal and drift-detection decision written
     - docs/runbooks/emergency_playbooks.md audited against playbook YAML
