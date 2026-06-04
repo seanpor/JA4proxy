@@ -1,8 +1,10 @@
 PYTHON ?= $(shell command -v python || command -v python3 || echo python)
 # Makefile for JA4 Proxy
 
-# ── Phony targets (alphabetical by group) ──────────────────────────────────
-.PHONY: all help lint-help scan scan-all scan-container scan-local legacy-help dev-help
+# ── Phony targets
+.PHONY: agent-down agent-status agent-up all approve-all attack-status bench bench-go-pipeline block-ip block-ja4 build capture-fixtures capture-fixtures-browser check-geoip check-image-versions check-manifest check-paths check-scores check-updates check-updates-container check-updates-local ci-local clean deploy-enterprise deploy-poc dev-help dial doc-health doctor fetch-db findings-list findings-render flush-redis gdpr-delete geoip-monitor geoip-report geoip-watch go-build go-build-ja4check go-lint go-test health-check help legacy-help link-check lint lint-action-shas lint-alert-urls lint-alertmanager lint-all lint-ansible lint-checkov lint-compose-config lint-coverage lint-deps lint-docker lint-docs lint-docs-all lint-github-actions lint-go lint-go-full lint-go-mod lint-haproxy lint-helm lint-help lint-infra lint-json lint-lua lint-makefiles lint-markdown lint-meta lint-observability lint-phases lint-prom lint-pylint lint-python lint-quality lint-sast lint-secrets lint-security lint-semgrep lint-shell lint-spelling lint-static lint-supply-chain lint-toml lint-types lint-yaml list-pending load-test load-test-baseline load-test-report logs management-build management-down management-logs management-shell management-test management-up measure-mttr openapi-spec parity-check perf-test perf-test-basic quality quick-start rebuild sbom scan scan-all scan-container scan-dockerfiles scan-first-party scan-help scan-images scan-local scorecard-local slo-report smoke-docker smoke-k8s smoke-test ssh-tunnels start start-monitoring start-scaled status stop stop-clean sync test test-adversarial test-attack-mapping test-calibrate test-chaos test-cli test-compliance test-compliance test-compliance-go test-compliance-language test-compliance-parity test-compliance-python test-component-suites test-compose-config-lint test-doc-links test-docker test-docker-consistency test-evidence-paths test-gdpr-compliance test-go test-go-chaos test-go-chaos-unit test-go-docker test-go-fuzz-smoke test-go-integration test-go-perf test-go-property test-go-redis-tls test-infra-monitoring test-infra-monitoring-integration test-lint-hierarchy test-logging-webhook test-mgmt-api test-mgmt-api-events test-mgmt-api-unit test-policy-validator test-provisioning test-ratio test-slo test-tap test-tap-live test-tap-perf test-unit top-attackers tunnel unblock-ip update-geoip validate-ecs-schema validate-slo-rules verify-findings verify-findings-green verify-manifest-closeout
+# (alphabetical by group) ──────────────────────────────────
+.PHONY: all help reload doctor lint-meta lint-help scan scan-all scan-container scan-local legacy-help dev-help
 .PHONY: build rebuild clean
 .PHONY: start start-monitoring start-scaled stop stop-clean status logs
 .PHONY: dial ssh-tunnels flush-redis
@@ -35,6 +37,22 @@ NAME ?= $(or $(Name),$(name))
 
 # Default target
 all: help
+
+doctor: ## Phase 147 — Verify environment and toolchain health
+	@echo "=== JA4proxy Doctor: Environment Health Check ==="
+	@echo "Checking Go version (expected 1.26+)..."
+	@go version | grep -E "go1\\.2[6-9]|go1\\.[3-9]" > /dev/null || (echo "  X Go version invalid: $$(go version)"; exit 1)
+	@echo "  v Go OK"
+	@echo "Checking Python version (expected 3.14+)..."
+	@$(PYTHON) --version 2>&1 | grep -E "Python 3\\.1[4-9]" > /dev/null || (echo "  ! Warning: Python version is $$( $(PYTHON) --version 2>&1 ). Expected 3.14+ for full compatibility.";)
+	@echo "Checking required tools..."
+	@for tool in docker hadolint trivy semgrep promtool amtool gitleaks codespell markdownlint; do \
+		command -v $$tool > /dev/null && echo "  v $$tool OK" || echo "  ! Warning: $$tool not found (some targets will fail)"; \
+	done
+	@echo "Checking .env file..."
+	@[ -f .env ] && echo "  v .env OK" || echo "  ! Warning: .env file missing (run: cp .env.example .env)"
+	@echo "=== Doctor: Health check complete ==="
+
 
 # ── Master help ───────────────────────────────────────────────────────────
 help: lint-help scan-help legacy-help dev-help
@@ -260,7 +278,7 @@ build:
 # Skips tests marked @pytest.mark.live_services (require Go/Python proxy + Redis stack)
 test: ## Phase 146 — Run the full test suite
 	@echo "=== Running Go Native Tests ==="
-	@GOROOT=$${GOROOT:-/snap/go/current} go test ./...
+	@GOROOT=$${GOROOT:-/snap/go/current} go test -v -coverprofile=coverage.txt -covermode=atomic ./...
 	@echo "=== Running Python Unit Tests ==="
 	@$(PYTHON) -m pytest tests/unit/ -n auto --dist=loadfile --timeout=60 --tb=short
 	@echo "=== Running Integration Smoke Tests ==="
@@ -1324,7 +1342,7 @@ lint-supply-chain: lint-secrets lint-deps
 lint-docs-all: lint-docs lint-phases link-check check-paths lint-markdown lint-spelling
 
 # Run every linter — the single entry point for full validation
-lint-all: lint-python lint-go lint-sast lint-infra lint-observability \
+lint-all: lint-meta lint-python lint-go lint-sast lint-infra lint-observability \
           lint-supply-chain lint-docs-all lint-action-shas
 	@echo ""
 	@echo "✓ lint-all complete — all linters passed"
@@ -1438,7 +1456,9 @@ sbom:
 		echo "✓ SBOM generated: reports/sbom-proxy.json"; \
 	else \
 		echo "✗ syft not found. Install with: curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh"; \
-	fi\n\nvalidation-report:
+	fi
+
+validation-report:
 	python scripts/generate_validation_report.py
 
 .PHONY: test-go-fuzz-smoke test-go-property test-go-chaos-unit bench-go-pipeline validation-report
@@ -1470,7 +1490,7 @@ test-slo:
 
 ## CI local targets
 ci-local: ## Run the same fast checks the CI workflow runs (Go + Python tests)
-	GOROOT=/snap/go/current go test ./...
+	GOROOT=/snap/go/current go test -v -coverprofile=coverage.txt -covermode=atomic ./...
 	python -m pytest tests/ --ignore=tests/integration/test_docker_stack.py -x -q --timeout=60
 
 .PHONY: ci-local
@@ -1537,7 +1557,7 @@ perf-test-basic: ## Run basic performance test against a local proxy
 quality: lint-all lint-coverage ## Run all linters + coverage checks in one shot
 	@echo ""
 	@echo "=== Go coverage check ==="
-	@GOROOT=/snap/go/current go test ./... -coverprofile=/tmp/go_cover_quality.out -count=1 > /dev/null 2>&1 \
+	@GOROOT=/snap/go/current go test -v -coverprofile=coverage.txt -covermode=atomic ./... -coverprofile=/tmp/go_cover_quality.out -count=1 > /dev/null 2>&1 \
 		&& GOROOT=/snap/go/current go tool cover -func=/tmp/go_cover_quality.out \
 			| tail -1 | awk '{gsub(/%/,"",$$NF); if($$NF+0 < 50) {print "FAIL: Go coverage "$$NF"% < 50%"; exit 1} else print "  ✓ Go coverage "$$NF"%"}'
 	@echo ""
@@ -1587,3 +1607,8 @@ test-doc-links: ## Phase 107w.3 — lychee-check all docs for broken internal li
 		--exclude-path archive \
 		--exclude-path node_modules \
 		"**/*.md"
+lint-meta: ## Phase 147 — Verify Makefile and automation script health
+	@$(PYTHON) scripts/meta_lint.py
+
+reload: ## Reload proxy configuration without restart (SIGHUP)
+	@docker compose -f deploy/docker/docker-compose.poc.yml kill -s SIGHUP proxy 2>/dev/null || kill -s SIGHUP $$(pgrep ja4p) 2>/dev/null || echo "Proxy not running"
