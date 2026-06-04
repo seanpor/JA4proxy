@@ -346,6 +346,15 @@ phases:
       closure verification protocol, intake runbook for the next red team report,
       CVSS version ADR. 11 sub-phases, no code fixes. All acceptance criteria met
       2026-04-19; make phase-121-verify green.'
+  217:
+    name: Fix Pre-Existing CI Pipeline Failures
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_217.md
+    dependencies: []
+    size: SMALL
+    summary: 'Fixes all four pre-existing CI/build failures on main: urllib3>=2.7.2→>=2.7.0
+      (2.7.2 never released), pytest>=9.0.4→>=9.0.3 (same), gofmt -w on fuzz_test.go,
+      broken lychee link docs/operator/→docs/runbooks/, and trivy 0.70.0→0.71.0.'
   122:
     name: Production Security Review — Internet-Facing Attack Surface Audit
     status: COMPLETE

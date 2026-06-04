@@ -5,7 +5,7 @@
 
 ## Current Status: Phase 109 (PROXY Protocol Hardening & Scrubbing) Next
 
-**Last Updated:** 2026-06-03
+**Last Updated:** 2026-06-04
 
 ## Epics & Roadmap
 
@@ -103,7 +103,7 @@ Management dashboards and documentation quality.
 | 39 | Documentation Audit & Synchronization | COMPLETE | Audit all phase documentation, synchronize manifest/todo, and ensure clear status indicators. |
 | 51 | Management UI - Phase 2: Frontend Dashboard | COMPLETE | Server-rendered Jinja2 dashboard (dashboard.html, partials) for real-time visualization of proxy telemetry. Delivered together with Phases 13/52 in merge commit 2aeb2ba. |
 | 52 | Management UI - Phase 3: Administration Tools | COMPLETE | Admin UI for allowlists, bans, dial, audit log, and config. Full test suite including test_pages.py and test_container_config.py. Delivered together with Phases 13/51 in merge commit 2aeb2ba. |
-| 105 | Documentation Restructure by Audience | COMPLETE | Restructured project documentation into five audience-specific entry points (Website Owners, Architects, Operators, Compliance, Developers). Consolidated 4 blocking docs into BLOCKING_OPERATIONS.md and 4 testing docs into TESTING_STRATEGY.md as appendices. Refreshed 4 LaTeX chapters (brochure + 3 reference-manual chapters) for Phase 200-series posture. Added docs-pdf.yml CI workflow (SHA-pinned, 14-day non-blocking grace ending 2026-05-09). Archived pre-Phase-200 reports (GEMINI_CRITIQUE, ENTERPRISE_REVIEW, DMZ_DEPLOYMENT_READINESS, CYBER_RISK_REVIEW, strategic_security_architecture_review) with date-stamped banners. Reduced root README from 441 to 88 lines as a role-router. Resolved Phase 106 architect Finding 2 (placeholder marker in README.md). |
+| 105 | Documentation Restructure by Audience | COMPLETE | Restructured project documentation into five audience-specific entry points (Website Owners, Architects, Operators, Compliance, Developers). Consolidated 4 blocking docs into BLOCKING_OPERATIONS.md and 4 testing docs into TESTING_STRATEGY.md as appendices. Refreshed 4 LaTeX chapters (brochure + 3 reference-manual chapters) for Phase 200-series posture. Added docs-pdf.yml CI workflow (SHA-pinned, 14-day non-blocking grace ending 2026-05-09). Archived pre-Phase-200 reports (GEMINI_CRITIQUE, ENTERPRISE_REVIEW, DMZ_DEPLOYMENT_READINESS, CYBER_RISK_REVIEW, strategic_security_architecture_review) with date-stamped banners. Reduced root README from 441 to 88 lines as a role-router. Resolved Phase 106 architect Finding 2 (placeholder marker in for-developers/README.md). |
 
 ### Epic: Operational Excellence & Lifecycle Management
 Zero-downtime upgrades, robust health monitoring, and deployment orchestration.
@@ -300,6 +300,16 @@ Alignment with international standards and regulatory frameworks.
 | 132 | Build Stabilization & CI/CD Hygiene | COMPLETE | N/A | N/A |
 | 133 | CI Stabilization & Go Toolchain Update | COMPLETE | N/A | N/A |
 | 134 | Scorecard Remediation & Local Audit | COMPLETE | N/A | N/A |
+| 135 | README Revamp & Badge Governance | COMPLETE | N/A | N/A |
+| 136 | Documentation Link Audit & Remediation | COMPLETE | N/A | N/A |
+| 137 | Advanced Adversarial Fuzzing & Protocol Hardening | COMPLETE | N/A | N/A |
+| 138 | Hot-Path Performance Optimization & Zero-Copy Refactoring | COMPLETE | N/A | N/A |
+| 139 | Open-Source Governance & OpenSSF Best Practices | COMPLETE | N/A | N/A |
+| 140 | Observability Hardening & Signal Drift Detection | COMPLETE | N/A | N/A |
+| 141 | Repository Path Sanitization | COMPLETE | N/A | N/A |
+| 142 | Exhaustive Performance Benchmarking & Validation | COMPLETE | N/A | N/A |
+| 143 | Release & Coverage Strategy | COMPLETE | N/A | N/A |
+| 144 | Operational Excellence & Repo Pruning | PROPOSED | N/A | N/A |
 | 200 | Go PROXY Protocol Trust + v2 Support | COMPLETE | N/A | N/A |
 | 201 | Go Redis TLS + Silent-Failure Hardening | COMPLETE | N/A | N/A |
 | 202 | CI Supply Chain + Default Credential Removal | COMPLETE | N/A | N/A |
@@ -316,6 +326,7 @@ Alignment with international standards and regulatory frameworks.
 | 214 | Fix Pre-Existing CI Failures | COMPLETE | N/A | N/A |
 | 215 | White-Box Penetration Test — Go Production Proxy | COMPLETE | N/A | N/A |
 | 216 | Penetration Test Remediation — All Phase 215 Findings | COMPLETE | N/A | N/A |
+| 217 | Fix Pre-Existing CI Pipeline Failures | PROPOSED | N/A | N/A |
 
 ---
 

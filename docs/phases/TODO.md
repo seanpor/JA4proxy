@@ -7,46 +7,9 @@ This document tracks the remaining work for both historical phases (gaps identif
 
 ## 🟡 Phases In Progress
 
-### Phase 101 — Phase 101 — Cross-Phase Gap Closure
-*   **Status:** **IN_PROGRESS** (Rolling cross-phase register of deferred review gaps from Phase 84 (compliance), Phase 85 (threat-intel hardening), Phase 62 (Go test parity), Phase 64 (deploy validation), Phase 86i (capacity hardening), and Phase 93 (Terraform provider). 12 sub-phases bundling 38 open gaps (3 critical, 13 high, 19 medium, 9 low). 16 items already closed. 4 documented limitations (external processes or blocked on hardware).)
-*   **Action Plan:** [PHASE_101.md](complete/PHASE_101.md)
-
-### Phase 123 — Security Hardening & Operational Excellence
-*   **Status:** **IN_PROGRESS** (Comprehensive hardening wave for Go proxy and Linux host environment. Implements least-privilege service isolation, network boundaries, Redis ACLs, and memory-safe Go coding patterns.)
-*   **Action Plan:** [PHASE_123.md](complete/PHASE_123.md)
-
-### Phase 124 — Production Security Remediation (Attack Surface Audit)
-*   **Status:** **IN_PROGRESS** (Remediates 14+ prioritized findings from the production attack surface audit. Includes fixes for TLS record fragmentation, JA4 spec compliance, SNI canonicalization, and management-plane trust hardening.)
-*   **Action Plan:** [PHASE_124.md](complete/PHASE_124.md)
-
-### Phase 125 — Infrastructure & Supply Chain Resilience
-*   **Status:** **IN_PROGRESS** (Comprehensive supply-chain hardening: SHA-pinned Docker base images, reproducible Go builds with -trimpath, dependency audit automation, and infrastructure-as-code security scanning.)
-*   **Action Plan:** [PHASE_125.md](complete/PHASE_125.md)
 ---
 
 ## 🔵 Planned & Open Phases
-
-### Phase 144 — Operational Excellence & Repo Pruning
-*   **Status:** **PROPOSED** (Prune legacy artifacts, add CLI validation/simulation, and MITRE mapping.)
-*   **Action Plan:** [PHASE_144.md](PHASE_144.md)
-
-
-### Phase 137 — Advanced Adversarial Fuzzing & Protocol Hardening
-*   **Status:** **PROPOSED** (Harden Go proxy against PROXY v2, TCP fragmentation, and smuggling.)
-*   **Action Plan:** [PHASE_137.md](PHASE_137.md)
-
-### Phase 138 — Hot-Path Performance Optimization & Zero-Copy Refactoring
-*   **Status:** **PROPOSED** (Target <500ns latency via zero-copy refactoring and allocation audit.)
-*   **Action Plan:** [PHASE_138.md](PHASE_138.md)
-
-### Phase 139 — Open-Source Governance & OpenSSF Best Practices
-*   **Status:** **PROPOSED** (Achieve OpenSSF Best Practices badge and formalize governance docs.)
-*   **Action Plan:** [PHASE_139.md](PHASE_139.md)
-
-### Phase 140 — Observability Hardening & Signal Drift Detection
-*   **Status:** **PROPOSED** (Per-signal latency metrics and cross-node scoring drift detection.)
-*   **Action Plan:** [PHASE_140.md](PHASE_140.md)
-
 
 ### Phase 109 — PROXY Protocol Hardening & Scrubbing
 *   **Status:** **DEFERRED** (Superseded by Phase 118 — PROXY-header scrubbing closed via findings register (118a/b, 116a).)
@@ -87,3 +50,11 @@ This document tracks the remaining work for both historical phases (gaps identif
 ### Phase 120 — Independent Red Team Findings: Design Flaws, Infrastructure & Logic Bugs (RETIRED)
 *   **Status:** **DEFERRED** (Retired 2026-04-19 under Phase 121e as duplicate of Phase 119. All 20 findings were either duplicates of 119 entries or already folded into the canonical findings register (docs/security/findings.yaml) with remediation_phases pointing at 119 or its successor phases. See PHASE_120.md redirect stub.)
 *   **Action Plan:** [cancelled/PHASE_120.md](cancelled/PHASE_120.md)
+
+### Phase 144 — Operational Excellence & Repo Pruning
+*   **Status:** **PROPOSED** (Streamlines the repository for enterprise evaluation by pruning legacy artifacts, enhancing the Go CLI with validation and simulation tools, and providing direct MITRE ATT&CK signal mappings for SecOps teams.)
+*   **Action Plan:** [PHASE_144.md](PHASE_144.md)
+
+### Phase 217 — Fix Pre-Existing CI Pipeline Failures
+*   **Status:** **PROPOSED** (Fixes all four pre-existing CI/build failures on main: urllib3>=2.7.2→>=2.7.0 (2.7.2 never released), pytest>=9.0.4→>=9.0.3 (same), gofmt -w on fuzz_test.go, broken lychee link docs/operator/→docs/runbooks/, and trivy 0.70.0→0.71.0.)
+*   **Action Plan:** [PHASE_217.md](PHASE_217.md)
