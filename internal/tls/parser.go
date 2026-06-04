@@ -1,6 +1,7 @@
 package tls
 
 import (
+	"unsafe"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -102,6 +103,7 @@ func ParseClientHello(data []byte) (*ClientHelloInfo, error) {
 	}
 	for i := 0; i < csLen; i += 2 {
 		cs := binary.BigEndian.Uint16(hello[pos+i : pos+i+2])
+		if info.CipherSuites == nil { info.CipherSuites = make([]uint16, 0, csLen/2) }
 		info.CipherSuites = append(info.CipherSuites, cs)
 	}
 	pos += csLen
@@ -155,6 +157,7 @@ func parseExtensions(info *ClientHelloInfo, data []byte) error {
 		extBody := data[pos : pos+extLen]
 		pos += extLen
 
+		if info.Extensions == nil { info.Extensions = make([]uint16, 0, 16) }
 		info.Extensions = append(info.Extensions, extType)
 
 		switch extType {
@@ -198,7 +201,7 @@ func parseSNI(info *ClientHelloInfo, data []byte) {
 	if p+nameLen > len(data) {
 		return
 	}
-	info.SNI = string(data[p : p+nameLen])
+	info.SNI = unsafeString(data[p : p+nameLen])
 }
 
 // parseALPN extracts protocol names from the ALPN extension body.
@@ -225,7 +228,7 @@ func parseALPN(info *ClientHelloInfo, data []byte) {
 		if p+nameLen > end {
 			return
 		}
-		info.ALPNProtocols = append(info.ALPNProtocols, string(data[p:p+nameLen]))
+		info.ALPNProtocols = append(info.ALPNProtocols, unsafeString(data[p:p+nameLen]))
 		p += nameLen
 	}
 }
@@ -274,4 +277,8 @@ func parseSignatureAlgorithms(info *ClientHelloInfo, data []byte) {
 		s := binary.BigEndian.Uint16(data[2+i : 4+i])
 		info.SignatureAlgorithms = append(info.SignatureAlgorithms, s)
 	}
+}
+
+func unsafeString(b []byte) string {
+	return unsafe.String(unsafe.SliceData(b), len(b))
 }

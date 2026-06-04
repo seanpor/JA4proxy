@@ -818,7 +818,7 @@ func TestRemoteIP_TCPAddr(t *testing.T) {
 	serverConn := <-connCh
 	defer serverConn.Close()
 
-	ip := remoteIP(serverConn)
+	ip, _ := remoteIP(serverConn)
 	if ip != "127.0.0.1" {
 		t.Errorf("remoteIP = %q; want 127.0.0.1", ip)
 	}

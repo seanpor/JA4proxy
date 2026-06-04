@@ -299,11 +299,13 @@ func (p *Pipeline) Process(ctx context.Context, conn *ConnectionContext) *Pipeli
 
 	// ── 1. HARD BLOCKS (Blacklists, etc.)
 	if block, reason := p.checkHardBlocks(conn); block {
+		if p.log.IsLevelEnabled(logrus.DebugLevel) {
 		p.log.WithFields(logrus.Fields{
 			"ip":     conn.ClientIP,
 			"ja4":    conn.JA4,
 			"reason": reason,
 		}).Debug("pipeline: hard block")
+	}
 		return &PipelineResult{
 			Action:       "block",
 			Bypassed:     false,
@@ -322,18 +324,20 @@ func (p *Pipeline) Process(ctx context.Context, conn *ConnectionContext) *Pipeli
 	// and again during signal collection, so a PubSub-driven blocklist
 	// update between the two calls could cause a hard-block decision and
 	// a soft-signal decision to disagree on the same connection.
-	blSigs, blHardBlock := p.blocklists.Check(conn.ClientIP)
+	blSigs, blHardBlock := p.blocklists.Check(conn.ParsedIP)
 	if blHardBlock {
 		return &PipelineResult{Action: "block", Score: 100, BypassReason: "blocklist"}
 	}
 
 	// ── 2. BYPASS CHECKS (Whitelists, etc.) ──────────────────────────────────────────────────
 	if bypass, reason := p.checkBypasses(conn); bypass {
+		if p.log.IsLevelEnabled(logrus.DebugLevel) {
 		p.log.WithFields(logrus.Fields{
 			"ip":     conn.ClientIP,
 			"ja4":    conn.JA4,
 			"bypass": reason,
 		}).Debug("pipeline: bypass")
+	}
 		return &PipelineResult{
 			Action:       "allow",
 			Bypassed:     true,
@@ -442,13 +446,15 @@ func (p *Pipeline) Process(ctx context.Context, conn *ConnectionContext) *Pipeli
 		counterfactuals = p.decider.Counterfactuals(assessment.TotalScore, []int{25, 50, 75, 100})
 	}
 
-	p.log.WithFields(logrus.Fields{
+	if p.log.IsLevelEnabled(logrus.DebugLevel) {
+		p.log.WithFields(logrus.Fields{
 		"ip":     conn.ClientIP,
 		"ja4":    conn.JA4,
 		"score":  assessment.TotalScore,
 		"dial":   dial,
 		"action": action,
 	}).Debug("pipeline: decision")
+	}
 
 	return &PipelineResult{
 		Action:          action,

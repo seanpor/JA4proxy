@@ -472,8 +472,10 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 	data := buf[:n]
 
 	// Build ConnectionContext from TLS ClientHello
+	ipStr, ipNet := remoteIP(clientConn)
 	connCtx := &security.ConnectionContext{
-		ClientIP:   remoteIP(clientConn),
+		ClientIP:   ipStr,
+		ParsedIP:   ipNet,
 		ClientPort: remotePort(clientConn),
 	}
 
@@ -491,20 +493,20 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 	//     header followed by an attacker-injected one). The connection is
 	//     closed.
 	if cfg.Proxy.ProxyProtocol {
-		socketIP := remoteIP(clientConn)
+		socketIP, _ := remoteIP(clientConn)
 		trusted := proxypkg.IsTrustedProxySourceCIDRs(socketIP, p.getTrustedCIDRs())
 		stripped := false
 		// Try v2 binary header first (HAProxy 2.x+, AWS NLB).
 		if realIP, ok, hdrLen := proxypkg.ReadProxyProtocolV2WithLength(data); ok {
 			if trusted {
-				connCtx.ClientIP = realIP
+				connCtx.ClientIP = realIP; connCtx.ParsedIP = net.ParseIP(realIP)
 			}
 			data = data[hdrLen:]
 			stripped = true
 		} else if realIP, ok := proxypkg.ReadProxyProtocol(data); ok {
 			// Fall back to v1 text header.
 			if trusted {
-				connCtx.ClientIP = realIP
+				connCtx.ClientIP = realIP; connCtx.ParsedIP = net.ParseIP(realIP)
 			}
 			if idx := bytes.Index(data, []byte("\r\n")); idx >= 0 {
 				data = data[idx+2:]
@@ -532,7 +534,7 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 
 	// GeoIP country lookup
 	if p.geoIP != nil {
-		if ip := net.ParseIP(connCtx.ClientIP); ip != nil {
+		if ip := connCtx.ParsedIP; ip != nil {
 			if record, err := p.geoIP.Country(ip); err == nil {
 				connCtx.Country = record.Country.IsoCode
 			}
@@ -1421,11 +1423,11 @@ func (p *proxy) drain(timeoutSeconds int) {
 
 // ── helpers ───────────────────────────────────────────────────────────────
 
-func remoteIP(conn net.Conn) string {
+func remoteIP(conn net.Conn) (string, net.IP) {
 	if addr, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
-		return addr.IP.String()
+		return addr.IP.String(), addr.IP
 	}
-	return conn.RemoteAddr().String()
+	s := conn.RemoteAddr().String(); return s, net.ParseIP(s)
 }
 
 func remotePort(conn net.Conn) int {

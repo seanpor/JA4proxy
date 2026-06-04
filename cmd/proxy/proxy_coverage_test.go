@@ -399,7 +399,7 @@ func TestDrain_NoConnections(t *testing.T) {
 // TestRemoteIP_Fallback verifies remoteIP returns a string for non-TCP connections.
 func TestRemoteIP_Fallback(t *testing.T) {
 	// Test with a mock address that is not TCPAddr
-	result := remoteIP(&mockConn{addr: mockAddr("1.2.3.4:5678")})
+	result, _ := remoteIP(&mockConn{addr: mockAddr("1.2.3.4:5678")})
 	if result != "1.2.3.4:5678" {
 		t.Errorf("remoteIP = %q; want 1.2.3.4:5678", result)
 	}
