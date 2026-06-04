@@ -1237,6 +1237,11 @@ lint-github-actions:
 		.github/workflows/*.yml \
 		&& echo "✓ GitHub Actions valid"
 
+lint-action-shas:
+	@echo "=== check-action-shas: verifying SHA-pinned actions use commit SHAs ==="
+	@python3 scripts/check-action-shas.py || \
+		(echo "  Hint: run 'python3 scripts/check-action-shas.py --fix' to auto-replace annotated tag SHAs" && false)
+
 # ansible-lint: Ansible semantic validation — catches shell-when-command-works,
 # hardcoded passwords, missing become, handler ordering, deprecated modules.
 lint-ansible:
@@ -1326,7 +1331,7 @@ lint-docs-all: lint-docs lint-phases link-check check-paths lint-markdown lint-s
 
 # Run every linter — the single entry point for full validation
 lint-all: lint-python lint-go lint-sast lint-infra lint-observability \
-          lint-supply-chain lint-docs-all
+          lint-supply-chain lint-docs-all lint-action-shas
 	@echo ""
 	@echo "✓ lint-all complete — all linters passed"
 
