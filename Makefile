@@ -1,10 +1,10 @@
-PYTHON ?= $(shell command -v python || command -v python3 || echo python)
+.PHONY: all help ja4p-test-ip help-ops help-lint help-scan help-dev help-legacy doctor reload doctor reload lint scan test\nPYTHON ?= $(shell command -v python || command -v python3 || echo python)
 # Makefile for JA4 Proxy
 
 # ── Phony targets
 .PHONY: agent-down agent-status agent-up all approve-all attack-status bench bench-go-pipeline block-ip block-ja4 build capture-fixtures capture-fixtures-browser check-geoip check-image-versions check-manifest check-paths check-scores check-updates check-updates-container check-updates-local ci-local clean deploy-enterprise deploy-poc dev-help dial doc-health doctor fetch-db findings-list findings-render flush-redis gdpr-delete geoip-monitor geoip-report geoip-watch go-build go-build-ja4check go-lint go-test health-check help legacy-help link-check lint lint-action-shas lint-alert-urls lint-alertmanager lint-all lint-ansible lint-checkov lint-compose-config lint-coverage lint-deps lint-docker lint-docs lint-docs-all lint-github-actions lint-go lint-go-full lint-go-mod lint-haproxy lint-helm lint-help lint-infra lint-json lint-lua lint-makefiles lint-markdown lint-meta lint-observability lint-phases lint-prom lint-pylint lint-python lint-quality lint-sast lint-secrets lint-security lint-semgrep lint-shell lint-spelling lint-static lint-supply-chain lint-toml lint-types lint-yaml list-pending load-test load-test-baseline load-test-report logs management-build management-down management-logs management-shell management-test management-up measure-mttr openapi-spec parity-check perf-test perf-test-basic quality quick-start rebuild sbom scan scan-all scan-container scan-dockerfiles scan-first-party scan-help scan-images scan-local scorecard-local slo-report smoke-docker smoke-k8s smoke-test ssh-tunnels start start-monitoring start-scaled status stop stop-clean sync test test-adversarial test-attack-mapping test-calibrate test-chaos test-cli test-compliance test-compliance test-compliance-go test-compliance-language test-compliance-parity test-compliance-python test-component-suites test-compose-config-lint test-doc-links test-docker test-docker-consistency test-evidence-paths test-gdpr-compliance test-go test-go-chaos test-go-chaos-unit test-go-docker test-go-fuzz-smoke test-go-integration test-go-perf test-go-property test-go-redis-tls test-infra-monitoring test-infra-monitoring-integration test-lint-hierarchy test-logging-webhook test-mgmt-api test-mgmt-api-events test-mgmt-api-unit test-policy-validator test-provisioning test-ratio test-slo test-tap test-tap-live test-tap-perf test-unit top-attackers tunnel unblock-ip update-geoip validate-ecs-schema validate-slo-rules verify-findings verify-findings-green verify-manifest-closeout
 # (alphabetical by group) ──────────────────────────────────
-.PHONY: all help reload doctor lint-meta lint-help scan scan-all scan-container scan-local legacy-help dev-help
+.PHONY: all help ja4p-test-ip help-ops help-lint help-scan help-dev help-legacy doctor reload reload doctor lint-meta lint-help scan scan-all scan-container scan-local legacy-help dev-help
 .PHONY: build rebuild clean
 .PHONY: start start-monitoring start-scaled stop stop-clean status logs
 .PHONY: dial ssh-tunnels flush-redis
@@ -55,22 +55,36 @@ doctor: ## Phase 147 — Verify environment and toolchain health
 
 
 # ── Master help ───────────────────────────────────────────────────────────
-help: lint-help scan-help legacy-help dev-help
+help: ## Show the essential front-door targets
+	@echo "======================================================================"
+	@echo "  JA4proxy v2.0.0 — Essential Operational Commands"
+	@echo "======================================================================"
 	@echo ""
-	@echo "JA4proxy — Available make targets"
+	@echo "── Lifecycle ─────────────────────────────────────────────────────────"
+	@echo "  make build          - Build production Docker images"
+	@echo "  make start          - Start full stack (Proxy + Monitoring)"
+	@echo "  make stop           - Stop all services"
+	@echo "  make status         - Show cluster health and security state"
+	@echo "  make logs           - Stream real-time structured proxy logs"
 	@echo ""
-	@echo "── Quick reference (see sub-helps above for details) ──────────"
-	@echo "  make lint-help  - Linting, scanning, security checks"
-	@echo "  make scan-help  - Container image security scanning"
-	@echo "  make legacy-help - Python-specific targets (legacy proxy)"
-	@echo "  make dev-help   - Build, test, proxy, bench, docs, agents"
+	@echo "── Quality & Security ────────────────────────────────────────────────"
+	@echo "  make doctor         - Check local environment for missing tools"
+	@echo "  make lint           - Run all code and documentation linters"
+	@echo "  make scan           - Run all security and container scans"
+	@echo "  make test           - Run the complete Go and Python test suite"
 	@echo ""
-	@echo "── Environment (.env) ────────────────────────────────────────"
-	@echo "  BACKEND_HOST    - IP/hostname of your real backend server"
-	@echo "  BACKEND_PORT    - Backend port (default 443)"
-	@echo "  REDIS_PASSWORD  - Auto-generated on first start"
-	@echo "  GRAFANA_PASSWORD- Auto-generated on first start"
-	@echo "  JA4DB_API_KEY   - Optional ja4db.com API key"
+	@echo "── Troubleshooting & Simulation ──────────────────────────────────────"
+	@echo "  make reload         - Reload config without downtime (SIGHUP)"
+	@echo "  make ja4p-test-ip IP=.. - Simulate pipeline decision for an IP"
+	@echo ""
+	@echo "── Advanced Help ─────────────────────────────────────────────────────"
+	@echo "  make help-ops       - Incident response, blacklisting, threat-intel"
+	@echo "  make help-lint      - Granular linter control (shell, yaml, helm, etc.)"
+	@echo "  make help-scan      - Granular scanner control (CVEs, images, IaC)"
+	@echo "  make help-dev       - Internal build, benchmark, and agent targets"
+	@echo ""
+
+help-ops: ## Incident response and threat intelligence help
 	@echo ""
 	@echo "── Incident Response (no restart needed) ─────────────────────"
 	@echo "  attack-status   - Quick security snapshot"
@@ -88,12 +102,9 @@ help: lint-help scan-help legacy-help dev-help
 	@echo "  update-geoip    - Download latest IP2Location LITE DB (monthly)"
 	@echo "  check-geoip     - Check age of current GeoIP database"
 	@echo "  geoip-report    - Full blocking report"
-	@echo "  geoip-monitor   - Auto-block attacking countries (run once)"
-	@echo "  geoip-watch     - Auto-block attacking countries (continuous)"
 	@echo ""
 
-# ── Lint sub-help ────────────────────────────────────────────────────────
-lint-help:
+help-lint:
 	@echo ""
 	@echo "── Linting ───────────────────────────────────────────────────"
 	@echo "  lint-static       - Python: mypy + bandit + ruff + pip-audit"
@@ -109,7 +120,7 @@ lint-help:
 	@echo "  lint-all          - Run every linter in one shot"
 
 # ── Scan sub-help ────────────────────────────────────────────────────────
-scan-help:
+help-scan:
 	@echo ""
 	@echo "── Security Scanning ─────────────────────────────────────────"
 	@echo "  scan               - Run Go code security scan (containerized)"
@@ -125,14 +136,14 @@ scan-help:
 	@echo "  check-updates      - Check all deps (Docker, Go, Python, Node) for updates"
 
 # ── Legacy (Python) sub-help ─────────────────────────────────────────────
-legacy-help:
+help-legacy:
 	@echo ""
 	@echo "── Legacy Proxy (Python) ────────────────────────────────────"
 	@echo "  check-scores      - Audit scores against signal registry"
 	@echo "  parity-check      - Live end-to-end decision parity"
 
 # ── Dev sub-help ─────────────────────────────────────────────────────────
-dev-help:
+help-dev:
 	@echo ""
 	@echo "── Build ─────────────────────────────────────────────────────"
 	@echo "  build             - Build Docker images (incremental)"
@@ -1109,3 +1120,6 @@ lint-meta: ## Phase 147 — Verify Makefile and automation script health
 
 reload: ## Reload proxy configuration without restart (SIGHUP)
 	@docker compose -f deploy/docker/docker-compose.poc.yml kill -s SIGHUP proxy 2>/dev/null || kill -s SIGHUP $$(pgrep ja4p) 2>/dev/null || echo "Proxy not running"
+
+ja4p-test-ip: ## Alias for simulating IP decision
+	@./bin/ja4p test ip $(IP)
