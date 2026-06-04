@@ -148,6 +148,7 @@ Comprehensive testing, adversarial coverage, and performance validation.
 | 115 | Web & Rendering Security | DEFERRED | Superseded by Phase 118 — HTMX XSS and WeasyPrint SSRF/LFI closed via findings register. |
 | 116 | Protocol Parser Hardening | DEFERRED | Superseded by Phase 118 — fail-closed PROXY parsing on trusted connections closed via findings register (116a, 118a/b). |
 | 117 | DMZ Network Hardening & Anti-Smuggling | DEFERRED | Superseded by Phase 118 — full pentest remediation including Redis ACLs and auth hardening. |
+| 220 | Remote Manual Testing Enablement — Browser, curl, Bot, Logs, Dashboards | PROPOSED | Add compose override for remote (0.0.0.0) port binding, test-bot.py, remote-testing runbook, and Makefile targets for manual QA from a remote laptop. |
 
 ### Epic: Regulatory & Supply-Chain Conformance
 Alignment with international standards and regulatory frameworks.
@@ -330,6 +331,7 @@ Alignment with international standards and regulatory frameworks.
 | 217 | Fix Pre-Existing CI Pipeline Failures | COMPLETE | N/A | N/A |
 | 218 | SHA-Pin Preflight Check & Scorecard Fix | COMPLETE | N/A | N/A |
 | 219 | Restore Deleted Phase Documentation | COMPLETE | N/A | N/A |
+| 220 | Remote Manual Testing Enablement — Browser, curl, Bot, Logs, Dashboards | PROPOSED | N/A | N/A |
 
 ---
 

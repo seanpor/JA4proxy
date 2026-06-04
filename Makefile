@@ -4,7 +4,7 @@ PYTHON ?= $(shell command -v $(PYTHON) || command -v python3 || echo python)
 # ── Phony targets (alphabetical by group) ──────────────────────────────────
 .PHONY: all help lint-help scan scan-all scan-container scan-local legacy-help dev-help
 .PHONY: build rebuild clean
-.PHONY: start start-monitoring start-scaled stop stop-clean status logs
+.PHONY: start start-monitoring start-scaled stop stop-clean status logs remote-start remote-stop remote-status remote-bot
 .PHONY: dial ssh-tunnels flush-redis
 .PHONY: attack-status top-attackers block-ja4 block-ip unblock-ip
 .PHONY: fetch-db list-pending approve-all update-geoip check-geoip geoip-report geoip-monitor geoip-watch
@@ -129,6 +129,10 @@ dev-help:
 	@echo "  stop-clean        - Stop all + wipe volumes (fresh slate)"
 	@echo "  status            - Show health + security state"
 	@echo "  logs              - Stream proxy container logs"
+	@echo "  remote-start      - Start full stack with remote (0.0.0.0) access"
+	@echo "  remote-stop       - Stop remote stack"
+	@echo "  remote-status     - Show health of remote stack"
+	@echo "  remote-bot        - Run test bot: make remote-bot HOST=<ip> PORT=<port>"
 	@echo "  ssh-tunnels       - Print SSH tunnel command for remote UI"
 	@echo ""
 	@echo "── Testing ───────────────────────────────────────────────────"
@@ -202,6 +206,37 @@ stop-clean:
 # Show health of all services + security state
 status:
 	@./scripts/status.sh
+
+# ── Remote Access Testing (Phase 220) ─────────────────────────────────────────
+
+# Start full stack with ports on 0.0.0.0 (remote laptop access)
+# Requires deploy/docker/docker-compose.remote.yml
+remote-start:
+	@docker compose -f deploy/docker/docker-compose.poc.yml \
+		-f deploy/docker/docker-compose.monitoring.yml \
+		-f deploy/docker/docker-compose.remote.yml up -d
+	@echo "✓ Remote stack started — all POC + monitoring ports on 0.0.0.0"
+	@echo "  Management UI: http://<server-ip>:8090"
+	@echo "  Grafana:       http://<server-ip>:3001"
+	@echo "  Proxy (TLS):   https://<server-ip>:443"
+	@echo "  Run bot:       make remote-bot HOST=<server-ip> PORT=443"
+
+# Stop remote stack (keep Redis data)
+remote-stop:
+	@docker compose -f deploy/docker/docker-compose.poc.yml \
+		-f deploy/docker/docker-compose.monitoring.yml \
+		-f deploy/docker/docker-compose.remote.yml down
+	@echo "✓ Remote stack stopped"
+
+# Show health of remote stack
+remote-status:
+	@./scripts/status.sh
+
+# Run test bot against remote proxy
+# Usage: make remote-bot HOST=10.0.0.5 PORT=443
+remote-bot:
+	@[ -n "$(HOST)" ] || (echo "Usage: make remote-bot HOST=<proxy-ip> [PORT=<port>]"; exit 1)
+	@PYTHONPATH=. python3 scripts/test-bot.py --proxy "$(HOST)" --port $(or $(PORT),443)
 
 # ── Multi-Agent ───────────────────────────────────────────────────────────────
 

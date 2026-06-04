@@ -42,6 +42,7 @@ SHA_AND_TAG_RE = re.compile(
 #     git ls-remote https://github.com/<owner>/<repo> refs/tags/<tag>
 KNOWN_ACTION_SHAS: dict[str, dict[str, str]] = {
     "actions/checkout": {
+        "v4.1.1": "b4ffde65f46336ab88eb53be808477a3936bae11",
         "v4.2.2": "11bd71901bbe5b1630ceea73d27597364c9af683",
         "v6.0.2": "de0fac2e4500dabe0009e67214ff5f5447ce83dd",
     },
@@ -128,7 +129,17 @@ KNOWN_ACTION_SHAS: dict[str, dict[str, str]] = {
         "v3.3.0": "e2f99d4b3685b0da93f97e1b86ad8fab81105098",
     },
     "actions/upload-artifact": {
+        "v4": "ea165f8d65b6e75b540449e92b4886f43607fa02",
         "v7.0.1": "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+    },
+    "ossf/scorecard-action": {
+        "v2.3.1": "0864cf19026789058feabb7e87baa5f140aac736",
+    },
+    "github/codeql-action/upload-sarif": {
+        "v3.35.4": "7fd177fa680c9881b53cdab4d346d32574c9f7f4",
+    },
+    "codecov/codecov-action": {
+        "v6.0.1": "e79a6962e0d4c0c17b229090214935d2e33f8354",
     },
 }
 

@@ -23,7 +23,7 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-ATTACK_MAPPING = REPO_ROOT / "docs" / "for-architects" / "ATTACK_MAPPING.md"
+ATTACK_MAPPING = REPO_ROOT / "docs" / "ATTACK_MAPPING.md"
 
 #: Confidence labels permitted in the Confidence column. The CI gate is
 #: case-insensitive on the label word but strict on the allowed set.

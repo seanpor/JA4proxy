@@ -118,6 +118,7 @@ epics:
   - 115
   - 116
   - 117
+  - 220
 - name: 'Epic: Regulatory & Supply-Chain Conformance'
   description: Alignment with international standards and regulatory frameworks.
   phases:
@@ -377,6 +378,14 @@ phases:
     size: SMALL
     summary: 'Restore 98 phase documentation files deleted by Phase 144 to fix make lint-phases
       exit status. Files restored from git history (c53ced20^).'
+  220:
+    name: Remote Manual Testing Enablement — Browser, curl, Bot, Logs, Dashboards
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_220.md
+    dependencies: []
+    size: SMALL
+    summary: 'Add compose override for remote (0.0.0.0) port binding, test-bot.py, remote-testing
+      runbook, and Makefile targets for manual QA from a remote laptop.'
   122:
     name: Production Security Review — Internet-Facing Attack Surface Audit
     status: COMPLETE

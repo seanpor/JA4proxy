@@ -50,3 +50,7 @@ This document tracks the remaining work for both historical phases (gaps identif
 ### Phase 120 — Independent Red Team Findings: Design Flaws, Infrastructure & Logic Bugs (RETIRED)
 *   **Status:** **DEFERRED** (Retired 2026-04-19 under Phase 121e as duplicate of Phase 119. All 20 findings were either duplicates of 119 entries or already folded into the canonical findings register (docs/security/findings.yaml) with remediation_phases pointing at 119 or its successor phases. See PHASE_120.md redirect stub.)
 *   **Action Plan:** [cancelled/PHASE_120.md](cancelled/PHASE_120.md)
+
+### Phase 220 — Remote Manual Testing Enablement — Browser, curl, Bot, Logs, Dashboards
+*   **Status:** **PROPOSED** (Add compose override for remote (0.0.0.0) port binding, test-bot.py, remote-testing runbook, and Makefile targets for manual QA from a remote laptop.)
+*   **Action Plan:** [PHASE_220.md](PHASE_220.md)

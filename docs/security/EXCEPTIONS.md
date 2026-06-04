@@ -26,6 +26,8 @@ This document tracks all manual approvals for deviations from the project's Zero
 | ID | Type | Target | Justification | Approved By | Expiry Date |
 |----|------|--------|---------------|-------------|-------------|
 | #001 | Warning suppression | `pyproject.toml`: `ignore::pytest.PytestUnraisableExceptionWarning` | pycares async DNS callbacks arrive after the asyncio loop closes during test teardown. This is a known upstream bug in pycares's interaction with Python 3.10+ asyncio and pytest-asyncio. No actionable fix exists in our code — pycares teardown is entirely outside our control. | User approval 2026-03-21 | 2026-12-31 |
+| #002 | Conditional skip | `tests/integration/test_multi_process_enforcement.py` | Skip when not running inside Docker Compose with multiple proxy workers. These tests verify cross-worker block enforcement via shared Redis and require real infrastructure (Redis cluster, multiple proxy instances). Skip is conditional on `_IN_DOCKER` flag — not unconditional. | User approval 2026-06-04 | None (indefinite, infra-gated) |
+| #003 | Conditional skip | `tests/integration/test_phase_86h_alertmanager_runbook_urls.py` | Skip when `promtool` is not on `$PATH`. The test validates Alertmanager rule file syntax via promtool; if the tool is absent the test skips gracefully rather than failing. | User approval 2026-06-04 | None (indefinite, tool-gated) |
 
 ---
 

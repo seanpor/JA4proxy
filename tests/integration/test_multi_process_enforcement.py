@@ -6,6 +6,7 @@ import httpx
 import pytest
 import redis.asyncio as redis
 
+# Approved Exception #002: see docs/security/EXCEPTIONS.md
 # These tests require a running multi-process environment.
 # They are intended to be run within the docker-compose.scale.yml environment.
 

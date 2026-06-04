@@ -388,7 +388,7 @@ def _lint_toml_validation_source():
 
     # If the recipe delegates to a Python script, include that script's source too.
     script_source = ""
-    script_match = re.search(r"python3\s+(scripts/\S+\.py)", recipe)
+    script_match = re.search(r"(?:python3|\$\(PYTHON\))\s+(scripts/\S+\.py)", recipe)
     if script_match:
         script_path = REPO_ROOT / script_match.group(1)
         if script_path.exists():
@@ -429,7 +429,7 @@ def test_lint_toml_recipe_uses_python3():
             if line.startswith("\t"):
                 recipe_lines.append(line)
     recipe = "\n".join(recipe_lines)
-    assert "python3" in recipe, "lint-toml recipe must invoke python3"
+    assert "python3" in recipe or "$(PYTHON)" in recipe, "lint-toml recipe must invoke python3"
 
 
 def test_lint_toml_recipe_uses_tomllib():

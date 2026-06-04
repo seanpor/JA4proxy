@@ -34,7 +34,7 @@ def _rule_files() -> list[Path]:
 
 def test_promtool_check_rules_all_files():
     promtool = shutil.which("promtool")
-    if promtool is None:
+    if promtool is None:  # Approved Exception #003: see docs/security/EXCEPTIONS.md
         pytest.skip("promtool not installed on this host")
 
     failures: list[tuple[str, str]] = []

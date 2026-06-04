@@ -1,0 +1,49 @@
+# docker-compose.remote.yml — Remote-dev override (Phase 220)
+#
+# Opt-in compose override that binds all POC + monitoring service ports
+# to 0.0.0.0 so the stack is reachable from a remote laptop.
+#
+#   make remote-start   # start with remote access
+#   make remote-stop    # stop
+#
+# SECURITY: Only use this in dev/test environments. Never deploy with
+# this override in production. Run `make remote-stop` when done testing.
+
+name: ja4proxy-remote
+
+services:
+  # ── POC (uses AGENT_BIND_IP from environment or .env) ──────────────
+  haproxy:
+    ports:
+      - "0.0.0.0:${HOST_PORT_INGRESS:-443}:443"
+      - "0.0.0.0:8404:8404"
+
+  proxy:
+    ports:
+      - "0.0.0.0:8081:8080"
+      - "0.0.0.0:9090:9090"
+
+  management:
+    ports:
+      - "0.0.0.0:${HOST_PORT_MANAGEMENT:-8090}:8090"
+
+  admin-api:
+    ports:
+      - "0.0.0.0:${HOST_PORT_ADMIN_API:-8091}:8090"
+
+  analytics:
+    ports:
+      - "0.0.0.0:${HOST_PORT_ANALYTICS:-8080}:8080"
+
+  # ── Monitoring (override hardcoded 127.0.0.1 in monitoring compose) ─
+  prometheus:
+    ports:
+      - "0.0.0.0:9091:9090"
+
+  alertmanager:
+    ports:
+      - "0.0.0.0:9093:9093"
+
+  grafana:
+    ports:
+      - "0.0.0.0:3001:3000"

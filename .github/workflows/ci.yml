@@ -78,12 +78,7 @@ jobs:
             --ignore=tests/test_proxy.py \
             --ignore=tests/integration/test_cli_parity.py \
             --ignore=tests/integration/test_policy_apply.py \
-            --ignore=tests/lint-hierarchy/ \
             --ignore=tests/test_attack_mapping.py \
-            --ignore=tests/test_compliance_evidence_paths.py \
-            --ignore=tests/test_workflow_pinning.py \
-            --ignore=tests/unit/test_docker_consistency.py \
-            --ignore=tests/unit/test_pentest_management_deps_pinned_regression.py \
             -m "not live_services" \
             -x -q --timeout=60
 
