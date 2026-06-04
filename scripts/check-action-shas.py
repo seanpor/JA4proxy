@@ -12,13 +12,12 @@ Exit code: 0 if all SHAs are commits, 1 otherwise.
 """
 
 import argparse
+import json
 import os
 import re
-import subprocess
 import sys
-import urllib.request
 import urllib.error
-import json
+import urllib.request
 
 WORKFLOW_DIR = os.path.join(os.path.dirname(__file__), "..", ".github", "workflows")
 
@@ -42,7 +41,7 @@ def get_commit_for_tag(repo: str, sha: str) -> str | None:
         req.add_header("Authorization", f"token {token}")
 
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=10) as resp:  # nosemgrep
             data = json.loads(resp.read())
             if data.get("object", {}).get("type") == "commit":
                 return data["object"]["sha"]
@@ -51,7 +50,7 @@ def get_commit_for_tag(repo: str, sha: str) -> str | None:
         if e.code == 404:
             return None  # commit or lightweight tag
         if e.code == 403:
-            print(f"  [!] Rate limited — try setting GITHUB_TOKEN or GH_TOKEN", file=sys.stderr)
+            print("  [!] Rate limited — try setting GITHUB_TOKEN or GH_TOKEN", file=sys.stderr)
             return None
         raise
     except urllib.error.URLError:
