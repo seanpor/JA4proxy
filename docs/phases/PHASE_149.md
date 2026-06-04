@@ -13,8 +13,8 @@ While `scripts/start-poc.sh` handles basic `.env` generation, it lacks interacti
 
 ## Scope
 
-### 1. The `ja4p init` Command
-Implement a new subcommand for the Go binary to handle environment initialization:
+### 1. The `ja4p-setup` Utility
+Implement a separate Go utility (`bin/ja4p-setup`) to handle environment initialization:
 - **Scenario: Proof of Concept (POC)**
     - Auto-generates all secrets (HMAC keys, Redis passwords).
     - Uses default mock-backend and tarpit services.
@@ -60,7 +60,7 @@ The wizard should offer to bootstrap required datasets:
 | **Complexity** | 0 Prompts | 2 Prompts | 1 Prompt | 5-7 Prompts |
 
 ## Acceptance Criteria
-- [ ] `ja4p init` provides a smooth, colorized interactive flow.
+- [ ] `ja4p-setup` provides a smooth, colorized interactive flow.
 - [ ] All three scenarios (POC, Dev, Prod) produce a valid and verified `.env` file.
 - [ ] Wizard correctly detects and warns about missing prerequisites (via Doctor integration).
 - [ ] Documentation updated to recommend `make init` as the primary "Day 1" entry point.

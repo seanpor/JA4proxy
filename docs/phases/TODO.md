@@ -54,3 +54,7 @@ This document tracks the remaining work for both historical phases (gaps identif
 ### Phase 149 — Guided Setup & Configuration Wizard
 *   **Status:** **PROPOSED** (Implements 'ja4p init', an interactive wizard that guides users through setting up their environment for POC, Development, Performance/Benchmarking, or Production scenarios. It handles secret generation, data provisioning (Tranco/GeoIP), and backend connectivity validation. It handles secret generation, backend connectivity validation, and optional feature configuration.)
 *   **Action Plan:** [PHASE_149.md](PHASE_149.md)
+
+### Phase 150 — Unified Go Operational CLI
+*   **Status:** **PROPOSED** (Consolidates all human-facing tools (Wizard, Validator, Simulator) into a single 'bin/ja4p' CLI, while stripping non-core logic from the proxy daemon to ensure architectural purity and high performance.)
+*   **Action Plan:** [PHASE_150.md](PHASE_150.md)

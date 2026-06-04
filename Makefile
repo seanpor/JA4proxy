@@ -4,7 +4,7 @@ GO ?= $(shell command -v go || echo go)
 # ── Phony targets ─────────────────────────────────────────────────────────────
 .PHONY: all help doctor reload lint scan test start start-poc stop status logs
 .PHONY: help-ops help-lint help-scan help-dev help-legacy
-.PHONY: build rebuild clean
+.PHONY: build rebuild clean setup-build init
 .PHONY: sync sbom scorecard-local
 .PHONY: go-build go-test go-lint ja4p-test-ip ja4p-validate
 # Makefile for JA4 Proxy
@@ -13,7 +13,7 @@ GO ?= $(shell command -v go || echo go)
 .PHONY: agent-down agent-status agent-up all approve-all attack-status bench bench-go-pipeline block-ip block-ja4 build capture-fixtures capture-fixtures-browser check-geoip check-image-versions check-manifest check-paths check-scores check-updates check-updates-container check-updates-local ci-local clean deploy-enterprise deploy-poc dev-help dial doc-health doctor fetch-db findings-list findings-render flush-redis gdpr-delete geoip-monitor geoip-report geoip-watch go-build go-build-ja4check go-lint go-test health-check help legacy-help link-check lint lint-action-shas lint-alert-urls lint-alertmanager lint-all lint-ansible lint-checkov lint-compose-config lint-coverage lint-deps lint-docker lint-docs lint-docs-all lint-github-actions lint-go lint-go-full lint-go-mod lint-haproxy lint-helm lint-help lint-infra lint-json lint-lua lint-makefiles lint-markdown lint-meta lint-observability lint-phases lint-prom lint-pylint lint-python lint-quality lint-sast lint-secrets lint-security lint-semgrep lint-shell lint-spelling lint-static lint-supply-chain lint-toml lint-types lint-yaml list-pending load-test load-test-baseline load-test-report logs management-build management-down management-logs management-shell management-test management-up measure-mttr openapi-spec parity-check perf-test perf-test-basic quality quick-start rebuild sbom scan scan-all scan-container scan-dockerfiles scan-first-party scan-help scan-images scan-local scorecard-local slo-report smoke-docker smoke-k8s smoke-test ssh-tunnels start start-monitoring start-scaled status stop stop-clean sync test test-adversarial test-attack-mapping test-calibrate test-chaos test-cli test-compliance test-compliance test-compliance-go test-compliance-language test-compliance-parity test-compliance-python test-component-suites test-compose-config-lint test-doc-links test-docker test-docker-consistency test-evidence-paths test-gdpr-compliance test-go test-go-chaos test-go-chaos-unit test-go-docker test-go-fuzz-smoke test-go-integration test-go-perf test-go-property test-go-redis-tls test-infra-monitoring test-infra-monitoring-integration test-lint-hierarchy test-logging-webhook test-mgmt-api test-mgmt-api-events test-mgmt-api-unit test-policy-validator test-provisioning test-ratio test-slo test-tap test-tap-live test-tap-perf test-unit top-attackers tunnel unblock-ip update-geoip validate-ecs-schema validate-slo-rules verify-findings verify-findings-green verify-manifest-closeout
 # (alphabetical by group) ──────────────────────────────────
 .PHONY: all help start-poc ja4p-test-ip help-ops help-lint help-scan help-dev help-legacy doctor reload reload doctor lint-meta lint-help scan scan-all scan-container scan-local legacy-help dev-help
-.PHONY: build rebuild clean
+.PHONY: build rebuild clean setup-build init
 .PHONY: start start-monitoring start-scaled stop stop-clean status logs
 .PHONY: dial ssh-tunnels flush-redis
 .PHONY: attack-status top-attackers block-ja4 block-ip unblock-ip
@@ -1176,3 +1176,10 @@ sync: ## Sync roadmap from manifest.yaml to PROJECT_STATUS.md
 
 ja4p-validate: ## Validate proxy configuration YAML
 	@./bin/ja4p config validate
+
+setup-build: ## Build the setup wizard utility
+	@mkdir -p bin
+	@$(GO) build -o bin/ja4p-setup ./cmd/setup
+
+init: setup-build ## Start the guided setup wizard
+	@./bin/ja4p-setup
