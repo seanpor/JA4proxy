@@ -51,6 +51,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **DEFERRED** (Retired 2026-04-19 under Phase 121e as duplicate of Phase 119. All 20 findings were either duplicates of 119 entries or already folded into the canonical findings register (docs/security/findings.yaml) with remediation_phases pointing at 119 or its successor phases. See PHASE_120.md redirect stub.)
 *   **Action Plan:** [cancelled/PHASE_120.md](cancelled/PHASE_120.md)
 
-### Phase 217 — Fix Pre-Existing CI Pipeline Failures
-*   **Status:** **PROPOSED** (Fixes all four pre-existing CI/build failures on main: urllib3>=2.7.2→>=2.7.0 (2.7.2 never released), pytest>=9.0.4→>=9.0.3 (same), gofmt -w on fuzz_test.go, broken lychee link docs/operator/→docs/runbooks/, and trivy 0.70.0→0.71.0.)
-*   **Action Plan:** [PHASE_217.md](PHASE_217.md)
+### Phase 218 — SHA-Pin Preflight Check & Scorecard Fix
+*   **Status:** **PROPOSED** (Fix post-merge Scorecard CI failure (annotated tag SHAs used in Phase 217 instead of commit SHAs) and add scripts/check-action-shas.py + make lint-action-shas to prevent recurrence.)
+*   **Action Plan:** [PHASE_218.md](PHASE_218.md)
