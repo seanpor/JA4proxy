@@ -5,8 +5,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/seanpor/ja4proxy/internal/metrics"
 	"github.com/oschwald/geoip2-golang"
+	"github.com/seanpor/ja4proxy/internal/metrics"
 	"github.com/sirupsen/logrus"
 	"go.yaml.in/yaml/v3"
 )
