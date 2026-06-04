@@ -1059,3 +1059,27 @@ func MetricsRequestIsLocal(remoteAddr string) bool {
 	}
 	return false
 }
+
+// Validate checks the configuration for logical errors and consistency.
+// Validate checks the configuration for logical errors and consistency.
+
+func (c *Config) Validate() error {
+	if c.Proxy.BindPort.Int() <= 0 || c.Proxy.BindPort.Int() > 65535 {
+		return fmt.Errorf("invalid proxy bind port: %d", c.Proxy.BindPort.Int())
+	}
+	if c.Proxy.BackendPort.Int() <= 0 || c.Proxy.BackendPort.Int() > 65535 {
+		return fmt.Errorf("invalid proxy backend port: %d", c.Proxy.BackendPort.Int())
+	}
+	if c.Proxy.BackendHost == "" {
+		return fmt.Errorf("proxy backend host is required")
+	}
+	if c.MonitorMode.Dial < 0 || c.MonitorMode.Dial > 100 {
+		return fmt.Errorf("invalid security dial (0-100): %d", c.MonitorMode.Dial)
+	}
+	for _, feed := range c.Blocklists.Feeds {
+		if feed.Enabled && feed.Name == "" {
+			return fmt.Errorf("blocklist feed enabled but missing name")
+		}
+	}
+	return nil
+}

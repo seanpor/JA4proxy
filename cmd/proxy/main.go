@@ -53,6 +53,31 @@ func main() {
 		os.Exit(1)
 	}
 
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "config":
+			if len(os.Args) > 2 && os.Args[2] == "validate" {
+				if err := runConfigValidate(cfgPath); err != nil {
+					fmt.Fprintf(os.Stderr, "Config validation failed: %v\n", err)
+					os.Exit(1)
+				}
+				fmt.Println("Config is valid.")
+				os.Exit(0)
+			}
+		case "test":
+			if len(os.Args) > 3 && os.Args[2] == "ip" {
+				if err := runTestIP(cfg, os.Args[3]); err != nil {
+					fmt.Fprintf(os.Stderr, "IP test failed: %v\n", err)
+					os.Exit(1)
+				}
+				os.Exit(0)
+			}
+		case "version":
+			printVersion()
+			os.Exit(0)
+		}
+	}
+
 	log := newLogger(cfg)
 
 	if os.Getenv("ENVIRONMENT") == "production" && os.Getenv("ALLOW_UNAUTH_REDIS") == "true" {
@@ -1857,4 +1882,56 @@ func (p *proxy) startIntegrityWorker(ctx context.Context) {
 			metrics.DialCurrent.Set(float64(dial))
 		}
 	}
+}
+
+func runConfigValidate(path string) error {
+	cfg, err := config.Load(path)
+	if err != nil {
+		return err
+	}
+	return cfg.Validate()
+}
+
+func runTestIP(cfg *config.Config, ipStr string) error {
+	ip := net.ParseIP(ipStr)
+	if ip == nil {
+		return fmt.Errorf("invalid IP address: %s", ipStr)
+	}
+
+	logger := logrus.New()
+	logger.SetOutput(io.Discard)
+	
+	p := security.NewPipeline(&security.PipelineConfig{
+		ALPNBrowserBypass:      cfg.SecurityPolicy.ALPNBrowserBypass.Enabled,
+		JA4WhitelistBypass:     cfg.SecurityPolicy.JA4WhitelistBypass.Enabled,
+		JA4BlockingEnabled:     cfg.SecurityPolicy.JA4BlockingEnabled.Enabled,
+		MTLSBypass:             cfg.SecurityPolicy.MTLSBypass.Enabled,
+		CountryBlockingEnabled: cfg.SecurityPolicy.CountryBlockingEnabled.Enabled,
+	}, nil, logger)
+	
+	ctx := context.Background()
+	conn := &security.ConnectionContext{
+		ClientIP: ipStr,
+		ParsedIP: ip,
+	}
+	
+	result := p.Process(ctx, conn)
+	
+	fmt.Printf("Results for IP: %s\n", ipStr)
+	fmt.Printf("Action: %s\n", result.Action)
+	fmt.Printf("Score:  %d\n", result.Score)
+	if result.Bypassed {
+		fmt.Printf("Bypassed: Yes (%s)\n", result.BypassReason)
+	}
+	fmt.Println("Signals:")
+	for _, s := range result.Signals {
+		fmt.Printf(" - %s: %d (%s)\n", s.Name, s.Score, s.Reason)
+	}
+	
+	return nil
+}
+
+func printVersion() {
+	fmt.Printf("JA4proxy v2.0.0\n")
+	fmt.Printf("Built: %s\n", time.Now().Format(time.RFC3339))
 }

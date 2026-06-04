@@ -2255,3 +2255,8 @@ phases:
     status: COMPLETE
     action_plan: docs/phases/PHASE_143.md
     summary: Formalizes the Go-centric stack as v2.0.0 and instruments visible quality signals on GitHub, including automated code coverage reporting and high-impact trust badges.
+  144:
+    name: Operational Excellence & Repo Pruning
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_144.md
+    summary: Streamlines the repository for enterprise evaluation by pruning legacy artifacts, enhancing the Go CLI with validation and simulation tools, and providing direct MITRE ATT&CK signal mappings for SecOps teams.
