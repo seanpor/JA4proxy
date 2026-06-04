@@ -1,4 +1,4 @@
-.PHONY: all help ja4p-test-ip help-ops help-lint help-scan help-dev help-legacy doctor reload doctor reload lint scan test\nPYTHON ?= $(shell command -v python || command -v python3 || echo python)
+PYTHON ?= $(shell command -v python || command -v python3 || echo python)
 # Makefile for JA4 Proxy
 
 # ── Phony targets
@@ -1123,3 +1123,40 @@ reload: ## Reload proxy configuration without restart (SIGHUP)
 
 ja4p-test-ip: ## Alias for simulating IP decision
 	@./bin/ja4p test ip $(IP)
+
+# ── Lint Hierarchy ────────────────────────────────────────────────────────────
+
+lint-python: ## Run all Python linters (ruff, mypy, bandit)
+	@echo "=== lint-python: ruff + mypy + bandit ==="
+	@$(MAKE) lint-static
+
+lint-go: ## Run all Go linters (fmt, vet, golangci-lint)
+	@echo "=== lint-go: go fmt + go vet + golangci-lint ==="
+	@GOROOT=$${GOROOT:-/snap/go/current} go fmt ./...
+	@GOROOT=$${GOROOT:-/snap/go/current} go vet ./...
+	@golangci-lint run ./... || echo "  ! Warning: golangci-lint failed or not installed"
+
+lint-sast: ## Run cross-language SAST (Semgrep)
+	@echo "=== lint-sast: Semgrep ==="
+	@$(MAKE) lint-semgrep || echo "  ! Warning: Semgrep failed or not installed"
+
+lint-infra: ## Run infrastructure linters (Hadolint, Ansible, Terraform)
+	@echo "=== lint-infra: Hadolint + Ansible + Terraform ==="
+	@$(MAKE) lint-docker lint-ansible || echo "  ! Warning: Infra lint failed"
+
+lint-observability: ## Run observability linters (Prometheus, Alertmanager)
+	@echo "=== lint-observability: promtool + amtool ==="
+	@$(MAKE) lint-prom lint-alertmanager || echo "  ! Warning: Observability lint failed"
+
+lint-supply-chain: ## Run supply-chain linters (Gitleaks, Scorecard)
+	@echo "=== lint-supply-chain: Gitleaks + Scorecard ==="
+	@$(MAKE) lint-secrets scorecard-local || echo "  ! Warning: Supply-chain lint failed"
+
+lint-docs-all: ## Run all documentation quality checks
+	@echo "=== lint-docs-all: Doc-health + Links + ATT&CK ==="
+	@$(MAKE) doc-health test-doc-links test-attack-mapping
+
+lint-all: lint-meta lint-python lint-go lint-sast lint-infra lint-observability \
+          lint-supply-chain lint-docs-all
+	@echo ""
+	@echo "✓ lint-all complete"

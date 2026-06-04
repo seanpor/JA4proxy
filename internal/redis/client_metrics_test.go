@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/seanpor/ja4proxy/internal/metrics"
 	dto "github.com/prometheus/client_model/go"
+	"github.com/seanpor/ja4proxy/internal/metrics"
 )
 
 // directCounter reads a single counter cell directly from RedisOperationsTotal.
