@@ -54,7 +54,7 @@ internal/
   compliance/                   # Compliance reporter integration
   webhook/                      # Webhook delivery
   cli/                          # CLI subcommands
-bin/proxy                       # Built artifact (Go static binary)
+bin/ja4p                       # Built artifact (Go static binary)
 ```
 
 ### Python Ecosystem (Management & Analytics - Non-Performance Critical)

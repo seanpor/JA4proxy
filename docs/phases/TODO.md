@@ -11,11 +11,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 
 ## 🔵 Planned & Open Phases
 
-### Phase 147 — Automated Quality Guardrails & Meta-Validation
-*   **Status:** **PROPOSED** (Prevent broken Makefiles and environment drift via 'make doctor' and meta-linting.)
-*   **Action Plan:** [PHASE_147.md](PHASE_147.md)
-
-
 ### Phase 109 — PROXY Protocol Hardening & Scrubbing
 *   **Status:** **DEFERRED** (Superseded by Phase 118 — PROXY-header scrubbing closed via findings register (118a/b, 116a).)
 *   **Action Plan:** [cancelled/PHASE_109.md](cancelled/PHASE_109.md)
