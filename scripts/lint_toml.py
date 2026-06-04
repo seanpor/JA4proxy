@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """TOML syntax + parse validation.
 
 Validates all TOML files in the repository. tomllib (built-in since 3.11) or

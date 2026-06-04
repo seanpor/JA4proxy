@@ -2341,3 +2341,8 @@ phases:
     status: COMPLETE
     action_plan: docs/phases/complete/PHASE_146.md
     summary: Standardized the project's high-level Makefile targets. Updated 'lint', 'scan', and 'test' to be exhaustive aggregates, ensuring a single 'make lint scan test' command provides a complete quality and security validation signal.
+  147:
+    name: Automated Quality Guardrails & Meta-Validation
+    status: COMPLETE
+    action_plan: docs/phases/PHASE_147.md
+    summary: Implements automated checks for the development environment itself. Introduces 'make doctor' for environment validation, Makefile linting to catch recursive variables, and aligns CI to use project-standard Make targets to prevent regression of basic hygiene.

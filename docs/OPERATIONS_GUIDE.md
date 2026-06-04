@@ -94,11 +94,11 @@ curl -k --tls-max 1.1 https://localhost:443/
 
 | Asset | Location | Description |
 | :--- | :--- | :--- |
-| **Proxy Logs** | \`make logs\` | Real-time structured JSON logs (decisions, errors). |
+| **Proxy Logs** | `make logs` | Real-time structured JSON logs (decisions, errors). |
 | **Metrics** | [localhost:9090/metrics](http://localhost:9090/metrics) | Raw Prometheus metrics from the Go proxy. |
 | **Grafana** | [localhost:3000](http://localhost:3000) | Visual dashboards (Security, Performance, Health). |
 | **Redis** | [localhost:8001](http://localhost:8001) | Redis Insight UI to inspect lists, dial state, and events. |
-| **Health API** | \`curl localhost:9090/health/deep\` | JSON status of the proxy, Redis, and Security pipeline. |
+| **Health API** | `curl localhost:9090/health/deep` | JSON status of the proxy, Redis, and Security pipeline. |
 \n## 📚 Reference Links
 - **[Signal Mapping (MITRE ATT&CK)](OPERATIONS_MAPPING.md)**
 - **[Runbook Index](runbooks/)**
