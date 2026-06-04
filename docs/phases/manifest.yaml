@@ -368,6 +368,14 @@ phases:
     summary: 'Fix post-merge Scorecard CI failure (annotated tag SHAs used in Phase 217 instead
       of commit SHAs) and add scripts/check-action-shas.py + make lint-action-shas to prevent
       recurrence.'
+  219:
+    name: Restore Deleted Phase Documentation
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_219.md
+    dependencies: [218]
+    size: SMALL
+    summary: 'Restore 98 phase documentation files deleted by Phase 144 to fix make lint-phases
+      exit status. Files restored from git history (c53ced20^).'
   122:
     name: Production Security Review — Internet-Facing Attack Surface Audit
     status: COMPLETE
