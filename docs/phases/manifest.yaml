@@ -360,8 +360,9 @@ phases:
       broken lychee link docs/operator/→docs/runbooks/, and trivy 0.70.0→0.71.0.'
   218:
     name: SHA-Pin Preflight Check & Scorecard Fix
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_218.md
+    status: COMPLETE
+    completed: 2026-06-04
+    action_plan: docs/phases/complete/PHASE_218.md
     dependencies: [217]
     size: SMALL
     summary: 'Fix post-merge Scorecard CI failure (annotated tag SHAs used in Phase 217 instead

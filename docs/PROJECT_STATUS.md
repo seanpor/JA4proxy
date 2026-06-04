@@ -326,7 +326,7 @@ Alignment with international standards and regulatory frameworks.
 | 215 | White-Box Penetration Test — Go Production Proxy | COMPLETE | N/A | N/A |
 | 216 | Penetration Test Remediation — All Phase 215 Findings | COMPLETE | N/A | N/A |
 | 217 | Fix Pre-Existing CI Pipeline Failures | COMPLETE | N/A | N/A |
-| 218 | SHA-Pin Preflight Check & Scorecard Fix | PROPOSED | N/A | N/A |
+| 218 | SHA-Pin Preflight Check & Scorecard Fix | COMPLETE | N/A | N/A |
 
 ---
 
