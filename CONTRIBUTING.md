@@ -36,7 +36,9 @@ Before writing any code:
 
 JA4proxy is a Go-centric security stack. All legacy Python proxy components have been archived.
 
-### Production runtime — Go (The Proxy Core)
+### Production runtime — Go (The Proxy Core - Performance Critical)
+
+The Go implementation handles 100% of production traffic. It is built for sub-millisecond latency and high-concurrency.
 
 ```
 cmd/proxy/main.go               # Production proxy entry point
@@ -55,7 +57,9 @@ internal/
 bin/proxy                       # Built artifact (Go static binary)
 ```
 
-### Python Ecosystem (Management & Analytics)
+### Python Ecosystem (Management & Analytics - Non-Performance Critical)
+
+Python is used for the control plane and data analysis layers where developer velocity and integration flexibility are prioritized over raw packet-processing speed.
 
 ```
 src/management/                 # FastAPI Management API

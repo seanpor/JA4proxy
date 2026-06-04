@@ -155,7 +155,7 @@ func TestDNSEnrichment_GetSignal_CachedDatacenter_NoSignal(t *testing.T) {
 	r := newMockRedisRW()
 	r.strings["dns:fcrdns:1.2.3.4"] = "confirmed_datacenter"
 	d := NewDNSEnrichment(defaultDNSEnrichmentCfg(), r, nil)
-	sig := d.GetSignal(context.Background(), &ConnectionContext{ClientIP: "1.2.3.4"})
+	sig := d.GetSignal(context.Background(), &ConnectionContext{ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4"})
 	if sig != nil {
 		t.Errorf("confirmed_datacenter: expected nil (no additional signal), got %v", sig)
 	}
@@ -165,7 +165,7 @@ func TestDNSEnrichment_GetSignal_CachedUnknown_NoSignal(t *testing.T) {
 	r := newMockRedisRW()
 	r.strings["dns:fcrdns:1.2.3.4"] = "confirmed_unknown"
 	d := NewDNSEnrichment(defaultDNSEnrichmentCfg(), r, nil)
-	sig := d.GetSignal(context.Background(), &ConnectionContext{ClientIP: "1.2.3.4"})
+	sig := d.GetSignal(context.Background(), &ConnectionContext{ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4"})
 	if sig != nil {
 		t.Errorf("confirmed_unknown: expected nil, got %v", sig)
 	}
@@ -183,7 +183,7 @@ func TestDNSEnrichment_GetSignal_QueueFull_Drops(t *testing.T) {
 		}
 	}
 	// Now try to enqueue another
-	sig := d.GetSignal(context.Background(), &ConnectionContext{ClientIP: "1.2.3.4", ALPN: "tls"})
+	sig := d.GetSignal(context.Background(), &ConnectionContext{ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4", ALPN: "tls"})
 	if sig != nil {
 		t.Error("queue full: expected nil signal")
 	}
@@ -192,7 +192,7 @@ func TestDNSEnrichment_GetSignal_QueueFull_Drops(t *testing.T) {
 func TestDNSEnrichment_GetSignal_H1ALPN_NeverEnqueued(t *testing.T) {
 	r := newMockRedisRW()
 	d := NewDNSEnrichment(defaultDNSEnrichmentCfg(), r, nil)
-	d.GetSignal(context.Background(), &ConnectionContext{ClientIP: "1.2.3.4", ALPN: "h1"})
+	d.GetSignal(context.Background(), &ConnectionContext{ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4", ALPN: "h1"})
 	select {
 	case <-d.queue:
 		t.Error("h1 ALPN: should not enqueue")
@@ -205,7 +205,7 @@ func TestDNSEnrichment_GetSignal_DefaultScores(t *testing.T) {
 	r.strings["dns:fcrdns:1.2.3.4"] = "no_ptr"
 	// Use zero values to trigger defaults
 	d := NewDNSEnrichment(&DNSEnrichmentConfig{Enabled: true}, r, nil)
-	sig := d.GetSignal(context.Background(), &ConnectionContext{ClientIP: "1.2.3.4"})
+	sig := d.GetSignal(context.Background(), &ConnectionContext{ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4"})
 	if sig == nil {
 		t.Fatal("expected signal for no_ptr")
 	}
@@ -413,7 +413,7 @@ func TestRDAP_GetSignals_IsUnknown_NoSignals(t *testing.T) {
 		},
 	}
 	r := NewRDAPEnricher(defaultRDAPCfg(), mock, nil)
-	sigs := r.GetSignals(context.Background(), &ConnectionContext{ClientIP: "1.2.3.4"}, 80)
+	sigs := r.GetSignals(context.Background(), &ConnectionContext{ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4"}, 80)
 	if len(sigs) != 0 {
 		t.Errorf("is_unknown=true: expected no signals, got %d", len(sigs))
 	}
@@ -426,7 +426,7 @@ func TestRDAP_GetSignals_BadJSON_NoSignals(t *testing.T) {
 		},
 	}
 	r := NewRDAPEnricher(defaultRDAPCfg(), mock, nil)
-	sigs := r.GetSignals(context.Background(), &ConnectionContext{ClientIP: "1.2.3.4"}, 80)
+	sigs := r.GetSignals(context.Background(), &ConnectionContext{ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4"}, 80)
 	if len(sigs) != 0 {
 		t.Errorf("bad JSON: expected no signals, got %d", len(sigs))
 	}
@@ -436,7 +436,7 @@ func TestRDAP_GetSignals_DefaultMinTriggerScore(t *testing.T) {
 	cfg := &RDAPConfig{Enabled: true, MinTriggerScore: 0}
 	r := NewRDAPEnricher(cfg, &mockRedis{}, nil)
 	// Default MinTriggerScore is 20; trigger=25 should enqueue
-	r.GetSignals(context.Background(), &ConnectionContext{ClientIP: "1.2.3.4"}, 25)
+	r.GetSignals(context.Background(), &ConnectionContext{ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4"}, 25)
 	select {
 	case job := <-r.queue:
 		if job.ip != "1.2.3.4" {
@@ -461,7 +461,7 @@ func TestRDAP_GetSignals_KnownBadOrg_DefaultScore(t *testing.T) {
 		},
 	}
 	r := NewRDAPEnricher(cfg, mock, nil)
-	sigs := r.GetSignals(context.Background(), &ConnectionContext{ClientIP: "1.2.3.4"}, 80)
+	sigs := r.GetSignals(context.Background(), &ConnectionContext{ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4"}, 80)
 	if len(sigs) == 0 {
 		t.Fatal("expected known bad org signal")
 	}
@@ -587,7 +587,7 @@ func TestPipeline_CheckHardBlocks_DynamicCIDR(t *testing.T) {
 	p.UpdateDynamicCIDRs([]string{"192.168.0.0/16"})
 
 	result := p.Process(context.Background(), &ConnectionContext{
-		ClientIP: "192.168.1.1",
+		ParsedIP: net.ParseIP("192.168.1.1"), ClientIP: "192.168.1.1",
 		JA4:      "t13d000000_000000000000_000000000000",
 	})
 	if result.Action != "block" {
@@ -607,7 +607,7 @@ func TestPipeline_CheckHardBlocks_CountryBlacklist(t *testing.T) {
 	}
 	p := NewPipeline(cfg, &mockRedis{dial: 100}, nil)
 	result := p.Process(context.Background(), &ConnectionContext{
-		ClientIP: "1.2.3.4",
+		ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4",
 		Country:  "XX",
 	})
 	if result.Action != "block" || result.BypassReason != "country_blacklist" {
@@ -624,7 +624,7 @@ func TestPipeline_CheckBypasses_StaticIPAllowlist(t *testing.T) {
 	}
 	p := NewPipeline(cfg, &mockRedis{dial: 100}, nil)
 	result := p.Process(context.Background(), &ConnectionContext{
-		ClientIP: "10.0.0.1",
+		ParsedIP: net.ParseIP("10.0.0.1"), ClientIP: "10.0.0.1",
 	})
 	if !result.Bypassed || result.BypassReason != "static_ip" {
 		t.Errorf("static IP allowlist: bypassed=%v reason=%q", result.Bypassed, result.BypassReason)
@@ -640,7 +640,7 @@ func TestPipeline_CheckBypasses_WhitelistPattern(t *testing.T) {
 	}
 	p := NewPipeline(cfg, &mockRedis{dial: 100}, nil)
 	result := p.Process(context.Background(), &ConnectionContext{
-		ClientIP: "1.2.3.4",
+		ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4",
 		JA4:      "t13d1516h2_suffix",
 	})
 	if !result.Bypassed || result.BypassReason != "ja4_whitelist_pattern" {
@@ -659,7 +659,7 @@ func TestPipeline_CheckHardBlocks_JA4XBlacklist(t *testing.T) {
 	p.UpdateJA4XSets(nil, map[string]bool{"badx509": true})
 
 	result := p.Process(context.Background(), &ConnectionContext{
-		ClientIP: "1.2.3.4",
+		ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4",
 		JA4X:     "badx509",
 	})
 	if result.Action != "block" || result.BypassReason != "ja4x_blacklist" {
@@ -678,7 +678,7 @@ func TestPipeline_CheckBypasses_JA4XWhitelist(t *testing.T) {
 	p.UpdateJA4XSets(map[string]bool{"goodx509": true}, nil)
 
 	result := p.Process(context.Background(), &ConnectionContext{
-		ClientIP: "1.2.3.4",
+		ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4",
 		JA4X:     "goodx509",
 	})
 	if !result.Bypassed || result.BypassReason != "ja4x_whitelist" {
@@ -988,7 +988,7 @@ func TestMTLSVerifier_Verify_BadPEMBlock(t *testing.T) {
 
 func TestBlocklists_NilConfig(t *testing.T) {
 	m := NewBlocklistManager(nil, nil)
-	sigs, hardBlock := m.Check("1.2.3.4")
+	sigs, hardBlock := m.Check(net.ParseIP("1.2.3.4"))
 	if hardBlock || len(sigs) != 0 {
 		t.Error("nil config: expected no block and no signals")
 	}
@@ -1002,7 +1002,7 @@ func TestBlocklists_PlainIP_InFeed(t *testing.T) {
 			{Name: "plain_ip", Enabled: true, Path: path, Action: "signal", Score: 25},
 		},
 	}, nil)
-	sigs, _ := m.Check("1.2.3.4")
+	sigs, _ := m.Check(net.ParseIP("1.2.3.4"))
 	if len(sigs) == 0 {
 		t.Error("plain IP: expected signal")
 	}
@@ -1015,7 +1015,7 @@ func TestBlocklists_IPv6PlainIP_InFeed(t *testing.T) {
 			{Name: "ipv6_plain", Enabled: true, Path: path, Action: "signal", Score: 20},
 		},
 	}, nil)
-	sigs, _ := m.Check("2001:db8::1")
+	sigs, _ := m.Check(net.ParseIP("2001:db8::1"))
 	if len(sigs) == 0 {
 		t.Error("IPv6 plain IP: expected signal")
 	}
@@ -1028,7 +1028,7 @@ func TestBlocklists_CommentedAndBlankLines_Skipped(t *testing.T) {
 			{Name: "comments", Enabled: true, Path: path, IsBypass: true, Action: "block"},
 		},
 	}, nil)
-	_, hardBlock := m.Check("10.1.2.3")
+	_, hardBlock := m.Check(net.ParseIP("10.1.2.3"))
 	if !hardBlock {
 		t.Error("valid CIDR after comments: expected hard block")
 	}
@@ -1041,7 +1041,7 @@ func TestBlocklists_InvalidCIDR_Skipped(t *testing.T) {
 			{Name: "mixed", Enabled: true, Path: path, IsBypass: true, Action: "block"},
 		},
 	}, nil)
-	_, hardBlock := m.Check("10.1.2.3")
+	_, hardBlock := m.Check(net.ParseIP("10.1.2.3"))
 	if !hardBlock {
 		t.Error("valid CIDR should still match after invalid lines")
 	}
@@ -1053,7 +1053,7 @@ func TestBlocklists_MissingFile_Skipped(t *testing.T) {
 			{Name: "missing", Enabled: true, Path: "/nonexistent/file.txt", IsBypass: true, Action: "block"},
 		},
 	}, nil)
-	_, hardBlock := m.Check("1.2.3.4")
+	_, hardBlock := m.Check(net.ParseIP("1.2.3.4"))
 	if hardBlock {
 		t.Error("missing file: should not block")
 	}
@@ -1066,7 +1066,7 @@ func TestBlocklists_InvalidIP_NoBlock(t *testing.T) {
 			{Name: "test", Enabled: true, Path: path, IsBypass: true, Action: "block"},
 		},
 	}, nil)
-	_, hardBlock := m.Check("not-an-ip")
+	_, hardBlock := m.Check(net.ParseIP("not-an-ip"))
 	if hardBlock {
 		t.Error("invalid IP: should not block")
 	}
@@ -1077,7 +1077,7 @@ func TestBlocklists_InvalidIP_NoBlock(t *testing.T) {
 func TestBeaconing_MaybeRecord_BanSkipped(t *testing.T) {
 	mock := &mockRedisBeacon{scores: map[string][]float64{}, zadded: map[string][]float64{}}
 	d := NewBeaconingDetector(defaultBeaconingCfg(), mock, nil)
-	d.MaybeRecord(context.Background(), &ConnectionContext{ClientIP: "1.2.3.4", JA4: "t13d1234"}, "ban")
+	d.MaybeRecord(context.Background(), &ConnectionContext{ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4", JA4: "t13d1234"}, "ban")
 	if len(mock.zadded) != 0 {
 		t.Error("ban action: MaybeRecord should not record")
 	}
@@ -1086,7 +1086,7 @@ func TestBeaconing_MaybeRecord_BanSkipped(t *testing.T) {
 func TestBeaconing_MaybeRecord_H2Skipped(t *testing.T) {
 	mock := &mockRedisBeacon{scores: map[string][]float64{}, zadded: map[string][]float64{}}
 	d := NewBeaconingDetector(defaultBeaconingCfg(), mock, nil)
-	d.MaybeRecord(context.Background(), &ConnectionContext{ClientIP: "1.2.3.4", JA4: "t13d1234", ALPN: "h2"}, "allow")
+	d.MaybeRecord(context.Background(), &ConnectionContext{ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4", JA4: "t13d1234", ALPN: "h2"}, "allow")
 	if len(mock.zadded) != 0 {
 		t.Error("h2 ALPN: MaybeRecord should not record")
 	}
@@ -1095,7 +1095,7 @@ func TestBeaconing_MaybeRecord_H2Skipped(t *testing.T) {
 func TestBeaconing_MaybeRecord_H1Skipped(t *testing.T) {
 	mock := &mockRedisBeacon{scores: map[string][]float64{}, zadded: map[string][]float64{}}
 	d := NewBeaconingDetector(defaultBeaconingCfg(), mock, nil)
-	d.MaybeRecord(context.Background(), &ConnectionContext{ClientIP: "1.2.3.4", JA4: "t13d1234", ALPN: "h1"}, "allow")
+	d.MaybeRecord(context.Background(), &ConnectionContext{ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4", JA4: "t13d1234", ALPN: "h1"}, "allow")
 	if len(mock.zadded) != 0 {
 		t.Error("h1 ALPN: MaybeRecord should not record")
 	}
@@ -1104,7 +1104,7 @@ func TestBeaconing_MaybeRecord_H1Skipped(t *testing.T) {
 func TestBeaconing_MaybeRecord_EmptyJA4_Skipped(t *testing.T) {
 	mock := &mockRedisBeacon{scores: map[string][]float64{}, zadded: map[string][]float64{}}
 	d := NewBeaconingDetector(defaultBeaconingCfg(), mock, nil)
-	d.MaybeRecord(context.Background(), &ConnectionContext{ClientIP: "1.2.3.4", JA4: ""}, "allow")
+	d.MaybeRecord(context.Background(), &ConnectionContext{ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4", JA4: ""}, "allow")
 	if len(mock.zadded) != 0 {
 		t.Error("empty JA4: MaybeRecord should not record")
 	}
@@ -1113,7 +1113,7 @@ func TestBeaconing_MaybeRecord_EmptyJA4_Skipped(t *testing.T) {
 func TestBeaconing_MaybeRecord_NilRedis_Skipped(t *testing.T) {
 	d := NewBeaconingDetector(defaultBeaconingCfg(), nil, nil)
 	// Should not panic
-	d.MaybeRecord(context.Background(), &ConnectionContext{ClientIP: "1.2.3.4", JA4: "t13d1234"}, "allow")
+	d.MaybeRecord(context.Background(), &ConnectionContext{ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4", JA4: "t13d1234"}, "allow")
 }
 
 func TestBeaconing_MaybeRecord_Disabled_Skipped(t *testing.T) {
@@ -1121,7 +1121,7 @@ func TestBeaconing_MaybeRecord_Disabled_Skipped(t *testing.T) {
 	cfg := defaultBeaconingCfg()
 	cfg.Enabled = false
 	d := NewBeaconingDetector(cfg, mock, nil)
-	d.MaybeRecord(context.Background(), &ConnectionContext{ClientIP: "1.2.3.4", JA4: "t13d1234"}, "allow")
+	d.MaybeRecord(context.Background(), &ConnectionContext{ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4", JA4: "t13d1234"}, "allow")
 	if len(mock.zadded) != 0 {
 		t.Error("disabled: MaybeRecord should not record")
 	}
@@ -1129,7 +1129,7 @@ func TestBeaconing_MaybeRecord_Disabled_Skipped(t *testing.T) {
 
 func TestBeaconing_GetSignal_NilRedis(t *testing.T) {
 	d := NewBeaconingDetector(defaultBeaconingCfg(), nil, nil)
-	sig := d.GetSignal(context.Background(), &ConnectionContext{ClientIP: "1.2.3.4", JA4: "t13d1234"})
+	sig := d.GetSignal(context.Background(), &ConnectionContext{ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4", JA4: "t13d1234"})
 	if sig != nil {
 		t.Error("nil redis: expected nil signal")
 	}
@@ -1217,7 +1217,7 @@ func TestPipeline_JA4XBlacklistSignal_NonBypass(t *testing.T) {
 	p.UpdateJA4XSets(nil, map[string]bool{"badcert": true})
 
 	result := p.Process(context.Background(), &ConnectionContext{
-		ClientIP: "1.2.3.4",
+		ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4",
 		JA4X:     "badcert",
 	})
 	// Should not hard-block (JA4XBlockingEnabled=false), but signal should be present

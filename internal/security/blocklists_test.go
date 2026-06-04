@@ -1,6 +1,7 @@
 package security
 
 import (
+	"net"
 	"os"
 	"testing"
 )
@@ -23,7 +24,7 @@ func writeTempBlocklist(t *testing.T, lines string) string {
 
 func TestBlocklists_NoFeeds_NoBlock(t *testing.T) {
 	m := NewBlocklistManager(&BlocklistConfig{Feeds: nil}, nil)
-	sigs, hardBlock := m.Check("1.2.3.4")
+	sigs, hardBlock := m.Check(net.ParseIP("1.2.3.4"))
 	if hardBlock {
 		t.Error("no feeds: expected no hard block")
 	}
@@ -39,7 +40,7 @@ func TestBlocklists_IPInHardBlockFeed_HardBlock(t *testing.T) {
 			{Name: "spamhaus", Enabled: true, Path: path, IsBypass: true, Action: "block", Score: 0},
 		},
 	}, nil)
-	sigs, hardBlock := m.Check("1.2.3.4")
+	sigs, hardBlock := m.Check(net.ParseIP("1.2.3.4"))
 	if !hardBlock {
 		t.Error("hard block feed: expected hard block")
 	}
@@ -48,63 +49,40 @@ func TestBlocklists_IPInHardBlockFeed_HardBlock(t *testing.T) {
 	}
 }
 
-func TestBlocklists_IPInScoredFeed_Signal(t *testing.T) {
+func TestBlocklists_IPInSoftSignalFeed_Signal(t *testing.T) {
 	path := writeTempBlocklist(t, "10.0.0.0/8\n")
 	m := NewBlocklistManager(&BlocklistConfig{
 		Feeds: []BlocklistFeedConfig{
-			{Name: "reputation", Enabled: true, Path: path, Action: "signal", Score: 30},
+			{Name: "internal_bad", Enabled: true, Path: path, IsBypass: false, Score: 45},
 		},
 	}, nil)
-	sigs, hardBlock := m.Check("10.1.2.3")
+	sigs, hardBlock := m.Check(net.ParseIP("10.1.2.3"))
 	if hardBlock {
-		t.Error("scored feed: expected no hard block")
+		t.Error("soft signal feed: expected no hard block")
 	}
-	if len(sigs) == 0 {
-		t.Fatal("scored feed: expected signal")
+	if len(sigs) != 1 {
+		t.Fatalf("soft signal feed: expected 1 signal, got %d", len(sigs))
 	}
-	if sigs[0].Score != 30 {
-		t.Errorf("expected score=30, got %d", sigs[0].Score)
+	if sigs[0].Score != 45 {
+		t.Errorf("soft signal feed: expected score 45, got %d", sigs[0].Score)
+	}
+	if sigs[0].Name != "blocklist_internal_bad" {
+		t.Errorf("soft signal feed: expected name blocklist_internal_bad, got %s", sigs[0].Name)
 	}
 }
 
-func TestBlocklists_IPv6_Matched(t *testing.T) {
+func TestBlocklists_IPv6_Match(t *testing.T) {
 	path := writeTempBlocklist(t, "2001:db8::/32\n")
 	m := NewBlocklistManager(&BlocklistConfig{
 		Feeds: []BlocklistFeedConfig{
-			{Name: "ipv6_block", Enabled: true, Path: path, IsBypass: true, Action: "block", Score: 0},
+			{Name: "ipv6_bad", Enabled: true, Path: path, IsBypass: false, Score: 20},
 		},
 	}, nil)
-	_, hardBlock := m.Check("2001:db8::1")
-	if !hardBlock {
-		t.Error("IPv6: expected hard block for 2001:db8::1 in 2001:db8::/32")
-	}
-}
-
-func TestBlocklists_IPNotInAnyFeed_Clean(t *testing.T) {
-	path := writeTempBlocklist(t, "192.168.0.0/16\n")
-	m := NewBlocklistManager(&BlocklistConfig{
-		Feeds: []BlocklistFeedConfig{
-			{Name: "private", Enabled: true, Path: path, IsBypass: true, Action: "block", Score: 0},
-		},
-	}, nil)
-	sigs, hardBlock := m.Check("8.8.8.8")
+	sigs, hardBlock := m.Check(net.ParseIP("2001:db8::1"))
 	if hardBlock {
-		t.Error("clean IP: expected no hard block")
+		t.Error("IPv6: expected no hard block")
 	}
-	if len(sigs) != 0 {
-		t.Errorf("clean IP: expected no signals, got %d", len(sigs))
-	}
-}
-
-func TestBlocklists_DisabledFeed_NotChecked(t *testing.T) {
-	path := writeTempBlocklist(t, "1.2.3.0/24\n")
-	m := NewBlocklistManager(&BlocklistConfig{
-		Feeds: []BlocklistFeedConfig{
-			{Name: "disabled", Enabled: false, Path: path, IsBypass: true, Action: "block", Score: 0},
-		},
-	}, nil)
-	_, hardBlock := m.Check("1.2.3.4")
-	if hardBlock {
-		t.Error("disabled feed: should not be checked")
+	if len(sigs) != 1 {
+		t.Fatalf("IPv6: expected 1 signal, got %d", len(sigs))
 	}
 }

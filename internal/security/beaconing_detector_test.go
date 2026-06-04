@@ -1,6 +1,7 @@
 package security
 
 import (
+	"net"
 	"context"
 	"testing"
 	"time"
@@ -64,7 +65,7 @@ func TestBeaconing_Disabled_NoSignal(t *testing.T) {
 	d := NewBeaconingDetector(cfg, &mockRedisBeacon{scores: map[string][]float64{
 		"beacon:1.2.3.4:t13d1234": makeTimestamps(20, 60),
 	}, zadded: map[string][]float64{}}, nil)
-	sig := d.GetSignal(context.Background(), &ConnectionContext{ClientIP: "1.2.3.4", JA4: "t13d1234"})
+	sig := d.GetSignal(context.Background(), &ConnectionContext{ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4", JA4: "t13d1234"})
 	if sig != nil {
 		t.Errorf("disabled: expected nil, got %v", sig)
 	}
@@ -79,7 +80,7 @@ func TestBeaconing_BrowserALPN_NoSignal(t *testing.T) {
 	}, nil)
 	for _, alpn := range []string{"h2", "h1"} {
 		sig := d.GetSignal(context.Background(), &ConnectionContext{
-			ClientIP: "1.2.3.4", JA4: "t13d1234", ALPN: alpn,
+			ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4", JA4: "t13d1234", ALPN: alpn,
 		})
 		if sig != nil {
 			t.Errorf("ALPN=%q: expected nil, got %v", alpn, sig)
@@ -95,7 +96,7 @@ func TestBeaconing_NotEnoughObservations_NoSignal(t *testing.T) {
 		},
 		zadded: map[string][]float64{},
 	}, nil)
-	sig := d.GetSignal(context.Background(), &ConnectionContext{ClientIP: "1.2.3.4", JA4: "t13d1234"})
+	sig := d.GetSignal(context.Background(), &ConnectionContext{ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4", JA4: "t13d1234"})
 	if sig != nil {
 		t.Errorf("not enough observations: expected nil, got %v", sig)
 	}
@@ -109,7 +110,7 @@ func TestBeaconing_RegularPattern_HighScore(t *testing.T) {
 		},
 		zadded: map[string][]float64{},
 	}, nil)
-	sig := d.GetSignal(context.Background(), &ConnectionContext{ClientIP: "1.2.3.4", JA4: "t13d1234"})
+	sig := d.GetSignal(context.Background(), &ConnectionContext{ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4", JA4: "t13d1234"})
 	if sig == nil {
 		t.Fatal("regular beaconing: expected signal")
 	}
@@ -129,7 +130,7 @@ func TestBeaconing_HighVariance_NoSignal(t *testing.T) {
 		},
 		zadded: map[string][]float64{},
 	}, nil)
-	sig := d.GetSignal(context.Background(), &ConnectionContext{ClientIP: "1.2.3.4", JA4: "t13d1234"})
+	sig := d.GetSignal(context.Background(), &ConnectionContext{ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4", JA4: "t13d1234"})
 	if sig != nil {
 		t.Errorf("high variance: expected nil, got %v (CV might not be >0.7)", sig)
 	}
@@ -138,7 +139,7 @@ func TestBeaconing_HighVariance_NoSignal(t *testing.T) {
 func TestBeaconing_MaybeRecord_BlockSkipped(t *testing.T) {
 	mock := &mockRedisBeacon{scores: map[string][]float64{}, zadded: map[string][]float64{}}
 	d := NewBeaconingDetector(defaultBeaconingCfg(), mock, nil)
-	d.MaybeRecord(context.Background(), &ConnectionContext{ClientIP: "1.2.3.4", JA4: "t13d1234"}, "block")
+	d.MaybeRecord(context.Background(), &ConnectionContext{ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4", JA4: "t13d1234"}, "block")
 	if len(mock.zadded) != 0 {
 		t.Error("block action: MaybeRecord should not record")
 	}
@@ -147,7 +148,7 @@ func TestBeaconing_MaybeRecord_BlockSkipped(t *testing.T) {
 func TestBeaconing_MaybeRecord_AllowRecords(t *testing.T) {
 	mock := &mockRedisBeacon{scores: map[string][]float64{}, zadded: map[string][]float64{}}
 	d := NewBeaconingDetector(defaultBeaconingCfg(), mock, nil)
-	d.MaybeRecord(context.Background(), &ConnectionContext{ClientIP: "1.2.3.4", JA4: "t13d1234"}, "allow")
+	d.MaybeRecord(context.Background(), &ConnectionContext{ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4", JA4: "t13d1234"}, "allow")
 	key := "beacon:1.2.3.4:t13d1234"
 	if len(mock.zadded[key]) == 0 {
 		t.Error("allow action: MaybeRecord should record timestamp")
@@ -159,7 +160,7 @@ func TestBeaconing_EmptyJA4_NoSignal(t *testing.T) {
 		scores: map[string][]float64{},
 		zadded: map[string][]float64{},
 	}, nil)
-	sig := d.GetSignal(context.Background(), &ConnectionContext{ClientIP: "1.2.3.4", JA4: ""})
+	sig := d.GetSignal(context.Background(), &ConnectionContext{ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4", JA4: ""})
 	if sig != nil {
 		t.Errorf("empty JA4: expected nil, got %v", sig)
 	}

@@ -175,6 +175,23 @@ var (
 	// ConnectionErrorsTotal counts unhandled errors in the connection handler
 	// before a policy decision was reached. Used as the "bad" term of the
 	// availability SLI.
+	
+	SignalLatencySeconds = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "ja4proxy_signal_latency_seconds",
+			Help:    "Execution latency for individual signal modules in seconds",
+			Buckets: []float64{0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1},
+		},
+		[]string{"signal"},
+	)
+	SignalDriftTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "ja4proxy_signal_drift_total",
+			Help: "Total detected scoring drift events between nodes or sources",
+		},
+		[]string{"source", "type"},
+	)
+
 	ConnectionErrorsTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "ja4proxy_connection_errors_total",
@@ -294,7 +311,10 @@ var (
 
 func Register() {
 	prometheus.MustRegister(
-		ConnectionsTotal, ActiveConnections, RiskScore,
+		ConnectionsTotal,
+		SignalLatencySeconds,
+		SignalDriftTotal,
+ ActiveConnections, RiskScore,
 		DialCurrent, DialChangesTotal, SecurityEventsTotal, TarpitConcurrent,
 		TarpitOverflowTotal, ConfigReloadsTotal, BypassTotal, SignalTotal,
 		AbuseIPDBQueueDroppedTotal, AbuseIPDBLookupsTotal, WeakCipherTotal, WriteBufferQueueDepth,

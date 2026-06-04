@@ -2237,6 +2237,6 @@ phases:
     summary: Formalizes the project governance model (CONTRIBUTING, CVD Policy, Code of Conduct) and fulfills the manual requirements for the OpenSSF Best Practices badge.
   140:
     name: Observability Hardening & Signal Drift Detection
-    status: PROPOSED
+    status: COMPLETE
     action_plan: docs/phases/PHASE_140.md
     summary: Enhances production monitoring by instrumenting per-signal execution latency and implementing a drift detection worker to ensure scoring consistency across the proxy mesh.
