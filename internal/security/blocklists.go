@@ -110,12 +110,11 @@ func NewBlocklistManager(cfg *BlocklistConfig, log *logrus.Logger) *BlocklistMan
 // Check returns (signals, hardBlock) for the client IP.
 // hardBlock=true means block immediately; signals will be nil.
 // Returns (nil, false) if no feed matched.
-func (m *BlocklistManager) Check(clientIP string) (signals []RiskSignal, hardBlock bool) {
+func (m *BlocklistManager) Check(ip net.IP) (signals []RiskSignal, hardBlock bool) {
 	start := time.Now()
 	defer func() {
 		metrics.PipelineDurationSeconds.Observe(float64(time.Since(start).Seconds()))
 	}()
-	ip := net.ParseIP(clientIP)
 	if ip == nil {
 		return nil, false
 	}

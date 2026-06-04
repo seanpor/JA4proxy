@@ -2227,7 +2227,7 @@ phases:
     summary: Hardens the Go proxy against low-level protocol manipulation (PROXY v2, TCP fragmentation, and smuggling) by expanding the automated fuzzing suite and verifying strict fail-closed behavior for non-TLS traffic.
   138:
     name: Hot-Path Performance Optimization & Zero-Copy Refactoring
-    status: PROPOSED
+    status: COMPLETE
     action_plan: docs/phases/PHASE_138.md
     summary: Targets sub-500ns allow-path latency by auditing allocations via pprof and refactoring the security pipeline to use zero-copy parsing for SNI, ALPN, and JA4 metadata.
   139:

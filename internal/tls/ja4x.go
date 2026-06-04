@@ -43,23 +43,23 @@ func ExtractJA4XFromPEM(pemData []byte) string {
 }
 
 func extractSAN(cert *x509.Certificate) string {
-	if len(cert.DNSNames) == 0 && len(cert.EmailAddresses) == 0 &&
-		len(cert.IPAddresses) == 0 && len(cert.URIs) == 0 {
+	total := len(cert.DNSNames) + len(cert.EmailAddresses) + len(cert.IPAddresses) + len(cert.URIs)
+	if total == 0 {
 		return ""
 	}
 
-	var sanList []string
+	sanList := make([]string, 0, total)
 	for _, dns := range cert.DNSNames {
-		sanList = append(sanList, fmt.Sprintf("<DNSName(value='%s')>", dns))
+		sanList = append(sanList, "<DNSName(value='"+dns+"')>")
 	}
 	for _, email := range cert.EmailAddresses {
-		sanList = append(sanList, fmt.Sprintf("<RFC822Name(value='%s')>", email))
+		sanList = append(sanList, "<RFC822Name(value='"+email+"')>")
 	}
 	for _, ip := range cert.IPAddresses {
-		sanList = append(sanList, fmt.Sprintf("<IPAddress(value='%s')>", ip.String()))
+		sanList = append(sanList, "<IPAddress(value='"+ip.String()+"')>")
 	}
 	for _, uri := range cert.URIs {
-		sanList = append(sanList, fmt.Sprintf("<URI(value='%s')>", uri.String()))
+		sanList = append(sanList, "<URI(value='"+uri.String()+"')>")
 	}
 
 	sort.Strings(sanList)
@@ -67,20 +67,30 @@ func extractSAN(cert *x509.Certificate) string {
 }
 
 func formatName(name pkix.Name) string {
-	var attrs []string
+	if len(name.Names) == 0 {
+		return ""
+	}
+	var sb strings.Builder
+	// Rough estimate of size
+	sb.Grow(len(name.Names) * 20)
+
+	attrs := make([]string, 0, len(name.Names))
 	for _, attr := range name.Names {
-		attrs = append(attrs, fmt.Sprintf("%s=%s", attr.Type.String(), attr.Value))
+		attrs = append(attrs, attr.Type.String()+"="+fmt.Sprint(attr.Value))
 	}
 	sort.Strings(attrs)
-	return strings.Join(attrs, ",")
+
+	for i, attr := range attrs {
+		if i > 0 {
+			sb.WriteByte(',')
+		}
+		sb.WriteString(attr)
+	}
+	return sb.String()
 }
 
 func formatJA4X(issuer, subject, san string) string {
-	return fmt.Sprintf("%s_%s_%s",
-		hash12(issuer),
-		hash12(subject),
-		hash12(san),
-	)
+	return hash12(issuer) + "_" + hash12(subject) + "_" + hash12(san)
 }
 
 func hash12(data string) string {
@@ -88,5 +98,6 @@ func hash12(data string) string {
 		return sentinelHash
 	}
 	h := sha256.Sum256([]byte(data))
-	return hex.EncodeToString(h[:])[:12]
+	// 2 chars per byte, we want 12 chars -> 6 bytes
+	return hex.EncodeToString(h[:6])
 }

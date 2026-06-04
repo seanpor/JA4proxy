@@ -1,6 +1,11 @@
 // Package security provides the risk scoring pipeline for JA4proxy.
 package security
 
+import (
+	"net"
+	"net/netip"
+)
+
 // RiskSignal is a single scored observation from a security module.
 // It is identical in semantics to the Python RiskSignal dataclass.
 type RiskSignal struct {
@@ -17,7 +22,9 @@ type RiskSignal struct {
 // ConnectionContext is an immutable snapshot of observable connection metadata.
 // Populated before the pipeline runs; passed to every module.
 type ConnectionContext struct {
-	ClientIP string
+	ClientIP   string
+	ParsedIP   net.IP
+	ClientAddr netip.Addr
 	// ClientPort is the source TCP port. Zero when behind PROXY protocol
 	// or when the source address is not a *net.TCPAddr.
 	ClientPort           int
