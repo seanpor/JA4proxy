@@ -4,16 +4,16 @@ GO ?= $(shell command -v go || echo go)
 # ── Phony targets ─────────────────────────────────────────────────────────────
 .PHONY: all help doctor reload lint scan test start start-poc stop status logs
 .PHONY: help-ops help-lint help-scan help-dev help-legacy
-.PHONY: build rebuild clean setup-build init
+.PHONY: build rebuild clean cli-build init
 .PHONY: sync sbom scorecard-local
-.PHONY: go-build go-test go-lint ja4p-test-ip ja4p-validate
+.PHONY: go-build go-test go-lint test-ip ja4p-validate
 # Makefile for JA4 Proxy
 
 # ── Phony targets
 .PHONY: agent-down agent-status agent-up all approve-all attack-status bench bench-go-pipeline block-ip block-ja4 build capture-fixtures capture-fixtures-browser check-geoip check-image-versions check-manifest check-paths check-scores check-updates check-updates-container check-updates-local ci-local clean deploy-enterprise deploy-poc dev-help dial doc-health doctor fetch-db findings-list findings-render flush-redis gdpr-delete geoip-monitor geoip-report geoip-watch go-build go-build-ja4check go-lint go-test health-check help legacy-help link-check lint lint-action-shas lint-alert-urls lint-alertmanager lint-all lint-ansible lint-checkov lint-compose-config lint-coverage lint-deps lint-docker lint-docs lint-docs-all lint-github-actions lint-go lint-go-full lint-go-mod lint-haproxy lint-helm lint-help lint-infra lint-json lint-lua lint-makefiles lint-markdown lint-meta lint-observability lint-phases lint-prom lint-pylint lint-python lint-quality lint-sast lint-secrets lint-security lint-semgrep lint-shell lint-spelling lint-static lint-supply-chain lint-toml lint-types lint-yaml list-pending load-test load-test-baseline load-test-report logs management-build management-down management-logs management-shell management-test management-up measure-mttr openapi-spec parity-check perf-test perf-test-basic quality quick-start rebuild sbom scan scan-all scan-container scan-dockerfiles scan-first-party scan-help scan-images scan-local scorecard-local slo-report smoke-docker smoke-k8s smoke-test ssh-tunnels start start-monitoring start-scaled status stop stop-clean sync test test-adversarial test-attack-mapping test-calibrate test-chaos test-cli test-compliance test-compliance test-compliance-go test-compliance-language test-compliance-parity test-compliance-python test-component-suites test-compose-config-lint test-doc-links test-docker test-docker-consistency test-evidence-paths test-gdpr-compliance test-go test-go-chaos test-go-chaos-unit test-go-docker test-go-fuzz-smoke test-go-integration test-go-perf test-go-property test-go-redis-tls test-infra-monitoring test-infra-monitoring-integration test-lint-hierarchy test-logging-webhook test-mgmt-api test-mgmt-api-events test-mgmt-api-unit test-policy-validator test-provisioning test-ratio test-slo test-tap test-tap-live test-tap-perf test-unit top-attackers tunnel unblock-ip update-geoip validate-ecs-schema validate-slo-rules verify-findings verify-findings-green verify-manifest-closeout
 # (alphabetical by group) ──────────────────────────────────
-.PHONY: all help start-poc ja4p-test-ip help-ops help-lint help-scan help-dev help-legacy doctor reload reload doctor lint-meta lint-help scan scan-all scan-container scan-local legacy-help dev-help
-.PHONY: build rebuild clean setup-build init
+.PHONY: all help start-poc test-ip help-ops help-lint help-scan help-dev help-legacy doctor reload reload doctor lint-meta lint-help scan scan-all scan-container scan-local legacy-help dev-help
+.PHONY: build rebuild clean cli-build init
 .PHONY: start start-monitoring start-scaled stop stop-clean status logs
 .PHONY: dial ssh-tunnels flush-redis
 .PHONY: attack-status top-attackers block-ja4 block-ip unblock-ip
@@ -83,7 +83,7 @@ help: ## Show the essential front-door targets
 	@echo ""
 	@echo "── Troubleshooting & Simulation ──────────────────────────────────────"
 	@echo "  make reload         - Reload config without downtime (SIGHUP)"
-	@echo "  make ja4p-test-ip IP=.. - Simulate pipeline decision for an IP"
+	@echo "  make test-ip IP=..    - Simulate pipeline decision for an IP"
 	@echo ""
 	@echo "── Advanced Help ─────────────────────────────────────────────────────"
 	@echo "  make help-ops       - Incident response, blacklisting, threat-intel"
@@ -819,8 +819,8 @@ GO     := GOROOT=$(GOROOT) go
 go-build:
 	@echo "Building Go proxy..."
 	@mkdir -p bin
-	$(GO) build -o bin/ja4p ./cmd/proxy
-	@echo "✓ bin/ja4p"
+	$(GO) build -o bin/ja4pd ./cmd/proxy
+	@echo "✓ bin/ja4pd"
 
 # Run all Go unit tests
 go-test:
@@ -968,7 +968,7 @@ bench-macro: ## Run end-to-end load test (requires: make start)
 sbom:
 	@echo "Generating SBOM for Go proxy..."
 	@if command -v syft &>/dev/null; then \
-		syft bin/ja4p -o cyclonedx-json > reports/sbom-proxy.json; \
+		syft bin/ja4pd -o cyclonedx-json > reports/sbom-proxy.json; \
 		echo "✓ SBOM generated: reports/sbom-proxy.json"; \
 	else \
 		echo "✗ syft not found. Install with: curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh"; \
@@ -1129,7 +1129,7 @@ lint-meta: ## Phase 147 — Verify Makefile and automation script health
 reload: ## Reload proxy configuration without restart (SIGHUP)
 	@docker compose -f deploy/docker/docker-compose.poc.yml kill -s SIGHUP proxy 2>/dev/null || kill -s SIGHUP $$(pgrep ja4p) 2>/dev/null || echo "Proxy not running"
 
-ja4p-test-ip: ## Alias for simulating IP decision
+test-ip: ## Alias for simulating IP decision
 	@./bin/ja4p test ip $(IP)
 
 # ── Lint Hierarchy ────────────────────────────────────────────────────────────
@@ -1177,9 +1177,8 @@ sync: ## Sync roadmap from manifest.yaml to PROJECT_STATUS.md
 ja4p-validate: ## Validate proxy configuration YAML
 	@./bin/ja4p config validate
 
-setup-build: ## Build the setup wizard utility
 	@mkdir -p bin
 	@$(GO) build -o bin/ja4p-setup ./cmd/setup
 
 init: setup-build ## Start the guided setup wizard
-	@./bin/ja4p-setup
+	@./bin/ja4p init
