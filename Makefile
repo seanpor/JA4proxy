@@ -4,16 +4,27 @@ GO ?= $(shell command -v go || echo go)
 # ── Phony targets ─────────────────────────────────────────────────────────────
 .PHONY: all help doctor reload lint scan test start start-poc stop status logs
 .PHONY: help-ops help-lint help-scan help-dev help-legacy
-.PHONY: build rebuild clean cli-build init
+.PHONY: build rebuild clean cli-build init bump-build
 .PHONY: sync sbom scorecard-local
 .PHONY: go-build sync-build cli-build test-ip ja4p-validate
+
+# ── Build Metadata ────────────────────────────────────────────────────────────
+VERSION ?= $(shell cat VERSION 2>/dev/null || echo "2.0")
+BUILD_NUMBER ?= $(shell cat BUILD_NUMBER 2>/dev/null || echo "0")
+GIT_COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+BUILD_DATE ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+FULL_VERSION := v$(VERSION).$(BUILD_NUMBER)
+
+LDFLAGS := -ldflags="-s -w -X github.com/seanpor/ja4proxy/internal/config.Version=$(FULL_VERSION) \
+           -X github.com/seanpor/ja4proxy/internal/config.GitCommit=$(GIT_COMMIT) \
+           -X github.com/seanpor/ja4proxy/internal/config.BuildDate=$(BUILD_DATE)"
 # Makefile for JA4 Proxy
 
 # ── Phony targets
 .PHONY: agent-down agent-status agent-up all approve-all attack-status bench bench-go-pipeline block-ip block-ja4 build capture-fixtures capture-fixtures-browser check-geoip check-image-versions check-manifest check-paths check-scores check-updates check-updates-container check-updates-local ci-local clean deploy-enterprise deploy-poc dev-help dial doc-health doctor fetch-db findings-list findings-render flush-redis gdpr-delete geoip-monitor geoip-report geoip-watch go-build go-build-ja4check go-lint go-test health-check help legacy-help link-check lint lint-action-shas lint-alert-urls lint-alertmanager lint-all lint-ansible lint-checkov lint-compose-config lint-coverage lint-deps lint-docker lint-docs lint-docs-all lint-github-actions lint-go lint-go-full lint-go-mod lint-haproxy lint-helm lint-help lint-infra lint-json lint-lua lint-makefiles lint-markdown lint-meta lint-observability lint-phases lint-prom lint-pylint lint-python lint-quality lint-sast lint-secrets lint-security lint-semgrep lint-shell lint-spelling lint-static lint-supply-chain lint-toml lint-types lint-yaml list-pending load-test load-test-baseline load-test-report logs management-build management-down management-logs management-shell management-test management-up measure-mttr openapi-spec parity-check perf-test perf-test-basic quality quick-start rebuild sbom scan scan-all scan-container scan-dockerfiles scan-first-party scan-help scan-images scan-local scorecard-local slo-report smoke-docker smoke-k8s smoke-test ssh-tunnels start start-monitoring start-scaled status stop stop-clean sync test test-adversarial test-attack-mapping test-calibrate test-chaos test-cli test-compliance test-compliance test-compliance-go test-compliance-language test-compliance-parity test-compliance-python test-component-suites test-compose-config-lint test-doc-links test-docker test-docker-consistency test-evidence-paths test-gdpr-compliance test-go test-go-chaos test-go-chaos-unit test-go-docker test-go-fuzz-smoke test-go-integration test-go-perf test-go-property test-go-redis-tls test-infra-monitoring test-infra-monitoring-integration test-lint-hierarchy test-logging-webhook test-mgmt-api test-mgmt-api-events test-mgmt-api-unit test-policy-validator test-provisioning test-ratio test-slo test-tap test-tap-live test-tap-perf test-unit top-attackers tunnel unblock-ip update-geoip validate-ecs-schema validate-slo-rules verify-findings verify-findings-green verify-manifest-closeout
 # (alphabetical by group) ──────────────────────────────────
 .PHONY: all help start-poc test-ip help-ops help-lint help-scan help-dev help-legacy doctor reload reload doctor lint-meta lint-help scan scan-all scan-container scan-local legacy-help dev-help
-.PHONY: build rebuild clean cli-build init
+.PHONY: build rebuild clean cli-build init bump-build
 .PHONY: start start-monitoring start-scaled stop stop-clean status logs
 .PHONY: dial ssh-tunnels flush-redis
 .PHONY: attack-status top-attackers block-ja4 block-ip unblock-ip
@@ -288,11 +299,12 @@ agent-status:
 
 # Build Docker images
 
-build: ## Build all production binaries (Proxy, Sync, CLI)
+build: bump-build ## Build all production binaries (Proxy, Sync, CLI)
 	@mkdir -p bin
 	@$(MAKE) go-build sync-build cli-build
 	@echo "Building Docker images (BuildKit enabled)..."
-	DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 \
+		DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 \
+	VERSION=$(FULL_VERSION) GIT_COMMIT=$(GIT_COMMIT) BUILD_DATE=$(BUILD_DATE) \
 	docker compose -f deploy/docker/docker-compose.poc.yml --env-file .env build
 
 # Run all tests locally in parallel (fast — no Docker required)
@@ -658,7 +670,8 @@ rebuild:
 	fi
 	docker compose -f deploy/docker/docker-compose.monitoring.yml down -v --remove-orphans --rmi local 2>/dev/null || true
 	@echo "Rebuilding all images (no cache, but preserving apt/pip build caches)..."
-	DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 \
+		DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 \
+	VERSION=$(FULL_VERSION) GIT_COMMIT=$(GIT_COMMIT) BUILD_DATE=$(BUILD_DATE) \
 	docker compose -f deploy/docker/docker-compose.poc.yml --env-file .env build --no-cache
 	@echo "Starting full stack..."
 	@if [ -n "$(_AGENT)" ]; then \
@@ -822,7 +835,7 @@ GO     := GOROOT=$(GOROOT) go
 go-build:
 	@echo "Building Go proxy..."
 	@mkdir -p bin
-	$(GO) build -o bin/ja4pd ./cmd/ja4pd
+	$(GO) build $(LDFLAGS) -o bin/ja4pd ./cmd/ja4pd
 	@echo "✓ bin/ja4pd"
 
 # Run all Go unit tests
@@ -1188,5 +1201,24 @@ init: setup-build ## Start the guided setup wizard
 
 sync-build: ## Build the sync mesh agent into bin/ja4ps
 	@mkdir -p bin
-	@$(GO) build -o bin/ja4ps ./cmd/ja4ps
+	@$(GO) build $(LDFLAGS) -o bin/ja4ps ./cmd/ja4ps
 	@echo "✓ bin/ja4ps"
+
+bump-build: ## Increment the build number
+	@expr $$(cat BUILD_NUMBER) + 1 > BUILD_NUMBER
+	@echo "✓ Build number bumped to $$(cat BUILD_NUMBER)"
+
+go-build: ## Build the Go proxy daemon into bin/ja4pd
+	@mkdir -p bin
+	$(GO) build $(LDFLAGS) -o bin/ja4pd ./cmd/ja4pd
+	@echo "✓ bin/ja4pd"
+
+sync-build: ## Build the sync mesh agent into bin/ja4ps
+	@mkdir -p bin
+	$(GO) build $(LDFLAGS) -o bin/ja4ps ./cmd/ja4ps
+	@echo "✓ bin/ja4ps"
+
+cli-build: ## Build the unified ja4p CLI tool
+	@mkdir -p bin
+	$(GO) build $(LDFLAGS) -o bin/ja4p ./cmd/ja4p
+	@echo "✓ bin/ja4p"

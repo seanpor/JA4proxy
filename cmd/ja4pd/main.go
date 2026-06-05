@@ -55,6 +55,12 @@ func main() {
 
 
 	log := newLogger(cfg)
+	log.WithFields(logrus.Fields{
+		"version": config.Version,
+		"built":   config.BuildDate,
+		"commit":  config.GitCommit,
+	}).Info("JA4proxy daemon starting")
+
 
 	if os.Getenv("ENVIRONMENT") == "production" && os.Getenv("ALLOW_UNAUTH_REDIS") == "true" {
 		log.Fatal("Insecure Redis config blocked in production")

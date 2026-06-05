@@ -37,6 +37,10 @@ services:
     build:
       context: ../..
       dockerfile: deploy/docker/Dockerfile.go-proxy
+      args:
+        VERSION: ${VERSION:-unknown}
+        GIT_COMMIT: ${GIT_COMMIT:-unknown}
+        BUILD_DATE: ${BUILD_DATE:-unknown}
     image: ja4proxy:2.0.0
     restart: unless-stopped
     ports:

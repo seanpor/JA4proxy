@@ -15,6 +15,9 @@
 
 # ── Build stage ───────────────────────────────────────────────────────────────
 FROM golang:1.26.4-alpine@sha256:f23e8b227fb4493eabe03bede4d5a32d04092da71962f1fb79b5f7d1e6c2a17f AS builder
+ARG VERSION=unknown
+ARG GIT_COMMIT=unknown
+ARG BUILD_DATE=unknown
 
 RUN apk add --no-cache ca-certificates git
 
@@ -27,11 +30,7 @@ RUN --mount=type=cache,target=/go/pkg/mod,sharing=locked \
 
 # Copy source and build a statically-linked binary.
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build \
-    -ldflags="-s -w -extldflags '-static'" \
-    -trimpath \
-    -o /ja4pd \
-    ./cmd/ja4pd
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w -extldflags '-static' -X github.com/seanpor/ja4proxy/internal/config.Version=${VERSION} -X github.com/seanpor/ja4proxy/internal/config.GitCommit=${GIT_COMMIT} -X github.com/seanpor/ja4proxy/internal/config.BuildDate=${BUILD_DATE}" -trimpath -o /ja4pd ./cmd/ja4pd
 
 # ── Runtime stage ─────────────────────────────────────────────────────────────
 FROM alpine:3.19.3@sha256:95c16745f100f44cf9a0939fd3f357905f845f8b6fa7d0cde0e88c9764060185
