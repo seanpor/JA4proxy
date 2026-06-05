@@ -133,7 +133,9 @@ security:
 
   # Known good JA4 fingerprints (whitelisted)
   whitelist:
-    - "t13d1412h2_66f623bb91a0_d41ae481755e"  # Benchmark Good\n    - "t13d101100_61a7ad8aa9b6_d41ae481755e"  # Benchmark Alt\n    - "t13d1516h2_8daaf6152771_02713d6af862"  # Chrome/Chromium
+    - "t13d1412h2_66f623bb91a0_d41ae481755e"  # Benchmark Good
+    - "t13d101100_61a7ad8aa9b6_d41ae481755e"  # Benchmark Alt
+    - "t13d1516h2_8daaf6152771_02713d6af862"  # Chrome/Chromium
     - "t13d1517h2_8daaf6152771_b0da82dd1658"  # Chrome (pre-shared key)
     - "t13d1517h2_8daaf6152771_b1ff8ab2d16f"  # Chrome (no key)
     - "t13d1715h2_5b57614c22b0_7121afd63204"  # Firefox
@@ -1003,6 +1005,5 @@ sni_analyzer:
   expected_hostnames:
     - "backend"
     - "localhost"
-\nsync:\n  integrity_key_file: "config/integrity.key"
 sync:
   integrity_key_file: "config/integrity.key"
