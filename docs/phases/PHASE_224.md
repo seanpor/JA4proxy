@@ -1,7 +1,7 @@
 ---
 phase: 224
 title: Makefile Target Integrity — Reconcile Help Text with Real Targets
-status: IN_PROGRESS
+status: COMPLETE
 size: LARGE
 created: 2026-06-05
 audience: [developer, operator]
@@ -403,3 +403,43 @@ test in `tests/unit/`). Both are RED now, as intended.
   "Heavy/Light Boundary" section here and add `bench-all`/`verify-all` in F.
 - The real-Makefile gate is `xfail(strict=True)` → it becomes a hard failure the
   instant the Makefile is clean, which is the signal to remove the marker in F.
+
+### B — `\n` repair + init/phony (COMPLETE, 2026-06-05)
+
+Deterministic asserted transform converted all 21 literal-`\n` sites to real
+newlines (0 remain). Restored `scan`, `scan-all`, `scan-container`, `scan-local`,
+`check-updates-container`, `check-updates-local`. Added `setup-build: cli-build`;
+dropped stale `sync-build` from `.PHONY`; split the two `@echo "A\nB"` rows.
+`make lint-deps`/`check-updates`/`init` now resolve. Guard 26 → 16.
+
+### C — doc/lint family (COMPLETE, 2026-06-05)
+
+Created `doc-health` (`scripts/check_doc_frontmatter.py`), `lint-phases`
+(`scripts/lint-phases.py`), `lint-docs`→`lint-docs-all`, `link-check`→
+`test-doc-links`, `lint-semgrep` (semgrep, skip-if-absent), `lint-ansible`
+(ansible-lint, skip-if-absent). Made `lint-docs-all` fail-soft (matches
+`lint-sast`/`lint-infra`). `make lint` resolves. Guard 16 → 6.
+
+### E — ops/dev targets (COMPLETE, 2026-06-05)
+
+Created `tunnel` (parameterised SSH-forward helper), `management-{up,down,logs,
+shell}` (agent-aware compose wrappers over the `management` service, mirroring the
+`.current-agent` pattern from `logs`), `test-ratio` (`scripts/test_ratio.py`),
+`test-component-suites` (unit+chaos+adversarial). Tightened the guard's help-row
+detector to catch single-space-aligned rows (it had missed `test-component-suites`).
+Guard 6 → 0.
+
+### F — headline workflow + heavy-bench UX (COMPLETE, 2026-06-05)
+
+`bench-all` (bench+perf-test+test-go-perf+load-test+measure-mttr) and `verify-all`
+(lint+scan+test+bench-all) added and advertised in `make help` alongside
+`make lint scan test`. Replaced bare `python ` with `$(PYTHON)` in 9 recipes
+(real "command not found" breakage on python3-only hosts). Removed the strict
+xfail — the real-Makefile gate is now a positive test (28 integrity tests pass).
+
+### PHASE COMPLETE — 2026-06-05
+
+`make lint scan test` resolves end-to-end with zero heavy benchmarks; `make scan`
+runs real scanners (no more silent no-op); `make ci-verify` (the pre-push gate)
+passes. Guard: 26 → 0 violations. Follow-on Phase 225 (hermetic tooling) proposed
+for the local-Python-3.10-vs-3.14 issue.
