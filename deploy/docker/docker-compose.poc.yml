@@ -59,6 +59,7 @@ services:
       - BACKEND_HOST=${BACKEND_HOST:-backend}
       - BACKEND_PORT=${BACKEND_PORT:-443}
       - ENVIRONMENT=${ENVIRONMENT:-development}
+      - JA4PROXY_TRACE=${JA4PROXY_TRACE:-false}
     networks:
       - ja4proxy-dmz
       - ja4proxy-data
@@ -300,6 +301,7 @@ services:
       - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD is required}
       - REDIS_SIGNING_KEY=${REDIS_SIGNING_KEY:-}
       - ENVIRONMENT=${ENVIRONMENT:-development}
+      - JA4PROXY_TRACE=${JA4PROXY_TRACE:-false}
       - PYTHONUNBUFFERED=1
       - PYTHONDONTWRITEBYTECODE=1
     networks:
