@@ -55,7 +55,7 @@ _SESSION_START: list[float] = []  # populated by pytest_sessionstart
 #
 # Current approved skips (21 total):
 #   4  Go chaos tests      — tests/chaos/test_go_proxy_chaos.py
-#                            (bin/ja4proxy not built; build: GOROOT=/snap/go/current go build)
+#                            (bin/ja4pd not built; build: GOROOT=/snap/go/current go build)
 #   8  Go parity tests     — tests/integration/test_go_python_parity.py
 #                            (Go proxy binary not built or running)
 #   3  Real Redis tests    — tests/integration/backup/test_real_redis_integration.py
