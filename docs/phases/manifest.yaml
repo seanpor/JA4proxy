@@ -2386,3 +2386,8 @@ phases:
     status: COMPLETE
     action_plan: docs/phases/PHASE_154.md
     summary: Enables parallel development environments on a single host by uniquely prefixing Docker resources via COMPOSE_PROJECT_NAME and parameterizing all host port mappings in the setup wizard.
+  155:
+    name: Strategic Consolidation & Release Preparation
+    status: IN_PROGRESS
+    action_plan: docs/phases/PHASE_155.md
+    summary: Consolidates all operational tools into the 'ja4p' CLI, prunes legacy artifacts from the repository root, and prepares structured performance data in JSON format for the marketing brochure.
