@@ -1,0 +1,30 @@
+Makefile:1212: warning: overriding recipe for target 'go-build'
+Makefile:836: warning: ignoring old recipe for target 'go-build'
+Makefile:1217: warning: overriding recipe for target 'sync-build'
+Makefile:1203: warning: ignoring old recipe for target 'sync-build'
+=== Go Proxy Micro-benchmarks ===
+goos: linux
+goarch: amd64
+pkg: github.com/seanpor/ja4proxy/cmd/ja4pd
+cpu: Intel(R) Core(TM) i9-9900K CPU @ 3.60GHz
+BenchmarkPipeline_Allow-16    	 4310056	       289.2 ns/op	      96 B/op	       1 allocs/op
+BenchmarkPipeline_Score-16    	  450325	      2380 ns/op	     240 B/op	       9 allocs/op
+PASS
+ok  	github.com/seanpor/ja4proxy/cmd/ja4pd	2.636s
+--- FAIL: BenchmarkClientHelloParse
+    bench_test.go:31: TLS record too large
+--- FAIL: BenchmarkJA4Compute
+    bench_test.go:45: TLS record too large
+--- FAIL: BenchmarkClientHelloParseAdversarial
+    bench_test.go:73: truncated: truncated ClientHello
+goos: linux
+goarch: amd64
+pkg: github.com/seanpor/ja4proxy/internal/tls
+cpu: Intel(R) Core(TM) i9-9900K CPU @ 3.60GHz
+BenchmarkExtractJA4X-16                    	  215565	      6043 ns/op	    4451 B/op	      73 allocs/op
+BenchmarkExtractJA4XEmpty-16               	25011414	        52.80 ns/op	      48 B/op	       1 allocs/op
+BenchmarkExtractJA4XInvalid-16             	 4073684	       291.9 ns/op	    1600 B/op	       3 allocs/op
+FAIL
+exit status 1
+FAIL	github.com/seanpor/ja4proxy/internal/tls	4.224s
+FAIL
