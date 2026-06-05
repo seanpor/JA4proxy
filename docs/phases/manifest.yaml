@@ -2344,7 +2344,7 @@ phases:
   147:
     name: Automated Quality Guardrails & Meta-Validation
     status: COMPLETE
-    action_plan: docs/phases/PHASE_147.md
+    action_plan: docs/phases/complete/PHASE_147.md
     summary: Implements automated checks for the development environment itself. Introduces 'make doctor' for environment validation, Makefile linting to catch recursive variables, and aligns CI to use project-standard Make targets to prevent regression of basic hygiene.
   148:
     name: Repository Brand & Path Alignment
@@ -2354,22 +2354,22 @@ phases:
   149:
     name: Guided Setup & Configuration Wizard
     status: COMPLETE
-    action_plan: docs/phases/PHASE_149.md
+    action_plan: docs/phases/complete/PHASE_149.md
     summary: Implements 'ja4p init', an interactive wizard that guides users through setting up their environment for POC, Development, Performance/Benchmarking, or Production scenarios. It handles secret generation, data provisioning (Tranco/GeoIP), and backend connectivity validation. It handles secret generation, backend connectivity validation, and optional feature configuration.
   150:
     name: Unified Go Operational CLI
     status: COMPLETE
-    action_plan: docs/phases/PHASE_150.md
+    action_plan: docs/phases/complete/PHASE_150.md
     summary: Consolidates all human-facing tools (Wizard, Validator, Simulator) into a single 'bin/ja4p' CLI, while stripping non-core logic from the proxy daemon to ensure architectural purity and high performance.
   151:
     name: End-to-End Binary Validation & System Testing
     status: COMPLETE
-    action_plan: docs/phases/PHASE_151.md
+    action_plan: docs/phases/complete/PHASE_151.md
     summary: Verifies the new two-binary architecture by updating existing tests to use 'ja4pd' and 'ja4p', implementing a new CLI validation suite, and creating a 'clean slate' end-to-end system test to prove deployment reliability.
   152:
     name: Automated Build Versioning & Metadata Injection
     status: COMPLETE
-    action_plan: docs/phases/PHASE_152.md
+    action_plan: docs/phases/complete/PHASE_152.md
     summary: Implements a monotonic build numbering system (v2.0.BUILD) that increments with every build and injects version, git SHA, and build date metadata into all Go binaries via linker flags.
   223:
     name: System Evaluation Documentation for Enterprise Architects
@@ -2379,17 +2379,17 @@ phases:
   153:
     name: Post-Release v2.0.x Performance Audit
     status: COMPLETE
-    action_plan: docs/phases/PHASE_153.md
+    action_plan: docs/phases/complete/PHASE_153.md
     summary: Conducts a definitive, high-load performance audit of the v2.0.x Go proxy daemon (ja4pd). Measures throughput and tail latency under enterprise-scale concurrency (1,000+ conn/s) to provide a final, verified performance baseline.
   154:
     name: Multi-Environment Development Isolation
     status: COMPLETE
-    action_plan: docs/phases/PHASE_154.md
+    action_plan: docs/phases/complete/PHASE_154.md
     summary: Enables parallel development environments on a single host by uniquely prefixing Docker resources via COMPOSE_PROJECT_NAME and parameterizing all host port mappings in the setup wizard.
   155:
     name: Strategic Consolidation & Release Preparation
     status: COMPLETE
-    action_plan: docs/phases/PHASE_155.md
+    action_plan: docs/phases/complete/PHASE_155.md
     summary: Consolidates all operational tools into the 'ja4p' CLI, prunes legacy artifacts from the repository root, and prepares structured performance data in JSON format for the marketing brochure.
   224:
     name: Makefile Target Integrity
