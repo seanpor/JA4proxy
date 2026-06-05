@@ -5,8 +5,8 @@ Tests verify that the Go proxy remains stable and fail-open under adverse
 conditions: Redis down, malformed TLS input, bad PROXY protocol headers,
 graceful shutdown, and unknown config keys.
 
-Requires: Go binary at bin/ja4proxy (or GO_BINARY env var).
-Build with: GOROOT=/snap/go/current go build -o bin/ja4proxy ./cmd/proxy
+Requires: Go binary at bin/ja4pd (or GO_BINARY env var).
+Build with: GOROOT=/snap/go/current go build -o bin/ja4pd ./cmd/ja4pd
 Run: python3 -m pytest tests/chaos/test_go_proxy_chaos.py -v
 """
 
@@ -28,25 +28,25 @@ GO_PROXY_PORT = int(os.environ.get("GO_PROXY_PORT", "18082"))
 GO_METRICS_PORT = int(os.environ.get("GO_METRICS_PORT", "19092"))
 REDIS_HOST = os.environ.get("REDIS_HOST", "127.0.0.1")
 REDIS_PORT = int(os.environ.get("REDIS_PORT", "6380"))
-GO_BINARY = os.environ.get("GO_BINARY", "bin/ja4proxy")
+GO_BINARY = os.environ.get("GO_BINARY", "bin/ja4pd")
 
 # Use a different port range for locally-spawned proxies in chaos tests
 _CHAOS_PROXY_PORT = 18083
 _CHAOS_METRICS_PORT = 19093
 
 pytestmark = pytest.mark.skipif(
-    not (os.path.exists(GO_BINARY) or os.path.exists("/usr/local/bin/ja4proxy")),
+    not (os.path.exists(GO_BINARY) or os.path.exists("/usr/local/bin/ja4pd")),
     reason=(
         "Go binary not built; run: "
-        "GOROOT=/snap/go/current go build -o bin/ja4proxy ./cmd/proxy"
+        "GOROOT=/snap/go/current go build -o bin/ja4pd ./cmd/ja4pd"
     ),
 )
 
 # Resolve actual binary path
 _GO_BIN = GO_BINARY
 if not os.path.exists(_GO_BIN):
-    if os.path.exists("/usr/local/bin/ja4proxy"):
-        _GO_BIN = "/usr/local/bin/ja4proxy"
+    if os.path.exists("/usr/local/bin/ja4pd"):
+        _GO_BIN = "/usr/local/bin/ja4pd"
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

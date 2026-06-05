@@ -41,7 +41,7 @@ JA4proxy is a Go-centric security stack. All legacy Python proxy components have
 The Go implementation handles 100% of production traffic. It is built for sub-millisecond latency and high-concurrency.
 
 ```
-cmd/proxy/main.go               # Production proxy entry point
+cmd/ja4pd/main.go               # Production proxy entry point
 internal/
   proxy/                        # TCP forwarder, PROXY protocol parsing
   security/                     # Pipeline orchestration and signal modules
@@ -72,7 +72,7 @@ src/tarpit/                     # Tarpit / slow-loris responder
 We maintain a strict TDD process. Every feature must include:
 - Unit tests in the same package (e.g. `internal/security/sni_analyzer_test.go`).
 - Integration tests in `tests/integration/`.
-- Fuzz targets in `cmd/proxy/fuzz_test.go` for all untrusted input boundaries.
+- Fuzz targets in `cmd/ja4pd/fuzz_test.go` for all untrusted input boundaries.
 
 ## Governance
 

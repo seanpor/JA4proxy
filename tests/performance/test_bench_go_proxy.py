@@ -25,7 +25,7 @@ GO_PROXY_HOST = os.environ.get("GO_PROXY_HOST", "127.0.0.1")
 GO_PROXY_PORT = int(os.environ.get("GO_PROXY_PORT", "18082"))
 PYTHON_PROXY_HOST = os.environ.get("PYTHON_PROXY_HOST", "127.0.0.1")
 PYTHON_PROXY_PORT = int(os.environ.get("PYTHON_PROXY_PORT", "8081"))
-GO_BINARY = os.environ.get("GO_BINARY", "bin/ja4proxy")
+GO_BINARY = os.environ.get("GO_BINARY", "bin/ja4pd")
 
 THROUGHPUT_DURATION = 10  # seconds for throughput test
 THROUGHPUT_THREADS = 10
@@ -39,7 +39,7 @@ GO_VS_PYTHON_MIN_RATIO = 2.0
 pytestmark = [
     pytest.mark.live_services,
     pytest.mark.skipif(
-        not (os.path.exists(GO_BINARY) or os.path.exists("/usr/local/bin/ja4proxy")),
+        not (os.path.exists(GO_BINARY) or os.path.exists("/usr/local/bin/ja4pd")),
         reason="Go binary not built",
     ),
 ]
