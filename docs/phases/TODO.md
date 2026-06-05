@@ -7,6 +7,10 @@ This document tracks the remaining work for both historical phases (gaps identif
 
 ## 🟡 Phases In Progress
 
+### Phase 157 — Standardized Performance Matrix & Reproducibility Audit
+*   **Status:** **IN_PROGRESS** (Establishes a definitive, push-button 'Performance Matrix' covering four critical traffic scenarios (Bypass, Scored, Attack, Mesh) to provide verifiable ground-truth data for the v2.0.x release.)
+*   **Action Plan:** [PHASE_157.md](PHASE_157.md)
+
 ---
 
 ## 🔵 Planned & Open Phases

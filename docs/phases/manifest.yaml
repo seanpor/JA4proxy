@@ -2391,6 +2391,21 @@ phases:
     status: COMPLETE
     action_plan: docs/phases/complete/PHASE_155.md
     summary: Consolidates all operational tools into the 'ja4p' CLI, prunes legacy artifacts from the repository root, and prepares structured performance data in JSON format for the marketing brochure.
+  156:
+    name: Operational Benchmarking & Observability Upgrades
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_156.md
+    summary: Enhances the Go-native benchmark tool with p95/p99 latency tracking, live progress heartbeats, graceful Ctrl+C handling, and structured JSON output for automated performance audits.
+  157:
+    name: Standardized Performance Matrix & Reproducibility Audit
+    status: IN_PROGRESS
+    action_plan: docs/phases/PHASE_157.md
+    summary: Establishes a definitive, push-button 'Performance Matrix' covering four critical traffic scenarios (Bypass, Scored, Attack, Mesh) to provide verifiable ground-truth data for the v2.0.x release.
+  158:
+    name: Revitalizing the Marketing & Technical Brochure
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_158.md
+    summary: Modernizes the LaTeX-based PDF brochure to reflect the v2.0.0 Go-native architecture, elite latency metrics (272ns), and production-ready status, ensuring a professional enterprise-grade narrative.
   224:
     name: Makefile Target Integrity
     status: COMPLETE
