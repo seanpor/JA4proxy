@@ -7,10 +7,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 
 ## 🟡 Phases In Progress
 
-### Phase 155 — Strategic Consolidation & Release Preparation
-*   **Status:** **IN_PROGRESS** (Consolidates all operational tools into the 'ja4p' CLI, prunes legacy artifacts from the repository root, and prepares structured performance data in JSON format for the marketing brochure.)
-*   **Action Plan:** [PHASE_155.md](PHASE_155.md)
-
 ---
 
 ## 🔵 Planned & Open Phases
@@ -54,3 +50,7 @@ This document tracks the remaining work for both historical phases (gaps identif
 ### Phase 120 — Independent Red Team Findings: Design Flaws, Infrastructure & Logic Bugs (RETIRED)
 *   **Status:** **DEFERRED** (Retired 2026-04-19 under Phase 121e as duplicate of Phase 119. All 20 findings were either duplicates of 119 entries or already folded into the canonical findings register (docs/security/findings.yaml) with remediation_phases pointing at 119 or its successor phases. See PHASE_120.md redirect stub.)
 *   **Action Plan:** [cancelled/PHASE_120.md](cancelled/PHASE_120.md)
+
+### Phase 156 — Operational Benchmarking & Observability Upgrades
+*   **Status:** **PROPOSED** (Enhances the Go-native benchmark tool with p95/p99 latency tracking, live progress heartbeats, graceful Ctrl+C handling, and structured JSON output for automated performance audits.)
+*   **Action Plan:** [PHASE_156.md](PHASE_156.md)
