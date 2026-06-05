@@ -7,10 +7,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 
 ## 🟡 Phases In Progress
 
-### Phase 155 — Strategic Consolidation & Release Preparation
-*   **Status:** **IN_PROGRESS** (Consolidates all operational tools into the 'ja4p' CLI, prunes legacy artifacts from the repository root, and prepares structured performance data in JSON format for the marketing brochure.)
-*   **Action Plan:** [PHASE_155.md](PHASE_155.md)
-
 ---
 
 ## 🔵 Planned & Open Phases
