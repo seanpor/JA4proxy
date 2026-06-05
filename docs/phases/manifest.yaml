@@ -2396,3 +2396,8 @@ phases:
     status: COMPLETE
     action_plan: docs/phases/PHASE_156.md
     summary: Enhances the Go-native benchmark tool with p95/p99 latency tracking, live progress heartbeats, graceful Ctrl+C handling, and structured JSON output for automated performance audits.
+  157:
+    name: Standardized Performance Matrix & Reproducibility Audit
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_157.md
+    summary: Establishes a definitive, push-button 'Performance Matrix' covering four critical traffic scenarios (Bypass, Scored, Attack, Mesh) to provide verifiable ground-truth data for the v2.0.x release.
