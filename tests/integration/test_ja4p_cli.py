@@ -1,10 +1,11 @@
 import subprocess
 import os
+import re
 import pytest
 from pathlib import Path
 
-# Absolute paths
-ROOT = "/home/sean/LLM/JA4proxy2"
+# Repo root, resolved relative to this test file (not a hardcoded dev path).
+ROOT = str(Path(__file__).resolve().parents[2])
 JA4P_BIN = f"{ROOT}/bin/ja4p"
 JA4PD_BIN = f"{ROOT}/bin/ja4pd"
 
@@ -15,7 +16,10 @@ class TestJa4pCLI:
     def test_version(self):
         """Verify ja4p version command."""
         result = subprocess.run([JA4P_BIN, "version"], capture_output=True, text=True, check=True, cwd=ROOT)
-        assert "JA4proxy v2.0.0" in result.stdout
+        # Phase 152 auto-increments the build number (release: "v2.0.<build>";
+        # plain `go build`: "2.0.0-dev"). Match the versioning scheme rather than
+        # a frozen literal, tolerating the optional "v" and a -dev suffix.
+        assert re.search(r"JA4proxy v?\d+\.\d+\.\d+", result.stdout), result.stdout
         assert "Built:" in result.stdout
 
     def test_config_validate_valid(self):

@@ -1,6 +1,10 @@
 #!/bin/bash
 # JA4 Proxy POC Startup Script
 # Starts all services and verifies they are working
+#
+# SECURITY (JA4PROXY-2026-0040): this script must never echo secrets
+# (REDIS_PASSWORD, GRAFANA_PASSWORD, JWT secrets, tokens, keys). Credentials
+# live in .env and are read by docker compose directly; do not print them.
 
 set -e
 
@@ -45,6 +49,10 @@ fi
 
 # Source .env for use in this script
 set -a; source .env; set +a
+
+# Pre-flight (JA4PROXY-2026-0045): refuse to publish monitoring/management on a
+# public interface. Loopback (default, via SSH tunnel) or private IP only.
+python3 "$(dirname "$0")/check_bind_address.py" || exit 1
 
 # Use COMPOSE_PROJECT_NAME if set
 P_FLAG=""
