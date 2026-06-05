@@ -2391,3 +2391,8 @@ phases:
     status: COMPLETE
     action_plan: docs/phases/PHASE_155.md
     summary: Consolidates all operational tools into the 'ja4p' CLI, prunes legacy artifacts from the repository root, and prepares structured performance data in JSON format for the marketing brochure.
+  156:
+    name: Operational Benchmarking & Observability Upgrades
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_156.md
+    summary: Enhances the Go-native benchmark tool with p95/p99 latency tracking, live progress heartbeats, graceful Ctrl+C handling, and structured JSON output for automated performance audits.
