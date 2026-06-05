@@ -55,6 +55,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **DEFERRED** (Retired 2026-04-19 under Phase 121e as duplicate of Phase 119. All 20 findings were either duplicates of 119 entries or already folded into the canonical findings register (docs/security/findings.yaml) with remediation_phases pointing at 119 or its successor phases. See PHASE_120.md redirect stub.)
 *   **Action Plan:** [cancelled/PHASE_120.md](cancelled/PHASE_120.md)
 
-### Phase 158 — Revitalizing the Marketing & Technical Brochure
-*   **Status:** **PROPOSED** (Modernizes the LaTeX-based PDF brochure to reflect the v2.0.0 Go-native architecture, elite latency metrics (272ns), and production-ready status, ensuring a professional enterprise-grade narrative.)
-*   **Action Plan:** [PHASE_158.md](PHASE_158.md)
+### Phase 159 — Radical Performance Investigation & Optimization
+*   **Status:** **PROPOSED** (Conducts a forensic hop-by-hop latency investigation to identify the bottleneck limiting end-to-end throughput to ~350 CPS. Includes deep Go profiling (pprof), infrastructure audit, and infrastructure optimization to bridge the gap between 272ns core latency and system-wide performance.)
+*   **Action Plan:** [PHASE_159.md](PHASE_159.md)
