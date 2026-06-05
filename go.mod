@@ -14,6 +14,7 @@ require (
 	github.com/yl2chen/cidranger v1.0.2
 	github.com/zalando/go-keyring v0.2.8
 	go.yaml.in/yaml/v3 v3.0.4
+	golang.org/x/sync v0.13.0
 	pgregory.net/rapid v1.2.0
 )
 

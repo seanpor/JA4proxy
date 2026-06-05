@@ -299,11 +299,13 @@ agent-status:
 
 # Build Docker images
 
-build: bump-build ## Build all production binaries (Proxy, Sync, CLI)
+build: bump-build ## Build all production binaries (Proxy, CLI)
 	@mkdir -p bin
-	@$(MAKE) go-build sync-build cli-build
+	@$(MAKE) go-build cli-build
 	@echo "Building Docker images (BuildKit enabled)..."
-		DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 \
+	DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 \
+	VERSION=$(FULL_VERSION) GIT_COMMIT=$(GIT_COMMIT) BUILD_DATE=$(BUILD_DATE) \
+	docker compose -f deploy/docker/docker-compose.poc.yml --env-file .env build
 	VERSION=$(FULL_VERSION) GIT_COMMIT=$(GIT_COMMIT) BUILD_DATE=$(BUILD_DATE) \
 	docker compose -f deploy/docker/docker-compose.poc.yml --env-file .env build
 
@@ -832,12 +834,6 @@ GOROOT := $(shell if [ -d /snap/go/current ]; then echo /snap/go/current; elif [
 GO     := GOROOT=$(GOROOT) go
 
 # Build the Go proxy binary into bin/ja4p
-go-build:
-	@echo "Building Go proxy..."
-	@mkdir -p bin
-	$(GO) build $(LDFLAGS) -o bin/ja4pd ./cmd/ja4pd
-	@echo "✓ bin/ja4pd"
-
 # Run all Go unit tests
 go-test:
 	$(GO) test ./... -count=1
@@ -1199,9 +1195,6 @@ ja4p-validate: ## Validate proxy configuration YAML
 init: setup-build ## Start the guided setup wizard
 	@./bin/ja4p init
 
-sync-build: ## Build the sync mesh agent into bin/ja4ps
-	@mkdir -p bin
-	@$(GO) build $(LDFLAGS) -o bin/ja4ps ./cmd/ja4ps
 	@echo "✓ bin/ja4ps"
 
 bump-build: ## Increment the build number
@@ -1213,10 +1206,6 @@ go-build: ## Build the Go proxy daemon into bin/ja4pd
 	$(GO) build $(LDFLAGS) -o bin/ja4pd ./cmd/ja4pd
 	@echo "✓ bin/ja4pd"
 
-sync-build: ## Build the sync mesh agent into bin/ja4ps
-	@mkdir -p bin
-	$(GO) build $(LDFLAGS) -o bin/ja4ps ./cmd/ja4ps
-	@echo "✓ bin/ja4ps"
 
 cli-build: ## Build the unified ja4p CLI tool
 	@mkdir -p bin
