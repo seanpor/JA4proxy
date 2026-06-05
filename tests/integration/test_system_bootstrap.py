@@ -3,7 +3,7 @@ import os
 import pytest
 from pathlib import Path
 
-ROOT = "/home/sean/LLM/JA4proxy2"
+ROOT = str(Path(__file__).resolve().parents[2])
 JA4P_BIN = f"{ROOT}/bin/ja4p"
 MAKE_CMD = "make"
 
@@ -11,6 +11,7 @@ class TestSystemBootstrap:
     """End-to-end test for bootstrapping the system from zero."""
 
     @pytest.mark.live_services
+    @pytest.mark.skipif(not os.path.exists(JA4P_BIN), reason="ja4p binary not built")
     def test_e2e_poc_bootstrap(self, tmp_path):
         """Verify the full flow: init -> build -> start -> traffic."""
         # 1. Clean environment (simulation)
