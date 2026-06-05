@@ -51,6 +51,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **DEFERRED** (Retired 2026-04-19 under Phase 121e as duplicate of Phase 119. All 20 findings were either duplicates of 119 entries or already folded into the canonical findings register (docs/security/findings.yaml) with remediation_phases pointing at 119 or its successor phases. See PHASE_120.md redirect stub.)
 *   **Action Plan:** [cancelled/PHASE_120.md](cancelled/PHASE_120.md)
 
-### Phase 151 — End-to-End Binary Validation & System Testing
-*   **Status:** **PROPOSED** (Verifies the new two-binary architecture by updating existing tests to use 'ja4pd' and 'ja4p', implementing a new CLI validation suite, and creating a 'clean slate' end-to-end system test to prove deployment reliability.)
-*   **Action Plan:** [PHASE_151.md](PHASE_151.md)
+### Phase 152 — Automated Build Versioning & Metadata Injection
+*   **Status:** **PROPOSED** (Implements a monotonic build numbering system (v2.0.BUILD) that increments with every build and injects version, git SHA, and build date metadata into all Go binaries via linker flags.)
+*   **Action Plan:** [PHASE_152.md](PHASE_152.md)

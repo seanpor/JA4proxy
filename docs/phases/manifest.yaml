@@ -2366,3 +2366,8 @@ phases:
     status: COMPLETE
     action_plan: docs/phases/PHASE_151.md
     summary: Verifies the new two-binary architecture by updating existing tests to use 'ja4pd' and 'ja4p', implementing a new CLI validation suite, and creating a 'clean slate' end-to-end system test to prove deployment reliability.
+  152:
+    name: Automated Build Versioning & Metadata Injection
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_152.md
+    summary: Implements a monotonic build numbering system (v2.0.BUILD) that increments with every build and injects version, git SHA, and build date metadata into all Go binaries via linker flags.
