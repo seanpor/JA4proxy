@@ -21,7 +21,7 @@ import (
 
 var (
 	cfgPath string
-	version = "2.0.0"
+	version = config.Version
 )
 
 func main() {
@@ -38,8 +38,9 @@ func main() {
 		Use:   "version",
 		Short: "Print the version information",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("JA4proxy v%s\n", version)
-			fmt.Printf("Built: %s\n", time.Now().Format(time.RFC3339))
+			fmt.Printf("JA4proxy %s\n", version)
+			fmt.Printf("Built: %s\n", config.BuildDate)
+			fmt.Printf("Commit: %s\n", config.GitCommit)
 		},
 	})
 
@@ -89,7 +90,9 @@ func main() {
 	rootCmd.AddCommand(testCmd)
 
 	// 5. Management Commands (from engine)
-	mgmtCmd := engine.BuildManagementRoot(); mgmtCmd.Use = "management"; rootCmd.AddCommand(mgmtCmd)
+	mgmtCmd := engine.BuildManagementRoot()
+	mgmtCmd.Use = "management"
+	rootCmd.AddCommand(mgmtCmd)
 
 	// 6. JA4 Check Command
 	rootCmd.AddCommand(buildCheckCmd())
@@ -149,7 +152,7 @@ func runTestIP(cfg *config.Config, ipStr string) error {
 
 func runWizard() {
 	fmt.Println("======================================================================")
-	fmt.Println("  JA4proxy v2.0.0 — Guided Setup Wizard")
+	fmt.Println("  JA4proxy Guided Setup Wizard")
 	fmt.Println("======================================================================")
 	fmt.Println("")
 
