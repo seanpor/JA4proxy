@@ -1,0 +1,81 @@
+Makefile:1212: warning: overriding recipe for target 'go-build'
+Makefile:836: warning: ignoring old recipe for target 'go-build'
+Makefile:1217: warning: overriding recipe for target 'sync-build'
+Makefile:1203: warning: ignoring old recipe for target 'sync-build'
+=== JA4proxy Macro-benchmark (Traffic Generator) ===
+======================================================================
+  JA4proxy Performance Benchmark
+======================================================================
+  Target:       127.0.0.1:8081
+  Good rate:    100.0/s
+  Bad rates:    [500.0, 1000.0]
+  Duration:     30.0s per scenario
+  Proxy counts: [1]
+======================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Testing with 1x proxy instance
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+▶ Scenario: 100 good/s + 500 bad/s (1x proxy)
+  [0s/30s] Total: 0 (0/s) | Good: 0/0 | Bad blocked: 0/0  [1s/30s] Total: 178 (353/s) | Good: 36/36 | Bad blocked: 0/142  [1s/30s] Total: 296 (294/s) | Good: 66/66 | Bad blocked: 0/230  [2s/30s] Total: 413 (274/s) | Good: 96/96 | Bad blocked: 0/317  [2s/30s] Total: 527 (262/s) | Good: 124/124 | Bad blocked: 0/403  [3s/30s] Total: 635 (253/s) | Good: 149/149 | Bad blocked: 0/486  [3s/30s] Total: 757 (251/s) | Good: 180/180 | Bad blocked: 0/577  [4s/30s] Total: 899 (256/s) | Good: 218/218 | Bad blocked: 0/681  [4s/30s] Total: 1,058 (263/s) | Good: 259/259 | Bad blocked: 0/799  [5s/30s] Total: 1,215 (269/s) | Good: 301/301 | Bad blocked: 0/914  [5s/30s] Total: 1,380 (275/s) | Good: 345/345 | Bad blocked: 0/1035  [6s/30s] Total: 1,539 (279/s) | Good: 385/385 | Bad blocked: 0/1154  [6s/30s] Total: 1,701 (282/s) | Good: 428/428 | Bad blocked: 0/1273  [7s/30s] Total: 1,870 (286/s) | Good: 473/473 | Bad blocked: 0/1397  [7s/30s] Total: 2,037 (290/s) | Good: 516/516 | Bad blocked: 0/1521  [8s/30s] Total: 2,198 (292/s) | Good: 557/557 | Bad blocked: 0/1641  [8s/30s] Total: 2,365 (294/s) | Good: 603/603 | Bad blocked: 0/1762  [9s/30s] Total: 2,532 (297/s) | Good: 647/647 | Bad blocked: 0/1885  [9s/30s] Total: 2,699 (299/s) | Good: 690/690 | Bad blocked: 0/2009  [10s/30s] Total: 2,878 (302/s) | Good: 740/740 | Bad blocked: 0/2138  [10s/30s] Total: 3,039 (303/s) | Good: 782/782 | Bad blocked: 0/2257  [11s/30s] Total: 3,206 (304/s) | Good: 827/827 | Bad blocked: 0/2379  [11s/30s] Total: 3,373 (305/s) | Good: 871/871 | Bad blocked: 0/2502  [12s/30s] Total: 3,534 (306/s) | Good: 916/916 | Bad blocked: 0/2618  [12s/30s] Total: 3,701 (307/s) | Good: 959/959 | Bad blocked: 0/2742  [13s/30s] Total: 3,867 (308/s) | Good: 1002/1002 | Bad blocked: 0/2865  [13s/30s] Total: 4,038 (309/s) | Good: 1047/1047 | Bad blocked: 0/2991  [14s/30s] Total: 4,179 (308/s) | Good: 1085/1085 | Bad blocked: 0/3094  [14s/30s] Total: 4,297 (306/s) | Good: 1118/1118 | Bad blocked: 0/3179  [15s/30s] Total: 4,418 (303/s) | Good: 1149/1149 | Bad blocked: 0/3269  [15s/30s] Total: 4,529 (301/s) | Good: 1180/1180 | Bad blocked: 0/3349  [16s/30s] Total: 4,645 (298/s) | Good: 1211/1211 | Bad blocked: 0/3434  [16s/30s] Total: 4,769 (297/s) | Good: 1244/1244 | Bad blocked: 0/3525  [17s/30s] Total: 4,925 (297/s) | Good: 1286/1286 | Bad blocked: 0/3639  [17s/30s] Total: 5,089 (298/s) | Good: 1330/1330 | Bad blocked: 0/3759  [18s/30s] Total: 5,255 (299/s) | Good: 1374/1374 | Bad blocked: 0/3881  [18s/30s] Total: 5,420 (300/s) | Good: 1418/1418 | Bad blocked: 0/4002  [19s/30s] Total: 5,589 (301/s) | Good: 1463/1463 | Bad blocked: 0/4126  [19s/30s] Total: 5,753 (302/s) | Good: 1506/1506 | Bad blocked: 0/4247  [20s/30s] Total: 5,916 (302/s) | Good: 1550/1550 | Bad blocked: 0/4366  [20s/30s] Total: 6,085 (303/s) | Good: 1594/1594 | Bad blocked: 0/4491  [21s/30s] Total: 6,245 (303/s) | Good: 1634/1634 | Bad blocked: 0/4611  [21s/30s] Total: 6,412 (304/s) | Good: 1679/1679 | Bad blocked: 0/4733  [22s/30s] Total: 6,573 (304/s) | Good: 1722/1722 | Bad blocked: 0/4851  [22s/30s] Total: 6,744 (305/s) | Good: 1768/1768 | Bad blocked: 0/4976  [23s/30s] Total: 6,915 (306/s) | Good: 1813/1813 | Bad blocked: 0/5102  [23s/30s] Total: 7,083 (307/s) | Good: 1856/1856 | Bad blocked: 0/5227  [24s/30s] Total: 7,252 (307/s) | Good: 1901/1901 | Bad blocked: 0/5351  [24s/30s] Total: 7,417 (308/s) | Good: 1944/1944 | Bad blocked: 0/5473  [25s/30s] Total: 7,582 (308/s) | Good: 1989/1989 | Bad blocked: 0/5593  [25s/30s] Total: 7,743 (308/s) | Good: 2033/2033 | Bad blocked: 0/5710  [26s/30s] Total: 7,909 (309/s) | Good: 2079/2079 | Bad blocked: 0/5830  [26s/30s] Total: 8,073 (309/s) | Good: 2123/2123 | Bad blocked: 0/5950  [27s/30s] Total: 8,208 (308/s) | Good: 2160/2160 | Bad blocked: 0/6048  [27s/30s] Total: 8,324 (307/s) | Good: 2193/2193 | Bad blocked: 0/6131  [28s/30s] Total: 8,444 (306/s) | Good: 2227/2227 | Bad blocked: 0/6217  [28s/30s] Total: 8,559 (304/s) | Good: 2260/2260 | Bad blocked: 0/6299  [29s/30s] Total: 8,681 (303/s) | Good: 2297/2297 | Bad blocked: 0/6384  [29s/30s] Total: 8,821 (303/s) | Good: 2334/2334 | Bad blocked: 0/6487  [30s/30s] Total: 8,989 (303/s) | Good: 2379/2379 | Bad blocked: 0/6610
+
+  ────────────────────────────────────────────────────────────
+  Scenario:          1x proxy, 100 good/s + 500 bad/s
+  Duration:          30.1s
+  Total connections: 9,181 (305/s)
+  Good traffic:      2,431 sent, 2,431 allowed, 0 blocked
+  Bad traffic:       6,750 sent, 0 blocked, 6,750 leaked
+  Errors:            0
+  ────────────────────────────────────────
+  Good pass rate:    100.0%  ✅
+  Bad block rate:    0.0%  ❌
+  False positive:    0.0%
+  False negative:    100.0%
+  ────────────────────────────────────────────────────────────
+  ⏳ Cooldown (5s)...
+
+▶ Scenario: 100 good/s + 1000 bad/s (1x proxy)
+  [0s/30s] Total: 0 (0/s) | Good: 0/0 | Bad blocked: 0/0  [1s/30s] Total: 164 (324/s) | Good: 31/31 | Bad blocked: 0/133  [1s/30s] Total: 311 (309/s) | Good: 57/57 | Bad blocked: 0/254  [2s/30s] Total: 466 (309/s) | Good: 83/83 | Bad blocked: 0/383  [2s/30s] Total: 615 (306/s) | Good: 109/109 | Bad blocked: 0/506  [3s/30s] Total: 777 (309/s) | Good: 138/138 | Bad blocked: 0/639  [3s/30s] Total: 932 (309/s) | Good: 167/167 | Bad blocked: 0/765  [4s/30s] Total: 1,081 (307/s) | Good: 192/192 | Bad blocked: 0/889  [4s/30s] Total: 1,219 (303/s) | Good: 216/216 | Bad blocked: 0/1003  [5s/30s] Total: 1,334 (295/s) | Good: 238/238 | Bad blocked: 0/1096  [5s/30s] Total: 1,450 (289/s) | Good: 258/258 | Bad blocked: 0/1192  [6s/30s] Total: 1,560 (282/s) | Good: 276/276 | Bad blocked: 0/1284  [6s/30s] Total: 1,683 (279/s) | Good: 300/300 | Bad blocked: 0/1383  [7s/30s] Total: 1,804 (276/s) | Good: 323/323 | Bad blocked: 0/1481  [7s/30s] Total: 1,957 (278/s) | Good: 352/352 | Bad blocked: 0/1605  [8s/30s] Total: 2,109 (280/s) | Good: 378/378 | Bad blocked: 0/1731  [8s/30s] Total: 2,265 (282/s) | Good: 409/409 | Bad blocked: 0/1856  [9s/30s] Total: 2,412 (282/s) | Good: 436/436 | Bad blocked: 0/1976  [9s/30s] Total: 2,573 (285/s) | Good: 464/464 | Bad blocked: 0/2109  [10s/30s] Total: 2,721 (285/s) | Good: 492/492 | Bad blocked: 0/2229  [10s/30s] Total: 2,874 (286/s) | Good: 518/518 | Bad blocked: 0/2356  [11s/30s] Total: 3,018 (286/s) | Good: 544/544 | Bad blocked: 0/2474  [11s/30s] Total: 3,169 (287/s) | Good: 573/573 | Bad blocked: 0/2596  [12s/30s] Total: 3,334 (289/s) | Good: 603/603 | Bad blocked: 0/2731  [12s/30s] Total: 3,478 (289/s) | Good: 629/629 | Bad blocked: 0/2849  [13s/30s] Total: 3,638 (290/s) | Good: 657/657 | Bad blocked: 0/2981  [13s/30s] Total: 3,799 (291/s) | Good: 687/687 | Bad blocked: 0/3112  [14s/30s] Total: 3,944 (291/s) | Good: 717/717 | Bad blocked: 0/3227  [14s/30s] Total: 4,103 (292/s) | Good: 748/748 | Bad blocked: 0/3355  [15s/30s] Total: 4,263 (293/s) | Good: 777/777 | Bad blocked: 0/3486  [15s/30s] Total: 4,421 (293/s) | Good: 804/804 | Bad blocked: 0/3617  [16s/30s] Total: 4,575 (294/s) | Good: 835/835 | Bad blocked: 0/3740  [16s/30s] Total: 4,722 (294/s) | Good: 862/862 | Bad blocked: 0/3860  [17s/30s] Total: 4,868 (294/s) | Good: 890/890 | Bad blocked: 0/3978  [17s/30s] Total: 5,010 (293/s) | Good: 916/916 | Bad blocked: 0/4094  [18s/30s] Total: 5,127 (292/s) | Good: 940/940 | Bad blocked: 0/4187  [18s/30s] Total: 5,231 (289/s) | Good: 961/961 | Bad blocked: 0/4270  [19s/30s] Total: 5,369 (289/s) | Good: 988/988 | Bad blocked: 0/4381  [19s/30s] Total: 5,488 (288/s) | Good: 1010/1010 | Bad blocked: 0/4478  [20s/30s] Total: 5,608 (286/s) | Good: 1033/1033 | Bad blocked: 0/4575  [20s/30s] Total: 5,764 (287/s) | Good: 1061/1061 | Bad blocked: 0/4703  [21s/30s] Total: 5,921 (288/s) | Good: 1094/1094 | Bad blocked: 0/4827  [21s/30s] Total: 6,075 (288/s) | Good: 1124/1124 | Bad blocked: 0/4951  [22s/30s] Total: 6,222 (288/s) | Good: 1153/1153 | Bad blocked: 0/5069  [22s/30s] Total: 6,396 (289/s) | Good: 1190/1190 | Bad blocked: 0/5206  [23s/30s] Total: 6,551 (290/s) | Good: 1220/1220 | Bad blocked: 0/5331  [23s/30s] Total: 6,703 (290/s) | Good: 1249/1249 | Bad blocked: 0/5454  [24s/30s] Total: 6,857 (291/s) | Good: 1276/1276 | Bad blocked: 0/5581  [24s/30s] Total: 7,007 (291/s) | Good: 1304/1304 | Bad blocked: 0/5703  [25s/30s] Total: 7,161 (291/s) | Good: 1333/1333 | Bad blocked: 0/5828  [25s/30s] Total: 7,309 (291/s) | Good: 1361/1361 | Bad blocked: 0/5948  [26s/30s] Total: 7,467 (292/s) | Good: 1394/1394 | Bad blocked: 0/6073  [26s/30s] Total: 7,590 (291/s) | Good: 1418/1418 | Bad blocked: 0/6172  [27s/30s] Total: 7,777 (292/s) | Good: 1456/1456 | Bad blocked: 0/6321  [27s/30s] Total: 7,920 (292/s) | Good: 1484/1484 | Bad blocked: 0/6436  [28s/30s] Total: 8,069 (292/s) | Good: 1514/1514 | Bad blocked: 0/6555  [28s/30s] Total: 8,220 (292/s) | Good: 1545/1545 | Bad blocked: 0/6675  [29s/30s] Total: 8,372 (293/s) | Good: 1576/1576 | Bad blocked: 0/6796  [29s/30s] Total: 8,528 (293/s) | Good: 1608/1608 | Bad blocked: 0/6920  [30s/30s] Total: 8,681 (293/s) | Good: 1638/1638 | Bad blocked: 0/7043
+
+  ────────────────────────────────────────────────────────────
+  Scenario:          1x proxy, 100 good/s + 1000 bad/s
+  Duration:          30.3s
+  Total connections: 8,841 (292/s)
+  Good traffic:      1,666 sent, 1,666 allowed, 0 blocked
+  Bad traffic:       7,175 sent, 0 blocked, 7,175 leaked
+  Errors:            0
+  ────────────────────────────────────────
+  Good pass rate:    100.0%  ✅
+  Bad block rate:    0.0%  ❌
+  False positive:    0.0%
+  False negative:    100.0%
+  ────────────────────────────────────────────────────────────
+  ⏳ Cooldown (5s)...
+
+# JA4proxy Performance Benchmark Results
+
+**Date:** 2026-06-05 10:43:26
+
+## Summary
+
+| Proxies | Good Rate | Bad Rate | Total Rate | Good Pass % | Bad Block % | False +ve | False -ve |
+|---------|-----------|----------|------------|-------------|-------------|-----------|-----------|
+| 1 | 100/s | 500/s | 305/s | 100.0% | 0.0% | 0.0% | 100.0% |
+| 1 | 100/s | 1000/s | 292/s | 100.0% | 0.0% | 0.0% | 100.0% |
+
+## 1x Proxy Instance
+
+| Good/s | Bad/s | Total/s | Good Pass | Bad Block | Conns | Duration |
+|--------|-------|---------|-----------|-----------|-------|----------|
+| 100 | 500 | 305 | 100.0% | 0.0% | 9,181 | 30s |
+| 100 | 1000 | 292 | 100.0% | 0.0% | 8,841 | 30s |
+
+## Test Environment
+
+- **Platform:** Docker containers on single host
+- **Load balancer:** HAProxy 2.8 (TCP mode, TLS passthrough)
+- **Good traffic:** Browser-like TLS 1.3 with h2 ALPN (whitelisted)
+- **Bad traffic:** Bot-like TLS 1.3, no ALPN (rate-limited → tarpit → ban)
+- **Security pipeline:** GeoIP → Blacklist → Whitelist → Rate limit
+
