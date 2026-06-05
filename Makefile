@@ -21,32 +21,8 @@ LDFLAGS := -ldflags="-s -w -X github.com/seanpor/ja4proxy/internal/config.Versio
 # Makefile for JA4 Proxy
 
 # ── Phony targets
-.PHONY: agent-down agent-status agent-up all approve-all attack-status bench bench-go-pipeline block-ip block-ja4 build capture-fixtures capture-fixtures-browser check-geoip check-image-versions check-manifest check-paths check-scores check-updates check-updates-container check-updates-local ci-local clean deploy-enterprise deploy-poc dev-help dial doc-health doctor fetch-db findings-list findings-render flush-redis gdpr-delete geoip-monitor geoip-report geoip-watch go-build go-build-ja4check go-lint go-test health-check help legacy-help link-check lint lint-action-shas lint-alert-urls lint-alertmanager lint-all lint-ansible lint-checkov lint-compose-config lint-coverage lint-deps lint-docker lint-docs lint-docs-all lint-github-actions lint-go lint-go-full lint-go-mod lint-haproxy lint-helm lint-help lint-infra lint-json lint-lua lint-makefiles lint-markdown lint-meta lint-observability lint-phases lint-prom lint-pylint lint-python lint-quality lint-sast lint-secrets lint-security lint-semgrep lint-shell lint-spelling lint-static lint-supply-chain lint-toml lint-types lint-yaml list-pending load-test load-test-baseline load-test-report logs management-build management-down management-logs management-shell management-test management-up measure-mttr openapi-spec parity-check perf-test perf-test-basic quality quick-start rebuild sbom scan scan-all scan-container scan-dockerfiles scan-first-party scan-help scan-images scan-local scorecard-local slo-report smoke-docker smoke-k8s smoke-test ssh-tunnels start start-monitoring start-scaled status stop stop-clean sync test test-adversarial test-attack-mapping test-calibrate test-chaos test-cli test-compliance test-compliance test-compliance-go test-compliance-language test-compliance-parity test-compliance-python test-component-suites test-compose-config-lint test-doc-links test-docker test-docker-consistency test-evidence-paths test-gdpr-compliance test-go test-go-chaos test-go-chaos-unit test-go-docker test-go-fuzz-smoke test-go-integration test-go-perf test-go-property test-go-redis-tls test-infra-monitoring test-infra-monitoring-integration test-lint-hierarchy test-logging-webhook test-mgmt-api test-mgmt-api-events test-mgmt-api-unit test-policy-validator test-provisioning test-ratio test-slo test-tap test-tap-live test-tap-perf test-unit top-attackers tunnel unblock-ip update-geoip validate-ecs-schema validate-slo-rules verify-findings verify-findings-green verify-manifest-closeout
-# (alphabetical by group) ──────────────────────────────────
-.PHONY: all help start-poc test-ip help-ops help-lint help-scan help-dev help-legacy doctor reload reload doctor lint-meta lint-help scan scan-all scan-container scan-local legacy-help dev-help
-.PHONY: build rebuild clean cli-build init bump-build
-.PHONY: start start-monitoring start-scaled stop stop-clean status logs
-.PHONY: dial ssh-tunnels flush-redis
-.PHONY: attack-status top-attackers block-ja4 block-ip unblock-ip
-.PHONY: fetch-db list-pending approve-all update-geoip check-geoip geoip-report geoip-monitor geoip-watch
-.PHONY: test test-unit test-chaos test-adversarial test-calibrate test-docker test-component-suites
-.PHONY: smoke-test smoke-docker smoke-k8s
-.PHONY: lint lint-static lint-security lint-types lint-quality lint-coverage lint-pylint lint-semgrep lint-checkov
-.PHONY: lint-docker lint-shell lint-yaml lint-lua lint-json lint-haproxy lint-helm lint-github-actions lint-ansible
-.PHONY: lint-prom lint-alertmanager lint-secrets lint-deps lint-go-full lint-go-mod lint-makefiles lint-toml lint-markdown lint-spelling
-.PHONY: lint-docs lint-phases link-check lint-all
-.PHONY: scan scan-all scan-container scan-local scan-dockerfiles scan-images check-updates check-updates-container check-updates-local scan-first-party check-image-versions check-updates
-.PHONY: check-scores parity-check
-.PHONY: bench bench-micro bench-macro
-.PHONY: gdpr-delete
-.PHONY: test-tap test-tap-live test-tap-perf
-.PHONY: doc-health test-ratio
-.PHONY: agent-up agent-down agent-status tunnel
-.PHONY: management-build management-up management-down management-logs management-test management-shell
-.PHONY: test-infra-monitoring test-infra-monitoring-integration test-provisioning
-.PHONY: test-go-docker test-go-integration test-go-chaos test-go-perf test-go test-go-redis-tls
-.PHONY: capture-fixtures capture-fixtures-browser go-build-ja4check deploy-poc deploy-enterprise measure-mttr
-
+# deduplicated phony line\n# (alphabetical by group) ──────────────────────────────────
+# deduplicated phony line\n# deduplicated phony line\n# deduplicated phony line\n# deduplicated phony line\n# deduplicated phony line\n# deduplicated phony line\n# deduplicated phony line\n# deduplicated phony line\n# deduplicated phony line\n# deduplicated phony line\n# deduplicated phony line\n# deduplicated phony line\n# deduplicated phony line\n# deduplicated phony line\n# deduplicated phony line\n# deduplicated phony line\n# deduplicated phony line\n# deduplicated phony line\n# deduplicated phony line\n# deduplicated phony line\n# deduplicated phony line\n# deduplicated phony line\n# deduplicated phony line\n
 # Load machine-specific worker count (generated by: make test-calibrate)
 -include .local/machine.mk
 WORKERS ?= auto
@@ -864,32 +840,26 @@ scorecard-local:
 	fi
 
 
-.PHONY: scan-container
-scan-container:
+# deduplicated phony line\nscan-container:
 	@# JA4proxy-2026-0010: ensure scan target returns 0 even if gosec finds issues
 	@docker build -q -t ja4proxy-security-scan -f deploy/docker/security-scan/Dockerfile .
 
-.PHONY: scan-local
-scan-local:
+# deduplicated phony line\nscan-local:
 	@(gosec -fmt=text -exclude-dir=.claude ./... || true)
 
-.PHONY: scan
-scan: ## Phase 146 — Run all security and container scans
+# deduplicated phony line\nscan: ## Phase 146 — Run all security and container scans
 	@$(MAKE) scan-all
 
-.PHONY: scan-all
-scan-all: scan-container scan-dockerfiles scan-first-party scan-images
+# deduplicated phony line\nscan-all: scan-container scan-dockerfiles scan-first-party scan-images
 	@echo "✓ All scans passed"
 
 # Analyze Docker containers and dependencies for version discrepancies
-.PHONY: check-updates-container
-check-updates-container:
+# deduplicated phony line\ncheck-updates-container:
 	@echo "=== Containerized Update Check (Go, Python, Docker, Node) ==="
 	@docker build -q -t ja4proxy-update-checker -f deploy/docker/update-checker/Dockerfile .
 	@docker run --rm -v "$(PWD):/app" ja4proxy-update-checker
 
-.PHONY: check-updates-local
-check-updates-local:
+# deduplicated phony line\ncheck-updates-local:
 	@echo "=== Local Update Check (Go, Python, Docker, Node) ==="
 	@$(PYTHON) scripts/check_updates.py
 
@@ -989,8 +959,7 @@ sbom:
 validation-report:
 	python scripts/generate_validation_report.py
 
-.PHONY: test-go-fuzz-smoke test-go-property test-go-chaos-unit bench-go-pipeline validation-report
-
+# deduplicated phony line\n
 ## Phase 63 targets — SLO validation and reporting
 validate-slo-rules:
 	@command -v promtool >/dev/null 2>&1 && { \
@@ -1014,33 +983,28 @@ test-slo:
 	GOROOT=/snap/go/current go test ./internal/metrics/... ./internal/redis/... -count=1
 	python -c "import yaml; yaml.safe_load(open('deploy/monitoring/prometheus/slo_recording_rules.yml')); yaml.safe_load(open('deploy/monitoring/alertmanager/rules/slo_alerts.yml')); print('YAML OK')"
 
-.PHONY: validate-slo-rules slo-report test-slo
-
+# deduplicated phony line\n
 ## CI local targets
 ci-local: ## Run the same fast checks the CI workflow runs (Go + Python tests)
 	GOROOT=/snap/go/current go test -v -coverprofile=coverage.txt -covermode=atomic ./...
 	python -m pytest tests/ --ignore=tests/integration/test_docker_stack.py -x -q --timeout=60
 
-.PHONY: ci-local
-
+# deduplicated phony line\n
 ## Phase 64a targets
 smoke-docker: ## Run Docker Compose smoke test
 	bash scripts/smoke/test_docker_compose.sh
 
-.PHONY: smoke-docker
-
+# deduplicated phony line\n
 ## Phase 64b targets
 smoke-k8s: ## Run Helm + kind smoke test
 	bash scripts/smoke/test_helm_kind.sh
 
-.PHONY: smoke-k8s
-
+# deduplicated phony line\n
 ## Phase 64h targets
 measure-mttr: ## Measure MTTR for DR scenarios
 	bash scripts/measure_mttr.sh
 
-.PHONY: measure-mttr
-
+# deduplicated phony line\n
 ## Phase 86b targets — Load testing harness
 load-test: ## Run JA4proxy load test
 	python scripts/load_test.py \
@@ -1060,8 +1024,7 @@ load-test-report: ## Show latest load test reports
 	@echo "Latest benchmark reports:"
 	@ls -lt test-results/load-test/ 2>/dev/null | head -5 || echo "No reports found"
 
-.PHONY: load-test load-test-baseline load-test-report
-
+# deduplicated phony line\n
 ## Phase 86h targets
 lint-alert-urls: ## Verify Alertmanager runbook_url values are up to date
 	@echo "Checking alertmanager runbook URLs..."
@@ -1070,8 +1033,7 @@ lint-alert-urls: ## Verify Alertmanager runbook_url values are up to date
 		--mapping docs/phases/PHASE_86h_runbook_mapping.yml \
 		--check
 
-.PHONY: lint-alert-urls
-
+# deduplicated phony line\n
 # Quick-start and performance test targets
 quick-start: ## Start the proxy with default config (builds if needed)
 	bash scripts/quick-start.sh
@@ -1079,8 +1041,7 @@ quick-start: ## Start the proxy with default config (builds if needed)
 perf-test-basic: ## Run basic performance test against a local proxy
 	bash scripts/basic_perf_test.sh
 
-.PHONY: quick-start perf-test-basic
-
+# deduplicated phony line\n
 # Single quality gate — linters + coverage thresholds
 quality: lint-all lint-coverage ## Run all linters + coverage checks in one shot
 	@echo ""
@@ -1091,8 +1052,7 @@ quality: lint-all lint-coverage ## Run all linters + coverage checks in one shot
 	@echo ""
 	@echo "✓ quality complete — all checks passed"
 
-.PHONY: quality
-
+# deduplicated phony line\n
 # Canonical findings register
 verify-findings: ## Validate docs/security/findings.yaml schema and referential integrity
 	@$(PYTHON) scripts/findings_register.py validate
@@ -1109,8 +1069,7 @@ findings-list: ## List open findings (add FINDINGS_ARGS=... to pass flags, e.g. 
 verify-manifest-closeout: ## Manifest close-out gate — validate register, required docs, ADRs, manifest
 	@$(PYTHON) scripts/phase_121_verify.py
 
-.PHONY: verify-findings verify-findings-green findings-render findings-list phase-121-verify verify-manifest-closeout test-compliance-language test-evidence-paths test-compliance test-attack-mapping test-doc-links
-
+# deduplicated phony line\n
 # phase-107h: regulatory-conformance regression guards
 test-compliance-language: ## Phase 107h.1 — fail if "certified"/"compliant" appears in self-assessed compliance docs
 	@$(PYTHON) -m pytest tests/test_compliance_language.py -v
