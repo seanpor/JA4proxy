@@ -267,6 +267,34 @@ After E, help text and the target set agree (guard A enforces this).
 - Run the extended `make lint-meta` — now green.
 - `make sync`, CHANGELOG entry, manifest `status: COMPLETE`.
 
+### G — Pre-push CI-mirror gate (done early, 2026-06-05)
+
+**Motivation:** commits keep breaking GitHub Actions that should have been caught
+locally. CI (`.github/workflows/ci.yml`) gates on `make lint-meta`, `make lint`,
+`make scan`, `make test` — none of which run before a commit/push today.
+
+**Scope:** `.githooks/pre-push` (new), `Makefile` (`ci-verify`, `install-hooks`).
+- `ci-verify` — the fast, deterministic CI mirror: runs `make lint-meta` (the
+  Makefile-honesty guard — pure stdlib, ~1s, no Docker/network, so nobody is
+  tempted to skip it). This single check covers the entire "broken-Makefile /
+  unresolved-target" class that is the recurring CI breakage.
+- `.githooks/pre-push` — runs `make ci-verify`; blocks the push on failure with
+  a clear message; `--no-verify` documented as emergency-only.
+- `install-hooks` — `git config core.hooksPath .githooks` (shareable, committed —
+  unlike `.git/hooks`). To be wired into `make init` once B fixes `init`.
+
+**Why pre-push, not pre-commit:** push is the moment before GitHub Actions runs,
+so it catches exactly what the user is angry about while still allowing
+incremental local commits during a repair (e.g. sub-phase B). Activated now, so
+it already protects this branch: a `git push` is blocked until B–F make
+`make lint-meta` green (verified: `make ci-verify` exits non-zero today).
+
+**Deliberately limited to the fast/reliable subset.** The heavier CI jobs
+(`make lint`/`scan`/`test`) are not in the always-on gate yet because local
+Python 3.10 makes them flaky (the 3.10 complaint). Phase 225 (hermetic tooling)
+should make them reliable, after which they can join `ci-verify`. Meanwhile
+`make ci-local` runs the test subset on demand.
+
 ## Test Strategy
 
 - **Guard (primary):** `scripts/meta_lint.py` + `tests/unit/test_makefile_integrity.py`
