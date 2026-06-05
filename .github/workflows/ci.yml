@@ -61,7 +61,9 @@ jobs:
           python-version: "3.14"
       - name: Install dependencies
         run: |
-          pip install ruff mypy bandit pytest-cov
+          # pip-audit is required by `make lint` (lint-static's CVE gate);
+          # without it lint-static fails with exit 127 (command not found).
+          pip install ruff mypy bandit pytest-cov pip-audit
           go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.5
       - name: make lint
         run: make lint
