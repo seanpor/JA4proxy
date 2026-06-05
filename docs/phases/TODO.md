@@ -7,10 +7,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 
 ## 🟡 Phases In Progress
 
-### Phase 153 — Post-Release v2.0.x Performance Audit
-*   **Status:** **IN_PROGRESS** (Conducts a definitive, high-load performance audit of the v2.0.x Go proxy daemon (ja4pd). Measures throughput and tail latency under enterprise-scale concurrency (1,000+ conn/s) to provide a final, verified performance baseline.)
-*   **Action Plan:** [PHASE_153.md](PHASE_153.md)
-
 ---
 
 ## 🔵 Planned & Open Phases
@@ -54,3 +50,7 @@ This document tracks the remaining work for both historical phases (gaps identif
 ### Phase 120 — Independent Red Team Findings: Design Flaws, Infrastructure & Logic Bugs (RETIRED)
 *   **Status:** **DEFERRED** (Retired 2026-04-19 under Phase 121e as duplicate of Phase 119. All 20 findings were either duplicates of 119 entries or already folded into the canonical findings register (docs/security/findings.yaml) with remediation_phases pointing at 119 or its successor phases. See PHASE_120.md redirect stub.)
 *   **Action Plan:** [cancelled/PHASE_120.md](cancelled/PHASE_120.md)
+
+### Phase 154 — Multi-Environment Development Isolation
+*   **Status:** **PROPOSED** (Enables parallel development environments on a single host by uniquely prefixing Docker resources via COMPOSE_PROJECT_NAME and parameterizing all host port mappings in the setup wizard.)
+*   **Action Plan:** [PHASE_154.md](PHASE_154.md)
