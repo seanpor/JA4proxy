@@ -1,3 +1,7 @@
+// Copyright (c) 2026 JA4proxy Authors. All rights reserved.
+// Use of this source code is governed by an MIT-style
+// license that can be found in the LICENSE file.
+
 package main
 
 import (
@@ -9,13 +13,18 @@ import (
 	"io"
 	"net"
 	"os"
+	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/seanpor/ja4proxy/internal/cli/engine"
+	"github.com/seanpor/ja4proxy/internal/cluster/sync"
 	"github.com/seanpor/ja4proxy/internal/config"
+	"github.com/seanpor/ja4proxy/internal/redis"
 	"github.com/seanpor/ja4proxy/internal/security"
+	"github.com/seanpor/ja4proxy/internal/test/bench"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -67,7 +76,7 @@ func main() {
 		},
 	})
 
-	// 4. Test IP Command
+	// 4. Test Command Group
 	testCmd := &cobra.Command{
 		Use:   "test",
 		Short: "Simulation and testing tools",
@@ -88,6 +97,15 @@ func main() {
 			}
 		},
 	})
+	// Phase 155: Built-in Benchmark
+	testCmd.AddCommand(&cobra.Command{
+		Use:                "benchmark",
+		Short:              "Run built-in Go load generator",
+		DisableFlagParsing: true,
+		Run: func(cmd *cobra.Command, args []string) {
+			bench.RunBenchmark(args)
+		},
+	})
 	rootCmd.AddCommand(testCmd)
 
 	// 5. Management Commands (from engine)
@@ -95,7 +113,22 @@ func main() {
 	mgmtCmd.Use = "management"
 	rootCmd.AddCommand(mgmtCmd)
 
-	// 6. JA4 Check Command
+	// 6. Cluster Command Group
+	clusterCmd := &cobra.Command{
+		Use:   "cluster",
+		Short: "Cluster-wide synchronization and mesh tools",
+	}
+	// Phase 155: Integrated Sync Agent
+	clusterCmd.AddCommand(&cobra.Command{
+		Use:   "sync",
+		Short: "Start the sync mesh agent",
+		Run: func(cmd *cobra.Command, args []string) {
+			runSyncAgent(cfgPath)
+		},
+	})
+	rootCmd.AddCommand(clusterCmd)
+
+	// 7. JA4 Check Command
 	rootCmd.AddCommand(buildCheckCmd())
 
 	if err := rootCmd.Execute(); err != nil {
@@ -110,6 +143,48 @@ func runConfigValidate(path string) error {
 		return err
 	}
 	return cfg.Validate()
+}
+
+func runSyncAgent(path string) {
+	log := logrus.New()
+	cfg, err := config.Load(path)
+	if err != nil {
+		log.Fatalf("failed to load config: %v", err)
+	}
+
+	baseLog := log.WithFields(logrus.Fields{
+		"service.name": "ja4p-cluster-sync",
+		"version":      config.Version,
+	})
+
+	// JA4PROXY-2026-0041: Mesh Integrity
+	if cfg.Sync.IntegrityKeyFile == "" {
+		baseLog.Fatal("Integrity key required for sync mesh (JA4PROXY-2026-0041)")
+	}
+
+	redisCfg := redis.Config{
+		Host:       cfg.Redis.Host,
+		Port:       cfg.Redis.Port.Int(),
+		MasterName: cfg.Redis.MasterName,
+		Sentinels:  cfg.Redis.Sentinels,
+		DB:         cfg.Redis.DB,
+		Password:   cfg.Redis.Password,
+		Username:   cfg.Redis.Username,
+		SSL:        cfg.Redis.SSL,
+		Timeout:    time.Duration(cfg.Redis.Timeout.Int()) * time.Second,
+	}
+	rc := redis.New(redisCfg, log)
+	defer rc.Close()
+
+	agent := sync.NewSyncAgent(cfg, rc, baseLog)
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	baseLog.Info("Starting sync mesh agent...")
+	if err := agent.Start(ctx); err != nil {
+		baseLog.WithError(err).Fatal("syncagent failed")
+	}
 }
 
 func runTestIP(cfg *config.Config, ipStr string) error {

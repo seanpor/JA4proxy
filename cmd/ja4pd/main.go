@@ -1,3 +1,7 @@
+// Copyright (c) 2026 JA4proxy Authors. All rights reserved.
+// Use of this source code is governed by an MIT-style
+// license that can be found in the LICENSE file.
+
 // JA4proxy — Go TLS-aware passthrough security proxy.
 //
 // Reads config/proxy.yml, accepts TCP connections, parses TLS ClientHello
