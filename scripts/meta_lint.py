@@ -76,7 +76,11 @@ _ECHO_RE = re.compile(r'@?echo\s+(?:-e\s+)?["\'](.*)["\']\s*$')
 # in echo prose ("make sure…"), which must not be mistaken for a target call.
 _MAKE_CALL_RE = re.compile(r"\$[({]MAKE[)}]\s+(?P<args>[^\n;&|]+)")
 _ADVERTISED_MAKE_RE = re.compile(r"\bmake\s+(?P<args>[a-z0-9][a-z0-9_/.-]*(?:\s+[a-z0-9][a-z0-9_/.-]*)*)")
-_HELP_ROW_RE = re.compile(r"^\s{2,}(?P<name>[a-z0-9][a-z0-9_/.-]*)\s{2,}-\s")
+# Help rows look like ``  <target>   - <description>``. The name is lowercase
+# (targets are) and is followed by at least one space, a dash, and a space. We
+# allow a single space (long names like ``test-component-suites`` are only
+# one-space-aligned) — the lowercase anchor keeps prose ("  Note - …") out.
+_HELP_ROW_RE = re.compile(r"^\s{2,}(?P<name>[a-z][a-z0-9_/.-]+)\s+-\s")
 
 
 @dataclass

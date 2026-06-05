@@ -12,8 +12,6 @@ PHASE_224 sub-phase A. Two layers:
 import sys
 from pathlib import Path
 
-import pytest
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
@@ -97,6 +95,17 @@ def test_advertised_make_command_detected():
 def test_advertised_help_row_detected():
     mk = meta_lint.parse_makefile('help:\n\t@echo "  doc-health        - check docs"\n')
     assert "doc-health" in meta_lint.advertised_targets(mk)
+
+
+def test_advertised_help_row_single_space_before_dash():
+    # Long names are only single-space-aligned; the guard must still catch them.
+    mk = meta_lint.parse_makefile('help:\n\t@echo "  test-component-suites - run all"\n')
+    assert "test-component-suites" in meta_lint.advertised_targets(mk)
+
+
+def test_advertised_help_row_ignores_capitalised_prose():
+    mk = meta_lint.parse_makefile('help:\n\t@echo "  Note - this is prose, not a target"\n')
+    assert "Note" not in meta_lint.advertised_targets(mk)
 
 
 def test_advertised_stops_at_arguments():
@@ -206,13 +215,10 @@ def test_clean_makefile_has_no_errors(tmp_path):
 
 
 # --------------------------------------------------------------------------- #
-# Gate against the real Makefile — RED until PHASE_224 B–E land, then must be
-# made green by removing this xfail at sub-phase F (strict=True enforces that).
+# Gate against the real Makefile — the standing guarantee that help text, prereqs,
+# .PHONY and the light umbrellas stay honest. (Was xfail through PHASE_224 B–E;
+# now a positive test — see resolve_umbrellas() for the `make -n` layer in CLI.)
 # --------------------------------------------------------------------------- #
-@pytest.mark.xfail(
-    strict=True,
-    reason="PHASE_224 B-E repair the Makefile; remove this xfail at sub-phase F",
-)
 def test_real_makefile_has_no_integrity_violations():
     errors = meta_lint.run_integrity_checks(str(REPO_ROOT / "Makefile"))
     assert errors == [], "Makefile integrity violations:\n" + "\n".join(errors)

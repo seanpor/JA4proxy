@@ -69,6 +69,9 @@ help: ## Show the essential front-door targets
 	@echo "  make lint           - Run all code and documentation linters"
 	@echo "  make scan           - Run all security and container scans"
 	@echo "  make test           - Run the complete Go and Python test suite"
+	@echo "  make lint scan test - The full gate (everything except heavy benchmarks)"
+	@echo "  make bench-all      - Run the heavy benchmarks (perf, load, MTTR) — slow"
+	@echo "  make verify-all     - lint + scan + test + bench-all (release gate) — slow"
 	@echo ""
 	@echo "── Troubleshooting & Simulation ──────────────────────────────────────"
 	@echo "  make reload         - Reload config without downtime (SIGHUP)"
@@ -368,7 +371,7 @@ lint-quality:
 
 # Coverage reporting with pytest-cov (Phase 16c gate: ≥80% all modules)
 lint-coverage:
-	python -m pytest tests/ --ignore=tests/integration/test_docker_stack.py \
+	$(PYTHON) -m pytest tests/ --ignore=tests/integration/test_docker_stack.py \
 		--cov=src --cov=proxy \
 		--cov-fail-under=80 \
 		--cov-report=term-missing \
@@ -903,22 +906,22 @@ test-go-docker:
 
 # Run Go integration tests locally (requires Go proxy running on GO_PROXY_PORT)
 test-go-integration:
-	python -m pytest tests/integration/test_go_python_parity.py -v
+	$(PYTHON) -m pytest tests/integration/test_go_python_parity.py -v
 
 # Run Go chaos tests locally (requires Go proxy running on GO_PROXY_PORT)
 test-go-chaos:
-	python -m pytest tests/chaos/test_go_proxy_chaos.py -v
+	$(PYTHON) -m pytest tests/chaos/test_go_proxy_chaos.py -v
 
 # Run Go performance benchmarks locally (requires Go proxy running on GO_PROXY_PORT)
 test-go-perf:
-	python -m pytest tests/performance/test_bench_go_proxy.py -v -s
+	$(PYTHON) -m pytest tests/performance/test_bench_go_proxy.py -v -s
 
 # Run all Go tests: build binaries, generate fixtures, then run test suite
 test-go:
 	$(MAKE) go-build
 	$(MAKE) go-build-ja4check
 	$(MAKE) capture-fixtures
-	python -m pytest \
+	$(PYTHON) -m pytest \
 	  tests/integration/test_go_python_parity.py \
 	  tests/chaos/test_go_proxy_chaos.py \
 	  tests/performance/test_bench_go_proxy.py \
@@ -960,7 +963,7 @@ sbom:
 	fi
 
 validation-report:
-	python scripts/generate_validation_report.py
+	$(PYTHON) scripts/generate_validation_report.py
 
 
 ## Phase 63 targets — SLO validation and reporting
@@ -970,7 +973,7 @@ validate-slo-rules:
 		promtool check rules deploy/monitoring/alertmanager/rules/slo_alerts.yml; \
 		echo "SLO recording rules and alert rules are syntactically valid."; \
 	} || { \
-		python -c "import yaml; yaml.safe_load(open('deploy/monitoring/prometheus/slo_recording_rules.yml')); yaml.safe_load(open('deploy/monitoring/alertmanager/rules/slo_alerts.yml')); print('YAML structurally valid (promtool not installed)')"; \
+		$(PYTHON) -c "import yaml; yaml.safe_load(open('deploy/monitoring/prometheus/slo_recording_rules.yml')); yaml.safe_load(open('deploy/monitoring/alertmanager/rules/slo_alerts.yml')); print('YAML structurally valid (promtool not installed)')"; \
 	}
 
 slo-report:
@@ -984,13 +987,13 @@ slo-report:
 
 test-slo:
 	GOROOT=/snap/go/current go test ./internal/metrics/... ./internal/redis/... -count=1
-	python -c "import yaml; yaml.safe_load(open('deploy/monitoring/prometheus/slo_recording_rules.yml')); yaml.safe_load(open('deploy/monitoring/alertmanager/rules/slo_alerts.yml')); print('YAML OK')"
+	$(PYTHON) -c "import yaml; yaml.safe_load(open('deploy/monitoring/prometheus/slo_recording_rules.yml')); yaml.safe_load(open('deploy/monitoring/alertmanager/rules/slo_alerts.yml')); print('YAML OK')"
 
 
 ## CI local targets
 ci-local: ## Run the same fast checks the CI workflow runs (Go + Python tests)
 	GOROOT=/snap/go/current go test -v -coverprofile=coverage.txt -covermode=atomic ./...
-	python -m pytest tests/ --ignore=tests/integration/test_docker_stack.py -x -q --timeout=60
+	$(PYTHON) -m pytest tests/ --ignore=tests/integration/test_docker_stack.py -x -q --timeout=60
 
 
 ## Phase 64a targets
@@ -1010,7 +1013,7 @@ measure-mttr: ## Measure MTTR for DR scenarios
 
 ## Phase 86b targets — Load testing harness
 load-test: ## Run JA4proxy load test
-	python scripts/load_test.py \
+	$(PYTHON) scripts/load_test.py \
 		--target $(LOAD_TEST_TARGET) \
 		--duration $(LOAD_TEST_DURATION) \
 		--rps $(LOAD_TEST_RPS) \
@@ -1084,7 +1087,7 @@ test-compliance: test-compliance-language test-evidence-paths ## Phase 107h — 
 
 # phase-107f: ATT&CK mapping CI gate
 test-attack-mapping: ## Phase 107f.4 — fail if ATT&CK mapping rows lack confidence labels or cite missing source files
-	python -m pytest tests/test_attack_mapping.py -v
+	$(PYTHON) -m pytest tests/test_attack_mapping.py -v
 
 # phase-107w.3: doc-link check (requires lychee installed locally — same tool the CI workflow runs)
 test-doc-links: ## Phase 107w.3 — lychee-check all docs for broken internal links
@@ -1207,3 +1210,72 @@ ci-verify: ## Fast CI mirror: the deterministic checks GitHub Actions gates on (
 install-hooks: ## Install shared git hooks (pre-push runs `make ci-verify`)
 	@git config core.hooksPath .githooks
 	@echo "✓ git hooks installed: core.hooksPath=.githooks (pre-push runs 'make ci-verify')"
+
+.PHONY: tunnel management-up management-down management-logs management-shell test-ratio test-component-suites
+
+tunnel: ## Print the SSH local-forward command for an agent stack (NAME=, HOST=)
+	@[ -n "$(NAME)" ] || { echo "Usage: make tunnel NAME=<agent> HOST=user@server"; exit 1; }
+	@[ -n "$(HOST)" ] || { echo "Usage: make tunnel NAME=<agent> HOST=user@server"; exit 1; }
+	@[ -f ".env.$(NAME)" ] || { echo "No .env.$(NAME) found — run 'make agent-up NAME=$(NAME)' first"; exit 1; }
+	@MGMT=$$(grep '^HOST_PORT_MANAGEMENT=' .env.$(NAME) | cut -d= -f2); MGMT=$${MGMT:-8090}; \
+	 ADMIN=$$(grep '^HOST_PORT_ADMIN_API=' .env.$(NAME) | cut -d= -f2); ADMIN=$${ADMIN:-8091}; \
+	 ANL=$$(grep '^HOST_PORT_ANALYTICS=' .env.$(NAME) | cut -d= -f2); ANL=$${ANL:-8080}; \
+	 echo "Run on your laptop to tunnel agent '$(NAME)':"; \
+	 echo "  ssh -L $$MGMT:localhost:$$MGMT -L $$ADMIN:localhost:$$ADMIN -L $$ANL:localhost:$$ANL -L 9090:localhost:9090 $(HOST)"
+
+# management-* operate on the 'management' service of the current agent stack (.current-agent)
+management-up: ## Start the management UI for the current agent
+	$(eval _AGENT := $(shell cat .current-agent 2>/dev/null))
+	@if [ -n "$(_AGENT)" ]; then \
+		docker compose -f deploy/docker/docker-compose.poc.yml --project-name ja4_$(_AGENT) --env-file .env.$(_AGENT) up -d management; \
+	else \
+		docker compose -f deploy/docker/docker-compose.poc.yml --env-file .env up -d management; \
+	fi
+
+management-down: ## Stop the management UI for the current agent
+	$(eval _AGENT := $(shell cat .current-agent 2>/dev/null))
+	@if [ -n "$(_AGENT)" ]; then \
+		docker compose -f deploy/docker/docker-compose.poc.yml --project-name ja4_$(_AGENT) --env-file .env.$(_AGENT) stop management; \
+	else \
+		docker compose -f deploy/docker/docker-compose.poc.yml --env-file .env stop management; \
+	fi
+
+management-logs: ## Tail the management UI logs for the current agent
+	$(eval _AGENT := $(shell cat .current-agent 2>/dev/null))
+	@if [ -n "$(_AGENT)" ]; then \
+		docker compose -f deploy/docker/docker-compose.poc.yml --project-name ja4_$(_AGENT) --env-file .env.$(_AGENT) logs -f management; \
+	else \
+		docker compose -f deploy/docker/docker-compose.poc.yml --env-file .env logs -f management; \
+	fi
+
+management-shell: ## Open a shell in the management UI container for the current agent
+	$(eval _AGENT := $(shell cat .current-agent 2>/dev/null))
+	@if [ -n "$(_AGENT)" ]; then \
+		docker compose -f deploy/docker/docker-compose.poc.yml --project-name ja4_$(_AGENT) --env-file .env.$(_AGENT) exec management sh; \
+	else \
+		docker compose -f deploy/docker/docker-compose.poc.yml --env-file .env exec management sh; \
+	fi
+
+test-ratio: ## Show the test-to-code ratio
+	@$(PYTHON) scripts/test_ratio.py
+
+test-component-suites: ## Run every component test suite (unit, chaos, adversarial)
+	@$(MAKE) test-unit test-chaos test-adversarial
+
+.PHONY: bench-all verify-all
+
+bench-all: ## Run every heavy benchmark (perf, load, go-perf, MTTR) — slow, runs alone
+	@echo "=== bench-all: heavy benchmarks (excluded from 'make lint scan test') ==="
+	@$(MAKE) bench
+	@$(MAKE) perf-test
+	@$(MAKE) test-go-perf
+	@$(MAKE) load-test
+	@$(MAKE) measure-mttr
+	@echo "✓ bench-all complete"
+
+verify-all: ## Full release gate: lint + scan + test + bench-all — slow
+	@$(MAKE) lint
+	@$(MAKE) scan
+	@$(MAKE) test
+	@$(MAKE) bench-all
+	@echo "✓ verify-all complete"
