@@ -458,6 +458,8 @@ func (p *proxy) admitConn(conn net.Conn) bool {
 }
 
 func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
+	t0, t1, t2, t3 := time.Now(), time.Now(), time.Now(), time.Now()
+	_, _, _, _ = t0, t1, t2, t3
 	p.mu.RLock()
 	cfg := p.cfg
 	p.mu.RUnlock()
@@ -472,6 +474,7 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 	buf := make([]byte, cfg.Proxy.BufferSize)
 	clientConn.SetReadDeadline(time.Now().Add(time.Duration(cfg.Proxy.ReadTimeout) * time.Second))
 	n, err := clientConn.Read(buf)
+	t1 = time.Now()
 	clientConn.SetReadDeadline(time.Time{}) // clear deadline
 	if err != nil || n == 0 {
 		if err != nil {
@@ -585,6 +588,7 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 		data = p.reassembleClientHello(clientConn, data, buf)
 		if hello, err := tlsparse.ParseClientHello(data); err == nil {
 			ja4 := tlsparse.ComputeJA4(hello)
+	t2 = time.Now()
 			connCtx.JA4 = ja4
 			connCtx.TLSVersion = int(hello.LegacyVersion)
 			connCtx.SNI = hello.SNI
@@ -608,6 +612,7 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 	// Run pipeline
 	start := time.Now()
 	result := p.pipeline.Process(ctx, connCtx)
+	t3 = time.Now()
 	metrics.PipelineDurationSeconds.Observe(time.Since(start).Seconds())
 
 	// Record metrics
@@ -622,7 +627,14 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 	p.mu.RLock()
 	backendHost := cfg.Proxy.BackendHost
 	p.mu.RUnlock()
-	p.log.WithFields(logrus.Fields{
+	traceFields := logrus.Fields{}
+	if os.Getenv("JA4PROXY_TRACE") == "true" {
+		traceFields["trace.accept_to_read_us"] = t1.Sub(t0).Microseconds()
+		traceFields["trace.read_to_parse_us"] = t2.Sub(t1).Microseconds()
+		traceFields["trace.parse_to_score_us"] = t3.Sub(t2).Microseconds()
+		traceFields["trace.total_us"] = time.Since(t0).Microseconds()
+	}
+	p.log.WithFields(traceFields).WithFields(logrus.Fields{
 		"client_ip":   connCtx.ClientIP,
 		"ja4":         connCtx.JA4,
 		"ja4x":        connCtx.JA4X,
@@ -801,8 +813,15 @@ func (p *proxy) forward(clientConn net.Conn, initialData []byte) {
 	p.mu.RUnlock()
 
 	backendAddr := net.JoinHostPort(cfg.Proxy.BackendHost, fmt.Sprintf("%d", cfg.Proxy.BackendPort.Int()))
+	tb0 := time.Now()
 	backendConn, err := net.DialTimeout("tcp", backendAddr,
 		time.Duration(cfg.Proxy.ConnectionTimeout)*time.Second)
+	tb1 := time.Now()
+	if os.Getenv("JA4PROXY_TRACE") == "true" {
+		p.log.WithFields(logrus.Fields{
+			"trace.backend_dial_us": tb1.Sub(tb0).Microseconds(),
+		}).Debug("trace: backend dial")
+	}
 	if err != nil {
 		// phase-63: backend dial failures degrade availability SLI.
 		metrics.ConnectionErrorsTotal.WithLabelValues(classifyConnError("backend_dial", err)).Inc()

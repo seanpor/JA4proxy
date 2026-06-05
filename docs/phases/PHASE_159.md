@@ -8,7 +8,10 @@
 ## Goal
 Conduct a forensic "Deep Dive" investigation into the end-to-end performance bottleneck. We must identify why a Go-native stack on high-end hardware (i9-9900K @ 5GHz) is achieving only ~350 CPS when micro-benchmarks suggest a capacity of >1M CPS.
 
-## Scope
+## Scope\n
+### Traffic Mix Constraint
+- All performance validation and profiling must be conducted using a **5% Good / 95% Bad** traffic mix. This ensures we are benchmarking the system under the heavy load of active security enforcement and rejection, rather than just the "fast path" bypass.
+
 
 ### 1. Forensic Transaction Tracing
 - **Hop-by-Hop Latency**: Instrument the system to measure the exact time spent at each stage for a single connection:

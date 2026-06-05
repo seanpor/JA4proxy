@@ -246,8 +246,10 @@ func runProfile(ctx context.Context, host string, isGood bool, rate, workers int
 				case <-ctx.Done():
 					return
 				case <-ticker.C:
-					start := time.Now()
+					startDial := time.Now()
 					conn, err := tls.DialWithDialer(&net.Dialer{Timeout: 2*time.Second}, "tcp", host, conf)
+					dialDuration := time.Since(startDial)
+					start := time.Now()
 					if err != nil {
 						res.Record(isGood, false, 0, err)
 						continue
@@ -255,7 +257,7 @@ func runProfile(ctx context.Context, host string, isGood bool, rate, workers int
 					fmt.Fprintf(conn, "GET /health HTTP/1.1\r\nHost: backend\r\nConnection: close\r\n\r\n")
 					io.Copy(io.Discard, conn)
 					conn.Close()
-					res.Record(isGood, true, time.Since(start), nil)
+					res.Record(isGood, true, time.Since(start) + dialDuration, nil)
 				}
 			}
 		}()
