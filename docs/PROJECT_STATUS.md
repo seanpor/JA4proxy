@@ -5,7 +5,7 @@
 
 ## Current Status: Phase 109 (PROXY Protocol Hardening & Scrubbing) Next
 
-**Last Updated:** 2026-06-04
+**Last Updated:** 2026-06-05
 
 ## Epics & Roadmap
 
@@ -313,8 +313,9 @@ Alignment with international standards and regulatory frameworks.
 | 146 | Makefile Ergonomics & Standardization | COMPLETE | N/A | N/A |
 | 147 | Automated Quality Guardrails & Meta-Validation | COMPLETE | N/A | N/A |
 | 148 | Repository Brand & Path Alignment | COMPLETE | N/A | N/A |
-| 149 | Guided Setup & Configuration Wizard | PROPOSED | N/A | N/A |
-| 150 | Unified Go Operational CLI | PROPOSED | N/A | N/A |
+| 149 | Guided Setup & Configuration Wizard | COMPLETE | N/A | N/A |
+| 150 | Unified Go Operational CLI | COMPLETE | N/A | N/A |
+| 151 | End-to-End Binary Validation & System Testing | PROPOSED | N/A | N/A |
 | 200 | Go PROXY Protocol Trust + v2 Support | COMPLETE | N/A | N/A |
 | 201 | Go Redis TLS + Silent-Failure Hardening | COMPLETE | N/A | N/A |
 | 202 | CI Supply Chain + Default Credential Removal | COMPLETE | N/A | N/A |

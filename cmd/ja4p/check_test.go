@@ -13,7 +13,7 @@ func buildJa4check(t *testing.T) string {
 	t.Helper()
 	binPath := filepath.Join(t.TempDir(), "ja4check")
 	cmd := exec.Command("go", "build", "-o", binPath, ".")
-	cmd.Dir = filepath.Join(findModuleRoot(t), "cmd", "ja4check")
+	cmd.Dir = filepath.Join(checkFindModuleRoot(t), "cmd", "ja4check")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Skipf("skipping: could not build ja4check binary: %v\n%s", err, out)
 	}
@@ -88,7 +88,7 @@ func TestJa4check_InvalidData(t *testing.T) {
 }
 
 // findModuleRoot walks up from the test file to find the go.mod directory.
-func findModuleRoot(t *testing.T) string {
+func checkFindModuleRoot(t *testing.T) string {
 	t.Helper()
 	dir, err := os.Getwd()
 	if err != nil {

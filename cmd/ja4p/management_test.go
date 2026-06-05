@@ -14,7 +14,7 @@ func buildCLI(t *testing.T) string {
 	t.Helper()
 	binPath := filepath.Join(t.TempDir(), "ja4proxy-cli")
 	cmd := exec.Command("go", "build", "-o", binPath, ".")
-	cmd.Dir = filepath.Join(findModuleRoot(t), "cmd", "ja4proxy-cli")
+	cmd.Dir = filepath.Join(managementFindModuleRoot(t), "cmd", "ja4proxy-cli")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Skipf("skipping: could not build ja4proxy-cli binary: %v\n%s", err, out)
 	}
@@ -100,7 +100,7 @@ func TestCLI_UnknownCommand(t *testing.T) {
 }
 
 // findModuleRoot walks up from the test file to find the go.mod directory.
-func findModuleRoot(t *testing.T) string {
+func managementFindModuleRoot(t *testing.T) string {
 	t.Helper()
 	dir, err := os.Getwd()
 	if err != nil {
