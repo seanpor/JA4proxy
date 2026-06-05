@@ -295,7 +295,7 @@ build: bump-build ## Build all production binaries (Proxy, CLI)
 # Skips tests marked @pytest.mark.live_services (require Go/Python proxy + Redis stack)
 test: ## Phase 146 — Run the full test suite
 	@echo "=== Running Go Native Tests ==="
-	@GOROOT=$${GOROOT:-/snap/go/current} go test -v -coverprofile=coverage.txt -covermode=atomic ./...
+	@GOROOT=$(GOROOT) go test -v -coverprofile=coverage.txt -covermode=atomic ./...
 	@echo "=== Running Python Unit Tests ==="
 	@$(PYTHON) -m pytest tests/unit/ -n auto --dist=loadfile --timeout=60 --tb=short
 	@echo "=== Running Integration Smoke Tests ==="
@@ -935,7 +935,7 @@ test-go-redis-tls:
 	@bash deploy/docker/redis-tls/generate-certs.sh
 	@docker compose -f deploy/docker/docker-compose.redis-tls.yml up -d --wait
 	@trap 'docker compose -f deploy/docker/docker-compose.redis-tls.yml down -v' EXIT; \
-	  GOROOT=$${GOROOT:-/snap/go/current} go test -race -count=1 ./internal/redis/... -run 'TLS|HealthCheck'
+	  GOROOT=$(GOROOT) go test -race -count=1 ./internal/redis/... -run 'TLS|HealthCheck'
 
 
 # ── Benchmarking ─────────────────────────────────────────────────────────────
@@ -946,7 +946,7 @@ bench: ## Run all benchmarks (micro + macro)
 
 bench-micro: ## Run Go native micro-benchmarks
 	@echo "=== Go Proxy Micro-benchmarks ==="
-	@GOROOT=$${GOROOT:-/snap/go/current} go test -bench=. -run=^$$ -benchmem ./cmd/ja4pd/ ./internal/tls/ || true
+	@GOROOT=$(GOROOT) go test -bench=. -run=^$$ -benchmem ./cmd/ja4pd/ ./internal/tls/ || true
 
 bench-macro: ## Run end-to-end load test (requires: make start)
 	@echo "=== JA4proxy Macro-benchmark (Traffic Generator) ==="
@@ -986,13 +986,13 @@ slo-report:
 		| $(PYTHON) -c "import sys,json; d=json.load(sys.stdin); v=d['data']['result']; print('Redis      (5m):', round(float(v[0]['value'][1])*100, 4) if v else 'NO DATA', '%')"
 
 test-slo:
-	GOROOT=/snap/go/current go test ./internal/metrics/... ./internal/redis/... -count=1
+	GOROOT=$(GOROOT) go test ./internal/metrics/... ./internal/redis/... -count=1
 	$(PYTHON) -c "import yaml; yaml.safe_load(open('deploy/monitoring/prometheus/slo_recording_rules.yml')); yaml.safe_load(open('deploy/monitoring/alertmanager/rules/slo_alerts.yml')); print('YAML OK')"
 
 
 ## CI local targets
 ci-local: ## Run the same fast checks the CI workflow runs (Go + Python tests)
-	GOROOT=/snap/go/current go test -v -coverprofile=coverage.txt -covermode=atomic ./...
+	GOROOT=$(GOROOT) go test -v -coverprofile=coverage.txt -covermode=atomic ./...
 	$(PYTHON) -m pytest tests/ --ignore=tests/integration/test_docker_stack.py -x -q --timeout=60
 
 
@@ -1052,8 +1052,8 @@ perf-test-basic: ## Run basic performance test against a local proxy
 quality: lint-all lint-coverage ## Run all linters + coverage checks in one shot
 	@echo ""
 	@echo "=== Go coverage check ==="
-	@GOROOT=/snap/go/current go test -v -coverprofile=coverage.txt -covermode=atomic ./... -coverprofile=/tmp/go_cover_quality.out -count=1 > /dev/null 2>&1 \
-		&& GOROOT=/snap/go/current go tool cover -func=/tmp/go_cover_quality.out \
+	@GOROOT=$(GOROOT) go test -v -coverprofile=coverage.txt -covermode=atomic ./... -coverprofile=/tmp/go_cover_quality.out -count=1 > /dev/null 2>&1 \
+		&& GOROOT=$(GOROOT) go tool cover -func=/tmp/go_cover_quality.out \
 			| tail -1 | awk '{gsub(/%/,"",$$NF); if($$NF+0 < 50) {print "FAIL: Go coverage "$$NF"% < 50%"; exit 1} else print "  ✓ Go coverage "$$NF"%"}'
 	@echo ""
 	@echo "✓ quality complete — all checks passed"
@@ -1117,8 +1117,8 @@ lint-python: ## Run all Python linters (ruff, mypy, bandit)
 
 lint-go: ## Run all Go linters (fmt, vet, golangci-lint)
 	@echo "=== lint-go: go fmt + go vet + golangci-lint ==="
-	@GOROOT=$${GOROOT:-/snap/go/current} go fmt ./...
-	@GOROOT=$${GOROOT:-/snap/go/current} go vet ./...
+	@GOROOT=$(GOROOT) go fmt ./...
+	@GOROOT=$(GOROOT) go vet ./...
 	@golangci-lint run ./... || echo "  ! Warning: golangci-lint failed or not installed"
 
 lint-sast: ## Run cross-language SAST (Semgrep)
