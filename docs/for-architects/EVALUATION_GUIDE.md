@@ -17,7 +17,7 @@ This guide provides enterprise architects with a systematic approach to evaluati
 3. Set up monitoring infrastructure
 
 ### Phase 2: Performance Benchmarking
-1. Use cmd/ja4bench load generator
+1. Use ja4p load generator (via scripts/benchmark.py)
 2. Run baseline tests (1, 2, 4 parallel proxies)
 3. Establish performance baselines
 
@@ -45,11 +45,11 @@ This guide provides enterprise architects with a systematic approach to evaluati
 ## Quick Start Commands
 ```bash
 # Build benchmark tool
-go build -o ja4bench ./cmd/ja4bench/ja4bench.go
+make build
 
 # Run benchmark against local proxy
-./ja4bench -host 127.0.0.1:8443 -conns 1000 -rate 5000 -workers 4 -dial monitor
+make bench-macro ARGS="--good-rate 100 --bad-rates 500,1000"
 
 # Run full benchmark matrix
-bash tests/benchmark/runner.sh
+make bench
 ```
