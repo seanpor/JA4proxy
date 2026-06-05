@@ -53,7 +53,10 @@ make build
 make test-go test-unit
 ```
 
-### Manual Testing
+
+### Multi-Environment Support
+JA4proxy supports running multiple isolated instances on the same host. During setup (\`make init\`), you can specify a **unique project name** and **port offset** to avoid conflicts.
+\n### Manual Testing
 ```bash
 # Verify legitimate traffic
 curl -kv https://localhost:443/
