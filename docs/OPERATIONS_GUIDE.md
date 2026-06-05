@@ -42,7 +42,21 @@ The **Dial (0-100)** is your primary lever for controlling proxy aggression.
 
 ---
 
-## 📈 Capacity & Scaling (Go Proxy)
+
+---
+
+## 🏢 Multi-Environment Isolation
+
+You can run multiple parallel environments on a single machine (e.g., a "stable" dev environment and an "experimental" one).
+
+### Setting up a new environment:
+1. Create a new directory and clone the repo, or use a separate folder.
+2. Run \`make init\`.
+3. When prompted, provide a unique **Environment Name Prefix** (e.g., \`ja4-dev-2\`).
+4. Provide a **Port Offset** (e.g., \`2000\`). This will shift all ports (Ingress will be \`2443\`, Grafana \`5000\`, etc.).
+
+The system will automatically isolate all Docker containers, networks, and volumes for that specific prefix.
+\n## 📈 Capacity & Scaling (Go Proxy)
 
 | Metric | Recommendation | Notes |
 |--------|----------------|-------|
