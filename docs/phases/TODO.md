@@ -7,6 +7,10 @@ This document tracks the remaining work for both historical phases (gaps identif
 
 ## 🟡 Phases In Progress
 
+### Phase 157 — Standardized Performance Matrix & Reproducibility Audit
+*   **Status:** **IN_PROGRESS** (Establishes a definitive, push-button 'Performance Matrix' covering four critical traffic scenarios (Bypass, Scored, Attack, Mesh) to provide verifiable ground-truth data for the v2.0.x release.)
+*   **Action Plan:** [PHASE_157.md](PHASE_157.md)
+
 ---
 
 ## 🔵 Planned & Open Phases
@@ -51,6 +55,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **DEFERRED** (Retired 2026-04-19 under Phase 121e as duplicate of Phase 119. All 20 findings were either duplicates of 119 entries or already folded into the canonical findings register (docs/security/findings.yaml) with remediation_phases pointing at 119 or its successor phases. See PHASE_120.md redirect stub.)
 *   **Action Plan:** [cancelled/PHASE_120.md](cancelled/PHASE_120.md)
 
-### Phase 157 — Standardized Performance Matrix & Reproducibility Audit
-*   **Status:** **PROPOSED** (Establishes a definitive, push-button 'Performance Matrix' covering four critical traffic scenarios (Bypass, Scored, Attack, Mesh) to provide verifiable ground-truth data for the v2.0.x release.)
-*   **Action Plan:** [PHASE_157.md](PHASE_157.md)
+### Phase 158 — Revitalizing the Marketing & Technical Brochure
+*   **Status:** **PROPOSED** (Modernizes the LaTeX-based PDF brochure to reflect the v2.0.0 Go-native architecture, elite latency metrics (272ns), and production-ready status, ensuring a professional enterprise-grade narrative.)
+*   **Action Plan:** [PHASE_158.md](PHASE_158.md)
