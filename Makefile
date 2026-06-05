@@ -1170,3 +1170,12 @@ cli-build: ## Build the unified ja4p CLI tool
 	@mkdir -p bin
 	$(GO) build $(LDFLAGS) -o bin/ja4p ./cmd/ja4p
 	@echo "✓ bin/ja4p"
+
+.PHONY: ci-verify install-hooks
+
+ci-verify: ## Fast CI mirror: the deterministic checks GitHub Actions gates on (no Docker/network)
+	@$(MAKE) lint-meta
+
+install-hooks: ## Install shared git hooks (pre-push runs `make ci-verify`)
+	@git config core.hooksPath .githooks
+	@echo "✓ git hooks installed: core.hooksPath=.githooks (pre-push runs 'make ci-verify')"

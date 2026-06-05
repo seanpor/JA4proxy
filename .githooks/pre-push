@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+#
+# Shared pre-push gate (PHASE_224).
+#
+# Installed via `make install-hooks`, which sets core.hooksPath=.githooks so the
+# whole team shares this hook (unlike .git/hooks, which is not version-controlled).
+#
+# It runs the fast, deterministic checks GitHub Actions gates on — primarily the
+# Makefile-integrity guard (`make lint-meta`) — so a commit that would break CI
+# is caught *before* it leaves your machine, not after the red X on GitHub.
+#
+# It is intentionally fast and dependency-free (no Docker, no network) so there
+# is never a reason to skip it. In a genuine emergency you can bypass with:
+#     git push --no-verify
+#
+set -euo pipefail
+
+echo "pre-push: running 'make ci-verify' (Makefile integrity / CI mirror)…"
+if ! make ci-verify; then
+	cat >&2 <<'MSG'
+
+✗ pre-push blocked: 'make ci-verify' failed — pushing this would break CI.
+  Fix the reported issues above, then push again.
+  (Emergency bypass, discouraged: git push --no-verify)
+MSG
+	exit 1
+fi
+echo "✓ pre-push checks passed."
