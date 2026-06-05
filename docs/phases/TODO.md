@@ -51,10 +51,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **DEFERRED** (Retired 2026-04-19 under Phase 121e as duplicate of Phase 119. All 20 findings were either duplicates of 119 entries or already folded into the canonical findings register (docs/security/findings.yaml) with remediation_phases pointing at 119 or its successor phases. See PHASE_120.md redirect stub.)
 *   **Action Plan:** [cancelled/PHASE_120.md](cancelled/PHASE_120.md)
 
-### Phase 149 — Guided Setup & Configuration Wizard
-*   **Status:** **PROPOSED** (Implements 'ja4p init', an interactive wizard that guides users through setting up their environment for POC, Development, Performance/Benchmarking, or Production scenarios. It handles secret generation, data provisioning (Tranco/GeoIP), and backend connectivity validation. It handles secret generation, backend connectivity validation, and optional feature configuration.)
-*   **Action Plan:** [PHASE_149.md](PHASE_149.md)
-
-### Phase 150 — Unified Go Operational CLI
-*   **Status:** **PROPOSED** (Consolidates all human-facing tools (Wizard, Validator, Simulator) into a single 'bin/ja4p' CLI, while stripping non-core logic from the proxy daemon to ensure architectural purity and high performance.)
-*   **Action Plan:** [PHASE_150.md](PHASE_150.md)
+### Phase 151 — End-to-End Binary Validation & System Testing
+*   **Status:** **PROPOSED** (Verifies the new two-binary architecture by updating existing tests to use 'ja4pd' and 'ja4p', implementing a new CLI validation suite, and creating a 'clean slate' end-to-end system test to prove deployment reliability.)
+*   **Action Plan:** [PHASE_151.md](PHASE_151.md)

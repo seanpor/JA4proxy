@@ -53,30 +53,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	if len(os.Args) > 1 {
-		switch os.Args[1] {
-		case "config":
-			if len(os.Args) > 2 && os.Args[2] == "validate" {
-				if err := runConfigValidate(cfgPath); err != nil {
-					fmt.Fprintf(os.Stderr, "Config validation failed: %v\n", err)
-					os.Exit(1)
-				}
-				fmt.Println("Config is valid.")
-				os.Exit(0)
-			}
-		case "test":
-			if len(os.Args) > 3 && os.Args[2] == "ip" {
-				if err := runTestIP(cfg, os.Args[3]); err != nil {
-					fmt.Fprintf(os.Stderr, "IP test failed: %v\n", err)
-					os.Exit(1)
-				}
-				os.Exit(0)
-			}
-		case "version":
-			printVersion()
-			os.Exit(0)
-		}
-	}
 
 	log := newLogger(cfg)
 

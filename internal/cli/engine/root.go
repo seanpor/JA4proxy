@@ -12,7 +12,7 @@
 //	--url    Management API base URL (overrides JA4PROXY_URL env var)
 //	--token  API bearer token (overrides JA4PROXY_TOKEN env var)
 //	--output Default output format: table|json|csv (default: table)
-package main
+package engine
 
 import (
 	"errors"
@@ -40,13 +40,6 @@ var gf globalFlags
 // osExit is overridden in tests to prevent calling os.Exit.
 var osExit = os.Exit
 
-func main() {
-	root := buildRoot()
-	if err := root.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		osExit(1)
-	}
-}
 
 // newClient builds a Management API client using the resolved URL and token.
 // Resolution order: --flag > JA4PROXY_* env var > OS keyring (if use_keyring:true)
@@ -166,7 +159,7 @@ func handleError(err error) {
 
 // ── Root ─────────────────────────────────────────────────────────────────────
 
-func buildRoot() *cobra.Command {
+func BuildManagementRoot() *cobra.Command {
 	root := &cobra.Command{
 		Use:   "ja4proxy-cli",
 		Short: "JA4proxy Management CLI — day-2 operations for SREs and security engineers",

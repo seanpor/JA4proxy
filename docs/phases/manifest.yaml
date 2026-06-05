@@ -2361,3 +2361,8 @@ phases:
     status: COMPLETE
     action_plan: docs/phases/PHASE_150.md
     summary: Consolidates all human-facing tools (Wizard, Validator, Simulator) into a single 'bin/ja4p' CLI, while stripping non-core logic from the proxy daemon to ensure architectural purity and high performance.
+  151:
+    name: End-to-End Binary Validation & System Testing
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_151.md
+    summary: Verifies the new two-binary architecture by updating existing tests to use 'ja4pd' and 'ja4p', implementing a new CLI validation suite, and creating a 'clean slate' end-to-end system test to prove deployment reliability.

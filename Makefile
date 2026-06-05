@@ -6,7 +6,7 @@ GO ?= $(shell command -v go || echo go)
 .PHONY: help-ops help-lint help-scan help-dev help-legacy
 .PHONY: build rebuild clean cli-build init
 .PHONY: sync sbom scorecard-local
-.PHONY: go-build go-test go-lint test-ip ja4p-validate
+.PHONY: go-build sync-build cli-build test-ip ja4p-validate
 # Makefile for JA4 Proxy
 
 # ── Phony targets
@@ -287,7 +287,10 @@ agent-status:
 # ── Build ──────────────────────────────────────────────────────────────────────
 
 # Build Docker images
-build:
+
+build: ## Build all production binaries (Proxy, Sync, CLI)
+	@mkdir -p bin
+	@$(MAKE) go-build sync-build cli-build
 	@echo "Building Docker images (BuildKit enabled)..."
 	DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 \
 	docker compose -f deploy/docker/docker-compose.poc.yml --env-file .env build
@@ -819,7 +822,7 @@ GO     := GOROOT=$(GOROOT) go
 go-build:
 	@echo "Building Go proxy..."
 	@mkdir -p bin
-	$(GO) build -o bin/ja4pd ./cmd/proxy
+	$(GO) build -o bin/ja4pd ./cmd/ja4pd
 	@echo "✓ bin/ja4pd"
 
 # Run all Go unit tests
@@ -958,7 +961,7 @@ bench: ## Run all benchmarks (micro + macro)
 
 bench-micro: ## Run Go native micro-benchmarks
 	@echo "=== Go Proxy Micro-benchmarks ==="
-	@GOROOT=$${GOROOT:-/snap/go/current} go test -bench=. -run=^$$ -benchmem ./cmd/proxy/ ./internal/tls/ || true
+	@GOROOT=$${GOROOT:-/snap/go/current} go test -bench=. -run=^$$ -benchmem ./cmd/ja4pd/ ./internal/tls/ || true
 
 bench-macro: ## Run end-to-end load test (requires: make start)
 	@echo "=== JA4proxy Macro-benchmark (Traffic Generator) ==="
@@ -1182,3 +1185,8 @@ ja4p-validate: ## Validate proxy configuration YAML
 
 init: setup-build ## Start the guided setup wizard
 	@./bin/ja4p init
+
+sync-build: ## Build the sync mesh agent into bin/ja4ps
+	@mkdir -p bin
+	@$(GO) build -o bin/ja4ps ./cmd/ja4ps
+	@echo "✓ bin/ja4ps"

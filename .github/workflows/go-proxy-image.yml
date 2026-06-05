@@ -8,7 +8,7 @@ on:
   push:
     paths:
       - 'deploy/docker/Dockerfile.go-proxy'
-      - 'cmd/proxy/**'
+      - 'cmd/ja4pd/**'
       - 'internal/**'
       - 'go.mod'
       - 'go.sum'

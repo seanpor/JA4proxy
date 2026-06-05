@@ -26,14 +26,14 @@ RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build \
     -ldflags="-s -w -extldflags '-static'" \
-    -o /build/ja4proxy-cli \
-    ./cmd/ja4proxy-cli/
+    -o /build/ja4p \
+    ./cmd/ja4p/
 
 # ── Runtime stage ─────────────────────────────────────────────────────────────
 # checkov:skip=CKV_DOCKER_2: CLI tool is short-lived and doesn't run a service
 FROM gcr.io/distroless/static-debian12@sha256:d093aa3e30dbadd3efe1310db061a14da60299baff8450a17fe0ccc514a16639
 
-COPY --from=builder /build/ja4proxy-cli /usr/local/bin/ja4proxy-cli
+COPY --from=builder /build/ja4p /usr/local/bin/ja4p
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 # Explicit USER for Trivy DS-0002 compliance (distroless:nonroot already sets
@@ -44,4 +44,4 @@ USER nonroot
 # In container use, pass --url and --token flags or environment variables.
 ENV HOME=/home/nonroot
 
-ENTRYPOINT ["/usr/local/bin/ja4proxy-cli"]
+ENTRYPOINT ["/usr/local/bin/ja4p"]

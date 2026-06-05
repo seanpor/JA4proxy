@@ -14,6 +14,7 @@ import (
 
 	"github.com/seanpor/ja4proxy/internal/config"
 	"github.com/seanpor/ja4proxy/internal/security"
+	"github.com/seanpor/ja4proxy/internal/cli/engine"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -86,6 +87,12 @@ func main() {
 		},
 	})
 	rootCmd.AddCommand(testCmd)
+
+	// 5. Management Commands (from engine)
+	mgmtCmd := engine.BuildManagementRoot(); mgmtCmd.Use = "management"; rootCmd.AddCommand(mgmtCmd)
+
+	// 6. JA4 Check Command
+	rootCmd.AddCommand(buildCheckCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -190,6 +197,12 @@ func setupScenario(name, backendHost string, backendPort int, env string) {
 	content += fmt.Sprintf("GRAFANA_PASSWORD=%s\n", grafanaPW)
 	content += fmt.Sprintf("REDIS_SIGNING_KEY=%s\n", signingKey)
 	content += fmt.Sprintf("ENVIRONMENT=%s\n", env)
+
+	if name == "Performance" {
+		content += "LOG_LEVEL=WARNING\n"
+		content += "JA4PROXY_BUFFER_SIZE=8192\n"
+		fmt.Println("  ✓ Performance tuning applied")
+	}
 
 	err := os.WriteFile(".env", []byte(content), 0600)
 	if err != nil {

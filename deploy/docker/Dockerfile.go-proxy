@@ -30,8 +30,8 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build \
     -ldflags="-s -w -extldflags '-static'" \
     -trimpath \
-    -o /ja4proxy \
-    ./cmd/proxy
+    -o /ja4pd \
+    ./cmd/ja4pd
 
 # ── Runtime stage ─────────────────────────────────────────────────────────────
 FROM alpine:3.19.3@sha256:95c16745f100f44cf9a0939fd3f357905f845f8b6fa7d0cde0e88c9764060185
@@ -52,7 +52,7 @@ RUN apk add --no-cache curl && \
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 # Binary
-COPY --from=builder /ja4proxy /usr/local/bin/ja4proxy
+COPY --from=builder /ja4pd /usr/local/bin/ja4pd
 
 # Config and Lua scripts (read at runtime; hot-reloadable via SIGHUP).
 COPY config/proxy.yml /app/config/proxy.yml
@@ -66,4 +66,4 @@ EXPOSE 8080 9090
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:9090/health || exit 1
 
-ENTRYPOINT ["/usr/local/bin/ja4proxy"]
+ENTRYPOINT ["/usr/local/bin/ja4pd"]
