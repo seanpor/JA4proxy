@@ -5,7 +5,7 @@ services:
     image: haproxy:2.8.24-alpine
     ports:
       - "${AGENT_BIND_IP:-127.0.0.1}:${HOST_PORT_INGRESS:-443}:443"
-      - "${AGENT_BIND_IP:-127.0.0.1}:8404:8404"
+      - "${AGENT_BIND_IP:-127.0.0.1}:${HOST_PORT_STATS:-8404}:8404"
     volumes:
       - ../../config/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
     depends_on:
@@ -45,7 +45,7 @@ services:
     restart: unless-stopped
     ports:
       - "${AGENT_BIND_IP:-127.0.0.1}:8081:8080"
-      - "${AGENT_BIND_IP:-127.0.0.1}:9090:9090"
+      - "${AGENT_BIND_IP:-127.0.0.1}:${HOST_PORT_METRICS:-9090}:9090"
     depends_on:
       - redis
     volumes:
