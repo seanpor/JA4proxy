@@ -11,7 +11,7 @@ services:
       - '--storage.tsdb.retention.time=30d'
       - '--storage.tsdb.retention.size=10GB'
     ports:
-      - "127.0.0.1:9091:9090"
+      - "${AGENT_BIND_IP:-127.0.0.1}:${HOST_PORT_PROMETHEUS:-9091}:9090"
     volumes:
       - ../monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ../monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
@@ -48,7 +48,7 @@ services:
       - '--storage.path=/alertmanager'
       - '--web.external-url=http://localhost:9093'
     ports:
-      - "127.0.0.1:9093:9093"
+      - "${AGENT_BIND_IP:-127.0.0.1}:${HOST_PORT_ALERTMANAGER:-9093}:9093"
     volumes:
       - ../monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
       - alertmanager-data:/alertmanager
@@ -81,7 +81,7 @@ services:
       # Prometheus and Alertmanager services above. Dashboards should be
       # reached via an SSH tunnel or an authenticated reverse proxy, not
       # exposed on the host's public interfaces.
-      - "127.0.0.1:3001:3000"
+      - "${AGENT_BIND_IP:-127.0.0.1}:${HOST_PORT_GRAFANA:-3000}:3000"
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:?GRAFANA_PASSWORD is required}
       - GF_USERS_ALLOW_SIGN_UP=false
