@@ -29,6 +29,7 @@ type RedisReader interface {
 	ZRemRangeByScore(ctx context.Context, key string, min, max float64)
 	ZRange(ctx context.Context, key string, start, stop int64) []string
 	ZCard(ctx context.Context, key string) int64
+	MultiCheck(ctx context.Context, ja4 string) (int, bool, bool)
 	ZRangeScores(ctx context.Context, key string, start, stop int64) []float64
 }
 

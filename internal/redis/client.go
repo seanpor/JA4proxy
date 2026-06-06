@@ -607,3 +607,18 @@ func (c *Client) SeedDialIfAbsent(ctx context.Context, dial int) {
 		c.log.WithField("dial", dial).Info("redis: seeded config:dial from config file")
 	}
 }
+
+// MultiCheck performs a batch lookup of common security flags to reduce round-trips.
+// Returns (dial, isBlacklisted, isWhitelisted).
+func (c *Client) MultiCheck(ctx context.Context, ja4 string) (int, bool, bool) {
+	pipe := c.rdb.Pipeline()
+	dialCmd := pipe.Get(ctx, "config:dial")
+	blackCmd := pipe.SIsMember(ctx, "blacklist", ja4)
+	whiteCmd := pipe.SIsMember(ctx, "whitelist", ja4)
+	_, _ = pipe.Exec(ctx)
+
+	dial, _ := dialCmd.Int()
+	isBlack, _ := blackCmd.Result()
+	isWhite, _ := whiteCmd.Result()
+	return dial, isBlack, isWhite
+}
