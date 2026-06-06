@@ -75,6 +75,8 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
       - name: Prepare .env for build
         run: cp template.env .env
+      - name: Generate backend cert for build
+        run: bash scripts/generate-backend-cert.sh
       - name: Build images for scan
         run: make build
       - name: make scan

@@ -470,7 +470,7 @@ scan-images:
 			--format table "$$img" 2>&1 | grep -E "CRITICAL|HIGH|Total:" || true); \
 		critical=$$(echo "$$result" | grep -c "^│.*CRITICAL" || true); \
 		echo "    $$result"; \
-		[ "$$critical" -eq 0 ] || { echo "    ! Warning: CRITICAL findings in $$img — update image version or add to .trivyignore"; }; \
+		[ "$$critical" -eq 0 ] || { echo "    ✗ CRITICAL findings in $$img — fix the image or add a justified, dated .trivyignore entry"; fail=1; }; \
 		echo ""; \
 	done; \
 	[ $$fail -eq 0 ] || { echo "✗ CRITICAL CVEs found — see .trivyignore for documented exceptions"; exit 1; }
@@ -521,7 +521,7 @@ scan-first-party:
 			| grep -E "CRITICAL|HIGH|Total:" || true); \
 		critical=$$(echo "$$result" | grep -c "CRITICAL" || true); \
 		echo "    $$result"; \
-		[ "$$critical" -eq 0 ] || { echo "    ^^^ CRITICAL in $$img — update base image"; }; \
+		[ "$$critical" -eq 0 ] || { echo "    ✗ CRITICAL in $$img — update base image, or add a justified, dated .trivyignore entry"; fail=1; }; \
 		echo ""; \
 	done; \
 	[ $$fail -eq 0 ] || exit 1
@@ -846,9 +846,10 @@ scorecard-local:
 	fi
 
 
-scan-container:
-	@# JA4proxy-2026-0010: ensure scan target returns 0 even if gosec finds issues
+scan-container: ## Run Go SAST (gosec) in a container — gates on high-severity/high-confidence findings
 	@docker build -q -t ja4proxy-security-scan -f deploy/docker/security-scan/Dockerfile .
+	@docker run --rm -v "$(PWD):/app" ja4proxy-security-scan \
+		"gosec -severity high -confidence high -exclude-dir=.claude -quiet ./..."
 
 scan-local:
 	@(gosec -fmt=text -exclude-dir=.claude ./... || true)
