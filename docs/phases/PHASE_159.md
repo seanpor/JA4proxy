@@ -1,50 +1,46 @@
-# Phase 159: Radical Performance Investigation & Optimization
+# Phase 159: Radical Performance Investigation & Root-Cause Resolution
 
-> **Status:** PROPOSED
+> **Status:** IN_PROGRESS
 > **Size:** LARGE
-> **Depends on:** Phase 157
 > **Owner:** Gemini CLI
 
 ## Goal
-Conduct a forensic "Deep Dive" investigation into the end-to-end performance bottleneck. We must identify why a Go-native stack on high-end hardware (i9-9900K @ 5GHz) is achieving only ~350 CPS when micro-benchmarks suggest a capacity of >1M CPS.
+Conduct a forensic, high-fidelity investigation into the ~350 CPS bottleneck. We will use synchronized microsecond-precision tracing across the entire connection path (Client → Proxy → Backend) to pinpoint exactly where time is being lost.
 
-## Scope\n
-### Traffic Mix Constraint
-- All performance validation and profiling must be conducted using a **5% Good / 95% Bad** traffic mix. This ensures we are benchmarking the system under the heavy load of active security enforcement and rejection, rather than just the "fast path" bypass.
+## High-Rigor Tracing Strategy
 
+### 1. Full-Path Instrumentation
+We will instrument all three Go-native components to record the following timestamps using the Client Source Port as a correlation key:
 
-### 1. Forensic Transaction Tracing
-- **Hop-by-Hop Latency**: Instrument the system to measure the exact time spent at each stage for a single connection:
-    1.  Client Handshake Initialization
-    2.  HAProxy Processing (TCP Mode)
-    3.  JA4proxy Parsing (ClientHello)
-    4.  JA4proxy Scoring (Pipeline + Redis)
-    5.  Backend Handshake Completion (Mock Backend)
-- **Bottleneck Isolation**: Run isolated benchmarks bypassing HAProxy and the Mock Backend to determine their contribution to the latency ceiling.
+| Event | Location | Description |
+| :--- | :--- | :--- |
+| **T1: Dial Start** | **Client** | Benchmark worker begins TLS Dial. |
+| **T2: Accept** | **Proxy** | `ja4pd` kernel accept of the socket. |
+| **T3: Dial Backend** | **Proxy** | `ja4pd` begins dialing the Go Null-Backend. |
+| **T4: Backend Accept** | **Backend** | `nullbackend` accepts the proxied connection. |
+| **T5: Backend Ready** | **Backend** | `nullbackend` finishes TLS handshake and is ready for data. |
+| **T6: Proxy Ready** | **Proxy** | `ja4pd` has connected both ends and begins byte copying. |
+| **T7: Client Ready** | **Client** | TLS Dial returns success to the benchmark worker. |
 
-### 2. Deep Profiling (pprof)
-- **CPU Profiling**: Run `ja4pd` with the Go profiler (`pprof`) active during a 5-minute sustained load.
-- **Lock Contention**: Identify any mutex contention or sequential bottlenecks in the connection accept/forward loop.
-- **Allocation Audit**: Verify if heap allocations are spiking under real-world I/O compared to micro-benchmarks.
+### 2. Forensic Analysis
+- **OS/Docker Overhead**: Δ(T2 - T1). Time spent in the Linux/Docker networking stack before the proxy even sees the connection.
+- **Proxy Logic Latency**: Δ(T3 - T2). Time spent reassembling ClientHello, calculating JA4, and running the Pipeline.
+- **Backend Handshake Cost**: Δ(T5 - T4). Pure TLS handshake time in the Go standard library.
+- **Connection Pipeline Lag**: Δ(T7 - T1). The total end-to-end "wait time" for a single connection.
 
-### 3. Environment & Infrastructure Audit
-- **Docker Networking**: Analyze the overhead of the Docker bridge and the `docker-proxy` user-land process. Compare with `network: host` performance.
-- **System Limits**: Check and optimize host-level TCP settings (`ip_local_port_range`, `tcp_tw_reuse`, `file-max`).
-- **Redis Saturation**: Profile Redis latency under load to see if the scoring pipeline is waiting on synchronous I/O.
-
-### 4. Brainstorming & Architecture Pivot
-- Based on findings, evaluate if we need to:
-    - Replace the Python Mock Backend with a Go version.
-    - Implement more aggressive Redis pipelining.
-    - Switch to an epoll-based raw socket listener if the Go `net` stack is the bottleneck.
+### 3. Root Cause Brainstorming (P-0)
+Based on deltas, we will evaluate:
+- **I/O Starvation**: Is the Go `net` poller thrashing under 100+ concurrent workers?
+- **Context Switch Penalty**: Are we spending more time switching CPU cores than doing TLS math?
+- **Redis Sync Blocks**: Is the synchronous `pipeline.Process` holding up the entire accept loop?
 
 ## Acceptance Criteria
-- [ ] **Bottleneck Identified**: A definitive report explaining exactly where the "missing" 99.9% of performance is being lost.
-- [ ] **Isolated Speed Proof**: Demonstration of the JA4proxy engine reaching >10,000 CPS in an optimized local environment.
-- [ ] **Infrastructure Optimization**: Verified improvements in Docker/Host network configuration.
-- [ ] **Trace Logs**: Detailed timing logs for 100 sample transactions showing sub-millisecond precision for every hop.
+- [ ] **Synchronized Trace Log**: A CSV/JSON log capturing all T1-T7 events for a sample of 100 connections.
+- [ ] **The "Choke Point" Identified**: A definitive conclusion (e.g., "The backend dial is blocking the proxy accept loop").
+- [ ] **Fix Implemented**: At least one architectural fix (e.g., Async Backend Dialing) that demonstrably increases CPS.
+- [ ] **Verified Report**: An in-depth forensic report documenting the deltas and the resolution.
 
 ---
 
 ## Strategic Intent
-We have the most efficient TLS parser in the market (272ns). If the system-wide experience doesn't reflect that, our architectural advantage is lost. This phase is about reclaiming that performance and proving the "Ultra-Lite" promise on real-world hardware.
+We will stop guessing. This phase uses hard data from every hop of the transaction to prove where the "missing" performance lives.

@@ -7,10 +7,12 @@ package main
 import (
 	"bufio"
 	"crypto/tls"
+	"fmt"
 	"io"
 	"log"
 	"net"
 	"os"
+	"time"
 )
 
 func main() {
@@ -45,16 +47,26 @@ func main() {
 }
 
 func handle(conn net.Conn) {
+	t4 := time.Now()
+	if os.Getenv("JA4PROXY_FORENSIC") == "true" {
+		_, lport, _ := net.SplitHostPort(conn.RemoteAddr().String())
+		fmt.Printf("TRACE [B] port=%s T4=%d\n", lport, t4.UnixNano())
+	}
 	defer conn.Close()
 	
 	// Read request line
 	reader := bufio.NewReader(conn)
 	line, err := reader.ReadString('\n')
+	t5 := time.Now()
+	if os.Getenv("JA4PROXY_FORENSIC") == "true" {
+		_, lport, _ := net.SplitHostPort(conn.RemoteAddr().String())
+		fmt.Printf("TRACE [B] port=%s T5=%d\n", lport, t5.UnixNano())
+	}
+
 	if err != nil {
 		return
 	}
 
-	// Simple response for health or any GET
 	if line != "" {
 		io.WriteString(conn, "HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok")
 	}
