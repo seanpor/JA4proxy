@@ -7,6 +7,7 @@ GO ?= $(shell command -v go || echo go)
 .PHONY: build rebuild clean cli-build init bump-build
 .PHONY: sync sbom scorecard-local
 .PHONY: doc-health lint-docs link-check lint-phases lint-semgrep lint-ansible
+.PHONY: scan-exceptions
 .PHONY: go-build cli-build test-ip ja4p-validate setup-build
 
 # ── Build Metadata ────────────────────────────────────────────────────────────
@@ -129,10 +130,11 @@ help-lint:
 help-scan:
 	@echo ""
 	@echo "── Security Scanning ─────────────────────────────────────────"
-	@echo "  scan               - Run Go code security scan (containerized)"
-	@echo "  scan-all           - Run all security scans (Go, Python, Images)"
-	@echo "  scan-container     - Run govulncheck/gosec inside a container"
-	@echo "  scan-local         - Run govulncheck/gosec locally"
+	@echo "  scan               - Run ALL security + container scans (full gate)"
+	@echo "  scan-all           - Alias of 'scan'"
+	@echo "  scan-container     - Go SAST (gosec) in a container"
+	@echo "  scan-local         - gosec locally (view output)"
+	@echo "  scan-exceptions    - List .trivyignore exceptions + days-to-expiry"
 	@echo ""
 	@echo "── Container Scanning ────────────────────────────────────────"
 	@echo "  scan-images        - Trivy scan of production images"
@@ -534,6 +536,9 @@ scan-first-party:
 	done; \
 	[ $$fail -eq 0 ] || exit 1
 	@echo "✓ First-party image scan complete"
+
+scan-exceptions: ## List Trivy scan exceptions (.trivyignore) with days-to-expiry
+	@$(PYTHON) scripts/scan_exceptions.py
 
 # Detect :latest tags and version drift between compose files.
 # Runs in < 5 seconds — no external calls, no Docker required.
