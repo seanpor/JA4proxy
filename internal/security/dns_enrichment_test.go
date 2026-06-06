@@ -140,3 +140,5 @@ func TestDNSEnrichment_RedisDown_FailOpen(t *testing.T) {
 		t.Errorf("redis down: expected nil signal (fail open), got %v", sig)
 	}
 }
+
+func (*mockRedisRW) MultiCheck(_ context.Context, _ string) (int, bool, bool) { return 0, false, false }

@@ -51,6 +51,9 @@ const beaconingJobBuf = 256
 
 type Pipeline struct {
 	cfg           *PipelineConfig
+	cache         *DecisionCache
+	workChan      chan *ConnectionContext
+	Sync          bool
 	scorer        *RiskScorer
 	decider       *ActionDecider
 	redis         RedisReader
@@ -225,6 +228,8 @@ func NewPipeline(cfg *PipelineConfig, redis RedisReader, log *logrus.Logger) *Pi
 		log:       log,
 		Whitelist: cfg.Whitelist,
 		Blacklist: cfg.Blacklist,
+		cache:         NewDecisionCache(10000),
+		workChan:      make(chan *ConnectionContext, 1000),
 	}
 	p.tlsEnforcer = NewTLSEnforcer(buildTLSEnforcerConfig(cfg), log)
 	p.sniAnalyzer = NewSNIAnalyzer(buildSNIAnalyzerConfig(cfg), log)
@@ -290,6 +295,7 @@ func (p *Pipeline) beaconingWorker() {
 
 // StartBackgroundWorkers starts all async background workers.
 func (p *Pipeline) StartBackgroundWorkers(ctx context.Context) {
+	go p.runAsyncScoringLoop(ctx)
 	p.dnsEnrichment.Start(ctx)
 	p.abuseipdb.Start(ctx)
 	p.rdap.Start(ctx)
@@ -298,6 +304,25 @@ func (p *Pipeline) StartBackgroundWorkers(ctx context.Context) {
 // Process runs a connection through the full pipeline and returns the result.
 // It never panics; all module errors are caught and logged.
 func (p *Pipeline) Process(ctx context.Context, conn *ConnectionContext) *PipelineResult {
+	if conn.JA4 != "" {
+		if res, hit := p.cache.Get(conn.JA4); hit {
+			return res
+		}
+	}
+	if block, reason := p.checkHardBlocks(conn); block {
+		return &PipelineResult{Action: "block", Score: 100, BypassReason: reason}
+	}
+	if p.Sync {
+		return p.processInternal(ctx, conn)
+	}
+	select {
+	case p.workChan <- conn:
+	default:
+	}
+	return &PipelineResult{Action: "allow", Score: 0}
+}
+
+func (p *Pipeline) processInternal(ctx context.Context, conn *ConnectionContext) *PipelineResult {
 
 	// ── 1. HARD BLOCKS (Blacklists, etc.)
 	if block, reason := p.checkHardBlocks(conn); block {
@@ -788,4 +813,16 @@ func (p *Pipeline) auditDecision(ctx context.Context, ip string, currentScore in
 		}
 	}
 	p.redis.SetString(ctx, key, fmt.Sprintf("%d", currentScore), 300)
+}
+
+func (p *Pipeline) runAsyncScoringLoop(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case conn := <-p.workChan:
+			result := p.processInternal(ctx, conn)
+			p.cache.Set(conn.JA4, result)
+		}
+	}
 }

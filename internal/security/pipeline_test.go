@@ -47,7 +47,7 @@ func newTestPipeline(dial int) *Pipeline {
 		Whitelist:          map[string]bool{"t13d1516h2_8daaf6152771_02713d6af862": true},
 		Blacklist:          map[string]bool{"t13d190900_9dc949149365_97f8aa674fd9": true},
 	}
-	return NewPipeline(cfg, &mockRedis{dial: dial}, nil)
+	p := NewPipeline(cfg, &mockRedis{dial: dial}, nil); p.Sync = true; return p
 }
 
 func TestPipeline_ALPNBrowserBypass_H2(t *testing.T) {
@@ -158,6 +158,7 @@ func TestPipeline_NilRedis_FailOpen(t *testing.T) {
 		ALPNBrowserBypass: true,
 	}
 	p := NewPipeline(cfg, nil, nil)
+	p.Sync = true
 	result := p.Process(context.Background(), &ConnectionContext{ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4"})
 	if result == nil {
 		t.Fatal("Process returned nil")
@@ -174,6 +175,7 @@ func TestPipeline_ALPNBypassDisabled(t *testing.T) {
 		Blacklist:         map[string]bool{},
 	}
 	p := NewPipeline(cfg, &mockRedis{dial: 0}, nil)
+	p.Sync = true
 	result := p.Process(context.Background(), &ConnectionContext{
 		ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4",
 		ALPN: "h2",
@@ -182,3 +184,5 @@ func TestPipeline_ALPNBypassDisabled(t *testing.T) {
 		t.Error("h2 ALPN should NOT bypass when alpn_browser_bypass is disabled")
 	}
 }
+
+func (*mockRedis) MultiCheck(_ context.Context, _ string) (int, bool, bool) { return 0, false, false }

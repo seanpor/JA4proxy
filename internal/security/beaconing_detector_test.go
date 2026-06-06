@@ -174,3 +174,5 @@ func TestComputeCV_PerfectRegular(t *testing.T) {
 		t.Errorf("perfect regular: CV = %.4f, want ~0", cv)
 	}
 }
+
+func (*mockRedisBeacon) MultiCheck(_ context.Context, _ string) (int, bool, bool) { return 0, false, false }

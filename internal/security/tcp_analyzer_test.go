@@ -186,3 +186,5 @@ func TestTCPAnalyzer_NoRedisData_NoSignal(t *testing.T) {
 		t.Errorf("no redis data: expected no signals, got %d", len(sigs))
 	}
 }
+
+func (*mockRedisKV) MultiCheck(_ context.Context, _ string) (int, bool, bool) { return 0, false, false }
