@@ -1,24 +1,19 @@
-# Acknowledge unpatchable base-image vulnerabilities
-CVE-2026-33845
-CVE-2026-31789
-CVE-2026-42496
-CVE-2026-42497
-CVE-2026-33846
-CVE-2025-15467
-CVE-2025-68973
-CVE-2026-39883
-CVE-2026-32280
-CVE-2026-41602
-CVE-2026-33816
-CVE-2026-34040
-CVE-2026-42215
-CVE-2026-27962
-CVE-2025-59420
-CVE-2025-61920
-CVE-2026-28490
-CVE-2026-28498
-CVE-2026-26007
-CVE-2024-33663
-CVE-2024-53981
-CVE-2026-24486
-CVE-2026-42561
+# Trivy ignore file — JUSTIFIED, TIME-WINDOWED exceptions only.
+#
+# Policy (Phase 226): no blanket ignores. Every entry must state (a) why it
+# cannot be patched now, (b) why it is not exploitable in our images, and carry
+# an `exp:` expiry date that forces re-review. Anything with an available fix is
+# patched at build time via `apt-get/apk upgrade`, NOT ignored here.
+#
+# ---------------------------------------------------------------------------
+# CVE-2026-42496 (CRITICAL) / CVE-2026-42497 (HIGH) — perl-archive-tar path
+# traversal (Archive::Tar < 3.08), present in perl-base on the python:3.14-slim
+# base image (analytics, tarpit).
+#   * No fix available: Debian trixie marks it `fix_deferred` — there is no
+#     patched perl-base to upgrade to as of 2026-06-06.
+#   * Not exploitable here: our images never invoke Archive::Tar to extract
+#     untrusted archives; perl-base is only a transitive base-image package.
+#   * Exit plan: Phase 229 (base-image consolidation) may move these images to a
+#     perl-free base; otherwise re-review when Debian ships a fix.
+CVE-2026-42496 exp:2026-09-04
+CVE-2026-42497 exp:2026-09-04
