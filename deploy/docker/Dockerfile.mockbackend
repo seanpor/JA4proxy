@@ -9,18 +9,24 @@ RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /nullbackend main.go
 
 FROM alpine:3.19.3@sha256:95c16745f100f44cf9a0939fd3f357905f845f8b6fa7d0cde0e88c9764060185
 # Patch base-image OS packages to clear known CVEs (was python:slim before the
-# Go-native rewrite; now alpine, so apk upgrade).
-RUN apk upgrade --no-cache && apk add --no-cache ca-certificates curl
+# Go-native rewrite; now alpine, so apk upgrade). Create a non-root user
+# (JA4PROXY-2026 DS-0002: containers must not run as root).
+RUN apk upgrade --no-cache && apk add --no-cache ca-certificates curl && \
+    addgroup -S backend && adduser -S -G backend backend
 
 WORKDIR /app
 COPY --from=builder /nullbackend /usr/local/bin/nullbackend
 COPY deploy/ssl/certs/backend.crt /app/deploy/ssl/certs/backend.crt
 COPY deploy/ssl/private/backend.key /app/deploy/ssl/private/backend.key
 
-EXPOSE 443
+# Listen on a non-privileged port: the container runs as non-root with
+# cap_drop=ALL (see docker-compose.poc.yml), so it cannot bind <1024.
+ENV PORT=8443
+USER backend
+EXPOSE 8443
 
 # Health check (Go backend responds to health)
 HEALTHCHECK --interval=10s --timeout=5s --start-period=5s --retries=3 \
-    CMD curl -kf https://localhost:443/api/health || exit 0
+    CMD curl -kf https://localhost:8443/api/health || exit 0
 
 ENTRYPOINT ["/usr/local/bin/nullbackend"]
