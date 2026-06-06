@@ -17,10 +17,10 @@ import (
 
 func main() {
 	port := os.Getenv("PORT")
-	if port == "" { port = "443" }
+	if port == "" { port = "8443" }
 	
 	// Load certs
-	cert, err := tls.LoadX509KeyPair("deploy/ssl/certs/backend.crt", "deploy/ssl/private/backend.key")
+	cert, err := tls.LoadX509KeyPair("/app/backend.crt", "/app/backend.key")
 	if err != nil {
 		log.Fatalf("failed to load keypair: %v", err)
 	}

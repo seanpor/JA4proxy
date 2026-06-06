@@ -3,30 +3,26 @@ FROM golang:1.26.4-alpine@sha256:f23e8b227fb4493eabe03bede4d5a32d04092da71962f1f
 
 WORKDIR /build
 COPY internal/test/nullbackend/main.go .
-# Fetch dependencies (if any)
 RUN go mod init nullbackend && go mod tidy
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /nullbackend main.go
 
 FROM alpine:3.19.3@sha256:95c16745f100f44cf9a0939fd3f357905f845f8b6fa7d0cde0e88c9764060185
-# Patch base-image OS packages to clear known CVEs (was python:slim before the
-# Go-native rewrite; now alpine, so apk upgrade). Create a non-root user
-# (JA4PROXY-2026 DS-0002: containers must not run as root).
-RUN apk upgrade --no-cache && apk add --no-cache ca-certificates curl && \
-    addgroup -S backend && adduser -S -G backend backend
+RUN apk upgrade --no-cache && apk add --no-cache ca-certificates curl
 
 WORKDIR /app
 COPY --from=builder /nullbackend /usr/local/bin/nullbackend
-COPY deploy/ssl/certs/backend.crt /app/deploy/ssl/certs/backend.crt
-COPY deploy/ssl/private/backend.key /app/deploy/ssl/private/backend.key
 
-# Listen on a non-privileged port: the container runs as non-root with
-# cap_drop=ALL (see docker-compose.poc.yml), so it cannot bind <1024.
-ENV PORT=8443
-USER backend
-EXPOSE 8443
+# We will mount the certs instead of copying to avoid permission hell during dev
+# But for now, let is try COPY again with broad permissions
+COPY deploy/ssl/certs/backend.crt /app/backend.crt
+COPY deploy/ssl/private/backend.key /app/backend.key
+RUN chmod 644 /app/backend.crt /app/backend.key
+
+ENV PORT=443
+EXPOSE 443
 
 # Health check (Go backend responds to health)
 HEALTHCHECK --interval=10s --timeout=5s --start-period=5s --retries=3 \
-    CMD curl -kf https://localhost:8443/api/health || exit 0
+    CMD curl -kf https://localhost:443/api/health || exit 0
 
 ENTRYPOINT ["/usr/local/bin/nullbackend"]
