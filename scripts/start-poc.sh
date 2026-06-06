@@ -99,7 +99,7 @@ if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then echo -e "${RED}✗ Failed${NC}"; exit
 echo -n "Checking Backend... "
 RETRY_COUNT=0
 while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-    if docker compose $P_FLAG -f deploy/docker/docker-compose.poc.yml --env-file .env exec -T backend python3 -c "import urllib.request,ssl; urllib.request.urlopen('https://localhost/api/health',context=ssl._create_unverified_context())" > /dev/null 2>&1; then
+    if docker compose $P_FLAG -f deploy/docker/docker-compose.poc.yml --env-file .env exec -T backend curl -kf https://localhost/api/health > /dev/null 2>&1; then
         echo -e "${GREEN}✓${NC}"
         break
     fi
