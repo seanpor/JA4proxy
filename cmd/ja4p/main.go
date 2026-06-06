@@ -300,6 +300,7 @@ func setupScenario(name, backendHost string, backendPort int, env string, projec
 	// Port overrides with offset
 	content += "\n# Port Overrides\n"
 	content += fmt.Sprintf("HOST_PORT_INGRESS=%d\n", 443+offset)
+	content += fmt.Sprintf("HOST_PORT_DIRECT=%d\n", 8081+offset)
 	content += fmt.Sprintf("HOST_PORT_STATS=%d\n", 8404+offset)
 	content += fmt.Sprintf("HOST_PORT_METRICS=%d\n", 9090+offset)
 	content += fmt.Sprintf("HOST_PORT_PROMETHEUS=%d\n", 9091+offset)

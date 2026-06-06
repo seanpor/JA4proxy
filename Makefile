@@ -950,8 +950,8 @@ bench-micro: ## Run Go native micro-benchmarks
 	@GOROOT=$(GOROOT) go test -bench=. -run=^$$ -benchmem ./cmd/ja4pd/ ./internal/tls/ || true
 
 bench-macro: ## Run end-to-end load test (requires: make start)
-	@echo "=== JA4proxy Macro-benchmark (Traffic Generator) ==="
-	@$(PYTHON) scripts/benchmark.py --host 127.0.0.1 --port 8081 --duration 30 $(ARGS)
+	@echo "=== JA4proxy High-Speed Go Macro-benchmark ==="
+	@./bin/ja4p test benchmark --host 127.0.0.1:8081 --duration 30 $(ARGS)
 
 # Generate SBOM (Software Bill of Materials) for the Go proxy
 sbom:
