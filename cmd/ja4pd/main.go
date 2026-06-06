@@ -628,7 +628,7 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 	backendHost := cfg.Proxy.BackendHost
 	p.mu.RUnlock()
 	traceFields := logrus.Fields{}
-	if os.Getenv("JA4PROXY_TRACE") == "true" {
+	if os.Getenv("JA4PROXY_FORENSIC") == "true" {
 		traceFields["trace.accept_to_read_us"] = t1.Sub(t0).Microseconds()
 		traceFields["trace.read_to_parse_us"] = t2.Sub(t1).Microseconds()
 		traceFields["trace.parse_to_score_us"] = t3.Sub(t2).Microseconds()
@@ -814,10 +814,15 @@ func (p *proxy) forward(clientConn net.Conn, initialData []byte) {
 
 	backendAddr := net.JoinHostPort(cfg.Proxy.BackendHost, fmt.Sprintf("%d", cfg.Proxy.BackendPort.Int()))
 	tb0 := time.Now()
+	t3 := time.Now()
+	if os.Getenv("JA4PROXY_FORENSIC") == "true" {
+		_, lport, _ := net.SplitHostPort(clientConn.RemoteAddr().String())
+		p.log.Infof("TRACE [P] port=%s T3=%d", lport, t3.UnixNano())
+	}
 	backendConn, err := net.DialTimeout("tcp", backendAddr,
 		time.Duration(cfg.Proxy.ConnectionTimeout)*time.Second)
 	tb1 := time.Now()
-	if os.Getenv("JA4PROXY_TRACE") == "true" {
+	if os.Getenv("JA4PROXY_FORENSIC") == "true" {
 		p.log.WithFields(logrus.Fields{
 			"trace.backend_dial_us": tb1.Sub(tb0).Microseconds(),
 		}).Debug("trace: backend dial")
@@ -862,6 +867,16 @@ func (p *proxy) forward(clientConn net.Conn, initialData []byte) {
 		done <- struct{}{}
 	}
 
+	t6 := time.Now()
+	if os.Getenv("JA4PROXY_FORENSIC") == "true" {
+		_, lport, _ := net.SplitHostPort(clientConn.RemoteAddr().String())
+		if err == nil {
+			_, bp, _ := net.SplitHostPort(backendConn.LocalAddr().String())
+			p.log.Infof("TRACE [P] port=%s outbound=%s T6=%d", lport, bp, t6.UnixNano())
+		} else {
+			p.log.Infof("TRACE [P] port=%s T6=%d", lport, t6.UnixNano())
+		}
+	}
 	go copyConn(backendConn, clientConn)
 	go copyConn(clientConn, backendConn)
 	<-done
