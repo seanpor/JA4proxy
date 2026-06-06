@@ -44,7 +44,7 @@ LABEL org.opencontainers.image.source="https://github.com/seanpor/JA4proxy" \
 # Non-root user for least-privilege operation.
 # Explicit UID/GID 1000 required by Pod Security Admission `restricted` and
 # the industry-standard `runAsUser: 1000` policy (see ADR-202c).
-RUN apk add --no-cache curl && \
+RUN apk upgrade --no-cache && apk add --no-cache curl && \
     addgroup -g 1000 -S ja4proxy && adduser -u 1000 -S -G ja4proxy ja4proxy
 
 # CA certificates for TLS verification (backend connections).

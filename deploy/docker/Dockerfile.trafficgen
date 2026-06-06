@@ -1,5 +1,8 @@
 FROM python:3.14.0-slim@sha256:0aecac02dc3d4c5dbb024b753af084cafe41f5416e02193f1ce345d671ec966e
 
+# Patch base-image OS packages (openssl, perl, etc.) to clear known CVEs.
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
+
 # checkov:skip=CKV_DOCKER_2: Traffic generator is short-lived and doesn't run a service
 # Security: Create non-root user
 RUN groupadd -r trafficgen && useradd -r -g trafficgen trafficgen

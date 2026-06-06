@@ -3,6 +3,9 @@ LABEL dockerfile.location="module" \
       dockerfile.module="tarpit" \
       dockerfile.build-context="module-local"
 
+# Patch base-image OS packages (openssl, perl, etc.) to clear known CVEs.
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
+
 RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked \
     pip install prometheus_client
 
