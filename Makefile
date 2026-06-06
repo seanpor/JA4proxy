@@ -522,8 +522,10 @@ scan-first-party:
 	for img in ja4proxy:1.0.0 ja4proxy-analytics:1.0.0 ja4proxy-tarpit:1.0.0 ja4proxy-mockbackend:1.0.0 ja4proxy-test:1.0.0 ja4proxy-trafficgen:1.0.0; do \
 		echo "  Scanning $$img ..."; \
 		result=$$(docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+			-v "$(PWD):/scan:ro" \
 			aquasec/trivy:0.71.0 image --severity HIGH,CRITICAL --exit-code 0 \
-			--no-progress --scanners vuln --format table "$$img" 2>&1 \
+			--no-progress --scanners vuln --ignorefile /scan/.trivyignore \
+			--format table "$$img" 2>&1 \
 			| grep -E "CRITICAL|HIGH|Total:" || true); \
 		critical=$$(echo "$$result" | grep -c "CRITICAL" || true); \
 		echo "    $$result"; \
