@@ -55,6 +55,10 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **PROPOSED** (Conducts a forensic hop-by-hop latency investigation to identify the bottleneck limiting end-to-end throughput to ~350 CPS. Includes deep Go profiling (pprof), infrastructure audit, and infrastructure optimization to bridge the gap between 272ns core latency and system-wide performance.)
 *   **Action Plan:** [PHASE_159.md](PHASE_159.md)
 
+### Phase 160 — High-Concurrency Throughput Unblocking
+*   **Status:** **PROPOSED** (Unblocks the 350 CPS bottleneck by implementing 'sync.Pool' buffer recycling and refactoring the security pipeline for asynchronous background scoring with a local LRU cache.)
+*   **Action Plan:** [PHASE_160.md](PHASE_160.md)
+
 ### Phase 225 — Hermetic Tooling & make doctor Accuracy
 *   **Status:** **PROPOSED** (Run version-sensitive tools (trivy, hadolint, gitleaks, codespell, markdownlint, amtool, the 3.14 Python linters) in pinned containers instead of relying on the host, and make 'make doctor' report accurately (blocking vs informational). The PHASE_224 meta-lint guard stays host-only by design.)
 *   **Action Plan:** [PHASE_225.md](PHASE_225.md)
