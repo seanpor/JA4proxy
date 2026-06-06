@@ -57,7 +57,7 @@ services:
       - REDIS_PORT=6379
       - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD is required}
       - BACKEND_HOST=${BACKEND_HOST:-backend}
-      - BACKEND_PORT=${BACKEND_PORT:-443}
+      - BACKEND_PORT=${BACKEND_PORT:-8443}  # mock backend runs non-root on 8443
       - ENVIRONMENT=${ENVIRONMENT:-development}
       - JA4PROXY_TRACE=${JA4PROXY_TRACE:-false}
     networks:
@@ -349,7 +349,7 @@ services:
       - PROXY_HOST=proxy
       - PROXY_PORT=8080
       - BACKEND_HOST=backend
-      - BACKEND_PORT=443
+      - BACKEND_PORT=8443  # mock backend runs non-root on 8443
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - PYTHONUNBUFFERED=1
