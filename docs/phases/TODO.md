@@ -54,3 +54,19 @@ This document tracks the remaining work for both historical phases (gaps identif
 ### Phase 159 — Radical Performance Investigation & Optimization
 *   **Status:** **PROPOSED** (Conducts a forensic hop-by-hop latency investigation to identify the bottleneck limiting end-to-end throughput to ~350 CPS. Includes deep Go profiling (pprof), infrastructure audit, and infrastructure optimization to bridge the gap between 272ns core latency and system-wide performance.)
 *   **Action Plan:** [PHASE_159.md](PHASE_159.md)
+
+### Phase 225 — Hermetic Tooling & make doctor Accuracy
+*   **Status:** **PROPOSED** (Run version-sensitive tools (trivy, hadolint, gitleaks, codespell, markdownlint, amtool, the 3.14 Python linters) in pinned containers instead of relying on the host, and make 'make doctor' report accurately (blocking vs informational). The PHASE_224 meta-lint guard stays host-only by design.)
+*   **Action Plan:** [PHASE_225.md](PHASE_225.md)
+
+### Phase 227 — Scan & Build Caching
+*   **Status:** **PROPOSED** (Cache the Trivy DB and shared base-image layers so 'make scan' (~6 min) stops re-pulling the same data once per image; buildx layer cache + a defined DB-cache TTL.)
+*   **Action Plan:** [PHASE_227.md](PHASE_227.md)
+
+### Phase 228 — Human-Readable Scan Summaries
+*   **Status:** **PROPOSED** (Parse machine-readable scanner output (trivy/gosec JSON) into a compact per-image PASS/FAIL summary so scan/lint results are readable at a glance; raw detail kept available (summarize, not suppress).)
+*   **Action Plan:** [PHASE_228.md](PHASE_228.md)
+
+### Phase 229 — Base-Image Consolidation & Consistent Pinning
+*   **Status:** **PROPOSED** (Reduce base-image sprawl (golang 1.25.10 vs 1.26.4; python:3.14-slim pinned in 4 places but unpinned in 6) to one digest-pinned version per ecosystem, with a guard against unpinned/off-list FROM lines. Also moves analytics/tarpit to a perl-free base to retire the Phase 226 perl exceptions.)
+*   **Action Plan:** [PHASE_229.md](PHASE_229.md)
