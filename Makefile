@@ -19,6 +19,12 @@ FULL_VERSION := v$(VERSION).$(BUILD_NUMBER)
 LDFLAGS := -ldflags="-s -w -X github.com/seanpor/ja4proxy/internal/config.Version=$(FULL_VERSION) \
            -X github.com/seanpor/ja4proxy/internal/config.GitCommit=$(GIT_COMMIT) \
            -X github.com/seanpor/ja4proxy/internal/config.BuildDate=$(BUILD_DATE)"
+
+# ── Environment Configuration ────────────────────────────────────────────────
+ifneq (,$(wildcard .env))
+    include .env
+    export
+endif
 # Makefile for JA4 Proxy
 
 # ── Phony targets
@@ -643,9 +649,9 @@ clean:
 # Full clean rebuild from scratch — wipes volumes, removes built images, rebuilds, starts.
 # If .current-agent is set (i.e. an agent stack is active), rebuilds and restarts that
 # agent's stack.  Otherwise rebuilds and restarts the default ja4proxy stack.
-rebuild:
+rebuild: clean build
 	$(eval _AGENT := $(shell cat .current-agent 2>/dev/null))
-	@echo "Stopping all services and wiping volumes..."
+	@echo "Starting clean rebuild..."
 	@if [ -n "$(_AGENT)" ]; then \
 		echo "  (active agent: $(_AGENT))"; \
 		docker compose -f deploy/docker/docker-compose.poc.yml --project-name ja4_$(_AGENT) --env-file .env.$(_AGENT) down -v --remove-orphans --rmi local; \
@@ -951,7 +957,10 @@ bench-micro: ## Run Go native micro-benchmarks
 
 bench-macro: ## Run end-to-end load test (requires: make start)
 	@echo "=== JA4proxy High-Speed Go Macro-benchmark ==="
-	@./bin/ja4p test benchmark --host 127.0.0.1:8081 --duration 30 $(ARGS)
+	@PORT=$$(grep "^HOST_PORT_DIRECT=" .env | cut -d= -f2); \
+	PORT=$${PORT:-8081}; \
+	echo "  Targeting Port: $$PORT"; \
+	./bin/ja4p test benchmark --host 127.0.0.1:$$PORT --duration 30 $(ARGS)
 
 # Generate SBOM (Software Bill of Materials) for the Go proxy
 sbom:
