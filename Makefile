@@ -529,7 +529,7 @@ scan-first-party:
 			--no-progress --scanners vuln --ignorefile /scan/.trivyignore \
 			--format table "$$img" 2>&1 \
 			| grep -E "CRITICAL|HIGH|Total:" || true); \
-		critical=$$(echo "$$result" | grep -c "CRITICAL" || true); \
+		critical=$$(echo "$$result" | grep -v "Total:" | grep -c "CRITICAL" || true); \
 		echo "    $$result"; \
 		[ "$$critical" -eq 0 ] || { echo "    ✗ CRITICAL in $$img — update base image, or add a justified, dated .trivyignore entry"; fail=1; }; \
 		echo ""; \
