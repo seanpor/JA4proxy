@@ -16,6 +16,7 @@ func TestPipeline_JA4XWhitelistBypass(t *testing.T) {
 		Whitelist:           map[string]bool{},
 	}
 	p := NewPipeline(cfg, &mockRedis{dial: 0}, nil)
+	p.Sync = true
 	p.UpdateJA4XSets(
 		map[string]bool{"abc123def456_abc123def456_abc123def456": true},
 		map[string]bool{},
@@ -44,6 +45,7 @@ func TestPipeline_JA4XBlacklistBlock(t *testing.T) {
 		Whitelist:           map[string]bool{},
 	}
 	p := NewPipeline(cfg, &mockRedis{dial: 0}, nil)
+	p.Sync = true
 	p.UpdateJA4XSets(
 		map[string]bool{},
 		map[string]bool{"blocked_abc_def": true},
@@ -76,6 +78,7 @@ func TestPipeline_JA4XBlacklistSignal(t *testing.T) {
 		JA4XBlacklistScore:  80,
 	}
 	p := NewPipeline(cfg, &mockRedis{dial: 0}, nil)
+	p.Sync = true
 	p.UpdateJA4XSets(
 		map[string]bool{},
 		map[string]bool{"signal_abc_def": true},
@@ -109,6 +112,7 @@ func TestPipeline_JA4XExtractionFromCert(t *testing.T) {
 		Whitelist:          map[string]bool{},
 	}
 	p := NewPipeline(cfg, &mockRedis{dial: 0}, nil)
+	p.Sync = true
 
 	ctx := &ConnectionContext{
 		ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4",
@@ -140,6 +144,7 @@ func TestPipeline_JA4XExtractionFromRealCert(t *testing.T) {
 		Whitelist:          map[string]bool{},
 	}
 	p := NewPipeline(cfg, &mockRedis{dial: 0}, nil)
+	p.Sync = true
 
 	conn := &ConnectionContext{
 		ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4",

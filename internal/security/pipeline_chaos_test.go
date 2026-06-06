@@ -125,7 +125,7 @@ func newChaosPipeline(t *testing.T, redis *faultyRedis) *Pipeline {
 		Whitelist:          map[string]bool{},
 		Blacklist:          map[string]bool{},
 	}
-	return NewPipeline(cfg, redis, nil)
+	p := NewPipeline(cfg, redis, nil); p.Sync = true; return p
 }
 
 func validClientHello() *ConnectionContext {
@@ -263,3 +263,5 @@ func TestPipeline_DialFlip_PropagatesAndChangesAction(t *testing.T) {
 			synthHighScore, res1.Dial, action1)
 	}
 }
+
+func (*faultyRedis) MultiCheck(_ context.Context, _ string) (int, bool, bool) { return 0, false, false }

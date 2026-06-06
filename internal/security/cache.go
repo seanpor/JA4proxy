@@ -4,9 +4,7 @@
 
 package security
 
-import (
-	"sync"
-)
+import "sync"
 
 type DecisionCache struct {
 	mu    sync.RWMutex
@@ -15,10 +13,7 @@ type DecisionCache struct {
 }
 
 func NewDecisionCache(limit int) *DecisionCache {
-	return &DecisionCache{
-		data:  make(map[string]*PipelineResult),
-		limit: limit,
-	}
+	return &DecisionCache{data: make(map[string]*PipelineResult), limit: limit}
 }
 
 func (c *DecisionCache) Get(ja4 string) (*PipelineResult, bool) {
@@ -29,10 +24,9 @@ func (c *DecisionCache) Get(ja4 string) (*PipelineResult, bool) {
 }
 
 func (c *DecisionCache) Set(ja4 string, res *PipelineResult) {
+	if ja4 == "" { return }
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if len(c.data) >= c.limit {
-		c.data = make(map[string]*PipelineResult)
-	}
+	if len(c.data) >= c.limit { c.data = make(map[string]*PipelineResult) }
 	c.data[ja4] = res
 }

@@ -584,6 +584,7 @@ func TestPipeline_CheckHardBlocks_DynamicCIDR(t *testing.T) {
 		Blacklist:          map[string]bool{},
 	}
 	p := NewPipeline(cfg, &mockRedis{dial: 100}, nil)
+	p.Sync = true
 	p.UpdateDynamicCIDRs([]string{"192.168.0.0/16"})
 
 	result := p.Process(context.Background(), &ConnectionContext{
@@ -606,6 +607,7 @@ func TestPipeline_CheckHardBlocks_CountryBlacklist(t *testing.T) {
 		Blacklist:              map[string]bool{},
 	}
 	p := NewPipeline(cfg, &mockRedis{dial: 100}, nil)
+	p.Sync = true
 	result := p.Process(context.Background(), &ConnectionContext{
 		ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4",
 		Country: "XX",
@@ -623,6 +625,7 @@ func TestPipeline_CheckBypasses_StaticIPAllowlist(t *testing.T) {
 		Blacklist:                map[string]bool{},
 	}
 	p := NewPipeline(cfg, &mockRedis{dial: 100}, nil)
+	p.Sync = true
 	result := p.Process(context.Background(), &ConnectionContext{
 		ParsedIP: net.ParseIP("10.0.0.1"), ClientIP: "10.0.0.1",
 	})
@@ -639,6 +642,7 @@ func TestPipeline_CheckBypasses_WhitelistPattern(t *testing.T) {
 		Blacklist:          map[string]bool{},
 	}
 	p := NewPipeline(cfg, &mockRedis{dial: 100}, nil)
+	p.Sync = true
 	result := p.Process(context.Background(), &ConnectionContext{
 		ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4",
 		JA4: "t13d1516h2_suffix",
@@ -656,6 +660,7 @@ func TestPipeline_CheckHardBlocks_JA4XBlacklist(t *testing.T) {
 		Blacklist:           map[string]bool{},
 	}
 	p := NewPipeline(cfg, &mockRedis{dial: 100}, nil)
+	p.Sync = true
 	p.UpdateJA4XSets(nil, map[string]bool{"badx509": true})
 
 	result := p.Process(context.Background(), &ConnectionContext{
@@ -675,6 +680,7 @@ func TestPipeline_CheckBypasses_JA4XWhitelist(t *testing.T) {
 		Blacklist:           map[string]bool{},
 	}
 	p := NewPipeline(cfg, &mockRedis{dial: 100}, nil)
+	p.Sync = true
 	p.UpdateJA4XSets(map[string]bool{"goodx509": true}, nil)
 
 	result := p.Process(context.Background(), &ConnectionContext{
@@ -1214,6 +1220,7 @@ func TestPipeline_JA4XBlacklistSignal_NonBypass(t *testing.T) {
 		Blacklist:           map[string]bool{},
 	}
 	p := NewPipeline(cfg, &mockRedis{dial: 100}, nil)
+	p.Sync = true
 	p.UpdateJA4XSets(nil, map[string]bool{"badcert": true})
 
 	result := p.Process(context.Background(), &ConnectionContext{

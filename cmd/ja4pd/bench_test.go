@@ -104,3 +104,5 @@ func BenchmarkPipeline_Score(b *testing.B) {
 		_ = p.Process(ctx, conn)
 	}
 }
+
+func (benchRedis) MultiCheck(_ context.Context, _ string) (int, bool, bool) { return 0, false, false }
