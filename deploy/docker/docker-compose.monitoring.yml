@@ -74,7 +74,7 @@ services:
       retries: 3
 
   grafana:
-    image: grafana/grafana:13.0.1-ubuntu
+    image: grafana/grafana:13.0.2-ubuntu
     container_name: ja4proxy-grafana
     ports:
       # JA4PROXY-2026-0045: bind to loopback only — consistent with the

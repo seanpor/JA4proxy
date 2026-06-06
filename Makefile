@@ -452,7 +452,7 @@ TRIVY_IMAGES := haproxy:2.8.24-alpine \
 	prom/prometheus:v3.12.0 \
 	prom/alertmanager:v0.32.1 \
 	prom/node-exporter:v1.11.1 \
-	grafana/grafana:13.0.1-ubuntu \
+	grafana/grafana:13.0.2-ubuntu \
 	grafana/loki:3.7.2 \
 	grafana/promtail:3.6.11
 
