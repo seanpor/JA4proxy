@@ -44,7 +44,7 @@ services:
     image: ja4proxy:2.0.0
     restart: unless-stopped
     ports:
-      - "${AGENT_BIND_IP:-127.0.0.1}:8081:8080"
+      - "${AGENT_BIND_IP:-127.0.0.1}:${HOST_PORT_DIRECT:-8081}:8080"
       - "${AGENT_BIND_IP:-127.0.0.1}:${HOST_PORT_METRICS:-9090}:9090"
     depends_on:
       - redis

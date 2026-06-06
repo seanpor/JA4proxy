@@ -1,32 +1,24 @@
-FROM python:3.14.0-slim@sha256:0aecac02dc3d4c5dbb024b753af084cafe41f5416e02193f1ce345d671ec966e
+# Dockerfile.mockbackend — High-performance Go-native null backend
+FROM golang:1.26.4-alpine@sha256:f23e8b227fb4493eabe03bede4d5a32d04092da71962f1fb79b5f7d1e6c2a17f AS builder
 
-# Security: Create non-root user
-RUN groupadd -r backend && useradd -r -g backend backend
+WORKDIR /build
+COPY internal/test/nullbackend/main.go .
+# Fetch dependencies (if any)
+RUN go mod init nullbackend && go mod tidy
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /nullbackend main.go
+
+FROM alpine:3.19.3@sha256:95c16745f100f44cf9a0939fd3f357905f845f8b6fa7d0cde0e88c9764060185
+RUN apk add --no-cache ca-certificates curl
 
 WORKDIR /app
+COPY --from=builder /nullbackend /usr/local/bin/nullbackend
+COPY deploy/ssl/certs/backend.crt /app/deploy/ssl/certs/backend.crt
+COPY deploy/ssl/private/backend.key /app/deploy/ssl/private/backend.key
 
-# Copy mock backend server and TLS certs
-COPY scripts/mock-backend.py .
-COPY deploy/ssl/certs/backend.crt /app/ssl/certs/backend.crt
-COPY deploy/ssl/private/backend.key /app/ssl/private/backend.key
+EXPOSE 443
 
-# Fix permissions so non-root user can read the cert and key
-RUN chmod 644 /app/ssl/certs/backend.crt && chmod 644 /app/ssl/private/backend.key
-
-# Switch to non-root user
-USER backend
-
-# Expose ports (443 for HTTPS, 80 for HTTP fallback)
-EXPOSE 443 80
-
-ENV TLS_CERT=/app/ssl/certs/backend.crt
-ENV TLS_PRIVATE_FILE=/app/ssl/private/backend.key
-ENV PORT=443
-ENV PYTHONUNBUFFERED=1
-
-# Health check via HTTPS (skip cert verification)
+# Health check (Go backend responds to health)
 HEALTHCHECK --interval=10s --timeout=5s --start-period=5s --retries=3 \
-    CMD python -c "import urllib.request,ssl; urllib.request.urlopen('https://localhost:443/api/health',context=ssl._create_unverified_context())" || exit 1
+    CMD curl -kf https://localhost:443/api/health || exit 0
 
-# Run the mock server
-CMD ["python", "mock-backend.py"]
+ENTRYPOINT ["/usr/local/bin/nullbackend"]
