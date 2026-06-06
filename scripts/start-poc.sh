@@ -54,6 +54,9 @@ set -a; source .env; set +a
 # public interface. Loopback (default, via SSH tunnel) or private IP only.
 python3 "$(dirname "$0")/check_bind_address.py" || exit 1
 
+# Ensure the mock-backend TLS cert exists (gitignored; absent on fresh clone).
+bash "$(dirname "$0")/generate-backend-cert.sh"
+
 # Use COMPOSE_PROJECT_NAME if set
 P_FLAG=""
 if [ -n "$COMPOSE_PROJECT_NAME" ]; then
