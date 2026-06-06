@@ -60,6 +60,7 @@ services:
       - BACKEND_PORT=${BACKEND_PORT:-8443}  # mock backend runs non-root on 8443
       - ENVIRONMENT=${ENVIRONMENT:-development}
       - JA4PROXY_TRACE=${JA4PROXY_TRACE:-false}
+      - JA4PROXY_FORENSIC=${JA4PROXY_FORENSIC:-false}
     networks:
       - ja4proxy-dmz
       - ja4proxy-data
@@ -148,6 +149,7 @@ services:
     # No host port exposure — internal to ja4proxy-origin only
     environment:
       - PYTHONDONTWRITEBYTECODE=1
+      - JA4PROXY_FORENSIC=${JA4PROXY_FORENSIC:-false}
     networks:
       - ja4proxy-origin
     security_opt:
