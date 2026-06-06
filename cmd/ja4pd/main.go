@@ -46,6 +46,14 @@ import (
 	webhook "github.com/seanpor/ja4proxy/internal/webhook"
 )
 
+// bufferPool recycles 32KB buffers to reduce GC pressure.
+var bufferPool = sync.Pool{
+	New: func() interface{} {
+		b := make([]byte, 32768)
+		return &b
+	},
+}
+
 func main() {
 	cfgPath := os.Getenv("CONFIG_PATH")
 	if cfgPath == "" {
@@ -471,7 +479,9 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 	}()
 
 	// Peek at first 5 bytes to detect TLS
-	buf := make([]byte, cfg.Proxy.BufferSize)
+	bp := bufferPool.Get().(*[]byte)
+	buf := *bp
+	defer bufferPool.Put(bp)
 	clientConn.SetReadDeadline(time.Now().Add(time.Duration(cfg.Proxy.ReadTimeout) * time.Second))
 	n, err := clientConn.Read(buf)
 	t1 = time.Now()

@@ -2418,7 +2418,7 @@ phases:
     summary: Adds a dependency-free meta-lint guard asserting every help-advertised target exists, every prerequisite/$(MAKE) sub-call resolves, .PHONY is sane, and the light umbrellas exclude heavy benchmarks. Repaired a literal-\n corruption (commit 30f28c2) that had silently commented out scan/scan-all/scan-container/scan-local/check-updates-* targets; created the remaining doc/lint/ops targets; added bench-all/verify-all; fixed bare-python recipes. Added a shared pre-push hook (make ci-verify) so Makefile/CI breakage is caught before push. 'make lint scan test' now runs the full gate minus heavy benchmarks.
   160:
     name: High-Concurrency Throughput Unblocking
-    status: PROPOSED
+    status: COMPLETE
     action_plan: docs/phases/PHASE_160.md
     summary: Unblocks the 350 CPS bottleneck by implementing 'sync.Pool' buffer recycling and refactoring the security pipeline for asynchronous background scoring with a local LRU cache.
   225:

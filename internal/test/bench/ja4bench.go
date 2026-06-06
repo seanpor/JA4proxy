@@ -246,18 +246,13 @@ func runProfile(ctx context.Context, host string, isGood bool, rate, workers int
 				case <-ctx.Done():
 					return
 				case <-ticker.C:
-				t1 := time.Now()
+				startDial := time.Now()
 				conn, err := tls.DialWithDialer(&net.Dialer{Timeout: 2*time.Second}, "tcp", host, conf)
-				t7 := time.Now()
 				if err == nil {
-					if os.Getenv("JA4PROXY_FORENSIC") == "true" {
-						_, lport, _ := net.SplitHostPort(conn.LocalAddr().String())
-						fmt.Printf("TRACE [C] port=%s T1=%d T7=%d\n", lport, t1.UnixNano(), t7.UnixNano())
-					}
 					conn.Write([]byte("GET /health HTTP/1.1\r\nHost: backend\r\nConnection: close\r\n\r\n"))
 					io.Copy(io.Discard, conn)
 					conn.Close()
-					res.Record(isGood, true, t7.Sub(t1), nil)
+					res.Record(isGood, true, time.Since(startDial), nil)
 				} else {
 					res.Record(isGood, false, 0, err)
 				}
