@@ -2416,3 +2416,28 @@ phases:
     status: COMPLETE
     action_plan: docs/phases/PHASE_224.md
     summary: Adds a dependency-free meta-lint guard asserting every help-advertised target exists, every prerequisite/$(MAKE) sub-call resolves, .PHONY is sane, and the light umbrellas exclude heavy benchmarks. Repaired a literal-\n corruption (commit 30f28c2) that had silently commented out scan/scan-all/scan-container/scan-local/check-updates-* targets; created the remaining doc/lint/ops targets; added bench-all/verify-all; fixed bare-python recipes. Added a shared pre-push hook (make ci-verify) so Makefile/CI breakage is caught before push. 'make lint scan test' now runs the full gate minus heavy benchmarks.
+  225:
+    name: Hermetic Tooling & make doctor Accuracy
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_225.md
+    summary: Run version-sensitive tools (trivy, hadolint, gitleaks, codespell, markdownlint, amtool, the 3.14 Python linters) in pinned containers instead of relying on the host, and make 'make doctor' report accurately (blocking vs informational). The PHASE_224 meta-lint guard stays host-only by design.
+  226:
+    name: CI Quality-Gate Remediation
+    status: COMPLETE
+    action_plan: docs/phases/PHASE_226.md
+    summary: Made the full CI workflow honestly green. De-suppressed the scan gates (scan-container was a no-op; scan-images/scan-first-party never failed on CRITICAL), patched real image CVEs via apt/apk upgrade, bumped grafana 13.0.1->13.0.2 (pgx CVE-2026-33816), ran mockbackend non-root on 8443, fixed the GOROOT/dev-path/pip-audit CI breakages, and replaced the 23-CVE blanket .trivyignore with 3 justified 14-day exceptions for no-fix perl CVEs plus 'make scan-exceptions' and a runbook. Perl exceptions retire with Phase 229.
+  227:
+    name: Scan & Build Caching
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_227.md
+    summary: Cache the Trivy DB and shared base-image layers so 'make scan' (~6 min) stops re-pulling the same data once per image; buildx layer cache + a defined DB-cache TTL.
+  228:
+    name: Human-Readable Scan Summaries
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_228.md
+    summary: Parse machine-readable scanner output (trivy/gosec JSON) into a compact per-image PASS/FAIL summary so scan/lint results are readable at a glance; raw detail kept available (summarize, not suppress).
+  229:
+    name: Base-Image Consolidation & Consistent Pinning
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_229.md
+    summary: Reduce base-image sprawl (golang 1.25.10 vs 1.26.4; python:3.14-slim pinned in 4 places but unpinned in 6) to one digest-pinned version per ecosystem, with a guard against unpinned/off-list FROM lines. Also moves analytics/tarpit to a perl-free base to retire the Phase 226 perl exceptions.
