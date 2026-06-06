@@ -2407,8 +2407,8 @@ phases:
     action_plan: docs/phases/complete/PHASE_158.md
     summary: Modernizes the LaTeX-based PDF brochure to reflect the v2.0.0 Go-native architecture, elite latency metrics (272ns), and production-ready status, ensuring a professional enterprise-grade narrative.
   159:
-    name: Radical Performance Investigation & Optimization
-    status: PROPOSED
+    name: Radical Performance Investigation — "The 10k Mission"
+    status: IN_PROGRESS
     action_plan: docs/phases/PHASE_159.md
     summary: Conducts a forensic hop-by-hop latency investigation to identify the bottleneck limiting end-to-end throughput to ~350 CPS. Includes deep Go profiling (pprof), infrastructure audit, and infrastructure optimization to bridge the gap between 272ns core latency and system-wide performance.
   224:
