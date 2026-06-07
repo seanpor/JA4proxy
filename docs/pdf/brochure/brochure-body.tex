@@ -2,14 +2,14 @@
 %% Body content for brochure.tex (tufte-handout, A4)
 %% Revised for v2.0.0 Go-Native Release
 
-% ─────────────────────────────────────────────────────────────────────────────
-\section{The Problem: Bots Don\u0027t Look Like Bots Anymore}
+% -----------------------------------------------------------------------------
+\section{The Problem: Bots Don't Look Like Bots Anymore}
 \index{bots!modern evasion}\index{SSL inspection}\index{compliance}
-% ─────────────────────────────────────────────────────────────────────────────
+% -----------------------------------------------------------------------------
 
 \newthought{A credential-stuffing campaign looks identical to human login traffic}
 at the HTTP layer. The requests are syntactically valid. The user-agent strings are
-plausible. Your CDN\u0027s bot-score misses it because the attacker rotates IP addresses
+plausible. Your CDN's bot-score misses it because the attacker rotates IP addresses
 faster than reputation feeds update.
 
 \sidenote{The Verizon DBIR consistently shows that credential abuse accounts for
@@ -23,16 +23,16 @@ and GDPR all restrict access to decrypted traffic. \ja{} solves this by
 enforcing security \emph{before} decryption, operating directly on the
 ClientHello handshake.
 
-% ─────────────────────────────────────────────────────────────────────────────
+% -----------------------------------------------------------------------------
 \section{The JA4 Insight}
 \index{JA4!fingerprint}\index{TLS!ClientHello}
-% ─────────────────────────────────────────────────────────────────────────────
+% -----------------------------------------------------------------------------
 
 \newthought{Before a single byte of encrypted data is exchanged,} every TLS client
 announces its capabilities in cleartext. This announcement --- the ClientHello ---
 contains the TLS version, cipher suites, and extensions (SNI, ALPN).
 
-Because this information reflects the client\u0027s TLS stack, it is remarkably
+Because this information reflects the client's TLS stack, it is remarkably
 stable. Sliver 1.5.x produces the same ClientHello whether it is running from
 Frankfurt or Tokyo. Upgrading the \emph{payload} has no effect on the fingerprint.
 
@@ -56,10 +56,10 @@ throughput of \textbf{3.6 million connections per second} per core.}
            field; C2 frameworks typically do not.}
 \end{table}
 
-% ─────────────────────────────────────────────────────────────────────────────
+% -----------------------------------------------------------------------------
 \section{Architecture: The Ultra-Lite Go Engine}
 \index{architecture}\index{Go-native}
-% ─────────────────────────────────────────────────────────────────────────────
+% -----------------------------------------------------------------------------
 
 \newthought{\ja{} v2.0.0 is a pure Go-native implementation} designed for
 extreme resource efficiency and sub-microsecond latency. The system is
@@ -76,34 +76,34 @@ distributed as exactly two binaries:
 starts in under \textbf{50 ms}, making it ideal for containerised auto-scaling
 environments.}
 
-% ─────────────────────────────────────────────────────────────────────────────
+% -----------------------------------------------------------------------------
 \section{High-Performance Observability}
 \index{observability}\index{p99 latency}
-% ─────────────────────────────────────────────────────────────────────────────
+% -----------------------------------------------------------------------------
 
-\newthought{Ops teams require more than \emph{average} latency metrics.} \ja{}
-surfaces p99 tail latency in real-time, ensuring that security enforcement never
-causes intermittent jitters for legitimate users.
+\newthought{Visibility should not come at the cost of performance.} \ja{} includes
+integrated real-time metrics for Prometheus and Grafana, providing granular
+visibility into the security waterfall.
 
 \begin{table}[ht]
   \small
-  \begin{tabularx}{\linewidth}{L{3.8cm} R{2.2cm} R{2.2cm}}
+  \begin{tabularx}{\linewidth}{L{3.5cm} R{2.5cm} R{2.5cm}}
     \toprule
-    \textbf{Traffic Profile} & \textbf{p99 Latency} & \textbf{CPU Impact} \\
+    \textbf{Observation} & \textbf{Latency (p99)} & \textbf{CPU Impact} \\
     \midrule
-    \bypassrow{Whitelisted (Fast Path)} & \textbf{272 ns} & < 1\% \\[3pt]
-    \signalrow{Scored (Standard Path)}  & \textbf{2.3 \u03bcs} & < 2\% \\[3pt]
-    \signalrow{Adversarial (JA4X)}      & \textbf{6.0 \u03bcs} & < 5\% \\
+    \signalrow{Bypassed (Fast Path)}   & \textbf{272 ns} & < 0.1\% \\[3pt]
+    \signalrow{Scored (Standard Path)}  & \textbf{2.3 $\mu$s} & < 2\% \\[3pt]
+    \signalrow{Adversarial (JA4X)}      & \textbf{6.0 $\mu$s} & < 5\% \\
     \bottomrule
   \end{tabularx}
-  \caption{Go-native performance matrix. Measurements taken on commodity
+  \caption{Measured processing overhead per connection on reference
            server hardware (Intel i9-9900K).}
 \end{table}
 
-% ─────────────────────────────────────────────────────────────────────────────
+% -----------------------------------------------------------------------------
 \section{Ready for Enterprise}
 \index{production-ready}\index{v2.0.0}
-% ─────────────────────────────────────────────────────────────────────────────
+% -----------------------------------------------------------------------------
 
 \newthought{\ja{} v2.0.0 is production-certified} for high-traffic DMZ
 deployments. The system includes integrated cluster synchronization,

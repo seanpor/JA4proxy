@@ -1,14 +1,8 @@
+.PHONY: all bench-all build bump-build ci-verify clean cli-build doc-health doctor go-build help help-dev help-legacy help-lint help-ops help-scan init install-hooks ja4p-validate link-check lint lint-ansible lint-docs lint-phases lint-semgrep logs management-down management-logs management-shell management-up rebuild reload sbom scan scan-exceptions scorecard-local setup-build start start-poc status stop sync test test-component-suites test-ip test-ratio tunnel verify-all
 PYTHON ?= $(shell command -v python || command -v python3 || echo python)
 GO ?= $(shell command -v go || echo go)
 
 # ── Phony targets ─────────────────────────────────────────────────────────────
-.PHONY: all help doctor reload lint scan test start start-poc stop status logs
-.PHONY: help-ops help-lint help-scan help-dev help-legacy
-.PHONY: build rebuild clean cli-build init bump-build
-.PHONY: sync sbom scorecard-local
-.PHONY: doc-health lint-docs link-check lint-phases lint-semgrep lint-ansible
-.PHONY: scan-exceptions
-.PHONY: go-build cli-build test-ip ja4p-validate setup-build
 
 # ── Build Metadata ────────────────────────────────────────────────────────────
 VERSION ?= $(shell cat VERSION 2>/dev/null || echo "2.0")
@@ -1219,7 +1213,6 @@ cli-build: ## Build the unified ja4p CLI tool
 	$(GO) build $(LDFLAGS) -o bin/ja4p ./cmd/ja4p
 	@echo "✓ bin/ja4p"
 
-.PHONY: ci-verify install-hooks
 
 ci-verify: ## Fast CI mirror: the deterministic checks GitHub Actions gates on (no Docker/network)
 	@$(MAKE) lint-meta
@@ -1228,7 +1221,6 @@ install-hooks: ## Install shared git hooks (pre-push runs `make ci-verify`)
 	@git config core.hooksPath .githooks
 	@echo "✓ git hooks installed: core.hooksPath=.githooks (pre-push runs 'make ci-verify')"
 
-.PHONY: tunnel management-up management-down management-logs management-shell test-ratio test-component-suites
 
 tunnel: ## Print the SSH local-forward command for an agent stack (NAME=, HOST=)
 	@[ -n "$(NAME)" ] || { echo "Usage: make tunnel NAME=<agent> HOST=user@server"; exit 1; }
@@ -1279,7 +1271,6 @@ test-ratio: ## Show the test-to-code ratio
 test-component-suites: ## Run every component test suite (unit, chaos, adversarial)
 	@$(MAKE) test-unit test-chaos test-adversarial
 
-.PHONY: bench-all verify-all
 
 bench-all: ## Run every heavy benchmark (perf, load, go-perf, MTTR) — slow, runs alone
 	@echo "=== bench-all: heavy benchmarks (excluded from 'make lint scan test') ==="
