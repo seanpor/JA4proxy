@@ -352,6 +352,8 @@ Alignment with international standards and regulatory frameworks.
 | 227 | Scan & Build Caching | COMPLETE | N/A | N/A |
 | 228 | Human-Readable Scan Summaries | COMPLETE | N/A | N/A |
 | 229 | Base-Image Consolidation & Consistent Pinning | COMPLETE | N/A | N/A |
+| 300 | Environment Variable Audit | PROPOSED | N/A | N/A |
+| 301 | Environment Template Remediation | PROPOSED | N/A | N/A |
 
 ---
 
