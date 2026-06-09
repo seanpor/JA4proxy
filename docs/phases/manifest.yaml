@@ -2474,3 +2474,10 @@ phases:
     dependencies: [300]
     size: SMALL
     summary: 'Apply PHASE_300 findings to template.env: add HAPROXY_STATS_USER/PASSWORD placeholders with generation guidance, delete the orphan .env.example, add an optional commented threat-intel/tuning block. Goal: cp template.env .env boots the full stack (incl. monitoring) with no required-variable errors. template.env only — never the git-ignored .env.'
+  302:
+    name: Repository Security Settings & Dependabot Automation
+    status: COMPLETE
+    action_plan: docs/phases/PHASE_302.md
+    dependencies: []
+    size: SMALL
+    summary: 'Enabled GitHub security aids (Dependabot alerts + security updates, private vulnerability reporting via gh api) and made them low-effort under branch protection: a SHA-pinned dependabot-automerge.yml auto-merges patch/minor Dependabot PRs once the 10 required checks pass (majors stay manual), and dependabot.yml throttled weekly->monthly. Operator UI toggles documented (CodeQL default setup; secret-scanning validity checks — API no-op).'

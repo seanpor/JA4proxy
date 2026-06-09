@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- **Repository security aids enabled + automated (Phase 302)**: turned on Dependabot **alerts** + **security updates** and **private vulnerability reporting**. To keep these low-effort under branch protection, added a SHA-pinned `dependabot-automerge.yml` that auto-merges Dependabot **patch/minor** PRs once the 10 required checks pass (majors stay manual), and throttled `dependabot.yml` weekly → monthly. Two UI-only toggles documented for the operator (CodeQL "Default setup"; secret-scanning validity checks).
+
 ### Fixed
 - **Env template completeness (Phase 301)**: added `HAPROXY_STATS_USER`/`HAPROXY_STATS_PASSWORD` (compose-`required`, previously absent) to `template.env` with generation guidance, so `cp template.env .env` boots the full stack incl. monitoring. Deleted the orphan `.env.example` (unreferenced, shipped weak `changeme` defaults). Added an optional commented threat-intel block. (Audit: Phase 300.)
 - **Housekeeping**: fixed the `manifest.yaml` `action_plan` path for Phase 160 (`docs/phases/` → `docs/phases/complete/PHASE_160.md`) — `make lint-phases` is now fully clean (0 violations); repaired literal-`\n` corruption in `scripts/perf-matrix.sh` (the whole script was one line); resolved committed merge-conflict markers left in `PHASE_201/202/203.md` (kept the canonical HEAD content).
