@@ -8,6 +8,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Security
+- **CodeQL code-scanning triage (Phase 305)**: worked through the 14 CodeQL
+  Python findings (+1 Go bench) that enabling code scanning (Phase 302)
+  surfaced. **Three were genuine, all in the Management-API web layer** and are
+  now **fixed with regression tests** (`management/tests/test_codeql_305_regression.py`):
+  a **reflected XSS** in `/api/v1/partials/list-table` (the unvalidated `list`
+  query param was interpolated raw into HTML — now `html.escape`-d), and
+  **error-detail exposure** (`str(exc)` of a Redis failure returned to the
+  client) in `/health/deep` and the **unauthenticated** `/ready` (now logged
+  server-side, generic reason to the caller). The two test TLS servers
+  (`scripts/mock-backend.py`, `tests/docker/tls_backend.py`) were **hardened**
+  with an explicit `TLS 1.2` floor — clearing `py/insecure-protocol`
+  *legitimately* rather than by dismissal. The remainder were **verified false
+  positives** (`redis_client` logs the *redacted* URL — sanitizer confirmed;
+  the OIDC/SAML redirect targets are a hardcoded `"/"`; `auth.py` logs a config
+  CIDR, not a secret; the Splunk action never logs its token) or **intentional
+  test tooling** (the legacy-TLS *generators* exist to exercise the proxy's
+  fingerprint detection; the bind-all capture helper; the bench
+  `InsecureSkipVerify` against the self-signed mock) — each dismissed
+  per-alert with a code-backed justification in the GitHub audit trail, **no
+  blanket rule suppression**. The Go production proxy produced no genuine
+  code-scanning bug.
 - **Dependency CVE remediation (Phase 304)**: triaged the 118 alerts that
   enabling Dependabot + CodeQL (Phase 302) surfaced — the real, fixable,
   *production* findings are concentrated in the Python Management-API auth stack;
