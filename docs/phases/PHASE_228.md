@@ -1,21 +1,33 @@
 ---
 phase: 228
 title: Human-Readable Scan Summaries
-status: IN_PROGRESS
+status: COMPLETE
 size: SMALL
 created: 2026-06-06
+completed: 2026-06-09
 audience: [developer, operator]
 ---
 
-> **Progress — Trivy image summary (DONE 2026-06-09).** `scripts/scan_summary.py`
-> (stdlib-only) runs Trivy in JSON mode for each image (reusing the Phase 227
-> `TRIVY_CACHE`) and prints a one-row-per-image CRIT/HIGH/MED table with a
-> verdict + rollup, via `make scan-summary`. It is reporting-only — `make scan`
-> stays the gate — and is unit-tested (`tests/unit/test_scan_summary.py`).
+> **Outcome (COMPLETE — 2026-06-09).** `scripts/scan_summary.py` (stdlib-only,
+> unit-tested) turns the scan blur into compact tables, and `make scan-summary`
+> prints two gate-consistent rollups:
+> - **Image CVEs (Trivy):** one CRIT/HIGH/MED row per third/first-party image
+>   (reuses the Phase 227 `TRIVY_CACHE`).
+> - **gosec (Go SAST):** one HIGH/MED/LOW row (built from the pinned
+>   `security-scan` image, `gosec -fmt json`).
 >
-> **Remaining.** Fold in the gosec JSON summary and a `make lint` rollup so the
-> same at-a-glance view covers the misconfig + SAST + multi-linter output, not
-> just third/first-party image CVEs.
+> Both are reporting-only — `make scan` stays the authoritative gate — and their
+> verdicts match the gate's severity thresholds.
+>
+> **Deliberate scope decisions:**
+> - A `misconfig` mode exists in the script (and is tested) but is **not**
+>   auto-run by `make scan-summary`: a whole-directory Trivy `config` scan is
+>   broader than `scan-dockerfiles` (which gates a specific file list), so wiring
+>   it would report FAIL for files the gate never checks — contradicting a green
+>   `make scan`. It is documented for manual use instead.
+> - A `make lint` rollup was **descoped**: unlike the scan tables, `make lint`
+>   already prints a short, clear per-target ✓/✗ status, so it is not the "blur"
+>   this phase targeted. Revisit only if lint output grows unwieldy.
 ---
 
 # Human-Readable Scan Summaries

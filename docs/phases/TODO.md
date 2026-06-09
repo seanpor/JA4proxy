@@ -15,10 +15,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **IN_PROGRESS** (DONE: 'make doctor' rewritten to separate required host tools (docker, Go, python3 — hard-fail) from informational notes (Python 3.10-vs-3.14, optional host lint/scan tools) so it no longer falsely warns about tools that run in CI/containers. REMAINING: actually run the five host-only tools (hadolint/gitleaks/codespell/markdownlint/amtool) in pinned containers and pin the Python linters to a 3.14 image. The PHASE_224 meta-lint guard stays host-only by design.)
 *   **Action Plan:** [PHASE_225.md](PHASE_225.md)
 
-### Phase 228 — Human-Readable Scan Summaries
-*   **Status:** **IN_PROGRESS** (Parse machine-readable scanner output (trivy/gosec JSON) into a compact per-image PASS/FAIL summary so scan/lint results are readable at a glance; raw detail kept available (summarize, not suppress).)
-*   **Action Plan:** [PHASE_228.md](PHASE_228.md)
-
 ---
 
 ## 🔵 Planned & Open Phases
