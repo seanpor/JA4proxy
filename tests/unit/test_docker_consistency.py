@@ -81,23 +81,32 @@ def iter_env_entries(compose: dict) -> list[tuple[str, str]]:
 
 
 # ---------------------------------------------------------------------------
-# 89a — Python base image must be exactly python:3.14.0-slim
+# 89a — Python base image must be patch-pinned 3.14.0 (slim or alpine)
 # ---------------------------------------------------------------------------
 
 
 class TestPythonBaseImage:
-    """89a: All python: tags must be exactly 3.14.0-slim."""
+    """89a: All python: tags must be the patch-pinned 3.14.0 base.
+
+    Both ``-slim`` (Debian) and ``-alpine`` are allowed: Phase 229 moved the
+    analytics/tarpit images to ``python:3.14.0-alpine`` to drop Debian's perl
+    (no-fix perl CVEs). The invariant that still matters is the **patch pin**
+    (3.14.0), so floating tags like ``3.14-slim`` remain rejected.
+    """
+
+    _ALLOWED = ("python:3.14.0-slim", "python:3.14.0-alpine")
 
     @pytest.mark.parametrize("df_path,lines", collect_dockerfiles())
     def test_python_tag_is_pinned(self, df_path: Path, lines: list[str]):
-        """Any FROM python:* must use exactly python:3.14.0-slim."""
+        """Any FROM python:* must use python:3.14.0-{slim,alpine} (patch-pinned)."""
         for lineno, image_ref in collect_from_lines(lines):
             if not image_ref.startswith("python:"):
                 continue
-            assert image_ref.startswith("python:3.14.0-slim"), (
+            assert image_ref.startswith(self._ALLOWED), (
                 f"{df_path}:{lineno} — "
-                f"expected FROM python:3.14.0-slim, got FROM {image_ref}. "
-                f"Tags like '3.11-slim' or '3.14-slim' (without patch version) are rejected."
+                f"expected FROM python:3.14.0-slim or python:3.14.0-alpine, got "
+                f"FROM {image_ref}. Floating tags like '3.14-slim' (without patch "
+                f"version) are rejected."
             )
 
 

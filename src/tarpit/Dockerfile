@@ -1,15 +1,17 @@
-FROM python:3.14.0-slim
+FROM python:3.14.0-alpine
 LABEL dockerfile.location="module" \
       dockerfile.module="tarpit" \
       dockerfile.build-context="module-local"
 
-# Patch base-image OS packages (openssl, perl, etc.) to clear known CVEs.
-RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
+# Alpine base (Phase 229): no Debian perl-base, so the no-fix perl CVEs
+# (CVE-2026-42496 / -8376) that required .trivyignore exceptions are gone.
+# Patch remaining OS packages to clear known CVEs.
+RUN apk upgrade --no-cache
 
 RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked \
     pip install prometheus_client
 
-RUN useradd -r -s /bin/false tarpit
+RUN adduser -D -H -s /sbin/nologin tarpit
 USER tarpit
 
 COPY tarpit-server.py /app/tarpit-server.py

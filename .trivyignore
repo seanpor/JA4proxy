@@ -2,42 +2,28 @@
 # Trivy scan exceptions — JUSTIFIED, TIME-WINDOWED only.   (policy: Phase 226)
 # =============================================================================
 #
+# There are currently NO active exceptions: the no-fix perl CVEs that previously
+# needed entries here were removed by Phase 229 (analytics/tarpit moved to a
+# perl-free alpine base). `make scan` passes with this file empty of entries.
+#
 # HOW THIS WORKS
 #   `make scan` passes each finding listed here to Trivy's --ignorefile, so a
 #   listed CVE no longer fails the gate UNTIL its `exp:` date, after which Trivy
 #   stops ignoring it and the scan fails again — forcing a re-review.
 #   Run `make scan-exceptions` to list every entry with days-remaining.
 #
-# RULES (enforced by review, surfaced by `make scan-exceptions`)
+# RULES
 #   1. NO blanket ignores. One entry per CVE, only when there is genuinely no
 #      fix available (anything fixable is patched via apt/apk upgrade instead).
-#   2. Every entry MUST have:
-#        - a comment block (lines starting with '#') directly above it stating
-#          WHY there is no fix and WHY it is not exploitable in our images;
-#        - an inline expiry: `CVE-XXXX-NNNNN exp:YYYY-MM-DD`.
-#   3. Maximum window is 14 days. Pick exp: = today + 14d so exceptions are
-#      re-justified often and never quietly become permanent.
+#   2. Every entry MUST have a '#' comment block directly above it (WHY no fix +
+#      WHY not exploitable here) and an inline expiry `CVE-XXXX exp:YYYY-MM-DD`.
+#   3. Maximum window is 14 days (today + 14d) so exceptions never quietly
+#      become permanent.
 #
 # OPERATOR: ADD / EDIT / DELETE
-#   ADD    — append a '#' comment block (why no-fix + why safe) then the
-#            `CVE-... exp:<today+14d>` line.
+#   ADD    — append a '#' comment block then `CVE-... exp:<today+14d>`.
 #   EDIT   — change the `exp:` date (re-justify in the comment) when extending.
-#   DELETE — remove the comment block + the CVE line once a fix is available
-#            (and rely on apt/apk upgrade to clear it) or the risk is resolved.
-#   Verify with `make scan-exceptions` (warns on expired / soon-to-expire).
+#   DELETE — remove the comment block + CVE line once fixed or resolved.
+#   Verify with `make scan-exceptions`. Full guide:
+#   docs/runbooks/security_scan_exceptions.md
 # =============================================================================
-
-# CVE-2026-42496 (CRITICAL) / CVE-2026-42497 (HIGH) — perl-archive-tar path
-# traversal (Archive::Tar < 3.08) in perl-base on python:3.14-slim (analytics,
-# tarpit). No fix: Debian trixie marks it fix_deferred (no patched package).
-# Not exploitable here: our services are Python/Go and never invoke Archive::Tar
-# on untrusted input; perl-base is only a transitive base package.
-# Real fix: Phase 229 (perl-free base). Re-review at expiry.
-CVE-2026-42496 exp:2026-06-20
-CVE-2026-42497 exp:2026-06-20
-
-# CVE-2026-8376 (CRITICAL) — Perl interpreter heap buffer overflow (Perl
-# <= 5.43.10) in perl-base on python:3.14-slim (analytics, tarpit). No fix:
-# Debian marks perl-base `affected` with no fixed version. Not exploitable here:
-# we never execute the perl interpreter on untrusted input. Real fix: Phase 229.
-CVE-2026-8376 exp:2026-06-20
