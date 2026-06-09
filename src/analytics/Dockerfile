@@ -1,7 +1,7 @@
 # Analytics Node Dockerfile
 # Phase 12a: Foundation · Phase 229: alpine base (perl-free)
 
-FROM python:3.14.0-alpine
+FROM python:3.14.0-alpine@sha256:8373231e1e906ddfb457748bfc032c4c06ada8c759b7b62d9c73ec2a3c56e710
 LABEL dockerfile.location="module" \
       dockerfile.module="src/analytics" \
       dockerfile.build-context="root"

@@ -2443,6 +2443,6 @@ phases:
     summary: Parse machine-readable scanner output (trivy/gosec JSON) into a compact per-image PASS/FAIL summary so scan/lint results are readable at a glance; raw detail kept available (summarize, not suppress).
   229:
     name: Base-Image Consolidation & Consistent Pinning
-    status: PROPOSED
+    status: COMPLETE
     action_plan: docs/phases/PHASE_229.md
-    summary: Reduce base-image sprawl (golang 1.25.10 vs 1.26.4; python:3.14-slim pinned in 4 places but unpinned in 6) to one digest-pinned version per ecosystem, with a guard against unpinned/off-list FROM lines. Also moves analytics/tarpit to a perl-free base to retire the Phase 226 perl exceptions.
+    summary: Moved analytics & tarpit to a perl-free python:3.14.0-alpine base (digest-pinned), retiring all three Phase 226 perl .trivyignore exceptions (scan green with zero exceptions). Aligned the drifted security-scan image from golang:1.25.10 to the single pinned golang:1.26.4-alpine@digest used everywhere else. test_docker_consistency updated to accept patch-pinned slim or alpine. Remaining hardening (digest-pin the tests/docker fixtures, a strict no-unpinned-FROM guard) noted for follow-up.
