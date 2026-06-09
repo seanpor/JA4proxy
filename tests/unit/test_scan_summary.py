@@ -65,3 +65,59 @@ def test_format_table_empty_rows():
     # No images scanned (e.g. nothing built) must not crash.
     table = scan_summary.format_table([])
     assert "TOTAL" in table
+
+
+# --- Phase 228 part 2: gosec + misconfig ------------------------------------
+
+GOSEC_SAMPLE = {
+    "Issues": [
+        {"severity": "HIGH", "rule_id": "G402"},
+        {"severity": "MEDIUM", "rule_id": "G104"},
+        {"severity": "medium", "rule_id": "G104"},   # case-insensitive
+        {"severity": "LOW", "rule_id": "G101"},
+        {"severity": "INFO"},                          # untracked, ignored
+    ],
+    "Stats": {"found": 5},
+}
+
+MISCONFIG_SAMPLE = {
+    "Results": [
+        {"Misconfigurations": [
+            {"Severity": "HIGH", "ID": "DS-0002"},
+            {"Severity": "MEDIUM", "ID": "DS-0026"},
+        ]},
+        {"Misconfigurations": None},
+        {"Vulnerabilities": [{"Severity": "CRITICAL"}]},  # not a misconfig — ignored
+    ]
+}
+
+
+def test_count_gosec():
+    assert scan_summary.count_gosec(GOSEC_SAMPLE) == {"HIGH": 1, "MEDIUM": 2, "LOW": 1}
+
+
+def test_count_gosec_empty():
+    assert scan_summary.count_gosec({}) == {"HIGH": 0, "MEDIUM": 0, "LOW": 0}
+
+
+def test_count_misconfig_ignores_vulnerabilities():
+    assert scan_summary.count_misconfig(MISCONFIG_SAMPLE) == {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 1}
+
+
+@pytest.mark.parametrize("counts,fail,warn,expected", [
+    ({"HIGH": 1, "MEDIUM": 0, "LOW": 0}, ("HIGH",), ("MEDIUM",), "FAIL"),   # gosec HIGH = FAIL
+    ({"HIGH": 0, "MEDIUM": 2, "LOW": 0}, ("HIGH",), ("MEDIUM",), "WARN"),
+    ({"CRITICAL": 0, "HIGH": 1}, ("CRITICAL", "HIGH"), (), "FAIL"),         # misconfig HIGH = FAIL
+])
+def test_verdict_parameterized(counts, fail, warn, expected):
+    assert scan_summary.verdict(counts, fail=fail, warn=warn) == expected
+
+
+def test_format_table_gosec_columns():
+    v = lambda c: scan_summary.verdict(c, fail=("HIGH",), warn=("MEDIUM",))  # noqa: E731
+    table = scan_summary.format_table(
+        [("gosec", {"HIGH": 1, "MEDIUM": 0, "LOW": 2})],
+        scan_summary.GOSEC_SEVS, v, name_header="SCAN",
+    )
+    assert "SCAN" in table and "LOW" in table and "CRIT" not in table
+    assert "FAIL" in table  # HIGH present
