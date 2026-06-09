@@ -58,3 +58,11 @@ This document tracks the remaining work for both historical phases (gaps identif
 ### Phase 120 — Independent Red Team Findings: Design Flaws, Infrastructure & Logic Bugs (RETIRED)
 *   **Status:** **DEFERRED** (Retired 2026-04-19 under Phase 121e as duplicate of Phase 119. All 20 findings were either duplicates of 119 entries or already folded into the canonical findings register (docs/security/findings.yaml) with remediation_phases pointing at 119 or its successor phases. See PHASE_120.md redirect stub.)
 *   **Action Plan:** [cancelled/PHASE_120.md](cancelled/PHASE_120.md)
+
+### Phase 300 — Environment Variable Audit
+*   **Status:** **PROPOSED** (Audit env vars referenced by code + Docker Compose against the canonical template.env (NOT the orphan .env.example). Finding: template.env is largely complete; the one genuine gap is HAPROXY_STATS_USER/PASSWORD (compose-required and wizard-generated but absent from template.env), and the stale, unreferenced .env.example should be deleted. Local git-ignored .env items are out of scope.)
+*   **Action Plan:** [PHASE_300.md](PHASE_300.md)
+
+### Phase 301 — Environment Template Remediation
+*   **Status:** **PROPOSED** (Apply PHASE_300 findings to template.env: add HAPROXY_STATS_USER/PASSWORD placeholders with generation guidance, delete the orphan .env.example, add an optional commented threat-intel/tuning block. Goal: cp template.env .env boots the full stack (incl. monitoring) with no required-variable errors. template.env only — never the git-ignored .env.)
+*   **Action Plan:** [PHASE_301.md](PHASE_301.md)
