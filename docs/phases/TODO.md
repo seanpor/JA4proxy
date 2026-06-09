@@ -66,7 +66,3 @@ This document tracks the remaining work for both historical phases (gaps identif
 ### Phase 228 — Human-Readable Scan Summaries
 *   **Status:** **PROPOSED** (Parse machine-readable scanner output (trivy/gosec JSON) into a compact per-image PASS/FAIL summary so scan/lint results are readable at a glance; raw detail kept available (summarize, not suppress).)
 *   **Action Plan:** [PHASE_228.md](PHASE_228.md)
-
-### Phase 229 — Base-Image Consolidation & Consistent Pinning
-*   **Status:** **PROPOSED** (Reduce base-image sprawl (golang 1.25.10 vs 1.26.4; python:3.14-slim pinned in 4 places but unpinned in 6) to one digest-pinned version per ecosystem, with a guard against unpinned/off-list FROM lines. Also moves analytics/tarpit to a perl-free base to retire the Phase 226 perl exceptions.)
-*   **Action Plan:** [PHASE_229.md](PHASE_229.md)

@@ -1,10 +1,27 @@
 ---
 phase: 229
 title: Base-Image Consolidation & Consistent Pinning
-status: PROPOSED
+status: COMPLETE
 size: SMALL
 created: 2026-06-06
+completed: 2026-06-09
 audience: [developer, operator]
+---
+
+> **Outcome (COMPLETE — 2026-06-09).** Primary goal achieved: analytics & tarpit
+> moved to a **perl-free** `python:3.14.0-alpine@sha256:8373…` base, so the three
+> Phase 226 no-fix perl `.trivyignore` exceptions were **deleted** — `make scan`
+> is green with zero active exceptions (CI run 80267600210). `entrypoint.sh` →
+> POSIX sh (alpine has no bash); analytics numpy compiles via a virtual
+> build-deps package removed after install (runtime has no perl/compilers). The
+> drifted `security-scan` image was aligned from `golang:1.25.10-alpine` to the
+> shared pinned `golang:1.26.4-alpine@sha256:f23e8b…`. `test_docker_consistency`
+> now accepts a patch-pinned slim **or** alpine python base.
+>
+> **Deferred hardening (small follow-up):** the `tests/docker/*` fixture images
+> are still tag-pinned (not digest), and a strict "every FROM must be
+> digest-pinned" guard is not yet enforced (the current guard enforces the
+> patch-version pin). These don't affect the scanned production images.
 ---
 
 # Base-Image Consolidation & Consistent Pinning

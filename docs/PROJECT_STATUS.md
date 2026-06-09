@@ -5,7 +5,7 @@
 
 ## Current Status: Phase 109 (PROXY Protocol Hardening & Scrubbing) Next
 
-**Last Updated:** 2026-06-06
+**Last Updated:** 2026-06-09
 
 ## Epics & Roadmap
 
@@ -350,7 +350,7 @@ Alignment with international standards and regulatory frameworks.
 | 226 | CI Quality-Gate Remediation | COMPLETE | N/A | N/A |
 | 227 | Scan & Build Caching | PROPOSED | N/A | N/A |
 | 228 | Human-Readable Scan Summaries | PROPOSED | N/A | N/A |
-| 229 | Base-Image Consolidation & Consistent Pinning | PROPOSED | N/A | N/A |
+| 229 | Base-Image Consolidation & Consistent Pinning | COMPLETE | N/A | N/A |
 
 ---
 
