@@ -16,7 +16,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   query param was interpolated raw into HTML — now `html.escape`-d), and
   **error-detail exposure** (`str(exc)` of a Redis failure returned to the
   client) in `/health/deep` and the **unauthenticated** `/ready` (now logged
-  server-side, generic reason to the caller). The two test TLS servers
+  server-side, generic reason to the caller). A fourth pair (OIDC/SAML
+  `py/url-redirection`) was **hardened rather than dismissed**: the post-login
+  redirect target is currently a hardcoded `"/"` (no live bug), but to be
+  regression-proof a `safe_relative_redirect` guard now confines both callbacks
+  to same-site relative paths (rejects absolute / protocol-relative `//evil` /
+  backslash variants) — the textbook "don't dismiss a safe-by-constant FP,
+  harden it" case. The two test TLS servers
   (`scripts/mock-backend.py`, `tests/docker/tls_backend.py`) were **hardened**
   with an explicit `TLS 1.2` floor — clearing `py/insecure-protocol`
   *legitimately* rather than by dismissal. The remainder were **verified false

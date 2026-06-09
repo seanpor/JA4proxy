@@ -39,7 +39,10 @@ os.environ.setdefault("MANAGEMENT_ADMIN_PASSWORD", "testpassword")
 os.environ.setdefault("MANAGEMENT_TEST_MODE", "1")
 
 from management.api import redis_client as _redis_module  # noqa: E402
-from management.api.auth import _create_access_token  # noqa: E402
+from management.api.auth import (  # noqa: E402
+    _create_access_token,
+    safe_relative_redirect,
+)
 from management.api.main import create_app  # noqa: E402
 from management.api.redis_client import get_redis  # noqa: E402
 
@@ -161,3 +164,38 @@ async def test_health_deep_does_not_leak_exception_detail() -> None:
         "/health/deep leaked internal Redis connection detail to the client "
         "(py/stack-trace-exposure regression)"
     )
+
+
+# ── Open-redirect guard: safe_relative_redirect (OIDC/SAML, #89/#90) ───────────
+
+
+@pytest.mark.parametrize(
+    "hostile",
+    [
+        "https://evil.com",
+        "http://evil.com/path",
+        "//evil.com",  # protocol-relative — browsers treat as absolute
+        "/\\evil.com",  # backslash trick — some browsers normalise \ to /
+        "\\\\evil.com",
+        "javascript:alert(1)",
+        "ftp://evil.com",
+        "",
+        None,
+    ],
+)
+def test_safe_relative_redirect_rejects_offsite(hostile) -> None:
+    """Any non-same-site target collapses to the safe default '/'."""
+    assert safe_relative_redirect(hostile) == "/"
+
+
+@pytest.mark.parametrize(
+    "ok",
+    ["/", "/dashboard", "/lists?tab=ja4_whitelist", "/a/b/c"],
+)
+def test_safe_relative_redirect_allows_same_site(ok) -> None:
+    """Genuine same-site relative paths pass through unchanged."""
+    assert safe_relative_redirect(ok) == ok
+
+
+def test_safe_relative_redirect_custom_default() -> None:
+    assert safe_relative_redirect("https://evil.com", default="/home") == "/home"

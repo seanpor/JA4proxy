@@ -42,12 +42,12 @@ its own code.
 | 84 | `py/stack-trace-exposure` | `management/api/routes/health.py:126` (`/ready`, **unauth**) | 🔴 **real → fixed** |
 | 78 | `py/insecure-protocol` | `scripts/mock-backend.py:155` (test server) | 🟠 **hardened** (TLS 1.2 floor) |
 | 80 | `py/insecure-protocol` | `tests/docker/tls_backend.py:27` (test server) | 🟠 **hardened** (TLS 1.2 floor) |
+| 89 | `py/url-redirection` | `management/api/routes/oidc.py:501` | 🟠 **hardened** — same-site redirect guard (was FP-by-constant) |
+| 90 | `py/url-redirection` | `management/api/routes/saml.py:316` | 🟠 **hardened** — same-site redirect guard (was FP-by-constant) |
 | 85 | `py/clear-text-logging` | `management/api/auth.py:214` | ⚪ **FP** — logs a config CIDR, not a secret |
 | 87 | `py/clear-text-logging` | `management/api/redis_client.py:106` | ⚪ **FP** — logs the *redacted* URL |
 | 88 | `py/clear-text-logging` | `management/api/redis_client.py:110` | ⚪ **FP** — logs the *redacted* URL |
 | 86 | `py/clear-text-logging` | `deploy/.../splunk-ta/.../ja4proxy_ban_action.py:38` | ⚪ **FP** — the token is never logged |
-| 89 | `py/url-redirection` | `management/api/routes/oidc.py:501` | ⚪ **FP** — redirect target is a hardcoded `"/"` |
-| 90 | `py/url-redirection` | `management/api/routes/saml.py:316` | ⚪ **FP** — redirect target is a hardcoded `"/"` |
 | 79 | `py/insecure-protocol` | `scripts/test-bot.py:143` | 🟡 **used-in-test** — generator emits legacy TLS by design |
 | 81 | `py/insecure-protocol` | `scripts/tls-traffic-generator.py:304` | 🟡 **used-in-test** — same |
 | 77 | `py/bind-socket-all-network-interfaces` | `scripts/capture_server.py:35` | 🟡 **used-in-test** — local capture helper |
@@ -107,6 +107,25 @@ rather than by dismissal. The proxy is a passthrough, so legacy-TLS client
 profiles are exercised against the *proxy's detection*, never terminated at these
 backends — confirmed by the full management/integration suite staying green.
 
+### Open-redirect guard — OIDC & SAML callbacks (#89, #90)
+These two were *almost* dismissed as false positives: the post-login redirect
+target read back from server-side state (the OAuth state blob / the SAML
+RelayState nonce) is currently a **hardcoded `"/"`**, so there is no live open
+redirect. But "safe because the value happens to be a constant today" is a
+circumstantial safety — the day someone adds a "return to where you were"
+feature and wires a `?next=` parameter into that stored value, it silently
+becomes an open redirect (CWE-601), and a *dismissed* alert wouldn't warn them.
+
+> **Why this is a fix, not a dismissal.** The owner's standing rule is to be very
+> critical of suppression. Dismissing here would bake in the assumption "nobody
+> will ever make this user-controllable." Instead we added
+> `auth.safe_relative_redirect(target, default="/")`, applied at both callbacks:
+> it returns the target only if it's a same-site root-relative path, else `"/"`.
+> It rejects absolute URLs, protocol-relative `//evil`, and backslash variants
+> (`/\evil`) that some browsers normalise to `//`. This removes the suppression
+> entirely **and** is regression-proof — if the redirect ever does become
+> caller-influenced, the guard already contains it.
+
 ## The dismissals (each verified, not assumed)
 
 These are dismissed via `gh api … code-scanning/alerts/{n}` with the reason and
@@ -124,11 +143,10 @@ justification recorded in the GitHub audit trail (reversible in one click).
   `api_token`, which is placed in an `Authorization` header and **never passed
   to `_log`**. The `_log` calls carry IPs, HTTP status codes, and response
   bodies — operational data.
-- **#89 `oidc.py:501` / #90 `saml.py:316`** — both `RedirectResponse(url=…)`
-  targets trace back to a value the server itself wrote as the constant `"/"`
-  (oidc: stored in the state blob at login init; saml: stored as the nonce
-  value). Not attacker-controlled, so no open redirect. CodeQL treats the
-  Redis/state read as a taint source.
+
+(The OIDC/SAML url-redirection findings #89/#90 were *not* dismissed — they were
+**fixed** with a same-site redirect guard; see above. They were the textbook
+"don't dismiss a safe-by-constant FP — harden it" case.)
 
 **Used-in-test — intentional and non-production:**
 - **#79 `test-bot.py` / #81 `tls-traffic-generator.py`** are TLS *generators*
@@ -146,14 +164,17 @@ justification recorded in the GitHub audit trail (reversible in one click).
 > proxy produced no genuine code-scanning bug.
 
 ## Verification
-- New regression tests: `management/tests/test_codeql_305_regression.py` — 4
-  tests proving the XSS payload is escaped (and the escaped form is present) and
-  that neither `/ready` nor `/health/deep` leaks a secret-bearing exception
-  string. All pass.
-- Existing health/partials/list-table/ready tests still pass (no test depended
-  on the leaked `str(exc)` or the raw reflection).
-- Fixed-in-code alerts (#82, #83, #84, #78, #80) auto-close on the next default-
-  branch CodeQL scan after merge; the rest are dismissed with justification.
+- New regression tests: `management/tests/test_codeql_305_regression.py` —
+  proving the XSS payload is escaped (and the escaped form is present); that
+  neither `/ready` nor `/health/deep` leaks a secret-bearing exception string;
+  and that `safe_relative_redirect` rejects every off-site / protocol-relative /
+  backslash variant while passing same-site paths unchanged. All pass.
+- Existing health/partials/list-table/ready and OIDC/SAML tests still pass (no
+  test depended on the leaked `str(exc)`, the raw reflection, or an off-site
+  redirect).
+- Fixed-in-code alerts (#82, #83, #84, #78, #80, #89, #90) auto-close on the
+  next default-branch CodeQL scan after merge; the verified-FP / used-in-test
+  ones are dismissed with per-alert justification.
 
 ## Acceptance Criteria
 1. Every CodeQL Python finding is triaged to fixed / FP / used-in-test, each with
