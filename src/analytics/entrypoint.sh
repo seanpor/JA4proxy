@@ -1,7 +1,7 @@
-#!/bin/bash
+#!/bin/sh
 set -e
 
-# Analytics Node Entrypoint
+# Analytics Node Entrypoint (POSIX sh — runs on the alpine base, Phase 229)
 # Phase 12a: Foundation
 
 echo "Starting JA4Proxy Analytics Node"

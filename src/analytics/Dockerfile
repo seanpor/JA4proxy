@@ -1,38 +1,35 @@
 # Analytics Node Dockerfile
-# Phase 12a: Foundation
+# Phase 12a: Foundation · Phase 229: alpine base (perl-free)
 
-FROM python:3.14.0-slim as base
+FROM python:3.14.0-alpine
 LABEL dockerfile.location="module" \
       dockerfile.module="src/analytics" \
       dockerfile.build-context="root"
 
 # Set environment variables
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
-ENV PIP_NO_CACHE_DIR=off
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 ENV PIP_DISABLE_PIP_VERSION_CHECK=on
 ENV PIP_DEFAULT_TIMEOUT=100
 
+# Alpine base (Phase 229): no Debian perl-base, so the no-fix perl CVEs
+# (CVE-2026-42496 / -8376) that required .trivyignore exceptions are gone.
+RUN apk upgrade --no-cache
+
 # Security: Create non-root user
-RUN groupadd -r analytics && useradd -r -g analytics analytics
+RUN addgroup -S analytics && adduser -S -G analytics analytics
 
-# Install system dependencies
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    rm -f /etc/apt/apt.conf.d/docker-clean && \
-    apt-get update && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y && apt-get install -y --no-install-recommends \
-    build-essential \
-    libssl-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-# Create and set working directory
 WORKDIR /app
 
-# Install Python dependencies
+# Install Python deps. build-base/openssl-dev are needed only to compile any
+# native wheels (e.g. numpy) on musl; install them as a virtual package and
+# remove them afterwards so the runtime image carries no compilers.
 COPY requirements-analytics.txt ./
 RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked \
+    apk add --no-cache --virtual .build-deps build-base openssl-dev && \
     pip install --upgrade pip && \
-    pip install -r requirements-analytics.txt
+    pip install -r requirements-analytics.txt && \
+    apk del .build-deps
 
 # Copy application code
 COPY src/analytics /app/src/analytics
