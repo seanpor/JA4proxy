@@ -2433,9 +2433,9 @@ phases:
     summary: Made the full CI workflow honestly green. De-suppressed the scan gates (scan-container was a no-op; scan-images/scan-first-party never failed on CRITICAL), patched real image CVEs via apt/apk upgrade, bumped grafana 13.0.1->13.0.2 (pgx CVE-2026-33816), ran mockbackend non-root on 8443, fixed the GOROOT/dev-path/pip-audit CI breakages, and replaced the 23-CVE blanket .trivyignore with 3 justified 14-day exceptions for no-fix perl CVEs plus 'make scan-exceptions' and a runbook. Perl exceptions retire with Phase 229.
   227:
     name: Scan & Build Caching
-    status: PROPOSED
+    status: COMPLETE
     action_plan: docs/phases/PHASE_227.md
-    summary: Cache the Trivy DB and shared base-image layers so 'make scan' (~6 min) stops re-pulling the same data once per image; buildx layer cache + a defined DB-cache TTL.
+    summary: A shared TRIVY_CACHE mount makes 'make scan' download the Trivy DB once per run instead of once per image (~13x -> 1x); a SHA-pinned actions/cache step persists it across CI runs. Also hardened branch protection (required checks expanded to all 9 gating jobs, require-PR + enforce_admins, branch_protection.sh aligned to current job names, KNOWN_ACTION_SHAS allowlist completed) and wired tests/test_workflow_pinning.py into 'make test'.
   228:
     name: Human-Readable Scan Summaries
     status: PROPOSED

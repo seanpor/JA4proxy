@@ -42,8 +42,20 @@ SHA_AND_TAG_RE = re.compile(
 #     git ls-remote https://github.com/<owner>/<repo> refs/tags/<tag>
 KNOWN_ACTION_SHAS: dict[str, dict[str, str]] = {
     "actions/checkout": {
+        "v4.1.1": "b4ffde65f46336ab88eb53be808477a3936bae11",  # scorecard.yml
         "v4.2.2": "11bd71901bbe5b1630ceea73d27597364c9af683",
         "v6.0.2": "de0fac2e4500dabe0009e67214ff5f5447ce83dd",
+    },
+    # phase-227: Trivy DB cache in the scan job (ci.yml)
+    "actions/cache": {
+        "v4.2.3": "5a3ec84eff668545956fd18022155c47e93e2684",
+    },
+    # scorecard.yml (OpenSSF Scorecard workflow) — verified via git ls-remote
+    "ossf/scorecard-action": {
+        "v2.3.1": "0864cf19026789058feabb7e87baa5f140aac736",
+    },
+    "github/codeql-action/upload-sarif": {
+        "v3.35.4": "7fd177fa680c9881b53cdab4d346d32574c9f7f4",
     },
     "actions/setup-go": {
         "v5.2.0": "3041bf56c941b39c61721a86cd11f3bb1338122a",
@@ -128,6 +140,7 @@ KNOWN_ACTION_SHAS: dict[str, dict[str, str]] = {
         "v3.3.0": "e2f99d4b3685b0da93f97e1b86ad8fab81105098",
     },
     "actions/upload-artifact": {
+        "v4": "ea165f8d65b6e75b540449e92b4886f43607fa02",  # scorecard.yml
         "v7.0.1": "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
     },
 }
