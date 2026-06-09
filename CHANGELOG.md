@@ -8,6 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Security
+- **Dependency CVE remediation (Phase 304)**: triaged the 118 alerts that
+  enabling Dependabot + CodeQL (Phase 302) surfaced — the real, fixable,
+  *production* findings are concentrated in the Python Management-API auth stack;
+  the **Go production proxy is essentially clean**. The Phase 302 auto-merge had
+  already landed `authlib 1.4.0→1.6.12` and `python-multipart 0.0.12→0.0.32`
+  (minor/patch). This phase did the three Dependabot correctly held back:
+  `cryptography 45.0.0→46.0.5` (a **major** bump — `management/requirements.txt`
+  and the root `requirements.txt` floor), `python-jose 3.3.0→3.4.0` (critical
+  algorithm-confusion CVE; a `python-jose`→PyJWT migration is flagged as a
+  follow-up since jose is effectively unmaintained), and the indirect
+  `google.golang.org/grpc 1.76.0→1.79.3` in `deploy/terraform-provider/go.mod`
+  (deploy tooling, via `go get` + `go mod tidy`). The management suite passes
+  (614) against the upgraded stack. Noise documented, **not** bulk-suppressed:
+  the bench-tool `go/disabled-certificate-check` (already `#nosec`, hits the
+  self-signed mock) and the OpenSSF Scorecard advisories that appear as
+  code-scanning "high" are benign; the 9 CodeQL Python findings are left as a
+  case-by-case follow-up.
 - **Repository security aids enabled + automated (Phase 302)**: turned on Dependabot **alerts** + **security updates** and **private vulnerability reporting**. To keep these low-effort under branch protection, added a SHA-pinned `dependabot-automerge.yml` that auto-merges Dependabot **patch/minor** PRs once the 10 required checks pass (majors stay manual), and throttled `dependabot.yml` weekly → monthly. Two UI-only toggles documented for the operator (CodeQL "Default setup"; secret-scanning validity checks).
 - **Production compose port-exposure hardening (Phase 303)**: `docker-compose.prod.yml` published several "internal only" services on `0.0.0.0` (proxy 8080/9090 as random host ports, analytics, tarpit, loki, prometheus) — only Grafana + HAProxy-stats were correctly loopback-bound. Removed the host `ports:` for purely-internal services (reached over the docker network by service name — verified `prometheus.yml` scrapes by DNS, not host ports) and bound the Prometheus UI to `${AGENT_BIND_IP:-127.0.0.1}`. Only `haproxy 443/80` remain public.
 
