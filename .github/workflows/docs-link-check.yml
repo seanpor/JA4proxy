@@ -11,11 +11,11 @@
 name: Docs link check
 
 on:
+  # Runs on EVERY pull request (no path filter): this check is a required status
+  # check in branch protection, and a path-filtered required check would never
+  # report on non-docs PRs, blocking them forever. The job is ~seconds, so the
+  # cost of re-checking links on every PR is negligible.
   pull_request:
-    paths:
-      - 'docs/**'
-      - '**.md'
-      - '.github/workflows/docs-link-check.yml'
   workflow_dispatch:
 
 permissions:
