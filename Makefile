@@ -675,14 +675,21 @@ lint-alertmanager:
 		check-config /monitoring/alertmanager/alertmanager.yml \
 		&& echo "✓ Alertmanager config valid"
 
+# Dummy values for the compose ${VAR:?required} interpolations so `down` can
+# parse the file even when .env is missing/incomplete (the values are irrelevant
+# for `down` — it only needs to identify containers by project + service name).
+# Fixes: `make clean` aborting with "MANAGEMENT_JWT_SECRET is required" in a
+# freshly-cloned worktree whose .env is incomplete.
+CLEAN_DUMMY_ENV := MANAGEMENT_JWT_SECRET=_ MANAGEMENT_ADMIN_USER=_ MANAGEMENT_ADMIN_PASSWORD=_ REDIS_PASSWORD=_ GRAFANA_PASSWORD=_ BACKEND_HOST=_ HAPROXY_STATS_USER=_ HAPROXY_STATS_PASSWORD=_
+
 # Clean up (agent-aware: uses .current-agent if set)
 clean:
 	$(eval _AGENT := $(shell cat .current-agent 2>/dev/null))
 	@echo "Cleaning up containers and volumes..."
 	@if [ -n "$(_AGENT)" ]; then \
-		docker compose -f deploy/docker/docker-compose.poc.yml --project-name ja4_$(_AGENT) --env-file .env.$(_AGENT) down -v --remove-orphans; \
+		$(CLEAN_DUMMY_ENV) docker compose -f deploy/docker/docker-compose.poc.yml --project-name ja4_$(_AGENT) $$([ -f .env.$(_AGENT) ] && echo --env-file .env.$(_AGENT)) down -v --remove-orphans; \
 	else \
-		docker compose -f deploy/docker/docker-compose.poc.yml --env-file .env down -v --remove-orphans; \
+		$(CLEAN_DUMMY_ENV) docker compose -f deploy/docker/docker-compose.poc.yml $$([ -f .env ] && echo --env-file .env) down -v --remove-orphans; \
 	fi
 	BACKEND_HOST=_ docker compose -f deploy/docker/docker-compose.prod.yml down -v --remove-orphans 2>/dev/null || true
 	# Remove reports and cache directories, ignoring errors (e.g., from container-created files with restrictive permissions)

@@ -20,7 +20,7 @@
 #   openssl rand -base64 32 > deploy/secrets/grafana_password.txt
 #   echo "your-api-key" > deploy/secrets/abuseipdb_api_key.txt
 #   chmod 600 deploy/secrets/*.txt
-#   ENVIRONMENT=production docker compose -f docker/docker-compose.prod.yml up -d
+#   ENVIRONMENT=production docker compose -f deploy/docker/docker-compose.prod.yml up -d
 
 services:
   haproxy:
@@ -57,9 +57,10 @@ services:
       context: ../..
       dockerfile: deploy/docker/Dockerfile.go-proxy
     image: ja4proxy:1.0.0
-    ports:
-      - "8080"   # Proxy (HAProxy connects here)
-      - "9090"   # Prometheus metrics / Health API
+    # No host ports (0046): HAProxy reaches proxy:8080 and Prometheus scrapes
+    # proxy:9090 over the ja4proxy-backend network — neither needs publishing
+    # to the host. The short form (- "8080") previously published random
+    # 0.0.0.0 ports.
     depends_on:
       - redis
     volumes:
@@ -149,8 +150,8 @@ services:
       context: ../..
       dockerfile: src/analytics/Dockerfile
     image: ja4proxy-analytics:1.0.0
-    ports:
-      - "8082:8080"   # Analytics metrics (internal only)
+    # No host ports (0046): Prometheus scrapes analytics:8080 over the network.
+    # Was published on 0.0.0.0:8082 despite the "internal only" comment.
     depends_on:
       - redis
     environment:
@@ -191,9 +192,8 @@ services:
       context: ../../src/tarpit
       dockerfile: Dockerfile
     image: ja4proxy-tarpit:1.0.0
-    ports:
-      - "8888:8888"   # Tarpit port (internal only)
-      - "9099:9099"   # Tarpit metrics (internal only)
+    # No host ports (0046): the proxy reaches tarpit:8888 and Prometheus scrapes
+    # tarpit:9099 over the network. Both were published on 0.0.0.0.
     environment:
       - TARPIT_PORT=8888
       - TARPIT_DURATION=60
@@ -244,7 +244,9 @@ services:
   prometheus:
     image: prom/prometheus:v3.12.0
     ports:
-      - "9091:9090"   # Prometheus UI (internal only)
+      # 0046: loopback-or-private only (never 0.0.0.0) — Prometheus UI for
+      # debugging. Was published on 0.0.0.0:9091. Matches the grafana binding.
+      - "${AGENT_BIND_IP:-127.0.0.1}:9091:9090"
     volumes:
       - ../monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ../monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
@@ -309,8 +311,8 @@ services:
 
   loki:
     image: grafana/loki:3.7.2
-    ports:
-      - "3100:3100"   # Loki API (internal only)
+    # No host ports (0046): Grafana queries loki:3100 and Promtail pushes over
+    # the network. Was published on 0.0.0.0:3100.
     volumes:
       - ../monitoring/loki/loki-config.yml:/etc/loki/config.yml:ro
       - loki-data:/loki
