@@ -41,6 +41,10 @@ SHA_AND_TAG_RE = re.compile(
 # To verify a row by hand:
 #     git ls-remote https://github.com/<owner>/<repo> refs/tags/<tag>
 KNOWN_ACTION_SHAS: dict[str, dict[str, str]] = {
+    # phase-302: Dependabot auto-merge workflow
+    "dependabot/fetch-metadata": {
+        "v2.3.0": "d7267f607e9d3fb96fc2fbe83e0af444713e90b7",
+    },
     "actions/checkout": {
         "v4.1.1": "b4ffde65f46336ab88eb53be808477a3936bae11",  # scorecard.yml
         "v4.2.2": "11bd71901bbe5b1630ceea73d27597364c9af683",

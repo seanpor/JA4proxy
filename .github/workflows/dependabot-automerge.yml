@@ -1,0 +1,31 @@
+# Dependabot auto-merge (Phase 302)
+#
+# main is branch-protected (10 required checks + enforce_admins + require-PR), so
+# every Dependabot PR must pass full CI before it can land. Without automation
+# that is a manual treadmill. This enables GitHub auto-merge on Dependabot
+# patch/minor updates: the PR merges itself once all required checks are green.
+# MAJOR updates are intentionally left for manual review (they can break APIs).
+name: Dependabot auto-merge
+
+on: pull_request
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  dependabot-automerge:
+    name: Dependabot auto-merge
+    runs-on: ubuntu-latest
+    # Only act on Dependabot's own PRs.
+    if: github.actor == 'dependabot[bot]'
+    steps:
+      - name: Fetch Dependabot metadata
+        id: meta
+        uses: dependabot/fetch-metadata@d7267f607e9d3fb96fc2fbe83e0af444713e90b7  # v2.3.0
+      - name: Enable auto-merge for patch and minor updates
+        if: steps.meta.outputs.update-type == 'version-update:semver-patch' || steps.meta.outputs.update-type == 'version-update:semver-minor'
+        run: gh pr merge --auto --squash "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
