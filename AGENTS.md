@@ -105,13 +105,26 @@ If you cannot use the slash command (e.g. running outside Claude Code), run
 3. **Independent critical review:** self-review the diff for the known
    recurring failure patterns (unmocked Redis, `os.access` bitmask mocks,
    ambiguous variable names, missing `pathlib.Path.mkdir` patches).
-4. **Push and create PR.**
-5. **Wait for CI green.** Every check must be green. Do not merge with any
-   red check — not even "flaky" ones.
-6. **Merge** (`gh pr merge --squash --delete-branch`).
+4. **Push your feature branch and open a PR** (`gh pr create --base main`).
+   `main` is **branch-protected** (see callout below): you cannot push to it
+   directly — landing work *requires* a PR.
+5. **Wait for CI green.** All four required checks — Meta-Validation, Full Lint,
+   Full Test, Security Scan — must pass. The PR cannot merge until they do; do
+   not try to bypass a red check, not even a "flaky" one (re-run it instead).
+6. **Merge** with auto-merge so it lands the moment checks pass:
+   `gh pr merge --auto --squash --delete-branch`.
 7. **Post-merge verification:** pull main, watch the post-merge CI run,
    confirm all green. If main is red after your merge, **you own fixing it
-   immediately**.
+   immediately** (via a follow-up PR — direct pushes are blocked).
+
+> ### ⚠ Branch protection is ENFORCED on `main`
+> `main` requires a PR that passes the four checks above before merging, and
+> `enforce_admins` is **on** — so the rule binds *everyone*, admins included.
+> Direct `git push origin main` is rejected for all actors; there is no
+> direct-merge shortcut. This is deliberate: it is what stops broken commits
+> reaching `main`. A genuine emergency requires temporarily lifting protection
+> (`gh api -X DELETE repos/seanpor/JA4proxy/branches/main/protection/enforce_admins`),
+> landing the fix, then re-enabling it (`gh api -X PATCH …/enforce_admins`).
 
 The following documentation checks are also required at close-out (and are
 verified by the self-review in step 3):
@@ -142,7 +155,7 @@ verified by the self-review in step 3):
   - Propose a draft message before executing the commit.
   - Follow the format: `type(scope): brief description` (e.g., `feat(security): add JA4X fingerprinting`).
   - Focus on **why** a change was made, not just **what** changed.
-- **Pushing:** Push only when a phase is fully complete and all close-out checklist items pass (`git push origin phase-XX-description`). Do not push mid-phase or for speculative work. The orchestrator handles merging to `main` — never push directly there.
+- **Pushing:** Push only when a phase is fully complete and all close-out checklist items pass (`git push origin phase-XX-description`). Do not push mid-phase or for speculative work. **Land work on `main` only via a PR that passes the four required checks** (`gh pr merge --auto --squash`) — `main` is branch-protected and direct `git push origin main` is rejected for everyone, admins included (see the close-out callout).
 
 ---
 

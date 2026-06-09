@@ -29,8 +29,13 @@ agents ignore file ownership or push to the wrong branch. Follow these rules exa
 
 - Never commit directly to `main`. Always work on `phase-XX-description`.
 - Commit often after each meaningful chunk. Stage only files you own.
-- Push your branch when finished. **Do not merge to main yourself** — the
-  orchestrator handles merging.
+- Push your branch when finished, then **land it via a pull request** —
+  `gh pr create --base main` then `gh pr merge --auto --squash --delete-branch`.
+- **`main` is branch-protected and the protection is enforced for everyone,
+  admins included.** A direct `git push origin main` is rejected; a PR can only
+  merge once its four required checks pass — **Meta-Validation, Full Lint, Full
+  Test, Security Scan**. There is no direct-merge shortcut. (Emergency override
+  and full details: the branch-protection callout in `AGENTS.md`.)
 
 ### File Ownership
 
