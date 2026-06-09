@@ -302,6 +302,8 @@ test: ## Phase 146 — Run the full test suite
 	@$(PYTHON) -m pytest tests/unit/ -n auto --dist=loadfile --timeout=60 --tb=short
 	@echo "=== Running Integration Smoke Tests ==="
 	@$(PYTHON) -m pytest tests/integration/ -k "not docker_stack" -x -q --timeout=60
+	@echo "=== Running CI/workflow guardrail tests ==="
+	@$(PYTHON) -m pytest tests/test_workflow_pinning.py -q --timeout=60
 	@echo "✓ Full test suite passed"
 
 # Run unit tests only
