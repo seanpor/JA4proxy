@@ -47,19 +47,11 @@ Plus one small correctness fix:
 
 | ID | Title | Repo area | Size | Depends on |
 |---|---|---|---|---|
-<<<<<<< HEAD
 | **201a** | TLS + Username in Go Redis client | `internal/redis`, `internal/config`, `cmd/proxy` | S (3 h) | none |
 | **201b** | `ZRemRangeByScore` error logging | `internal/redis/client.go` | XS (30 min) | none |
 | **201c** | Redis health-check goroutine + script reload | `internal/redis`, `internal/metrics`, `cmd/proxy` | M (4 h) | 201a |
 | **201d** | Rate-limiter input validation (IPv4/IPv6 safe) | `internal/security/rate_limiter.go` | S (2 h) | none |
 | **201e** | Docs, runbook, ADR, CHANGELOG close-out | `docs/`, `CHANGELOG.md`, `manifest.yaml` | XS (45 min) | 201a–201d |
-=======
-| **201a** | Signal score drift fix (4 values) | `internal/security/` | XS | none |
-| **201b** | TLS support in Go Redis client | `internal/redis/client.go` | S | none |
-| **201c** | Error logging for silent failures | `internal/redis/client.go` | XS | 201b |
-| **201d** | Health check / script reload | `cmd/proxy/main.go`, `internal/redis/` | S | 201b |
-| **201e** | Rate limiter input validation | `internal/security/rate_limiter.` | S | 201b |
->>>>>>> claude/phase-201-go-redis-tls-score-drift
 
 **Parallelism:** 201a, 201b, 201d can all run in parallel (different packages
 and lines). 201c depends on 201a (needs the TLS config path to exist).
@@ -270,7 +262,6 @@ Inconsistent error handling is how silent data loss hides.
 
 ### Why
 
-<<<<<<< HEAD
 `loadScripts` is called once in `New()` (line 84) and never again. A Redis
 restart or manual `SCRIPT FLUSH` wipes `slidingWinSHA`'s server-side cache,
 and every `EVALSHA` call after that fails until the proxy restarts. The
@@ -278,24 +269,6 @@ rate limiter breaks silently — exactly the failure Python's
 `health_check_interval=30` prevents.
 
 ### Files to touch
-=======
-**Files to modify:**
-- `internal/security/rate_limiter.go` — add input validation
-- `tests/unit/test_rate_limiter_validation_test.go` — new validation tests
-
-**Steps:**
-1. Add validation in `internal/security/rate_limiter.go` before constructing Redis keys:
-   - `len(clientIP) > 45` → reject (exceeds max IPv6 length)
-   - `len(ja4) > 256` → truncate or reject
-   - Reject strings containing colons in IP (would create unexpected key structure)
-2. Log a warning and use a sanitized fallback key when input is invalid.
-3. Write tests for each validation case:
-   - Overlong IP rejected
-   - Overlong JA4 truncated
-   - IP with embedded colons rejected
-   - Valid IPv4 and IPv6 accepted
-4. Run `make go-test` — must pass.
->>>>>>> claude/phase-201-go-redis-tls-score-drift
 
 - `internal/redis/client.go` — add mutex + public `HealthCheck(ctx) error`
 - `internal/metrics/metrics.go` — register two new Prom series
