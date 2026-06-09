@@ -1,10 +1,17 @@
 ---
 phase: 301
 title: Environment Template Remediation
-status: PROPOSED
+status: COMPLETE
 size: SMALL
 created: 2026-06-09
+completed: 2026-06-09
 audience: [developer, operator, security]
+---
+
+> **Outcome (COMPLETE — 2026-06-09).** `template.env` now includes
+> `HAPROXY_STATS_USER/PASSWORD` (with generation guidance) and an optional
+> commented threat-intel block; the orphan `.env.example` was deleted. Every
+> compose-`required` variable is now present in `template.env`.
 ---
 
 # Environment Template Remediation

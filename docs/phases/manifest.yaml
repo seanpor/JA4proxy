@@ -2433,7 +2433,7 @@ phases:
   160:
     name: High-Concurrency Throughput Unblocking
     status: COMPLETE
-    action_plan: docs/phases/PHASE_160.md
+    action_plan: docs/phases/complete/PHASE_160.md
     summary: Unblocks the 350 CPS bottleneck by implementing 'sync.Pool' buffer recycling and refactoring the security pipeline for asynchronous background scoring with a local LRU cache.
   225:
     name: Hermetic Tooling & make doctor Accuracy
@@ -2462,14 +2462,14 @@ phases:
     summary: Moved analytics & tarpit to a perl-free python:3.14.0-alpine base (digest-pinned), retiring all three Phase 226 perl .trivyignore exceptions (scan green with zero exceptions). Aligned the drifted security-scan image from golang:1.25.10 to the single pinned golang:1.26.4-alpine@digest used everywhere else. test_docker_consistency updated to accept patch-pinned slim or alpine. Remaining hardening (digest-pin the tests/docker fixtures, a strict no-unpinned-FROM guard) noted for follow-up.
   300:
     name: Environment Variable Audit
-    status: PROPOSED
+    status: COMPLETE
     action_plan: docs/phases/PHASE_300.md
     dependencies: []
     size: SMALL
     summary: 'Audit env vars referenced by code + Docker Compose against the canonical template.env (NOT the orphan .env.example). Finding: template.env is largely complete; the one genuine gap is HAPROXY_STATS_USER/PASSWORD (compose-required and wizard-generated but absent from template.env), and the stale, unreferenced .env.example should be deleted. Local git-ignored .env items are out of scope.'
   301:
     name: Environment Template Remediation
-    status: PROPOSED
+    status: COMPLETE
     action_plan: docs/phases/PHASE_301.md
     dependencies: [300]
     size: SMALL
