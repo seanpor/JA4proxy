@@ -660,7 +660,7 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 		"reason":      result.BypassReason,
 		"dst_ip":      backendHost, // phase-80: destination for ECS field mapping
 		"src_port":    connCtx.ClientPort,
-	}).Info("proxy: connection decision")
+	}).Debug("proxy: connection decision")
 
 	// Publish ECS connection event to Redis Stream for webhook delivery.
 	// JA4PROXY-2026-0031 — enqueue into a bounded channel drained by a
@@ -823,22 +823,20 @@ func (p *proxy) forward(clientConn net.Conn, initialData []byte) {
 	p.mu.RUnlock()
 
 	backendAddr := net.JoinHostPort(cfg.Proxy.BackendHost, fmt.Sprintf("%d", cfg.Proxy.BackendPort.Int()))
-	tb0 := time.Now()
+	
 	t3 := time.Now()
+	backendConn, err := net.DialTimeout("tcp", backendAddr, time.Duration(cfg.Proxy.ConnectionTimeout)*time.Second)
+	t6 := time.Now()
 	if os.Getenv("JA4PROXY_FORENSIC") == "true" {
 		_, lport, _ := net.SplitHostPort(clientConn.RemoteAddr().String())
-		p.log.Infof("TRACE [P] port=%s T3=%d", lport, t3.UnixNano())
-	}
-	backendConn, err := net.DialTimeout("tcp", backendAddr,
-		time.Duration(cfg.Proxy.ConnectionTimeout)*time.Second)
-	tb1 := time.Now()
-	if os.Getenv("JA4PROXY_FORENSIC") == "true" {
-		p.log.WithFields(logrus.Fields{
-			"trace.backend_dial_us": tb1.Sub(tb0).Microseconds(),
-		}).Debug("trace: backend dial")
+		if err == nil {
+			_, bp, _ := net.SplitHostPort(backendConn.LocalAddr().String())
+			p.log.Warnf("TRACE [P] port=%s outbound=%s T3=%d T6=%d", lport, bp, t3.UnixNano(), t6.UnixNano())
+		} else {
+			p.log.Warnf("TRACE [P] port=%s T3=%d T6=%d", lport, t3.UnixNano(), t6.UnixNano())
+		}
 	}
 	if err != nil {
-		// phase-63: backend dial failures degrade availability SLI.
 		metrics.ConnectionErrorsTotal.WithLabelValues(classifyConnError("backend_dial", err)).Inc()
 		p.log.WithError(err).WithField("backend", backendAddr).Warn("proxy: backend connect failed")
 		return
@@ -851,48 +849,22 @@ func (p *proxy) forward(clientConn net.Conn, initialData []byte) {
 		return
 	}
 
-	// Bidirectional copy. JA4PROXY-2026-0009 — both copy goroutines must
-	// finish before forward() returns, otherwise the second one lingers with
-	// its per-connection buffer still reachable. Under sustained load that
-	// is ~8KB + goroutine stack per connection never reclaimed.
-	// After the first goroutine returns, Close() on both conns forces the
-	// other Read to unblock promptly instead of waiting on the next
-	// SetReadDeadline tick.
-	done := make(chan struct{}, 2)
-	copyConn := func(dst, src net.Conn) {
-		buf := make([]byte, p.cfg.Proxy.BufferSize)
-		for {
-			src.SetReadDeadline(time.Now().Add(time.Duration(p.cfg.Proxy.ReadTimeout) * time.Second))
-			n, err := src.Read(buf)
-			if n > 0 {
-				dst.SetWriteDeadline(time.Now().Add(time.Duration(p.cfg.Proxy.WriteTimeout) * time.Second))
-				if _, werr := dst.Write(buf[:n]); werr != nil {
-					break
-				}
-			}
-			if err != nil {
-				break
-			}
-		}
-		done <- struct{}{}
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	cp := func(dst, src net.Conn) {
+		defer wg.Done()
+		bp := bufferPool.Get().(*[]byte)
+		defer bufferPool.Put(bp)
+		
+		_, _ = io.CopyBuffer(dst, src, *bp)
+		_ = dst.Close()
+		_ = src.Close()
 	}
 
-	t6 := time.Now()
-	if os.Getenv("JA4PROXY_FORENSIC") == "true" {
-		_, lport, _ := net.SplitHostPort(clientConn.RemoteAddr().String())
-		if err == nil {
-			_, bp, _ := net.SplitHostPort(backendConn.LocalAddr().String())
-			p.log.Infof("TRACE [P] port=%s outbound=%s T6=%d", lport, bp, t6.UnixNano())
-		} else {
-			p.log.Infof("TRACE [P] port=%s T6=%d", lport, t6.UnixNano())
-		}
-	}
-	go copyConn(backendConn, clientConn)
-	go copyConn(clientConn, backendConn)
-	<-done
-	_ = clientConn.Close()
-	_ = backendConn.Close()
-	<-done
+	go cp(backendConn, clientConn)
+	go cp(clientConn, backendConn)
+	wg.Wait()
 }
 
 func (p *proxy) tarpit(clientConn net.Conn, data []byte, clientIP string) {

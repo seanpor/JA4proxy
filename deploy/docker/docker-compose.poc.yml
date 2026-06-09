@@ -24,7 +24,7 @@ services:
       resources:
         limits:
           memory: 256M
-          cpus: '1.0'
+          cpus: '4.0'
         reservations:
           memory: 64M
     logging:
@@ -59,6 +59,7 @@ services:
       - BACKEND_HOST=${BACKEND_HOST:-backend}
       - BACKEND_PORT=${BACKEND_PORT:-8443}  # mock backend runs non-root on 8443
       - ENVIRONMENT=${ENVIRONMENT:-development}
+      - GOMAXPROCS=4
       - JA4PROXY_TRACE=${JA4PROXY_TRACE:-false}
       - JA4PROXY_FORENSIC=${JA4PROXY_FORENSIC:-false}
     networks:
@@ -131,7 +132,7 @@ services:
       resources:
         limits:
           memory: 512M
-          cpus: '1.0'
+          cpus: '4.0'
         reservations:
           memory: 64M
     logging:
@@ -164,7 +165,7 @@ services:
       resources:
         limits:
           memory: 256M
-          cpus: '0.5'
+          cpus: '4.0'
         reservations:
           memory: 64M
     logging:
@@ -200,7 +201,7 @@ services:
       resources:
         limits:
           memory: 128M
-          cpus: '0.5'
+          cpus: '4.0'
         reservations:
           memory: 32M
     logging:
@@ -233,7 +234,7 @@ services:
       resources:
         limits:
           memory: 256M
-          cpus: '1.0'
+          cpus: '4.0'
     logging:
       driver: "json-file"
       options:
@@ -278,7 +279,7 @@ services:
       resources:
         limits:
           memory: 512M
-          cpus: '1.0'
+          cpus: '4.0'
         reservations:
           memory: 128M
     logging:
@@ -303,6 +304,7 @@ services:
       - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD is required}
       - REDIS_SIGNING_KEY=${REDIS_SIGNING_KEY:-}
       - ENVIRONMENT=${ENVIRONMENT:-development}
+      - GOMAXPROCS=4
       - JA4PROXY_TRACE=${JA4PROXY_TRACE:-false}
       - PYTHONUNBUFFERED=1
       - PYTHONDONTWRITEBYTECODE=1
@@ -320,7 +322,7 @@ services:
       resources:
         limits:
           memory: 256M
-          cpus: '0.5'
+          cpus: '4.0'
         reservations:
           memory: 64M
     logging:
@@ -410,7 +412,7 @@ services:
       resources:
         limits:
           memory: 256M
-          cpus: '0.5'
+          cpus: '4.0'
         reservations:
           memory: 64M
     logging:

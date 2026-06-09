@@ -1,3 +1,11 @@
+<!--
+title: System Evaluation Guide
+status: active
+audience: architects
+last_reviewed: 2026-06-09
+phase: 226
+-->
+
 # JA4proxy System Evaluation Guide
 
 ## Overview

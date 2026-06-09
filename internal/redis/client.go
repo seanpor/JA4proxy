@@ -64,6 +64,8 @@ func buildStandaloneOptions(cfg Config) *goredis.Options {
 		DialTimeout:  cfg.Timeout,
 		ReadTimeout:  cfg.Timeout,
 		WriteTimeout: cfg.Timeout,
+		PoolSize:     100,
+		MinIdleConns: 10,
 	}
 	if cfg.SSL {
 		opts.TLSConfig = &tls.Config{MinVersion: tls.VersionTLS12}
