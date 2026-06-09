@@ -11,6 +11,10 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **IN_PROGRESS** (Conducts a forensic hop-by-hop latency investigation to identify the bottleneck limiting end-to-end throughput to ~350 CPS. Includes deep Go profiling (pprof), infrastructure audit, and infrastructure optimization to bridge the gap between 272ns core latency and system-wide performance.)
 *   **Action Plan:** [PHASE_159.md](PHASE_159.md)
 
+### Phase 225 — Hermetic Tooling & make doctor Accuracy
+*   **Status:** **IN_PROGRESS** (DONE: 'make doctor' rewritten to separate required host tools (docker, Go, python3 — hard-fail) from informational notes (Python 3.10-vs-3.14, optional host lint/scan tools) so it no longer falsely warns about tools that run in CI/containers. REMAINING: actually run the five host-only tools (hadolint/gitleaks/codespell/markdownlint/amtool) in pinned containers and pin the Python linters to a 3.14 image. The PHASE_224 meta-lint guard stays host-only by design.)
+*   **Action Plan:** [PHASE_225.md](PHASE_225.md)
+
 ### Phase 228 — Human-Readable Scan Summaries
 *   **Status:** **IN_PROGRESS** (Parse machine-readable scanner output (trivy/gosec JSON) into a compact per-image PASS/FAIL summary so scan/lint results are readable at a glance; raw detail kept available (summarize, not suppress).)
 *   **Action Plan:** [PHASE_228.md](PHASE_228.md)
@@ -58,7 +62,3 @@ This document tracks the remaining work for both historical phases (gaps identif
 ### Phase 120 — Independent Red Team Findings: Design Flaws, Infrastructure & Logic Bugs (RETIRED)
 *   **Status:** **DEFERRED** (Retired 2026-04-19 under Phase 121e as duplicate of Phase 119. All 20 findings were either duplicates of 119 entries or already folded into the canonical findings register (docs/security/findings.yaml) with remediation_phases pointing at 119 or its successor phases. See PHASE_120.md redirect stub.)
 *   **Action Plan:** [cancelled/PHASE_120.md](cancelled/PHASE_120.md)
-
-### Phase 225 — Hermetic Tooling & make doctor Accuracy
-*   **Status:** **PROPOSED** (Run version-sensitive tools (trivy, hadolint, gitleaks, codespell, markdownlint, amtool, the 3.14 Python linters) in pinned containers instead of relying on the host, and make 'make doctor' report accurately (blocking vs informational). The PHASE_224 meta-lint guard stays host-only by design.)
-*   **Action Plan:** [PHASE_225.md](PHASE_225.md)

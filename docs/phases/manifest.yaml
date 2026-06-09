@@ -2423,9 +2423,9 @@ phases:
     summary: Unblocks the 350 CPS bottleneck by implementing 'sync.Pool' buffer recycling and refactoring the security pipeline for asynchronous background scoring with a local LRU cache.
   225:
     name: Hermetic Tooling & make doctor Accuracy
-    status: PROPOSED
+    status: IN_PROGRESS
     action_plan: docs/phases/PHASE_225.md
-    summary: Run version-sensitive tools (trivy, hadolint, gitleaks, codespell, markdownlint, amtool, the 3.14 Python linters) in pinned containers instead of relying on the host, and make 'make doctor' report accurately (blocking vs informational). The PHASE_224 meta-lint guard stays host-only by design.
+    summary: "DONE: 'make doctor' rewritten to separate required host tools (docker, Go, python3 — hard-fail) from informational notes (Python 3.10-vs-3.14, optional host lint/scan tools) so it no longer falsely warns about tools that run in CI/containers. REMAINING: actually run the five host-only tools (hadolint/gitleaks/codespell/markdownlint/amtool) in pinned containers and pin the Python linters to a 3.14 image. The PHASE_224 meta-lint guard stays host-only by design."
   226:
     name: CI Quality-Gate Remediation
     status: COMPLETE
