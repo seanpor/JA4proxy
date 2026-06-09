@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Env template completeness (Phase 301)**: added `HAPROXY_STATS_USER`/`HAPROXY_STATS_PASSWORD` (compose-`required`, previously absent) to `template.env` with generation guidance, so `cp template.env .env` boots the full stack incl. monitoring. Deleted the orphan `.env.example` (unreferenced, shipped weak `changeme` defaults). Added an optional commented threat-intel block. (Audit: Phase 300.)
+- **Housekeeping**: fixed the `manifest.yaml` `action_plan` path for Phase 160 (`docs/phases/` → `docs/phases/complete/PHASE_160.md`) — `make lint-phases` is now fully clean (0 violations); repaired literal-`\n` corruption in `scripts/perf-matrix.sh` (the whole script was one line); resolved committed merge-conflict markers left in `PHASE_201/202/203.md` (kept the canonical HEAD content).
+
 ### Changed
 - **Pinned linter container images (Phase 225 part 2, COMPLETE)**: the lint/scan tools already ran in containers, but several used floating tags. Pinned to the exact in-use versions for reproducibility (zero behaviour change): `hadolint/hadolint:v2.14.0`, `koalaman/shellcheck:v0.11.0`, `zricethezav/gitleaks:v8.30.1`, `lycheeverse/lychee:0.24.2`, and the `lint-types`/`lint-quality` image `python:3.14-slim → python:3.14.0-slim` (`amtool`/`promtool` were already pinned). `codespell`/`markdownlint` were dropped from `make doctor`'s tool list — they are not used by any target.
 
