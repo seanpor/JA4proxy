@@ -1,10 +1,25 @@
 ---
 phase: 225
 title: Hermetic Tooling & `make doctor` Accuracy
-status: PROPOSED
+status: IN_PROGRESS
 size: MEDIUM
 created: 2026-06-05
 audience: [developer, operator]
+---
+
+> **Progress — `make doctor` accuracy (DONE 2026-06-09).** `make doctor` no
+> longer "mutters": it now separates **required host tools** (docker, Go 1.26+,
+> python3 — hard-fail if missing) from **informational** notes. The local
+> Python-3.10-vs-3.14 gap and the absence of host `hadolint`/`trivy`/`gitleaks`/
+> `codespell`/`markdownlint`/`amtool` are reported as optional (`·`), not as
+> "Warning: some targets will fail" — because those checks run authoritatively
+> in CI (and trivy already runs in a pinned container via `make scan`).
+>
+> **Remaining (the "hermetic tooling" half).** Actually run the five host-only
+> tools in pinned containers from their `make` targets so they execute
+> identically on any host (not merely "optional"), and pin the Python linters to
+> a 3.14 toolchain image. Tracked here; `make doctor` already tells the truth
+> about today's reality in the meantime.
 ---
 
 # Hermetic Tooling & `make doctor` Accuracy
