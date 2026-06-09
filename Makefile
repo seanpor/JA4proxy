@@ -550,9 +550,15 @@ scan-first-party:
 # Phase 228: human-readable rollup of the image CVE scans. Reporting only —
 # `make scan` remains the authoritative gate. First-party rows require `make build`.
 FIRST_PARTY_IMAGES := ja4proxy:1.0.0 ja4proxy-analytics:1.0.0 ja4proxy-tarpit:1.0.0 ja4proxy-mockbackend:1.0.0 ja4proxy-test:1.0.0 ja4proxy-trafficgen:1.0.0
-scan-summary: ## Phase 228 — compact CRIT/HIGH/MED table across all scanned images (reporting only)
+scan-summary: ## Phase 228 — compact CRIT/HIGH/MED rollup of all scans (images + misconfig + gosec; reporting only)
 	@mkdir -p "$(TRIVY_CACHE)"
 	@$(PYTHON) scripts/scan_summary.py $(TRIVY_IMAGES) $(FIRST_PARTY_IMAGES)
+	@# gosec rollup (best-effort; builds the pinned security-scan image)
+	@docker build -q -t ja4proxy-security-scan -f deploy/docker/security-scan/Dockerfile . >/dev/null 2>&1 \
+		&& docker run --rm -v "$(PWD):/app" ja4proxy-security-scan \
+			"gosec -fmt=json -exclude-dir=.claude ./... 2>/dev/null" \
+			| $(PYTHON) scripts/scan_summary.py gosec \
+		|| echo "  ! gosec summary skipped (build/docker unavailable)"
 
 scan-exceptions: ## List Trivy scan exceptions (.trivyignore) with days-to-expiry
 	@$(PYTHON) scripts/scan_exceptions.py

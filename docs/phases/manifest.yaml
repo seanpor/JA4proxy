@@ -2438,7 +2438,7 @@ phases:
     summary: A shared TRIVY_CACHE mount makes 'make scan' download the Trivy DB once per run instead of once per image (~13x -> 1x); a SHA-pinned actions/cache step persists it across CI runs. Also hardened branch protection (required checks expanded to all 9 gating jobs, require-PR + enforce_admins, branch_protection.sh aligned to current job names, KNOWN_ACTION_SHAS allowlist completed) and wired tests/test_workflow_pinning.py into 'make test'.
   228:
     name: Human-Readable Scan Summaries
-    status: IN_PROGRESS
+    status: COMPLETE
     action_plan: docs/phases/PHASE_228.md
     summary: Parse machine-readable scanner output (trivy/gosec JSON) into a compact per-image PASS/FAIL summary so scan/lint results are readable at a glance; raw detail kept available (summarize, not suppress).
   229:
