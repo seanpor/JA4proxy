@@ -233,8 +233,11 @@ func runProfile(ctx context.Context, host string, isGood bool, rate, workers int
 			ticker := time.NewTicker(time.Second / time.Duration(ratePerWorker))
 			defer ticker.Stop()
 
+			// #nosec G402 -- benchmark load generator connects to the self-signed
+			// mock backend; certificate verification is intentionally skipped here
+			// and this binary is never deployed to production.
 			conf := &tls.Config{
-				InsecureSkipVerify: true,
+				InsecureSkipVerify: true, //nolint:gosec // see #nosec above
 				ServerName:         "backend",
 			}
 			if isGood {
