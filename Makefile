@@ -35,20 +35,24 @@ NAME ?= $(or $(Name),$(name))
 # Default target
 all: help
 
-doctor: ## Phase 147 — Verify environment and toolchain health
+doctor: ## Phase 147/225 — Verify environment and toolchain health
 	@echo "=== JA4proxy Doctor: Environment Health Check ==="
-	@echo "Checking Go version (expected 1.26+)..."
-	@go version | grep -E "go1\\.2[6-9]|go1\\.[3-9]" > /dev/null || (echo "  X Go version invalid: $$(go version)"; exit 1)
-	@echo "  v Go OK"
-	@echo "Checking Python version (expected 3.14+)..."
-	@$(PYTHON) --version 2>&1 | grep -E "Python 3\\.1[4-9]" > /dev/null || (echo "  ! Warning: Python version is $$( $(PYTHON) --version 2>&1 ). Expected 3.14+ for full compatibility.";)
-	@echo "Checking required tools..."
-	@for tool in docker hadolint trivy semgrep promtool amtool gitleaks codespell markdownlint; do \
-		command -v $$tool > /dev/null && echo "  v $$tool OK" || echo "  ! Warning: $$tool not found (some targets will fail)"; \
+	@echo "── Required on the host (build will fail without these) ──────────────"
+	@command -v docker > /dev/null && echo "  ✓ docker" || { echo "  ✗ docker NOT found — required to build images and run make scan"; exit 1; }
+	@go version | grep -E "go1\\.2[6-9]|go1\\.[3-9]" > /dev/null && echo "  ✓ Go ($$(go version | awk '{print $$3}'))" || { echo "  ✗ Go 1.26+ required, found: $$(go version 2>&1)"; exit 1; }
+	@command -v $(PYTHON) > /dev/null && echo "  ✓ python3 ($$($(PYTHON) --version 2>&1 | awk '{print $$2}'))" || { echo "  ✗ python3 NOT found"; exit 1; }
+	@echo "── Informational (not required on the host) ─────────────────────────"
+	@$(PYTHON) --version 2>&1 | grep -E "Python 3\\.1[4-9]" > /dev/null \
+		&& echo "  ✓ Python is 3.14+ (matches CI)" \
+		|| echo "  · Python is $$($(PYTHON) --version 2>&1 | cut -d' ' -f2) — CI and the built images use 3.14; local Python linters are advisory only"
+	@echo "  · Lint/scan tools are run authoritatively in CI; trivy runs in a pinned"
+	@echo "    container via 'make scan'. A host copy is OPTIONAL (only for running a"
+	@echo "    target locally outside CI):"
+	@for tool in hadolint trivy semgrep promtool amtool gitleaks codespell markdownlint; do \
+		command -v $$tool > /dev/null && echo "      ✓ $$tool (on host)" || echo "      · $$tool (not on host — optional)"; \
 	done
-	@echo "Checking .env file..."
-	@[ -f .env ] && echo "  v .env OK" || echo "  ! Warning: .env file missing (run: cp .env.example .env)"
-	@echo "=== Doctor: Health check complete ==="
+	@[ -f .env ] && echo "  ✓ .env present" || echo "  · .env absent — created by 'make start-poc' or 'cp template.env .env'"
+	@echo "=== Doctor: required host tooling OK ==="
 
 
 # ── Master help ───────────────────────────────────────────────────────────
