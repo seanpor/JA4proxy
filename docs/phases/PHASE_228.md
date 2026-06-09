@@ -1,10 +1,21 @@
 ---
 phase: 228
 title: Human-Readable Scan Summaries
-status: PROPOSED
+status: IN_PROGRESS
 size: SMALL
 created: 2026-06-06
 audience: [developer, operator]
+---
+
+> **Progress — Trivy image summary (DONE 2026-06-09).** `scripts/scan_summary.py`
+> (stdlib-only) runs Trivy in JSON mode for each image (reusing the Phase 227
+> `TRIVY_CACHE`) and prints a one-row-per-image CRIT/HIGH/MED table with a
+> verdict + rollup, via `make scan-summary`. It is reporting-only — `make scan`
+> stays the gate — and is unit-tested (`tests/unit/test_scan_summary.py`).
+>
+> **Remaining.** Fold in the gosec JSON summary and a `make lint` rollup so the
+> same at-a-glance view covers the misconfig + SAST + multi-linter output, not
+> just third/first-party image CVEs.
 ---
 
 # Human-Readable Scan Summaries
