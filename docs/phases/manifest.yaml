@@ -2488,3 +2488,10 @@ phases:
     dependencies: []
     size: SMALL
     summary: 'docker-compose.prod.yml published several "internal only" services (proxy 8080/9090, analytics, tarpit, loki, prometheus) on 0.0.0.0 — unnecessary attack surface (only grafana + haproxy-stats were correctly loopback-bound). Removed host ports for purely-internal services (network DNS reaches them; verified prometheus.yml scrapes by service name) and bound the Prometheus UI to ${AGENT_BIND_IP:-127.0.0.1}. Only haproxy 443/80 stay public. Also fixed `make clean` aborting on an incomplete .env (CLEAN_DUMMY_ENV + conditional --env-file).'
+  304:
+    name: Dependency Security Remediation
+    status: COMPLETE
+    action_plan: docs/phases/PHASE_304.md
+    dependencies: [302]
+    size: SMALL
+    summary: 'Triaged the 118 alerts surfaced by enabling Dependabot + CodeQL (Phase 302): the real, fixable, production findings all sit in the Python Management-API auth stack — the Go production proxy is essentially clean. The Phase 302 auto-merge had already landed authlib 1.4.0->1.6.12 and python-multipart 0.0.12->0.0.32 (minor/patch). This phase did the three Dependabot correctly held back: cryptography 45.0.0->46.0.5 (major, management + root floor), python-jose 3.3.0->3.4.0 (critical alg-confusion; PyJWT migration flagged as follow-up), and indirect google.golang.org/grpc 1.76.0->1.79.3 in deploy/terraform-provider (deploy tooling). Management suite 614 pass against the upgraded stack (8 pre-existing failures are dead tests importing legacy Python removed in v2.0.0). Bench-tool go/disabled-certificate-check + OpenSSF Scorecard "highs" documented as benign noise; 9 CodeQL Python findings left as case-by-case follow-up (no blanket suppression).'
