@@ -11,10 +11,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **IN_PROGRESS** (Conducts a forensic hop-by-hop latency investigation to identify the bottleneck limiting end-to-end throughput to ~350 CPS. Includes deep Go profiling (pprof), infrastructure audit, and infrastructure optimization to bridge the gap between 272ns core latency and system-wide performance.)
 *   **Action Plan:** [PHASE_159.md](PHASE_159.md)
 
-### Phase 225 — Hermetic Tooling & make doctor Accuracy
-*   **Status:** **IN_PROGRESS** (DONE: 'make doctor' rewritten to separate required host tools (docker, Go, python3 — hard-fail) from informational notes (Python 3.10-vs-3.14, optional host lint/scan tools) so it no longer falsely warns about tools that run in CI/containers. REMAINING: actually run the five host-only tools (hadolint/gitleaks/codespell/markdownlint/amtool) in pinned containers and pin the Python linters to a 3.14 image. The PHASE_224 meta-lint guard stays host-only by design.)
-*   **Action Plan:** [PHASE_225.md](PHASE_225.md)
-
 ---
 
 ## 🔵 Planned & Open Phases

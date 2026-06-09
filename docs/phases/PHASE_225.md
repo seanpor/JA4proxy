@@ -1,25 +1,35 @@
 ---
 phase: 225
 title: Hermetic Tooling & `make doctor` Accuracy
-status: IN_PROGRESS
+status: COMPLETE
 size: MEDIUM
 created: 2026-06-05
+completed: 2026-06-09
 audience: [developer, operator]
 ---
 
-> **Progress — `make doctor` accuracy (DONE 2026-06-09).** `make doctor` no
-> longer "mutters": it now separates **required host tools** (docker, Go 1.26+,
-> python3 — hard-fail if missing) from **informational** notes. The local
-> Python-3.10-vs-3.14 gap and the absence of host `hadolint`/`trivy`/`gitleaks`/
-> `codespell`/`markdownlint`/`amtool` are reported as optional (`·`), not as
-> "Warning: some targets will fail" — because those checks run authoritatively
-> in CI (and trivy already runs in a pinned container via `make scan`).
+> **Outcome (COMPLETE — 2026-06-09).**
 >
-> **Remaining (the "hermetic tooling" half).** Actually run the five host-only
-> tools in pinned containers from their `make` targets so they execute
-> identically on any host (not merely "optional"), and pin the Python linters to
-> a 3.14 toolchain image. Tracked here; `make doctor` already tells the truth
-> about today's reality in the meantime.
+> **Part 1 — `make doctor` accuracy.** `doctor` now separates **required host
+> tools** (docker, Go 1.26+, python3 — hard-fail) from **informational** notes
+> (the local Python 3.10-vs-3.14 gap, and optional host copies of containerised
+> tools), instead of "Warning: some targets will fail".
+>
+> **Part 2 — hermetic tooling (this turn).** Investigation found the tooling was
+> *already* containerised — the remaining gap was **pinning**, not host
+> dependence: `hadolint`, `gitleaks`, `shellcheck`, `lychee` and the `lint-types`/
+> `lint-quality` Python image ran from floating `:latest`/`:stable`/untagged
+> images. All are now pinned to the exact versions in use (hadolint `v2.14.0`,
+> shellcheck `v0.11.0`, gitleaks `v8.30.1`, lychee `0.24.2`, `python:3.14.0-slim`);
+> `amtool` (`prom/alertmanager:v0.26.0`) and `promtool` (`prom/prometheus:v2.48.0`)
+> were already pinned. Pinning to the in-use versions = zero behaviour change,
+> full reproducibility. `codespell`/`markdownlint` were removed from the `doctor`
+> tool list — they are not used by any target (vestigial).
+>
+> **Deliberately out of scope (noted):** adding *new* doc linting (codespell/
+> markdownlint) is a separate feature, not hermeticity. The non-gating
+> `lint-shell` target has a pre-existing `SC2096` finding in
+> `scripts/perf-matrix.sh` (bad multi-arg shebang) — unrelated to pinning.
 ---
 
 # Hermetic Tooling & `make doctor` Accuracy
