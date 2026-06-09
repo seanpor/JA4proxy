@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Remote manual-testing (Phase 220, salvaged from PR #82)**: `scripts/test-bot.py` — a stdlib-only TLS test bot that drives connections through a (remote) proxy and reports ALLOWED/BLOCKED + JA4 per profile — plus `make remote-bot HOST=… [PORT=…]` and `docs/runbooks/REMOTE_TESTING.md`.
+
+### Security
+- **Remote testing reuses the existing `AGENT_BIND_IP` model, not a `0.0.0.0` override**: PR #82 proposed a `docker-compose.remote.yml` binding *every* port (incl. Management UI and Grafana) to `0.0.0.0`. That was dropped — the `poc`/`monitoring` compose files already bind every service to `AGENT_BIND_IP` (default `127.0.0.1`) and `start-poc.sh` validates it via `check_bind_address.py` (refuses public/`0.0.0.0`). Remote access = set `AGENT_BIND_IP` to the server's private LAN IP, `make start`, `make remote-bot`.
+
 ### Security
 - **Docs link-check is now a blocking, required gate**: the lychee docs link-check is added to `main`'s required status checks (broken links block the PR instead of merely emailing). To make a required check safe, its workflow (`docs-link-check.yml`) now runs on **every** PR (the previous `paths:` filter would have left non-docs PRs blocked forever waiting for an unreported check). `test_workflow_pinning.py` now also verifies any external required check exists and is unfiltered.
 
