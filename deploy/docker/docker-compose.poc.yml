@@ -20,13 +20,6 @@ services:
       - ALL
     cap_add:
       - NET_BIND_SERVICE
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-          cpus: '4.0'
-        reservations:
-          memory: 64M
     logging:
       driver: "json-file"
       options:
@@ -59,7 +52,6 @@ services:
       - BACKEND_HOST=${BACKEND_HOST:-backend}
       - BACKEND_PORT=${BACKEND_PORT:-8443}  # mock backend runs non-root on 8443
       - ENVIRONMENT=${ENVIRONMENT:-development}
-      - GOMAXPROCS=4
       - JA4PROXY_TRACE=${JA4PROXY_TRACE:-false}
       - JA4PROXY_FORENSIC=${JA4PROXY_FORENSIC:-false}
     networks:
@@ -87,13 +79,6 @@ services:
       - NET_BIND_SERVICE
     # Non-root user: ja4proxy (set in docker/Dockerfile.go-proxy)
     cpuset: "${AGENT_CPU_SET:-0-15}"
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-          cpus: '4.0'
-        reservations:
-          memory: 128M
     logging:
       driver: "json-file"
       options:
@@ -128,13 +113,6 @@ services:
       - /var/run:noexec,nosuid,nodev,size=10m
     cap_drop:
       - ALL
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-          cpus: '4.0'
-        reservations:
-          memory: 64M
     logging:
       driver: "json-file"
       options:
@@ -161,13 +139,6 @@ services:
     cap_drop:
       - ALL
     # Non-root user set in docker/Dockerfile.mockbackend (USER backend)
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-          cpus: '4.0'
-        reservations:
-          memory: 64M
     logging:
       driver: "json-file"
       options:
@@ -197,13 +168,6 @@ services:
     cap_drop:
       - ALL
     # Non-root user set in src/tarpit/Dockerfile (USER tarpit)
-    deploy:
-      resources:
-        limits:
-          memory: 128M
-          cpus: '4.0'
-        reservations:
-          memory: 32M
     logging:
       driver: "json-file"
       options:
@@ -230,11 +194,6 @@ services:
     cap_drop:
       - ALL
     # Non-root user set in docker/Dockerfile.trafficgen
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-          cpus: '4.0'
     logging:
       driver: "json-file"
       options:
@@ -275,13 +234,6 @@ services:
     cap_drop:
       - ALL
     # Non-root user set in src/analytics/Dockerfile (USER analytics)
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-          cpus: '4.0'
-        reservations:
-          memory: 128M
     logging:
       driver: "json-file"
       options:
@@ -304,7 +256,6 @@ services:
       - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD is required}
       - REDIS_SIGNING_KEY=${REDIS_SIGNING_KEY:-}
       - ENVIRONMENT=${ENVIRONMENT:-development}
-      - GOMAXPROCS=4
       - JA4PROXY_TRACE=${JA4PROXY_TRACE:-false}
       - PYTHONUNBUFFERED=1
       - PYTHONDONTWRITEBYTECODE=1
@@ -318,13 +269,6 @@ services:
       - /tmp:noexec,nosuid,nodev,size=50m
     cap_drop:
       - ALL
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-          cpus: '4.0'
-        reservations:
-          memory: 64M
     logging:
       driver: "json-file"
       options:
@@ -368,13 +312,6 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
-    deploy:
-      resources:
-        limits:
-          # pytest collects ~5000 test items — conftest.py import chain needs
-          # significant RAM. Keep well above observed peak.
-          memory: 6G
-          cpus: '2.0'
     logging:
       driver: "json-file"
       options:
@@ -408,13 +345,6 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-          cpus: '4.0'
-        reservations:
-          memory: 64M
     logging:
       driver: "json-file"
       options:

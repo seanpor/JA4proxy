@@ -317,4 +317,6 @@ func TestRateLimiter_Check_FailOpenOnBadIP(t *testing.T) {
 	}
 }
 
-func (*mockRedisCounter) MultiCheck(_ context.Context, _ string) (int, bool, bool) { return 0, false, false }
+func (*mockRedisCounter) MultiCheck(_ context.Context, _ string) (int, bool, bool) {
+	return 0, false, false
+}

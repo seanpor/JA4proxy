@@ -255,11 +255,11 @@ func runWizard() {
 
 	switch choice {
 	case "1":
-		setupScenario("POC", "backend", 443, "development", projectName, offset)
+		setupScenario("POC", "backend", 8443, "development", projectName, offset)
 	case "2":
-		setupScenario("Development", "backend", 443, "development", projectName, offset)
+		setupScenario("Development", "backend", 8443, "development", projectName, offset)
 	case "3":
-		setupScenario("Performance", "backend", 443, "production", projectName, offset)
+		setupScenario("Performance", "backend", 8443, "production", projectName, offset)
 	case "4":
 		fmt.Print("Enter backend host (e.g., 10.0.0.50): ")
 		host, _ := reader.ReadString('\n')

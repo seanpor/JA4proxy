@@ -65,14 +65,12 @@ func main() {
 		os.Exit(1)
 	}
 
-
 	log := newLogger(cfg)
 	log.WithFields(logrus.Fields{
 		"version": config.Version,
 		"built":   config.BuildDate,
 		"commit":  config.GitCommit,
 	}).Info("JA4proxy daemon starting")
-
 
 	if os.Getenv("ENVIRONMENT") == "production" && os.Getenv("ALLOW_UNAUTH_REDIS") == "true" {
 		log.Fatal("Insecure Redis config blocked in production")
@@ -598,7 +596,7 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 		data = p.reassembleClientHello(clientConn, data, buf)
 		if hello, err := tlsparse.ParseClientHello(data); err == nil {
 			ja4 := tlsparse.ComputeJA4(hello)
-	t2 = time.Now()
+			t2 = time.Now()
 			connCtx.JA4 = ja4
 			connCtx.TLSVersion = int(hello.LegacyVersion)
 			connCtx.SNI = hello.SNI
@@ -823,7 +821,7 @@ func (p *proxy) forward(clientConn net.Conn, initialData []byte) {
 	p.mu.RUnlock()
 
 	backendAddr := net.JoinHostPort(cfg.Proxy.BackendHost, fmt.Sprintf("%d", cfg.Proxy.BackendPort.Int()))
-	
+
 	t3 := time.Now()
 	backendConn, err := net.DialTimeout("tcp", backendAddr, time.Duration(cfg.Proxy.ConnectionTimeout)*time.Second)
 	t6 := time.Now()
@@ -856,7 +854,7 @@ func (p *proxy) forward(clientConn net.Conn, initialData []byte) {
 		defer wg.Done()
 		bp := bufferPool.Get().(*[]byte)
 		defer bufferPool.Put(bp)
-		
+
 		_, _ = io.CopyBuffer(dst, src, *bp)
 		_ = dst.Close()
 		_ = src.Close()
@@ -1888,4 +1886,3 @@ func (p *proxy) startIntegrityWorker(ctx context.Context) {
 		}
 	}
 }
-

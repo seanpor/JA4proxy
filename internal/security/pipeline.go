@@ -228,8 +228,8 @@ func NewPipeline(cfg *PipelineConfig, redis RedisReader, log *logrus.Logger) *Pi
 		log:       log,
 		Whitelist: cfg.Whitelist,
 		Blacklist: cfg.Blacklist,
-		cache:         NewDecisionCache(10000),
-		workChan:      make(chan *ConnectionContext, 20000),
+		cache:     NewDecisionCache(10000),
+		workChan:  make(chan *ConnectionContext, 20000),
 	}
 	p.tlsEnforcer = NewTLSEnforcer(buildTLSEnforcerConfig(cfg), log)
 	p.sniAnalyzer = NewSNIAnalyzer(buildSNIAnalyzerConfig(cfg), log)
@@ -295,7 +295,9 @@ func (p *Pipeline) beaconingWorker() {
 
 // StartBackgroundWorkers starts all async background workers.
 func (p *Pipeline) StartBackgroundWorkers(ctx context.Context) {
-	for i := 0; i < 32; i++ { go p.runAsyncScoringLoop(ctx) }
+	for i := 0; i < 32; i++ {
+		go p.runAsyncScoringLoop(ctx)
+	}
 	p.dnsEnrichment.Start(ctx)
 	p.abuseipdb.Start(ctx)
 	p.rdap.Start(ctx)
