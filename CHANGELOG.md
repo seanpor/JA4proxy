@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Pinned linter container images (Phase 225 part 2, COMPLETE)**: the lint/scan tools already ran in containers, but several used floating tags. Pinned to the exact in-use versions for reproducibility (zero behaviour change): `hadolint/hadolint:v2.14.0`, `koalaman/shellcheck:v0.11.0`, `zricethezav/gitleaks:v8.30.1`, `lycheeverse/lychee:0.24.2`, and the `lint-types`/`lint-quality` image `python:3.14-slim → python:3.14.0-slim` (`amtool`/`promtool` were already pinned). `codespell`/`markdownlint` were dropped from `make doctor`'s tool list — they are not used by any target.
+
 ### Added
 - **Remote manual-testing (Phase 220, salvaged from PR #82)**: `scripts/test-bot.py` — a stdlib-only TLS test bot that drives connections through a (remote) proxy and reports ALLOWED/BLOCKED + JA4 per profile — plus `make remote-bot HOST=… [PORT=…]` and `docs/runbooks/REMOTE_TESTING.md`.
 
