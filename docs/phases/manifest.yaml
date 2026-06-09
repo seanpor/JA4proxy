@@ -377,6 +377,20 @@ phases:
     size: SMALL
     summary: 'Restore 98 phase documentation files deleted by Phase 144 to fix make lint-phases
       exit status. Files restored from git history (c53ced20^).'
+  220:
+    name: Remote Manual Testing Enablement — Browser, curl, Bot, Logs, Dashboards
+    status: COMPLETE
+    completed: 2026-06-09
+    action_plan: docs/phases/PHASE_220.md
+    dependencies: []
+    size: SMALL
+    summary: 'Remote manual-testing enablement: scripts/test-bot.py (stdlib TLS test bot),
+      make remote-bot, and docs/runbooks/REMOTE_TESTING.md. Salvaged from PR #82; its
+      proposed docker-compose.remote.yml (which bound every port to 0.0.0.0) was dropped
+      as redundant and unsafe — the poc + monitoring compose already bind every service
+      to AGENT_BIND_IP (default 127.0.0.1) and start-poc.sh validates it via
+      check_bind_address.py. Remote access: set AGENT_BIND_IP to the server private LAN
+      IP, make start, make remote-bot.'
   122:
     name: Production Security Review — Internet-Facing Attack Surface Audit
     status: COMPLETE

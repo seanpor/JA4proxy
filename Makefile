@@ -1,4 +1,4 @@
-.PHONY: all bench-all build bump-build ci-verify clean cli-build doc-health doctor go-build help help-dev help-legacy help-lint help-ops help-scan init install-hooks ja4p-validate link-check lint lint-ansible lint-docs lint-phases lint-semgrep logs management-down management-logs management-shell management-up rebuild reload sbom scan scan-exceptions scorecard-local setup-build start start-poc status stop sync test test-component-suites test-ip test-ratio tunnel verify-all
+.PHONY: all bench-all build bump-build ci-verify clean cli-build doc-health doctor go-build help help-dev help-legacy help-lint help-ops help-scan init install-hooks ja4p-validate link-check lint lint-ansible lint-docs lint-phases lint-semgrep logs management-down management-logs management-shell management-up rebuild reload remote-bot sbom scan scan-exceptions scorecard-local setup-build start start-poc status stop sync test test-component-suites test-ip test-ratio tunnel verify-all
 PYTHON ?= $(shell command -v python || command -v python3 || echo python)
 GO ?= $(shell command -v go || echo go)
 
@@ -165,6 +165,7 @@ help-dev:
 	@echo "  status            - Show health + security state"
 	@echo "  logs              - Stream proxy container logs"
 	@echo "  ssh-tunnels       - Print SSH tunnel command for remote UI"
+	@echo "  remote-bot        - Run the TLS test bot: make remote-bot HOST=<ip> [PORT=<port>]"
 	@echo ""
 	@echo "── Testing ───────────────────────────────────────────────────"
 	@echo "  test              - Run all tests locally (fast, no Docker)"
@@ -237,6 +238,18 @@ stop-clean:
 # Show health of all services + security state
 status:
 	@./scripts/status.sh
+
+# ── Remote Manual Testing (Phase 220) ─────────────────────────────────────────
+# Remote access needs no special stack: the poc + monitoring compose files
+# already bind every service to AGENT_BIND_IP (default 127.0.0.1), and
+# start-poc.sh validates it via check_bind_address.py. To test from a laptop:
+# set AGENT_BIND_IP=<server-private-LAN-ip> in .env, run `make start`, then the
+# test bot below. See docs/runbooks/REMOTE_TESTING.md.
+#
+# Run the TLS test bot against a (remote) proxy. Usage: make remote-bot HOST=10.0.0.5 PORT=443
+remote-bot:
+	@[ -n "$(HOST)" ] || { echo "Usage: make remote-bot HOST=<proxy-ip> [PORT=<port>]"; exit 1; }
+	@PYTHONPATH=. $(PYTHON) scripts/test-bot.py --proxy "$(HOST)" --port $(or $(PORT),443)
 
 # ── Multi-Agent ───────────────────────────────────────────────────────────────
 
