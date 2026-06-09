@@ -438,6 +438,11 @@ lint-shell:
 # Third-party image list for CVE scanning. Keep in sync with docs/DOCKER_IMAGES.md.
 # Fails only on CRITICAL findings; HIGH findings are reported but non-blocking.
 # Scans only pinned third-party images (not images we build ourselves — use scan-first-party for those).
+# Shared Trivy cache (Phase 227): mounted into every trivy container so the
+# vulnerability DB is downloaded ONCE per `make scan` instead of re-fetched for
+# each image. In CI this dir is also restored/saved via actions/cache.
+TRIVY_CACHE ?= $(HOME)/.cache/trivy
+
 # Covers images deployed in deploy/docker/docker-compose.prod.yml + deploy/docker/docker-compose.monitoring.yml.
 # Keep versions here in sync with those compose files.
 TRIVY_IMAGES := haproxy:2.8.24-alpine \
@@ -458,6 +463,7 @@ check-manifest:
 	@$(PYTHON) scripts/check_manifest.py
 
 scan-images:
+	@mkdir -p "$(TRIVY_CACHE)"
 	@echo "=== Trivy: third-party image CVE scan (HIGH + CRITICAL) ==="
 	@echo "    Fails on CRITICAL; HIGH findings are reported but advisory."
 	@echo "    CVEs listed in .trivyignore are documented exceptions."
@@ -465,7 +471,7 @@ scan-images:
 	@fail=0; \
 	for img in $(TRIVY_IMAGES); do \
 		echo "  Scanning $$img ..."; \
-		result=$$(docker run --rm -v "$(PWD):/scan:ro" aquasec/trivy:0.71.0 image \
+		result=$$(docker run --rm -v "$(PWD):/scan:ro" -v "$(TRIVY_CACHE):/root/.cache/trivy" aquasec/trivy:0.71.0 image \
 			--severity HIGH,CRITICAL --exit-code 0 \
 			--no-progress --scanners vuln \
 			--ignorefile /scan/.trivyignore \
@@ -483,6 +489,7 @@ scan-images:
 # Catches: running as root, missing HEALTHCHECK, ADD with URL, exposed secrets, missing no-new-privileges.
 # Policy: HIGH + CRITICAL → exit 1 (we own these files; zero tolerance).
 scan-dockerfiles:
+	@mkdir -p "$(TRIVY_CACHE)"
 	@echo "=== Trivy: Dockerfile/compose misconfiguration scan (HIGH + CRITICAL) ==="
 	@echo "    Fails on HIGH or CRITICAL findings."
 	@fail=0; \
@@ -497,6 +504,7 @@ scan-dockerfiles:
 			echo "  ── Scanning $$f ──"; \
 			docker run --rm \
 				-v "$(PWD):/scan:ro" \
+				-v "$(TRIVY_CACHE):/root/.cache/trivy" \
 				aquasec/trivy:0.71.0 config \
 				--severity HIGH,CRITICAL --exit-code 1 \
 				"/scan/$$f" || fail=1; \
@@ -510,6 +518,7 @@ scan-dockerfiles:
 # Run 'make build' first to ensure images are current.
 # Policy: CRITICAL → exit 1; HIGH → reported but advisory.
 scan-first-party:
+	@mkdir -p "$(TRIVY_CACHE)"
 	@echo "=== Trivy: first-party image CVE scan (HIGH + CRITICAL) ==="
 	@echo "    Run 'make build' first to ensure images are current."
 	@echo "    Fails on CRITICAL; HIGH findings are reported but advisory."
@@ -519,6 +528,7 @@ scan-first-party:
 		echo "  Scanning $$img ..."; \
 		result=$$(docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
 			-v "$(PWD):/scan:ro" \
+			-v "$(TRIVY_CACHE):/root/.cache/trivy" \
 			aquasec/trivy:0.71.0 image --severity HIGH,CRITICAL --exit-code 0 \
 			--no-progress --scanners vuln --ignorefile /scan/.trivyignore \
 			--format table "$$img" 2>&1 \

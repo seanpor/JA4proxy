@@ -73,6 +73,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      # Phase 227: persist the Trivy vulnerability DB across runs. Within a run
+      # the shared cache mount (Makefile TRIVY_CACHE) already downloads it once;
+      # this restores it across runs so the first scan doesn't re-fetch it.
+      # Rolling key (run_id) + restore-keys = "save each run, restore latest".
+      - name: Cache Trivy DB
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
+        with:
+          path: ~/.cache/trivy
+          key: trivy-db-${{ github.run_id }}
+          restore-keys: |
+            trivy-db-
       - name: Prepare .env for build
         run: cp template.env .env
       - name: Generate backend cert for build
