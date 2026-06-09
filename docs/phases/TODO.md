@@ -11,6 +11,10 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **IN_PROGRESS** (Conducts a forensic hop-by-hop latency investigation to identify the bottleneck limiting end-to-end throughput to ~350 CPS. Includes deep Go profiling (pprof), infrastructure audit, and infrastructure optimization to bridge the gap between 272ns core latency and system-wide performance.)
 *   **Action Plan:** [PHASE_159.md](PHASE_159.md)
 
+### Phase 228 — Human-Readable Scan Summaries
+*   **Status:** **IN_PROGRESS** (Parse machine-readable scanner output (trivy/gosec JSON) into a compact per-image PASS/FAIL summary so scan/lint results are readable at a glance; raw detail kept available (summarize, not suppress).)
+*   **Action Plan:** [PHASE_228.md](PHASE_228.md)
+
 ---
 
 ## 🔵 Planned & Open Phases
@@ -58,7 +62,3 @@ This document tracks the remaining work for both historical phases (gaps identif
 ### Phase 225 — Hermetic Tooling & make doctor Accuracy
 *   **Status:** **PROPOSED** (Run version-sensitive tools (trivy, hadolint, gitleaks, codespell, markdownlint, amtool, the 3.14 Python linters) in pinned containers instead of relying on the host, and make 'make doctor' report accurately (blocking vs informational). The PHASE_224 meta-lint guard stays host-only by design.)
 *   **Action Plan:** [PHASE_225.md](PHASE_225.md)
-
-### Phase 228 — Human-Readable Scan Summaries
-*   **Status:** **PROPOSED** (Parse machine-readable scanner output (trivy/gosec JSON) into a compact per-image PASS/FAIL summary so scan/lint results are readable at a glance; raw detail kept available (summarize, not suppress).)
-*   **Action Plan:** [PHASE_228.md](PHASE_228.md)

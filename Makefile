@@ -543,6 +543,13 @@ scan-first-party:
 	[ $$fail -eq 0 ] || exit 1
 	@echo "✓ First-party image scan complete"
 
+# Phase 228: human-readable rollup of the image CVE scans. Reporting only —
+# `make scan` remains the authoritative gate. First-party rows require `make build`.
+FIRST_PARTY_IMAGES := ja4proxy:1.0.0 ja4proxy-analytics:1.0.0 ja4proxy-tarpit:1.0.0 ja4proxy-mockbackend:1.0.0 ja4proxy-test:1.0.0 ja4proxy-trafficgen:1.0.0
+scan-summary: ## Phase 228 — compact CRIT/HIGH/MED table across all scanned images (reporting only)
+	@mkdir -p "$(TRIVY_CACHE)"
+	@$(PYTHON) scripts/scan_summary.py $(TRIVY_IMAGES) $(FIRST_PARTY_IMAGES)
+
 scan-exceptions: ## List Trivy scan exceptions (.trivyignore) with days-to-expiry
 	@$(PYTHON) scripts/scan_exceptions.py
 

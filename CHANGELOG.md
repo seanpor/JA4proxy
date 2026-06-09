@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`make scan-summary` (Phase 228)**: `scripts/scan_summary.py` (stdlib-only) runs Trivy in JSON mode per image and prints a compact one-row-per-image CRIT/HIGH/MED table with a verdict + rollup, so the scan result is readable at a glance instead of a wall of tables. Reporting-only — `make scan` stays the authoritative gate — and unit-tested. (gosec/`make lint` rollups are the remaining half of Phase 228.)
+
 ### Performance
 - **Trivy DB caching (Phase 227)**: `make scan` now mounts a shared `TRIVY_CACHE` dir into every trivy container, so the vulnerability DB is downloaded once per run instead of once per image (~13× → 1×); a SHA-pinned `actions/cache` step persists it across CI runs.
 
