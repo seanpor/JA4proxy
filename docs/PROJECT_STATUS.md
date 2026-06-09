@@ -357,6 +357,7 @@ Alignment with international standards and regulatory frameworks.
 | 302 | Repository Security Settings & Dependabot Automation | COMPLETE | N/A | N/A |
 | 303 | Production Compose Port-Exposure Hardening | COMPLETE | N/A | N/A |
 | 304 | Dependency Security Remediation | COMPLETE | N/A | N/A |
+| 305 | CodeQL Triage — Python Code-Scanning Findings | COMPLETE | N/A | N/A |
 
 ---
 

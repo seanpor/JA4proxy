@@ -2488,6 +2488,13 @@ phases:
     dependencies: []
     size: SMALL
     summary: 'docker-compose.prod.yml published several "internal only" services (proxy 8080/9090, analytics, tarpit, loki, prometheus) on 0.0.0.0 — unnecessary attack surface (only grafana + haproxy-stats were correctly loopback-bound). Removed host ports for purely-internal services (network DNS reaches them; verified prometheus.yml scrapes by service name) and bound the Prometheus UI to ${AGENT_BIND_IP:-127.0.0.1}. Only haproxy 443/80 stay public. Also fixed `make clean` aborting on an incomplete .env (CLEAN_DUMMY_ENV + conditional --env-file).'
+  305:
+    name: CodeQL Triage — Python Code-Scanning Findings
+    status: COMPLETE
+    action_plan: docs/phases/PHASE_305.md
+    dependencies: [304]
+    size: SMALL
+    summary: 'Triaged the 14 CodeQL Python findings (+1 Go bench) surfaced by enabling code scanning (Phase 302). Genuine bugs fixed in the Management-API web layer with regression tests (test_codeql_305_regression.py): a reflected XSS in /api/v1/partials/list-table (unescaped `list` query param → html.escape) and str(exc) error-detail exposure in /health/deep and the unauthenticated /ready (→ logged server-side, generic reason). The OIDC/SAML url-redirection pair was hardened rather than dismissed — the redirect target is a hardcoded "/" today (no live bug) but a safe_relative_redirect guard now confines both callbacks to same-site relative paths, regression-proofing against any future user-controllable redirect (the "do not dismiss a safe-by-constant FP, harden it" case). The two test TLS servers (mock-backend, tests/docker/tls_backend) got an explicit TLS 1.2 floor (clears py/insecure-protocol legitimately). The remainder are verified false positives (redis_client logs the redacted URL; auth.py logs a config CIDR; splunk action never logs the token) or intentional test tooling (legacy-TLS generators, bind-all capture helper, bench InsecureSkipVerify) — to be dismissed per-alert with code-backed justifications, no blanket rule suppression. The Go production proxy produced no genuine code-scanning bug.'
   304:
     name: Dependency Security Remediation
     status: COMPLETE

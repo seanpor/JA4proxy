@@ -15,6 +15,7 @@ GET /api/v1/partials/audit          — audit log table rows
 GET /api/v1/partials/list-table     — a single list table (whitelist/blacklist/allowlist)
 """
 
+import html
 import json
 import logging
 import time
@@ -311,8 +312,14 @@ async def list_table_partial(
 
     mapping = _LIST_REDIS_KEYS.get(list)
     if mapping is None:
+        # Escape the user-supplied value before reflecting it into HTML —
+        # `list` is an unvalidated query parameter, so interpolating it raw
+        # is a reflected-XSS sink (CodeQL py/reflective-xss).
         return HTMLResponse(
-            content=f'<div class="px-4 py-3 text-sm text-[#f87171]">Unknown list: {list}</div>',
+            content=(
+                '<div class="px-4 py-3 text-sm text-[#f87171]">'
+                f"Unknown list: {html.escape(list)}</div>"
+            ),
             status_code=400,
         )
 

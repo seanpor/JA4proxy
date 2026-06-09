@@ -153,6 +153,11 @@ def run_server(port=None, tls=None):
         server_address = ("", port)
         httpd = HighCapacityHTTPServer(server_address, MockBackendHandler)
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        # Pin a TLS 1.2 floor — a backend has no reason to accept legacy TLS
+        # (clears CodeQL py/insecure-protocol). The proxy is passthrough, so
+        # legacy-TLS client profiles are exercised against the *proxy's*
+        # detection, never terminated here.
+        ctx.minimum_version = ssl.TLSVersion.TLSv1_2
         ctx.load_cert_chain(tls_cert, tls_key)
         # do_handshake_on_connect=False: accept() returns immediately so the
         # main server thread is never blocked by a slow TLS handshake.
