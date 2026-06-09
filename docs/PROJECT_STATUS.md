@@ -356,6 +356,7 @@ Alignment with international standards and regulatory frameworks.
 | 301 | Environment Template Remediation | COMPLETE | N/A | N/A |
 | 302 | Repository Security Settings & Dependabot Automation | COMPLETE | N/A | N/A |
 | 303 | Production Compose Port-Exposure Hardening | COMPLETE | N/A | N/A |
+| 304 | Dependency Security Remediation | COMPLETE | N/A | N/A |
 
 ---
 
