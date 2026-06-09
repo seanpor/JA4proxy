@@ -68,7 +68,12 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse, Response
 
 from ..audit_utils import write_audit
-from ..auth import _client_ip, _create_access_token, mfa_session_key
+from ..auth import (
+    _client_ip,
+    _create_access_token,
+    mfa_session_key,
+    safe_relative_redirect,
+)
 from ..models import Role
 from ..redis_client import get_redis
 
@@ -422,7 +427,8 @@ async def oidc_callback(
 
     state_data = json.loads(state_raw)
     code_verifier = state_data["code_verifier"]
-    redirect_target = state_data.get("redirect", "/")
+    # Open-redirect guard (CWE-601): only allow a same-site relative path.
+    redirect_target = safe_relative_redirect(state_data.get("redirect", "/"))
 
     # Fetch discovery to get token endpoint and JWKS URI
     discovery_url = os.environ["MANAGEMENT_OIDC_DISCOVERY_URL"]
