@@ -36,4 +36,4 @@ To identify the pure mathematical limit of the 8-core host (i9-9900K), we ran th
 ---
 
 ## Strategic Intent
-The "350 CPS bottleneck" was an artifact of test configuration, not the Go implementation. JA4proxy v2.0.0 is verifiably an elite, high-performance security engine.
+The "350 CPS bottleneck" was an artifact of test configuration, not the Go implementation. JA4proxy v2.0.0 is verifiably a highly optimized, high-performance security engine.

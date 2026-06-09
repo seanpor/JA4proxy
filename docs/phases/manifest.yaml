@@ -2405,7 +2405,7 @@ phases:
     name: Revitalizing the Marketing & Technical Brochure
     status: COMPLETE
     action_plan: docs/phases/complete/PHASE_158.md
-    summary: Modernizes the LaTeX-based PDF brochure to reflect the v2.0.0 Go-native architecture, elite latency metrics (272ns), and production-ready status, ensuring a professional enterprise-grade narrative.
+    summary: Modernizes the LaTeX-based PDF brochure to reflect the v2.0.0 Go-native architecture, verified latency metrics (272ns), and production-ready status, ensuring a professional enterprise-grade narrative.
   159:
     name: Radical Performance Investigation — "The 10k Mission"
     status: IN_PROGRESS
@@ -2446,3 +2446,8 @@ phases:
     status: COMPLETE
     action_plan: docs/phases/PHASE_229.md
     summary: Moved analytics & tarpit to a perl-free python:3.14.0-alpine base (digest-pinned), retiring all three Phase 226 perl .trivyignore exceptions (scan green with zero exceptions). Aligned the drifted security-scan image from golang:1.25.10 to the single pinned golang:1.26.4-alpine@digest used everywhere else. test_docker_consistency updated to accept patch-pinned slim or alpine. Remaining hardening (digest-pin the tests/docker fixtures, a strict no-unpinned-FROM guard) noted for follow-up.
+  161:
+    name: Docker Network Ceiling Demolition
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_161.md
+    summary: Uncapped artificial Docker resource limits to prove the Go proxy can achieve ~2,662 CPS inside a containerized environment (3.3x faster than the Python baseline).

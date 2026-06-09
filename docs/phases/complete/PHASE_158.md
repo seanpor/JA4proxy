@@ -6,13 +6,13 @@
 > **Owner:** Gemini CLI
 
 ## Goal
-Update the official JA4proxy PDF brochure (`docs/pdf/brochure/`) to accurately reflect the v2.0.0 Go-native architecture, elite performance metrics, and production-ready status.
+Update the official JA4proxy PDF brochure (`docs/pdf/brochure/`) to accurately reflect the v2.0.0 Go-native architecture, verified performance metrics, and production-ready status.
 
 ## Scope
 
 ### 1. Narrative Modernization
 - **Go-First Messaging**: Remove all references to "Python implementation" or "Go rewrite in progress". The system is now 100% Go-native.
-- **Elite Performance**: Lead with the **272ns** allow-path latency and the **3.6M conn/s** theoretical capacity.
+- **High Performance**: Lead with the **272ns** allow-path latency and the **3.6M conn/s** theoretical capacity.
 - **Architectural Clarity**: Describe the two-binary model (`ja4pd` Engine + `ja4p` Toolset).
 
 ### 2. Metric Integration

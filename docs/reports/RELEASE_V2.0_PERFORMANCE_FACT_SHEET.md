@@ -7,7 +7,7 @@
 - **Unrestricted Docker**: ~2,662 CPS (3.3x faster than previous Python 800 CPS baseline)
 
 ## 🛠️ High-Performance Features
-- **Elite Bidirectional Streaming**: Zero-allocation I/O using `io.CopyBuffer` and pooled memory, reducing syscall overhead by >80%.
+- **Optimized Bidirectional Streaming**: Zero-allocation I/O using `io.CopyBuffer` and pooled memory, reducing syscall overhead by >80%.
 - **sync.Pool Buffer Recycling**: Constant 32KB buffer reuse eliminates Garbage Collection thrashing.
 - **Local LRU Cache**: Nanosecond security decisions for repeat JA4 fingerprints.
 - **Asynchronous Scoring**: Traffic forwarding is fully decoupled from background Redis I/O.
