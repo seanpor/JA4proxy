@@ -7,22 +7,26 @@ RUN go mod init nullbackend && go mod tidy
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /nullbackend main.go
 
 FROM alpine:3.19.3@sha256:95c16745f100f44cf9a0939fd3f357905f845f8b6fa7d0cde0e88c9764060185
-RUN apk upgrade --no-cache && apk add --no-cache ca-certificates curl
+# Non-root user (JA4PROXY DS-0002: containers must not run as root). It binds a
+# non-privileged port (8443) so it works under cap_drop=ALL in compose.
+RUN apk upgrade --no-cache && apk add --no-cache ca-certificates curl && \
+    adduser -D -H -s /sbin/nologin backend
 
 WORKDIR /app
 COPY --from=builder /nullbackend /usr/local/bin/nullbackend
 
-# We will mount the certs instead of copying to avoid permission hell during dev
-# But for now, let is try COPY again with broad permissions
+# Mock-backend TLS cert (world-readable 644 so the non-root user can read it;
+# test fixture only). nullbackend loads /app/backend.{crt,key}.
 COPY deploy/ssl/certs/backend.crt /app/backend.crt
 COPY deploy/ssl/private/backend.key /app/backend.key
 RUN chmod 644 /app/backend.crt /app/backend.key
 
-ENV PORT=443
-EXPOSE 443
+ENV PORT=8443
+USER backend
+EXPOSE 8443
 
 # Health check (Go backend responds to health)
 HEALTHCHECK --interval=10s --timeout=5s --start-period=5s --retries=3 \
-    CMD curl -kf https://localhost:443/api/health || exit 0
+    CMD curl -kf https://localhost:8443/api/health || exit 0
 
 ENTRYPOINT ["/usr/local/bin/nullbackend"]
