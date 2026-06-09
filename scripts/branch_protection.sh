@@ -44,6 +44,7 @@ gh api "repos/${REPO}/branches/main/protection" \
   --field "required_status_checks[contexts][]=Python dependency audit (pip-audit)" \
   --field "required_status_checks[contexts][]=Go dependency audit (govulncheck)" \
   --field "required_status_checks[contexts][]=Traceability matrix check" \
+  --field "required_status_checks[contexts][]=lychee on conformance + audience-scoped docs" \
   --field "enforce_admins=true" \
   --field "required_pull_request_reviews[required_approving_review_count]=0" \
   --field "restrictions=null"

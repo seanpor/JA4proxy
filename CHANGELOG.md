@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- **Docs link-check is now a blocking, required gate**: the lychee docs link-check is added to `main`'s required status checks (broken links block the PR instead of merely emailing). To make a required check safe, its workflow (`docs-link-check.yml`) now runs on **every** PR (the previous `paths:` filter would have left non-docs PRs blocked forever waiting for an unreported check). `test_workflow_pinning.py` now also verifies any external required check exists and is unfiltered.
+
 ### Added
 - **`make scan-summary` (Phase 228, COMPLETE)**: `scripts/scan_summary.py` (stdlib-only, unit-tested) turns the scan blur into compact tables — a per-image Trivy CVE rollup (CRIT/HIGH/MED, reusing the Phase 227 cache) **and** a gosec HIGH/MED/LOW rollup (from the pinned `security-scan` image). Both are reporting-only with gate-consistent verdicts — `make scan` stays the authoritative gate. (A `misconfig` mode is included for manual use but not auto-run, since a whole-dir scan is broader than the gated file list; a `make lint` rollup was deliberately descoped as `make lint` already prints a clear per-target status.)
 

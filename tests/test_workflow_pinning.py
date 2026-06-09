@@ -240,11 +240,23 @@ def test_sha_matches_tag_comment():
     assert not failures, "SHA / tag-comment mismatches:\n  " + "\n  ".join(failures)
 
 
+# Required status checks that come from workflows OTHER than ci.yml. Each maps a
+# check name -> the workflow file whose job declares it. Such a workflow MUST run
+# on every pull_request (no `paths:` filter), otherwise a required-but-unreported
+# check would block every PR that doesn't touch the filtered paths.
+EXTERNAL_REQUIRED_CONTEXTS = {
+    "lychee on conformance + audience-scoped docs": ".github/workflows/docs-link-check.yml",
+}
+
+
 def test_branch_protection_contexts_match_ci_job_names():
-    """branch_protection.sh contexts must equal the set of `name:` fields
-    on required jobs in ci.yml. A drift here silently turns branch
-    protection into a no-op gate (required check that never fires =>
-    PR can merge regardless). Highest silent-failure risk in Phase 61.
+    """branch_protection.sh contexts must equal the required CI job names.
+
+    The required set = ci.yml's non-continue-on-error jobs (excluding the PR-only
+    dependency-review) PLUS the explicitly-declared EXTERNAL_REQUIRED_CONTEXTS
+    from other workflows. A drift here silently turns branch protection into a
+    no-op gate (a required check that never fires => PR can merge regardless), so
+    this is the highest silent-failure risk.
     """
     ci = REPO_ROOT / ".github" / "workflows" / "ci.yml"
     script = REPO_ROOT / "scripts" / "branch_protection.sh"
@@ -263,17 +275,36 @@ def test_branch_protection_contexts_match_ci_job_names():
     }
     assert job_names, "ci.yml has no jobs with `name:` fields"
 
+    # Each external required check must be a real job AND its workflow must run on
+    # every PR (no `paths:` filter), else it would block PRs by never reporting.
+    for check, wf_path in EXTERNAL_REQUIRED_CONTEXTS.items():
+        wf = REPO_ROOT / wf_path
+        assert wf.exists(), f"EXTERNAL_REQUIRED_CONTEXTS workflow missing: {wf_path}"
+        wf_doc = yaml.safe_load(wf.read_text())
+        wf_jobs = {j.get("name") for j in (wf_doc.get("jobs") or {}).values() if isinstance(j, dict)}
+        assert check in wf_jobs, f"'{check}' is not a job name in {wf_path}"
+        # PyYAML parses the `on:` key as the boolean True, so accept either form.
+        on = wf_doc.get("on", wf_doc.get(True, {})) or {}
+        pr = (on.get("pull_request") if isinstance(on, dict) else None) or {}
+        assert "paths" not in pr, (
+            f"{wf_path} is a required check but its pull_request trigger has a "
+            f"`paths:` filter — it must run on every PR or it will block PRs that "
+            f"don't touch those paths."
+        )
+
+    expected = job_names | set(EXTERNAL_REQUIRED_CONTEXTS)
+
     script_text = script.read_text()
     context_re = re.compile(r"contexts\]\[\]=([^\"\\\n]+?)\"")
     contexts = set(context_re.findall(script_text))
     assert contexts, "branch_protection.sh has no contexts[][] entries"
 
-    missing_in_script = job_names - contexts
-    extra_in_script = contexts - job_names
+    missing_in_script = expected - contexts
+    extra_in_script = contexts - expected
     assert not missing_in_script and not extra_in_script, (
-        f"branch_protection.sh contexts drift from ci.yml job names.\n"
-        f"  in ci.yml but missing from script: {sorted(missing_in_script)}\n"
-        f"  in script but missing from ci.yml: {sorted(extra_in_script)}"
+        f"branch_protection.sh contexts drift from required check names.\n"
+        f"  required but missing from script: {sorted(missing_in_script)}\n"
+        f"  in script but not a required check: {sorted(extra_in_script)}"
     )
 
 
