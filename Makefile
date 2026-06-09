@@ -48,7 +48,7 @@ doctor: ## Phase 147/225 — Verify environment and toolchain health
 	@echo "  · Lint/scan tools are run authoritatively in CI; trivy runs in a pinned"
 	@echo "    container via 'make scan'. A host copy is OPTIONAL (only for running a"
 	@echo "    target locally outside CI):"
-	@for tool in hadolint trivy semgrep promtool amtool gitleaks codespell markdownlint; do \
+	@for tool in hadolint trivy semgrep promtool amtool gitleaks; do \
 		command -v $$tool > /dev/null && echo "      ✓ $$tool (on host)" || echo "      · $$tool (not on host — optional)"; \
 	done
 	@[ -f .env ] && echo "  ✓ .env present" || echo "  · .env absent — created by 'make start-poc' or 'cp template.env .env'"
@@ -357,7 +357,7 @@ lint-security:
 
 # Type checking with mypy (suppress output)
 lint-types:
-	docker run --rm -v $(PWD):/app python:3.14-slim sh -c "cd /app && pip install mypy && mypy proxy.py security/ src/ 2>/dev/null || echo 'Mypy warnings above, see baseline docs/reports/MYPY_BASELINE.md'"
+	docker run --rm -v $(PWD):/app python:3.14.0-slim sh -c "cd /app && pip install mypy && mypy proxy.py security/ src/ 2>/dev/null || echo 'Mypy warnings above, see baseline docs/reports/MYPY_BASELINE.md'"
 
 # Phase 16f static analysis gates — runs locally (no Docker required).
 # All three tools must pass cleanly; failures block the CI build.
@@ -388,7 +388,7 @@ lint-static:
 
 # Code quality with flake8 (suppress output)
 lint-quality:
-	docker run --rm -v $(PWD):/app python:3.14-slim sh -c "cd /app && pip install flake8 && flake8 src/analytics/ src/management/ scripts/ tests/ 2>/dev/null || echo 'Flake8 warnings above, see baseline docs/QUICK_REFERENCE.md'"
+	docker run --rm -v $(PWD):/app python:3.14.0-slim sh -c "cd /app && pip install flake8 && flake8 src/analytics/ src/management/ scripts/ tests/ 2>/dev/null || echo 'Flake8 warnings above, see baseline docs/QUICK_REFERENCE.md'"
 
 # Coverage reporting with pytest-cov (Phase 16c gate: ≥80% all modules)
 lint-coverage:
@@ -412,7 +412,7 @@ lint-docker:
 	@echo "=== hadolint: Dockerfiles ==="
 	@for f in $(HADOLINT_DOCKERFILES); do \
 		printf "  %-50s" "$$f"; \
-		result=$$(docker run --rm -i hadolint/hadolint hadolint $(HADOLINT_IGNORE) --no-color - < "$$f" 2>&1); \
+		result=$$(docker run --rm -i hadolint/hadolint:v2.14.0 hadolint $(HADOLINT_IGNORE) --no-color - < "$$f" 2>&1); \
 		if [ -n "$$result" ]; then echo "FAIL"; echo "$$result"; exit 1; fi; \
 		echo "OK"; \
 	done
@@ -444,7 +444,7 @@ lint-shell:
 	@fail=0; \
 	for f in $(SHELL_SCRIPTS); do \
 		printf "  %-60s" "$$f"; \
-		result=$$(docker run --rm -i koalaman/shellcheck:stable \
+		result=$$(docker run --rm -i koalaman/shellcheck:v0.11.0 \
 			--severity=error --exclude=SC2154 - < "$$f" 2>/dev/null); \
 		if [ -n "$$result" ]; then echo "FAIL"; echo "$$result"; fail=1; \
 		else echo "OK"; fi; \
@@ -623,7 +623,7 @@ lint-secrets:
 	@echo "=== gitleaks: scan git history for secrets ==="
 	@docker run --rm \
 		-v "$(PWD):/repo" \
-		zricethezav/gitleaks:latest detect \
+		zricethezav/gitleaks:v8.30.1 detect \
 		--source /repo --no-banner --config /repo/.gitleaks.toml \
 		&& echo "✓ No secrets found in git history"
 
@@ -1146,7 +1146,7 @@ test-attack-mapping: ## Phase 107f.4 — fail if ATT&CK mapping rows lack confid
 test-doc-links: ## Phase 107w.3 — lychee-check all docs for broken internal links
 	@command -v lychee >/dev/null 2>&1 || { \
 		echo "lychee not installed. Install: https://github.com/lycheeverse/lychee#installation"; \
-		echo "Or run via Docker: docker run --rm -v \$$PWD:/input lycheeverse/lychee --no-progress --accept 200,204,301,302,403,429 --exclude-path /input/archive --exclude-path /input/node_modules \"/input/**/*.md\""; \
+		echo "Or run via Docker: docker run --rm -v \$$PWD:/input lycheeverse/lychee:0.24.2 --no-progress --accept 200,204,301,302,403,429 --exclude-path /input/archive --exclude-path /input/node_modules \"/input/**/*.md\""; \
 		exit 1; \
 	}
 	lychee --no-progress --accept 200,204,301,302,403,429 \
