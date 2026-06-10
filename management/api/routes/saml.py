@@ -51,7 +51,12 @@ from onelogin.saml2.auth import OneLogin_Saml2_Auth
 from onelogin.saml2.settings import OneLogin_Saml2_Settings
 
 from ..audit_utils import write_audit
-from ..auth import _client_ip, _create_access_token, mfa_session_key
+from ..auth import (
+    _client_ip,
+    _create_access_token,
+    mfa_session_key,
+    safe_relative_redirect,
+)
 from ..models import Role
 from ..redis_client import get_redis
 
@@ -313,7 +318,10 @@ async def saml_acs(
             await redis.set(mfa_session_key(token), "verified", ex=_MFA_SESSION_TTL)
             logger.info("sso | event=idp_mfa_trusted | user=%s | provider=saml", nameid)
 
-    response = RedirectResponse(url=redirect_target or "/", status_code=302)
+    # Open-redirect guard (CWE-601): only allow a same-site relative path.
+    response = RedirectResponse(
+        url=safe_relative_redirect(redirect_target), status_code=302
+    )
     from ..auth import _should_set_secure_cookie
 
     response.set_cookie(

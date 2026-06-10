@@ -28,6 +28,7 @@ Optimization for high-throughput and multi-core systems.
 | 68 | Python 3.14 Hot Path Optimizations | COMPLETE | Make the JA4/scoring hot path JIT-friendly (remove try/except from inner loops, monomorphic call sites). Integrate uvloop as the asyncio event loop on Linux for 2-4x I/O throughput gain. Both changes are additive and independently revertable. |
 | 69 | Free-Threaded Python Proxy | COMPLETE | Conditional on Phase 67 throughput < 600 conn/s. Switch proxy container to python:3.14t-slim (no-GIL). Thread safety audit; replace asyncio.Lock with threading.Lock in local_cache and config loader. Replace ProcessPoolExecutor with ThreadPoolExecutor for zero-IPC TLS parsing. |
 | 70 | Analytics Upgrade & Subinterpreter Experiment | COMPLETE | src/analytics/Dockerfile upgraded to python:3.14.0-slim (numpy has cp314 wheel confirmed by Phase 66 checker). src/tls/interpreter_pool.py created: drop-in replacement for ThreadPoolExecutor using Python 3.14 interpreters module (each worker gets own GIL); transparent ThreadPoolExecutor fallback on older Python. |
+| 306 | Take Over PR | COMPLETE | Took over external PR #95 ("unleash Go performance") on a clean branch off main, keeping every legitimate win and fixing the regressions. KEPT: io.CopyBuffer-style pooled 32KB buffer reuse in forward() (sync.Pool, sync.WaitGroup, JA4PROXY-2026-0009 invariant preserved), Redis PoolSize 100/MinIdleConns 10, 32-goroutine async scoring pool + workChan 10000->20000, dev/POC/Perf backend port 443->8443 (Production stays 443), lazy %s tarpit logging, and honest hyperbole tone-downs (Elite->Verified/High) in existing docs. FIXED: restored the per-read SetReadDeadline/SetWriteDeadline idle-reaper PR #95 silently dropped — without it a slowloris/idle-hold pins a goroutine + pooled buffer forever and read_timeout/write_timeout become dead config; the pooled-buffer win and the deadlines coexist. Added Go regression test TestForward_IdleConnectionIsReaped (tears down an idle pair at read_timeout; hangs/fails if deadlines removed). REPAIRED docs/ATTACK_MAPPING.md, which was stale on main (Python prototypes src/security/*.py retired in v2.0.0): dropped the dead prototype rows, repointed the two genuine rate-tracker rows to internal/security/rate_limiter.go, and fixed the CI-gate test path (docs/for-architects -> docs/) — the gate (tests/test_attack_mapping.py) was failing on main and now passes. The unsubstantiated ">10,000 CPS/core" claim lived only in PR-new marketing docs (BENCHMARKING_GUIDE.md, PHASE_161.md), which were simply not imported. Left the connection-decision log at Info (no Debug demotion) to preserve the audit trail. Go build/vet/gofmt clean; touched-package tests green. |
 
 ### Epic: Security Hardening
 Deep security analysis, compliance, and audit remediation.
@@ -104,7 +105,7 @@ Management dashboards and documentation quality.
 | 51 | Management UI - Phase 2: Frontend Dashboard | COMPLETE | Server-rendered Jinja2 dashboard (dashboard.html, partials) for real-time visualization of proxy telemetry. Delivered together with Phases 13/52 in merge commit 2aeb2ba. |
 | 52 | Management UI - Phase 3: Administration Tools | COMPLETE | Admin UI for allowlists, bans, dial, audit log, and config. Full test suite including test_pages.py and test_container_config.py. Delivered together with Phases 13/51 in merge commit 2aeb2ba. |
 | 105 | Documentation Restructure by Audience | COMPLETE | Restructured project documentation into five audience-specific entry points (Website Owners, Architects, Operators, Compliance, Developers). Consolidated 4 blocking docs into BLOCKING_OPERATIONS.md and 4 testing docs into TESTING_STRATEGY.md as appendices. Refreshed 4 LaTeX chapters (brochure + 3 reference-manual chapters) for Phase 200-series posture. Added docs-pdf.yml CI workflow (SHA-pinned, 14-day non-blocking grace ending 2026-05-09). Archived pre-Phase-200 reports (GEMINI_CRITIQUE, ENTERPRISE_REVIEW, DMZ_DEPLOYMENT_READINESS, CYBER_RISK_REVIEW, strategic_security_architecture_review) with date-stamped banners. Reduced root README from 441 to 88 lines as a role-router. Resolved Phase 106 architect Finding 2 (placeholder marker in for-developers/README.md). |
-| 305 | Documentation Coherence, Setup Standardization, and Link Remediation | COMPLETE | Establish a coherent documentation system, standardize onboarding instructions on the setup wizard (make init), clear out legacy Python proxy references, and resolve all broken links and metadata errors. |
+| 307 | Documentation Coherence, Setup Standardization, and Link Remediation | COMPLETE | Establish a coherent documentation system, standardize onboarding instructions on the setup wizard (make init), clear out legacy Python proxy references, and resolve all broken links and metadata errors. |
 
 ### Epic: Operational Excellence & Lifecycle Management
 Zero-downtime upgrades, robust health monitoring, and deployment orchestration.
@@ -357,7 +358,10 @@ Alignment with international standards and regulatory frameworks.
 | 301 | Environment Template Remediation | COMPLETE | N/A | N/A |
 | 302 | Repository Security Settings & Dependabot Automation | COMPLETE | N/A | N/A |
 | 303 | Production Compose Port-Exposure Hardening | COMPLETE | N/A | N/A |
-| 305 | Documentation Coherence, Setup Standardization, and Link Remediation | COMPLETE | N/A | N/A |
+| 304 | Dependency Security Remediation | COMPLETE | N/A | N/A |
+| 305 | CodeQL Triage — Python Code-Scanning Findings | COMPLETE | N/A | N/A |
+| 306 | Take Over PR | COMPLETE | N/A | N/A |
+| 307 | Documentation Coherence, Setup Standardization, and Link Remediation | COMPLETE | N/A | N/A |
 
 ---
 

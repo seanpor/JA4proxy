@@ -229,7 +229,10 @@ func NewPipeline(cfg *PipelineConfig, redis RedisReader, log *logrus.Logger) *Pi
 		Whitelist: cfg.Whitelist,
 		Blacklist: cfg.Blacklist,
 		cache:     NewDecisionCache(10000),
-		workChan:  make(chan *ConnectionContext, 10000),
+		// phase-306 (from PR #95): deeper async-scoring queue so accept bursts
+		// are absorbed rather than dropped/blocked. Drained by a fixed pool of
+		// scoring workers (see StartBackgroundWorkers).
+		workChan: make(chan *ConnectionContext, 20000),
 	}
 	p.tlsEnforcer = NewTLSEnforcer(buildTLSEnforcerConfig(cfg), log)
 	p.sniAnalyzer = NewSNIAnalyzer(buildSNIAnalyzerConfig(cfg), log)
@@ -293,9 +296,17 @@ func (p *Pipeline) beaconingWorker() {
 	}
 }
 
+// asyncScoringWorkers is the fixed fan-out of goroutines draining workChan.
+// phase-306 (from PR #95): a single scoring goroutine bottlenecks throughput on
+// a multi-core box. This is a *bounded* pool (a fixed constant, not scaled by
+// request volume) so it cannot become a resource-exhaustion vector itself.
+const asyncScoringWorkers = 32
+
 // StartBackgroundWorkers starts all async background workers.
 func (p *Pipeline) StartBackgroundWorkers(ctx context.Context) {
-	go p.runAsyncScoringLoop(ctx)
+	for i := 0; i < asyncScoringWorkers; i++ {
+		go p.runAsyncScoringLoop(ctx)
+	}
 	p.dnsEnrichment.Start(ctx)
 	p.abuseipdb.Start(ctx)
 	p.rdap.Start(ctx)

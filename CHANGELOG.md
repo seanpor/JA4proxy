@@ -13,7 +13,90 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - **Test environment stability on `.env` presence**: Fixed test failures caused by `pytest-dotenv` loading the production-mode environment and warning level from `.env` by adding explicit environment overrides at the top of `tests/conftest.py`.
 
+### Performance
+- **Go proxy hot-path tuning (Phase 306, from PR #95)**: the bidirectional
+  forward loop now reuses 32KB buffers from a `sync.Pool` instead of allocating
+  one per connection (removes per-connection GC pressure under load); the Redis
+  client pool is pre-warmed (`PoolSize: 100`, `MinIdleConns: 10`) to avoid
+  cold-start dial latency; and async risk scoring fans out across a **fixed**
+  pool of 32 worker goroutines (was 1) draining a deeper `workChan`
+  (10000 → 20000) so accept bursts are absorbed rather than serialised. Also
+  fixed the dev/POC/Performance wizard scenarios and the POC health check to use
+  the real backend port **8443** (was 443, which is HAProxy's ingress;
+  Production, a real HTTPS backend, stays 443), and switched `tarpit-server.py`
+  to lazy `%s` logging. These are the legitimate wins from external PR #95,
+  re-landed on a clean branch without the regressions it carried (see Security
+  and Fixed below).
+
+### Fixed
+- **ATT&CK mapping doc + CI gate (Phase 306)**: `docs/ATTACK_MAPPING.md` and its
+  CI gate `tests/test_attack_mapping.py` were **both broken on `main`** — the doc
+  had been relocated to `docs/` but the test still pointed at
+  `docs/for-architects/` (so it failed with `FileNotFoundError`), and the doc
+  still listed retired Python-prototype source files (`src/security/*.py`, gone
+  since v2.0.0). The retired-prototype rows were removed, the two genuine
+  rate-tracker rows repointed to `internal/security/rate_limiter.go`, and the
+  test path corrected — the gate now passes for the first time. (External PR #95
+  had instead run a blind `*.py → *.go` find-replace that produced
+  self-contradictory rows; that approach was discarded in favour of this one.)
+
 ### Security
+- **Forward-path idle timeout restored (Phase 306)**: PR #95's switch to a
+  deadline-free copy in the Go proxy's `forward()` silently removed the per-read
+  `SetReadDeadline(read_timeout)` / `SetWriteDeadline(write_timeout)`
+  idle-connection reaper. That re-opened a resource-exhaustion vector — a
+  slowloris / idle-hold client would pin a goroutine **and** a pooled buffer
+  indefinitely, and the operator-configured `read_timeout` / `write_timeout`
+  knobs became dead. The reaper is restored **inside** the new pooled-buffer copy
+  (the buffer-pool win and the deadlines coexist), guarded by a new Go regression
+  test (`TestForward_IdleConnectionIsReaped`) that tears down an idle pair at
+  `read_timeout` and would hang/fail if the deadlines are ever removed again. The
+  per-connection decision log was kept at **Info** (PR #95 demoted it to Debug)
+  to preserve the audit trail.
+- **CodeQL code-scanning triage (Phase 305)**: worked through the 14 CodeQL
+  Python findings (+1 Go bench) that enabling code scanning (Phase 302)
+  surfaced. **Three were genuine, all in the Management-API web layer** and are
+  now **fixed with regression tests** (`management/tests/test_codeql_305_regression.py`):
+  a **reflected XSS** in `/api/v1/partials/list-table` (the unvalidated `list`
+  query param was interpolated raw into HTML — now `html.escape`-d), and
+  **error-detail exposure** (`str(exc)` of a Redis failure returned to the
+  client) in `/health/deep` and the **unauthenticated** `/ready` (now logged
+  server-side, generic reason to the caller). A fourth pair (OIDC/SAML
+  `py/url-redirection`) was **hardened rather than dismissed**: the post-login
+  redirect target is currently a hardcoded `"/"` (no live bug), but to be
+  regression-proof a `safe_relative_redirect` guard now confines both callbacks
+  to same-site relative paths (rejects absolute / protocol-relative `//evil` /
+  backslash variants) — the textbook "don't dismiss a safe-by-constant FP,
+  harden it" case. The two test TLS servers
+  (`scripts/mock-backend.py`, `tests/docker/tls_backend.py`) were **hardened**
+  with an explicit `TLS 1.2` floor — clearing `py/insecure-protocol`
+  *legitimately* rather than by dismissal. The remainder were **verified false
+  positives** (`redis_client` logs the *redacted* URL — sanitizer confirmed;
+  the OIDC/SAML redirect targets are a hardcoded `"/"`; `auth.py` logs a config
+  CIDR, not a secret; the Splunk action never logs its token) or **intentional
+  test tooling** (the legacy-TLS *generators* exist to exercise the proxy's
+  fingerprint detection; the bind-all capture helper; the bench
+  `InsecureSkipVerify` against the self-signed mock) — each dismissed
+  per-alert with a code-backed justification in the GitHub audit trail, **no
+  blanket rule suppression**. The Go production proxy produced no genuine
+  code-scanning bug.
+- **Dependency CVE remediation (Phase 304)**: triaged the 118 alerts that
+  enabling Dependabot + CodeQL (Phase 302) surfaced — the real, fixable,
+  *production* findings are concentrated in the Python Management-API auth stack;
+  the **Go production proxy is essentially clean**. The Phase 302 auto-merge had
+  already landed `authlib 1.4.0→1.6.12` and `python-multipart 0.0.12→0.0.32`
+  (minor/patch). This phase did the three Dependabot correctly held back:
+  `cryptography 45.0.0→46.0.5` (a **major** bump — `management/requirements.txt`
+  and the root `requirements.txt` floor), `python-jose 3.3.0→3.4.0` (critical
+  algorithm-confusion CVE; a `python-jose`→PyJWT migration is flagged as a
+  follow-up since jose is effectively unmaintained), and the indirect
+  `google.golang.org/grpc 1.76.0→1.79.3` in `deploy/terraform-provider/go.mod`
+  (deploy tooling, via `go get` + `go mod tidy`). The management suite passes
+  (614) against the upgraded stack. Noise documented, **not** bulk-suppressed:
+  the bench-tool `go/disabled-certificate-check` (already `#nosec`, hits the
+  self-signed mock) and the OpenSSF Scorecard advisories that appear as
+  code-scanning "high" are benign; the 9 CodeQL Python findings are left as a
+  case-by-case follow-up.
 - **Repository security aids enabled + automated (Phase 302)**: turned on Dependabot **alerts** + **security updates** and **private vulnerability reporting**. To keep these low-effort under branch protection, added a SHA-pinned `dependabot-automerge.yml` that auto-merges Dependabot **patch/minor** PRs once the 10 required checks pass (majors stay manual), and throttled `dependabot.yml` weekly → monthly. Two UI-only toggles documented for the operator (CodeQL "Default setup"; secret-scanning validity checks).
 - **Production compose port-exposure hardening (Phase 303)**: `docker-compose.prod.yml` published several "internal only" services on `0.0.0.0` (proxy 8080/9090 as random host ports, analytics, tarpit, loki, prometheus) — only Grafana + HAProxy-stats were correctly loopback-bound. Removed the host `ports:` for purely-internal services (reached over the docker network by service name — verified `prometheus.yml` scrapes by DNS, not host ports) and bound the Prometheus UI to `${AGENT_BIND_IP:-127.0.0.1}`. Only `haproxy 443/80` remain public.
 
