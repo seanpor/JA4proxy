@@ -12,7 +12,7 @@ This document is for the buyer or website owner who has read
 know **how it actually gets in front of their site, who runs it, and
 how long it takes to stand up.** It is non-technical by design;
 operators and engineers should follow the link to
-[`docs/enterprise/deployment.md`](enterprise/deployment.md) at the
+[`docs/DEPLOYMENT_SECURITY_MODEL.md`](DEPLOYMENT_SECURITY_MODEL.md) at the
 end of each section for the technical depth.
 
 ## Three deployment paths
@@ -31,8 +31,8 @@ window.
 
 ### 1. Cloud — Docker or Kubernetes
 
-This is the path most production deployments take. The Go proxy
-(`cmd/proxy`, shipped as a small statically-linked container image)
+This is the path most production deployments take. The Go proxy daemon
+(`cmd/ja4pd`, shipped as a small statically-linked container image)
 runs alongside a Redis instance and a Prometheus/Grafana observability
 stack. Your existing load balancer (HAProxy, AWS NLB, GCP TCP LB,
 nginx in TCP mode, anything that can do raw TCP forwarding) sits in
@@ -54,7 +54,7 @@ Redis, so a connection blocked by one instance is also blocked by
 all the others.
 
 For technical depth see
-[`docs/enterprise/deployment.md`](enterprise/deployment.md) and
+[`docs/DEPLOYMENT_SECURITY_MODEL.md`](DEPLOYMENT_SECURITY_MODEL.md) and
 the SCALING_GUIDE referenced from there.
 
 ### 2. On-premises — bare metal or VM
@@ -77,7 +77,7 @@ VM), but time-to-production is typically longer because of internal
 change-control processes that on-prem deployments tend to attract.
 
 For technical depth see
-[`docs/enterprise/deployment.md`](enterprise/deployment.md).
+[`docs/DEPLOYMENT_SECURITY_MODEL.md`](DEPLOYMENT_SECURITY_MODEL.md).
 
 ### 3. Managed service — not currently offered
 
@@ -135,12 +135,7 @@ control is involved.
 
 ## A note on the runtime
 
-JA4proxy ships two implementations. The **production runtime is the
-Go proxy** at `cmd/proxy/`, built to `bin/proxy` and to a container
-image — this is what you deploy. The Python prototype at `proxy.py`
-is a **prototyping surface** retained for experimenting with new
-signal modules; it is not for production traffic. All references to
-"the proxy" in this document mean the Go proxy.
+The **production runtime is the Go proxy daemon** at `cmd/ja4pd/`, built to `bin/ja4pd` and packaged as a container image — this is what you deploy. All legacy Python prototyping components have been archived and removed. All references to "the proxy" in this document mean the Go proxy daemon.
 
 ## Where to go next
 
@@ -148,5 +143,5 @@ signal modules; it is not for production traffic. All references to
   for each shape, support posture, licence summary.
 - [`FAQ.md`](FAQ.md) — buyer-level answers on integration risk,
   GDPR, Cloudflare interoperability, and uptime.
-- [`docs/enterprise/deployment.md`](enterprise/deployment.md) —
+- [`docs/DEPLOYMENT_SECURITY_MODEL.md`](DEPLOYMENT_SECURITY_MODEL.md) —
   technical reference for your platform team.

@@ -120,20 +120,10 @@ The scale configuration is in `deploy/docker/docker-compose.scale.yml`:
 
 ## Worked Scenarios
 
-> **Production runtime is the Go proxy** (`cmd/proxy/`, `bin/proxy`). The
-> Python-process throughput numbers in the tables above were measured on the
-> Python prototyping surface (Phase 8 baseline; see
-> [`docs/performance/BENCHMARK_HISTORY.md`](performance/BENCHMARK_HISTORY.md)).
-> They are the only **measured** figures in this section. Every other number
-> below is either derived directly from those measurements or marked
-> **(estimate)** — Go-runtime production benchmarks are pending (Phase 15
-> rewrite is feature-complete; throughput benchmarks have not yet been
-> re-recorded into BENCHMARK_HISTORY at the time of writing).
->
-> **Source of measured numbers used below:** all citations point to the
-> 2026-03-07 Phase 8 entry in `BENCHMARK_HISTORY.md`. Where a scenario
-> requires a number not present there, it is annotated **(estimate)** and
-> reasoned from the measured per-instance ceiling.
+> **Production runtime is the Go proxy daemon (`ja4pd`).** All legacy Python
+> prototyping components (such as `proxy.py`) have been archived and removed.
+> Sizing and capacity guidelines for the Go runtime are documented in the
+> central [Operations Guide](OPERATIONS_GUIDE.md#📈-capacity-&-scaling-go-proxy).
 
 The three scenarios below illustrate end-to-end sizing for representative
 deployments. All scenarios assume:
@@ -158,8 +148,8 @@ spikes per day. Cost-sensitive.
 | Per-instance ceiling (Python) | ~350 conn/s with real Redis | BENCHMARK_HISTORY 2026-03-07 |
 | Headroom per instance | ~250 conn/s (~70%) | Derived from above |
 | Redis sizing | 1 node, 256 MB max-memory, AOF on | (estimate; ban+rate-limit+HLL key set < 50 MB at this volume) |
-| Recommended dial progression | 0 → 25 → 50 over 14 days, observe FP rate at each step | `OPERATIONS.md` |
-| Monitoring thresholds | `ja4proxy_active_connections` > 200 sustained → investigate; `ja4proxy_redis_errors_total` rate > 0 → page | `MONITORING_SETUP.md`, [`CAPACITY_PLANNING.md`](operator/CAPACITY_PLANNING.md) |
+| Recommended dial progression | 0 → 25 → 50 over 14 days, observe FP rate at each step | `OPERATIONS_GUIDE.md` |
+| Monitoring thresholds | `ja4proxy_active_connections` > 200 sustained → investigate; `ja4proxy_redis_errors_total` rate > 0 → page | `OPERATIONS_GUIDE.md#📊-viewing-logs-&-assets` |
 
 **Notes for this scenario:**
 - A single instance would meet the throughput requirement but cannot satisfy
@@ -184,8 +174,8 @@ traffic; predictable spikes. Operates on real hardware or sized cloud VMs.
 | Per-node CPU / memory | 4 cores, ~1.7 GB | This doc, "Resource Usage" table |
 | Redis sizing | 1 primary + 1 replica, 2 GB max-memory, AOF on, persistence to fast SSD | (estimate; ban + HLL + rate-limit volumes scale linearly with unique-IP count) |
 | `tarpit.max_per_ip` | 1 per worker (12 workers across 3 nodes) | Per "Worker Count and max_per_ip Adjustment" formula above |
-| Recommended dial progression | 0 → 25 → 50 → 75 over 30 days; hold at 50 for at least 7 days before final raise | `OPERATIONS.md`; [`CAPACITY_PLANNING.md`](operator/CAPACITY_PLANNING.md) |
-| Monitoring thresholds | Per-node `ja4proxy_active_connections` > 800 sustained → add a node; FP rate > 0.1% over 1 h → halt dial progression and investigate; HAProxy backend down > 30 s → page | `MONITORING_SETUP.md`, [`SERVICE_TARGETS.md`](SERVICE_TARGETS.md) |
+| Recommended dial progression | 0 → 25 → 50 → 75 over 30 days; hold at 50 for at least 7 days before final raise | `OPERATIONS_GUIDE.md` |
+| Monitoring thresholds | Per-node `ja4proxy_active_connections` > 800 sustained → add a node; FP rate > 0.1% over 1 h → halt dial progression and investigate; HAProxy backend down > 30 s → page | `OPERATIONS_GUIDE.md#📊-viewing-logs-&-assets`, [`SERVICE_TARGETS.md`](SERVICE_TARGETS.md) |
 
 **Notes for this scenario:**
 - 3 nodes is the minimum for `maxSurge: 1, maxUnavailable: 0` rolling upgrades
@@ -214,8 +204,8 @@ spikes.
 | Per-node CPU / memory | 8 cores, ~3.3 GB | This doc, "Resource Usage" table |
 | Redis sizing | Redis Cluster, 3 primaries + 3 replicas, 8 GB max-memory each, AOF every-second | (estimate; required because single-Redis throughput becomes the bottleneck above ~10K conn/s — see "Conclusion" section in this doc) |
 | `tarpit.max_per_ip` | 1 per worker (48 workers fleet-wide) | Per "Worker Count and max_per_ip Adjustment" formula |
-| Recommended dial progression | 0 → 10 → 25 → 50 → 75 over 60 days; hold ≥ 14 days at each non-zero step; pause at any FP rate > 0.05% | `OPERATIONS.md`; conservative due to traffic volume (estimate) |
-| Monitoring thresholds | Per-node `ja4proxy_active_connections` > 4,000 sustained → add a node; FP rate > 0.05% over 1 h → halt and roll back dial; Redis P99 latency > 5 ms → page; HAProxy backend down > 15 s → page | `MONITORING_SETUP.md`, [`SERVICE_TARGETS.md`](SERVICE_TARGETS.md) |
+| Recommended dial progression | 0 → 10 → 25 → 50 → 75 over 60 days; hold ≥ 14 days at each non-zero step; pause at any FP rate > 0.05% | `OPERATIONS_GUIDE.md`; conservative due to traffic volume (estimate) |
+| Monitoring thresholds | Per-node `ja4proxy_active_connections` > 4,000 sustained → add a node; FP rate > 0.05% over 1 h → halt and roll back dial; Redis P99 latency > 5 ms → page; HAProxy backend down > 15 s → page | `OPERATIONS_GUIDE.md#📊-viewing-logs-&-assets`, [`SERVICE_TARGETS.md`](SERVICE_TARGETS.md) |
 
 **Notes for this scenario:**
 - At this scale **the Python proxy is end-of-life**. Plan the deployment on
@@ -224,8 +214,7 @@ spikes.
 - Bandwidth, kernel sysctl tuning (`net.core.somaxconn`,
   `net.ipv4.tcp_max_syn_backlog`, `nf_conntrack_max`), and NIC RX queues
   matter at this scale and are out of scope here. See
-  [`CAPACITY_PLANNING.md`](operator/CAPACITY_PLANNING.md) for the
-  long-form sizing reference.
+  long-form sizing reference in `OPERATIONS_GUIDE.md`.
 - Bypass coverage matters more than dial setting at this volume: ensure
   `h2`/`h1` ALPN bypass and JA4 whitelist are populated; otherwise even a 1%
   scoring overhead becomes hundreds of connections/second of unnecessary work.
@@ -504,4 +493,4 @@ For issues with multi-process scaling:
 - [HAProxy Documentation](https://docs.haproxy.org/)
 - [Docker Compose Overlay Pattern](https://docs.docker.com/compose/extends/)
 - [Redis Scaling Guide](https://redis.io/topics/cluster-tutorial)
-- [Phase 26 Specification](phases/PHASE_26.md)
+- Phase 26 throughput hardening (historical context)

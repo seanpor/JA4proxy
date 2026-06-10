@@ -7,10 +7,10 @@ phase: 105
 
 # JA4proxy — Upgrade Path & Compatibility
 
-> **Production runtime is the Go proxy** (`cmd/proxy/`, `bin/proxy`). All
-> upgrade procedures below assume the Go binary or the corresponding Docker
-> image. The Python `proxy.py` is a prototyping surface and is **not** the
-> upgrade target.
+> **Production runtime is the Go proxy daemon (`ja4pd`).** All legacy Python
+> prototyping components (such as `proxy.py`) have been archived and removed.
+> All upgrade procedures below assume the Go binary (`bin/ja4pd`) or the
+> corresponding Docker image.
 
 This page is a **summary**. The detailed step-by-step procedures live in:
 
@@ -25,9 +25,7 @@ Read this page first to confirm compatibility, then follow the runbooks.
 
 ## 1. Versioning model
 
-JA4proxy does **not** use semantic versioning tags. The release is anchored to
-the **phase number** in `docs/phases/manifest.yaml`. Each release artefact
-(Docker image, Helm chart, binary) carries:
+JA4proxy uses a semantic build versioning system `v2.0.BUILD` (introduced in Phase 152). Releases are built from the Go codebase and tagged accordingly. Release metadata includes:
 
 - **Proxy phase** — the highest COMPLETE phase in the manifest at build time.
 - **Config schema phase** — the phase that last introduced or changed a

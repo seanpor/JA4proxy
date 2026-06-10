@@ -15,7 +15,8 @@ Welcome to the central manual for operating and maintaining JA4proxy. This guide
 
 | Action | Command | Description |
 |--------|---------|-------------|
-| **Start Production** | `make start` |\n| **Start POC** | `make start-poc` | Starts proxy, Redis, and monitoring stack via Docker. |
+| **Start Production** | `make start` | Starts proxy, Redis, and monitoring stack in production mode. |
+| **Start POC** | `make start-poc` | Starts proxy, Redis, and monitoring stack via Docker. |
 | **Stop All** | `make stop` | Stops all services (persists data). |
 | **Check Health** | `make status` | Shows container health and decision metrics. |
 
@@ -56,7 +57,8 @@ You can run multiple parallel environments on a single machine (e.g., a "stable"
 4. Provide a **Port Offset** (e.g., \`2000\`). This will shift all ports (Ingress will be \`2443\`, Grafana \`5000\`, etc.).
 
 The system will automatically isolate all Docker containers, networks, and volumes for that specific prefix.
-\n## 📈 Capacity & Scaling (Go Proxy)
+
+## 📈 Capacity & Scaling (Go Proxy)
 
 | Metric | Recommendation | Notes |
 |--------|----------------|-------|
@@ -113,7 +115,8 @@ curl -k --tls-max 1.1 https://localhost:443/
 | **Grafana** | [localhost:3000](http://localhost:3000) | Visual dashboards (Security, Performance, Health). |
 | **Redis** | [localhost:8001](http://localhost:8001) | Redis Insight UI to inspect lists, dial state, and events. |
 | **Health API** | `curl localhost:9090/health/deep` | JSON status of the proxy, Redis, and Security pipeline. |
-\n## 📚 Reference Links
+
+## 📚 Reference Links
 - **[Signal Mapping (MITRE ATT&CK)](OPERATIONS_MAPPING.md)**
 - **[Runbook Index](runbooks/)**
 - **[Architecture Deep-Dive](security/ARCHITECTURE.md)**
