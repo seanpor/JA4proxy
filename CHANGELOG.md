@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- **Code-scanning remediation (Phase 308)**: cleared the 60-alert code-scanning
+  backlog (7 CodeQL + 53 Scorecard) left after Phase 302 enabled CodeQL +
+  OpenSSF Scorecard. **CodeQL (7)**, each verified against the code: `#77`
+  (the local fixture recorder `scripts/capture_server.py` bound `0.0.0.0`) is
+  **fixed in code** → `127.0.0.1` (its clients already target loopback) rather
+  than dismissed; the two `py/url-redirection` findings were dismissed as
+  **false positives** (mitigated by `safe_relative_redirect` at `oidc.py:431` /
+  `saml.py:323` — CodeQL can't trace the custom sanitizer); the splunk
+  `py/clear-text-logging` was dismissed FP (`api_token` is only used in the
+  `Authorization` header, never passed to `_log()`); and the two legacy-TLS
+  generators + the Go benchmark's `InsecureSkipVerify`-vs-self-signed-mock were
+  dismissed **used-in-tests** (their insecurity is intrinsic to the tool and
+  non-production). All per-alert with code-backed justifications in the audit
+  trail — **no blanket suppression**. **Scorecard (53)**: these are OpenSSF
+  supply-chain *scores*, not vulnerabilities, and aren't meaningfully actionable
+  — production Dockerfile base images are already digest-pinned (Phase 229); the
+  3 `TokenPermissions` are *required* write (SARIF upload / Dependabot
+  auto-merge / metrics auto-commit), already job-scoped with `contents: read` at
+  top level; `Vulnerabilities` self-clears now Dependabot is at 0; the rest are
+  solo-repo process scores. Removed the `"Upload to code-scanning"` step (and
+  the now-unneeded `security-events: write`) from `scorecard.yml` so the noise
+  stops drowning real CodeQL findings — Scorecard still runs, still publishes
+  the badge (`publish_results`), and still keeps the `results.sarif` artifact;
+  only the Security-tab upload is gone (one-step reversible).
+
 ### Changed
 - **Documentation coherence, setup standardization, and link remediation (Phase 307)**: Established a coherent documentation architecture with clear single sources of truth. Standardized onboarding around the `make init` guided wizard and aligned Go proxy paths (`cmd/ja4pd`, `cmd/ja4p`). Removed obsolete Python proxy references, corrected all broken internal links, and added frontmatter blocks to remote manual testing and evaluation guides to pass `make doc-health`.
 

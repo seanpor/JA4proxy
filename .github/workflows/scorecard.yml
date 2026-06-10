@@ -15,10 +15,16 @@ jobs:
     name: Scorecard analysis
     runs-on: ubuntu-latest
     permissions:
-      # Needed to upload the results to code-scanning dashboard.
-      security-events: write
       # Needed to publish results and get a badge (see publish_results below).
       id-token: write
+      # phase-308: `security-events: write` removed together with the
+      # "Upload to code-scanning" step below. Scorecard findings are
+      # supply-chain *scores*, not code vulnerabilities; uploading all checks
+      # into the code-scanning tab drowned real CodeQL findings under ~53
+      # already-satisfied / required / self-clearing advisories. Scorecard still
+      # runs (badge via publish_results + the results.sarif artifact); it just
+      # no longer posts to the Security tab. To revert: restore
+      # `security-events: write` and re-add the upload-sarif step.
       # Uncomment the permissions below if you are using SARIF_AUTH_TOKEN
       # contents: read
       # actions: read
@@ -49,7 +55,9 @@ jobs:
           path: results.sarif
           retention-days: 5
 
-      - name: "Upload to code-scanning"
-        uses: github/codeql-action/upload-sarif@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4.36.2
-        with:
-          sarif_file: results.sarif
+      # phase-308: the "Upload to code-scanning" step was removed on purpose.
+      # Scorecard's per-check advisories are supply-chain scores, not code
+      # vulnerabilities, and were drowning real CodeQL findings in the Security
+      # tab. The score/badge (publish_results above) and the results.sarif
+      # artifact above remain. Re-add github/codeql-action/upload-sarif with
+      # sarif_file: results.sarif (and security-events: write) to restore.
