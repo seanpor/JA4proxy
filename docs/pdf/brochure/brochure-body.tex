@@ -3,7 +3,7 @@
 %% Revised for v2.0.0 Go-Native Release
 
 % -----------------------------------------------------------------------------
-\section{The Problem: Bots Don't Look Like Bots Anymore}
+\section{Stop the Bots That Look Human}
 \index{bots!modern evasion}\index{SSL inspection}\index{compliance}
 % -----------------------------------------------------------------------------
 
@@ -17,28 +17,24 @@ more than 40\% of breaches. Most credential-stuffing toolkits ship with TLS stac
 that produce distinctive, stable fingerprints --- yet traditional defences never
 inspect the handshake.}
 
-Traditional TLS-aware defences --- SSL inspection and decryption --- introduce
-significant latency and create a massive compliance exposure: PCI-DSS, HIPAA,
-and GDPR all restrict access to decrypted traffic. \ja{} solves this by
-enforcing security \emph{before} decryption, operating directly on the
-ClientHello handshake.
+The usual answer --- TLS inspection and decryption --- is a poor trade. It adds
+latency, demands key custody, and creates a compliance exposure that PCI-DSS,
+HIPAA, and GDPR all penalise. \ja{} takes the opposite approach: it makes its
+decision \emph{before} decryption, reading only the plaintext the client
+volunteers in its ClientHello. It never holds a key, never decrypts a byte, and
+forwards allowed traffic through unchanged.
 
 % -----------------------------------------------------------------------------
-\section{The JA4 Insight}
+\section{The JA4 Insight: Identity Before Encryption}
 \index{JA4!fingerprint}\index{TLS!ClientHello}
 % -----------------------------------------------------------------------------
 
 \newthought{Before a single byte of encrypted data is exchanged,} every TLS client
-announces its capabilities in cleartext. This announcement --- the ClientHello ---
-contains the TLS version, cipher suites, and extensions (SNI, ALPN).
-
-Because this information reflects the client's TLS stack, it is remarkably
-stable. Sliver 1.5.x produces the same ClientHello whether it is running from
-Frankfurt or Tokyo. Upgrading the \emph{payload} has no effect on the fingerprint.
-
-\sidenote{\textbf{High Performance:} The \ja{} Go core processes these
-fingerprints in less than \textbf{272 nanoseconds}, enabling theoretical
-throughput of \textbf{3.6 million connections per second} per core.}
+announces its capabilities in cleartext --- TLS version, cipher suites, and
+extensions (SNI, ALPN). Because that announcement reflects the client's TLS stack,
+the fingerprint is remarkably stable: Sliver 1.5.x produces the same ClientHello
+whether it runs from Frankfurt or Tokyo, and swapping the \emph{payload} does
+nothing to change it. You cannot patch your way out of your own handshake.
 
 \begin{table}[ht]
   \small
@@ -57,62 +53,85 @@ throughput of \textbf{3.6 million connections per second} per core.}
 \end{table}
 
 % -----------------------------------------------------------------------------
-\section{Architecture: The Ultra-Lite Go Engine}
-\index{architecture}\index{Go-native}
+\section{Throughput, Not Trade-offs}
+\index{performance}\index{throughput}\index{Go-native}
 % -----------------------------------------------------------------------------
 
-\newthought{\ja{} v2.0.0 is a pure Go-native implementation} designed for
-extreme resource efficiency and sub-microsecond latency. The system is
-distributed as exactly two binaries:
+\newthought{\ja{} v2.0.0 is a pure Go-native engine} that sustains roughly
+\textbf{2,500 connections per second per node}\sidenote{Measured end-to-end on
+commodity hardware (Intel i9-9900K) with host networking and the full scoring
+pipeline active --- zero errors, zero false positives. Bridged container
+networking is lower; deploy with host networking for line-rate throughput.}
+--- enough to front a busy site from a single modest box, scaling linearly as
+you add nodes.
 
-\begin{itemize}
-  \item \textbf{\ja{}pd (The Engine)}: A stateless, high-concurrency traffic
-        daemon that handles TLS-passthrough at scale.
-  \item \textbf{\ja{}p (The Toolset)}: A unified operational CLI for management,
-        real-time simulation, and integrated high-speed benchmarking.
-\end{itemize}
-
-\sidenote{\ja{}pd has a memory footprint of less than \textbf{12 MB} and
-starts in under \textbf{50 ms}, making it ideal for containerised auto-scaling
-environments.}
-
-% -----------------------------------------------------------------------------
-\section{High-Performance Observability}
-\index{observability}\index{p99 latency}
-% -----------------------------------------------------------------------------
-
-\newthought{Visibility should not come at the cost of performance.} \ja{} includes
-integrated real-time metrics for Prometheus and Grafana, providing granular
-visibility into the security waterfall.
+That headroom comes from a deliberately small core: a fingerprint decision on
+the allow path costs about \textbf{272 ns}, so the proxy adds latency your users
+will never feel. Layer-by-layer isolation testing proved the security pipeline
+itself is never the bottleneck --- your network is.
 
 \begin{table}[ht]
   \small
   \begin{tabularx}{\linewidth}{L{3.5cm} R{2.5cm} R{2.5cm}}
     \toprule
-    \textbf{Observation} & \textbf{Latency (p99)} & \textbf{CPU Impact} \\
+    \textbf{Decision path} & \textbf{Core latency} & \textbf{Heap allocs} \\
     \midrule
-    \signalrow{Bypassed (Fast Path)}   & \textbf{272 ns} & < 0.1\% \\[3pt]
-    \signalrow{Scored (Standard Path)}  & \textbf{2.3 $\mu$s} & < 2\% \\[3pt]
-    \signalrow{Adversarial (JA4X)}      & \textbf{6.0 $\mu$s} & < 5\% \\
+    \signalrow{Allowed (Fast Path)}    & \textbf{272 ns} & 1 object \\[3pt]
+    \signalrow{Scored (Standard Path)}  & \textbf{2.3 $\mu$s} & 9 objects \\[3pt]
+    \signalrow{Adversarial (JA4X)}      & \textbf{6.2 $\mu$s} & 73 objects \\
     \bottomrule
   \end{tabularx}
-  \caption{Measured processing overhead per connection on reference
-           server hardware (Intel i9-9900K).}
+  \caption{Per-connection pipeline cost, isolated from network I/O
+           (Intel i9-9900K). A single static binary, under 12 MB resident.}
 \end{table}
 
 % -----------------------------------------------------------------------------
-\section{Ready for Enterprise}
-\index{production-ready}\index{v2.0.0}
+\section{It Cannot Block Your Real Customers}
+\index{false positive}\index{fail open}\index{monitor mode}
 % -----------------------------------------------------------------------------
 
-\newthought{\ja{} v2.0.0 is production-certified} for high-traffic DMZ
-deployments. The system includes integrated cluster synchronization,
-Zero-Trust Redis hardening (TLS), and PROXY protocol v2 support with
-TLV-based trust verification.
+\newthought{The expensive failure for a security proxy is a false positive} --- a
+real browser turned away. \ja{} is built so that outcome is structurally hard to
+reach.
+
+\begin{itemize}
+  \item \textbf{Monitor-mode by default.} Out of the box the dial sits at
+        \dialzero{}: every connection is scored and logged, nothing is blocked.
+        You raise the dial only once you trust the scores.
+  \item \textbf{Browser traffic bypasses everything.} \code{h2}/\code{h1} ALPN
+        handshakes are allowed before the scorer ever runs --- a real browser
+        cannot be blocked, by design.
+  \item \textbf{Fail open, always.} If Redis or any enrichment service is
+        unreachable, \ja{} allows and logs. A degraded dependency never becomes
+        an outage for your users.
+\end{itemize}
+
+\sidenote{No decryption means no key custody, no certificate logistics, and no
+new audit scope. \ja{} is transparent to both client and backend, and forwards
+allowed connections byte-for-byte.}
+
+% -----------------------------------------------------------------------------
+\section{Deploys in Minutes}
+\index{operations}\index{deployment}\index{v2.0.0}
+% -----------------------------------------------------------------------------
+
+\newthought{The engine is one statically-linked Go binary} in a minimal
+container image --- no runtime, no interpreter, nothing to patch underneath it.
+Bring up the bundled Docker Compose stack, or run the container under the
+orchestrator of your choice, and \code{ja4pd} starts in milliseconds, ready for
+auto-scaling DMZ deployments. The whole project is open source: clone the v2.0.0
+release and \code{make build} the engine and its companion CLI (\code{ja4p}) from
+source whenever you prefer.
+
+For high-traffic deployments the engine adds integrated cluster
+synchronisation, Zero-Trust Redis hardening over TLS, and PROXY protocol v2 with
+TLV-based trust verification. Real-time Prometheus and Grafana metrics give you
+granular visibility into the full security waterfall --- without costing you
+throughput.
 
 \vspace{\baselineskip}
 {\small\sffamily\color{ja4gray}
-Source code and technical evaluators guide:\\
+Source code and technical evaluators' guide:\\
 \url{https://github.com/seanpor/JA4proxy}\\[2pt]
 JA4 Specification: \url{https://github.com/FoxIO-LLC/ja4}
 }
