@@ -148,7 +148,7 @@ the WP's acceptance gate requires checking claims against that source.
   description; replaced with the verified targets (`bench`, `bench-micro`,
   `bench-macro`, `bench-hostnative`, `bench-all`). Fixed a `bench-quick`
   reference in `benchmarks.md`.
-- **Deferred — metrics reconciliation (large, careful):** `OBSERVABILITY_STANDARDS.md`
+- **Metrics registry: DONE.** `OBSERVABILITY_STANDARDS.md` §1d regenerated from code (56 Go + 23 Python = 79 real metrics, grouped by subsystem). Residual: the §3 dashboard panels and §4 alert rules still cite ~8 legacy metrics that don't exist — flagged with a caveat in the doc, full PromQL reconciliation tracked here. Original drift was:
   is heavily pre-Go-rewrite. Measured drift: **30** emitted `ja4proxy_*` metrics
   undocumented; **~40** documented metrics exist nowhere in Go **or** Python
   source; plus renames (`abuseipdb_lookup_total`→`…lookups_total`,
