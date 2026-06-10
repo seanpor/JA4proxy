@@ -1336,3 +1336,7 @@ verify-all: ## Full release gate: lint + scan + test + bench-all — slow
 	@$(MAKE) test
 	@$(MAKE) bench-all
 	@echo "✓ verify-all complete"
+
+bench-hostnative: go-build cli-build ## End-to-end throughput, ja4pd host-native (no docker-proxy; ~4.5x the bridge port)
+	@chmod +x scripts/bench-hostnative.sh
+	@./scripts/bench-hostnative.sh
