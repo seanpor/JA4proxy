@@ -65,10 +65,10 @@ docker compose exec redis redis-cli GET "config:dial"
       \code{config/proxy.yml} exists. It is not auto-created; restore from \code{config/proxy.yml.example} \\
     \midrule
     \code{YAML parse error} & Syntax error in \code{config/proxy.yml} & Validate with
-      \code{python3 -c "import yaml; yaml.safe\_load(open('config/proxy.yml'))"} \\
+      \code{ja4p config validate} \\
     \midrule
-    Build fails at pip install & Network issue or PyPI unavailable & Try
-      \code{docker compose build --no-cache ja4proxy} with a working network connection \\
+    Build fails fetching Go modules & Network issue or proxy.golang.org unavailable & Try
+      \code{docker compose build --no-cache proxy} with a working network connection \\
     \bottomrule
   \end{tabularx}
   \caption{Container startup failures}
