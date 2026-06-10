@@ -1,496 +1,186 @@
 <!--
 title: Scaling Guide
 audience: Operators, DevOps
-last_reviewed: 2026-04-03
-phase: 26
+version: 2.0.0
+last_reviewed: 2026-06-10
+phase: 309
 -->
 
-# JA4Proxy Multi-Process Scaling Guide (Phase 26d)
+# JA4proxy Scaling Guide
 
 ## Overview
 
-This guide explains how to scale JA4Proxy using multiple worker processes to achieve higher throughput while maintaining all security guarantees.
+JA4proxy scales the way any stateless network service scales: **run more
+instances behind a load balancer.** The production runtime is a single,
+statically-linked Go binary (`ja4pd`). An instance holds no authoritative local
+state — bans, rate-limit windows, beaconing history, and unique-IP counters all
+live in Redis — so adding a node adds capacity without any coordination beyond a
+shared Redis.
+
+This is a deliberate change from the earlier Python prototype, which scaled by
+adding **worker processes** per host to work around the interpreter's GIL. The
+Go engine has no GIL and no per-process worker model: **one `ja4pd` process uses
+all the cores you give it.** Scale by nodes, not workers.
+
+> **Throughput anchors** (measured on a commodity Intel i9-9900K, full scoring
+> pipeline, 0 errors / 0% false positives — see `docs/performance/benchmarks.md`):
+> a single instance sustains **~3,000 conn/s with host networking** and
+> **~600 conn/s through the Docker bridge** (the bridge ceiling is Docker's
+> userland `docker-proxy`, not the engine). A single modest server therefore
+> absorbs several hundred connections per second without breaking a sweat — more
+> than enough to give a bot-pressured site immediate relief.
 
 ## Architecture
 
 ```
-Internet → HAProxy:443 (Round-Robin) → [Worker 1:8080, Worker 2:8083, Worker 3:8084, Worker 4:8085]
-                                      ↓
-                                  Redis:6379 (Shared State)
+            (optional LB / HAProxy)
+Internet ──:443──▶ load balancer ──▶ ja4pd × N ──▶ backend(s)
+                                       │  ▲
+                          XADD events  │  │  bans / rate limits / counters
+                                       ▼  │
+                                   ┌──────────┐
+                                   │  Redis   │  (shared state, all instances)
+                                   └──────────┘
 ```
 
-### Key Components
+- **`ja4pd` instances** are interchangeable and stateless. Any instance can
+  serve any connection; losing one loses no security state.
+- **Redis** is the single source of truth for cross-instance state.
+- **A load balancer is optional.** For a single instance you can point the
+  outside firewall straight at `ja4pd` (see "Minimal single-server deployment").
 
-1. **HAProxy**: TCP load balancer that distributes connections across workers
-2. **Worker Processes**: Independent JA4Proxy instances (4 recommended for i9-9900K)
-3. **Redis**: Shared state backend (rate limits, bans, fingerprints, etc.)
-4. **Shared Configuration**: All workers use the same Redis backend
+### Key components
 
-## Quick Start
+| Component | Role | State |
+|-----------|------|-------|
+| `ja4pd` | The proxy engine — fingerprint, score, act, forward | Stateless (in-process LRU cache is an optimisation only) |
+| Redis | Bans, rate-limit windows, beaconing, HLL counters, config | Authoritative shared state |
+| Load balancer (optional) | Distributes connections across instances | — |
+| Backend(s) | Your protected origin | — |
 
-### 1. Start Scaled Configuration
+## Minimal single-server deployment
+
+The smallest useful deployment is **one server**, and it needs neither a load
+balancer nor HAProxy:
+
+1. Run `ja4pd` (container or binary) on the box, configured to forward to your
+   backend and to reach a Redis (local or remote).
+2. Point the **outside firewall** at the `ja4pd` listener — only the public
+   port (typically `443`) need be open; everything else stays on the management
+   network.
+3. Raise the dial when you trust the scores (it starts at `0`, monitor-only).
+
+This alone handles hundreds of connections per second and gives an operator
+under active bot pressure immediate relief, with no decryption and no change to
+the backend.
+
+> **Ports are configurable — do not hard-code them.** The listener, metrics, and
+> backend ports are all driven by config / environment (`PROXY_PORT`,
+> `METRICS_PORT`, `BACKEND_HOST`/`BACKEND_PORT`, …). Map whatever the firewall
+> forwards (e.g. `443`) to the `ja4pd` listener; nothing requires a fixed port.
+
+## Horizontal scaling
+
+When one node approaches its ceiling, add nodes:
+
+1. Run additional `ja4pd` instances (more containers, more hosts, or more
+   replicas — `make start-scaled` brings up a multi-instance Compose overlay,
+   `deploy/docker/docker-compose.scale.yml`).
+2. Put a load balancer in front (HAProxy, your cloud LB, or Kubernetes Service).
+   Plain TCP/L4 distribution is sufficient — JA4proxy is connection-oriented.
+3. Point every instance at the **same Redis** so bans and rate limits are shared.
+
+Throughput scales approximately linearly with instance count because instances
+share nothing on the hot path except Redis. Beyond ~10K conn/s aggregate, Redis
+becomes the next thing to scale (replica/cluster, or split state by key family).
+
+> **Deploy with host networking for throughput.** Containerised instances behind
+> Docker's bridge are capped by `docker-proxy` (~600 conn/s/instance regardless
+> of CPU); `network_mode: host` (or running the binary directly) removes that
+> ceiling and is the recommended production topology.
+
+## Capacity planning
+
+| Quantity | Value | Source |
+|----------|-------|--------|
+| Per-instance ceiling, host networking | ~3,000 conn/s | `docs/performance/benchmarks.md` (i9-9900K) |
+| Per-instance ceiling, Docker bridge | ~600 conn/s | same — `docker-proxy` limited |
+| Allow-path core decision latency | ~272 ns | micro-benchmark |
+| Memory per instance | < 12 MB RSS + LRU cache | static binary |
+| Scaling model | linear in instance count (Redis-shared) | architecture |
+
+Rough sizing: `instances ≈ ceil(peak_conn_per_sec ÷ per_instance_ceiling)`, then
+add **N+1** for rolling upgrades and headroom. Validate on your own hardware with
+`make bench-hostnative` — the numbers above are anchors, not guarantees.
+
+## Shared state correctness
+
+### Shared via Redis (consistent across all instances)
+- IP bans (`ban:*`) and CIDR bans (`ban_cidr:*`)
+- Sliding-window rate-limit state
+- Beaconing timestamp history (sorted sets)
+- Unique-IP-per-subnet HyperLogLog counters
+- Black/whitelists and dial/config (with pub/sub for immediate removals)
+
+### Per-instance (optimisation only, never authoritative)
+- The in-process LRU decision cache. A cache miss simply re-scores; it never
+  produces a wrong decision. Per the core asymmetry, when Redis says "block" but
+  a local cache entry says "allow", **local allow wins** — a real browser keeps
+  working even if Redis is briefly unavailable.
+
+## Operations
 
 ```bash
-make start-scaled
-```
-
-This will:
-- Start 4 worker processes on ports 8080, 8083, 8084, 8085
-- Start HAProxy load balancer on port 443
-- All workers share the same Redis backend
-
-### 2. Verify Scaling
-
-```bash
-# Check HAProxy stats
-curl http://admin:admin123@localhost:8404/stats
-
-# Check worker logs
-docker logs ja4proxy_worker_1
-docker logs ja4proxy_worker_2
-
-# Check overall status
-make status
-```
-
-## Configuration
-
-### Worker Count and max_per_ip Adjustment
-
-The `max_per_ip` setting controls how many concurrent tarpit connections are allowed from a single IP **per worker**. To maintain the global semantic of "max 3 concurrent tarpit connections per IP across all workers", adjust `max_per_ip` based on worker count:
-
-| Workers | max_per_ip | Formula |
-|---------|------------|----------|
-| 1 | 3 | ceil(3/1) = 3 |
-| 2 | 2 | ceil(3/2) = 2 |
-| 3 | 1 | ceil(3/3) = 1 |
-| 4 | 1 | ceil(3/4) = 1 |
-| 8 | 1 | ceil(3/8) = 1 |
-
-**Example configuration for 4 workers:**
-
-```yaml
-# config/proxy.yml
-tarpit:
-  worker_count: 4
-  max_per_ip: 1  # Adjusted for 4 workers
-  max_concurrent_connections: 500
-  overflow_action: "block"
-```
-
-### HAProxy Configuration
-
-The HAProxy configuration is in `config/haproxy.cfg`:
-
-- **Port 443**: Main TLS frontend (accepts PROXY protocol)
-- **Port 8404**: Stats endpoint (admin/admin123)
-- **Load balancing**: Round-robin across all healthy workers
-- **Health checks**: TCP checks every 2 seconds
-- **Emergency fallback**: Routes to worker 1 if all others fail
-
-### Docker Compose Scale Overlay
-
-The scale configuration is in `deploy/docker/docker-compose.scale.yml`:
-
-- 4 worker services (proxy-worker-1 through proxy-worker-4)
-- Each worker has its own port and WORKER_ID
-- HAProxy service with health checks
-- Shared network for all services
-
-## Performance Characteristics
-
-### Expected Throughput
-
-| Configuration | Expected conn/s | Notes |
-|--------------|----------------|-------|
-| Single process (baseline) | ~250–300 | Original baseline |
-| After 26a+26b+26c+26e (single) | ~700–950 | With optimizations |
-| 2 workers | ~1,400–1,900 | Linear scaling |
-| 4 workers | ~2,800–3,800 | Optimal for i9-9900K |
-| 8 workers | ~5,600–7,600 | Upper bound on this hardware |
-
-### Resource Usage
-
-| Workers | CPU Cores | Memory | Redis Connections |
-|---------|-----------|---------|-------------------|
-| 1 | 1 | ~500MB | 1 |
-| 2 | 2 | ~900MB | 2 |
-| 4 | 4 | ~1.7GB | 4 |
-| 8 | 8 | ~3.3GB | 8 |
-
-## Worked Scenarios
-
-> **Production runtime is the Go proxy daemon (`ja4pd`).** All legacy Python
-> prototyping components (such as `proxy.py`) have been archived and removed.
-> Sizing and capacity guidelines for the Go runtime are documented in the
-> central [Operations Guide](OPERATIONS_GUIDE.md#📈-capacity-&-scaling-go-proxy).
-
-The three scenarios below illustrate end-to-end sizing for representative
-deployments. All scenarios assume:
-
-- Backend HTTPS server reachable from every proxy node.
-- HAProxy in front of the proxy fleet, configured per
-  [`docs/runbooks/rolling_upgrade.md`](runbooks/rolling_upgrade.md) §1.
-- Redis available with persistence (AOF) and authentication.
-- Prometheus scraping `/metrics` from every node.
-
-### Scenario A — Small site (~100 req/s)
-
-Single-marketing-site / small-SaaS use case. Modest traffic; a few brief
-spikes per day. Cost-sensitive.
-
-| Item | Value | Source |
-|------|-------|--------|
-| Target sustained throughput | 100 conn/s | Requirement |
-| Peak (2× headroom) | 200 conn/s | (estimate, standard 2× headroom rule) |
-| Proxy instances | 2 (HA pair) | Required by `rolling_upgrade.md` §1 (≥2 instances for zero-downtime upgrades) |
-| Per-instance load at steady state | ~100 conn/s | 200 ÷ 2 instances |
-| Per-instance ceiling (Python) | ~350 conn/s with real Redis | BENCHMARK_HISTORY 2026-03-07 |
-| Headroom per instance | ~250 conn/s (~70%) | Derived from above |
-| Redis sizing | 1 node, 256 MB max-memory, AOF on | (estimate; ban+rate-limit+HLL key set < 50 MB at this volume) |
-| Recommended dial progression | 0 → 25 → 50 over 14 days, observe FP rate at each step | `OPERATIONS_GUIDE.md` |
-| Monitoring thresholds | `ja4proxy_active_connections` > 200 sustained → investigate; `ja4proxy_redis_errors_total` rate > 0 → page | `OPERATIONS_GUIDE.md#📊-viewing-logs-&-assets` |
-
-**Notes for this scenario:**
-- A single instance would meet the throughput requirement but cannot satisfy
-  the zero-downtime-upgrade prerequisite. Run two.
-- `tarpit.max_per_ip` should remain at default (3) — only one instance
-  serves a given client at a time at this scale, so global semantics hold
-  without per-worker adjustment.
-
-### Scenario B — Enterprise (~2,000 req/s)
-
-Large internal application or mid-market e-commerce. Steady business-hour
-traffic; predictable spikes. Operates on real hardware or sized cloud VMs.
-
-| Item | Value | Source |
-|------|-------|--------|
-| Target sustained throughput | 2,000 conn/s | Requirement |
-| Peak (2× headroom) | 4,000 conn/s | (estimate, 2× headroom rule) |
-| Per-process throughput (single Python proxy with Redis) | ~350 conn/s | BENCHMARK_HISTORY 2026-03-07 |
-| Required Python-process count to hit peak | 4,000 ÷ 350 ≈ **12 worker processes** | Derived |
-| Recommended deployment | 3 nodes × 4-worker scaled config (`make start-scaled`) | This doc, "Resource Usage" table (4 workers ≈ 2,800–3,800 conn/s per node) |
-| Per-node expected throughput | ~2,800–3,800 conn/s | This doc, "Expected Throughput" table |
-| Per-node CPU / memory | 4 cores, ~1.7 GB | This doc, "Resource Usage" table |
-| Redis sizing | 1 primary + 1 replica, 2 GB max-memory, AOF on, persistence to fast SSD | (estimate; ban + HLL + rate-limit volumes scale linearly with unique-IP count) |
-| `tarpit.max_per_ip` | 1 per worker (12 workers across 3 nodes) | Per "Worker Count and max_per_ip Adjustment" formula above |
-| Recommended dial progression | 0 → 25 → 50 → 75 over 30 days; hold at 50 for at least 7 days before final raise | `OPERATIONS_GUIDE.md` |
-| Monitoring thresholds | Per-node `ja4proxy_active_connections` > 800 sustained → add a node; FP rate > 0.1% over 1 h → halt dial progression and investigate; HAProxy backend down > 30 s → page | `OPERATIONS_GUIDE.md#📊-viewing-logs-&-assets`, [`SERVICE_TARGETS.md`](SERVICE_TARGETS.md) |
-
-**Notes for this scenario:**
-- 3 nodes is the minimum for `maxSurge: 1, maxUnavailable: 0` rolling upgrades
-  with comfortable headroom (loss of one node still leaves 2× peak capacity).
-- Monitor Redis CPU and `INFO commandstats` — at this volume Redis is the
-  next bottleneck after the proxy GIL. If Redis CPU sustains > 70%, consider
-  splitting state into two Redis instances by key family or migrating to a
-  cluster.
-- This is the deployment shape where the Go proxy gives the largest
-  cost saving once Phase 15 throughput numbers are re-recorded; expected
-  per-node ceiling is materially higher **(estimate)** but not yet measured.
-
-### Scenario C — High-volume API / DDoS-resistant edge (~15,000 req/s)
-
-Public API gateway, large-scale e-commerce front door, or an edge tier that
-must survive volumetric L7 attacks. Continuous high traffic with frequent
-spikes.
-
-| Item | Value | Source |
-|------|-------|--------|
-| Target sustained throughput | 15,000 conn/s | Requirement |
-| Peak (2× headroom) | 30,000 conn/s | (estimate, 2× headroom rule) |
-| Per-node ceiling on i9-9900K-class hardware | ~5,600–7,600 conn/s (8 workers) | This doc, "Expected Throughput" table |
-| Required node count (Python) | 30,000 ÷ ~6,000 ≈ **5–6 nodes** | Derived |
-| Recommended deployment | 6 nodes × 8-worker scaled config; reserve 1 spare node for upgrades | This doc + standard N+1 rule (estimate) |
-| Per-node CPU / memory | 8 cores, ~3.3 GB | This doc, "Resource Usage" table |
-| Redis sizing | Redis Cluster, 3 primaries + 3 replicas, 8 GB max-memory each, AOF every-second | (estimate; required because single-Redis throughput becomes the bottleneck above ~10K conn/s — see "Conclusion" section in this doc) |
-| `tarpit.max_per_ip` | 1 per worker (48 workers fleet-wide) | Per "Worker Count and max_per_ip Adjustment" formula |
-| Recommended dial progression | 0 → 10 → 25 → 50 → 75 over 60 days; hold ≥ 14 days at each non-zero step; pause at any FP rate > 0.05% | `OPERATIONS_GUIDE.md`; conservative due to traffic volume (estimate) |
-| Monitoring thresholds | Per-node `ja4proxy_active_connections` > 4,000 sustained → add a node; FP rate > 0.05% over 1 h → halt and roll back dial; Redis P99 latency > 5 ms → page; HAProxy backend down > 15 s → page | `OPERATIONS_GUIDE.md#📊-viewing-logs-&-assets`, [`SERVICE_TARGETS.md`](SERVICE_TARGETS.md) |
-
-**Notes for this scenario:**
-- At this scale **the Python proxy is end-of-life**. Plan the deployment on
-  the assumption of migrating to the Go runtime; the numbers above are a
-  worst-case sanity check.
-- Bandwidth, kernel sysctl tuning (`net.core.somaxconn`,
-  `net.ipv4.tcp_max_syn_backlog`, `nf_conntrack_max`), and NIC RX queues
-  matter at this scale and are out of scope here. See
-  long-form sizing reference in `OPERATIONS_GUIDE.md`.
-- Bypass coverage matters more than dial setting at this volume: ensure
-  `h2`/`h1` ALPN bypass and JA4 whitelist are populated; otherwise even a 1%
-  scoring overhead becomes hundreds of connections/second of unnecessary work.
-- Threat-intel feeds (Spamhaus DROP/EDROP) provide most of the value at the
-  edge — keep them current via the leader-election feed manager and watch
-  `ti_feed_stale` alerts.
-
-### Cross-scenario notes
-
-- **All "(estimate)" numbers above** should be replaced with measured values
-  once Go-runtime production benchmarks land in
-  [`docs/performance/BENCHMARK_HISTORY.md`](performance/BENCHMARK_HISTORY.md).
-  When updating this guide, replace the estimate marker with the date and
-  commit hash of the benchmark entry.
-- **Dial progression cadence** is conservative on purpose. False positives
-  cost more than false negatives — see `CLAUDE.md` "Core Asymmetry" section.
-  When in doubt, slow the dial.
-- **Capacity is per-instance ceiling × instance count, minus headroom for
-  upgrades.** Always reserve at least one instance worth of capacity for
-  rolling upgrades and one for unexpected node failure.
-
-## Shared State Correctness
-
-### What's Shared (via Redis)
-
-✅ **Rate limiting**: All workers use the same Redis keys for rate tracking
-✅ **IP bans**: `ban:{ip}` keys are visible to all workers
-✅ **JA4 blacklist/whitelist**: Shared Redis sets
-✅ **Beaconing detection**: Shared Redis sorted sets
-✅ **Analytics signals**: Shared Redis keys
-✅ **Dial settings**: Shared Redis key
-
-### What's Per-Worker
-
-🔸 **max_per_ip tarpit limit**: Each worker enforces its own limit (adjust as shown above)
-🔸 **In-process LRU cache**: Each worker has its own cache (converges quickly)
-🔸 **Connection tracking**: Each worker tracks its own active connections
-
-## Operational Considerations
-
-### Starting and Stopping
-
-```bash
-# Start scaled configuration
+# Start a multi-instance stack
 make start-scaled
 
-# Stop scaled configuration
-docker compose -f deploy/docker/docker-compose.poc.yml -f deploy/docker/docker-compose.scale.yml down
+# Per-instance health / metrics
+curl -s http://<instance>:${METRICS_PORT:-9090}/health
+curl -s http://<instance>:${METRICS_PORT:-9090}/metrics | grep ja4proxy_active_connections
 
-# Restart a single worker
-docker restart ja4proxy_worker_1
+# Redis connection count (aggregate load proxy)
+redis-cli -a "$REDIS_PASSWORD" --no-auth-warning INFO clients
 ```
 
-### Monitoring
+**Scaling signal:** add an instance when per-node `ja4proxy_active_connections`
+is sustained near your measured ceiling, or when p99 connection latency starts
+climbing under load. Halt dial progression (do not add nodes blindly) if the
+false-positive rate rises.
 
-```bash
-# HAProxy stats
-docker exec -it ja4proxy_haproxy socat /var/run/haproxy.sock -
+## Security considerations
 
-# Worker-specific logs
-docker logs -f ja4proxy_worker_1
-docker logs -f ja4proxy_worker_2
-
-# Redis monitoring
-docker exec -it redis redis-cli info stats
-```
-
-### Scaling Up/Down
-
-To change the number of workers:
-
-1. Edit `deploy/docker/docker-compose.scale.yml`
-2. Add/remove worker service definitions
-3. Update HAProxy configuration to include new workers
-4. Update `max_per_ip` setting in `config/proxy.yml`
-5. Restart: `make start-scaled`
+- **PROXY protocol:** when behind a load balancer, enable PROXY protocol v2 so
+  `ja4pd` sees the real client IP; restrict it to your trusted upstream CIDR so a
+  client cannot spoof a header by reaching the listener directly.
+- **TLS:** JA4proxy never terminates or decrypts TLS — it forwards byte-for-byte.
+  Adding instances changes nothing about key custody (there is none).
+- **Rate-limit consistency:** rate limiting is correct across instances because
+  the sliding-window state is in Redis, not per-instance.
 
 ## Troubleshooting
 
-### Worker Health Checks Failing
-
-```bash
-# Check HAProxy logs
-docker logs ja4proxy_haproxy
-
-# Check worker health
-docker exec -it ja4proxy_worker_1 curl -v http://localhost:8080/health
-```
-
-### Uneven Load Distribution
-
-```bash
-# Check HAProxy stats for load distribution
-curl http://admin:admin123@localhost:8404/stats
-
-# If uneven, check:
-# 1. All workers are healthy
-# 2. No worker is overloaded
-# 3. Network connectivity between HAProxy and workers
-```
-
-### Redis Connection Issues
-
-```bash
-# Check Redis connections
-docker exec -it redis redis-cli info clients
-
-# Check Redis logs
-docker logs redis
-```
-
-## Advanced Configuration
-
-### Custom Worker Counts
-
-To use a different number of workers:
-
-1. Create a custom overlay file (e.g., `docker-compose.scale-8workers.yml`)
-2. Add 8 worker service definitions
-3. Start with: `docker compose -f deploy/docker/docker-compose.poc.yml -f docker-compose.scale-8workers.yml up -d`
-
-### Worker-Specific Configuration
-
-Each worker can have environment variables:
-
-```yaml
-# deploy/docker/docker-compose.scale.yml
-environment:
-  - PROXY_PORT=8080
-  - WORKER_ID=1
-  - LOG_LEVEL=INFO
-  - WORKER_NAME=primary
-```
-
-### Resource Limits
-
-Add resource limits to prevent worker runaway:
-
-```yaml
-# deploy/docker/docker-compose.scale.yml
-deploy:
-  resources:
-    limits:
-      cpus: '1.0'
-      memory: '512M'
-```
-
-## Security Considerations
-
-### PROXY Protocol
-
-HAProxy is configured to accept PROXY protocol v2 from upstream load balancers/CDNs. This is secure because:
-
-- ✅ Only enabled when behind trusted upstream (configured in `upstream_trust`)
-- ✅ Trusted CIDRs must be explicitly configured
-- ✅ Prevents IP spoofing from untrusted sources
-
-### TLS Termination
-
-- HAProxy operates at Layer 4 (TCP) and does not terminate TLS
-- TLS termination happens at the worker level
-- Each worker maintains its own TLS session state
-
-### Rate Limiting Consistency
-
-- All workers use the same Redis-backed rate limiting
-- Lua scripts ensure atomic operations
-- No race conditions between workers
+| Symptom | Likely cause | Check |
+|---------|--------------|-------|
+| Throughput plateaus far below ~3,000 conn/s | Bridge `docker-proxy` ceiling | Use host networking; compare `make bench-hostnative` vs `make bench-macro` |
+| Bans not consistent across instances | Instances on different Redis | Confirm `REDIS_HOST`/`REDIS_PORT` identical everywhere |
+| One instance hot, others idle | LB not distributing | Check LB backend health and balancing algorithm |
+| Redis CPU saturating | Aggregate write rate too high | Add a replica / split state by key family; see `docs/performance/benchmarks.md` |
 
 ## Benchmarking
 
-### Before and After
-
 ```bash
-# Single process benchmark
-make bench-python
+# Single-instance, host-native — the real per-node ceiling
+make bench-hostnative
 
-# Scaled benchmark
-make bench-scaled
+# Bridge-port macro benchmark (lower; capped by docker-proxy)
+make bench-macro
 ```
 
-### Expected Results
-
-```
-Scenario: Mixed traffic (5% browser, 95% scored)
-Hardware: i9-9900K, Redis in Docker
-
-Single process:  ~700–950 conn/s
-4 workers:        ~2,800–3,800 conn/s  (3.5–4× improvement)
-8 workers:        ~5,600–7,600 conn/s  (7–8× improvement)
-```
-
-## Migration Guide
-
-### From Single Process to Multi-Process
-
-1. **Update configuration**:
-   ```yaml
-   # config/proxy.yml
-tarpit:
-   worker_count: 4
-   max_per_ip: 1  # Was 3 for single process
-   ```
-
-2. **Start scaled configuration**:
-   ```bash
-   make start-scaled
-   ```
-
-3. **Verify**:
-   ```bash
-   # Check HAProxy stats
-   curl http://admin:admin123@localhost:8404/stats
-   
-   # Check all workers are healthy
-   docker ps | grep ja4proxy_worker
-   ```
-
-4. **Monitor performance**:
-   ```bash
-   # Check throughput
-   make status
-   
-   # Check for errors
-   docker logs ja4proxy_haproxy | grep ERROR
-   ```
-
-## Best Practices
-
-### Worker Count Recommendations
-
-| CPU Cores | Recommended Workers | Notes |
-|-----------|---------------------|-------|
-| 4–8 | 2–4 | Optimal balance |
-| 8–16 | 4–8 | Good scaling |
-| 16+ | 8–12 | Diminishing returns |
-| 32+ | Consider Go rewrite (Phase 15) | Better scaling |
-
-### Monitoring Checklist
-
-- [ ] HAProxy stats endpoint accessible
-- [ ] All workers show "UP" status
-- [ ] Load distribution is even (±10%)
-- [ ] Redis connection count matches worker count
-- [ ] No worker has high CPU/memory usage
-- [ ] Error rates are low (<0.1%)
-
-### Performance Tuning
-
-1. **Adjust worker count** based on CPU cores
-2. **Tune Redis timeout** settings for your network
-3. **Monitor HAProxy** for uneven load distribution
-4. **Adjust max_per_ip** when changing worker count
-5. **Scale Redis** if it becomes a bottleneck
-
-## Conclusion
-
-The multi-process worker model provides linear scaling while maintaining all security guarantees. With 4 workers, you can achieve ~3.5–4× the throughput of a single process, making it suitable for handling DDoS-scale traffic on modern hardware.
-
-For even higher throughput (>10,000 conn/s), consider:
-- **Phase 15**: Go rewrite for better single-process performance
-- **Horizontal scaling**: Multiple machines behind a global load balancer
-- **Redis clustering**: For higher Redis throughput
-
-## Support
-
-For issues with multi-process scaling:
-1. Check HAProxy logs first
-2. Verify Redis connectivity
-3. Ensure all workers have identical configuration
-4. Check resource limits (CPU/memory)
-5. Review health check status
+See `docs/performance/benchmarks.md` for method and recorded results.
 
 ## References
 
-- [HAProxy Documentation](https://docs.haproxy.org/)
-- [Docker Compose Overlay Pattern](https://docs.docker.com/compose/extends/)
-- [Redis Scaling Guide](https://redis.io/topics/cluster-tutorial)
-- Phase 26 throughput hardening (historical context)
+- `docs/performance/benchmarks.md` — measured throughput and the bench harness
+- `docs/DEPLOYMENT_OPTIONS.md` — deployment topologies
+- `docs/OPERATIONS_GUIDE.md` — day-to-day operation and the dial
+- `docs/REDIS_SCHEMA.md` — the shared-state key schema

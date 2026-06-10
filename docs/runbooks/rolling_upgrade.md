@@ -41,7 +41,7 @@ Before performing a rolling upgrade:
 
 4. **New image is built and tagged:**
 
-   > **Note:** The Go proxy is built via `make go-build` (produces `bin/proxy`).
+   > **Note:** The Go proxy is built via `make go-build` (produces `bin/ja4pd`).
    > The Docker image is built using the project's `Dockerfile` with the
    > `--target go-proxy` build stage (or your CI's equivalent).
 
@@ -271,7 +271,7 @@ Roll back immediately (do not troubleshoot first) if:
 | 5xx error rate | > 1% of requests over 1 minute | HAProxy stats / Prometheus |
 | Health check failures | Any pod/instance marked DOWN for > 30s | HAProxy stats / K8s events |
 | Block rate anomaly | Block rate changes > 50% from baseline | Grafana `ja4proxy_blocks_total` |
-| Redis connection errors | Any new errors after upgrade | Prometheus `ja4proxy_redis_errors_total` |
+| Redis connection errors | Any new errors after upgrade | Prometheus `ja4proxy_redis_operations_total{result="error"}` |
 | Latency P99 | > 2× baseline | Grafana SLO dashboard |
 
 If any of these thresholds are breached, **roll back first, investigate later.**

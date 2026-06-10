@@ -209,7 +209,16 @@
 % Product name
 \newcommand{\ja}{JA4proxy}
 \newcommand{\jalong}{JA4proxy Enterprise TLS Security Proxy}
-\newcommand{\javersion}{1.0}
+\newcommand{\javersion}{2.0.0}
+
+% Document metadata. \docversion tracks the product version the doc describes;
+% \lastreviewed is the date the CONTENT was last verified against the code —
+% NOT the LaTeX build date. Each document overrides \lastreviewed (and may
+% override \docversion) in its preamble. Defaulting \lastreviewed to \today is
+% a deliberate red flag: any cover showing today's date means the doc forgot to
+% set a real content-review date.
+\newcommand{\docversion}{2.0.0}
+\newcommand{\lastreviewed}{\today}
 
 % Inline code — small monospace
 \newcommand{\code}[1]{\texttt{\small #1}}

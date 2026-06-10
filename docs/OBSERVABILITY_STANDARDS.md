@@ -80,204 +80,189 @@ Labels must be from this approved set. New labels require a decision log entry.
 
 ### 1d. Complete Metric Registry
 
-This is the canonical list of all metrics. Phases may not invent new metric names
-without adding them here. The phase completion gate checks this document.
+This is the canonical list of all metrics actually emitted by the current
+system: the **Go proxy** (`internal/`, `cmd/`) and the **Python analytics
+service** (`src/`). Phases may not invent new metric names without adding them
+here, and entries here must correspond to a real metric in code — the phase
+completion gate checks both directions. Generated against the code on
+2026-06-10 (phase-309 WP-6).
 
-#### Core pipeline
+> **Histogram series:** each `histogram` metric also exposes the Prometheus
+> `_bucket`, `_sum`, and `_count` series (e.g. `ja4proxy_risk_score_bucket`).
+>
+> **⚠ Dashboards (§3) and alerts (§4) not yet fully reconciled.** Some example
+> panels and alert rules below still reference metric names from the **legacy
+> Python proxy** (e.g. `ja4proxy_pipeline_unexpected_errors_total`,
+> `ja4proxy_exception_handled_total`, `ja4proxy_cache_operations_total`,
+> `ja4proxy_*_last_refresh_success_seconds`, `ja4proxy_policy_changes_total`,
+> `ja4proxy_abuseipdb_quota_exhausted`) that this registry shows are **not
+> emitted** — those rules would never fire. Validate every PromQL expression
+> against this registry before deploying. Full §3/§4 reconciliation is tracked
+> as residual WP-6 work in `PHASE_309.md`.
 
+#### Core pipeline & scoring
 ```
-ja4proxy_connections_total{action}                   counter  Connections by final action taken
-ja4proxy_bypass_total{bypass}                        counter  Connections handled by each bypass rule
-ja4proxy_risk_score                                  histogram Score distribution; buckets [0,10,20,35,55,70,85,100]
-ja4proxy_pipeline_duration_seconds                   histogram End-to-end pipeline latency per connection
+ja4proxy_connections_total{action}                   counter   Total connections by action
+ja4proxy_bypass_total{rule}                          counter   Connections handled by each bypass rule
+ja4proxy_risk_score                                  histogram Risk score distribution (0-100)
+ja4proxy_pipeline_duration_seconds                   histogram Pipeline processing time in seconds
+ja4proxy_signal_total{name}                          counter   Signal firings by name
+ja4proxy_signal_latency_seconds                      histogram Execution latency for individual signal modules in seconds
+ja4proxy_security_events_total{type}                 counter   Security events by type
+ja4proxy_connection_errors_total                     counter   Unhandled errors in the connection handler before a policy decision
+ja4proxy_handler_panics_total                        counter   Connection handler goroutine panics recovered
 ```
 
-#### Monitor mode and dial
-
+#### Monitor mode & dial
 ```
-ja4proxy_dial_current                                gauge    Current dial value (0–100)
-ja4proxy_dial_changes_total                          counter  Number of dial value changes
-ja4proxy_dial_change_rejected_total                  counter  Dial changes rejected (increment limit)
-ja4proxy_monitor_counterfactual_total{action,dial}   counter  Would-have-taken actions at given dial
+ja4proxy_dial_current                                gauge     Current dial value (0-100)
+ja4proxy_dial_changes_total                          counter   Total dial setting changes
 ```
 
-#### TLS enforcement (Phase 3)
-
+#### TLS & cipher (Phase 3)
 ```
-ja4proxy_tls_version_total{tls_version,action}       counter  Connections by TLS version and action taken
-ja4proxy_weak_cipher_total{cipher_strength,action}   counter  Connections with weak cipher suites
+ja4proxy_weak_cipher_total                           counter   Total weak cipher connections
+ja4proxy_ja4_tls_mismatch_total{action}              counter   JA4-claimed TLS version vs negotiated TLS version mismatches
 ```
 
 #### SNI analysis (Phase 4)
-
 ```
-ja4proxy_sni_signal_total{signal}                    counter  SNI signal fires (missing_sni, ip_literal_sni, etc.)
-ja4proxy_sni_dga_score                               histogram DGA confidence score distribution
-```
-
-#### TCP analysis (Phase 5)
-
-```
-ja4proxy_tcp_signal_total{signal}                    counter  TCP signal fires (ja4t_mismatch, no_resumption, etc.)
-ja4proxy_concurrent_connections                      gauge    Current concurrent connections per IP (max observed)
-ja4proxy_mtls_verified_total                         counter  Connections with verified mTLS client certificate
+ja4proxy_sni_signal_total{signal}                    counter   SNI signal events
+ja4proxy_sni_dga_score                               histogram SNI DGA score distribution
 ```
 
-#### ASN classification (Phase 6)
-
+#### TCP & connection behaviour (Phase 5)
 ```
-ja4proxy_asn_classification_total{asn_type}          counter  Connections by ASN classification
-ja4proxy_tor_exit_list_entries                       gauge    Current number of Tor exit addresses
-ja4proxy_tor_list_last_refresh_success_seconds       gauge    Unix timestamp of last successful Tor list refresh
-ja4proxy_tor_list_download_errors_total              counter  Failed Tor consensus download attempts
+ja4proxy_tcp_signal_total{signal}                    counter   TCP signal events
+ja4proxy_active_connections                          gauge     Current active connections
 ```
 
-#### DNS enrichment (Phase 7)
-
+#### ASN & Tor (Phase 6)
 ```
-ja4proxy_dns_enrichment_total{result}                counter  DNS enrichment outcomes (hit, miss, error, timeout)
-ja4proxy_dns_ptr_classification_total{ptr_class}     counter  PTR lookup outcomes by classification
-ja4proxy_dns_enrichment_queue_depth                  gauge    Current DNS enrichment queue depth
-ja4proxy_dns_enrichment_queue_drops_total            counter  DNS enrichment items dropped due to full queue
-ja4proxy_dns_resolver_errors_total                   counter  DNS resolver errors
-ja4proxy_dns_ptr_errors_total{error_type}            counter  DNS PTR lookup failures by type (timeout|nxdomain|servfail|other)
+ja4proxy_asn_classification_total{type}              counter   ASN classification events
+ja4proxy_tor_exit_list_entries                       gauge     Current Tor exit list size
 ```
 
-#### Blocklist management (Phase 8)
-
+#### FCrDNS enrichment (Phase 7)
 ```
-ja4proxy_blocklist_entries{feed}                     gauge    Current CIDR entries loaded per feed
-ja4proxy_blocklist_last_refresh_success_seconds{feed} gauge   Unix timestamp of last successful feed refresh
-ja4proxy_blocklist_download_errors_total{feed}       counter  Failed feed download attempts
-ja4proxy_blocklist_matches_total{feed}               counter  Connections matched by each feed
+ja4proxy_dns_enrichment_total{result}                counter   DNS enrichment results
+ja4proxy_dns_enrichment_queue_depth                  gauge     DNS enrichment queue depth
+ja4proxy_dns_enrichment_queue_drops_total            counter   Dropped DNS enrichment requests
+ja4proxy_dns_ptr_classification_total{type}          counter   DNS PTR classifications
+ja4proxy_dns_ptr_errors_total{error}                 counter   DNS PTR lookup errors
+ja4proxy_dns_resolver_errors_total                   counter   DNS resolver errors
 ```
 
-#### Beaconing detection (Phase 9)
-
+#### Blocklists (Phase 8)
 ```
-ja4proxy_beaconing_score                             histogram Beacon score distribution; buckets [0,.1,.2,.3,.5,.7,.9,1]
-ja4proxy_beaconing_suspects                          gauge    Current number of suspected beaconers
-ja4proxy_beaconing_records_total                     counter  Connection timestamps recorded for beaconing analysis
+ja4proxy_blocklist_matches_total{list}               counter   Blocklist match counts
 ```
 
 #### AbuseIPDB (Phase 10)
-
 ```
-ja4proxy_abuseipdb_lookup_total{result}              counter  API lookup outcomes (hit, miss, error, timeout, quota_exceeded)
-ja4proxy_abuseipdb_enrichment_queue_depth            gauge    Current AbuseIPDB enrichment queue depth
-ja4proxy_abuseipdb_quota_exhausted                   gauge    1 if daily quota exhausted, else 0
-ja4proxy_abuseipdb_quota_used_today                  gauge    API requests used today
-ja4proxy_abuseipdb_cache_hit_ratio                   gauge    Cache hit ratio over last 5 minutes (pre-computed)
+ja4proxy_abuseipdb_lookups_total{result}             counter   AbuseIPDB lookup results
+ja4proxy_abuseipdb_enrichment_queue_depth            gauge     AbuseIPDB queue depth
+ja4proxy_abuseipdb_queue_dropped_total               counter   Dropped AbuseIPDB requests
 ```
 
-#### RDAP enrichment (Phase 11)
-
+#### PROXY protocol & mTLS / cert
 ```
-ja4proxy_rdap_lookup_total{registry,result}          counter  RDAP lookup outcomes by registry
-ja4proxy_rdap_enrichment_queue_depth                 gauge    Current RDAP enrichment queue depth
-ja4proxy_rdap_parse_errors_total                     counter  RDAP response parse failures
-ja4proxy_rdap_block_expansions_total                 counter  Automatic block expansions applied
-ja4proxy_rdap_lookup_errors_total{rir}               counter  RDAP lookup failures by RIR (bootstrap routing or registry error)
+ja4proxy_proxy_protocol_parser_events_total{event}   counter   PROXY protocol parser security events. Labels: event=spoof_stripped|smuggling_blocked.
+ja4proxy_tls_cert_expiry_timestamp_seconds           gauge     Listener TLS certificate NotAfter as a Unix timestamp (phase-63)
 ```
 
-#### Analytics node (Phase 12)
-
+#### Tarpit & rate limiting
 ```
-ja4proxy_analytics_events_processed_total            counter    Stream events consumed by analytics node
-ja4proxy_analytics_cycle_duration_seconds            histogram  Analytics cycle duration
-ja4proxy_analytics_stream_lag_seconds                gauge      Current Redis Stream consumer lag (seconds)
-ja4proxy_analytics_score_drift_detected              gauge      1 if score drift detected (|z| > 2.0), else 0
-ja4proxy_analytics_calibration_issue                 gauge      1 if shadow score (h2/h1 traffic) exceeds baseline, else 0
-ja4proxy_analytics_distribution_shift                gauge      1 if KS-test detects score distribution shift, else 0
-ja4proxy_analytics_score_median                      gauge      Rolling 1-hour median risk score
-ja4proxy_analytics_shadow_score_median               gauge      Rolling 1-hour median shadow score (browser ALPN traffic)
-ja4proxy_analytics_signals_total                     counter    Analytics cross-instance signals applied to proxy scorer {signal_type="campaign|slowscan"}
-ja4proxy_analytics_distribution_check_duration       histogram  Duration of KS-test distribution check
-ja4proxy_analytics_drift_check_duration              histogram  Duration of z-score drift check
+ja4proxy_tarpit_concurrent                           gauge     Current tarpit connections
+ja4proxy_tarpit_overflow_total{action}               counter   Tarpit overflows by action
 ```
 
-#### Local cache (Phase 0)
-
+#### TAP mode (Phase 20)
 ```
-ja4proxy_cache_operations_total{type,result}         counter  Cache get/set operations by type and result (hit/miss/evict)
-ja4proxy_cache_hit_ratio{type}                       gauge    Hit ratio per cache type over last 5 minutes
-```
-
-#### Config and system
-
-```
-ja4proxy_config_reloads_total                        counter  Successful config reloads
-ja4proxy_config_reload_errors_total                  counter  Config reload failures (validation failed)
-ja4proxy_static_allowlist_hits_total                 counter  Connections matched by static IP allowlist
-ja4proxy_policy_changes_total{bypass}                counter  Security policy bypass changes
+ja4proxy_tap_lookups_total{result}                   counter   Phase-20 TAP fingerprint lookup results
+ja4proxy_tap_signal_total{action}                    counter   TAP-derived OS mismatch signals emitted
 ```
 
-#### Redis client health (Phase 201c)
-
+#### Redis & config
 ```
-ja4proxy_redis_health{status}                        gauge    Redis health status (1=current, 0=stale). Labels: status=ok|error.
-ja4proxy_redis_script_reloads_total{result}          counter  Count of sliding_window.lua reloads after Redis restart/flush. Labels: result=ok|error.
-```
-
-Help strings above match `internal/metrics/metrics.go` verbatim as of
-Phase 201c (verified against the registered `GaugeVec` / `CounterVec`).
-
-#### Tarpit (Phase 14)
-
-```
-ja4proxy_tarpit_concurrent                           gauge    Current concurrent tarpitted connections
-ja4proxy_tarpit_overflow_total{action}               counter  Connections that hit tarpit capacity cap
+ja4proxy_redis_health{status}                        gauge     Redis health status (1=current, 0=stale). Labels: status=ok|error.
+ja4proxy_redis_operations_total{command,result}      counter   Redis operations performed by the proxy
+ja4proxy_redis_acl_enabled                           gauge     1 if per-service Redis ACL users are in use, 0 if the proxy connects as the unrestricted default user (JA4PROXY-2026-0050).
+ja4proxy_redis_script_reloads_total{result}          counter   Count of sliding_window.lua reloads after Redis restart/flush. Labels: result=ok|error.
+ja4proxy_config_reloads_total                        counter   Total config reloads
+ja4proxy_config_reload_failures_total                counter   Failed config reloads
 ```
 
-#### Exception handling (Phase 17b)
-
+#### Analytics stream & write buffer
 ```
-ja4proxy_pipeline_unexpected_errors_total{phase}     counter  Unexpected errors reaching top-level pipeline handler (must be 0)
-ja4proxy_exception_handled_total{module,exception_type} counter All caught exceptions by module and type — spike = new failure mode
-ja4proxy_signal_skipped_total{module,reason}         counter  Signals skipped due to expected dependency failures (Redis/DNS/timeout)
-ja4proxy_signal_error_total{module}                  counter  Signals failed due to unexpected internal errors
-```
-
-#### Backup & Restore (Phase 19)
-
-```
-ja4proxy_backup_operations_total{status}              counter  Total backup operations (success/failure)
-ja4proxy_backup_keys_processed_total                 counter  Total keys processed during backups
-ja4proxy_backup_duration_seconds                     histogram Backup operation duration distribution
-ja4proxy_backup_size_bytes                           histogram Backup artifact size distribution
-ja4proxy_backup_last_success_timestamp               gauge    Unix timestamp of last successful backup
-ja4proxy_backup_last_failure_timestamp               gauge    Unix timestamp of last failed backup
-ja4proxy_backup_currently_running                    gauge    1 if backup is running, 0 otherwise
-
-ja4proxy_restore_operations_total{status,type}      counter  Total restore operations (success/failure, destructive/non-destructive)
-ja4proxy_restore_duration_seconds                     histogram Restore operation duration distribution
-ja4proxy_restore_last_success_timestamp               gauge    Unix timestamp of last successful restore
-ja4proxy_restore_last_failure_timestamp               gauge    Unix timestamp of last failed restore
-ja4proxy_restore_currently_running                    gauge    1 if restore is running, 0 otherwise
-ja4proxy_restore_keys_restored_total                 counter  Total keys restored
+ja4proxy_stream_event_queue_depth                    gauge     Current depth of the bounded XADD event queue (JA4PROXY-2026-0031).
+ja4proxy_stream_event_drops_total                    counter   XADD events dropped because the bounded queue was full (JA4PROXY-2026-0031).
+ja4proxy_stream_event_write_errors_total{reason}     counter   XADD worker failures by reason (JA4PROXY-2026-0031).
+ja4proxy_write_buffer_queue_depth                    gauge     Current event buffer depth
+ja4proxy_write_buffer_dropped_total                  counter   Total dropped events
 ```
 
-#### Load Testing (Phase 86i)
-
-Emitted by `scripts/load_test.py` when invoked with `--push-gateway URL`.
-These metrics live on the Pushgateway (one job per load-test run) and are
-scraped from there by Prometheus — they are NOT exposed on the proxy's own
-`/metrics` endpoint. They exist so that load-test runs are observable in
-Grafana alongside real traffic.
-
+#### Cross-DC sync
 ```
-ja4proxy_loadtest_connections_attempted_total   counter   Load-test connections attempted in this run
-ja4proxy_loadtest_connections_completed_total   counter   Load-test connections that completed successfully
-ja4proxy_loadtest_errors_total{reason}           counter   Load-test errors by failure reason (e.g. timeout, refused, tls_error)
-ja4proxy_loadtest_latency_seconds                histogram End-to-end connection latency, buckets [0.0001, 0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.5, 1.0]
-ja4proxy_loadtest_throughput_cps                 gauge     Observed throughput in connections per second
+ja4proxy_sync_wan_connected{peer}                    gauge     WAN connection status to peers (1=connected, 0=disconnected)
+ja4proxy_sync_replication_lag_seconds{stream}        gauge     Cross-DC state replication lag
+ja4proxy_sync_peer_skew_seconds{peer}                gauge     Clock skew relative to peer DC
+ja4proxy_sync_clock_drift_seconds                    gauge     NTP clock drift in seconds
+ja4proxy_sync_events_processed_total{op,dc}          counter   Total sync events applied locally
+ja4proxy_sync_errors_total{type}                     counter   Total sync failures
+ja4proxy_signal_drift_total{source,type}             counter   Total detected scoring drift events between nodes or sources
 ```
 
-All five metrics are pushed under the job label `ja4proxy_loadtest`. When
-adding alerts that include load-test traffic, remember to exclude this job
-from SLO dashboards so synthetic load does not corrupt real-traffic SLIs.
+#### NetBox integration
+```
+ja4proxy_netbox_cidrs_loaded{status}                 counter   NetBox CIDR fetch results (phase-94i2)
+```
 
----
+#### Health / runtime
+```
+ja4proxy_health_check_panics_total                   counter   Health check goroutine panics recovered
+ja4proxy_rdap_enrichment_queue_depth                 gauge     RDAP enrichment queue depth
+```
+
+#### Analytics service (Python `src/`)
+```
+ja4proxy_analytics_calibration_check_duration        histogram Duration of calibration checks
+ja4proxy_analytics_calibration_issue                 gauge     1 if calibration issue detected, 0 otherwise
+ja4proxy_analytics_distribution_check_duration       histogram Duration of distribution analysis checks
+ja4proxy_analytics_distribution_shift                gauge     1 if score distribution shifted significantly
+ja4proxy_analytics_drift_check_duration              histogram Duration of drift detection checks
+ja4proxy_analytics_ml_anomalies_detected             gauge     Number of anomalies detected by ML model
+ja4proxy_analytics_ml_detection_duration             histogram Duration of ML anomaly detection
+ja4proxy_analytics_ml_model_version                  gauge     Current ML model version
+ja4proxy_analytics_score_drift_detected              gauge     1 if score drift detected, 0 otherwise
+ja4proxy_analytics_score_median                      gauge     Current median risk score
+ja4proxy_analytics_shadow_score_median               gauge     Current median shadow score for known-good traffic
+ja4proxy_analytics_stream_lag_seconds                gauge     Seconds between the latest processed stream event and now
+ja4proxy_ti_feed_caps_hit_total{feed_id,kind}        counter   Number of times a safety cap was hit
+ja4proxy_ti_feed_circuit_state{feed_id}              gauge     TI feed circuit breaker state (0=closed, 1=half_open, 2=open)
+ja4proxy_ti_feed_cleanup_removals_total{feed_id}     counter   Indicators removed by TI feed differential cleanup
+ja4proxy_ti_feed_fp_blocked_total{feed_id}           counter   Number of JA4 fingerprints blocked as false positives
+ja4proxy_ti_feed_indicators_managed{feed_id}         gauge     Current number of indicators managed by a TI feed
+ja4proxy_ti_feed_indicators_processed_total{feed_id,outcome} counter   Per-indicator outcomes inside a TI feed poll
+ja4proxy_ti_feed_last_success_timestamp_seconds{feed_id} gauge     Unix timestamp of the last successful TI feed poll
+ja4proxy_ti_feed_mgmt_api_errors_total{feed_id,status_code} counter   Management API errors observed by the TI feed runner
+ja4proxy_ti_feed_poll_duration_seconds{feed_id}      histogram Wall-clock time per TI feed poll
+ja4proxy_ti_feed_poll_total{feed_id,result}          counter   TI feed poll outcomes
+ja4proxy_ti_feed_seed_file_entries_total{feed_id,outcome} counter   Seed-file fingerprint entries loaded per outcome
+```
+
+#### Load Testing (`ja4proxy_loadtest_*`)
+
+Emitted by the load-test tooling (`ja4p test benchmark` / the load harness), not
+by the proxy or analytics service. Present only while a benchmark is running.
+
+```
+ja4proxy_loadtest_connections_attempted_total       counter   Connections the load test attempted to open
+ja4proxy_loadtest_connections_completed_total        counter   Connections that completed successfully
+ja4proxy_loadtest_errors_total                       counter   Connection errors during the load test
+ja4proxy_loadtest_latency_seconds                    histogram Per-connection latency distribution
+ja4proxy_loadtest_throughput_cps                     gauge     Achieved throughput (connections per second)
+```
 
 ## §2. Structured Log Schema
 

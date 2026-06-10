@@ -2,6 +2,13 @@
 
 > **Sub-phase:** 121c. **Authority:** this document binds severity labels on
 > every entry in `docs/security/findings.yaml`.
+>
+> **⚠ The day-figures below are internal best-effort prioritisation targets, not
+> service-level agreements.** Per [`CVD_POLICY.md`](CVD_POLICY.md), JA4proxy
+> makes **no SLA** on acknowledgement, triage, or fix timelines and has **no
+> on-call rotation** — it is a self-funded open-source project responding as
+> maintainer capacity allows. "SLA" / "past SLA" in this document means a missed
+> *internal* target, never a breached external commitment.
 
 ## Why a project-specific rubric
 
@@ -112,7 +119,7 @@ of this change".
 
 | Event | Escalation |
 |---|---|
-| CRITICAL finding past SLA | Paged to on-call via the usual security channel; weekly exec review until closed. |
+| CRITICAL finding past target | Escalated to the maintainers (there is no on-call rotation — see `CVD_POLICY.md`); reviewed until closed. |
 | HIGH finding past SLA | Weekly security review; annotated in `findings.yaml` with `breach_acknowledged: true`. |
 | MEDIUM/LOW past SLA | Tracked in `make findings-list --sla-breach` output; no page. |
 

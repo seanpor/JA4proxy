@@ -22,6 +22,16 @@
 \usepackage{afterpage}
 \usepackage{parskip}
 \usepackage{tocbibind}
+% WP-1: long identifiers (metric names, config keys, Redis keys, JA4 strings)
+% are unbreakable in justified prose and narrow margin captions and caused most
+% of the overfull hboxes. They separate on underscores, which the sources escape
+% as "\_"; redefining that to carry a breakpoint lets the line break there.
+% Chosen over seqsplit because it is rescan-free: robust in tufte margin
+% captions (which seqsplit crashes) and tabular cells, and UTF-8 safe.
+\newcommand{\jabrk}{\textunderscore\penalty100\hskip0pt\relax}
+\renewcommand{\code}[1]{{\small\ttfamily\def\_{\jabrk}#1}}
+\renewcommand{\configkey}[1]{{\small\ttfamily\color{ja4navy}\def\_{\jabrk}#1}}
+\renewcommand{\fingerprint}[1]{{\footnotesize\ttfamily\def\_{\jabrk}#1}}
 
 \makeindex
 
@@ -42,9 +52,12 @@
   \end{titlepage}
 }
 
+\renewcommand{\docversion}{2.0.0}
+\renewcommand{\lastreviewed}{2026-06-10}
+
 \title{\ja\ Technical Reference Manual}
 \author{JA4proxy Project}
-\date{Edition 1.0 \quad \the\year}
+\date{Version \docversion \quad\textbullet\quad Last reviewed \lastreviewed}
 
 \begin{document}
 

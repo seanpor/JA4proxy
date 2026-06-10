@@ -108,12 +108,12 @@ rate(ja4proxy_bypass_total{type="spamhaus"}[1m]) * 60
 \section{Risk Scoring Metrics}
 \index{metrics!risk score}
 
-\subsection{ja4proxy\_risk\_score\_distribution}
-\index{ja4proxy\_risk\_score\_distribution}
+\subsection{ja4proxy\_risk\_score}
+\index{ja4proxy\_risk\_score}
 
 \begin{fullwidth}
 \begin{table}[h]
-\caption{\code{ja4proxy\_risk\_score\_distribution} — score distribution histogram}
+\caption{\code{ja4proxy\_risk\_score} — score distribution histogram}
 \label{tab:metric-score-hist}
 \begin{tabular}{@{}ll@{}}
 \toprule
@@ -133,14 +133,14 @@ traffic with minimal false positive exposure.
 Example PromQL:
 \begin{lstlisting}[language=bash]
 # 95th percentile score
-histogram_quantile(0.95, rate(ja4proxy_risk_score_distribution_bucket[5m]))
+histogram_quantile(0.95, rate(ja4proxy_risk_score_bucket[5m]))
 
 # Fraction of connections scoring above 60
 (
-  sum(rate(ja4proxy_risk_score_distribution_bucket{le="100"}[5m]))
-  - sum(rate(ja4proxy_risk_score_distribution_bucket{le="60"}[5m]))
+  sum(rate(ja4proxy_risk_score_bucket{le="100"}[5m]))
+  - sum(rate(ja4proxy_risk_score_bucket{le="60"}[5m]))
 )
-/ sum(rate(ja4proxy_risk_score_distribution_bucket{le="100"}[5m]))
+/ sum(rate(ja4proxy_risk_score_bucket{le="100"}[5m]))
 \end{lstlisting}
 
 \subsection{ja4proxy\_dial\_setting}
@@ -164,12 +164,12 @@ Description & Current value of the dial setting (0–100). Updated on every conf
 \section{Signal Metrics}
 \index{metrics!signals}
 
-\subsection{ja4proxy\_signal\_duration\_seconds}
-\index{ja4proxy\_signal\_duration\_seconds}
+\subsection{ja4proxy\_signal\_latency\_seconds}
+\index{ja4proxy\_signal\_latency\_seconds}
 
 \begin{fullwidth}
 \begin{table}[h]
-\caption{\code{ja4proxy\_signal\_duration\_seconds} — per-signal latency histogram}
+\caption{\code{ja4proxy\_signal\_latency\_seconds} — per-signal latency histogram}
 \label{tab:metric-signal-dur}
 \begin{tabular}{@{}ll@{}}
 \toprule
@@ -185,12 +185,12 @@ Example PromQL:
 \begin{lstlisting}[language=bash]
 # 99th percentile AbuseIPDB lookup latency
 histogram_quantile(0.99,
-  rate(ja4proxy_signal_duration_seconds_bucket{signal="abuseipdb"}[5m])
+  rate(ja4proxy_signal_latency_seconds_bucket{signal="abuseipdb"}[5m])
 )
 
 # Mean signal latency by type
-rate(ja4proxy_signal_duration_seconds_sum[5m])
-/ rate(ja4proxy_signal_duration_seconds_count[5m])
+rate(ja4proxy_signal_latency_seconds_sum[5m])
+/ rate(ja4proxy_signal_latency_seconds_count[5m])
 \end{lstlisting}
 
 \subsection{ja4proxy\_signal\_score}
@@ -262,18 +262,18 @@ Description & Total RDAP cache operations \\
 \index{metrics!Redis}
 \index{metrics!config reload}
 
-\subsection{ja4proxy\_redis\_errors\_total}
-\index{ja4proxy\_redis\_errors\_total}
+\subsection{ja4proxy\_redis\_operations\_total}
+\index{ja4proxy\_redis\_operations\_total}
 
 \begin{fullwidth}
 \begin{table}[h]
-\caption{\code{ja4proxy\_redis\_errors\_total}}
+\caption{\code{ja4proxy\_redis\_operations\_total} — Redis operations by command and result}
 \label{tab:metric-redis-err}
 \begin{tabular}{@{}ll@{}}
 \toprule
 Type & Counter \\
-Labels & \code{operation}: the Redis operation that failed (e.g.\ \code{GET}, \code{ZADD}, \code{XADD}) \\
-Description & Total Redis operation failures. Any sustained non-zero rate indicates Redis connectivity issues. \\
+Labels & \code{command}: the Redis command (e.g.\ \code{GET}, \code{ZADD}, \code{XADD}); \code{result}: \code{ok} or \code{error} \\
+Description & Total Redis operations by command and result. Filter \code{result="error"} for failures; a sustained non-zero error rate indicates Redis connectivity issues. \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -348,7 +348,7 @@ groups:
     rules:
       # Redis connectivity — any failure is critical
       - alert: JA4proxyRedisErrors
-        expr: rate(ja4proxy_redis_errors_total[2m]) > 0.5
+        expr: rate(ja4proxy_redis_operations_total{result="error"}[2m]) > 0.5
         for: 1m
         labels:
           severity: critical
@@ -406,13 +406,13 @@ The following panels are recommended for the \ja\ operational dashboard:
 \textbf{Panel name} & \textbf{Visualisation} & \textbf{PromQL query} \\
 \midrule
 Connection rate by action & Stacked time series & \code{sum by (action) (rate(ja4proxy\_connections\_total[1m]))} \\
-Risk score heatmap & Heatmap & \code{rate(ja4proxy\_risk\_score\_distribution\_bucket[1m])} \\
+Risk score heatmap & Heatmap & \code{rate(ja4proxy\_risk\_score\_bucket[1m])} \\
 Block rate \% & Gauge (0–100\%) & Block / total connections \\
 Bypass breakdown & Pie chart & \code{sum by (type) (rate(ja4proxy\_bypass\_total[5m]))} \\
 Signal latency P99 & Bar chart & P99 histogram for each signal \\
 Fingerprint traffic mix & Pie chart & \code{sum by (name) (rate(ja4proxy\_fingerprint\_seen\_total[5m]))} \\
 Dial setting & Stat panel & \code{ja4proxy\_dial\_setting} \\
-Redis error rate & Time series & \code{rate(ja4proxy\_redis\_errors\_total[1m])} \\
+Redis error rate & Time series & \code{rate(ja4proxy\_redis\_operations\_total\{result="error"\}[1m])} \\
 AbuseIPDB cache hit rate & Stat panel & hit / total rate \\
 \bottomrule
 \end{tabular}

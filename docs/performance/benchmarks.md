@@ -2,10 +2,11 @@
 
 > **Run the benchmark harness:** `make bench-hostnative` for real end-to-end
 > throughput (host networking — see the section below for why this is the
-> meaningful capacity number). `make bench` / `make bench-quick` run the
-> bridge-port suite, which is fine for regression tracking but is capped by
-> `docker-proxy`. Raw Go microbenchmarks live under `internal/tls/` and
-> `cmd/proxy/` and can be run directly with `go test -bench=. ./...`.
+> meaningful capacity number). `make bench-macro` runs the same end-to-end test
+> through the bridge port (fine for regression tracking but capped by
+> `docker-proxy`); `make bench` runs micro + macro; `make bench-micro` runs the
+> raw Go pipeline microbenchmarks (also runnable directly with
+> `go test -bench=. ./...`).
 >
 > **Honesty note:** the numbers on this page were produced on a
 > single developer workstation — they are **not production-representative**.

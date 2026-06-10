@@ -212,7 +212,7 @@ During a Redis outage:
 - All new ALLOW/BLOCK decisions fall back to local cache entries if present.
 - If neither cache has an entry, the proxy **fails open** (allows the connection).
 - No errors are surfaced to clients — connections are handled normally.
-- Prometheus counter `ja4proxy_redis_errors_total` increments for each failed call.
+- Prometheus counter `ja4proxy_redis_operations_total{result="error"}` increments for each failed call.
 - When Redis recovers, the proxy reconnects automatically (aioredis auto-reconnect).
 - No proxy restart is needed.
 
