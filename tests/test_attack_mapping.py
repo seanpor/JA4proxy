@@ -1,6 +1,6 @@
 """Phase 107f.4 — ATT&CK mapping CI gate.
 
-The forward-mapping table in ``docs/for-architects/ATTACK_MAPPING.md`` couples
+The forward-mapping table in ``docs/ATTACK_MAPPING.md`` couples
 JA4proxy signal modules to MITRE ATT&CK technique IDs. Two regression hazards:
 
 1. **A-3 (Architecture, LOW):** if a signal module is renamed/moved, the
@@ -23,7 +23,7 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-ATTACK_MAPPING = REPO_ROOT / "docs" / "for-architects" / "ATTACK_MAPPING.md"
+ATTACK_MAPPING = REPO_ROOT / "docs" / "ATTACK_MAPPING.md"
 
 #: Confidence labels permitted in the Confidence column. The CI gate is
 #: case-insensitive on the label word but strict on the allowed set.

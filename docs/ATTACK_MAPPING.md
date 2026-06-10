@@ -44,24 +44,21 @@ every linked signal-module path exists on disk.
 
 Each row maps a JA4proxy signal module to one MITRE ATT&CK technique. Where a
 signal observes multiple techniques, the row appears once per technique.
-Source-file paths point to the canonical Go production module first, with a
-parallel Python row where the prototype exists.
+Source-file paths point to the canonical Go production module. (The original
+Python prototypes under `src/security/` were retired in v2.0.0 when Go became
+the sole production runtime, so they no longer carry parallel rows.)
 
 | Signal module | Detection | Tactic | Technique ID | Confidence | Source file |
 |---------------|-----------|--------|--------------|------------|-------------|
 | TCP analyser (per-IP rate) | High new-connection rate from a single source IP probing many ports/SNIs (active scanning) | TA0043 Reconnaissance | T1595 Active Scanning | medium — TCP/rate signal catches naive scanners reliably; distributed scanners across many IPs evade per-IP windows | internal/security/tcp_analyzer.go |
-| TCP analyser (per-IP rate, prototype) | Same as above; Python prototype | TA0043 Reconnaissance | T1595 Active Scanning | medium — same caveats as the Go module | src/security/tcp_analyzer.py |
-| Rate tracker (multi-strategy) | Sliding-window per-IP and per-(IP, JA4) rate breaches indicating brute scanning behaviour | TA0043 Reconnaissance | T1595.002 Vulnerability Scanning (best-fit — covers high-rate probe behaviour) | medium — multi-strategy 2-of-3 majority vote reduces false positives; heavy-NAT sources still produce false positives | src/security/rate_tracker.py |
+| Rate tracker (multi-strategy) | Sliding-window per-IP and per-(IP, JA4) rate breaches indicating brute scanning behaviour | TA0043 Reconnaissance | T1595.002 Vulnerability Scanning (best-fit — covers high-rate probe behaviour) | medium — multi-strategy 2-of-3 majority vote reduces false positives; heavy-NAT sources still produce false positives | internal/security/rate_limiter.go |
 | ASN classifier (datacenter detection) | TLS connection sourced from a hosting/VPS ASN — common for attacker-rented infrastructure | TA0042 Resource Development | T1583.003 Acquire Infrastructure: Virtual Private Server | medium — datacenter ASN list is comprehensive but legitimate cloud-hosted clients also match (think monitoring, CI, federated services) | internal/security/asn_classifier.go |
-| ASN classifier (datacenter detection, prototype) | Same as above; Python prototype | TA0042 Resource Development | T1583.003 Acquire Infrastructure: Virtual Private Server | medium — same caveats as the Go module | src/security/asn_classifier.py |
 | RDAP enrichment (org-name match) | Known-bad hosting-provider org names (e.g., bulletproof hosters) detected via RDAP lookup | TA0042 Resource Development | T1583.006 Acquire Infrastructure: Web Services | low — relies on a curated bad-org list that lags reality; sophisticated actors rotate provider relationships | internal/security/rdap_enrichment.go |
-| Rate tracker (per-(IP, JA4) low threshold) | Many TLS connections from one source IP using one client fingerprint targeting an auth endpoint pattern | TA0001 Initial Access | T1110.004 Credential Stuffing | medium — catches single-host stuffing; distributed credential-stuffing across botnets evades per-IP rate windows | src/security/rate_tracker.py |
+| Rate tracker (per-(IP, JA4) low threshold) | Many TLS connections from one source IP using one client fingerprint targeting an auth endpoint pattern | TA0001 Initial Access | T1110.004 Credential Stuffing | medium — catches single-host stuffing; distributed credential-stuffing across botnets evades per-IP rate windows | internal/security/rate_limiter.go |
 | TLS enforcer + JA4 blacklist | Connection presents a known-scanner JA4 fingerprint (masscan, zgrab, exploit-toolkit signatures) targeting a public-facing service | TA0001 Initial Access | T1190 Exploit Public-Facing Application | low — JA4 blacklist matches only fingerprints that are already known and published; attackers who randomise their TLS stack evade trivially | internal/security/tls_enforcer.go |
 | Pipeline JA4 blacklist (Sliver / CobaltStrike / Evilginx) | TLS ClientHello fingerprint matches a published C2-framework JA4 (e.g., Sliver `t13d190900_*`, CobaltStrike `t12d*`, Evilginx) | TA0011 Command and Control | T1573 Encrypted Channel | high — JA4 blacklist matches exact known C2 fingerprints with low ambiguity, but coverage is bounded by the curated fingerprint list | internal/security/pipeline.go |
-| Pipeline JA4 blacklist (C2 frameworks, prototype) | Same as above; Python prototype | TA0011 Command and Control | T1573 Encrypted Channel | high — same as the Go module; bounded by fingerprint-list coverage | src/security/pipeline.py |
 | Pipeline JA4 blacklist (web-protocol C2) | C2-framework JA4 match where the underlying ALPN is `h2`/`http/1.1` (web-protocol C2 over TLS) | TA0011 Command and Control | T1071.001 Application Layer Protocol: Web Protocols | high — same fingerprint match as T1573 row; the ALPN context is what distinguishes T1071.001 | internal/security/pipeline.go |
 | ASN classifier (Tor exit list) | Connection sourced from an IP on the published Tor exit-node list | TA0005 Defense Evasion | T1090.003 Proxy: Multi-hop Proxy | high — Tor exit list is authoritative for currently-advertised exit IPs; cost is false positives against legitimate Tor users | internal/security/asn_classifier.go |
-| ASN classifier (Tor exit list, prototype) | Same as above; Python prototype | TA0005 Defense Evasion | T1090.003 Proxy: Multi-hop Proxy | high — same as the Go module; bounded by list freshness | src/security/asn_classifier.py |
 | Beaconing detector (IAT coefficient of variation) | Repeated connections from the same source with low inter-arrival-time variance — characteristic of automated C2 beaconing over encrypted channels | TA0011 Command and Control | T1071 Application Layer Protocol (best-fit — encoded C2 traffic over TLS) | medium — catches naive beacons with fixed cadence; jittered or human-in-the-loop beacons require longer windows and may evade the 1h/24h thresholds | internal/security/beaconing_detector.go |
 | Beaconing detector (Defense Evasion view) | Same beaconing signal viewed as low-and-slow C2 traffic designed to blend with normal HTTPS — an indicator-removal/evasion behaviour | TA0005 Defense Evasion | T1070 Indicator Removal (best-fit — beacon timing chosen to defeat naive volumetric detection) | low — IAT-CV detection is bypassed by adding randomised jitter; sophisticated implants already do this | internal/security/beaconing_detector.go |
 | Rate tracker + tarpit/block | Aggregate per-IP connection floods triggering rate-limit and tarpit actions | TA0040 Impact | T1498 Network Denial of Service | medium — protects the proxy and backend from naive flood patterns; large distributed L7 floods need upstream scrubbing | internal/security/rate_limiter.go |
@@ -76,16 +73,16 @@ forward and reverse views disagree, the forward table is authoritative.
 
 | Technique ID | Technique | JA4proxy detection(s) |
 |--------------|-----------|------------------------|
-| T1595 | Active Scanning | TCP analyser per-IP rate (`internal/security/tcp_analyzer.go`, `src/security/tcp_analyzer.py`) |
-| T1595.002 | Vulnerability Scanning (best-fit) | Rate tracker multi-strategy (`src/security/rate_tracker.py`) |
-| T1583.003 | Acquire Infrastructure: Virtual Private Server | ASN classifier datacenter detection (`internal/security/asn_classifier.go`, `src/security/asn_classifier.py`) |
+| T1595 | Active Scanning | TCP analyser per-IP rate (`internal/security/tcp_analyzer.go`) |
+| T1595.002 | Vulnerability Scanning (best-fit) | Rate tracker multi-strategy (`internal/security/rate_limiter.go`) |
+| T1583.003 | Acquire Infrastructure: Virtual Private Server | ASN classifier datacenter detection (`internal/security/asn_classifier.go`) |
 | T1583.006 | Acquire Infrastructure: Web Services | RDAP enrichment org-name match (`internal/security/rdap_enrichment.go`) |
-| T1110.004 | Credential Stuffing | Rate tracker per-(IP, JA4) low threshold (`src/security/rate_tracker.py`) |
+| T1110.004 | Credential Stuffing | Rate tracker per-(IP, JA4) low threshold (`internal/security/rate_limiter.go`) |
 | T1190 | Exploit Public-Facing Application | TLS enforcer + JA4 blacklist for known scanner fingerprints (`internal/security/tls_enforcer.go`) |
-| T1573 | Encrypted Channel | Pipeline JA4 blacklist for Sliver/CobaltStrike/Evilginx (`internal/security/pipeline.go`, `src/security/pipeline.py`) |
+| T1573 | Encrypted Channel | Pipeline JA4 blacklist for Sliver/CobaltStrike/Evilginx (`internal/security/pipeline.go`) |
 | T1071.001 | Application Layer Protocol: Web Protocols | Pipeline JA4 blacklist with ALPN h2/http1 context (`internal/security/pipeline.go`) |
-| T1071 | Application Layer Protocol (best-fit, encoded C2 over TLS) | Beaconing detector IAT-CV (`internal/security/beaconing_detector.go`) — Python prototype: `src/security/beaconing_detector.py` |
-| T1090.003 | Proxy: Multi-hop Proxy | ASN classifier Tor exit list (`internal/security/asn_classifier.go`, `src/security/asn_classifier.py`) |
+| T1071 | Application Layer Protocol (best-fit, encoded C2 over TLS) | Beaconing detector IAT-CV (`internal/security/beaconing_detector.go`) |
+| T1090.003 | Proxy: Multi-hop Proxy | ASN classifier Tor exit list (`internal/security/asn_classifier.go`) |
 | T1070 | Indicator Removal (best-fit, beacon-timing evasion) | Beaconing detector IAT-CV viewed as evasion behaviour (`internal/security/beaconing_detector.go`) |
 | T1498 | Network Denial of Service | Rate tracker + tarpit/block (`internal/security/rate_limiter.go`) |
 

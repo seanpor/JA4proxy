@@ -64,6 +64,11 @@ func buildStandaloneOptions(cfg Config) *goredis.Options {
 		DialTimeout:  cfg.Timeout,
 		ReadTimeout:  cfg.Timeout,
 		WriteTimeout: cfg.Timeout,
+		// phase-306 (from PR #95): a larger pool with pre-warmed idle
+		// connections keeps the hot path from serialising on Redis and avoids
+		// cold-start dial latency under load.
+		PoolSize:     100,
+		MinIdleConns: 10,
 	}
 	if cfg.SSL {
 		opts.TLSConfig = &tls.Config{MinVersion: tls.VersionTLS12}
