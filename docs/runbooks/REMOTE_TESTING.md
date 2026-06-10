@@ -1,3 +1,10 @@
+<!--
+title: Remote Manual Testing
+audience: operator
+last_reviewed: 2026-06-04
+phase: v2.0
+-->
+
 # Remote Manual Testing — JA4proxy
 
 Test the full JA4proxy stack from a remote laptop: browser, curl, bot, logs,

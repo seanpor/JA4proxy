@@ -93,6 +93,32 @@ def _should_set_secure_cookie(request: Request) -> bool:
     return False
 
 
+def safe_relative_redirect(target: str | None, default: str = "/") -> str:
+    """Return *target* only if it is a same-site, root-relative path.
+
+    Defence-in-depth against open redirect (CWE-601). The OIDC/SAML callbacks
+    redirect the browser to a post-login URL read back from server-side state
+    (the OAuth state blob / the SAML RelayState nonce). Today that value is a
+    hardcoded ``"/"``, so there is no live vulnerability — but if a future
+    change ever lets a caller influence it, an unvalidated value would become
+    an open redirect (phishing: complete a real login, land on the attacker's
+    site). This guard makes the safety explicit and regression-proof.
+
+    Only a path beginning with a single ``/`` is accepted. Rejected (→ default):
+      - absolute URLs (``https://evil``, ``http:/evil``) — no leading ``/``;
+      - protocol-relative URLs (``//evil``) — browsers treat these as absolute;
+      - backslash variants (``/\\evil``, ``\\evil``) — some browsers normalise
+        ``\\`` to ``/`` and would follow ``//evil``.
+    """
+    if not target or not target.startswith("/"):
+        return default
+    if target.startswith("//"):
+        return default
+    if "\\" in target:
+        return default
+    return target
+
+
 def is_test_mode() -> bool:
     """Return True iff MANAGEMENT_TEST_MODE is on AND we are not in production.
 

@@ -186,10 +186,10 @@ date answered, the responsible engineer, and any deviation notes.
 
 If all success criteria are met, escalate to dial `100` per the **graduated
 rollout** schedule documented in
-[`docs/operator/BLOCKING_OPERATIONS.md`](../operator/BLOCKING_OPERATIONS.md#how-to-change-the-dial). Continue
+[`docs/OPERATIONS_GUIDE.md`](OPERATIONS_GUIDE.md#🛡-security-operations-the-dial). Continue
 the daily monitoring rhythm; transition operational ownership to the SecOps
 team using
-[`docs/OPERATIONS.md`](../OPERATIONS.md).
+[`docs/OPERATIONS_GUIDE.md`](OPERATIONS_GUIDE.md).
 
 If any rollback trigger fired, treat the trigger as the primary investigation
 artefact: file an ADR for the residual risk, document the mitigation, and
@@ -204,8 +204,7 @@ exercise.
   — what JA4proxy will and will not detect
 - [`SIEM_INTEGRATION.md`](SIEM_INTEGRATION.md) — log
   forwarding recipes
-- [`docs/OPERATIONS.md`](../OPERATIONS.md) — daily operations
-- [`docs/operator/BLOCKING_OPERATIONS.md`](../operator/BLOCKING_OPERATIONS.md#how-to-change-the-dial)
+- [`docs/OPERATIONS_GUIDE.md`](OPERATIONS_GUIDE.md) — daily operations and dial playbook
   — dial progression playbook
 - [`docs/runbooks/ja4proxy_dial_change_unexpected.md`](runbooks/ja4proxy_dial_change_unexpected.md)
   — incident runbook for unexpected dial changes

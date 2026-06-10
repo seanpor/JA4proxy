@@ -41,7 +41,7 @@ ever drift, SERVICE_TARGETS wins.
 | **Availability** | 99.9% (28-day error budget = ~40 bad minutes) | [`docs/runbooks/slo_availability.md`](runbooks/slo_availability.md), Alertmanager rules `JA4ProxyAvailability{Fast,Slow}Burn` |
 | **False-positive rate** | Trigger if blocking rate > 2% at `dial >= 50` (per-incident, no rolling budget — dominant quality attribute) | [`docs/runbooks/slo_fp_rate.md`](runbooks/slo_fp_rate.md), Tranco-top-10k FP corpus tests under `tests/fp_corpus/` |
 | **Redis correctness** | 99.5% successful Redis ops / total | [`docs/runbooks/slo_redis_correctness.md`](runbooks/slo_redis_correctness.md) |
-| **Security** | No HIGH or CRITICAL findings unmitigated; pentest campaign findings closed per [`docs/security/FINDINGS_REGISTER.md`](security/FINDINGS_REGISTER.md) | [`docs/security/COMPREHENSIVE_SECURITY_AUDIT.md`](security/COMPREHENSIVE_SECURITY_AUDIT.md), [Phase 14 hardening](phases/PHASE_14.md), Phase 118-119 remediation |
+| **Security** | No HIGH or CRITICAL findings unmitigated; pentest campaign findings closed per [`docs/security/FINDINGS_REGISTER.md`](security/FINDINGS_REGISTER.md) | [`docs/security/COMPREHENSIVE_SECURITY_AUDIT.md`](security/COMPREHENSIVE_SECURITY_AUDIT.md), Phase 14 hardening, Phase 118-119 remediation |
 | **Maintainability** | Go coverage ≥ 80%, Python coverage ≥ 80%, test-to-code ratio ~1.3× | `Makefile` targets `quality` and `lint-coverage`, [`docs/TESTING_STRATEGY.md`](TESTING_STRATEGY.md), enforced in [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) |
 | **Portability** | Linux x86_64; Docker image (Go + Python services) builds clean; Helm chart deploys on k8s ≥ 1.27 | [`docs/DOCKER_IMAGES.md`](DOCKER_IMAGES.md), [`tests/integration/test_dockerfile_coverage.py`](../tests/integration/test_dockerfile_coverage.py), CI matrix in [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) |
 | **Usability** (Management UI) | Authenticated GET on every HTML route returns 200 + landmark; unauth returns < 500 | Per-phase `test_pages*.py` tests (e.g. [`tests/unit/test_pages_threat_intel.py`](../tests/unit/test_pages_threat_intel.py)); pattern documented in [`CLAUDE.md`](../CLAUDE.md) §Testing Standards |
@@ -155,7 +155,7 @@ professional-practice docs respectively). KAs 15-17 (Computing /
 Mathematical / Engineering Foundations) are prerequisite knowledge and not
 project documentation.
 
-Table copied verbatim from [`docs/phases/complete/PHASE_106.md`](phases/PHASE_106.md)
+Table copied verbatim from `docs/phases/complete/PHASE_106.md`
 §"SWEBOK v4 KA Coverage After Phase 106":
 
 | KA | Current | Phase 106 delivers | Post-106 |

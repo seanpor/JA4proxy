@@ -24,9 +24,13 @@ func (c *DecisionCache) Get(ja4 string) (*PipelineResult, bool) {
 }
 
 func (c *DecisionCache) Set(ja4 string, res *PipelineResult) {
-	if ja4 == "" { return }
+	if ja4 == "" {
+		return
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if len(c.data) >= c.limit { c.data = make(map[string]*PipelineResult) }
+	if len(c.data) >= c.limit {
+		c.data = make(map[string]*PipelineResult)
+	}
 	c.data[ja4] = res
 }
