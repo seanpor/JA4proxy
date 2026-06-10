@@ -24,7 +24,7 @@ existing contracts.
 ## 1. License
 
 JA4proxy is released under the **MIT License**. The full, authoritative text
-is in [`LICENSE`](../../LICENSE) at the root of the repository.
+is in [`LICENSE`](../LICENSE) at the root of the repository.
 
 ### What the MIT license permits
 
@@ -53,7 +53,7 @@ is in [`LICENSE`](../../LICENSE) at the root of the repository.
   legal team — Apache-2.0-licensed alternatives include an explicit
   patent grant; MIT does not.
 - **No service-level commitment.** See §3 below and
-  [`SERVICE_TARGETS.md`](../SERVICE_TARGETS.md) — operational targets
+  [`SERVICE_TARGETS.md`](SERVICE_TARGETS.md) — operational targets
   are self-imposed by the deploying organisation, not contracted by
   the project.
 
@@ -92,8 +92,8 @@ support, they do so independently and the JA4proxy project does not
 endorse such offerings. Buyers requiring guaranteed response times should
 plan for in-house operations or engage a third-party integrator.**
 
-This statement is mirrored in [`SERVICE_TARGETS.md` §SLA posture](../SERVICE_TARGETS.md)
-and in [`SECURITY.md`](../../SECURITY.md). The three documents are
+This statement is mirrored in [`SERVICE_TARGETS.md` §SLA posture](SERVICE_TARGETS.md)
+and in [`SECURITY.md`](../SECURITY.md). The three documents are
 consistent — if you find drift, the runbook-linked targets in
 `SERVICE_TARGETS.md` win.
 
@@ -102,7 +102,7 @@ consistent — if you find drift, the runbook-linked targets in
 - **Issues.** File bug reports, feature requests, and questions on
   GitHub Issues. The maintainers triage on a best-effort basis. There
   is no contractual response time.
-- **Security disclosures.** Follow [`SECURITY.md`](../../SECURITY.md).
+- **Security disclosures.** Follow [`SECURITY.md`](../SECURITY.md).
   The project commits to *target* response windows for vulnerability
   triage (24h critical, 48h high, 72h medium/low) but these are
   community commitments, not contractual SLAs.
@@ -216,7 +216,7 @@ geo-distributed load balancer with full incident-response tooling.
 **Notes.** Egress dominates at this scale. Reserved or committed-use
 discounts on compute typically save 30–60% but require multi-year
 contracts. The Go proxy
-(`bin/proxy`, see project [`README.md`](../../README.md)) is recommended
+(`bin/ja4pd`, see project [`README.md`](../README.md)) is recommended
 at this scale — single-process Python tops out around 350 conn/s with
 real Redis (see project memory). Phase 26 multi-process scaling is the
 realistic stopgap for Python deployments.
@@ -336,14 +336,14 @@ costs will vary by region, provider, and reservation strategy.
 - **Not legal advice.** The license summary above is a plain-English
   paraphrase of the MIT licence. Where licence interpretation matters
   to a contract or a legal exposure, run it past your counsel — the
-  authoritative text is in [`LICENSE`](../../LICENSE).
+  authoritative text is in [`LICENSE`](../LICENSE).
 - **Not an exhaustive cost model.** Your actual TCO depends on
   variables this document cannot enumerate: your existing cloud
   contract, your engineer salary band, your compliance regime, your
   data-residency requirements, your shared services.
 - **Not an SLA.** No number in this document is a service-level
   commitment from the project. Service targets and the SLA posture
-  live in [`SERVICE_TARGETS.md`](../SERVICE_TARGETS.md).
+  live in [`SERVICE_TARGETS.md`](SERVICE_TARGETS.md).
 - **Not a price guarantee.** Vendor pricing changes. Public-cloud
   pricing in particular has shifted twice in the 24 months preceding
   this document. Treat the numbers as a snapshot, not a commitment.
@@ -356,10 +356,10 @@ costs will vary by region, provider, and reservation strategy.
 
 ## 8. Cross-references
 
-- [`LICENSE`](../../LICENSE) — authoritative MIT licence text
-- [`SECURITY.md`](../../SECURITY.md) — vulnerability reporting,
+- [`LICENSE`](../LICENSE) — authoritative MIT licence text
+- [`SECURITY.md`](../SECURITY.md) — vulnerability reporting,
   responsible-disclosure policy, security-team contact
-- [`docs/SERVICE_TARGETS.md`](../SERVICE_TARGETS.md) — SLI / SLO / SLA
+- [`docs/SERVICE_TARGETS.md`](SERVICE_TARGETS.md) — SLI / SLO / SLA
   posture (sibling Phase 106 deliverable)
 - [`docs/RISK_REGISTER.md`](RISK_REGISTER.md) — operational and
   security risk register (sibling Phase 106 deliverable; landing in
@@ -371,8 +371,8 @@ costs will vary by region, provider, and reservation strategy.
   at the time of writing)
 - [`docs/SCALING_GUIDE.md`](SCALING_GUIDE.md) — multi-process
   scaling guide; informs Scenario 2 and 3 sizing
-- [`docs/enterprise/deployment.md`](enterprise/deployment.md) —
-  aspirational enterprise deployment reference
+- [`docs/DEPLOYMENT_SECURITY_MODEL.md`](DEPLOYMENT_SECURITY_MODEL.md) —
+  enterprise deployment reference
 - [`docs/enterprise/security-architecture.md`](enterprise/security-architecture.md)
   — security architecture rationale
 - [`docs/architecture/system-architecture.md`](architecture/system-architecture.md)

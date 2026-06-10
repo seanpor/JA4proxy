@@ -3,13 +3,13 @@ package provider
 import (
 	"context"
 
-	"github.com/seanpor/terraform-provider-ja4proxy/internal/client"
-	"github.com/seanpor/terraform-provider-ja4proxy/internal/resources"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/seanpor/terraform-provider-ja4proxy/internal/client"
+	"github.com/seanpor/terraform-provider-ja4proxy/internal/resources"
 )
 
 // Ensure the implementation satisfies the provider.Provider interface.

@@ -17,8 +17,10 @@ import (
 
 func main() {
 	port := os.Getenv("PORT")
-	if port == "" { port = "8443" }
-	
+	if port == "" {
+		port = "8443"
+	}
+
 	// Load certs
 	cert, err := tls.LoadX509KeyPair("/app/backend.crt", "/app/backend.key")
 	if err != nil {
@@ -53,7 +55,7 @@ func handle(conn net.Conn) {
 		fmt.Printf("TRACE [B] port=%s T4=%d\n", lport, t4.UnixNano())
 	}
 	defer conn.Close()
-	
+
 	// Read request line
 	reader := bufio.NewReader(conn)
 	line, err := reader.ReadString('\n')

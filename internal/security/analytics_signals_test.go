@@ -69,4 +69,6 @@ func TestAnalyticsSignals_RedisDown_EmptyNotPanic(t *testing.T) {
 	}
 }
 
-func (*mockRedisExists) MultiCheck(_ context.Context, _ string) (int, bool, bool) { return 0, false, false }
+func (*mockRedisExists) MultiCheck(_ context.Context, _ string) (int, bool, bool) {
+	return 0, false, false
+}
