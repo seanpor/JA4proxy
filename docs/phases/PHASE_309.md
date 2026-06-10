@@ -129,7 +129,17 @@ the WP's acceptance gate requires checking claims against that source.
 
 ### WP-5 — Operator markdown docs
 - `GETTING_STARTED`, `OPERATIONS_GUIDE`, `POC_QUICKSTART`, `DEPLOYMENT_OPTIONS`, `DEPLOYMENT_SECURITY_MODEL`, `SCALING_GUIDE`, `UPGRADE_PATH`, `DMZ_READINESS`, `FAQ`, `ONBOARDING`, `EVALUATION_CHECKLIST`, `TCO_AND_LICENSING`, `WHY_JA4PROXY`.
-- **Acceptance:** commands/targets/ports/architecture verified vs code, Makefile, and compose; `last_reviewed` bumped per file actually checked.
+- **Mostly clean** — [[PHASE_307]]'s Python-reference cleanup did the heavy lifting; the `proxy.py archived/removed` notes are correct and were kept. Fixes this pass:
+  - `EVALUATION_CHECKLIST.md`: `bin/proxy` → `bin/ja4pd` (binary renamed); removed the nonexistent `make fp-check` reference (FP testing is pytest, not a make target).
+  - `SCALING_GUIDE.md`: replaced dead `make bench-python`/`bench-scaled` with `bench-hostnative`/`bench-macro`; added a stale-banner.
+  - `GETTING_STARTED.md` `pip install` is correct (the Python *test runner*), left as-is.
+- **Deferred — `SCALING_GUIDE.md` Go-native rewrite (large):** the whole guide
+  models the legacy **Python multi-worker** architecture (per-process workers,
+  GIL, ÷350 cps math). Go is a single stateless binary scaled by node count
+  (~3,000 cps/node host-native). Flagged with a banner; full rewrite is its own
+  focused pass. Ties into the deployment-positioning follow-on (single server,
+  HAProxy optional, ports configurable).
+- **Acceptance (when resumed):** commands/targets/ports/architecture verified vs code, Makefile, and compose; `SCALING_GUIDE` rewritten for Go; `last_reviewed` bumped per file actually checked.
 
 ### WP-6 — Reference/schema docs
 - `REDIS_SCHEMA` (every key vs code), `OBSERVABILITY_STANDARDS` (metric names vs `internal/metrics`), `MAKEFILE_TARGETS`/`SERVICE_TARGETS`/`SCRIPTS` (vs Makefile/scripts), `config/proxy.yml` inline docs.

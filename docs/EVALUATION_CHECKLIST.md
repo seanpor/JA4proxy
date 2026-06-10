@@ -30,7 +30,7 @@ date answered, the responsible engineer, and any deviation notes.
 
 ### Day 0 — Environment readiness
 
-- [ ] Production runtime (`bin/proxy`, the Go binary) is deployed, not the
+- [ ] Production runtime (`bin/ja4pd`, the Go binary) is deployed, not the
       Python prototype (`proxy.py`)
 - [ ] Redis is reachable from every JA4proxy instance and is **not** exposed
       to the public internet
@@ -150,8 +150,8 @@ date answered, the responsible engineer, and any deviation notes.
 - [ ] Dial held at `50` for at least 7 consecutive days
 - [ ] Operator dashboard reviewed daily; no unexplained spikes in `block` or
       `ban` rate
-- [ ] False-positive corpus check: top 10k legitimate domains tested via
-      `make fp-check` (or equivalent) shows ≤ 0.1% block rate
+- [ ] False-positive corpus check: top 10k legitimate domains (Tranco) tested
+      via the FP-corpus test suite shows ≤ 0.1% block rate
 - [ ] Webhook deliveries succeeding ≥ 99.5% (DLQ depth in
       `webhooks:dlq` Redis Stream remains < 100)
 - [ ] Backup and restore procedure tested against a non-production Redis

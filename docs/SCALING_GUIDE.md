@@ -9,6 +9,14 @@ phase: 26
 
 ## Overview
 
+> **⚠ Pending rewrite (phase-309 WP-5).** This guide models the legacy
+> **Python multi-worker** architecture (per-process workers, the GIL bottleneck,
+> ~350 conn/s per process). The production runtime is now the **single, stateless
+> Go binary** (`ja4pd`), which scales by **adding nodes**, not worker processes —
+> a single instance sustains ~3,000 conn/s host-native (see
+> `docs/performance/benchmarks.md`). Treat the per-process math below as historical
+> until this guide is rewritten for the Go architecture.
+
 This guide explains how to scale JA4Proxy using multiple worker processes to achieve higher throughput while maintaining all security guarantees.
 
 ## Architecture
@@ -389,11 +397,11 @@ HAProxy is configured to accept PROXY protocol v2 from upstream load balancers/C
 ### Before and After
 
 ```bash
-# Single process benchmark
-make bench-python
+# Single-instance, host-native — the real per-node ceiling
+make bench-hostnative
 
-# Scaled benchmark
-make bench-scaled
+# Bridge-port macro benchmark (lower; capped by docker-proxy)
+make bench-macro
 ```
 
 ### Expected Results
