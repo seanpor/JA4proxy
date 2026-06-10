@@ -183,6 +183,22 @@ the WP's acceptance gate requires checking claims against that source.
 
 ### WP-8 — Security docs (18)
 - Reconcile claims with the implementation and with the code-scanning closeouts ([[PHASE_304]], [[PHASE_305]], [[PHASE_308]]).
+- **Done — SLA/commitment contradiction resolved.** `CVD_POLICY.md` correctly
+  states the project makes **no SLA** (no on-call, best-effort) — but
+  `SEVERITY_RUBRIC.md` and `REMEDIATION_WAVES.md` published per-severity fix
+  **SLAs** (7/30/60/120 days) and referenced **paging an on-call that doesn't
+  exist**, contradicting the policy and the project's no-SLA-commitment rule.
+  Added disclaimers reframing the day-figures as **internal best-effort targets,
+  not SLAs**, and fixed the on-call escalation line. (No test asserts that text.)
+- **Found — `findings.yaml` register has 28 stale `regression_test` paths**, so
+  the `scripts/phase_121_verify.py` gate fails. Cause: the Go rewrite renamed
+  `cmd/proxy/` → `cmd/ja4pd/`, and several Python regression tests moved/renamed.
+  Pre-existing (not introduced here). The Go-path renames are mechanical; the
+  Python ones need per-file verification. **Residual:** dedicated pass to repoint
+  all 28 (the register is gate-controlled — fix carefully, not by blanket sed).
+- **Historical artifacts left as-is:** `SECURITY_REVIEW_PHASE1.md` and parts of
+  `COMPREHENSIVE_SECURITY_AUDIT.md` review the *Python prototype* — point-in-time
+  records (like phase docs/ADRs), not current-state claims; not rewritten.
 - **Acceptance:** no security claim contradicts the code; cross-refs to the relevant phases where relevant.
 
 ### WP-9 — ADRs (33) — validate & annotate

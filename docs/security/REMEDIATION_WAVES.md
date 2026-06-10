@@ -10,6 +10,12 @@
 > on this file without a matching diff on `findings.yaml` is suspicious.
 >
 > **Authored under:** Phase 121f (2026-04-19).
+>
+> **⚠ "SLA windows" here are internal best-effort prioritisation targets, not
+> service-level agreements.** Per [`CVD_POLICY.md`](CVD_POLICY.md), the project
+> makes no external commitment on fix timelines and has no on-call rotation. The
+> wave windows order *internal* triage priority; a "past SLA" finding is a missed
+> internal target, not a breached commitment.
 
 ---
 
