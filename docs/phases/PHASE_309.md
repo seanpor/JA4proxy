@@ -187,6 +187,22 @@ the WP's acceptance gate requires checking claims against that source.
 
 ### WP-9 — ADRs (33) — validate & annotate
 - Confirm each decision still holds in v2.0.0; append dated "Superseded by …" notes where it does not. **No rewriting of original rationale.**
+- **Done (targeted pass):** all 33 ADRs carry a Status. The bulk are recent
+  (post-Go-rewrite) and their `Accepted` status holds; the Go rewrite ADRs
+  (ADR-002/015) are now realised, not superseded. Two genuine issues found and
+  annotated (notes appended, rationale untouched):
+  - **ADR-003 is misfiled** — its content duplicates ADR-005 (RDAP block
+    expansion), but the index says ADR-003 should be the **TTL-asymmetry**
+    decision. The original rationale was overwritten; added a ⚠ note pointing to
+    ADR-005 and flagging restoration (did **not** fabricate the lost content).
+  - **ADR-107a (Proposed)** → marked **Superseded by ADR-202a** (SLSA shipped via
+    SHA-pinned reusable workflows, not the proposed `slsa-github-generator`);
+    note added + `INDEX.md` status updated.
+- **Residual:** a deeper per-ADR re-derivation of all 33 rationales against
+  current code was not done (this pass targeted supersessions + the index/file
+  defects). ADR-013 (Management UI) and ADR-022 (TAP HTTP server migration)
+  describe deferred/experimental work — decisions stand but implementation lags;
+  revisit if/when those features land.
 - **Acceptance:** every ADR carries a current-status line; superseded ones link forward.
 
 ### WP-10 — Standards/process docs, information architecture & cross-doc coherence
