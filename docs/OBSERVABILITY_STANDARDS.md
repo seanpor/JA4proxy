@@ -251,6 +251,19 @@ ja4proxy_ti_feed_poll_total{feed_id,result}          counter   TI feed poll outc
 ja4proxy_ti_feed_seed_file_entries_total{feed_id,outcome} counter   Seed-file fingerprint entries loaded per outcome
 ```
 
+#### Load Testing (`ja4proxy_loadtest_*`)
+
+Emitted by the load-test tooling (`ja4p test benchmark` / the load harness), not
+by the proxy or analytics service. Present only while a benchmark is running.
+
+```
+ja4proxy_loadtest_connections_attempted_total       counter   Connections the load test attempted to open
+ja4proxy_loadtest_connections_completed_total        counter   Connections that completed successfully
+ja4proxy_loadtest_errors_total                       counter   Connection errors during the load test
+ja4proxy_loadtest_latency_seconds                    histogram Per-connection latency distribution
+ja4proxy_loadtest_throughput_cps                     gauge     Achieved throughput (connections per second)
+```
+
 ## §2. Structured Log Schema
 
 All log output is JSON. One JSON object per line. The schema is fixed — no ad hoc fields.
