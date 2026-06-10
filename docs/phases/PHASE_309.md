@@ -112,6 +112,22 @@ the WP's acceptance gate requires checking claims against that source.
 
 ### WP-2 — Reference manual content audit
 - Chapter-by-chapter verification of every technical claim (config keys, Redis keys, metric names, pipeline behaviour, ports, CLI) against `internal/`, `cmd/`, `config/proxy.yml`.
+- **Done (verifiable facts):**
+  - **Metrics (ch05):** the catalog was otherwise accurate, but 3 metric names
+    were wrong — fixed against the prometheus defs: `risk_score_distribution`
+    → `risk_score`, `signal_duration_seconds` → `signal_latency_seconds`
+    (label `{signal}` confirmed), `redis_errors_total` → `redis_operations_total`
+    (`{command,result}`; refs repointed to `result="error"`). Also corrected a
+    ch04 claim that a missing GeoIP DB "increments signal_duration_seconds with
+    an error tag" (it's a latency histogram, no error tag). 0 phantom metrics
+    remain in ch05.
+  - **Config keys (ch03):** spot-checked the documented `security_policy.*` /
+    `geoip.*` / `rdap_enrichment.*` keys — top-level sections all exist in
+    `config/proxy.yml`.
+- **Residual:** Redis-key cross-check (ch06) is inconclusive by grep (keys are
+  built by string concatenation — e.g. `management:` is real per `CLAUDE.md` yet
+  not grep-visible); needs a read of the key-construction sites. Prose chapters
+  (ch01 architecture, ch02 pipeline) not line-audited beyond the metric refs.
 - **Acceptance:** a per-chapter claims ledger (claim → source location → ok/fixed); no contradictions remain.
 
 ### WP-3 — User guide content audit (targeted)

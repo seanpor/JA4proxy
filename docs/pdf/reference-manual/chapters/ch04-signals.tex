@@ -221,7 +221,7 @@ Return visitor with all blocked history & +25 & IP that only ever got blocked \\
 
 If Redis is unreachable, all Redis-backed sub-signals return score=0. The signal as a
 whole returns score=0. The proxy logs the Redis error and increments
-\code{ja4proxy\_redis\_errors\_total}.
+\code{ja4proxy\_redis\_operations\_total} with \code{result="error"}.
 
 \section{Signal 4 — ASN Classification}
 \index{signals!ASN}
@@ -271,8 +271,9 @@ Known botnet/abuse ASN & 80 & From curated bad-org list \\
 \subsection{Failure Behaviour}
 
 If the MaxMind database file is missing or corrupt, this signal returns score=0.
-The proxy logs the failure and increments \code{ja4proxy\_signal\_duration\_seconds}
-with an error tag. The GeoLite2 database should be updated monthly and validated
+The proxy logs the failure (there is no dedicated error metric for a missing GeoIP
+database; \code{ja4proxy\_signal\_latency\_seconds} records only timing). The
+GeoLite2 database should be updated monthly and validated
 at startup.
 
 \section{Signal 5 — FCrDNS Enrichment}
