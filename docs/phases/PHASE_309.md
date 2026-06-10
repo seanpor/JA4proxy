@@ -97,10 +97,18 @@ the WP's acceptance gate requires checking claims against that source.
 - **Acceptance:** all 3 PDFs rebuild clean; name correct; version/date macros render a content date; standard documented.
 
 ### WP-1 — Reference manual layout remediation
-- Fix the **113 overfull-hbox** warnings (scope decision: **tables + code/URLs**).
-  - Tables: `tabularx`/`L{}R{}` column sizing, `\small`, wrap or abbreviate over-wide cells.
-  - Code/URLs: `\seqsplit`, `\url{}`, breakable `listings`/`minted`, or hard wraps.
-- **Acceptance:** `pdflatex` build reports **zero** overfull hboxes wider than 2pt; visual spot-check of every previously-overflowing page.
+- **Done:** code/URL overflows — long identifiers now break (rescan-free `\_`
+  redefinition; commit `7b72565a`). 113 → ~103 boxes.
+- **Deferred (tables):** the remaining ~103 boxes are all wide tables. Three
+  scripted approaches were tried and reverted — `seqsplit` crashes in tufte
+  `\caption`s; blunt `tabularx`/`X` conversion exploded to 789 (justified narrow
+  cells + non-underscore tokens); fixed-width `L{}` guessing went to 119 (keys/
+  values exceed guessed widths and can't break at `:`/`{`/`.`). **Conclusion:**
+  these tables need careful per-table treatment (likely `seqsplit` in *cells*
+  only + a caption-safe code macro + hand-tuned widths), which the user has
+  deprioritised for now ("not worth the tokens at the moment").
+- **Acceptance (when resumed):** `pdflatex` build reports **zero** overfull
+  hboxes wider than 2pt; visual spot-check of every previously-overflowing page.
 
 ### WP-2 — Reference manual content audit
 - Chapter-by-chapter verification of every technical claim (config keys, Redis keys, metric names, pipeline behaviour, ports, CLI) against `internal/`, `cmd/`, `config/proxy.yml`.
@@ -179,6 +187,27 @@ the WP's acceptance gate requires checking claims against that source.
 - Net-new documentation beyond filling gaps surfaced by the audit.
 - Translation / localization.
 - The brochure rewrite already merged this session (WP-4 only *verifies* it).
+
+## Related / follow-on phases (captured, not in this phase's scope)
+
+Surfaced during this work; to be planned as their own phases:
+
+- **Config & setup tidy-up + deployment flexibility.** `config/proxy.yml` (and
+  siblings) carry stale phase references and commented-out credentials (e.g.
+  username/password) that should not ship — clean these up; treat the live,
+  uncommented config as the contract. Make setup smooth and flexible: **all port
+  values stay configurable — do not hard-code/lock them down.** Document and
+  support the **minimal single-server deployment**: HAProxy is **optional** (not
+  required); a single JA4proxy box in the DMZ with only external **:443** open,
+  with the outside firewall pointed straight at JA4proxy, comfortably handles
+  **300+ cps** and gives a bot-pressured operator immediate relief. This
+  "one server, point your firewall at it, instant relief" story is also prime
+  **brochure messaging** (feeds WP-4).
+- **Management UI + Grafana enablement & screenshots.** Stand up the Management
+  interface and Grafana, capture good screenshots for the brochure, and ensure
+  both are properly documented. Feeds the WP-4 brochure messaging rework.
+- **Brochure messaging rework** — see WP-4 (pending a positioning discussion).
+- **docs/*.md information architecture** — see WP-10.
 
 ## Execution notes
 
