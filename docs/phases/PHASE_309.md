@@ -133,7 +133,7 @@ the WP's acceptance gate requires checking claims against that source.
   - `EVALUATION_CHECKLIST.md`: `bin/proxy` → `bin/ja4pd` (binary renamed); removed the nonexistent `make fp-check` reference (FP testing is pytest, not a make target).
   - `SCALING_GUIDE.md`: replaced dead `make bench-python`/`bench-scaled` with `bench-hostnative`/`bench-macro`; added a stale-banner.
   - `GETTING_STARTED.md` `pip install` is correct (the Python *test runner*), left as-is.
-- **Deferred — `SCALING_GUIDE.md` Go-native rewrite (large):** the whole guide
+- **`SCALING_GUIDE.md` Go-native rewrite: DONE** (phase-309). Replaced the whole guide
   models the legacy **Python multi-worker** architecture (per-process workers,
   GIL, ÷350 cps math). Go is a single stateless binary scaled by node count
   (~3,000 cps/node host-native). Flagged with a banner; full rewrite is its own
