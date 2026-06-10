@@ -23,25 +23,25 @@ import (
 )
 
 type BenchResult struct {
-	TotalGood      int           `json:"total_good"`
-	GoodAllowed    int           `json:"good_allowed"`
-	GoodBlocked    int           `json:"good_blocked"`
-	TotalBad       int           `json:"total_bad"`
-	BadAllowed     int           `json:"bad_allowed"`
-	BadBlocked     int           `json:"bad_blocked"`
-	TotalLatency   time.Duration `json:"-"`
-	Latencies      []time.Duration `json:"-"`
-	Errors         int           `json:"errors"`
-	LastError      string        `json:"last_error,omitempty"`
-	StartTime      time.Time     `json:"start_time"`
-	EndTime        time.Time     `json:"end_time"`
-	Duration       time.Duration `json:"duration_total"`
-	ThroughputCPS  float64       `json:"throughput_cps"`
-	AvgLatencyMS   float64       `json:"avg_latency_ms"`
-	P50LatencyMS   float64       `json:"p50_latency_ms"`
-	P95LatencyMS   float64       `json:"p95_latency_ms"`
-	P99LatencyMS   float64       `json:"p99_latency_ms"`
-	mu             sync.Mutex
+	TotalGood     int             `json:"total_good"`
+	GoodAllowed   int             `json:"good_allowed"`
+	GoodBlocked   int             `json:"good_blocked"`
+	TotalBad      int             `json:"total_bad"`
+	BadAllowed    int             `json:"bad_allowed"`
+	BadBlocked    int             `json:"bad_blocked"`
+	TotalLatency  time.Duration   `json:"-"`
+	Latencies     []time.Duration `json:"-"`
+	Errors        int             `json:"errors"`
+	LastError     string          `json:"last_error,omitempty"`
+	StartTime     time.Time       `json:"start_time"`
+	EndTime       time.Time       `json:"end_time"`
+	Duration      time.Duration   `json:"duration_total"`
+	ThroughputCPS float64         `json:"throughput_cps"`
+	AvgLatencyMS  float64         `json:"avg_latency_ms"`
+	P50LatencyMS  float64         `json:"p50_latency_ms"`
+	P95LatencyMS  float64         `json:"p95_latency_ms"`
+	P99LatencyMS  float64         `json:"p99_latency_ms"`
+	mu            sync.Mutex
 }
 
 func (r *BenchResult) Record(isGood, allowed bool, latency time.Duration, err error) {
@@ -95,7 +95,7 @@ func (r *BenchResult) Calculate() {
 func (r *BenchResult) Print() {
 	r.Calculate()
 	total := r.TotalGood + r.TotalBad
-	
+
 	fmt.Printf("\n=== JA4proxy High-Speed Benchmark Results ===\n")
 	fmt.Printf("Duration:          %v\n", r.Duration)
 	fmt.Printf("Total Connections: %d (%.2f CPS)\n", total, r.ThroughputCPS)
@@ -111,7 +111,7 @@ func (r *BenchResult) Print() {
 	fmt.Printf("Good Traffic:      %d sent, %d allowed, %d blocked\n", r.TotalGood, r.GoodAllowed, r.GoodBlocked)
 	fmt.Printf("Bad Traffic:       %d sent, %d allowed, %d blocked\n", r.TotalBad, r.BadAllowed, r.BadBlocked)
 	fmt.Printf("--------------------------------------------\n")
-	
+
 	fp := 0.0
 	if r.TotalGood > 0 {
 		fp = float64(r.GoodBlocked) / float64(r.TotalGood) * 100
@@ -120,10 +120,10 @@ func (r *BenchResult) Print() {
 	if r.TotalBad > 0 {
 		fn = float64(r.BadAllowed) / float64(r.TotalBad) * 100
 	}
-	
+
 	fmt.Printf("False Positive:    %.2f%%\n", fp)
 	fmt.Printf("False Negative:    %.2f%%\n", fn)
-	
+
 	if total == 0 && r.Errors > 0 {
 		fmt.Printf("Status:            FAILED \u274c (No successful connections made)\n")
 	} else if fp == 0 {
@@ -137,11 +137,11 @@ func (r *BenchResult) Print() {
 func RunBenchmark(args []string) {
 	fs := flag.NewFlagSet("benchmark", flag.ExitOnError)
 	var (
-		host       string
-		goodRate   int
-		badRate    int
-		duration   int
-		workers    int
+		host         string
+		goodRate     int
+		badRate      int
+		duration     int
+		workers      int
 		outputFormat string
 	)
 	fs.StringVar(&host, "host", "127.0.0.1:8081", "Target host:port")
@@ -157,12 +157,12 @@ func RunBenchmark(args []string) {
 	}
 
 	res := &BenchResult{StartTime: time.Now()}
-	
+
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	g, testCtx := errgroup.WithContext(ctx)
-	
+
 	if duration > 0 {
 		var cancel context.CancelFunc
 		testCtx, cancel = context.WithTimeout(testCtx, time.Duration(duration)*time.Second)
@@ -223,7 +223,9 @@ func RunBenchmark(args []string) {
 
 func runProfile(ctx context.Context, host string, isGood bool, rate, workers int, res *BenchResult) error {
 	ratePerWorker := rate / workers
-	if ratePerWorker == 0 { ratePerWorker = 1 }
+	if ratePerWorker == 0 {
+		ratePerWorker = 1
+	}
 
 	var wg sync.WaitGroup
 	for i := 0; i < workers; i++ {
@@ -249,16 +251,16 @@ func runProfile(ctx context.Context, host string, isGood bool, rate, workers int
 				case <-ctx.Done():
 					return
 				case <-ticker.C:
-				startDial := time.Now()
-				conn, err := tls.DialWithDialer(&net.Dialer{Timeout: 2*time.Second}, "tcp", host, conf)
-				if err == nil {
-					conn.Write([]byte("GET /health HTTP/1.1\r\nHost: backend\r\nConnection: close\r\n\r\n"))
-					io.Copy(io.Discard, conn)
-					conn.Close()
-					res.Record(isGood, true, time.Since(startDial), nil)
-				} else {
-					res.Record(isGood, false, 0, err)
-				}
+					startDial := time.Now()
+					conn, err := tls.DialWithDialer(&net.Dialer{Timeout: 2 * time.Second}, "tcp", host, conf)
+					if err == nil {
+						conn.Write([]byte("GET /health HTTP/1.1\r\nHost: backend\r\nConnection: close\r\n\r\n"))
+						io.Copy(io.Discard, conn)
+						conn.Close()
+						res.Record(isGood, true, time.Since(startDial), nil)
+					} else {
+						res.Record(isGood, false, 0, err)
+					}
 				}
 			}
 		}()

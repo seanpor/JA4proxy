@@ -22,8 +22,8 @@ controls a security team will typically check during pre-production review.
 
 | Control | Status | Evidence |
 |---|---|---|
-| Production runtime is a static Go binary | In place | Phase 15 / ADR-015; `cmd/proxy/main.go`, `Dockerfile.go-proxy` |
-| Non-root container user | In place | `USER proxy` in `Dockerfile.go-proxy` |
+| Production runtime is a static Go binary | In place | Phase 15 / ADR-015; `cmd/ja4pd/main.go`, `deploy/docker/Dockerfile.go-proxy` |
+| Non-root container user | In place | `USER proxy` in `deploy/docker/Dockerfile.go-proxy` |
 | Read-only container filesystem | In place | `read_only: true` in `docker-compose*.yml` |
 | Dropped capabilities (`cap_drop: ALL`) | In place | Compose files; Helm chart `securityContext` |
 | `no-new-privileges` | In place | Compose files |

@@ -12,10 +12,10 @@ run. For deeper material on project structure, code style, and the
 completing-a-phase mechanics, see [`../../CONTRIBUTING.md`](../../CONTRIBUTING.md);
 this doc does not duplicate that content.
 
-> **Production runtime is the Go proxy.** The Python proxy (`proxy.py`,
-> `src/security/`) is a **prototyping surface** for new signal modules.
-> Default to the Go side unless your task is explicit Python prototyping
-> or fixing the Python prototype itself.
+> **Production runtime is the Go proxy daemon (`ja4pd`).** All legacy Python
+> prototyping components (such as `proxy.py`) have been archived and removed.
+> The ecosystem includes a Go CLI (`ja4p`), a Python Management API, and
+> a Python Analytics worker.
 
 ## Prerequisites
 
@@ -33,22 +33,33 @@ Optional but recommended:
 - `gh` CLI for PR work
 - `direnv` / a clean shell for `GOROOT` (see Troubleshooting)
 
-## Clone, build, test (the happy path)
+## Setup and build (onboarding)
 
-```bash
-git clone https://github.com/seanpor/JA4proxy.git
-cd JA4proxy
+1. **Bootstrap the environment:** Run the guided setup wizard to generate environment config files and check for dependencies:
+   ```bash
+   git clone https://github.com/seanpor/JA4proxy.git
+   cd JA4proxy
+   make init
+   ```
 
-# 1. Python deps (test infrastructure runs in Python)
-pip install -r requirements.txt
-pip install -r requirements-dev.txt
+2. **Install Python dependencies:** The test runner infrastructure runs on Python, so install the required development dependencies:
+   ```bash
+   pip install -r requirements.txt
+   pip install -r requirements-dev.txt
+   ```
 
-# 2. Build the Go proxy
-GOROOT=/snap/go/current go build ./cmd/proxy
+3. **Build the Go binaries:**
+   ```bash
+   make build
+   ```
+   This compiles:
+   - `bin/ja4pd` (the Go proxy daemon, source at `cmd/ja4pd/`)
+   - `bin/ja4p` (the Go operational CLI, source at `cmd/ja4p/`)
 
-# 3. Run the full test suite
-make test
-```
+4. **Run the full test suite:**
+   ```bash
+   make test
+   ```
 
 A clean run ends with all sections green:
 
@@ -66,21 +77,18 @@ If `make test` is green, your environment is correctly configured. Move on to
 ## Run the proxy locally
 
 ```bash
-# Start Redis and the backend stack
+# Start Redis, the backend stack, and the Go proxy daemon
 make start
 
-# In a separate shell, run the Go proxy directly against the running stack
-GOROOT=/snap/go/current go run ./cmd/proxy
-
-# Smoke test
+# Smoke test (confirms the docker-compose stack works)
 bash scripts/smoke/test_docker_compose.sh
+
+# Direct run option: to run the Go proxy daemon binary locally (against a running Redis/backend stack)
+./bin/ja4pd
 
 # Stop the stack
 make stop
 ```
-
-The Python proxy entry point (`proxy.py`) is intentionally not part of the
-default workflow — it exists only when you are prototyping a new signal.
 
 ## What to read next
 
@@ -88,10 +96,10 @@ default workflow — it exists only when you are prototyping a new signal.
    conventions. Read this **before** opening a branch.
 2. [`TESTING_STRATEGY.md`](TESTING_STRATEGY.md) — the test-first loop and the
    matrix of test categories.
-3. [`../../CONTRIBUTING.md`](../../CONTRIBUTING.md) — project structure, code
+3. [`../CONTRIBUTING.md`](../CONTRIBUTING.md) — project structure, code
    style, completing-a-phase mechanics. Use as a reference, not a tutorial.
 4. [`PHASE_LIFECYCLE.md`](PHASE_LIFECYCLE.md) — only relevant if your work is
-   organised as a phase; see also [`../../AGENTS.md`](../../AGENTS.md).
+   organised as a phase; see also [`../AGENTS.md`](../AGENTS.md).
 
 ## Troubleshooting
 

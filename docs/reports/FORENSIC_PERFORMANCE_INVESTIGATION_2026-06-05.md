@@ -16,7 +16,7 @@ We stripped the system layer by layer on the same hardware:
 
 | Layer | Environment | Throughput (CPS) | Status |
 | :--- | :--- | :--- | :--- |
-| **Micro-benchmark** | Logic Only (no I/O) | **> 1,000,000** | Elite |
+| **Micro-benchmark** | Logic Only (no I/O) | **> 1,000,000** | Verified |
 | **Host-Native** | Host Network (no Docker Bridge) | **1,994+** | **EXCELLENT ✅** |
 | **Null-Pipeline** | Docker Bridge (no Redis) | **338** | Bottlenecked |
 | **Standard POC** | Docker Bridge + Redis | **323** | Bottlenecked |
@@ -50,7 +50,7 @@ Even though the core is fast, we will implement the following to ensure it stays
 ---
 
 ## 5. Conclusion
-JA4proxy v2.0.x is a **high-performance beast** currently trapped in a **Docker-induced traffic jam**. The transition to Go was 100% successful, achieving nearly **2,000 CPS** (the limit of our test workers) when the network was unblocked.
+JA4proxy v2.0.x is a **highly optimized proxy** currently constrained by a **Docker-induced network bottleneck**. The transition to Go was 100% successful, achieving nearly **2,000 CPS** (the limit of our test workers) when the network was unblocked.
 
 **Final Verdict:** We are ready to publish the performance numbers, provided we specify the deployment architecture (Host vs Bridge).
 

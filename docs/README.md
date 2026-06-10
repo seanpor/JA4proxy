@@ -14,7 +14,7 @@ Welcome to the JA4proxy documentation. This guide is organized by role and topic
 ## 🚀 Get Started
 
 - **New Users:** [POC Quick Start](POC_QUICKSTART.md) — Deploy in 5 minutes.
-- **Operators:** [Operations Guide](OPERATIONS.md) — Start/stop, config, and day-to-day management.
+- **Operators:** [Operations Guide](OPERATIONS_GUIDE.md) — Start/stop, config, and day-to-day management.
 - **Developers:** [Getting Started](GETTING_STARTED.md) — Environment setup and workflow.
 
 ---
@@ -30,13 +30,13 @@ Welcome to the JA4proxy documentation. This guide is organized by role and topic
 - [System Architecture](architecture/system-architecture.md) — Data flow and trust model.
 - [Threat Model](security/threat-model.md) — STRIDE analysis and assumptions.
 - [DMZ Readiness](DMZ_READINESS.md) — Production hardening checklist.
-- [Architecture Decisions (ADRs)](decisions/README.md) — Rationale for design choices.
+- [Architecture Decisions (ADRs)](decisions/INDEX.md) — Rationale for design choices.
 
 ### Operators & SecOps
-- [Operations Guide](OPERATIONS.md) — **Single source of truth** for running JA4proxy.
+- [Operations Guide](OPERATIONS_GUIDE.md) — **Single source of truth** for running JA4proxy.
 - [Incident Response](INCIDENT_RESPONSE.md) — Playbooks for active attacks.
-- [Monitoring Setup](MONITORING_SETUP.md) — Prometheus, Grafana, and Loki config.
-- [Quick Reference](QUICK_REFERENCE.md) — Commands and cheat sheet.
+- [Monitoring & Metrics](OPERATIONS_GUIDE.md#📊-viewing-logs-&-assets) — Prometheus, Grafana, and Loki config.
+- [Makefile Targets](MAKEFILE_TARGETS.md) — Commands and developer reference.
 
 ### Developers
 - [How We Work](HOW_WE_WORK.md) — Engineering standards and TDD.

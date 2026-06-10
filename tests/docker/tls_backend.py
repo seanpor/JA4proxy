@@ -25,6 +25,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
 
 ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+# Pin a TLS 1.2 floor — this test backend has no reason to accept legacy
+# TLS (clears CodeQL py/insecure-protocol).
+ctx.minimum_version = ssl.TLSVersion.TLSv1_2
 ctx.load_cert_chain("/cert.pem", "/key.pem")
 server = http.server.HTTPServer(("0.0.0.0", 443), Handler)
 server.socket = ctx.wrap_socket(server.socket, server_side=True)
