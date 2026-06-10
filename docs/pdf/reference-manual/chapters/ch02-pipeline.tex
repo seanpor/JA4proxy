@@ -269,7 +269,7 @@ single integer score in the range 0–100. The aggregation algorithm is
 confidence-weighted:
 
 \begin{enumerate}
-  \item Each signal contributes \code{signal.score × signal.weight} to the total
+  \item Each signal contributes \code{signal.score} $\times$ \code{signal.weight} to the total
   \item Weights are normalised to sum to 1.0 across all active signals
   \item The raw weighted sum is clamped to [0, 100]
   \item Signal scores from external services that are unreachable contribute 0
@@ -356,7 +356,7 @@ expires. The ban TTL doubles on each re-ban up to the configured maximum:
 
 \begin{itemize}
   \item First ban: \code{ban\_duration} seconds (default 300)
-  \item Second ban: \code{ban\_duration × 2} seconds
+  \item Second ban: \code{ban\_duration} $\times$ 2 seconds
   \item Subsequent bans: capped at 604800 seconds (7 days)
 \end{itemize}
 

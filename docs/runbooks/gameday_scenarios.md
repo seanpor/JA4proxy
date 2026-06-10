@@ -51,7 +51,7 @@ docker compose -f deploy/docker/docker-compose.poc.yml stop redis
 ```
 
 **What the team does BEFORE opening the runbook:**
-1. Check Grafana for `ja4proxy_redis_errors_total` — is it spiking?
+1. Check Grafana for `ja4proxy_redis_operations_total{result="error"}` — is it spiking?
 2. Check the health endpoint — does it report Redis as unreachable?
 3. Verify the proxy is still accepting connections (fail-open behaviour).
 4. Check Redis container status — is it stopped or crashed?

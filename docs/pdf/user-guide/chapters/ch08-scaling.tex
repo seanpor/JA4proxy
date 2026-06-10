@@ -25,18 +25,21 @@ Before scaling, it helps to understand the single-instance baseline:
     \toprule
     \textbf{Configuration} & \textbf{Throughput} \\
     \midrule
-    Single Python instance, Redis pipeline batching & $\sim$350 connections/second \\
-    Single Python instance, in-process cache only & $\sim$550 connections/second \\
-    4 Python instances, Redis & $\sim$1400 connections/second \\
-    Go proxy (single instance, experimental) & Targeting 3500--17\,500+ conn/s \\
+    Single Go instance, bridged container networking & $\sim$600 connections/second \\
+    Single Go instance, host networking & $\sim$3{,}000 connections/second \\
+    Horizontal scale-out across $N$ nodes & scales $\sim$linearly with $N$ \\
+    Python prototype (historical, not for production) & $\sim$350 connections/second \\
     \bottomrule
   \end{tabularx}
-  \caption{Throughput benchmarks by configuration}
+  \caption{Measured end-to-end throughput, full scoring pipeline, on commodity
+           hardware (Intel i9-9900K). See \code{docs/performance/benchmarks.md}.}
 \end{table}
 
-The bottleneck at high load is Redis round-trip time for signal collection writes.
-Pipeline batching in the proxy reduces this overhead significantly; the Unix socket
-connection to Redis reduces it further.
+The Go engine itself is not the bottleneck. Under bridged container networking the
+limit is Docker's userland \code{docker-proxy} relay ($\sim$600 conn/s); deploying
+with host networking removes it and the same code sustains $\sim$3{,}000 conn/s.
+A single modest server therefore handles several hundred connections per second
+comfortably; scale horizontally beyond that.
 
 \section{Docker Compose Scaling}
 \index{scaling!Docker Compose}
@@ -231,21 +234,20 @@ config reload (all pods), it is simpler to do a rolling restart as shown above. 
 rolling restart replaces pods one at a time, maintaining availability.
 \end{notebox}
 
-\section{When to Consider the Go Proxy}
-\index{Go proxy!when to use}
+\section{Scaling Horizontally}
+\index{scaling!horizontal}
 
-The Python proxy is the stable implementation. Consider the Go proxy when:
+The Go engine is the production runtime, and instances are stateless — the only
+per-instance state is the in-process LRU cache, which is an optimisation, not a
+source of truth. Scaling out is therefore just running more instances behind your
+load balancer; bans and findings are shared through Redis, so every instance sees
+the same view.
 
 \begin{itemize}
-  \item Your sustained connection rate exceeds 1200 connections/second with 4 Python
-    instances (at that point, you are adding too many instances)
-  \item You need sub-millisecond processing latency
-  \item You are deploying on hardware-constrained infrastructure where the Python
-    interpreter overhead is significant
-  \item You have capacity to validate and monitor a newer implementation
+  \item Add instances when sustained load approaches a single node's ceiling
+    (several hundred conn/s under bridged networking, $\sim$3{,}000 with host
+    networking — see the baseline table above).
+  \item Point your load balancer (or the outside firewall directly) at the
+    instances; no shared local state needs synchronising.
+  \item Size Redis for the aggregate signal-write rate across all instances.
 \end{itemize}
-
-The Go proxy is not a simple drop-in replacement. It requires Go 1.22+ and a
-separate build step, and some auxiliary integrations (analytics, management UI)
-are still being finalised. See the current parity status in
-\code{docs/phases/PHASE\_15.md} before using it in production.

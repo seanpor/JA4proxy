@@ -10,12 +10,12 @@ phase: 21
 ## Overview
 
 This runbook covers the procedure for migrating from the Python proxy (`proxy.py`)
-to the Go proxy (`cmd/proxy/`) in production. The migration is designed to be
+to the Go proxy (`cmd/ja4pd/`) in production. The migration is designed to be
 zero-downtime via HAProxy upstream switching.
 
 ## Prerequisites
 
-- Go proxy built and tested: `GOROOT=/snap/go/current go build -o bin/ja4proxy ./cmd/proxy`
+- Go proxy built and tested: `GOROOT=/snap/go/current go build -o bin/ja4pd ./cmd/ja4pd`
 - Docker image built: `docker build -f deploy/docker/Dockerfile.go-proxy -t ja4proxy-go:latest .`
 - Both proxies can share the same Redis instance (key schema unchanged)
 - Parallel validation complete: Go proxy running on port 8082, Python on 8080

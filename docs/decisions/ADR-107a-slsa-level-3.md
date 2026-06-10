@@ -1,8 +1,14 @@
 # ADR-107a: Adopt SLSA Level 3 via `slsa-github-generator` Reusable Workflow
 
-**Status:** Proposed
+**Status:** Superseded by [ADR-202a](ADR-202a.md)
 **Date:** 2026-04-26
 **Phase:** 107 (Regulatory & Supply-Chain Conformance) — sub-phase 107c
+
+> **Update 2026-06-10 (phase-309 WP-9):** this proposal was realized — and its
+> specific mechanism revised — by **ADR-202a** (Accepted), which adopts SLSA
+> provenance for the Go proxy image via **SHA-pinned reusable workflows**
+> (Path A) rather than the unpinned `slsa-github-generator` reference proposed
+> here. Treat ADR-202a as the operative decision.
 
 ---
 

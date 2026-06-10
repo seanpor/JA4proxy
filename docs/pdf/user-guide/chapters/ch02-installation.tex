@@ -244,28 +244,31 @@ Any data in Redis (bans, rate-limit windows) will be lost. Use this only when yo
 need a clean slate or after updating the repository.
 \end{dangerbox}
 
-\section{Building the Go Proxy (Optional)}
+\section{Building the Proxy from Source}
 \index{Go proxy}
-\index{Phase 15}
+\index{ja4pd}
 
-A Go implementation of the proxy is included in \code{proxy\_go/}. It is currently
-in active development targeting 10--50× the throughput of the Python implementation.
-The Python proxy is the production-stable version; the Go proxy is for evaluation
-and performance testing.
+The production proxy is the Go implementation (\code{cmd/ja4pd}), shipped as the
+container image and the binaries \code{ja4pd} (the engine) and \code{ja4p} (the
+operator CLI). The Python proxy (\code{proxy.py}, \code{src/security/}) is an
+\emph{experimental prototype} retained only for signal-module research; it is not
+used in production and should not front real traffic.
 
-To build the Go proxy:
+Most deployments use the published container image, so building from source is
+optional. To build the binaries:
 
 \begin{bashcode}
-cd proxy_go
-go build -o ja4proxy ./cmd/proxy
-./ja4proxy --config ../config/proxy.yml
+make build            # builds bin/ja4pd and bin/ja4p
+# or directly:
+go build -o bin/ja4pd ./cmd/ja4pd
+./bin/ja4pd --config config/proxy.yml
 \end{bashcode}
 
-\begin{notebox}[Go proxy status]
-The Go proxy achieves feature parity with the Python proxy for all core pipeline
-functions. Some auxiliary features (management API, analytics integration) are
-still being finalized. See \code{docs/phases/PHASE\_15.md} for the current
-parity status.
+\begin{notebox}[Production runtime]
+The Go proxy was promoted to production in Phase~15 and is the only
+implementation that ships in releases, Docker images, and Helm charts. The Python
+proxy remains as a prototyping surface for new signal modules. Prototype in
+Python, then port to Go before it touches real traffic.
 \end{notebox}
 
 \section{Stopping the Stack}

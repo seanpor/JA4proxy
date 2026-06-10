@@ -293,10 +293,11 @@ make dev-help           # Build, test, proxy, bench, docs, agents
 
 | Target | Description | Env / Args |
 |--------|-------------|------------|
-| `bench` | Full Go vs Python benchmark suite (starts Docker if needed) | `ARGS=` |
-| `bench-quick` | Quick benchmark, 10s/scenario (both proxies running) | `ARGS=` |
-| `bench-go` | Go proxy-only benchmark | `ARGS=` |
-| `bench-python` | Python proxy-only benchmark | `ARGS=` |
+| `bench` | Run all benchmarks (micro + macro) | `ARGS=` |
+| `bench-micro` | Go native micro-benchmarks (pipeline cost, no I/O) | — |
+| `bench-macro` | End-to-end load test through the bridge port (requires `make start`) | `ARGS=` |
+| `bench-hostnative` | End-to-end throughput with `ja4pd` host-native (no `docker-proxy`; ~4.5× the bridge port). See `docs/performance/benchmarks.md` | `BENCH_WORKERS=`, `BENCH_DURATION=`, `BENCH_GOOD_RATE=` |
+| `bench-all` | Every heavy benchmark (perf, load, go-perf, MTTR) — slow, runs alone | — |
 
 ---
 
