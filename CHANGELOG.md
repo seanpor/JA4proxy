@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **Management UI Beautification & Aesthetic Redesign (Phase 230)**: Redesigned the entire Management UI console to deliver a premium, visually stunning web interface. Replaced basic, plain styles with elegant glassmorphism, dynamic glowing gradients, clean Google Fonts typography (Inter), responsive cards with lift animations, and a polished Chart.js dial visualization. Redesigned and upgraded all layout pages including base, login, dashboard, active bans, list management, policy audit logs, and threat intelligence feeds to present a unified, high-quality dark mode theme with zero functional regression.
 - **Documentation coherence, setup standardization, and link remediation (Phase 305)**: Established a coherent documentation architecture with clear single sources of truth. Standardized onboarding around the `make init` guided wizard and aligned Go proxy paths (`cmd/ja4pd`, `cmd/ja4p`). Removed obsolete Python proxy references, corrected all broken internal links, and added frontmatter blocks to remote manual testing and evaluation guides to pass `make doc-health`.
 
 ### Fixed

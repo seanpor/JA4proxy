@@ -21,15 +21,20 @@
   <!-- Custom CSS -->
   <link rel="stylesheet" href="/static/custom.css" />
 
+  <!-- Google Fonts Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
   <script>
     tailwind.config = {
       darkMode: 'class',
       theme: {
         extend: {
           colors: {
-            'slate-950': '#0f172a',
-            'slate-800': '#1e293b',
-            'slate-700': '#334155',
+            'slate-950': '#0b0f19',
+            'slate-800': '#0f1524',
+            'slate-700': '#1e293b',
             'sky-500':   '#0ea5e9',
           }
         }
@@ -37,12 +42,12 @@
     }
   </script>
 </head>
-<body class="dark h-full bg-[#0f172a] text-[#f1f5f9] font-[system-ui,sans-serif]">
+<body class="dark h-full text-[#f1f5f9]">
 
 <div class="flex h-full min-h-screen">
 
   <!-- ── Sidebar ─────────────────────────────────────────────────── -->
-  <aside class="fixed inset-y-0 left-0 z-30 w-[200px] flex flex-col bg-[#1e293b] border-r border-[#334155]">
+  <aside class="fixed inset-y-0 left-0 z-30 w-[200px] flex flex-col glass-panel border-r border-[#1e293b]/55">
 
     <!-- Logo / Brand -->
     <div class="flex items-center gap-2 px-4 py-5 border-b border-[#334155]">
@@ -69,8 +74,8 @@
         {% set active = request.url.path == href or (href != "/" and request.url.path.startswith(href)) %}
         <!-- nosemgrep: generic.html-templates.security.var-in-href.var-in-href -->
         <a href="{{ href }}"
-           class="flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors
-                  {% if active %}bg-[#0ea5e9] text-white font-medium{% else %}text-[#94a3b8] hover:bg-[#334155] hover:text-[#f1f5f9]{% endif %}">
+           class="flex items-center gap-3 px-3 py-2 text-sm transition-all duration-200
+                  {% if active %}sidebar-item-active text-sky-400 font-medium{% else %}text-[#94a3b8] hover:bg-[#1e293b]/30 hover:text-[#f1f5f9]{% endif %}">
           <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" d="{{ icon_path }}"/>
           </svg>
@@ -80,18 +85,18 @@
     </nav>
 
     <!-- Logout -->
-    <div class="px-2 py-4 border-t border-[#334155]">
+    <div class="px-2 py-4 border-t border-[#1e293b]/55">
       {% if user %}
       <div class="px-3 py-1 mb-2">
         <p class="text-[11px] text-[#94a3b8] truncate">Signed in as</p>
-        <p class="text-xs font-medium text-[#f1f5f9] truncate">{{ user }}</p>
+        <p class="text-xs font-medium text-[#f8fafc] truncate">{{ user }}</p>
       </div>
       {% endif %}
       <form method="post" action="/auth/logout"> <!-- nosemgrep -->
         <input type="hidden" name="csrf_token" value="{{ csrf_token | default('') }}" />
 
         <button type="submit"
-                class="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm text-[#94a3b8] hover:bg-[#334155] hover:text-[#f1f5f9] transition-colors">
+                class="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm text-[#94a3b8] hover:bg-[#1e293b]/30 hover:text-[#f1f5f9] transition-colors">
           <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
           </svg>
@@ -106,30 +111,30 @@
   <div class="flex-1 flex flex-col ml-[200px] min-w-0">
 
     <!-- Top bar -->
-    <header class="sticky top-0 z-20 flex items-center justify-between px-6 py-3 bg-[#1e293b] border-b border-[#334155]">
-      <h1 class="text-base font-semibold text-[#f1f5f9]">
+    <header class="sticky top-0 z-20 flex items-center justify-between px-6 py-3 bg-[#0f1524]/85 backdrop-blur-md border-b border-[#1e293b]/55">
+      <h1 class="text-base font-semibold text-[#f8fafc]">
         {% block page_title %}{{ page_title | default("Dashboard") }}{% endblock %}
       </h1>
       <div class="flex items-center gap-4">
         <!-- Dial badge -->
         {% set dial = dial_value | default(0) | int %}
         {% if dial == 0 %}
-          {% set dial_color = "bg-[#16a34a] text-white" %}
+          {% set dial_badge_class = "badge-allow" %}
           {% set dial_label = "Monitor" %}
         {% elif dial <= 49 %}
-          {% set dial_color = "bg-[#d97706] text-white" %}
+          {% set dial_badge_class = "badge-flag" %}
           {% set dial_label = "Moderate" %}
         {% else %}
-          {% set dial_color = "bg-[#dc2626] text-white" %}
+          {% set dial_badge_class = "badge-block" %}
           {% set dial_label = "Active" %}
         {% endif %}
-        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium {{ dial_color }}"
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold {{ dial_badge_class }}"
               title="Enforcement dial: {{ dial }}/100">
           <span class="w-1.5 h-1.5 rounded-full bg-current opacity-75"></span>
           Dial: {{ dial }} — {{ dial_label }}
         </span>
         <!-- UTC clock -->
-        <span class="text-xs text-[#94a3b8]" id="utc-clock">UTC —</span>
+        <span class="text-xs text-[#94a3b8] font-medium" id="utc-clock">UTC —</span>
       </div>
     </header>
 
