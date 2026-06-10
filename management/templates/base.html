@@ -5,18 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{% block title %}{{ page_title | default("JA4proxy") }} — JA4proxy Management{% endblock %}</title>
 
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com" crossorigin="anonymous"></script> <!-- nosemgrep -->
+  <!-- Tailwind CSS (Local) -->
+  <script src="/static/tailwind.min.js"></script>
 
-  <!-- HTMX -->
-  <script src="https://unpkg.com/htmx.org@1.9.12" integrity="sha384-FhXw7b6AlE/jyjlZH5iHa/tTenQXQJnaNPdfCe6RYgiW/Wm8tf/+8QOt6v/BeE6i" crossorigin="anonymous"></script>
-  <script src="https://unpkg.com/htmx-ext-sse@2.2.1/sse.js" integrity="sha384-Y8N6e7v5p4v3i2o1n0m9l8k7j6h5g4f3d2s1a0" crossorigin="anonymous"></script>
+  <!-- HTMX (Local) -->
+  <script src="/static/htmx.min.js"></script>
+  <script src="/static/sse.js"></script>
 
-  <!-- Alpine.js -->
-  <script src="https://unpkg.com/alpinejs@3.14.0/dist/cdn.min.js" integrity="sha384-6Xh8u3p1iZ6e8q6u5p4v3i2o1n0m9l8k7j6h5g4f3d2s1a0" crossorigin="anonymous" defer></script>
+  <!-- Alpine.js (Local) -->
+  <script src="/static/alpine.min.js" defer></script>
 
-  <!-- Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js" integrity="sha384-Y8N6e7v5p4v3i2o1n0m9l8k7j6h5g4f3d2s1a0" crossorigin="anonymous"></script>
+  <!-- Chart.js (Local) -->
+  <script src="/static/chart.umd.min.js"></script>
 
   <!-- Custom CSS -->
   <link rel="stylesheet" href="/static/custom.css" />
@@ -42,7 +42,7 @@
     }
   </script>
 </head>
-<body class="dark h-full text-[#f1f5f9]">
+<body class="dark h-full bg-[#0b0f19] text-[#f1f5f9]">
 
 <div class="flex h-full min-h-screen">
 
