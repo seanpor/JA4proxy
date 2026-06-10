@@ -175,4 +175,6 @@ func TestComputeCV_PerfectRegular(t *testing.T) {
 	}
 }
 
-func (*mockRedisBeacon) MultiCheck(_ context.Context, _ string) (int, bool, bool) { return 0, false, false }
+func (*mockRedisBeacon) MultiCheck(_ context.Context, _ string) (int, bool, bool) {
+	return 0, false, false
+}

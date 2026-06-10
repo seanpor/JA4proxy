@@ -51,7 +51,7 @@ gh run view <run-id> --log-failed
 ```
 
 Identify the failing job (one of the required jobs in
-[`../QUALITY_PLAN.md`](QUALITY_PLAN.md)
+[`../QUALITY_PLAN.md`](../QUALITY_PLAN.md)
 §Required jobs) and the commit SHA that introduced it.
 
 ## Acknowledge
@@ -213,7 +213,7 @@ not yet covered by an automated check. The note should propose that check.
   [`../HOW_WE_WORK.md`](../HOW_WE_WORK.md)
   §Keep-main-green policy
 - What every CI job enforces:
-  [`../QUALITY_PLAN.md`](QUALITY_PLAN.md)
+  [`../QUALITY_PLAN.md`](../QUALITY_PLAN.md)
 - Local merge gate (must be green before any merge):
   [`../HOW_WE_WORK.md`](../HOW_WE_WORK.md)
   §Local merge gate

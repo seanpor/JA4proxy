@@ -95,12 +95,15 @@ async def health_deep(
             "timestamp": ts,
         }
     except Exception as exc:  # noqa: BLE001
+        # Log the full error server-side; return a generic status to the
+        # client. Echoing str(exc) leaks internal detail (Redis host/port,
+        # connection errors) — CodeQL py/stack-trace-exposure.
         logger.warning("health_deep | event=redis_error | error=%s", exc)
         return JSONResponse(
             status_code=503,
             content={
                 "status": "degraded",
-                "redis": {"status": "error", "error": str(exc)},
+                "redis": {"status": "error"},
                 "timestamp": ts,
             },
         )
@@ -120,8 +123,12 @@ async def ready(redis=Depends(get_redis)):
         await redis.get("config:dial")
         return {"ready": True}
     except Exception as exc:  # noqa: BLE001
+        # Unauthenticated endpoint — never return str(exc) to the caller
+        # (leaks internal Redis topology / connection detail). The detail is
+        # logged server-side; the client gets a generic reason. CodeQL
+        # py/stack-trace-exposure.
         logger.warning("ready | event=redis_error | error=%s", exc)
         return JSONResponse(
             status_code=503,
-            content={"ready": False, "reason": str(exc)},
+            content={"ready": False, "reason": "redis_unavailable"},
         )

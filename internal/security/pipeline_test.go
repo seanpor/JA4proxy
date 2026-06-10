@@ -47,7 +47,9 @@ func newTestPipeline(dial int) *Pipeline {
 		Whitelist:          map[string]bool{"t13d1516h2_8daaf6152771_02713d6af862": true},
 		Blacklist:          map[string]bool{"t13d190900_9dc949149365_97f8aa674fd9": true},
 	}
-	p := NewPipeline(cfg, &mockRedis{dial: dial}, nil); p.Sync = true; return p
+	p := NewPipeline(cfg, &mockRedis{dial: dial}, nil)
+	p.Sync = true
+	return p
 }
 
 func TestPipeline_ALPNBrowserBypass_H2(t *testing.T) {

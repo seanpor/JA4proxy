@@ -16,6 +16,7 @@ epics:
   - 68
   - 69
   - 70
+  - 306
 - name: 'Epic: Security Hardening'
   description: Deep security analysis, compliance, and audit remediation.
   phases:
@@ -80,6 +81,7 @@ epics:
   - 51
   - 52
   - 105
+  - 307
 - name: 'Epic: Operational Excellence & Lifecycle Management'
   description: Zero-downtime upgrades, robust health monitoring, and deployment orchestration.
   phases:
@@ -2488,6 +2490,28 @@ phases:
     dependencies: []
     size: SMALL
     summary: 'docker-compose.prod.yml published several "internal only" services (proxy 8080/9090, analytics, tarpit, loki, prometheus) on 0.0.0.0 — unnecessary attack surface (only grafana + haproxy-stats were correctly loopback-bound). Removed host ports for purely-internal services (network DNS reaches them; verified prometheus.yml scrapes by service name) and bound the Prometheus UI to ${AGENT_BIND_IP:-127.0.0.1}. Only haproxy 443/80 stay public. Also fixed `make clean` aborting on an incomplete .env (CLEAN_DUMMY_ENV + conditional --env-file).'
+  307:
+    name: Documentation Coherence, Setup Standardization, and Link Remediation
+    status: COMPLETE
+    completed: 2026-06-10
+    action_plan: docs/phases/PHASE_307.md
+    dependencies: []
+    size: SMALL
+    summary: Establish a coherent documentation system, standardize onboarding instructions on the setup wizard (make init), clear out legacy Python proxy references, and resolve all broken links and metadata errors.
+  306:
+    name: Take Over PR #95 — Land the Go Performance Wins Without the Regressions
+    status: COMPLETE
+    action_plan: docs/phases/PHASE_306.md
+    dependencies: [305]
+    size: MEDIUM
+    summary: 'Took over external PR #95 ("unleash Go performance") on a clean branch off main, keeping every legitimate win and fixing the regressions. KEPT: io.CopyBuffer-style pooled 32KB buffer reuse in forward() (sync.Pool, sync.WaitGroup, JA4PROXY-2026-0009 invariant preserved), Redis PoolSize 100/MinIdleConns 10, 32-goroutine async scoring pool + workChan 10000->20000, dev/POC/Perf backend port 443->8443 (Production stays 443), lazy %s tarpit logging, and honest hyperbole tone-downs (Elite->Verified/High) in existing docs. FIXED: restored the per-read SetReadDeadline/SetWriteDeadline idle-reaper PR #95 silently dropped — without it a slowloris/idle-hold pins a goroutine + pooled buffer forever and read_timeout/write_timeout become dead config; the pooled-buffer win and the deadlines coexist. Added Go regression test TestForward_IdleConnectionIsReaped (tears down an idle pair at read_timeout; hangs/fails if deadlines removed). REPAIRED docs/ATTACK_MAPPING.md, which was stale on main (Python prototypes src/security/*.py retired in v2.0.0): dropped the dead prototype rows, repointed the two genuine rate-tracker rows to internal/security/rate_limiter.go, and fixed the CI-gate test path (docs/for-architects -> docs/) — the gate (tests/test_attack_mapping.py) was failing on main and now passes. The unsubstantiated ">10,000 CPS/core" claim lived only in PR-new marketing docs (BENCHMARKING_GUIDE.md, PHASE_161.md), which were simply not imported. Left the connection-decision log at Info (no Debug demotion) to preserve the audit trail. Go build/vet/gofmt clean; touched-package tests green.'
+  305:
+    name: CodeQL Triage — Python Code-Scanning Findings
+    status: COMPLETE
+    action_plan: docs/phases/PHASE_305.md
+    dependencies: [304]
+    size: SMALL
+    summary: 'Triaged the 14 CodeQL Python findings (+1 Go bench) surfaced by enabling code scanning (Phase 302). Genuine bugs fixed in the Management-API web layer with regression tests (test_codeql_305_regression.py): a reflected XSS in /api/v1/partials/list-table (unescaped `list` query param → html.escape) and str(exc) error-detail exposure in /health/deep and the unauthenticated /ready (→ logged server-side, generic reason). The OIDC/SAML url-redirection pair was hardened rather than dismissed — the redirect target is a hardcoded "/" today (no live bug) but a safe_relative_redirect guard now confines both callbacks to same-site relative paths, regression-proofing against any future user-controllable redirect (the "do not dismiss a safe-by-constant FP, harden it" case). The two test TLS servers (mock-backend, tests/docker/tls_backend) got an explicit TLS 1.2 floor (clears py/insecure-protocol legitimately). The remainder are verified false positives (redis_client logs the redacted URL; auth.py logs a config CIDR; splunk action never logs the token) or intentional test tooling (legacy-TLS generators, bind-all capture helper, bench InsecureSkipVerify) — to be dismissed per-alert with code-backed justifications, no blanket rule suppression. The Go production proxy produced no genuine code-scanning bug.'
   304:
     name: Dependency Security Remediation
     status: COMPLETE
