@@ -125,7 +125,9 @@ func newChaosPipeline(t *testing.T, redis *faultyRedis) *Pipeline {
 		Whitelist:          map[string]bool{},
 		Blacklist:          map[string]bool{},
 	}
-	p := NewPipeline(cfg, redis, nil); p.Sync = true; return p
+	p := NewPipeline(cfg, redis, nil)
+	p.Sync = true
+	return p
 }
 
 func validClientHello() *ConnectionContext {

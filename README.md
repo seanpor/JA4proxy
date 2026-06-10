@@ -42,26 +42,37 @@ Our governance model aligns with **OpenSSF** and **SLSA** best practices to ensu
 | Operator | [user guide](docs/pdf/user-guide/user-guide.pdf) | `docs/pdf/user-guide/` |
 | Architect | [reference manual](docs/pdf/reference-manual/reference-manual.pdf) | `docs/pdf/reference-manual/` |
 
-## Quick verification (developers)
+## Quick Start & Onboarding
 
-A fresh clone should build cleanly and pass the full test suite:
+To bootstrap your environment, run the interactive guided setup wizard which handles secret generation, environment variables (`.env`), and dependency checks:
 
 ```bash
 git clone https://github.com/seanpor/JA4proxy && cd JA4proxy
-cp template.env .env
-make build
-make test-go test-unit
+make init
 ```
 
+### Verification (Developers)
+
+Once initialized, build the binaries and run the test suite:
+
+```bash
+make build
+make test
+```
 
 ### Multi-Environment Support
-JA4proxy supports running multiple isolated instances on the same host. During setup (\`make init\`), you can specify a **unique project name** and **port offset** to avoid conflicts.
-\n### Manual Testing
+
+JA4proxy supports running multiple isolated instances on the same host (e.g., parallel dev and test environments). During the guided setup (`make init`), you can specify a **unique project name** and a **port offset** to prevent port conflicts and resource overlaps.
+
+### Manual Testing
+
+Verify your running setup locally:
+
 ```bash
-# Verify legitimate traffic
+# Verify legitimate traffic (must pass through the proxy)
 curl -kv https://localhost:443/
 
-# Simulate security decision for an IP
+# Simulate a security pipeline decision for an IP using the CLI
 ./bin/ja4p test ip 8.8.8.8
 ```
 
