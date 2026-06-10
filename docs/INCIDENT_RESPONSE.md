@@ -55,7 +55,7 @@ docker compose -f deploy/docker/docker-compose.poc.yml logs proxy | grep BLACKLI
 ./scripts/ja4-admin.sh block-ja4 t13d190900_9dc949149365_97f8aa674fd9
 
 # Check Grafana for the fingerprint_name label to get a human-readable name before blocking
-# http://localhost:3001 → JA4proxy Security Overview → Top Blocked JA4 Fingerprints
+# http://localhost:3000 → JA4proxy Security Overview → Top Blocked JA4 Fingerprints
 ```
 
 ### Step 3 — Verify it's working

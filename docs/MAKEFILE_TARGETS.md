@@ -269,7 +269,7 @@ make dev-help           # Build, test, proxy, bench, docs, agents
 
 | Target | Description | Prerequisites |
 |--------|-------------|---------------|
-| `go-build` | Build Go proxy binary to `bin/ja4proxy` | GOROOT |
+| `go-build` | Build Go proxy binary to `bin/ja4pd` | GOROOT |
 | `go-test` | Run all Go unit tests | GOROOT |
 | `go-lint` | Run `go vet` on Go code | GOROOT |
 | `go-build-ja4check` | Build `bin/ja4check` utility | GOROOT |
