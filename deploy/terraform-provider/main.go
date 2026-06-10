@@ -5,8 +5,8 @@ import (
 	"flag"
 	"log"
 
-	"github.com/seanpor/terraform-provider-ja4proxy/internal/provider"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
+	"github.com/seanpor/terraform-provider-ja4proxy/internal/provider"
 )
 
 func main() {

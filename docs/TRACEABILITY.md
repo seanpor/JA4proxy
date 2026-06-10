@@ -94,11 +94,11 @@ phase: v2.0
 | REQ-200-01 | 200 | `isTrustedProxySource()` correctly accepts/rejects IPs against configured CIDRs | `internal/proxy/trust_test.go::TestIsTrustedProxySource_TrustedCIDR_IPv4` | AUTOMATED |
 | REQ-200-02 | 200 | `ReadProxyProtocolV2()` extracts correct client IP for both IPv4 and IPv6 | `internal/proxy/proxy_protocol_v2_test.go::TestReadProxyProtocolV2_IPv4_Valid` | AUTOMATED |
 | REQ-200-03 | 200 | `ReadProxyProtocolV2()` safely rejects malformed v2 headers (no panic, no OOB) | `internal/proxy/proxy_protocol_v2_test.go::TestReadProxyProtocolV2_DoesNotPanic` | AUTOMATED |
-| REQ-200-04 | 200 | Untrusted source sending PROXY header is NOT trusted — socket IP used instead | `cmd/proxy/proxy_integration_test.go::TestAdversarial_SpoofedPROXYFromUntrustedSource` | AUTOMATED |
-| REQ-200-05 | 200 | Both v1 and v2 parsers gated by the same trust check | `cmd/proxy/proxy_integration_test.go::TestTrustCheck_GatesPROXYExtraction` | AUTOMATED |
-| REQ-200-06 | 200 | All unit tests pass: `go test ./internal/proxy/... ./cmd/proxy/ | [MANUAL-REVIEW] | MANUAL-REVIEW |
+| REQ-200-04 | 200 | Untrusted source sending PROXY header is NOT trusted — socket IP used instead | `cmd/ja4pd/proxy_integration_test.go::TestAdversarial_SpoofedPROXYFromUntrustedSource` | AUTOMATED |
+| REQ-200-05 | 200 | Both v1 and v2 parsers gated by the same trust check | `cmd/ja4pd/proxy_integration_test.go::TestTrustCheck_GatesPROXYExtraction` | AUTOMATED |
+| REQ-200-06 | 200 | All unit tests pass: `go test ./internal/proxy/... ./cmd/ja4pd/` | [MANUAL-REVIEW] | MANUAL-REVIEW |
 | REQ-200-07 | 200 | Parity integration test passes (Python and Go extract same IP) | [MANUAL-REVIEW] | MANUAL-REVIEW |
-| REQ-200-08 | 200 | Adversarial test confirms untrusted PROXY spoof is rejected | `cmd/proxy/pentest_proxy_parser_regression_test.go::TestRegression_JA4PROXY_2026_0001_StripsUntrustedHeader` | AUTOMATED |
+| REQ-200-08 | 200 | Adversarial test confirms untrusted PROXY spoof is rejected | `cmd/ja4pd/pentest_proxy_parser_regression_test.go::TestRegression_JA4PROXY_2026_0001_StripsUntrustedHeader` | AUTOMATED |
 | REQ-200-09 | 200 | `config/proxy.yml` documents `proxy.upstream_trust` section with example | [MANUAL-REVIEW] | MANUAL-REVIEW |
 | REQ-200-10 | 200 | CHANGELOG.md entry written | [MANUAL-REVIEW] | MANUAL-REVIEW |
 | REQ-200-11 | 200 | `make lint-go-full` passes with zero warnings | [MANUAL-REVIEW] | MANUAL-REVIEW |

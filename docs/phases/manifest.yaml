@@ -80,6 +80,7 @@ epics:
   - 51
   - 52
   - 105
+  - 305
 - name: 'Epic: Operational Excellence & Lifecycle Management'
   description: Zero-downtime upgrades, robust health monitoring, and deployment orchestration.
   phases:
@@ -2488,3 +2489,11 @@ phases:
     dependencies: []
     size: SMALL
     summary: 'docker-compose.prod.yml published several "internal only" services (proxy 8080/9090, analytics, tarpit, loki, prometheus) on 0.0.0.0 — unnecessary attack surface (only grafana + haproxy-stats were correctly loopback-bound). Removed host ports for purely-internal services (network DNS reaches them; verified prometheus.yml scrapes by service name) and bound the Prometheus UI to ${AGENT_BIND_IP:-127.0.0.1}. Only haproxy 443/80 stay public. Also fixed `make clean` aborting on an incomplete .env (CLEAN_DUMMY_ENV + conditional --env-file).'
+  305:
+    name: Documentation Coherence, Setup Standardization, and Link Remediation
+    status: COMPLETE
+    completed: 2026-06-10
+    action_plan: docs/phases/PHASE_305.md
+    dependencies: []
+    size: SMALL
+    summary: Establish a coherent documentation system, standardize onboarding instructions on the setup wizard (make init), clear out legacy Python proxy references, and resolve all broken links and metadata errors.

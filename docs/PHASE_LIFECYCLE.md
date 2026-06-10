@@ -14,10 +14,9 @@ content, more enforcement detail — is in
 [`../../AGENTS.md`](../../AGENTS.md). Where this page summarises a rule,
 that file is the source of truth.
 
-> **Production runtime is the Go proxy.** A phase that adds a signal
-> usually lands implementations in both Python (prototype) and Go
-> (production), with `make check-scores` and `make parity-check` enforcing
-> equivalence.
+> **Production runtime is the Go proxy daemon (`ja4pd`).** A phase that adds a signal
+> lands implementations in Go, and the configuration wizard (`make init`) or Go CLI (`ja4p`)
+> handles configuration and verification.
 
 ---
 
@@ -133,7 +132,7 @@ hand. The script runs ruff, gofmt, go vet, go test, `make test`, and
 - [ ] All acceptance criteria in `docs/phases/PHASE_NN.md` satisfied.
 - [ ] `make test` is fully green locally (paste tail into PR description).
 - [ ] `CHANGELOG.md` has a Phase NN entry in the standard format
-      (see [`../DOCUMENTATION_STANDARDS.md`](../DOCUMENTATION_STANDARDS.md)).
+      (see [`DOCUMENTATION_STANDARDS.md`](DOCUMENTATION_STANDARDS.md)).
 - [ ] `docs/REDIS_SCHEMA.md` updated for every new Redis key.
 - [ ] If scoring/pipeline affected: `make check-scores` and
       `make parity-check` exit 0.
@@ -155,9 +154,9 @@ critical review, post-merge verification — is in
 ## Cross-references
 
 - Architectural rules and decision log:
-  [`../../CLAUDE.md`](../../CLAUDE.md)
+  [`../CLAUDE.md`](../CLAUDE.md)
 - Agent-orchestration variant of this protocol:
-  [`../../AGENTS.md`](../../AGENTS.md)
+  [`../AGENTS.md`](../AGENTS.md)
 - Branch flow, commit conventions, keep-main-green policy:
   [`HOW_WE_WORK.md`](HOW_WE_WORK.md)
 - Test discipline and the phase gate:
@@ -165,4 +164,4 @@ critical review, post-merge verification — is in
 - CI workflows and quality gates:
   [`QUALITY_PLAN.md`](QUALITY_PLAN.md)
 - Documentation standards (CHANGELOG, REDIS_SCHEMA, ADR formats):
-  [`../DOCUMENTATION_STANDARDS.md`](../DOCUMENTATION_STANDARDS.md)
+  [`DOCUMENTATION_STANDARDS.md`](DOCUMENTATION_STANDARDS.md)

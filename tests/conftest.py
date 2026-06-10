@@ -35,6 +35,14 @@ development machine pytest exits normally, which lets asyncio clean up
 pending tasks cleanly and produces no spurious warnings.
 """
 
+import os
+
+# Force dev environment and info logging level for pytest runs.
+# This prevents settings from the production .env file (e.g. ENVIRONMENT=production, LOG_LEVEL=WARNING)
+# from causing test failures or refusing to start.
+os.environ["ENVIRONMENT"] = "dev"
+os.environ["LOG_LEVEL"] = "INFO"
+
 import ast
 import asyncio
 import inspect

@@ -228,8 +228,8 @@ func NewPipeline(cfg *PipelineConfig, redis RedisReader, log *logrus.Logger) *Pi
 		log:       log,
 		Whitelist: cfg.Whitelist,
 		Blacklist: cfg.Blacklist,
-		cache:         NewDecisionCache(10000),
-		workChan:      make(chan *ConnectionContext, 10000),
+		cache:     NewDecisionCache(10000),
+		workChan:  make(chan *ConnectionContext, 10000),
 	}
 	p.tlsEnforcer = NewTLSEnforcer(buildTLSEnforcerConfig(cfg), log)
 	p.sniAnalyzer = NewSNIAnalyzer(buildSNIAnalyzerConfig(cfg), log)
