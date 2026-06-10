@@ -57,7 +57,7 @@ async def handle_tarpit_connection(reader, writer):
     TARPIT_ACTIVE.inc()
     start_time = time.time()
 
-    logger.info(f"TARPIT: Trapping connection from {client_ip}")
+    logger.info("TARPIT: Trapping connection from %s", client_ip)
 
     try:
         # Trickle bytes slowly
@@ -72,12 +72,12 @@ async def handle_tarpit_connection(reader, writer):
     except (ConnectionResetError, BrokenPipeError, asyncio.CancelledError):
         pass
     except Exception as e:
-        logger.debug(f"Tarpit connection ended: {e}")
+        logger.debug("Tarpit connection ended: %s", e)
     finally:
         duration = time.time() - start_time
         TARPIT_DURATION.observe(duration)
         TARPIT_ACTIVE.dec()
-        logger.info(f"TARPIT: Released {client_ip} after {duration:.1f}s")
+        logger.info("TARPIT: Released %s after %.1fs", client_ip, duration)
         try:
             writer.close()
             await writer.wait_closed()
@@ -93,7 +93,7 @@ async def main():
 
     # Start metrics server
     start_http_server(TARPIT_METRICS_PORT)
-    logger.info(f"Tarpit metrics on :{TARPIT_METRICS_PORT}")
+    logger.info("Tarpit metrics on :%s", TARPIT_METRICS_PORT)
 
     # Semaphore to limit concurrent connections
     sem = asyncio.Semaphore(TARPIT_MAX_CONNECTIONS)
@@ -103,8 +103,8 @@ async def main():
             await handle_tarpit_connection(reader, writer)
 
     server = await asyncio.start_server(limited_handler, "0.0.0.0", TARPIT_PORT)
-    logger.info(f"Tarpit server listening on :{TARPIT_PORT}")
-    logger.info(f"Tarpit duration: {TARPIT_DURATION_SECS}s per connection")
+    logger.info("Tarpit server listening on :%s", TARPIT_PORT)
+    logger.info("Tarpit duration: %ss per connection", TARPIT_DURATION_SECS)
 
     # Graceful shutdown
     loop = asyncio.get_event_loop()

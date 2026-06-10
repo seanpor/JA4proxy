@@ -255,11 +255,14 @@ func runWizard() {
 
 	switch choice {
 	case "1":
-		setupScenario("POC", "backend", 443, "development", projectName, offset)
+		// phase-306 (from PR #95): the bundled dev/POC backend listens on 8443
+		// (443 is HAProxy's ingress). Production (case 4) points at a real
+		// HTTPS backend on 443 and is unchanged.
+		setupScenario("POC", "backend", 8443, "development", projectName, offset)
 	case "2":
-		setupScenario("Development", "backend", 443, "development", projectName, offset)
+		setupScenario("Development", "backend", 8443, "development", projectName, offset)
 	case "3":
-		setupScenario("Performance", "backend", 443, "production", projectName, offset)
+		setupScenario("Performance", "backend", 8443, "production", projectName, offset)
 	case "4":
 		fmt.Print("Enter backend host (e.g., 10.0.0.50): ")
 		host, _ := reader.ReadString('\n')

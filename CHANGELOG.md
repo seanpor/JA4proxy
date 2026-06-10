@@ -7,7 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Performance
+- **Go proxy hot-path tuning (Phase 306, from PR #95)**: the bidirectional
+  forward loop now reuses 32KB buffers from a `sync.Pool` instead of allocating
+  one per connection (removes per-connection GC pressure under load); the Redis
+  client pool is pre-warmed (`PoolSize: 100`, `MinIdleConns: 10`) to avoid
+  cold-start dial latency; and async risk scoring fans out across a **fixed**
+  pool of 32 worker goroutines (was 1) draining a deeper `workChan`
+  (10000 → 20000) so accept bursts are absorbed rather than serialised. Also
+  fixed the dev/POC/Performance wizard scenarios and the POC health check to use
+  the real backend port **8443** (was 443, which is HAProxy's ingress;
+  Production, a real HTTPS backend, stays 443), and switched `tarpit-server.py`
+  to lazy `%s` logging. These are the legitimate wins from external PR #95,
+  re-landed on a clean branch without the regressions it carried (see Security
+  and Fixed below).
+
+### Fixed
+- **ATT&CK mapping doc + CI gate (Phase 306)**: `docs/ATTACK_MAPPING.md` and its
+  CI gate `tests/test_attack_mapping.py` were **both broken on `main`** — the doc
+  had been relocated to `docs/` but the test still pointed at
+  `docs/for-architects/` (so it failed with `FileNotFoundError`), and the doc
+  still listed retired Python-prototype source files (`src/security/*.py`, gone
+  since v2.0.0). The retired-prototype rows were removed, the two genuine
+  rate-tracker rows repointed to `internal/security/rate_limiter.go`, and the
+  test path corrected — the gate now passes for the first time. (External PR #95
+  had instead run a blind `*.py → *.go` find-replace that produced
+  self-contradictory rows; that approach was discarded in favour of this one.)
+
 ### Security
+- **Forward-path idle timeout restored (Phase 306)**: PR #95's switch to a
+  deadline-free copy in the Go proxy's `forward()` silently removed the per-read
+  `SetReadDeadline(read_timeout)` / `SetWriteDeadline(write_timeout)`
+  idle-connection reaper. That re-opened a resource-exhaustion vector — a
+  slowloris / idle-hold client would pin a goroutine **and** a pooled buffer
+  indefinitely, and the operator-configured `read_timeout` / `write_timeout`
+  knobs became dead. The reaper is restored **inside** the new pooled-buffer copy
+  (the buffer-pool win and the deadlines coexist), guarded by a new Go regression
+  test (`TestForward_IdleConnectionIsReaped`) that tears down an idle pair at
+  `read_timeout` and would hang/fail if the deadlines are ever removed again. The
+  per-connection decision log was kept at **Info** (PR #95 demoted it to Debug)
+  to preserve the audit trail.
 - **CodeQL code-scanning triage (Phase 305)**: worked through the 14 CodeQL
   Python findings (+1 Go bench) that enabling code scanning (Phase 302)
   surfaced. **Three were genuine, all in the Management-API web layer** and are
