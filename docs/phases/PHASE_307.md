@@ -1,5 +1,5 @@
 ---
-phase: 305
+phase: 307
 title: Documentation Coherence, Setup Standardization, and Link Remediation
 status: COMPLETE
 size: SMALL
@@ -54,7 +54,7 @@ The following files are in scope for modification to align them with the archite
 | `docs/runbooks/REMOTE_TESTING.md` | **Modify** — Add the missing frontmatter header block to pass `make doc-health`. |
 | `docs/for-architects/EVALUATION_GUIDE.md` | **Modify** — Add the missing frontmatter header block to pass `make doc-health`. |
 | `scripts/start-monitoring.sh` | **Modify** — Update console log output to refer to `docs/OPERATIONS_GUIDE.md#📊-viewing-logs-&-assets` instead of `docs/MONITORING_SETUP.md`. |
-| `docs/phases/manifest.yaml` | **Modify** — Register Phase 305 under the User Interface & Experience epic. |
+| `docs/phases/manifest.yaml` | **Modify** — Register Phase 307 under the User Interface & Experience epic. |
 
 ---
 
