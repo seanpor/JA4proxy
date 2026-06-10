@@ -1,8 +1,9 @@
-import subprocess
 import os
 import re
-import pytest
+import subprocess
 from pathlib import Path
+
+import pytest
 
 # Repo root, resolved relative to this test file (not a hardcoded dev path).
 ROOT = str(Path(__file__).resolve().parents[2])

@@ -7,22 +7,21 @@ phase: 21
 
 # JA4proxy — Go Port Guide
 
-> **Audience:** Developers porting Python signals to Go
-> **Purpose:** Comprehensive guide for Phase 15 Go rewrite contributions
-> **Last Reviewed:** 2026-03-27
-> **Status:** Active development (Phase 15 — 87.5% complete)
-> **Related:** [Go Proxy Operations](../runbooks/go_proxy_operations.md) · [Phase 15 Documentation](../phases/complete/PHASE_15.md)
+> **Audience:** Developers writing security signals and working on the Go proxy core
+> **Purpose:** Comprehensive guide for Go proxy development
+> **Last Reviewed:** 2026-06-09
+> **Status:** Production-Ready (Go proxy daemon is the sole runtime)
+> **Related:** [Go Proxy Operations](../runbooks/go_proxy_operations.md)
 
 ---
 
 ## Executive Summary
 
-This guide provides everything you need to port Python signal modules to Go for Phase 15. The Go proxy achieves **30× throughput improvement** while maintaining **100% score parity** with the Python implementation.
+This guide provides developer context for working on the Go proxy daemon (`ja4pd`) and the `ja4p` CLI. The Go proxy daemon achieves maximum performance and sub-millisecond connection handling latency.
 
 **Key Resources:**
-- 📁 **Go Code:** `cmd/proxy/` and `internal/`
-- 📄 **Python Reference:** `src/security/` modules
-- 🧪 **Parity Tests:** `tests/parity/`
+- 📁 **Go Code:** `cmd/ja4pd/`, `cmd/ja4p/`, and `internal/`
+- 🧪 **Tests:** `tests/`
 - 📊 **Benchmarks:** `docs/reports/PERFORMANCE_BENCHMARK.md`
 
 ---
@@ -46,17 +45,17 @@ GOROOT=/snap/go/current go version
 ### Build and Run
 
 ```bash
-# Build Go proxy
-GOROOT=/snap/go/current go build -o ja4proxy ./cmd/proxy/
+# Initialize the development environment
+make init
 
-# Run with config
-./ja4proxy --config config/proxy.yml
+# Build Go proxy daemon and CLI
+make build
 
-# Docker build (Go proxy is the default in poc.yml)
+# Run Go proxy daemon locally
+./bin/ja4pd
+
+# Docker build
 docker compose -f deploy/docker/docker-compose.poc.yml build proxy
-
-# Run Go proxy
-docker compose -f deploy/docker/docker-compose.poc.yml up -d proxy
 ```
 
 ### Development Workflow
@@ -753,7 +752,7 @@ GOROOT=/snap/go/current go test ./... -v
 golangci-lint run
 
 # Build binary
-GOROOT=/snap/go/current go build -o ja4proxy ./cmd/proxy/
+GOROOT=/snap/go/current go build -o bin/ja4pd ./cmd/ja4pd/
 ```
 
 ### Run Parity Tests
