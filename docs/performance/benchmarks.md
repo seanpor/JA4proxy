@@ -198,5 +198,5 @@ Values carried forward from earlier estimates:
 |------|---------|----------|---------------------|----------|-------|
 | 2026-04-11 | b0dd515 | pipeline-micro (bypass) | 2,036,000 decisions/s single-core | ~0.002 | Dev host i9-9900K, no Redis, no IO — pipeline cost only |
 | 2026-04-11 | b0dd515 | pipeline-micro (full-signal) | 501,500 decisions/s single-core | ~0.004 | Dev host i9-9900K, no Redis, no IO — pipeline cost only |
-| 2026-06-10 | 76504c8 | host-native macro (`make bench-hostnative`, 32 workers) | ~3,263 conn/s | ~25 (p99) | i9-9900K, host networking, Redis + real TLS backend, 0 errors / 0% FP |
-| 2026-06-10 | 76504c8 | end-to-end bridge macro (`docker-proxy`) | ~600 conn/s | ~290 (p95) | Same code/host; `docker-proxy` ceiling — do not deploy/benchmark this way |
+| 2026-06-10 | 76504c8 | host-native macro (`make bench-hostnative`, 32 workers) | 3,263 conn/s | ~25 (p99) | i9-9900K, host networking, Redis + real TLS backend, 0 errors / 0% FP |
+| 2026-06-10 | 76504c8 | end-to-end bridge macro (`docker-proxy`) | 600 conn/s | ~290 (p95) | Same code/host; `docker-proxy` ceiling — do not deploy/benchmark this way |
