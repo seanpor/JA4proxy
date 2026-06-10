@@ -133,7 +133,21 @@ the WP's acceptance gate requires checking claims against that source.
 
 ### WP-6 — Reference/schema docs
 - `REDIS_SCHEMA` (every key vs code), `OBSERVABILITY_STANDARDS` (metric names vs `internal/metrics`), `MAKEFILE_TARGETS`/`SERVICE_TARGETS`/`SCRIPTS` (vs Makefile/scripts), `config/proxy.yml` inline docs.
-- **Acceptance:** every documented key/metric/target/script exists; orphans removed; missing ones added.
+- **Done:** `MAKEFILE_TARGETS.md` Benchmarking section corrected — it listed
+  `bench-quick`/`bench-go`/`bench-python` (none exist) and a wrong `bench`
+  description; replaced with the verified targets (`bench`, `bench-micro`,
+  `bench-macro`, `bench-hostnative`, `bench-all`). Fixed a `bench-quick`
+  reference in `benchmarks.md`.
+- **Deferred — metrics reconciliation (large, careful):** `OBSERVABILITY_STANDARDS.md`
+  is heavily pre-Go-rewrite. Measured drift: **30** emitted `ja4proxy_*` metrics
+  undocumented; **~40** documented metrics exist nowhere in Go **or** Python
+  source; plus renames (`abuseipdb_lookup_total`→`…lookups_total`,
+  `concurrent_connections`→`active_connections`). Authoritative set = Go (~49,
+  `internal/`+`cmd/`) ∪ Python (~26, `src/`). Reconciling all ~70 per-metric
+  entries is its own focused pass — do **not** rush it (same lesson as the
+  tables). `REDIS_SCHEMA.md` likely needs the same key-by-key treatment.
+- **Acceptance (when resumed):** every documented key/metric/target/script
+  exists in code; orphans removed; missing ones added.
 
 ### WP-7 — Runbooks (46) — batched
 - Verify each runbook's procedures/commands run against the current system. Ship in batches (~8–10 runbooks per PR) to keep chunks reviewable.
