@@ -28,11 +28,14 @@ BASE_PORT = 9443
 def serve_capture(port: int, name: str, done_event: threading.Event):
     """Listen on port, capture one ClientHello per connection until done_event set."""
     FIXTURES_DIR.mkdir(parents=True, exist_ok=True)
-    # nosemgrep: python.lang.security.audit.network.bind.avoid-bind-to-all-interfaces
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.settimeout(1.0)
-    sock.bind(("0.0.0.0", port))
+    # phase-308: bind loopback only. This fixture recorder is driven entirely by
+    # local clients (generate_fixtures.sh connects to 127.0.0.1:9443-9446), so it
+    # never needs to accept off-host connections — closes CodeQL
+    # py/bind-socket-all-network-interfaces without changing behaviour.
+    sock.bind(("127.0.0.1", port))
     sock.listen(5)
     seq = 0
     print(f"[{name}] listening on port {port}", flush=True)
