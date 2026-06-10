@@ -21,8 +21,8 @@ anomalies. These are operational incidents (proxy misbehaving), not security inc
 
 | Metric | Normal | Investigate |
 |--------|--------|-------------|
-| `ja4proxy_pipeline_unexpected_errors_total` | 0 (must be zero) | Any non-zero value |
-| `ja4proxy_exception_handled_total{module="pipeline"}` | < 1/s | > 5/s sustained |
+| `ja4proxy_connection_errors_total` | 0 (must be zero) | Any non-zero value |
+| `ja4proxy_handler_panics_total` | < 1/s | > 5/s sustained |
 | `ja4proxy_signal_error_total` | 0 in normal operation | Any sustained rate |
 | `ja4proxy_signal_skipped_total` | Low; spikes if Redis/DNS degrades | > 10/s sustained |
 | `ja4proxy_dns_ptr_errors_total` | < 0.5/s | > 5/s sustained |
@@ -30,7 +30,7 @@ anomalies. These are operational incidents (proxy misbehaving), not security inc
 
 ### Alerting Rules
 
-- **`PipelineInternalError`** (severity: critical, fires immediately) — `ja4proxy_pipeline_unexpected_errors_total` is non-zero
+- **`PipelineInternalError`** (severity: critical, fires immediately) — `ja4proxy_connection_errors_total` is non-zero
 - **`ExceptionRateSpike`** (severity: warning, fires after 5m) — exception rate 2× above 1-hour baseline in any module
 
 ---

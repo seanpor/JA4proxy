@@ -195,6 +195,17 @@ the WP's acceptance gate requires checking claims against that source.
 
 ### WP-7 — Runbooks (46) — batched
 - Verify each runbook's procedures/commands run against the current system. Ship in batches (~8–10 runbooks per PR) to keep chunks reviewable.
+- **Batch 1 done (source-verified mechanical fixes across 9 runbooks):**
+  `ja4proxy_redis_errors_total` → `redis_operations_total{result="error"}`
+  (analytics_lag, gameday_scenarios, redis_operations, rolling_upgrade,
+  disaster_recovery); `pipeline_unexpected_errors_total`/`exception_handled_total`
+  → `connection_errors_total`/`handler_panics_total` (security_incident_response,
+  matching the WP-6 alert reconciliation); `cmd/proxy`→`cmd/ja4pd`,
+  `bin/proxy`/`bin/ja4proxy`→`bin/ja4pd` (go_proxy_migration, go_proxy_operations,
+  infrastructure, rolling_upgrade). Runbook/alert tests green (214).
+- **Residual:** the remaining 37 runbooks weren't prose-audited; signals in
+  datadog_migration_phase86i / scaling / REMOTE_TESTING looked contextual
+  (historical) but warrant a read in a later batch.
 - **Acceptance:** per-batch claims ledger; dead procedures fixed or retired.
 
 ### WP-8 — Security docs (18)

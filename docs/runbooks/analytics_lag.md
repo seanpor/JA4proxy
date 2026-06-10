@@ -234,7 +234,7 @@ Escalate to the on-call engineer if:
 - Consumer lag exceeds 10 minutes and analytics container shows no CPU activity.
 - `XPENDING` shows messages with idle time > 5 minutes (stuck consumer, not just slow).
 - Stream trimming has already occurred (oldest entry ID is newer than the lag start time).
-- Redis memory pressure is causing stream writes to fail (`ja4proxy_redis_errors_total`
+- Redis memory pressure is causing stream writes to fail (`ja4proxy_redis_operations_total{result="error"}`
   increments for `XADD` operations).
 - Analytics container has restarted more than 3 times in the past hour (CrashLoopBackOff
   pattern).

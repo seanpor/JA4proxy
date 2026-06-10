@@ -18,7 +18,7 @@ For higher loads, tune the GC target:
 
 ```bash
 # Set GC target to 200% (reduces GC frequency at cost of higher peak memory)
-GOGC=200 bin/ja4proxy
+GOGC=200 bin/ja4pd
 
 # Or in Docker:
 environment:
@@ -38,7 +38,7 @@ The Go runtime defaults to returning memory to the OS aggressively. If you see
 excessive page faults under bursty traffic, set:
 
 ```bash
-GOMEMLIMIT=512MiB bin/ja4proxy
+GOMEMLIMIT=512MiB bin/ja4pd
 ```
 
 ## Goroutine Leak Detection
@@ -244,7 +244,7 @@ reader is not actively probed on the hot path (that would be a syscall
 storm); a future revision may add active probing with its own anti-flap.
 
 **Response body shape** (produced by `handleHealthDeep` in
-`cmd/proxy/main.go`):
+`cmd/ja4pd/main.go`):
 
 ```json
 {

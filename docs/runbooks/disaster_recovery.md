@@ -58,7 +58,7 @@ commands. Replace the generic names with your actual service names.
 ## Scenario 1: Redis failure
 
 **Symptoms:**
-- `ja4proxy_redis_errors_total` metric spikes in Grafana/Prometheus
+- `ja4proxy_redis_operations_total{result="error"}` metric spikes in Grafana/Prometheus
 - Health endpoint reports `"redis": "unreachable"` or `"redis": "degraded"`
 - New bot bans stop appearing; existing bans may still be enforced (cached)
 - Rate limiting is disabled — all connections bypass the rate limiter
