@@ -6,7 +6,7 @@
 > **Owner:** Gemini CLI
 
 ## Goal
-Update the official JA4proxy PDF brochure (`docs/pdf/brochure/`) to accurately reflect the v2.0.0 Go-native architecture, elite performance metrics, and production-ready status.
+Update the official JA4proxy PDF brochure (`docs/pdf/brochure/`) to accurately reflect the v2.0.0 Go-native architecture, verified performance metrics, and production-ready status.
 
 ## Scope
 
