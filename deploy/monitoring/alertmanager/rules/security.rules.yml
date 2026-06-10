@@ -28,23 +28,29 @@ groups:
           runbook_url: "https://github.com/seanpor/JA4proxy/blob/main/docs/runbooks/feed_management.md"
 
       - alert: PipelineInternalError
-        expr: rate(ja4proxy_pipeline_unexpected_errors_total[1m]) > 0
+        # phase-309 WP-6: was ja4proxy_pipeline_unexpected_errors_total (not emitted
+        # by the Go proxy); ja4proxy_connection_errors_total is the real signal —
+        # "unhandled errors in the connection handler before a policy decision".
+        expr: rate(ja4proxy_connection_errors_total[1m]) > 0
         for: 0m
         labels: {severity: critical}
         annotations:
-          summary: "Pipeline internal error ({{ $labels.phase }})"
-          description: "An unexpected exception was re-raised in the pipeline. Check logs immediately."
+          summary: "Connection-handler internal error"
+          description: "An unhandled error occurred in the connection handler before a policy decision. Check logs immediately."
           runbook: "docs/runbooks/security_incident_response.md#pipeline-internal-error"
           runbook_url: "https://github.com/seanpor/JA4proxy/blob/main/docs/runbooks/security_incident_response.md"
 
       - alert: ExceptionRateSpike
+        # phase-309 WP-6: was ja4proxy_exception_handled_total (not emitted by the
+        # Go proxy); ja4proxy_handler_panics_total (recovered handler panics) is
+        # the real Go signal for the same intent.
         expr: |
-          rate(ja4proxy_exception_handled_total[5m]) > 2 *
-          avg_over_time(rate(ja4proxy_exception_handled_total[5m])[1h:5m])
+          rate(ja4proxy_handler_panics_total[5m]) > 2 *
+          avg_over_time(rate(ja4proxy_handler_panics_total[5m])[1h:5m])
         for: 5m
         labels: {severity: warning}
         annotations:
-          summary: "Exception rate 2× above 1h baseline in {{ $labels.module }}"
-          description: "Spike may indicate new failure mode. Current: {{ $value | humanize }}/s"
+          summary: "Recovered handler-panic rate 2× above 1h baseline"
+          description: "Spike may indicate a new failure mode. Current: {{ $value | humanize }}/s"
           runbook: "docs/runbooks/security_incident_response.md#exception-rate-spike"
           runbook_url: "https://github.com/seanpor/JA4proxy/blob/main/docs/runbooks/security_incident_response.md"

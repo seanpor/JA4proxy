@@ -156,6 +156,24 @@ the WP's acceptance gate requires checking claims against that source.
   `internal/`+`cmd/`) ∪ Python (~26, `src/`). Reconciling all ~70 per-metric
   entries is its own focused pass — do **not** rush it (same lesson as the
   tables). `REDIS_SCHEMA.md` likely needs the same key-by-key treatment.
+- **Live alert reconciliation (partial):** the **deployed** rules
+  (`deploy/monitoring/alertmanager/rules/security.rules.yml`,
+  `deploy/monitoring/prometheus/alerts.yml`) referenced metrics the Go proxy
+  never emits, so those alerts could never fire.
+  - **Fixed (existing Go equivalent):** `PipelineInternalError`
+    (`pipeline_unexpected_errors_total` → `connection_errors_total`) and
+    `ExceptionRateSpike` (`exception_handled_total` → `handler_panics_total`).
+    Alert-rule tests stay green (227).
+  - **CODE GAP — needs metrics added to the Go proxy (not a doc fix):**
+    `AbuseIPDBQuotaExhausted` (`ja4proxy_abuseipdb_quota_exhausted`),
+    `SpamhausDownloadFailed` (`ja4proxy_blocklist_download_errors_total`),
+    `SpamhausListStale` (`ja4proxy_blocklist_last_refresh_success_seconds`),
+    `BeaconingDetected` (`ja4proxy_beaconing_suspects`). These alerts **and the
+    tests that assert their presence** expect metrics the Go runtime doesn't
+    emit (the Go blocklist manager emits only `blocklist_matches_total`; there
+    is no quota gauge, no feed download/refresh metric, no beaconing-suspect
+    gauge). Not disabled (tests require them). **Follow-on code phase:** emit
+    these metrics from the Go proxy so the intended alerts work.
 - **Acceptance (when resumed):** every documented key/metric/target/script
   exists in code; orphans removed; missing ones added.
 
@@ -230,6 +248,12 @@ Surfaced during this work; to be planned as their own phases:
 - **Management UI + Grafana enablement & screenshots.** Stand up the Management
   interface and Grafana, capture good screenshots for the brochure, and ensure
   both are properly documented. Feeds the WP-4 brochure messaging rework.
+- **Go proxy metric gaps for alerting (code).** The deployed alert rules expect
+  metrics the Go proxy doesn't emit: `ja4proxy_abuseipdb_quota_exhausted`,
+  `ja4proxy_blocklist_download_errors_total`,
+  `ja4proxy_blocklist_last_refresh_success_seconds`, `ja4proxy_beaconing_suspects`.
+  Add these to the Go runtime so `AbuseIPDBQuotaExhausted` / `SpamhausDownloadFailed`
+  / `SpamhausListStale` / `BeaconingDetected` can actually fire (surfaced in WP-6).
 - **Brochure messaging rework** — see WP-4 (pending a positioning discussion).
 - **docs/*.md information architecture** — see WP-10.
 
