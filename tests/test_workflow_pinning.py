@@ -44,22 +44,27 @@ KNOWN_ACTION_SHAS: dict[str, dict[str, str]] = {
     # phase-302: Dependabot auto-merge workflow
     "dependabot/fetch-metadata": {
         "v2.3.0": "d7267f607e9d3fb96fc2fbe83e0af444713e90b7",
+        "v3.1.0": "25dd0e34f4fe68f24cc83900b1fe3fe149efef98",  # phase-307 (PR #105)
     },
     "actions/checkout": {
         "v4.1.1": "b4ffde65f46336ab88eb53be808477a3936bae11",  # scorecard.yml
         "v4.2.2": "11bd71901bbe5b1630ceea73d27597364c9af683",
         "v6.0.2": "de0fac2e4500dabe0009e67214ff5f5447ce83dd",
+        "v6.0.3": "df4cb1c069e1874edd31b4311f1884172cec0e10",  # phase-307 (PR #105)
     },
     # phase-227: Trivy DB cache in the scan job (ci.yml)
     "actions/cache": {
         "v4.2.3": "5a3ec84eff668545956fd18022155c47e93e2684",
+        "v5.0.5": "27d5ce7f107fe9357f9df03efb73ab90386fccae",  # phase-307 (PR #105)
     },
     # scorecard.yml (OpenSSF Scorecard workflow) — verified via git ls-remote
     "ossf/scorecard-action": {
         "v2.3.1": "0864cf19026789058feabb7e87baa5f140aac736",
+        "v2.4.3": "4eaacf0543bb3f2c246792bd56e8cdeffafb205a",  # phase-307 (PR #105)
     },
     "github/codeql-action/upload-sarif": {
         "v3.35.4": "7fd177fa680c9881b53cdab4d346d32574c9f7f4",
+        "v4.36.2": "8aad20d150bbac5944a9f9d289da16a4b0d87c1e",  # phase-307 (PR #105)
     },
     "actions/setup-go": {
         "v5.2.0": "3041bf56c941b39c61721a86cd11f3bb1338122a",
@@ -73,6 +78,7 @@ KNOWN_ACTION_SHAS: dict[str, dict[str, str]] = {
     "trufflesecurity/trufflehog": {
         "v3.88.2": "a94d152bf65bebf5baa486d3d4dfee520af2ceed",
         "v3.94.3": "47e7b7cd74f578e1e3145d48f669f22fd1330ca6",
+        "v3.95.5": "d411fff7b8879a62509f3fa98c07f247ac089a51",  # phase-307 (PR #105)
     },
     "returntocorp/semgrep-action": {
         "v1": "713efdd345f3035192eaa63f56867b88e63e4e5d",
@@ -80,6 +86,7 @@ KNOWN_ACTION_SHAS: dict[str, dict[str, str]] = {
     "actions/dependency-review-action": {
         "v4.5.0": "3b139cfc5fae8b618d3eae3675e383bb1769c019",
         "v4.9.0": "2031cfc080254a8a887f58cffee85186f0e49e48",
+        "v5.0.0": "a1d282b36b6f3519aa1f3fc636f609c47dddb294",  # phase-307 (PR #105)
     },
     # phase-107w.3: lychee link-check workflow (docs-link-check.yml)
     "lycheeverse/lychee-action": {
@@ -100,31 +107,38 @@ KNOWN_ACTION_SHAS: dict[str, dict[str, str]] = {
     "goreleaser/goreleaser-action": {
         "v6.3.0": "9c156ee8a17a598857849441385a2041ef570552",
         "v7.0.0": "ec59f474b9834571250b370d4735c50f8e2d1e29",
+        "v7.2.2": "5daf1e915a5f0af01ddbcd89a43b8061ff4f1a89",  # phase-307 (PR #105)
     },
     "docker/setup-qemu-action": {
         "v3.2.0": "49b3bc8e6bdd4a60e6116a5414239cba5943d3cf",
         "v4.0.0": "ce360397dd3f832beb865e1373c09c0e9f86d70a",
+        "v4.1.0": "06116385d9baf250c9f4dcb4858b16962ea869c3",  # phase-307 (PR #105)
     },
     "docker/setup-buildx-action": {
         "v3.8.0": "6524bf65af31da8d45b59e8c27de4bd072b392f5",
         "v4.0.0": "4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd",
+        "v4.1.0": "d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5",  # phase-307 (PR #105)
     },
     "docker/login-action": {
         "v3.3.0": "9780b0c442fbb1117ed29e0efdff1e18412f7567",
         "v4.1.0": "4907a6ddec9925e35a0a9e82d7399ccc52663121",
+        "v4.2.0": "650006c6eb7dba73a995cc03b0b2d7f5ca915bee",  # phase-307 (PR #105)
     },
     "docker/metadata-action": {
         "v5.6.1": "369eb591f429131d6889c46b94e711f089e6ca96",
         "v6.0.0": "030e881283bb7a6894de51c315a6bfe6a94e05cf",
+        "v6.1.0": "80c7e94dd9b9319bd5eb7a0e0fe9291e23a2a2e9",  # phase-307 (PR #105)
     },
     "docker/build-push-action": {
         "v6.13.0": "ca877d9245402d1537745e0e356eab47c3520991",
         "v7.1.0": "bcafcacb16a39f128d818304e6c9c0c18556b85f",
+        "v7.2.0": "f9f3042f7e2789586610d6e8b85c8f03e5195baf",  # phase-307 (PR #105)
     },
     # phase-202d — Go proxy image CI workflow (go-proxy-image.yml)
     "sigstore/cosign-installer": {
         "v3.7.0": "dc72c7d5c4d10cd6bcb8cf6e3fd625a9e5e537da",
         "v4.1.1": "cad07c2e89fa2edd6e2d7bab4c1aa38e53f76003",
+        "v4.1.2": "6f9f17788090df1f26f669e9d70d6ae9567deba6",  # phase-307 (PR #105)
     },
     "anchore/sbom-action": {
         "v0.17.8": "55dc4ee22412511ee8c3142cbea40418e6cec693",
@@ -133,6 +147,7 @@ KNOWN_ACTION_SHAS: dict[str, dict[str, str]] = {
     "aquasecurity/trivy-action": {
         "v0.29.0": "18f2510ee396bbf400402947b394f2dd8c87dbb0",
         "v0.35.0": "57a97c7e7821a5776cebc9bb87c984fa69cba8f1",
+        "v0.36.0": "ed142fd0673e97e23eac54620cfb913e5ce36c25",  # phase-307 (PR #105)
     },
     # phase-202a — SLSA reusable workflow, SHA-pinned per ADR-202a Path A.
     # Full path-keyed because the uses: reference includes `.github/workflows/...yml`.
@@ -142,6 +157,10 @@ KNOWN_ACTION_SHAS: dict[str, dict[str, str]] = {
     # phase-105h — PDF docs build workflow (docs-pdf.yml). Per ADR-105a.
     "xu-cheng/latex-action": {
         "v3.3.0": "e2f99d4b3685b0da93f97e1b86ad8fab81105098",
+        # phase-307 (PR #105): upstream tags this release `4.1.0` / `v4` (no
+        # `v`-prefixed `v4.1.0` ref); Dependabot's comment normalises it to
+        # v4.1.0. SHA verified == refs/tags/4.1.0.
+        "v4.1.0": "6549dc21effb2730855a1281407ecfcececc6c1b",
     },
     "actions/upload-artifact": {
         "v4": "ea165f8d65b6e75b540449e92b4886f43607fa02",  # scorecard.yml
