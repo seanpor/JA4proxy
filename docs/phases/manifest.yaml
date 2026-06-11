@@ -2555,3 +2555,11 @@ phases:
     action_plan: docs/phases/PHASE_311.md
     size: SMALL
     summary: 'pip-audit (default pypi service) querying PyPI per-package JSON flaked the *required* Full Lint gate on transient 5xx/timeouts (e.g. scapy/2.7.0/json 503 on #121) — public red CI + maintainer emails, no actual finding. Added scripts/pip-audit-resilient.sh: passes args through, but retries with backoff on a service outage and SOFT-PASSES (CI warning, exit 0) if the vulnerability service is unreachable, while a REAL vulnerability still exits 1 (and any other non-zero fails safe). Wired into Makefile lint-static and the standalone dependency-audit-python CI job. Soft-pass is narrow (service-unreachable only); persistent gaps still covered by the weekly scheduled audit + standalone job + Dependabot. OSV-service switch rejected (would break the PyPI --ignore-vuln IDs). Stubbed-pip-audit unit test covers clean/real-vuln/transient/unknown; shellcheck clean; no new pinned action.'
+  312:
+    name: pip-audit Dual-Service Fallback — Shrink the Soft-Pass Window
+    status: COMPLETE
+    completed: 2026-06-11
+    action_plan: docs/phases/PHASE_312.md
+    dependencies: [311]
+    size: SMALL
+    summary: 'Extends the phase-311 wrapper: when the primary PyPI service is unreachable after retries, it now falls back to OSV.dev (-s osv --aliases on, so the PyPI-format --ignore-vuln CVE IDs still match via aliases) BEFORE the soft-pass. The warn-and-proceed soft-pass now requires BOTH PyPI and OSV down simultaneously (rare) — shrinking the only fail-open window to near-zero while staying live (no offline/stale DB). A real vulnerability on either path still fails; unknown errors fail safe. Unit test covers clean/vuln/double-outage/pypi-down→osv-clean/pypi-down→osv-vuln/bad-args; shellcheck clean. No Makefile/CI/tool changes (wrapper already wired in 311).'

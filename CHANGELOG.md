@@ -14,6 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   on a service outage and soft-passes with a CI warning if the vulnerability
   service is unreachable, while a **real vulnerability still fails the build**.
   Wired into `make lint` (`lint-static`) and the standalone dependency-audit job.
+- **CI resilience — `pip-audit` dual-service fallback (Phase 312)**: when PyPI is
+  unreachable the wrapper now falls back to **OSV.dev** before any soft-pass, so
+  the warn-and-proceed path requires *both* services down at once (rare) — while
+  staying live (no offline/stale DB). A real vulnerability on either path still
+  fails the build.
 
 ### Added
 - **Dev lanes + clean load test (Phase 310)**: each git worktree auto-gets a

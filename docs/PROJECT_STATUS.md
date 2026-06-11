@@ -368,6 +368,7 @@ Alignment with international standards and regulatory frameworks.
 | 309 | Documentation Content Audit — Source-of-Truth Review of All Docs | IN_PROGRESS | N/A | N/A |
 | 310 | Collision-Free Dev Environments + Clean Good/Bad Load Test | COMPLETE | N/A | N/A |
 | 311 | Resilient pip-audit — Stop PyPI Outages Reddening the Lint Gate | COMPLETE | N/A | N/A |
+| 312 | pip-audit Dual-Service Fallback — Shrink the Soft-Pass Window | COMPLETE | N/A | N/A |
 
 ---
 
