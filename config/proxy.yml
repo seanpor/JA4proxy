@@ -32,6 +32,13 @@ proxy:
   buffer_size: 8192
   # Enable PROXY protocol v2 support (for HAProxy)
   proxy_protocol: true
+  # phase-231a: write a PROXY protocol header to the BACKEND so a TLS-passthrough
+  # deployment preserves the real client IP/port without decrypting (e.g. nginx
+  # `proxy_protocol` / Apache `RemoteIPProxyProtocol`). Off by default; a config
+  # missing these keys loads with the safe defaults. Hot-reloadable.
+  write_proxy_protocol: false
+  # 1 = human-readable v1 header, 2 = binary v2 header. Any other value = v1.
+  write_proxy_protocol_version: 1
 
 # Redis configuration
 redis:

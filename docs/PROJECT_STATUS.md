@@ -356,6 +356,8 @@ Alignment with international standards and regulatory frameworks.
 | 227 | Scan & Build Caching | COMPLETE | N/A | N/A |
 | 228 | Human-Readable Scan Summaries | COMPLETE | N/A | N/A |
 | 229 | Base-Image Consolidation & Consistent Pinning | COMPLETE | N/A | N/A |
+| 231a | Single-Host Core — PROXY-Protocol Write, Manual-Ban Enforcement, CountKeys Fix | COMPLETE | N/A | N/A |
+| 231b | Single-Host Bootstrap — Wizard, systemd, Firewall, Backups | PROPOSED | N/A | N/A |
 | 300 | Environment Variable Audit | COMPLETE | N/A | N/A |
 | 301 | Environment Template Remediation | COMPLETE | N/A | N/A |
 | 302 | Repository Security Settings & Dependabot Automation | COMPLETE | N/A | N/A |

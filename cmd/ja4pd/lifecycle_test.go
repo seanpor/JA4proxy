@@ -152,7 +152,7 @@ func TestForward_Success(t *testing.T) {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		prx.forward(proxyConn, initialData)
+		prx.forward(proxyConn, initialData, "203.0.113.1", 40000)
 	}()
 
 	// The echo server will echo back initialData. Read from clientConn.
@@ -188,7 +188,7 @@ func TestForward_BackendUnreachable(t *testing.T) {
 	defer proxyConn.Close()
 
 	// Should return quickly without panic
-	prx.forward(proxyConn, []byte("test"))
+	prx.forward(proxyConn, []byte("test"), "203.0.113.1", 40000)
 }
 
 // ----- tarpit() tests -----
