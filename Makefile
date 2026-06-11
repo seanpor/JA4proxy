@@ -1340,3 +1340,7 @@ verify-all: ## Full release gate: lint + scan + test + bench-all — slow
 bench-hostnative: go-build cli-build ## End-to-end throughput, ja4pd host-native (no docker-proxy; ~4.5x the bridge port)
 	@chmod +x scripts/bench-hostnative.sh
 	@./scripts/bench-hostnative.sh
+
+scan-js: ## Scan the vendored Management-UI JS for known CVEs (retire.js)
+	@echo "-> retire.js CVE scan of management/static (vendored front-end JS)"
+	@npx --yes retire@5 --path management/static

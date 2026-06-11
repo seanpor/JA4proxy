@@ -38,4 +38,5 @@ npx tailwindcss@3 -c tailwind.config.js -i input.css -o ../static/tailwind.css -
 3. Recompute and update `SHA256SUMS`:
    `cd management/static && sha256sum alpine.min.js chart.umd.min.js htmx.min.js sse.js > SHA256SUMS`
 4. Bump the version in this table and re-run `pytest tests/unit/test_vendored_assets.py`.
-5. Check the new version against known-CVE advisories (e.g. `retire.js`) before committing.
+5. Check the new version against known-CVE advisories: `make scan-js` (retire.js).
+   This also runs in CI (the Security Scan job) and fails on a vulnerable lib.

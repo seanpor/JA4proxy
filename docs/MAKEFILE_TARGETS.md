@@ -218,6 +218,7 @@ make dev-help           # Build, test, proxy, bench, docs, agents
 | `scan-dockerfiles` | Trivy config scan of Dockerfiles + compose files (HIGH/CRITICAL → fail) |
 | `scan-first-party` | Trivy CVE scan of built images (CRITICAL → fail) |
 | `scan` | All three scans combined |
+| `scan-js` | retire.js CVE scan of the vendored Management-UI JS (`management/static`); fails on a known-vulnerable lib version |
 | `check-image-versions` | Detect `:latest` tags and version drift across compose files |
 
 ---
