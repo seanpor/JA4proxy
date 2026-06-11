@@ -2425,9 +2425,10 @@ phases:
     summary: Modernizes the LaTeX-based PDF brochure to reflect the v2.0.0 Go-native architecture, elite latency metrics (272ns), and production-ready status, ensuring a professional enterprise-grade narrative.
   159:
     name: Radical Performance Investigation — "The 10k Mission"
-    status: IN_PROGRESS
+    status: COMPLETE
+    completed: 2026-06-11
     action_plan: docs/phases/PHASE_159.md
-    summary: Conducts a forensic hop-by-hop latency investigation to identify the bottleneck limiting end-to-end throughput to ~350 CPS. Includes deep Go profiling (pprof), infrastructure audit, and infrastructure optimization to bridge the gap between 272ns core latency and system-wide performance.
+    summary: 'RESOLVED (phase-309 benchmark work): the ~350 CPS cap was the Docker bridge `docker-proxy` userland relay, NOT the Go engine. Host-native (network_mode host) sustains ~3,000 CPS — well past the stated "break 1,000 CPS locally" goal — at 272ns core latency. Forensic isolation in docs/reports/FORENSIC_PERFORMANCE_INVESTIGATION + docs/performance/benchmarks.md; reproducible via `make bench-hostnative`. The 10k stretch is future optimisation, not a blocker.'
   224:
     name: Makefile Target Integrity
     status: COMPLETE
@@ -2528,3 +2529,22 @@ phases:
     dependencies: [302]
     size: SMALL
     summary: 'Triaged the 118 alerts surfaced by enabling Dependabot + CodeQL (Phase 302): the real, fixable, production findings all sit in the Python Management-API auth stack — the Go production proxy is essentially clean. The Phase 302 auto-merge had already landed authlib 1.4.0->1.6.12 and python-multipart 0.0.12->0.0.32 (minor/patch). This phase did the three Dependabot correctly held back: cryptography 45.0.0->46.0.5 (major, management + root floor), python-jose 3.3.0->3.4.0 (critical alg-confusion; PyJWT migration flagged as follow-up), and indirect google.golang.org/grpc 1.76.0->1.79.3 in deploy/terraform-provider (deploy tooling). Management suite 614 pass against the upgraded stack (8 pre-existing failures are dead tests importing legacy Python removed in v2.0.0). Bench-tool go/disabled-certificate-check + OpenSSF Scorecard "highs" documented as benign noise; 9 CodeQL Python findings left as case-by-case follow-up (no blanket suppression).'
+  309:
+    name: Documentation Content Audit — Source-of-Truth Review of All Docs
+    status: IN_PROGRESS
+    action_plan: docs/phases/PHASE_309.md
+    dependencies: [307]
+    size: LARGE
+    summary: 'Umbrella source-of-truth audit of all docs vs live code. DELIVERED (merged in #116/#117/#119): doc metadata standard (Version 2.0.0 + content last-reviewed-date macros) and author-name fix (Seán Ó Ríordáin); reference-manual code/URL line-breaking + metric-name corrections (WP-1/2); user-guide Go-vs-Python production-inversion fix (WP-3); operator-doc fixes (WP-5); MAKEFILE_TARGETS + OBSERVABILITY metric-registry rewrite + live-alert reconciliation (WP-6); security-policy no-SLA reconciliation (WP-8); ADR validate/annotate (WP-9); SCALING_GUIDE + OBSERVABILITY Go-native rewrites; runbooks batch-1 + WP-10 coherence sweep (Grafana 3001->3000). DEFERRED/residual: reference-manual wide tables, runbooks batches 2+, REDIS_SCHEMA, OBSERVABILITY §3/§4 dashboard/alert PromQL, docs information-architecture restructure (awaiting sign-off); plus code follow-ons (restore ADR-003 TTL-asymmetry, add 4 missing alert metrics, repoint 28 stale findings.yaml regression-test paths).'
+  310:
+    name: Collision-Free Dev Environments + Clean Good/Bad Load Test
+    status: COMPLETE
+    completed: 2026-06-11
+    action_plan: docs/phases/PHASE_310.md
+    size: MEDIUM
+    summary: 'Per-worktree collision-free dev "lanes": deterministic port offset (base+lane*100) with free-check + auto-bump, unique COMPOSE_PROJECT_NAME (own docker network so internal ports never collide); only the 5 published host ports are offset. Default lane runs WITHOUT HAProxy (single proxy reached directly on HOST_PORT_DIRECT; WITH_HAPROXY=1 for the multi-proxy LB test). make lane / open SVC=... / loadtest (good/bad mix, default 5% good / 95% bad, best-effort auto-dial). scripts/lane-env.sh + tests/unit/test_lane_env.py. Merged in #120.'
+  221:
+    name: PDF Content Refresh — Reconcile Brochure, User Guide, Reference Manual
+    status: CLOSED
+    action_plan: docs/phases/PHASE_221.md
+    summary: 'SUPERSEDED by PHASE_309, which reconciled all three PDFs against the live code — brochure rewrite, user-guide Go-vs-Python production-inversion fix, reference-manual metric-name corrections + overflow handling — and implemented the very "content last-reviewed date independent of the PDF build date" mechanism this phase proposed (the \lastreviewed LaTeX macro). No separate work remains.'
