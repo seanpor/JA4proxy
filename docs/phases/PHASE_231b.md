@@ -1,7 +1,7 @@
 ---
 phase: 231b
 title: Single-Host Bootstrap — Wizard, systemd, Firewall, Backups
-status: PROPOSED
+status: IN_PROGRESS
 created: 2026-06-11
 audience: [developer, operator]
 ---
@@ -11,6 +11,16 @@ audience: [developer, operator]
 > Split from the original monolithic Phase 231 proposal. **231b is the
 > operator-facing deployment tooling**; it depends on **[[PHASE_231a]]** (the Go
 > core — PROXY-write + manual-ban + CountKeys fix) being merged first.
+
+> **Status (this PR — software core delivered):** `scripts/setup_wizard.py`
+> (+ 9 unit tests; secrets never echoed; `.env` chmod 600; real port scheme),
+> `scripts/bootstrap.sh` (shellcheck-clean: OS detect, zero-compile guard,
+> user/dirs, offline-tarball load, firewall gating from `.env`, `--check`,
+> `--uninstall`), the generated systemd unit, logrotate, and the daily backup
+> cron, plus an `OPERATIONS_GUIDE` section. **Pending real-host validation**
+> (cannot run in CI/sandbox): clean-VM boot E2E, offline-tarball `docker load`,
+> firewall-from-remote check, and the LaTeX user-guide chapters — these keep
+> the phase IN_PROGRESS.
 
 ## Goal
 
