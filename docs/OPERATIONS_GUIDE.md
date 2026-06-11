@@ -11,6 +11,34 @@ Welcome to the central manual for operating and maintaining JA4proxy. This guide
 
 ## 🚀 Lifecycle Management
 
+### Single-Host Setup (clean DMZ box — phase-231b)
+
+For a single server in a DMZ (only `443` public, no HAProxy needed), the
+zero-compile bootstrapper installs runtime deps, runs an interactive wizard,
+generates secrets, and wires systemd + firewall + logrotate + a daily backup:
+
+```bash
+sudo ./scripts/bootstrap.sh                    # interactive install (container mode)
+sudo ./scripts/bootstrap.sh --mode native      # native ja4pd binary instead of compose
+sudo ./scripts/bootstrap.sh --check            # dry-run diagnostics
+sudo ./scripts/bootstrap.sh --uninstall        # remove (prompts before purging volumes)
+```
+
+The wizard (`scripts/setup_wizard.py`, run by the bootstrapper or standalone)
+prompts for topology (inline → `ja4pd`, or TAP → the passive tap node), the
+protected backend, deploy mode, admin bind IP, and admin user. It **generates
+strong secrets into `.env` (chmod 600) and never prints them** — the on-screen
+summary shows `[generated — see .env]`. Published admin ports default to the
+real scheme (Management UI **8090**, metrics 9090, Prometheus 9091, Grafana
+3000) and stay on loopback; nothing is hard-locked (override via `HOST_PORT_*`).
+The proxy starts in **monitor mode (`dial: 0`)** — raise the dial only after
+confirming legitimate traffic flows.
+
+> Air-gapped hosts: drop a pre-built `ja4proxy-offline.tar.gz` next to the repo
+> and the bootstrapper `docker load`s it (no egress). Production hosts are
+> **zero-compile** — the bootstrapper refuses to run if `gcc`/`make`/`go` are
+> present; ship pre-built `ja4pd`/`ja4p` binaries or images.
+
 ### Starting and Stopping
 
 | Action | Command | Description |

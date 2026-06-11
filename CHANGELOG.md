@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Single-host bootstrap & wizard (Phase 231b, software core)**: `scripts/setup_wizard.py`
+  (interactive, generates `.env` secrets — **never echoed** — at chmod 600) and
+  `scripts/bootstrap.sh` (zero-compile installer: OS detect, offline-tarball load,
+  firewall gating from `.env`, systemd unit, logrotate, daily backup, `--check`/`--uninstall`).
+  Defaults to monitor mode; admin ports stay on loopback (real scheme 8090/9090/9091/3000).
 - **Single-host core (Phase 231a)**: `ja4pd` can now **write a PROXY protocol
   header (v1/v2) to the backend** so a TLS-passthrough deployment preserves the
   real client IP/port without decrypting — `write_proxy_protocol` (default
