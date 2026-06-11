@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# pip-audit-resilient.sh — run pip-audit but don't let a transient PyPI/OSV
-# outage turn the *required* CI lint gate red (phase-311).
+# pip-audit-resilient.sh — run pip-audit but don't let a transient outage of a
+# vulnerability service turn the *required* CI lint gate red (phase-311), and
+# only soft-pass when BOTH PyPI and OSV are unreachable (phase-312).
 #
 # The problem: pip-audit (default `pypi` service) queries PyPI's per-package JSON
 # API; a transient 5xx/timeout there raises ServiceError and exits non-zero,
@@ -8,17 +9,21 @@
 # found. That has flaked the Full Lint gate repeatedly.
 #
 # Behaviour:
-#   - clean run                        -> exit 0
-#   - REAL vulnerabilities found       -> exit 1  (always blocks — the point)
-#   - vulnerability service unreachable-> retry with backoff; if still down,
-#                                         emit a CI warning and exit 0 (do NOT
-#                                         block on an upstream outage)
-#   - any other non-zero (e.g. bad args, parse error) -> exit 1 (fail safe)
+#   - clean run                          -> exit 0
+#   - REAL vulnerability found            -> exit 1  (authoritative; no fallback)
+#   - unknown non-zero (bad args, parse)  -> exit <rc> (fail safe)
+#   - PyPI service unreachable (retries)  -> fall back to OSV.dev (-s osv):
+#         OSV clean        -> exit 0  (note: verified via OSV fallback)
+#         OSV real vuln    -> exit 1
+#         OSV unknown      -> exit <rc>
+#         OSV unreachable  -> CI warning + exit 0  (rare DOUBLE outage only)
 #
-# The soft-pass is bounded and safe: it triggers ONLY when the service itself is
+# The soft-pass is bounded and *loud*: it triggers ONLY when BOTH services are
 # unreachable, never when a vuln is found. Persistent gaps are still caught by
 # the weekly scheduled CI audit, the standalone dependency-audit-python job, and
-# Dependabot. All args are passed through to pip-audit.
+# Dependabot. All args are passed through to pip-audit; the OSV fallback adds
+# `-s osv --aliases on` so the PyPI-format `--ignore-vuln` CVE IDs still match
+# their OSV/GHSA aliases (the 5 acknowledged transitive CVEs stay suppressed).
 set -uo pipefail
 
 RETRIES="${PIP_AUDIT_RETRIES:-4}"
@@ -30,29 +35,50 @@ TRANSIENT='ServiceError|HTTP Error 5[0-9][0-9]|5[0-9][0-9] (Server Error|Service
 # Output that means "a real finding" — must always fail even amid noise.
 FINDINGS='Found [0-9]+ known vulnerabilit|^Name +Version +ID|vulnerabilit(y|ies) (found|present)'
 
-attempt=1
-while :; do
-  out="$(pip-audit --timeout "$TIMEOUT" "$@" 2>&1)"; rc=$?
-  printf '%s\n' "$out"
-  if [ "$rc" -eq 0 ]; then
-    exit 0
-  fi
-  if grep -qiE "$FINDINGS" <<<"$out"; then
-    echo "pip-audit-resilient: real vulnerabilities reported — failing." >&2
-    exit 1
-  fi
-  if grep -qiE "$TRANSIENT" <<<"$out"; then
-    if [ "$attempt" -ge "$RETRIES" ]; then
-      msg="pip-audit: vulnerability service unreachable after ${RETRIES} attempts (PyPI/OSV outage); not blocking CI. Coverage remains via the weekly scheduled audit, the standalone dependency-audit job, and Dependabot."
-      # GitHub Actions annotation if running in CI; plain warning otherwise.
-      [ -n "${GITHUB_ACTIONS:-}" ] && echo "::warning title=pip-audit soft-pass::${msg}" || echo "WARNING: ${msg}" >&2
-      exit 0
+BASE_ARGS=("$@")
+
+# run_audit [extra pip-audit args...]
+# Sets AUDIT_RESULT to one of: clean | vuln | unreachable | other.
+# Sets AUDIT_RC to the real pip-audit exit code (for fail-safe propagation).
+run_audit() {
+  local attempt=1 out
+  while :; do
+    out="$(pip-audit --timeout "$TIMEOUT" "${BASE_ARGS[@]}" "$@" 2>&1)"; AUDIT_RC=$?
+    printf '%s\n' "$out"
+    if [ "$AUDIT_RC" -eq 0 ]; then AUDIT_RESULT=clean; return; fi
+    if grep -qiE "$FINDINGS" <<<"$out"; then AUDIT_RESULT=vuln; return; fi
+    if grep -qiE "$TRANSIENT" <<<"$out"; then
+      if [ "$attempt" -ge "$RETRIES" ]; then AUDIT_RESULT=unreachable; return; fi
+      echo "pip-audit-resilient: transient service error (attempt ${attempt}/${RETRIES}); retrying in $((BACKOFF*attempt))s..." >&2
+      sleep "$((BACKOFF*attempt))"; attempt=$((attempt+1)); continue
     fi
-    echo "pip-audit-resilient: transient service error (attempt ${attempt}/${RETRIES}); retrying in $((BACKOFF*attempt))s..." >&2
-    sleep "$((BACKOFF*attempt))"
-    attempt=$((attempt+1))
-    continue
-  fi
-  echo "pip-audit-resilient: non-zero exit (${rc}) with no recognised transient marker — failing safe." >&2
-  exit "$rc"
-done
+    AUDIT_RESULT=other; return
+  done
+}
+
+soft_pass() {
+  local msg="pip-audit: BOTH PyPI and OSV vulnerability services were unreachable (double outage); not blocking CI. Coverage remains via the weekly scheduled audit, the standalone dependency-audit job, and Dependabot."
+  [ -n "${GITHUB_ACTIONS:-}" ] && echo "::warning title=pip-audit soft-pass::${msg}" || echo "WARNING: ${msg}" >&2
+  exit 0
+}
+
+# --- primary: PyPI (pip-audit default) ---------------------------------------
+run_audit
+case "$AUDIT_RESULT" in
+  clean) exit 0 ;;
+  vuln)  echo "pip-audit-resilient: real vulnerabilities reported — failing." >&2; exit 1 ;;
+  other) echo "pip-audit-resilient: non-zero exit (${AUDIT_RC}) with no transient marker — failing safe." >&2; exit "$AUDIT_RC" ;;
+  unreachable)
+    echo "pip-audit-resilient: PyPI service unreachable after ${RETRIES} attempts — trying the OSV fallback..." >&2
+    # --- fallback: OSV.dev -----------------------------------------------------
+    run_audit -s osv --aliases on
+    case "$AUDIT_RESULT" in
+      clean)
+        msg="pip-audit verified via the OSV fallback (PyPI was unreachable)."
+        [ -n "${GITHUB_ACTIONS:-}" ] && echo "::notice title=pip-audit OSV fallback::${msg}" || echo "NOTE: ${msg}" >&2
+        exit 0 ;;
+      vuln)  echo "pip-audit-resilient: OSV fallback reported real vulnerabilities — failing." >&2; exit 1 ;;
+      other) echo "pip-audit-resilient: OSV fallback non-zero exit (${AUDIT_RC}) — failing safe." >&2; exit "$AUDIT_RC" ;;
+      unreachable) soft_pass ;;
+    esac ;;
+esac
