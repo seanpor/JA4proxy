@@ -20,11 +20,14 @@ groups:
           runbook_url: "https://github.com/seanpor/JA4proxy/blob/main/docs/runbooks/feed_management.md"
 
       - alert: SpamhausListStale
-        expr: time() - ja4proxy_blocklist_last_refresh_success_seconds > 7200
+        # phase-309 WP-6: threshold must exceed the feed refresh interval
+        # (default 12h) — the gauge legitimately ages up to one interval
+        # between refreshes. 90000s ≈ 25h fires only after ~two missed cycles.
+        expr: time() - ja4proxy_blocklist_last_refresh_success_seconds > 90000
         for: 5m
         labels: {severity: warning}
         annotations:
-          summary: "Spamhaus list not refreshed for >2 hours"
+          summary: "Spamhaus list not refreshed for >25 hours"
           runbook_url: "https://github.com/seanpor/JA4proxy/blob/main/docs/runbooks/feed_management.md"
 
       - alert: PipelineInternalError

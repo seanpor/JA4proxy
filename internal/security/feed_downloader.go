@@ -37,7 +37,7 @@ const (
 // instance downloads independently. Spamhaus permits hourly polling and the
 // feeds are small, so N instances fetching every 12h is well within limits, and
 // independence means a feed stays fresh even if a would-be "leader" is down.
-// See docs/decisions/ADR-024.md.
+// See docs/decisions/ADR-204.md.
 type FeedDownloader struct {
 	feeds   []BlocklistFeedConfig
 	manager *BlocklistManager

@@ -115,13 +115,17 @@ groups:
           runbook: "docs/runbooks/feed_management.md"
 
       - alert: SpamhausListStale
-        expr: time() - ja4proxy_blocklist_last_refresh_success_seconds > 7200
+        # phase-309 WP-6: threshold must exceed the feed refresh interval
+        # (config/proxy.yml blocklists.feeds[].refresh_interval_seconds, default
+        # 12h) — the gauge legitimately ages up to one interval between
+        # refreshes. 90000s ≈ 25h fires only after ~two missed 12h cycles.
+        expr: time() - ja4proxy_blocklist_last_refresh_success_seconds > 90000
         for: 5m
         labels:
           severity: warning
           component: blocklist
         annotations:
-          summary: "Spamhaus list not refreshed for >2 hours"
+          summary: "Spamhaus list not refreshed for >25 hours"
           description: "The blocklist was last successfully refreshed {{ $value | humanizeDuration }} ago. Hard-block coverage may be degraded."
           runbook: "docs/runbooks/feed_management.md"
 
