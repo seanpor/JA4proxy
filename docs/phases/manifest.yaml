@@ -2469,6 +2469,13 @@ phases:
     dependencies: []
     size: MEDIUM
     summary: Redesigned the Management UI console to deliver a premium, visually stunning web interface with elegant glassmorphism, dynamic glowing gradients, clean Google Fonts typography (Inter), responsive cards, and a polished Chart.js dial.
+  231:
+    name: Single-Host Bootstrapper & Deployment Simplification
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_231.md
+    dependencies: []
+    size: MEDIUM
+    summary: Creates a single-command bootstrapping script and interactive CLI setup wizard that installs system prerequisites, generates cryptographically secure configurations, sets up firewall rules, and mounts systemd service units for clean single-host deployments.
   300:
     name: Environment Variable Audit
     status: COMPLETE
