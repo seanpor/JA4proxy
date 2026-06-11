@@ -26,6 +26,23 @@ make dev-help           # Build, test, proxy, bench, docs, agents
 
 ---
 
+## Dev Lanes & Load Test (phase-310)
+
+Each git worktree auto-gets a collision-free **lane** (its own host ports +
+`COMPOSE_PROJECT_NAME` + docker network), so multiple checkouts run on one host
+without clashing. `make start-poc` allocates the lane automatically.
+
+| Target | Description | Knobs |
+|--------|-------------|-------|
+| `lane` | Show this worktree's lane: host ports + Grafana/Management URLs | — |
+| `open` | Open a lane service in the browser | `SVC=grafana\|management\|metrics\|prometheus` |
+| `loadtest` | Bring up the lane stack + drive a good/bad traffic mix to watch in Grafana (default **5% good / 95% bad**: `GOOD_RATE=10 BAD_RATE=190`) | `GOOD_RATE`, `BAD_RATE`, `DURATION`, `WORKERS`, `DIAL` |
+
+The default lane runs **without HAProxy** (single proxy, reached directly on
+`HOST_PORT_DIRECT`); set `WITH_HAPROXY=1` for the multi-proxy LB test.
+
+---
+
 ## Startup / Shutdown
 
 | Target | Description | Env / Args | Prerequisites |
