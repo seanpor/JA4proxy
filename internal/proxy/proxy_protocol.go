@@ -3,11 +3,86 @@ package proxy
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"net"
 	"strings"
 
 	"github.com/seanpor/ja4proxy/internal/config"
 )
+
+// proxyV2Signature is the 12-byte PROXY protocol v2 magic preamble.
+var proxyV2Signature = []byte{0x0D, 0x0A, 0x0D, 0x0A, 0x00, 0x0D, 0x0A, 0x51, 0x55, 0x49, 0x54, 0x0A}
+
+func validPort(p int) bool { return p >= 0 && p <= 65535 }
+
+// ip6Only returns the 16-byte form of a genuine IPv6 address, or nil for an
+// IPv4 (or invalid) address — so IPv4-mapped values don't masquerade as v6.
+func ip6Only(ip net.IP) []byte {
+	if ip == nil || ip.To4() != nil {
+		return nil
+	}
+	return ip.To16()
+}
+
+// BuildBackendProxyHeader builds a PROXY protocol header to prepend to the
+// backend connection (phase-231a), so a TLS-passthrough deployment preserves
+// the real client IP without decrypting. version 2 emits the binary v2 header;
+// any other value emits the human-readable v1 header.
+//
+// FP-safety (the project's core asymmetry — never drop a valid client): when
+// the src/dst families are indeterminate or mismatched, or a port is out of
+// range, it emits the spec's "no address" form — v1 "PROXY UNKNOWN\r\n", v2
+// LOCAL command (AF_UNSPEC) — so the connection still proceeds and the backend
+// falls back to the real socket address. It never returns an error.
+func BuildBackendProxyHeader(version int, srcIP net.IP, srcPort int, dstIP net.IP, dstPort int) []byte {
+	if version == 2 {
+		return buildProxyV2(srcIP, srcPort, dstIP, dstPort)
+	}
+	return buildProxyV1(srcIP, srcPort, dstIP, dstPort)
+}
+
+func buildProxyV1(srcIP net.IP, srcPort int, dstIP net.IP, dstPort int) []byte {
+	if !validPort(srcPort) || !validPort(dstPort) {
+		return []byte("PROXY UNKNOWN\r\n")
+	}
+	if s4, d4 := srcIP.To4(), dstIP.To4(); s4 != nil && d4 != nil {
+		return []byte(fmt.Sprintf("PROXY TCP4 %s %s %d %d\r\n", s4.String(), d4.String(), srcPort, dstPort))
+	}
+	if s6, d6 := ip6Only(srcIP), ip6Only(dstIP); s6 != nil && d6 != nil {
+		return []byte(fmt.Sprintf("PROXY TCP6 %s %s %d %d\r\n", srcIP.String(), dstIP.String(), srcPort, dstPort))
+	}
+	return []byte("PROXY UNKNOWN\r\n")
+}
+
+func buildProxyV2(srcIP net.IP, srcPort int, dstIP net.IP, dstPort int) []byte {
+	buf := new(bytes.Buffer)
+	buf.Write(proxyV2Signature)
+	if s4, d4 := srcIP.To4(), dstIP.To4(); s4 != nil && d4 != nil && validPort(srcPort) && validPort(dstPort) {
+		buf.WriteByte(0x21) // version 2 (0x20) | PROXY command (0x01)
+		buf.WriteByte(0x11) // AF_INET (0x10) | STREAM (0x01)
+		_ = binary.Write(buf, binary.BigEndian, uint16(12))
+		buf.Write(s4)
+		buf.Write(d4)
+		_ = binary.Write(buf, binary.BigEndian, uint16(srcPort))
+		_ = binary.Write(buf, binary.BigEndian, uint16(dstPort))
+		return buf.Bytes()
+	}
+	if s6, d6 := ip6Only(srcIP), ip6Only(dstIP); s6 != nil && d6 != nil && validPort(srcPort) && validPort(dstPort) {
+		buf.WriteByte(0x21) // version 2 | PROXY command
+		buf.WriteByte(0x21) // AF_INET6 (0x20) | STREAM (0x01)
+		_ = binary.Write(buf, binary.BigEndian, uint16(36))
+		buf.Write(s6)
+		buf.Write(d6)
+		_ = binary.Write(buf, binary.BigEndian, uint16(srcPort))
+		_ = binary.Write(buf, binary.BigEndian, uint16(dstPort))
+		return buf.Bytes()
+	}
+	// LOCAL command + AF_UNSPEC: the backend uses the real socket addresses.
+	buf.WriteByte(0x20) // version 2 | LOCAL command (0x00)
+	buf.WriteByte(0x00) // AF_UNSPEC
+	_ = binary.Write(buf, binary.BigEndian, uint16(0))
+	return buf.Bytes()
+}
 
 // IsTrustedProxySource returns true if the peer IP is allowed to provide
 // PROXY protocol headers. Controlled by proxy.upstream_trust:

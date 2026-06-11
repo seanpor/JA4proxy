@@ -54,3 +54,7 @@ This document tracks the remaining work for both historical phases (gaps identif
 ### Phase 120 — Independent Red Team Findings: Design Flaws, Infrastructure & Logic Bugs (RETIRED)
 *   **Status:** **DEFERRED** (Retired 2026-04-19 under Phase 121e as duplicate of Phase 119. All 20 findings were either duplicates of 119 entries or already folded into the canonical findings register (docs/security/findings.yaml) with remediation_phases pointing at 119 or its successor phases. See PHASE_120.md redirect stub.)
 *   **Action Plan:** [cancelled/PHASE_120.md](cancelled/PHASE_120.md)
+
+### Phase 231b — Single-Host Bootstrap — Wizard, systemd, Firewall, Backups
+*   **Status:** **PROPOSED** (Operator-facing single-host deployment tooling split out of the monolithic Phase 231 proposal (depends on 231a). Zero-compile bootstrap.sh (native + containerized, offline tarball, --check/--uninstall), interactive setup_wizard.py (inline->ja4pd vs TAP->python tap node, monitor-mode default, secrets to .env never echoed), systemd unit, firewall gating that reads HOST_PORT_* from .env (real scheme: mgmt 8090, metrics 9090, prometheus 9091, grafana 3000 — not the proposal's invented 8113/3023), logrotate, daily backup cron, GeoLite2 (not IP2Location) data. PROPOSED — awaiting review.)
+*   **Action Plan:** [PHASE_231b.md](PHASE_231b.md)
