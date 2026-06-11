@@ -175,7 +175,9 @@ jobs:
           pip install pip-audit==2.10.0
           # --strict makes any parse error fail; default severity gate only
           # flags HIGH/CRITICAL via the exit code when used without --ignore-vuln.
-          pip-audit -r requirements.txt --strict
+          # phase-311: wrapped so a transient PyPI/OSV outage retries + soft-passes
+          # (warning) instead of reddening the gate; a real vuln still fails.
+          bash scripts/pip-audit-resilient.sh -r requirements.txt --strict
 
   dependency-audit-go:
     name: Go dependency audit (govulncheck)

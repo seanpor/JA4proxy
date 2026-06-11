@@ -5,7 +5,7 @@
 
 ## Current Status: Phase 109 (PROXY Protocol Hardening & Scrubbing) Next
 
-**Last Updated:** 2026-06-10
+**Last Updated:** 2026-06-11
 
 ## Epics & Roadmap
 
@@ -364,6 +364,7 @@ Alignment with international standards and regulatory frameworks.
 | 306 | Take Over PR | COMPLETE | N/A | N/A |
 | 307 | Documentation Coherence, Setup Standardization, and Link Remediation | COMPLETE | N/A | N/A |
 | 308 | Code-Scanning Remediation — CodeQL Triage Closeout & Scorecard Noise | COMPLETE | N/A | N/A |
+| 311 | Resilient pip-audit — Stop PyPI Outages Reddening the Lint Gate | COMPLETE | N/A | N/A |
 
 ---
 
