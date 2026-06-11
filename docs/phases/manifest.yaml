@@ -2572,7 +2572,7 @@ phases:
     summary: 'Go-daemon core split out of the monolithic Phase 231 proposal. (1) ja4pd now optionally WRITES a PROXY protocol header (v1/v2) to the backend so a TLS-passthrough deploy preserves the real client IP without decrypting — config write_proxy_protocol (default false) + write_proxy_protocol_version (1|2, default 1); builds on the existing inbound parser, reuses the resolved connCtx.ClientIP/Port, FP-safe (indeterminate addrs emit PROXY UNKNOWN / v2 LOCAL rather than dropping a valid client). (2) Manual bans (ban:{ip}) are now enforced at the top of the pipeline, before the dial fetch, so they block immediately even in monitor mode (dial=0); fail-open (Exists()->false on Redis error). (3) Fixed the CountKeys ban-prefix bug (ja4proxy:ban:* -> ban:*) that made the active-bans gauge always read 0. Go tests for the v1/v2 builder + the dial-0 ban path; build/vet/gofmt clean. Corrected the original proposal''s wrong ports (mgmt 8090 not 8113, no 3023) and GeoIP (GeoLite2 not IP2Location) — those land in 231b.'
   231b:
     name: Single-Host Bootstrap — Wizard, systemd, Firewall, Backups
-    status: PROPOSED
+    status: IN_PROGRESS
     action_plan: docs/phases/PHASE_231b.md
     dependencies: [231a]
     size: LARGE
