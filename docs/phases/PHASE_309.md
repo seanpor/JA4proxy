@@ -1,7 +1,7 @@
 ---
 phase: 309
 title: Documentation Content Audit — Source-of-Truth Review of All Docs
-status: PLANNED
+status: IN_PROGRESS
 created: 2026-06-10
 audience: [developer, operator, security]
 ---

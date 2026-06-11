@@ -7,9 +7,9 @@ This document tracks the remaining work for both historical phases (gaps identif
 
 ## 🟡 Phases In Progress
 
-### Phase 159 — Radical Performance Investigation — "The 10k Mission"
-*   **Status:** **IN_PROGRESS** (Conducts a forensic hop-by-hop latency investigation to identify the bottleneck limiting end-to-end throughput to ~350 CPS. Includes deep Go profiling (pprof), infrastructure audit, and infrastructure optimization to bridge the gap between 272ns core latency and system-wide performance.)
-*   **Action Plan:** [PHASE_159.md](PHASE_159.md)
+### Phase 309 — Documentation Content Audit — Source-of-Truth Review of All Docs
+*   **Status:** **IN_PROGRESS** (Umbrella source-of-truth audit of all docs vs live code. DELIVERED (merged in #116/#117/#119): doc metadata standard (Version 2.0.0 + content last-reviewed-date macros) and author-name fix (Seán Ó Ríordáin); reference-manual code/URL line-breaking + metric-name corrections (WP-1/2); user-guide Go-vs-Python production-inversion fix (WP-3); operator-doc fixes (WP-5); MAKEFILE_TARGETS + OBSERVABILITY metric-registry rewrite + live-alert reconciliation (WP-6); security-policy no-SLA reconciliation (WP-8); ADR validate/annotate (WP-9); SCALING_GUIDE + OBSERVABILITY Go-native rewrites; runbooks batch-1 + WP-10 coherence sweep (Grafana 3001->3000). DEFERRED/residual: reference-manual wide tables, runbooks batches 2+, REDIS_SCHEMA, OBSERVABILITY §3/§4 dashboard/alert PromQL, docs information-architecture restructure (awaiting sign-off); plus code follow-ons (restore ADR-003 TTL-asymmetry, add 4 missing alert metrics, repoint 28 stale findings.yaml regression-test paths).)
+*   **Action Plan:** [PHASE_309.md](PHASE_309.md)
 
 ---
 

@@ -1,8 +1,18 @@
 # Phase 159: Radical Performance Investigation — "The 10k Mission"
 
-> **Status:** IN_PROGRESS
+> **Status:** COMPLETE (resolved 2026-06-11 via the phase-309 benchmark work)
 > **Size:** LARGE
 > **Owner:** Gemini CLI
+
+> **✅ Resolution.** The investigation's core question — *why ~350 CPS, and how
+> to break 1,000* — is answered. The bottleneck is **not** the Go engine: it is
+> the Docker bridge's `docker-proxy` userland relay. Layer-by-layer isolation
+> (`docs/reports/FORENSIC_PERFORMANCE_INVESTIGATION...`) and the host-native
+> macro benchmark (`docs/performance/benchmarks.md`, reproducible via
+> `make bench-hostnative`) show a single `ja4pd` sustaining **~3,000 CPS** with
+> host networking (272 ns core decision) — comfortably past the stated
+> "break 1,000 CPS locally" goal. The "10k" stretch target is future
+> optimisation, not a blocker, and is not tracked as open work.
 
 ## Goal
 Deconstruct the system to identify why a Go-native stack on high-end hardware is limited to ~350 CPS. We will isolate each component (Network, TLS, Redis, Proxy Logic) to find the "missing" performance and implement a resolution that breaks the 1,000 CPS barrier locally.

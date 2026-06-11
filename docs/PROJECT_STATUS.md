@@ -326,7 +326,7 @@ Alignment with international standards and regulatory frameworks.
 | 156 | Operational Benchmarking & Observability Upgrades | COMPLETE | N/A | N/A |
 | 157 | Standardized Performance Matrix & Reproducibility Audit | COMPLETE | N/A | N/A |
 | 158 | Revitalizing the Marketing & Technical Brochure | COMPLETE | N/A | N/A |
-| 159 | Radical Performance Investigation — "The 10k Mission" | IN_PROGRESS | N/A | N/A |
+| 159 | Radical Performance Investigation — "The 10k Mission" | COMPLETE | N/A | N/A |
 | 160 | High-Concurrency Throughput Unblocking | COMPLETE | N/A | N/A |
 | 200 | Go PROXY Protocol Trust + v2 Support | COMPLETE | N/A | N/A |
 | 201 | Go Redis TLS + Silent-Failure Hardening | COMPLETE | N/A | N/A |
@@ -348,6 +348,7 @@ Alignment with international standards and regulatory frameworks.
 | 218 | SHA-Pin Preflight Check & Scorecard Fix | COMPLETE | N/A | N/A |
 | 219 | Restore Deleted Phase Documentation | COMPLETE | N/A | N/A |
 | 220 | Remote Manual Testing Enablement — Browser, curl, Bot, Logs, Dashboards | COMPLETE | N/A | N/A |
+| 221 | PDF Content Refresh — Reconcile Brochure, User Guide, Reference Manual | CLOSED | N/A | N/A |
 | 223 | System Evaluation Documentation for Enterprise Architects | COMPLETE | N/A | N/A |
 | 224 | Makefile Target Integrity | COMPLETE | N/A | N/A |
 | 225 | Hermetic Tooling & make doctor Accuracy | COMPLETE | N/A | N/A |
@@ -364,6 +365,8 @@ Alignment with international standards and regulatory frameworks.
 | 306 | Take Over PR | COMPLETE | N/A | N/A |
 | 307 | Documentation Coherence, Setup Standardization, and Link Remediation | COMPLETE | N/A | N/A |
 | 308 | Code-Scanning Remediation — CodeQL Triage Closeout & Scorecard Noise | COMPLETE | N/A | N/A |
+| 309 | Documentation Content Audit — Source-of-Truth Review of All Docs | IN_PROGRESS | N/A | N/A |
+| 310 | Collision-Free Dev Environments + Clean Good/Bad Load Test | COMPLETE | N/A | N/A |
 | 311 | Resilient pip-audit — Stop PyPI Outages Reddening the Lint Gate | COMPLETE | N/A | N/A |
 
 ---

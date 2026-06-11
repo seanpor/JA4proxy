@@ -1,11 +1,20 @@
 ---
 phase: 221
 title: PDF Content Refresh — Reconcile Brochure, User Guide, Reference Manual
-status: PROPOSED
+status: CLOSED
 size: LARGE
 created: 2026-06-04
+superseded_by: 309
 audience: [developer, documentation]
 ---
+
+> **⚠ SUPERSEDED by [[PHASE_309]] (2026-06-11).** Phase 309 reconciled all three
+> PDFs against the live code — brochure rewrite, user-guide Go-vs-Python
+> production-inversion fix, reference-manual metric-name corrections + overflow
+> handling — and implemented the exact mechanism this phase proposed: a
+> **content "last reviewed" date independent of the PDF build date** (the
+> `\lastreviewed` LaTeX macro). No separate work remains here; this doc is kept
+> as the historical proposal.
 
 # PDF Content Refresh
 
