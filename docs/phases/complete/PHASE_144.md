@@ -1,6 +1,5 @@
 # Phase 144: Operational Excellence & Repo Pruning
 
-> **Status:** PROPOSED
 > **Size:** MEDIUM
 > **Depends on:** Phase 143
 > **Owner:** Gemini CLI

@@ -384,7 +384,7 @@ phases:
     name: Remote Manual Testing Enablement — Browser, curl, Bot, Logs, Dashboards
     status: COMPLETE
     completed: 2026-06-09
-    action_plan: docs/phases/PHASE_220.md
+    action_plan: docs/phases/complete/PHASE_220.md
     dependencies: []
     size: SMALL
     summary: 'Remote manual-testing enablement: scripts/test-bot.py (stdlib TLS test bot),
@@ -1870,7 +1870,8 @@ phases:
   101:
     name: Phase 101 — Cross-Phase Gap Closure
     status: COMPLETE
-    action_plan: docs/phases/PHASE_101.md
+    completed: 2026-04-26
+    action_plan: docs/phases/complete/PHASE_101.md
     dependencies:
     - 84
     - 85
@@ -2167,7 +2168,7 @@ phases:
     name: Fix Pre-Existing CI Failures
     status: COMPLETE
     completed: 2026-06-02
-    action_plan: docs/phases/PHASE_214.md
+    action_plan: docs/phases/complete/PHASE_214.md
     dependencies: []
     size: LARGE
     summary: 'Resolved all 4 pre-existing CI pipeline failures on main. Go 1.25.9→1.26
@@ -2180,7 +2181,7 @@ phases:
     name: White-Box Penetration Test — Go Production Proxy
     status: COMPLETE
     completed: 2026-06-03
-    action_plan: docs/phases/PHASE_215.md
+    action_plan: docs/phases/complete/PHASE_215.md
     dependencies: []
     size: LARGE
     summary: 'Full white-box (source-code-aided) penetration test of the Go production
@@ -2192,7 +2193,7 @@ phases:
     name: Penetration Test Remediation — All Phase 215 Findings
     status: COMPLETE
     completed: 2026-06-03
-    action_plan: docs/phases/PHASE_216.md
+    action_plan: docs/phases/complete/PHASE_216.md
     dependencies:
     - 215
     size: LARGE
@@ -2427,12 +2428,12 @@ phases:
     name: Radical Performance Investigation — "The 10k Mission"
     status: COMPLETE
     completed: 2026-06-11
-    action_plan: docs/phases/PHASE_159.md
+    action_plan: docs/phases/complete/PHASE_159.md
     summary: 'RESOLVED (phase-309 benchmark work): the ~350 CPS cap was the Docker bridge `docker-proxy` userland relay, NOT the Go engine. Host-native (network_mode host) sustains ~3,000 CPS — well past the stated "break 1,000 CPS locally" goal — at 272ns core latency. Forensic isolation in docs/reports/FORENSIC_PERFORMANCE_INVESTIGATION + docs/performance/benchmarks.md; reproducible via `make bench-hostnative`. The 10k stretch is future optimisation, not a blocker.'
   224:
     name: Makefile Target Integrity
     status: COMPLETE
-    action_plan: docs/phases/PHASE_224.md
+    action_plan: docs/phases/complete/PHASE_224.md
     summary: Adds a dependency-free meta-lint guard asserting every help-advertised target exists, every prerequisite/$(MAKE) sub-call resolves, .PHONY is sane, and the light umbrellas exclude heavy benchmarks. Repaired a literal-\n corruption (commit 30f28c2) that had silently commented out scan/scan-all/scan-container/scan-local/check-updates-* targets; created the remaining doc/lint/ops targets; added bench-all/verify-all; fixed bare-python recipes. Added a shared pre-push hook (make ci-verify) so Makefile/CI breakage is caught before push. 'make lint scan test' now runs the full gate minus heavy benchmarks.
   160:
     name: High-Concurrency Throughput Unblocking
@@ -2442,53 +2443,54 @@ phases:
   225:
     name: Hermetic Tooling & make doctor Accuracy
     status: COMPLETE
-    action_plan: docs/phases/PHASE_225.md
+    action_plan: docs/phases/complete/PHASE_225.md
     summary: "DONE: 'make doctor' rewritten to separate required host tools (docker, Go, python3 — hard-fail) from informational notes (Python 3.10-vs-3.14, optional host lint/scan tools) so it no longer falsely warns about tools that run in CI/containers. REMAINING: actually run the five host-only tools (hadolint/gitleaks/codespell/markdownlint/amtool) in pinned containers and pin the Python linters to a 3.14 image. The PHASE_224 meta-lint guard stays host-only by design."
   226:
     name: CI Quality-Gate Remediation
     status: COMPLETE
-    action_plan: docs/phases/PHASE_226.md
+    action_plan: docs/phases/complete/PHASE_226.md
     summary: Made the full CI workflow honestly green. De-suppressed the scan gates (scan-container was a no-op; scan-images/scan-first-party never failed on CRITICAL), patched real image CVEs via apt/apk upgrade, bumped grafana 13.0.1->13.0.2 (pgx CVE-2026-33816), ran mockbackend non-root on 8443, fixed the GOROOT/dev-path/pip-audit CI breakages, and replaced the 23-CVE blanket .trivyignore with 3 justified 14-day exceptions for no-fix perl CVEs plus 'make scan-exceptions' and a runbook. Perl exceptions retire with Phase 229.
   227:
     name: Scan & Build Caching
     status: COMPLETE
-    action_plan: docs/phases/PHASE_227.md
+    completed: 2026-06-09
+    action_plan: docs/phases/complete/PHASE_227.md
     summary: A shared TRIVY_CACHE mount makes 'make scan' download the Trivy DB once per run instead of once per image (~13x -> 1x); a SHA-pinned actions/cache step persists it across CI runs. Also hardened branch protection (required checks expanded to all 9 gating jobs, require-PR + enforce_admins, branch_protection.sh aligned to current job names, KNOWN_ACTION_SHAS allowlist completed) and wired tests/test_workflow_pinning.py into 'make test'.
   228:
     name: Human-Readable Scan Summaries
     status: COMPLETE
-    action_plan: docs/phases/PHASE_228.md
+    action_plan: docs/phases/complete/PHASE_228.md
     summary: Parse machine-readable scanner output (trivy/gosec JSON) into a compact per-image PASS/FAIL summary so scan/lint results are readable at a glance; raw detail kept available (summarize, not suppress).
   229:
     name: Base-Image Consolidation & Consistent Pinning
     status: COMPLETE
-    action_plan: docs/phases/PHASE_229.md
+    action_plan: docs/phases/complete/PHASE_229.md
     summary: Moved analytics & tarpit to a perl-free python:3.14.0-alpine base (digest-pinned), retiring all three Phase 226 perl .trivyignore exceptions (scan green with zero exceptions). Aligned the drifted security-scan image from golang:1.25.10 to the single pinned golang:1.26.4-alpine@digest used everywhere else. test_docker_consistency updated to accept patch-pinned slim or alpine. Remaining hardening (digest-pin the tests/docker fixtures, a strict no-unpinned-FROM guard) noted for follow-up.
   300:
     name: Environment Variable Audit
     status: COMPLETE
-    action_plan: docs/phases/PHASE_300.md
+    action_plan: docs/phases/complete/PHASE_300.md
     dependencies: []
     size: SMALL
     summary: 'Audit env vars referenced by code + Docker Compose against the canonical template.env (NOT the orphan .env.example). Finding: template.env is largely complete; the one genuine gap is HAPROXY_STATS_USER/PASSWORD (compose-required and wizard-generated but absent from template.env), and the stale, unreferenced .env.example should be deleted. Local git-ignored .env items are out of scope.'
   301:
     name: Environment Template Remediation
     status: COMPLETE
-    action_plan: docs/phases/PHASE_301.md
+    action_plan: docs/phases/complete/PHASE_301.md
     dependencies: [300]
     size: SMALL
     summary: 'Apply PHASE_300 findings to template.env: add HAPROXY_STATS_USER/PASSWORD placeholders with generation guidance, delete the orphan .env.example, add an optional commented threat-intel/tuning block. Goal: cp template.env .env boots the full stack (incl. monitoring) with no required-variable errors. template.env only — never the git-ignored .env.'
   302:
     name: Repository Security Settings & Dependabot Automation
     status: COMPLETE
-    action_plan: docs/phases/PHASE_302.md
+    action_plan: docs/phases/complete/PHASE_302.md
     dependencies: []
     size: SMALL
     summary: 'Enabled GitHub security aids (Dependabot alerts + security updates, private vulnerability reporting via gh api) and made them low-effort under branch protection: a SHA-pinned dependabot-automerge.yml auto-merges patch/minor Dependabot PRs once the 10 required checks pass (majors stay manual), and dependabot.yml throttled weekly->monthly. Operator UI toggles documented (CodeQL default setup; secret-scanning validity checks — API no-op).'
   303:
     name: Production Compose Port-Exposure Hardening
     status: COMPLETE
-    action_plan: docs/phases/PHASE_303.md
+    action_plan: docs/phases/complete/PHASE_303.md
     dependencies: []
     size: SMALL
     summary: 'docker-compose.prod.yml published several "internal only" services (proxy 8080/9090, analytics, tarpit, loki, prometheus) on 0.0.0.0 — unnecessary attack surface (only grafana + haproxy-stats were correctly loopback-bound). Removed host ports for purely-internal services (network DNS reaches them; verified prometheus.yml scrapes by service name) and bound the Prometheus UI to ${AGENT_BIND_IP:-127.0.0.1}. Only haproxy 443/80 stay public. Also fixed `make clean` aborting on an incomplete .env (CLEAN_DUMMY_ENV + conditional --env-file).'
@@ -2496,7 +2498,7 @@ phases:
     name: Code-Scanning Remediation — CodeQL Triage Closeout & Scorecard Noise
     status: COMPLETE
     completed: 2026-06-10
-    action_plan: docs/phases/PHASE_308.md
+    action_plan: docs/phases/complete/PHASE_308.md
     dependencies: [305]
     size: SMALL
     summary: 'Cleared the 60-alert code-scanning backlog (7 CodeQL + 53 Scorecard) left after Phase 302 enabled CodeQL + OpenSSF Scorecard. CodeQL (7), each verified against the code: #77 (bind 0.0.0.0 in the local fixture recorder) FIXED IN CODE -> 127.0.0.1 (clients already target loopback); dismissed as false-positive the two url-redirection findings (mitigated by safe_relative_redirect at oidc.py:431/saml.py:323, CodeQL cannot trace the custom sanitizer) and the splunk clear-text-logging (api_token only used in the Authorization header, never passed to _log); dismissed as used-in-tests the two legacy-TLS generators (deliberately emit legacy TLS to exercise JA4 detection) and the Go bench InsecureSkipVerify against the self-signed mock (already #nosec). Per-alert justifications in the audit trail, no blanket suppression. Scorecard (53): these are supply-chain SCORES not vulnerabilities and are not meaningfully actionable — production Dockerfile base images are already digest-pinned (Phase 229); the 3 TokenPermissions are required write (SARIF upload/automerge/metrics-commit) already job-scoped read at top level; VulnerabilitiesID self-clears now Dependabot is at 0; the rest are solo-repo process scores. Removed the Upload-to-code-scanning step (and security-events:write) from scorecard.yml so the noise stops drowning real CodeQL findings; Scorecard still runs + publishes the badge + keeps results.sarif artifact (one-step reversible). Workflow-pinning + YAML tests green.'
@@ -2504,28 +2506,28 @@ phases:
     name: Documentation Coherence, Setup Standardization, and Link Remediation
     status: COMPLETE
     completed: 2026-06-10
-    action_plan: docs/phases/PHASE_307.md
+    action_plan: docs/phases/complete/PHASE_307.md
     dependencies: []
     size: SMALL
     summary: Establish a coherent documentation system, standardize onboarding instructions on the setup wizard (make init), clear out legacy Python proxy references, and resolve all broken links and metadata errors.
   306:
     name: Take Over PR #95 — Land the Go Performance Wins Without the Regressions
     status: COMPLETE
-    action_plan: docs/phases/PHASE_306.md
+    action_plan: docs/phases/complete/PHASE_306.md
     dependencies: [305]
     size: MEDIUM
     summary: 'Took over external PR #95 ("unleash Go performance") on a clean branch off main, keeping every legitimate win and fixing the regressions. KEPT: io.CopyBuffer-style pooled 32KB buffer reuse in forward() (sync.Pool, sync.WaitGroup, JA4PROXY-2026-0009 invariant preserved), Redis PoolSize 100/MinIdleConns 10, 32-goroutine async scoring pool + workChan 10000->20000, dev/POC/Perf backend port 443->8443 (Production stays 443), lazy %s tarpit logging, and honest hyperbole tone-downs (Elite->Verified/High) in existing docs. FIXED: restored the per-read SetReadDeadline/SetWriteDeadline idle-reaper PR #95 silently dropped — without it a slowloris/idle-hold pins a goroutine + pooled buffer forever and read_timeout/write_timeout become dead config; the pooled-buffer win and the deadlines coexist. Added Go regression test TestForward_IdleConnectionIsReaped (tears down an idle pair at read_timeout; hangs/fails if deadlines removed). REPAIRED docs/ATTACK_MAPPING.md, which was stale on main (Python prototypes src/security/*.py retired in v2.0.0): dropped the dead prototype rows, repointed the two genuine rate-tracker rows to internal/security/rate_limiter.go, and fixed the CI-gate test path (docs/for-architects -> docs/) — the gate (tests/test_attack_mapping.py) was failing on main and now passes. The unsubstantiated ">10,000 CPS/core" claim lived only in PR-new marketing docs (BENCHMARKING_GUIDE.md, PHASE_161.md), which were simply not imported. Left the connection-decision log at Info (no Debug demotion) to preserve the audit trail. Go build/vet/gofmt clean; touched-package tests green.'
   305:
     name: CodeQL Triage — Python Code-Scanning Findings
     status: COMPLETE
-    action_plan: docs/phases/PHASE_305.md
+    action_plan: docs/phases/complete/PHASE_305.md
     dependencies: [304]
     size: SMALL
     summary: 'Triaged the 14 CodeQL Python findings (+1 Go bench) surfaced by enabling code scanning (Phase 302). Genuine bugs fixed in the Management-API web layer with regression tests (test_codeql_305_regression.py): a reflected XSS in /api/v1/partials/list-table (unescaped `list` query param → html.escape) and str(exc) error-detail exposure in /health/deep and the unauthenticated /ready (→ logged server-side, generic reason). The OIDC/SAML url-redirection pair was hardened rather than dismissed — the redirect target is a hardcoded "/" today (no live bug) but a safe_relative_redirect guard now confines both callbacks to same-site relative paths, regression-proofing against any future user-controllable redirect (the "do not dismiss a safe-by-constant FP, harden it" case). The two test TLS servers (mock-backend, tests/docker/tls_backend) got an explicit TLS 1.2 floor (clears py/insecure-protocol legitimately). The remainder are verified false positives (redis_client logs the redacted URL; auth.py logs a config CIDR; splunk action never logs the token) or intentional test tooling (legacy-TLS generators, bind-all capture helper, bench InsecureSkipVerify) — to be dismissed per-alert with code-backed justifications, no blanket rule suppression. The Go production proxy produced no genuine code-scanning bug.'
   304:
     name: Dependency Security Remediation
     status: COMPLETE
-    action_plan: docs/phases/PHASE_304.md
+    action_plan: docs/phases/complete/PHASE_304.md
     dependencies: [302]
     size: SMALL
     summary: 'Triaged the 118 alerts surfaced by enabling Dependabot + CodeQL (Phase 302): the real, fixable, production findings all sit in the Python Management-API auth stack — the Go production proxy is essentially clean. The Phase 302 auto-merge had already landed authlib 1.4.0->1.6.12 and python-multipart 0.0.12->0.0.32 (minor/patch). This phase did the three Dependabot correctly held back: cryptography 45.0.0->46.0.5 (major, management + root floor), python-jose 3.3.0->3.4.0 (critical alg-confusion; PyJWT migration flagged as follow-up), and indirect google.golang.org/grpc 1.76.0->1.79.3 in deploy/terraform-provider (deploy tooling). Management suite 614 pass against the upgraded stack (8 pre-existing failures are dead tests importing legacy Python removed in v2.0.0). Bench-tool go/disabled-certificate-check + OpenSSF Scorecard "highs" documented as benign noise; 9 CodeQL Python findings left as case-by-case follow-up (no blanket suppression).'
@@ -2540,26 +2542,26 @@ phases:
     name: Collision-Free Dev Environments + Clean Good/Bad Load Test
     status: COMPLETE
     completed: 2026-06-11
-    action_plan: docs/phases/PHASE_310.md
+    action_plan: docs/phases/complete/PHASE_310.md
     size: MEDIUM
     summary: 'Per-worktree collision-free dev "lanes": deterministic port offset (base+lane*100) with free-check + auto-bump, unique COMPOSE_PROJECT_NAME (own docker network so internal ports never collide); only the 5 published host ports are offset. Default lane runs WITHOUT HAProxy (single proxy reached directly on HOST_PORT_DIRECT; WITH_HAPROXY=1 for the multi-proxy LB test). make lane / open SVC=... / loadtest (good/bad mix, default 5% good / 95% bad, best-effort auto-dial). scripts/lane-env.sh + tests/unit/test_lane_env.py. Merged in #120.'
   221:
     name: PDF Content Refresh — Reconcile Brochure, User Guide, Reference Manual
     status: CLOSED
-    action_plan: docs/phases/PHASE_221.md
+    action_plan: docs/phases/complete/PHASE_221.md
     summary: 'SUPERSEDED by PHASE_309, which reconciled all three PDFs against the live code — brochure rewrite, user-guide Go-vs-Python production-inversion fix, reference-manual metric-name corrections + overflow handling — and implemented the very "content last-reviewed date independent of the PDF build date" mechanism this phase proposed (the \lastreviewed LaTeX macro). No separate work remains.'
   311:
     name: Resilient pip-audit — Stop PyPI Outages Reddening the Lint Gate
     status: COMPLETE
     completed: 2026-06-11
-    action_plan: docs/phases/PHASE_311.md
+    action_plan: docs/phases/complete/PHASE_311.md
     size: SMALL
     summary: 'pip-audit (default pypi service) querying PyPI per-package JSON flaked the *required* Full Lint gate on transient 5xx/timeouts (e.g. scapy/2.7.0/json 503 on #121) — public red CI + maintainer emails, no actual finding. Added scripts/pip-audit-resilient.sh: passes args through, but retries with backoff on a service outage and SOFT-PASSES (CI warning, exit 0) if the vulnerability service is unreachable, while a REAL vulnerability still exits 1 (and any other non-zero fails safe). Wired into Makefile lint-static and the standalone dependency-audit-python CI job. Soft-pass is narrow (service-unreachable only); persistent gaps still covered by the weekly scheduled audit + standalone job + Dependabot. OSV-service switch rejected (would break the PyPI --ignore-vuln IDs). Stubbed-pip-audit unit test covers clean/real-vuln/transient/unknown; shellcheck clean; no new pinned action.'
   312:
     name: pip-audit Dual-Service Fallback — Shrink the Soft-Pass Window
     status: COMPLETE
     completed: 2026-06-11
-    action_plan: docs/phases/PHASE_312.md
+    action_plan: docs/phases/complete/PHASE_312.md
     dependencies: [311]
     size: SMALL
     summary: 'Extends the phase-311 wrapper: when the primary PyPI service is unreachable after retries, it now falls back to OSV.dev (-s osv --aliases on, so the PyPI-format --ignore-vuln CVE IDs still match via aliases) BEFORE the soft-pass. The warn-and-proceed soft-pass now requires BOTH PyPI and OSV down simultaneously (rare) — shrinking the only fail-open window to near-zero while staying live (no offline/stale DB). A real vulnerability on either path still fails; unknown errors fail safe. Unit test covers clean/vuln/double-outage/pypi-down→osv-clean/pypi-down→osv-vuln/bad-args; shellcheck clean. No Makefile/CI/tool changes (wrapper already wired in 311).'
@@ -2567,7 +2569,7 @@ phases:
     name: Single-Host Core — PROXY-Protocol Write, Manual-Ban Enforcement, CountKeys Fix
     status: COMPLETE
     completed: 2026-06-11
-    action_plan: docs/phases/PHASE_231a.md
+    action_plan: docs/phases/complete/PHASE_231a.md
     size: MEDIUM
     summary: 'Go-daemon core split out of the monolithic Phase 231 proposal. (1) ja4pd now optionally WRITES a PROXY protocol header (v1/v2) to the backend so a TLS-passthrough deploy preserves the real client IP without decrypting — config write_proxy_protocol (default false) + write_proxy_protocol_version (1|2, default 1); builds on the existing inbound parser, reuses the resolved connCtx.ClientIP/Port, FP-safe (indeterminate addrs emit PROXY UNKNOWN / v2 LOCAL rather than dropping a valid client). (2) Manual bans (ban:{ip}) are now enforced at the top of the pipeline, before the dial fetch, so they block immediately even in monitor mode (dial=0); fail-open (Exists()->false on Redis error). (3) Fixed the CountKeys ban-prefix bug (ja4proxy:ban:* -> ban:*) that made the active-bans gauge always read 0. Go tests for the v1/v2 builder + the dial-0 ban path; build/vet/gofmt clean. Corrected the original proposal''s wrong ports (mgmt 8090 not 8113, no 3023) and GeoIP (GeoLite2 not IP2Location) — those land in 231b.'
   231b:
@@ -2577,3 +2579,9 @@ phases:
     dependencies: [231a]
     size: LARGE
     summary: 'Operator-facing single-host deployment tooling split out of the monolithic Phase 231 proposal (depends on 231a). Zero-compile bootstrap.sh (native + containerized, offline tarball, --check/--uninstall), interactive setup_wizard.py (inline->ja4pd vs TAP->python tap node, monitor-mode default, secrets to .env never echoed), systemd unit, firewall gating that reads HOST_PORT_* from .env (real scheme: mgmt 8090, metrics 9090, prometheus 9091, grafana 3000 — not the proposal''s invented 8113/3023), logrotate, daily backup cron, GeoLite2 (not IP2Location) data. PROPOSED — awaiting review.'
+  144:
+    name: Operational Excellence & Repo Pruning
+    status: COMPLETE
+    completed: 2026-06-04
+    action_plan: docs/phases/complete/PHASE_144.md
+    summary: 'Repo pruning + operational-excellence housekeeping. Completed in commit c53ced20 but never recorded in the manifest until the phase-309 documentation audit caught the manifest-vs-doc gap; reconciled and archived in the docs-archive pass.'

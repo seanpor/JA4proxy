@@ -1,6 +1,5 @@
 # Phase 101 — Cross-Phase Gap Closure
 
-> **Status:** PROPOSED
 > **Parent Size:** LARGE — split into 12 sub-phases below.
 > **Dependencies:** Phase 84 (compliance), Phase 85 (threat-intel), Phase 62 (Go parity), Phase 64 (deploy validation), Phase 86i (capacity hardening), Phase 93 (terraform provider).
 > **Last revised:** 2026-04-24 (stranded branch review; see §0 below).
