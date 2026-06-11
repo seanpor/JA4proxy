@@ -10,6 +10,10 @@ every gate that agents have historically skipped, in order, blocking on failures
 - Run `git status` — confirm working tree is clean or all changes are staged.
 - Confirm CHANGELOG.md has been updated for this phase.
 - Confirm docs/phases/manifest.yaml has `status: COMPLETE` for this phase.
+- Archive the phase doc (AGENTS.md Rule 5): `git mv docs/phases/PHASE_XX.md docs/phases/complete/`
+  (or `cancelled/` if cancelled) and update that phase's `action_plan:` path in the
+  manifest in the same commit. Only active phases (PROPOSED/IN_PROGRESS/DEFERRED) stay
+  at the top of docs/phases/. `make lint-phases` verifies the moved path resolves.
 
 ### 2. Local gate (mechanical — run until green)
 Run `bash scripts/close-phase.sh`. This executes:

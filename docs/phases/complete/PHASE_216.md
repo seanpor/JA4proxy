@@ -1,7 +1,6 @@
 ---
 phase: 216
 title: "Penetration Test Remediation — All Phase 215 Findings"
-status: PROPOSED
 size: LARGE
 created: 2026-06-03
 audience: [developer, security]
