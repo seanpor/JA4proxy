@@ -18,7 +18,7 @@ Remote access needs **no special stack** — the normal `make start` already
 honours `AGENT_BIND_IP` for every service. By design:
 
 - **Every service** (proxy `:443`/`:8081`, Management UI `:8090`, Grafana
-  `:3001`, admin-api, analytics, Prometheus, Alertmanager, HAProxy stats) binds
+  `:3000`, admin-api, analytics, Prometheus, Alertmanager, HAProxy stats) binds
   to **`AGENT_BIND_IP`**, which **defaults to `127.0.0.1`** — nothing is reachable
   from your laptop until you opt in.
 - `scripts/start-poc.sh` runs `scripts/check_bind_address.py`, which **refuses to
@@ -56,7 +56,7 @@ curl -sk https://<SERVER_IP>:443
 #    http://<SERVER_IP>:8090/login
 
 # 5. Open Grafana dashboards
-#    http://<SERVER_IP>:3001/login
+#    http://<SERVER_IP>:3000/login
 
 # 6. Run the test bot
 python3 scripts/test-bot.py --proxy <SERVER_IP> --port 443
@@ -94,7 +94,7 @@ make stop
 | 8081 | Direct proxy | HTTPS | none | `https://<host>:8081` |
 | 9090 | Proxy metrics | HTTP | none | `http://<host>:9090/metrics` |
 | 9091 | Prometheus | HTTP | none | `http://<host>:9091` |
-| 3001 | Grafana | HTTP | form | `http://<host>:3001` |
+| 3000 | Grafana | HTTP | form | `http://<host>:3000` |
 | 8090 | Management UI | HTTP | form | `http://<host>:8090/login` |
 | 8091 | Admin API | HTTP | JWT | `http://<host>:8091/docs` |
 | 9093 | Alertmanager | HTTP | none | `http://<host>:9093` |
@@ -111,7 +111,7 @@ make stop
 
 ### Grafana
 
-1. Open `http://<SERVER_IP>:3001/login`
+1. Open `http://<SERVER_IP>:3000/login`
 2. Log in as `admin` with the password from `.env` (`GRAFANA_PASSWORD`)
 3. Open the **JA4 Proxy Security Dashboard** (auto-provisioned)
 4. Browse to **Explore** → select **Loki** datasource → run `{container="ja4proxy"}` to see every log line
@@ -202,7 +202,7 @@ JA4proxy Test Bot
 
 ### Grafana Loki (recommended)
 
-1. Open Grafana at `http://<SERVER_IP>:3001`
+1. Open Grafana at `http://<SERVER_IP>:3000`
 2. Go to **Explore** (compass icon in sidebar)
 3. Select **Loki** as the data source
 4. Query: `{container="ja4proxy"}`
@@ -265,14 +265,14 @@ If you prefer not to expose ports to the network, use SSH port forwarding:
 ```bash
 # From your laptop, create tunnels for the key services
 ssh -L 8090:localhost:8090 \
-    -L 3001:localhost:3001 \
+    -L 3000:localhost:3000 \
     -L 9091:localhost:9091 \
     -L 443:localhost:443 \
     user@<SERVER_IP>
 
 # Then open localhost URLs in your browser:
 #   http://localhost:8090  — Management UI
-#   http://localhost:3001  — Grafana
+#   http://localhost:3000  — Grafana
 #   http://localhost:9091  — Prometheus
 #   https://localhost:443  — Proxy (HAProxy)
 ```
@@ -302,5 +302,5 @@ make stop
 make stop-clean
 
 # Verify ports are closed
-ss -tlnp | grep -E ":(443|8081|9090|9091|3001|8090|8404|9093)"
+ss -tlnp | grep -E ":(443|8081|9090|9091|3000|8090|8404|9093)"
 ```

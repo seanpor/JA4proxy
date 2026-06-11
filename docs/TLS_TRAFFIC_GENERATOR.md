@@ -114,7 +114,7 @@ docker compose -f deploy/docker/docker-compose.poc.yml logs -f proxy
 ### Grafana Dashboard
 ```bash
 # Open Grafana (admin / password from .env)
-open http://localhost:3001
+open http://localhost:3000
 
 # Navigate to: JA4proxy Security Overview
 ```

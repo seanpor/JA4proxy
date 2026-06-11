@@ -261,6 +261,17 @@ the WP's acceptance gate requires checking claims against that source.
   `OPERATIONS_GUIDE` / `OPERATIONS_MAPPING` / runbooks. Propose the target tree
   for the user's sign-off before moving files (links/`make sync` must follow).
 - Final sweep: consistent product/binary naming, single version string (2.0.0), working cross-references, glossary, and a repo-wide link check.
+- **Coherence sweep DONE (this pass):** corrected the Grafana host port
+  **`3001` → `3000`** across all current docs (`.env`/compose default is 3000;
+  ~10 stale refs in POC_QUICKSTART, INCIDENT_RESPONSE, TLS_TRAFFIC_GENERATOR,
+  REMOTE_TESTING, infrastructure.md, user-guide ch02/ch03/ch06/quick-reference,
+  reference-manual ch01/ch08); fixed `MAKEFILE_TARGETS.md` `go-build` output
+  `bin/ja4proxy` → `bin/ja4pd`. PDFs rebuilt. Link-target strings unchanged
+  (link-safe; CI lychee validates).
+- **IA restructure: PROPOSED, awaiting sign-off** (do not move files until
+  approved — moving 39 docs breaks every relative link and needs README +
+  `make sync` + link-check follow-up). See the proposed audience-based tree in
+  the WP-10 discussion.
 - **Acceptance:** target IA agreed and applied; coherence checklist passes; link check clean; `make sync` clean.
 
 ## Test / verification strategy
