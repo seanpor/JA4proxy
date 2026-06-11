@@ -376,7 +376,10 @@ lint-static:
 	@$(PYTHON) -m ruff check src/analytics/ src/management/ && echo "  ✓ ruff passed (tests advisory only)"
 	@echo ""
 	@echo "=== pip-audit: CVE dependency scan ==="
-	@pip-audit -r requirements.txt \
+	@# phase-311: resilient wrapper — retries transient PyPI/OSV outages and
+	@# soft-passes (with a CI warning) if the service is unreachable, but still
+	@# fails on a real vulnerability. Stops upstream-outage flakes reddening the gate.
+	@bash scripts/pip-audit-resilient.sh -r requirements.txt \
 	  --ignore-vuln CVE-2025-50181 \
 	  --ignore-vuln CVE-2025-66418 \
 	  --ignore-vuln CVE-2025-66471 \

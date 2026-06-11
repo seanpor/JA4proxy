@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **CI resilience — `pip-audit` (Phase 311)**: a transient PyPI/OSV outage no
+  longer reddens the required Full Lint gate (which also spammed maintainer
+  emails and showed public CI failures). `scripts/pip-audit-resilient.sh` retries
+  on a service outage and soft-passes with a CI warning if the vulnerability
+  service is unreachable, while a **real vulnerability still fails the build**.
+  Wired into `make lint` (`lint-static`) and the standalone dependency-audit job.
+
 ### Security
 - **Code-scanning remediation (Phase 308)**: cleared the 60-alert code-scanning
   backlog (7 CodeQL + 53 Scorecard) left after Phase 302 enabled CodeQL +
