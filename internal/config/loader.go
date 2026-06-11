@@ -114,6 +114,9 @@ func DefaultConfig() *Config {
 			WriteTimeout:        30,
 			ProxyProtocol:       true,
 			BufferSize:          8192,
+			// phase-231a: off by default (fail-open); v1 if enabled without a version.
+			WriteProxyProtocol:        false,
+			WriteProxyProtocolVersion: 1,
 		},
 		Redis: RedisConfig{
 			Host:    "redis",
@@ -414,6 +417,11 @@ type ProxyConfig struct {
 	ProxyProtocol       bool                `yaml:"proxy_protocol"`
 	BufferSize          int                 `yaml:"buffer_size"`
 	UpstreamTrust       UpstreamTrustConfig `yaml:"upstream_trust"`
+	// phase-231a: write a PROXY protocol header to the backend so a passthrough
+	// deployment preserves the real client IP without TLS decryption. Off by
+	// default; a config missing these fields loads with the safe defaults.
+	WriteProxyProtocol        bool `yaml:"write_proxy_protocol"`
+	WriteProxyProtocolVersion int  `yaml:"write_proxy_protocol_version"`
 }
 
 // RedisConfig holds Redis connection settings.

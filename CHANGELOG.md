@@ -7,7 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Single-host core (Phase 231a)**: `ja4pd` can now **write a PROXY protocol
+  header (v1/v2) to the backend** so a TLS-passthrough deployment preserves the
+  real client IP/port without decrypting — `write_proxy_protocol` (default
+  `false`) + `write_proxy_protocol_version` (`1`|`2`, default `1`) in
+  `config/proxy.yml`. FP-safe: indeterminate addresses degrade to `PROXY
+  UNKNOWN`/v2 LOCAL rather than dropping a valid client. Also enforces **manual
+  bans (`ban:{ip}`)** at the top of the pipeline so they block immediately even
+  in monitor mode (`dial: 0`), fail-open on a Redis error.
+
 ### Fixed
+- **Active-bans metric (Phase 231a)**: `CountKeys` queried the wrong prefix
+  (`ja4proxy:ban:*`), so the active-bans gauge always read 0; corrected to the
+  canonical `ban:*`.
 - **CI resilience — `pip-audit` (Phase 311)**: a transient PyPI/OSV outage no
   longer reddens the required Full Lint gate (which also spammed maintainer
   emails and showed public CI failures). `scripts/pip-audit-resilient.sh` retries

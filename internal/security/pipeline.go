@@ -369,6 +369,19 @@ func (p *Pipeline) processInternal(ctx context.Context, conn *ConnectionContext)
 		return &PipelineResult{Action: "block", Score: 100, BypassReason: "blocklist"}
 	}
 
+	// ── 1b. MANUAL BAN (phase-231a) ───────────────────────────────────────────
+	// An operator ban (`ban:{ip}` in Redis, written by the management API /
+	// `ja4p block`) is a hard block evaluated here — before the dial is fetched —
+	// so it takes effect immediately, even in monitor mode (dial=0), exactly like
+	// the static blocklist above. Canonical key `ban:{ip}` (REDIS_SCHEMA).
+	// Fail-open: Exists() returns false on any Redis error, so an outage never
+	// starts blocking legitimate traffic.
+	if p.redis != nil && conn.ClientIP != "" {
+		if p.redis.Exists(ctx, "ban:"+conn.ClientIP) {
+			return &PipelineResult{Action: "block", Score: 100, BypassReason: "manual_ban"}
+		}
+	}
+
 	// ── 2. BYPASS CHECKS (Whitelists, etc.) ──────────────────────────────────────────────────
 	if bypass, reason := p.checkBypasses(conn); bypass {
 		if p.log.IsLevelEnabled(logrus.DebugLevel) {
