@@ -691,7 +691,7 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 	// Execute action
 	switch result.Action {
 	case "allow", "flag", "rate_limit":
-		p.forward(clientConn, data)
+		p.forward(clientConn, data, connCtx.ClientIP, connCtx.ClientPort)
 	case "tarpit":
 		p.tarpit(clientConn, data, connCtx.ClientIP)
 	case "block", "ban":
@@ -815,7 +815,7 @@ func (p *proxy) reassembleClientHello(clientConn net.Conn, data, buf []byte) []b
 	return data
 }
 
-func (p *proxy) forward(clientConn net.Conn, initialData []byte) {
+func (p *proxy) forward(clientConn net.Conn, initialData []byte, srcIP string, srcPort int) {
 	p.mu.RLock()
 	cfg := p.cfg
 	p.mu.RUnlock()
@@ -842,6 +842,27 @@ func (p *proxy) forward(clientConn net.Conn, initialData []byte) {
 		return
 	}
 	defer backendConn.Close()
+
+	// phase-231a: optionally prepend a PROXY protocol header so the backend
+	// learns the real client IP/port without JA4proxy decrypting TLS. Written
+	// first, before the buffered ClientHello, so it is the very first thing the
+	// backend reads. srcIP/srcPort are the already-resolved client (from a
+	// trusted inbound PROXY header, else the socket peer); dst is the proxy's
+	// own accept address.
+	if cfg.Proxy.WriteProxyProtocol {
+		var dstIP net.IP
+		dstPort := 0
+		if la, ok := clientConn.LocalAddr().(*net.TCPAddr); ok {
+			dstIP = la.IP
+			dstPort = la.Port
+		}
+		hdr := proxypkg.BuildBackendProxyHeader(cfg.Proxy.WriteProxyProtocolVersion, net.ParseIP(srcIP), srcPort, dstIP, dstPort)
+		if _, err := backendConn.Write(hdr); err != nil {
+			metrics.ConnectionErrorsTotal.WithLabelValues(classifyConnError("backend_proxy_header", err)).Inc()
+			p.log.WithError(err).Warn("proxy: write PROXY header to backend failed")
+			return
+		}
+	}
 
 	// Send buffered initial data
 	if _, err := backendConn.Write(initialData); err != nil {
@@ -931,7 +952,7 @@ func (p *proxy) tarpit(clientConn net.Conn, data []byte, clientIP string) {
 		}).Info("tarpit: capacity reached — executing overflow action")
 
 		if overflowAction == "allow" {
-			p.forward(clientConn, data)
+			p.forward(clientConn, data, clientIP, remotePort(clientConn))
 		}
 		// block/ban: return and let handleConn's defer close clientConn
 		return
@@ -1332,10 +1353,12 @@ func (p *proxy) handleHealthDeep(w http.ResponseWriter, r *http.Request) {
 	// Dial — read from Redis (management API writes here)
 	dial := p.redis.GetDial(ctx)
 
-	// Active bans (count keys matching pattern)
+	// Active bans (count keys matching pattern). phase-231a: the canonical ban
+	// key is `ban:{ip}` (REDIS_SCHEMA); the old `ja4proxy:ban:*` prefix matched
+	// nothing, so this gauge always read 0.
 	activeBans := 0
 	if redisOK {
-		activeBans = p.redis.CountKeys(ctx, "ja4proxy:ban:*")
+		activeBans = p.redis.CountKeys(ctx, "ban:*")
 	}
 
 	// Connection counters — gather from Prometheus registry
