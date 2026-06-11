@@ -13,7 +13,7 @@ Get the demo running in under 5 minutes. Designed for assessors evaluating the p
 
 - Docker 20.10+ and Docker Compose 2.0+
 - 4 GB RAM, 2 GB disk space
-- Ports 443, 3001, 8080, 8404, 8443, 8888, 9090, 9091, 9093 available
+- Ports 443, 3000, 8080, 8404, 8443, 8888, 9090, 9091, 9093 available
 
 ## First-time setup (new machine only)
 
@@ -68,7 +68,7 @@ Blocked requests by action type:
 
 ## 3. Watch the Dashboard
 
-Open **http://localhost:3001** (admin / password printed by `./start-all.sh` or in `.env`).
+Open **http://localhost:3000** (admin / password printed by `./start-all.sh` or in `.env`).
 
 Navigate to **JA4proxy Security Overview**. Key panels:
 
@@ -108,7 +108,7 @@ This resets all transient security state so consecutive test runs start clean wi
 | Backend (HTTPS) | `https://localhost:8443` |
 | Tarpit | `http://localhost:8888` |
 | Prometheus | `http://localhost:9091` |
-| Grafana | `http://localhost:3001` |
+| Grafana | `http://localhost:3000` |
 | Alertmanager | `http://localhost:9093` |
 
 ## Verify Legitimate Traffic Passes

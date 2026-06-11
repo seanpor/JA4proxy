@@ -36,7 +36,7 @@ backend (:443).
 \code{redis} & \code{redis:7.2-alpine} & \code{127.0.0.1:6379:6379} & Shared state; NOT exposed to internet \\
 \code{analytics} & \code{ja4analytics:latest} & — & Redis Streams consumer; findings writer \\
 \code{prometheus} & \code{prom/prometheus:v2.51.0} & \code{127.0.0.1:9090:9090} & Metrics collection \\
-\code{grafana} & \code{grafana/grafana:10.4.0} & \code{127.0.0.1:3001:3000} & Dashboards \\
+\code{grafana} & \code{grafana/grafana:10.4.0} & \code{127.0.0.1:3000:3000} & Dashboards \\
 \code{loki} & \code{grafana/loki:2.9.5} & \code{127.0.0.1:3100:3100} & Log aggregation \\
 \code{alertmanager} & \code{prom/alertmanager:v0.27.0} & \code{127.0.0.1:9093:9093} & Alert routing \\
 \code{backend} & (operator-provided) & — & Protected origin; only reachable from proxy \\
@@ -241,7 +241,7 @@ HAProxy (DMZ) & \ja\ (App) & 8080 & TCP & PROXY protocol + TLS passthrough \\
 \ja\ (App) & Spamhaus URLs & 443 & TCP & Blocklist refresh (outbound) \\
 Prometheus (Mgmt) & \ja\ (App) & 9090 & TCP & Metrics scraping \\
 Loki (Mgmt) & \ja\ (App) & (log push) & TCP & Log collection \\
-Operator VPN & Grafana (Mgmt) & 3001 & TCP & Dashboard access \\
+Operator VPN & Grafana (Mgmt) & 3000 & TCP & Dashboard access \\
 Operator VPN & Alertmanager (Mgmt) & 9093 & TCP & Alert management \\
 \midrule
 \multicolumn{5}{@{}l}{\textbf{Blocked (explicit DENY):}} \\

@@ -12,7 +12,7 @@ This runbook covers all alerts defined in the `ja4proxy_infrastructure`,
 `ja4proxy_attack_detection` Prometheus alert groups.
 
 **Dashboard:** Open the Infrastructure & Attack dashboard in Grafana
-(e.g. `http://localhost:3001/d/ja4proxy-infrastructure`).
+(e.g. `http://localhost:3000/d/ja4proxy-infrastructure`).
 for visual context when responding to any alert in this runbook.
 
 ---
