@@ -4,50 +4,60 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Login — JA4proxy Management</title>
+  
+  <!-- Google Fonts Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
   <link rel="stylesheet" href="/static/custom.css" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { height: 100%; }
     body {
-      background: #0f172a; color: #f1f5f9;
-      font-family: system-ui, -apple-system, sans-serif;
+      background-color: #0b0f19;
+      background-image: radial-gradient(circle at 50% 30%, rgba(14, 165, 233, 0.12) 0%, rgba(11, 15, 25, 1) 70%);
+      color: #f8fafc;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
       display: flex; align-items: center; justify-content: center; padding: 1rem;
     }
-    .card-wrap { width: 100%; max-width: 24rem; }
+    .card-wrap { width: 100%; max-width: 22rem; }
     .brand { display: flex; flex-direction: column; align-items: center; margin-bottom: 2rem; }
     .brand-icon {
       display: flex; align-items: center; justify-content: center;
       width: 3.5rem; height: 3.5rem; border-radius: 1rem;
-      background: #1e293b; border: 1px solid #334155; margin-bottom: 1rem;
+      background: rgba(17, 24, 39, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+      margin-bottom: 1rem;
     }
-    .brand-icon svg { width: 2rem; height: 2rem; color: #0ea5e9; }
-    .brand h1 { font-size: 1.25rem; font-weight: 700; color: #f1f5f9; }
-    .brand p { font-size: 0.875rem; color: #94a3b8; margin-top: 0.25rem; }
+    .brand-icon svg { width: 2rem; height: 2rem; color: #0ea5e9; filter: drop-shadow(0 0 6px rgba(14, 165, 233, 0.4)); }
+    .brand h1 { font-size: 1.35rem; font-weight: 700; color: #f8fafc; letter-spacing: -0.02em; }
+    .brand p { font-size: 0.8rem; color: #94a3b8; margin-top: 0.25rem; font-weight: 500; }
+    
     .card {
-      background: #1e293b; border: 1px solid #334155;
-      border-radius: 0.75rem; padding: 1.5rem; box-shadow: 0 25px 50px -12px rgba(0,0,0,.25);
+      background: rgba(17, 24, 39, 0.65);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 12px;
+      padding: 1.75rem;
+      box-shadow: 0 20px 40px -15px rgba(0,0,0,0.6), 0 0 20px rgba(14, 165, 233, 0.03);
     }
-    .card h2 { font-size: 1rem; font-weight: 600; color: #f1f5f9; margin-bottom: 1.25rem; }
+    .card h2 { font-size: 0.95rem; font-weight: 600; color: #f8fafc; margin-bottom: 1.25rem; text-align: center; }
     .alert {
       display: flex; align-items: center; gap: 0.5rem;
       padding: 0.625rem 0.75rem; margin-bottom: 1rem;
-      border-radius: 0.5rem; background: rgba(220,38,38,.1);
-      border: 1px solid rgba(220,38,38,.4); color: #f87171; font-size: 0.875rem;
+      border-radius: 0.5rem; background: rgba(239,68,68,.1);
+      border: 1px solid rgba(239,68,68,.25); color: #f87171; font-size: 0.8rem;
     }
     .alert svg { width: 1rem; height: 1rem; flex-shrink: 0; }
     .field { margin-bottom: 1rem; }
     .field label { display: block; font-size: 0.75rem; font-weight: 500; color: #94a3b8; margin-bottom: 0.375rem; }
-    .field input {
-      width: 100%; padding: 0.5rem 0.75rem; border-radius: 0.5rem;
-      background: #0f172a; border: 1px solid #334155; color: #f1f5f9;
-      font-size: 0.875rem; outline: none; transition: border-color .15s;
-    }
-    .field input::placeholder { color: #475569; }
-    .field input:focus { border-color: #0ea5e9; box-shadow: 0 0 0 2px rgba(14,165,233,.3); }
     .pw-wrap { position: relative; }
     .pw-wrap input { padding-right: 2.5rem; }
     .pw-toggle {
-      position: absolute; right: 0.625rem; top: 50%; transform: translateY(-50%);
+      position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%);
       background: none; border: none; color: #475569; cursor: pointer; padding: 0;
     }
     .pw-toggle:hover { color: #94a3b8; }
@@ -56,18 +66,19 @@
       margin-top: 1.25rem; width: 100%; display: flex; align-items: center;
       justify-content: center; gap: 0.5rem; padding: 0.625rem 1rem;
       border-radius: 0.5rem; background: #0ea5e9; border: none;
-      color: #fff; font-size: 0.875rem; font-weight: 500; cursor: pointer;
-      transition: background .15s;
+      color: #fff; font-size: 0.85rem; font-weight: 600; cursor: pointer;
+      box-shadow: 0 4px 12px rgba(14, 165, 233, 0.2);
+      transition: all .2s;
     }
-    .btn-submit:hover { background: #38bdf8; }
-    .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+    .btn-submit:hover { background: #38bdf8; transform: translateY(-1px); box-shadow: 0 6px 16px rgba(14, 165, 233, 0.3); }
+    .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; }
     .btn-submit .spinner { display: none; width: 1rem; height: 1rem; animation: spin 1s linear infinite; }
     .btn-submit.loading .spinner { display: inline-block; }
     .btn-submit.loading .btn-label { display: none; }
     .btn-submit.loading .btn-loading-label { display: inline; }
     .btn-loading-label { display: none; }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .footer { text-align: center; font-size: 0.75rem; color: #475569; margin-top: 1.5rem; }
+    .footer { text-align: center; font-size: 0.7rem; color: #475569; margin-top: 2rem; font-weight: 500; }
   </style>
 </head>
 <body>
@@ -99,15 +110,15 @@
 
         <div class="field">
           <label for="username">Username</label>
-          <input id="username" name="username" type="text" required
-                 autocomplete="username" autofocus placeholder="admin" />
+          <input id="username" name="username" type="text" required class="glass-input"
+                 autocomplete="username" autofocus placeholder="admin" style="width: 100%;" />
         </div>
 
         <div class="field">
           <label for="password">Password</label>
           <div class="pw-wrap">
-            <input id="password" name="password" type="password" required
-                   autocomplete="current-password" placeholder="••••••••" />
+            <input id="password" name="password" type="password" required class="glass-input"
+                   autocomplete="current-password" placeholder="••••••••" style="width: 100%;" />
             <button type="button" class="pw-toggle" id="pw-toggle"
                     aria-label="Show password">
               <svg id="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
