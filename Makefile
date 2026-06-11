@@ -481,6 +481,9 @@ TRIVY_IMAGES := haproxy:2.8.24-alpine \
 check-manifest:
 	@$(PYTHON) scripts/check_manifest.py
 
+download-assets: ## Phase 230 — Download and pin all local frontend JS assets
+	@$(PYTHON) scripts/download_frontend_assets.py
+
 scan-images:
 	@mkdir -p "$(TRIVY_CACHE)"
 	@echo "=== Trivy: third-party image CVE scan (HIGH + CRITICAL) ==="

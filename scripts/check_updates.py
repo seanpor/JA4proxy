@@ -679,6 +679,46 @@ def check_node_packages() -> list[Update]:
     return updates
 
 
+def check_frontend_assets() -> list[Update]:
+    """
+    Check locally hosted frontend JS files for updates.
+    Queries the NPM Registry API to check the latest version of alpinejs, htmx.org,
+    htmx-ext-sse, chart.js, and tailwindcss.
+    """
+    updates: list[Update] = []
+
+    packages = {
+        "alpine.min.js": {"pkg": "alpinejs", "current": "3.14.0"},
+        "htmx.min.js": {"pkg": "htmx.org", "current": "1.9.12"},
+        "sse.js": {"pkg": "htmx-ext-sse", "current": "2.2.1"},
+        "chart.umd.min.js": {"pkg": "chart.js", "current": "4.4.2"},
+        "tailwind.min.js": {"pkg": "tailwindcss", "current": "3.4.15"},
+    }
+
+    for filename, info in packages.items():
+        pkg_name = info["pkg"]
+        current = info["current"]
+        url = f"https://registry.npmjs.org/{pkg_name}/latest"
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "ja4proxy-check-updates/1.0"})
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read().decode())
+                latest = data.get("version")
+                if latest and latest != current:
+                    severity = _semver_diff(current, latest)
+                    updates.append(Update(
+                        name=filename,
+                        current=current,
+                        available=latest,
+                        category="frontend",
+                        severity=severity,
+                    ))
+        except Exception as e:
+            print(f"    {YELLOW}NPM API error for {pkg_name}: {e}{RESET}")
+
+    return updates
+
+
 # ---------------------------------------------------------------------------
 # Main — run all checks and print report
 # ---------------------------------------------------------------------------
@@ -686,14 +726,14 @@ def check_node_packages() -> list[Update]:
 
 def main() -> int:
     """
-    Run all four dependency checks and print a color-coded report.
+    Run all five dependency checks and print a color-coded report.
 
     Returns:
         0 if all checks completed successfully (no errors).
         1 if a tool crashed or encountered an unrecoverable error.
     """
     print(f"{BOLD}{CYAN}=== Dependency Update Checker ==={RESET}")
-    print("  Checking Docker, Go, Python, and Node dependencies.")
+    print("  Checking Docker, Go, Python, Node, and Frontend dependencies.")
     print(f"  This is read-only — nothing is installed or modified.{RESET}")
     print()
 
@@ -722,6 +762,12 @@ def main() -> int:
     node = check_node_packages()
     all_updates.extend(node)
     _print_section("Found updates:", node)
+
+    # --- Frontend assets ---
+    print(f"\n  {BOLD}--- Frontend assets ---{RESET}")
+    frontend = check_frontend_assets()
+    all_updates.extend(frontend)
+    _print_section("Found updates:", frontend)
 
     # --- Summary ---
     print(f"\n  {BOLD}{'=' * 50}{RESET}")
