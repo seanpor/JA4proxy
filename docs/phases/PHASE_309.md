@@ -217,12 +217,17 @@ the WP's acceptance gate requires checking claims against that source.
   exist**, contradicting the policy and the project's no-SLA-commitment rule.
   Added disclaimers reframing the day-figures as **internal best-effort targets,
   not SLAs**, and fixed the on-call escalation line. (No test asserts that text.)
-- **Found — `findings.yaml` register has 28 stale `regression_test` paths**, so
-  the `scripts/phase_121_verify.py` gate fails. Cause: the Go rewrite renamed
-  `cmd/proxy/` → `cmd/ja4pd/`, and several Python regression tests moved/renamed.
-  Pre-existing (not introduced here). The Go-path renames are mechanical; the
-  Python ones need per-file verification. **Residual:** dedicated pass to repoint
-  all 28 (the register is gate-controlled — fix carefully, not by blanket sed).
+- **`findings.yaml` stale `regression_test` paths — PARTIALLY RECONCILED
+  (2026-06-11).** Cause: the Go rewrite renamed `cmd/proxy/` → `cmd/ja4pd/`, and
+  several Python regression tests were removed when the Go proxy became
+  production. **Done:** the 16 `cmd/proxy/*` paths repointed to `cmd/ja4pd/*`
+  (all target files verified to exist), and 4 bare Go paths
+  (`internal/{config,redis,logging}/TestRegression_…`) qualified with their real
+  `*_test.go` files. **Residual: 12 findings still point at *deleted*
+  Python-prototype tests** (`tests/unit/**`, e.g. `test_pentest_*_regression.py`,
+  `test_proxy_server.py`); each needs **per-finding repointing to its Go-coverage
+  equivalent or re-classification** — correctness-sensitive on a security
+  register, so not blanket-sed'd. Tracked as finding-register hygiene.
 - **Historical artifacts left as-is:** `SECURITY_REVIEW_PHASE1.md` and parts of
   `COMPREHENSIVE_SECURITY_AUDIT.md` review the *Python prototype* — point-in-time
   records (like phase docs/ADRs), not current-state claims; not rewritten.
@@ -234,10 +239,12 @@ the WP's acceptance gate requires checking claims against that source.
   (post-Go-rewrite) and their `Accepted` status holds; the Go rewrite ADRs
   (ADR-002/015) are now realised, not superseded. Two genuine issues found and
   annotated (notes appended, rationale untouched):
-  - **ADR-003 is misfiled** — its content duplicates ADR-005 (RDAP block
-    expansion), but the index says ADR-003 should be the **TTL-asymmetry**
-    decision. The original rationale was overwritten; added a ⚠ note pointing to
-    ADR-005 and flagging restoration (did **not** fabricate the lost content).
+  - **ADR-003 — RESTORED (2026-06-11).** It had been overwritten with a
+    duplicate of ADR-005 (RDAP block expansion); its correct subject (per the
+    index + `CLAUDE.md` decision log) is the **cache-TTL asymmetry** (ALLOW ~30min
+    / BLOCK ~30s; local-cache-wins-over-Redis). Rewritten from the authoritative
+    decision log — not fabricated — with a restoration note; INDEX already
+    described it correctly.
   - **ADR-107a (Proposed)** → marked **Superseded by ADR-202a** (SLSA shipped via
     SHA-pinned reusable workflows, not the proposed `slsa-github-generator`);
     note added + `INDEX.md` status updated.
