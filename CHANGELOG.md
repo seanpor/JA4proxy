@@ -15,6 +15,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   service is unreachable, while a **real vulnerability still fails the build**.
   Wired into `make lint` (`lint-static`) and the standalone dependency-audit job.
 
+### Added
+- **Dev lanes + clean load test (Phase 310)**: each git worktree auto-gets a
+  collision-free "lane" — its own published host ports + unique compose project
+  and docker network — so multiple checkouts run on one host without clashing.
+  `make lane` / `make open SVC=…` / `make loadtest` (good/bad traffic mix,
+  default 5% good / 95% bad, watch it in the lane's Grafana). The default lane
+  runs without HAProxy (single proxy; `WITH_HAPROXY=1` for the multi-proxy test).
+- **Management-UI front-end hardening (Phase 230)**: self-hosted + SHA-pinned
+  vendored JS (`SHA256SUMS` + `VENDOR.md` + integrity test), a **pre-built purged
+  Tailwind CSS** (replacing the 407 KB browser/runtime "Play" build), a
+  Content-Security-Policy, and no external CDN/font fetches; plus `make scan-js`
+  (retire.js CVE scan of the vendored JS) wired into CI.
+
+### Changed
+- **Documentation source-of-truth audit (Phase 309, in progress)**: every doc
+  now carries **Version 2.0.0** + a content **"last reviewed"** date (not the
+  build date); author name corrected to **Seán Ó Ríordáin**; the user guide,
+  `SCALING_GUIDE`, and `OBSERVABILITY_STANDARDS` rewritten to the Go-native
+  architecture; the OBSERVABILITY metric registry regenerated from code; live
+  alert rules and the CVD/SLA policy text reconciled; Grafana port docs
+  `3001`→`3000`. Supersedes **Phase 221** (PDF refresh) and resolves **Phase 159**
+  ("10k Mission" — the ~350 CPS cap was the Docker `docker-proxy` relay;
+  host-native sustains ~3,000 CPS).
+
 ### Security
 - **Code-scanning remediation (Phase 308)**: cleared the 60-alert code-scanning
   backlog (7 CodeQL + 53 Scorecard) left after Phase 302 enabled CodeQL +
