@@ -1,7 +1,6 @@
 ---
 phase: 227
 title: Scan & Build Caching — Stop Re-Pulling the Same Layers and DBs
-status: PROPOSED
 size: SMALL
 created: 2026-06-06
 audience: [developer, operator]

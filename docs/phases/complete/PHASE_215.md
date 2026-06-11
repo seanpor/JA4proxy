@@ -1,7 +1,6 @@
 ---
 phase: 215
 title: "White-Box Penetration Test — Go Production Proxy"
-status: PROPOSED
 size: LARGE
 created: 2026-06-03
 audience: [security, developer]
