@@ -85,6 +85,19 @@ Do NOT include a `Status:` line in phase doc files. If an existing doc has one, 
 3. Run `make lint-phases` — must exit 0
 4. No content edits needed (because the number isn't in the content)
 
+**Rule 5 — Doc location reflects status (keeps `docs/phases/` uncluttered).**
+Only **active** phases (`PROPOSED` / `IN_PROGRESS` / `DEFERRED`) live at the top
+of `docs/phases/`. When a phase reaches a **terminal** status its doc moves into
+the matching subfolder, and its `action_plan:` path in the manifest is updated
+**in the same commit** (`lint-phases` requires the path to resolve, so the move
+and the manifest edit are atomic — `git mv` + edit, never one without the other):
+- `COMPLETE` / `CLOSED` → `docs/phases/complete/`
+- `CANCELLED` → `docs/phases/cancelled/`
+
+Do **not** move a doc whose manifest status and any stale in-doc status disagree
+(e.g. manifest `COMPLETE` but the doc still reads `PROPOSED`) — reconcile the
+status first, then move.
+
 ### Phase Close-Out — use `/close-phase` (mandatory)
 
 **Do not close a phase manually.** Use the `/close-phase` slash command, which
@@ -136,6 +149,11 @@ verified by the self-review in step 3):
 - **docs/phases/manifest.yaml:** `status: COMPLETE`, `completed: YYYY-MM-DD`,
   resolved gaps removed, new gaps added to future phases.
 - **Phase doc hygiene:** remove any `## Status:` line from the phase doc.
+- **Archive the phase doc (Rule 5):** `git mv docs/phases/PHASE_XX.md
+  docs/phases/complete/` (or `cancelled/` if cancelled) **and** update that
+  phase's `action_plan:` path in the manifest in the same commit. Run
+  `make lint-phases` (must exit 0) — it verifies the moved path resolves. This
+  keeps the top of `docs/phases/` to active phases only.
 - **Atomic commit:** code + CHANGELOG + manifest + TODO + PROJECT_STATUS
   together in one commit.
 
