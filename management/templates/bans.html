@@ -4,15 +4,15 @@
 {% block page_title %}Active Bans{% endblock %}
 
 {% block content %}
-<div class="space-y-6 max-w-[900px]">
+<div class="space-y-6 max-w-[900px] fade-in">
 
   <!-- ── Add ban form ──────────────────────────────────────────── -->
-  <div class="bg-[#1e293b] border border-[#334155] rounded-xl overflow-hidden">
-    <div class="flex items-center gap-2 px-4 py-3 border-b border-[#334155]">
-      <svg class="w-4 h-4 text-[#7c3aed]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+  <div class="glass-card overflow-hidden">
+    <div class="flex items-center gap-2 px-4 py-3 border-b border-[#1e293b]/55">
+      <svg class="w-4 h-4 text-[#8b5cf6] filter drop-shadow-[0_0_4px_rgba(139,92,246,0.3)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
       </svg>
-      <h2 class="text-sm font-semibold text-[#f1f5f9]">Add Ban</h2>
+      <h2 class="text-xs font-semibold text-[#64748b] uppercase tracking-wider">Add Ban</h2>
     </div>
 
     <div class="px-4 py-4"
@@ -21,7 +21,7 @@
 
       <!-- Error / success feedback -->
       <div x-show="feedback"
-           :class="feedbackOk ? 'bg-[#16a34a]/15 border-[#16a34a]/35 text-[#4ade80]' : 'bg-[#dc2626]/15 border-[#dc2626]/35 text-[#f87171]'"
+           :class="feedbackOk ? 'bg-[#10b981]/10 border-[#10b981]/25 text-[#34d399]' : 'bg-[#ef4444]/10 border-[#ef4444]/25 text-[#f87171]'"
            class="flex items-center gap-2 px-3 py-2 mb-3 rounded-lg border text-xs"
            style="display:none;">
         <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
@@ -35,46 +35,43 @@
 
         <!-- IP field -->
         <div>
-          <label for="ban-ip" class="block text-xs font-medium text-[#94a3b8] mb-1.5">IP Address</label>
+          <label for="ban-ip" class="block text-[10px] font-semibold text-[#64748b] uppercase tracking-wider mb-1.5">IP Address</label>
           <input id="ban-ip"
                  type="text"
                  x-model="ip"
                  placeholder="203.0.113.42"
-                 class="w-full px-3 py-2 rounded-lg bg-[#0f172a] border border-[#334155] text-[#f1f5f9] text-sm
-                        placeholder-[#475569] focus:outline-none focus:ring-2 focus:ring-[#7c3aed] focus:border-transparent" />
+                 class="w-full glass-input" />
         </div>
 
         <!-- TTL field -->
         <div>
-          <label for="ban-ttl" class="block text-xs font-medium text-[#94a3b8] mb-1.5">TTL (seconds)</label>
+          <label for="ban-ttl" class="block text-[10px] font-semibold text-[#64748b] uppercase tracking-wider mb-1.5">TTL (seconds)</label>
           <input id="ban-ttl"
                  type="number"
                  min="1"
                  max="604800"
                  x-model.number="ttl"
-                 class="w-full px-3 py-2 rounded-lg bg-[#0f172a] border border-[#334155] text-[#f1f5f9] text-sm
-                        focus:outline-none focus:ring-2 focus:ring-[#7c3aed] focus:border-transparent" />
+                 class="w-full glass-input" />
         </div>
 
         <!-- Reason field -->
         <div>
-          <label for="ban-reason" class="block text-xs font-medium text-[#94a3b8] mb-1.5">Reason</label>
+          <label for="ban-reason" class="block text-[10px] font-semibold text-[#64748b] uppercase tracking-wider mb-1.5">Reason</label>
           <input id="ban-reason"
                  type="text"
                  x-model="reason"
                  placeholder="e.g. Brute force, Scan activity"
-                 class="w-full px-3 py-2 rounded-lg bg-[#0f172a] border border-[#334155] text-[#f1f5f9] text-sm
-                        placeholder-[#475569] focus:outline-none focus:ring-2 focus:ring-[#7c3aed] focus:border-transparent" />
+                 class="w-full glass-input" />
         </div>
 
         <!-- Submit -->
         <button type="button"
                 :disabled="submitting || !ip.trim() || !reason.trim()"
                 @click="submitBan()"
-                class="flex-shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-lg
-                       bg-[#7c3aed] hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed
-                       text-white text-sm font-medium transition-colors">
-          <svg class="w-4 h-4" :class="submitting ? 'animate-spin' : ''" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                class="flex-shrink-0 inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg h-[38px]
+                       bg-[#8b5cf6] hover:bg-[#a78bfa] disabled:opacity-40 disabled:cursor-not-allowed
+                       text-white text-xs font-semibold shadow-md shadow-[#8b5cf6]/10 hover:shadow-[#8b5cf6]/20 transition-all duration-200">
+          <svg class="w-3.5 h-3.5" :class="submitting ? 'animate-spin' : ''" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
           </svg>
           <span x-text="submitting ? 'Banning…' : 'Ban IP'">Ban IP</span>
@@ -83,12 +80,12 @@
       </div>
 
       <!-- TTL presets -->
-      <div class="flex items-center gap-2 mt-2.5 flex-wrap">
-        <span class="text-xs text-[#475569]">Quick TTL:</span>
+      <div class="flex items-center gap-1.5 mt-3 flex-wrap">
+        <span class="text-[10px] text-[#475569] font-medium">Quick TTL:</span>
         {% for label, seconds in [("1 hour", 3600), ("6 hours", 21600), ("24 hours", 86400), ("7 days", 604800)] %}
         <button type="button" @click="ttl = {{ seconds }}"
-                :class="ttl == {{ seconds }} ? 'bg-[#7c3aed]/30 text-[#c4b5fd] border-[#7c3aed]/40' : 'text-[#94a3b8] border-[#334155] hover:border-[#7c3aed]/40 hover:text-[#c4b5fd]'"
-                class="px-2 py-0.5 text-xs rounded border transition-colors">
+                :class="ttl == {{ seconds }} ? 'bg-[#1e293b] text-[#c4b5fd] border-[#8b5cf6]/30' : 'text-[#94a3b8] border-[#1e293b]'"
+                class="px-2 py-0.5 text-[10px] font-semibold rounded border hover:bg-[#1e293b] hover:text-[#c4b5fd] transition-colors duration-150">
           {{ label }}
         </button>
         {% endfor %}
@@ -97,13 +94,13 @@
   </div>
 
   <!-- ── Active bans table ─────────────────────────────────────── -->
-  <div class="bg-[#1e293b] border border-[#334155] rounded-xl overflow-hidden">
-    <div class="flex items-center justify-between px-4 py-3 border-b border-[#334155]">
+  <div class="glass-card overflow-hidden">
+    <div class="flex items-center justify-between px-4 py-3 border-b border-[#1e293b]/55">
       <div class="flex items-center gap-2">
-        <span class="w-2 h-2 rounded-full bg-[#7c3aed]"></span>
-        <h2 class="text-sm font-semibold text-[#f1f5f9]">Active Bans</h2>
+        <span class="w-1.5 h-1.5 rounded-full bg-[#8b5cf6] shadow-[0_0_8px_rgba(139,92,246,0.6)]"></span>
+        <h2 class="text-xs font-semibold text-[#64748b] uppercase tracking-wider">Active Bans</h2>
       </div>
-      <span class="text-xs text-[#94a3b8]">Auto-refreshes every 30s</span>
+      <span class="text-[10px] text-[#475569] font-medium">Auto-refreshes every 30s</span>
     </div>
 
     <div id="bans-table"

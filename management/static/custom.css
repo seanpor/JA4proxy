@@ -1,12 +1,38 @@
 /*
- * JA4proxy Management UI — Custom CSS
- * Supplements Tailwind CSS with things the CDN version can't express.
- * Keep this file minimal: prefer Tailwind utility classes in templates.
+ * JA4proxy Management UI — Redesigned Custom CSS
+ * Premium dark mode, glassmorphism, glowing states, and micro-animations.
  */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+:root {
+  --bg-main: #0b0f19;
+  --bg-sidebar: #0f1524;
+  --bg-card: rgba(17, 24, 39, 0.55);
+  --bg-card-hover: rgba(24, 37, 60, 0.65);
+  --border-card: rgba(255, 255, 255, 0.06);
+  --border-card-hover: rgba(14, 165, 233, 0.3);
+  
+  --accent-sky: #0ea5e9;
+  --accent-green: #10b981;
+  --accent-red: #ef4444;
+  --accent-amber: #f59e0b;
+  --accent-violet: #8b5cf6;
+  
+  --shadow-premium: 0 10px 30px -10px rgba(0, 0, 0, 0.7);
+  --shadow-glow-sky: 0 0 20px rgba(14, 165, 233, 0.15);
+}
 
 /* ── Base ─────────────────────────────────────────────────────── */
 *, *::before, *::after {
   box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: var(--bg-main);
+  background-image: radial-gradient(circle at 50% 0%, rgba(20, 30, 50, 0.5) 0%, rgba(11, 15, 25, 0.95) 70%);
+  color: #f8fafc;
 }
 
 html {
@@ -16,25 +42,67 @@ html {
 
 /* Custom scrollbar (dark theme) */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #0f172a;
+  background: var(--bg-main);
 }
 ::-webkit-scrollbar-thumb {
-  background: #334155;
-  border-radius: 3px;
+  background: #1e293b;
+  border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  background: #334155;
+}
+
+/* ── Glassmorphism Panels & Cards ─────────────────────────────── */
+.glass-panel {
+  background: rgba(15, 21, 36, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.glass-card {
+  background: var(--bg-card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  box-shadow: var(--shadow-premium);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-card:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-card-hover);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-premium), var(--shadow-glow-sky);
+}
+
+/* ── Interactive Input Fields ─────────────────────────────────── */
+.glass-input {
+  background: rgba(11, 15, 25, 0.8) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 8px !important;
+  color: #f1f5f9 !important;
+  font-size: 13px !important;
+  padding: 8px 12px !important;
+  outline: none !important;
+  transition: all 0.2s ease-in-out !important;
+}
+
+.glass-input:focus {
+  border-color: var(--accent-sky) !important;
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.2) !important;
+  background: rgba(11, 15, 25, 0.95) !important;
 }
 
 /* ── HTMX loading indicator ───────────────────────────────────── */
 #htmx-indicator {
-  /* Base state: invisible; made visible by JS in base.html */
-  background: linear-gradient(90deg, #0ea5e9, #38bdf8);
-  height: 2px;
+  background: linear-gradient(90deg, #0ea5e9, #8b5cf6);
+  height: 3px;
   position: fixed;
   top: 0;
   left: 200px; /* sidebar width */
@@ -45,29 +113,51 @@ html {
 }
 
 /* ── Tables ───────────────────────────────────────────────────── */
-table {
-  border-collapse: collapse;
+.custom-table {
   width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
 }
 
-/* Smooth row removal (HTMX swap:300ms) */
+.custom-table th {
+  background: rgba(15, 23, 42, 0.4);
+  padding: 12px 16px;
+  font-weight: 600;
+  color: #94a3b8;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+}
+
+.custom-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  color: #e2e8f0;
+  font-size: 12px;
+  transition: background-color 0.15s;
+}
+
+.custom-table tr:hover td {
+  background: rgba(255, 255, 255, 0.015);
+}
+
+/* Smooth row removal (HTMX swap) */
 tr[hx-swap] {
   transition: opacity 0.3s ease, background-color 0.3s ease;
 }
 tr.htmx-swapping {
   opacity: 0;
-  background-color: #dc262620;
+  background-color: rgba(239, 68, 68, 0.1);
 }
 
-/* ── Form controls ────────────────────────────────────────────── */
-
-/* Range slider thumb */
+/* ── Range slider ─────────────────────────────────────────────── */
 input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
-  height: 4px;
-  background: #334155;
-  border-radius: 2px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
   outline: none;
 }
 input[type="range"]::-webkit-slider-thumb {
@@ -75,53 +165,63 @@ input[type="range"]::-webkit-slider-thumb {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: #0ea5e9;
+  background: var(--accent-sky);
+  box-shadow: 0 0 8px rgba(14, 165, 233, 0.5);
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background 0.15s, transform 0.1s;
 }
 input[type="range"]::-webkit-slider-thumb:hover {
   background: #38bdf8;
-}
-input[type="range"]::-moz-range-thumb {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: #0ea5e9;
-  cursor: pointer;
-  border: none;
+  transform: scale(1.1);
 }
 
-/* ── Action badges (live feed) ────────────────────────────────── */
-.badge-allow  { background-color: #16a34a20; color: #4ade80; border: 1px solid #16a34a40; }
-.badge-block  { background-color: #dc262620; color: #f87171; border: 1px solid #dc262640; }
-.badge-tarpit { background-color: #d9770620; color: #fbbf24; border: 1px solid #d9770640; }
-.badge-ban    { background-color: #7c3aed20; color: #c4b5fd; border: 1px solid #7c3aed40; }
-.badge-flag   { background-color: #0ea5e920; color: #38bdf8; border: 1px solid #0ea5e940; }
-.badge-rate   { background-color: #d9770620; color: #fb923c; border: 1px solid #d9770640; }
+/* ── Badges ───────────────────────────────────────────────────── */
+.badge-allow  { background-color: rgba(16, 185, 129, 0.08); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.2); }
+.badge-block  { background-color: rgba(239, 68, 68, 0.08); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2); }
+.badge-tarpit { background-color: rgba(245, 158, 11, 0.08); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.2); }
+.badge-ban    { background-color: rgba(139, 92, 246, 0.08); color: #c4b5fd; border: 1px solid rgba(139, 92, 246, 0.2); }
+.badge-flag   { background-color: rgba(14, 165, 233, 0.08); color: #38bdf8; border: 1px solid rgba(14, 165, 233, 0.2); }
+.badge-rate   { background-color: rgba(249, 115, 22, 0.08); color: #ff9d5c; border: 1px solid rgba(249, 115, 22, 0.2); }
 
 .action-badge {
   display: inline-block;
-  padding: 1px 7px;
+  padding: 2px 8px;
   border-radius: 9999px;
   font-size: 10px;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
   white-space: nowrap;
 }
 
-/* ── Score bar (live feed risk score column) ──────────────────── */
-.score-bar {
+/* ── Monospace Copyable Tag ───────────────────────────────────── */
+.fingerprint-tag {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 11px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  padding: 3px 8px;
+  border-radius: 6px;
+  color: #94a3b8;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-variant-numeric: tabular-nums;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.fingerprint-tag:hover {
+  background: rgba(14, 165, 233, 0.08);
+  border-color: rgba(14, 165, 233, 0.25);
+  color: #38bdf8;
 }
 
-/* ── Dial gauge canvas ────────────────────────────────────────── */
-#dialChart {
-  max-width: 200px;
-  max-height: 160px;
+/* ── Sidebar active item indicator ────────────────────────────── */
+aside nav a.sidebar-item-active {
+  background: linear-gradient(90deg, rgba(14, 165, 233, 0.12) 0%, rgba(14, 165, 233, 0.01) 100%);
+  color: #38bdf8 !important;
+  border-left: 3px solid #0ea5e9;
+  font-weight: 500;
+  box-shadow: inset 1px 0 0 rgba(14, 165, 233, 0.05);
 }
 
 /* ── Animations ───────────────────────────────────────────────── */
@@ -130,41 +230,21 @@ input[type="range"]::-moz-range-thumb {
   to   { opacity: 1; transform: translateY(0); }
 }
 .fade-in {
-  animation: fade-in 0.2s ease-out both;
+  animation: fade-in 0.25s cubic-bezier(0.4, 0, 0.2, 1) both;
 }
 
 /* New row highlight (SSE live feed) */
 @keyframes row-highlight {
-  0%   { background-color: #0ea5e915; }
+  0%   { background-color: rgba(14, 165, 233, 0.12); }
   100% { background-color: transparent; }
 }
 #live-feed-body tr:first-child {
-  animation: row-highlight 2s ease-out;
+  animation: row-highlight 1.5s ease-out;
 }
 
-/* ── Sidebar active indicator ─────────────────────────────────── */
-/* Already handled by Tailwind in base.html, but add a subtle left bar */
-aside nav a[class*="bg-[#0ea5e9]"] {
-  box-shadow: inset 3px 0 0 #38bdf8;
-}
-
-/* ── Responsive adjustments for ~800px viewport ───────────────── */
+/* Responsive adjustments */
 @media (max-width: 900px) {
   #htmx-indicator {
-    left: 0; /* full width on small screens if sidebar is hidden */
-  }
-}
-
-/* ── Print styles ─────────────────────────────────────────────── */
-@media print {
-  aside, header, #htmx-indicator, button {
-    display: none !important;
-  }
-  .ml-\[200px\] {
-    margin-left: 0 !important;
-  }
-  body {
-    background: white;
-    color: black;
+    left: 0;
   }
 }

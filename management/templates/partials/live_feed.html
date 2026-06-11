@@ -14,28 +14,28 @@
      class="overflow-hidden">
 
   <div class="overflow-x-auto">
-    <table class="w-full text-xs" aria-label="Live connection feed">
+    <table class="custom-table" aria-label="Live connection feed">
       <thead>
-        <tr class="border-b border-[#334155]">
-          <th class="px-3 py-2.5 text-left font-medium text-[#94a3b8] w-[90px]">Time (UTC)</th>
-          <th class="px-3 py-2.5 text-left font-medium text-[#94a3b8]">Client IP</th>
-          <th class="px-3 py-2.5 text-left font-medium text-[#94a3b8] hidden sm:table-cell">JA4 Fingerprint</th>
-          <th class="px-3 py-2.5 text-left font-medium text-[#94a3b8] w-[80px]">Action</th>
-          <th class="px-3 py-2.5 text-right font-medium text-[#94a3b8] w-[60px]">Score</th>
+        <tr>
+          <th class="w-[120px]">Time (UTC)</th>
+          <th>Client IP</th>
+          <th class="hidden sm:table-cell">JA4 Fingerprint</th>
+          <th class="w-[90px]">Action</th>
+          <th class="text-right w-[70px]">Score</th>
         </tr>
       </thead>
       <tbody id="live-feed-body"
              x-data="liveFeed()"
              x-init="startMaxRows()"
-             class="divide-y divide-[#1e293b]">
+             class="divide-y divide-[#1e293b]/40">
         <!-- Initial placeholder rows while SSE connects -->
         {% for _ in range(5) %}
         <tr class="animate-pulse">
-          <td class="px-3 py-2.5"><div class="h-2.5 w-16 bg-[#334155] rounded"></div></td>
-          <td class="px-3 py-2.5"><div class="h-2.5 w-24 bg-[#334155] rounded"></div></td>
-          <td class="px-3 py-2.5 hidden sm:table-cell"><div class="h-2.5 w-40 bg-[#334155] rounded"></div></td>
-          <td class="px-3 py-2.5"><div class="h-2.5 w-14 bg-[#334155] rounded"></div></td>
-          <td class="px-3 py-2.5 text-right"><div class="h-2.5 w-8 bg-[#334155] rounded ml-auto"></div></td>
+          <td><div class="h-2.5 w-16 bg-[#1e293b]/55 rounded"></div></td>
+          <td><div class="h-2.5 w-24 bg-[#1e293b]/55 rounded"></div></td>
+          <td class="hidden sm:table-cell"><div class="h-2.5 w-40 bg-[#1e293b]/55 rounded"></div></td>
+          <td><div class="h-2.5 w-14 bg-[#1e293b]/55 rounded"></div></td>
+          <td class="text-right"><div class="h-2.5 w-8 bg-[#1e293b]/55 rounded ml-auto"></div></td>
         </tr>
         {% endfor %}
       </tbody>
@@ -43,9 +43,9 @@
   </div>
 
   <!-- SSE connection status bar -->
-  <div class="flex items-center gap-2 px-3 py-2 border-t border-[#334155] bg-[#0f172a]/40">
-    <span id="sse-indicator" class="w-1.5 h-1.5 rounded-full bg-[#d97706] transition-colors"></span>
-    <span id="sse-status" class="text-[10px] text-[#475569]">Connecting…</span>
+  <div class="flex items-center gap-2 px-3 py-2.5 border-t border-[#1e293b]/55 bg-[#0b0f19]/20">
+    <span id="sse-indicator" class="w-1.5 h-1.5 rounded-full bg-[#f59e0b] shadow-[0_0_6px_rgba(245,158,11,0.5)] transition-all duration-350"></span>
+    <span id="sse-status" class="text-[10px] text-[#475569] font-medium">Connecting…</span>
   </div>
 
 </div>
@@ -57,15 +57,15 @@
   var status = document.getElementById('sse-status');
 
   document.addEventListener('htmx:sseOpen', function() {
-    if (indicator) { indicator.className = 'w-1.5 h-1.5 rounded-full bg-[#16a34a] transition-colors'; }
+    if (indicator) { indicator.className = 'w-1.5 h-1.5 rounded-full bg-[#10b981] shadow-[0_0_8px_rgba(16,185,129,0.6)] transition-all duration-350'; }
     if (status) { status.textContent = 'Live'; }
   });
   document.addEventListener('htmx:sseError', function() {
-    if (indicator) { indicator.className = 'w-1.5 h-1.5 rounded-full bg-[#dc2626] transition-colors'; }
+    if (indicator) { indicator.className = 'w-1.5 h-1.5 rounded-full bg-[#ef4444] shadow-[0_0_8px_rgba(239,68,68,0.6)] transition-all duration-350'; }
     if (status) { status.textContent = 'Disconnected — reconnecting…'; }
   });
   document.addEventListener('htmx:sseClose', function() {
-    if (indicator) { indicator.className = 'w-1.5 h-1.5 rounded-full bg-[#d97706] transition-colors'; }
+    if (indicator) { indicator.className = 'w-1.5 h-1.5 rounded-full bg-[#f59e0b] shadow-[0_0_6px_rgba(245,158,11,0.5)] transition-all duration-350'; }
     if (status) { status.textContent = 'Closed'; }
   });
 })();
