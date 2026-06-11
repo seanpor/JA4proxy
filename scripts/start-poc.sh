@@ -47,6 +47,10 @@ ENV_EOF
     echo ""
 fi
 
+# phase-310: assign this worktree a collision-free lane (host ports + unique
+# COMPOSE_PROJECT_NAME) before sourcing .env. Idempotent — stable across restarts.
+bash "$(dirname "$0")/lane-env.sh"
+
 # Source .env for use in this script
 set -a; source .env; set +a
 
@@ -69,8 +73,14 @@ echo -e "${BLUE}Starting services...${NC}"
 # Workaround for Docker iptables issue
 docker network prune -f > /dev/null 2>&1 || true
 
+# phase-310: the default single-proxy lane does NOT run HAProxy (it is a load
+# balancer for *multiple* proxies; a single dev proxy is reached directly on
+# HOST_PORT_DIRECT). Opt in with WITH_HAPROXY=1 for the multi-proxy LB test.
+SERVICES="redis backend proxy tarpit analytics"
+[ "${WITH_HAPROXY:-0}" = "1" ] && SERVICES="$SERVICES haproxy"
+
 # Try to start services
-if ! docker compose $P_FLAG -f deploy/docker/docker-compose.poc.yml --env-file .env up -d --remove-orphans redis backend proxy haproxy tarpit analytics 2>&1; then
+if ! docker compose $P_FLAG -f deploy/docker/docker-compose.poc.yml --env-file .env up -d --remove-orphans $SERVICES 2>&1; then
     echo ""
     echo -e "${RED}Failed to start services.${NC}"
     exit 1

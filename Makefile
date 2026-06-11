@@ -1340,3 +1340,30 @@ verify-all: ## Full release gate: lint + scan + test + bench-all — slow
 bench-hostnative: go-build cli-build ## End-to-end throughput, ja4pd host-native (no docker-proxy; ~4.5x the bridge port)
 	@chmod +x scripts/bench-hostnative.sh
 	@./scripts/bench-hostnative.sh
+
+lane: ## Show this worktree's dev lane (collision-free host ports + Grafana URL)
+	@chmod +x scripts/lane-env.sh && ./scripts/lane-env.sh
+
+open: lane ## Open a lane service: make open SVC=grafana|management|metrics|prometheus
+	@set -a; . ./.env; set +a; \
+	svc="$(or $(SVC),grafana)"; bind="$${AGENT_BIND_IP:-127.0.0.1}"; \
+	case "$$svc" in \
+	  grafana) port=$$HOST_PORT_GRAFANA;; management) port=$$HOST_PORT_MANAGEMENT;; \
+	  metrics) port=$$HOST_PORT_METRICS;; prometheus) port=$$HOST_PORT_PROMETHEUS;; \
+	  *) echo "unknown SVC=$$svc (grafana|management|metrics|prometheus)"; exit 1;; esac; \
+	url="http://$$bind:$$port"; echo "opening $$svc -> $$url"; \
+	(xdg-open "$$url" >/dev/null 2>&1 || open "$$url" >/dev/null 2>&1 || echo "  open it manually: $$url")
+
+loadtest: go-build cli-build ## Lane-isolated good/bad load test -> watch Grafana (knobs: GOOD_RATE BAD_RATE DURATION WORKERS DIAL)
+	@chmod +x scripts/lane-env.sh && ./scripts/lane-env.sh >/dev/null
+	@$(MAKE) --no-print-directory start-poc
+	@set -a; . ./.env; set +a; \
+	g="$(or $(GOOD_RATE),10)"; b="$(or $(BAD_RATE),190)"; d="$(or $(DURATION),300)"; \
+	w="$(or $(WORKERS),16)"; dial="$(or $(DIAL),100)"; bind="$${AGENT_BIND_IP:-127.0.0.1}"; \
+	echo "lane $$JA4_LANE: raising dial to $$dial (best-effort via Management API) ..."; \
+	JA4PROXY_URL="http://$$bind:$$HOST_PORT_MANAGEMENT" JA4PROXY_TOKEN="$${JA4PROXY_TOKEN:-$$UI_API_KEY}" \
+	  ./bin/ja4p management dial set $$dial --confirm 2>/dev/null \
+	  || echo "  (could not auto-set dial; scored/risk panels still populate. Set it via 'ja4p management dial' for block/ban panels)"; \
+	echo "driving good=$$g/s bad=$$b/s for $${d}s at 127.0.0.1:$$HOST_PORT_DIRECT ..."; \
+	./bin/ja4p test benchmark --host "127.0.0.1:$$HOST_PORT_DIRECT" --good-rate $$g --bad-rate $$b --workers $$w --duration $$d; \
+	echo "watch it: http://$$bind:$$HOST_PORT_GRAFANA  (Grafana)"
