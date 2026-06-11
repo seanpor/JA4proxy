@@ -3,46 +3,39 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- phase-230 hardening: lock the console to same-origin assets (no CDN / font /
+       exfil endpoints). 'unsafe-inline'/'unsafe-eval' are required by the small inline
+       scripts and Alpine's expression evaluator; tighten later with Alpine's CSP build
+       + nonces, and move this to a response header (adds frame-ancestors). -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; base-uri 'self'; form-action 'self'" />
   <title>{% block title %}{{ page_title | default("JA4proxy") }} — JA4proxy Management{% endblock %}</title>
 
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com" crossorigin="anonymous"></script> <!-- nosemgrep -->
+  <!-- Tailwind CSS — pre-built & purged (phase-230); replaces the 407KB Play/runtime build -->
+  <link rel="stylesheet" href="/static/tailwind.css" />
 
-  <!-- HTMX -->
-  <script src="https://unpkg.com/htmx.org@1.9.12" integrity="sha384-FhXw7b6AlE/jyjlZH5iHa/tTenQXQJnaNPdfCe6RYgiW/Wm8tf/+8QOt6v/BeE6i" crossorigin="anonymous"></script>
-  <script src="https://unpkg.com/htmx-ext-sse@2.2.1/sse.js" integrity="sha384-Y8N6e7v5p4v3i2o1n0m9l8k7j6h5g4f3d2s1a0" crossorigin="anonymous"></script>
+  <!-- HTMX (Local) -->
+  <script src="/static/htmx.min.js"></script>
+  <script src="/static/sse.js"></script>
 
-  <!-- Alpine.js -->
-  <script src="https://unpkg.com/alpinejs@3.14.0/dist/cdn.min.js" integrity="sha384-6Xh8u3p1iZ6e8q6u5p4v3i2o1n0m9l8k7j6h5g4f3d2s1a0" crossorigin="anonymous" defer></script>
+  <!-- Alpine.js (Local) -->
+  <script src="/static/alpine.min.js" defer></script>
 
-  <!-- Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js" integrity="sha384-Y8N6e7v5p4v3i2o1n0m9l8k7j6h5g4f3d2s1a0" crossorigin="anonymous"></script>
+  <!-- Chart.js (Local) -->
+  <script src="/static/chart.umd.min.js"></script>
 
   <!-- Custom CSS -->
   <link rel="stylesheet" href="/static/custom.css" />
 
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          colors: {
-            'slate-950': '#0f172a',
-            'slate-800': '#1e293b',
-            'slate-700': '#334155',
-            'sky-500':   '#0ea5e9',
-          }
-        }
-      }
-    }
-  </script>
+  <!-- Fonts: Inter if locally installed, else the system-font stack in custom.css.
+       No external fetch (was Google Fonts) — DMZ/offline safe. The Tailwind theme
+       colours are baked into the pre-built tailwind.css (was an inline tailwind.config). -->
 </head>
-<body class="dark h-full bg-[#0f172a] text-[#f1f5f9] font-[system-ui,sans-serif]">
+<body class="dark h-full bg-[#0b0f19] text-[#f1f5f9]">
 
 <div class="flex h-full min-h-screen">
 
   <!-- ── Sidebar ─────────────────────────────────────────────────── -->
-  <aside class="fixed inset-y-0 left-0 z-30 w-[200px] flex flex-col bg-[#1e293b] border-r border-[#334155]">
+  <aside class="fixed inset-y-0 left-0 z-30 w-[200px] flex flex-col glass-panel border-r border-[#1e293b]/55">
 
     <!-- Logo / Brand -->
     <div class="flex items-center gap-2 px-4 py-5 border-b border-[#334155]">
@@ -69,8 +62,8 @@
         {% set active = request.url.path == href or (href != "/" and request.url.path.startswith(href)) %}
         <!-- nosemgrep: generic.html-templates.security.var-in-href.var-in-href -->
         <a href="{{ href }}"
-           class="flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors
-                  {% if active %}bg-[#0ea5e9] text-white font-medium{% else %}text-[#94a3b8] hover:bg-[#334155] hover:text-[#f1f5f9]{% endif %}">
+           class="flex items-center gap-3 px-3 py-2 text-sm transition-all duration-200
+                  {% if active %}sidebar-item-active text-sky-400 font-medium{% else %}text-[#94a3b8] hover:bg-[#1e293b]/30 hover:text-[#f1f5f9]{% endif %}">
           <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" d="{{ icon_path }}"/>
           </svg>
@@ -80,18 +73,18 @@
     </nav>
 
     <!-- Logout -->
-    <div class="px-2 py-4 border-t border-[#334155]">
+    <div class="px-2 py-4 border-t border-[#1e293b]/55">
       {% if user %}
       <div class="px-3 py-1 mb-2">
         <p class="text-[11px] text-[#94a3b8] truncate">Signed in as</p>
-        <p class="text-xs font-medium text-[#f1f5f9] truncate">{{ user }}</p>
+        <p class="text-xs font-medium text-[#f8fafc] truncate">{{ user }}</p>
       </div>
       {% endif %}
       <form method="post" action="/auth/logout"> <!-- nosemgrep -->
         <input type="hidden" name="csrf_token" value="{{ csrf_token | default('') }}" />
 
         <button type="submit"
-                class="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm text-[#94a3b8] hover:bg-[#334155] hover:text-[#f1f5f9] transition-colors">
+                class="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm text-[#94a3b8] hover:bg-[#1e293b]/30 hover:text-[#f1f5f9] transition-colors">
           <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
           </svg>
@@ -106,30 +99,30 @@
   <div class="flex-1 flex flex-col ml-[200px] min-w-0">
 
     <!-- Top bar -->
-    <header class="sticky top-0 z-20 flex items-center justify-between px-6 py-3 bg-[#1e293b] border-b border-[#334155]">
-      <h1 class="text-base font-semibold text-[#f1f5f9]">
+    <header class="sticky top-0 z-20 flex items-center justify-between px-6 py-3 bg-[#0f1524]/85 backdrop-blur-md border-b border-[#1e293b]/55">
+      <h1 class="text-base font-semibold text-[#f8fafc]">
         {% block page_title %}{{ page_title | default("Dashboard") }}{% endblock %}
       </h1>
       <div class="flex items-center gap-4">
         <!-- Dial badge -->
         {% set dial = dial_value | default(0) | int %}
         {% if dial == 0 %}
-          {% set dial_color = "bg-[#16a34a] text-white" %}
+          {% set dial_badge_class = "badge-allow" %}
           {% set dial_label = "Monitor" %}
         {% elif dial <= 49 %}
-          {% set dial_color = "bg-[#d97706] text-white" %}
+          {% set dial_badge_class = "badge-flag" %}
           {% set dial_label = "Moderate" %}
         {% else %}
-          {% set dial_color = "bg-[#dc2626] text-white" %}
+          {% set dial_badge_class = "badge-block" %}
           {% set dial_label = "Active" %}
         {% endif %}
-        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium {{ dial_color }}"
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold {{ dial_badge_class }}"
               title="Enforcement dial: {{ dial }}/100">
           <span class="w-1.5 h-1.5 rounded-full bg-current opacity-75"></span>
           Dial: {{ dial }} — {{ dial_label }}
         </span>
         <!-- UTC clock -->
-        <span class="text-xs text-[#94a3b8]" id="utc-clock">UTC —</span>
+        <span class="text-xs text-[#94a3b8] font-medium" id="utc-clock">UTC —</span>
       </div>
     </header>
 

@@ -1344,6 +1344,10 @@ bench-hostnative: go-build cli-build ## End-to-end throughput, ja4pd host-native
 	@chmod +x scripts/bench-hostnative.sh
 	@./scripts/bench-hostnative.sh
 
+scan-js: ## Scan the vendored Management-UI JS for known CVEs (retire.js)
+	@echo "-> retire.js CVE scan of management/static (vendored front-end JS)"
+	@npx --yes retire@5 --path management/static
+
 lane: ## Show this worktree's dev lane (collision-free host ports + Grafana URL)
 	@chmod +x scripts/lane-env.sh && ./scripts/lane-env.sh
 

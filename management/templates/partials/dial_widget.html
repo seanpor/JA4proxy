@@ -5,47 +5,44 @@
 -->
 {% set dial = dial_value | default(0) | int %}
 {% if dial == 0 %}
-  {% set dial_color = "#16a34a" %}
+  {% set dial_color = "#10b981" %}
   {% set dial_label = "Monitor Mode" %}
   {% set dial_desc = "All traffic is scored but no connections are blocked." %}
-  {% set dial_ring = "ring-[#16a34a]/30" %}
 {% elif dial <= 49 %}
-  {% set dial_color = "#d97706" %}
+  {% set dial_color = "#f59e0b" %}
   {% set dial_label = "Moderate" %}
   {% set dial_desc = "High-confidence threats are blocked. Low-confidence are flagged." %}
-  {% set dial_ring = "ring-[#d97706]/30" %}
 {% else %}
-  {% set dial_color = "#dc2626" %}
+  {% set dial_color = "#ef4444" %}
   {% set dial_label = "Active Enforcement" %}
   {% set dial_desc = "Aggressive blocking. Increase false-positive monitoring." %}
-  {% set dial_ring = "ring-[#dc2626]/30" %}
 {% endif %}
 
 <div id="dial-widget"
-     class="bg-[#1e293b] border border-[#334155] ring-1 {{ dial_ring }} rounded-xl overflow-hidden"
+     class="glass-card overflow-hidden"
      x-data="dialWidget({{ dial }})"
      x-init="initChart()">
 
-  <div class="flex items-center justify-between px-4 py-3 border-b border-[#334155]">
-    <h2 class="text-sm font-semibold text-[#f1f5f9]">Enforcement Dial</h2>
-    <span class="text-xs text-[#94a3b8]">max ±10/request</span>
+  <div class="flex items-center justify-between px-4 py-3 border-b border-[#1e293b]/55">
+    <h2 class="text-xs font-semibold text-[#64748b] uppercase tracking-wider">Enforcement Dial</h2>
+    <span class="text-[10px] text-[#475569] font-medium">max ±10/request</span>
   </div>
 
   <div class="p-4 space-y-5">
 
     <!-- Chart.js doughnut gauge -->
-    <div class="relative flex items-center justify-center" style="height:160px;">
-      <canvas id="dialChart" width="200" height="200" aria-label="Dial gauge showing value {{ dial }}"></canvas>
+    <div class="relative flex items-center justify-center" style="height:150px;">
+      <canvas id="dialChart" width="180" height="180" aria-label="Dial gauge showing value {{ dial }}"></canvas>
       <!-- Centre overlay -->
-      <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none" style="padding-top:30px;">
-        <span class="text-4xl font-bold text-[#f1f5f9]" x-text="currentDial">{{ dial }}</span>
-        <span class="text-xs text-[#94a3b8] mt-0.5" x-text="dialLabel">{{ dial_label }}</span>
+      <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none" style="padding-top:25px;">
+        <span class="text-3xl font-extrabold text-[#f8fafc] tracking-tight" x-text="currentDial">{{ dial }}</span>
+        <span class="text-[10px] font-bold text-[#64748b] uppercase tracking-wider mt-0.5" x-text="dialLabel">{{ dial_label }}</span>
       </div>
     </div>
 
     <!-- Warning box (shown when dial > 50) -->
     <div x-show="currentDial > 50"
-         class="flex gap-2 px-3 py-2.5 rounded-lg bg-[#dc2626]/15 border border-[#dc2626]/35 text-xs text-[#f87171]"
+         class="flex gap-2 px-3 py-2.5 rounded-lg bg-[#ef4444]/8 border border-[#ef4444]/20 text-xs text-[#f87171]"
          style="display:none;">
       <svg class="w-4 h-4 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
@@ -55,39 +52,38 @@
 
     <!-- Error message -->
     <div x-show="errorMsg"
-         class="flex gap-2 px-3 py-2 rounded-lg bg-[#dc2626]/15 border border-[#dc2626]/35 text-xs text-[#f87171]"
+         class="flex gap-2 px-3 py-2 rounded-lg bg-[#ef4444]/8 border border-[#ef4444]/20 text-xs text-[#f87171]"
          style="display:none;">
       <span x-text="errorMsg"></span>
     </div>
 
     <!-- Description -->
-    <p class="text-xs text-[#94a3b8]" x-text="dialDesc">{{ dial_desc }}</p>
+    <p class="text-xs text-[#94a3b8] leading-relaxed" x-text="dialDesc">{{ dial_desc }}</p>
 
     <!-- Change form (sends JSON to PUT /api/v1/dial) -->
     <div class="space-y-3">
 
       <div>
-        <label class="block text-xs font-medium text-[#94a3b8] mb-1.5">New value (0–100, max ±10 change)</label>
+        <label class="block text-[10px] font-semibold text-[#64748b] uppercase tracking-wider mb-1.5">New value (0–100)</label>
         <div class="flex gap-2">
           <input type="number"
                  min="0"
                  max="100"
                  x-model.number="pendingDial"
                  @input="updatePending()"
-                 class="flex-1 min-w-0 px-3 py-2 rounded-lg bg-[#0f172a] border border-[#334155] text-[#f1f5f9] text-sm
-                        focus:outline-none focus:ring-2 focus:ring-[#0ea5e9] focus:border-transparent" />
+                 class="flex-1 min-w-0 glass-input" />
           <button type="button"
                   :disabled="submitting || pendingDial === currentDial || Math.abs(pendingDial - currentDial) > 10"
                   @click="applyDial()"
-                  class="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium
-                         bg-[#0ea5e9] hover:bg-sky-400 disabled:opacity-40 disabled:cursor-not-allowed
-                         text-white transition-colors">
+                  class="flex-shrink-0 inline-flex items-center justify-center px-4 py-2 rounded-lg text-xs font-semibold
+                         bg-[#0ea5e9] hover:bg-[#38bdf8] disabled:opacity-40 disabled:cursor-not-allowed
+                         text-white shadow-md shadow-[#0ea5e9]/10 hover:shadow-[#0ea5e9]/20 transition-all duration-200">
             <span x-text="submitting ? 'Applying…' : 'Apply'">Apply</span>
           </button>
         </div>
 
         <!-- Change size hint -->
-        <p class="text-[10px] text-[#475569] mt-1"
+        <p class="text-[10px] text-[#475569] mt-1 font-medium"
            x-show="pendingDial !== currentDial"
            x-text="'Change: ' + (pendingDial > currentDial ? '+' : '') + (pendingDial - currentDial)
                    + (Math.abs(pendingDial - currentDial) > 10 ? ' (exceeds max ±10)' : '')">
@@ -97,20 +93,20 @@
         <input type="range" min="0" max="100" step="1"
                x-model.number="pendingDial"
                @input="updatePending()"
-               class="w-full mt-2 accent-[#0ea5e9] cursor-pointer" aria-label="Dial slider" />
-        <div class="flex justify-between text-[10px] text-[#475569] mt-0.5">
+               class="w-full mt-3 accent-[#0ea5e9] cursor-pointer" aria-label="Dial slider" />
+        <div class="flex justify-between text-[9px] text-[#475569] font-medium mt-1">
           <span>0</span><span>25</span><span>50</span><span>75</span><span>100</span>
         </div>
       </div>
 
       <!-- Quick presets -->
-      <div class="flex items-center gap-2 flex-wrap">
-        <span class="text-[10px] text-[#475569]">Presets:</span>
+      <div class="flex items-center gap-1.5 flex-wrap pt-1">
+        <span class="text-[10px] text-[#475569] font-medium">Presets:</span>
         {% for preset_label, preset_val in [("Monitor", 0), ("Low (25)", 25), ("Mid (50)", 50), ("High (75)", 75)] %}
         <button type="button"
                 @click="pendingDial = {{ preset_val }}; updatePending()"
-                :class="pendingDial === {{ preset_val }} ? 'bg-[#334155] text-[#f1f5f9]' : 'text-[#475569]'"
-                class="px-2 py-0.5 text-[10px] rounded border border-[#334155] hover:bg-[#334155] hover:text-[#94a3b8] transition-colors">
+                :class="pendingDial === {{ preset_val }} ? 'bg-[#1e293b] text-[#38bdf8] border-[#0ea5e9]/30' : 'text-[#94a3b8] border-[#1e293b]'"
+                class="px-2 py-0.5 text-[9px] font-semibold rounded border hover:bg-[#1e293b] hover:text-[#38bdf8] transition-colors duration-150">
           {{ preset_label }}
         </button>
         {% endfor %}
@@ -141,9 +137,9 @@ function dialWidget(initial) {
       return 'Aggressive blocking. Increase false-positive monitoring.';
     },
     get dialColor() {
-      if (this.currentDial === 0) return '#16a34a';
-      if (this.currentDial <= 49) return '#d97706';
-      return '#dc2626';
+      if (this.currentDial === 0) return '#10b981';
+      if (this.currentDial <= 49) return '#f59e0b';
+      return '#ef4444';
     },
 
     showError(msg) {
@@ -155,9 +151,9 @@ function dialWidget(initial) {
     updatePending() {
       if (!this.chart) return;
       var val = Math.max(0, Math.min(100, this.pendingDial));
-      var color = val === 0 ? '#16a34a' : (val <= 49 ? '#d97706' : '#dc2626');
+      var color = val === 0 ? '#10b981' : (val <= 49 ? '#f59e0b' : '#ef4444');
       this.chart.data.datasets[0].data = [val, 100 - val];
-      this.chart.data.datasets[0].backgroundColor = [color, '#334155'];
+      this.chart.data.datasets[0].backgroundColor = [color, 'rgba(255, 255, 255, 0.08)'];
       this.chart.update('none');
     },
 
@@ -206,14 +202,14 @@ function dialWidget(initial) {
         data: {
           datasets: [{
             data: [this.currentDial, 100 - this.currentDial],
-            backgroundColor: [this.dialColor, '#334155'],
+            backgroundColor: [this.dialColor, 'rgba(255, 255, 255, 0.08)'],
             borderWidth: 0,
             circumference: 270,
             rotation: 225,
           }]
         },
         options: {
-          cutout: '78%',
+          cutout: '80%',
           responsive: true,
           maintainAspectRatio: false,
           plugins: { legend: { display: false }, tooltip: { enabled: false } },

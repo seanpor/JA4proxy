@@ -19,25 +19,20 @@
   ]) %}
 
   {% for card in cards %}
-  {% set status_ring = {
-    "ok":    "ring-[#16a34a]/30",
-    "warn":  "ring-[#d97706]/30",
-    "error": "ring-[#dc2626]/30",
-  }.get(card.status, "ring-[#334155]") %}
   {% set status_dot = {
-    "ok":    "bg-[#16a34a]",
-    "warn":  "bg-[#d97706]",
-    "error": "bg-[#dc2626]",
+    "ok":    "bg-[#10b981] shadow-[0_0_8px_rgba(16,185,129,0.6)]",
+    "warn":  "bg-[#f59e0b] shadow-[0_0_8px_rgba(245,158,11,0.6)]",
+    "error": "bg-[#ef4444] shadow-[0_0_8px_rgba(239,68,68,0.6)]",
   }.get(card.status, "bg-[#475569]") %}
   {% set icon_color = {
-    "ok":    "text-[#16a34a]",
-    "warn":  "text-[#d97706]",
-    "error": "text-[#dc2626]",
+    "ok":    "text-[#10b981] filter drop-shadow-[0_0_4px_rgba(16,185,129,0.15)]",
+    "warn":  "text-[#f59e0b] filter drop-shadow-[0_0_4px_rgba(245,158,11,0.15)]",
+    "error": "text-[#ef4444] filter drop-shadow-[0_0_4px_rgba(239,68,68,0.15)]",
   }.get(card.status, "text-[#94a3b8]") %}
 
-  <div class="relative bg-[#1e293b] border border-[#334155] ring-1 {{ status_ring }} rounded-xl p-4">
+  <div class="relative glass-card p-4 flex flex-col justify-between min-h-[110px]">
     <!-- Status dot -->
-    <span class="absolute top-3 right-3 w-2 h-2 rounded-full {{ status_dot }}
+    <span class="absolute top-4 right-4 w-2 h-2 rounded-full {{ status_dot }}
                  {% if card.status == 'error' %}animate-ping{% endif %}"></span>
     <!-- Icon -->
     <div class="mb-3">
@@ -45,12 +40,15 @@
         <path stroke-linecap="round" stroke-linejoin="round" d="{{ card.icon_path }}"/>
       </svg>
     </div>
-    <!-- Value -->
-    <p class="text-2xl font-bold text-[#f1f5f9] leading-none">
-      {{ card.value }}<span class="text-sm font-normal text-[#94a3b8] ml-0.5">{{ card.unit }}</span>
-    </p>
-    <!-- Label -->
-    <p class="text-xs text-[#94a3b8] mt-1.5">{{ card.label }}</p>
+    
+    <div>
+      <!-- Value -->
+      <p class="text-2xl font-bold text-[#f8fafc] leading-none tracking-tight">
+        {{ card.value }}<span class="text-xs font-normal text-[#64748b] ml-0.5">{{ card.unit }}</span>
+      </p>
+      <!-- Label -->
+      <p class="text-[11px] font-semibold text-[#64748b] uppercase tracking-wider mt-2">{{ card.label }}</p>
+    </div>
   </div>
   {% endfor %}
 

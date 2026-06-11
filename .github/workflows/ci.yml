@@ -73,6 +73,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
+      # JS dependency CVE scan (retire.js) for the vendored Management-UI front-end
+      # libraries. Uses the runner's pre-installed Node (no setup-node action needed)
+      # and runs early so a known-vulnerable JS lib fails fast before the image build.
+      - name: JS dependency CVE scan (retire.js)
+        run: make scan-js
       # Phase 227: persist the Trivy vulnerability DB across runs. Within a run
       # the shared cache mount (Makefile TRIVY_CACHE) already downloads it once;
       # this restores it across runs so the first scan doesn't re-fetch it.
