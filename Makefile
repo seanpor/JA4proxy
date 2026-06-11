@@ -1358,7 +1358,7 @@ loadtest: go-build cli-build ## Lane-isolated good/bad load test -> watch Grafan
 	@chmod +x scripts/lane-env.sh && ./scripts/lane-env.sh >/dev/null
 	@$(MAKE) --no-print-directory start-poc
 	@set -a; . ./.env; set +a; \
-	g="$(or $(GOOD_RATE),80)"; b="$(or $(BAD_RATE),40)"; d="$(or $(DURATION),300)"; \
+	g="$(or $(GOOD_RATE),10)"; b="$(or $(BAD_RATE),190)"; d="$(or $(DURATION),300)"; \
 	w="$(or $(WORKERS),16)"; dial="$(or $(DIAL),100)"; bind="$${AGENT_BIND_IP:-127.0.0.1}"; \
 	echo "lane $$JA4_LANE: raising dial to $$dial (best-effort via Management API) ..."; \
 	JA4PROXY_URL="http://$$bind:$$HOST_PORT_MANAGEMENT" JA4PROXY_TOKEN="$${JA4PROXY_TOKEN:-$$UI_API_KEY}" \
