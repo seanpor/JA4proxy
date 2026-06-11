@@ -2548,3 +2548,10 @@ phases:
     status: CLOSED
     action_plan: docs/phases/PHASE_221.md
     summary: 'SUPERSEDED by PHASE_309, which reconciled all three PDFs against the live code — brochure rewrite, user-guide Go-vs-Python production-inversion fix, reference-manual metric-name corrections + overflow handling — and implemented the very "content last-reviewed date independent of the PDF build date" mechanism this phase proposed (the \lastreviewed LaTeX macro). No separate work remains.'
+  311:
+    name: Resilient pip-audit — Stop PyPI Outages Reddening the Lint Gate
+    status: COMPLETE
+    completed: 2026-06-11
+    action_plan: docs/phases/PHASE_311.md
+    size: SMALL
+    summary: 'pip-audit (default pypi service) querying PyPI per-package JSON flaked the *required* Full Lint gate on transient 5xx/timeouts (e.g. scapy/2.7.0/json 503 on #121) — public red CI + maintainer emails, no actual finding. Added scripts/pip-audit-resilient.sh: passes args through, but retries with backoff on a service outage and SOFT-PASSES (CI warning, exit 0) if the vulnerability service is unreachable, while a REAL vulnerability still exits 1 (and any other non-zero fails safe). Wired into Makefile lint-static and the standalone dependency-audit-python CI job. Soft-pass is narrow (service-unreachable only); persistent gaps still covered by the weekly scheduled audit + standalone job + Dependabot. OSV-service switch rejected (would break the PyPI --ignore-vuln IDs). Stubbed-pip-audit unit test covers clean/real-vuln/transient/unknown; shellcheck clean; no new pinned action.'

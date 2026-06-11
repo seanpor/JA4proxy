@@ -367,6 +367,7 @@ Alignment with international standards and regulatory frameworks.
 | 308 | Code-Scanning Remediation — CodeQL Triage Closeout & Scorecard Noise | COMPLETE | N/A | N/A |
 | 309 | Documentation Content Audit — Source-of-Truth Review of All Docs | IN_PROGRESS | N/A | N/A |
 | 310 | Collision-Free Dev Environments + Clean Good/Bad Load Test | COMPLETE | N/A | N/A |
+| 311 | Resilient pip-audit — Stop PyPI Outages Reddening the Lint Gate | COMPLETE | N/A | N/A |
 
 ---
 
