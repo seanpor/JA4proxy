@@ -26,7 +26,7 @@ Before running any GameDay:
    the on-call engineer does not). The facilitator chooses a scenario
    at the start.
 2. All participants have access to:
-   - Grafana dashboard (`http://localhost:3001`)
+   - Grafana dashboard (`http://localhost:3000`)
    - Health endpoint (`http://localhost:8090/api/v1/health/deep`)
    - `docker compose` CLI
    - `redis-cli`

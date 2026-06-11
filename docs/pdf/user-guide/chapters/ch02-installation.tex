@@ -60,7 +60,7 @@ another service, stop that service or adjust the port mapping in
     8888 & Tarpit & Slow-response tarpit service \\
     9090 & JA4proxy metrics & Prometheus scrape endpoint (proxy) \\
     9091 & Prometheus & Prometheus query UI \\
-    3001 & Grafana & Dashboard UI \\
+    3000 & Grafana & Dashboard UI \\
     3100 & Loki & Log aggregation \\
     9093 & Alertmanager & Alert routing \\
     \bottomrule
@@ -215,7 +215,7 @@ not responding — check the proxy container logs.
 
 \subsection{Grafana Dashboard}
 
-Open \url{http://localhost:3001} and log in with your Grafana credentials. The
+Open \url{http://localhost:3000} and log in with your Grafana credentials. The
 \emph{JA4proxy Overview} dashboard should be available under Dashboards. At this
 point it will show zero connections — that is expected.
 
