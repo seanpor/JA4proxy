@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Phase-309 reconciliation — ADR-003 + findings register**: restored **ADR-003**
+  (it had been overwritten with a duplicate of ADR-005; its correct subject is the
+  cache-TTL asymmetry — ALLOW ~30min / BLOCK ~30s — rewritten from the decision
+  log). Repointed **20** stale `docs/security/findings.yaml` `regression_test`
+  paths (16 `cmd/proxy/`→`cmd/ja4pd/` + 4 bare Go paths qualified to their real
+  `*_test.go`). 12 findings citing deleted Python-prototype tests remain flagged
+  for per-finding Go-coverage repointing.
+
 ### Added
 - **Single-host bootstrap & wizard (Phase 231b, software core)**: `scripts/setup_wizard.py`
   (interactive, generates `.env` secrets — **never echoed** — at chmod 600) and

@@ -68,7 +68,7 @@ findings:
   status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: cmd/proxy/pentest_proxy_parser_regression_test.go::TestRegression_JA4PROXY_2026_0001_StripsUntrustedHeader
+  regression_test: cmd/ja4pd/pentest_proxy_parser_regression_test.go::TestRegression_JA4PROXY_2026_0001_StripsUntrustedHeader
   closed_commit: c54369ddb8fc1e825946c6ded6ecc64aeb2f82b6
   description: If a source IP is not in trusted_cidrs, the PROXY protocol v1/v2 header is currently ignored
     but left in the data buffer. This "leaks" the attacker's header to the backend, which may trust it.
@@ -104,7 +104,7 @@ findings:
   status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: cmd/proxy/pentest_proxy_parser_regression_test.go::TestRegression_JA4PROXY_2026_0002_BlocksChainedHeader
+  regression_test: cmd/ja4pd/pentest_proxy_parser_regression_test.go::TestRegression_JA4PROXY_2026_0002_BlocksChainedHeader
   closed_commit: c54369ddb8fc1e825946c6ded6ecc64aeb2f82b6
   description: After the proxy strips the legitimate PROXY protocol header from a trusted source, an attacker
     can inject a second PROXY header immediately following the first. The proxy forwards this injected
@@ -143,7 +143,7 @@ findings:
   status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: cmd/proxy/pentest_tls_evasion_regression_test.go::TestRegression_JA4PROXY_2026_0003_FragmentedClientHelloIsReassembled
+  regression_test: cmd/ja4pd/pentest_tls_evasion_regression_test.go::TestRegression_JA4PROXY_2026_0003_FragmentedClientHelloIsReassembled
   closed_commit: a78638f960ef547f26f1692442659bdb7a99faec
   description: The Go proxy performs a single Read() into 8KB buffer. If the TLS ClientHello is fragmented
     across TCP packets, the first packet may contain only a partial record; tlsparse.ParseClientHello
@@ -177,7 +177,7 @@ findings:
   status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: cmd/proxy/pentest_tls_evasion_regression_test.go::TestRegression_JA4PROXY_2026_0004_ALPNBypassDefaultDisabled
+  regression_test: cmd/ja4pd/pentest_tls_evasion_regression_test.go::TestRegression_JA4PROXY_2026_0004_ALPNBypassDefaultDisabled
   closed_commit: a78638f960ef547f26f1692442659bdb7a99faec
   description: The ALPNBrowserBypass feature (enabled by default in config/proxy.yml) grants immediate
     ALLOW to any connection whose first ALPN protocol is h2 or h1. ALPN is an attacker-controlled plaintext
@@ -335,9 +335,9 @@ findings:
   status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: internal/config/TestRegression_JA4PROXY_2026_0008_refuses_remote_unauth_metrics
+  regression_test: internal/config/metrics_auth_required_test.go::TestRegression_JA4PROXY_2026_0008_refuses_remote_unauth_metrics
   closed_commit: c37dbc7
-  description: "The metrics HTTP server (cmd/proxy/main.go) binds to 0.0.0.0:<port> (default 9090) with\
+  description: "The metrics HTTP server (cmd/ja4pd/main.go) binds to 0.0.0.0:<port> (default 9090) with\
     \ no authentication. The config file has authentication.enabled: false (dead config \u2014 never implemented).\
     \ Endpoints /health/deep and /metrics are unauthenticated and expose: dial setting, active connections,\
     \ ban count, tarpit saturation, cert expiry, block rate %, and full Prometheus scrape. Attacker polls\
@@ -369,7 +369,7 @@ findings:
   status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: cmd/proxy/TestRegression_JA4PROXY_2026_0009_ForwardDoesNotLeakGoroutines
+  regression_test: cmd/ja4pd/pentest_goroutine_leak_regression_test.go::TestRegression_JA4PROXY_2026_0009_ForwardDoesNotLeakGoroutines
   closed_commit: e2e963b
   description: Both forward() and tarpit() spawn two goroutines for bidirectional copy but only receive
     from done channel once. The second goroutine leaks, holding its buffer indefinitely. At 100 conn/s
@@ -403,7 +403,7 @@ findings:
   status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: internal/config/TestRegression_JA4PROXY_2026_0010_refuses_remote_unauth_redis
+  regression_test: internal/config/redis_auth_required_test.go::TestRegression_JA4PROXY_2026_0010_refuses_remote_unauth_redis
   closed_commit: 8131fa0
   description: If Redis is misconfigured without a password (even though it should have one), the Go proxy
     continues operating (fail-open), connecting to unauthenticated Redis and exposing all security state
@@ -435,7 +435,7 @@ findings:
   supersedes: []
   depends_on:
   - JA4PROXY-2026-0003
-  regression_test: cmd/proxy/pentest_tls_protocol_lockdown_regression_test.go::TestRegression_JA4PROXY_2026_0011_non_tls_first_byte_is_dropped
+  regression_test: cmd/ja4pd/pentest_tls_protocol_lockdown_regression_test.go::TestRegression_JA4PROXY_2026_0011_non_tls_first_byte_is_dropped
   closed_commit: 3cb562e8b62799b73e427f54cdabba5d92f53054
   description: 'Beyond the fragmentation bypass itself (0003), Phase 118b''s fix requires protocol lockdown:
     after reassembly, validate the first byte of payload is 0x16 (TLS Handshake). If not, drop connection
@@ -468,9 +468,9 @@ findings:
   supersedes: []
   depends_on:
   - JA4PROXY-2026-0009
-  regression_test: cmd/proxy/TestRegression_JA4PROXY_2026_0012_admitConn_enforces_capacity
+  regression_test: cmd/ja4pd/pentest_accept_loop_semaphore_regression_test.go::TestRegression_JA4PROXY_2026_0012_admitConn_enforces_capacity
   closed_commit: 0401c73
-  description: Main accept loop (cmd/proxy/main.go:285-298) creates unbounded goroutines without semaphore.
+  description: Main accept loop (cmd/ja4pd/main.go:285-298) creates unbounded goroutines without semaphore.
     Each connection allocates 3x BufferSize in memory (default 8KB = 24KB per connection). Combined with
     goroutine leak (0009), attacker can exhaust memory by opening connections faster than they close.
     At 100K concurrent connections, 2.4GB in buffers alone.
@@ -504,7 +504,7 @@ findings:
   status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: cmd/proxy/TestRegression_JA4PROXY_2026_0013_TarpitReleasesSlotOnInactiveClient
+  regression_test: cmd/ja4pd/pentest_tarpit_slot_exhaustion_regression_test.go::TestRegression_JA4PROXY_2026_0013_TarpitReleasesSlotOnInactiveClient
   closed_commit: 8cea0c9
   description: tarpit()'s copyOne function has no SetReadDeadline. Attacker sends 1 byte then hangs indefinitely,
     permanently consuming a tarpit slot. With 100 source IPs and MaxPerIP=10, attacker fills all 1000
@@ -662,7 +662,7 @@ findings:
   status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: internal/redis/TestRegression_JA4PROXY_2026_0019_unsigned_critical_is_dropped
+  regression_test: internal/redis/pentest_pubsub_hmac_regression_test.go::TestRegression_JA4PROXY_2026_0019_unsigned_critical_is_dropped
   closed_commit: f95036d
   description: Any entity with Redis access can PUBLISH to security-critical channels (config:dial:change,
     ja4:whitelist:add, ja4:blacklist:remove). No HMAC, signature, or audit trail on PubSub messages. onRefresh
@@ -883,7 +883,7 @@ findings:
   supersedes: []
   depends_on:
   - JA4PROXY-2026-0008
-  regression_test: cmd/proxy/pentest_metrics_rate_limit_regression_test.go::TestRegression_JA4PROXY_2026_0026_remote_is_throttled_after_burst
+  regression_test: cmd/ja4pd/pentest_metrics_rate_limit_regression_test.go::TestRegression_JA4PROXY_2026_0026_remote_is_throttled_after_burst
   closed_commit: f2803ab
   description: '/health and /metrics endpoints lack rate limiting. Attacker spams endpoints: log flooding,
     Redis connection churn, Prometheus metric churn. DoS on observability.'
@@ -1041,7 +1041,7 @@ findings:
   supersedes: []
   depends_on:
   - JA4PROXY-2026-0012
-  regression_test: cmd/proxy/pentest_xadd_backpressure_regression_test.go::TestRegression_JA4PROXY_2026_0031_enqueue_drops_when_full
+  regression_test: cmd/ja4pd/pentest_xadd_backpressure_regression_test.go::TestRegression_JA4PROXY_2026_0031_enqueue_drops_when_full
   closed_commit: e185eb1
   description: Every connection decision spawns goroutine calling p.redis.XAdd() with context.Background()
     (no timeout). If Redis slow, goroutines accumulate without bound, each holding JSON-marshaled event.
@@ -1359,9 +1359,9 @@ findings:
   status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: cmd/proxy/pentest_reload_respects_config_path_regression_test.go
+  regression_test: cmd/ja4pd/pentest_reload_respects_config_path_regression_test.go
   closed_commit: 8f29dff6a0483e429f7bf4341b0ff16dc5ec6543
-  description: cmd/proxy/main.go:593 reload() always loads "config/proxy.yml" regardless of CONFIG_PATH
+  description: cmd/ja4pd/main.go:593 reload() always loads "config/proxy.yml" regardless of CONFIG_PATH
     env var used at startup. SIGHUP reload loads different config than startup.
   notes: "Phase 119m specifies storing config path at startup, reusing in reload(). Phase 118ss fix: newProxy()\
     \ now accepts a cfgPath argument and stores it on proxy.cfgPath; reload() reads from p.cfgPath with\
@@ -1594,7 +1594,7 @@ findings:
   status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: internal/logging/TestRegression_JA4PROXY_2026_0048_redacts_paths_in_production
+  regression_test: internal/logging/redactor_test.go::TestRegression_JA4PROXY_2026_0048_redacts_paths_in_production
   closed_commit: b26f51c
   description: Error logs expose file paths, Redis keys, internal names via verbose error formatting (fmt.Errorf
     with full context).
@@ -1648,7 +1648,7 @@ findings:
   status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: cmd/proxy/pentest_redis_acl_default_regression_test.go::TestRegression_JA4PROXY_2026_0050_warn_only_on_remote_disabled
+  regression_test: cmd/ja4pd/pentest_redis_acl_default_regression_test.go::TestRegression_JA4PROXY_2026_0050_warn_only_on_remote_disabled
   closed_commit: f7de8a7
   description: 'config/proxy.yml acl_users.enabled: false (default off). Default user has full Redis access
     regardless of password.'
@@ -1818,7 +1818,7 @@ findings:
     vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H
   notes: 'handler goroutine at main.go:418 lacks recover(). A panic in any of 14+ signal modules or Redis
     call crashes entire proxy. Fix: add defer/recover in go func() at main.go:418-421. Regression test:
-    cmd/proxy/pentest_panic_recovery_test.go'
+    cmd/ja4pd/pentest_panic_recovery_test.go'
 - id: JA4PROXY-2026-0057
   title: Unbounded Beaconing Goroutine per Connection
   severity: HIGH
