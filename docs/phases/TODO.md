@@ -50,15 +50,3 @@ This document tracks the remaining work for both historical phases (gaps identif
 ### Phase 120 — Independent Red Team Findings: Design Flaws, Infrastructure & Logic Bugs (RETIRED)
 *   **Status:** **DEFERRED** (Retired 2026-04-19 under Phase 121e as duplicate of Phase 119. All 20 findings were either duplicates of 119 entries or already folded into the canonical findings register (docs/security/findings.yaml) with remediation_phases pointing at 119 or its successor phases. See PHASE_120.md redirect stub.)
 *   **Action Plan:** [cancelled/PHASE_120.md](cancelled/PHASE_120.md)
-
-### Phase 225 — Hermetic Tooling & make doctor Accuracy
-*   **Status:** **PROPOSED** (Run version-sensitive tools (trivy, hadolint, gitleaks, codespell, markdownlint, amtool, the 3.14 Python linters) in pinned containers instead of relying on the host, and make 'make doctor' report accurately (blocking vs informational). The PHASE_224 meta-lint guard stays host-only by design.)
-*   **Action Plan:** [PHASE_225.md](PHASE_225.md)
-
-### Phase 227 — Scan & Build Caching
-*   **Status:** **PROPOSED** (Cache the Trivy DB and shared base-image layers so 'make scan' (~6 min) stops re-pulling the same data once per image; buildx layer cache + a defined DB-cache TTL.)
-*   **Action Plan:** [PHASE_227.md](PHASE_227.md)
-
-### Phase 228 — Human-Readable Scan Summaries
-*   **Status:** **PROPOSED** (Parse machine-readable scanner output (trivy/gosec JSON) into a compact per-image PASS/FAIL summary so scan/lint results are readable at a glance; raw detail kept available (summarize, not suppress).)
-*   **Action Plan:** [PHASE_228.md](PHASE_228.md)

@@ -347,10 +347,10 @@ Alignment with international standards and regulatory frameworks.
 | 219 | Restore Deleted Phase Documentation | COMPLETE | N/A | N/A |
 | 223 | System Evaluation Documentation for Enterprise Architects | COMPLETE | N/A | N/A |
 | 224 | Makefile Target Integrity | COMPLETE | N/A | N/A |
-| 225 | Hermetic Tooling & make doctor Accuracy | PROPOSED | N/A | N/A |
+| 225 | Hermetic Tooling & make doctor Accuracy | COMPLETE | N/A | N/A |
 | 226 | CI Quality-Gate Remediation | COMPLETE | N/A | N/A |
-| 227 | Scan & Build Caching | PROPOSED | N/A | N/A |
-| 228 | Human-Readable Scan Summaries | PROPOSED | N/A | N/A |
+| 227 | Scan & Build Caching | COMPLETE | N/A | N/A |
+| 228 | Human-Readable Scan Summaries | COMPLETE | N/A | N/A |
 | 229 | Base-Image Consolidation & Consistent Pinning | COMPLETE | N/A | N/A |
 
 ---
