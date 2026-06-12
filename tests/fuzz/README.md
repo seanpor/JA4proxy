@@ -1,9 +1,10 @@
 # Fuzzing — Go-native targets
 
 > **Production runtime is Go.** All adversarial fuzzing of the proxy hot path
-> lives in Go and runs via `go test -fuzz=...`. The Python harness in
-> `tests/fuzz/test_properties.py` is retained for property-style assertions
-> over the deprecated Python prototype, not for adversarial input generation.
+> lives in Go and runs via `go test -fuzz=...`. The former Python harness
+> (`tests/fuzz/test_properties.py`) was removed in phase-309 along with the rest
+> of the deprecated Python prototype; the property-style invariants it asserted
+> are now covered by `internal/security/property_test.go`.
 
 ## Where the targets live
 
