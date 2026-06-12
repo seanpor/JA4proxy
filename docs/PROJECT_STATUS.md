@@ -5,7 +5,7 @@
 
 ## Current Status: Phase 109 (PROXY Protocol Hardening & Scrubbing) Next
 
-**Last Updated:** 2026-06-11
+**Last Updated:** 2026-06-12
 
 ## Epics & Roadmap
 
@@ -107,6 +107,14 @@ Management dashboards and documentation quality.
 | 52 | Management UI - Phase 3: Administration Tools | COMPLETE | Admin UI for allowlists, bans, dial, audit log, and config. Full test suite including test_pages.py and test_container_config.py. Delivered together with Phases 13/51 in merge commit 2aeb2ba. |
 | 105 | Documentation Restructure by Audience | COMPLETE | Restructured project documentation into five audience-specific entry points (Website Owners, Architects, Operators, Compliance, Developers). Consolidated 4 blocking docs into BLOCKING_OPERATIONS.md and 4 testing docs into TESTING_STRATEGY.md as appendices. Refreshed 4 LaTeX chapters (brochure + 3 reference-manual chapters) for Phase 200-series posture. Added docs-pdf.yml CI workflow (SHA-pinned, 14-day non-blocking grace ending 2026-05-09). Archived pre-Phase-200 reports (GEMINI_CRITIQUE, ENTERPRISE_REVIEW, DMZ_DEPLOYMENT_READINESS, CYBER_RISK_REVIEW, strategic_security_architecture_review) with date-stamped banners. Reduced root README from 441 to 88 lines as a role-router. Resolved Phase 106 architect Finding 2 (placeholder marker in for-developers/README.md). |
 | 307 | Documentation Coherence, Setup Standardization, and Link Remediation | COMPLETE | Establish a coherent documentation system, standardize onboarding instructions on the setup wizard (make init), clear out legacy Python proxy references, and resolve all broken links and metadata errors. |
+| 231 | Container & Interface Consolidation — Master Implementation Plan | PROPOSED | Master planning document and implementation index for the 7-phase container and interface consolidation programme. |
+| 232 | Security Foundations & Quick Wins | PROPOSED | Vendor all JavaScript dependencies, implement Top-bar situation summary and proxy-down banner, attach analytics container to correct Redis network, eliminate insecure admin-api container, and fix production port bindings. |
+| 233 | Observability Foundations | PROPOSED | Add Prometheus scrape targets for tarpit and analytics, write critical system alert rules, replace redis-stack with a lightweight alpine image, cap events stream to 100k entries using XADD MAXLEN, and surface evictions count. |
+| 234 | Dashboard: Threat Posture & Infrastructure Rows | PROPOSED | Pass user role to templates to implement RBAC visibility controls, implement the Threat Posture dashboard row, add the Infrastructure service status row, and implement the Triage Queue for undecided clients. |
+| 235 | Fingerprint & IP Drill-Down Pages | PROPOSED | Build a reusable Alpine.js confirmation modal and undo toast, implement fingerprint and IP forensics pages, and link live feed elements to detail views. |
+| 236 | Analytics Intelligence Visibility | PROPOSED | Set up scoped Redis ACL credentials for the analytics engine, implement a validated output writer, build the Intelligence dashboard row and review page, and add false positive feedback flows. |
+| 237 | Operational Polish & Missing Workflows | PROPOSED | Implement shift handover snapshots, dial auto-revert timers, CIDR range block support, manual action attribution, and TLS certificate expiry tracking. |
+| 238 | Accessibility Hardening & Infrastructure Docs | PROPOSED | Harden the dashboard status indicators using shape+color+text matching WCAG 2.1 AA, add ARIA live regions, style CSS Light Mode, configure Grafana secure cookies, publish the cAdvisor threat model, and write a HAProxy TCP mode CI test. |
 
 ### Epic: Operational Excellence & Lifecycle Management
 Zero-downtime upgrades, robust health monitoring, and deployment orchestration.
@@ -357,8 +365,16 @@ Alignment with international standards and regulatory frameworks.
 | 227 | Scan & Build Caching | COMPLETE | N/A | N/A |
 | 228 | Human-Readable Scan Summaries | COMPLETE | N/A | N/A |
 | 229 | Base-Image Consolidation & Consistent Pinning | COMPLETE | N/A | N/A |
+| 231 | Container & Interface Consolidation — Master Implementation Plan | PROPOSED | N/A | N/A |
 | 231a | Single-Host Core — PROXY-Protocol Write, Manual-Ban Enforcement, CountKeys Fix | COMPLETE | N/A | N/A |
 | 231b | Single-Host Bootstrap — Wizard, systemd, Firewall, Backups | IN_PROGRESS | N/A | N/A |
+| 232 | Security Foundations & Quick Wins | PROPOSED | N/A | N/A |
+| 233 | Observability Foundations | PROPOSED | N/A | N/A |
+| 234 | Dashboard: Threat Posture & Infrastructure Rows | PROPOSED | N/A | N/A |
+| 235 | Fingerprint & IP Drill-Down Pages | PROPOSED | N/A | N/A |
+| 236 | Analytics Intelligence Visibility | PROPOSED | N/A | N/A |
+| 237 | Operational Polish & Missing Workflows | PROPOSED | N/A | N/A |
+| 238 | Accessibility Hardening & Infrastructure Docs | PROPOSED | N/A | N/A |
 | 300 | Environment Variable Audit | COMPLETE | N/A | N/A |
 | 301 | Environment Template Remediation | COMPLETE | N/A | N/A |
 | 302 | Repository Security Settings & Dependabot Automation | COMPLETE | N/A | N/A |

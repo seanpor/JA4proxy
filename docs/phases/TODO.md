@@ -58,3 +58,35 @@ This document tracks the remaining work for both historical phases (gaps identif
 ### Phase 120 — Independent Red Team Findings: Design Flaws, Infrastructure & Logic Bugs (RETIRED)
 *   **Status:** **DEFERRED** (Retired 2026-04-19 under Phase 121e as duplicate of Phase 119. All 20 findings were either duplicates of 119 entries or already folded into the canonical findings register (docs/security/findings.yaml) with remediation_phases pointing at 119 or its successor phases. See PHASE_120.md redirect stub.)
 *   **Action Plan:** [cancelled/PHASE_120.md](cancelled/PHASE_120.md)
+
+### Phase 231 — Container & Interface Consolidation — Master Implementation Plan
+*   **Status:** **PROPOSED** (Master planning document and implementation index for the 7-phase container and interface consolidation programme.)
+*   **Action Plan:** [PHASE_231.md](PHASE_231.md)
+
+### Phase 232 — Security Foundations & Quick Wins
+*   **Status:** **PROPOSED** (Vendor all JavaScript dependencies, implement Top-bar situation summary and proxy-down banner, attach analytics container to correct Redis network, eliminate insecure admin-api container, and fix production port bindings.)
+*   **Action Plan:** [PHASE_232.md](PHASE_232.md)
+
+### Phase 233 — Observability Foundations
+*   **Status:** **PROPOSED** (Add Prometheus scrape targets for tarpit and analytics, write critical system alert rules, replace redis-stack with a lightweight alpine image, cap events stream to 100k entries using XADD MAXLEN, and surface evictions count.)
+*   **Action Plan:** [PHASE_233.md](PHASE_233.md)
+
+### Phase 234 — Dashboard: Threat Posture & Infrastructure Rows
+*   **Status:** **PROPOSED** (Pass user role to templates to implement RBAC visibility controls, implement the Threat Posture dashboard row, add the Infrastructure service status row, and implement the Triage Queue for undecided clients.)
+*   **Action Plan:** [PHASE_234.md](PHASE_234.md)
+
+### Phase 235 — Fingerprint & IP Drill-Down Pages
+*   **Status:** **PROPOSED** (Build a reusable Alpine.js confirmation modal and undo toast, implement fingerprint and IP forensics pages, and link live feed elements to detail views.)
+*   **Action Plan:** [PHASE_235.md](PHASE_235.md)
+
+### Phase 236 — Analytics Intelligence Visibility
+*   **Status:** **PROPOSED** (Set up scoped Redis ACL credentials for the analytics engine, implement a validated output writer, build the Intelligence dashboard row and review page, and add false positive feedback flows.)
+*   **Action Plan:** [PHASE_236.md](PHASE_236.md)
+
+### Phase 237 — Operational Polish & Missing Workflows
+*   **Status:** **PROPOSED** (Implement shift handover snapshots, dial auto-revert timers, CIDR range block support, manual action attribution, and TLS certificate expiry tracking.)
+*   **Action Plan:** [PHASE_237.md](PHASE_237.md)
+
+### Phase 238 — Accessibility Hardening & Infrastructure Docs
+*   **Status:** **PROPOSED** (Harden the dashboard status indicators using shape+color+text matching WCAG 2.1 AA, add ARIA live regions, style CSS Light Mode, configure Grafana secure cookies, publish the cAdvisor threat model, and write a HAProxy TCP mode CI test.)
+*   **Action Plan:** [PHASE_238.md](PHASE_238.md)
