@@ -83,6 +83,14 @@ epics:
   - 52
   - 105
   - 307
+  - 231
+  - 232
+  - 233
+  - 234
+  - 235
+  - 236
+  - 237
+  - 238
 - name: 'Epic: Operational Excellence & Lifecycle Management'
   description: Zero-downtime upgrades, robust health monitoring, and deployment orchestration.
   phases:
@@ -2585,3 +2593,59 @@ phases:
     completed: 2026-06-04
     action_plan: docs/phases/complete/PHASE_144.md
     summary: 'Repo pruning + operational-excellence housekeeping. Completed in commit c53ced20 but never recorded in the manifest until the phase-309 documentation audit caught the manifest-vs-doc gap; reconciled and archived in the docs-archive pass.'
+  231:
+    name: Container & Interface Consolidation — Master Implementation Plan
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_231.md
+    dependencies: [230]
+    size: XLARGE
+    summary: Master planning document and implementation index for the 7-phase container and interface consolidation programme.
+  232:
+    name: Security Foundations & Quick Wins
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_232.md
+    dependencies: [231]
+    size: LARGE
+    summary: Vendor all JavaScript dependencies, implement Top-bar situation summary and proxy-down banner, attach analytics container to correct Redis network, eliminate insecure admin-api container, and fix production port bindings.
+  233:
+    name: Observability Foundations
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_233.md
+    dependencies: [231, 232]
+    size: MEDIUM
+    summary: Add Prometheus scrape targets for tarpit and analytics, write critical system alert rules, replace redis-stack with a lightweight alpine image, cap events stream to 100k entries using XADD MAXLEN, and surface evictions count.
+  234:
+    name: "Dashboard: Threat Posture & Infrastructure Rows"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_234.md
+    dependencies: [231, 233]
+    size: LARGE
+    summary: Pass user role to templates to implement RBAC visibility controls, implement the Threat Posture dashboard row, add the Infrastructure service status row, and implement the Triage Queue for undecided clients.
+  235:
+    name: Fingerprint & IP Drill-Down Pages
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_235.md
+    dependencies: [231, 234]
+    size: LARGE
+    summary: Build a reusable Alpine.js confirmation modal and undo toast, implement fingerprint and IP forensics pages, and link live feed elements to detail views.
+  236:
+    name: Analytics Intelligence Visibility
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_236.md
+    dependencies: [231, 235]
+    size: LARGE
+    summary: Set up scoped Redis ACL credentials for the analytics engine, implement a validated output writer, build the Intelligence dashboard row and review page, and add false positive feedback flows.
+  237:
+    name: Operational Polish & Missing Workflows
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_237.md
+    dependencies: [231, 236]
+    size: MEDIUM
+    summary: Implement shift handover snapshots, dial auto-revert timers, CIDR range block support, manual action attribution, and TLS certificate expiry tracking.
+  238:
+    name: Accessibility Hardening & Infrastructure Docs
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_238.md
+    dependencies: [231, 237]
+    size: MEDIUM
+    summary: Harden the dashboard status indicators using shape+color+text matching WCAG 2.1 AA, add ARIA live regions, style CSS Light Mode, configure Grafana secure cookies, publish the cAdvisor threat model, and write a HAProxy TCP mode CI test.
