@@ -243,5 +243,11 @@ func isClosedErr(err error) bool {
 		strings.Contains(msg, "remote error: tls:") {
 		return true
 	}
+	// Connection resets, refuses, and broken pipes are expected when tearing down the miniredis server.
+	if strings.Contains(msg, "connection reset by peer") ||
+		strings.Contains(msg, "connection refused") ||
+		strings.Contains(msg, "broken pipe") {
+		return true
+	}
 	return false
 }

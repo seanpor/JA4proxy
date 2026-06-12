@@ -72,6 +72,7 @@ func TestClient_TLS_RealHandshake_Succeeds(t *testing.T) {
 	if c == nil {
 		t.Fatal("New returned nil client")
 	}
+	defer c.Close()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -95,6 +96,7 @@ func TestClient_TLS_WrongCA_Fails(t *testing.T) {
 	if c == nil {
 		t.Fatal("fail-open broken: New returned nil on TLS misconfig")
 	}
+	defer c.Close()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -127,6 +129,7 @@ func TestClient_TLS_PlainServerRejectsTLSClient(t *testing.T) {
 	if c == nil {
 		t.Fatal("fail-open broken: New returned nil")
 	}
+	defer c.Close()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -145,6 +148,7 @@ func TestClient_TLS_TLSServerRejectsPlainClient(t *testing.T) {
 	if c == nil {
 		t.Fatal("fail-open broken: New returned nil")
 	}
+	defer c.Close()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -225,6 +229,7 @@ func TestClient_PasswordNeverLogged(t *testing.T) {
 	if c == nil {
 		t.Fatal("New returned nil")
 	}
+	defer c.Close()
 	// Drive some activity so any debug lines are emitted.
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
