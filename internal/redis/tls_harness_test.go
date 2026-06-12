@@ -90,6 +90,13 @@ func newTLSMiniredis(t *testing.T) (string, *x509.CertPool, *miniredis.Miniredis
 	if err != nil {
 		t.Fatalf("miniredis.Run: %v", err)
 	}
+	// Capture the backend address ONCE. The per-connection goroutines below
+	// must never call srv.Addr() on the live object: restartMiniredisOnAddr()
+	// does Close()+Restart() on the same address, and during that window the
+	// miniredis' internal server is nil, so srv.Addr() segfaults (it locks a
+	// nil mutex). The address is stable across restart by design, so a cached
+	// string is both correct and race-free.
+	backendAddr := srv.Addr()
 
 	cert, pool := generateSelfSignedCert(t)
 	tlsCfg := &tls.Config{Certificates: []tls.Certificate{cert}, MinVersion: tls.VersionTLS12}
@@ -121,7 +128,7 @@ func newTLSMiniredis(t *testing.T) (string, *x509.CertPool, *miniredis.Miniredis
 			go func(c net.Conn) {
 				defer wg.Done()
 				defer c.Close()
-				backend, err := net.Dial("tcp", srv.Addr())
+				backend, err := net.Dial("tcp", backendAddr)
 				if err != nil {
 					errCh <- err
 					return
