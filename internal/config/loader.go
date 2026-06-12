@@ -715,6 +715,10 @@ type BlocklistFeedConfigYAML struct {
 	Score                  int    `yaml:"score"`
 	RefreshIntervalSeconds int    `yaml:"refresh_interval_seconds"`
 	Enabled                bool   `yaml:"enabled"`
+	// phase-309 WP-6: local cache path for the downloaded feed. Used for
+	// warm-start at boot and rewritten on each successful refresh. If empty,
+	// the proxy derives a default under /var/lib/ja4proxy/blocklists/.
+	Path string `yaml:"path"`
 }
 
 // BlocklistsConfigYAML holds blocklist settings from proxy.yml.

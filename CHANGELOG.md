@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Go blocklist feed downloader (Phase 309 WP-6)**: the Go proxy now downloads
+  Spamhaus DROP/EDROP (and any configured CIDR feed) on a per-feed timer and
+  atomically swaps the parsed trie into the live `BlocklistManager`. Previously
+  the Go `BlocklistManager` only loaded from a local file that nothing ever
+  populated, so Spamhaus hard-blocking was inert. The downloader uses
+  `ETag`/`If-None-Match` conditional requests (a `304` counts as a successful
+  refresh), a bounded 64 MiB body, a lock-free `atomic.Pointer` trie swap, and a
+  warm-restart disk cache (default `/var/lib/ja4proxy/blocklists/<name>.txt`,
+  overridable per feed via `path:`). **Fail safe**: any error — transport,
+  non-2xx, parse, or a 0-entry body — increments
+  `ja4proxy_blocklist_download_errors_total{feed}` and keeps the last-good trie.
+  No leader election by design (see **ADR-204**). New per-feed metrics
+  `ja4proxy_blocklist_download_errors_total` and
+  `ja4proxy_blocklist_last_refresh_success_seconds`.
+
 ### Removed
 - **Orphaned Python-prototype tests (Phase 309 tidyup)**: deleted 35 test files
   that imported modules removed when the Python prototype was archived
@@ -22,6 +38,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `docs/reports/python-prototype-test-removal-audit.md`.
 
 ### Fixed
+- **Four dead security alerts now fire on real signals (Phase 309 WP-6)**: the
+  metrics behind `AbuseIPDBQuotaExhausted`, `SpamhausDownloadFailed`,
+  `SpamhausListStale`, and `BeaconingDetected` were emitted only by the Python
+  prototypes that were deleted after the Go port, so the alerts could never
+  fire. Added the missing Go emitters: AbuseIPDB detects HTTP 429 /
+  `X-RateLimit-Remaining: 0` and flips `ja4proxy_abuseipdb_quota_exhausted`
+  (self-clearing on the next lookup with quota); the beaconing detector records
+  each flagged `(IP, JA4)` on the `beacon:suspects` ZSET and publishes its size
+  as `ja4proxy_beaconing_suspects`; the new feed downloader emits the two
+  blocklist metrics. `SpamhausListStale`'s threshold was raised 2h → ~25h to sit
+  above the 12h refresh interval. Also fixed the blocklist line parser, which
+  never handled Spamhaus DROP annotations (`1.2.3.0/24 ; SBL123`) — only bare
+  CIDRs — and now handles `spamhaus`/`cidr`/`ipset` formats.
 - **Phase-309 reconciliation — ADR-003 + findings register**: restored **ADR-003**
   (it had been overwritten with a duplicate of ADR-005; its correct subject is the
   cache-TTL asymmetry — ALLOW ~30min / BLOCK ~30s — rewritten from the decision
