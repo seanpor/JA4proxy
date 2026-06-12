@@ -55,20 +55,37 @@ Everything below exists to make those two outcomes **off by default**.
 | D6 | **Every restore is audited.** Append to `management:policy_audit` and write `backup:last_restore` / `backup:restored_from` (already in `REDIS_SCHEMA.md`): operator, source file, key counts, timestamp. | The schema requires every policy change be attributed; a restore is a big policy change. |
 | D7 | **Take `backup:operation_lock`** (the same `SET NX EX 600` 313a uses). | A restore must not race a live backup or a second restore. |
 | D8 | **TTLs re-applied from the artifact** (`RESTORE key ttl value`), not reset. Document the choice. | A ban that had 200s left should not come back with a fresh 3600s. Preserves decay semantics. |
+| D9 | **Hybrid GDPR Tombstone Merge via `--tombstone-file`.** | Since `FLUSHDB` destroys Redis state, read tombstones from an external host-mounted `--tombstone-file` AND the backup manifest itself, merging them to ensure erased subjects are never resurrected. |
+| D10 | **Paced, Throttled Restore Pipelines.** | Restore keys using paced pipelines (default batch 100, delay 10ms) to prevent saturating the single-threaded Redis engine. |
+| D11 | **Configuration Divergence Warning.** | Compare active config hash and build version with the manifest. Warn and block restore unless `--force` is used, preventing config-state misalignment. |
+| D12 | **Forward-Compatible Schema Migration Registry.** | Upgrades are a standard lifecycle event. When restoring an older backup (`schema_version = N`) on a newer proxy binary running a newer schema (`current_schema_version = N+1`), pipe each key and binary payload through an in-memory schema migrator function to transform it on the fly. Block downgrades by default. |
+| D13 | **Namespace/Prefix Remapping during Restore (`--prefix-map`).** | Allow operators to restore snapshots into safe namespace prefixes (e.g., remapping `ban:->restore:ban:`) to validate, debug, or compare values without overwriting live database state. |
+| D14 | **Post-Restore Integrity & Health Validation (Smoke Test).** | Verify restore completeness by running a validation check after writing keys (checking allowlists, audit logs, schema correctness). Fail-safe: raise alerts on failure. |
 
 ## 5. Design / flow
 
 ```
-ja4pd restore <artifact> [--include-blocks] [--force] [--dry-run]
+ja4pd restore <artifact> [--include-blocks] [--force] [--dry-run] [--tombstone-file <path>] [--prefix-map <mapping>]
   │
-  ├─ decrypt + verify GCM tag + manifest checksum     (abort on failure)
+  ├─ parse unencrypted binary header (magic, ver, salt, iterations, nonce)
+  ├─ derive 32-byte key from passphrase + salt (PBKDF2-SHA256, 100k iterations)
+  ├─ decrypt & verify GCM tag and unpack gzipped manifest JSON
+  ├─ if backup schema_version > current_schema_version: abort (downgrade blocked)
+  ├─ compare active config hash & build version; if mismatch, warn and abort unless --force
   ├─ acquire backup:operation_lock                    (abort if held)
   ├─ set ja4proxy_restore_currently_running = 1
-  ├─ load management:gdpr_erasure_log → erased-subject set
-  ├─ for each key in the artifact:
+  ├─ load tombstones from --tombstone-file AND the backup manifest → merged erased-subject set
+  ├─ if target Redis has keys and --force is not set: abort
+  ├─ FLUSHDB (only if --force set)                     [unless --dry-run]
+  ├─ for each key batch in the artifact (batch size: 100):
   │     • is it block-state and --include-blocks not set?   → skip (gated)
-  │     • is its subject in the erased set?                 → skip (erased), count
-  │     • else: RESTORE key ttl value  (REPLACE)            [unless --dry-run]
+  │     • is its subject in the merged erased set?          → skip (erased), count
+  │     • if --prefix-map is set: remap the key name (e.g. prefix change)
+  │     • if backup schema_version < current_schema_version:
+  │     │    └─ execute in-memory schema migrator function for this key/payload type
+  │     • else: RESTORE key ttl value (REPLACE)             [unless --dry-run]
+  │     • sleep 10ms (yield Redis CPU to live traffic)
+  ├─ run post-restore validation (smoke test core keys)    [unless --dry-run]
   ├─ append management:policy_audit + backup:last_restore / backup:restored_from
   ├─ write restore metrics (.prom): operations_total{status}, duration, running=0
   └─ release lock
@@ -87,26 +104,30 @@ Any failure: log, `ja4proxy_restore_operations_total{status="failure"}`,
 
 ## 7. Implementation plan (in order)
 
-1. Add the restore metrics to `internal/metrics` + `OBSERVABILITY_STANDARDS.md §1d`.
-2. `internal/backup/restore.go`: decrypt+verify → lock → erased-set load →
-   per-key classify (allow/block/erased) → `RestoreReplace` with TTL → audit.
-3. Classification helpers: a small, well-tested function that labels a key as
+1. Add the restore metrics to `internal/metrics` + `OBSERVABILITY_STANDARDS.md §1d`. Add validation failure metric `ja4proxy_restore_validation_failed` (counter).
+2. Schema Migration Registry: Define the registry structure and a interface for upgrade migrators. Write a sample migrator (e.g. from version 1 to 2) to establish the pattern.
+3. `internal/backup/restore.go`: parse header → PBKDF2 derive → decrypt/verify → schema compatibility check (reject downgrades) → config check (hash/version) → lock → merge tombstones (file + manifest) → paced per-key classify, prefix remapping, schema migration & restore (batching/delay) → post-restore validation (smoke test) → audit.
+4. Classification helpers: a small, well-tested function that labels a key as
    `allow` / `block` / `per-ip` from its prefix, plus a subject-extractor for
    per-IP keys (IPv4 **and** IPv6 canonical forms — never truncate v6).
-4. `ja4pd restore` CLI: `--include-blocks`, `--force`, `--dry-run`.
-5. Restore metric textfile emission (deferred `running 0` even on crash).
-6. Docs: extend `docs/runbooks/backup_restore.md` (restore procedure, the two
-   risks, the flags); ADR if any non-obvious choice; CHANGELOG; manifest `313b`.
+5. `ja4pd restore` CLI: `--include-blocks`, `--force`, `--dry-run`, `--tombstone-file`, `--key-file`, `--prefix-map`.
+6. Restore metric textfile emission (deferred `running 0` even on crash).
+7. Docs: extend `docs/runbooks/backup_restore.md` (restore procedure, the two
+   risks, the config hash check, prefix remapping, upgrade migrations, the flags); ADR if any non-obvious choice; CHANGELOG; manifest `313b`.
 
 ## 8. Test plan
 
 - **Unit (miniredis)** — classification (allow vs block vs per-IP, v4 & v6);
-  block-state skipped unless `--include-blocks`; erased subject skipped + counted;
+  block-state skipped unless `--include-blocks`; erased subject skipped + counted (via hybrid file + manifest merge);
   `--dry-run` writes nothing; non-empty-target refusal without `--force`;
   audit entry written; metrics toggle.
+- **Schema Migration Tests** — verify that backups with older `schema_version` values trigger registered migrator functions that mutate keys/payloads correctly on the fly, while backups with newer schema versions are rejected (blocking downgrades).
+- **Prefix Remapping Test** — verify that `--prefix-map` correctly translates key names before writing to Redis (asserting live keys are untouched).
+- **Post-Restore Smoke Validation Test** — verify the health check passes on valid keys, and fails (incrementing metric) if core keys are missing.
+- **Config Divergence Test** — verify restore warns and aborts when configuration hashes or build versions diverge, and proceeds with `--force`.
 - **Integration (real Redis)** — the 313a round-trip: every-type + IPv6 keys
   backed up → flushed → restored → asserted equal incl. TTLs. **Plus the GDPR
-  test**: back up an IP's keys → erase that IP via the `gdpr_delete` key set →
+  test**: back up an IP's keys → erase that IP via the `gdpr_delete` key set (or by writing to the `--tombstone-file`) →
   restore → assert the erased IP's keys are **not** resurrected.
 - **Adversarial** — tampered artifact (flip a byte) → GCM verify fails, nothing
   written; artifact from a different/incompatible schema_version → refused.

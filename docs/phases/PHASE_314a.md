@@ -52,39 +52,45 @@ Ethernet/IP/TCP. Pure-Go (no cgo) keeps the static container build simple, and
 AF_PACKET gives us a **kernel BPF filter** (essential for §6 data-minimisation).
 The ADR records this with the trade-offs.
 
+**Additional Decisions (Performance & Tooling):**
+*   **Zero-Copy Decoding via `gopacket.NewDecodingLayerParser`:** Standard gopacket decoding allocates Go structures for every parsed layer. To handle 10,000+ pps with minimal garbage collector pressure, use a pre-allocated parser and pre-allocated layer variables, decoding packet headers in-place (zero-alloc on the hot path).
+*   **Offline PCAP Replay Mode:** Support a `--pcap-file <path>` flag. This uses Go's pure-Go PCAP reader, bypassing raw socket bindings entirely. It allows replaying captured traffic for offline analysis, CI/CD verification, and local development without raw interface permissions.
+
 ## 4. Design / how it works
 
 ```
-mirror NIC (promisc) ── AF_PACKET ring ── decode ── reassemble ── extract ── event
-                          │ kernel BPF    eth/ip/tcp  per-flow     CH / SH
-                          │ (tcp 443 etc.)            bidirectional
+                       [ Live Mirror NIC ]
+                               │ (promiscuous mode)
+                               ▼
+    [ AF_PACKET Ring Buffer (Kernel BPF Filter: tcp port 443) ] OR [ --pcap-file Reader ]
+                               │
+                               ▼
+    [ Zero-Copy Layer Parser (gopacket.NewDecodingLayerParser) ]
+                               │ (pre-allocated struct reuse)
+                               ▼
+    [ Bounded Bidirectional Flow Table (sync.Pool Buffer Recycler) ]
+                               │
+            ┌──────────────────┴──────────────────┐
+     (Under 16KB & Handshake)             (Exceeds 16KB / Timeout)
+            ▼                                     ▼
+[ ClientHello / ServerHello bytes ]       [ Evict / Drop Stream ]
+            │
+            ▼
+    [ HandshakeEvent Channel ]
 ```
 
-1. **Capture.** Open an AF_PACKET socket on the mirror interface in promiscuous
-   mode with a **BPF filter** that admits only the ports/protocols we fingerprint
-   (e.g. TCP/443, QUIC/443) — so we never even copy unrelated payload into
-   userspace. Read frames from a bounded ring.
-2. **Decode.** Parse Ethernet → IPv4 **and** IPv6 (handle fragmentation) → TCP,
-   yielding `(5-tuple, seq, flags, payload, tcp-options)`. (TCP options are kept
-   because JA4T in 314c needs them — but no fingerprint is computed here.)
-3. **Reassemble (the hard part).** Maintain a **bounded flow table** keyed by the
-   canonical 5-tuple. Per flow, track client and server sequence baselines (from
-   SYN/SYN-ACK), buffer out-of-order segments, handle retransmits/overlap, and
-   stitch the byte stream **for both directions**. Surface the first complete TLS
-   record in each direction (ClientHello from client→server, ServerHello from
-   server→client; a record may span several segments).
-4. **Extract & emit.** When a flow has its ClientHello (and ServerHello if seen,
-   or a short timeout elapses), emit an internal `HandshakeEvent{ client_ip,
-   server_ip, ports, clienthello_bytes, serverhello_bytes, tcp_options,
-   timestamps }` to an internal channel and **evict the flow**. Nothing is written
-   to Redis in this phase — the consumer of the channel is a stub/logger that 314b
-   replaces.
+1. **Capture.** Open an AF_PACKET socket on the mirror interface in promiscuous mode (or read offline via `--pcap-file`) with a **BPF filter** (e.g. `tcp port 443`) to drop non-handshake packets early in the kernel.
+2. **Decode.** Parse Ethernet → IPv4/IPv6 → TCP using a zero-copy decoding layer parser. Extract 5-tuple, sequence, flags, payload, and TCP options.
+3. **Reassemble (the hard part).** Track flows in a bounded table. To prevent memory exhaustion under attack, enforce a **16KB reassembly boundary** per stream (sufficient for the TLS handshake). Reassemble client and server streams concurrently, handling retransmissions and segment splits.
+4. **Extract & emit.** Emit a `HandshakeEvent` once ClientHello (and ServerHello, if seen before timeout) is parsed, then evict the flow. Buffer structures are pooled using `sync.Pool` to avoid allocations.
 
 ## 5. Resource & overload model (must be explicit)
 
 A SPAN port can carry **far more** traffic than the inline proxy sees, so the
 sensor must be impossible to OOM or to turn into a Redis-flooder later:
 
+- **Reassembly Depth Limit:** Restrict stream tracking to the first **16KB (16384 bytes)** of payload per direction. Once this boundary is reached without completing the handshake extraction, evict the flow immediately. This mitigates flood and HTTP-large-payload exhaustion.
+- **Buffer Pooling via `sync.Pool`:** Allocation on the packet hot path is a major bottleneck. Maintain pools of pre-allocated byte slices (e.g., 64KB buffers) and flow-tracking struct nodes. Reassemblers pull from the pool and return them upon flow eviction.
 - **Bounded flow table** with a hard **memory** cap (not just a count) and
   **LRU/idle eviction**; a configurable `max_flows` and `max_flow_buffer_bytes`.
 - **Drop-tail under saturation.** If the ring or flow table is full, drop new
@@ -110,8 +116,10 @@ Promiscuous capture of a mirror feed is, by nature, broad. We constrain it:
 - Run as a **non-root** standalone binary with **only `CAP_NET_RAW`** (systemd
   `AmbientCapabilities`/`CapabilityBoundingSet`, or Docker `cap_drop: ALL` +
   `cap_add: NET_RAW`).
-- Drop the capability **after** the socket is bound; if the drop fails, **exit**
-  (hard error — this is not the hot path, so failing closed is correct).
+- **Post-Socket Privilege Dropping:** Bind the raw AF_PACKET socket at startup under root/CAP_NET_RAW, then immediately drop all capabilities (`syscall.Setreuid` / `syscall.Setregid` to non-root user UID/GID). If capability dropping fails, exit immediately (fail closed).
+- **Restrictive Redis User ACL:** The sensor only writes fingerprints and sets TTLs. Secure the Redis access layer by provisioning a custom ACL user policy specifically for the sensor in `users.acl` or `redis.conf`:
+  `user tap_sensor on >my_secure_password ~fp:os:ip:* ~fp:ip:* ~fp:conn:* +set +expire -@all`
+  This prevents a compromised sensor container from executing read operations, clearing whitelist rules, or modifying proxy configuration.
 - Ship and load a seccomp profile (`config/seccomp_tap.json` equivalent).
 
 ## 8. Metrics (registry first)
@@ -126,13 +134,12 @@ Add to `internal/metrics` **and** `OBSERVABILITY_STANDARDS.md §1d`:
 
 1. **ADR** for the capture library (§3) — first, before code.
 2. Metrics → registry + `OBSERVABILITY_STANDARDS.md`.
-3. `internal/tap/capture.go` — AF_PACKET open, promisc, BPF filter, ring read.
-4. `internal/tap/decode.go` — eth/IPv4/IPv6(+frag)/TCP decode to a normalised segment.
-5. `internal/tap/reassembler.go` — bounded bidirectional flow table, eviction,
-   ClientHello/ServerHello surfacing.
+3. `internal/tap/capture.go` — AF_PACKET open, promisc, BPF filter, ring read. Support reading offline via pure-Go pcap library if `--pcap-file` is specified.
+4. `internal/tap/decode.go` — zero-copy eth/IPv4/IPv6(+frag)/TCP decode to a normalised segment using `gopacket.NewDecodingLayerParser`.
+5. `internal/tap/reassembler.go` — bounded bidirectional flow table, eviction, `sync.Pool` object recycling, and 16KB stream boundary reassembly depth limit.
 6. `internal/tap/sensor.go` — wires capture→decode→reassemble→`HandshakeEvent` chan;
    a stub consumer that just counts/logs (replaced in 314b).
-7. `cmd/ja4-tap/main.go` — standalone binary; cap-drop + seccomp at startup.
+7. `cmd/ja4-tap/main.go` — standalone binary; parse `--pcap-file` / `--key-file` / `--key`, execute cap-drop + change UID/GID, and load seccomp at startup.
 8. `internal/tap/watchdog.go` — per-worker restart with rapid-crash detection.
 9. `config/proxy.yml` `tap:` block — **disabled by default**; document that
    interface/promisc/BPF are **restart-only** (cannot hot-reload, like the listen
@@ -146,10 +153,11 @@ Add to `internal/metrics` **and** `OBSERVABILITY_STANDARDS.md §1d`:
 - **Synthetic packet builder** (port the Python `SyntheticPacketBuilder`):
   helpers to emit `syn/synack/ack/clienthello/serverhello/data/fin/rst`. This is
   the backbone of every test.
-- **Reassembly** — in-order, **out-of-order**, retransmit/overlap, a ClientHello
+- **Reassembly & Stream Limits** — in-order, **out-of-order**, retransmit/overlap, a ClientHello
   **split across several TCP segments**, IPv4 fragmentation, IPv6, and a
-  server-direction ServerHello. Assert the extracted bytes are exact (or the flow
-  is cleanly skipped).
+  server-direction ServerHello. Assert the extracted bytes are exact. Verify that stream tracking is aborted and memory freed the moment stream payload size exceeds 16KB.
+- **Offline PCAP Replay Verification** — run the sensor over checked-in PCAP fixtures, asserting exact ClientHello/ServerHello byte extraction.
+- **Memory Optimization Benchmark** — run the parser/reassembler benchmarks with allocation profile metrics to assert zero heap allocations on the packet-processing hot path.
 - **Overload** — exceed `max_flows` / buffer cap → oldest evicted, drop metric
   increments, no OOM, no panic.
 - **Privacy** — assert no payload bytes beyond the handshake are retained and the

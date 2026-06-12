@@ -50,24 +50,62 @@ real users) and deserves its own focused review.
 | D7 | **Driven as a CLI subcommand** (`ja4pd backup`), invoked by a systemd timer / cron — no always-on goroutine. | Keeps the proxy hot path untouched; matches how ops already schedule the 231b tar. |
 | D8 | **Metrics via the node-exporter textfile collector.** The CLI writes a `*.prom` file; node-exporter scrapes it. | A short-lived CLI registering Prometheus metrics in its own process and exiting would emit to nowhere. The textfile collector is the standard pattern for cron-style jobs. **This phase must also wire the collector into the deployment** (it is not currently enabled — see §6 step 6). |
 | D9 | **A distributed lock** (`backup:operation_lock`, already reserved in `REDIS_SCHEMA.md`, `SET NX EX 600`). | Stops a backup and a restore (313b) — or two backups — running at once and producing a torn artifact. |
+| D10 | **Do not package configuration files (`proxy.yml`, `.env`) in the database backup; store config fingerprinting metadata instead.** | Packaging `.env` (which contains the key) inside the encrypted backup creates a circular key dependency (you need the key to decrypt the backup to get the key). Keep configuration/secrets separate from dynamic state. To prevent drift, record the active configuration hash and software build version in the manifest, allowing the restore tool to warn the operator on divergence. |
+| D11 | **PBKDF2 Key Derivation + Cryptographically Secure 12-byte Random IV.** | GCM requires a unique, secure 12-byte IV per write to prevent nonce-reuse compromise. Raw passphrases cannot be used directly as keys; derive a 32-byte key using PBKDF2 with SHA-256 (100,000 iterations) and a random salt, storing the salt in the unencrypted binary header. |
+| D12 | **Paced, Pipelined SCAN/DUMP with Configurable Batch Size and Delay.** | Scanning/dumping sequentially blocks Redis's single execution thread on large databases. Perform keyspace sweeps in pipelined batches (default 100) and yield control via a configurable delay (default 10ms) between batches. |
+| D13 | **Atomic Writes using a Temporary File.** | Avoid corruption by writing to a temporary file (`*.bin.tmp`) in the destination directory and executing an atomic `os.Rename` only after a successful, complete write. |
+| D14 | **Compliant Backup Sanitization for Non-Prod (`--sanitize`).** | Debugging issues in staging/dev requires real database state, but copying production backups directly violates GDPR/CCPA due to IP logs and session keys. Add a `--sanitize` option that redacts/masks client IP addresses in key names/payloads and strips session tokens/MFA secrets, producing a safe snapshot. |
 
 ## 4. Design / how it works
 
+### A — Binary File Format Layout (No-Circular-Dependency & Secure)
+To support unique random salts for PBKDF2 and cryptographically secure nonces for AES-GCM, the backup file starts with a plain unencrypted header:
 ```
-ja4pd backup --config config/proxy.yml
+┌─────────────────┬─────────────────┬─────────────────┬──────────────────────┬─────────────────┬────────────────────────┐
+│ Magic ("JA4P")  │ Format Ver (1B) │  Salt (16B)     │ PBKDF2 Iterations(4B)│ GCM Nonce (12B) │ Encrypted Payload (Var)│
+└─────────────────┴─────────────────┴─────────────────┴──────────────────────┴─────────────────┴────────────────────────┘
+```
+The **Encrypted Payload** contains a gzipped JSON body:
+- **Manifest:** `{created_at, key_count, schema_version, proxy_version, config_hash}`
+- **Entries:** Array of `{key, ttl_ms, payload_base64}`
+
+### B — Backup Flow
+```
+ja4pd backup --config config/proxy.yml [--key-file <path>] [--sanitize]
   │
   ├─ acquire backup:operation_lock (SET NX EX 600); abort if held
   ├─ set ja4proxy_backup_currently_running = 1
+  ├─ read key from --key-file (or JA4PROXY_BACKUP_KEY env var)
+  ├─ compute active config SHA-256 hash & query proxy build version
+  ├─ generate random 16-byte PBKDF2 salt & derive 32-byte key (100k iterations)
   ├─ for each configured key-prefix:
-  │     SCAN MATCH prefix            → key names (skip exclude-list)
-  │     PTTL key  +  DUMP key        → (ttl, value) per key
-  ├─ assemble a manifest {created_at, key_count, schema_version} + entries
-  ├─ gzip → AES-256-GCM encrypt (key from JA4PROXY_BACKUP_KEY)
-  ├─ write artifact  <dir>/ja4proxy-backup-<unixtime>.bin   (0600, dir 0700)
+  │     SCAN MATCH prefix (batch size: 100)
+  │     PTTL + DUMP (pipelined)
+  │     sleep 10ms (yield Redis CPU to live traffic)
+  ├─ if --sanitize is specified:
+  │     └─ run redactor: mask client IP addresses (v4/v6) in key names/payloads, and drop active sessions/MFA secrets
+  ├─ assemble manifest + entries JSON
+  ├─ gzip payload
+  ├─ generate cryptographically secure 12-byte random IV
+  ├─ encrypt payload (AES-256-GCM)
+  ├─ write binary header + ciphertext to <dir>/ja4proxy-backup-<unixtime>.bin.tmp (0600)
+  ├─ atomic rename: tmp file -> final .bin file
   ├─ prune: keep newest N and ≤ M days (config); securely remove older
   ├─ write metrics .prom: operations_total{status}, last_success_seconds,
   │     duration_seconds, currently_running=0
   └─ release lock
+```
+
+### C — Offline Backup Inspection
+To allow operations teams to verify the integrity and metadata of a backup without running a Redis instance:
+```
+ja4pd backup inspect <file>
+  │
+  ├─ read unencrypted binary header (salt, iterations, nonce)
+  ├─ prompt for / read passphrase and derive 32-byte key
+  ├─ decrypt & verify GCM tag
+  ├─ output manifest info (created_at, key_count, schema_version, config_hash, proxy_version)
+  └─ print breakdown of key count per prefix (e.g. "ban:*": 45, etc.)
 ```
 
 Failure at any step: log the error, increment
@@ -104,12 +142,12 @@ backup ones; 313b emits the restore ones):
 2. **Config.** Add a `backup:` block to `config/proxy.yml` with **conservative
    defaults** and inline comments: `enabled: false`, `dir`, `key_prefixes:` (the
    scope), `exclude_prefixes:` (the D5 list), `retention_count`, `retention_days`,
-   `metrics_textfile`. Document that it is a per-invocation CLI, so SIGHUP
+   `metrics_textfile`, `batch_size: 100`, `batch_delay_ms: 10`. Document that it is a per-invocation CLI, so SIGHUP
    hot-reload is N/A.
-3. **Backup engine** `internal/backup/backup.go`: lock → SCAN/PTTL/DUMP →
-   manifest → gzip → AES-256-GCM → write (0600) → prune → metrics → unlock.
-4. **CLI** `ja4pd backup` subcommand (wire into `cmd/ja4pd`).
-5. **Metric emission** as a `.prom` textfile (atomic temp+rename), incl.
+3. **Crypto Library** `internal/backup/crypto.go`: Implement `EncryptPayload`, `DecryptPayload` using AES-256-GCM with secure random IV prepending, and `DeriveKey` using PBKDF2-SHA256 (100k iterations) with random salt.
+4. **Backup engine** `internal/backup/backup.go`: lock → read key-file/env → active config hash + build version → paced, pipelined SCAN/PTTL/DUMP (batching/delay) → optional in-memory PII sanitization redactor (if `--sanitize` is active) → manifest assembly → gzip → AES-256-GCM → write binary header + ciphertext to `*.bin.tmp` (0600) → atomic `os.Rename` → prune → metrics → unlock.
+5. **CLI** `ja4pd backup` subcommand (wire into `cmd/ja4pd` with `--key-file`, `--key`, and `--sanitize` flags). Add a separate `ja4pd backup inspect <file>` subcommand to decrypt, verify, and print backup metadata.
+6. **Metric emission** as a `.prom` textfile (atomic temp+rename), incl.
    `currently_running 0` via a deferred cleanup that runs **even on crash**.
 6. **Wire the textfile collector** into the deployment: add
    `--collector.textfile.directory=/var/lib/node_exporter/textfile` (+ a shared
@@ -126,9 +164,12 @@ backup ones; 313b emits the restore ones):
 ## 7. Test plan (concrete; aim ≥1.2× test:code, ≥80% Go coverage)
 
 - **Unit (miniredis)** — orchestration only: scope selection honours
-  include/exclude lists; retention keeps exactly N and ≤ M days; the encrypt→
-  decrypt round-trip recovers identical bytes; a wrong key fails closed; metrics
-  toggle (`currently_running` 1→0, success/failure counters, duration observed).
+  include/exclude lists; retention keeps exactly N and ≤ M days; key derivation (PBKDF2) and random IV distribution; the encrypt→
+  decrypt round-trip recovers identical bytes and matches binary header structure; a wrong key fails closed; metrics
+  toggle (`currently_running` 1→0, success/failure counters, duration observed); `--key-file` reading.
+- **Sanitization Redactor Test** — assert that running backup with `--sanitize` correctly masks client IP addresses in logs/keys and filters active session/credential tokens.
+- **Inspection Subcommand Test** — verify `backup inspect` reads manifest metadata and displays a breakdown of key prefixes without starting a Redis server.
+- **Config Validation Test** — verify that config hashes and build versions are correctly captured in the manifest metadata.
 - **Integration (real Redis)** — the real thing: populate a Redis with one key of
   **every type** (string/list/set/zset/hash/stream/HLL) **plus IPv6 `ban:` and
   `ban_cidr:` keys**, run a backup, and assert the artifact + (in 313b) a restore

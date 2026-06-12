@@ -48,6 +48,7 @@ vocabulary, shared by both sides.**
 | D2 | `fp:os:ip:{ip}` stores **exactly** that bare class string (e.g. `linux`). Update `docs/REDIS_SCHEMA.md` to state the value domain precisely. | Removes the encoding ambiguity that caused the bug. |
 | D3 | Refactor the consumer's `ja4OSClass()` to return the shared type (behaviour unchanged, just typed). Add a round-trip test that **writes via the new sensor path and asserts `TapConsumer.GetSignal` actually returns a signal on a mismatch.** | Proves the loop is closed — the test the original code never had. |
 | D4 | The sensor's passive OS class comes from the **SYN / IP-stack features** in the handshake event (TTL, TCP window, MSS, option ordering — the same inputs JA4T uses), mapped to a canonical class with a **conservative "other"/no-write default**. | We must not emit a confident wrong class for traffic we can't classify — that would create false mismatches (false positives). When unsure, write nothing. |
+| D5 | **TCP Option Normalization Profile Classifier (NAT/Middlebox Evasion).** | NAT gateways and security middleboxes (e.g. F5, AWS ALB) rewrite TTLs and normalize TCP Options. To prevent false-positive mismatch alerts, detect normalized option list patterns (standardized option arrays) and classify the OS as `other` (unknown), suppressing downstream alerts. |
 
 ## 4. Safety: advisory-only, monitor-first (the core asymmetry)
 
@@ -65,9 +66,15 @@ real browser is a false positive, and false positives are the expensive error.
 ```
 HandshakeEvent (from 314a)
   │
-  ├─ classify passive OS from SYN/IP-stack features → canonical class (or "unknown")
-  ├─ if class is confident:  SET fp:os:ip:{client_ip} = "<class>"  (TTL per schema; v4 & v6 canonical)
-  └─ else: write nothing (conservative)
+  ├─ check TCP Option ordering against Middlebox Normalization Profiles
+  ├─ if normalized signature matched:
+  │     └─ OSClass = "other" (unknown / bypass mismatch scoring)
+  ├─ else:
+  │     └─ classify passive OS from SYN/IP-stack features (TTL, Win Size, Option presence) → OSClass
+  ├─ if OSClass != "other":
+  │     └─ SET fp:os:ip:{client_ip} = "<OSClass>"  (TTL per schema; v4 & v6 canonical)
+  └─ else:
+        └─ write nothing (conservative / no confident class)
 
 (unchanged, already in production)
 inline proxy → tap_consumer.GetSignal():
@@ -84,8 +91,7 @@ increments an error counter — it never blocks capture and never produces a ban
 1. `internal/fingerprint/osclass.go` — the canonical `OSClass` type + parse/format
    + the JA4-prefix→class table (moved from `tap_consumer.go`), thoroughly tested.
 2. Refactor `tap_consumer.go` to use it (no behaviour change; add the typed return).
-3. `internal/tap/osfingerprint.go` — classify SYN/IP-stack features → `OSClass`,
-   with a conservative unknown default. Reuse 314a's TCP-option parsing.
+3. `internal/tap/osfingerprint.go` — implement Middlebox Normalization profile checks, then classify SYN/IP-stack features → `OSClass` (defaulting to `other` on mismatch or middlebox detection). Reuse 314a's TCP-option parsing.
 4. `internal/tap/store.go` — write `fp:os:ip:{ip}` (canonical v4/v6 IP, schema TTL),
    fire-and-forget, error-counter on failure.
 5. Replace 314a's stub event-consumer with the classify→store path.
@@ -99,6 +105,7 @@ increments an error counter — it never blocks capture and never produces a ban
 
 - **OS-class unit tests** — the canonical mapping for each class; the conservative
   unknown default; round-trips parse↔format.
+- **Middlebox Evasion Normalization Test** — replay packets with normalized TCP Option arrays (e.g. standard F5/AWS option structures) or rewritten TTLs, and verify they are classified as `other` (unknown), ensuring no false mismatch alerts.
 - **Consumer round-trip (the key test)** — write `fp:os:ip` via the sensor store
   with a class that *disagrees* with a crafted JA4 → assert `TapConsumer.GetSignal`
   returns the mismatch signal; write an *agreeing* class → assert no signal. This
