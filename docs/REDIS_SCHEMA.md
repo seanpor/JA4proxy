@@ -35,6 +35,8 @@ phase: 54
 | `ip:blacklist` | SET of IPv4/IPv6 strings | none | Manual operator action | Static IP-level blocklist (distinct from `ja4:blacklist` which holds JA4 fingerprints). Read by `scripts/redis-to-ebpf.py` to populate the XDP kernel-drop map. IPv6 entries are logged but not enforced at the XDP layer (IPv4 only). *(Phase 35)* |
 | `session:ip:{ip}:ja4:{ja4}` | Hash `{total, resumed}` | 3600s | Proxy (Phase 5) | TLS session resumption tracking per IP+JA4 pair |
 | `lifespan:{ip}` | Sorted Set of durations (ms) | 1800s | Proxy (Phase 5) | Connection lifespan samples; score = timestamp |
+| `beacon:{ip}:{ja4}` | Sorted Set | trimmed to long window (default 24h) | BeaconingDetector (Phase 9) | Connection timestamps per (IP, JA4); score = member = unix seconds. ZRANGEBYSCORE over the short window feeds the inter-arrival CV computation. |
+| `beacon:suspects` | Sorted Set | trimmed to short window (default 1h) | BeaconingDetector (Phase 9; Go gauge phase-309 WP-6) | Leaderboard of active beaconing suspects. Member = `{ip}:{ja4}`, score = last-seen unix seconds; entries older than the short window are trimmed on each write. `ZCARD` backs the `ja4proxy_beaconing_suspects` gauge / `BeaconingDetected` alert. |
 | `concurrent:{ip}` | Integer (INCR/DECR) | 60s | Proxy (Phase 5) | Live concurrent connection count per IP |
 | `visitor:{ip}` | Hash `{first_seen, last_seen, total, allowed, blocked}` | 604800s (7d) | Proxy (Phase 5) | Return visitor tracking |
 | `static:allowlist` | SET of IP/CIDR strings | none | Management UI | UI-added static allowlist entries; config-file entries are authoritative |

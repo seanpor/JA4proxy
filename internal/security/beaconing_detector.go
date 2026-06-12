@@ -6,6 +6,7 @@ import (
 	"math"
 	"time"
 
+	"github.com/seanpor/ja4proxy/internal/metrics"
 	"github.com/sirupsen/logrus"
 )
 
@@ -109,6 +110,11 @@ func (d *BeaconingDetector) GetSignal(ctx context.Context, conn *ConnectionConte
 		return nil
 	}
 
+	// phase-309 WP-6 — record this (IP, JA4) on the beacon:suspects leaderboard
+	// and refresh the BeaconingSuspects gauge so the BeaconingDetected alert
+	// can fire and the Management UI has a leaderboard to render.
+	d.recordSuspect(ctx, conn, cv, shortWindow, now)
+
 	return &RiskSignal{
 		Name:   "beaconing",
 		Score:  score,
@@ -116,6 +122,25 @@ func (d *BeaconingDetector) GetSignal(ctx context.Context, conn *ConnectionConte
 		Weight: 1.0,
 	}
 }
+
+// recordSuspect upserts the (IP, JA4) pair onto the beacon:suspects ZSET
+// (score = last-seen unix time), trims entries older than the short window so
+// the leaderboard reflects only currently-active suspects, and publishes the
+// resulting cardinality to the BeaconingSuspects gauge. Best-effort: a nil
+// Redis is a no-op (the gauge simply stays at its last value, fail open).
+func (d *BeaconingDetector) recordSuspect(ctx context.Context, conn *ConnectionContext, cv, shortWindow, now float64) {
+	if d.redis == nil {
+		return
+	}
+	member := fmt.Sprintf("%s:%s", conn.ClientIP, conn.JA4)
+	d.redis.ZAdd(ctx, beaconSuspectsKey, now, member)
+	d.redis.ZRemRangeByScore(ctx, beaconSuspectsKey, 0, now-shortWindow)
+	metrics.BeaconingSuspects.Set(float64(d.redis.ZCard(ctx, beaconSuspectsKey)))
+}
+
+// beaconSuspectsKey is the cross-instance ZSET leaderboard of active beaconing
+// suspects. Members are "{ip}:{ja4}"; scores are last-seen unix seconds.
+const beaconSuspectsKey = "beacon:suspects"
 
 // MaybeRecord records this connection in the beaconing sorted set.
 // Skips block/ban actions and browser ALPN.

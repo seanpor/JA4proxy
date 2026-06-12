@@ -226,6 +226,17 @@ func (a *AbuseIPDB) lookup(ctx context.Context, ip string) {
 			"abuseipdb: refusing to follow 3xx redirect — API key never leaves original host")
 		return
 	}
+	// phase-309 WP-6 — daily-quota detection. AbuseIPDB returns HTTP 429 once
+	// the account's daily check budget is spent. Flip the quota gauge so the
+	// AbuseIPDBQuotaExhausted alert can fire, and treat the lookup as a no-op
+	// (fail open): the IP is simply left un-enriched until the UTC reset, at
+	// which point the next lookup returns 200 and clears the gauge below.
+	if resp.StatusCode == http.StatusTooManyRequests {
+		metrics.AbuseIPDBQuotaExhausted.Set(1)
+		metrics.AbuseIPDBLookupsTotal.WithLabelValues("error").Inc()
+		a.log.Warn("abuseipdb: daily quota exhausted (HTTP 429); enrichment paused until reset")
+		return
+	}
 	var result struct {
 		Data struct {
 			AbuseConfidenceScore int `json:"abuseConfidenceScore"`
@@ -234,6 +245,15 @@ func (a *AbuseIPDB) lookup(ctx context.Context, ip string) {
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		metrics.AbuseIPDBLookupsTotal.WithLabelValues("error").Inc()
 		return
+	}
+	// phase-309 WP-6 — a successful call proves we still have quota, so clear
+	// the gauge. If the API tells us this was the last unit
+	// (X-RateLimit-Remaining: 0) set it now so we stop one request before the
+	// next 429 rather than after it.
+	if resp.Header.Get("X-RateLimit-Remaining") == "0" {
+		metrics.AbuseIPDBQuotaExhausted.Set(1)
+	} else {
+		metrics.AbuseIPDBQuotaExhausted.Set(0)
 	}
 	confidence := result.Data.AbuseConfidenceScore
 	a.localCache.Set(ip, confidence, 30*time.Minute)

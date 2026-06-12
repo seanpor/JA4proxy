@@ -57,12 +57,28 @@ var (
 		prometheus.CounterOpts{Name: "ja4proxy_signal_total", Help: "Signal firings by name"},
 		[]string{"name"},
 	)
+	// phase-309 WP-6: BeaconingSuspects is the current size of the
+	// beacon:suspects leaderboard — distinct (IP, JA4) pairs the detector has
+	// flagged as beaconing within the short window. Backs the BeaconingDetected
+	// alert. Set from the leaderboard ZCARD each time a suspect is recorded.
+	BeaconingSuspects = prometheus.NewGauge(
+		prometheus.GaugeOpts{Name: "ja4proxy_beaconing_suspects", Help: "Current number of active beaconing suspects (beacon:suspects leaderboard size)"},
+	)
 	AbuseIPDBQueueDroppedTotal = prometheus.NewCounter(
 		prometheus.CounterOpts{Name: "ja4proxy_abuseipdb_queue_dropped_total", Help: "Dropped AbuseIPDB requests"},
 	)
 	AbuseIPDBLookupsTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{Name: "ja4proxy_abuseipdb_lookups_total", Help: "AbuseIPDB lookup results"},
 		[]string{"result"}, // hit, miss, error
+	)
+	// phase-309 WP-6: AbuseIPDBQuotaExhausted is 1 when the most recent API
+	// response indicated the daily check quota is spent (HTTP 429, or a 200
+	// carrying X-RateLimit-Remaining: 0). It self-clears to 0 on the next
+	// successful lookup with remaining quota — at the UTC reset the next
+	// enqueued lookup returns 200 and flips it back. Backs the
+	// AbuseIPDBQuotaExhausted alert.
+	AbuseIPDBQuotaExhausted = prometheus.NewGauge(
+		prometheus.GaugeOpts{Name: "ja4proxy_abuseipdb_quota_exhausted", Help: "1 if the AbuseIPDB daily quota is exhausted, 0 otherwise"},
 	)
 	WeakCipherTotal = prometheus.NewCounter(
 		prometheus.CounterOpts{Name: "ja4proxy_weak_cipher_total", Help: "Total weak cipher connections"},
@@ -104,6 +120,22 @@ var (
 	BlocklistMatchesTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{Name: "ja4proxy_blocklist_matches_total", Help: "Blocklist match counts"},
 		[]string{"list"},
+	)
+	// phase-309 WP-6: blocklist feed-downloader telemetry. The Go proxy now
+	// downloads Spamhaus DROP/EDROP (and any configured CIDR feeds) on a timer
+	// instead of relying on an out-of-band populated file. These two metrics
+	// back the SpamhausDownloadFailed and SpamhausListStale alerts.
+	BlocklistDownloadErrorsTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{Name: "ja4proxy_blocklist_download_errors_total", Help: "Blocklist feed download/parse failures by feed"},
+		[]string{"feed"},
+	)
+	// BlocklistLastRefreshSuccessSeconds is the Unix timestamp of the most
+	// recent successful refresh (200 with a parsed body, or a 304 confirming
+	// the cached copy is still current) per feed. The SpamhausListStale alert
+	// fires when time() - this gauge exceeds the staleness budget.
+	BlocklistLastRefreshSuccessSeconds = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{Name: "ja4proxy_blocklist_last_refresh_success_seconds", Help: "Unix timestamp of the last successful blocklist feed refresh, per feed"},
+		[]string{"feed"},
 	)
 	DNSEnrichmentQueueDepth = prometheus.NewGauge(
 		prometheus.GaugeOpts{Name: "ja4proxy_dns_enrichment_queue_depth", Help: "DNS enrichment queue depth"},
@@ -340,6 +372,9 @@ func Register() {
 		RedisACLEnabled,
 		// phase-209
 		ConfigReloadFailuresTotal, HealthCheckPanicsTotal, HandlerPanicsTotal,
+		// phase-309 WP-6: feed-downloader + quota + beaconing-suspect gauges
+		BlocklistDownloadErrorsTotal, BlocklistLastRefreshSuccessSeconds,
+		AbuseIPDBQuotaExhausted, BeaconingSuspects,
 	)
 	for _, action := range []string{"allow", "flag", "rate_limit", "tarpit", "block", "ban"} {
 		ConnectionsTotal.WithLabelValues(action)

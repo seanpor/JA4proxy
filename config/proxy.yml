@@ -528,7 +528,16 @@ dns_enrichment:
     score: 20
 
 # ── Phase 8: Spamhaus DROP/EDROP & Blocklist Feed Framework ──────────────
-
+#
+# phase-309 WP-6: the Go proxy now DOWNLOADS each feed with a `url` on its own
+# timer (ETag/304-aware, fail-safe: a failed fetch keeps the last-good data) and
+# atomically swaps the parsed CIDR trie into the live matcher. The downloaded
+# body is cached to `path` for warm-start at boot. If `path` is omitted it
+# defaults to /var/lib/ja4proxy/blocklists/<name>.txt — ensure that directory is
+# writable. To use an externally-managed file instead of downloading, set `path`
+# and leave `url` empty. No leader election: every instance fetches its own copy
+# (see docs/decisions/ADR-204.md). refresh_interval_seconds is clamped to a 60s
+# minimum.
 blocklists:
   feeds:
     - name: spamhaus_drop
@@ -538,7 +547,8 @@ blocklists:
                                # Set false to route through scorer as RiskSignal instead.
       action: block            # Options: block | tarpit | flag. Default: block.
       score: 80                # Score contribution when is_bypass: false. Default: 80.
-      refresh_interval_seconds: 43200   # Default: 43200 (12h).
+      refresh_interval_seconds: 43200   # Default: 43200 (12h). Min 60s.
+      # path: /var/lib/ja4proxy/blocklists/spamhaus_drop.txt  # phase-309: warm-start cache (default derived from name)
       enabled: true
 
     - name: spamhaus_edrop

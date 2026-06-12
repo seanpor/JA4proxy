@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -1698,9 +1699,19 @@ func buildPipelineConfig(cfg *config.Config) *security.PipelineConfig {
 	}
 }
 
+// defaultBlocklistCacheDir is where downloaded feeds are cached for warm-start
+// when a feed does not set an explicit path. phase-309 WP-6.
+const defaultBlocklistCacheDir = "/var/lib/ja4proxy/blocklists"
+
 func buildBlocklistFeeds(feeds []config.BlocklistFeedConfigYAML) []security.BlocklistFeedConfig {
 	out := make([]security.BlocklistFeedConfig, len(feeds))
 	for i, f := range feeds {
+		path := f.Path
+		// Derive a default cache path for downloadable feeds so they warm-start
+		// after a restart without operators having to configure one.
+		if path == "" && f.URL != "" {
+			path = filepath.Join(defaultBlocklistCacheDir, f.Name+".txt")
+		}
 		out[i] = security.BlocklistFeedConfig{
 			Name:                   f.Name,
 			URL:                    f.URL,
@@ -1710,6 +1721,7 @@ func buildBlocklistFeeds(feeds []config.BlocklistFeedConfigYAML) []security.Bloc
 			Score:                  f.Score,
 			RefreshIntervalSeconds: f.RefreshIntervalSeconds,
 			Enabled:                f.Enabled,
+			Path:                   path,
 		}
 	}
 	return out

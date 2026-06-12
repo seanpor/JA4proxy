@@ -50,25 +50,26 @@ type beaconingJob struct {
 const beaconingJobBuf = 256
 
 type Pipeline struct {
-	cfg           *PipelineConfig
-	cache         *DecisionCache
-	workChan      chan *ConnectionContext
-	Sync          bool
-	scorer        *RiskScorer
-	decider       *ActionDecider
-	redis         RedisReader
-	log           *logrus.Logger
-	tlsEnforcer   *TLSEnforcer
-	sniAnalyzer   *SNIAnalyzer
-	rateLimiter   *RateLimiter
-	tcpAnalyzer   *TCPAnalyzer
-	asnClassifier *ASNClassifier
-	dnsEnrichment *DNSEnrichment
-	blocklists    *BlocklistManager
-	beaconing     *BeaconingDetector
-	abuseipdb     *AbuseIPDB
-	rdap          *RDAPEnricher
-	tapConsumer   *TapConsumer // phase-203a
+	cfg            *PipelineConfig
+	cache          *DecisionCache
+	workChan       chan *ConnectionContext
+	Sync           bool
+	scorer         *RiskScorer
+	decider        *ActionDecider
+	redis          RedisReader
+	log            *logrus.Logger
+	tlsEnforcer    *TLSEnforcer
+	sniAnalyzer    *SNIAnalyzer
+	rateLimiter    *RateLimiter
+	tcpAnalyzer    *TCPAnalyzer
+	asnClassifier  *ASNClassifier
+	dnsEnrichment  *DNSEnrichment
+	blocklists     *BlocklistManager
+	feedDownloader *FeedDownloader
+	beaconing      *BeaconingDetector
+	abuseipdb      *AbuseIPDB
+	rdap           *RDAPEnricher
+	tapConsumer    *TapConsumer // phase-203a
 
 	// Bounded beaconing worker (F-002)
 	beaconingJobs chan beaconingJob
@@ -241,6 +242,7 @@ func NewPipeline(cfg *PipelineConfig, redis RedisReader, log *logrus.Logger) *Pi
 	p.asnClassifier = NewASNClassifier(buildASNClassifierConfig(cfg), log)
 	p.dnsEnrichment = NewDNSEnrichment(buildDNSEnrichmentConfig(cfg), redis, log)
 	p.blocklists = NewBlocklistManager(buildBlocklistConfig(cfg), log)
+	p.feedDownloader = NewFeedDownloader(cfg.BlocklistFeeds, p.blocklists, log)
 	p.beaconing = NewBeaconingDetector(buildBeaconingConfig(cfg), redis, log)
 	p.abuseipdb = NewAbuseIPDB(buildAbuseIPDBConfig(cfg), redis, log)
 	p.rdap = NewRDAPEnricher(buildRDAPConfig(cfg), redis, log)
@@ -310,6 +312,7 @@ func (p *Pipeline) StartBackgroundWorkers(ctx context.Context) {
 	p.dnsEnrichment.Start(ctx)
 	p.abuseipdb.Start(ctx)
 	p.rdap.Start(ctx)
+	p.feedDownloader.Start(ctx) // phase-309 WP-6: periodic blocklist feed refresh
 }
 
 // Process runs a connection through the full pipeline and returns the result.
