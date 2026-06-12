@@ -2565,6 +2565,53 @@ phases:
     dependencies: [311]
     size: SMALL
     summary: 'Extends the phase-311 wrapper: when the primary PyPI service is unreachable after retries, it now falls back to OSV.dev (-s osv --aliases on, so the PyPI-format --ignore-vuln CVE IDs still match via aliases) BEFORE the soft-pass. The warn-and-proceed soft-pass now requires BOTH PyPI and OSV down simultaneously (rare) — shrinking the only fail-open window to near-zero while staying live (no offline/stale DB). A real vulnerability on either path still fails; unknown errors fail safe. Unit test covers clean/vuln/double-outage/pypi-down→osv-clean/pypi-down→osv-vuln/bad-args; shellcheck clean. No Makefile/CI/tool changes (wrapper already wired in 311).'
+  313a:
+    name: Go Redis Backup Engine
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_313a.md
+    size: MEDIUM
+    summary: 'PROPOSED — awaiting sign-off. Backup half of the split PHASE_313 (the single-phase draft was withdrawn after a critical design review). ja4pd backup: native Redis DUMP/PTTL of a config-driven security-state key scope (excluding ephemeral + session/MFA/SSO keys), gzip + AES-256-GCM encryption (key from JA4PROXY_BACKUP_KEY, artifact 0600), retention prune, distributed backup:operation_lock. Defines ALL 7 ja4proxy_backup_*/restore_* metrics the dead backup.rules.yml alerts need (emits the 4 backup ones; renames _last_success_timestamp->_seconds per OBSERVABILITY_STANDARDS) and WIRES the node-exporter textfile collector (currently absent) so they are scrapable. Tested against REAL Redis (miniredis cannot DUMP non-string types). Preserves the 231b .env tar. See PHASE_313a.md.'
+  313b:
+    name: Go Redis Restore (selective, GDPR-aware)
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_313b.md
+    dependencies: [313a]
+    size: MEDIUM
+    summary: 'PROPOSED — awaiting sign-off. Restore half of split PHASE_313 (the dangerous half). ja4pd restore: integrity-verify (AES-GCM tag) before touching Redis; restore allow-state by default, block-state (bans/dial/blacklists) ONLY with explicit --include-blocks (core-asymmetry: never silently re-block users an operator unbanned); skip any key whose subject is in management:gdpr_erasure_log (never resurrect GDPR-erased data); --dry-run, --force on non-empty target; audit every restore to management:policy_audit + backup:last_restore; backup:operation_lock. Emits the 3 ja4proxy_restore_* metrics. See PHASE_313b.md.'
+  314a:
+    name: Go TAP Capture + TCP Reassembly + Handshake Extraction
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_314a.md
+    size: LARGE
+    summary: 'PROPOSED — awaiting sign-off. Foundation sub-phase of the split PHASE_314 TAP sensor (the original single-phase WP-1 was ~4x under-sized per review). AF_PACKET passive capture off a SPAN/mirror feed (gopacket/afpacket, pure-Go, kernel BPF filter — ADR up front), eth/IPv4/IPv6(+frag)/TCP decode, BOUNDED bidirectional flow-table reassembly with drop-tail + memory cap, surfacing exact ClientHello/ServerHello bytes per flow as an internal event. No fingerprints, no Redis, no enforcement yet. Non-root CAP_NET_RAW-only + seccomp (hard-fail if cap-drop fails), data-minimisation (BPF-filtered, no payload retention). See PHASE_314a.md.'
+  314b:
+    name: TAP OS-Mismatch MVP — first end-to-end value
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_314b.md
+    dependencies: [314a]
+    size: MEDIUM
+    summary: 'PROPOSED — awaiting sign-off. Smallest useful slice: makes the dormant OS-mismatch signal (internal/security/tap_consumer.go) actually fire. FIXES the contract bug the review found — the archived Python wrote fp:os:ip values like "linux_5x_default" but the Go consumer compares exact-equality to bare classes like "linux", so a faithful port = silent no-op. Decision (not a port): ONE canonical OSClass vocabulary (internal/fingerprint/osclass.go) shared by writer AND consumer; conservative unknown default (no confident-wrong class). Mandatory Tranco-top-10k FP test. Advisory-only: a mismatch is a RiskSignal scored under the dial (monitor-first), never an auto-block. Extends gdpr_delete.py to cover fp:* keys. See PHASE_314b.md.'
+  314c:
+    name: TAP Full JA4 Fingerprint Family
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_314c.md
+    dependencies: [314a, 314b]
+    size: LARGE
+    summary: 'PROPOSED — OUTLINE (detail before start). The full JA4 family from captured handshakes: JA4S/JA4T/JA4H/JA4SSH/JA4L/JA4H2/QUIC are NET-NEW in Go (~1,600 LOC; JA4S needs a ServerHello parser the inline path never had); reuse only the GREASE/hash helpers + existing JA4/JA4X. Writes the fp:* keys (IPv6 HLL /48 bucketing, canonical IPs), checked-in golden parity fixtures (not "recoverable"), Redis write coalescing/sampling. May split further (314c-1/2/3). See PHASE_314c.md.'
+  314d:
+    name: TAP Out-of-Band Enforcement Bridge (advisory by default)
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_314d.md
+    dependencies: [314a, 314b, 314c]
+    size: MEDIUM
+    summary: 'PROPOSED — OUTLINE (detail before start). Out-of-band action on sensor verdicts: ja4proxy:bans pub/sub + optional iptables/ipset, BGP blackhole pipe, HMAC webhook, each isolated + fail-open. SECURITY-CRITICAL: advisory-only by DEFAULT (writes a watchlist, not bans), active blocking off by default, dial-gated + monitor-first + startup WARN/gauge, fail-open (capture/Redis failure never produces a ban), expansion guards /24 (v4) /48 (v6). See PHASE_314d.md.'
+  314e:
+    name: TAP Intelligence Exporters
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_314e.md
+    dependencies: [314a, 314b, 314c]
+    size: LARGE
+    summary: 'PROPOSED — OUTLINE (detail before start). Export fingerprints/verdicts to EDL/F5/Palo Alto/Kafka/Syslog CEF/TAXII 2.1/MISP; each exporter independent + per-exporter fail-open (one failing exporter never affects another); data-minimisation (fingerprints+verdicts, never raw payload). Likely splits per exporter group (314e-1 pull, 314e-2 push). See PHASE_314e.md.'
   231a:
     name: Single-Host Core — PROXY-Protocol Write, Manual-Ban Enforcement, CountKeys Fix
     status: COMPLETE
