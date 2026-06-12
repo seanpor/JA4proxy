@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+- **Orphaned Python-prototype tests (Phase 309 tidyup)**: deleted 35 test files
+  that imported modules removed when the Python prototype was archived
+  (`5afeba26`) — they errored on collection and could never run, so `pytest
+  tests/` aborted with 27 collection errors. `pytest tests/ --co` now collects
+  2034 tests with **0 errors**. Each file either tested a subsystem already
+  ported to Go (covered by Go tests) or a feature intentionally removed with the
+  prototype (TAP sensor, Python backup, the `GDPRStorage` retention abstraction,
+  per-provider TI lookups). Retained `tests/fp_corpus/data/` (reusable FP corpus)
+  and `tests/fuzz/README.md`. Full audit + the residual Go coverage gaps worth
+  porting (notably **quantitative FP-rate thresholds** per CLAUDE.md, and a dead
+  `backup.rules.yml` alert set) are catalogued in
+  `docs/reports/python-prototype-test-removal-audit.md`.
+
 ### Fixed
 - **Phase-309 reconciliation — ADR-003 + findings register**: restored **ADR-003**
   (it had been overwritten with a duplicate of ADR-005; its correct subject is the
