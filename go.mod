@@ -1,6 +1,6 @@
 module github.com/seanpor/ja4proxy
 
-go 1.26
+go 1.26.4
 
 require (
 	github.com/alicebob/miniredis/v2 v2.37.0

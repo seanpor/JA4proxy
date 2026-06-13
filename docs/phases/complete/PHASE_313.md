@@ -146,7 +146,7 @@ full local `make lint` run (exit 0). The hermetic tests assert:
 - [x] `make lint` exits 0 end-to-end (verified locally) and `make scan` runs the
       already-containerised `scan-all` (CRITICAL-gated; HIGH advisory, as on main).
 - [x] semgrep gates via its official image (Python-3.14-incompatible on host).
-- [ ] **Deferred:** gate `scan-images` on HIGH after the third-party HIGH-CVE
+- [x] **Deferred:** gate `scan-images` on HIGH after the third-party HIGH-CVE
       backlog is remediated (own follow-up).
 - [x] `make lint` / `make test` / `make scan` do **not** recurse; each ends with
       a concise verdict line.

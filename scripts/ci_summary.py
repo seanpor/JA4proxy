@@ -8,6 +8,7 @@ message; a failure will abort the make process before this script runs.
 """
 import sys
 
+
 def main():
     stage = sys.argv[1] if len(sys.argv) > 1 else "unknown"
     print(f"✅ CI {stage.upper()} PASS")
