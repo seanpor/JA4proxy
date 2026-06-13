@@ -440,11 +440,15 @@ lint-docker:
 		MANAGEMENT_JWT_SECRET=lint-placeholder MANAGEMENT_ADMIN_USER=lint-placeholder MANAGEMENT_ADMIN_PASSWORD=lint-placeholder \
 		docker compose -f deploy/docker/docker-compose.poc.yml -f deploy/docker/docker-compose.scale.yml config --quiet \
 		&& echo "  deploy/docker/docker-compose.scale.yml (overlay)          OK"
-	# Helper to run commands inside the tools container
+	@echo ""
+	@echo "✓ Docker lint passed"
+
+# Helper to run commands inside the tools container (used by `make lint` / `make scan`).
 docker-run-tools:
 	@docker build -t $(TOOLS_IMG) -f Dockerfile.tools .
 	@docker run --rm -v $(PWD):/src:ro -w /src $(TOOLS_IMG) sh -c "$(CMD)"
 
+# Lint shell scripts with shellcheck (error-level only; warnings are advisory).
 # SC2154 suppressed: variables sourced from .env are referenced but not assigned in-script.
 SHELL_SCRIPTS := $(shell find . -name "*.sh" -not -path "./.git/*" -not -path "./node_modules/*" -not -path "./.claude/*" | sort)
 lint-shell:
