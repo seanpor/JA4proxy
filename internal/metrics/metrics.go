@@ -363,6 +363,26 @@ var (
 			Buckets: []float64{0.5, 1, 2, 5, 10, 30, 60, 120, 300},
 		},
 	)
+
+	// phase-315b: Go Redis restore. Completes the backup.rules.yml alert set.
+	RestoreOperationsTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{Name: "ja4proxy_restore_operations_total", Help: "Restore operations by outcome. Labels: status=success|failure."},
+		[]string{"status"},
+	)
+	RestoreCurrentlyRunning = prometheus.NewGauge(
+		prometheus.GaugeOpts{Name: "ja4proxy_restore_currently_running", Help: "1 while a restore is running, else 0."},
+	)
+	RestoreDurationSeconds = prometheus.NewHistogram(
+		prometheus.HistogramOpts{
+			Name:    "ja4proxy_restore_duration_seconds",
+			Help:    "Restore wall-clock duration in seconds.",
+			Buckets: []float64{0.5, 1, 2, 5, 10, 30, 60, 120, 300},
+		},
+	)
+	RestoreSkippedTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{Name: "ja4proxy_restore_skipped_total", Help: "Keys skipped during restore. Labels: reason=erased|block_gated."},
+		[]string{"reason"},
+	)
 )
 
 func Register() {
@@ -402,6 +422,9 @@ func Register() {
 		// phase-315a: backup engine (restore's series land in 315b)
 		BackupOperationsTotal, BackupLastSuccessSeconds,
 		BackupCurrentlyRunning, BackupDurationSeconds,
+		// phase-315b: restore engine
+		RestoreOperationsTotal, RestoreCurrentlyRunning,
+		RestoreDurationSeconds, RestoreSkippedTotal,
 	)
 	for _, action := range []string{"allow", "flag", "rate_limit", "tarpit", "block", "ban"} {
 		ConnectionsTotal.WithLabelValues(action)
