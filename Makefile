@@ -487,9 +487,9 @@ TRIVY_CACHE ?= $(HOME)/.cache/trivy
 # Keep versions here in sync with those compose files.
 TRIVY_IMAGES := haproxy:2.8.24-alpine \
 	redis/redis-stack:7.4.0-v8 \
-	oliver006/redis_exporter:v1.84.0 \
+	oliver006/redis_exporter:v1.86.0 \
 	prom/prometheus:v3.12.0 \
-	prom/alertmanager:v0.32.1 \
+	prom/alertmanager:v0.33.0 \
 	prom/node-exporter:v1.11.1 \
 	grafana/grafana:13.0.2-ubuntu \
 	grafana/loki:3.7.2 \
@@ -506,8 +506,10 @@ scan-images:
 	@mkdir -p "$(TRIVY_CACHE)"
 	@echo "=== Trivy: third-party image CVE scan (HIGH + CRITICAL) ==="
 	@echo "    Fails on CRITICAL; HIGH findings are reported but advisory."
-	@echo "    (HIGH-gating is deferred — clearing the pre-existing third-party"
-	@echo "     HIGH backlog is its own remediation effort; see PHASE_313.md.)"
+	@echo "    (Phase 314 differentiated gate: third-party images we pin but do"
+	@echo "     not build cannot be HIGH-gated — most remaining HIGH are upstream"
+	@echo "     Go-stdlib/distro CVEs with no fixed tag yet. They are tracked in"
+	@echo "     docs/security/THIRD_PARTY_CVE_WAIVERS.md, not silently ignored.)"
 	@echo "    CVEs listed in .trivyignore are documented exceptions."
 	@echo ""
 	@fail=0; \

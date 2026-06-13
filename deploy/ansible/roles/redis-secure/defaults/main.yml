@@ -4,7 +4,7 @@
 
 # Redis version
 redis_version: "7-alpine"
-redis_exporter_version: "v1.55.0"
+redis_exporter_version: "v1.86.0"
 
 # Network
 redis_bind_address: "0.0.0.0"
