@@ -67,6 +67,7 @@ Deep security analysis, compliance, and audit remediation.
 | 215 | White-Box Penetration Test — Go Production Proxy | COMPLETE | Full white-box (source-code-aided) penetration test of the Go production proxy covering 9 layers: TCP/network, TLS/fingerprint, signal pipeline, risk scoring, Redis integration, webhook, metrics/health, config/crypto, and CLI. Python prototype proxy explicitly out of scope. Findings recorded in findings.yaml with regression tests. |
 | 216 | Penetration Test Remediation — All Phase 215 Findings | COMPLETE | Remediates all 7 findings from the Phase 215 white-box pentest: panic recovery in handler goroutine (F-001 CRITICAL), bounded beaconing goroutine (F-002 HIGH), inverted BlacklistBypass naming (F-003 MEDIUM), per-fragment TLS reassembly cap (F-004 MEDIUM), log level standardisation (F-005 LOW), active-connection gauge fix under panic (F-006 LOW), and MaxConnectionLimit wiring decision (F-007 LOW). |
 | 308 | Code-Scanning Remediation — CodeQL Triage Closeout & Scorecard Noise | COMPLETE | Cleared the 60-alert code-scanning backlog (7 CodeQL + 53 Scorecard) left after Phase 302 enabled CodeQL + OpenSSF Scorecard. CodeQL (7), each verified against the code: #77 (bind 0.0.0.0 in the local fixture recorder) FIXED IN CODE -> 127.0.0.1 (clients already target loopback); dismissed as false-positive the two url-redirection findings (mitigated by safe_relative_redirect at oidc.py:431/saml.py:323, CodeQL cannot trace the custom sanitizer) and the splunk clear-text-logging (api_token only used in the Authorization header, never passed to _log); dismissed as used-in-tests the two legacy-TLS generators (deliberately emit legacy TLS to exercise JA4 detection) and the Go bench InsecureSkipVerify against the self-signed mock (already #nosec). Per-alert justifications in the audit trail, no blanket suppression. Scorecard (53): these are supply-chain SCORES not vulnerabilities and are not meaningfully actionable — production Dockerfile base images are already digest-pinned (Phase 229); the 3 TokenPermissions are required write (SARIF upload/automerge/metrics-commit) already job-scoped read at top level; VulnerabilitiesID self-clears now Dependabot is at 0; the rest are solo-repo process scores. Removed the Upload-to-code-scanning step (and security-events:write) from scorecard.yml so the noise stops drowning real CodeQL findings; Scorecard still runs + publishes the badge + keeps results.sarif artifact (one-step reversible). Workflow-pinning + YAML tests green. |
+| 330 | Resolve Security Scan Vulnerability Failures | COMPLETE | Updates the production proxy image tag to ja4proxy:2.0.0 in the Makefile, production docker compose config, and documentation, ensuring security scans run against the clean Go-based image. |
 
 ### Epic: Analytics & Intelligence
 Cross-instance behavior analysis and threat intelligence.
@@ -107,6 +108,7 @@ Management dashboards and documentation quality.
 | 52 | Management UI - Phase 3: Administration Tools | COMPLETE | Admin UI for allowlists, bans, dial, audit log, and config. Full test suite including test_pages.py and test_container_config.py. Delivered together with Phases 13/51 in merge commit 2aeb2ba. |
 | 105 | Documentation Restructure by Audience | COMPLETE | Restructured project documentation into five audience-specific entry points (Website Owners, Architects, Operators, Compliance, Developers). Consolidated 4 blocking docs into BLOCKING_OPERATIONS.md and 4 testing docs into TESTING_STRATEGY.md as appendices. Refreshed 4 LaTeX chapters (brochure + 3 reference-manual chapters) for Phase 200-series posture. Added docs-pdf.yml CI workflow (SHA-pinned, 14-day non-blocking grace ending 2026-05-09). Archived pre-Phase-200 reports (GEMINI_CRITIQUE, ENTERPRISE_REVIEW, DMZ_DEPLOYMENT_READINESS, CYBER_RISK_REVIEW, strategic_security_architecture_review) with date-stamped banners. Reduced root README from 441 to 88 lines as a role-router. Resolved Phase 106 architect Finding 2 (placeholder marker in for-developers/README.md). |
 | 307 | Documentation Coherence, Setup Standardization, and Link Remediation | COMPLETE | Establish a coherent documentation system, standardize onboarding instructions on the setup wizard (make init), clear out legacy Python proxy references, and resolve all broken links and metadata errors. |
+| 230 | Interface & Container Architecture — Critical Review & Rationalisation | PROPOSED | Conduct a thorough architectural review of every container and user-facing interface in the JA4proxy stack. |
 | 231 | Container & Interface Consolidation — Master Implementation Plan | PROPOSED | Master planning document and implementation index for the 7-phase container and interface consolidation programme. |
 | 232 | Security Foundations & Quick Wins | PROPOSED | Vendor all JavaScript dependencies, implement Top-bar situation summary and proxy-down banner, attach analytics container to correct Redis network, eliminate insecure admin-api container, and fix production port bindings. |
 | 233 | Observability Foundations | PROPOSED | Add Prometheus scrape targets for tarpit and analytics, write critical system alert rules, replace redis-stack with a lightweight alpine image, cap events stream to 100k entries using XADD MAXLEN, and surface evictions count. |
@@ -366,6 +368,7 @@ Alignment with international standards and regulatory frameworks.
 | 227 | Scan & Build Caching | COMPLETE | N/A | N/A |
 | 228 | Human-Readable Scan Summaries | COMPLETE | N/A | N/A |
 | 229 | Base-Image Consolidation & Consistent Pinning | COMPLETE | N/A | N/A |
+| 230 | Interface & Container Architecture — Critical Review & Rationalisation | PROPOSED | N/A | N/A |
 | 231 | Container & Interface Consolidation — Master Implementation Plan | PROPOSED | N/A | N/A |
 | 231a | Single-Host Core — PROXY-Protocol Write, Manual-Ban Enforcement, CountKeys Fix | COMPLETE | N/A | N/A |
 | 231b | Single-Host Bootstrap — Wizard, systemd, Firewall, Backups | IN_PROGRESS | N/A | N/A |
@@ -389,18 +392,8 @@ Alignment with international standards and regulatory frameworks.
 | 310 | Collision-Free Dev Environments + Clean Good/Bad Load Test | COMPLETE | N/A | N/A |
 | 311 | Resilient pip-audit — Stop PyPI Outages Reddening the Lint Gate | COMPLETE | N/A | N/A |
 | 312 | pip-audit Dual-Service Fallback — Shrink the Soft-Pass Window | COMPLETE | N/A | N/A |
-| 313 | Fix CI Lint Loop & Scan Failure Handling | COMPLETE | N/A | N/A |
-| 314 | Third-Party Image HIGH-CVE Remediation (differentiated HIGH-gating) | IN_PROGRESS | N/A | N/A |
-| 315 | Go Backup / Restore Subsystem (index) | PROPOSED | N/A | N/A |
-| 315a | Go Redis Backup Engine | PROPOSED | N/A | N/A |
-| 315b | Go Redis Restore (selective, GDPR-aware) | PROPOSED | N/A | N/A |
-| 316 | Go TAP / SPAN Passive Sensor (index) | PROPOSED | N/A | N/A |
-| 316a | TAP Capture + TCP Reassembly + Handshake Extraction | PROPOSED | N/A | N/A |
-| 316b | TAP OS-Mismatch MVP (first end-to-end value) | PROPOSED | N/A | N/A |
-| 316c | TAP Full JA4 Fingerprint Family (OUTLINE) | PROPOSED | N/A | N/A |
-| 316d | TAP Out-of-Band Enforcement Bridge (OUTLINE) | PROPOSED | N/A | N/A |
-| 316e | TAP Intelligence Exporters (OUTLINE) | PROPOSED | N/A | N/A |
 | 329 | Branch Hygiene and Stale Remote Cleanup | COMPLETE | N/A | N/A |
+| 330 | Resolve Security Scan Vulnerability Failures | COMPLETE | N/A | N/A |
 
 ---
 

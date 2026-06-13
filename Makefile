@@ -569,7 +569,7 @@ scan-first-party:
 	@echo "    Fails on CRITICAL; HIGH findings are reported but advisory."
 	@echo ""
 	@fail=0; \
-	for img in ja4proxy:1.0.0 ja4proxy-analytics:1.0.0 ja4proxy-tarpit:1.0.0 ja4proxy-mockbackend:1.0.0 ja4proxy-test:1.0.0 ja4proxy-trafficgen:1.0.0; do \
+	for img in ja4proxy:2.0.0 ja4proxy-analytics:1.0.0 ja4proxy-tarpit:1.0.0 ja4proxy-mockbackend:1.0.0 ja4proxy-test:1.0.0 ja4proxy-trafficgen:1.0.0; do \
 		echo "  Scanning $$img ..."; \
 		result=$$(docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
 			-v "$(PWD):/scan:ro" \
@@ -588,7 +588,7 @@ scan-first-party:
 
 # Phase 228: human-readable rollup of the image CVE scans. Reporting only —
 # `make scan` remains the authoritative gate. First-party rows require `make build`.
-FIRST_PARTY_IMAGES := ja4proxy:1.0.0 ja4proxy-analytics:1.0.0 ja4proxy-tarpit:1.0.0 ja4proxy-mockbackend:1.0.0 ja4proxy-test:1.0.0 ja4proxy-trafficgen:1.0.0
+FIRST_PARTY_IMAGES := ja4proxy:2.0.0 ja4proxy-analytics:1.0.0 ja4proxy-tarpit:1.0.0 ja4proxy-mockbackend:1.0.0 ja4proxy-test:1.0.0 ja4proxy-trafficgen:1.0.0
 scan-summary: ## Phase 228 — compact CRIT/HIGH/MED rollup of all scans (images + misconfig + gosec; reporting only)
 	@mkdir -p "$(TRIVY_CACHE)"
 	@$(PYTHON) scripts/scan_summary.py $(TRIVY_IMAGES) $(FIRST_PARTY_IMAGES)

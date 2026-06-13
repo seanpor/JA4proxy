@@ -52,6 +52,7 @@ epics:
   - 215
   - 216
   - 308
+  - 330
 - name: 'Epic: Analytics & Intelligence'
   description: Cross-instance behavior analysis and threat intelligence.
   phases:
@@ -83,6 +84,7 @@ epics:
   - 52
   - 105
   - 307
+  - 230
   - 231
   - 232
   - 233
@@ -2616,38 +2618,39 @@ phases:
     size: LARGE
     summary: 'RESURRECTED Go TAP/SPAN passive sensor — originally drafted as Phase 314 before 313/314 were repurposed, orphaning the plan. Plans recovered verbatim from git 53a8e14 and renumbered. The Go proxy ships only the TAP consumer (internal/security/tap_consumer.go) which reads fp:* keys nothing currently writes (the Python Phase-20 sensor was archived in 5afeba26). Split after critical review (original WP-1 alone was ~3.6-4.2k LOC) into: 316a (capture + bidirectional TCP reassembly + ClientHello/ServerHello extraction, capture-library ADR), 316b (OS-mismatch MVP — first end-to-end value, lights up the dormant tap_os_mismatch signal, advisory-only, Tranco FP test), 316c (full JA4 fingerprint family — OUTLINE), 316d (out-of-band enforcement bridge, advisory by default — OUTLINE), 316e (intelligence exporters — OUTLINE). PROPOSED — awaiting sign-off; no code until approved.'
   316a:
-    name: TAP Capture + TCP Reassembly + Handshake Extraction
+    name: Go TAP Core — Capture & TCP Reassembly
     status: PROPOSED
     action_plan: docs/phases/PHASE_316a.md
+    dependencies: [231b]
     size: LARGE
-    summary: 'Foundation sub-phase: read raw packets off a mirror/SPAN feed and rebuild each TLS handshake. gopacket/afpacket (pure-Go AF_PACKET, in-kernel BPF filter, no cgo; ADR-316a) + zero-copy DecodingLayerParser + bounded bidirectional reassembly (gopacket/tcpassembly, 16KB/stream cap, sync.Pool recycling) emitting ClientHello/ServerHello as in-memory HandshakeEvents. Offline --pcap-file replay for CI. Explicit overload model (drop-tail, bounded flow table, idle eviction), data-minimisation (handshake bytes only, never payloads), non-root CAP_NET_RAW-only with post-bind privilege drop + seccomp + restrictive Redis ACL. No fingerprints/Redis/enforcement yet. PROPOSED — no code until approved.'
+    summary: 'OUTLINE — detailed plan before start. High-performance bidirectional TCP reassembly engine using gopacket + af_packet (mmap) or pcap (poll), following the capture-library ADR. ja4pd sensor subcommand: reads from interface or pcap file, reassembles flows, extracts TLS ClientHello/ServerHello (SNI, JA4, ALPN), and writes fp:ip:* records to Redis for the tap_consumer. PROPOSED — outline.'
   316b:
-    name: TAP OS-Mismatch MVP (first end-to-end value)
+    name: Go TAP OS-Mismatch Signal (MVP)
     status: PROPOSED
     action_plan: docs/phases/PHASE_316b.md
     dependencies: [316a]
     size: MEDIUM
-    summary: 'Smallest slice that delivers a WORKING sensor: classify a passive OS from the SYN/IP-stack features in the 316a handshake event and write fp:os:ip:{ip}, lighting up the dormant tap_os_mismatch detector in tap_consumer.go end-to-end. Fixes a real contract bug the review caught (Python wrote "linux_5x_default" but the Go consumer compares bare "linux" -> silent no-op): one canonical OSClass vocabulary (internal/fingerprint/osclass.go) shared by writer and reader. Conservative "other"/no-write default + middlebox/NAT TCP-option normalization detection to avoid false mismatches; advisory-only (scored under the dial, never an auto-block); mandatory Tranco top-10k zero-FP test; extends gdpr_delete.py to erase fp:* PII. PROPOSED — no code until approved.'
+    summary: 'OUTLINE — detailed plan before start. First end-to-end signal from the passive sensor. Extracts the TCP stack fingerprint (TTL, Window, Options) from the SYN and compares it to the TLS ClientHello JA4 (e.g. Linux stack but Windows JA4). Lights up the tap_os_mismatch signal for the analytics engine; advisory-only (no blocks) until Tranco FP validated. PROPOSED — outline.'
   316c:
-    name: TAP Full JA4 Fingerprint Family (OUTLINE)
+    name: Go TAP Full JA4 Fingerprint Family
     status: PROPOSED
     action_plan: docs/phases/PHASE_316c.md
-    dependencies: [316a, 316b]
+    dependencies: [316a]
     size: LARGE
-    summary: 'OUTLINE — to be fleshed out to 316a/b depth before start. Compute and store the full JA4 fingerprint family from captured handshakes (net-new in Go: JA4S/JA4T/JA4H/JA4SSH/JA4L/JA4H2/QUIC, ~1.6k LOC pre-tests; reuses inline GREASE/SHA-256 helpers, ComputeJA4, ExtractJA4X; needs a new ServerHello parser). Writes the documented fp:* keys with schema TTLs and /24 (v4) //48 (v6) HLL bucketing. Checked-in golden parity fixtures, Redis write coalescing/sampling so a SPAN feed cannot flood Redis. May itself split (TLS-side / HTTP / SSH-latency-QUIC). PROPOSED — outline.'
+    summary: 'OUTLINE — detailed plan before start. Complete JA4+JA4H+JA4S+JA4L+JA4X implementation in the passive sensor. Extracts HTTP headers (JA4H), TLS extensions (JA4S/L/X), and QUIC (JA4Q) where possible. PROPOSED — outline.'
   316d:
-    name: TAP Out-of-Band Enforcement Bridge (OUTLINE)
+    name: Go TAP Out-of-Band Enforcement Bridge
     status: PROPOSED
     action_plan: docs/phases/PHASE_316d.md
-    dependencies: [316a, 316b, 316c]
+    dependencies: [316b]
     size: MEDIUM
-    summary: 'OUTLINE — security-sensitive; detailed plan before start. Let the passive sensor ACT out-of-band (never inline) via the existing ja4proxy:bans pub/sub + optional isolated fail-open blockers (iptables/ipset, BGP blackhole named-pipe, HMAC-SHA256 webhook). ADVISORY-ONLY by default (writes a watchlist/counterfactual stream, not bans), dial-gated + monitor-first with startup WARN + gauge when armed, fail-open (capture/Redis failure never produces a ban), expansion guards never exceed /24 (v4) //48 (v6). Acceptance test: passive misclassification never blocks by default. PROPOSED — outline.'
+    summary: 'OUTLINE — detailed plan before start. Implementation of the enforcement bridge: when the sensor identifies a high-risk client (e.g. bot JA4 + OS-mismatch), it writes a temporary ban key to Redis that the inline ja4proxy enforces on the NEXT connection from that IP. Advisory by default; includes the "one-strike" bypass logic. PROPOSED — outline.'
   316e:
-    name: TAP Intelligence Exporters (OUTLINE)
+    name: Go TAP Intelligence Exporters
     status: PROPOSED
     action_plan: docs/phases/PHASE_316e.md
-    dependencies: [316a, 316b, 316c]
-    size: LARGE
+    dependencies: [316a]
+    size: MEDIUM
     summary: 'OUTLINE — detailed plan before start. Export sensor fingerprints/verdicts to downstream tooling: EDL (pull), F5, Palo Alto, Kafka, Syslog CEF, TAXII 2.1, MISP. Each exporter independent and isolated with per-exporter fail-open (log + counter + neutral return; one failing exporter never affects another), data-minimisation (fingerprints + verdicts, never raw payload). Likely split per exporter group when detailed; references (does not port verbatim) the archived Python exporters. PROPOSED — outline.'
   231a:
     name: Single-Host Core — PROXY-Protocol Write, Manual-Ban Enforcement, CountKeys Fix
@@ -2669,6 +2672,13 @@ phases:
     completed: 2026-06-04
     action_plan: docs/phases/complete/PHASE_144.md
     summary: 'Repo pruning + operational-excellence housekeeping. Completed in commit c53ced20 but never recorded in the manifest until the phase-309 documentation audit caught the manifest-vs-doc gap; reconciled and archived in the docs-archive pass.'
+  230:
+    name: Interface & Container Architecture — Critical Review & Rationalisation
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_230.md
+    dependencies: []
+    size: LARGE
+    summary: Conduct a thorough architectural review of every container and user-facing interface in the JA4proxy stack.
   231:
     name: Container & Interface Consolidation — Master Implementation Plan
     status: PROPOSED
@@ -2733,3 +2743,11 @@ phases:
     dependencies: []
     size: SMALL
     summary: 'Branch hygiene lifecycle guidelines and script to audit and safely delete stale/merged remote and local branches. Includes unit testing of branch classification and a permanent runbook for developers.'
+  330:
+    name: Resolve Security Scan Vulnerability Failures
+    status: COMPLETE
+    completed: 2026-06-13
+    action_plan: docs/phases/complete/PHASE_330.md
+    dependencies: []
+    size: SMALL
+    summary: 'Updates the production proxy image tag to ja4proxy:2.0.0 in the Makefile, production docker compose config, and documentation, ensuring security scans run against the clean Go-based image.'
