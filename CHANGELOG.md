@@ -90,6 +90,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the warn-and-proceed path requires *both* services down at once (rare) — while
   staying live (no offline/stale DB). A real vulnerability on either path still
   fails the build.
+- **Containerise the lint toolchain (Phase 313)**: every linter now runs in a
+  container so CI/local share one toolchain and the gate no longer depends on a
+  flaky host `pip install`. The Python linters + project Python scripts (ruff,
+  mypy, bandit, pip-audit, the doc/meta/phase checks, the ATT&CK pytest) run in a
+  pinned `Dockerfile.tools` image via `$(TOOLS_RUN)`; semgrep and ansible-lint
+  run from their official images (neither runs on Python 3.14); hadolint,
+  shellcheck, trivy, gitleaks, gosec, promtool, amtool, scorecard and lychee stay
+  on their own images. `make lint`/`make scan` call `lint-all`/`scan-all`
+  directly (the broken `docker-run-tools` Docker-in-Docker wrapper was removed)
+  and `scripts/pipeline_summary.py` prints a one-line verdict without recursing into
+  `make`. `lint-go` keeps the host Go toolchain (go.mod needs go 1.26); lychee
+  link-check, ansible-lint and scorecard are advisory (their gates are the
+  dedicated workflows). Verified with a full local `make lint` (exit 0).
 
 ### Added
 - **Dev lanes + clean load test (Phase 310)**: each git worktree auto-gets a
