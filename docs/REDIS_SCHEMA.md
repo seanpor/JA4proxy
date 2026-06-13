@@ -121,7 +121,7 @@ phase: 54
 | `backup:latest` | String (filename) | none | BackupWorker.create_backup() | Filename of most recent successful backup. |
 | `backup:last_success` | String (ISO timestamp) | none | BackupWorker.create_backup() | Timestamp of last successful backup operation. |
 | `backup:operation_lock` | String (RFC3339 timestamp) | 600s (10m) | `internal/backup.Engine` (Go, `ja4p backup`, phase-315a); restore in 315b | Distributed lock (`SET NX EX 600`) preventing concurrent backup/restore from producing a torn artifact. The Go engine acquires it at the top of a run and releases it on completion/failure. (The Python `BackupWorker`/`BackupRestorer` that previously wrote this were archived in `5afeba26`.) |
-| `backup:last_restore` | String (ISO timestamp) | none | BackupRestorer.restore_backup() | Timestamp of last restore operation. |
+| `backup:last_restore` | String (RFC3339 timestamp) | none | `internal/backup` (Go, `ja4p restore`, phase-315b) | Timestamp of the last restore. (Was the archived Python `BackupRestorer`.) |
 
 ---
 
@@ -129,7 +129,7 @@ phase: 54
 
 | Key pattern | Type | TTL | Written by | Notes |
 |-------------|-|-|--------|-|
-| `backup:restored_from` | String (JSON) | none | BackupRestorer._write_restored_from() | Written after each successful restore. JSON: `{"filename":"...","restored_at":"ISO-8601","keys_count":N}`. Useful as an audit trail and post-restore sanity check. |
+| `backup:restored_from` | String (JSON) | none | `internal/backup` (Go, `ja4p restore`, phase-315b) | Written after each successful restore. JSON: `{"filename","restored_at","keys_count","actor"}`. Audit trail + post-restore sanity check. A restore also appends a `backup.restored` entry to `management:policy_audit`. |
 | `backup:artifacts` | Sorted Set | optional | BackupWorker (if artifact tracking enabled) | Score = Unix timestamp, member = JSON metadata blob. Populated only when artifact tracking is enabled in config. Not written in default configuration. |
 
 ---

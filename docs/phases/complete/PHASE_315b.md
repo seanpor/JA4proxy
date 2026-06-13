@@ -1,8 +1,63 @@
 # PHASE 315b — Go Redis Restore (selective, GDPR-aware)
 
-> **STATUS: PROPOSED — plan for review. No code until approved.**
-> Part 2 of 2. **Depends on PHASE_315a** (it reads the artifact 315a writes).
-> Restore is the *dangerous* half — read §3 before anything else.
+> **STATUS: COMPLETE (2026-06-13).** Delivered as `internal/backup/restore.go` +
+> `internal/backup/classify.go` + the `ja4p restore` CLI. Builds on the shipped
+> PHASE_315a. Restore is the *dangerous* half — read §3 before anything else.
+> Scope shipped = the safety guard-rails (§0); the deferred conveniences (full
+> schema-migrator, `--prefix-map`, post-restore smoke) are a clean follow-up.
+
+---
+
+## 0. Grounding (2026-06-13) — reconciliation with the shipped 315a code
+
+Verified the draft against the actual codebase before writing code. Adjustments:
+
+- **Artifact parsing is already done.** 315a exposes `backup.DecryptPayload(artifact,
+  passphrase)` (which internally parses the header, derives the PBKDF2 key, and
+  verifies the GCM tag) plus `gunzipBytes` and the in-package `snapshot{Manifest,
+  Entries}` structs. `restore.go` lives in `internal/backup`, so it **reuses all of
+  these directly** — the §5 "parse header / derive key / decrypt" steps collapse to
+  one `DecryptPayload` call. No manual header parsing.
+- **CLI home is `ja4p`, not `ja4pd`** (same correction as 315a — `ja4pd` is the
+  daemon). `cmd/ja4p` already has `resolvePassphrase`, `redisConfigFrom`, and
+  `configHash` from 315a — `ja4p restore` reuses them. Files-to-Modify updated.
+- **GDPR erasure log is a LIST, format confirmed.** `management:gdpr_erasure_log`
+  (LPUSH, last 1000); each entry is JSON `{timestamp (ISO-8601 UTC), ip, dry_run,
+  keys_deleted, …}`. The tombstone set = LRANGE → parse → collect `ip` where
+  `dry_run == false` with its `timestamp`. **Skip a key whose subject IP was erased
+  at a time AFTER the backup's `Manifest.CreatedAt`** (earlier erasures aren't in
+  the backup). FP-asymmetry: failing to restore a ban is cheap; resurrecting erased
+  PII is a breach — so on any ambiguity, **skip**.
+- **`--force` FLUSHDB destroys the erasure log itself**, so tombstones are read
+  **before** the flush, **and** merged with an external host-mounted
+  `--tombstone-file` (D9). Confirmed necessary.
+- **Per-IP key subject-extraction** (the keys in 315a's backup scope that carry an
+  IP subject): `ban:{ip}`, `fp:os:ip:{ip}`, `fp:ip:{ip}` (IP = everything after the
+  fixed prefix), and `beacon:{ip}:{ja4}` (JA4 strings contain `_`/hex but never `:`,
+  so IP = between `beacon:` and the **last** `:`). Each extracted IP is canonicalised
+  via `netip.ParseAddr` (IPv4 **and** IPv6, never truncated); a non-parsing remainder
+  means "not a tracked per-IP subject" → restore normally. Non-subject keys
+  (`config:dial`, `ip:blacklist`, `ja4:*`, `management:*`, `blocklist*`) are never
+  tombstone-skipped.
+- **Restore metrics** to register: `ja4proxy_restore_operations_total{status}`,
+  `ja4proxy_restore_currently_running`, `ja4proxy_restore_duration_seconds`
+  (histogram), `ja4proxy_restore_skipped_total{reason="erased|block_gated"}`.
+
+### Scope decision — core safety now, enhancements deferred
+
+This phase ships the **safety-critical guard-rails** (the reason restore was split
+out): D1 allow/block gating, D2+D9 GDPR tombstone + file merge, D3 integrity, D4
+`--force`, D5 `--dry-run`, D6 audit, D7 lock, D8 TTL-preserve, D10 paced restore,
+plus a **schema downgrade-block** (reject a backup whose `schema_version` exceeds
+the current). **Deferred to a follow-up** (operational conveniences, not safety, and
+matching how 315a was scoped):
+
+- **D11 config-divergence** → kept as a **non-blocking WARN** (restore is already a
+  deliberate manual op), not an abort-unless-force.
+- **D12 full schema-migrator registry** → premature (only `schema_version 1` exists;
+  nothing to migrate). The downgrade-block is kept; the migrator registry is deferred
+  until a real v2 schema lands.
+- **D13 `--prefix-map`** and **D14 post-restore smoke test** → deferred.
 
 ---
 
@@ -159,13 +214,13 @@ Any failure: log, `ja4proxy_restore_operations_total{status="failure"}`,
 
 | File | Change |
 |------|--------|
-| `internal/metrics/metrics.go` | Register restore Prometheus metrics |
-| `docs/OBSERVABILITY_STANDARDS.md` | Add restore metrics definitions |
-| `internal/backup/migration.go` | New file — Schema migration registry and interfaces |
-| `internal/backup/restore.go` | New file — restore orchestration, tombstone merge, classification, and decryption |
-| `cmd/ja4pd/main.go` | Wire `restore` CLI subcommand with flags |
-| `docs/runbooks/backup_restore.md` | Update restore procedure and scenarios runbook |
-| `CHANGELOG.md` | Add Phase 315b changes |
+| `internal/metrics/metrics.go` | Register the 4 restore Prometheus metrics |
+| `internal/backup/restore.go` | New — restore orchestration: decrypt (reuse 315a) → classify → tombstone merge → gated paced RESTORE → audit |
+| `internal/backup/classify.go` | New — key classification (allow/block/per-ip) + IPv4/IPv6 subject-extractor |
+| `cmd/ja4p/restore.go` | New — `ja4p restore` cobra subcommand (reuses 315a `resolvePassphrase`/`redisConfigFrom`) |
+| `docs/runbooks/backup_restore.md` | Add the restore procedure + the two risks + flags |
+| `CHANGELOG.md`, `docs/phases/manifest.yaml` | Phase 315b entry / status |
+| *(deferred)* `internal/backup/migration.go` | Schema-migrator registry — only when a v2 schema exists |
 
 ## 10. Out of scope
 

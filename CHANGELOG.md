@@ -8,6 +8,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Go Redis restore — selective & GDPR-aware (Phase 315b)**: `ja4p restore` loads
+  a 315a artifact back into Redis with the guard-rails that make restore safe. **By
+  default it can never re-block a real user**: block-state (`ban:*`, `ban_cidr:*`,
+  `ip:blacklist`, `ja4:blacklist`, `config:dial`) is skipped unless `--include-blocks`
+  is passed. **It never resurrects a GDPR-erased subject**: before writing any per-IP
+  key it consults a tombstone set built from the live `management:gdpr_erasure_log`
+  (read **before** any `--force` `FLUSHDB` destroys it) merged with an optional
+  `--tombstone-file`, with IPv4/IPv6-canonical subject extraction. Integrity is
+  verified before any write (tamper/truncation/wrong-key fail closed); a non-empty
+  target needs `--force`; `--dry-run` is side-effect-free; TTLs are re-applied from
+  the artifact; a newer-schema artifact is refused (downgrade-block); every restore
+  is audited to `management:policy_audit` + `backup:last_restore`/`backup:restored_from`.
+  Registers the three `ja4proxy_restore_*` series (+`…_skipped_total{reason}`),
+  completing the `backup.rules.yml` alert set 315a started. Reuses 315a's
+  `DecryptPayload`/artifact format/lock and the CLI's passphrase+redis plumbing.
+  Tested (classification incl. IPv6, block-gating, GDPR skip via file **and** live
+  log, dry-run, non-empty/force, tamper, schema-block, audit, metrics; real-Redis
+  round-trip + GDPR-not-resurrected behind `-tags integration`). See **ADR-206**.
+  Deferred (non-safety): full schema-migrator, `--prefix-map`, post-restore smoke.
 - **Go Redis backup engine (Phase 315a)**: the Go production runtime can now
   produce an encrypted, restorable snapshot of its durable Redis security state
   via `ja4p backup` (and `ja4p backup inspect` for offline metadata). It uses
