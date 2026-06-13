@@ -339,6 +339,30 @@ var (
 		},
 		[]string{"event"},
 	)
+
+	// phase-315a: Go Redis backup engine. These four series back the
+	// deploy/monitoring/alertmanager/rules/backup.rules.yml alerts, which were
+	// dead because nothing emitted them. (Restore's three series land in 315b.)
+	// Note: the alert previously used ja4proxy_backup_last_success_timestamp;
+	// OBSERVABILITY_STANDARDS bans the _timestamp suffix, so this is _seconds and
+	// backup.rules.yml is updated to match.
+	BackupOperationsTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{Name: "ja4proxy_backup_operations_total", Help: "Backup operations by outcome. Labels: status=success|failure."},
+		[]string{"status"},
+	)
+	BackupLastSuccessSeconds = prometheus.NewGauge(
+		prometheus.GaugeOpts{Name: "ja4proxy_backup_last_success_seconds", Help: "Unix time of the last successful backup."},
+	)
+	BackupCurrentlyRunning = prometheus.NewGauge(
+		prometheus.GaugeOpts{Name: "ja4proxy_backup_currently_running", Help: "1 while a backup is running, else 0."},
+	)
+	BackupDurationSeconds = prometheus.NewHistogram(
+		prometheus.HistogramOpts{
+			Name:    "ja4proxy_backup_duration_seconds",
+			Help:    "Backup wall-clock duration in seconds.",
+			Buckets: []float64{0.5, 1, 2, 5, 10, 30, 60, 120, 300},
+		},
+	)
 )
 
 func Register() {
@@ -375,6 +399,9 @@ func Register() {
 		// phase-309 WP-6: feed-downloader + quota + beaconing-suspect gauges
 		BlocklistDownloadErrorsTotal, BlocklistLastRefreshSuccessSeconds,
 		AbuseIPDBQuotaExhausted, BeaconingSuspects,
+		// phase-315a: backup engine (restore's series land in 315b)
+		BackupOperationsTotal, BackupLastSuccessSeconds,
+		BackupCurrentlyRunning, BackupDurationSeconds,
 	)
 	for _, action := range []string{"allow", "flag", "rate_limit", "tarpit", "block", "ban"} {
 		ConnectionsTotal.WithLabelValues(action)

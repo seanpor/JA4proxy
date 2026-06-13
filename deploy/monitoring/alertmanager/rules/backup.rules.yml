@@ -11,7 +11,7 @@ groups:
           runbook_url: "https://github.com/seanpor/JA4proxy/blob/main/docs/runbooks/cloud_backup_operations.md"
 
       - alert: BackupStale
-        expr: time() - ja4proxy_backup_last_success_timestamp > 86400
+        expr: time() - ja4proxy_backup_last_success_seconds > 86400
         for: 5m
         labels: {severity: warning}
         annotations:

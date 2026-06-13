@@ -1,8 +1,22 @@
 # PHASE 315a — Go Redis Backup Engine
 
-> **STATUS: PROPOSED — plan for review. No code until approved.**
-> Part 1 of 2 (backup). Restore is **PHASE_315b** and depends on this.
-> Supersedes the backup half of the withdrawn single-phase PHASE_315 draft.
+> **STATUS: COMPLETE (2026-06-13).** Delivered as the `internal/backup` package +
+> `ja4p backup` / `ja4p backup inspect` CLI. Part 1 of 2 (backup); restore is
+> **PHASE_315b** and depends on this.
+>
+> **Grounding corrections made during implementation** (the codebase differed
+> from this draft):
+> - The subcommand lives in the **`ja4p` cobra CLI**, not `ja4pd` — `ja4pd` is the
+>   long-running proxy daemon with no subcommand dispatch. (See ADR-205.)
+> - **PBKDF2** is Go-stdlib `crypto/pbkdf2` (Go 1.24+); no `x/crypto` dependency.
+> - The metric rename `…_last_success_timestamp` → `…_last_success_seconds` was
+>   applied to `backup.rules.yml` as planned.
+>
+> **Deferred to a follow-up** (not blocking the backup engine): the `--sanitize`
+> PII redactor, a `backup:` config block (scope is documented defaults + flags
+> today), the forward-compat schema-migrator, and wiring the node-exporter
+> textfile collector into `docker-compose.monitoring.yml`. Restore's three metric
+> series land in **315b** (this phase registered the four backup series).
 
 ---
 
