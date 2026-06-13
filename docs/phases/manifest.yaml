@@ -113,6 +113,8 @@ epics:
   - 204
   - 106
   - 329
+  - 239
+  - 240
 - name: 'Epic: Quality Assurance & Test Maturity'
   description: Comprehensive testing, adversarial coverage, and performance validation.
   phases:
@@ -2735,6 +2737,20 @@ phases:
     dependencies: [231, 237]
     size: MEDIUM
     summary: Harden the dashboard status indicators using shape+color+text matching WCAG 2.1 AA, add ARIA live regions, style CSS Light Mode, configure Grafana secure cookies, publish the cAdvisor threat model, and write a HAProxy TCP mode CI test.
+  239:
+    name: Configuration Schema Migration & Upgrade Utility
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_239.md
+    dependencies: [231b]
+    size: SMALL
+    summary: Implements a configuration migration command under the ja4p CLI (ja4p config upgrade) that parses existing config files, compares them against current templates, merges new parameters with their defaults while preserving custom values and comments, and validates the output.
+  240:
+    name: Multi-DC SyncAgent Deployment & PKI Orchestration
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_240.md
+    dependencies: [239]
+    size: LARGE
+    summary: Configures and deploys the built-in syncagent for secure cross-datacenter state replication. Outlines the mTLS certificate setup, Ed25519 event signing, WAN firewall configurations, GSLB routing, and NTP synchronization required for multi-DC environments.
   329:
     name: Branch Hygiene and Stale Remote Cleanup
     status: COMPLETE
