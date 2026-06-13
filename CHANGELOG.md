@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- **Third-party image HIGH-CVE remediation — differentiated gating (Phase 314)**:
+  A fresh authoritative Trivy scan (2026-06-13) showed only 2 of 9 pinned
+  third-party images were bump-fixable; the rest are already on their newest
+  stable tag with brand-new upstream Go-stdlib/distro HIGH CVEs we cannot fix
+  ourselves. Bumped the two that *do* have a fixed tag — `prom/alertmanager`
+  `v0.32.1`→`v0.33.0` and `oliver006/redis_exporter` `v1.84.0`→`v1.86.0` (both
+  re-scanned HIGH/CRITICAL-clean) — synced across `Makefile` `TRIVY_IMAGES`,
+  the monitoring/prod compose files, the `redis-secure` Ansible default, and
+  `docs/DOCKER_IMAGES.md`. Adopted a **differentiated gate**: hard HIGH+CRITICAL
+  on Dockerfiles and our own Go toolchain; third-party images stay CRITICAL-gated
+  with HIGH **reported and tracked** in a new dated waiver register
+  (`docs/security/THIRD_PARTY_CVE_WAIVERS.md`) — never silently ignored — rather
+  than a blanket HIGH gate that would flap the required CI gate red on un-fixable
+  upstream CVEs. Reconciled the long-drifted `docs/DOCKER_IMAGES.md` third-party
+  inventory to the actually-pinned tags. The full HIGH gate-flip (first-party
+  base-image rework + upstream rebuilds) is deferred to a follow-up; the Phase 313
+  deferred HIGH-gate box stays open, annotated with the decision.
+
 ### Added
 - **Branch hygiene and stale branch cleanup (Phase 329)**: Introduced automated Git branch hygiene guidelines and a Python script (`scripts/branch_hygiene.py`) to safely audit, classify, and delete stale/merged remote and local branches. Developed unit tests and a permanent developer runbook (`docs/developer/BRANCH_HYGIENE.md`).
 - **Go blocklist feed downloader (Phase 309 WP-6)**: the Go proxy now downloads
