@@ -2582,6 +2582,13 @@ phases:
     dependencies: [312]
     size: SMALL
     summary: 'Containerises the lint toolchain so CI/local share one toolchain and the gate no longer depends on a flaky host pip install. Python linters + project Python scripts (ruff, mypy, bandit+pbr, pip-audit, doc/meta/phase checks, ATT&CK pytest) run in a pinned Dockerfile.tools image via $(TOOLS_RUN); semgrep + ansible-lint run from their official images (neither runs on Python 3.14); hadolint/shellcheck/trivy/gitleaks/gosec/promtool/amtool/scorecard/lychee stay on their own images. make lint/make scan call lint-all/scan-all directly — the broken docker-run-tools Docker-in-Docker wrapper (gitleaks wrongly pip-installed; bind-mount paths unusable) was removed after it failed the first CI run. pipeline_summary prints a verdict without recursing into make. scan-images keeps mains posture (gates on CRITICAL, HIGH advisory) — HIGH-gating is deferred because the third-party images carry a large pre-existing HIGH backlog (own remediation effort). Also pre-pull hadolint so cold-runner image-pull noise does not false-FAIL lint-docker. lint-go keeps the host Go toolchain (go.mod needs go 1.26); lychee/ansible-lint/scorecard advisory (their gates are dedicated workflows). Also fixed the parked WIP bugs (pipeline_summary recursion, mangled lint-docker recipe, self-contradictory test_ci_flow). Verified with a full local make lint (exit 0); test_ci_flow rewritten hermetic (11 tests, no Docker/network).'
+  314:
+    name: Third-Party Image HIGH-CVE Remediation (re-enable HIGH-gating)
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_314.md
+    dependencies: [313]
+    size: MEDIUM
+    summary: 'Clears the pre-existing HIGH-severity CVE backlog in the pinned container images so make scan can be flipped back to gate on HIGH (not just CRITICAL), completing the Phase 313 deferral. Re-scan to get the authoritative list, bump TRIVY_IMAGES tags (kept in sync with the compose files + docs/DOCKER_IMAGES.md) to versions that clear the HIGH findings (gpgv/openssl base-image patches; grafana/loki/tempo/prometheus Go-based images), fix first-party Go CVEs at source (Go toolchain 1.26.3->1.26.4 for stdlib CVE-2026-42504/32280/33811, otel sdk 1.43.0, thrift 0.23.0, docker 29.3.1), and add only dated/justified .trivyignore residuals where no upstream fix exists. Then flip scan-images (and confirm scan-first-party) to fail on HIGH+CRITICAL using the ^|.*SEV finding-row match, update test_ci_flow to assert the HIGH gate, and tick the deferred PHASE_313 acceptance box.'
   231a:
     name: Single-Host Core — PROXY-Protocol Write, Manual-Ban Enforcement, CountKeys Fix
     status: COMPLETE
