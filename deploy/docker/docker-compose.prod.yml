@@ -56,7 +56,7 @@ services:
     build:
       context: ../..
       dockerfile: deploy/docker/Dockerfile.go-proxy
-    image: ja4proxy:1.0.0
+    image: ja4proxy:2.0.0
     # No host ports (0046): HAProxy reaches proxy:8080 and Prometheus scrapes
     # proxy:9090 over the ja4proxy-backend network — neither needs publishing
     # to the host. The short form (- "8080") previously published random

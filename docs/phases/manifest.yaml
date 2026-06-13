@@ -52,6 +52,7 @@ epics:
   - 215
   - 216
   - 308
+  - 330
 - name: 'Epic: Analytics & Intelligence'
   description: Cross-instance behavior analysis and threat intelligence.
   phases:
@@ -83,6 +84,7 @@ epics:
   - 52
   - 105
   - 307
+  - 230
   - 231
   - 232
   - 233
@@ -2594,6 +2596,13 @@ phases:
     completed: 2026-06-04
     action_plan: docs/phases/complete/PHASE_144.md
     summary: 'Repo pruning + operational-excellence housekeeping. Completed in commit c53ced20 but never recorded in the manifest until the phase-309 documentation audit caught the manifest-vs-doc gap; reconciled and archived in the docs-archive pass.'
+  230:
+    name: Interface & Container Architecture — Critical Review & Rationalisation
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_230.md
+    dependencies: []
+    size: LARGE
+    summary: Conduct a thorough architectural review of every container and user-facing interface in the JA4proxy stack.
   231:
     name: Container & Interface Consolidation — Master Implementation Plan
     status: PROPOSED
@@ -2658,3 +2667,11 @@ phases:
     dependencies: []
     size: SMALL
     summary: 'Branch hygiene lifecycle guidelines and script to audit and safely delete stale/merged remote and local branches. Includes unit testing of branch classification and a permanent runbook for developers.'
+  330:
+    name: Resolve Security Scan Vulnerability Failures
+    status: COMPLETE
+    completed: 2026-06-13
+    action_plan: docs/phases/complete/PHASE_330.md
+    dependencies: []
+    size: SMALL
+    summary: 'Updates the production proxy image tag to ja4proxy:2.0.0 in the Makefile, production docker compose config, and documentation, ensuring security scans run against the clean Go-based image.'
