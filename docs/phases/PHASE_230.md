@@ -62,7 +62,7 @@ follow-on implementation phases.
 | Container | Image | Networks | Ports exposed to host | Role |
 |---|---|---|---|---|
 | `haproxy` | `haproxy:2.8.24-alpine` | frontend, backend | 443, 80, 127.0.0.1:8404 | TLS termination, L4 load balancer |
-| `proxy` | `ja4proxy:1.0.0` | backend | 8080, 9090 (internal) | Go JA4 fingerprinting proxy |
+| `proxy` | `ja4proxy:2.0.0` | backend | 8080, 9090 (internal) | Go JA4 fingerprinting proxy |
 | `redis` | `redis/redis-stack:7.4.0-v8` | backend | none | State, streams, blocklist |
 | `analytics` | `ja4proxy-analytics:1.0.0` | backend | 8082 (internal) | ML/stats engine |
 | `tarpit` | `ja4proxy-tarpit:1.0.0` | backend | 8888, 9099 (internal) | Slow-loris attacker sink |
