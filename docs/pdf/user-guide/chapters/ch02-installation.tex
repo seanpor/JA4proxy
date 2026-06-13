@@ -3,15 +3,9 @@
 
 \chapter{Installation}
 \label{ch:installation}
-\index{installation}
+\index{installation}\newthought{JA4proxy can be deployed either as a systemd service} (supporting containerized Docker Compose or native Go binaries) or run manually via Docker Compose for local development. For production environments, we provide a secure, zero-compile bootstrapper that installs dependencies, runs an interactive configuration wizard, sets up system-level integrations (systemd, logrotate, daily cron backups), and configures host firewall rules.
 
-\newthought{JA4proxy runs as a Docker Compose stack.} There is no native package
-installation and no binary release to configure by hand. Everything — the proxy
-instances, Redis, HAProxy, the analytics node, and the observability stack — runs
-in containers managed by Compose.
-
-This chapter covers getting that stack running from a clean machine. It takes
-approximately 10--15 minutes.
+This chapter covers both the production automated deployment and the local development setup.
 
 \section{Prerequisites}
 \index{prerequisites}
@@ -24,28 +18,23 @@ approximately 10--15 minutes.
     \toprule
     \textbf{Requirement} & \textbf{Minimum version} & \textbf{Notes} \\
     \midrule
-    Docker Engine & 24.0 & Docker Desktop on macOS/Windows works \\
-    Docker Compose & v2.20 & Bundled with recent Docker installations \\
-    GNU Make & 3.81 & Pre-installed on Linux and macOS \\
+    Docker Engine & 24.0 & Required for containerized mode \\
+    Docker Compose & v2.20 & Required for containerized mode \\
+    Python & 3.10 & Required for the setup wizard \\
+    GNU Make & 3.81 & Required for local development commands \\
     Git & Any & For cloning the repository \\
     \bottomrule
   \end{tabularx}
   \caption{Software prerequisites}
 \end{table}
 
-Verify your installed versions:
-
-\begin{bashcode}
-docker --version
-docker compose version
-make --version
-\end{bashcode}
+\begin{warningbox}[Zero-Compile Production Posture]
+To minimize attack surface, production hosts must not carry compilers or build tools (such as \code{gcc}, \code{make}, or \code{go}). The bootstrapper enforces this rule at startup when running in production. Pre-built binaries or container images must be used.
+\end{warningbox}
 
 \subsection{Ports}
 
-The following ports must be available on the host machine. If any are in use by
-another service, stop that service or adjust the port mapping in
-\code{docker-compose.yml} before proceeding.
+The following ports are used on the host. In production, only the public ingress port (\code{443}) should be exposed to the public internet. All management and metrics ports should be restricted to loopback (\code{127.0.0.1}) and accessed via VPN or SSH tunnels.
 
 \begin{table}[ht]
   \small
@@ -53,236 +42,150 @@ another service, stop that service or adjust the port mapping in
     \toprule
     \textbf{Port} & \textbf{Service} & \textbf{Purpose} \\
     \midrule
-    443 & HAProxy & Public TLS entry point \\
-    8080 & JA4proxy & Direct proxy access (internal) \\
-    8404 & HAProxy stats & HAProxy statistics page \\
-    8443 & Backend & Test backend HTTPS server \\
-    8888 & Tarpit & Slow-response tarpit service \\
+    443 & HAProxy / Ingress & Public TLS entry point (Inbound traffic) \\
+    8081 & JA4proxy Direct & Direct proxy access (internal loopback) \\
+    8090 & Management UI & FastAPI administration dashboard \\
     9090 & JA4proxy metrics & Prometheus scrape endpoint (proxy) \\
     9091 & Prometheus & Prometheus query UI \\
-    3000 & Grafana & Dashboard UI \\
-    3100 & Loki & Log aggregation \\
-    9093 & Alertmanager & Alert routing \\
+    3000 & Grafana & Visual analytics dashboards \\
     \bottomrule
   \end{tabularx}
   \caption{Port assignments}
 \end{table}
 
-\begin{notebox}[Firewall note]
-In production, only port 443 should be exposed to the public internet. All other
-ports should be restricted to your management network or accessible only via VPN.
-The development stack exposes all ports to localhost for convenience.
-\end{notebox}
-
 \subsection{System Resources}
 
-The full stack (proxy, Redis, analytics, observability) requires:
+The full stack requires:
 \begin{itemize}
-  \item 4 GB RAM available to Docker
+  \item 4 GB RAM available
   \item 2 CPU cores
   \item 5 GB disk (images + GeoIP databases + logs)
 \end{itemize}
 
-On macOS and Windows, ensure Docker Desktop is configured with at least these
-resources in its settings.
+\section{Production Deployment (Automated)}
+\index{production deployment}
+\index{bootstrap.sh}
+\index{setup\_wizard.py}
 
-\section{Step-by-Step Installation}
-\index{installation!steps}
+The production installer automates system dependencies, user creation, config generation, log rotation, cron backups, and firewall rules.
+
+\subsection{Step 1: Run the Bootstrapper}
+On a clean host machine, run the bootstrapper script as root:
+\begin{bashcode}
+sudo ./scripts/bootstrap.sh
+\end{bashcode}
+By default, this runs in containerized mode. To use native systemd binaries instead, run:
+\begin{bashcode}
+sudo ./scripts/bootstrap.sh --mode native
+\end{bashcode}
+
+\subsection{Step 2: Setup Wizard}
+The bootstrapper automatically launches the setup wizard (\code{setup\_wizard.py}). It will prompt you for:
+\begin{enumerate}
+  \item \textbf{Topology:} Choose \code{inline} (active enforcement via \code{ja4pd}) or \code{tap} (passive sniffing).
+  \item \textbf{Sniff Interface:} (For TAP mode only) the network interface to sniff.
+  \item \textbf{Backend Host/Port:} The address and port of your protected backend web server.
+  \item \textbf{Deployment Mode:} Run as native binaries or Docker containers.
+  \item \textbf{Bind IP:} The local IP for management services (default \code{127.0.0.1} for security).
+  \item \textbf{Credentials:} Admin username and password for the Management UI.
+\end{enumerate}
+
+\begin{warningbox}[Secrets are Never Echoed]
+To comply with security guidelines, the wizard never prints generated secrets (e.g. Redis passwords, JWT signing keys) to the screen. They are written directly to \code{.env} with secure permissions (\code{chmod 0600}).
+\end{warningbox}
+
+\subsection{Step 3: Service Integration}
+Once complete, the bootstrapper integrates the service into the host operating system:
+\begin{itemize}
+  \item \textbf{systemd Unit:} Creates and starts \code{ja4proxy.service}.
+  \item \textbf{Firewall (UFW/FirewallD):} Exposes ports \code{80}/\code{443} publicly; restricts admin ports (\code{8090}, \code{9090}, \code{9091}, \code{3000}) to the local loopback.
+  \item \textbf{Logrotate:} Configures log rotation under \code{/var/log/ja4proxy} (caps logs at 10M, keeping 3 rotations).
+  \item \textbf{Backups:} Installs a daily cron job at 03:30 to package configuration and database files under \code{/backup/ja4proxy} with 14-day retention.
+\end{itemize}
+
+\begin{notebox}[Air-Gapped Environments]
+If your production host is air-gapped, copy the pre-built \code{ja4proxy-offline.tar.gz} bundle next to the repository. The bootstrapper will automatically load it via \code{docker load} without requiring external network access.
+\end{notebox}
+
+\section{Local Development Deployment (Manual)}
+\index{development setup}
+\index{make start}
+
+For local development or testing, you can run the Docker Compose stack manually.
 
 \subsection{Step 1: Clone the Repository}
-
 \begin{bashcode}
 git clone https://github.com/seanpor/JA4proxy.git
 cd JA4proxy
 \end{bashcode}
 
 \subsection{Step 2: Create the Environment File}
-\index{.env file}
-
-\ja\ uses a \code{.env} file for deployment-specific configuration that you do not
-want to commit to version control (credentials, backend hostnames, API keys).
-
 \begin{bashcode}
 cp .env.example .env
 \end{bashcode}
+Edit the file to configure your \code{BACKEND\_HOST} and credentials.
 
-Open \code{.env} in your editor and set at minimum:
-
-\begin{yamlcode}
-# The hostname or IP address of your backend server
-BACKEND_HOST=your.backend.host
-
-# Grafana admin credentials
-GRAFANA_ADMIN_USER=admin
-GRAFANA_ADMIN_PASSWORD=changeme
-
-# AbuseIPDB API key (optional — features degrade gracefully without it)
-ABUSEIPDB_API_KEY=
-
-# IP2Location API key for GeoIP database download
-# Register free at https://lite.ip2location.com
-IP2LOCATION_TOKEN=
-\end{yamlcode}
-
-\begin{warningbox}[Change default credentials]
-The default Grafana credentials in \code{.env.example} are public. Change them
-before running the stack, even in a development environment.
-\end{warningbox}
-
-\subsection{Step 3: Start the Stack}
-\index{make start}
-
+\subsection{Step 3: Start the stack}
 \begin{bashcode}
 make start
 \end{bashcode}
 
-This builds all Docker images and starts the full stack. On a fast connection,
-the first build takes 3--5 minutes as it pulls base images. Subsequent starts
-are much faster.
-
-You will see Docker Compose output as each container starts. When all containers
-report healthy status, the stack is ready.
-
-\subsection{Step 4: Download the GeoIP Database}
-\index{GeoIP}
-\index{IP2Location}
-\index{make update-geoip}
-
-Country-based filtering requires the IP2Location Lite country database. Download
-and install it:
-
+\subsection{Step 4: Download GeoIP Data}
+To enable country classification in development:
 \begin{bashcode}
 make update-geoip
 \end{bashcode}
 
-This downloads the database from IP2Location using the token in your \code{.env}
-file and places it where the proxy can read it. If \code{IP2LOCATION\_TOKEN} is not
-set, the command will print instructions for manual download.
-
-\begin{notebox}[Free tier is sufficient]
-The IP2Location Lite database is free for non-commercial use. Country-level
-accuracy is what \ja\ needs — the free tier provides this. Register at
-\url{https://lite.ip2location.com} and copy your token to \code{.env}.
-\end{notebox}
-
-Country filtering is disabled by default in \code{config/proxy.yml} until the
-database is present. The proxy logs a warning at startup if GeoIP is enabled but
-the database file is missing.
-
 \section{Verifying the Installation}
-\index{health check}
 \index{verification}
+\index{health check}
 
-\subsection{Container Status}
-
-Check that all containers are running and healthy:
-
+\subsection{Service Status}
+Verify that the systemd service is active:
+\begin{bashcode}
+systemctl status ja4proxy.service
+\end{bashcode}
+Or check the container statuses:
 \begin{bashcode}
 docker compose ps
 \end{bashcode}
 
-Expected output shows all services in the \code{running} state. The proxy and
-Redis containers include health checks — wait for them to show \code{(healthy)}
-before proceeding.
-
 \subsection{Proxy Health Endpoint}
-
+Verify the local health API returns a healthy status:
 \begin{bashcode}
-curl -s http://localhost:8080/health | python3 -m json.tool
+curl -s http://localhost:9090/health | python3 -m json.tool
 \end{bashcode}
-
-A healthy response:
-\begin{yamlcode}
-{
-  "status": "healthy",
-  "redis": "connected",
-  "geoip": "loaded",
-  "uptime_seconds": 42
-}
-\end{yamlcode}
-
-\subsection{HAProxy Statistics}
-
-Open \url{http://localhost:8404/stats} in a browser. You should see the HAProxy
-statistics page showing the \code{ja4proxy\_backend} farm with at least one
-server in UP state.
-
-\subsection{Prometheus Scrape Targets}
-
-Open \url{http://localhost:9091/targets}. All targets should show \code{UP}
-state. If the \code{ja4proxy} target is down, the proxy metrics endpoint is
-not responding — check the proxy container logs.
 
 \subsection{Grafana Dashboard}
-
-Open \url{http://localhost:3000} and log in with your Grafana credentials. The
-\emph{JA4proxy Overview} dashboard should be available under Dashboards. At this
-point it will show zero connections — that is expected.
-
-\begin{tipbox}[Generate test traffic]
-To see the dashboard populate immediately, generate some test traffic:
-\begin{lstlisting}[language=bash, numbers=none]
-./scripts/generate-tls-traffic.sh 30 50 5
-\end{lstlisting}
-This runs for 30 seconds with 50\% legitimate traffic and 5 worker threads.
-See Chapter~\ref{ch:firststeps} for a full explanation of the traffic generator.
-\end{tipbox}
-
-\section{Rebuilding the Stack}
-\index{make rebuild}
-
-If you need to rebuild all images from scratch (after pulling a new version of the
-repository, or if the images are in an inconsistent state):
-
+Access Grafana at \url{http://localhost:3000}. Check that the \emph{JA4proxy Overview} dashboard is present. To generate test traffic to verify dashboards:
 \begin{bashcode}
-make rebuild
+./scripts/generate-tls-traffic.sh 30 50 5
 \end{bashcode}
-
-\begin{dangerbox}[Wipes all data]
-\code{make rebuild} stops all containers, removes images, and rebuilds from scratch.
-Any data in Redis (bans, rate-limit windows) will be lost. Use this only when you
-need a clean slate or after updating the repository.
-\end{dangerbox}
 
 \section{Building the Proxy from Source}
 \index{Go proxy}
 \index{ja4pd}
 
-The production proxy is the Go implementation (\code{cmd/ja4pd}), shipped as the
-container image and the binaries \code{ja4pd} (the engine) and \code{ja4p} (the
-operator CLI). The Python proxy (\code{proxy.py}, \code{src/security/}) is an
-\emph{experimental prototype} retained only for signal-module research; it is not
-used in production and should not front real traffic.
-
-Most deployments use the published container image, so building from source is
-optional. To build the binaries:
-
+The production proxy is implemented in Go (\code{cmd/ja4pd}). To build the binaries locally:
 \begin{bashcode}
 make build            # builds bin/ja4pd and bin/ja4p
-# or directly:
-go build -o bin/ja4pd ./cmd/ja4pd
-./bin/ja4pd --config config/proxy.yml
 \end{bashcode}
 
-\begin{notebox}[Production runtime]
-The Go proxy was promoted to production in Phase~15 and is the only
-implementation that ships in releases, Docker images, and Helm charts. The Python
-proxy remains as a prototyping surface for new signal modules. Prototype in
-Python, then port to Go before it touches real traffic.
-\end{notebox}
+\section{Stopping \& Uninstalling the Stack}
+\index{stopping the service}
 
-\section{Stopping the Stack}
-\index{make stop}
-
-To stop without removing data:
+To stop the systemd service in production:
 \begin{bashcode}
-make stop
+sudo systemctl stop ja4proxy.service
 \end{bashcode}
 
-To stop and remove all containers, networks, and volumes (clean slate):
+To completely uninstall JA4proxy and clean all directories:
 \begin{bashcode}
-make stop-clean
+sudo ./scripts/bootstrap.sh --uninstall
 \end{bashcode}
 
-\code{make stop} leaves Redis data and logs intact. \code{make stop-clean} removes
-everything including Redis persistence.
+For development setups:
+\begin{bashcode}
+make stop             # stops containers, keeping data
+make stop-clean       # stops containers and purges volumes
+\end{bashcode}
