@@ -58,3 +58,39 @@ This document tracks the remaining work for both historical phases (gaps identif
 ### Phase 120 — Independent Red Team Findings: Design Flaws, Infrastructure & Logic Bugs (RETIRED)
 *   **Status:** **DEFERRED** (Retired 2026-04-19 under Phase 121e as duplicate of Phase 119. All 20 findings were either duplicates of 119 entries or already folded into the canonical findings register (docs/security/findings.yaml) with remediation_phases pointing at 119 or its successor phases. See PHASE_120.md redirect stub.)
 *   **Action Plan:** [cancelled/PHASE_120.md](cancelled/PHASE_120.md)
+
+### Phase 320 — Unified Interface & Container Consolidation Master Plan
+*   **Status:** **PROPOSED** (Program Master Plan to consolidate all user-facing interfaces and container infrastructure into the FastAPI management console, hardening backend status indicators and endpoints.)
+*   **Action Plan:** [PHASE_320.md](PHASE_320.md)
+
+### Phase 321 — Event Stream Contract Alignment
+*   **Status:** **PROPOSED** (Standardise the event stream data contract on Redis key events:connection, implementing nested ECS JSON field mapping in the console stream consumer.)
+*   **Action Plan:** [PHASE_321.md](PHASE_321.md)
+
+### Phase 322 — Security Foundations & Admin API Cleanup
+*   **Status:** **PROPOSED** (Deprecate the legacy unauthenticated admin API, audit local vendored JS references, and update UI health status indicators to query mgmt:node:* node heartbeats.)
+*   **Action Plan:** [PHASE_322.md](PHASE_322.md)
+
+### Phase 323 — Observability Foundations & Core Metrics
+*   **Status:** **PROPOSED** (Align Prometheus configs and alert rules with active Go proxy metrics, avoiding empty metrics panels or dead Alertmanager alarms.)
+*   **Action Plan:** [PHASE_323.md](PHASE_323.md)
+
+### Phase 324 — Unified Threat Posture Dashboard
+*   **Status:** **PROPOSED** (Construct the Threat Posture dashboard and live connection panels in the FastAPI UI, rendering traffic metrics from events:connection stream.)
+*   **Action Plan:** [PHASE_324.md](PHASE_324.md)
+
+### Phase 325 — Fingerprint & IP Drill-Down Pages
+*   **Status:** **PROPOSED** (Build detail drill-down pages for IP addresses and JA4 fingerprints, utilizing local MaxMind GeoLite2 databases and cap-limited stream history searches.)
+*   **Action Plan:** [PHASE_325.md](PHASE_325.md)
+
+### Phase 326 — Analytics Intelligence & Findings UI
+*   **Status:** **PROPOSED** (Integrate the analytics engine output into the console, exposing active detection alerts from real Redis analytics keys.)
+*   **Action Plan:** [PHASE_326.md](PHASE_326.md)
+
+### Phase 327 — Operational Workflows & Dial Audit Hardening
+*   **Status:** **PROPOSED** (Wire console dial/ban adjustments to audited routes, using trie-based CIDR bans and implementing audited background dial auto-revert.)
+*   **Action Plan:** [PHASE_327.md](PHASE_327.md)
+
+### Phase 328 — Accessibility Hardening & Infrastructure Docs
+*   **Status:** **PROPOSED** (Automate WCAG 2.1 AA checking with axe-core CI gates and update operator runbook references to reflect correct checkout structures.)
+*   **Action Plan:** [PHASE_328.md](PHASE_328.md)

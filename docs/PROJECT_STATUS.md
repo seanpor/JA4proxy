@@ -5,7 +5,7 @@
 
 ## Current Status: Phase 109 (PROXY Protocol Hardening & Scrubbing) Next
 
-**Last Updated:** 2026-06-11
+**Last Updated:** 2026-06-13
 
 ## Epics & Roadmap
 
@@ -107,6 +107,15 @@ Management dashboards and documentation quality.
 | 52 | Management UI - Phase 3: Administration Tools | COMPLETE | Admin UI for allowlists, bans, dial, audit log, and config. Full test suite including test_pages.py and test_container_config.py. Delivered together with Phases 13/51 in merge commit 2aeb2ba. |
 | 105 | Documentation Restructure by Audience | COMPLETE | Restructured project documentation into five audience-specific entry points (Website Owners, Architects, Operators, Compliance, Developers). Consolidated 4 blocking docs into BLOCKING_OPERATIONS.md and 4 testing docs into TESTING_STRATEGY.md as appendices. Refreshed 4 LaTeX chapters (brochure + 3 reference-manual chapters) for Phase 200-series posture. Added docs-pdf.yml CI workflow (SHA-pinned, 14-day non-blocking grace ending 2026-05-09). Archived pre-Phase-200 reports (GEMINI_CRITIQUE, ENTERPRISE_REVIEW, DMZ_DEPLOYMENT_READINESS, CYBER_RISK_REVIEW, strategic_security_architecture_review) with date-stamped banners. Reduced root README from 441 to 88 lines as a role-router. Resolved Phase 106 architect Finding 2 (placeholder marker in for-developers/README.md). |
 | 307 | Documentation Coherence, Setup Standardization, and Link Remediation | COMPLETE | Establish a coherent documentation system, standardize onboarding instructions on the setup wizard (make init), clear out legacy Python proxy references, and resolve all broken links and metadata errors. |
+| 320 | Unified Interface & Container Consolidation Master Plan | PROPOSED | Program Master Plan to consolidate all user-facing interfaces and container infrastructure into the FastAPI management console, hardening backend status indicators and endpoints. |
+| 321 | Event Stream Contract Alignment | PROPOSED | Standardise the event stream data contract on Redis key events:connection, implementing nested ECS JSON field mapping in the console stream consumer. |
+| 322 | Security Foundations & Admin API Cleanup | PROPOSED | Deprecate the legacy unauthenticated admin API, audit local vendored JS references, and update UI health status indicators to query mgmt:node:* node heartbeats. |
+| 323 | Observability Foundations & Core Metrics | PROPOSED | Align Prometheus configs and alert rules with active Go proxy metrics, avoiding empty metrics panels or dead Alertmanager alarms. |
+| 324 | Unified Threat Posture Dashboard | PROPOSED | Construct the Threat Posture dashboard and live connection panels in the FastAPI UI, rendering traffic metrics from events:connection stream. |
+| 325 | Fingerprint & IP Drill-Down Pages | PROPOSED | Build detail drill-down pages for IP addresses and JA4 fingerprints, utilizing local MaxMind GeoLite2 databases and cap-limited stream history searches. |
+| 326 | Analytics Intelligence & Findings UI | PROPOSED | Integrate the analytics engine output into the console, exposing active detection alerts from real Redis analytics keys. |
+| 327 | Operational Workflows & Dial Audit Hardening | PROPOSED | Wire console dial/ban adjustments to audited routes, using trie-based CIDR bans and implementing audited background dial auto-revert. |
+| 328 | Accessibility Hardening & Infrastructure Docs | PROPOSED | Automate WCAG 2.1 AA checking with axe-core CI gates and update operator runbook references to reflect correct checkout structures. |
 
 ### Epic: Operational Excellence & Lifecycle Management
 Zero-downtime upgrades, robust health monitoring, and deployment orchestration.
@@ -372,6 +381,15 @@ Alignment with international standards and regulatory frameworks.
 | 310 | Collision-Free Dev Environments + Clean Good/Bad Load Test | COMPLETE | N/A | N/A |
 | 311 | Resilient pip-audit — Stop PyPI Outages Reddening the Lint Gate | COMPLETE | N/A | N/A |
 | 312 | pip-audit Dual-Service Fallback — Shrink the Soft-Pass Window | COMPLETE | N/A | N/A |
+| 320 | Unified Interface & Container Consolidation Master Plan | PROPOSED | N/A | N/A |
+| 321 | Event Stream Contract Alignment | PROPOSED | N/A | N/A |
+| 322 | Security Foundations & Admin API Cleanup | PROPOSED | N/A | N/A |
+| 323 | Observability Foundations & Core Metrics | PROPOSED | N/A | N/A |
+| 324 | Unified Threat Posture Dashboard | PROPOSED | N/A | N/A |
+| 325 | Fingerprint & IP Drill-Down Pages | PROPOSED | N/A | N/A |
+| 326 | Analytics Intelligence & Findings UI | PROPOSED | N/A | N/A |
+| 327 | Operational Workflows & Dial Audit Hardening | PROPOSED | N/A | N/A |
+| 328 | Accessibility Hardening & Infrastructure Docs | PROPOSED | N/A | N/A |
 
 ---
 

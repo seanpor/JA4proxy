@@ -83,6 +83,15 @@ epics:
   - 52
   - 105
   - 307
+  - 320
+  - 321
+  - 322
+  - 323
+  - 324
+  - 325
+  - 326
+  - 327
+  - 328
 - name: 'Epic: Operational Excellence & Lifecycle Management'
   description: Zero-downtime upgrades, robust health monitoring, and deployment orchestration.
   phases:
@@ -2585,3 +2594,65 @@ phases:
     completed: 2026-06-04
     action_plan: docs/phases/complete/PHASE_144.md
     summary: 'Repo pruning + operational-excellence housekeeping. Completed in commit c53ced20 but never recorded in the manifest until the phase-309 documentation audit caught the manifest-vs-doc gap; reconciled and archived in the docs-archive pass.'
+  320:
+    name: Unified Interface & Container Consolidation Master Plan
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_320.md
+    size: MEDIUM
+    summary: 'Program Master Plan to consolidate all user-facing interfaces and container infrastructure into the FastAPI management console, hardening backend status indicators and endpoints.'
+  321:
+    name: Event Stream Contract Alignment
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_321.md
+    dependencies: [320]
+    size: SMALL
+    summary: 'Standardise the event stream data contract on Redis key events:connection, implementing nested ECS JSON field mapping in the console stream consumer.'
+  322:
+    name: Security Foundations & Admin API Cleanup
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_322.md
+    dependencies: [321]
+    size: SMALL
+    summary: 'Deprecate the legacy unauthenticated admin API, audit local vendored JS references, and update UI health status indicators to query mgmt:node:* node heartbeats.'
+  323:
+    name: Observability Foundations & Core Metrics
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_323.md
+    dependencies: [322]
+    size: SMALL
+    summary: 'Align Prometheus configs and alert rules with active Go proxy metrics, avoiding empty metrics panels or dead Alertmanager alarms.'
+  324:
+    name: Unified Threat Posture Dashboard
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_324.md
+    dependencies: [321]
+    size: MEDIUM
+    summary: 'Construct the Threat Posture dashboard and live connection panels in the FastAPI UI, rendering traffic metrics from events:connection stream.'
+  325:
+    name: Fingerprint & IP Drill-Down Pages
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_325.md
+    dependencies: [321]
+    size: MEDIUM
+    summary: 'Build detail drill-down pages for IP addresses and JA4 fingerprints, utilizing local MaxMind GeoLite2 databases and cap-limited stream history searches.'
+  326:
+    name: Analytics Intelligence & Findings UI
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_326.md
+    dependencies: [321]
+    size: SMALL
+    summary: 'Integrate the analytics engine output into the console, exposing active detection alerts from real Redis analytics keys.'
+  327:
+    name: Operational Workflows & Dial Audit Hardening
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_327.md
+    dependencies: [322]
+    size: MEDIUM
+    summary: 'Wire console dial/ban adjustments to audited routes, using trie-based CIDR bans and implementing audited background dial auto-revert.'
+  328:
+    name: Accessibility Hardening & Infrastructure Docs
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_328.md
+    dependencies: [322]
+    size: SMALL
+    summary: 'Automate WCAG 2.1 AA checking with axe-core CI gates and update operator runbook references to reflect correct checkout structures.'
