@@ -125,6 +125,9 @@ func main() {
 	// 7. JA4 Check Command
 	rootCmd.AddCommand(buildCheckCmd())
 
+	// 8. Backup Command (phase-315a)
+	rootCmd.AddCommand(buildBackupCmd())
+
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

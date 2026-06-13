@@ -120,7 +120,7 @@ phase: 54
 |-------------|-|-|--------|-|
 | `backup:latest` | String (filename) | none | BackupWorker.create_backup() | Filename of most recent successful backup. |
 | `backup:last_success` | String (ISO timestamp) | none | BackupWorker.create_backup() | Timestamp of last successful backup operation. |
-| `backup:operation_lock` | String ("backup"\|"restore") | 600s (10m) | BackupWorker, BackupRestorer | Distributed lock to prevent concurrent backup/restore operations from corrupting state. |
+| `backup:operation_lock` | String (RFC3339 timestamp) | 600s (10m) | `internal/backup.Engine` (Go, `ja4p backup`, phase-315a); restore in 315b | Distributed lock (`SET NX EX 600`) preventing concurrent backup/restore from producing a torn artifact. The Go engine acquires it at the top of a run and releases it on completion/failure. (The Python `BackupWorker`/`BackupRestorer` that previously wrote this were archived in `5afeba26`.) |
 | `backup:last_restore` | String (ISO timestamp) | none | BackupRestorer.restore_backup() | Timestamp of last restore operation. |
 
 ---

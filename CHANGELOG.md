@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Go Redis backup engine (Phase 315a)**: the Go production runtime can now
+  produce an encrypted, restorable snapshot of its durable Redis security state
+  via `ja4p backup` (and `ja4p backup inspect` for offline metadata). It uses
+  logical per-key `DUMP`/`PTTL` (every Redis type, TTLs preserved), gzip +
+  **AES-256-GCM** with a PBKDF2-SHA256-derived key (random salt + nonce per
+  artifact, GCM-authenticated header so tampering/truncation fails closed), an
+  atomic `0600` write in a `0700` dir, count/age retention pruning, a
+  `backup:operation_lock` (`SET NX EX 600`) against concurrent runs, and paced
+  pipelined `SCAN` to spare the Redis thread. A conservative default scope backs
+  up security-state prefixes and **excludes** credential/session/MFA keys
+  (`mgmt:totp`/`webauthn`/`saml`/`oidc`/`session`) and ephemeral counters. This
+  revives the four previously-dead `ja4proxy_backup_*` alerts in
+  `backup.rules.yml` by finally emitting their metrics (via the process registry
+  and an optional node-exporter textfile); the alert series was renamed
+  `…_last_success_timestamp` → `…_last_success_seconds` per OBSERVABILITY_STANDARDS.
+  Grounding correction vs the plan: the subcommand lives in the cobra CLI `ja4p`,
+  not the `ja4pd` daemon. Restore is the sister phase **315b**. See **ADR-205** and
+  `docs/runbooks/backup_restore.md`. Unit-tested (crypto round-trip / wrong-key /
+  tamper, scope+exclude, TTL capture, retention, metrics toggle, lock); the
+  every-type + IPv6 real-Redis round-trip is a `-tags integration` test (miniredis
+  only DUMPs strings).
+
 ### Security
 - **Third-party image HIGH-CVE remediation — differentiated gating (Phase 314)**:
   A fresh authoritative Trivy scan (2026-06-13) showed only 2 of 9 pinned
