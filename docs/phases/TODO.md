@@ -90,3 +90,7 @@ This document tracks the remaining work for both historical phases (gaps identif
 ### Phase 238 — Accessibility Hardening & Infrastructure Docs
 *   **Status:** **PROPOSED** (Harden the dashboard status indicators using shape+color+text matching WCAG 2.1 AA, add ARIA live regions, style CSS Light Mode, configure Grafana secure cookies, publish the cAdvisor threat model, and write a HAProxy TCP mode CI test.)
 *   **Action Plan:** [PHASE_238.md](PHASE_238.md)
+
+### Phase 314 — Third-Party Image HIGH-CVE Remediation (re-enable HIGH-gating)
+*   **Status:** **PROPOSED** (Clears the pre-existing HIGH-severity CVE backlog in the pinned container images so make scan can be flipped back to gate on HIGH (not just CRITICAL), completing the Phase 313 deferral. Re-scan to get the authoritative list, bump TRIVY_IMAGES tags (kept in sync with the compose files + docs/DOCKER_IMAGES.md) to versions that clear the HIGH findings (gpgv/openssl base-image patches; grafana/loki/tempo/prometheus Go-based images), fix first-party Go CVEs at source (Go toolchain 1.26.3->1.26.4 for stdlib CVE-2026-42504/32280/33811, otel sdk 1.43.0, thrift 0.23.0, docker 29.3.1), and add only dated/justified .trivyignore residuals where no upstream fix exists. Then flip scan-images (and confirm scan-first-party) to fail on HIGH+CRITICAL using the ^|.*SEV finding-row match, update test_ci_flow to assert the HIGH gate, and tick the deferred PHASE_313 acceptance box.)
+*   **Action Plan:** [PHASE_314.md](PHASE_314.md)

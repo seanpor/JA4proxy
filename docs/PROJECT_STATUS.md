@@ -390,6 +390,7 @@ Alignment with international standards and regulatory frameworks.
 | 311 | Resilient pip-audit — Stop PyPI Outages Reddening the Lint Gate | COMPLETE | N/A | N/A |
 | 312 | pip-audit Dual-Service Fallback — Shrink the Soft-Pass Window | COMPLETE | N/A | N/A |
 | 313 | Fix CI Lint Loop & Scan Failure Handling | COMPLETE | N/A | N/A |
+| 314 | Third-Party Image HIGH-CVE Remediation (re-enable HIGH-gating) | PROPOSED | N/A | N/A |
 | 329 | Branch Hygiene and Stale Remote Cleanup | COMPLETE | N/A | N/A |
 
 ---
