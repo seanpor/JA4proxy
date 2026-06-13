@@ -2574,6 +2574,14 @@ phases:
     dependencies: [311]
     size: SMALL
     summary: 'Extends the phase-311 wrapper: when the primary PyPI service is unreachable after retries, it now falls back to OSV.dev (-s osv --aliases on, so the PyPI-format --ignore-vuln CVE IDs still match via aliases) BEFORE the soft-pass. The warn-and-proceed soft-pass now requires BOTH PyPI and OSV down simultaneously (rare) — shrinking the only fail-open window to near-zero while staying live (no offline/stale DB). A real vulnerability on either path still fails; unknown errors fail safe. Unit test covers clean/vuln/double-outage/pypi-down→osv-clean/pypi-down→osv-vuln/bad-args; shellcheck clean. No Makefile/CI/tool changes (wrapper already wired in 311).'
+  313:
+    name: Fix CI Lint Loop & Scan Failure Handling
+    status: COMPLETE
+    completed: 2026-06-13
+    action_plan: docs/phases/complete/PHASE_313.md
+    dependencies: [312]
+    size: SMALL
+    summary: 'Hardens the lint/scan plumbing around the resilient pip-audit gate (311/312). make lint and make scan now run their work inside a pinned tools image (Dockerfile.tools) via a new docker-run-tools helper, so local and CI share one toolchain. scan-images flipped from advisory CRITICAL-only (--exit-code 0) to fail-closed on HIGH+CRITICAL (--exit-code 1); the `|| echo "! Warning…"` soft-passes were removed from lint-sast/infra/observability/supply-chain/docs-all so a failing sub-linter fails the gate. Added concise verdict helpers (scripts/ci_summary.py, scripts/pipeline_summary.py). Fixed three bugs the parked WIP carried: pipeline_summary recursed into make (make test→pipeline_summary test→make test, infinite) — rewritten to print a verdict only, never invoke make; the lint-docker recipe had been mangled (lost its success echoes, docker-run-tools spliced in) — restored byte-identical to main with docker-run-tools promoted to a standalone target; and tests/integration/test_ci_flow.py ran real make lint/scan and asserted a clean repo scan must fail — rewritten hermetic (8 tests, ~0.25s, no Docker/network) verifying the config and the no-recursion guard.'
   231a:
     name: Single-Host Core — PROXY-Protocol Write, Manual-Ban Enforcement, CountKeys Fix
     status: COMPLETE

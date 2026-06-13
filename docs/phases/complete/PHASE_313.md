@@ -1,8 +1,9 @@
 ---
 phase: 313
 title: Fix CI Lint Loop & Scan Failure Handling
-status: IN_REVIEW
+status: COMPLETE
 created: 2026-06-13
+completed: 2026-06-13
 audience: [developer]
 ---
 
@@ -17,9 +18,8 @@ audience: [developer]
 > **Note on provenance.** This work first accumulated, uncommitted and
 > unfinished, on an unrelated feature branch. It was parked onto a clean branch
 > (`phase-313-ci-fixes`) and the bugs it carried were fixed there. This document
-> is written alongside that landing rather than before it; the acceptance
-> criteria below reflect what is implemented and tested on that branch, pending
-> review and merge.
+> was written alongside that landing rather than before it; the acceptance
+> criteria below reflect what was implemented and tested on that branch.
 
 ## Background
 
