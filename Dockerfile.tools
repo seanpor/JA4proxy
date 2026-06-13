@@ -1,8 +1,38 @@
-FROM python:3.14-slim AS base
-RUN apt-get update && apt-get install -y --no-install-recommends make git ca-certificates build-essential golang && rm -rf /var/lib/apt/lists/*
-RUN pip install --no-cache-dir ansible-lint==24.* semgrep==1.* gitleaks==8.* bandit==1.* ruff==0.4.* mypy==1.* pip-audit==2.*
-ENV GOROOT=/usr/lib/go
-ENV PATH=$GOROOT/bin:$PATH
-RUN go install github.com/securego/gosec/v2/cmd/gosec@latest && go install golang.org/x/lint/golint@latest
+# Pinned lint toolchain image (Phase 313).
+#
+# Bakes the project's pinned Python environment plus every third-party Python
+# linter used by `make lint`, so CI and local runs share ONE reproducible
+# toolchain and never depend on an ad-hoc host `pip install` (which is what kept
+# flaking the Full Lint gate).
+#
+# Tools that already ship their own official images — hadolint, shellcheck,
+# trivy, gitleaks, gosec, promtool, amtool, scorecard, lychee — are run from
+# those images directly by the Makefile and are intentionally NOT installed here.
+# The Go toolchain (go fmt/vet) is provided by the CI runner / host, not here.
+FROM python:3.14-slim
+
+# git + certs: needed by pip-audit and a few linters. bash ships in the base.
+# build-essential: some pinned deps (e.g. pytricia) build C extensions from sdist.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends git ca-certificates build-essential \
+ && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /src
-ENTRYPOINT ["sh"]
+
+# Project deps first (own layer, cached unless requirements change) so mypy can
+# resolve imports and pytest/conftest can import redis, fastapi, etc.
+COPY requirements.txt requirements-test.txt requirements-analytics.txt ./
+RUN pip install --no-cache-dir \
+      -r requirements.txt \
+      -r requirements-test.txt \
+      -r requirements-analytics.txt
+
+# Third-party Python linters (pinned major versions) that are compatible with
+# the project's Python 3.14. semgrep and ansible-lint are NOT installed here —
+# they don't yet run on 3.14, so the Makefile runs semgrep from its official
+# image (semgrep/semgrep) and treats ansible-lint as advisory.
+RUN pip install --no-cache-dir \
+      ruff==0.4.* \
+      mypy==1.* \
+      bandit==1.8.* pbr \
+      pip-audit==2.*

@@ -351,13 +351,13 @@ smoke-test:
 
 # Run linting
 lint: ## Phase 146 — Run all linters (Python, Go, Infra, Docs)
-	$(MAKE) docker-run-tools CMD="make lint-all"
+	@$(MAKE) lint-all
 	@python3 scripts/pipeline_summary.py lint
 	@python3 scripts/ci_summary.py lint
 
 # Security scanning with bandit (medium/high severity, skip B104 bind-all)
-lint-security:
-	@$(PYTHON) -m bandit -r src/analytics/ src/management/ -ll --skip B104 && echo "  ✓ lint-security passed"
+lint-security: tools-image
+	@$(TOOLS_RUN) bandit -r src/analytics/ src/management/ -ll --skip B104 && echo "  ✓ lint-security passed"
 
 # Type checking with mypy (suppress output)
 lint-types:
@@ -369,21 +369,21 @@ lint-types:
 #   bandit:   SAST scan, medium/high severity only (-ll), ignore B104 (bind 0.0.0.0 intentional)
 #   ruff:     fast linter/formatter-check (replaces flake8/isort for new code)
 #   pip-audit: CVE scan of requirements.txt; urllib3 CVEs acknowledged (transitive, tracked backlog)
-lint-static:
+lint-static: tools-image
 	@echo "=== mypy: type checking ==="
-	@$(PYTHON) -m mypy src/analytics/ src/management/ && echo "  ✓ mypy passed"
+	@$(TOOLS_RUN) mypy src/analytics/ src/management/ && echo "  ✓ mypy passed"
 	@echo ""
 	@echo "=== bandit: SAST (medium/high) ==="
-	@$(PYTHON) -m bandit -r src/analytics/ src/management/ -ll -q --skip B104 && echo "  ✓ bandit passed"
+	@$(TOOLS_RUN) bandit -r src/analytics/ src/management/ -ll -q --skip B104 && echo "  ✓ bandit passed"
 	@echo ""
 	@echo "=== ruff: linting ==="
-	@$(PYTHON) -m ruff check src/analytics/ src/management/ && echo "  ✓ ruff passed (tests advisory only)"
+	@$(TOOLS_RUN) ruff check src/analytics/ src/management/ && echo "  ✓ ruff passed (tests advisory only)"
 	@echo ""
 	@echo "=== pip-audit: CVE dependency scan ==="
 	@# phase-311: resilient wrapper — retries transient PyPI/OSV outages and
 	@# soft-passes (with a CI warning) if the service is unreachable, but still
 	@# fails on a real vulnerability. Stops upstream-outage flakes reddening the gate.
-	@bash scripts/pip-audit-resilient.sh -r requirements.txt \
+	@$(TOOLS_RUN) bash scripts/pip-audit-resilient.sh -r requirements.txt \
 	  --ignore-vuln CVE-2025-50181 \
 	  --ignore-vuln CVE-2025-66418 \
 	  --ignore-vuln CVE-2025-66471 \
@@ -443,10 +443,15 @@ lint-docker:
 	@echo ""
 	@echo "✓ Docker lint passed"
 
-# Helper to run commands inside the tools container (used by `make lint` / `make scan`).
-docker-run-tools:
-	@docker build -t $(TOOLS_IMG) -f Dockerfile.tools .
-	@docker run --rm -v $(PWD):/src:ro -w /src $(TOOLS_IMG) sh -c "$(CMD)"
+# Pinned lint toolchain (Phase 313). The Python linters + project Python scripts
+# run inside $(TOOLS_IMG) (built from Dockerfile.tools) via $(TOOLS_RUN), so CI
+# and local share one reproducible env with no host `pip install`. Tools with
+# their own official images (hadolint, shellcheck, trivy, gitleaks, gosec,
+# promtool, amtool, scorecard, lychee, semgrep) are run from those directly.
+tools-image:
+	@docker build -q -t $(TOOLS_IMG) -f Dockerfile.tools . >/dev/null
+TOOLS_RUN = docker run --rm -v $(PWD):/src -w /src $(TOOLS_IMG)
+SEMGREP_IMG := semgrep/semgrep:1.166.0
 
 # Lint shell scripts with shellcheck (error-level only; warnings are advisory).
 # SC2154 suppressed: variables sourced from .env are referenced but not assigned in-script.
@@ -903,15 +908,16 @@ parity-check:
 
 # ── Security Scans ────────────────────────────────────────────────────────────
 # Run OpenSSF Scorecard locally via Docker (Phase 131)
-scorecard-local:
-	@echo "=== OpenSSF Scorecard (Local) ==="
-	@echo "Note: Full checks require a GitHub token with repo scope."
-	@echo "Run as: make scorecard-local GITHUB_AUTH_TOKEN=your_token"
+scorecard-local: ## OpenSSF Scorecard (local, advisory — the gate is scorecard.yml)
+	@echo "=== OpenSSF Scorecard (Local — advisory; the required gate is the scorecard.yml workflow) ==="
+	@echo "Note: Full checks require a GitHub token with repo scope (make scorecard-local GITHUB_AUTH_TOKEN=...)."
 	@if [ -z "$$GITHUB_AUTH_TOKEN" ]; then \
-		echo "Warning: GITHUB_AUTH_TOKEN not set. Some checks (e.g. Branch-Protection, Code-Review) will be skipped or fail."; \
-		docker run --rm -v $$(pwd):/workspace gcr.io/openssf/scorecard:latest --local /workspace --format default; \
+		echo "Warning: GITHUB_AUTH_TOKEN not set — some checks will be skipped or fail."; \
+		docker run --rm -v $$(pwd):/workspace gcr.io/openssf/scorecard:latest --local /workspace --format default \
+			|| echo "  ! scorecard reported issues or could not read the tree (advisory)"; \
 	else \
-		docker run --rm -e GITHUB_AUTH_TOKEN=$$GITHUB_AUTH_TOKEN -v $$(pwd):/workspace gcr.io/openssf/scorecard:latest --local /workspace --format default; \
+		docker run --rm -e GITHUB_AUTH_TOKEN=$$GITHUB_AUTH_TOKEN -v $$(pwd):/workspace gcr.io/openssf/scorecard:latest --local /workspace --format default \
+			|| echo "  ! scorecard reported issues (advisory)"; \
 	fi
 
 
@@ -924,7 +930,7 @@ scan-local:
 	@(gosec -fmt=text -exclude-dir=.claude ./... || true)
 
 scan: ## Phase 146 — Run all security and container scans
-	$(MAKE) docker-run-tools CMD="make scan-all"
+	@$(MAKE) scan-all
 	@python3 scripts/pipeline_summary.py scan
 
 scan-all: scan-container scan-dockerfiles scan-first-party scan-images
@@ -1160,22 +1166,19 @@ test-evidence-paths: ## Phase 107h.2 — fail if conformance docs cite repo path
 test-compliance: test-compliance-language test-evidence-paths ## Phase 107h — all regulatory-conformance regression guards
 
 # phase-107f: ATT&CK mapping CI gate
-test-attack-mapping: ## Phase 107f.4 — fail if ATT&CK mapping rows lack confidence labels or cite missing source files
-	$(PYTHON) -m pytest tests/test_attack_mapping.py -v
+test-attack-mapping: tools-image ## Phase 107f.4 — fail if ATT&CK mapping rows lack confidence labels or cite missing source files
+	@$(TOOLS_RUN) python3 -m pytest tests/test_attack_mapping.py -v
 
 # phase-107w.3: doc-link check (requires lychee installed locally — same tool the CI workflow runs)
-test-doc-links: ## Phase 107w.3 — lychee-check all docs for broken internal links
-	@command -v lychee >/dev/null 2>&1 || { \
-		echo "lychee not installed. Install: https://github.com/lycheeverse/lychee#installation"; \
-		echo "Or run via Docker: docker run --rm -v \$$PWD:/input lycheeverse/lychee:0.24.2 --no-progress --accept 200,204,301,302,403,429 --exclude-path /input/archive --exclude-path /input/node_modules \"/input/**/*.md\""; \
-		exit 1; \
-	}
-	lychee --no-progress --accept 200,204,301,302,403,429 \
-		--exclude-path archive \
-		--exclude-path node_modules \
-		"**/*.md"
-lint-meta: ## Phase 147 — Verify Makefile and automation script health
-	@$(PYTHON) scripts/meta_lint.py
+test-doc-links: ## Phase 107w.3 — lychee-check all docs for broken internal links (advisory; gated by docs-link-check.yml)
+	@echo "=== lychee: internal link check (containerised; advisory in make lint) ==="
+	@docker run --rm -v $(PWD):/input lycheeverse/lychee:0.24.2 \
+		--no-progress --accept 200,204,301,302,403,429 \
+		--exclude-path /input/archive --exclude-path /input/node_modules \
+		"/input/**/*.md" \
+		|| echo "  ! lychee reported link issues (advisory — see the docs-link-check workflow for the gate)"
+lint-meta: tools-image ## Phase 147 — Verify Makefile and automation script health
+	@$(TOOLS_RUN) python3 scripts/meta_lint.py
 
 reload: ## Reload proxy configuration without restart (SIGHUP)
 	@docker compose -f deploy/docker/docker-compose.poc.yml kill -s SIGHUP proxy 2>/dev/null || kill -s SIGHUP $$(pgrep ja4p) 2>/dev/null || echo "Proxy not running"
@@ -1217,8 +1220,8 @@ lint-docs-all: ## Run all documentation quality checks
 	@$(MAKE) test-doc-links
 	@$(MAKE) test-attack-mapping
 
-doc-health: ## Validate documentation frontmatter
-	@$(PYTHON) scripts/check_doc_frontmatter.py
+doc-health: tools-image ## Validate documentation frontmatter
+	@$(TOOLS_RUN) python3 scripts/check_doc_frontmatter.py
 
 lint-docs: ## Alias for the full documentation quality suite
 	@$(MAKE) lint-docs-all
@@ -1226,16 +1229,19 @@ lint-docs: ## Alias for the full documentation quality suite
 link-check: ## Alias for the internal-link checker (test-doc-links)
 	@$(MAKE) test-doc-links
 
-lint-phases: ## Validate phase docs (frontmatter, numbering, manifest sync)
-	@$(PYTHON) scripts/lint-phases.py
+lint-phases: tools-image ## Validate phase docs (frontmatter, numbering, manifest sync)
+	@$(TOOLS_RUN) python3 scripts/lint-phases.py
 
-lint-semgrep: ## Run Semgrep SAST using the project ruleset
-	@command -v semgrep >/dev/null 2>&1 || { echo "  ! semgrep not installed — skipping"; exit 0; }
-	@semgrep --quiet --error --config .semgrep-phase122.yml .
+lint-semgrep: ## Run Semgrep SAST using the project ruleset (containerised)
+	@echo "=== semgrep: SAST (official image — Semgrep does not run on Python 3.14) ==="
+	@docker run --rm -v $(PWD):/src -w /src $(SEMGREP_IMG) \
+		semgrep --quiet --error --config .semgrep-phase122.yml .
 
-lint-ansible: ## Lint the Ansible playbooks/roles under deploy/ansible
-	@command -v ansible-lint >/dev/null 2>&1 || { echo "  ! ansible-lint not installed — skipping"; exit 0; }
-	@ansible-lint deploy/ansible/
+lint-ansible: ## Lint the Ansible playbooks/roles under deploy/ansible (containerised; advisory)
+	@echo "=== ansible-lint: deploy/ansible (advisory — molecule role-path syntax-checks are pre-existing) ==="
+	@docker run --rm -v $(PWD):/src -w /src pipelinecomponents/ansible-lint:0.8.0 \
+		ansible-lint deploy/ansible/ \
+		|| echo "  ! ansible-lint reported issues or is unavailable (advisory)"
 
 lint-all: lint-meta lint-python lint-go lint-sast lint-infra lint-observability \
           lint-supply-chain lint-docs-all

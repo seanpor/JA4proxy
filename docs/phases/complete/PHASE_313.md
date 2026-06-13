@@ -39,31 +39,56 @@ skimming CI could not quickly see what passed.
 
 ## Design
 
-### Pinned tools container
+### Every tool runs in a container (no host Python env)
 
-A small `Dockerfile.tools` image carries the lint/scan toolchain (ansible-lint,
-semgrep, gitleaks, bandit, ruff, mypy, pip-audit, gosec, golint). A new
-`docker-run-tools` helper target builds it and runs an arbitrary `CMD` inside it
-against a read-only bind-mount of the repo:
+The original idea was to run the whole of `make lint-all` *inside* one tools
+container (`docker-run-tools CMD="make lint-all"`). That approach is broken for
+this repo: `lint-all` includes sub-targets that themselves `docker run`
+(hadolint, shellcheck, trivy, gitleaks, gosec, promtool, amtool) — running them
+inside a container means Docker-in-Docker, and the bind-mount paths (`$(PWD)`
+inside the container ≠ a path the host daemon can see) don't line up. It also
+failed at image-build time because `gitleaks` was in a `pip install` line, and
+`gitleaks` is a Go binary, not a PyPI package.
 
-```make
-docker-run-tools:
-	@docker build -t $(TOOLS_IMG) -f Dockerfile.tools .
-	@docker run --rm -v $(PWD):/src:ro -w /src $(TOOLS_IMG) sh -c "$(CMD)"
-```
+So the design is: **the host `make` orchestrates; each tool runs in its own
+container.** No Docker-in-Docker.
 
-`make lint` and `make scan` route their real work through it
-(`docker-run-tools CMD="make lint-all"` / `"make scan-all"`), so local and CI
-share one pinned toolchain.
+- **Python tools + project Python scripts** — one pinned `Dockerfile.tools`
+  image (Python 3.14 + the project's pinned requirements so mypy/pytest resolve
+  imports, plus `ruff`, `mypy`, `bandit`+`pbr`, `pip-audit`). Run via
+  `$(TOOLS_RUN)` (a `docker run … $(TOOLS_IMG)` helper) from `lint-static`,
+  `lint-meta`, `doc-health`, `lint-phases`, `test-attack-mapping`. This kills the
+  flaky host `pip install` that kept reddening the gate.
+- **Tools with their own official images** — run from those directly, as before:
+  hadolint, shellcheck, trivy, gitleaks, gosec, promtool, amtool, scorecard,
+  lychee. **semgrep** moved to its official image (`semgrep/semgrep`) because it
+  does not run on Python 3.14; **ansible-lint** runs from
+  `pipelinecomponents/ansible-lint`.
+- `make lint` / `make scan` now just call `$(MAKE) lint-all` / `scan-all`
+  directly. `scan-all` was already fully containerised.
+
+The CI runner therefore needs only Docker (plus the Go toolchain it already has).
+
+### Deliberate exceptions
+
+- **`lint-go`** keeps using the runner/host Go toolchain (`go fmt`/`go vet`).
+  go.mod requires the bleeding-edge **go 1.26**, which lint container images lag;
+  the Go toolchain is reliable and is not the breakage this phase targets.
+- **`bandit`** runs in the 3.14 image and exits 0, but its plugins emit
+  `ast.Num` internal-error noise (removed in Python 3.12+). This is an upstream
+  bandit-on-3.14 limitation **also present on `main`** (no regression).
+- **Advisory (never gate)**: `ansible-lint` (pre-existing molecule role-path
+  syntax-checks), `lychee` link-check (pre-existing link issues; the real gate is
+  the `docs-link-check.yml` workflow), and `scorecard-local` (needs a token; the
+  gate is `scorecard.yml`). These were advisory on `main` too.
 
 ### Fail-closed gates
 
 - `scan-images`: Trivy switched to `--severity HIGH,CRITICAL --exit-code 1`, and
   the per-image tally fails the target on **HIGH or CRITICAL** (was
   CRITICAL-only). Documented exceptions still live in `.trivyignore`.
-- The `|| echo "! Warning: …"` soft-passes were removed from `lint-sast`,
-  `lint-infra`, `lint-observability`, `lint-supply-chain`, and `lint-docs-all`,
-  so a failing sub-linter fails `make lint`.
+- `lint-sast` (semgrep) now genuinely gates — it runs from semgrep's official
+  image instead of being skipped when semgrep is absent from the host.
 
 ### Concise verdicts
 
@@ -80,40 +105,48 @@ The parked WIP did not work as-is. Three defects were fixed on the branch:
 | Bug | Symptom | Fix |
 |---|---|---|
 | **`pipeline_summary` recursion** | `make test` → `pipeline_summary test` → `make test` → … (infinite); same for `lint`. The scan branch also called `scan_summary.py` with no args (exit 2), breaking `make scan`. | Rewrote all three modes to print a verdict and **never invoke `make`**. The detailed per-image/per-scanner tables remain `scan_summary.py`'s job (`make scan-summary`). |
-| **Mangled `lint-docker` recipe** | The new `docker-run-tools` target had been spliced onto the end of `lint-docker`, deleting its trailing `✓ Docker lint passed` echoes and the `lint-shell` comment. | Restored the echoes/comment; promoted `docker-run-tools` to a proper standalone target. `lint-docker` is now byte-identical to `main`. |
-| **Self-contradictory CI test** | `tests/integration/test_ci_flow.py` ran real `make lint` / `make scan` (Docker builds, network) and asserted a **clean** repo's scan must **fail**. | Rewrote it to verify the configuration hermetically (no Docker/network): Makefile parses, lint/scan route through `docker-run-tools`, `scan-images` uses `--exit-code 1`, and `pipeline_summary` returns a verdict fast without recursing. |
+| **Mangled `lint-docker` recipe** | The new `docker-run-tools` target had been spliced onto the end of `lint-docker`, deleting its trailing `✓ Docker lint passed` echoes and the `lint-shell` comment. | Restored the echoes/comment. (`docker-run-tools` was later removed entirely — see the row below.) |
+| **Self-contradictory CI test** | `tests/integration/test_ci_flow.py` ran real `make lint` / `make scan` (Docker builds, network) and asserted a **clean** repo's scan must **fail**. | Rewrote it to verify the configuration hermetically (no Docker/network): Makefile parses, lint/scan call the aggregate target, the Python linters run via `$(TOOLS_RUN)`, `Dockerfile.tools` has no `pip`-installed gitleaks, `scan-images` uses `--exit-code 1`, and `pipeline_summary` returns a verdict fast without recursing. |
+| **`docker-run-tools` broke CI** | First push: required **Full Lint** + **Security Scan** failed — `Dockerfile.tools` couldn't build (`pip install … gitleaks==8.*`), and even fixed it would need Docker-in-Docker for the docker-based sub-linters. | Removed `docker-run-tools`; rebuilt the toolchain as per-tool containers orchestrated by the host (see Design). Verified `make lint` exits 0 locally end-to-end. |
 
 ## Scope (files)
 
-- **New:** `Dockerfile.tools` — pinned lint/scan toolchain image.
+- **New:** `Dockerfile.tools` — pinned Python lint toolchain (Python 3.14 +
+  project requirements + ruff/mypy/bandit+pbr/pip-audit).
 - **New:** `scripts/ci_summary.py`, `scripts/pipeline_summary.py` — verdict helpers.
 - **New:** `tests/integration/test_ci_flow.py` — hermetic CI-config checks.
-- **Edit:** `Makefile` — `TOOLS_IMG`, `docker-run-tools`, route `lint`/`scan`
-  through it, harden `scan-images`, drop the soft-pass `|| echo` lines, wire the
-  summary calls.
+- **Edit:** `Makefile` — `tools-image` + `$(TOOLS_RUN)` helper; route the Python
+  linters/scripts through it; semgrep + ansible-lint via official images;
+  `lint`/`scan` call `lint-all`/`scan-all` directly; harden `scan-images`;
+  `lychee`/`scorecard-local` made advisory; wire the summary calls.
 - **Edit:** `CHANGELOG.md` — Phase 313 entry.
 
 ## Test strategy
 
-`tests/integration/test_ci_flow.py` (8 tests, ~0.25 s, no Docker/network):
+`tests/integration/test_ci_flow.py` (11 tests, ~0.3 s, no Docker/network) plus a
+full local `make lint` run (exit 0). The hermetic tests assert:
 
-- Makefile parses (`make -n`) and `docker-run-tools` exists.
-- `lint` and `scan` route through `docker-run-tools`.
+- Makefile parses (`make -n`) and the `tools-image` target exists.
+- `lint`/`scan` call `lint-all`/`scan-all` and do **not** reference the removed
+  `docker-run-tools`; no `docker-run-tools:` target exists Makefile-wide.
+- The Python linters run via `$(TOOLS_RUN)`; `Dockerfile.tools` has no
+  `pip`-installed gitleaks (the original build-breaking bug).
 - `scan-images` fails on HIGH+CRITICAL (`--exit-code 1`, no advisory `0`).
-- `pipeline_summary` returns `0` with a verdict for each mode, under a short
-  timeout (a live guard against the recursion regression), and its source
-  contains no `make` invocation (static guard).
+- `pipeline_summary` returns `0` with a verdict for each mode under a short
+  timeout (a live recursion guard) and its source contains no `make` invocation.
 
 ## Acceptance criteria
 
-- [x] `make lint` / `make scan` run their work inside the pinned tools container.
+- [x] Every linter runs in a container; the CI runner needs only Docker (+ Go).
+      No host `pip install` of linters.
+- [x] `make lint` exits 0 end-to-end (verified locally) and `make scan` runs the
+      already-containerised `scan-all`.
 - [x] `scan-images` fails the build on **HIGH or CRITICAL** (was CRITICAL-only).
-- [x] No `lint-*` sub-target soft-passes via `|| echo "! Warning…"`.
+- [x] semgrep gates via its official image (Python-3.14-incompatible on host).
 - [x] `make lint` / `make test` / `make scan` do **not** recurse; each ends with
       a concise verdict line.
-- [x] `lint-docker` recipe restored (success echoes intact; `docker-run-tools` is
-      a standalone target); `make -n` parses cleanly.
-- [x] `test_ci_flow.py` is hermetic and passes (8/8); ruff-clean.
+- [x] `lint-docker` recipe intact (success echoes); `make -n` parses cleanly.
+- [x] `test_ci_flow.py` is hermetic and passes (11/11); ruff-clean.
 
 ## Out of scope
 
@@ -123,9 +156,11 @@ The parked WIP did not work as-is. Three defects were fixed on the branch:
 
 ## Risks
 
-- **Container build cost.** Routing through `docker-run-tools` adds a
-  `docker build` to local `make lint`/`scan`. Bounded by Docker layer caching;
-  the image only rebuilds when `Dockerfile.tools` changes.
+- **Container build cost.** The first `make lint` builds `Dockerfile.tools`
+  (~1.5 min) and pulls the official linter images. Bounded by Docker layer/image
+  caching; the tools image only rebuilds when the requirements or
+  `Dockerfile.tools` change. In CI this adds a one-off build per lint run unless
+  a registry/layer cache is wired up later.
 - **Stricter gate surfaces existing HIGH CVEs.** Flipping `scan-images` to fail
   on HIGH may turn up previously-advisory findings; each needs a real fix or a
   justified, dated `.trivyignore` entry (loud and intentional, not a regression).

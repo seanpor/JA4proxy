@@ -47,10 +47,10 @@ def _recipe(target: str) -> str:
     return "\n".join(body)
 
 
-def test_makefile_parses_and_helper_target_exists():
+def test_makefile_parses_and_tools_image_target_exists():
     """``make -n`` forces a full parse; dry-run never executes Docker."""
     result = subprocess.run(
-        ["make", "-n", "docker-run-tools"],
+        ["make", "-n", "tools-image"],
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,
@@ -58,12 +58,40 @@ def test_makefile_parses_and_helper_target_exists():
     assert result.returncode == 0, f"Makefile failed to parse:\n{result.stderr}"
 
 
-@pytest.mark.parametrize("target", ["lint", "scan"])
-def test_target_routes_through_tools_container(target):
-    """Phase 313 runs lint/scan inside the tools container via docker-run-tools."""
-    assert "docker-run-tools" in _recipe(target), (
-        f"`make {target}` no longer routes through docker-run-tools"
+@pytest.mark.parametrize("target,aggregate", [("lint", "lint-all"), ("scan", "scan-all")])
+def test_lint_scan_call_aggregate_directly(target, aggregate):
+    """Phase 313: lint/scan call the aggregate target directly — the broken
+    docker-run-tools wrapper (which built a container that ran the docker-based
+    sub-linters, i.e. Docker-in-Docker) was removed."""
+    recipe = _recipe(target)
+    assert aggregate in recipe, f"`make {target}` should invoke {aggregate}"
+    assert "docker-run-tools" not in recipe, (
+        "the removed docker-run-tools wrapper is back in the recipe"
     )
+
+
+def test_no_docker_run_tools_target():
+    """The broken docker-run-tools target must be gone Makefile-wide."""
+    assert "\ndocker-run-tools:" not in ("\n" + MAKEFILE.read_text())
+
+
+def test_python_linters_run_in_tools_image():
+    """The Python linters run inside the pinned tools image (no host pip)."""
+    static = _recipe("lint-static")
+    for tool in ("mypy", "bandit", "ruff"):
+        assert tool in static, f"lint-static should run {tool}"
+    assert "$(TOOLS_RUN)" in static, "lint-static must run its tools via $(TOOLS_RUN)"
+
+
+def test_dockerfile_tools_has_no_pip_gitleaks():
+    """Regression: gitleaks is a Go binary, never pip-installable. The original
+    Dockerfile.tools tried `pip install ... gitleaks==8.*` and broke the build."""
+    df = (REPO_ROOT / "Dockerfile.tools").read_text()
+    offenders = [
+        ln for ln in df.splitlines()
+        if "gitleaks" in ln and ("pip" in ln or "gitleaks==" in ln)
+    ]
+    assert not offenders, f"gitleaks must not be pip-installed in Dockerfile.tools: {offenders}"
 
 
 def test_scan_images_fails_on_high_and_critical():
