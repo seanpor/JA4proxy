@@ -487,9 +487,9 @@ TRIVY_CACHE ?= $(HOME)/.cache/trivy
 # Keep versions here in sync with those compose files.
 TRIVY_IMAGES := haproxy:2.8.24-alpine \
 	redis/redis-stack:7.4.0-v8 \
-	oliver006/redis_exporter:v1.84.0 \
+	oliver006/redis_exporter:v1.86.0 \
 	prom/prometheus:v3.12.0 \
-	prom/alertmanager:v0.32.1 \
+	prom/alertmanager:v0.33.0 \
 	prom/node-exporter:v1.11.1 \
 	grafana/grafana:13.0.2-ubuntu \
 	grafana/loki:3.7.2 \
@@ -506,8 +506,10 @@ scan-images:
 	@mkdir -p "$(TRIVY_CACHE)"
 	@echo "=== Trivy: third-party image CVE scan (HIGH + CRITICAL) ==="
 	@echo "    Fails on CRITICAL; HIGH findings are reported but advisory."
-	@echo "    (HIGH-gating is deferred — clearing the pre-existing third-party"
-	@echo "     HIGH backlog is its own remediation effort; see PHASE_313.md.)"
+	@echo "    (Phase 314 differentiated gate: third-party images we pin but do"
+	@echo "     not build cannot be HIGH-gated — most remaining HIGH are upstream"
+	@echo "     Go-stdlib/distro CVEs with no fixed tag yet. They are tracked in"
+	@echo "     docs/security/THIRD_PARTY_CVE_WAIVERS.md, not silently ignored.)"
 	@echo "    CVEs listed in .trivyignore are documented exceptions."
 	@echo ""
 	@fail=0; \
@@ -567,7 +569,7 @@ scan-first-party:
 	@echo "    Fails on CRITICAL; HIGH findings are reported but advisory."
 	@echo ""
 	@fail=0; \
-	for img in ja4proxy:1.0.0 ja4proxy-analytics:1.0.0 ja4proxy-tarpit:1.0.0 ja4proxy-mockbackend:1.0.0 ja4proxy-test:1.0.0 ja4proxy-trafficgen:1.0.0; do \
+	for img in ja4proxy:2.0.0 ja4proxy-analytics:1.0.0 ja4proxy-tarpit:1.0.0 ja4proxy-mockbackend:1.0.0 ja4proxy-test:1.0.0 ja4proxy-trafficgen:1.0.0; do \
 		echo "  Scanning $$img ..."; \
 		result=$$(docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
 			-v "$(PWD):/scan:ro" \
@@ -586,7 +588,7 @@ scan-first-party:
 
 # Phase 228: human-readable rollup of the image CVE scans. Reporting only —
 # `make scan` remains the authoritative gate. First-party rows require `make build`.
-FIRST_PARTY_IMAGES := ja4proxy:1.0.0 ja4proxy-analytics:1.0.0 ja4proxy-tarpit:1.0.0 ja4proxy-mockbackend:1.0.0 ja4proxy-test:1.0.0 ja4proxy-trafficgen:1.0.0
+FIRST_PARTY_IMAGES := ja4proxy:2.0.0 ja4proxy-analytics:1.0.0 ja4proxy-tarpit:1.0.0 ja4proxy-mockbackend:1.0.0 ja4proxy-test:1.0.0 ja4proxy-trafficgen:1.0.0
 scan-summary: ## Phase 228 — compact CRIT/HIGH/MED rollup of all scans (images + misconfig + gosec; reporting only)
 	@mkdir -p "$(TRIVY_CACHE)"
 	@$(PYTHON) scripts/scan_summary.py $(TRIVY_IMAGES) $(FIRST_PARTY_IMAGES)
