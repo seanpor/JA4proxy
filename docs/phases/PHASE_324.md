@@ -1,4 +1,4 @@
-# Threat Posture Dashboard & Infrastructure Rows
+# Unified Threat Posture Dashboard
 
 ## Goal
 
@@ -11,7 +11,13 @@ Build the main Threat Posture dashboard and live connection panels in the FastAP
 Implement the dashboard layout in the management console using HTMX for partial page updates:
 - **Proxy Status Panel:** Displays the list of live proxies retrieved by scanning `mgmt:node:*` keys.
 - **Traffic Overview Panel:** Renders connection rates per second, grouped by actions (`allow, flag, rate_limit, tarpit, block, ban`).
-- **Enforcement Gauge:** Displays the count of active bans by querying the quantity of `ban:*` keys.
+- **Enforcement Gauge:** Displays the count of active bans. Count **both** ban
+  key families — per-IP `ban:{ip}` and CIDR `ban_cidr:{cidr}` (RDAP/manual
+  subnet bans) — or the gauge will silently undercount, since `ban:*` does not
+  glob-match `ban_cidr:*`. Enumerate with a non-blocking `SCAN` (cursor loop),
+  never `KEYS`, which blocks the Redis event loop on a large keyspace; better
+  still, read a maintained counter if one is available rather than scanning on
+  every render.
 - **Tarpit Statistics:** Displays active tarpit concurrency using the `ja4proxy_tarpit_concurrent` metric or direct Redis stats.
 
 ---

@@ -30,7 +30,19 @@ Implement a secure dial auto-revert mechanism:
 - When a temporary dial override is requested (e.g. change dial value for 1 hour), the console writes an override record in Redis: `config:dial_override` (storing the original value, override value, and expiration epoch).
 - Do **not** rely on Redis keyspace notifications, which are disabled by default and not persistent.
 - Implement a background loop in the management console's worker/scheduler that polls `config:dial_override` every 10 seconds.
-- Upon expiration, the background worker issues a standard `PUT /api/v1/dial` request using its system credentials, updating the value back to the original setting, writing to the security audit logs, and removing the override key.
+- Upon expiration, the background worker reverts the dial to the original value, writes the change to the security audit log under a system actor label (e.g. `"dial_auto_revert"`), and removes the override key.
+
+> ⚠️ **The revert path must NOT call `PUT /api/v1/dial`.** That HTTP route
+> enforces interactive **TOTP** verification (section A), and a headless
+> background worker has no TOTP code to present — routing the revert through it
+> would make the revert permanently fail and strand the dial at its overridden
+> value. Instead, the worker calls the **same internal audited dial-service
+> function** that the HTTP handler calls *after* its TOTP/role checks pass
+> (i.e. the function that performs the Redis write plus `write_audit`). This
+> keeps the revert fully audited while bypassing the human-only second factor.
+> The ±10 guard still applies at the service layer; because a valid override
+> was itself within ±10 of the baseline, reverting back to the baseline is also
+> within ±10, so the guard does not block the revert.
 
 ---
 

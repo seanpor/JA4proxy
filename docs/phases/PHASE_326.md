@@ -1,4 +1,4 @@
-# Analytics Intelligence Visibility
+# Analytics Intelligence & Findings UI
 
 ## Goal
 

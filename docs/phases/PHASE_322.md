@@ -27,11 +27,30 @@ Assert that no external CDNs are referenced in the console HTML template files.
 
 ## C — Real Health Situation Bar
 
-Fix the UI's "situation bar" (which shows if the proxy is active or down) to read real heartbeat data:
-- The backend handler must scan for `mgmt:node:*` in Redis, which is where the Go proxy daemon writes its instance status and updates its TTL.
-- If no keys matching `mgmt:node:*` are present (or if all have expired), the situation bar displays "PROXY UNREACHABLE".
-- If at least one active key is present, the situation bar reads "PROXY ACTIVE".
-- Do not use invented keys like `proxy:heartbeat:*` or read from dead stream keys.
+Fix the UI's "situation bar" (which shows if the proxy is active or down) to read real heartbeat data.
+
+> ⚠️ **Producer gap — `mgmt:node:*` is currently read but never written.**
+> `management/api/routes/nodes.py` already scans `mgmt:node:*`, and
+> `REDIS_SCHEMA.md` (around line 196) *claims* the proxy writes these heartbeat
+> Hashes — but as of this phase **no process writes them** (verified: there is
+> no `HSet`/heartbeat write in `cmd/ja4pd/main.go`). Reading them today yields
+> an empty set, so the situation bar would read "PROXY UNREACHABLE" forever in
+> a live deployment even though the proxy is healthy. This phase must therefore
+> **add the producer, not just the consumer.**
+
+This phase delivers both halves:
+
+1. **Producer (Go proxy):** Add a heartbeat worker to `cmd/ja4pd/main.go` that,
+   on a fixed interval, `HSET`s a `mgmt:node:{host}:{port}` Hash with the fields
+   `nodes.py` already expects (`host, port, version, started_at, last_seen,
+   connections_total`) and `EXPIRE`s it to a TTL of ~3× the write interval so a
+   dead node's key lapses on its own.
+2. **Consumer (situation bar):** The backend handler scans `mgmt:node:*`.
+   - If no keys match (or all have expired), the bar displays "PROXY UNREACHABLE".
+   - If at least one live key is present, the bar reads "PROXY ACTIVE".
+   - Do not invent keys like `proxy:heartbeat:*` or read from dead stream keys.
+3. **Doc fix:** Correct the `REDIS_SCHEMA.md` note so it describes the producer
+   this phase adds rather than asserting a writer that did not previously exist.
 
 ---
 
@@ -59,10 +78,11 @@ Implement the two mandatory test files for security/configuration changes:
 
 | File | Change |
 |------|--------|
-| `src/management/app.py` | Delete file |
+| `src/management/app.py` | Delete file (legacy unauthenticated health/metrics API) |
 | `deploy/docker/Dockerfile.admin` | Delete file |
-| `docker-compose.poc.yml` | Remove `admin-api` service |
-| `docker-compose.prod.yml` | Remove `admin-api` service |
+| `deploy/docker/docker-compose.poc.yml` | Remove the `admin-api` service (this is the only compose file that defines it — `docker-compose.prod.yml` has no `admin-api` service, so there is nothing to remove there) |
+| `cmd/ja4pd/main.go` | Add the `mgmt:node:{host}:{port}` heartbeat worker (producer for section C) |
+| `docs/REDIS_SCHEMA.md` | Correct the `mgmt:node:*` note to describe the heartbeat producer added here |
 | `management/templates/partials/situation_bar.html` | Update status rendering logic to query `mgmt:node:*` |
 | `management/tests/test_pages.py` | New file — HTML page rendering and RBAC tests |
 | `tests/integration/test_container_config.py` | Modify — Add container port/privilege regression check |

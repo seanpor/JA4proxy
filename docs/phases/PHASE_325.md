@@ -21,7 +21,18 @@ Implement the backend lookup logic for IP attributes:
 - Retrieve MaxMind database paths from config settings (e.g. `config/GeoLite2-ASN.mmdb` or environment variables).
 - Use the `maxminddb` Python reader to retrieve country and ASN details.
 - If MaxMind files are missing or unreadable, log the issue and fall back to displaying "Unknown" for country/ASN, rather than throwing a `FileNotFoundError` or crashing the API.
-- Do **not** read from non-existent Redis keys or keys that were retired (such as TAP-sensor `fp:*` keys).
+
+> ℹ️ **Use the existing `fp:*` fingerprint store — do not reinvent it.** Phase 20
+> (TAP mode, COMPLETE) populates exactly the structures this page needs:
+> `fp:ip:{ip}` (ZSET of fingerprints seen per IP), `fp:ja4:hll:{ja4}` (unique-IP
+> estimate per JA4), and `fp:ja4_to_ja4s:{ja4}`. These are **not retired**; an
+> earlier draft of this plan wrongly told implementers to avoid them. The
+> "client IPs seen using this fingerprint" list and the JA4-parts breakdown
+> should be sourced from `FingerprintStore` (`src/tap/fingerprint_store.py`),
+> which already exposes this data. Only fall through to a capped
+> `events:connection` scan (section C) for recent *connection history* that the
+> fingerprint store does not retain. Confirm which `fp:*` keys are live in your
+> deployment (TAP mode may be disabled) and degrade gracefully if absent.
 
 ---
 

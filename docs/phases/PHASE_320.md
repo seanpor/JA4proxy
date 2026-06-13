@@ -10,7 +10,7 @@ Provide a single, hardened pane of glass for SecDevOps engineers by unifying all
 
 This program is divided into eight sub-phases to ensure incremental, testable delivery:
 
-- **PHASE_321: Event Contract Unification** — Align the Go proxy daemon's event emissions with the Python console's stream parsing.
+- **PHASE_321: Event Stream Contract Alignment** — Align the Go proxy daemon's event emissions with the Python console's stream parsing.
 - **PHASE_322: Security Foundations & Admin API Cleanup** — Deprecate the legacy unauthenticated admin API, enforce proper TLS verify/Redis ACL policies, and secure local JS loading.
 - **PHASE_323: Observability Foundations & Core Metrics** — Harmonize proxy metrics scrapers and alert rules, avoiding empty panels or dead alert alarms.
 - **PHASE_324: Unified Threat Posture Dashboard** — Build the high-level dashboard visualization based on the unified stream schema.

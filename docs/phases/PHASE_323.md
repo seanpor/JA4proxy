@@ -8,7 +8,7 @@ Align Prometheus scrape configurations, Grafana dashboards, and Alertmanager rul
 
 ## A — Scrape Target Consolidation
 
-Review and update the Prometheus configuration (`deploy/docker/prometheus/prometheus.yml`):
+Review and update the Prometheus configuration (`deploy/monitoring/prometheus/prometheus.yml`):
 - Verify the Go proxy scrapers are correctly defined (scraping port 9090 on proxy targets).
 - Ensure Prometheus does not attempt to scrape retired/non-existent targets (like `admin-api`).
 - Keep cAdvisor and HAProxy scrape configs loopback-bound or internal-only, matching the production compose hardening.
@@ -17,7 +17,7 @@ Review and update the Prometheus configuration (`deploy/docker/prometheus/promet
 
 ## B — Alerting Rules Alignment
 
-Audit and rewrite Prometheus alert rules (`deploy/docker/prometheus/alerts.yml`):
+Audit and rewrite Prometheus alert rules (`deploy/monitoring/prometheus/alerts.yml`):
 - Do **not** use non-existent metrics like `tarpit:active_count` (which was a Redis key name, not a metric).
 - Implement Tarpit warnings using `ja4proxy_tarpit_concurrent` (exceeding safety limits) or `ja4proxy_tarpit_overflow_total` (greater than 0).
 - Check Redis availability via `ja4proxy_redis_health` (where 0 indicates a connection error, 1 indicates healthy).
@@ -47,7 +47,7 @@ Validate that all alert rules compile correctly and can be parsed by Prometheus:
 
 | File | Change |
 |------|--------|
-| `deploy/docker/prometheus/prometheus.yml` | Update scrape targets, removing legacy/redundant containers |
-| `deploy/docker/prometheus/alerts.yml` | Re-author rules to match valid metrics from `internal/metrics/metrics.go` |
+| `deploy/monitoring/prometheus/prometheus.yml` | Update scrape targets, removing legacy/redundant containers |
+| `deploy/monitoring/prometheus/alerts.yml` | Re-author rules to match valid metrics from `internal/metrics/metrics.go` |
 | `tests/integration/test_infra_alerts.py` | Add unit/integration tests confirming Alertmanager accepts rule formats |
 | `CHANGELOG.md` | Add Phase 323 entry |
