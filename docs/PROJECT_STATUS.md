@@ -392,6 +392,17 @@ Alignment with international standards and regulatory frameworks.
 | 310 | Collision-Free Dev Environments + Clean Good/Bad Load Test | COMPLETE | N/A | N/A |
 | 311 | Resilient pip-audit — Stop PyPI Outages Reddening the Lint Gate | COMPLETE | N/A | N/A |
 | 312 | pip-audit Dual-Service Fallback — Shrink the Soft-Pass Window | COMPLETE | N/A | N/A |
+| 313 | Fix CI Lint Loop & Scan Failure Handling | COMPLETE | N/A | N/A |
+| 314 | Third-Party Image HIGH-CVE Remediation (differentiated HIGH-gating) | IN_PROGRESS | N/A | N/A |
+| 315 | Go Backup / Restore Subsystem (index) | PROPOSED | N/A | N/A |
+| 315a | Go Redis Backup Engine | PROPOSED | N/A | N/A |
+| 315b | Go Redis Restore (selective, GDPR-aware) | PROPOSED | N/A | N/A |
+| 316 | Go TAP / SPAN Passive Sensor (index) | PROPOSED | N/A | N/A |
+| 316a | Go TAP Core — Capture & TCP Reassembly | PROPOSED | N/A | N/A |
+| 316b | Go TAP OS-Mismatch Signal (MVP) | PROPOSED | N/A | N/A |
+| 316c | Go TAP Full JA4 Fingerprint Family | PROPOSED | N/A | N/A |
+| 316d | Go TAP Out-of-Band Enforcement Bridge | PROPOSED | N/A | N/A |
+| 316e | Go TAP Intelligence Exporters | PROPOSED | N/A | N/A |
 | 329 | Branch Hygiene and Stale Remote Cleanup | COMPLETE | N/A | N/A |
 | 330 | Resolve Security Scan Vulnerability Failures | COMPLETE | N/A | N/A |
 

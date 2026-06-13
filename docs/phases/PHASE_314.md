@@ -1,115 +1,144 @@
 ---
 phase: 314
-title: Third-Party Image HIGH-CVE Remediation (re-enable HIGH-gating)
-status: PROPOSED
+title: Third-Party Image HIGH-CVE Remediation (differentiated HIGH-gating)
+status: IN_PROGRESS
 created: 2026-06-13
+updated: 2026-06-13
 audience: [developer]
 ---
 
 # Third-Party Image HIGH-CVE Remediation
 
-> **Goal.** Clear the pre-existing **HIGH**-severity CVE backlog in the pinned
-> container images so `make scan` can be flipped back to **gate on HIGH** (not
-> just CRITICAL) — completing the deferral recorded in [[PHASE_313]]. End state:
-> `scan-images` (and `scan-first-party`) fail the build on HIGH **or** CRITICAL,
-> with only justified, dated `.trivyignore` entries where no upstream fix exists.
+> **Goal (revised after a fresh authoritative scan).** Reduce the pinned-image
+> HIGH-CVE exposure where we actually can, and replace the original "flip
+> `make scan` to a blanket HIGH gate" plan with a **differentiated gate** that is
+> honest about what we control. Completes the HIGH-gating intent recorded in
+> [[PHASE_313]] *in the only way that doesn't red the required CI gate for every
+> agent on CVEs we can't fix.*
 
-## Background
+## Why this plan changed (the re-review)
 
-[[PHASE_313]] containerised the lint toolchain and intended to harden
-`scan-images` from CRITICAL-only to **HIGH+CRITICAL**. The first CI run showed
-the pinned third-party images carry a substantial pre-existing HIGH backlog
-(**13 HIGH, 0 CRITICAL** in one run), all DoS-/disclosure-class. Gating on HIGH
-immediately would block every PR, and blanket-`.trivyignore`-ing real findings
-would be dishonest — so HIGH-gating was **deferred** to this phase. `scan-images`
-currently scans + reports HIGH but gates only on CRITICAL (same posture as `main`).
+The original plan assumed "~13 HIGH, all with fixed upstream tags — just bump
+each image." A fresh scan on **2026-06-13** (`aquasec/trivy:0.71.0`,
+`--severity HIGH,CRITICAL`) showed that assumption is **false today**:
 
-## Inventory (from the Phase 313 CI/local scan — re-confirm at implementation)
-
-Trivy `--severity HIGH,CRITICAL` over `TRIVY_IMAGES` (haproxy, redis-stack,
-redis_exporter, prometheus, alertmanager, node-exporter, grafana, loki, promtail)
-surfaced these HIGH CVEs. All were reported by Trivy as **fixed** upstream:
-
-| CVE | Package | Note |
+| Image (pinned) | HIGH findings | Bump-fixable? |
 |---|---|---|
-| CVE-2025-68973 | `gpgv` (Debian/Ubuntu base) | GnuPG info-disclosure; fixed in base-image patch |
-| CVE-2026-45447 | `libssl3t64` (OpenSSL) | Heap UAF in `PKCS7_verify()`; base-image patch |
-| CVE-2026-42504 | Go `stdlib` (v1.26.3) | MIME header DoS; fixed in Go 1.26.4 |
-| CVE-2026-32280 | Go `stdlib` | crypto/tls DoS; Go 1.26.2 |
-| CVE-2026-33811 | Go `stdlib` | net DoS; Go 1.26.3 |
-| CVE-2026-39883 | `go.opentelemetry.io/otel/sdk` v1.41.0 | fixed in otel 1.43.0 |
-| CVE-2026-41602 | `github.com/apache/thrift` v0.22.0 | integer overflow; thrift 0.23.0 |
-| CVE-2026-21728 | `github.com/grafana/tempo` | Tempo query DoS; 2.8.4+/2.9.2+/2.10.2+ |
-| CVE-2026-34040 | `github.com/docker/docker` v28.5.0 | Moby authz bypass; 29.3.1 |
+| `haproxy:2.8.24-alpine` | none | ✅ already clean |
+| `prom/alertmanager:v0.32.1` | otel + 8× Go-stdlib | ✅ **v0.33.0 → CLEAN** |
+| `oliver006/redis_exporter:v1.84.0` | 1× Go-stdlib | ✅ **v1.86.0 → CLEAN** |
+| `prom/node-exporter:v1.11.1` | ~12× Go-stdlib | ❌ already newest stable |
+| `prom/prometheus:v3.12.0` | 1× Go-stdlib | ❌ already newest stable |
+| `grafana/loki:3.7.2` | thrift + prom-lib + stdlib | ❌ already newest stable |
+| `grafana/promtail:3.6.11` | docker (2× **no fix at all**) + prom-lib + openssl + stdlib | ❌ already newest stable |
+| `grafana/grafana:13.0.2-ubuntu` | tempo + prom-lib + openssl + stdlib | ❌ already newest major |
+| `redis/redis-stack:7.4.0-v8` | gpgv + openssl (distro) | ❌ already newest tag |
 
-The Go-package CVEs (`stdlib`, `otel`, `thrift`, `docker`) come from the
-third-party **Go-based** images (grafana/loki/tempo/promtail/prometheus etc.)
-being built against older Go/deps — they are fixed by **bumping each image to a
-newer pinned tag**, not by changing our code. Confirm the same set against
-`scan-first-party` (our images) too — those Go CVEs *are* ours to fix via go.mod /
-base-image bumps.
+**Only 2 of 9** third-party images can be bump-fixed. The other 6 are *already on
+their newest stable tag*; their HIGH findings are brand-new Go-stdlib CVEs (fixed
+only in Go **1.26.4**, days old — upstream hasn't rebuilt yet), distro openssl/gpgv
+patches awaiting an upstream base rebuild, and 2 `docker/docker` CVEs with **no
+upstream fix at any version**. We literally cannot bump or code our way out of
+those — they clear only when each upstream project ships a rebuilt image.
 
-## Approach
+A blanket HIGH gate would therefore need ~6 images of `.trivyignore` residuals,
+but that file's policy caps entries at **14 days** — so the **required** Security
+Scan gate would flap red and block every PR (for all parallel agents) to suppress
+CVEs we can't fix. That directly violates the project's core asymmetry (don't
+block legitimate work for a low-cost, un-actionable issue).
 
-1. **Re-scan to get the authoritative current list** (`make scan-images` +
-   `make scan-first-party` after `make build`); CVE data drifts, so do not trust
-   the table above verbatim.
-2. **Bump pinned image tags** in `Makefile` `TRIVY_IMAGES` to versions whose
-   release notes/Trivy output clear the HIGH findings. **Keep every bump in sync**
-   with the compose files that deploy those images (`deploy/docker/docker-compose.monitoring.yml`,
-   `*.prod.yml`, etc.) — the `lint-docker` compose-config check and
-   `docs/DOCKER_IMAGES.md` must stay consistent.
-3. **First-party images**: bump go.mod / toolchain (e.g. Go 1.26.3 → 1.26.4 to
-   clear the stdlib CVEs) and the affected Go deps (otel sdk → 1.43.0,
-   thrift → 0.23.0, docker → 29.3.1), rebuild, re-scan.
-4. **Residuals**: where no fixed upstream tag exists yet, add a **dated, justified**
-   `.trivyignore` entry (CVE, package, why-unfixable, review date) — never a
-   blanket suppression.
-5. **Flip the gate**: change `scan-images` (and confirm `scan-first-party`) to
-   fail on HIGH+CRITICAL — i.e. count HIGH finding rows too, `--exit-code 1`
-   (using the `^│.*<SEV>` finding-row match, **not** the totals line). Update the
-   advisory wording removed from `scan-images` in Phase 313.
-6. **Tests/docs**: update `tests/integration/test_ci_flow.py`
-   (`test_scan_images_reports_high_gates_on_critical` → assert HIGH-gating),
-   tick the deferred acceptance box in `PHASE_313.md`, CHANGELOG, REDIS/DOCKER
-   image docs.
+The first-party side is **not uniformly clean either** (newly discovered): the Go
+images (`ja4proxy`, `ja4proxy-mockbackend`) are HIGH-clean (already built with Go
+1.26.4), the **alpine** images (`ja4proxy-analytics`, `ja4proxy-tarpit`) have a
+*fixable* openssl HIGH (apk `3.5.6-r0` → `3.5.7-r0` via a base rebuild), but the
+**Debian `python:3.14-slim`** images (`ja4proxy-test`, `ja4proxy-trafficgen`, plus
+the out-of-scope `management`/`admin`) carry **no-fix** distro HIGH **and CRITICAL**
+CVEs (curl, ncurses, perl, linux-libc-dev, …). So even a first-party HIGH gate
+needs a base-image strategy first.
+
+## Decision (user-approved 2026-06-13): differentiated gate
+
+```
+scan-dockerfiles : HIGH+CRITICAL -> exit 1   (we own these files — unchanged)
+scan-first-party : CRITICAL -> exit 1 ; HIGH -> advisory   (target: HIGH gate once
+                   the alpine openssl rebuild + a slim/distroless base for the
+                   Debian Python images land — see "Deferred" below)
+scan-images (3rd): CRITICAL -> exit 1 ; HIGH -> reported + tracked in a dated
+                   waiver register (docs/security/THIRD_PARTY_CVE_WAIVERS.md).
+                   When upstream ships a fixed tag, bump it and drop the row.
+```
+
+Rationale: gate hard on what we control (Dockerfiles, our own Go toolchain),
+track openly what we don't (upstream third-party rebuild lag), never silently
+ignore, and keep the required gate green unless **we** regress.
+
+## What this phase delivers NOW (verified, safe)
+
+1. **Bump the 2 fixable third-party images** (both re-scanned CLEAN):
+   - `prom/alertmanager` `v0.32.1` → `v0.33.0`
+   - `oliver006/redis_exporter` `v1.84.0` → `v1.86.0`
+   Mirrored across `Makefile` `TRIVY_IMAGES`, `deploy/docker/docker-compose.monitoring.yml`,
+   `deploy/docker/docker-compose.prod.yml`, the `redis-secure` Ansible default,
+   and `docs/DOCKER_IMAGES.md`.
+2. **Refresh `docs/DOCKER_IMAGES.md`** — its third-party table had drifted by many
+   releases; reconciled to the actually-pinned tags.
+3. **Create `docs/security/THIRD_PARTY_CVE_WAIVERS.md`** — honest, dated register
+   of every upstream-blocked third-party HIGH, with recheck dates and a bump-and-drop
+   process. (Not a `.trivyignore`; these are advisory, not gating.)
+4. **Clarify `make scan-images` output** to reference the register and explain the
+   differentiated posture (no gate-logic change — third-party still gates on CRITICAL).
+
+## Deferred (own follow-up; do NOT force into this PR)
+
+These are blocked on work we can't safely verify locally / that exceeds a docs+bump PR:
+
+- **First-party HIGH gate flip.** Requires: (a) rebuild `analytics`/`tarpit` on a
+  patched alpine base to clear the openssl HIGH, and (b) move the Debian
+  `python:3.14-slim` first-party images (`test`, `trafficgen`) to a slim/distroless
+  base — or scope them out of the production HIGH gate — because they carry no-fix
+  Debian HIGH/CRITICAL. Verify in CI (local full builds are unreliable here).
+- **Third-party HIGH gate flip.** Re-attempt only once upstream images
+  (`node-exporter`, `prometheus`, `loki`, `promtail`, `grafana`, `redis-stack`)
+  ship rebuilds against Go 1.26.4 / patched bases. Tracked by the waiver register's
+  fortnightly recheck + Dependabot + the weekly scheduled scan.
+- **Out-of-scope CRITICALs surfaced by the scan:** the `python:3.14-slim`-based
+  `ja4proxy-management` image carries 2 CRITICAL perl CVEs (no fix). It is **not**
+  in the gated `FIRST_PARTY_IMAGES` set, so it does not red the gate today, but it
+  should get the same base-image treatment. Flag for a hardening follow-up.
 
 ## Scope (files)
 
-- **Edit:** `Makefile` — `TRIVY_IMAGES` tag bumps; flip `scan-images`
-  (and verify `scan-first-party`) to HIGH+CRITICAL gating.
-- **Edit:** `deploy/docker/docker-compose.*.yml` — matching image tag bumps.
-- **Edit:** `go.mod` / `go.sum` — Go toolchain + dep bumps for first-party CVEs.
-- **Edit:** `.trivyignore` — dated, justified entries for any genuinely-unfixed CVE.
-- **Edit:** `tests/integration/test_ci_flow.py`, `docs/DOCKER_IMAGES.md`,
-  `CHANGELOG.md`, `docs/phases/complete/PHASE_313.md` (tick deferred box).
+- **Edit:** `Makefile` — `TRIVY_IMAGES` (2 tag bumps) + `scan-images` advisory wording.
+- **Edit:** `deploy/docker/docker-compose.monitoring.yml`, `deploy/docker/docker-compose.prod.yml` — matching tag bumps.
+- **Edit:** `deploy/ansible/roles/redis-secure/defaults/main.yml` — `redis_exporter_version` default bump.
+- **Edit:** `docs/DOCKER_IMAGES.md` — third-party inventory refresh.
+- **New:** `docs/security/THIRD_PARTY_CVE_WAIVERS.md` — waiver register.
+- **Edit:** `CHANGELOG.md`, `docs/phases/manifest.yaml`.
 
-## Acceptance criteria
+## Acceptance criteria (revised)
 
-- [ ] `make scan` exits 0 with `scan-images` **and** `scan-first-party` gating on
-      **HIGH+CRITICAL** (no advisory carve-out for HIGH).
-- [ ] Every pinned image bump is mirrored in the compose files and
-      `docs/DOCKER_IMAGES.md`; `make lint-docker` still passes.
-- [ ] First-party HIGH CVEs fixed at source (Go toolchain/deps), not ignored.
-- [ ] `.trivyignore` contains only dated, individually-justified residuals (if any),
-      each with a recheck date.
-- [ ] `test_ci_flow.py` asserts the HIGH gate; the [[PHASE_313]] deferred box is ticked.
+- [x] Fresh authoritative scan captured; plan reconciled to reality.
+- [ ] The 2 fixable third-party images bumped + mirrored in compose + Ansible +
+      `DOCKER_IMAGES.md`; `make lint-docker` still passes.
+- [ ] `docs/security/THIRD_PARTY_CVE_WAIVERS.md` enumerates every upstream-blocked
+      third-party HIGH with a recheck date and a bump-and-drop process.
+- [ ] `make scan` exits 0 (third-party gates on CRITICAL; HIGH reported + tracked).
 - [ ] Full CI green (Full Lint, Security Scan, Full Test, Meta-Validation).
+- [ ] Follow-up for the first-party base-image work + gate flip is recorded (the
+      [[PHASE_313]] deferred HIGH-gate box stays open, annotated with the
+      differentiated-gate decision and the remaining blockers).
 
 ## Out of scope
 
 - The lint toolchain containerisation (delivered in [[PHASE_313]]).
-- Non-CVE Trivy misconfiguration findings (`scan-dockerfiles`) beyond what a tag
-  bump incidentally changes.
+- Re-architecting the Debian Python images onto a slim/distroless base (follow-up).
 - MEDIUM/LOW CVEs (remain reporting-only).
 
 ## Risks
 
-- **Image bumps are behaviour changes.** A newer haproxy/redis/grafana tag can
-  shift config/behaviour; bump deliberately, run `make lint-docker` + the relevant
-  compose smoke/E2E, and bump one image per commit where practical.
-- **Moving target.** New HIGH CVEs land continually; the goal is "zero
-  un-justified HIGH at merge", kept honest by the gate + Dependabot + the weekly
-  scheduled scan — not a permanently frozen list.
-- **Upstream lag.** Some third-party images may not yet ship a fixed tag; those
-  become dated `.trivyignore` residuals with a recheck date, not silent passes.
+- **Moving target.** New Go-stdlib CVEs land continually and hit every Go-based
+  third-party image at once; the waiver register + fortnightly recheck keep this
+  honest rather than pretending to a frozen-clean state.
+- **Image bumps are behaviour changes.** The 2 bumps are minor monitoring-sidecar
+  version steps; `make lint-docker` + the compose config check guard against
+  structural breakage.

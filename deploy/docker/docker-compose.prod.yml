@@ -221,7 +221,7 @@ services:
   # ── Monitoring ────────────────────────────────────────────────────────────
 
   redis-exporter:
-    image: oliver006/redis_exporter:v1.84.0
+    image: oliver006/redis_exporter:v1.86.0
     environment:
       - REDIS_ADDR=redis:6379
       - REDIS_PASSWORD_FILE=/run/secrets/redis_password
