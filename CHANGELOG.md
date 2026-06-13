@@ -39,6 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `docs/reports/python-prototype-test-removal-audit.md`.
 
 ### Fixed
+- **Resolve security scan vulnerability failures (Phase 330)**: Aligned the production proxy image version tag to `ja4proxy:2.0.0` (matching the Go rewrite release) in `deploy/docker/docker-compose.prod.yml` and the `Makefile` first-party image list. This ensures vulnerability scans run against the clean Go/Alpine-based production image instead of the stale Python-based `ja4proxy:1.0.0` image, and resolves `check-image-versions` warnings about version drift.
 - **Four dead security alerts now fire on real signals (Phase 309 WP-6)**: the
   metrics behind `AbuseIPDBQuotaExhausted`, `SpamhausDownloadFailed`,
   `SpamhausListStale`, and `BeaconingDetected` were emitted only by the Python
