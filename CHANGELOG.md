@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Branch hygiene and stale branch cleanup (Phase 329)**: Introduced automated Git branch hygiene guidelines and a Python script (`scripts/branch_hygiene.py`) to safely audit, classify, and delete stale/merged remote and local branches. Developed unit tests and a permanent developer runbook (`docs/developer/BRANCH_HYGIENE.md`).
 - **Go blocklist feed downloader (Phase 309 WP-6)**: the Go proxy now downloads
   Spamhaus DROP/EDROP (and any configured CIDR feed) on a per-feed timer and
   atomically swaps the parsed trie into the live `BlocklistManager`. Previously

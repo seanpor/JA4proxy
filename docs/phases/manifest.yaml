@@ -110,6 +110,7 @@ epics:
   - 102
   - 204
   - 106
+  - 329
 - name: 'Epic: Quality Assurance & Test Maturity'
   description: Comprehensive testing, adversarial coverage, and performance validation.
   phases:
@@ -2649,3 +2650,11 @@ phases:
     dependencies: [231, 237]
     size: MEDIUM
     summary: Harden the dashboard status indicators using shape+color+text matching WCAG 2.1 AA, add ARIA live regions, style CSS Light Mode, configure Grafana secure cookies, publish the cAdvisor threat model, and write a HAProxy TCP mode CI test.
+  329:
+    name: Branch Hygiene and Stale Remote Cleanup
+    status: COMPLETE
+    completed: 2026-06-13
+    action_plan: docs/phases/complete/PHASE_329.md
+    dependencies: []
+    size: SMALL
+    summary: 'Branch hygiene lifecycle guidelines and script to audit and safely delete stale/merged remote and local branches. Includes unit testing of branch classification and a permanent runbook for developers.'

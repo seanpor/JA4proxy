@@ -5,7 +5,7 @@
 
 ## Current Status: Phase 109 (PROXY Protocol Hardening & Scrubbing) Next
 
-**Last Updated:** 2026-06-12
+**Last Updated:** 2026-06-13
 
 ## Epics & Roadmap
 
@@ -137,6 +137,7 @@ Zero-downtime upgrades, robust health monitoring, and deployment orchestration.
 | 102 | Phase 93 Finishing Work: ADRs, Runbook Audit, Drift-Detection Decision | COMPLETE | Docs-only close-out of Phase 93. Three ADRs written (093a repo topology, 093b Registry namespace, 093c TTL renewal + drift-detection decision). deploy/terraform/README.md refreshed with drift-protection guidance. docs/runbooks/emergency_playbooks.md audited against playbook YAML. Most of the phase's original scope (protect_unmanaged_entries, [terraform] prefix, ticket/ttl_hours/notes fields, PlanModifiers, SHA-pinned CI) was pre-delivered in the external provider repo at github.com/seanpor/terraform-provider-ja4proxy before Phase 102 started. |
 | 204 | README Badges — License, Versions, CI, Security | COMPLETE | Add comprehensive badge section to README.md: license, Python/Go versions, CI status, test coverage, security scans (Semgrep, TruffleHog), dependency audit, Docker readiness, and project architecture badges. |
 | 106 | SWEBOK v4 Alignment & Quality Plan | COMPLETE | Align project engineering practices with SWEBOK v4 standards, including SLOs, risk register, TCO analysis, traceability tooling, retrospective mechanism, engineering-method narrative, component design index, and quality plan. Closed 12 of 14 applicable KAs (KAs 7 and 13 deferred to Phase 105). |
+| 329 | Branch Hygiene and Stale Remote Cleanup | COMPLETE | Branch hygiene lifecycle guidelines and script to audit and safely delete stale/merged remote and local branches. Includes unit testing of branch classification and a permanent runbook for developers. |
 
 ### Epic: Quality Assurance & Test Maturity
 Comprehensive testing, adversarial coverage, and performance validation.
@@ -388,6 +389,7 @@ Alignment with international standards and regulatory frameworks.
 | 310 | Collision-Free Dev Environments + Clean Good/Bad Load Test | COMPLETE | N/A | N/A |
 | 311 | Resilient pip-audit — Stop PyPI Outages Reddening the Lint Gate | COMPLETE | N/A | N/A |
 | 312 | pip-audit Dual-Service Fallback — Shrink the Soft-Pass Window | COMPLETE | N/A | N/A |
+| 329 | Branch Hygiene and Stale Remote Cleanup | COMPLETE | N/A | N/A |
 
 ---
 
