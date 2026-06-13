@@ -118,15 +118,23 @@ These are blocked on work we can't safely verify locally / that exceeds a docs+b
 ## Acceptance criteria (revised)
 
 - [x] Fresh authoritative scan captured; plan reconciled to reality.
-- [ ] The 2 fixable third-party images bumped + mirrored in compose + Ansible +
+- [x] The 2 fixable third-party images bumped + mirrored in compose + Ansible +
       `DOCKER_IMAGES.md`; `make lint-docker` still passes.
-- [ ] `docs/security/THIRD_PARTY_CVE_WAIVERS.md` enumerates every upstream-blocked
+- [x] `docs/security/THIRD_PARTY_CVE_WAIVERS.md` enumerates every upstream-blocked
       third-party HIGH with a recheck date and a bump-and-drop process.
-- [ ] `make scan` exits 0 (third-party gates on CRITICAL; HIGH reported + tracked).
-- [ ] Full CI green (Full Lint, Security Scan, Full Test, Meta-Validation).
-- [ ] Follow-up for the first-party base-image work + gate flip is recorded (the
-      [[PHASE_313]] deferred HIGH-gate box stays open, annotated with the
-      differentiated-gate decision and the remaining blockers).
+- [x] `make scan` exits 0 (third-party gates on CRITICAL; HIGH reported + tracked).
+- [x] Full CI green (Full Lint, Security Scan, Full Test, Meta-Validation) — merged in #144.
+- [x] Follow-up for the first-party base-image work + gate flip is recorded as
+      **[[PHASE_317]]**; the [[PHASE_313]] deferred HIGH-gate box stays open,
+      annotated with the differentiated-gate decision and the remaining blockers.
+
+## Status: COMPLETE (2026-06-13, merged in #144)
+
+The scoped differentiated-gate deliverable shipped. The remaining work — re-basing
+the Debian `python:3.14-slim` first-party images, rebuilding the alpine images, and
+flipping `scan-first-party` to a HIGH gate — is carried by **[[PHASE_317]]**. The
+third-party HIGH gate-flip remains upstream-dependent and is tracked by the waiver
+register's fortnightly recheck, not a phase.
 
 ## Out of scope
 
