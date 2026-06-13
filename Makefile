@@ -10,6 +10,7 @@ BUILD_NUMBER ?= $(shell cat BUILD_NUMBER 2>/dev/null || echo "0")
 GIT_COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILD_DATE ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 FULL_VERSION := v$(VERSION).$(BUILD_NUMBER)
+TOOLS_IMG := ja4proxy-tools
 
 LDFLAGS := -ldflags="-s -w -X github.com/seanpor/ja4proxy/internal/config.Version=$(FULL_VERSION) \
            -X github.com/seanpor/ja4proxy/internal/config.GitCommit=$(GIT_COMMIT) \
@@ -322,6 +323,7 @@ test: ## Phase 146 — Run the full test suite
 	@echo "=== Running CI/workflow guardrail tests ==="
 	@$(PYTHON) -m pytest tests/test_workflow_pinning.py -q --timeout=60
 	@echo "✓ Full test suite passed"
+	@python3 scripts/pipeline_summary.py test
 
 # Run unit tests only
 test-unit:
@@ -349,7 +351,9 @@ smoke-test:
 
 # Run linting
 lint: ## Phase 146 — Run all linters (Python, Go, Infra, Docs)
-	@$(MAKE) lint-all
+	$(MAKE) docker-run-tools CMD="make lint-all"
+	@python3 scripts/pipeline_summary.py lint
+	@python3 scripts/ci_summary.py lint
 
 # Security scanning with bandit (medium/high severity, skip B104 bind-all)
 lint-security:
@@ -436,10 +440,11 @@ lint-docker:
 		MANAGEMENT_JWT_SECRET=lint-placeholder MANAGEMENT_ADMIN_USER=lint-placeholder MANAGEMENT_ADMIN_PASSWORD=lint-placeholder \
 		docker compose -f deploy/docker/docker-compose.poc.yml -f deploy/docker/docker-compose.scale.yml config --quiet \
 		&& echo "  deploy/docker/docker-compose.scale.yml (overlay)          OK"
-	@echo ""
-	@echo "✓ Docker lint passed"
+	# Helper to run commands inside the tools container
+docker-run-tools:
+	@docker build -t $(TOOLS_IMG) -f Dockerfile.tools .
+	@docker run --rm -v $(PWD):/src:ro -w /src $(TOOLS_IMG) sh -c "$(CMD)"
 
-# Lint shell scripts with shellcheck (error-level only; warnings are advisory).
 # SC2154 suppressed: variables sourced from .env are referenced but not assigned in-script.
 SHELL_SCRIPTS := $(shell find . -name "*.sh" -not -path "./.git/*" -not -path "./node_modules/*" -not -path "./.claude/*" | sort)
 lint-shell:
@@ -487,24 +492,25 @@ check-manifest:
 scan-images:
 	@mkdir -p "$(TRIVY_CACHE)"
 	@echo "=== Trivy: third-party image CVE scan (HIGH + CRITICAL) ==="
-	@echo "    Fails on CRITICAL; HIGH findings are reported but advisory."
+	@echo "    Fails on HIGH or CRITICAL findings."
 	@echo "    CVEs listed in .trivyignore are documented exceptions."
 	@echo ""
 	@fail=0; \
 	for img in $(TRIVY_IMAGES); do \
 		echo "  Scanning $$img ..."; \
 		result=$$(docker run --rm -v "$(PWD):/scan:ro" -v "$(TRIVY_CACHE):/root/.cache/trivy" aquasec/trivy:0.71.0 image \
-			--severity HIGH,CRITICAL --exit-code 0 \
+			--severity HIGH,CRITICAL --exit-code 1 \
 			--no-progress --scanners vuln \
 			--ignorefile /scan/.trivyignore \
 			--format table "$$img" 2>&1 | grep -E "CRITICAL|HIGH|Total:" || true); \
-		critical=$$(echo "$$result" | grep -c "^│.*CRITICAL" || true); \
+		critical=$$(echo "$$result" | grep -c "CRITICAL" || true); \
 		echo "    $$result"; \
-		[ "$$critical" -eq 0 ] || { echo "    ✗ CRITICAL findings in $$img — fix the image or add a justified, dated .trivyignore entry"; fail=1; }; \
+		[ "$$critical" -gt 0 ] && fail=1; \
 		echo ""; \
 	done; \
-	[ $$fail -eq 0 ] || { echo "✗ CRITICAL CVEs found — see .trivyignore for documented exceptions"; exit 1; }
+	[ $$fail -eq 0 ] || { echo "✗ HIGH/CRITICAL CVEs found — see .trivyignore for documented exceptions"; exit 1; }
 	@echo "✓ Image scan complete"
+	@python3 scripts/ci_summary.py scan
 
 # Trivy misconfiguration scan of Dockerfiles and compose files.
 # Does NOT require building images — analyses file content only.
@@ -914,7 +920,8 @@ scan-local:
 	@(gosec -fmt=text -exclude-dir=.claude ./... || true)
 
 scan: ## Phase 146 — Run all security and container scans
-	@$(MAKE) scan-all
+	$(MAKE) docker-run-tools CMD="make scan-all"
+	@python3 scripts/pipeline_summary.py scan
 
 scan-all: scan-container scan-dockerfiles scan-first-party scan-images
 	@echo "✓ All scans passed"
@@ -1186,25 +1193,25 @@ lint-go: ## Run all Go linters (fmt, vet, golangci-lint)
 
 lint-sast: ## Run cross-language SAST (Semgrep)
 	@echo "=== lint-sast: Semgrep ==="
-	@$(MAKE) lint-semgrep || echo "  ! Warning: Semgrep failed or not installed"
+	@$(MAKE) lint-semgrep
 
 lint-infra: ## Run infrastructure linters (Hadolint, Ansible, Terraform)
 	@echo "=== lint-infra: Hadolint + Ansible + Terraform ==="
-	@$(MAKE) lint-docker lint-ansible || echo "  ! Warning: Infra lint failed"
+	@$(MAKE) lint-docker lint-ansible
 
 lint-observability: ## Run observability linters (Prometheus, Alertmanager)
 	@echo "=== lint-observability: promtool + amtool ==="
-	@$(MAKE) lint-prom lint-alertmanager || echo "  ! Warning: Observability lint failed"
+	@$(MAKE) lint-prom lint-alertmanager
 
 lint-supply-chain: ## Run supply-chain linters (Gitleaks, Scorecard)
 	@echo "=== lint-supply-chain: Gitleaks + Scorecard ==="
-	@$(MAKE) lint-secrets scorecard-local || echo "  ! Warning: Supply-chain lint failed"
+	@$(MAKE) lint-secrets scorecard-local
 
 lint-docs-all: ## Run all documentation quality checks
 	@echo "=== lint-docs-all: Doc-health + Links + ATT&CK ==="
-	@$(MAKE) doc-health || echo "  ! Warning: doc-health failed"
-	@$(MAKE) test-doc-links || echo "  ! Warning: link check skipped/failed"
-	@$(MAKE) test-attack-mapping || echo "  ! Warning: ATT&CK mapping failed"
+	@$(MAKE) doc-health
+	@$(MAKE) test-doc-links
+	@$(MAKE) test-attack-mapping
 
 doc-health: ## Validate documentation frontmatter
 	@$(PYTHON) scripts/check_doc_frontmatter.py
@@ -1228,8 +1235,12 @@ lint-ansible: ## Lint the Ansible playbooks/roles under deploy/ansible
 
 lint-all: lint-meta lint-python lint-go lint-sast lint-infra lint-observability \
           lint-supply-chain lint-docs-all
-	@echo ""
-	@echo "✓ lint-all complete"
+	@set -e; \
+	 echo "Running all lint targets..."; \
+	 # Sub-targets will stop make on failure due to set -e; dependencies already run before this recipe
+	 echo ""; \
+	 echo "✓ lint-all complete"; \
+	 python3 scripts/ci_summary.py lint
 
 start-poc: deploy-poc ## Alias for starting the POC environment
 

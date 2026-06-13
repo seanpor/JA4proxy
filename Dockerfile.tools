@@ -1,0 +1,8 @@
+FROM python:3.14-slim AS base
+RUN apt-get update && apt-get install -y --no-install-recommends make git ca-certificates build-essential golang && rm -rf /var/lib/apt/lists/*
+RUN pip install --no-cache-dir ansible-lint==24.* semgrep==1.* gitleaks==8.* bandit==1.* ruff==0.4.* mypy==1.* pip-audit==2.*
+ENV GOROOT=/usr/lib/go
+ENV PATH=$GOROOT/bin:$PATH
+RUN go install github.com/securego/gosec/v2/cmd/gosec@latest && go install golang.org/x/lint/golint@latest
+WORKDIR /src
+ENTRYPOINT ["sh"]

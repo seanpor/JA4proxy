@@ -90,6 +90,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the warn-and-proceed path requires *both* services down at once (rare) — while
   staying live (no offline/stale DB). A real vulnerability on either path still
   fails the build.
+- **Fix CI lint loop and scan failure handling (Phase 313)**: corrected infinite
+  lint looping and ensured `make scan` fails on HIGH/CRITICAL findings; added
+  concise CI summary output via `scripts/ci_summary.py`.
 
 ### Added
 - **Dev lanes + clean load test (Phase 310)**: each git worktree auto-gets a
