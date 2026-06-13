@@ -391,6 +391,15 @@ Alignment with international standards and regulatory frameworks.
 | 312 | pip-audit Dual-Service Fallback — Shrink the Soft-Pass Window | COMPLETE | N/A | N/A |
 | 313 | Fix CI Lint Loop & Scan Failure Handling | COMPLETE | N/A | N/A |
 | 314 | Third-Party Image HIGH-CVE Remediation (re-enable HIGH-gating) | PROPOSED | N/A | N/A |
+| 315 | Go Backup / Restore Subsystem (index) | PROPOSED | N/A | N/A |
+| 315a | Go Redis Backup Engine | PROPOSED | N/A | N/A |
+| 315b | Go Redis Restore (selective, GDPR-aware) | PROPOSED | N/A | N/A |
+| 316 | Go TAP / SPAN Passive Sensor (index) | PROPOSED | N/A | N/A |
+| 316a | TAP Capture + TCP Reassembly + Handshake Extraction | PROPOSED | N/A | N/A |
+| 316b | TAP OS-Mismatch MVP (first end-to-end value) | PROPOSED | N/A | N/A |
+| 316c | TAP Full JA4 Fingerprint Family (OUTLINE) | PROPOSED | N/A | N/A |
+| 316d | TAP Out-of-Band Enforcement Bridge (OUTLINE) | PROPOSED | N/A | N/A |
+| 316e | TAP Intelligence Exporters (OUTLINE) | PROPOSED | N/A | N/A |
 | 329 | Branch Hygiene and Stale Remote Cleanup | COMPLETE | N/A | N/A |
 
 ---
