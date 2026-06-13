@@ -83,6 +83,18 @@ docker compose logs ja4proxy | tail -5
 \end{bashcode}
 \end{enumerate}
 
+\begin{notebox}[Reloading in Production / Native Mode]
+If JA4proxy is running in production or native systemd mode, trigger a configuration reload by sending \code{SIGHUP} directly to the Go daemon:
+\begin{bashcode}
+sudo kill -HUP $(pgrep ja4pd)
+\end{bashcode}
+To view logs and verify the reload:
+\begin{bashcode}
+sudo journalctl -u ja4proxy.service -n 5
+# Should show: INFO | config | event=reload | status=ok
+\end{bashcode}
+\end{notebox}
+
 \subsection{Adding a Fingerprint to the Blacklist}
 
 When you identify a malicious fingerprint (from logs, Grafana, or threat intelligence):
@@ -146,6 +158,17 @@ docker compose exec redis redis-cli DEL "ban:192.0.2.1"
 
 The next connection from that IP will be processed normally. There is no need
 to restart anything.
+
+\begin{notebox}[Redis Commands in Native Mode]
+If you are running in native mode, Redis runs directly on the host. You can use \code{redis-cli} commands directly on the host terminal instead of wrapping them in \code{docker compose exec}:
+\begin{bashcode}
+# Count active bans directly
+redis-cli --scan --pattern "ban:*" | wc -l
+
+# Clear a specific ban directly
+redis-cli DEL "ban:192.0.2.1"
+\end{bashcode}
+\end{notebox}
 
 \subsection{Ban Expiry}
 
