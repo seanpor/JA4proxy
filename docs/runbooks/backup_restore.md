@@ -1,15 +1,15 @@
 <!--
-title: Go Redis Backup Runbook
+title: Go Redis Backup & Restore Runbook
 audience: Operators, DevOps
 last_reviewed: 2026-06-13
-phase: 315a
+phase: 315b
 -->
 
-# Runbook — Go Redis Backup (`ja4p backup`)
+# Runbook — Go Redis Backup & Restore (`ja4p backup` / `ja4p restore`)
 
 The proxy is stateless; all durable security state lives in Redis. This runbook
-covers the **Go** backup engine introduced in Phase 315a. (Restore — `ja4p
-restore` — is Phase 315b and not yet available.)
+covers the **Go** backup engine (Phase 315a) and the **restore** engine (Phase
+315b — the *dangerous half*; see the restore section below before using it).
 
 ## What gets backed up
 
@@ -71,4 +71,60 @@ A backup failure is **fail-safe**: it logs, increments
 `ja4proxy_backup_operations_total{status="failure"}`, sets
 `ja4proxy_backup_currently_running` back to 0, releases the
 `backup:operation_lock`, and exits non-zero. It never touches live traffic. A
-held lock (another backup or a future restore in progress) aborts the run.
+held lock (another backup or a restore in progress) aborts the run.
+
+---
+
+# Restore (`ja4p restore`) — the dangerous half
+
+Restoring the wrong things can **re-block real users** (a mass false-positive
+event) and can **resurrect personal data a subject asked us to erase** (a GDPR
+Article 17 breach). `ja4p restore` makes both **impossible by default**.
+
+## The two guard-rails (on by default)
+
+1. **Block-state is gated.** Bans (`ban:*`, `ban_cidr:*`), the block lists
+   (`ip:blacklist`, `ja4:blacklist`) and the dial (`config:dial`) are **not**
+   restored unless you pass `--include-blocks`. A default restore can only bring
+   back allow-state (whitelists, fingerprints, audit history) — it can never
+   re-block a user.
+2. **GDPR-erased subjects are never resurrected.** Before writing any per-IP key
+   (`ban:{ip}`, `fp:os:ip:{ip}`, `fp:ip:{ip}`, `beacon:{ip}:{ja4}`), the restore
+   consults the tombstone set: the live `management:gdpr_erasure_log` (read
+   **before** any flush) **merged** with an optional `--tombstone-file`. Any key
+   whose subject was erased after the backup is skipped and counted
+   (`ja4proxy_restore_skipped_total{reason="erased"}`).
+
+## Safety flags
+
+| Flag | Effect |
+|---|---|
+| *(none)* | Restore allow-state only, into an **empty** target, real write. |
+| `--include-blocks` | Also restore bans/blacklists/dial — **can re-block users**. |
+| `--force` | `FLUSHDB` a **non-empty** target before restoring (else the restore refuses to clobber). Tombstones are read *before* the flush. |
+| `--dry-run` | Report what *would* happen (counts of restore / block-gated / erased-skipped); **writes nothing**. |
+| `--tombstone-file <path>` | A file of IPs (one per line, `#` comments allowed) that must never be resurrected — survives a disaster where the live erasure log is gone. |
+
+## Restore
+
+```bash
+export JA4PROXY_BACKUP_KEY=...
+# Preview first — always:
+ja4p restore /var/lib/ja4proxy/backups/ja4proxy-backup-1750000000.bin --dry-run --include-blocks
+# Disaster recovery onto an empty/replaced DB, bans included, erased subjects honoured:
+ja4p restore <artifact> --include-blocks --force --tombstone-file /etc/ja4proxy/erased-ips.txt
+```
+
+TTLs are re-applied from the artifact (a ban with 200s left comes back with ~200s,
+not a fresh hour). Every restore is audited to `management:policy_audit` and writes
+`backup:last_restore` / `backup:restored_from`.
+
+## Restore metrics & failure handling
+
+Emits `ja4proxy_restore_operations_total{status}`,
+`ja4proxy_restore_currently_running`, `ja4proxy_restore_duration_seconds`, and
+`ja4proxy_restore_skipped_total{reason="erased|block_gated"}`. A failure is
+fail-safe (logs, `status="failure"`, `currently_running` → 0, lock released,
+non-zero exit). A tampered/truncated/wrong-key artifact fails closed **before**
+any Redis write; a backup whose `schema_version` is newer than this binary is
+refused (downgrade-block).

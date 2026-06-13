@@ -128,6 +128,9 @@ func main() {
 	// 8. Backup Command (phase-315a)
 	rootCmd.AddCommand(buildBackupCmd())
 
+	// 9. Restore Command (phase-315b)
+	rootCmd.AddCommand(buildRestoreCmd())
+
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
