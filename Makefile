@@ -417,6 +417,10 @@ HADOLINT_DOCKERFILES := deploy/docker/Dockerfile.admin deploy/docker/Dockerfile.
 
 lint-docker:
 	@echo "=== hadolint: Dockerfiles ==="
+	@# Pre-pull so Docker's "Unable to find image / Downloaded" messages (stderr,
+	@# emitted on a cold runner) don't land in $$result below and false-FAIL the
+	@# first file. (We keep 2>&1 to still capture genuine hadolint errors.)
+	@docker pull -q hadolint/hadolint:v2.14.0 >/dev/null 2>&1 || true
 	@for f in $(HADOLINT_DOCKERFILES); do \
 		printf "  %-50s" "$$f"; \
 		result=$$(docker run --rm -i hadolint/hadolint:v2.14.0 hadolint $(HADOLINT_IGNORE) --no-color - < "$$f" 2>&1); \
