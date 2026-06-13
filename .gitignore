@@ -174,3 +174,4 @@ secrets/
 .ruff_cache/
 .mypy_cache/
 .qwen/
+.poolside/
