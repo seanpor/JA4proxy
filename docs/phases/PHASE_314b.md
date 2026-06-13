@@ -129,6 +129,22 @@ increments an error counter — it never blocks capture and never produces a ban
 - `gdpr_delete.py` erases `fp:os:ip`/`fp:ip` keys.
 - Tests pass; coverage ≥ 80%; REDIS_SCHEMA/runbook/CHANGELOG/manifest updated.
 
+## Files to Modify
+
+| File | Change |
+|------|--------|
+| `internal/fingerprint/osclass.go` | New file — canonical OSClass type and parsing helper |
+| `internal/security/tap_consumer.go` | Refactor to use the shared, canonical `OSClass` type |
+| `internal/tap/osfingerprint.go` | New file — OS classification from packet TCP options and middlebox checks |
+| `internal/tap/store.go` | New file — Redis write layer for `fp:os:ip:{ip}` |
+| `internal/tap/sensor.go` | Replace stub consumer with classification and store pipeline |
+| `scripts/gdpr_delete.py` | Add `fp:os:ip:*` and `fp:ip:*` to IP patterns for deletion |
+| `internal/metrics/metrics.go` | Register sensor fingerprint metrics |
+| `docs/OBSERVABILITY_STANDARDS.md` | Add sensor metrics definitions |
+| `docs/REDIS_SCHEMA.md` | Document `fp:os:ip:{ip}` values precisely |
+| `docs/runbooks/tap_mode.md` | Document advisory-only scoring runbook |
+| `CHANGELOG.md` | Add Phase 314b changes |
+
 ## 9. Out of scope
 
 - The full JA4 fingerprint family (JA4S/JA4T/JA4H/…) and the other `fp:*` keys → 314c.

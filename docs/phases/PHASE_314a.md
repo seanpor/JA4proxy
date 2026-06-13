@@ -136,7 +136,7 @@ Add to `internal/metrics` **and** `OBSERVABILITY_STANDARDS.md §1d`:
 2. Metrics → registry + `OBSERVABILITY_STANDARDS.md`.
 3. `internal/tap/capture.go` — AF_PACKET open, promisc, BPF filter, ring read. Support reading offline via pure-Go pcap library if `--pcap-file` is specified.
 4. `internal/tap/decode.go` — zero-copy eth/IPv4/IPv6(+frag)/TCP decode to a normalised segment using `gopacket.NewDecodingLayerParser`.
-5. `internal/tap/reassembler.go` — bounded bidirectional flow table, eviction, `sync.Pool` object recycling, and 16KB stream boundary reassembly depth limit.
+5. `internal/tap/reassembler.go` — use `github.com/google/gopacket/tcpassembly`. Implement a custom `StreamFactory` wrapping `tcpassembly.Stream` that tracks byte length. Restrict stream tracking to 16KB per direction, evicting the flow/stream on overflow, and pool connection/stream allocations via `sync.Pool` to avoid heap allocations. Do not write a TCP reassembler from scratch.
 6. `internal/tap/sensor.go` — wires capture→decode→reassemble→`HandshakeEvent` chan;
    a stub consumer that just counts/logs (replaced in 314b).
 7. `cmd/ja4-tap/main.go` — standalone binary; parse `--pcap-file` / `--key-file` / `--key`, execute cap-drop + change UID/GID, and load seccomp at startup.
@@ -176,6 +176,23 @@ Add to `internal/metrics` **and** `OBSERVABILITY_STANDARDS.md §1d`:
 - Runs non-root, `CAP_NET_RAW`-only, seccomp loaded, BPF-filtered.
 - No payloads persisted/logged.
 - Tests (incl. performance) pass; coverage ≥ 80%; ADR/runbook/CHANGELOG/manifest done.
+
+## Files to Modify
+
+| File | Change |
+|------|--------|
+| `docs/decisions/ADR-314a.md` | New file — capture library assessment and selection |
+| `internal/metrics/metrics.go` | Register TAP metrics |
+| `docs/OBSERVABILITY_STANDARDS.md` | Add TAP metrics definitions |
+| `internal/tap/capture.go` | New file — AF_PACKET and PCAP read loops |
+| `internal/tap/decode.go` | New file — zero-copy Ethernet/IP/TCP decoding |
+| `internal/tap/reassembler.go` | New file — TCP stream reassembly and pooling using `gopacket/tcpassembly` |
+| `internal/tap/sensor.go` | New file — pipeline orchestration |
+| `cmd/ja4-tap/main.go` | New file — standalone sniffer entry point, privilege drop, seccomp |
+| `internal/tap/watchdog.go` | New file — health watchdog |
+| `config/proxy.yml` | Add `tap:` config section |
+| `docs/runbooks/tap_mode.md` | Update sniffer runbook |
+| `CHANGELOG.md` | Add Phase 314a changes |
 
 ## 12. Out of scope (these are later sub-phases)
 

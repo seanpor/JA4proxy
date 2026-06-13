@@ -145,7 +145,7 @@ backup ones; 313b emits the restore ones):
    `metrics_textfile`, `batch_size: 100`, `batch_delay_ms: 10`. Document that it is a per-invocation CLI, so SIGHUP
    hot-reload is N/A.
 3. **Crypto Library** `internal/backup/crypto.go`: Implement `EncryptPayload`, `DecryptPayload` using AES-256-GCM with secure random IV prepending, and `DeriveKey` using PBKDF2-SHA256 (100k iterations) with random salt.
-4. **Backup engine** `internal/backup/backup.go`: lock → read key-file/env → active config hash + build version → paced, pipelined SCAN/PTTL/DUMP (batching/delay) → optional in-memory PII sanitization redactor (if `--sanitize` is active) → manifest assembly → gzip → AES-256-GCM → write binary header + ciphertext to `*.bin.tmp` (0600) → atomic `os.Rename` → prune → metrics → unlock.
+4. **Backup engine** `internal/backup/backup.go`: lock → read key-file/env → active config hash + build version → verify backup directory exists (attempt `os.MkdirAll(dir, 0700)`, fail-closed if permission error) → paced, pipelined SCAN/PTTL/DUMP (batching/delay) → optional in-memory PII sanitization redactor (if `--sanitize` is active) → manifest assembly → gzip → AES-256-GCM → write binary header + ciphertext to `*.bin.tmp` (0600) → atomic `os.Rename` → prune → metrics → unlock.
 5. **CLI** `ja4pd backup` subcommand (wire into `cmd/ja4pd` with `--key-file`, `--key`, and `--sanitize` flags). Add a separate `ja4pd backup inspect <file>` subcommand to decrypt, verify, and print backup metadata.
 6. **Metric emission** as a `.prom` textfile (atomic temp+rename), incl.
    `currently_running 0` via a deferred cleanup that runs **even on crash**.
@@ -206,6 +206,22 @@ or defer the bootstrap wiring to a 231b follow-up.
   pass; `make test` green; coverage ≥ 80% on new Go code.
 - Runbook, ADR, REDIS_SCHEMA, CHANGELOG, manifest updated; the 231b `.env` tar is
   preserved.
+
+## Files to Modify
+
+| File | Change |
+|------|--------|
+| `internal/metrics/metrics.go` | Register backup Prometheus metrics |
+| `docs/OBSERVABILITY_STANDARDS.md` | Add backup metrics definitions |
+| `config/proxy.yml` | Add `backup:` config section |
+| `internal/backup/crypto.go` | New file — AES-GCM and PBKDF2 crypto functions |
+| `internal/backup/backup.go` | New file — Redis SCAN, DUMP, gzip, write-to-file loop |
+| `cmd/ja4pd/main.go` | Wire `backup` and `backup inspect` CLI subcommands |
+| `deploy/docker/docker-compose.monitoring.yml` | Mount node-exporter textfile directory |
+| `deploy/monitoring/alertmanager/rules/backup.rules.yml` | Rename `_last_success_timestamp` to `_seconds` |
+| `docs/runbooks/backup_restore.md` | Update backup execution runbook |
+| `docs/REDIS_SCHEMA.md` | Update `backup:*` keys documentation |
+| `CHANGELOG.md` | Add Phase 313a changes |
 
 ## 10. Out of scope (explicitly)
 

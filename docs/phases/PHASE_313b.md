@@ -58,7 +58,7 @@ Everything below exists to make those two outcomes **off by default**.
 | D9 | **Hybrid GDPR Tombstone Merge via `--tombstone-file`.** | Since `FLUSHDB` destroys Redis state, read tombstones from an external host-mounted `--tombstone-file` AND the backup manifest itself, merging them to ensure erased subjects are never resurrected. |
 | D10 | **Paced, Throttled Restore Pipelines.** | Restore keys using paced pipelines (default batch 100, delay 10ms) to prevent saturating the single-threaded Redis engine. |
 | D11 | **Configuration Divergence Warning.** | Compare active config hash and build version with the manifest. Warn and block restore unless `--force` is used, preventing config-state misalignment. |
-| D12 | **Forward-Compatible Schema Migration Registry.** | Upgrades are a standard lifecycle event. When restoring an older backup (`schema_version = N`) on a newer proxy binary running a newer schema (`current_schema_version = N+1`), pipe each key and binary payload through an in-memory schema migrator function to transform it on the fly. Block downgrades by default. |
+| D12 | **Forward-Compatible Schema Migration Registry.** | Upgrades are a standard lifecycle event. When restoring an older backup (`schema_version = N`) on a newer proxy binary running a newer schema (`current_schema_version = N+1`), pipe each key and binary payload through an in-memory schema migrator function to transform it on the fly. Block downgrades by default. Registry uses a map of source version to transformer functions: `type MigratorFunc func(key string, payload []byte) (string, []byte, error)`. |
 | D13 | **Namespace/Prefix Remapping during Restore (`--prefix-map`).** | Allow operators to restore snapshots into safe namespace prefixes (e.g., remapping `ban:->restore:ban:`) to validate, debug, or compare values without overwriting live database state. |
 | D14 | **Post-Restore Integrity & Health Validation (Smoke Test).** | Verify restore completeness by running a validation check after writing keys (checking allowlists, audit logs, schema correctness). Fail-safe: raise alerts on failure. |
 
@@ -105,7 +105,16 @@ Any failure: log, `ja4proxy_restore_operations_total{status="failure"}`,
 ## 7. Implementation plan (in order)
 
 1. Add the restore metrics to `internal/metrics` + `OBSERVABILITY_STANDARDS.md §1d`. Add validation failure metric `ja4proxy_restore_validation_failed` (counter).
-2. Schema Migration Registry: Define the registry structure and a interface for upgrade migrators. Write a sample migrator (e.g. from version 1 to 2) to establish the pattern.
+2. Schema Migration Registry: Define the registry structure and interface in `internal/backup/migration.go`:
+   ```go
+   type MigratorFunc func(key string, payload []byte) (string, []byte, error)
+   type SchemaMigrator struct {
+       migrators map[int]MigratorFunc // maps fromVersion -> migration logic
+   }
+   func (s *SchemaMigrator) Register(fromVersion int, fn MigratorFunc)
+   func (s *SchemaMigrator) Migrate(key string, payload []byte, fromVersion, targetVersion int) (string, []byte, error)
+   ```
+   Write a sample migrator (e.g. from version 1 to 2) to establish the pattern.
 3. `internal/backup/restore.go`: parse header → PBKDF2 derive → decrypt/verify → schema compatibility check (reject downgrades) → config check (hash/version) → lock → merge tombstones (file + manifest) → paced per-key classify, prefix remapping, schema migration & restore (batching/delay) → post-restore validation (smoke test) → audit.
 4. Classification helpers: a small, well-tested function that labels a key as
    `allow` / `block` / `per-ip` from its prefix, plus a subject-extractor for
@@ -145,6 +154,18 @@ Any failure: log, `ja4proxy_restore_operations_total{status="failure"}`,
 - Every restore appends `management:policy_audit` + `backup:last_restore`.
 - The three `ja4proxy_restore_*` alerts can now fire/clear.
 - Tests pass; coverage ≥ 80%; runbook/ADR/CHANGELOG/manifest updated.
+
+## Files to Modify
+
+| File | Change |
+|------|--------|
+| `internal/metrics/metrics.go` | Register restore Prometheus metrics |
+| `docs/OBSERVABILITY_STANDARDS.md` | Add restore metrics definitions |
+| `internal/backup/migration.go` | New file — Schema migration registry and interfaces |
+| `internal/backup/restore.go` | New file — restore orchestration, tombstone merge, classification, and decryption |
+| `cmd/ja4pd/main.go` | Wire `restore` CLI subcommand with flags |
+| `docs/runbooks/backup_restore.md` | Update restore procedure and scenarios runbook |
+| `CHANGELOG.md` | Add Phase 313b changes |
 
 ## 10. Out of scope
 
