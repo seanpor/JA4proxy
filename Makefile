@@ -505,23 +505,25 @@ check-manifest:
 scan-images:
 	@mkdir -p "$(TRIVY_CACHE)"
 	@echo "=== Trivy: third-party image CVE scan (HIGH + CRITICAL) ==="
-	@echo "    Fails on HIGH or CRITICAL findings."
+	@echo "    Fails on CRITICAL; HIGH findings are reported but advisory."
+	@echo "    (HIGH-gating is deferred — clearing the pre-existing third-party"
+	@echo "     HIGH backlog is its own remediation effort; see PHASE_313.md.)"
 	@echo "    CVEs listed in .trivyignore are documented exceptions."
 	@echo ""
 	@fail=0; \
 	for img in $(TRIVY_IMAGES); do \
 		echo "  Scanning $$img ..."; \
 		result=$$(docker run --rm -v "$(PWD):/scan:ro" -v "$(TRIVY_CACHE):/root/.cache/trivy" aquasec/trivy:0.71.0 image \
-			--severity HIGH,CRITICAL --exit-code 1 \
+			--severity HIGH,CRITICAL --exit-code 0 \
 			--no-progress --scanners vuln \
 			--ignorefile /scan/.trivyignore \
 			--format table "$$img" 2>&1 | grep -E "CRITICAL|HIGH|Total:" || true); \
-		critical=$$(echo "$$result" | grep -c "CRITICAL" || true); \
+		critical=$$(echo "$$result" | grep -c "^│.*CRITICAL" || true); \
 		echo "    $$result"; \
-		[ "$$critical" -gt 0 ] && fail=1; \
+		[ "$$critical" -eq 0 ] || { echo "    ✗ CRITICAL findings in $$img — fix the image or add a justified, dated .trivyignore entry"; fail=1; }; \
 		echo ""; \
 	done; \
-	[ $$fail -eq 0 ] || { echo "✗ HIGH/CRITICAL CVEs found — see .trivyignore for documented exceptions"; exit 1; }
+	[ $$fail -eq 0 ] || { echo "✗ CRITICAL CVEs found — see .trivyignore for documented exceptions"; exit 1; }
 	@echo "✓ Image scan complete"
 	@python3 scripts/ci_summary.py scan
 

@@ -98,9 +98,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   run from their official images (neither runs on Python 3.14); hadolint,
   shellcheck, trivy, gitleaks, gosec, promtool, amtool, scorecard and lychee stay
   on their own images. `make lint`/`make scan` call `lint-all`/`scan-all`
-  directly (the broken `docker-run-tools` Docker-in-Docker wrapper was removed),
-  `scan-images` fails on **HIGH or CRITICAL** (was CRITICAL-only), and
-  `scripts/pipeline_summary.py` prints a one-line verdict without recursing into
+  directly (the broken `docker-run-tools` Docker-in-Docker wrapper was removed)
+  and `scripts/pipeline_summary.py` prints a one-line verdict without recursing into
   `make`. `lint-go` keeps the host Go toolchain (go.mod needs go 1.26); lychee
   link-check, ansible-lint and scorecard are advisory (their gates are the
   dedicated workflows). Verified with a full local `make lint` (exit 0).

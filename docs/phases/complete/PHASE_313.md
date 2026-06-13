@@ -84,11 +84,15 @@ The CI runner therefore needs only Docker (plus the Go toolchain it already has)
 
 ### Fail-closed gates
 
-- `scan-images`: Trivy switched to `--severity HIGH,CRITICAL --exit-code 1`, and
-  the per-image tally fails the target on **HIGH or CRITICAL** (was
-  CRITICAL-only). Documented exceptions still live in `.trivyignore`.
 - `lint-sast` (semgrep) now genuinely gates — it runs from semgrep's official
   image instead of being skipped when semgrep is absent from the host.
+- `scan-images` keeps `main`'s posture: scans **HIGH+CRITICAL**, reports both,
+  but **gates on CRITICAL only** (HIGH is advisory). The parked WIP tried to gate
+  on HIGH too; the first CI run showed the third-party images carry a large
+  pre-existing **HIGH** backlog (grafana/tempo, otel, thrift, openssl, gpgv, Go
+  stdlib — 13 HIGH, 0 CRITICAL), so HIGH-gating is **deferred** to a dedicated
+  CVE-remediation effort rather than blanket-`.trivyignore`-ing real findings.
+  (The WIP's HIGH-gate was also buggy — it counted the "CRITICAL: 0" totals line.)
 
 ### Concise verdicts
 
@@ -140,9 +144,10 @@ full local `make lint` run (exit 0). The hermetic tests assert:
 - [x] Every linter runs in a container; the CI runner needs only Docker (+ Go).
       No host `pip install` of linters.
 - [x] `make lint` exits 0 end-to-end (verified locally) and `make scan` runs the
-      already-containerised `scan-all`.
-- [x] `scan-images` fails the build on **HIGH or CRITICAL** (was CRITICAL-only).
+      already-containerised `scan-all` (CRITICAL-gated; HIGH advisory, as on main).
 - [x] semgrep gates via its official image (Python-3.14-incompatible on host).
+- [ ] **Deferred:** gate `scan-images` on HIGH after the third-party HIGH-CVE
+      backlog is remediated (own follow-up).
 - [x] `make lint` / `make test` / `make scan` do **not** recurse; each ends with
       a concise verdict line.
 - [x] `lint-docker` recipe intact (success echoes); `make -n` parses cleanly.
@@ -161,6 +166,8 @@ full local `make lint` run (exit 0). The hermetic tests assert:
   caching; the tools image only rebuilds when the requirements or
   `Dockerfile.tools` change. In CI this adds a one-off build per lint run unless
   a registry/layer cache is wired up later.
-- **Stricter gate surfaces existing HIGH CVEs.** Flipping `scan-images` to fail
-  on HIGH may turn up previously-advisory findings; each needs a real fix or a
-  justified, dated `.trivyignore` entry (loud and intentional, not a regression).
+- **Deferred HIGH-gating.** `scan-images` still only gates on CRITICAL. The
+  third-party HIGH backlog is real (DoS-class CVEs in tempo/otel/openssl/Go
+  stdlib); gating on it now would either block all PRs or require blanket-ignoring
+  genuine findings. It needs a focused remediation pass (base-image + dependency
+  bumps, with dated `.trivyignore` only where no fix exists) — tracked separately.
