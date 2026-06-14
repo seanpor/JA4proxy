@@ -2732,11 +2732,11 @@ phases:
     summary: Implement a top situation summary bar displaying current Threat Posture (NOMINAL/ELEVATED/ACTIVE) and a sticky warning banner for proxy downtime. Updates docs/OPERATIONS_GUIDE.md.
   232c:
     name: Container Networking & Port Hardening
-    status: PROPOSED
+    status: COMPLETE
     action_plan: docs/phases/PHASE_232c.md
     dependencies: [232a]
     size: SMALL
-    summary: Connect analytics container to ja4proxy-data in POC, and restrict production port bindings to 127.0.0.1 loopback. Updates docs/DOCKER_IMAGES.md.
+    summary: Connect the analytics container to ja4proxy-data in the POC compose (it currently cannot reach Redis), and add tests/unit/test_container_config.py to regression-guard both that network fix and the production port hardening already landed in Phase 0046.
   232d:
     name: Admin-API Decommissioning
     status: PROPOSED
