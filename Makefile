@@ -585,7 +585,7 @@ scan-first-party:
 			--no-progress --scanners vuln --ignorefile /scan/.trivyignore \
 			--format table "$$img" 2>&1 \
 			| grep -E "CRITICAL|HIGH|Total:" || true); \
-		findings=$$(echo "$$result" | grep -v "Total:" | grep -cE "^\xe2\x94\x82.*(HIGH|CRITICAL)" || true); \
+		findings=$$(echo "$$result" | grep -v "Total:" | grep -E -c "CRITICAL|HIGH" || true); \
 		echo "    $$result"; \
 		[ "$$findings" -eq 0 ] || { echo "    ✗ HIGH/CRITICAL in $$img — bump the base image or dep, or add a justified, dated .trivyignore entry"; fail=1; }; \
 		echo ""; \
