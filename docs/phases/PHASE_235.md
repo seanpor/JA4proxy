@@ -55,7 +55,7 @@ Under incident stress at 2 AM, analysts make mistakes. An "Undo" toast provides 
 *   Phase 234 must be fully complete and merged.
 *   Verify that Tailwind and static assets are loading correctly in your local environment:
     ```bash
-    cd /home/sean/LLM/JA4proxy
+    cd "$(git rev-parse --show-toplevel)"
     ./.venv314/bin/python3 -m pytest tests/unit/test_pages.py
     ```
 
@@ -66,7 +66,7 @@ Under incident stress at 2 AM, analysts make mistakes. An "Undo" toast provides 
 We will create two reusable Alpine.js components in the `management/static/` folder.
 
 ### 4.1 Confirmation Modal Component
-Create a new file `/home/sean/LLM/JA4proxy/management/static/confirm-modal.js`:
+Create a new file `management/static/confirm-modal.js`:
 
 ```javascript
 document.addEventListener('alpine:init', () => {
@@ -137,7 +137,7 @@ document.addEventListener('alpine:init', () => {
 ```
 
 ### 4.2 Undo Toast Component
-Create a new file `/home/sean/LLM/JA4proxy/management/static/undo-toast.js`:
+Create a new file `management/static/undo-toast.js`:
 
 ```javascript
 document.addEventListener('alpine:init', () => {
@@ -196,7 +196,7 @@ document.addEventListener('alpine:init', () => {
 ```
 
 ### 4.3 Add Scripts to Base Layout
-Add the script tags to `/home/sean/LLM/JA4proxy/management/templates/base.html`:
+Add the script tags to `management/templates/base.html`:
 
 ```diff
      <link rel="stylesheet" href="/static/custom.css">
@@ -212,7 +212,7 @@ Add the script tags to `/home/sean/LLM/JA4proxy/management/templates/base.html`:
 ## 5. Step B: JA4 Fingerprint Detail Page
 
 ### 5.1 Route Setup in `pages.py`
-Add the route to `/home/sean/LLM/JA4proxy/management/api/routes/pages.py`:
+Add the route to `management/api/routes/pages.py`:
 
 ```python
 @router.get("/fingerprint/{ja4}", response_class=HTMLResponse)
@@ -261,7 +261,7 @@ async def fingerprint_detail_page(
 ## 6. Step C: IP Detail Page
 
 ### 6.1 Create the API Endpoint
-Add a new API route in `/home/sean/LLM/JA4proxy/management/api/routes/connections.py` to fetch IP profile data:
+Add a new API route in `management/api/routes/connections.py` to fetch IP profile data:
 
 ```python
 @router.get("/api/v1/ip/{ip}")
@@ -307,7 +307,7 @@ async def get_ip_profile(
 ```
 
 ### 6.2 Page Route in `pages.py`
-Add the page route in `/home/sean/LLM/JA4proxy/management/api/routes/pages.py`:
+Add the page route in `management/api/routes/pages.py`:
 
 ```python
 @router.get("/ip/{ip}", response_class=HTMLResponse)
@@ -331,7 +331,7 @@ async def ip_detail_page(
 
 Update the live feed row template to link IPs and JA4 values to their detail pages.
 
-### File to modify: `/home/sean/LLM/JA4proxy/management/templates/partials/live_feed.html`
+### File to modify: `management/templates/partials/live_feed.html`
 
 Modify the table cells to output links instead of raw text:
 

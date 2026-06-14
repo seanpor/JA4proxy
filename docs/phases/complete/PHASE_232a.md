@@ -20,11 +20,11 @@ Vendor all third-party JavaScript dependencies (`htmx.min.js`, `htmx-sse.js`, `a
 ## Scope
 
 ### Files to create/modify:
-- [management/templates/base.html](file:///home/sean/LLM/JA4proxy3/management/templates/base.html)
-- [management/static/vendor/CHECKSUMS.txt](file:///home/sean/LLM/JA4proxy3/management/static/vendor/CHECKSUMS.txt)
-- [management/static/input.css](file:///home/sean/LLM/JA4proxy3/management/static/input.css)
-- [tailwind.config.js](file:///home/sean/LLM/JA4proxy3/tailwind.config.js)
-- [docs/OPERATIONS_GUIDE.md](file:///home/sean/LLM/JA4proxy3/docs/OPERATIONS_GUIDE.md)
+- [management/templates/base.html](../../../management/templates/base.html)
+- [management/static/vendor/CHECKSUMS.txt](../../../management/static/vendor/CHECKSUMS.txt)
+- [management/static/input.css](../../../management/static/input.css)
+- [tailwind.config.js](../../../tailwind.config.js)
+- [docs/OPERATIONS_GUIDE.md](../../../docs/OPERATIONS_GUIDE.md)
 
 ### Out of scope:
 - Dashboard status widgets or situation bar html templates (deferred to 232b).
@@ -62,5 +62,5 @@ Vendor all third-party JavaScript dependencies (`htmx.min.js`, `htmx-sse.js`, `a
 - [ ] All four third-party JS libraries are vendored in `management/static/vendor/` with verified checksums.
 - [ ] Tailwind CSS compiles cleanly to `management/static/vendor/tailwind.css`.
 - [ ] `base.html` contains a CSP script-src `'self'` header and is completely free of CDN URLs.
-- [ ] [docs/OPERATIONS_GUIDE.md](file:///home/sean/LLM/JA4proxy3/docs/OPERATIONS_GUIDE.md) is updated to document the new offline capability.
+- [ ] [docs/OPERATIONS_GUIDE.md](../../../docs/OPERATIONS_GUIDE.md) is updated to document the new offline capability.
 - [ ] `make test` passes with zero errors/warnings.

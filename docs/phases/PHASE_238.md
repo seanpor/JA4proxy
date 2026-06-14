@@ -187,7 +187,7 @@ We will secure cookie transmissions by forcing them over HTTPS.
 
 ## 9. Step F: cAdvisor Threat Model Document
 
-Create a new file `/home/sean/LLM/JA4proxy/docs/security/CONTAINER_THREAT_MODEL.md` (Decision 9):
+Create a new file `docs/security/CONTAINER_THREAT_MODEL.md` (Decision 9):
 
 ```markdown
 # Container Threat Model: cAdvisor Privilege Footprint
@@ -226,10 +226,10 @@ We will write a python script to assert that HAProxy configuration is in TCP mod
 import os
 
 def test_haproxy_config_mode():
-    config_path = "/home/sean/LLM/JA4proxy/deploy/monitoring/haproxy/haproxy.cfg"
+    config_path = "deploy/monitoring/haproxy/haproxy.cfg"
     if not os.path.exists(config_path):
         # check alternative paths
-        config_path = "/home/sean/LLM/JA4proxy/deploy/docker/haproxy.cfg"
+        config_path = "deploy/docker/haproxy.cfg"
         if not os.path.exists(config_path):
             return # skip if no haproxy config in this env
 
