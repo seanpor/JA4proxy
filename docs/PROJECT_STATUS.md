@@ -5,7 +5,7 @@
 
 ## Current Status: Phase 109 (PROXY Protocol Hardening & Scrubbing) Next
 
-**Last Updated:** 2026-06-14
+**Last Updated:** 2026-06-15
 
 ## Epics & Roadmap
 
@@ -377,7 +377,7 @@ Alignment with international standards and regulatory frameworks.
 | 231b | Single-Host Bootstrap — Wizard, systemd, Firewall, Backups | IN_PROGRESS | N/A | N/A |
 | 232 | Security Foundations & Quick Wins (Index) | PROPOSED | N/A | N/A |
 | 232a | Frontend Asset Vendoring & Static Compilation | COMPLETE | N/A | N/A |
-| 232b | Threat Posture Situation Bar & Heartbeat Alerting | PROPOSED | N/A | N/A |
+| 232b | Threat Posture Situation Bar & Heartbeat Alerting | COMPLETE | N/A | N/A |
 | 232c | Container Networking & Port Hardening | COMPLETE | N/A | N/A |
 | 232d | Admin-API Decommissioning | COMPLETE | N/A | N/A |
 | 233 | Observability Foundations | PROPOSED | N/A | N/A |

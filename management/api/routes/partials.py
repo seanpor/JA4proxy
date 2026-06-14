@@ -13,6 +13,7 @@ GET /api/v1/partials/dial           — dial widget with current value
 GET /api/v1/partials/bans           — active bans table
 GET /api/v1/partials/audit          — audit log table rows
 GET /api/v1/partials/list-table     — a single list table (whitelist/blacklist/allowlist)
+GET /api/v1/partials/situation      — threat posture situation bar
 """
 
 import html
@@ -350,6 +351,111 @@ async def list_table_partial(
             "entries": entries,
             "is_ja4": is_ja4,
             "delete_url_prefix": delete_url_prefix,
+            "dial_value": dial_value,
+        },
+    )
+
+
+@router.get("/api/v1/partials/situation", response_class=HTMLResponse)
+async def situation_partial(
+    request: Request,
+    current_user=Depends(get_current_user),
+    redis=Depends(get_redis),
+) -> HTMLResponse:
+    """Return the threat posture situation bar as an HTML fragment (polled every 10s).
+
+    Classifies proxy state as one of:
+      - PROXY_DOWN — no heartbeat keys in Redis
+      - NOMINAL — proxy is up, 0 blocking actions in last 5 min
+      - ELEVATED — 1–9 blocking actions in last 5 min
+      - ACTIVE — 10+ blocking actions in last 5 min
+    """
+    templates = _get_templates()
+
+    state = "PROXY_DOWN"
+    block_count = 0
+    events_per_min_val = 0.0
+    top_ip = "—"
+    max_risk = 0
+
+    try:
+        # ── 1. Detect proxy liveness via heartbeat keys ──────────────
+        heartbeat_keys = []
+        cursor = 0
+        while True:
+            cursor, keys = await redis.scan(
+                cursor=cursor, match="proxy:heartbeat:*", count=100
+            )
+            heartbeat_keys.extend(keys)
+            if cursor == 0:
+                break
+
+        if not heartbeat_keys:
+            state = "PROXY_DOWN"
+        else:
+            # ── 2. Read last 5 min of connection events from stream ──
+            five_min_ago = f"{int(time.time() * 1000) - 300_000}-0"
+            stream_entries = await redis.xrevrange(
+                "events:connection",
+                max="+",
+                min=five_min_ago,
+                count=1000,
+            )
+
+            total_events = len(stream_entries)
+            block_actions = {"block", "ban", "tarpit"}
+            ip_counts: dict[str, int] = {}
+
+            for entry_id, fields in stream_entries:
+                raw_event = fields.get("event", "{}")
+                try:
+                    event_data = json.loads(raw_event)
+
+                    action = event_data.get("event.action", "")
+                    if action in block_actions:
+                        block_count += 1
+
+                    risk = event_data.get("event.risk_score", 0)
+                    if isinstance(risk, (int, float)) and risk > max_risk:
+                        max_risk = int(risk)
+
+                    src_ip = event_data.get("source.ip", "")
+                    if src_ip:
+                        ip_counts[src_ip] = ip_counts.get(src_ip, 0) + 1
+                except (json.JSONDecodeError, TypeError):
+                    continue
+
+            # Top attacking IP (most events in window)
+            if ip_counts:
+                top_ip = max(ip_counts, key=ip_counts.get)
+
+            # Events per minute
+            events_per_min_val = round(total_events / 5.0, 1)
+
+            # ── 3. Classify ──────────────────────────────────────────
+            if block_count == 0:
+                state = "NOMINAL"
+            elif block_count <= 9:
+                state = "ELEVATED"
+            else:
+                state = "ACTIVE"
+
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("partials | event=situation_redis_error | error=%s", exc)
+        state = "PROXY_DOWN"
+
+    dial_value = await _get_dial(redis)
+
+    return templates.TemplateResponse(
+        request,
+        "partials/situation_bar.html",
+        {
+            "user": current_user[0],
+            "state": state,
+            "block_count": block_count,
+            "events_per_min": events_per_min_val,
+            "top_ip": top_ip,
+            "max_risk": max_risk,
             "dial_value": dial_value,
         },
     )
