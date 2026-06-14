@@ -1,4 +1,4 @@
-"""TDD tests for HTML page routes — /login, /, /lists, /bans, /audit.
+"""TDD tests for HTML page routes — /login, /, /lists, /bans, /audit, /threat-intel.
 
 These tests verify that every Jinja2-rendered page:
   1. Returns HTTP 200 with Content-Type text/html for authenticated requests.
@@ -176,12 +176,41 @@ async def test_audit_page_requires_auth(test_client: AsyncClient) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Threat-intel page (requires auth) — Phase 85 route
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_threat_intel_page_renders(authenticated_client: AsyncClient) -> None:
+    """GET /threat-intel returns 200 with HTML."""
+    response = await authenticated_client.get("/threat-intel")
+    assert response.status_code == 200
+    assert _is_html(response)
+
+
+@pytest.mark.asyncio
+async def test_threat_intel_page_contains_landmark(
+    authenticated_client: AsyncClient,
+) -> None:
+    """Threat-intel page must render the threat_intel.html template landmark."""
+    response = await authenticated_client.get("/threat-intel")
+    assert "Threat Intelligence" in response.text
+
+
+@pytest.mark.asyncio
+async def test_threat_intel_page_requires_auth(test_client: AsyncClient) -> None:
+    """GET /threat-intel without token must return 401, NOT 500."""
+    response = await test_client.get("/threat-intel")
+    assert response.status_code == 401
+
+
+# ---------------------------------------------------------------------------
 # 401 quality gate: unauthenticated HTML pages must NEVER return 5xx
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("path", ["/", "/lists", "/bans", "/audit"])
+@pytest.mark.parametrize("path", ["/", "/lists", "/bans", "/audit", "/threat-intel"])
 async def test_unauthenticated_page_never_crashes(
     test_client: AsyncClient, path: str
 ) -> None:
