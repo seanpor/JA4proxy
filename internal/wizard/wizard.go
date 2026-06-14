@@ -109,12 +109,12 @@ func (w *Wizard) Run(ctx context.Context) (*Answers, *GeneratedConfig, error) {
 		return nil, nil, err
 	}
 
-	if !w.Answers.DryRun {
-		if err := w.confirmAndWrite(ctx); err != nil {
-			return nil, nil, err
-		}
+	if err := w.confirmAndWrite(ctx); err != nil {
+		return nil, nil, err
 	}
-	return &w.Answers, nil, nil
+
+	genCfg, _ := w.generateConfigs()
+	return &w.Answers, genCfg, nil
 }
 
 func (w *Wizard) collectStep1Basics(ctx context.Context) error {
@@ -416,7 +416,68 @@ func (w *Wizard) collectStep6Hardening(ctx context.Context) error {
 	return nil
 }
 
+func (w *Wizard) buildTemplateData() TemplateData {
+	ports := computeLanePorts(w.Answers.Lane)
+	return TemplateData{
+		BackendHost:     w.Answers.BackendHost,
+		BackendPort:     w.Answers.BackendPort,
+		BindIP:          w.Answers.BindIP,
+		LogLevel:        w.Answers.LogLevel,
+		DialValue:       w.Answers.DialValue,
+		AllowedSNIs:     w.Answers.AllowedSNIs,
+		UpstreamLB:      w.Answers.UpstreamLB,
+		TrustedCIDRs:    w.Answers.TrustedCIDRs,
+		WritePROXY:      w.Answers.WritePROXY,
+		PROXYVersion:    w.Answers.PROXYVersion,
+		TLSCerts:        w.Answers.TLSCerts,
+		TLSCertPath:     w.Answers.TLSCertPath,
+		TLSKeyPath:      w.Answers.TLSKeyPath,
+		GeoIPPaths:      w.Answers.GeoIPPaths,
+		MonitoringStack: w.Answers.MonitoringStack,
+		Firewall:        w.Answers.Firewall,
+		Mode:            w.Answers.Mode,
+		Lane:            w.Answers.Lane,
+		LaneName:        w.Answers.LaneName,
+		ProjectName:     projectName(&w.Answers),
+		Ports:           ports,
+	}
+}
+
+func (w *Wizard) generateConfigs() (*GeneratedConfig, error) {
+	data := w.buildTemplateData()
+
+	env := buildEnv(&w.Answers)
+	envContent := renderEnv(env)
+
+	systemdContent := buildSystemdUnit(&w.Answers)
+
+	proxyYML, err := RenderProxyYML(data)
+	if err != nil {
+		return nil, fmt.Errorf("render proxy.yml: %w", err)
+	}
+
+	var haproxyCfg string
+	if w.Answers.Mode == "container" {
+		haproxyCfg, err = RenderHAProxyCfg(data)
+		if err != nil {
+			return nil, fmt.Errorf("render haproxy.cfg: %w", err)
+		}
+	}
+
+	return &GeneratedConfig{
+		Env:      envContent,
+		Systemd:  systemdContent,
+		ProxyYML: proxyYML,
+		HAProxy:  haproxyCfg,
+	}, nil
+}
+
 func (w *Wizard) confirmAndWrite(ctx context.Context) error {
+	cfg, err := w.generateConfigs()
+	if err != nil {
+		return err
+	}
+
 	w.Out.Section("Configuration Summary")
 	w.Out.Info("  Backend:       %s:%d", w.Answers.BackendHost, w.Answers.BackendPort)
 	w.Out.Info("  Mode:          %s", w.Answers.Mode)
@@ -429,6 +490,23 @@ func (w *Wizard) confirmAndWrite(ctx context.Context) error {
 	w.Out.Info("  Monitoring:    %v", w.Answers.MonitoringStack)
 	w.Out.Info("  Secrets:       [generated — see .env]")
 
+	if w.Answers.DryRun {
+		w.Out.Section("Dry-Run Preview")
+		w.Out.Info("--- .env ---")
+		w.Out.Info(cfg.Env)
+		w.Out.Info("--- systemd unit ---")
+		w.Out.Info(cfg.Systemd)
+		w.Out.Info("--- proxy.yml ---")
+		w.Out.Info(cfg.ProxyYML)
+		if cfg.HAProxy != "" {
+			w.Out.Info("--- haproxy.cfg ---")
+			w.Out.Info(cfg.HAProxy)
+		}
+		w.Out.Info("")
+		w.Out.Info("Dry-run — no files written. Run without --dry-run to apply.")
+		return nil
+	}
+
 	confirm, err := askYesNo("Write configuration?", true, w.InputFn)
 	if err != nil {
 		return err
@@ -438,21 +516,34 @@ func (w *Wizard) confirmAndWrite(ctx context.Context) error {
 		return nil
 	}
 
-	env := buildEnv(&w.Answers)
-	envContent := renderEnv(env)
-	systemdContent := buildSystemdUnit(&w.Answers)
-
 	wd, _ := os.Getwd()
+	configDir := filepath.Join(wd, "config")
+	os.MkdirAll(configDir, 0755)
+
 	envPath := filepath.Join(wd, ".env")
-	if err := os.WriteFile(envPath, []byte(envContent), 0600); err != nil {
+	if err := os.WriteFile(envPath, []byte(cfg.Env), 0600); err != nil {
 		return fmt.Errorf("writing .env: %w", err)
 	}
 	w.Out.Success("Written .env (chmod 600)")
 
+	proxyPath := filepath.Join(configDir, "proxy.yml")
+	if err := os.WriteFile(proxyPath, []byte(cfg.ProxyYML), 0644); err != nil {
+		return fmt.Errorf("writing proxy.yml: %w", err)
+	}
+	w.Out.Success("Written config/proxy.yml")
+
+	if cfg.HAProxy != "" {
+		haproxyPath := filepath.Join(configDir, "haproxy.cfg")
+		if err := os.WriteFile(haproxyPath, []byte(cfg.HAProxy), 0644); err != nil {
+			return fmt.Errorf("writing haproxy.cfg: %w", err)
+		}
+		w.Out.Success("Written config/haproxy.cfg")
+	}
+
 	sysdDir := "/etc/systemd/system"
 	if _, err := os.Stat(sysdDir); err == nil {
 		sysdPath := filepath.Join(sysdDir, "ja4proxy.service")
-		if err := os.WriteFile(sysdPath, []byte(systemdContent), 0644); err != nil {
+		if err := os.WriteFile(sysdPath, []byte(cfg.Systemd), 0644); err != nil {
 			w.Out.Warn("Failed to write systemd unit: %v", err)
 		} else {
 			w.Out.Success("Written systemd unit to %s", sysdPath)
