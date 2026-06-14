@@ -9,7 +9,7 @@ Read this before running any `docker compose` command.
 
 | File | Type | Environment | Purpose |
 |------|------|-------------|---------|
-| `deploy/docker/docker-compose.poc.yml` | Standalone base | Development / POC | Full stack: HAProxy + Go proxy + Redis + tarpit + analytics + admin-api + management |
+| `deploy/docker/docker-compose.poc.yml` | Standalone base | Development / POC | Full stack: HAProxy + Go proxy + Redis + tarpit + analytics + management |
 | `deploy/docker/docker-compose.python-legacy.yml` | Overlay | Development only | Adds Python proxy alongside Go proxy for cross-language parity validation |
 | `deploy/docker/docker-compose.scale.yml` | Overlay | Load testing | Replaces single proxy with 4 worker instances behind HAProxy |
 | `deploy/docker/docker-compose.test.yml` | Standalone | CI / integration tests | Isolated test environment: Go proxy + Python proxy + TLS backend + recorder + test-runner |
@@ -99,9 +99,9 @@ BACKEND_HOST=upstream.example.com ENVIRONMENT=production \
 | Network | Internal? | Connected services |
 |---------|-----------|-------------------|
 | `ja4proxy-dmz` | No | HAProxy, proxy, trafficgen, test |
-| `ja4proxy-data` | Yes | proxy, redis, admin-api, management, test |
+| `ja4proxy-data` | Yes | proxy, redis, management, test |
 | `ja4proxy-origin` | Yes | proxy, backend, tarpit, test |
-| `ja4proxy-mgmt` | No | proxy, analytics, admin-api, management |
+| `ja4proxy-mgmt` | No | proxy, analytics, management |
 
 `internal: true` networks have no outbound internet access. Redis and the origin backend
 are isolated.

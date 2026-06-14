@@ -123,7 +123,7 @@ AGENT_CPU_SET=${CPUS}
 # ── Host port assignments ────────────────────────────────────────────────────
 HOST_PORT_INGRESS=443
 HOST_PORT_ANALYTICS=8080
-HOST_PORT_ADMIN_API=8091
+# phase-232d: HOST_PORT_ADMIN_API (8091) removed with the admin-api container.
 HOST_PORT_MANAGEMENT=8090
 
 # ── Secrets (auto-generated) ─────────────────────────────────────────────────

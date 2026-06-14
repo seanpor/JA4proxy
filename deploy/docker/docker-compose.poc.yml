@@ -269,7 +269,7 @@ services:
       # phase-232c: analytics reads Redis (events stream + findings); Redis is
       # attached only to the internal ja4proxy-data network, so analytics must
       # join it too or the `redis` hostname does not resolve. Mirrors the
-      # management/admin-api services, which are on both networks.
+      # `management` service, which is on both networks.
       - ja4proxy-data
     security_opt:
       - no-new-privileges:true
@@ -292,47 +292,9 @@ services:
         max-size: "100m"
         max-file: "3"
 
-  admin-api:
-    build:
-      context: ../..
-      dockerfile: deploy/docker/Dockerfile.admin
-    image: ja4proxy-admin-api:1.0.0
-    restart: unless-stopped
-    ports:
-      - "${AGENT_BIND_IP:-127.0.0.1}:${HOST_PORT_ADMIN_API:-8091}:8090"
-    depends_on:
-      - redis
-    environment:
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD is required}
-      - REDIS_SIGNING_KEY=${REDIS_SIGNING_KEY:-}
-      - ENVIRONMENT=${ENVIRONMENT:-development}
-      - JA4PROXY_TRACE=${JA4PROXY_TRACE:-false}
-      - PYTHONUNBUFFERED=1
-      - PYTHONDONTWRITEBYTECODE=1
-    networks:
-      - ja4proxy-mgmt
-      - ja4proxy-data
-    security_opt:
-      - no-new-privileges:true
-    read_only: true
-    tmpfs:
-      - /tmp:noexec,nosuid,nodev,size=50m
-    cap_drop:
-      - ALL
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-          cpus: '0.5'
-        reservations:
-          memory: 64M
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "100m"
-        max-file: "3"
+  # phase-232d: the unauthenticated `admin-api` service (legacy
+  # src/management/app on host port 8091) was decommissioned. All management
+  # operations now go through the JWT-gated `management` service on port 8090.
 
   test:
     build:
