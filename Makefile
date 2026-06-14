@@ -1267,6 +1267,9 @@ start-poc: deploy-poc ## Alias for starting the POC environment
 sync: tools-image ## Sync roadmap from manifest.yaml to PROJECT_STATUS.md
 	@$(TOOLS_RUN) python scripts/sync-roadmap.py
 
+changelog-assemble: tools-image ## Fold docs/fragments/*.md into CHANGELOG.md (run at release, not per-phase)
+	@$(TOOLS_RUN) python scripts/assemble-changelog.py
+
 ja4p-validate: ## Validate proxy configuration YAML
 	@./bin/ja4p config validate
 

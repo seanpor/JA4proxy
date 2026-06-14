@@ -21,6 +21,7 @@ from typing import List, Optional, Tuple
 REQUIRED_FRONTMATTER = ["title", "audience", "last_reviewed", "phase"]
 
 EXEMPT_DIRS = [
+    "fragments",  # Changelog news fragments — transient bullet snippets, not narrative docs
     "phases",  # Phase files have different structure
     "decisions",  # ADR files have different structure
     "api",  # Auto-generated files
