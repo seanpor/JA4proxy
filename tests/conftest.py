@@ -323,11 +323,16 @@ def pytest_sessionfinish(session, exitstatus) -> None:  # noqa: ARG001
     """
     import os
 
-    if os.path.exists("/.dockerenv"):
+    # Only the controller process may os._exit(); an xdist *worker* that
+    # os._exit()s is reported by the controller as "node down: Not properly
+    # terminated", which crashes parallel runs inside Docker. Workers carry the
+    # PYTEST_XDIST_WORKER env var — let them shut down normally so the controller
+    # collects their results.
+    if os.path.exists("/.dockerenv") and not os.environ.get("PYTEST_XDIST_WORKER"):
         sys.stdout.flush()
         sys.stderr.flush()
         os._exit(int(exitstatus))
-    # Local: normal exit — asyncio teardown runs cleanly
+    # Local (or xdist worker): normal exit — asyncio teardown runs cleanly
 
 
 # ── Terminal summary ──────────────────────────────────────────────────────────
