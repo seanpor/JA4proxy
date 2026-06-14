@@ -101,7 +101,7 @@ func projectName(a *Answers) string {
 func mergeSecrets(env map[string]string) map[string]string {
 	secretKeys := []string{
 		"REDIS_PASSWORD", "REDIS_SIGNING_KEY", "MANAGEMENT_JWT_SECRET",
-		"GRAFANA_PASSWORD", "HAPROXY_STATS_PASSWORD",
+		"MANAGEMENT_ADMIN_PASSWORD", "GRAFANA_PASSWORD", "HAPROXY_STATS_PASSWORD",
 	}
 	for _, k := range secretKeys {
 		if _, exists := env[k]; !exists {

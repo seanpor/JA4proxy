@@ -45,8 +45,10 @@ func askYesNo(prompt string, defaultYes bool, inputFn func(string) (string, erro
 		return false, err
 	}
 	switch strings.ToLower(val) {
-	case "y", "yes", "y/n":
+	case "y", "yes":
 		return true, nil
+	case "y/n":
+		return defaultYes, nil
 	default:
 		return false, nil
 	}

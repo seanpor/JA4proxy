@@ -11,6 +11,7 @@ type Output interface {
 	Info(format string, args ...interface{})
 	Warn(format string, args ...interface{})
 	Success(format string, args ...interface{})
+	Raw(text string) // for content preview (no format string)
 }
 
 type ConsoleOutput struct {
@@ -64,6 +65,10 @@ func (c *ConsoleOutput) Warn(format string, args ...interface{}) {
 func (c *ConsoleOutput) Success(format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
 	fmt.Println(c.color(colorGreen, "  ✓ "+msg))
+}
+
+func (c *ConsoleOutput) Raw(text string) {
+	fmt.Println(text)
 }
 
 func stringsRepeat(s string, n int) string {
