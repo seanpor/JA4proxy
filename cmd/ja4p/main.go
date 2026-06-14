@@ -1,17 +1,12 @@
 package main
 
 import (
-	"bufio"
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"net"
 	"os"
 	"os/signal"
-	"strconv"
-	"strings"
 	"syscall"
 	"time"
 
@@ -21,6 +16,7 @@ import (
 	"github.com/seanpor/ja4proxy/internal/redis"
 	"github.com/seanpor/ja4proxy/internal/security"
 	"github.com/seanpor/ja4proxy/internal/test/bench"
+	"github.com/seanpor/ja4proxy/internal/wizard"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -51,13 +47,60 @@ func main() {
 	})
 
 	// 2. Init Command (The Wizard)
-	rootCmd.AddCommand(&cobra.Command{
+	var (
+		dryRun         bool
+		laneFlag       int
+		nonInteractive bool
+	)
+	initCmd := &cobra.Command{
 		Use:   "init",
 		Short: "Launch the guided setup wizard",
+		Long: `Interactive setup wizard for JA4proxy deployment.
+
+Walks through all configuration options (backend, networking, TLS, lanes,
+security, hardening) and generates .env, systemd unit, proxy.yml, and
+haproxy.cfg.
+
+Use --dry-run to preview without writing anything.
+Use --lane to pre-select a lane number (non-interactive hints).
+Use --non-interactive with --lane to accept all defaults.`,
 		Run: func(cmd *cobra.Command, args []string) {
-			runWizard()
+			out := wizard.NewConsoleOutput()
+
+			// Find project root for lane-env.sh
+			laneMgr := findLaneManager()
+			wiz := wizard.New(out, wizard.StdinInput, wizard.StdinGetPass, laneMgr)
+			wiz.Answers.Lane = laneFlag
+			wiz.Answers.DryRun = dryRun
+			if nonInteractive {
+				wiz.Answers.MonitoringStack = true
+				wiz.Answers.BackendHost = "backend"
+				wiz.Answers.BackendPort = 443
+				wiz.Answers.Mode = "container"
+				wiz.Answers.BindIP = "127.0.0.1"
+				wiz.Answers.AdminUser = "admin"
+				wiz.Answers.AdminPassword = ""
+				wiz.Answers.LogLevel = "INFO"
+				wiz.Answers.DialValue = 0
+				wiz.Answers.AllowedSNIs = nil
+				wiz.Answers.TLSCerts = "self-signed"
+				wiz.Answers.Firewall = "none"
+				wiz.Answers.Fail2Ban = false
+				wiz.Answers.CrowdSec = false
+				wiz.Answers.LogForwarding = "none"
+				wiz.Answers.BackupEncrypt = "none"
+			}
+			_, _, err := wiz.Run(context.Background())
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(1)
+			}
 		},
-	})
+	}
+	initCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview configuration without writing anything")
+	initCmd.Flags().IntVar(&laneFlag, "lane", -1, "Pre-select lane number")
+	initCmd.Flags().BoolVar(&nonInteractive, "non-interactive", false, "Accept all defaults (requires --lane)")
+	rootCmd.AddCommand(initCmd)
 
 	// 3. Config Validate Command
 	rootCmd.AddCommand(&cobra.Command{
@@ -131,10 +174,51 @@ func main() {
 	// 9. Restore Command (phase-315b)
 	rootCmd.AddCommand(buildRestoreCmd())
 
+	// 10. Shell Completion (cobra built-in, phase-161)
+	rootCmd.AddCommand(&cobra.Command{
+		Use:   "completion [bash|zsh|fish|powershell]",
+		Short: "Generate shell completion script",
+		Long: `Generate shell completion script for ja4p.
+
+To enable, run one of the following:
+
+  bash:   source <(ja4p completion bash)
+  zsh:    source <(ja4p completion zsh)
+  fish:   ja4p completion fish | source
+
+Load on login by adding the source command to your shell's rc file.`,
+		Args:      cobra.ExactArgs(1),
+		ValidArgs: []string{"bash", "zsh", "fish", "powershell"},
+		Run: func(cmd *cobra.Command, args []string) {
+			switch args[0] {
+			case "bash":
+				cmd.Root().GenBashCompletion(os.Stdout)
+			case "zsh":
+				cmd.Root().GenZshCompletion(os.Stdout)
+			case "fish":
+				cmd.Root().GenFishCompletion(os.Stdout, true)
+			case "powershell":
+				cmd.Root().GenPowerShellCompletion(os.Stdout)
+			}
+		},
+	})
+
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+}
+
+func findLaneManager() *wizard.ShellLaneManager {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil
+	}
+	laneScript := cwd + "/scripts/lane-env.sh"
+	if _, err := os.Stat(laneScript); err == nil {
+		return wizard.NewShellLaneManager(laneScript, cwd)
+	}
+	return nil
 }
 
 func runConfigValidate(path string) error {
@@ -223,141 +307,4 @@ func runTestIP(cfg *config.Config, ipStr string) error {
 	}
 
 	return nil
-}
-
-func runWizard() {
-	fmt.Println("======================================================================")
-	fmt.Println("  JA4proxy Guided Setup Wizard")
-	fmt.Println("======================================================================")
-	fmt.Println("")
-
-	reader := bufio.NewReader(os.Stdin)
-
-	fmt.Println("Select your deployment scenario:")
-	fmt.Println("  1) Proof of Concept (POC) - Instant demo with mock backend")
-	fmt.Println("  2) Development - Research environment with debug logging")
-	fmt.Println("  3) Performance - Optimized for raw throughput testing")
-	fmt.Println("  4) Production - Secure-by-default enterprise setup")
-	fmt.Println("")
-
-	fmt.Print("Enter choice (1-4): ")
-	choice, _ := reader.ReadString('\n')
-	choice = strings.TrimSpace(choice)
-
-	fmt.Print("\nEnter environment name prefix [ja4proxy]: ")
-	projectName, _ := reader.ReadString('\n')
-	projectName = strings.TrimSpace(projectName)
-	if projectName == "" {
-		projectName = "ja4proxy"
-	}
-
-	fmt.Print("Enter port offset (e.g. 1000, adds to all host ports) [0]: ")
-	offsetStr, _ := reader.ReadString('\n')
-	offsetStr = strings.TrimSpace(offsetStr)
-	offset := 0
-	if offsetStr != "" {
-		offset, _ = strconv.Atoi(offsetStr)
-	}
-
-	switch choice {
-	case "1":
-		// phase-306 (from PR #95): the bundled dev/POC backend listens on 8443
-		// (443 is HAProxy's ingress). Production (case 4) points at a real
-		// HTTPS backend on 443 and is unchanged.
-		setupScenario("POC", "backend", 8443, "development", projectName, offset)
-	case "2":
-		setupScenario("Development", "backend", 8443, "development", projectName, offset)
-	case "3":
-		setupScenario("Performance", "backend", 8443, "production", projectName, offset)
-	case "4":
-		fmt.Print("Enter backend host (e.g., 10.0.0.50): ")
-		host, _ := reader.ReadString('\n')
-		host = strings.TrimSpace(host)
-		setupScenario("Production", host, 443, "production", projectName, offset)
-	default:
-		fmt.Println("Invalid choice. Exiting.")
-		os.Exit(1)
-	}
-}
-
-func setupScenario(name, backendHost string, backendPort int, env string, projectName string, offset int) {
-	fmt.Printf("\n▶ Starting %s Setup...\n", name)
-
-	redisPW := randomString(32)
-	grafanaPW := randomString(16)
-	signingKey := randomHex(32)
-	jwtSecret := randomString(32)
-	adminUser := "admin"
-	adminPW := randomString(24)
-	statsUser := "stats"
-	statsPW := randomString(16)
-
-	content := fmt.Sprintf("# Auto-generated by ja4p init — %s\n", time.Now().Format(time.RFC3339))
-	content += fmt.Sprintf("COMPOSE_PROJECT_NAME=%s\n", projectName)
-	content += fmt.Sprintf("BACKEND_HOST=%s\n", backendHost)
-	content += fmt.Sprintf("BACKEND_PORT=%d\n", backendPort)
-	content += fmt.Sprintf("REDIS_PASSWORD=%s\n", redisPW)
-	content += fmt.Sprintf("GRAFANA_PASSWORD=%s\n", grafanaPW)
-	content += fmt.Sprintf("REDIS_SIGNING_KEY=%s\n", signingKey)
-	content += fmt.Sprintf("MANAGEMENT_JWT_SECRET=%s\n", jwtSecret)
-	content += fmt.Sprintf("MANAGEMENT_ADMIN_USER=%s\n", adminUser)
-	content += fmt.Sprintf("MANAGEMENT_ADMIN_PASSWORD=%s\n", adminPW)
-	content += fmt.Sprintf("HAPROXY_STATS_USER=%s\n", statsUser)
-	content += fmt.Sprintf("HAPROXY_STATS_PASSWORD=%s\n", statsPW)
-	content += fmt.Sprintf("ENVIRONMENT=%s\n", env)
-
-	// Port overrides with offset
-	content += "\n# Port Overrides\n"
-	content += fmt.Sprintf("HOST_PORT_INGRESS=%d\n", 443+offset)
-	content += fmt.Sprintf("HOST_PORT_DIRECT=%d\n", 8081+offset)
-	content += fmt.Sprintf("HOST_PORT_STATS=%d\n", 8404+offset)
-	content += fmt.Sprintf("HOST_PORT_METRICS=%d\n", 9090+offset)
-	content += fmt.Sprintf("HOST_PORT_PROMETHEUS=%d\n", 9091+offset)
-	content += fmt.Sprintf("HOST_PORT_GRAFANA=%d\n", 3000+offset)
-	content += fmt.Sprintf("HOST_PORT_ANALYTICS=%d\n", 8085+offset)
-	content += fmt.Sprintf("HOST_PORT_ADMIN_API=%d\n", 8091+offset)
-	content += fmt.Sprintf("HOST_PORT_MANAGEMENT=%d\n", 8090+offset)
-
-	if name == "Performance" {
-		content += "LOG_LEVEL=WARNING\n"
-		content += "JA4PROXY_BUFFER_SIZE=8192\n"
-		content += "METRICS_BIND_HOST=0.0.0.0\n"
-		content += "METRICS_AUTH_TOKEN=bench-token-123\n"
-		fmt.Println("  ✓ Performance tuning applied")
-	}
-
-	err := os.WriteFile(".env", []byte(content), 0600)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "  ❌ Failed to write .env: %v\n", err)
-		os.Exit(1)
-	}
-
-	fmt.Println("  ✓ .env created (chmod 600)")
-	fmt.Println("  ✓ Secure secrets generated")
-	fmt.Printf("  ✓ Project isolated as: %s\n", projectName)
-	if offset > 0 {
-		fmt.Printf("  ✓ Port offset applied: +%d\n", offset)
-	}
-	fmt.Printf("\n✓ %s Setup complete!\n", name)
-	if name == "POC" {
-		fmt.Println("Run \"make start-poc\" to begin.")
-	} else {
-		fmt.Println("Run \"make start\" to begin.")
-	}
-}
-
-func randomString(n int) string {
-	const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	b := make([]byte, n)
-	rand.Read(b)
-	for i := range b {
-		b[i] = letters[b[i]%byte(len(letters))]
-	}
-	return string(b)
-}
-
-func randomHex(n int) string {
-	b := make([]byte, n/2)
-	rand.Read(b)
-	return hex.EncodeToString(b)
 }
