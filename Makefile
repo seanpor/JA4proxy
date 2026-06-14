@@ -264,12 +264,10 @@ agent-up:
 	@echo "✓ Agent $(NAME) started (saved to .current-agent)"
 	@IP=$$(grep '^AGENT_BIND_IP=' .env.$(NAME) | cut -d= -f2); \
 	MGMT=$$(grep '^HOST_PORT_MANAGEMENT=' .env.$(NAME) | cut -d= -f2); MGMT=$${MGMT:-8090}; \
-	ADMIN=$$(grep '^HOST_PORT_ADMIN_API=' .env.$(NAME) | cut -d= -f2); ADMIN=$${ADMIN:-8091}; \
 	ANL=$$(grep '^HOST_PORT_ANALYTICS=' .env.$(NAME) | cut -d= -f2); ANL=$${ANL:-8080}; \
 	echo "  Ingress:   https://$$IP:443"; \
 	echo "  Analytics: http://$$IP:$$ANL"; \
 	echo "  Management:http://$$IP:$$MGMT"; \
-	echo "  Admin API: http://$$IP:$$ADMIN"; \
 	echo "  Metrics:   http://$$IP:9090/metrics"
 	@echo "  Admin:     ./scripts/ja4-admin.sh status  (uses .current-agent automatically)"
 	@echo "  Tunnels:   make tunnel NAME=$(NAME) HOST=user@this-server"
@@ -408,7 +406,7 @@ lint-coverage:
 # Ignored rules are consciously accepted — see .hadolint.yaml for rationale.
 # deploy/docker/docker-compose.test.yml is the full Go test environment.
 HADOLINT_IGNORE := --ignore DL3008 --ignore DL3013 --ignore DL3015 --ignore DL3018 --ignore DL3059
-HADOLINT_DOCKERFILES := deploy/docker/Dockerfile.admin deploy/docker/Dockerfile.management \
+HADOLINT_DOCKERFILES := deploy/docker/Dockerfile.management \
 	deploy/docker/Dockerfile.mockbackend deploy/docker/Dockerfile.test \
 	deploy/docker/Dockerfile.trafficgen deploy/docker/Dockerfile.go-proxy src/analytics/Dockerfile src/tarpit/Dockerfile \
 	tests/docker/Dockerfile.recorder \
@@ -549,7 +547,7 @@ scan-dockerfiles:
 	@echo "    Fails on HIGH or CRITICAL findings."
 	@fail=0; \
 	for f in deploy/docker/Dockerfile deploy/docker/Dockerfile.go-proxy deploy/docker/Dockerfile.management \
-		 deploy/docker/Dockerfile.mockbackend deploy/docker/Dockerfile.admin deploy/docker/Dockerfile.test \
+		 deploy/docker/Dockerfile.mockbackend deploy/docker/Dockerfile.test \
 		 deploy/docker/Dockerfile.trafficgen deploy/docker/Dockerfile.cli \
 		 deploy/docker/docker-compose.poc.yml deploy/docker/docker-compose.monitoring.yml \
 		 deploy/docker/docker-compose.prod.yml deploy/docker/docker-compose.scale.yml \
@@ -1322,10 +1320,9 @@ tunnel: ## Print the SSH local-forward command for an agent stack (NAME=, HOST=)
 	@[ -n "$(HOST)" ] || { echo "Usage: make tunnel NAME=<agent> HOST=user@server"; exit 1; }
 	@[ -f ".env.$(NAME)" ] || { echo "No .env.$(NAME) found — run 'make agent-up NAME=$(NAME)' first"; exit 1; }
 	@MGMT=$$(grep '^HOST_PORT_MANAGEMENT=' .env.$(NAME) | cut -d= -f2); MGMT=$${MGMT:-8090}; \
-	 ADMIN=$$(grep '^HOST_PORT_ADMIN_API=' .env.$(NAME) | cut -d= -f2); ADMIN=$${ADMIN:-8091}; \
 	 ANL=$$(grep '^HOST_PORT_ANALYTICS=' .env.$(NAME) | cut -d= -f2); ANL=$${ANL:-8080}; \
 	 echo "Run on your laptop to tunnel agent '$(NAME)':"; \
-	 echo "  ssh -L $$MGMT:localhost:$$MGMT -L $$ADMIN:localhost:$$ADMIN -L $$ANL:localhost:$$ANL -L 9090:localhost:9090 $(HOST)"
+	 echo "  ssh -L $$MGMT:localhost:$$MGMT -L $$ANL:localhost:$$ANL -L 9090:localhost:9090 $(HOST)"
 
 # management-* operate on the 'management' service of the current agent stack (.current-agent)
 management-up: ## Start the management UI for the current agent
