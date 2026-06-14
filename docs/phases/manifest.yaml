@@ -2709,8 +2709,9 @@ phases:
     summary: Index/map for the security foundations and quick wins sub-phases.
   232a:
     name: Frontend Asset Vendoring & Static Compilation
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_232a.md
+    status: COMPLETE
+    completed: 2026-06-14
+    action_plan: docs/phases/complete/PHASE_232a.md
     dependencies: [231]
     size: SMALL
     summary: Vendor all third-party JavaScript dependencies and compile static CSS via Tailwind CLI to secure frontend assets from CDN risks. Updates docs/OPERATIONS_GUIDE.md.

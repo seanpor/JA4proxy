@@ -38,6 +38,8 @@ confirming legitimate traffic flows.
 > and the bootstrapper `docker load`s it (no egress). Production hosts are
 > **zero-compile** — the bootstrapper refuses to run if `gcc`/`make`/`go` are
 > present; ship pre-built `ja4pd`/`ja4p` binaries or images.
+> 
+> **Management Console Assets**: All frontend dependencies (Tailwind CSS, HTMX, Alpine.js, Chart.js) are fully vendored under `management/static/vendor/` and locked with a strict Content Security Policy (`script-src 'self'`). The UI runs completely offline without making any third-party CDN or font requests.
 
 ### Starting and Stopping
 
