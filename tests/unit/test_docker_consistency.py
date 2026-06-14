@@ -86,27 +86,34 @@ def iter_env_entries(compose: dict) -> list[tuple[str, str]]:
 
 
 class TestPythonBaseImage:
-    """89a: All python: tags must be the patch-pinned 3.14.0 base.
+    """89a: All python: tags must be a patch-pinned base.
 
-    Both ``-slim`` (Debian) and ``-alpine`` are allowed: Phase 229 moved the
-    analytics/tarpit images to ``python:3.14.0-alpine`` to drop Debian's perl
-    (no-fix perl CVEs). The invariant that still matters is the **patch pin**
-    (3.14.0), so floating tags like ``3.14-slim`` remain rejected.
+    Two bases are allowed:
+
+    * ``python:3.14.0-slim`` (Debian) — admin/management FastAPI services;
+    * ``python:3.14.6-alpine3.24`` (digest-pinned) — analytics, tarpit, test,
+      trafficgen. Phase 229 first moved analytics/tarpit to alpine to drop
+      Debian's perl CVEs; Phase 317 re-based the remaining Debian Python
+      images (test, trafficgen) onto this same hardened alpine base and pinned
+      it by digest (0 HIGH/CRITICAL).
+
+    The invariant that still matters is the **patch pin** — floating tags like
+    ``3.14-slim`` or ``3.14-alpine`` (without a patch version) remain rejected.
     """
 
-    _ALLOWED = ("python:3.14.0-slim", "python:3.14.0-alpine")
+    _ALLOWED = ("python:3.14.0-slim", "python:3.14.6-alpine3.24")
 
     @pytest.mark.parametrize("df_path,lines", collect_dockerfiles())
     def test_python_tag_is_pinned(self, df_path: Path, lines: list[str]):
-        """Any FROM python:* must use python:3.14.0-{slim,alpine} (patch-pinned)."""
+        """Any FROM python:* must use an allowed patch-pinned base."""
         for lineno, image_ref in collect_from_lines(lines):
             if not image_ref.startswith("python:"):
                 continue
             assert image_ref.startswith(self._ALLOWED), (
                 f"{df_path}:{lineno} — "
-                f"expected FROM python:3.14.0-slim or python:3.14.0-alpine, got "
-                f"FROM {image_ref}. Floating tags like '3.14-slim' (without patch "
-                f"version) are rejected."
+                f"expected FROM python:3.14.0-slim or python:3.14.6-alpine3.24, "
+                f"got FROM {image_ref}. Floating tags like '3.14-slim' (without "
+                f"patch version) are rejected."
             )
 
 

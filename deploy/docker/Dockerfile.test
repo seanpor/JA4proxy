@@ -48,7 +48,6 @@ RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked \
 # Copy application and test files (proxy.py was archived in Phase 128)
 COPY tests/ tests/
 COPY config/ config/
-COPY security/ security/
 COPY src/ src/
 COPY scripts/ scripts/
 
