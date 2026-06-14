@@ -12,7 +12,7 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Action Plan:** [PHASE_309.md](PHASE_309.md)
 
 ### Phase 231b — Single-Host Bootstrap — Wizard, systemd, Firewall, Backups
-*   **Status:** **IN_PROGRESS** (Operator-facing single-host deployment tooling split out of the monolithic Phase 231 proposal (depends on 231a). Zero-compile bootstrap.sh (native + containerized, offline tarball, --check/--uninstall), interactive setup_wizard.py (inline->ja4pd vs TAP->python tap node, monitor-mode default, secrets to .env never echoed), systemd unit, firewall gating that reads HOST_PORT_* from .env (real scheme: mgmt 8090, metrics 9090, prometheus 9091, grafana 3000 — not the proposal's invented 8113/3023), logrotate, daily backup cron, GeoLite2 (not IP2Location) data. PROPOSED — awaiting review.)
+*   **Status:** **IN_PROGRESS** (Operator-facing single-host deployment tooling split out of the monolithic Phase 231 proposal (depends on 231a). Zero-compile bootstrap.sh (native + containerized, offline tarball, --check/--uninstall), interactive setup_wizard.py (inline->ja4pd vs TAP->python tap node, monitor-mode default, secrets to .env never echoed), systemd unit, firewall gating that reads HOST_PORT_* from .env (real scheme: mgmt 8090, metrics 9090, prometheus 9091, grafana 3000 — not the proposal's invented 8113/3023), logrotate, daily backup cron, GeoLite2 (not IP2Location) data. Note: Python wizard superseded by Phase 161 Go-native `ja4p init`. PROPOSED — awaiting review.)
 *   **Action Plan:** [PHASE_231b.md](PHASE_231b.md)
 
 ---
@@ -59,10 +59,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **DEFERRED** (Retired 2026-04-19 under Phase 121e as duplicate of Phase 119. All 20 findings were either duplicates of 119 entries or already folded into the canonical findings register (docs/security/findings.yaml) with remediation_phases pointing at 119 or its successor phases. See PHASE_120.md redirect stub.)
 *   **Action Plan:** [cancelled/PHASE_120.md](cancelled/PHASE_120.md)
 
-### Phase 161 — Setup Wizard Enhancements — Multi-Environment, Full Config, UX Polish
-*   **Status:** **PROPOSED** (Comprehensive wizard enhancements: all config options (SNIs, upstream LB, PROXY write, certs, TI keys, dial, log level), multi-environment lane integration (detect/select/create lanes, human-friendly names, port preview, non-destructive merges), UX polish (dry-run preview, validation summary, idempotent re-run, coloured output, help text, shell completion), production hardening prompts (firewall backend, fail2ban, log forwarding, backup encryption, monitoring stack), and config file generation (proxy.yml, haproxy.cfg) with validation. Depends on Phase 231b (core bootstrap), Phase 310 (lane isolation), Phase 231a (PROXY protocol write).)
-*   **Action Plan:** [PHASE_161.md](PHASE_161.md)
-
 ### Phase 232 — Security Foundations & Quick Wins (Index)
 *   **Status:** **PROPOSED** (Index/map for the security foundations and quick wins sub-phases.)
 *   **Action Plan:** [PHASE_232.md](PHASE_232.md)
@@ -70,10 +66,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 ### Phase 232b — Threat Posture Situation Bar & Heartbeat Alerting
 *   **Status:** **PROPOSED** (Implement a top situation summary bar displaying current Threat Posture (NOMINAL/ELEVATED/ACTIVE) and a sticky warning banner for proxy downtime. Updates docs/OPERATIONS_GUIDE.md.)
 *   **Action Plan:** [PHASE_232b.md](PHASE_232b.md)
-
-### Phase 232c — Container Networking & Port Hardening
-*   **Status:** **PROPOSED** (Connect analytics container to ja4proxy-data in POC, and restrict production port bindings to 127.0.0.1 loopback. Updates docs/DOCKER_IMAGES.md.)
-*   **Action Plan:** [PHASE_232c.md](PHASE_232c.md)
 
 ### Phase 232d — Admin-API Decommissioning
 *   **Status:** **PROPOSED** (Decommission the unauthenticated admin-api container and Dockerfile.admin, routing all automation/CLI tools directly to the secure management API. Updates docs/OPERATIONS_GUIDE.md.)

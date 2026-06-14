@@ -137,6 +137,36 @@ def generate_todo(manifest) -> str:
     return "\n".join(lines)
 
 
+def _validate_epic_phase_refs(manifest) -> None:
+    """Raise ValueError if any epic references a phase id absent from `phases:`.
+
+    Guards against the common YAML failure mode where a mis-indented sequence
+    item (e.g. a 3-space ``   - 106`` under a 2-space list) is folded into the
+    previous plain scalar, producing a bogus compound id like
+    ``'102 - 106 - 161 - 204 - 329'``. Without this guard generate_status() dies
+    on an opaque ``KeyError`` deep in the table loop; with it the offending epic
+    and id are named up front so the manifest can be fixed at a glance.
+    """
+    known = set(manifest.get("phases", {}))
+    bad = [
+        (epic.get("name", "<unnamed epic>"), phase_id)
+        for epic in manifest.get("epics", [])
+        for phase_id in epic.get("phases", [])
+        if phase_id not in known
+    ]
+    if bad:
+        details = "; ".join(f"epic {name!r} → phase {pid!r}" for name, pid in bad)
+        raise ValueError(
+            "manifest.yaml: epic(s) reference undefined phase id(s): "
+            f"{details}. This is usually a mis-indented entry in an epic's "
+            "`phases:` list — YAML folds a mis-indented '- 106' into the "
+            "previous scalar, yielding a compound id like "
+            "'102 - 106 - 161 - 204 - 329'. Fix the indentation in "
+            "docs/phases/manifest.yaml so every '- <id>' under `phases:` shares "
+            "the same two-space indent."
+        )
+
+
 def generate_status(manifest, date_str: str | None = None) -> str:
     """Return the expected PROJECT_STATUS.md content as a string.
 
@@ -145,6 +175,9 @@ def generate_status(manifest, date_str: str | None = None) -> str:
     """
     if date_str is None:
         date_str = datetime.now().strftime("%Y-%m-%d")
+
+    # Fail loudly (naming the epic + id) before the table loop hits a KeyError.
+    _validate_epic_phase_refs(manifest)
 
     # Find next actionable phase (first that is not COMPLETE, CLOSED, or CANCELLED)
     _done_statuses = {"COMPLETE", "CLOSED", "CANCELLED"}

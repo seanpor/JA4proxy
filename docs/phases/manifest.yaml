@@ -110,10 +110,11 @@ epics:
   - 88
   - 91
   - 102
-   - 106
-   - 161
-   - 204
-   - 329
+  - 106
+  - 161
+  - 204
+  - 329
+  - 331
 - name: 'Epic: Quality Assurance & Test Maturity'
   description: Comprehensive testing, adversarial coverage, and performance validation.
   phases:
@@ -2802,3 +2803,11 @@ phases:
     dependencies: []
     size: SMALL
     summary: 'Updates the production proxy image tag to ja4proxy:2.0.0 in the Makefile, production docker compose config, and documentation, ensuring security scans run against the clean Go-based image.'
+  331:
+    name: Repair make sync (manifest epic indentation + loud validation)
+    status: COMPLETE
+    completed: 2026-06-14
+    action_plan: docs/phases/complete/PHASE_331.md
+    dependencies: []
+    size: MICRO
+    summary: 'Fixes the mis-indented epic phases list in manifest.yaml that folded five ids into one bogus scalar and broke make sync with an opaque KeyError, and hardens sync-roadmap.py to fail loudly naming the offending epic and id so this class of YAML typo is caught at a glance. Regenerates TODO.md and PROJECT_STATUS.md.'
