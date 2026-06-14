@@ -492,18 +492,18 @@ func (w *Wizard) confirmAndWrite(ctx context.Context) error {
 
 	if w.Answers.DryRun {
 		w.Out.Section("Dry-Run Preview")
-		w.Out.Info("--- .env ---")
-		w.Out.Info(cfg.Env)
-		w.Out.Info("--- systemd unit ---")
-		w.Out.Info(cfg.Systemd)
-		w.Out.Info("--- proxy.yml ---")
-		w.Out.Info(cfg.ProxyYML)
+		w.Out.Raw("--- .env ---")
+		w.Out.Raw(cfg.Env)
+		w.Out.Raw("--- systemd unit ---")
+		w.Out.Raw(cfg.Systemd)
+		w.Out.Raw("--- proxy.yml ---")
+		w.Out.Raw(cfg.ProxyYML)
 		if cfg.HAProxy != "" {
-			w.Out.Info("--- haproxy.cfg ---")
-			w.Out.Info(cfg.HAProxy)
+			w.Out.Raw("--- haproxy.cfg ---")
+			w.Out.Raw(cfg.HAProxy)
 		}
-		w.Out.Info("")
-		w.Out.Info("Dry-run — no files written. Run without --dry-run to apply.")
+		w.Out.Raw("")
+		w.Out.Raw("Dry-run — no files written. Run without --dry-run to apply.")
 		return nil
 	}
 

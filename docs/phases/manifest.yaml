@@ -2667,8 +2667,8 @@ phases:
     summary: 'OUTLINE — detailed plan before start. Export sensor fingerprints/verdicts to downstream tooling: EDL (pull), F5, Palo Alto, Kafka, Syslog CEF, TAXII 2.1, MISP. Each exporter independent and isolated with per-exporter fail-open (log + counter + neutral return; one failing exporter never affects another), data-minimisation (fingerprints + verdicts, never raw payload). Likely split per exporter group when detailed; references (does not port verbatim) the archived Python exporters. PROPOSED — outline.'
   161:
     name: Setup Wizard Enhancements — Multi-Environment, Full Config, UX Polish
-    status: IN_PROGRESS
-    action_plan: docs/phases/PHASE_161.md
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_161.md
     dependencies: [231b, 310, 231a]
     size: LARGE
     summary: 'Go-native rewrite of the setup wizard as a proper `ja4p init` subcommand (not Python). Ports the Phase 231b Python wizard logic + Phase 310 lane integration into Go with `//go:embed` templates. Adds full config surface (SNIs, upstream LB, PROXY write, certs, TI keys, dial, log level), lane-aware multi-environment support, dry-run preview, idempotent re-run, production hardening prompts, and cobra shell completion. Moves template rendering from Jinja2 to Go text/template, embedded in the binary.'
@@ -2685,7 +2685,7 @@ phases:
     action_plan: docs/phases/PHASE_231b.md
     dependencies: [231a]
     size: LARGE
-    summary: 'Operator-facing single-host deployment tooling split out of the monolithic Phase 231 proposal (depends on 231a). Zero-compile bootstrap.sh (native + containerized, offline tarball, --check/--uninstall), interactive setup_wizard.py (inline->ja4pd vs TAP->python tap node, monitor-mode default, secrets to .env never echoed), systemd unit, firewall gating that reads HOST_PORT_* from .env (real scheme: mgmt 8090, metrics 9090, prometheus 9091, grafana 3000 — not the proposal''s invented 8113/3023), logrotate, daily backup cron, GeoLite2 (not IP2Location) data. PROPOSED — awaiting review.'
+    summary: 'Operator-facing single-host deployment tooling split out of the monolithic Phase 231 proposal (depends on 231a). Zero-compile bootstrap.sh (native + containerized, offline tarball, --check/--uninstall), interactive setup_wizard.py (inline->ja4pd vs TAP->python tap node, monitor-mode default, secrets to .env never echoed), systemd unit, firewall gating that reads HOST_PORT_* from .env (real scheme: mgmt 8090, metrics 9090, prometheus 9091, grafana 3000 — not the proposal''s invented 8113/3023), logrotate, daily backup cron, GeoLite2 (not IP2Location) data. Note: Python wizard superseded by Phase 161 Go-native `ja4p init`. PROPOSED — awaiting review.'
   144:
     name: Operational Excellence & Repo Pruning
     status: COMPLETE
