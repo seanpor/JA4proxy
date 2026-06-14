@@ -3,20 +3,19 @@
 > **Read this file first, every session.** Then read the specific phase file in
 > `docs/phases/` for the phase you are working on. Do not skip ahead.
 
-> ### ⚠ Production runtime is Go, not Python
+> ### ⚠ The proxy is Go-only
 >
-> The **Go proxy** (`cmd/proxy/`, `internal/`, built to `bin/proxy`) was promoted
-> to production in Phase 15. It is the only implementation that ships in releases,
-> Docker images, Helm charts, and enterprise documentation.
+> The **Go proxy** (`cmd/ja4pd`, `internal/`) was promoted to production in
+> Phase 15 and is now the **only** proxy implementation. It is what ships in
+> releases, Docker images, Helm charts, and enterprise documentation.
 >
-> The **Python proxy** (`proxy.py`, `src/security/`) is **experimental** and
-> retained only as a prototyping surface for new signal modules. Prototype in
-> Python, prove the idea, then port to Go before it touches real traffic.
+> The former **Python proxy** (`proxy.py`) was deprecated and **deleted** — there
+> is no Python proxy runtime and no Go/Python parity to maintain. Any proxy work
+> (signal modules, hot path, config, logging) happens in Go.
 >
-> Default to the Go side. Touch the Python side only when the task explicitly
-> involves prototyping, signal-module research, or fixing the Python prototype
-> itself. Python services that **are not the proxy** — Management API (FastAPI),
-> analytics node, compliance reporting — remain Python and are production code.
+> Python remains only for services that **are not the proxy** — the Management
+> API (FastAPI, `management/`), the analytics node, and supporting tooling under
+> `src/`. Those are production code; treat them as Python.
 
 ---
 
@@ -60,8 +59,9 @@ merge both changesets preserving all work. Note it in `PHASE_XX_notes.md`.
 
 - **Parallel-safe:** different `src/` directories, tests + docs for the same phase,
   read-only exploration.
-- **Must run sequentially:** any two agents touching `proxy.py`, Makefile aggregate
-  targets, README top-level, branch merges.
+- **Must run sequentially:** any two agents touching shared Go hot-path files
+  (`cmd/ja4pd/main.go`, `internal/`), Makefile aggregate targets, README
+  top-level, branch merges.
 
 When merging branches, always preserve ALL content from both sides. Never
 discard work. For complex merges, spawn a subagent to produce a single file
@@ -276,8 +276,8 @@ See `docs/DOCUMENTATION_STANDARDS.md`. Summary:
 ### Code Style
 
 - **Python:** type hints on all public functions and class attributes; docstrings
-  on public classes and non-trivial functions; follow patterns in `proxy.py`
-  and `src/security/`.
+  on public classes and non-trivial functions; follow patterns in the existing
+  `management/` and `src/` code.
 - **Go:** `gofmt`-formatted; godoc comments on exports; errors returned not
   panicked (except unrecoverable startup); context propagation for shutdown.
 
@@ -329,7 +329,7 @@ invariants that affect every phase:
 | RDAP block expansion: off by default, never > /24 (v4) or /48 (v6) | A /16 could affect entire ISP customers |
 | Analytics: Redis Streams not Pub/Sub | Streams persistent and replayable after downtime |
 | Analytics: fire-and-forget XADD | Stream writes must never add hot-path latency |
-| Go rewrite: Phase 15 (last) | Prove the design in Python first; rewrite once with a stable spec |
+| Go rewrite (Phase 15) → Go is now the sole proxy | Proved the design in Python first; the Python proxy has since been removed |
 | Hot reload: SIGHUP + pub/sub | Config changes must not require restart or traffic gap |
 
 ---
@@ -344,7 +344,8 @@ invariants that affect every phase:
 ### Starting
 1. Read this file (`CLAUDE.md`) in full.
 2. Read `docs/phases/PHASE_XX.md` (create it first if missing — see note above).
-3. Read existing code in `proxy.py` / `src/security/` / `internal/` before writing.
+3. Read existing code before writing — `cmd/ja4pd/` and `internal/` for the Go
+   proxy; `management/` and `src/` for the Python services.
 4. Read `config/proxy.yml` to understand the config structure.
 5. Branch: `git checkout main && git pull && git checkout -b phase-XX-description`
 
