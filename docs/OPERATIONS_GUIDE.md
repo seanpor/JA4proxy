@@ -25,13 +25,13 @@ sudo ./scripts/bootstrap.sh --uninstall        # remove (prompts before purging 
 ```
 
 The wizard (`scripts/setup_wizard.py`, run by the bootstrapper or standalone)
-prompts for topology (inline → `ja4pd`, or TAP → the passive tap node), the
-protected backend, deploy mode, admin bind IP, and admin user. It **generates
-strong secrets into `.env` (chmod 600) and never prints them** — the on-screen
-summary shows `[generated — see .env]`. Published admin ports default to the
-real scheme (Management UI **8090**, metrics 9090, Prometheus 9091, Grafana
-3000) and stay on loopback; nothing is hard-locked (override via `HOST_PORT_*`).
-The proxy starts in **monitor mode (`dial: 0`)** — raise the dial only after
+prompts for the protected backend, deploy mode (native binary or containerized),
+admin bind IP, and admin user. It **generates strong secrets into `.env`
+(chmod 600) and never prints them** — the on-screen summary shows
+`[generated — see .env]`. Published admin ports default to the real scheme
+(Management UI **8090**, metrics 9090, Prometheus 9091, Grafana 3000) and
+stay on loopback; nothing is hard-locked (override via `HOST_PORT_*`). The
+proxy starts in **monitor mode (`dial: 0`)** — raise the dial only after
 confirming legitimate traffic flows.
 
 > Air-gapped hosts: drop a pre-built `ja4proxy-offline.tar.gz` next to the repo
