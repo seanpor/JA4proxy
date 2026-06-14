@@ -266,6 +266,11 @@ services:
       retries: 3
     networks:
       - ja4proxy-mgmt
+      # phase-232c: analytics reads Redis (events stream + findings); Redis is
+      # attached only to the internal ja4proxy-data network, so analytics must
+      # join it too or the `redis` hostname does not resolve. Mirrors the
+      # management/admin-api services, which are on both networks.
+      - ja4proxy-data
     security_opt:
       - no-new-privileges:true
     read_only: true

@@ -2732,7 +2732,7 @@ phases:
     summary: Implement a top situation summary bar displaying current Threat Posture (NOMINAL/ELEVATED/ACTIVE) and a sticky warning banner for proxy downtime. Updates docs/OPERATIONS_GUIDE.md.
   232c:
     name: Container Networking & Port Hardening
-    status: IN_PROGRESS
+    status: COMPLETE
     action_plan: docs/phases/PHASE_232c.md
     dependencies: [232a]
     size: SMALL

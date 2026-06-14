@@ -19,6 +19,7 @@ Design notes:
 
 from __future__ import annotations
 
+import ipaddress
 import os
 import re
 import shutil
@@ -33,6 +34,7 @@ DEPLOY_DOCKER = REPO_ROOT / "deploy" / "docker"
 WORKFLOWS_DIR = REPO_ROOT / ".github" / "workflows"
 
 POC_COMPOSE = DEPLOY_DOCKER / "docker-compose.poc.yml"
+PROD_COMPOSE = DEPLOY_DOCKER / "docker-compose.prod.yml"
 MONITORING_COMPOSE = DEPLOY_DOCKER / "docker-compose.monitoring.yml"
 TEST_COMPOSE = DEPLOY_DOCKER / "docker-compose.test.yml"
 
@@ -244,6 +246,143 @@ def test_test_redis_has_password() -> None:
         f"redis service {name!r} REDIS_PASSWORD env and --requirepass command "
         f"reference different tokens: env={env_refs!r} cmd={cmd_refs!r}. "
         f"They must be identical — otherwise clients will fail to authenticate."
+    )
+
+
+# ── Network topology & host-port exposure (phase-232c) ───────────────────────
+
+
+def _service_networks(svc: dict | None) -> list[str]:
+    """Return the list of networks a compose service is attached to.
+
+    The `networks:` key may be a list (`[a, b]`) or a mapping
+    (`{a: {...}, b: {...}}`); normalise both to a list of names.
+    """
+    nets = (svc or {}).get("networks") or []
+    if isinstance(nets, dict):
+        return list(nets.keys())
+    return list(nets)
+
+
+def test_poc_analytics_shares_redis_data_network() -> None:
+    """The POC `analytics` service must share a network with `redis`.
+
+    Redis is attached only to the internal `ja4proxy-data` network. If the
+    analytics container is not also on that network, the `redis` hostname does
+    not resolve and the analytics node cannot read the events stream or write
+    findings. The `management` and `admin-api` services are correctly on both
+    `ja4proxy-mgmt` and `ja4proxy-data` — analytics must match (phase-232c).
+    """
+    compose = yaml.safe_load(POC_COMPOSE.read_text()) or {}
+    services = compose.get("services", {}) or {}
+
+    redis_nets = set(_service_networks(services.get("redis")))
+    analytics_nets = set(_service_networks(services.get("analytics")))
+
+    assert redis_nets, "poc redis service declares no networks"
+    assert analytics_nets, "poc analytics service declares no networks"
+
+    shared = redis_nets & analytics_nets
+    assert shared, (
+        f"poc analytics (networks={sorted(analytics_nets)}) shares NO network "
+        f"with redis (networks={sorted(redis_nets)}); the `redis` hostname will "
+        f"not resolve. Attach analytics to the shared data network "
+        f"(ja4proxy-data)."
+    )
+
+
+# Internal services whose host ports were removed in Phase 0046 (proxy
+# metrics/health, analytics HTTP, tarpit metrics). Prometheus and the proxy
+# reach them over the compose network, so they need no host publishing at all
+# and must never be republished on a wildcard / public interface. (haproxy's
+# 443/80 are intentionally public and are deliberately excluded.)
+_PROD_INTERNAL_SERVICES = ("proxy", "analytics", "tarpit")
+
+
+def _leading_host_ip(port_str: str) -> str:
+    """Host-IP field of a compose ``HOST_IP:PUBLISHED:TARGET`` short-form string.
+
+    Returns ``""`` when the entry has no host-IP field (``PUBLISHED:TARGET``),
+    which means Docker binds it on all interfaces (0.0.0.0). Brace-aware so a
+    ``${VAR:-127.0.0.1}:80:80`` default is not split on its inner colon.
+    """
+    fields: list[str] = []
+    depth = 0
+    cur = ""
+    for ch in port_str:
+        if ch == "{":
+            depth += 1
+            cur += ch
+        elif ch == "}":
+            depth -= 1
+            cur += ch
+        elif ch == ":" and depth == 0:
+            fields.append(cur)
+            cur = ""
+        else:
+            cur += ch
+    fields.append(cur)
+    return fields[0] if len(fields) == 3 else ""
+
+
+def _host_ip_is_safe(host_ip: str) -> bool:
+    """True when a published host-IP is loopback/private and never wildcard.
+
+    Resolves a ``${VAR:-default}`` to its default. A bare ``${VAR}`` (no
+    default) or an empty field is treated as unsafe — it can resolve to
+    0.0.0.0 at deploy time.
+    """
+    host_ip = host_ip.strip()
+    if host_ip.startswith("${"):
+        inner = host_ip[2:].rstrip("}")
+        if ":-" in inner:
+            host_ip = inner.split(":-", 1)[1]
+        else:
+            return False  # bare ${VAR} — unknown default, assume unsafe
+    if not host_ip:
+        return False
+    if host_ip == "localhost":
+        return True
+    try:
+        addr = ipaddress.ip_address(host_ip)
+    except ValueError:
+        return False
+    if addr.is_unspecified:  # 0.0.0.0 / ::
+        return False
+    return addr.is_loopback or addr.is_private
+
+
+def test_prod_internal_services_not_published_on_wildcard() -> None:
+    """Regression guard for Phase 0046: the internal prod services must not
+    publish host ports on a wildcard / public interface.
+
+    Today they publish no host ports at all (this test passes trivially); the
+    guard's job is to fail loudly if someone re-adds a bare ``- "8082"``-style
+    mapping that would expose an internal service on 0.0.0.0.
+    """
+    compose = yaml.safe_load(PROD_COMPOSE.read_text()) or {}
+    services = compose.get("services", {}) or {}
+
+    offenders: list[str] = []
+    for name in _PROD_INTERNAL_SERVICES:
+        svc = services.get(name)
+        assert svc is not None, (
+            f"prod compose is missing expected service {name!r}; "
+            f"services present: {sorted(services)}"
+        )
+        for entry in svc.get("ports") or []:
+            if isinstance(entry, dict):
+                host_ip = entry.get("host_ip", "") or ""
+            else:
+                host_ip = _leading_host_ip(str(entry))
+            if not _host_ip_is_safe(host_ip):
+                offenders.append(f"{name}: {entry!r}")
+
+    assert not offenders, (
+        "Internal prod services must not publish host ports on a wildcard/"
+        "public interface (Phase 0046 removed these — Prometheus and the proxy "
+        "reach them over the compose network):\n"
+        + "\n".join(f"  {o}" for o in offenders)
     )
 
 
