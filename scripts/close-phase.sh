@@ -133,8 +133,8 @@ pass "sync"
 echo ""
 if $PIPELINE_TOUCHED; then
     echo -e "${BOLD}⚠ Pipeline/scoring changes detected.${RESET}"
-    echo -e "  Run 'make parity-check' with both proxies running before merging."
-    echo -e "  (This check is not automated here — requires live services.)"
+    echo -e "  Ensure the Go pipeline tests cover the change (the Go proxy is the"
+    echo -e "  only runtime; 'make test' runs them)."
     echo ""
 fi
 

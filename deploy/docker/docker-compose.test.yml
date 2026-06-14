@@ -82,28 +82,6 @@ services:
       retries: 10
       start_period: 10s
 
-  # ── Python proxy ────────────────────────────────────────────────────────────
-  python-proxy:
-    build:
-      context: ../..
-      dockerfile: tests/docker/Dockerfile.python-proxy
-    networks:
-      - ja4proxy-test
-    ports:
-      - "8081:8080"
-      - "9091:9090"
-    depends_on:
-      redis:
-        condition: service_healthy
-      tls-backend:
-        condition: service_healthy
-    environment:
-      REDIS_HOST: redis
-      REDIS_PORT: "6379"
-      REDIS_PASSWORD: "${REDIS_TEST_PASSWORD:-test-fixtures-pw}"
-      BACKEND_HOST: tls-backend
-      BACKEND_PORT: "443"
-
   # ── ClientHello recorder ────────────────────────────────────────────────────
   recorder:
     build:
@@ -153,8 +131,6 @@ services:
       GO_PROXY_HOST: go-proxy
       GO_PROXY_PORT: "8080"
       GO_METRICS_PORT: "9090"
-      PYTHON_PROXY_HOST: python-proxy
-      PYTHON_PROXY_PORT: "8080"
       REDIS_HOST: redis
       REDIS_PORT: "6379"
       REDIS_PASSWORD: "${REDIS_TEST_PASSWORD:-test-fixtures-pw}"
