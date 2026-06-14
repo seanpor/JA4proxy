@@ -106,3 +106,70 @@ class TestActionPlanLinkPreservesPrefix:
             "Expected markdown link [archive/PHASE_05.md](archive/PHASE_05.md) "
             f"not found in output:\n{output}"
         )
+
+
+def _make_epic_manifest(epic_phases: list, defined_phase_ids: list) -> dict:
+    """Return a minimal manifest with one epic listing ``epic_phases`` and the
+    given ``defined_phase_ids`` registered under top-level ``phases:``.
+    """
+    return {
+        "epics": [
+            {
+                "name": "Epic: Operational Excellence & Lifecycle Management",
+                "description": "Tooling and lifecycle.",
+                "phases": epic_phases,
+            }
+        ],
+        "phases": {
+            pid: {
+                "name": f"Phase {pid}",
+                "status": "COMPLETE",
+                "summary": "A phase.",
+            }
+            for pid in defined_phase_ids
+        },
+    }
+
+
+class TestEpicPhaseRefValidation:
+    """generate_status() must fail loudly — naming the epic and offending id —
+    when an epic references a phase id that is not defined under ``phases:``.
+
+    Regression guard for the mis-indented manifest entry that folded
+    ``- 102 / - 106 / - 161 / - 204 / - 329`` into a single bogus scalar
+    ``'102 - 106 - 161 - 204 - 329'`` and broke ``make sync`` with an opaque
+    KeyError (Phase 331).
+    """
+
+    def test_folded_compound_id_raises_clear_error(self):
+        """The exact failure that broke make sync: a folded compound id must
+        raise ValueError naming both the epic and the bogus id — not KeyError.
+        """
+        bogus_id = "102 - 106 - 161 - 204 - 329"
+        manifest = _make_epic_manifest(
+            epic_phases=[bogus_id], defined_phase_ids=[102, 106, 161, 204, 329]
+        )
+        with pytest.raises(ValueError) as exc:
+            sync_roadmap.generate_status(manifest, date_str="2026-01-01")
+        msg = str(exc.value)
+        assert bogus_id in msg, "error must name the offending compound id"
+        assert "Operational Excellence" in msg, "error must name the epic"
+        assert "manifest.yaml" in msg, "error must point at the file to fix"
+
+    def test_unknown_single_id_raises_clear_error(self):
+        """A plain typo'd id (not a fold) is reported the same way."""
+        manifest = _make_epic_manifest(epic_phases=[102, 999], defined_phase_ids=[102])
+        with pytest.raises(ValueError) as exc:
+            sync_roadmap.generate_status(manifest, date_str="2026-01-01")
+        assert "999" in str(exc.value)
+
+    def test_well_formed_epic_refs_do_not_raise(self):
+        """A correctly-indented epic list (all ids defined) generates cleanly."""
+        manifest = _make_epic_manifest(
+            epic_phases=[102, 106, 161, 204, 329],
+            defined_phase_ids=[102, 106, 161, 204, 329],
+        )
+        # Should not raise and should render the epic table.
+        output = sync_roadmap.generate_status(manifest, date_str="2026-01-01")
+        assert "Operational Excellence" in output
+        assert "| 329 |" in output
