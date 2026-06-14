@@ -85,7 +85,7 @@ each with a floating-point **score**. Members are always kept in score order. Th
 makes it extremely fast to ask "give me the top 10 by score" or "give me all members
 with a score between 35 and 65".
 
-In this project, the `ja4proxy:events` key is a **stream** (not a sorted set) — it
+In this project, the `events:connection` key is a **stream** (not a sorted set) — it
 is an append-only log. To find the top 10 IPs, we must:
 1. Read recent events from the stream
 2. Group them by IP, computing the max risk score per IP
@@ -102,24 +102,32 @@ threshold from a plain Redis string, then do the score filtering in Python.
 ### 2.3 What does XREVRANGE do?
 
 `XREVRANGE` reads a Redis stream **in reverse order** (newest first). It takes:
-- The stream key (`ja4proxy:events`)
+- The stream key (`events:connection`)
 - A start ID (`+` means the most recent possible entry)
 - An end ID (either `-` meaning the oldest, or a specific stream ID)
 - An optional `COUNT` to limit results
 
 When you want "the last N events" or "all events in the last 15 minutes":
 ```
-XREVRANGE ja4proxy:events + <timestamp_15_minutes_ago> COUNT 5000
+XREVRANGE events:connection + <timestamp_15_minutes_ago> COUNT 5000
 ```
 This is more efficient than `XRANGE` (oldest-first) because you stop as soon as
 you've collected enough recent events without scanning old ones.
 
 In the `redis-py` async client (used in this project), the call is:
 ```python
-entries = await redis.xrevrange("ja4proxy:events", max="+", min=min_id, count=5000)
+entries = await redis.xrevrange("events:connection", max="+", min=min_id, count=5000)
 ```
 Each entry is a tuple `(stream_id, fields_dict)`. The stream ID is a string like
 `"1749711234567-0"` — the first part is a Unix timestamp in milliseconds.
+
+**Payload shape (important):** `fields_dict` has exactly **one** key, `"event"`,
+whose value is a JSON string the Go proxy writes (`cmd/ja4pd/main.go`). That JSON
+uses flat, dot-delimited ECS keys — `event.action`, `event.risk_score`,
+`source.ip`, `ja4proxy.fingerprint.ja4`, `ja4proxy.sni`, `@timestamp`. You must
+`json.loads(fields["event"])` and then index the literal dotted strings
+(`ev["source.ip"]`) — they are **not** top-level stream fields and **not** nested
+objects (`ev["source"]["ip"]` would `KeyError`).
 
 ### 2.4 Why poll with HTMX every 30 seconds instead of SSE?
 
@@ -412,7 +420,7 @@ async def test_all_pages_render_200_for_all_roles(role):
 
 **Run the tests (from project root):**
 ```bash
-# Working directory: /home/sean/LLM/JA4proxy2
+# Working directory: /home/sean/LLM/JA4proxy
 .venv/bin/python -m pytest tests/unit/test_pages_rbac.py -v
 ```
 
@@ -429,7 +437,7 @@ The stream uses IDs in the format `<milliseconds_since_epoch>-<sequence>`. To qu
 import time
 min_ms = int((time.time() - 15 * 60) * 1000)  # 15 minutes ago in ms
 min_id = f"{min_ms}-0"
-# XREVRANGE ja4proxy:events + <min_id>
+# XREVRANGE events:connection + <min_id>
 ```
 
 ### 4.2 The complete endpoint
@@ -437,12 +445,20 @@ min_id = f"{min_ms}-0"
 **File:** `management/api/routes/partials.py` — add after the existing routes.
 
 ```python
+import json
 import time
 from collections import defaultdict
 
 # ── Threat Posture constants ────────────────────────────────────────────────────
-_STREAM_KEY = "ja4proxy:events"
+_STREAM_KEY = "events:connection"   # the Go proxy's per-connection event stream (cmd/ja4pd/main.go)
 _JA4_LABELS_KEY = "config:ja4_labels"   # Redis hash: ja4_hash -> human label
+
+# Each stream entry has ONE field, "event", whose value is a JSON string of
+# FLAT, dot-delimited ECS keys (cmd/ja4pd/main.go builds it). Parse the JSON,
+# then index the literal dotted keys — they are NOT top-level stream fields and
+# NOT nested objects:
+#   event.action  event.risk_score  source.ip  source.port
+#   ja4proxy.fingerprint.ja4  ja4proxy.sni  ja4proxy.dial_setting  @timestamp
 
 _WINDOW_SECONDS: dict[str, int] = {
     "5m":  5 * 60,
@@ -451,7 +467,8 @@ _WINDOW_SECONDS: dict[str, int] = {
     "24h": 24 * 60 * 60,
 }
 _DEFAULT_WINDOW = "15m"
-_VALID_ACTIONS = {"allow", "monitor", "challenge", "block", "tarpit"}
+# Must match the proxy's event.action vocabulary (cmd/ja4pd/main.go).
+_VALID_ACTIONS = {"allow", "flag", "rate_limit", "tarpit", "block", "ban"}
 
 
 def _window_min_id(seconds: int) -> str:
@@ -499,10 +516,17 @@ async def threat_posture_partial(
 
         for _entry_id, fields in raw:
             total_events += 1
-            ip = fields.get("ip", "")
-            ja4 = fields.get("ja4", "")
-            action = fields.get("action_taken", "")
-            risk_raw = fields.get("risk_score", "0")
+            raw_event = fields.get("event")
+            if not raw_event:
+                continue
+            try:
+                ev = json.loads(raw_event)
+            except (ValueError, TypeError):
+                continue
+            ip = ev.get("source.ip", "")
+            ja4 = ev.get("ja4proxy.fingerprint.ja4", "")
+            action = ev.get("event.action", "")
+            risk_raw = ev.get("event.risk_score", 0)
 
             try:
                 score = float(risk_raw)
@@ -1081,6 +1105,26 @@ async def test_action_distribution_percentages():
 
 ## 5. Sub-task C: Infrastructure Row
 
+### 5.0 Prerequisite — heartbeat producer (Go) — MUST ship with this sub-task
+
+The infra row reads `proxy:heartbeat:*` to show the proxy up/down. **As of `main`
+nothing writes that key** (verified: no writer in `cmd/` or `internal/`; the only
+producers assumed by `health.py`, `pack_builder.py`, and `nodes.py` do not exist).
+Shipping only the consumer leaves the proxy permanently "down".
+
+This sub-task must therefore **add the producer** to the Go proxy:
+
+- In `cmd/ja4pd/main.go`, start a heartbeat goroutine that, every ~30s, does
+  `SET proxy:heartbeat:{instance_id} <epoch> EX 90` (TTL ≈ 3× the interval, so a
+  dead node's key lapses on its own). `{instance_id}` = hostname/pod name or a
+  startup-generated UUID.
+- Standardise on **`proxy:heartbeat:{instance_id}`** (this program's chosen
+  convention). Converge the existing `mgmt:node:*` reader (`nodes.py`) onto the
+  same key, and correct `docs/REDIS_SCHEMA.md` (which currently claims a producer
+  that does not exist).
+
+Do not merge the consumer without the producer.
+
 ### 5.1 The complete endpoint
 
 **File:** `management/api/routes/partials.py` — add after threat-posture.
@@ -1142,7 +1186,12 @@ async def infrastructure_partial(
     proxy_up = False
     proxy_last_seen = None
     try:
-        # Proxy writes proxy:heartbeat:<instance_id> keys with a 90s TTL.
+        # PREREQUISITE: as of `main` NOTHING writes proxy:heartbeat:* (verified:
+        # no writer in cmd/ or internal/). This program MUST add the producer —
+        # a heartbeat worker in cmd/ja4pd/main.go that SET ... EX a
+        # proxy:heartbeat:{instance_id} key on an interval, TTL ~3× that interval
+        # (see "Prerequisite: heartbeat producer" below). Until it exists this
+        # SCAN returns empty and the proxy reads "down" forever.
         # If any such key exists, the proxy is up.
         cursor = 0
         while True:
@@ -1446,11 +1495,18 @@ async def triage_queue_partial(
     try:
         raw = await redis.xrevrange(_STREAM_KEY, max="+", min=min_id_24h, count=10000)
         for _entry_id, fields in raw:
-            ip = fields.get("ip", "")
+            raw_event = fields.get("event")
+            if not raw_event:
+                continue
+            try:
+                ev = json.loads(raw_event)
+            except (ValueError, TypeError):
+                continue
+            ip = ev.get("source.ip", "")
             if not ip:
                 continue
             try:
-                score = float(fields.get("risk_score", "0"))
+                score = float(ev.get("event.risk_score", 0))
             except (ValueError, TypeError):
                 score = 0.0
             ip_scores.setdefault(ip, []).append(score)
@@ -1885,7 +1941,7 @@ partial templates; dashboard.html just contains the wiring:
 
 ### 8.1 Pytest commands
 
-All commands run from the project root `/home/sean/LLM/JA4proxy2`:
+All commands run from the project root `/home/sean/LLM/JA4proxy`:
 
 ```bash
 # Run ONLY Phase 234 tests (fast feedback during development)

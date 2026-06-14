@@ -482,21 +482,28 @@ async def update_dial(
     # Set new dial value
     await redis.set("config:dial", str(body.value))
 
-    # Phase 237: Schedule auto-revert if requested
-    revert_key = "config:dial:revert"
+    # Phase 237: Schedule auto-revert if requested.
+    #
+    # We do NOT use a TTL key + keyspace-expiry notification. `notify-keyspace-events`
+    # is empty by default in Redis and is configured nowhere in this repo, and
+    # expiry events are fire-and-forget — a watcher disconnected at the moment of
+    # expiry (deploy/restart/crash) would miss it and the dial would never revert.
+    # Instead store a PERSISTENT override record (no TTL) and poll it (see 4b).
+    override_key = "config:dial_override"
     if body.revert_after_hours is not None:
-        revert_seconds = body.revert_after_hours * 3600
-        # Store the previous value and set a TTL — when the TTL expires,
-        # a background task (or keyspace notification consumer) reads this
-        # key and resets the dial to the stored value.
-        await redis.set(revert_key, str(previous_value), ex=revert_seconds)
+        expires_at = int(datetime.now(timezone.utc).timestamp()) + body.revert_after_hours * 3600
+        await redis.set(override_key, json.dumps({
+            "original_value": previous_value,
+            "override_value": body.value,
+            "expires_at_epoch": expires_at,
+        }))  # no TTL — the poller deletes it after reverting
         logger.info(
             "dial | event=revert_scheduled | user=%s | from=%s | to=%s | revert_in_hours=%s",
             user_name, body.value, previous_value, body.revert_after_hours,
         )
     else:
-        # Clear any existing revert schedule when dial is changed without revert
-        await redis.delete(revert_key)
+        # Clear any existing override when dial is changed without revert
+        await redis.delete(override_key)
 
     # Audit log entry
     await redis.rpush(
@@ -516,83 +523,69 @@ async def update_dial(
     return {"ok": True, "value": body.value, "revert_scheduled": body.revert_after_hours is not None}
 ```
 
-### 4b. Revert Background Task
+### 4b. Revert Background Task (polling — NOT keyspace notifications)
 
-The revert is triggered by Redis keyspace notification on the `config:dial:revert`
-key expiry. This requires `notify-keyspace-events Ex` in `redis.conf` (or passed
-as a CLI argument). Add a lightweight consumer to the management service:
+The revert is driven by a **polling loop** over the persistent
+`config:dial_override` record. This is self-healing across restarts (a missed
+tick is simply caught on the next one), needs no Redis server-config change, and
+has no "value lost on expiry" hazard because the record carries the original
+value and is never TTL'd. Start the task from `management/api/main.py` on startup.
 
 ```python
 # management/tasks/dial_revert.py
-"""Background task: consume Redis keyspace notifications for dial auto-revert.
+"""Background task: poll config:dial_override and auto-revert the dial when due.
 
-When the config:dial:revert key expires, Redis fires a keyspace notification on
-__keyevent@0__:expired. This consumer listens for that event and restores the
-dial to the stored previous value.
+config:dial_override is a persistent (no-TTL) JSON record:
+    {"original_value": int, "override_value": int, "expires_at_epoch": int}
 
-Enabled by: CONFIG SET notify-keyspace-events Ex
-(or --notify-keyspace-events Ex in redis CLI args)
-
-Note: keyspace notifications require a separate Redis pub/sub connection.
-This task is started by management/api/main.py on startup.
+Every ~10s we check it; once now >= expires_at_epoch we restore config:dial to
+original_value, write an audit entry under a system actor, and delete the record.
+Polling (not keyspace-expiry notifications) so a restart at the wrong moment can
+never strand the dial at an elevated setting.
 """
 import asyncio
+import json
 import logging
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
-_REVERT_KEY = "config:dial:revert"
+_OVERRIDE_KEY = "config:dial_override"
 _DIAL_KEY = "config:dial"
-_REVERT_WATCH_CHANNEL = "__keyevent@0__:expired"
+_POLL_SECONDS = 10
 
 
-async def run_dial_revert_watcher(redis_factory) -> None:
-    """Long-running coroutine. Call as asyncio.create_task(run_dial_revert_watcher(...))."""
+async def run_dial_revert_poller(redis_factory) -> None:
+    """Long-running coroutine. Call as asyncio.create_task(run_dial_revert_poller(...))."""
+    logger.info("dial_revert | event=poller_started | interval_s=%s", _POLL_SECONDS)
     while True:
         try:
-            async with redis_factory() as pubsub_redis:
-                ps = pubsub_redis.pubsub()
-                await ps.subscribe(_REVERT_WATCH_CHANNEL)
-                logger.info("dial_revert | event=watcher_started")
-
-                async for message in ps.listen():
-                    if message.get("type") != "message":
-                        continue
-                    expired_key = message.get("data", b"").decode()
-                    if expired_key == _REVERT_KEY:
-                        # The revert key expired — but we already removed its value
-                        # when setting the TTL. We stored the revert TARGET in the key.
-                        # By this point the key is gone. We need a different approach:
-                        # store the revert value in a separate persistent key.
-                        logger.warning(
-                            "dial_revert | event=revert_triggered | "
-                            "note=revert_value_lost_on_expiry_use_shadow_key"
-                        )
-                        # See implementation note below.
-
+            async with redis_factory() as redis:
+                raw = await redis.get(_OVERRIDE_KEY)
+                if raw:
+                    rec = json.loads(raw)
+                    now = int(datetime.now(timezone.utc).timestamp())
+                    if now >= int(rec["expires_at_epoch"]):
+                        original = int(rec["original_value"])
+                        await redis.set(_DIAL_KEY, str(original))
+                        await redis.rpush("management:audit_log", json.dumps({
+                            "timestamp": datetime.now(timezone.utc).isoformat(),
+                            "user": "system:dial_revert",
+                            "action": "dial_change",
+                            "detail": {"to": original, "reason": "auto_revert"},
+                        }))
+                        await redis.delete(_OVERRIDE_KEY)
+                        logger.info("dial_revert | event=reverted | value=%s", original)
         except asyncio.CancelledError:
             raise
-        except Exception as exc:
-            logger.warning("dial_revert | event=watcher_error | error=%s | reconnecting", exc)
-            await asyncio.sleep(5)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("dial_revert | event=poll_error | error=%s", exc)
+        await asyncio.sleep(_POLL_SECONDS)
 ```
 
-> **Implementation note — shadow key pattern:** Redis keyspace notifications fire
-> AFTER the key expires. At that point, the key (and its value) are gone. To
-> recover the "revert to" value, use a **shadow key** with no TTL:
->
-> ```python
-> # When scheduling the revert:
-> await redis.set("config:dial:revert:shadow", str(previous_value))   # no TTL — permanent
-> await redis.set("config:dial:revert", "1", ex=revert_seconds)       # TTL triggers notification
->
-> # In the watcher, when expiry fires:
-> shadow = await redis.get("config:dial:revert:shadow")
-> if shadow:
->     await redis.set("config:dial", shadow)
->     await redis.delete("config:dial:revert:shadow")
->     logger.info("dial_revert | event=reverted | value=%s", shadow)
-> ```
+> The revert performs a direct `config:dial` write + audit entry under a system
+> actor — it deliberately does **not** go through the TOTP-gated `PUT
+> /api/v1/dial`, so no auth path is involved; only the *trigger* is the poller.
 
 ### 4c. Dial Widget Template Change
 
@@ -623,9 +616,14 @@ revert is scheduled and a cancel button:
 The dial partial endpoint must pass `revert_seconds_remaining`:
 
 ```python
-# In the GET /api/v1/partials/dial handler:
-revert_raw = await redis.ttl("config:dial:revert")
-revert_seconds_remaining = revert_raw if revert_raw > 0 else 0
+# In the GET /api/v1/partials/dial handler — derive the countdown from the
+# persistent override record (there is no TTL key any more):
+import json, time
+revert_seconds_remaining = 0
+raw = await redis.get("config:dial_override")
+if raw:
+    rec = json.loads(raw)
+    revert_seconds_remaining = max(0, int(rec["expires_at_epoch"]) - int(time.time()))
 # Pass to template:
 # "revert_seconds_remaining": revert_seconds_remaining
 ```
@@ -1175,41 +1173,49 @@ import pytest
 import asyncio
 from unittest.mock import AsyncMock, patch
 
-@pytest.mark.asyncio
-async def test_revert_key_written_with_correct_ttl(mock_redis):
-    """When revert_after_hours=2 is set, the revert key has a 7200s TTL."""
-    # Simulate the dial update handler logic
-    mock_redis.get = AsyncMock(return_value=b"0")   # previous dial value
-    mock_redis.set = AsyncMock()
-    mock_redis.delete = AsyncMock()
-
-    revert_hours = 2
-    expected_ttl = revert_hours * 3600   # 7200 seconds
-
-    # Simulate the revert scheduling
-    await mock_redis.set("config:dial", "50")
-    await mock_redis.set("config:dial:revert:shadow", "0")
-    await mock_redis.set("config:dial:revert", "1", ex=expected_ttl)
-
-    # Assert set was called with the correct TTL
-    calls = [str(c) for c in mock_redis.set.call_args_list]
-    assert any("7200" in c for c in calls), f"Expected TTL 7200 in calls: {calls}"
+import json
+import time
 
 
 @pytest.mark.asyncio
-async def test_revert_restores_previous_value(mock_redis):
-    """Simulates the expiry event: dial is restored to the shadow key value."""
-    mock_redis.get = AsyncMock(return_value=b"25")   # shadow key stores previous value
+async def test_revert_override_written_persistently(mock_redis):
+    """revert_after_hours=2 writes a no-TTL config:dial_override with the right fields."""
     mock_redis.set = AsyncMock()
+    now = int(time.time())
+
+    # Simulate the scheduling logic from PUT /api/v1/dial
+    expires_at = now + 2 * 3600
+    await mock_redis.set("config:dial_override", json.dumps({
+        "original_value": 0, "override_value": 50, "expires_at_epoch": expires_at,
+    }))
+
+    args, kwargs = mock_redis.set.call_args
+    assert args[0] == "config:dial_override"
+    assert "ex" not in kwargs and "px" not in kwargs, "override must be persistent (no TTL)"
+    rec = json.loads(args[1])
+    assert rec["original_value"] == 0 and rec["override_value"] == 50
+    assert rec["expires_at_epoch"] == expires_at
+
+
+@pytest.mark.asyncio
+async def test_poller_reverts_when_due(mock_redis):
+    """Once now >= expires_at, the poller restores config:dial to original and deletes the override."""
+    past = int(time.time()) - 1
+    mock_redis.get = AsyncMock(return_value=json.dumps({
+        "original_value": 25, "override_value": 75, "expires_at_epoch": past,
+    }).encode())
+    mock_redis.set = AsyncMock()
+    mock_redis.rpush = AsyncMock()
     mock_redis.delete = AsyncMock()
 
-    # Simulate what the watcher does when it receives the expiry event
-    shadow = await mock_redis.get("config:dial:revert:shadow")
-    assert shadow == b"25"
-    await mock_redis.set("config:dial", shadow)
-    await mock_redis.delete("config:dial:revert:shadow")
+    # Simulate one poll tick of run_dial_revert_poller
+    rec = json.loads(await mock_redis.get("config:dial_override"))
+    if int(time.time()) >= int(rec["expires_at_epoch"]):
+        await mock_redis.set("config:dial", str(rec["original_value"]))
+        await mock_redis.delete("config:dial_override")
 
-    mock_redis.set.assert_called_with("config:dial", b"25")
+    mock_redis.set.assert_called_with("config:dial", "25")
+    mock_redis.delete.assert_called_with("config:dial_override")
 ```
 
 ### 8c. CIDR Blocking Tests
@@ -1348,7 +1354,7 @@ async def test_missing_cert_file_returns_error(test_client):
 ### 8e. Running All Phase 237 Tests
 
 ```bash
-# Working directory: /home/sean/LLM/JA4proxy2
+# Working directory: /home/sean/LLM/JA4proxy
 
 # Unit tests for this phase
 python3 -m pytest tests/unit/test_snapshot.py \
@@ -1387,9 +1393,10 @@ All of the following must be true before this phase is marked COMPLETE in
 - [ ] `GET /api/v1/snapshot` returns all required fields; requires operator+ role.
 - [ ] "Export Snapshot" button visible in topbar for operator+ role.
 - [ ] `PUT /api/v1/dial` accepts `revert_after_hours` (1–24).
-- [ ] Revert shadow key written with correct EXPIREAT; dial watcher restores value.
-- [ ] Dial widget shows amber "Reverts in X hours" badge when revert is scheduled.
-- [ ] Cancel revert button removes the shadow key and disables the watcher.
+- [ ] Persistent `config:dial_override` record written (no TTL) with `original_value`/`override_value`/`expires_at_epoch`; the poller restores `original_value` once due.
+- [ ] Dial widget shows amber "Reverts in X hours" badge when revert is scheduled (countdown derived from `expires_at_epoch`).
+- [ ] Cancel revert button deletes `config:dial_override`; poller no longer reverts.
+- [ ] Revert survives a management-service restart (poller re-reads the persistent record).
 - [ ] `POST /api/v1/bans` accepts CIDR input (/32 through /16).
 - [ ] Private/loopback/RFC1918 ranges rejected with 422 without `allow_private=True`.
 - [ ] Bans form shows client-side CIDR preview count.
@@ -1439,13 +1446,13 @@ All logger calls must use `%s` formatting, not f-strings. This is enforced by ru
 Wrong: `logger.info(f"Banned {len(ips)} IPs in {body.ip}")`
 Right: `logger.info("bans | event=banned | count=%s | cidr=%s", len(ips), body.ip)`
 
-**Mistake 5: Not clearing the existing revert schedule when the dial is changed again.**
+**Mistake 5: Not clearing the existing override when the dial is changed again.**
 If an operator sets the dial to 75 with a 2-hour revert, then 30 minutes later sets
-it to 50 with no revert, the original revert key is still in Redis and will fire
-after the remaining 90 minutes — unexpectedly resetting the dial to 0 (the value
-before the 75 setting, not the current 50). Always `redis.delete("config:dial:revert")`
-and `redis.delete("config:dial:revert:shadow")` when a new dial change has no
-`revert_after_hours`.
+it to 50 with no revert, a stale `config:dial_override` is still in Redis and the
+poller will fire after the remaining 90 minutes — unexpectedly resetting the dial
+to 0 (the value before the 75 setting, not the current 50). Always
+`redis.delete("config:dial_override")` on any dial change that has no
+`revert_after_hours` (the handler in 4a does this).
 
 **Mistake 6: Treating the snapshot as a security boundary.**
 The snapshot downloads as a JSON file with no access controls beyond the initial
