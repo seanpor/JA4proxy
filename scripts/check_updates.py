@@ -55,7 +55,6 @@ PYTHON_REQUIREMENTS = [
 # First-party images built locally — no registry to check.
 FIRST_PARTY_IMAGES = frozenset({
     "ja4proxy",
-    "ja4proxy-admin-api",
     "ja4proxy-analytics",
     "ja4proxy-management",
     "ja4proxy-mockbackend",

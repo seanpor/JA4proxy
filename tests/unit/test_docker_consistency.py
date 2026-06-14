@@ -280,7 +280,7 @@ PERMANENT_POC_SERVICES = [
     "backend",
     "tarpit",
     "analytics",
-    "admin-api",
+    # phase-232d: admin-api decommissioned (unauthenticated backdoor removed).
     "trafficgen",
     "haproxy",
     "management",
