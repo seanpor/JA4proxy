@@ -137,9 +137,11 @@ Zero-downtime upgrades, robust health monitoring, and deployment orchestration.
 | 88 | Multi-Datacenter Survivability & Failover | COMPLETE | Robust multi-DC architecture with per-peer consumer groups to eliminate Head-of-Line blocking, JSON-based cryptographic signing to prevent delimiter injection, and reliable async state sync with tombstones. |
 | 91 | GDPR Live Data Erasure & Operational Script Gap Remediation | COMPLETE | Phase 89 Makefile audit discovered that make gdpr-delete has never worked (scripts/gdpr_delete.py never existed) and make test-phase-87-integration has been broken since Phase 87 shipped. Basic scripts created in Phase 89 cleanup. Phase 91 completes the work: HyperLogLog handling, ZSET member erasure, audit logging, unit tests, runbook, and Phase 87 integration test extension. |
 | 102 | Phase 93 Finishing Work: ADRs, Runbook Audit, Drift-Detection Decision | COMPLETE | Docs-only close-out of Phase 93. Three ADRs written (093a repo topology, 093b Registry namespace, 093c TTL renewal + drift-detection decision). deploy/terraform/README.md refreshed with drift-protection guidance. docs/runbooks/emergency_playbooks.md audited against playbook YAML. Most of the phase's original scope (protect_unmanaged_entries, [terraform] prefix, ticket/ttl_hours/notes fields, PlanModifiers, SHA-pinned CI) was pre-delivered in the external provider repo at github.com/seanpor/terraform-provider-ja4proxy before Phase 102 started. |
-| 204 | README Badges — License, Versions, CI, Security | COMPLETE | Add comprehensive badge section to README.md: license, Python/Go versions, CI status, test coverage, security scans (Semgrep, TruffleHog), dependency audit, Docker readiness, and project architecture badges. |
 | 106 | SWEBOK v4 Alignment & Quality Plan | COMPLETE | Align project engineering practices with SWEBOK v4 standards, including SLOs, risk register, TCO analysis, traceability tooling, retrospective mechanism, engineering-method narrative, component design index, and quality plan. Closed 12 of 14 applicable KAs (KAs 7 and 13 deferred to Phase 105). |
+| 161 | Setup Wizard Enhancements — Multi-Environment, Full Config, UX Polish | COMPLETE | Go-native rewrite of the setup wizard as a proper `ja4p init` subcommand (not Python). Ports the Phase 231b Python wizard logic + Phase 310 lane integration into Go with `//go:embed` templates. Adds full config surface (SNIs, upstream LB, PROXY write, certs, TI keys, dial, log level), lane-aware multi-environment support, dry-run preview, idempotent re-run, production hardening prompts, and cobra shell completion. Moves template rendering from Jinja2 to Go text/template, embedded in the binary. |
+| 204 | README Badges — License, Versions, CI, Security | COMPLETE | Add comprehensive badge section to README.md: license, Python/Go versions, CI status, test coverage, security scans (Semgrep, TruffleHog), dependency audit, Docker readiness, and project architecture badges. |
 | 329 | Branch Hygiene and Stale Remote Cleanup | COMPLETE | Branch hygiene lifecycle guidelines and script to audit and safely delete stale/merged remote and local branches. Includes unit testing of branch classification and a permanent runbook for developers. |
+| 331 | Repair make sync (manifest epic indentation + loud validation) | COMPLETE | Fixes the mis-indented epic phases list in manifest.yaml that folded five ids into one bogus scalar and broke make sync with an opaque KeyError, and hardens sync-roadmap.py to fail loudly naming the offending epic and id so this class of YAML typo is caught at a glance. Regenerates TODO.md and PROJECT_STATUS.md. |
 
 ### Epic: Quality Assurance & Test Maturity
 Comprehensive testing, adversarial coverage, and performance validation.
@@ -340,7 +342,7 @@ Alignment with international standards and regulatory frameworks.
 | 158 | Revitalizing the Marketing & Technical Brochure | COMPLETE | N/A | N/A |
 | 159 | Radical Performance Investigation — "The 10k Mission" | COMPLETE | N/A | N/A |
 | 160 | High-Concurrency Throughput Unblocking | COMPLETE | N/A | N/A |
-| 161 | Setup Wizard Enhancements — Multi-Environment, Full Config, UX Polish | PROPOSED | N/A | N/A |
+| 161 | Setup Wizard Enhancements — Multi-Environment, Full Config, UX Polish | COMPLETE | N/A | N/A |
 | 200 | Go PROXY Protocol Trust + v2 Support | COMPLETE | N/A | N/A |
 | 201 | Go Redis TLS + Silent-Failure Hardening | COMPLETE | N/A | N/A |
 | 202 | CI Supply Chain + Default Credential Removal | COMPLETE | N/A | N/A |
@@ -376,7 +378,7 @@ Alignment with international standards and regulatory frameworks.
 | 232 | Security Foundations & Quick Wins (Index) | PROPOSED | N/A | N/A |
 | 232a | Frontend Asset Vendoring & Static Compilation | COMPLETE | N/A | N/A |
 | 232b | Threat Posture Situation Bar & Heartbeat Alerting | PROPOSED | N/A | N/A |
-| 232c | Container Networking & Port Hardening | PROPOSED | N/A | N/A |
+| 232c | Container Networking & Port Hardening | COMPLETE | N/A | N/A |
 | 232d | Admin-API Decommissioning | PROPOSED | N/A | N/A |
 | 233 | Observability Foundations | PROPOSED | N/A | N/A |
 | 234 | Dashboard: Threat Posture & Infrastructure Rows | PROPOSED | N/A | N/A |
@@ -411,6 +413,7 @@ Alignment with international standards and regulatory frameworks.
 | 317 | First-Party Image Base Hardening + first-party HIGH-gate flip | COMPLETE | N/A | N/A |
 | 329 | Branch Hygiene and Stale Remote Cleanup | COMPLETE | N/A | N/A |
 | 330 | Resolve Security Scan Vulnerability Failures | COMPLETE | N/A | N/A |
+| 331 | Repair make sync (manifest epic indentation + loud validation) | COMPLETE | N/A | N/A |
 
 ---
 

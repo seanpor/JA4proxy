@@ -1,7 +1,7 @@
 ---
 phase: 232c
 title: Container Networking & Port Hardening
-status: PROPOSED
+status: COMPLETE
 size: SMALL
 created: 2026-06-14
 audience: [developer, operator]
@@ -10,7 +10,7 @@ dependencies: [232a]
 
 # Container Networking & Port Hardening
 
-> **STATUS: IN_PROGRESS.** Part 3 of 4 of the split Phase 232. Hardens network
+> **STATUS: COMPLETE.** Part 3 of 4 of the split Phase 232. Hardens network
 > topology and guards against exposed host ports.
 
 > **Grounding note (2026-06-14):** verified against `main` before building. The
