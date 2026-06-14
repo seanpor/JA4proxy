@@ -8,6 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **First-party image base hardening + first-party HIGH gate (Phase 317)**: closes the
+  deferred first-party HIGH-CVE gate from Phase 314 by **removing** the CVEs rather than
+  waiving them. The four CVE-bearing first-party Python images — `analytics`, `tarpit`,
+  `test`, `trafficgen` — are re-based onto a single digest-pinned
+  `python:3.14.6-alpine3.24` base; `test`/`trafficgen` move off Debian `python:3.14-slim`
+  (whose no-fix distro HIGH could only be cleared by changing the base), and the alpine
+  pair is refreshed to a current openssl. `Dockerfile.test` drops its dead `proxy.py`
+  reference (archived in Phase 128) and switches coverage to `--cov=src`. `scan-first-party`
+  now gates on **HIGH+CRITICAL** and actually builds the profile-gated `test`/`trafficgen`
+  images so they are scanned (previously a vacuous pass); `test_ci_flow` asserts the gate.
+  All six first-party images verified scanning **0 HIGH/CRITICAL**. `admin`/`management`
+  (Debian slim FastAPI services) stay out of the first-party gate with their no-fix distro
+  CVEs waiver-tracked. No image was excluded to green the gate. See
+  `docs/phases/complete/PHASE_317.md`.
 - **Interface & Container Architecture Review & Consolidation Planning (Phase 230 & 231)**: Completed a thorough architectural audit of all containers and user-facing interfaces. Documented 11 security and operational findings, proposed a target container inventory (eliminating the duplicate `admin-api` service and switching to a plain Alpine Redis base), and established the 7-phase master implementation plan for the Container & Interface Consolidation programme (Phases 232–238). See `docs/phases/complete/PHASE_230.md` and `docs/phases/complete/PHASE_231.md`.
 - **Go Redis restore — selective & GDPR-aware (Phase 315b)**: `ja4p restore` loads
   a 315a artifact back into Redis with the guard-rails that make restore safe. **By

@@ -105,6 +105,22 @@ def test_scan_images_gates_on_high_and_critical():
     )
 
 
+def test_scan_first_party_gates_on_high_and_critical():
+    """Phase 317: first-party images are ours, so scan-first-party gates on HIGH+
+    CRITICAL (not just CRITICAL). It also builds the profile-gated CI-only
+    test/trafficgen images first so they are actually scanned, not scanned-as-absent.
+    """
+    recipe = _recipe("scan-first-party")
+    assert "--severity HIGH,CRITICAL" in recipe, "scan-first-party should scan HIGH+CRITICAL"
+    assert 'grep -v "Total:" | grep -E -c "CRITICAL|HIGH"' in recipe, (
+        "scan-first-party must gate on both HIGH and CRITICAL findings, excluding the totals line"
+    )
+    assert "Dockerfile.test" in recipe and "Dockerfile.trafficgen" in recipe, (
+        "scan-first-party must build the profile-gated test/trafficgen images so they "
+        "are not scanned-as-absent (a vacuous pass)"
+    )
+
+
 @pytest.mark.parametrize("mode", ["lint", "scan", "test"])
 def test_pipeline_summary_passes_without_recursing(mode):
     """The summary helper prints a verdict and returns 0 quickly.

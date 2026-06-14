@@ -407,7 +407,7 @@ Alignment with international standards and regulatory frameworks.
 | 316c | Go TAP Full JA4 Fingerprint Family | PROPOSED | N/A | N/A |
 | 316d | Go TAP Out-of-Band Enforcement Bridge | PROPOSED | N/A | N/A |
 | 316e | Go TAP Intelligence Exporters | PROPOSED | N/A | N/A |
-| 317 | First-Party Image Base Hardening + first-party HIGH-gate flip | PROPOSED | N/A | N/A |
+| 317 | First-Party Image Base Hardening + first-party HIGH-gate flip | COMPLETE | N/A | N/A |
 | 329 | Branch Hygiene and Stale Remote Cleanup | COMPLETE | N/A | N/A |
 | 330 | Resolve Security Scan Vulnerability Failures | COMPLETE | N/A | N/A |
 
