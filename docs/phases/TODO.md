@@ -59,6 +59,10 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **DEFERRED** (Retired 2026-04-19 under Phase 121e as duplicate of Phase 119. All 20 findings were either duplicates of 119 entries or already folded into the canonical findings register (docs/security/findings.yaml) with remediation_phases pointing at 119 or its successor phases. See PHASE_120.md redirect stub.)
 *   **Action Plan:** [cancelled/PHASE_120.md](cancelled/PHASE_120.md)
 
+### Phase 161 — Setup Wizard Enhancements — Multi-Environment, Full Config, UX Polish
+*   **Status:** **PROPOSED** (Comprehensive wizard enhancements: all config options (SNIs, upstream LB, PROXY write, certs, TI keys, dial, log level), multi-environment lane integration (detect/select/create lanes, human-friendly names, port preview, non-destructive merges), UX polish (dry-run preview, validation summary, idempotent re-run, coloured output, help text, shell completion), production hardening prompts (firewall backend, fail2ban, log forwarding, backup encryption, monitoring stack), and config file generation (proxy.yml, haproxy.cfg) with validation. Depends on Phase 231b (core bootstrap), Phase 310 (lane isolation), Phase 231a (PROXY protocol write).)
+*   **Action Plan:** [PHASE_161.md](PHASE_161.md)
+
 ### Phase 232 — Security Foundations & Quick Wins (Index)
 *   **Status:** **PROPOSED** (Index/map for the security foundations and quick wins sub-phases.)
 *   **Action Plan:** [PHASE_232.md](PHASE_232.md)
