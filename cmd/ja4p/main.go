@@ -66,7 +66,10 @@ Use --lane to pre-select a lane number (non-interactive hints).
 Use --non-interactive with --lane to accept all defaults.`,
 		Run: func(cmd *cobra.Command, args []string) {
 			out := wizard.NewConsoleOutput()
-			wiz := wizard.New(out, wizard.StdinInput, wizard.StdinGetPass, nil)
+
+			// Find project root for lane-env.sh
+			laneMgr := findLaneManager()
+			wiz := wizard.New(out, wizard.StdinInput, wizard.StdinGetPass, laneMgr)
 			wiz.Answers.Lane = laneFlag
 			wiz.Answers.DryRun = dryRun
 			if nonInteractive {
@@ -204,6 +207,18 @@ Load on login by adding the source command to your shell's rc file.`,
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+}
+
+func findLaneManager() *wizard.ShellLaneManager {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil
+	}
+	laneScript := cwd + "/scripts/lane-env.sh"
+	if _, err := os.Stat(laneScript); err == nil {
+		return wizard.NewShellLaneManager(laneScript, cwd)
+	}
+	return nil
 }
 
 func runConfigValidate(path string) error {
