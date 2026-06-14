@@ -338,8 +338,8 @@ invariants that affect every phase:
 
 > **Before anything else:** If `docs/phases/PHASE_XX.md` does not exist, you
 > MUST create it and have it reviewed by the user **before writing any code**.
-> See the **Mandatory Planning Protocol** in `AGENTS.md`. This rule overrides
-> the steps below.
+> See the **Mandatory Planning & Concurrency Protocol** in `AGENTS.md`. This
+> rule overrides the steps below.
 
 ### Starting
 1. Read this file (`CLAUDE.md`) in full.
