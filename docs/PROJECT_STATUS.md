@@ -340,6 +340,7 @@ Alignment with international standards and regulatory frameworks.
 | 158 | Revitalizing the Marketing & Technical Brochure | COMPLETE | N/A | N/A |
 | 159 | Radical Performance Investigation — "The 10k Mission" | COMPLETE | N/A | N/A |
 | 160 | High-Concurrency Throughput Unblocking | COMPLETE | N/A | N/A |
+| 161 | Setup Wizard Enhancements — Multi-Environment, Full Config, UX Polish | PROPOSED | N/A | N/A |
 | 200 | Go PROXY Protocol Trust + v2 Support | COMPLETE | N/A | N/A |
 | 201 | Go Redis TLS + Silent-Failure Hardening | COMPLETE | N/A | N/A |
 | 202 | CI Supply Chain + Default Credential Removal | COMPLETE | N/A | N/A |
