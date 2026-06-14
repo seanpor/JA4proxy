@@ -2698,12 +2698,40 @@ phases:
     size: XLARGE
     summary: Master planning document and implementation index for the 7-phase container and interface consolidation programme.
   232:
-    name: Security Foundations & Quick Wins
+    name: Security Foundations & Quick Wins (Index)
     status: PROPOSED
     action_plan: docs/phases/PHASE_232.md
     dependencies: [231]
-    size: LARGE
-    summary: Vendor all JavaScript dependencies, implement Top-bar situation summary and proxy-down banner, attach analytics container to correct Redis network, eliminate insecure admin-api container, and fix production port bindings.
+    size: SMALL
+    summary: Index/map for the security foundations and quick wins sub-phases.
+  232a:
+    name: Frontend Asset Vendoring & Static Compilation
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_232a.md
+    dependencies: [231]
+    size: SMALL
+    summary: Vendor all third-party JavaScript dependencies and compile static CSS via Tailwind CLI to secure frontend assets from CDN risks. Updates docs/OPERATIONS_GUIDE.md.
+  232b:
+    name: Threat Posture Situation Bar & Heartbeat Alerting
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_232b.md
+    dependencies: [232a]
+    size: SMALL
+    summary: Implement a top situation summary bar displaying current Threat Posture (NOMINAL/ELEVATED/ACTIVE) and a sticky warning banner for proxy downtime. Updates docs/OPERATIONS_GUIDE.md.
+  232c:
+    name: Container Networking & Port Hardening
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_232c.md
+    dependencies: [232a]
+    size: SMALL
+    summary: Connect analytics container to ja4proxy-data in POC, and restrict production port bindings to 127.0.0.1 loopback. Updates docs/DOCKER_IMAGES.md.
+  232d:
+    name: Admin-API Decommissioning
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_232d.md
+    dependencies: [232a]
+    size: SMALL
+    summary: Decommission the unauthenticated admin-api container and Dockerfile.admin, routing all automation/CLI tools directly to the secure management API. Updates docs/OPERATIONS_GUIDE.md.
   233:
     name: Observability Foundations
     status: PROPOSED

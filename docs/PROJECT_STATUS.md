@@ -5,7 +5,7 @@
 
 ## Current Status: Phase 109 (PROXY Protocol Hardening & Scrubbing) Next
 
-**Last Updated:** 2026-06-13
+**Last Updated:** 2026-06-14
 
 ## Epics & Roadmap
 
@@ -110,7 +110,7 @@ Management dashboards and documentation quality.
 | 307 | Documentation Coherence, Setup Standardization, and Link Remediation | COMPLETE | Establish a coherent documentation system, standardize onboarding instructions on the setup wizard (make init), clear out legacy Python proxy references, and resolve all broken links and metadata errors. |
 | 230 | Interface & Container Architecture — Critical Review & Rationalisation | PROPOSED | Conduct a thorough architectural review of every container and user-facing interface in the JA4proxy stack. |
 | 231 | Container & Interface Consolidation — Master Implementation Plan | PROPOSED | Master planning document and implementation index for the 7-phase container and interface consolidation programme. |
-| 232 | Security Foundations & Quick Wins | PROPOSED | Vendor all JavaScript dependencies, implement Top-bar situation summary and proxy-down banner, attach analytics container to correct Redis network, eliminate insecure admin-api container, and fix production port bindings. |
+| 232 | Security Foundations & Quick Wins (Index) | PROPOSED | Index/map for the security foundations and quick wins sub-phases. |
 | 233 | Observability Foundations | PROPOSED | Add Prometheus scrape targets for tarpit and analytics, write critical system alert rules, replace redis-stack with a lightweight alpine image, cap events stream to 100k entries using XADD MAXLEN, and surface evictions count. |
 | 234 | Dashboard: Threat Posture & Infrastructure Rows | PROPOSED | Pass user role to templates to implement RBAC visibility controls, implement the Threat Posture dashboard row, add the Infrastructure service status row, and implement the Triage Queue for undecided clients. |
 | 235 | Fingerprint & IP Drill-Down Pages | PROPOSED | Build a reusable Alpine.js confirmation modal and undo toast, implement fingerprint and IP forensics pages, and link live feed elements to detail views. |
@@ -372,7 +372,11 @@ Alignment with international standards and regulatory frameworks.
 | 231 | Container & Interface Consolidation — Master Implementation Plan | PROPOSED | N/A | N/A |
 | 231a | Single-Host Core — PROXY-Protocol Write, Manual-Ban Enforcement, CountKeys Fix | COMPLETE | N/A | N/A |
 | 231b | Single-Host Bootstrap — Wizard, systemd, Firewall, Backups | IN_PROGRESS | N/A | N/A |
-| 232 | Security Foundations & Quick Wins | PROPOSED | N/A | N/A |
+| 232 | Security Foundations & Quick Wins (Index) | PROPOSED | N/A | N/A |
+| 232a | Frontend Asset Vendoring & Static Compilation | PROPOSED | N/A | N/A |
+| 232b | Threat Posture Situation Bar & Heartbeat Alerting | PROPOSED | N/A | N/A |
+| 232c | Container Networking & Port Hardening | PROPOSED | N/A | N/A |
+| 232d | Admin-API Decommissioning | PROPOSED | N/A | N/A |
 | 233 | Observability Foundations | PROPOSED | N/A | N/A |
 | 234 | Dashboard: Threat Posture & Infrastructure Rows | PROPOSED | N/A | N/A |
 | 235 | Fingerprint & IP Drill-Down Pages | PROPOSED | N/A | N/A |
