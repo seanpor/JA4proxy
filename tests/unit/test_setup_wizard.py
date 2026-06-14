@@ -77,7 +77,7 @@ def test_no_secret_is_ever_echoed():
 
 
 def test_collect_answers_injectable():
-    answers_iter = iter(["inline", "web.local", "8443", "native", "127.0.0.1", "operator"])
+    answers_iter = iter(["web.local", "8443", "native", "127.0.0.1", "operator"])
     a = wiz.collect_answers(input_fn=lambda _prompt: next(answers_iter), getpass_fn=lambda _p: "")
     assert a["topology"] == "inline"
     assert a["backend_host"] == "web.local" and a["backend_port"] == "8443"
@@ -86,7 +86,7 @@ def test_collect_answers_injectable():
 
 
 def test_collect_answers_password_not_in_returned_summary():
-    answers_iter = iter(["inline", "web", "443", "container", "127.0.0.1", "admin"])
+    answers_iter = iter(["web", "443", "container", "127.0.0.1", "admin"])
     a = wiz.collect_answers(input_fn=lambda _p: next(answers_iter), getpass_fn=lambda _p: "s3cret-typed")
     assert a["_admin_password_override"] == "s3cret-typed"
     env = wiz.build_env(a)

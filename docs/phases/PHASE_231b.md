@@ -38,11 +38,12 @@ bot flood — no HAProxy required.
   and the "don't lock ports down" directive), not hard-coded literals.
 - **GeoIP is MaxMind GeoLite2** (`GeoLite2-ASN.mmdb`, `GeoLite2-Country.mmdb`) —
   not `IP2LOCATION-LITE-DB1.BIN`.
-- **TAP is the Python `src/tap/` node, not `ja4pd`.** The wizard's inline-vs-TAP
-  choice must write TAP config for the **tap service** (`mode: tap` +
-  `interface:` belong to the tap node), bring up that service, and document that
-  TAP enforcement is out-of-band via the EnforcementBridge / `redis-to-ebpf.py`
-  sidecar — *not* an inline RST. Inline mode targets `ja4pd`.
+- **Python TAP node is archived (Phase 128).** There is no longer a separate
+  Python TAP service. The Go proxy (`ja4pd`) includes a TAP consumer
+  (`internal/security/tap_consumer.go`) that reads `fp:os:ip:{ip}` keys from
+  Redis (written by a future Go TAP sensor — Phase 316). The wizard offers only
+  **inline topology** (`ja4pd`). TAP sensor deployment is out of scope for this
+  phase.
 - **No secrets echoed.** The wizard/bootstrapper must never print
   `REDIS_PASSWORD`/`GRAFANA_PASSWORD`/tokens (matches `start-poc.sh`'s
   `JA4PROXY-2026-0040` rule); generated values go to `.env` (chmod 600) only.
@@ -63,12 +64,13 @@ bot flood — no HAProxy required.
   dirs, prompt before purging volumes).
 
 ### B — `scripts/setup_wizard.py` (interactive config)
-- Prompts: topology (**inline → `ja4pd`** vs **TAP → tap node**, incl. sniff
-  interface); protected backend host/port; allowed SNIs; native-systemd vs
-  containerized; optional upstream TCP LB (→ enable `proxy_protocol` + write
-  `upstream_trust.trusted_cidrs`); whether to **write** PROXY protocol to the
-  backend (the 231a feature) + version; admin creds; bind IP (default
-  `127.0.0.1`); self-signed vs supplied certs.
+- **Implemented prompts:** topology (only **inline → `ja4pd`**); protected backend
+  host/port; native-systemd vs containerized; admin bind IP (default
+  `127.0.0.1`); admin user; admin password (blank = generate).
+- **Planned prompts (future):** allowed SNIs; optional upstream TCP LB (→ enable
+  `proxy_protocol` + write `upstream_trust.trusted_cidrs`); whether to **write**
+  PROXY protocol to the backend (the 231a feature) + version; self-signed vs
+  supplied certs.
 - Defaults to **monitor mode** (`dial: 0`, `blocking_acknowledged: false`).
 - Generates cryptographically strong secrets to `.env` (chmod 600), **never
   echoed**. Lazy `%s` logging, no f-strings (lint).
@@ -104,8 +106,7 @@ bot flood — no HAProxy required.
 - [ ] Firewall restricts admin ports (resolved from `.env`) to loopback; `443`
       serves; the wizard never prints a secret.
 - [ ] systemd restarts the stack on boot; `--uninstall` leaves the host clean.
-- [ ] Inline mode drives `ja4pd`; TAP mode configures the Python tap node + its
-      sniff interface.
+- [ ] Inline mode drives `ja4pd` (only topology offered).
 - [ ] Docs updated: `OPERATIONS_GUIDE.md` (wizard/bootstrap/`--check`/`--uninstall`),
       LaTeX user-guide install + mitigation + integration chapters (compile clean).
 
@@ -114,3 +115,4 @@ bot flood — no HAProxy required.
 - DNS / domain registration; external IDP (OIDC/SAML) setup.
 - `ja4p config upgrade` schema-merge utility (future phase).
 - The Go core itself ([[PHASE_231a]]).
+- Go TAP sensor deployment (Phase 316).
