@@ -59,9 +59,25 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **DEFERRED** (Retired 2026-04-19 under Phase 121e as duplicate of Phase 119. All 20 findings were either duplicates of 119 entries or already folded into the canonical findings register (docs/security/findings.yaml) with remediation_phases pointing at 119 or its successor phases. See PHASE_120.md redirect stub.)
 *   **Action Plan:** [cancelled/PHASE_120.md](cancelled/PHASE_120.md)
 
-### Phase 232 — Security Foundations & Quick Wins
-*   **Status:** **PROPOSED** (Vendor all JavaScript dependencies, implement Top-bar situation summary and proxy-down banner, attach analytics container to correct Redis network, eliminate insecure admin-api container, and fix production port bindings.)
+### Phase 232 — Security Foundations & Quick Wins (Index)
+*   **Status:** **PROPOSED** (Index/map for the security foundations and quick wins sub-phases.)
 *   **Action Plan:** [PHASE_232.md](PHASE_232.md)
+
+### Phase 232a — Frontend Asset Vendoring & Static Compilation
+*   **Status:** **PROPOSED** (Vendor all third-party JavaScript dependencies and compile static CSS via Tailwind CLI to secure frontend assets from CDN risks. Updates docs/OPERATIONS_GUIDE.md.)
+*   **Action Plan:** [PHASE_232a.md](PHASE_232a.md)
+
+### Phase 232b — Threat Posture Situation Bar & Heartbeat Alerting
+*   **Status:** **PROPOSED** (Implement a top situation summary bar displaying current Threat Posture (NOMINAL/ELEVATED/ACTIVE) and a sticky warning banner for proxy downtime. Updates docs/OPERATIONS_GUIDE.md.)
+*   **Action Plan:** [PHASE_232b.md](PHASE_232b.md)
+
+### Phase 232c — Container Networking & Port Hardening
+*   **Status:** **PROPOSED** (Connect analytics container to ja4proxy-data in POC, and restrict production port bindings to 127.0.0.1 loopback. Updates docs/DOCKER_IMAGES.md.)
+*   **Action Plan:** [PHASE_232c.md](PHASE_232c.md)
+
+### Phase 232d — Admin-API Decommissioning
+*   **Status:** **PROPOSED** (Decommission the unauthenticated admin-api container and Dockerfile.admin, routing all automation/CLI tools directly to the secure management API. Updates docs/OPERATIONS_GUIDE.md.)
+*   **Action Plan:** [PHASE_232d.md](PHASE_232d.md)
 
 ### Phase 233 — Observability Foundations
 *   **Status:** **PROPOSED** (Add Prometheus scrape targets for tarpit and analytics, write critical system alert rules, replace redis-stack with a lightweight alpine image, cap events stream to 100k entries using XADD MAXLEN, and surface evictions count.)
