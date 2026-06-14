@@ -331,8 +331,8 @@ func TestMergeEnvPreserveSecrets(t *testing.T) {
 	}
 
 	newEnv := map[string]string{
-		"REDIS_PASSWORD": "new-secret",
-		"BACKEND_HOST":   "10.0.0.2",
+		"REDIS_PASSWORD":    "new-secret",
+		"BACKEND_HOST":      "10.0.0.2",
 		"HOST_PORT_INGRESS": "443",
 	}
 	merged, err := mergeEnvPreserveSecrets(envPath, newEnv)
@@ -412,9 +412,9 @@ func TestRenderProxyYML(t *testing.T) {
 
 func TestRenderProxyYMLWithWritePROXY(t *testing.T) {
 	data := TemplateData{
-		BackendHost: "10.0.0.1",
-		BackendPort: 443,
-		WritePROXY:  true,
+		BackendHost:  "10.0.0.1",
+		BackendPort:  443,
+		WritePROXY:   true,
 		PROXYVersion: 2,
 	}
 	output, err := RenderProxyYML(data)

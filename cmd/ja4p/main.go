@@ -48,8 +48,8 @@ func main() {
 
 	// 2. Init Command (The Wizard)
 	var (
-		dryRun       bool
-		laneFlag     int
+		dryRun         bool
+		laneFlag       int
 		nonInteractive bool
 	)
 	initCmd := &cobra.Command{
@@ -308,5 +308,3 @@ func runTestIP(cfg *config.Config, ipStr string) error {
 
 	return nil
 }
-
-

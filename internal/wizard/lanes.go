@@ -160,12 +160,12 @@ func mergeEnvPreserveSecrets(existingPath string, newEnv map[string]string) (map
 	}
 
 	secretKeys := map[string]bool{
-		"REDIS_PASSWORD":           true,
-		"REDIS_SIGNING_KEY":        true,
-		"MANAGEMENT_JWT_SECRET":    true,
+		"REDIS_PASSWORD":            true,
+		"REDIS_SIGNING_KEY":         true,
+		"MANAGEMENT_JWT_SECRET":     true,
 		"MANAGEMENT_ADMIN_PASSWORD": true,
-		"GRAFANA_PASSWORD":         true,
-		"HAPROXY_STATS_PASSWORD":   true,
+		"GRAFANA_PASSWORD":          true,
+		"HAPROXY_STATS_PASSWORD":    true,
 	}
 	for k, v := range existing {
 		if secretKeys[k] && v != "" {

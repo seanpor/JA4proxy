@@ -9,37 +9,37 @@ import (
 
 // Answers holds all user-provided configuration values collected by the wizard.
 type Answers struct {
-	Topology        string   // "inline" (only option post-128)
-	BackendHost     string   // backend hostname or IP
-	BackendPort     int      // backend port
-	Mode            string   // "native" or "container"
-	BindIP          string   // admin bind IP
-	AdminUser       string   // management UI admin user
-	AdminPassword   string   // management UI admin password (generated if empty)
-	AllowedSNIs     []string // comma-separated; empty = allow all
-	UpstreamLB      bool     // upstream TCP load balancer present
-	TrustedCIDRs    []string // upstream_trust.trusted_cidrs
-	WritePROXY      bool     // write PROXY protocol to backend
-	PROXYVersion    int      // PROXY protocol version (1 or 2)
-	TLSCerts        string   // "self-signed" or "user-supplied"
-	TLSCertPath     string   // user-supplied cert path
-	TLSKeyPath      string   // user-supplied key path
-	GeoIPPaths      []string // auto-detected .mmdb paths
+	Topology        string            // "inline" (only option post-128)
+	BackendHost     string            // backend hostname or IP
+	BackendPort     int               // backend port
+	Mode            string            // "native" or "container"
+	BindIP          string            // admin bind IP
+	AdminUser       string            // management UI admin user
+	AdminPassword   string            // management UI admin password (generated if empty)
+	AllowedSNIs     []string          // comma-separated; empty = allow all
+	UpstreamLB      bool              // upstream TCP load balancer present
+	TrustedCIDRs    []string          // upstream_trust.trusted_cidrs
+	WritePROXY      bool              // write PROXY protocol to backend
+	PROXYVersion    int               // PROXY protocol version (1 or 2)
+	TLSCerts        string            // "self-signed" or "user-supplied"
+	TLSCertPath     string            // user-supplied cert path
+	TLSKeyPath      string            // user-supplied key path
+	GeoIPPaths      []string          // auto-detected .mmdb paths
 	TIKeys          map[string]string // threat intel API keys
-	DialValue       int      // 0-100, 0 = monitor mode
-	LogLevel        string   // DEBUG/INFO/WARN/ERROR
-	Lane            int      // lane number (-1 = auto-assign)
-	LaneName        string   // human-friendly lane name
-	Firewall        string   // "ufw", "firewalld", "nftables", "none"
-	Fail2Ban        bool     // install fail2ban
-	CrowdSec        bool     // install crowdsec
-	LogForwarding   string   // "loki", "syslog", "none"
-	BackupEncrypt   string   // "age", "gpg", "none"
-	BackupRecipient string   // encryption recipient
-	MonitoringStack bool     // include prometheus/grafana/alertmanager
-	DryRun          bool     // preview only, no writes
-	ProjectName     string   // compose project name
-	PortOffset      int      // manual port offset override
+	DialValue       int               // 0-100, 0 = monitor mode
+	LogLevel        string            // DEBUG/INFO/WARN/ERROR
+	Lane            int               // lane number (-1 = auto-assign)
+	LaneName        string            // human-friendly lane name
+	Firewall        string            // "ufw", "firewalld", "nftables", "none"
+	Fail2Ban        bool              // install fail2ban
+	CrowdSec        bool              // install crowdsec
+	LogForwarding   string            // "loki", "syslog", "none"
+	BackupEncrypt   string            // "age", "gpg", "none"
+	BackupRecipient string            // encryption recipient
+	MonitoringStack bool              // include prometheus/grafana/alertmanager
+	DryRun          bool              // preview only, no writes
+	ProjectName     string            // compose project name
+	PortOffset      int               // manual port offset override
 }
 
 type LaneInfo struct {
@@ -51,8 +51,8 @@ type LaneInfo struct {
 }
 
 type GeneratedConfig struct {
-	Env     string // .env content
-	Systemd string // systemd unit content
+	Env      string // .env content
+	Systemd  string // systemd unit content
 	ProxyYML string // proxy.yml content
 	HAProxy  string // haproxy.cfg content (empty if not enabled)
 }
