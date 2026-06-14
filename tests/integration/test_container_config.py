@@ -270,8 +270,8 @@ def test_poc_analytics_shares_redis_data_network() -> None:
     Redis is attached only to the internal `ja4proxy-data` network. If the
     analytics container is not also on that network, the `redis` hostname does
     not resolve and the analytics node cannot read the events stream or write
-    findings. The `management` and `admin-api` services are correctly on both
-    `ja4proxy-mgmt` and `ja4proxy-data` — analytics must match (phase-232c).
+    findings. The `management` service is correctly on both `ja4proxy-mgmt` and
+    `ja4proxy-data` — analytics must match (phase-232c).
     """
     compose = yaml.safe_load(POC_COMPOSE.read_text()) or {}
     services = compose.get("services", {}) or {}
@@ -288,6 +288,46 @@ def test_poc_analytics_shares_redis_data_network() -> None:
         f"with redis (networks={sorted(redis_nets)}); the `redis` hostname will "
         f"not resolve. Attach analytics to the shared data network "
         f"(ja4proxy-data)."
+    )
+
+
+def test_admin_api_absent_from_all_compose_files() -> None:
+    """The unauthenticated `admin-api` backdoor must not exist in any compose file.
+
+    Phase 232d decommissioned the `admin-api` service — the legacy
+    `src/management/app` (no auth on `PUT /dial` / `POST`,`DELETE /lists`) that
+    ran on host port `8091` via the now-deleted `deploy/docker/Dockerfile.admin`.
+    All management traffic goes through the JWT-gated `management` service on
+    port `8090`. This guards against the service, its image, its dedicated host
+    port, or its Dockerfile being reintroduced into any compose file.
+    """
+    compose_files = sorted(DEPLOY_DOCKER.glob("docker-compose*.yml"))
+    assert compose_files, f"no compose files found under {DEPLOY_DOCKER}"
+
+    # Tokens that uniquely identify the decommissioned backdoor. (`8091` is the
+    # admin-api host port; no other service in the stack uses it.)
+    forbidden = ("admin-api", "ja4proxy-admin-api", "Dockerfile.admin", "8091")
+
+    offenders: list[str] = []
+    for path in compose_files:
+        # Structural check: no service literally named `admin-api`.
+        compose = yaml.safe_load(path.read_text()) or {}
+        if "admin-api" in (compose.get("services") or {}):
+            offenders.append(f"{path.name}: declares an `admin-api` service")
+
+        # Text check: catch image names, build refs, port mappings, and comments
+        # that would reintroduce the backdoor even outside the services map.
+        for lineno, line in enumerate(path.read_text().splitlines(), start=1):
+            if line.lstrip().startswith("#"):
+                continue  # phase-232d tombstone comments mention the old names
+            for token in forbidden:
+                if token in line:
+                    offenders.append(f"{path.name}:{lineno}: {token!r} in {line.strip()!r}")
+
+    assert not offenders, (
+        "admin-api backdoor reference(s) found — it was decommissioned in "
+        "phase-232d; route management traffic to the `management` service on "
+        "port 8090 instead:\n  " + "\n  ".join(offenders)
     )
 
 

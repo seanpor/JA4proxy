@@ -379,7 +379,7 @@ Alignment with international standards and regulatory frameworks.
 | 232a | Frontend Asset Vendoring & Static Compilation | COMPLETE | N/A | N/A |
 | 232b | Threat Posture Situation Bar & Heartbeat Alerting | PROPOSED | N/A | N/A |
 | 232c | Container Networking & Port Hardening | COMPLETE | N/A | N/A |
-| 232d | Admin-API Decommissioning | PROPOSED | N/A | N/A |
+| 232d | Admin-API Decommissioning | COMPLETE | N/A | N/A |
 | 233 | Observability Foundations | PROPOSED | N/A | N/A |
 | 234 | Dashboard: Threat Posture & Infrastructure Rows | PROPOSED | N/A | N/A |
 | 235 | Fingerprint & IP Drill-Down Pages | PROPOSED | N/A | N/A |

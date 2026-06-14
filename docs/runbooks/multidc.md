@@ -39,9 +39,14 @@ JA4proxy uses an **asynchronous state replication** model to ensure that WAN lat
 **Impact:** Inconsistent security posture. One DC may be under-blocking while another is over-blocking.
 **Resolution:**
 1. Verify the last dial change in the audit log.
-2. If a DC is stuck, manually force the dial value:
+2. If a DC is stuck, manually force the dial value via the secure management API
+   (Bearer-authenticated; the unauthenticated admin-api was decommissioned in
+   phase-232d). Note the API caps a single change at ±10 points, so step toward
+   the target if the gap is larger:
    ```bash
-   curl -X POST -d '{"dial": 50, "immediate": true}' https://admin-api/v1/config/dial
+   curl -X PUT -H "Authorization: Bearer ${MGMT_TOKEN}" \
+        -H "Content-Type: application/json" \
+        -d '{"value": 50}' https://management:8090/api/v1/dial
    ```
 3. Check `syncagent` logs for "Dial propagation timeout" errors.
 
@@ -86,10 +91,13 @@ JA4proxy uses an **asynchronous state replication** model to ensure that WAN lat
 ### 4.1 Emergency "Panic" Dial Change
 If the WAN is saturated and you need to immediately change the blocking level globally without waiting for peer ACKs:
 ```bash
-# This bypasses the 8s consistency wait
-curl -X POST -H "Content-Type: application/json" \
-     -d '{"dial": 80, "immediate": true}' \
-     https://ja4-admin-api/v1/config/dial
+# This bypasses the 8s consistency wait. Uses the JWT-gated management API
+# (the unauthenticated admin-api was decommissioned in phase-232d); the dial is
+# capped at ±10 per call, so issue repeated steps to reach a large target.
+curl -X PUT -H "Authorization: Bearer ${MGMT_TOKEN}" \
+     -H "Content-Type: application/json" \
+     -d '{"value": 80}' \
+     https://management:8090/api/v1/dial
 ```
 
 ### 4.2 Manually Clearing Tombstones

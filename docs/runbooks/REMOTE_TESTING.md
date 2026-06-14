@@ -18,7 +18,7 @@ Remote access needs **no special stack** — the normal `make start` already
 honours `AGENT_BIND_IP` for every service. By design:
 
 - **Every service** (proxy `:443`/`:8081`, Management UI `:8090`, Grafana
-  `:3000`, admin-api, analytics, Prometheus, Alertmanager, HAProxy stats) binds
+  `:3000`, analytics, Prometheus, Alertmanager, HAProxy stats) binds
   to **`AGENT_BIND_IP`**, which **defaults to `127.0.0.1`** — nothing is reachable
   from your laptop until you opt in.
 - `scripts/start-poc.sh` runs `scripts/check_bind_address.py`, which **refuses to
@@ -96,7 +96,6 @@ make stop
 | 9091 | Prometheus | HTTP | none | `http://<host>:9091` |
 | 3000 | Grafana | HTTP | form | `http://<host>:3000` |
 | 8090 | Management UI | HTTP | form | `http://<host>:8090/login` |
-| 8091 | Admin API | HTTP | JWT | `http://<host>:8091/docs` |
 | 9093 | Alertmanager | HTTP | none | `http://<host>:9093` |
 
 ---

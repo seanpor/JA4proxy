@@ -90,7 +90,7 @@ class TestPythonBaseImage:
 
     Two bases are allowed:
 
-    * ``python:3.14.0-slim`` (Debian) — admin/management FastAPI services;
+    * ``python:3.14.0-slim`` (Debian) — the management FastAPI service;
     * ``python:3.14.6-alpine3.24`` (digest-pinned) — analytics, tarpit, test,
       trafficgen. Phase 229 first moved analytics/tarpit to alpine to drop
       Debian's perl CVEs; Phase 317 re-based the remaining Debian Python
@@ -280,7 +280,7 @@ PERMANENT_POC_SERVICES = [
     "backend",
     "tarpit",
     "analytics",
-    "admin-api",
+    # phase-232d: admin-api decommissioned (unauthenticated backdoor removed).
     "trafficgen",
     "haproxy",
     "management",
