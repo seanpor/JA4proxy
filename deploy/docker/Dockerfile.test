@@ -1,19 +1,32 @@
-FROM python:3.14.0-slim@sha256:0aecac02dc3d4c5dbb024b753af084cafe41f5416e02193f1ce345d671ec966e
+# Phase 317: alpine base + de-reference the archived Python prototype.
+# The Debian python:3.14-slim image carried many no-fix HIGH/CRITICAL distro CVEs
+# (curl, ncurses, perl, libssh2, linux-libc-dev) that blocked the first-party HIGH
+# gate. The full test/dev dep stack (cryptography, aiohttp, uvloop, pyyaml,
+# pytricia, scapy, semgrep, ...) was verified to build on py3.14-alpine/musl;
+# `apk upgrade` on alpine 3.24 clears musl-utils/zlib. The root `proxy.py` Python
+# prototype was archived in Phase 128 (5afeba2), so it is no longer copied and the
+# coverage target is the surviving `src/` package.
+FROM python:3.14.6-alpine3.24@sha256:003970a263347645cd23d4f90929ad16ba7ce7d808ee4674ffcc93cb21cc289f
 
-# Security: Create non-root user - may already exist in base image
-RUN groupadd -r proxy 2>/dev/null || true
-RUN useradd -r -g proxy proxy 2>/dev/null || true
+# Patch base OS packages to clear any pending CVEs.
+RUN apk upgrade --no-cache
 
-# Install system dependencies
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    rm -f /etc/apt/apt.conf.d/docker-clean && \
-    apt-get update && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y && apt-get install -y --no-install-recommends \
-    gcc \
+# Security: create non-root user (alpine: addgroup/adduser).
+RUN addgroup -S proxy 2>/dev/null || true && \
+    adduser -S -G proxy proxy 2>/dev/null || true
+
+# Build + runtime system dependencies. libpcap-dev provides scapy's runtime lib;
+# the toolchain compiles any wheels lacking a musllinux build. (CI-only image.)
+RUN --mount=type=cache,target=/var/cache/apk,sharing=locked \
+    apk add --no-cache \
+    build-base \
     libpcap-dev \
-    libssl-dev \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+    openssl-dev \
+    python3-dev \
+    linux-headers \
+    libffi-dev \
+    cargo \
+    curl
 
 # Set working directory
 WORKDIR /app
@@ -32,7 +45,7 @@ COPY requirements-test.txt .
 RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked \
     pip install -r requirements-test.txt
 
-# Copy application and test files
+# Copy application and test files (proxy.py was archived in Phase 128)
 COPY tests/ tests/
 COPY config/ config/
 COPY security/ security/
@@ -57,4 +70,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 
 # Use custom entrypoint
 ENTRYPOINT ["/app/scripts/docker-entrypoint.sh"]
-CMD ["pytest", "tests/", "-v", "--cov=proxy", "--cov-report=html:reports/coverage", "--cov-report=term", "--junitxml=reports/junit.xml"]
+CMD ["pytest", "tests/", "-v", "--cov=src", "--cov-report=html:reports/coverage", "--cov-report=term", "--junitxml=reports/junit.xml"]

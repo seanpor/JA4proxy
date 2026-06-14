@@ -343,7 +343,6 @@ services:
       - ../../tests:/app/tests:ro
       - ../../tests/performance:/app/performance:ro
       - reports-data:/app/reports
-      - ../../proxy.py:/app/proxy.py:ro
       - ../../src:/app/src:ro
       - ../../config:/app/config:ro
     environment:
@@ -361,7 +360,7 @@ services:
       - ja4proxy-origin
     profiles:
       - test
-    command: ["pytest", "/app/tests", "-v", "--cov=proxy", "--cov-report=html:/app/reports/coverage", "--cov-report=term", "--junitxml=/app/reports/junit.xml"]
+    command: ["pytest", "/app/tests", "-v", "--cov=src", "--cov-report=html:/app/reports/coverage", "--cov-report=term", "--junitxml=/app/reports/junit.xml"]
     security_opt:
       - no-new-privileges:true
     cap_drop:
