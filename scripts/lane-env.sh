@@ -1,11 +1,15 @@
 #!/usr/bin/env bash
 # lane-env.sh — assign this git worktree a collision-free "lane" of host ports
-# and a unique compose project name, persisted into .env (phase-310).
+# and a unique compose project name, persisted into .env (phase-310 / phase-161).
 #
 # Each lane gets its own docker network/containers/volumes (via the unique
 # COMPOSE_PROJECT_NAME), so INTERNAL service ports never collide. Only the few
 # HOST-PUBLISHED ports we actually reach from outside are lane-offset:
 #   port = base + lane*100   (lane 0 = the historical defaults)
+#
+# Flags (phase-161):
+#   --list       — JSON output of all detected lanes on the host
+#   --preview N  — show port map for lane N without allocating
 #
 # Idempotent: once .env pins JA4_LANE, this is a no-op (stable across restarts).
 # Run `JA4_LANE_REASSIGN=1 scripts/lane-env.sh` to force re-derivation.
@@ -24,6 +28,36 @@ declare -A BASE=(
   [HOST_PORT_PROMETHEUS]=9091  # Prometheus UI
 )
 MANAGED_KEYS=(JA4_LANE COMPOSE_PROJECT_NAME "${!BASE[@]}")
+
+# --- flags (phase-161) --------------------------------------------------------
+if [ "${1:-}" = "--list" ]; then
+  echo '{'
+  echo '  "lanes": ['
+  first=true
+  for f in .env*; do
+    [ -f "$f" ] || continue
+    lane=$(grep -E '^JA4_LANE=' "$f" 2>/dev/null | tail -1 | cut -d= -f2 || true)
+    [ -n "$lane" ] || continue
+    name=$(grep -E '^JA4_LANE_NAME=' "$f" 2>/dev/null | tail -1 | cut -d= -f2 || echo "lane-$lane")
+    proj=$(grep -E '^COMPOSE_PROJECT_NAME=' "$f" 2>/dev/null | tail -1 | cut -d= -f2 || echo "ja4proxy-lane$lane")
+    $first || echo ','
+    first=false
+    printf '    {"number":%s,"name":"%s","path":"%s","project":"%s"}' "$lane" "$name" "$(realpath "$f")" "$proj"
+  done
+  echo
+  echo '  ]'
+  echo '}'
+  exit 0
+fi
+
+if [ "${1:-}" = "--preview" ]; then
+  lane="${2:-0}"
+  echo "Lane $lane port preview:"
+  for v in "${!BASE[@]}"; do
+    printf "  %s=%d\n" "$v" $(( BASE[$v] + lane*100 ))
+  done
+  exit 0
+fi
 
 port_free() { ! ss -ltn 2>/dev/null | awk '{print $4}' | grep -qE "[:.]$1\$"; }
 lane_ports_free() { local L=$1 v; for v in "${!BASE[@]}"; do port_free $(( BASE[$v] + L*100 )) || return 1; done; }

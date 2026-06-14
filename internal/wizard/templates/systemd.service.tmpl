@@ -1,0 +1,19 @@
+[Unit]
+Description=JA4proxy (lane {{.Lane}} — {{.LaneName}})
+After=network-online.target redis-server.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=ja4proxy
+Group=ja4proxy
+WorkingDirectory=/opt/ja4proxy
+ExecStart=/usr/bin/docker compose -f /opt/ja4proxy/deploy/docker/docker-compose.poc.yml up -d
+ExecStop=/usr/bin/docker compose -f /opt/ja4proxy/deploy/docker/docker-compose.poc.yml down -t 30
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
