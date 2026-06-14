@@ -32,18 +32,14 @@ Only after written approval: create your feature branch, write code, write tests
 
 **Virtual environments on the host are strictly forbidden.** The host runs Python 3.10, but production targets Python 3.14.* (the test/tools images are pinned to `python:3.14`). Running tests, linters, or scripts on the host leads to severe version-skew bugs and polluted state.
 
-> **Migration in progress.** The Makefile (`make test`), `scripts/close-phase.sh`,
-> and CI are being rewired to execute Python inside containers. Until that lands,
-> `make test` still shells out to host Python — follow the containerized commands
-> below for any *new* work, and expect the host-Python fallback to disappear.
-
-- **Rule 1:** NEVER create a virtual environment (e.g., `uv venv`, `python -m venv`) on the host. 
+- **Rule 1:** NEVER create a virtual environment (e.g., `uv venv`, `python -m venv`) on the host.
 - **Rule 2:** NEVER run `pip install`, `pytest`, `ruff`, or `mypy` directly on the host machine.
-- **Rule 3:** ALL Python execution must happen inside the running Docker containers using `docker compose exec`.
+- **Rule 3:** Run Python through the **`make` targets** — they execute inside the pinned `ja4proxy-tools` image (`Dockerfile.tools`, Python 3.14) via `docker run`, building it on demand. This is the canonical, CI-identical path.
   - *Wrong:* `python3 -m pytest tests/`
-  - *Right:* `docker compose exec <service_name> pytest tests/`
-  - *Right:* `docker compose exec <service_name> ruff check .`
-- **Rule 4:** If a script must be run (e.g., `scripts/sync-roadmap.py`), execute it inside the container context.
+  - *Right:* `make test` (Go native + Python in-container) · `make test-unit` · `make test-chaos` · `make lint` · `make sync`
+  - Need an ad-hoc command? `docker run --rm -v "$PWD":/src -w /src ja4proxy-tools pytest <args>` (this is what `$(TOOLS_RUN)` expands to).
+- **Rule 4:** The full multi-service integration stack (`deploy/docker/docker-compose.test.yml`) is for integration/chaos tests that need Redis + the Go proxy; drive it with `docker compose exec <service> …`, not for unit/lint runs.
+- **Note on Go:** Go tests run **natively** (`go test ./...`) — Go has no venv fragility, so the container rule is Python-only.
 
 ---
 
@@ -124,11 +120,12 @@ Every Python web service must include:
 Before any PR merges to main, `make test` must be run locally and be 100% green. If `make test` executes Python tooling, it MUST be configured in the Makefile to execute inside the Docker container. 
 
 ### Python Import Hygiene (Containerized)
-Every new `.py` file must pass ruff immediately. Run this inside the container:
+Every new `.py` file must pass ruff immediately, via the tools image:
 ```bash
-docker compose exec <service> ruff check --select I001 --fix <file>
-docker compose exec <service> mypy <file>
+docker run --rm -v "$PWD":/src -w /src ja4proxy-tools ruff check --select I001 --fix <file>
+docker run --rm -v "$PWD":/src -w /src ja4proxy-tools mypy <file>
 ```
+(Or just `make lint`, which runs the same checks in the same image.)
 
 ---
 
