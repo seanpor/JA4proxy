@@ -145,9 +145,8 @@ help-scan:
 # ── Legacy (Python) sub-help ─────────────────────────────────────────────
 help-legacy:
 	@echo ""
-	@echo "── Legacy Proxy (Python) ────────────────────────────────────"
-	@echo "  check-scores      - Audit scores against signal registry"
-	@echo "  parity-check      - Live end-to-end decision parity"
+	@echo "── Signal-Score Audit ──────────────────────────────────────"
+	@echo "  check-scores      - Audit Go/Python scores vs signal registry"
 
 # ── Dev sub-help ─────────────────────────────────────────────────────────
 help-dev:
@@ -361,7 +360,7 @@ lint-security: tools-image
 
 # Type checking with mypy (suppress output)
 lint-types:
-	docker run --rm -v $(PWD):/app python:3.14.0-slim sh -c "cd /app && pip install mypy && mypy proxy.py security/ src/ 2>/dev/null || echo 'Mypy warnings above, see baseline docs/reports/MYPY_BASELINE.md'"
+	docker run --rm -v $(PWD):/app python:3.14.0-slim sh -c "cd /app && pip install mypy && mypy src/ 2>/dev/null || echo 'Mypy warnings above, see baseline docs/reports/MYPY_BASELINE.md'"
 
 # Phase 16f static analysis gates — runs locally (no Docker required).
 # All three tools must pass cleanly; failures block the CI build.
@@ -412,7 +411,7 @@ HADOLINT_IGNORE := --ignore DL3008 --ignore DL3013 --ignore DL3015 --ignore DL30
 HADOLINT_DOCKERFILES := deploy/docker/Dockerfile.admin deploy/docker/Dockerfile.management \
 	deploy/docker/Dockerfile.mockbackend deploy/docker/Dockerfile.test \
 	deploy/docker/Dockerfile.trafficgen deploy/docker/Dockerfile.go-proxy src/analytics/Dockerfile src/tarpit/Dockerfile \
-	tests/docker/Dockerfile.python-proxy tests/docker/Dockerfile.recorder \
+	tests/docker/Dockerfile.recorder \
 	tests/docker/Dockerfile.test-runner tests/docker/Dockerfile.tls-backend
 
 lint-docker:
@@ -914,12 +913,8 @@ go-lint:
 	$(GO) vet ./...
 
 # Audit Python and Go signal scores against registry (Phase 65)
-check-scores:
-	@$(PYTHON) scripts/check-signal-scores.py
-
-# Live end-to-end decision parity verification (Phase 65)
-parity-check:
-	@$(PYTHON) scripts/parity-check.py
+check-scores: tools-image
+	@$(TOOLS_RUN) python scripts/check-signal-scores.py
 
 # ── Security Scans ────────────────────────────────────────────────────────────
 # Run OpenSSF Scorecard locally via Docker (Phase 131)
