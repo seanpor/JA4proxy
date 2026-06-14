@@ -63,10 +63,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **PROPOSED** (Index/map for the security foundations and quick wins sub-phases.)
 *   **Action Plan:** [PHASE_232.md](PHASE_232.md)
 
-### Phase 232a — Frontend Asset Vendoring & Static Compilation
-*   **Status:** **PROPOSED** (Vendor all third-party JavaScript dependencies and compile static CSS via Tailwind CLI to secure frontend assets from CDN risks. Updates docs/OPERATIONS_GUIDE.md.)
-*   **Action Plan:** [PHASE_232a.md](PHASE_232a.md)
-
 ### Phase 232b — Threat Posture Situation Bar & Heartbeat Alerting
 *   **Status:** **PROPOSED** (Implement a top situation summary bar displaying current Threat Posture (NOMINAL/ELEVATED/ACTIVE) and a sticky warning banner for proxy downtime. Updates docs/OPERATIONS_GUIDE.md.)
 *   **Action Plan:** [PHASE_232b.md](PHASE_232b.md)
