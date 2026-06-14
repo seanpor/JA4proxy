@@ -1,3 +1,10 @@
+<!--
+title: Changelog Fragments
+audience: Contributors, Maintainers
+last_reviewed: 2026-06-14
+phase: 322
+-->
+
 # Changelog fragments
 
 This directory holds **news fragments** — one small file per change, instead of
