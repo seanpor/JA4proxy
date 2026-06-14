@@ -1,0 +1,22 @@
+# Bandit SAST toolchain — pinned to Python 3.11 (Phase 323).
+#
+# Why not 3.14 (the rest of the tools image)?
+#   Bandit's B502 (ssl_with_bad_version), B604 (shell=True) and B607
+#   (start_process_with_partial_path) plugins still reference `ast.Num`, which
+#   was REMOVED in Python 3.12. On 3.12+ they raise
+#   "module 'ast' has no attribute 'Num'", and bandit then drops the whole
+#   offending file into "Files skipped" — silently losing SAST coverage on
+#   34 of 36 files under src/analytics + src/management. The gate stayed green
+#   because bandit still exits 0.
+#
+#   Bandit only *parses* source (it never runs it), so running it on 3.11 —
+#   where `ast.Num` still exists — restores full coverage without affecting
+#   what ships (production/tests run on 3.14 via Dockerfile.tools). All bandit
+#   1.7–1.8 releases crash on 3.14 and pass on 3.11, so this is a Python-version
+#   fix, not a bandit-version one.
+FROM python:3.11-slim
+
+WORKDIR /src
+
+# pbr is bandit's build/runtime metadata dependency.
+RUN pip install --no-cache-dir bandit==1.8.* pbr
