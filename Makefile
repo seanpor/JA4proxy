@@ -355,8 +355,8 @@ lint: ## Phase 146 — Run all linters (Python, Go, Infra, Docs)
 	@python3 scripts/ci_summary.py lint
 
 # Security scanning with bandit (medium/high severity, skip B104 bind-all)
-lint-security: tools-image
-	@$(TOOLS_RUN) bandit -r src/analytics/ src/management/ -ll --skip B104 && echo "  ✓ lint-security passed"
+lint-security: bandit-image
+	@$(BANDIT_RUN) bandit -r src/analytics/ src/management/ -ll --skip B104 && echo "  ✓ lint-security passed"
 
 # Type checking with mypy (suppress output)
 lint-types:
@@ -368,12 +368,12 @@ lint-types:
 #   bandit:   SAST scan, medium/high severity only (-ll), ignore B104 (bind 0.0.0.0 intentional)
 #   ruff:     fast linter/formatter-check (replaces flake8/isort for new code)
 #   pip-audit: CVE scan of requirements.txt; urllib3 CVEs acknowledged (transitive, tracked backlog)
-lint-static: tools-image
+lint-static: tools-image bandit-image
 	@echo "=== mypy: type checking ==="
 	@$(TOOLS_RUN) mypy src/analytics/ src/management/ && echo "  ✓ mypy passed"
 	@echo ""
-	@echo "=== bandit: SAST (medium/high) ==="
-	@$(TOOLS_RUN) bandit -r src/analytics/ src/management/ -ll -q --skip B104 && echo "  ✓ bandit passed"
+	@echo "=== bandit: SAST (medium/high, Python 3.11 — see Dockerfile.bandit) ==="
+	@$(BANDIT_RUN) bandit -r src/analytics/ src/management/ -ll -q --skip B104 && echo "  ✓ bandit passed"
 	@echo ""
 	@echo "=== ruff: linting ==="
 	@$(TOOLS_RUN) ruff check src/analytics/ src/management/ && echo "  ✓ ruff passed (tests advisory only)"
@@ -454,6 +454,15 @@ lint-docker:
 tools-image:
 	@docker build -q -t $(TOOLS_IMG) -f Dockerfile.tools . >/dev/null
 TOOLS_RUN = docker run --rm -v $(PWD):/src -w /src $(TOOLS_IMG)
+
+# Bandit runs on Python 3.11 (see Dockerfile.bandit): its B502/B604/B607 plugins
+# use ast.Num, removed in 3.12, which makes bandit silently skip whole files on
+# the 3.14 tools image. Separate image keeps full SAST coverage.
+BANDIT_IMG := ja4proxy-bandit
+bandit-image:
+	@docker build -q -t $(BANDIT_IMG) -f Dockerfile.bandit . >/dev/null
+BANDIT_RUN = docker run --rm -v $(PWD):/src -w /src $(BANDIT_IMG)
+
 SEMGREP_IMG := semgrep/semgrep:1.166.0
 
 # Lint shell scripts with shellcheck (error-level only; warnings are advisory).

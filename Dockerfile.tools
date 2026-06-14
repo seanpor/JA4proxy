@@ -34,5 +34,7 @@ RUN pip install --no-cache-dir \
 RUN pip install --no-cache-dir \
       ruff==0.4.* \
       mypy==1.* \
-      bandit==1.8.* pbr \
       pip-audit==2.*
+# NOTE: bandit is intentionally NOT installed here. It runs on Python 3.11 from
+# Dockerfile.bandit — its B502/B604/B607 plugins use ast.Num (removed in 3.12),
+# so on this 3.14 image bandit silently skips whole files. See Dockerfile.bandit.
