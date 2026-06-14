@@ -562,13 +562,18 @@ scan-dockerfiles:
 	@echo "✓ All Dockerfiles and compose files passed"
 
 # CVE scan of first-party images we build.
-# Run 'make build' first to ensure images are current.
-# Policy: CRITICAL → exit 1; HIGH → reported but advisory.
+# Run 'make build' first to ensure the non-profiled images are current.
+# Policy (Phase 317): HIGH + CRITICAL → exit 1. We build/own these images, so a
+# HIGH is actionable (base bump / dep bump / dated .trivyignore). The profile-gated
+# CI-only test + trafficgen images are skipped by 'make build', so this target
+# builds them explicitly — otherwise they would be scanned-as-absent (a vacuous pass).
 scan-first-party:
 	@mkdir -p "$(TRIVY_CACHE)"
 	@echo "=== Trivy: first-party image CVE scan (HIGH + CRITICAL) ==="
-	@echo "    Run 'make build' first to ensure images are current."
-	@echo "    Fails on CRITICAL; HIGH findings are reported but advisory."
+	@echo "    Phase 317: fails on HIGH or CRITICAL. .trivyignore holds dated exceptions."
+	@echo "    Building the profile-gated CI-only test/trafficgen images (skipped by 'make build')..."
+	@DOCKER_BUILDKIT=1 docker build -q -f deploy/docker/Dockerfile.test -t ja4proxy-test:1.0.0 . >/dev/null
+	@DOCKER_BUILDKIT=1 docker build -q -f deploy/docker/Dockerfile.trafficgen -t ja4proxy-trafficgen:1.0.0 . >/dev/null
 	@echo ""
 	@fail=0; \
 	for img in ja4proxy:2.0.0 ja4proxy-analytics:1.0.0 ja4proxy-tarpit:1.0.0 ja4proxy-mockbackend:1.0.0 ja4proxy-test:1.0.0 ja4proxy-trafficgen:1.0.0; do \
@@ -580,13 +585,13 @@ scan-first-party:
 			--no-progress --scanners vuln --ignorefile /scan/.trivyignore \
 			--format table "$$img" 2>&1 \
 			| grep -E "CRITICAL|HIGH|Total:" || true); \
-		critical=$$(echo "$$result" | grep -v "Total:" | grep -c "CRITICAL" || true); \
+		findings=$$(echo "$$result" | grep -v "Total:" | grep -cE "^\xe2\x94\x82.*(HIGH|CRITICAL)" || true); \
 		echo "    $$result"; \
-		[ "$$critical" -eq 0 ] || { echo "    ✗ CRITICAL in $$img — update base image, or add a justified, dated .trivyignore entry"; fail=1; }; \
+		[ "$$findings" -eq 0 ] || { echo "    ✗ HIGH/CRITICAL in $$img — bump the base image or dep, or add a justified, dated .trivyignore entry"; fail=1; }; \
 		echo ""; \
 	done; \
 	[ $$fail -eq 0 ] || exit 1
-	@echo "✓ First-party image scan complete"
+	@echo "✓ First-party image scan complete (HIGH + CRITICAL gate)"
 
 # Phase 228: human-readable rollup of the image CVE scans. Reporting only —
 # `make scan` remains the authoritative gate. First-party rows require `make build`.
