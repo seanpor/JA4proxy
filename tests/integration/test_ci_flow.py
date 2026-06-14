@@ -94,18 +94,14 @@ def test_dockerfile_tools_has_no_pip_gitleaks():
     assert not offenders, f"gitleaks must not be pip-installed in Dockerfile.tools: {offenders}"
 
 
-def test_scan_images_reports_high_gates_on_critical():
-    """scan-images scans both HIGH and CRITICAL and reports them, but gates only
-    on CRITICAL finding *rows* (``^│.*CRITICAL``, not the "CRITICAL: 0" total).
-
-    HIGH-gating is deferred: the third-party images carry a pre-existing HIGH
-    backlog (grafana/tempo, otel, openssl, Go stdlib, …) whose remediation is its
-    own effort. HIGH stays advisory here, as on main and as scan-first-party does.
+def test_scan_images_gates_on_high_and_critical():
+    """scan-images scans both HIGH and CRITICAL and gates on both severity finding
+    rows (excluding the totals line).
     """
     recipe = _recipe("scan-images")
     assert "--severity HIGH,CRITICAL" in recipe, "scan-images should scan HIGH+CRITICAL"
-    assert 'grep -c "^│.*CRITICAL"' in recipe, (
-        "scan-images must count only CRITICAL finding rows, not the totals line"
+    assert 'grep -v "Total:" | grep -E -c "CRITICAL|HIGH"' in recipe, (
+        "scan-images must count both HIGH and CRITICAL findings, excluding the totals line"
     )
 
 

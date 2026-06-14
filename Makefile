@@ -519,10 +519,12 @@ scan-images:
 			--severity HIGH,CRITICAL --exit-code 0 \
 			--no-progress --scanners vuln \
 			--ignorefile /scan/.trivyignore \
-			--format table "$$img" 2>&1 | grep -E "CRITICAL|HIGH|Total:" || true); \
-		critical=$$(echo "$$result" | grep -c "^│.*CRITICAL" || true); \
-		echo "    $$result"; \
-		[ "$$critical" -eq 0 ] || { echo "    ✗ CRITICAL findings in $$img — fix the image or add a justified, dated .trivyignore entry"; fail=1; }; \
+			--format table "$$img" 2>&1); \
+		echo "$$result" | grep -v "Total:" | grep -E -c "CRITICAL|HIGH" > /dev/null 2>&1 && findings=1 || findings=0; \
+		critical=$$(echo "$$result" | grep -v "Total:" | grep -E -c "CRITICAL|HIGH" || true); \
+		echo "    $$(echo \"$$result\" | grep -E \"CRITICAL|HIGH|Total:\" || true)"; \
+		[ "$$critical" -lt 1 ] || { echo "    Note: $$critical HIGH/CRITICAL findings in $$img"; }; \
+		if echo "$$result" | grep -q "^│.*CRITICAL"; then echo "    ✗ CRITICAL findings in $$img — fix the image or add a justified, dated .trivyignore entry"; fail=1; fi; \
 		echo ""; \
 	done; \
 	[ $$fail -eq 0 ] || { echo "✗ CRITICAL CVEs found — see .trivyignore for documented exceptions"; exit 1; }

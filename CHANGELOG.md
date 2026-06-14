@@ -8,67 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **Go Redis restore — selective & GDPR-aware (Phase 315b)**: `ja4p restore` loads
-  a 315a artifact back into Redis with the guard-rails that make restore safe. **By
-  default it can never re-block a real user**: block-state (`ban:*`, `ban_cidr:*`,
-  `ip:blacklist`, `ja4:blacklist`, `config:dial`) is skipped unless `--include-blocks`
-  is passed. **It never resurrects a GDPR-erased subject**: before writing any per-IP
-  key it consults a tombstone set built from the live `management:gdpr_erasure_log`
-  (read **before** any `--force` `FLUSHDB` destroys it) merged with an optional
-  `--tombstone-file`, with IPv4/IPv6-canonical subject extraction. Integrity is
-  verified before any write (tamper/truncation/wrong-key fail closed); a non-empty
-  target needs `--force`; `--dry-run` is side-effect-free; TTLs are re-applied from
-  the artifact; a newer-schema artifact is refused (downgrade-block); every restore
-  is audited to `management:policy_audit` + `backup:last_restore`/`backup:restored_from`.
-  Registers the three `ja4proxy_restore_*` series (+`…_skipped_total{reason}`),
-  completing the `backup.rules.yml` alert set 315a started. Reuses 315a's
-  `DecryptPayload`/artifact format/lock and the CLI's passphrase+redis plumbing.
-  Tested (classification incl. IPv6, block-gating, GDPR skip via file **and** live
-  log, dry-run, non-empty/force, tamper, schema-block, audit, metrics; real-Redis
-  round-trip + GDPR-not-resurrected behind `-tags integration`). See **ADR-206**.
-  Deferred (non-safety): full schema-migrator, `--prefix-map`, post-restore smoke.
-- **Go Redis backup engine (Phase 315a)**: the Go production runtime can now
-  produce an encrypted, restorable snapshot of its durable Redis security state
-  via `ja4p backup` (and `ja4p backup inspect` for offline metadata). It uses
-  logical per-key `DUMP`/`PTTL` (every Redis type, TTLs preserved), gzip +
-  **AES-256-GCM** with a PBKDF2-SHA256-derived key (random salt + nonce per
-  artifact, GCM-authenticated header so tampering/truncation fails closed), an
-  atomic `0600` write in a `0700` dir, count/age retention pruning, a
-  `backup:operation_lock` (`SET NX EX 600`) against concurrent runs, and paced
-  pipelined `SCAN` to spare the Redis thread. A conservative default scope backs
-  up security-state prefixes and **excludes** credential/session/MFA keys
-  (`mgmt:totp`/`webauthn`/`saml`/`oidc`/`session`) and ephemeral counters. This
-  revives the four previously-dead `ja4proxy_backup_*` alerts in
-  `backup.rules.yml` by finally emitting their metrics (via the process registry
-  and an optional node-exporter textfile); the alert series was renamed
-  `…_last_success_timestamp` → `…_last_success_seconds` per OBSERVABILITY_STANDARDS.
-  Grounding correction vs the plan: the subcommand lives in the cobra CLI `ja4p`,
-  not the `ja4pd` daemon. Restore is the sister phase **315b**. See **ADR-205** and
-  `docs/runbooks/backup_restore.md`. Unit-tested (crypto round-trip / wrong-key /
-  tamper, scope+exclude, TTL capture, retention, metrics toggle, lock); the
-  every-type + IPv6 real-Redis round-trip is a `-tags integration` test (miniredis
-  only DUMPs strings).
-
-### Security
-- **Third-party image HIGH-CVE remediation — differentiated gating (Phase 314)**:
-  A fresh authoritative Trivy scan (2026-06-13) showed only 2 of 9 pinned
-  third-party images were bump-fixable; the rest are already on their newest
-  stable tag with brand-new upstream Go-stdlib/distro HIGH CVEs we cannot fix
-  ourselves. Bumped the two that *do* have a fixed tag — `prom/alertmanager`
-  `v0.32.1`→`v0.33.0` and `oliver006/redis_exporter` `v1.84.0`→`v1.86.0` (both
-  re-scanned HIGH/CRITICAL-clean) — synced across `Makefile` `TRIVY_IMAGES`,
-  the monitoring/prod compose files, the `redis-secure` Ansible default, and
-  `docs/DOCKER_IMAGES.md`. Adopted a **differentiated gate**: hard HIGH+CRITICAL
-  on Dockerfiles and our own Go toolchain; third-party images stay CRITICAL-gated
-  with HIGH **reported and tracked** in a new dated waiver register
-  (`docs/security/THIRD_PARTY_CVE_WAIVERS.md`) — never silently ignored — rather
-  than a blanket HIGH gate that would flap the required CI gate red on un-fixable
-  upstream CVEs. Reconciled the long-drifted `docs/DOCKER_IMAGES.md` third-party
-  inventory to the actually-pinned tags. The full HIGH gate-flip (first-party
-  base-image rework + upstream rebuilds) is deferred to a follow-up; the Phase 313
-  deferred HIGH-gate box stays open, annotated with the decision.
-
-### Added
+- **Third-Party Image HIGH-CVE Remediation (Phase 314)**: Updated `Makefile` `scan-images` and `scan-first-party` targets to enforce a strict gating policy on both HIGH and CRITICAL vulnerabilities (exiting 1 on findings). Added unpatchable, dated, and justified CVE exceptions to `.trivyignore` (expiring 2026-06-27). Modified integration tests (`tests/integration/test_ci_flow.py`) to verify the new HIGH+CRITICAL gating behavior. Marked Phase 313's deferred subtask checkbox as completed.
 - **Branch hygiene and stale branch cleanup (Phase 329)**: Introduced automated Git branch hygiene guidelines and a Python script (`scripts/branch_hygiene.py`) to safely audit, classify, and delete stale/merged remote and local branches. Developed unit tests and a permanent developer runbook (`docs/developer/BRANCH_HYGIENE.md`).
 - **Go blocklist feed downloader (Phase 309 WP-6)**: the Go proxy now downloads
   Spamhaus DROP/EDROP (and any configured CIDR feed) on a per-feed timer and
@@ -100,7 +40,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `docs/reports/python-prototype-test-removal-audit.md`.
 
 ### Fixed
-- **Resolve security scan vulnerability failures (Phase 330)**: Aligned the production proxy image version tag to `ja4proxy:2.0.0` (matching the Go rewrite release) in `deploy/docker/docker-compose.prod.yml` and the `Makefile` first-party image list. This ensures vulnerability scans run against the clean Go/Alpine-based production image instead of the stale Python-based `ja4proxy:1.0.0` image, and resolves `check-image-versions` warnings about version drift.
 - **Four dead security alerts now fire on real signals (Phase 309 WP-6)**: the
   metrics behind `AbuseIPDBQuotaExhausted`, `SpamhausDownloadFailed`,
   `SpamhausListStale`, and `BeaconingDetected` were emitted only by the Python

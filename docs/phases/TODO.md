@@ -59,10 +59,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **DEFERRED** (Retired 2026-04-19 under Phase 121e as duplicate of Phase 119. All 20 findings were either duplicates of 119 entries or already folded into the canonical findings register (docs/security/findings.yaml) with remediation_phases pointing at 119 or its successor phases. See PHASE_120.md redirect stub.)
 *   **Action Plan:** [cancelled/PHASE_120.md](cancelled/PHASE_120.md)
 
-### Phase 230 — Interface & Container Architecture — Critical Review & Rationalisation
-*   **Status:** **PROPOSED** (Conduct a thorough architectural review of every container and user-facing interface in the JA4proxy stack.)
-*   **Action Plan:** [PHASE_230.md](PHASE_230.md)
-
 ### Phase 231 — Container & Interface Consolidation — Master Implementation Plan
 *   **Status:** **PROPOSED** (Master planning document and implementation index for the 7-phase container and interface consolidation programme.)
 *   **Action Plan:** [PHASE_231.md](PHASE_231.md)
@@ -95,30 +91,38 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **PROPOSED** (Harden the dashboard status indicators using shape+color+text matching WCAG 2.1 AA, add ARIA live regions, style CSS Light Mode, configure Grafana secure cookies, publish the cAdvisor threat model, and write a HAProxy TCP mode CI test.)
 *   **Action Plan:** [PHASE_238.md](PHASE_238.md)
 
+### Phase 315 — Go Backup / Restore Subsystem (index)
+*   **Status:** **PROPOSED** (RESURRECTED Go Backup/Restore work — originally drafted as Phase 313 before 313/314 were repurposed (313 -> CI lint fix #140, 314 -> image HIGH-CVE remediation #141), orphaning the plan. Plans recovered verbatim from git 53a8e14 and renumbered. The Go proxy still has NO backup implementation and backup.rules.yml alerts on ja4proxy_backup_*/ja4proxy_restore_* metrics nothing emits. Split into two independently-reviewable sub-phases: 315a (Redis backup engine — native DUMP/RESTORE, AES-256-GCM + PBKDF2, per-key TTL capture, paced pipelined SCAN, textfile-collector metric wiring) and 315b (selective GDPR-erasure-aware restore — allow-state by default, block-state only with --include-blocks, tombstone check, integrity-verified, audited, locked). PROPOSED — awaiting sign-off; no code until approved.)
+*   **Action Plan:** [PHASE_315.md](PHASE_315.md)
+
+### Phase 315a — Go Redis Backup Engine
+*   **Status:** **PROPOSED** (Part 1 of 2 (backup). ja4pd backup subcommand: native per-key DUMP + PTTL capture of the security-state Redis prefixes (excluding ephemeral + credential/session keys), gzip + AES-256-GCM at rest (PBKDF2-SHA256 key derivation, random salt/IV, binary header), atomic temp+rename writes, retention pruning, paced pipelined SCAN to spare the Redis thread, optional --sanitize (PII redaction) and backup inspect subcommand. Defines ALL backup+restore Prometheus series and wires the node-exporter textfile collector so the dead backup alerts can fire; renames *_last_success_timestamp -> *_seconds per OBSERVABILITY_STANDARDS. Real-Redis integration test for the every-type + IPv6 round-trip (miniredis cannot). PROPOSED — no code until approved.)
+*   **Action Plan:** [PHASE_315a.md](PHASE_315a.md)
+
+### Phase 315b — Go Redis Restore (selective, GDPR-aware)
+*   **Status:** **PROPOSED** (Part 2 of 2 (restore — the dangerous half). ja4pd restore reads the 315a artifact and loads it back SAFELY: allow-state restored by default, block-state (bans, blacklists, dial) only with explicit --include-blocks so a restore can never mass-re-block real users; GDPR tombstone check (merged --tombstone-file + manifest) so erased subjects are never resurrected; integrity-verified (GCM tag) fail-closed; --dry-run, --force, --prefix-map, schema-migration registry for forward-compat, config-divergence warning, post-restore smoke validation; every restore audited to management:policy_audit. Emits the restore three metrics completing the backup.rules set. PROPOSED — no code until approved.)
+*   **Action Plan:** [PHASE_315b.md](PHASE_315b.md)
+
 ### Phase 316 — Go TAP / SPAN Passive Sensor (index)
 *   **Status:** **PROPOSED** (RESURRECTED Go TAP/SPAN passive sensor — originally drafted as Phase 314 before 313/314 were repurposed, orphaning the plan. Plans recovered verbatim from git 53a8e14 and renumbered. The Go proxy ships only the TAP consumer (internal/security/tap_consumer.go) which reads fp:* keys nothing currently writes (the Python Phase-20 sensor was archived in 5afeba26). Split after critical review (original WP-1 alone was ~3.6-4.2k LOC) into: 316a (capture + bidirectional TCP reassembly + ClientHello/ServerHello extraction, capture-library ADR), 316b (OS-mismatch MVP — first end-to-end value, lights up the dormant tap_os_mismatch signal, advisory-only, Tranco FP test), 316c (full JA4 fingerprint family — OUTLINE), 316d (out-of-band enforcement bridge, advisory by default — OUTLINE), 316e (intelligence exporters — OUTLINE). PROPOSED — awaiting sign-off; no code until approved.)
 *   **Action Plan:** [PHASE_316.md](PHASE_316.md)
 
-### Phase 316a — Go TAP Core — Capture & TCP Reassembly
-*   **Status:** **PROPOSED** (OUTLINE — detailed plan before start. High-performance bidirectional TCP reassembly engine using gopacket + af_packet (mmap) or pcap (poll), following the capture-library ADR. ja4pd sensor subcommand: reads from interface or pcap file, reassembles flows, extracts TLS ClientHello/ServerHello (SNI, JA4, ALPN), and writes fp:ip:* records to Redis for the tap_consumer. PROPOSED — outline.)
+### Phase 316a — TAP Capture + TCP Reassembly + Handshake Extraction
+*   **Status:** **PROPOSED** (Foundation sub-phase: read raw packets off a mirror/SPAN feed and rebuild each TLS handshake. gopacket/afpacket (pure-Go AF_PACKET, in-kernel BPF filter, no cgo; ADR-316a) + zero-copy DecodingLayerParser + bounded bidirectional reassembly (gopacket/tcpassembly, 16KB/stream cap, sync.Pool recycling) emitting ClientHello/ServerHello as in-memory HandshakeEvents. Offline --pcap-file replay for CI. Explicit overload model (drop-tail, bounded flow table, idle eviction), data-minimisation (handshake bytes only, never payloads), non-root CAP_NET_RAW-only with post-bind privilege drop + seccomp + restrictive Redis ACL. No fingerprints/Redis/enforcement yet. PROPOSED — no code until approved.)
 *   **Action Plan:** [PHASE_316a.md](PHASE_316a.md)
 
-### Phase 316b — Go TAP OS-Mismatch Signal (MVP)
-*   **Status:** **PROPOSED** (OUTLINE — detailed plan before start. First end-to-end signal from the passive sensor. Extracts the TCP stack fingerprint (TTL, Window, Options) from the SYN and compares it to the TLS ClientHello JA4 (e.g. Linux stack but Windows JA4). Lights up the tap_os_mismatch signal for the analytics engine; advisory-only (no blocks) until Tranco FP validated. PROPOSED — outline.)
+### Phase 316b — TAP OS-Mismatch MVP (first end-to-end value)
+*   **Status:** **PROPOSED** (Smallest slice that delivers a WORKING sensor: classify a passive OS from the SYN/IP-stack features in the 316a handshake event and write fp:os:ip:{ip}, lighting up the dormant tap_os_mismatch detector in tap_consumer.go end-to-end. Fixes a real contract bug the review caught (Python wrote "linux_5x_default" but the Go consumer compares bare "linux" -> silent no-op): one canonical OSClass vocabulary (internal/fingerprint/osclass.go) shared by writer and reader. Conservative "other"/no-write default + middlebox/NAT TCP-option normalization detection to avoid false mismatches; advisory-only (scored under the dial, never an auto-block); mandatory Tranco top-10k zero-FP test; extends gdpr_delete.py to erase fp:* PII. PROPOSED — no code until approved.)
 *   **Action Plan:** [PHASE_316b.md](PHASE_316b.md)
 
-### Phase 316c — Go TAP Full JA4 Fingerprint Family
-*   **Status:** **PROPOSED** (OUTLINE — detailed plan before start. Complete JA4+JA4H+JA4S+JA4L+JA4X implementation in the passive sensor. Extracts HTTP headers (JA4H), TLS extensions (JA4S/L/X), and QUIC (JA4Q) where possible. PROPOSED — outline.)
+### Phase 316c — TAP Full JA4 Fingerprint Family (OUTLINE)
+*   **Status:** **PROPOSED** (OUTLINE — to be fleshed out to 316a/b depth before start. Compute and store the full JA4 fingerprint family from captured handshakes (net-new in Go: JA4S/JA4T/JA4H/JA4SSH/JA4L/JA4H2/QUIC, ~1.6k LOC pre-tests; reuses inline GREASE/SHA-256 helpers, ComputeJA4, ExtractJA4X; needs a new ServerHello parser). Writes the documented fp:* keys with schema TTLs and /24 (v4) //48 (v6) HLL bucketing. Checked-in golden parity fixtures, Redis write coalescing/sampling so a SPAN feed cannot flood Redis. May itself split (TLS-side / HTTP / SSH-latency-QUIC). PROPOSED — outline.)
 *   **Action Plan:** [PHASE_316c.md](PHASE_316c.md)
 
-### Phase 316d — Go TAP Out-of-Band Enforcement Bridge
-*   **Status:** **PROPOSED** (OUTLINE — detailed plan before start. Implementation of the enforcement bridge: when the sensor identifies a high-risk client (e.g. bot JA4 + OS-mismatch), it writes a temporary ban key to Redis that the inline ja4proxy enforces on the NEXT connection from that IP. Advisory by default; includes the "one-strike" bypass logic. PROPOSED — outline.)
+### Phase 316d — TAP Out-of-Band Enforcement Bridge (OUTLINE)
+*   **Status:** **PROPOSED** (OUTLINE — security-sensitive; detailed plan before start. Let the passive sensor ACT out-of-band (never inline) via the existing ja4proxy:bans pub/sub + optional isolated fail-open blockers (iptables/ipset, BGP blackhole named-pipe, HMAC-SHA256 webhook). ADVISORY-ONLY by default (writes a watchlist/counterfactual stream, not bans), dial-gated + monitor-first with startup WARN + gauge when armed, fail-open (capture/Redis failure never produces a ban), expansion guards never exceed /24 (v4) //48 (v6). Acceptance test: passive misclassification never blocks by default. PROPOSED — outline.)
 *   **Action Plan:** [PHASE_316d.md](PHASE_316d.md)
 
-### Phase 316e — Go TAP Intelligence Exporters
+### Phase 316e — TAP Intelligence Exporters (OUTLINE)
 *   **Status:** **PROPOSED** (OUTLINE — detailed plan before start. Export sensor fingerprints/verdicts to downstream tooling: EDL (pull), F5, Palo Alto, Kafka, Syslog CEF, TAXII 2.1, MISP. Each exporter independent and isolated with per-exporter fail-open (log + counter + neutral return; one failing exporter never affects another), data-minimisation (fingerprints + verdicts, never raw payload). Likely split per exporter group when detailed; references (does not port verbatim) the archived Python exporters. PROPOSED — outline.)
 *   **Action Plan:** [PHASE_316e.md](PHASE_316e.md)
-
-### Phase 317 — First-Party Image Base Hardening + first-party HIGH-gate flip
-*   **Status:** **PROPOSED** (Direct follow-up to PHASE_314: deliver the deferred first-party HIGH gate. 314 found the first-party images split three ways — the Go images (ja4proxy, mockbackend) are HIGH-clean (already golang:1.26.4-alpine); the alpine images (analytics, tarpit) carry a FIXABLE openssl HIGH (rebuild on alpine openssl >=3.5.7-r0); the Debian python:3.14-slim images (test, trafficgen, + out-of-gate management/admin which also carry no-fix CRITICAL perl CVEs) carry NO-FIX distro HIGH that can only be cleared by changing the base. Plan: (1) rebuild the alpine images on a current base; (2) re-base the Debian Python images onto a slim/low-CVE base (alpine-musl or Chainguard/Wolfi/distroless — pick one, validate Python wheel + healthcheck/entrypoint compatibility, the main effort sink); (3) flip scan-first-party to gate on HIGH+CRITICAL once a clean scan is proven in CI; (4) update test_ci_flow to assert the first-party HIGH gate; (5) tick the PHASE_313 first-party HIGH-gate box. Honest rules carried from 314: do NOT exclude images to green the gate; any residual is a dated/justified .trivyignore entry, not a blanket suppression. Third-party HIGH stays out of scope (upstream-dependent, waiver-tracked). PROPOSED — no code until approved.)
-*   **Action Plan:** [PHASE_317.md](PHASE_317.md)
