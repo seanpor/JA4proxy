@@ -123,7 +123,7 @@ fi
 
 # 8. Phase doc sync
 echo -e "${BOLD}[8/8] sync roadmap${RESET}"
-python3 scripts/sync-roadmap.py || fail "sync-roadmap.py failed"
+make sync || fail "make sync (containerized sync-roadmap.py) failed"
 if ! git diff --quiet docs/phases/TODO.md docs/PROJECT_STATUS.md 2>/dev/null; then
     echo "  WARNING: TODO.md or PROJECT_STATUS.md changed after sync."
     echo "  Stage and commit these files before merging."

@@ -313,29 +313,29 @@ build: bump-build ## Build all production binaries (Proxy, CLI)
 
 # Run all tests locally in parallel (fast — no Docker required)
 # Skips tests marked @pytest.mark.live_services (require Go/Python proxy + Redis stack)
-test: ## Phase 146 — Run the full test suite
+test: tools-image ## Phase 146 — Run the full test suite
 	@echo "=== Running Go Native Tests ==="
 	@GOROOT=$(GOROOT) go test -v -coverprofile=coverage.txt -covermode=atomic ./...
-	@echo "=== Running Python Unit Tests ==="
-	@$(PYTHON) -m pytest tests/unit/ -n auto --dist=loadfile --timeout=60 --tb=short
-	@echo "=== Running Integration Smoke Tests ==="
-	@$(PYTHON) -m pytest tests/integration/ -k "not docker_stack" -x -q --timeout=60
-	@echo "=== Running CI/workflow guardrail tests ==="
-	@$(PYTHON) -m pytest tests/test_workflow_pinning.py -q --timeout=60
+	@echo "=== Running Python Unit Tests (containerized: $(TOOLS_IMG)) ==="
+	@$(TOOLS_RUN) pytest tests/unit/ -n auto --dist=loadfile --timeout=60 --tb=short
+	@echo "=== Running Integration Smoke Tests (containerized) ==="
+	@$(TOOLS_RUN) pytest tests/integration/ -k "not docker_stack" -x -q --timeout=60
+	@echo "=== Running CI/workflow guardrail tests (containerized) ==="
+	@$(TOOLS_RUN) pytest tests/test_workflow_pinning.py -q --timeout=60
 	@echo "✓ Full test suite passed"
-	@python3 scripts/pipeline_summary.py test
+	@$(TOOLS_RUN) python scripts/pipeline_summary.py test
 
-# Run unit tests only
-test-unit:
-	@$(PYTHON) -m pytest tests/unit/ -n $(WORKERS) --dist=loadfile --timeout=60 --tb=short $(ARGS)
+# Run unit tests only (containerized — pinned Python 3.14, no host venv)
+test-unit: tools-image
+	@$(TOOLS_RUN) pytest tests/unit/ -n $(WORKERS) --dist=loadfile --timeout=60 --tb=short $(ARGS)
 
-# Run chaos/resilience tests only
-test-chaos:
-	@$(PYTHON) -m pytest tests/chaos/ -n $(WORKERS) --dist=loadfile --timeout=60 --tb=short $(ARGS)
+# Run chaos/resilience tests only (containerized)
+test-chaos: tools-image
+	@$(TOOLS_RUN) pytest tests/chaos/ -n $(WORKERS) --dist=loadfile --timeout=60 --tb=short $(ARGS)
 
-# Run adversarial/fuzz tests only (no parallelism — some are stateful)
-test-adversarial:
-	@$(PYTHON) -m pytest tests/adversarial/ --timeout=60 --tb=short $(ARGS)
+# Run adversarial/fuzz tests only (containerized; no parallelism — some are stateful)
+test-adversarial: tools-image
+	@$(TOOLS_RUN) pytest tests/adversarial/ --timeout=60 --tb=short $(ARGS)
 
 # Benchmark this machine and store worker count in .local/machine.mk
 test-calibrate:
@@ -1269,8 +1269,8 @@ lint-all: lint-meta lint-python lint-go lint-sast lint-infra lint-observability 
 
 start-poc: deploy-poc ## Alias for starting the POC environment
 
-sync: ## Sync roadmap from manifest.yaml to PROJECT_STATUS.md
-	@$(PYTHON) scripts/sync-roadmap.py
+sync: tools-image ## Sync roadmap from manifest.yaml to PROJECT_STATUS.md
+	@$(TOOLS_RUN) python scripts/sync-roadmap.py
 
 ja4p-validate: ## Validate proxy configuration YAML
 	@./bin/ja4p config validate
