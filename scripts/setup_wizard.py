@@ -217,14 +217,11 @@ def collect_answers(
     """Drive the interactive prompts. I/O is injectable so tests can feed
     scripted answers without a TTY."""
     a: dict[str, str] = {}
-    topo = _ask("Topology: inline (active) or tap (passive)", "inline",
-                lambda v: v in ("inline", "tap"), input_fn)
-    a["topology"] = topo
-    if topo == "tap":
-        a["tap_interface"] = _ask("TAP sniff interface", "eth1", lambda v: bool(v), input_fn)
-    else:
-        a["backend_host"] = _ask("Protected backend host", "backend", valid_hostname, input_fn)
-        a["backend_port"] = _ask("Protected backend port", "443", valid_port, input_fn)
+    # Python TAP node archived (Phase 128). Only inline (ja4pd) topology is available.
+    # Go TAP sensor (Phase 316) is a separate future deployment.
+    a["topology"] = "inline"
+    a["backend_host"] = _ask("Protected backend host", "backend", valid_hostname, input_fn)
+    a["backend_port"] = _ask("Protected backend port", "443", valid_port, input_fn)
     a["mode"] = _ask("Deployment mode: native or container", "container",
                      lambda v: v in ("native", "container"), input_fn)
     a["bind_ip"] = _ask("Admin bind IP (loopback recommended)", "127.0.0.1", valid_bind_ip, input_fn)
