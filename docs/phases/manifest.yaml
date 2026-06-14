@@ -110,9 +110,10 @@ epics:
   - 88
   - 91
   - 102
-  - 204
-  - 106
-  - 329
+   - 106
+   - 161
+   - 204
+   - 329
 - name: 'Epic: Quality Assurance & Test Maturity'
   description: Comprehensive testing, adversarial coverage, and performance validation.
   phases:
@@ -2666,11 +2667,11 @@ phases:
     summary: 'OUTLINE — detailed plan before start. Export sensor fingerprints/verdicts to downstream tooling: EDL (pull), F5, Palo Alto, Kafka, Syslog CEF, TAXII 2.1, MISP. Each exporter independent and isolated with per-exporter fail-open (log + counter + neutral return; one failing exporter never affects another), data-minimisation (fingerprints + verdicts, never raw payload). Likely split per exporter group when detailed; references (does not port verbatim) the archived Python exporters. PROPOSED — outline.'
   161:
     name: Setup Wizard Enhancements — Multi-Environment, Full Config, UX Polish
-    status: PROPOSED
+    status: IN_PROGRESS
     action_plan: docs/phases/PHASE_161.md
     dependencies: [231b, 310, 231a]
     size: LARGE
-    summary: 'Comprehensive wizard enhancements: all config options (SNIs, upstream LB, PROXY write, certs, TI keys, dial, log level), multi-environment lane integration (detect/select/create lanes, human-friendly names, port preview, non-destructive merges), UX polish (dry-run preview, validation summary, idempotent re-run, coloured output, help text, shell completion), production hardening prompts (firewall backend, fail2ban, log forwarding, backup encryption, monitoring stack), and config file generation (proxy.yml, haproxy.cfg) with validation. Depends on Phase 231b (core bootstrap), Phase 310 (lane isolation), Phase 231a (PROXY protocol write).'
+    summary: 'Go-native rewrite of the setup wizard as a proper `ja4p init` subcommand (not Python). Ports the Phase 231b Python wizard logic + Phase 310 lane integration into Go with `//go:embed` templates. Adds full config surface (SNIs, upstream LB, PROXY write, certs, TI keys, dial, log level), lane-aware multi-environment support, dry-run preview, idempotent re-run, production hardening prompts, and cobra shell completion. Moves template rendering from Jinja2 to Go text/template, embedded in the binary.'
   231a:
     name: Single-Host Core — PROXY-Protocol Write, Manual-Ban Enforcement, CountKeys Fix
     status: COMPLETE
