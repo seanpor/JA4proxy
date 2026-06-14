@@ -195,7 +195,7 @@ phase: 54
 | `webhook:idx` | SET of IDs | none | `POST /api/v1/webhooks` (SADD), `DELETE` (SREM) | Enumeration index for webhook subscriptions. *(Phase 79)* |
 | `proxy:reload` | Pub/Sub channel | n/a | `POST /api/v1/nodes/{host}/reload` | Control channel for triggering config reload on proxy instances. Message format: `{"action": "reload", "host": str}`. *(Phase 79)* |
 
-*Note: `mgmt:node:{host}:{port}` heartbeat Hashes are read by `GET /api/v1/nodes` but written by the proxy process, not the management API.*
+*Note: `GET /api/v1/nodes` reads `mgmt:node:{host}:{port}` heartbeat Hashes, but **no process writes them today** — the Go proxy has no heartbeat producer (verified on `main`: no writer in `cmd/`/`internal/`). The Phase 230–238 program adds a heartbeat producer to `cmd/ja4pd` and standardises on `proxy:heartbeat:{instance_id}`; `nodes.py` converges onto that key. Until then, node/proxy status reads as "down". See `docs/phases/PHASE_234.md` §5.0.*
 
 ### Phase 79 — Cluster 6: TOTP MFA
 
