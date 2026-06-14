@@ -73,10 +73,20 @@ Use the `/close-phase` slash command. If running outside Claude Code, run `bash 
 4. **CI Checks:** Meta-Validation, Full Lint, Full Test, Security Scan must pass.
 5. **Merge:** `gh pr merge --auto --squash --delete-branch`.
 
-**Required Documentation Checks (The Fragment Pattern):**
-DO NOT edit global shared files (`CHANGELOG.md`, `README.md`, `docs/REDIS_SCHEMA.md`) directly. To prevent merge conflicts between parallel agents:
-1. Write updates to uniquely named files in `docs/fragments/` (e.g., `docs/fragments/phase_131_changelog.md`).
-2. State which shared document the changes belong to and the exact text to be modified.
+**CHANGELOG — use news fragments (not direct edits):**
+`CHANGELOG.md` is the worst parallel-conflict magnet — every phase prepends under
+the same `## [Unreleased]` heading. So **do NOT edit `CHANGELOG.md` directly**:
+1. Drop a uniquely named fragment in `docs/fragments/phase-XX-<slug>.md` containing
+   your `- ...` bullet(s). Unique filenames never collide. See `docs/fragments/README.md`.
+2. It's folded into `CHANGELOG.md` at release by `make changelog-assemble` (a
+   serialized step). `tests/unit/test_changelog_fragments.py` (in the `make test`
+   gate) keeps fragments well-formed.
+
+`README.md` / `docs/REDIS_SCHEMA.md` are *not* fragmented — edit them directly in
+your own section; conflicts there are rare and resolve trivially.
+
+The generated roadmap files (`docs/phases/TODO.md`, `docs/PROJECT_STATUS.md`) come
+from `make sync`; on a conflict take either side and re-run `make sync`.
 
 ---
 
