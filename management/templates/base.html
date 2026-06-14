@@ -11,17 +11,17 @@
   <title>{% block title %}{{ page_title | default("JA4proxy") }} — JA4proxy Management{% endblock %}</title>
 
   <!-- Tailwind CSS — pre-built & purged (phase-230); replaces the 407KB Play/runtime build -->
-  <link rel="stylesheet" href="/static/tailwind.css" />
+  <link rel="stylesheet" href="/static/vendor/tailwind.css" />
 
   <!-- HTMX (Local) -->
-  <script src="/static/htmx.min.js"></script>
-  <script src="/static/sse.js"></script>
+  <script src="/static/vendor/htmx.min.js"></script>
+  <script src="/static/vendor/htmx-sse.js"></script>
 
   <!-- Alpine.js (Local) -->
-  <script src="/static/alpine.min.js" defer></script>
+  <script src="/static/vendor/alpinejs.min.js" defer></script>
 
   <!-- Chart.js (Local) -->
-  <script src="/static/chart.umd.min.js"></script>
+  <script src="/static/vendor/chart.umd.min.js"></script>
 
   <!-- Custom CSS -->
   <link rel="stylesheet" href="/static/custom.css" />

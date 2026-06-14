@@ -11,8 +11,8 @@ import re
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-STATIC = REPO / "management" / "static"
-SUMS = STATIC / "SHA256SUMS"
+STATIC = REPO / "management" / "static" / "vendor"
+SUMS = STATIC / "CHECKSUMS.txt"
 BASE_HTML = REPO / "management" / "templates" / "base.html"
 
 
@@ -28,18 +28,19 @@ def _parse_sums():
 
 
 def test_sha256sums_present_and_nonempty():
-    assert SUMS.exists(), "management/static/SHA256SUMS missing"
-    assert _parse_sums(), "SHA256SUMS has no entries"
+    assert SUMS.exists(), "management/static/vendor/CHECKSUMS.txt missing"
+    assert _parse_sums(), "CHECKSUMS.txt has no entries"
 
 
 def test_vendored_assets_match_pinned_hashes():
     for expected, name in _parse_sums():
+        # tailwind.css is not in CHECKSUMS.txt because it is generated, not static third-party js
         f = STATIC / name
         assert f.exists(), f"pinned asset missing: {name}"
         actual = hashlib.sha256(f.read_bytes()).hexdigest()
         assert actual == expected, (
             f"{name} drifted from its pinned SHA-256 (supply-chain guard). "
-            f"If this was an intentional update, refresh SHA256SUMS + VENDOR.md."
+            f"If this was an intentional update, refresh CHECKSUMS.txt + VENDOR.md."
         )
 
 
@@ -53,7 +54,7 @@ def test_no_external_asset_fetches_in_base_html():
 def test_uses_prebuilt_tailwind_not_play_build():
     html = BASE_HTML.read_text()
     assert "tailwind.min.js" not in html, "still references the Tailwind Play/runtime build"
-    assert "/static/tailwind.css" in html, "should load the pre-built tailwind.css"
+    assert "/static/vendor/tailwind.css" in html, "should load the pre-built tailwind.css"
 
 
 def test_csp_present():

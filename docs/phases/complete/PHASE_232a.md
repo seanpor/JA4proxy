@@ -1,7 +1,7 @@
 ---
 phase: 232a
 title: Frontend Asset Vendoring & Static Compilation
-status: PROPOSED
+status: COMPLETE
 size: SMALL
 created: 2026-06-14
 audience: [developer, operator]
@@ -10,7 +10,7 @@ dependencies: [231]
 
 # Frontend Asset Vendoring & Static Compilation
 
-> **STATUS: PROPOSED — plan for review. No code until approved.**
+> **STATUS: COMPLETE**
 > Part 1 of 4 of the split Phase 232. Deals with securing frontend assets by vendoring JS libraries locally and compiling static CSS, eliminating CDN dependencies.
 
 ## Goal

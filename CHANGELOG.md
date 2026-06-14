@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Frontend Asset Vendoring & Static Compilation (Phase 232a)**: Secures the Management Console UI against CDN supply-chain risks and enables offline/air-gapped operations. Vendors all third-party JavaScript dependencies (`htmx.min.js`, `htmx-sse.js`, `alpinejs.min.js`, `chart.umd.min.js`) into `management/static/vendor/`, compiles and minifies static CSS via Tailwind CLI to `management/static/vendor/tailwind.css`, adds CSP script-src `'self'` enforcement, and cleans up redundant legacy static files from the repository. Updates `docs/OPERATIONS_GUIDE.md`. See `docs/phases/complete/PHASE_232a.md`.
 - **First-party image base hardening + first-party HIGH gate (Phase 317)**: closes the
   deferred first-party HIGH-CVE gate from Phase 314 by **removing** the CVEs rather than
   waiving them. The four CVE-bearing first-party Python images — `analytics`, `tarpit`,
