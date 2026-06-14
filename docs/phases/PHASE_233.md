@@ -59,7 +59,7 @@ Every connection decision is written to the `events:connection` stream. Under hi
 Before starting, verify your local environment:
 1.  Verify the POC stack is running:
     ```bash
-    cd /home/sean/LLM/JA4proxy
+    cd "$(git rev-parse --show-toplevel)"
     docker compose -f deploy/docker/docker-compose.poc.yml ps
     ```
 2.  Ensure `promtool` is installed on your host (part of the Prometheus suite, used to validate alert rules):
@@ -171,11 +171,11 @@ Append the following alert rules to the respective groups:
 ### Verification
 Validate the alerts configuration syntax using `promtool`:
 ```bash
-promtool check rules /home/sean/LLM/JA4proxy/deploy/monitoring/prometheus/alerts.yml
+promtool check rules deploy/monitoring/prometheus/alerts.yml
 ```
 *Expected Output:*
 ```
-Checking /home/sean/LLM/JA4proxy/deploy/monitoring/prometheus/alerts.yml
+Checking deploy/monitoring/prometheus/alerts.yml
   SUCCESS: <number> rules found
 ```
 
@@ -191,7 +191,7 @@ Ensure that `alertmanager.yml` defines the appropriate routes for `critical` and
 
 Validate the Alertmanager configuration syntax:
 ```bash
-docker run --rm -v /home/sean/LLM/JA4proxy/deploy/monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml prom/alertmanager:v0.27.0 --config.file=/etc/alertmanager/alertmanager.yml --check-config
+docker run --rm -v "$(pwd)/deploy/monitoring/alertmanager/alertmanager.yml":/etc/alertmanager/alertmanager.yml prom/alertmanager:v0.27.0 --config.file=/etc/alertmanager/alertmanager.yml --check-config
 ```
 *Expected Output:*
 ```
@@ -207,8 +207,8 @@ We will swap the heavyweight `redis-stack` image with the official lightweight a
 ### 7.1 Verify No Unused Modules are Utilized
 Audit both Go and Python codebases to ensure we do not use RedisSearch (`FT.*`) or RedisJSON (`JSON.*`) commands:
 ```bash
-grep -rn "FT\." /home/sean/LLM/JA4proxy/src/ /home/sean/LLM/JA4proxy/internal/ 2>/dev/null
-grep -rn "JSON\." /home/sean/LLM/JA4proxy/src/ /home/sean/LLM/JA4proxy/internal/ 2>/dev/null
+grep -rn "FT\." src/ internal/ 2>/dev/null
+grep -rn "JSON\." src/ internal/ 2>/dev/null
 ```
 *(No results should be returned).*
 

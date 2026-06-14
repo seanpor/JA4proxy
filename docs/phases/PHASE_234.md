@@ -420,7 +420,7 @@ async def test_all_pages_render_200_for_all_roles(role):
 
 **Run the tests (from project root):**
 ```bash
-# Working directory: /home/sean/LLM/JA4proxy
+# Working directory: <repo root>
 .venv/bin/python -m pytest tests/unit/test_pages_rbac.py -v
 ```
 
@@ -1941,7 +1941,7 @@ partial templates; dashboard.html just contains the wiring:
 
 ### 8.1 Pytest commands
 
-All commands run from the project root `/home/sean/LLM/JA4proxy`:
+All commands run from the project root:
 
 ```bash
 # Run ONLY Phase 234 tests (fast feedback during development)

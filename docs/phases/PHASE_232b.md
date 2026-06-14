@@ -20,10 +20,10 @@ Provide operators with immediate awareness of the proxy security posture. Implem
 ## Scope
 
 ### Files to create/modify:
-- [management/api/routes/partials.py](file:///home/sean/LLM/JA4proxy3/management/api/routes/partials.py)
-- [management/templates/partials/situation_bar.html](file:///home/sean/LLM/JA4proxy3/management/templates/partials/situation_bar.html)
-- [management/templates/dashboard.html](file:///home/sean/LLM/JA4proxy3/management/templates/dashboard.html)
-- [docs/OPERATIONS_GUIDE.md](file:///home/sean/LLM/JA4proxy3/docs/OPERATIONS_GUIDE.md)
+- [management/api/routes/partials.py](../../management/api/routes/partials.py)
+- [management/templates/partials/situation_bar.html](../../management/templates/partials/situation_bar.html)
+- [management/templates/dashboard.html](../../management/templates/dashboard.html)
+- [docs/OPERATIONS_GUIDE.md](../../docs/OPERATIONS_GUIDE.md)
 
 ### Out of scope:
 - Compiling static Tailwind CSS or vendoring JS files (covered by 232a).
@@ -65,5 +65,5 @@ Provide operators with immediate awareness of the proxy security posture. Implem
 - [ ] `/api/v1/partials/situation` endpoint is implemented and passes formatting/lint gates.
 - [ ] `situation_bar.html` template handles `NOMINAL`, `ELEVATED`, `ACTIVE`, and `PROXY_DOWN` states correctly.
 - [ ] The dashboard template includes the situation bar in a polling slot.
-- [ ] [docs/OPERATIONS_GUIDE.md](file:///home/sean/LLM/JA4proxy3/docs/OPERATIONS_GUIDE.md) is updated with threat posture monitoring instructions.
+- [ ] [docs/OPERATIONS_GUIDE.md](../../docs/OPERATIONS_GUIDE.md) is updated with threat posture monitoring instructions.
 - [ ] Unit tests cover all 4 states with 100% test pass rate and no warning flags.

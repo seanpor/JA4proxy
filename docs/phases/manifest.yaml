@@ -2343,9 +2343,9 @@ phases:
     name: Repository Path Sanitization
     status: COMPLETE
     action_plan: docs/phases/complete/PHASE_141.md
-    summary: Identified and remediated absolute filesystem paths (specifically references
-      to /home/sean) across all documentation and configuration files, converting
-      them to repository-relative paths to ensure portability and privacy.
+    summary: Identified and remediated absolute user-home filesystem paths across all
+      documentation and configuration files, converting them to repository-relative
+      paths to ensure portability and privacy.
   142:
     name: Exhaustive Performance Benchmarking & Validation
     status: COMPLETE

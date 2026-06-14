@@ -20,9 +20,9 @@ Ensure robust isolation and secure default network configuration. Attach the `an
 ## Scope
 
 ### Files to create/modify:
-- [deploy/docker/docker-compose.poc.yml](file:///home/sean/LLM/JA4proxy3/deploy/docker/docker-compose.poc.yml)
-- [deploy/docker/docker-compose.prod.yml](file:///home/sean/LLM/JA4proxy3/deploy/docker/docker-compose.prod.yml)
-- [docs/DOCKER_IMAGES.md](file:///home/sean/LLM/JA4proxy3/docs/DOCKER_IMAGES.md)
+- [deploy/docker/docker-compose.poc.yml](../../deploy/docker/docker-compose.poc.yml)
+- [deploy/docker/docker-compose.prod.yml](../../deploy/docker/docker-compose.prod.yml)
+- [docs/DOCKER_IMAGES.md](../../docs/DOCKER_IMAGES.md)
 
 ### Out of scope:
 - Frontend asset changes or situation bar UI code (covered by 232a/b).
@@ -50,6 +50,6 @@ Ensure robust isolation and secure default network configuration. Attach the `an
 
 - [ ] `analytics` service is connected to both `ja4proxy-mgmt` and `ja4proxy-data` networks.
 - [ ] Production compose ports for metrics, tarpit, and analytics are restricted to `127.0.0.1`.
-- [ ] [docs/DOCKER_IMAGES.md](file:///home/sean/LLM/JA4proxy3/docs/DOCKER_IMAGES.md) is updated to reflect the hardended bindings.
+- [ ] [docs/DOCKER_IMAGES.md](../../docs/DOCKER_IMAGES.md) is updated to reflect the hardended bindings.
 - [ ] Unit tests assert that no wildcard ports are exposed in the production compose file.
 - [ ] `make test` exits successfully.

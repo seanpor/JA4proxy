@@ -151,7 +151,7 @@ blocked.
 ## 3. The Project Structure — Where Things Live
 
 ```
-/home/sean/LLM/JA4proxy2/
+JA4proxy/
 │
 ├── management/                    ← Management Console (Python/FastAPI)
 │   ├── api/
@@ -502,11 +502,11 @@ to read `analytics:*` but not write to it.
 
 ## 7. Development Environment Quick Reference
 
-All commands should be run from `/home/sean/LLM/JA4proxy2` unless otherwise stated.
+All commands should be run from the repository root unless otherwise stated.
 
 ### Starting the POC stack
 ```bash
-cd /home/sean/LLM/JA4proxy2
+cd "$(git rev-parse --show-toplevel)"
 docker compose -f deploy/docker/docker-compose.poc.yml up -d
 ```
 
@@ -523,25 +523,25 @@ docker compose -f deploy/docker/docker-compose.poc.yml logs -f analytics
 
 ### Running the full test suite
 ```bash
-cd /home/sean/LLM/JA4proxy2
+cd "$(git rev-parse --show-toplevel)"
 make test
 ```
 
 ### Running Python tests only (faster during development)
 ```bash
-cd /home/sean/LLM/JA4proxy2
+cd "$(git rev-parse --show-toplevel)"
 .venv314/bin/python3 -m pytest tests/ -q --timeout=60
 ```
 
 ### Running Go tests
 ```bash
-cd /home/sean/LLM/JA4proxy2
+cd "$(git rev-parse --show-toplevel)"
 GOROOT=/snap/go/current /snap/go/current/bin/go test ./...
 ```
 
 ### Linting phases (must always be zero violations)
 ```bash
-cd /home/sean/LLM/JA4proxy2
+cd "$(git rev-parse --show-toplevel)"
 python3 scripts/lint-phases.py
 ```
 
@@ -603,7 +603,7 @@ except redis.ResponseError as exc:
 ### Every new .py file must pass ruff and mypy immediately
 After creating a new file, run:
 ```bash
-cd /home/sean/LLM/JA4proxy2
+cd "$(git rev-parse --show-toplevel)"
 python3 -m ruff check --select I001 --fix management/api/routes/my_new_file.py
 python3 -m mypy management/api/routes/my_new_file.py
 ```

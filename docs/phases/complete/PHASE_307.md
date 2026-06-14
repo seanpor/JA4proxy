@@ -22,10 +22,10 @@ To make this plan easy to execute for a junior engineer who just joined the team
 
 To ensure the documentation system remains up-to-date and avoids future drift, we establish a strict **no-duplication** architecture with clear single sources of truth (SSoT):
 
-1. **Root [README.md](file:///home/sean/LLM/JA4proxy3/README.md)**: The entry point for the repository. It introduces the project, security posture, and routes users to role-specific files. It provides a simple "Quick Verification" block and points to `make init` for interactive setup.
-2. **[docs/GETTING_STARTED.md](file:///home/sean/LLM/JA4proxy3/docs/GETTING_STARTED.md)**: The developer onboarding guide. Explains the local build/test workflow, introduces the two binaries (`ja4pd`) and (`ja4p`), and directs developers to run `make init` to bootstrap their environment.
-3. **[docs/OPERATIONS_GUIDE.md](file:///home/sean/LLM/JA4proxy3/docs/OPERATIONS_GUIDE.md)**: The single source of truth for running, configuring, scaling, and debugging the proxy. All operational commands live here (and only here).
-4. **[docs/MAKEFILE_TARGETS.md](file:///home/sean/LLM/JA4proxy3/docs/MAKEFILE_TARGETS.md)**: An auto-validated directory of all Makefile commands. Other files must link here instead of describing Makefile targets in detail.
+1. **Root [README.md](../../../README.md)**: The entry point for the repository. It introduces the project, security posture, and routes users to role-specific files. It provides a simple "Quick Verification" block and points to `make init` for interactive setup.
+2. **[docs/GETTING_STARTED.md](../../../docs/GETTING_STARTED.md)**: The developer onboarding guide. Explains the local build/test workflow, introduces the two binaries (`ja4pd`) and (`ja4p`), and directs developers to run `make init` to bootstrap their environment.
+3. **[docs/OPERATIONS_GUIDE.md](../../../docs/OPERATIONS_GUIDE.md)**: The single source of truth for running, configuring, scaling, and debugging the proxy. All operational commands live here (and only here).
+4. **[docs/MAKEFILE_TARGETS.md](../../../docs/MAKEFILE_TARGETS.md)**: An auto-validated directory of all Makefile commands. Other files must link here instead of describing Makefile targets in detail.
 
 ---
 

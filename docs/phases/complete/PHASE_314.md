@@ -12,16 +12,16 @@ Clear the pre-existing **HIGH**-severity CVE backlog in the pinned container ima
 
 ## Scope
 List of files to be modified:
-- [Makefile](file:///home/sean/LLM/JA4proxy3/Makefile) - Update `TRIVY_IMAGES` tag bumps, and modify `scan-images` (and verify `scan-first-party`) to gate on HIGH+CRITICAL.
-- [deploy/docker/docker-compose.prod.yml](file:///home/sean/LLM/JA4proxy3/deploy/docker/docker-compose.prod.yml) - Update pinned container tags to match Makefile.
-- [deploy/docker/docker-compose.monitoring.yml](file:///home/sean/LLM/JA4proxy3/deploy/docker/docker-compose.monitoring.yml) - Update pinned container tags to match Makefile.
-- [go.mod](file:///home/sean/LLM/JA4proxy3/go.mod) - Bump Go toolchain and dependencies to resolve first-party CVEs.
-- [go.sum](file:///home/sean/LLM/JA4proxy3/go.sum) - Updated for bumped dependencies.
-- [docs/DOCKER_IMAGES.md](file:///home/sean/LLM/JA4proxy3/docs/DOCKER_IMAGES.md) - Update documented pinned container tags to match Makefile and compose files.
-- [.trivyignore](file:///home/sean/LLM/JA4proxy3/.trivyignore) - Add dated, justified entries for any remaining unfixed CVEs.
-- [tests/integration/test_ci_flow.py](file:///home/sean/LLM/JA4proxy3/tests/integration/test_ci_flow.py) - Update assertions to check that HIGH-severity vulnerabilities trigger failures.
-- [docs/phases/complete/PHASE_313.md](file:///home/sean/LLM/JA4proxy3/docs/phases/complete/PHASE_313.md) - Mark the deferred subtask checkbox as completed.
-- [CHANGELOG.md](file:///home/sean/LLM/JA4proxy3/CHANGELOG.md) - Document the changes made in this phase.
+- [Makefile](../../../Makefile) - Update `TRIVY_IMAGES` tag bumps, and modify `scan-images` (and verify `scan-first-party`) to gate on HIGH+CRITICAL.
+- [deploy/docker/docker-compose.prod.yml](../../../deploy/docker/docker-compose.prod.yml) - Update pinned container tags to match Makefile.
+- [deploy/docker/docker-compose.monitoring.yml](../../../deploy/docker/docker-compose.monitoring.yml) - Update pinned container tags to match Makefile.
+- [go.mod](../../../go.mod) - Bump Go toolchain and dependencies to resolve first-party CVEs.
+- [go.sum](../../../go.sum) - Updated for bumped dependencies.
+- [docs/DOCKER_IMAGES.md](../../../docs/DOCKER_IMAGES.md) - Update documented pinned container tags to match Makefile and compose files.
+- [.trivyignore](../../../.trivyignore) - Add dated, justified entries for any remaining unfixed CVEs.
+- [tests/integration/test_ci_flow.py](../../../tests/integration/test_ci_flow.py) - Update assertions to check that HIGH-severity vulnerabilities trigger failures.
+- [docs/phases/complete/PHASE_313.md](../../../docs/phases/complete/PHASE_313.md) - Mark the deferred subtask checkbox as completed.
+- [CHANGELOG.md](../../../CHANGELOG.md) - Document the changes made in this phase.
 
 ## Implementation Plan
 1. **Initial Vulnerability Scan**: Run `make scan-images` and `make scan-first-party` to obtain the current list of HIGH and CRITICAL vulnerabilities across all containers.
