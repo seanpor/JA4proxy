@@ -1354,7 +1354,7 @@ async def test_missing_cert_file_returns_error(test_client):
 ### 8e. Running All Phase 237 Tests
 
 ```bash
-# Working directory: /home/sean/LLM/JA4proxy
+# Working directory: <repo root>
 
 # Unit tests for this phase
 python3 -m pytest tests/unit/test_snapshot.py \

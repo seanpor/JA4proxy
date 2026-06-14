@@ -47,7 +47,7 @@ bot flood — no HAProxy required.
 - **No secrets echoed.** The wizard/bootstrapper must never print
   `REDIS_PASSWORD`/`GRAFANA_PASSWORD`/tokens (matches `start-poc.sh`'s
   `JA4PROXY-2026-0040` rule); generated values go to `.env` (chmod 600) only.
-- **No `/home/<user>` paths** anywhere; deployment root, log, and backup paths
+- **No absolute user-home paths** anywhere; deployment root, log, and backup paths
   are parameterised (`/opt/ja4proxy`, `/var/log/ja4proxy`, `/backup/ja4proxy`).
 
 ## Implementation

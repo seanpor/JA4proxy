@@ -206,7 +206,7 @@ Tokens after the username:
 
 ### 3b. Complete `config/redis_acl.conf` Additions
 
-Create or extend the file at `/home/sean/LLM/JA4proxy/config/redis_acl.conf`:
+Create or extend the file at `config/redis_acl.conf`:
 
 ```
 # Redis ACL file for JA4proxy
@@ -239,7 +239,7 @@ user default off nopass ~* -@all
 ### 3c. `docker-compose.poc.yml` Changes to Pass ACL Credentials
 
 The analytics container needs to know its Redis credentials. Add to the analytics
-service definition in `/home/sean/LLM/JA4proxy/deploy/docker/docker-compose.poc.yml`:
+service definition in `deploy/docker/docker-compose.poc.yml`:
 
 ```diff
   analytics:
@@ -280,7 +280,7 @@ Locate the Redis client initialisation in the analytics codebase. The exact path
 may be `src/analytics/redis_client.py` or similar — grep to confirm:
 
 ```bash
-# Working directory: /home/sean/LLM/JA4proxy
+# Working directory: <repo root>
 grep -rn "redis.from_url\|aioredis\|Redis(" src/analytics/ --include="*.py"
 ```
 
@@ -306,7 +306,7 @@ itself is needed — only the compose file change above is required.
 Run these steps after deploying the compose changes:
 
 ```bash
-# Working directory: /home/sean/LLM/JA4proxy
+# Working directory: <repo root>
 
 # 1. Start the POC stack
 docker compose -f deploy/docker/docker-compose.poc.yml up -d redis
@@ -1381,7 +1381,7 @@ def test_analytics_cannot_write_blocklist():
 ### 7d. Running the Tests
 
 ```bash
-# Working directory: /home/sean/LLM/JA4proxy
+# Working directory: <repo root>
 
 # Unit tests (no external services needed — uses fakeredis via fixtures)
 python3 -m pytest tests/unit/test_intelligence_schema.py tests/unit/test_intelligence_tier_filter.py -v

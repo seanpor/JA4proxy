@@ -123,7 +123,7 @@ gate for real. Fixed a `scan-first-party` false positive (it counted the
 - mockbackend ran as root (DS-0002) → non-root on non-privileged 8443.
 - Failing tests: `TestLoad_SecurityListsLoaded` (config `\n` corruption, Chrome
   JA4) repaired in PHASE_224's branch; `test_ja4p_cli`/`test_system_bootstrap`
-  de-hardcoded off the `JA4proxy2` dev path; `pip-audit` added to CI lint;
+  de-hardcoded off the absolute dev-checkout path; `pip-audit` added to CI lint;
   `GOROOT` de-hardcoded off `/snap/go/current`.
 
 **Justified, time-windowed exceptions (the only suppression, all dated).**

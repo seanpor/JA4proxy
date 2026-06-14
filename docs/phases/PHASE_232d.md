@@ -20,10 +20,10 @@ Decommission and completely remove the unauthenticated `admin-api` container (wh
 ## Scope
 
 ### Files to create/modify:
-- [deploy/docker/docker-compose.poc.yml](file:///home/sean/LLM/JA4proxy3/deploy/docker/docker-compose.poc.yml)
-- [deploy/docker/Dockerfile.admin](file:///home/sean/LLM/JA4proxy3/deploy/docker/Dockerfile.admin) (to be deleted)
-- [tests/unit/test_container_config.py](file:///home/sean/LLM/JA4proxy3/tests/unit/test_container_config.py)
-- [docs/OPERATIONS_GUIDE.md](file:///home/sean/LLM/JA4proxy3/docs/OPERATIONS_GUIDE.md)
+- [deploy/docker/docker-compose.poc.yml](../../deploy/docker/docker-compose.poc.yml)
+- [deploy/docker/Dockerfile.admin](../../deploy/docker/Dockerfile.admin) (to be deleted)
+- [tests/unit/test_container_config.py](../../tests/unit/test_container_config.py)
+- [docs/OPERATIONS_GUIDE.md](../../docs/OPERATIONS_GUIDE.md)
 
 ### Out of scope:
 - Vendoring assets or frontend situation bar code (covered by 232a/b).
@@ -39,7 +39,7 @@ Decommission and completely remove the unauthenticated `admin-api` container (wh
 3. **Migrate Automation Consumers**:
    - Ensure all automated tasks use the secure management API at `http://localhost:8090/api/v1/` by supplying an API Bearer token in the `Authorization` header.
 4. **Update Operations Guide and Runbooks**:
-   - Clean up [docs/OPERATIONS_GUIDE.md](file:///home/sean/LLM/JA4proxy3/docs/OPERATIONS_GUIDE.md) and any runbook docs to ensure they do not reference the legacy `admin-api` or port `8091`.
+   - Clean up [docs/OPERATIONS_GUIDE.md](../../docs/OPERATIONS_GUIDE.md) and any runbook docs to ensure they do not reference the legacy `admin-api` or port `8091`.
 5. **Add Regression Test**:
    - Create `test_admin_api_absent_from_all_compose_files` in `tests/unit/test_container_config.py` asserting that `admin-api` and port `8091` references do not appear in any compose file.
 
