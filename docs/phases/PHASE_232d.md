@@ -1,7 +1,7 @@
 ---
 phase: 232d
 title: Admin-API Decommissioning
-status: IN_PROGRESS
+status: COMPLETE
 size: SMALL
 created: 2026-06-14
 audience: [developer, operator]
@@ -10,7 +10,7 @@ dependencies: [232a]
 
 # Admin-API Decommissioning
 
-> **STATUS: IN_PROGRESS.** Part 4 of 4 of the split Phase 232. Eliminates the
+> **STATUS: COMPLETE.** Part 4 of 4 of the split Phase 232. Eliminated the
 > unauthenticated backdoor API container.
 
 > **Grounding note (2026-06-14):** verified against `main` before building.
@@ -101,12 +101,18 @@ Decommission and completely remove the unauthenticated `admin-api` container (wh
 
 ## Acceptance Criteria
 
-- [ ] `admin-api` container block is deleted from compose configurations.
-- [ ] `Dockerfile.admin` is removed.
-- [ ] Runbooks and the image inventory (`docs/runbooks/REMOTE_TESTING.md`,
-      `deploy/docker/README.md`) are free of port `8091` and `admin-api` references.
-- [ ] Automation touch-points (`scripts/agent-env.sh`, `scripts/check_updates.py`)
-      no longer reference the admin-api port or image.
-- [ ] A structural regression test asserting the removal of the backdoor passes
+- [x] `admin-api` container block is deleted from compose configurations.
+- [x] `Dockerfile.admin` is removed, and all build configs that referenced it
+      (Makefile `HADOLINT_DOCKERFILES` + Trivy scan list, `docs/DOCKER_IMAGES.md`)
+      are updated so lint/scan no longer break on the missing file.
+- [x] Runbooks and the image inventory (`docs/runbooks/REMOTE_TESTING.md`,
+      `docs/runbooks/multidc.md`, `deploy/docker/README.md`) are free of port
+      `8091` and `admin-api` references.
+- [x] Automation touch-points (`scripts/agent-env.sh`, `scripts/check_updates.py`,
+      `template.env`, the Makefile `agent-up`/`tunnel` targets) no longer
+      reference the admin-api port or image.
+- [x] A structural regression test asserting the removal of the backdoor passes
       (`test_admin_api_absent_from_all_compose_files`).
-- [ ] `make test` passes cleanly.
+- [x] `make test` passes cleanly (no new failures; the pre-existing
+      `lint-hierarchy` / `chaos` collection failures are unrelated to this phase
+      and reproduce on clean `main`).

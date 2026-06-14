@@ -2740,11 +2740,11 @@ phases:
     summary: Connect the analytics container to ja4proxy-data in the POC compose (it currently cannot reach Redis), and add tests/unit/test_container_config.py to regression-guard both that network fix and the production port hardening already landed in Phase 0046.
   232d:
     name: Admin-API Decommissioning
-    status: PROPOSED
+    status: COMPLETE
     action_plan: docs/phases/PHASE_232d.md
     dependencies: [232a]
     size: SMALL
-    summary: Decommission the unauthenticated admin-api container and Dockerfile.admin, routing all automation/CLI tools directly to the secure management API. Updates docs/OPERATIONS_GUIDE.md.
+    summary: Decommissioned the unauthenticated admin-api container (legacy src/management/app on host port 8091) and deleted Dockerfile.admin; all management traffic now flows through the JWT-gated management service on port 8090. Purged the service from compose, Makefile lint/scan lists, template.env, scripts (agent-env.sh, check_updates.py) and runbooks (REMOTE_TESTING.md, multidc.md, DOCKER_IMAGES.md, deploy README); added test_admin_api_absent_from_all_compose_files as a regression guard.
   233:
     name: Observability Foundations
     status: PROPOSED

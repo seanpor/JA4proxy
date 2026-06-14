@@ -67,10 +67,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **PROPOSED** (Implement a top situation summary bar displaying current Threat Posture (NOMINAL/ELEVATED/ACTIVE) and a sticky warning banner for proxy downtime. Updates docs/OPERATIONS_GUIDE.md.)
 *   **Action Plan:** [PHASE_232b.md](PHASE_232b.md)
 
-### Phase 232d — Admin-API Decommissioning
-*   **Status:** **PROPOSED** (Decommission the unauthenticated admin-api container and Dockerfile.admin, routing all automation/CLI tools directly to the secure management API. Updates docs/OPERATIONS_GUIDE.md.)
-*   **Action Plan:** [PHASE_232d.md](PHASE_232d.md)
-
 ### Phase 233 — Observability Foundations
 *   **Status:** **PROPOSED** (Add Prometheus scrape targets for tarpit and analytics, write critical system alert rules, replace redis-stack with a lightweight alpine image, cap events stream to 100k entries using XADD MAXLEN, and surface evictions count.)
 *   **Action Plan:** [PHASE_233.md](PHASE_233.md)
