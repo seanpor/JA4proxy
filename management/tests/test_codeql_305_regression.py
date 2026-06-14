@@ -25,8 +25,8 @@ or intentional test tooling — see docs/phases/PHASE_305.md):
 from __future__ import annotations
 
 import os
-from typing import AsyncGenerator, Tuple
 from contextlib import asynccontextmanager
+from typing import AsyncGenerator, Tuple
 
 import fakeredis.aioredis
 import pytest

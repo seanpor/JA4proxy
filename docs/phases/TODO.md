@@ -59,14 +59,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **DEFERRED** (Retired 2026-04-19 under Phase 121e as duplicate of Phase 119. All 20 findings were either duplicates of 119 entries or already folded into the canonical findings register (docs/security/findings.yaml) with remediation_phases pointing at 119 or its successor phases. See PHASE_120.md redirect stub.)
 *   **Action Plan:** [cancelled/PHASE_120.md](cancelled/PHASE_120.md)
 
-### Phase 230 — Interface & Container Architecture — Critical Review & Rationalisation
-*   **Status:** **PROPOSED** (Conduct a thorough architectural review of every container and user-facing interface in the JA4proxy stack.)
-*   **Action Plan:** [PHASE_230.md](PHASE_230.md)
-
-### Phase 231 — Container & Interface Consolidation — Master Implementation Plan
-*   **Status:** **PROPOSED** (Master planning document and implementation index for the 7-phase container and interface consolidation programme.)
-*   **Action Plan:** [PHASE_231.md](PHASE_231.md)
-
 ### Phase 232 — Security Foundations & Quick Wins (Index)
 *   **Status:** **PROPOSED** (Index/map for the security foundations and quick wins sub-phases.)
 *   **Action Plan:** [PHASE_232.md](PHASE_232.md)

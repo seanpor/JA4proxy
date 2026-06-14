@@ -54,3 +54,4 @@ tomli>=2.0; python_version < "3.11"  # phase-92: TOML validation fallback for Py
 jsonpath-ng==1.6.1  # phase-85: REST generic TI feed client (src/analytics/ti_feeds/rest_generic.py)
 
 mcp>=1.23.0  # CVE-2025-66416 — transitive dep of semgrep; pinned to force safe resolution
+

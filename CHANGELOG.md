@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Interface & Container Architecture Review & Consolidation Planning (Phase 230 & 231)**: Completed a thorough architectural audit of all containers and user-facing interfaces. Documented 11 security and operational findings, proposed a target container inventory (eliminating the duplicate `admin-api` service and switching to a plain Alpine Redis base), and established the 7-phase master implementation plan for the Container & Interface Consolidation programme (Phases 232–238). See `docs/phases/complete/PHASE_230.md` and `docs/phases/complete/PHASE_231.md`.
 - **Go Redis restore — selective & GDPR-aware (Phase 315b)**: `ja4p restore` loads
   a 315a artifact back into Redis with the guard-rails that make restore safe. **By
   default it can never re-block a real user**: block-state (`ban:*`, `ban_cidr:*`,

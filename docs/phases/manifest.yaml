@@ -2685,15 +2685,17 @@ phases:
     summary: 'Repo pruning + operational-excellence housekeeping. Completed in commit c53ced20 but never recorded in the manifest until the phase-309 documentation audit caught the manifest-vs-doc gap; reconciled and archived in the docs-archive pass.'
   230:
     name: Interface & Container Architecture — Critical Review & Rationalisation
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_230.md
+    status: COMPLETE
+    completed: 2026-06-14
+    action_plan: docs/phases/complete/PHASE_230.md
     dependencies: []
     size: LARGE
     summary: Conduct a thorough architectural review of every container and user-facing interface in the JA4proxy stack.
   231:
     name: Container & Interface Consolidation — Master Implementation Plan
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_231.md
+    status: COMPLETE
+    completed: 2026-06-14
+    action_plan: docs/phases/complete/PHASE_231.md
     dependencies: [230]
     size: XLARGE
     summary: Master planning document and implementation index for the 7-phase container and interface consolidation programme.
