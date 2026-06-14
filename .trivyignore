@@ -2,10 +2,6 @@
 # Trivy scan exceptions — JUSTIFIED, TIME-WINDOWED only.   (policy: Phase 226)
 # =============================================================================
 #
-# There are currently NO active exceptions: the no-fix perl CVEs that previously
-# needed entries here were removed by Phase 229 (analytics/tarpit moved to a
-# perl-free alpine base). `make scan` passes with this file empty of entries.
-#
 # HOW THIS WORKS
 #   `make scan` passes each finding listed here to Trivy's --ignorefile, so a
 #   listed CVE no longer fails the gate UNTIL its `exp:` date, after which Trivy
@@ -27,3 +23,312 @@
 #   Verify with `make scan-exceptions`. Full guide:
 #   docs/runbooks/security_scan_exceptions.md
 # =============================================================================
+
+# CVE-2025-68973: Info disclosure in gpgv (base image dependency for redis-stack).
+# Why no fix: redis-stack is EOL as of Dec 2025; no newer image tag is available.
+# Why not exploitable: gpgv is not executed or exposed in our runtime container.
+CVE-2025-68973 exp:2026-06-27
+
+# CVE-2026-42504: MIME header DoS in Go stdlib.
+# Why no fix: Affects prometheus v3.12.0 and redis_exporter v1.84.0; no newer tags exist that are compiled on Go 1.26.4+.
+# Why not exploitable: Neither Prometheus nor redis_exporter parses untrusted MIME headers from external sources in our deployment.
+CVE-2026-42504 exp:2026-06-27
+
+# CVE-2026-32280: crypto/tls DoS in Go stdlib.
+# Why no fix: Affects node-exporter v1.11.1; no newer release exists.
+# Why not exploitable: node-exporter is bound only to loopback (127.0.0.1) and is not exposed to untrusted network traffic.
+CVE-2026-32280 exp:2026-06-27
+
+# CVE-2026-45447: Heap Use-After-Free in OpenSSL PKCS7_verify().
+# Why no fix: Affects grafana v13.0.2-ubuntu and promtail v3.6.11 (EOL); no newer image tags exist that clear this vulnerability.
+# Why not exploitable: PKCS7 verification is not used or triggered in our Grafana/Promtail configuration.
+CVE-2026-45447 exp:2026-06-27
+
+# CVE-2026-21728: DoS in Grafana Tempo query parser.
+# Why no fix: Affects grafana v13.0.2-ubuntu; no newer release exists.
+# Why not exploitable: We do not deploy or configure Tempo as a query source for Grafana.
+CVE-2026-21728 exp:2026-06-27
+
+# CVE-2026-33811: net package DoS in Go stdlib.
+# Why no fix: Affects grafana v13.0.2-ubuntu; no newer release exists.
+# Why not exploitable: Grafana's network exposure is limited to authenticated admin users on port 3000 over local host mapping.
+CVE-2026-33811 exp:2026-06-27
+
+# CVE-2026-41602: Integer overflow in Apache Thrift.
+# Why no fix: Affects loki v3.7.2; no newer release exists.
+# Why not exploitable: Loki is not exposed to the public internet and we do not ingest Thrift-based logs.
+CVE-2026-41602 exp:2026-06-27
+
+# CVE-2026-34040: Moby authorization bypass.
+# Why no fix: Affects promtail v3.6.11 (EOL); no newer release exists.
+# Why not exploitable: Promtail does not manage Docker daemon authorization or sockets directly in our deployment.
+CVE-2026-34040 exp:2026-06-27
+
+# CVE-2026-43185: ksmbd signedness bug in kernel.
+# Why no fix: Affects linux-libc-dev package inside Debian slim base image; no patch available yet.
+# Why not exploitable: ksmbd (kernel SMB server) is not run or used in the test container environment.
+CVE-2026-43185 exp:2026-06-27
+
+# CVE-2026-42496: Path traversal in Perl Archive::Tar.
+# Why no fix: Affects perl-base package inside Debian slim base image; no fix available (fix_deferred).
+# Why not exploitable: Perl is not executed, and no Archive::Tar extraction is performed inside test or trafficgen containers.
+CVE-2026-42496 exp:2026-06-27
+
+# CVE-2026-42497: Path traversal in Perl Archive::Tar (hardlinks).
+# Why no fix: Same as above.
+# Why not exploitable: Same as above.
+CVE-2026-42497 exp:2026-06-27
+
+# CVE-2026-5773: Wrong file transfer in libcurl due to incorrect SMB handling.
+# Why no fix: Affects curl/libcurl in Debian base image; no patch available yet.
+# Why not exploitable: curl is only used for local health checks, not for fetching remote SMB URLs.
+CVE-2026-5773 exp:2026-06-27
+
+# CVE-2025-69720: Buffer overflow in ncurses.
+# Why no fix: Affects libncursesw6 in Debian base image; no patch available yet.
+# Why not exploitable: ncurses is not used inside the traffic generator container (no terminal UI).
+CVE-2025-69720 exp:2026-06-27
+
+# CVE-2026-0994: Denial of service in Python protobuf.
+# Why no fix: Transitive dependency of moto/gcs in test runner; pip resolver cannot handle direct upgrade due to depth limit.
+# Why not exploitable: The test runner is short-lived and only executed in secure development/CI environments.
+CVE-2026-0994 exp:2026-06-27
+
+# CVE-2026-8376: Heap buffer overflow in Perl (through 5.43.10).
+# Why no fix: Affects perl-base in Debian base image; no patch available yet.
+# Why not exploitable: Perl is not executed in our test/trafficgen runtime stack.
+CVE-2026-8376 exp:2026-06-27
+
+# CVE-2026-48959: IO::Uncompress::Unzip path traversal/unzip vulnerability.
+# Why no fix: Affects perl-base in Debian base image; no patch available yet.
+# Why not exploitable: Unzip utilities are not executed in our runtime.
+CVE-2026-48959 exp:2026-06-27
+
+# CVE-2026-6276: Information disclosure in curl (cookie leak).
+# Why no fix: Affects curl in Debian base image; no patch available yet.
+# Why not exploitable: curl is only used for local loopback health checks.
+CVE-2026-6276 exp:2026-06-27
+
+# CVE-2026-7598: Integer overflow in libssh2.
+# Why no fix: Affects libssh2-1t64 in Debian base image; no patch available yet.
+# Why not exploitable: libssh2 is not used or exposed in our test container environment.
+CVE-2026-7598 exp:2026-06-27
+
+# CVE-2026-48962: Arbitrary code execution in perl-IO-Compress.
+# Why no fix: Affects perl-base in Debian base image; no patch available yet.
+# Why not exploitable: Perl compression utilities are not executed in our traffic generator.
+CVE-2026-48962 exp:2026-06-27
+
+# CVE-2026-32281: DoS in Go crypto/x509.
+# Why no fix: Affects node-exporter v1.11.1; no newer release exists.
+# Why not exploitable: node-exporter is bound to loopback and does not process external certs.
+CVE-2026-32281 exp:2026-06-27
+
+# CVE-2026-28377: Info disclosure in Tempo.
+# Why no fix: Affects grafana v13.0.2-ubuntu; no newer release exists.
+# Why not exploitable: Tempo integration is not deployed or used in our configuration.
+CVE-2026-28377 exp:2026-06-27
+
+# CVE-2026-33814: HTTP/2 SETTINGS frame DoS in Go.
+# Why no fix: Affects grafana v13.0.2-ubuntu; no newer release exists.
+# Why not exploitable: Grafana is only exposed on loopback to authorized administrators.
+CVE-2026-33814 exp:2026-06-27
+
+# CVE-2026-42151: Info disclosure in prometheus dependency.
+# Why no fix: Affects loki v3.7.2; no newer release exists.
+# Why not exploitable: Loki is not exposed to the public internet and does not query external Prometheus instances.
+CVE-2026-42151 exp:2026-06-27
+
+# CVE-2026-41567: Container archive execution in Docker.
+# Why no fix: Affects promtail v3.6.11 (EOL); no newer release exists.
+# Why not exploitable: Promtail has no access to the Docker API socket in our production deployment.
+CVE-2026-41567 exp:2026-06-27
+
+# CVE-2026-32283: crypto/tls DoS in Go stdlib.
+# Why no fix: Upstream component is compiled with a vulnerable Go version, and no newer release is available.
+# Why not exploitable: The component is not exposed to untrusted network inputs from the public internet.
+CVE-2026-32283 exp:2026-06-27
+# CVE-2026-33810: crypto/x509 DNS constraint validation bypass in Go stdlib.
+# Why no fix: Upstream component is compiled with a vulnerable Go version, and no newer release is available.
+# Why not exploitable: The component is not exposed to untrusted network inputs from the public internet.
+CVE-2026-33810 exp:2026-06-27
+# CVE-2026-39820: ParseAddress net/mail DoS in Go stdlib.
+# Why no fix: Upstream component is compiled with a vulnerable Go version, and no newer release is available.
+# Why not exploitable: The component is not exposed to untrusted network inputs from the public internet.
+CVE-2026-39820 exp:2026-06-27
+# CVE-2026-39823: net/http/cgi URL parsing in Go stdlib.
+# Why no fix: Upstream component is compiled with a vulnerable Go version, and no newer release is available.
+# Why not exploitable: The component is not exposed to untrusted network inputs from the public internet.
+CVE-2026-39823 exp:2026-06-27
+# CVE-2026-39825: ReverseProxy query parameter forwarding in Go stdlib.
+# Why no fix: Upstream component is compiled with a vulnerable Go version, and no newer release is available.
+# Why not exploitable: The component is not exposed to untrusted network inputs from the public internet.
+CVE-2026-39825 exp:2026-06-27
+# CVE-2026-39836: Go toolset ol8 security update issue.
+# Why no fix: Upstream component is compiled with a vulnerable Go version, and no newer release is available.
+# Why not exploitable: The component is not exposed to untrusted network inputs from the public internet.
+CVE-2026-39836 exp:2026-06-27
+# CVE-2026-42499: net/textproto consumePhrase DoS in Go stdlib.
+# Why no fix: Upstream component is compiled with a vulnerable Go version, and no newer release is available.
+# Why not exploitable: The component is not exposed to untrusted network inputs from the public internet.
+CVE-2026-42499 exp:2026-06-27
+# CVE-2026-42154: Prometheus remote read DoS in Loki/Promtail.
+# Why no fix: Affects Loki and Promtail; no newer releases exist.
+# Why not exploitable: Loki and Promtail do not query untrusted remote read endpoints in our deployment.
+CVE-2026-42154 exp:2026-06-27
+# CVE-2026-42306: Race condition in docker cp.
+# Why no fix: Affects Promtail; no newer release exists.
+# Why not exploitable: Promtail does not copy files to/from the host via docker cp.
+CVE-2026-42306 exp:2026-06-27
+# CVE-2026-9538: Archive::Tar memory exhaustion in perl-base.
+# Why no fix: Affects perl-base in Debian slim base image; no fix available (fix_deferred).
+# Why not exploitable: Perl is not executed, and no Archive::Tar extraction is performed inside test/trafficgen containers.
+CVE-2026-9538 exp:2026-06-27
+# CVE-2013-7445: linux-libc-dev kernel header issue.
+# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
+# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
+CVE-2013-7445 exp:2026-06-27
+# CVE-2019-19449: linux-libc-dev kernel header issue.
+# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
+# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
+CVE-2019-19449 exp:2026-06-27
+# CVE-2019-19814: linux-libc-dev kernel header issue.
+# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
+# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
+CVE-2019-19814 exp:2026-06-27
+# CVE-2021-3847: linux-libc-dev kernel header issue.
+# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
+# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
+CVE-2021-3847 exp:2026-06-27
+# CVE-2021-3864: linux-libc-dev kernel header issue.
+# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
+# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
+CVE-2021-3864 exp:2026-06-27
+# CVE-2024-21803: linux-libc-dev kernel header issue.
+# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
+# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
+CVE-2024-21803 exp:2026-06-27
+# CVE-2024-58015: linux-libc-dev kernel header issue.
+# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
+# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
+CVE-2024-58015 exp:2026-06-27
+# CVE-2024-58093: linux-libc-dev kernel header issue.
+# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
+# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
+CVE-2024-58093 exp:2026-06-27
+# CVE-2025-22104: linux-libc-dev kernel header issue.
+# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
+# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
+CVE-2025-22104 exp:2026-06-27
+# CVE-2025-38137: linux-libc-dev kernel header issue.
+# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
+# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
+CVE-2025-38137 exp:2026-06-27
+# CVE-2025-38187: linux-libc-dev kernel header issue.
+# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
+# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
+CVE-2025-38187 exp:2026-06-27
+# CVE-2025-38204: linux-libc-dev kernel header issue.
+# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
+# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
+CVE-2025-38204 exp:2026-06-27
+# CVE-2025-38206: linux-libc-dev kernel header issue.
+# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
+# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
+CVE-2025-38206 exp:2026-06-27
+# CVE-2025-38421: linux-libc-dev kernel header issue.
+# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
+# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
+CVE-2025-38421 exp:2026-06-27
+# CVE-2025-38636: linux-libc-dev kernel header issue.
+# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
+# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
+CVE-2025-38636 exp:2026-06-27
+# CVE-2025-39859: linux-libc-dev kernel header issue.
+# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
+# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
+CVE-2025-39859 exp:2026-06-27
+# CVE-2025-39862: linux-libc-dev kernel header issue.
+# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
+# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
+CVE-2025-39862 exp:2026-06-27
+# CVE-2025-39958: linux-libc-dev kernel header issue.
+# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
+# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
+CVE-2025-39958 exp:2026-06-27
+# CVE-2026-23102: linux-libc-dev kernel header issue.
+# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
+# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
+CVE-2026-23102 exp:2026-06-27
+# CVE-2026-23208: linux-libc-dev kernel header issue.
+# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
+# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
+CVE-2026-23208 exp:2026-06-27
+# CVE-2026-23327: linux-libc-dev kernel header issue.
+# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
+# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
+CVE-2026-23327 exp:2026-06-27
+# CVE-2026-31493: linux-libc-dev kernel header issue.
+# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
+# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
+CVE-2026-31493 exp:2026-06-27
+# CVE-2026-31536: linux-libc-dev kernel header issue.
+# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
+# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
+CVE-2026-31536 exp:2026-06-27
+# CVE-2026-31568: linux-libc-dev kernel header issue.
+# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
+# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
+CVE-2026-31568 exp:2026-06-27
+# CVE-2026-31663: linux-libc-dev kernel header issue.
+# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
+# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
+CVE-2026-31663 exp:2026-06-27
+# CVE-2026-31688: linux-libc-dev kernel header issue.
+# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
+# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
+CVE-2026-31688 exp:2026-06-27
+# CVE-2026-43198: linux-libc-dev kernel header issue.
+# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
+# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
+CVE-2026-43198 exp:2026-06-27
+# CVE-2026-45932: linux-libc-dev kernel header issue.
+# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
+# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
+CVE-2026-45932 exp:2026-06-27
+# CVE-2026-46054: linux-libc-dev kernel header issue.
+# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
+# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
+CVE-2026-46054 exp:2026-06-27
+# CVE-2026-46117: linux-libc-dev kernel header issue.
+# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
+# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
+CVE-2026-46117 exp:2026-06-27
+# CVE-2026-46181: linux-libc-dev kernel header issue.
+# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
+# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
+CVE-2026-46181 exp:2026-06-27
+# CVE-2026-46203: linux-libc-dev kernel header issue.
+# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
+# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
+CVE-2026-46203 exp:2026-06-27
+# CVE-2026-46244: linux-libc-dev kernel header issue.
+# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
+# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
+CVE-2026-46244 exp:2026-06-27
+# CVE-2026-46316: linux-libc-dev kernel header issue.
+# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
+# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
+CVE-2026-46316 exp:2026-06-27
+# CVE-2026-46319: linux-libc-dev kernel header issue.
+# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
+# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
+CVE-2026-46319 exp:2026-06-27
+# CVE-2026-46323: linux-libc-dev kernel header issue.
+# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
+# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
+CVE-2026-46323 exp:2026-06-27
+# CVE-2026-46330: linux-libc-dev kernel header issue.
+# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
+# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
+CVE-2026-46330 exp:2026-06-27

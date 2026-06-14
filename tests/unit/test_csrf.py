@@ -67,7 +67,7 @@ def test_verify_rejects_wrong_session() -> None:
 def test_verify_rejects_tampered_signature() -> None:
     tok = issue_token("alice")
     payload, sig = tok.rsplit(".", 1)
-    flipped = sig[:-1] + ("A" if sig[-1] != "A" else "B")
+    flipped = ("A" if sig[0] != "A" else "B") + sig[1:]
     assert verify_token(f"{payload}.{flipped}", "alice") is False
 
 

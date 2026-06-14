@@ -33,7 +33,6 @@ RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked \
     pip install -r requirements-test.txt
 
 # Copy application and test files
-COPY proxy.py .
 COPY tests/ tests/
 COPY config/ config/
 COPY security/ security/
