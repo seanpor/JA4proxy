@@ -16,6 +16,9 @@ on:
   # report on non-docs PRs, blocking them forever. The job is ~seconds, so the
   # cost of re-checking links on every PR is negligible.
   pull_request:
+  # Phase 332: also report on merge_group events — as a REQUIRED check it must
+  # post a result in the merge queue or the queue would stall forever.
+  merge_group:
   workflow_dispatch:
 
 permissions:
