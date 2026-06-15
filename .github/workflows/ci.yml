@@ -22,6 +22,13 @@ on:
     branches: [main, 'claude/**', 'phase-*']
   push:
     branches: [main]
+  # Phase 332: the GitHub merge queue dispatches `merge_group` events. Every
+  # REQUIRED status check must report on this event or the queue stalls forever.
+  # The required jobs below run on merge_group unguarded; the demoted/non-required
+  # jobs (lint, scan, smoke-docker) are skipped in the queue via a per-job
+  # `if: github.event_name != 'merge_group'` to keep the queue fast. They still
+  # run on every PR and on push-to-main (post-merge) + the weekly schedule.
+  merge_group:
   schedule:
     - cron: "0 6 * * 1"  # Mondays 06:00 UTC — weekly CVE sweep
 
@@ -67,6 +74,9 @@ jobs:
 
   lint:
     name: Full Lint (make lint)
+    # Phase 332 trial: demoted to advisory and skipped in the merge queue to keep
+    # it fast. Still runs on every PR, on push-to-main (post-merge), and weekly.
+    if: github.event_name != 'merge_group'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
@@ -87,6 +97,9 @@ jobs:
 
   scan:
     name: Security Scan (make scan)
+    # Phase 332 trial: demoted to advisory and skipped in the merge queue to keep
+    # it fast. Still runs on every PR, on push-to-main (post-merge), and weekly.
+    if: github.event_name != 'merge_group'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
@@ -266,6 +279,8 @@ jobs:
   # this to a required check.
   smoke-docker:
     name: Smoke test (Docker Compose)
+    # Phase 332: not a required check; skip it in the merge queue (runs on PRs).
+    if: github.event_name != 'merge_group'
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:

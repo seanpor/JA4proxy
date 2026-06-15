@@ -16,16 +16,30 @@ dependencies: []
 
 > **Delivery increments (2026-06-15).** To keep PRs reviewable and the blast
 > radius small, this phase lands in increments rather than one sweep. Decisions
-> taken at kickoff: Fix 1 uses **option A (untrack)**; the admin/branch-protection
-> changes (Fix 3 + the Fix 4 required-set flip) are **deferred until the
-> reversible code fixes have merged**, then performed with an explicit go-ahead.
+> taken: Fix 1 uses **option A (untrack)**; **Fix 2 (manifest fragments) is
+> DEFERRED** (see below); the admin/branch-protection changes are split out so
+> the reversible code lands first.
 >
-> - **Increment 1 (this PR):** untrack `TODO.md`/`PROJECT_STATUS.md` (option A) +
->   `make preflight` + the AGENTS.md pre-PR mandate. CI regenerates and publishes
->   the roadmap docs as an artifact; the close-out flow no longer commits them.
-> - **Increment 2 (next):** per-phase `manifest.d/` fragments (Fix 2).
-> - **Increment 3 (admin, on go-ahead):** GitHub merge queue + the time-boxed
->   trimmed-required-check trial (Fix 3 + Fix 4 flip).
+> - **Increment 1 (merged, #173):** untrack `TODO.md`/`PROJECT_STATUS.md`
+>   (option A) + `make preflight` + the AGENTS.md pre-PR mandate. CI regenerates
+>   and publishes the roadmap docs as an artifact; the close-out flow no longer
+>   commits them.
+> - **Increment 2 (this PR):** merge-queue *prerequisites* — `merge_group`
+>   triggers on `ci.yml` + `docs-link-check.yml` so every required check reports
+>   in the queue, with the demoted Lint/Scan/smoke jobs skipped in the queue to
+>   keep it fast. Plus the AGENTS.md merge-queue + trial documentation. **Dormant
+>   until the queue is enabled** (merge_group events only fire under an active
+>   queue), so this PR changes nothing on its own.
+> - **Admin flip (after Increment 2 merges, ordered — see "Admin flip" below):**
+>   trim the required-check set (demote Full Lint + Security Scan), then enable
+>   the merge queue. These are the only steps that touch branch protection.
+>
+> **Fix 2 (manifest `manifest.d/` fragments) — DEFERRED.** After Increment 1
+> removed the conflict that hit *every* PR (the two generated docs), the residual
+> `manifest.yaml` conflicts are rare (only when two agents edit *adjacent*
+> entries) and mechanical, and the merge queue auto-serialises even those. The
+> fragment refactor would touch **9 manifest consumers** + tests + CI for now-low
+> marginal benefit, so it is parked as optional future work rather than built.
 
 ## Problem
 
@@ -181,6 +195,39 @@ optionally `ci.yml` (mark demoted jobs non-blocking on `pull_request`).
 - **Revert trigger:** any lint/scan regression lands on `main` and is not caught
   by the push/nightly run within one cycle → re-add the demoted checks to the
   required set (single branch-protection edit; fully reversible).
+
+## Admin flip (ordered — run after Increment 2 merges)
+
+These are the only steps that change branch protection; they affect every
+contributor, so run them deliberately (ideally when no critical PR is mid-merge)
+and in **this order**. The ordering is load-bearing: enabling the queue while
+Full Lint / Security Scan are still *required* but *skipped on `merge_group`*
+would deadlock the queue forever.
+
+1. **Trim the required-check set first** (demote Full Lint + Security Scan). The
+   remaining required contexts: Meta-Validation, Full Test, Secrets scan, SAST,
+   Python dep-audit, Go dep-audit, Traceability, lychee.
+   ```bash
+   gh api -X PATCH repos/seanpor/JA4proxy/branches/main/protection/required_status_checks \
+     -f 'contexts[]=Meta-Validation (Doctor + Meta-Lint)' \
+     -f 'contexts[]=Full Test Suite (make test)' \
+     -f 'contexts[]=Secrets scan (TruffleHog)' \
+     -f 'contexts[]=SAST (Semgrep)' \
+     -f 'contexts[]=Python dependency audit (pip-audit)' \
+     -f 'contexts[]=Go dependency audit (govulncheck)' \
+     -f 'contexts[]=Traceability matrix check' \
+     -f 'contexts[]=lychee on conformance + audience-scoped docs'
+   ```
+2. **Enable the merge queue** on `main` (Settings → Branches → require merge
+   queue, or a repository ruleset). Configure it to use the trimmed required
+   checks above. (Rulesets are the modern path and easiest in the UI; the classic
+   protection API does not expose queue settings cleanly.)
+3. **Verify** with a throwaway PR: it should enter the queue, run only the
+   trimmed set on the `merge_group` event, and merge without a manual rebase.
+
+**Revert (single step):** re-add `Full Lint (make lint)` and `Security Scan
+(make scan)` to the required contexts (and/or disable the queue). Fully
+reversible; see the trial exit ramp below.
 
 ## Test Strategy
 
