@@ -2746,6 +2746,13 @@ phases:
     dependencies: [232a]
     size: SMALL
     summary: Decommissioned the unauthenticated admin-api container (legacy src/management/app on host port 8091) and deleted Dockerfile.admin; all management traffic now flows through the JWT-gated management service on port 8090. Purged the service from compose, Makefile lint/scan lists, template.env, scripts (agent-env.sh, check_updates.py) and runbooks (REMOTE_TESTING.md, multidc.md, DOCKER_IMAGES.md, deploy README); added test_admin_api_absent_from_all_compose_files as a regression guard.
+  232e:
+    name: Legacy Management Module Removal
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_232e.md
+    dependencies: [232d]
+    size: SMALL
+    summary: Delete the now-orphaned legacy src/management/ package (the unauthenticated FastAPI app plus its redis_client/schemas) and its three dedicated test files, left dead after Phase 232d removed the admin-api container that ran it. Drop src/management/ from the Makefile static-analysis targets. The secure management/ service provides authenticated equivalents (already independently tested), so no coverage is lost.
   233:
     name: Observability Foundations
     status: PROPOSED
