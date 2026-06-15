@@ -415,6 +415,7 @@ Alignment with international standards and regulatory frameworks.
 | 329 | Branch Hygiene and Stale Remote Cleanup | COMPLETE | N/A | N/A |
 | 330 | Resolve Security Scan Vulnerability Failures | COMPLETE | N/A | N/A |
 | 331 | Repair make sync (manifest epic indentation + loud validation) | COMPLETE | N/A | N/A |
+| 332 | Merge-Race Reduction & CI Shift-Left | PROPOSED | N/A | N/A |
 
 ---
 

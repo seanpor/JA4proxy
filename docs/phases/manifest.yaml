@@ -2819,3 +2819,10 @@ phases:
     dependencies: []
     size: MICRO
     summary: 'Fixes the mis-indented epic phases list in manifest.yaml that folded five ids into one bogus scalar and broke make sync with an opaque KeyError, and hardens sync-roadmap.py to fail loudly naming the offending epic and id so this class of YAML typo is caught at a glance. Regenerates TODO.md and PROJECT_STATUS.md.'
+  332:
+    name: Merge-Race Reduction & CI Shift-Left
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_332.md
+    dependencies: []
+    size: SMALL
+    summary: 'Removes the recurring merge-conflict churn parallel phase PRs hit, all of which lands on the same three files. Untracks the auto-generated TODO.md/PROJECT_STATUS.md (or adds a local regen merge driver), splits manifest.yaml into per-phase manifest.d/ fragments (mirroring the docs/fragments CHANGELOG pattern), and enables a GitHub merge queue so concurrent merges serialize instead of being hand-rebased. Also shifts heavy checks left: AGENTS.md mandates make preflight (full lint+scan+test) before every PR, and trials a trimmed required-check set (slow Lint/Scan demoted to advisory + push/nightly) to narrow the race window.'
