@@ -73,6 +73,37 @@ The **Dial (0-100)** is your primary lever for controlling proxy aggression.
 
 ---
 
+---
+
+## 🔴 Threat Posture Monitoring
+
+The Management Console dashboard includes a full-width situation bar atop the page that displays the current security posture. It is polled every 10 seconds and shows one of four states:
+
+| State | Colour | Meaning | Recommended Action |
+|---|---|---|---|
+| **NOMINAL** | Green | Proxy is running. 0 blocking actions in last 5 minutes. | None — normal operation. |
+| **ELEVATED** | Amber | 1–9 blocking actions detected in last 5 minutes. | Review the Live Connection Feed and audit log. Check if this is expected (e.g., a known scan). |
+| **ACTIVE** | Red | 10+ blocking actions in last 5 minutes. | Investigate immediately. Check top attacking IP, event stream, and dial setting. Consider raising the dial if legitimate traffic is being blocked. |
+| **PROXY_DOWN** | Red | No proxy heartbeat key found in Redis. | The proxy has not reported a heartbeat in the last 90 seconds. Check `docker ps` and the proxy logs. Restart if needed. |
+
+### How It Works
+
+1. **Heartbeat**: The Go proxy (`ja4pd`) writes `proxy:heartbeat:{hostname}` to Redis every 60 seconds with a 90-second TTL. On graceful shutdown the key is deleted immediately for fast detection.
+2. **Event Stream**: The management API reads the last 5 minutes of `events:connection` (Redis Stream, max 1000 entries). It counts `block`/`ban`/`tarpit` actions to classify the threat state.
+3. **Polling**: The dashboard polls `/api/v1/partials/situation` every 10 seconds via HTMX. The bar updates without a full page reload.
+
+### Manual Verification
+
+```bash
+# Verify heartbeat is being written
+redis-cli keys 'proxy:heartbeat:*'
+
+# Simulate a proxy-down scenario (heartbeat will re-appear within 60s)
+redis-cli del "$(redis-cli keys 'proxy:heartbeat:*' | head -1)"
+
+# Verify the situation bar shows data by calling the endpoint directly
+curl -s http://localhost:8090/api/v1/partials/situation -H 'Cookie: session=<token>'
+```
 
 ---
 

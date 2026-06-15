@@ -63,10 +63,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **PROPOSED** (Index/map for the security foundations and quick wins sub-phases.)
 *   **Action Plan:** [PHASE_232.md](PHASE_232.md)
 
-### Phase 232b — Threat Posture Situation Bar & Heartbeat Alerting
-*   **Status:** **PROPOSED** (Implement a top situation summary bar displaying current Threat Posture (NOMINAL/ELEVATED/ACTIVE) and a sticky warning banner for proxy downtime. Updates docs/OPERATIONS_GUIDE.md.)
-*   **Action Plan:** [PHASE_232b.md](PHASE_232b.md)
-
 ### Phase 233 — Observability Foundations
 *   **Status:** **PROPOSED** (Add Prometheus scrape targets for tarpit and analytics, write critical system alert rules, replace redis-stack with a lightweight alpine image, cap events stream to 100k entries using XADD MAXLEN, and surface evictions count.)
 *   **Action Plan:** [PHASE_233.md](PHASE_233.md)
