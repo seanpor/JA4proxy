@@ -1,0 +1,63 @@
+<!--
+  HTMX Partial: situation_bar.html
+  GET /api/v1/partials/situation
+  Polled every 10s via dashboard.html. Template vars:
+    state: PROXY_DOWN | NOMINAL | ELEVATED | ACTIVE
+    block_count: int
+    events_per_min: float
+    top_ip: str
+    max_risk: int
+    dial_value: int
+-->
+{% set bg = {
+  "PROXY_DOWN": "bg-[#7f1d1d] border-[#dc2626]",
+  "NOMINAL":    "bg-[#064e3b] border-[#10b981]",
+  "ELEVATED":   "bg-[#713f12] border-[#f59e0b]",
+  "ACTIVE":     "bg-[#7f1d1d] border-[#dc2626]",
+}.get(state, "bg-[#1e293b] border-[#475569]") %}
+{% set text = {
+  "PROXY_DOWN": "text-[#fca5a5]",
+  "NOMINAL":    "text-[#6ee7b7]",
+  "ELEVATED":   "text-[#fcd34d]",
+  "ACTIVE":     "text-[#fca5a5]",
+}.get(state, "text-[#94a3b8]") %}
+{% set icon = {
+  "PROXY_DOWN": "M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
+  "NOMINAL":    "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z",
+  "ELEVATED":   "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z",
+  "ACTIVE":     "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z",
+}.get(state, "") %}
+
+<div id="situation-bar" class="-mx-6 -mt-6 mb-6">
+  <div class="flex items-center gap-3 px-6 py-3 border-b-2 {{ bg }}">
+    <!-- Icon -->
+    <svg class="w-5 h-5 flex-shrink-0 {{ text }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+      <path stroke-linecap="round" stroke-linejoin="round" d="{{ icon }}"/>
+    </svg>
+
+    <!-- State badge -->
+    <span class="text-xs font-bold uppercase tracking-wider {{ text }}">{{ state }}</span>
+
+    {% if state == "PROXY_DOWN" %}
+      <span class="text-sm text-[#f8fafc] font-medium">Proxy heartbeat not detected</span>
+      <span class="text-xs text-[#fca5a5] ml-auto">
+        Check <code class="bg-[#000]/30 px-1 rounded">docker ps</code> and restart the proxy container
+      </span>
+    {% elif state == "NOMINAL" %}
+      <span class="text-sm text-[#f8fafc] font-medium">All Clear</span>
+      <span class="text-xs text-[#94a3b8] ml-auto">
+        {{ events_per_min }} evt/min · 0 blocks{% if max_risk > 0 %} · max risk {{ max_risk }}{% endif %}
+      </span>
+    {% elif state == "ELEVATED" %}
+      <span class="text-sm text-[#f8fafc] font-medium">{{ block_count }} block{% if block_count != 1 %}s{% endif %} in last 5 min</span>
+      <span class="text-xs text-[#94a3b8] ml-auto">
+        {{ events_per_min }} evt/min{% if top_ip != "—" %} · top IP: {{ top_ip }}{% endif %}{% if max_risk > 0 %} · max risk {{ max_risk }}{% endif %}
+      </span>
+    {% elif state == "ACTIVE" %}
+      <span class="text-sm text-[#f8fafc] font-medium">{{ block_count }} block{% if block_count != 1 %}s{% endif %} in last 5 min</span>
+      <span class="text-xs text-[#fca5a5] ml-auto">
+        {{ events_per_min }} evt/min{% if top_ip != "—" %} · top IP: {{ top_ip }}{% endif %}{% if max_risk > 0 %} · max risk {{ max_risk }}{% endif %}
+      </span>
+    {% endif %}
+  </div>
+</div>

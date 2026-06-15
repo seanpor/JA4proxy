@@ -373,6 +373,28 @@ func (p *proxy) serve(ctx context.Context) {
 	p.startStreamEventWorkers(ctx)
 	go p.startIntegrityWorker(ctx)
 
+	// Phase 232b: heartbeat — SET proxy:heartbeat:{hostname} EX 90 every 60s.
+	go func() {
+		hostname, _ := os.Hostname()
+		key := "proxy:heartbeat:" + hostname
+		t := time.NewTicker(60 * time.Second)
+		defer t.Stop()
+		// Write immediately so the management API sees a heartbeat on first poll.
+		p.redis.Set(ctx, key, fmt.Sprintf("%d", time.Now().Unix()), 90*time.Second)
+		for {
+			select {
+			case <-ctx.Done():
+				// Best-effort cleanup: DEL so the management API detects
+				// PROXY_DOWN within the next poll cycle (10s). Hard crash
+				// (SIGKILL) leaves the key — TTL expiry handles that.
+				p.redis.Raw().Del(context.Background(), key)
+				return
+			case <-t.C:
+				p.redis.Set(ctx, key, fmt.Sprintf("%d", time.Now().Unix()), 90*time.Second)
+			}
+		}
+	}()
+
 	// Start metrics/health HTTP server
 	if p.cfg.Metrics.Enabled {
 		go func() {

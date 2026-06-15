@@ -1,0 +1,1 @@
+- **Threat Posture Situation Bar (Phase 232b)**: Full-width HTMX situation bar with 4-state classification (NOMINAL/ELEVATED/ACTIVE/PROXY_DOWN), Go proxy heartbeat goroutine, and 10s polling. See `docs/phases/PHASE_232b.md`.

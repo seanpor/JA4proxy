@@ -6,6 +6,15 @@
 {% block content %}
 <div class="space-y-6 max-w-[1200px]">
 
+  <!-- ── Situation bar (polled every 10s via HTMX) ──────────────── -->
+  <div id="situation-bar"
+       hx-get="/api/v1/partials/situation"
+       hx-trigger="load, every 10s"
+       hx-swap="outerHTML"
+       hx-indicator="#htmx-indicator">
+    {% include "partials/situation_bar.html" %}
+  </div>
+
   <!-- ── Row 1: Health cards (polled every 10s via HTMX) ──────────── -->
   <section aria-label="System health">
     <div id="health-cards"
