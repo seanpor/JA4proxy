@@ -114,3 +114,7 @@ This document tracks the remaining work for both historical phases (gaps identif
 ### Phase 316e — Go TAP Intelligence Exporters
 *   **Status:** **PROPOSED** (OUTLINE — detailed plan before start. Export sensor fingerprints/verdicts to downstream tooling: EDL (pull), F5, Palo Alto, Kafka, Syslog CEF, TAXII 2.1, MISP. Each exporter independent and isolated with per-exporter fail-open (log + counter + neutral return; one failing exporter never affects another), data-minimisation (fingerprints + verdicts, never raw payload). Likely split per exporter group when detailed; references (does not port verbatim) the archived Python exporters. PROPOSED — outline.)
 *   **Action Plan:** [PHASE_316e.md](PHASE_316e.md)
+
+### Phase 332 — Merge-Race Reduction & CI Shift-Left
+*   **Status:** **PROPOSED** (Removes the recurring merge-conflict churn parallel phase PRs hit, all of which lands on the same three files. Untracks the auto-generated TODO.md/PROJECT_STATUS.md (or adds a local regen merge driver), splits manifest.yaml into per-phase manifest.d/ fragments (mirroring the docs/fragments CHANGELOG pattern), and enables a GitHub merge queue so concurrent merges serialize instead of being hand-rebased. Also shifts heavy checks left: AGENTS.md mandates make preflight (full lint+scan+test) before every PR, and trials a trimmed required-check set (slow Lint/Scan demoted to advisory + push/nightly) to narrow the race window.)
+*   **Action Plan:** [PHASE_332.md](PHASE_332.md)
