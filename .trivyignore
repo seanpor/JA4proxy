@@ -24,10 +24,24 @@
 #   docs/runbooks/security_scan_exceptions.md
 # =============================================================================
 
-# CVE-2025-68973: Info disclosure in gpgv (base image dependency for redis-stack).
-# Why no fix: redis-stack is EOL as of Dec 2025; no newer image tag is available.
-# Why not exploitable: gpgv is not executed or exposed in our runtime container.
-CVE-2025-68973 exp:2026-06-27
+
+# CVE-2023-24538 / CVE-2023-24540 / CVE-2024-24790 / CVE-2025-68121: Go stdlib CVEs in gosu
+# (gosu binary bundled inside redis:7.4.0-alpine, compiled with Go 1.18.2).
+# Why no fix: No newer redis:7.4.0-alpine image tag with an updated gosu binary exists.
+# Why not exploitable: gosu is a simple setuid+exec wrapper — it does not process HTML
+# templates (html/template), parse network addresses (net/netip), nor perform TLS
+# session resumption (crypto/tls) in our deployment. The vulnerable code paths in
+# Go's statically-linked stdlib are never reached by gosu's runtime.
+CVE-2023-24538 exp:2026-06-29
+CVE-2023-24540 exp:2026-06-29
+CVE-2024-24790 exp:2026-06-29
+CVE-2025-68121 exp:2026-06-29
+
+# CVE-2026-31789: OpenSSL heap buffer overflow on 32-bit systems.
+# Why no fix: No newer redis:7.4.0-alpine image tag with patched OpenSSL exists.
+# Why not exploitable: The vulnerability only affects 32-bit systems. Our deployment
+# is on x86_64 (64-bit) hardware. The vulnerable code path is never reachable.
+CVE-2026-31789 exp:2026-06-29
 
 # CVE-2026-42504: MIME header DoS in Go stdlib.
 # Why no fix: Affects prometheus v3.12.0 and redis_exporter v1.84.0; no newer tags exist that are compiled on Go 1.26.4+.
