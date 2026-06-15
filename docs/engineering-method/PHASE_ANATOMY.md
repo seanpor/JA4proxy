@@ -245,10 +245,11 @@ The closing ritual:
    stale tests hide).
 2. `make quality` (the target this phase added) passes.
 3. `bash scripts/close-phase.sh` flips manifest `PROPOSED` → `COMPLETE`.
-4. `make sync` regenerates `TODO.md` and `PROJECT_STATUS.md`.
+4. `make sync` regenerates `TODO.md` and `PROJECT_STATUS.md` locally as a
+   generation check (Phase 332: they are gitignored build artifacts, not staged).
 5. CHANGELOG entry prepended.
-6. Plan, review, manifest, CHANGELOG, TODO, PROJECT_STATUS go in **one**
-   atomic commit so a `git revert` is honest about what was un-closed.
+6. Plan, review, manifest, and CHANGELOG go in **one** atomic commit so a
+   `git revert` is honest about what was un-closed.
 7. Push; PR opens; Wave 5 reviewer approves; merge to `main`.
 
 The manifest is the single source of truth for "done?" — not the README,

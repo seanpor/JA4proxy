@@ -175,3 +175,10 @@ secrets/
 .mypy_cache/
 .qwen/
 .poolside/
+
+# Phase 332: roadmap docs are generated from docs/phases/manifest.yaml by
+# `make sync` (and published as a CI artifact). They are build outputs, not
+# source — committing them made every parallel phase PR conflict. Regenerate
+# locally with `make sync`; the source of truth is manifest.yaml.
+docs/phases/TODO.md
+docs/PROJECT_STATUS.md
