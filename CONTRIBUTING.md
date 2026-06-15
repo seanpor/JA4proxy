@@ -62,7 +62,7 @@ bin/ja4p                       # Built artifact (Go static binary)
 Python is used for the control plane and data analysis layers where developer velocity and integration flexibility are prioritized over raw packet-processing speed.
 
 ```
-src/management/                 # FastAPI Management API
+management/                     # FastAPI Management API (JWT-gated, port 8090)
 src/analytics/                  # Redis Stream consumers and TI feed workers
 src/tarpit/                     # Tarpit / slow-loris responder
 ```
