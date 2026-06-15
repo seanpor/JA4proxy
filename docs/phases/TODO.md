@@ -63,6 +63,10 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **PROPOSED** (Index/map for the security foundations and quick wins sub-phases.)
 *   **Action Plan:** [PHASE_232.md](PHASE_232.md)
 
+### Phase 232e — Legacy Management Module Removal
+*   **Status:** **PROPOSED** (Delete the now-orphaned legacy src/management/ package (the unauthenticated FastAPI app plus its redis_client/schemas) and its three dedicated test files, left dead after Phase 232d removed the admin-api container that ran it. Drop src/management/ from the Makefile static-analysis targets. The secure management/ service provides authenticated equivalents (already independently tested), so no coverage is lost.)
+*   **Action Plan:** [PHASE_232e.md](PHASE_232e.md)
+
 ### Phase 233 — Observability Foundations
 *   **Status:** **PROPOSED** (Add Prometheus scrape targets for tarpit and analytics, write critical system alert rules, replace redis-stack with a lightweight alpine image, cap events stream to 100k entries using XADD MAXLEN, and surface evictions count.)
 *   **Action Plan:** [PHASE_233.md](PHASE_233.md)
