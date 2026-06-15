@@ -374,7 +374,7 @@ Alignment with international standards and regulatory frameworks.
 | 230 | Interface & Container Architecture — Critical Review & Rationalisation | COMPLETE | N/A | N/A |
 | 231 | Container & Interface Consolidation — Master Implementation Plan | COMPLETE | N/A | N/A |
 | 231a | Single-Host Core — PROXY-Protocol Write, Manual-Ban Enforcement, CountKeys Fix | COMPLETE | N/A | N/A |
-| 231b | Single-Host Bootstrap — Wizard, systemd, Firewall, Backups | IN_PROGRESS | N/A | N/A |
+| 231b | Single-Host Bootstrap — Wizard, systemd, Firewall, Backups | COMPLETE | N/A | N/A |
 | 232 | Security Foundations & Quick Wins (Index) | PROPOSED | N/A | N/A |
 | 232a | Frontend Asset Vendoring & Static Compilation | COMPLETE | N/A | N/A |
 | 232b | Threat Posture Situation Bar & Heartbeat Alerting | COMPLETE | N/A | N/A |
@@ -416,6 +416,7 @@ Alignment with international standards and regulatory frameworks.
 | 330 | Resolve Security Scan Vulnerability Failures | COMPLETE | N/A | N/A |
 | 331 | Repair make sync (manifest epic indentation + loud validation) | COMPLETE | N/A | N/A |
 | 332 | Merge-Race Reduction & CI Shift-Left | PROPOSED | N/A | N/A |
+| 333 | Bootstrap Finish — Go Wizard Migration & 231b Close-Out | PROPOSED | N/A | N/A |
 
 ---
 
