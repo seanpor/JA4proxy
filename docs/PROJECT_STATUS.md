@@ -380,6 +380,7 @@ Alignment with international standards and regulatory frameworks.
 | 232b | Threat Posture Situation Bar & Heartbeat Alerting | COMPLETE | N/A | N/A |
 | 232c | Container Networking & Port Hardening | COMPLETE | N/A | N/A |
 | 232d | Admin-API Decommissioning | COMPLETE | N/A | N/A |
+| 232e | Legacy Management Module Removal | PROPOSED | N/A | N/A |
 | 233 | Observability Foundations | PROPOSED | N/A | N/A |
 | 234 | Dashboard: Threat Posture & Infrastructure Rows | PROPOSED | N/A | N/A |
 | 235 | Fingerprint & IP Drill-Down Pages | PROPOSED | N/A | N/A |
