@@ -1,7 +1,7 @@
 ---
 phase: 332
 title: Merge-Race Reduction & CI Shift-Left
-status: PROPOSED
+status: COMPLETE
 size: SMALL
 created: 2026-06-15
 audience: [developer, operator]
@@ -10,9 +10,24 @@ dependencies: []
 
 # Merge-Race Reduction & CI Shift-Left
 
-> **STATUS: IN_PROGRESS.** A tooling/infra mini-phase. Removes the recurring
-> merge-conflict churn that parallel phase PRs hit, and trials a faster
-> required-check path on GitHub.
+> **STATUS: COMPLETE (2026-06-15).** A tooling/infra mini-phase that removed the
+> recurring merge-conflict churn parallel phase PRs hit, and trimmed the required-
+> check path. **Outcome summary:**
+> - ✅ Generated roadmap docs untracked (Increment 1) — removed the conflict that
+>   hit *every* PR. This was the high-leverage fix.
+> - ✅ `make preflight` + AGENTS.md pre-PR mandate (shift-left).
+> - ✅ Required-check set trimmed: **Full Lint + Security Scan demoted** to
+>   advisory (run via `make preflight` + push-to-`main` + nightly).
+> - ✅ **`strict=false`** on `main` (require-up-to-date OFF) — removes the
+>   rebase-on-base-advance loop that drove most of the remaining races.
+> - ⛔ **GitHub merge queue: UNAVAILABLE.** Merge queue requires an
+>   **organization-owned** repository; `seanpor/JA4proxy` is owned by a personal
+>   account, so the `merge_queue` ruleset rule is rejected (HTTP 422) and the UI
+>   toggle is absent. The `merge_group` CI wiring from Increment 2 is harmless and
+>   stays in place should the repo ever move to an org. `strict=false` is the
+>   substitute.
+> - ⏸️ Manifest `manifest.d/` fragments — **deferred** (low marginal benefit; see
+>   below).
 
 > **Delivery increments (2026-06-15).** To keep PRs reviewable and the blast
 > radius small, this phase lands in increments rather than one sweep. Decisions
@@ -196,38 +211,39 @@ optionally `ci.yml` (mark demoted jobs non-blocking on `pull_request`).
   by the push/nightly run within one cycle → re-add the demoted checks to the
   required set (single branch-protection edit; fully reversible).
 
-## Admin flip (ordered — run after Increment 2 merges)
+## Admin flip — what was applied (2026-06-15)
 
-These are the only steps that change branch protection; they affect every
-contributor, so run them deliberately (ideally when no critical PR is mid-merge)
-and in **this order**. The ordering is load-bearing: enabling the queue while
-Full Lint / Security Scan are still *required* but *skipped on `merge_group`*
-would deadlock the queue forever.
+Two branch-protection changes were applied via the REST API on `main`:
 
-1. **Trim the required-check set first** (demote Full Lint + Security Scan). The
-   remaining required contexts: Meta-Validation, Full Test, Secrets scan, SAST,
-   Python dep-audit, Go dep-audit, Traceability, lychee.
-   ```bash
-   gh api -X PATCH repos/seanpor/JA4proxy/branches/main/protection/required_status_checks \
-     -f 'contexts[]=Meta-Validation (Doctor + Meta-Lint)' \
-     -f 'contexts[]=Full Test Suite (make test)' \
-     -f 'contexts[]=Secrets scan (TruffleHog)' \
-     -f 'contexts[]=SAST (Semgrep)' \
-     -f 'contexts[]=Python dependency audit (pip-audit)' \
-     -f 'contexts[]=Go dependency audit (govulncheck)' \
-     -f 'contexts[]=Traceability matrix check' \
-     -f 'contexts[]=lychee on conformance + audience-scoped docs'
-   ```
-2. **Enable the merge queue** on `main` (Settings → Branches → require merge
-   queue, or a repository ruleset). Configure it to use the trimmed required
-   checks above. (Rulesets are the modern path and easiest in the UI; the classic
-   protection API does not expose queue settings cleanly.)
-3. **Verify** with a throwaway PR: it should enter the queue, run only the
-   trimmed set on the `merge_group` event, and merge without a manual rebase.
+1. **Trimmed the required-check set** — demoted Full Lint + Security Scan.
+   Remaining required contexts (8): Meta-Validation, Full Test, Secrets scan,
+   SAST, Python dep-audit, Go dep-audit, Traceability, lychee.
+2. **Set `strict=false`** (require-branches-up-to-date OFF). This is the
+   substitute for the unavailable merge queue: independent PRs no longer rebase
+   every time `main` advances, which was the dominant remaining race driver.
 
-**Revert (single step):** re-add `Full Lint (make lint)` and `Security Scan
-(make scan)` to the required contexts (and/or disable the queue). Fully
-reversible; see the trial exit ramp below.
+**Merge queue was attempted and is unavailable.** GitHub only supports merge
+queue on **organization-owned** repositories; this repo is personal-account-
+owned, so the `merge_queue` ruleset rule is rejected with HTTP 422 (confirmed
+even for an isolated, disabled test ruleset) and the UI toggle is absent. If the
+repo ever moves under an org, the `merge_group` CI wiring is already in place —
+enable the queue (Settings → Rules, or a ruleset `merge_queue` rule using the
+trimmed required set) and consider re-evaluating `strict`.
+
+**Revert (single PATCH):** restore `strict=true` and/or re-add `Full Lint (make
+lint)` + `Security Scan (make scan)` to the required contexts. Fully reversible.
+
+```bash
+# revert example
+gh api -X PATCH repos/seanpor/JA4proxy/branches/main/protection/required_status_checks \
+  --input - <<'JSON'
+{ "strict": true, "contexts": ["Meta-Validation (Doctor + Meta-Lint)",
+  "Full Lint (make lint)", "Full Test Suite (make test)", "Security Scan (make scan)",
+  "Secrets scan (TruffleHog)", "SAST (Semgrep)", "Python dependency audit (pip-audit)",
+  "Go dependency audit (govulncheck)", "Traceability matrix check",
+  "lychee on conformance + audience-scoped docs"] }
+JSON
+```
 
 ## Test Strategy
 

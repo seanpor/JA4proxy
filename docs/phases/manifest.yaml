@@ -2821,8 +2821,9 @@ phases:
     summary: 'Fixes the mis-indented epic phases list in manifest.yaml that folded five ids into one bogus scalar and broke make sync with an opaque KeyError, and hardens sync-roadmap.py to fail loudly naming the offending epic and id so this class of YAML typo is caught at a glance. Regenerates TODO.md and PROJECT_STATUS.md.'
   332:
     name: Merge-Race Reduction & CI Shift-Left
-    status: IN_PROGRESS
+    status: COMPLETE
+    completed: 2026-06-15
     action_plan: docs/phases/PHASE_332.md
     dependencies: []
     size: SMALL
-    summary: 'Removes the recurring merge-conflict churn parallel phase PRs hit, all of which lands on the same three files. Untracks the auto-generated TODO.md/PROJECT_STATUS.md (or adds a local regen merge driver), splits manifest.yaml into per-phase manifest.d/ fragments (mirroring the docs/fragments CHANGELOG pattern), and enables a GitHub merge queue so concurrent merges serialize instead of being hand-rebased. Also shifts heavy checks left: AGENTS.md mandates make preflight (full lint+scan+test) before every PR, and trials a trimmed required-check set (slow Lint/Scan demoted to advisory + push/nightly) to narrow the race window.'
+    summary: 'Removed the recurring merge-conflict churn parallel phase PRs hit. Untracked the auto-generated TODO.md/PROJECT_STATUS.md (the conflict that hit every PR) — CI now regenerates and publishes them as an artifact. Added make preflight + an AGENTS.md pre-PR mandate, trimmed the required-check set (Full Lint + Security Scan demoted to advisory, still run via preflight + push/nightly), and set strict=false on main to drop the rebase-on-base-advance loop. Merge queue was attempted but is unavailable (GitHub restricts it to org-owned repos; this repo is personal-account-owned) — the merge_group CI wiring is left in place for a future org move. Manifest manifest.d/ fragments were deferred as low-marginal-benefit.'
