@@ -10,9 +10,22 @@ dependencies: []
 
 # Merge-Race Reduction & CI Shift-Left
 
-> **STATUS: PROPOSED — plan for review. No code until approved.**
-> A tooling/infra mini-phase. Removes the recurring merge-conflict churn that
-> parallel phase PRs hit, and trials a faster required-check path on GitHub.
+> **STATUS: IN_PROGRESS.** A tooling/infra mini-phase. Removes the recurring
+> merge-conflict churn that parallel phase PRs hit, and trials a faster
+> required-check path on GitHub.
+
+> **Delivery increments (2026-06-15).** To keep PRs reviewable and the blast
+> radius small, this phase lands in increments rather than one sweep. Decisions
+> taken at kickoff: Fix 1 uses **option A (untrack)**; the admin/branch-protection
+> changes (Fix 3 + the Fix 4 required-set flip) are **deferred until the
+> reversible code fixes have merged**, then performed with an explicit go-ahead.
+>
+> - **Increment 1 (this PR):** untrack `TODO.md`/`PROJECT_STATUS.md` (option A) +
+>   `make preflight` + the AGENTS.md pre-PR mandate. CI regenerates and publishes
+>   the roadmap docs as an artifact; the close-out flow no longer commits them.
+> - **Increment 2 (next):** per-phase `manifest.d/` fragments (Fix 2).
+> - **Increment 3 (admin, on go-ahead):** GitHub merge queue + the time-boxed
+>   trimmed-required-check trial (Fix 3 + Fix 4 flip).
 
 ## Problem
 

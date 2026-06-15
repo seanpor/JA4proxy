@@ -122,12 +122,11 @@ else
 fi
 
 # 8. Phase doc sync
-echo -e "${BOLD}[8/8] sync roadmap${RESET}"
-make sync || fail "make sync (containerized sync-roadmap.py) failed"
-if ! git diff --quiet docs/phases/TODO.md docs/PROJECT_STATUS.md 2>/dev/null; then
-    echo "  WARNING: TODO.md or PROJECT_STATUS.md changed after sync."
-    echo "  Stage and commit these files before merging."
-fi
+# Phase 332: TODO.md / PROJECT_STATUS.md are generated build artifacts (gitignored),
+# not committed source. We still run `make sync` here as a generation-validity gate
+# — it must regenerate cleanly from manifest.yaml — but there is nothing to stage.
+echo -e "${BOLD}[8/8] sync roadmap (generation check)${RESET}"
+make sync || fail "make sync (containerized sync-roadmap.py) failed — fix manifest.yaml"
 pass "sync"
 
 echo ""
