@@ -2821,7 +2821,7 @@ phases:
     summary: 'Fixes the mis-indented epic phases list in manifest.yaml that folded five ids into one bogus scalar and broke make sync with an opaque KeyError, and hardens sync-roadmap.py to fail loudly naming the offending epic and id so this class of YAML typo is caught at a glance. Regenerates TODO.md and PROJECT_STATUS.md.'
   332:
     name: Merge-Race Reduction & CI Shift-Left
-    status: PROPOSED
+    status: IN_PROGRESS
     action_plan: docs/phases/PHASE_332.md
     dependencies: []
     size: SMALL

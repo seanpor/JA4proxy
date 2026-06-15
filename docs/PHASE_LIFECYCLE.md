@@ -138,10 +138,9 @@ hand. The script runs ruff, gofmt, go vet, go test, `make test`, and
       `make parity-check` exit 0.
 - [ ] `docs/phases/manifest.yaml` has `status: COMPLETE`,
       `completed: YYYY-MM-DD`, and resolved gaps removed.
-- [ ] `make sync` run; `docs/phases/TODO.md` and
-      `docs/PROJECT_STATUS.md` regenerated.
-- [ ] Atomic commit: code + CHANGELOG + manifest + TODO + PROJECT_STATUS
-      together in one commit.
+- [ ] `make sync` run as a generation check (TODO.md / PROJECT_STATUS.md are
+      gitignored build artifacts — Phase 332 — not staged).
+- [ ] Atomic commit: code + CHANGELOG fragment + manifest in one commit.
 - [ ] PR opened, every required CI check green, merged, post-merge CI on
       `main` confirmed green.
 
