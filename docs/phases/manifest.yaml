@@ -2758,7 +2758,8 @@ phases:
   233:
     name: Observability Foundations
     status: COMPLETE
-    action_plan: docs/phases/PHASE_233.md
+    completed: 2026-06-16
+    action_plan: docs/phases/complete/PHASE_233.md
     dependencies: [231, 232]
     size: MEDIUM
     summary: Add Prometheus scrape targets for tarpit and analytics, write critical system alert rules, replace redis-stack with a lightweight alpine image, cap events stream to 100k entries using XADD MAXLEN, and surface evictions count.

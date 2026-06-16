@@ -1,9 +1,10 @@
 ---
 phase: 233
 title: Observability Foundations
-status: PROPOSED
+status: COMPLETE
 size: MEDIUM
 created: 2026-06-12
+completed: 2026-06-16
 audience: [developer, operator, secops]
 dependencies: [231, 232]
 ---
