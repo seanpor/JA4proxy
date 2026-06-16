@@ -2781,7 +2781,7 @@ phases:
     summary: Build a reusable Alpine.js confirmation modal and undo toast, implement fingerprint and IP forensics pages, and link live feed elements to detail views.
   236:
     name: Analytics Intelligence Visibility
-    status: PROPOSED
+    status: IN_PROGRESS
     action_plan: docs/phases/PHASE_236.md
     dependencies: [231, 235]
     size: LARGE
