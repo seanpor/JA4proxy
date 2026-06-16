@@ -22,6 +22,13 @@ on:
     branches: [main, 'claude/**', 'phase-*']
   push:
     branches: [main]
+  # Phase 332: the GitHub merge queue dispatches `merge_group` events. Every
+  # REQUIRED status check must report on this event or the queue stalls forever.
+  # The required jobs below run on merge_group unguarded; the demoted/non-required
+  # jobs (lint, scan, smoke-docker) are skipped in the queue via a per-job
+  # `if: github.event_name != 'merge_group'` to keep the queue fast. They still
+  # run on every PR and on push-to-main (post-merge) + the weekly schedule.
+  merge_group:
   schedule:
     - cron: "0 6 * * 1"  # Mondays 06:00 UTC — weekly CVE sweep
 
@@ -47,9 +54,29 @@ jobs:
         run: make doctor
       - name: make lint-meta
         run: make lint-meta
+      # Phase 332: TODO.md / PROJECT_STATUS.md are generated build artifacts, not
+      # committed. Regenerate them here (this also gates that manifest.yaml
+      # generates cleanly — sync-roadmap.py exits non-zero on a malformed
+      # manifest) and publish them as a downloadable artifact so they remain
+      # accessible even though they no longer live in the repo tree.
+      - name: Generate roadmap docs (TODO.md / PROJECT_STATUS.md)
+        run: |
+          pip install pyyaml
+          python scripts/sync-roadmap.py
+      - name: Publish roadmap docs artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: roadmap-docs
+          path: |
+            docs/phases/TODO.md
+            docs/PROJECT_STATUS.md
+          if-no-files-found: error
 
   lint:
     name: Full Lint (make lint)
+    # Phase 332 trial: demoted to advisory and skipped in the merge queue to keep
+    # it fast. Still runs on every PR, on push-to-main (post-merge), and weekly.
+    if: github.event_name != 'merge_group'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
@@ -70,6 +97,9 @@ jobs:
 
   scan:
     name: Security Scan (make scan)
+    # Phase 332 trial: demoted to advisory and skipped in the merge queue to keep
+    # it fast. Still runs on every PR, on push-to-main (post-merge), and weekly.
+    if: github.event_name != 'merge_group'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
@@ -249,6 +279,8 @@ jobs:
   # this to a required check.
   smoke-docker:
     name: Smoke test (Docker Compose)
+    # Phase 332: not a required check; skip it in the merge queue (runs on PRs).
+    if: github.event_name != 'merge_group'
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:

@@ -1,4 +1,4 @@
-.PHONY: all bench-all build bump-build ci-verify clean cli-build doc-health doctor go-build help help-dev help-legacy help-lint help-ops help-scan init install-hooks ja4p-validate link-check lint lint-ansible lint-docs lint-phases lint-semgrep logs management-down management-logs management-shell management-up rebuild reload remote-bot sbom scan scan-exceptions scorecard-local setup-build start start-poc status stop sync test test-component-suites test-ip test-ratio tunnel verify-all
+.PHONY: all bench-all build bump-build ci-verify clean cli-build doc-health doctor go-build help help-dev help-legacy help-lint help-ops help-scan init install-hooks ja4p-validate link-check lint lint-ansible lint-docs lint-phases lint-semgrep logs management-down management-logs management-shell management-up rebuild reload remote-bot sbom scan scan-exceptions scorecard-local setup-build start start-poc status stop sync test test-component-suites test-ip test-ratio tunnel verify-all preflight
 PYTHON ?= $(shell command -v python || command -v python3 || echo python)
 GO ?= $(shell command -v go || echo go)
 
@@ -354,7 +354,7 @@ lint: ## Phase 146 — Run all linters (Python, Go, Infra, Docs)
 
 # Security scanning with bandit (medium/high severity, skip B104 bind-all)
 lint-security: bandit-image
-	@$(BANDIT_RUN) bandit -r src/analytics/ src/management/ -ll --skip B104 && echo "  ✓ lint-security passed"
+	@$(BANDIT_RUN) bandit -r src/analytics/ -ll --skip B104 && echo "  ✓ lint-security passed"
 
 # Type checking with mypy (suppress output)
 lint-types:
@@ -368,13 +368,13 @@ lint-types:
 #   pip-audit: CVE scan of requirements.txt; urllib3 CVEs acknowledged (transitive, tracked backlog)
 lint-static: tools-image bandit-image
 	@echo "=== mypy: type checking ==="
-	@$(TOOLS_RUN) mypy src/analytics/ src/management/ && echo "  ✓ mypy passed"
+	@$(TOOLS_RUN) mypy src/analytics/ && echo "  ✓ mypy passed"
 	@echo ""
 	@echo "=== bandit: SAST (medium/high, Python 3.11 — see Dockerfile.bandit) ==="
-	@$(BANDIT_RUN) bandit -r src/analytics/ src/management/ -ll -q --skip B104 && echo "  ✓ bandit passed"
+	@$(BANDIT_RUN) bandit -r src/analytics/ -ll -q --skip B104 && echo "  ✓ bandit passed"
 	@echo ""
 	@echo "=== ruff: linting ==="
-	@$(TOOLS_RUN) ruff check src/analytics/ src/management/ && echo "  ✓ ruff passed (tests advisory only)"
+	@$(TOOLS_RUN) ruff check src/analytics/ && echo "  ✓ ruff passed (tests advisory only)"
 	@echo ""
 	@echo "=== pip-audit: CVE dependency scan ==="
 	@# phase-311: resilient wrapper — retries transient PyPI/OSV outages and
@@ -392,7 +392,7 @@ lint-static: tools-image bandit-image
 
 # Code quality with flake8 (suppress output)
 lint-quality:
-	docker run --rm -v $(PWD):/app python:3.14.0-slim sh -c "cd /app && pip install flake8 && flake8 src/analytics/ src/management/ scripts/ tests/ 2>/dev/null || echo 'Flake8 warnings above, see baseline docs/QUICK_REFERENCE.md'"
+	docker run --rm -v $(PWD):/app python:3.14.0-slim sh -c "cd /app && pip install flake8 && flake8 src/analytics/ scripts/ tests/ 2>/dev/null || echo 'Flake8 warnings above, see baseline docs/QUICK_REFERENCE.md'"
 
 # Coverage reporting with pytest-cov (Phase 16c gate: ≥80% all modules)
 lint-coverage:
@@ -1414,3 +1414,17 @@ loadtest: go-build cli-build ## Lane-isolated good/bad load test -> watch Grafan
 	echo "driving good=$$g/s bad=$$b/s for $${d}s at 127.0.0.1:$$HOST_PORT_DIRECT ..."; \
 	./bin/ja4p test benchmark --host "127.0.0.1:$$HOST_PORT_DIRECT" --good-rate $$g --bad-rate $$b --workers $$w --duration $$d; \
 	echo "watch it: http://$$bind:$$HOST_PORT_GRAFANA  (Grafana)"
+
+# ── Phase 332: pre-PR gate ───────────────────────────────────────────────────
+# Run the full required-check set locally before opening a PR. This is the
+# shift-left half of the CI trial: heavy checks (lint, scan) run here on the
+# author's machine so the PR path can stay fast. All three must be green before
+# you push a branch and open a PR. See docs/phases/PHASE_332.md.
+preflight: ## Phase 332 — full local gate before opening a PR (lint + scan + test)
+	@echo "=== preflight [1/3] make lint ==="
+	@$(MAKE) lint
+	@echo "=== preflight [2/3] make scan ==="
+	@$(MAKE) scan
+	@echo "=== preflight [3/3] make test ==="
+	@$(MAKE) test
+	@echo "✓ preflight passed — safe to open a PR"

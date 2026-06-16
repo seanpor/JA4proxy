@@ -85,8 +85,11 @@ the same `## [Unreleased]` heading. So **do NOT edit `CHANGELOG.md` directly**:
 `README.md` / `docs/REDIS_SCHEMA.md` are *not* fragmented — edit them directly in
 your own section; conflicts there are rare and resolve trivially.
 
-The generated roadmap files (`docs/phases/TODO.md`, `docs/PROJECT_STATUS.md`) come
-from `make sync`; on a conflict take either side and re-run `make sync`.
+The roadmap files (`docs/phases/TODO.md`, `docs/PROJECT_STATUS.md`) are **generated
+build artifacts, not committed source** (Phase 332): they are gitignored and
+regenerated from `manifest.yaml` by `make sync` (CI publishes them as an artifact).
+Never `git add` them — there is nothing to commit and therefore nothing to conflict
+on. Edit `manifest.yaml`; run `make sync` to preview locally.
 
 ---
 
@@ -99,9 +102,26 @@ from `make sync`; on a conflict take either side and re-run `make sync`.
 > ### ⚠ Branch protection is ENFORCED on `main`
 >
 > `main` is branch-protected with **`enforce_admins: on`**, so the rule binds
-> *everyone*, admins included. A direct `git push origin main` is rejected, and
-> a PR cannot merge until the four required checks pass (Meta-Validation, Full
-> Lint, Full Test, Security Scan). There is no admin direct-merge shortcut.
+> *everyone*, admins included. A direct `git push origin main` is rejected and
+> there is no admin direct-merge shortcut.
+>
+> **Merging (Phase 332).** Land work with
+> `gh pr merge --auto --squash --delete-branch`; it merges once the required
+> checks pass. `main` is **not** strict (require-branches-up-to-date is **off**),
+> so an independent PR no longer has to rebase every time `main` advances — that
+> rebase-on-base-advance loop was the main merge-race driver. You only need to
+> rebase if your PR genuinely conflicts. *(A GitHub merge queue would automate
+> even that, but merge queue requires an **organization-owned** repo and this one
+> is personal-account-owned, so it is unavailable — see `docs/phases/PHASE_332.md`.)*
+>
+> **Required checks (the merge gate).** The fast required set is Meta-Validation,
+> Full Test, Secrets scan, SAST, the Python/Go dependency audits, Traceability,
+> and lychee. **Full Lint and Security Scan are deliberately NOT in the required
+> PR set** (Phase 332): they are heavy, so you run them locally via
+> **`make preflight`** before opening a PR, and they still run on push-to-`main`
+> (post-merge) and the weekly schedule. Skipping `make preflight` and letting a
+> lint/scan break reach `main` is the failure mode this is watching for. Because
+> `main` is non-strict, run `make preflight` against a reasonably current branch.
 >
 > **Emergency override** (use only when `main` is broken and a fix cannot wait
 > for normal CI): temporarily lift admin enforcement, land the fix, then
@@ -126,8 +146,14 @@ Every Python web service must include:
 2. **Container config parity:** Read compose files and verify `REDIS_URL` or database strings correctly map password environment variables.
 3. **Mocking:** Unit tests in `tests/unit/` **must not** reach any external process. Patch all clients. `os.access` mocks must use bitmask matching (`mode & os.W_OK`).
 
-### `make test` Blockers
-Before any PR merges to main, `make test` must be run locally and be 100% green. If `make test` executes Python tooling, it MUST be configured in the Makefile to execute inside the Docker container. 
+### Pre-PR gate: `make preflight` (mandatory)
+Before opening **any** PR, run **`make preflight`** locally and get it 100% green.
+It runs the full required-check set — `make lint`, then `make scan`, then `make
+test` — the same gates CI enforces. This is the shift-left half of the Phase 332
+CI trial: the heavy checks (lint, scan) run on your machine so the PR path can
+stay fast. Do not push a branch / open a PR until `make preflight` passes. If
+`make test` executes Python tooling, it MUST be configured in the Makefile to
+execute inside the Docker container.
 
 ### Python Import Hygiene (Containerized)
 Every new `.py` file must pass ruff immediately, via the tools image:

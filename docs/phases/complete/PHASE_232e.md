@@ -1,17 +1,18 @@
 ---
 phase: 232e
 title: Legacy Management Module Removal
-status: PROPOSED
+status: COMPLETE
 size: SMALL
 created: 2026-06-15
+completed: 2026-06-15
 audience: [developer]
 dependencies: [232d]
 ---
 
 # Legacy Management Module Removal
 
-> **STATUS: PROPOSED — plan for review. No code until approved.**
-> The deferred source-deletion tail of [PHASE_232d](PHASE_232d.md). Phase 232d
+> **STATUS: COMPLETE (2026-06-15).**
+> The deferred source-deletion tail of [PHASE_232d](../PHASE_232d.md). Phase 232d
 > decommissioned the unauthenticated `admin-api` *container*; this phase deletes
 > the now-orphaned `src/management/` *source module* it used to run.
 
@@ -64,10 +65,10 @@ Verified against `main` before proposing:
 - `tests/unit/test_health_deep.py`.
 
 ### Files to modify:
-- [Makefile](../../Makefile) — drop `src/management/` from the `lint-security`,
+- [Makefile](../../../Makefile) — drop `src/management/` from the `lint-security`,
   `mypy`, `bandit`, `ruff`, and dockerised `flake8` invocations (leave
   `src/analytics/` and the other paths intact).
-- [deploy/docker/docker-compose.poc.yml](../../deploy/docker/docker-compose.poc.yml)
+- [deploy/docker/docker-compose.poc.yml](../../../deploy/docker/docker-compose.poc.yml)
   — simplify the Phase 232d tombstone comment so it no longer points at the
   deleted `src/management/app` path (it can just name the removed `admin-api`
   service). *(Minor; the tombstone is added by 232d.)*
