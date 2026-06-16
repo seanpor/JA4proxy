@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% block title %}IP: {{ ip }}{% endblock %}
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 py-6" x-data="ipPage()">
+  <nav class="text-sm text-slate-400 mb-4">
+    <a href="/dashboard" class="hover:text-blue-400">Dashboard</a>
+    <span class="mx-2">/</span>
+    <span class="text-slate-100">{{ ip }}</span>
+  </nav>
+
+  <div class="flex items-center justify-between mb-6">
+    <h1 class="text-2xl font-bold text-slate-100 font-mono">{{ ip }}</h1>
+    <div class="flex gap-2">
+      <button
+        @click="ConfirmModal.open({action:'block', ip:'{{ ip }}', currentState: profile.is_banned ? 'banned' : 'active'})"
+        class="px-3 py-1.5 text-sm font-semibold rounded bg-red-800 hover:bg-red-700 text-red-200 transition-colors">
+        Block
+      </button>
+      <button
+        @click="ConfirmModal.open({action:'allow', ip:'{{ ip }}', currentState: 'active'})"
+        class="px-3 py-1.5 text-sm font-semibold rounded bg-amber-800 hover:bg-amber-700 text-amber-200 transition-colors">
+        Allowlist
+      </button>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+    <div class="bg-slate-800 rounded-lg p-4 border border-slate-700">
+      <p class="text-xs text-slate-400 uppercase tracking-wider">Total Events (24h)</p>
+      <p class="text-2xl font-bold text-slate-100" x-text="profile.total_events">0</p>
+    </div>
+    <div class="bg-slate-800 rounded-lg p-4 border border-slate-700">
+      <p class="text-xs text-slate-400 uppercase tracking-wider">Unique JA4s</p>
+      <p class="text-2xl font-bold text-slate-100" x-text="profile.unique_ja4">0</p>
+    </div>
+    <div class="bg-slate-800 rounded-lg p-4 border border-slate-700">
+      <p class="text-xs text-slate-400 uppercase tracking-wider">Banned</p>
+      <p class="text-2xl font-bold" :class="profile.is_banned ? 'text-red-400' : 'text-green-400'" x-text="profile.is_banned ? 'Yes' : 'No'">No</p>
+    </div>
+    <div class="bg-slate-800 rounded-lg p-4 border border-slate-700">
+      <p class="text-xs text-slate-400 uppercase tracking-wider">Country / ASN</p>
+      <p class="text-lg font-bold text-slate-100" x-text="profile.geo.country + ' / ' + profile.geo.asn">Unknown</p>
+    </div>
+  </div>
+
+  <div class="bg-slate-800 rounded-lg p-4 border border-slate-700 mb-6">
+    <h2 class="text-sm font-semibold text-slate-300 mb-3">Risk Score Timeline (24h)</h2>
+    <div class="relative" style="height: 200px;">
+      <canvas x-ref="scoreChart"></canvas>
+    </div>
+  </div>
+
+  <div class="bg-slate-800 rounded-lg p-4 border border-slate-700 mb-6">
+    <h2 class="text-sm font-semibold text-slate-300 mb-3">JA4 Fingerprints</h2>
+    <div class="space-y-1">
+      <template x-for="ja4 in profile.fingerprints" :key="ja4">
+        <a :href="'/fingerprint/' + ja4" class="block text-sm text-blue-400 hover:underline font-mono truncate" x-text="ja4"></a>
+      </template>
+      <p x-show="!profile.fingerprints || profile.fingerprints.length === 0" class="text-sm text-slate-500">No fingerprints found</p>
+    </div>
+  </div>
+
+  <div class="bg-slate-800 rounded-lg p-4 border border-slate-700">
+    <h2 class="text-sm font-semibold text-slate-300 mb-3">Recent Activity</h2>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-slate-400 text-left">
+            <th class="pb-2 pr-4">Timestamp</th>
+            <th class="pb-2 pr-4">Action</th>
+            <th class="pb-2 pr-4">Score</th>
+            <th class="pb-2">JA4</th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-for="(event, idx) in profile.history" :key="idx">
+            <tr class="border-t border-slate-700/50">
+              <td class="py-1.5 pr-4 text-slate-300 text-xs" x-text="event.timestamp"></td>
+              <td class="py-1.5 pr-4">
+                <span
+                  class="px-1.5 py-0.5 rounded text-xs font-medium"
+                  :class="{
+                    'bg-green-900/50 text-green-300': event.action === 'allow',
+                    'bg-yellow-900/50 text-yellow-300': event.action === 'flag' || event.action === 'rate_limit',
+                    'bg-red-900/50 text-red-300': event.action === 'block' || event.action === 'ban',
+                    'bg-purple-900/50 text-purple-300': event.action === 'tarpit',
+                  }"
+                  x-text="event.action"
+                ></span>
+              </td>
+              <td class="py-1.5 pr-4 text-slate-300" x-text="event.score"></td>
+              <td class="py-1.5 text-blue-400 hover:underline font-mono text-xs">
+                <a :href="'/fingerprint/' + event.ja4" x-text="event.ja4"></a>
+              </td>
+            </tr>
+          </template>
+          <tr x-show="!profile.history || profile.history.length === 0">
+            <td colspan="4" class="py-4 text-center text-slate-500">No recent activity</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% include "partials/confirm_modal.html" %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function ipPage() {
+    return {
+        profile: {
+            total_events: 0,
+            unique_ja4: 0,
+            fingerprints: [],
+            is_banned: false,
+            geo: {country: 'Unknown', asn: 'Unknown'},
+            history: [],
+            hourly_scores: [],
+        },
+        chart: null,
+
+        async init() {
+            await this.fetchProfile();
+            this.$nextTick(() => this.renderChart());
+        },
+
+        async fetchProfile() {
+            try {
+                const resp = await fetch('/api/v1/ip/{{ ip }}/profile');
+                if (resp.ok) {
+                    this.profile = await resp.json();
+                }
+            } catch (e) {
+                console.error('Failed to load IP profile:', e);
+            }
+        },
+
+        renderChart() {
+            const canvas = this.$refs.scoreChart;
+            if (!canvas) return;
+            const scores = this.profile.hourly_scores || [];
+            const labels = scores.map(s => {
+                const d = new Date(s.timestamp * 1000);
+                return d.getHours().toString().padStart(2, '0') + ':00';
+            });
+            const avgData = scores.map(s => s.avg_score);
+            const maxData = scores.map(s => s.max_score);
+
+            if (this.chart) this.chart.destroy();
+            this.chart = new Chart(canvas, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Avg Score',
+                            data: avgData,
+                            backgroundColor: 'rgba(59, 130, 246, 0.5)',
+                            borderColor: 'rgba(59, 130, 246, 1)',
+                            borderWidth: 1,
+                        },
+                        {
+                            label: 'Max Score',
+                            data: maxData,
+                            backgroundColor: 'rgba(239, 68, 68, 0.4)',
+                            borderColor: 'rgba(239, 68, 68, 1)',
+                            borderWidth: 1,
+                        },
+                    ],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {beginAtZero: true, max: 100, grid: {color: 'rgba(148, 163, 184, 0.1)'}},
+                        x: {grid: {display: false}},
+                    },
+                    plugins: {legend: {labels: {color: '#94a3b8'}}},
+                },
+            });
+        },
+    };
+}
+</script>
+{% endblock %}
