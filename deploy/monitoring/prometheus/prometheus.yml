@@ -55,6 +55,16 @@ scrape_configs:
           service: 'redis'
           role: 'database'
 
+  # Tarpit metrics
+  - job_name: 'ja4proxy-tarpit'
+    scrape_interval: 15s
+    static_configs:
+      - targets:
+          - 'tarpit:9099'
+        labels:
+          service: 'tarpit'
+          role: 'security-action'
+
   # Prometheus self-monitoring
   - job_name: 'prometheus'
     scrape_interval: 30s

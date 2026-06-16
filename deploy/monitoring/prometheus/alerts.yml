@@ -77,6 +77,16 @@ groups:
           description: "JA4proxy Redis instance is down. All Redis-backed features (scoring, rate limiting, bans) are unavailable. Proxy fails open."
           runbook: "docs/runbooks/redis_down.md"
 
+      - alert: RedisEvictionsDetected
+        expr: increase(redis_evicted_keys_total[1m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          component: redis
+        annotations:
+          summary: "Redis evicting keys — ban data loss imminent"
+          description: "Redis has reached maxmemory and is evicting keys. Active IP/JA4 bans are being deleted silently."
+
       - alert: RedisMemoryHigh
         expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.80
         for: 5m
@@ -357,6 +367,42 @@ groups:
   - name: ja4proxy_container
     interval: 60s
     rules:
+
+      - alert: TarpitDown
+        expr: up{job="ja4proxy-tarpit"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: tarpit
+          alert_type: infrastructure
+        annotations:
+          summary: "Tarpit service is down"
+          description: "The tarpit service is unreachable. Connection slowing/tarpitting is failing."
+          runbook_url: "docs/runbooks/infrastructure.md#tarpit-down"
+
+      - alert: AnalyticsDown
+        expr: up{job="ja4proxy-analytics"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: analytics
+          alert_type: infrastructure
+        annotations:
+          summary: "Analytics service is down"
+          description: "The ML/analytics service is down. Statistical drift and beaconing detection are inactive."
+          runbook_url: "docs/runbooks/infrastructure.md#analytics-down"
+
+      - alert: ManagementDown
+        expr: probe_success{instance="http://management:8090/ready"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: management
+          alert_type: infrastructure
+        annotations:
+          summary: "Management UI/API is down"
+          description: "The management console is unreachable. Operators cannot manage bans or monitor active alerts."
+          runbook_url: "docs/runbooks/infrastructure.md#management-down"
 
       - alert: ContainerOOMKilled
         expr: >

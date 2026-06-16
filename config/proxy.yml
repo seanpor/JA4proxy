@@ -30,6 +30,9 @@ proxy:
   # Default matches the tarpit redirect bound (5s). Hot-reloadable.
   backend_connect_timeout_seconds: 5
   buffer_size: 8192
+  # Maximum event stream depth to prevent memory exhaustion.
+  # Capped at 100k entries via approximate trim (MAXLEN ~ 100000).
+  stream_max_len: 100000
   # Enable PROXY protocol v2 support (for HAProxy)
   proxy_protocol: true
   # phase-231a: write a PROXY protocol header to the BACKEND so a TLS-passthrough

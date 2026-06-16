@@ -56,7 +56,7 @@ class TestExtractImages:
             """
             services:
               svc:
-                image: redis/redis-stack:latest
+                image: thirdparty/redis:latest
         """,
         )
         refs = _extract_images(p)
@@ -112,11 +112,11 @@ class TestLatestTagDetection:
             """
             services:
               redis:
-                image: redis/redis-stack:latest
+                image: thirdparty/redis:latest
         """,
         )
         errors, warnings = check([p])
-        assert any("redis/redis-stack:latest" in e for e in errors)
+        assert any("thirdparty/redis:latest" in e for e in errors)
         assert any(":latest tag" in e for e in errors)
 
     def test_pinned_tag_produces_no_error(self, tmp_path):
@@ -126,7 +126,7 @@ class TestLatestTagDetection:
             """
             services:
               redis:
-                image: redis/redis-stack:7.4.0-v3
+                image: thirdparty/redis:7.4.0-v3
         """,
         )
         errors, _ = check([p])
@@ -218,7 +218,7 @@ class TestVersionDriftDetection:
             """
             services:
               redis:
-                image: redis/redis-stack:7.4.0-v3
+                image: thirdparty/redis:7.4.0-v3
         """,
         )
         monitoring = _write_compose(
@@ -299,7 +299,7 @@ class TestCleanBaseline:
               haproxy:
                 image: haproxy:2.8-alpine
               redis:
-                image: redis/redis-stack:7.4.0-v3
+                image: thirdparty/redis:7.4.0-v3
               grafana:
                 image: grafana/grafana:10.2.0
               loki:

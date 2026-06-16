@@ -570,6 +570,8 @@ func (c *Client) XAddErr(ctx context.Context, stream string, values map[string]i
 	if err := c.rdb.XAdd(ctx, &goredis.XAddArgs{
 		Stream: stream,
 		Values: values,
+		MaxLen: 100000,
+		Approx: true,
 	}).Err(); err != nil {
 		observeOp("xadd", "error")
 		c.log.WithError(err).WithField("stream", stream).Debug("redis: XADD failed")

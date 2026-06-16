@@ -15,7 +15,7 @@ This document serves as the canonical registry of every Docker image used in the
 |-------|----------------|---------|---------------|-------|
 | `python:3.14-slim` | `3.14.0-slim` | `deploy/docker/Dockerfile.management` | 2026-06-14 | Debian base for the FastAPI management service (no-fix distro CVEs are .trivyignore-waived; these are out of the first-party HIGH gate) |
 | `python:3.14.6-alpine3.24` | `3.14.6-alpine3.24@sha256:003970a2` | `src/analytics/Dockerfile`, `src/tarpit/Dockerfile`, `deploy/docker/Dockerfile.test`, `deploy/docker/Dockerfile.trafficgen` | 2026-06-14 | **Phase 317** hardened, digest-pinned, perl-free alpine base. `test`/`trafficgen` were re-based off Debian `python:3.14-slim`; all four scan **0 HIGH/CRITICAL** |
-| `redis/redis-stack` | `7.4.0-v8` | `deploy/docker/docker-compose.prod.yml`, `deploy/docker/docker-compose.poc.yml` | 2026-06-13 | Database with RediSearch/RedisJSON |
+| `redis:7.4.0-alpine` | `7.4.0-alpine@sha256:4d852a36b132e0e0a5ea6552a8a1eb3d1544a496f8a846170669be2d02c77d24` | `deploy/docker/docker-compose.prod.yml`, `deploy/docker/docker-compose.poc.yml` | 2026-06-15 | Lightweight official Redis (replaced redis-stack) |
 | `haproxy:2.8-alpine` | `2.8.24-alpine` | `deploy/docker/docker-compose.prod.yml`, `deploy/docker/docker-compose.poc.yml` | 2026-06-13 | Edge proxy/Load balancer |
 | `haproxy:2.6` | `2.6.15` | `deploy/docker/docker-compose.scale.yml` | 2026-06-13 | Legacy scaling tests |
 | `redis:7-alpine` | `7.2.4-alpine` | `deploy/docker/docker-compose.test.yml` | 2026-06-13 | Lightweight Redis for tests |
