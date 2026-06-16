@@ -41,20 +41,45 @@ review independent of the fingerprint maths.
 This is load-bearing — it shapes everything downstream — so it is **an ADR
 written before any code**, not a runtime choice.
 
+**Module note (do not get this wrong):** the original `github.com/google/gopacket`
+was **archived / made read-only in 2023**. The maintained community fork is
+**`github.com/gopacket/gopacket`** (note the org), and that is what the ADR
+selects. Within it, the older `tcpassembly` package is **deprecated** in favour
+of `reassembly` — see §5 / step 5. This is a **new external dependency** for the
+repo (none today — see `go.mod`); it must clear the `govulncheck` CI gate and is
+recorded as a supply-chain decision in the ADR.
+
 | Option | Pros | Cons |
 |---|---|---|
-| `gopacket` + libpcap | mature, rich decoders | **cgo** → libpcap link/static-build pain in containers |
-| **`gopacket/afpacket` (recommended)** | pure-Go AF_PACKET (TPACKETv3), in-kernel BPF filter, no cgo, good throughput | Linux-only (fine — we ship Linux), fewer batteries than libpcap |
+| `gopacket/gopacket` + `pcap` (libpcap) | mature, rich decoders | **cgo** → libpcap link/static-build pain in containers |
+| **`gopacket/gopacket/afpacket` (recommended)** | pure-Go AF_PACKET (TPACKETv3), in-kernel BPF filter, no cgo, good throughput | Linux-only (fine — we ship Linux), fewer batteries than libpcap |
 | hand-rolled AF_PACKET syscall | zero deps, full control | we re-implement ring buffers, BPF wiring, decode — most code, most risk |
 
-**Proposed decision:** `gopacket/afpacket` for capture + `gopacket` decoders for
-Ethernet/IP/TCP. Pure-Go (no cgo) keeps the static container build simple, and
+**Proposed decision:** `github.com/gopacket/gopacket/afpacket` for capture +
+`gopacket` decoders for Ethernet/IP/TCP, and `gopacket/reassembly` for stream
+reassembly. Pure-Go (no cgo) keeps the static container build simple, and
 AF_PACKET gives us a **kernel BPF filter** (essential for §6 data-minimisation).
 The ADR records this with the trade-offs.
 
 **Additional Decisions (Performance & Tooling):**
 *   **Zero-Copy Decoding via `gopacket.NewDecodingLayerParser`:** Standard gopacket decoding allocates Go structures for every parsed layer. To handle 10,000+ pps with minimal garbage collector pressure, use a pre-allocated parser and pre-allocated layer variables, decoding packet headers in-place (zero-alloc on the hot path).
 *   **Offline PCAP Replay Mode:** Support a `--pcap-file <path>` flag. This uses Go's pure-Go PCAP reader, bypassing raw socket bindings entirely. It allows replaying captured traffic for offline analysis, CI/CD verification, and local development without raw interface permissions.
+
+### 3b. Decided: standalone binary (`cmd/ja4-tap/`)
+
+The 316 index and `manifest.yaml` originally described the sensor as a `ja4pd
+sensor` subcommand; this plan ships it as a **standalone `cmd/ja4-tap/` binary**
+instead. **Decision: standalone binary** (confirmed by maintainer).
+
+Security drives it — the sensor needs `CAP_NET_RAW` and runs in promiscuous mode;
+the inline proxy (`cmd/ja4pd`) must **not** carry that capability or attack
+surface. A separate binary keeps the proxy's privilege set minimal and lets the
+sensor ship/scan/seccomp independently. The cost — a second binary in the image
+build — is accepted.
+
+**Follow-up:** the 316 index and `manifest.yaml` 316/316a summaries say
+"`ja4pd sensor` subcommand" and must be corrected to the standalone binary when
+316a is implemented (noted in the Files-to-Modify table).
 
 ## 4. Design / how it works
 
@@ -136,7 +161,15 @@ Add to `internal/metrics` **and** `OBSERVABILITY_STANDARDS.md §1d`:
 2. Metrics → registry + `OBSERVABILITY_STANDARDS.md`.
 3. `internal/tap/capture.go` — AF_PACKET open, promisc, BPF filter, ring read. Support reading offline via pure-Go pcap library if `--pcap-file` is specified.
 4. `internal/tap/decode.go` — zero-copy eth/IPv4/IPv6(+frag)/TCP decode to a normalised segment using `gopacket.NewDecodingLayerParser`.
-5. `internal/tap/reassembler.go` — use `github.com/google/gopacket/tcpassembly`. Implement a custom `StreamFactory` wrapping `tcpassembly.Stream` that tracks byte length. Restrict stream tracking to 16KB per direction, evicting the flow/stream on overflow, and pool connection/stream allocations via `sync.Pool` to avoid heap allocations. Do not write a TCP reassembler from scratch.
+5. `internal/tap/reassembler.go` — use `github.com/gopacket/gopacket/reassembly`
+   (the maintained fork; **not** the archived `google/gopacket`, **not** the
+   deprecated `tcpassembly`). Implement a custom `reassembly.StreamFactory` /
+   `Stream` that tracks byte length and stops a stream at the **16KB per-direction**
+   app-level cap. Set a **global** memory ceiling via
+   `reassembly.AssemblerOptions{MaxBufferedPagesTotal, MaxBufferedPagesPerConnection}`
+   — this is the library-level mechanism that satisfies §5's hard memory cap.
+   Pool connection/stream allocations via `sync.Pool`. Do not write a TCP
+   reassembler from scratch.
 6. `internal/tap/sensor.go` — wires capture→decode→reassemble→`HandshakeEvent` chan;
    a stub consumer that just counts/logs (replaced in 316b).
 7. `cmd/ja4-tap/main.go` — standalone binary; parse `--pcap-file` / `--key-file` / `--key`, execute cap-drop + change UID/GID, and load seccomp at startup.
@@ -144,9 +177,11 @@ Add to `internal/metrics` **and** `OBSERVABILITY_STANDARDS.md §1d`:
 9. `config/proxy.yml` `tap:` block — **disabled by default**; document that
    interface/promisc/BPF are **restart-only** (cannot hot-reload, like the listen
    port).
-10. Docs: ADR(s), `docs/runbooks/tap_mode.md` (append a Go section — don't clobber
-    the existing Python TAP content), CHANGELOG, manifest `316a`, `/health`
-    component entry for the sensor.
+10. Docs: ADR(s) + `docs/decisions/INDEX.md`, `docs/runbooks/tap_mode.md` (append a
+    Go section — don't clobber the existing Python TAP content), a CHANGELOG **news
+    fragment** at `docs/fragments/phase-316a-*.md` (do **not** edit `CHANGELOG.md`
+    directly — repo process), manifest `316a`, `/health` component entry for the
+    sensor.
 
 ## 10. Test plan
 
@@ -182,6 +217,9 @@ Add to `internal/metrics` **and** `OBSERVABILITY_STANDARDS.md §1d`:
 | File | Change |
 |------|--------|
 | `docs/decisions/ADR-316a.md` | New file — capture library assessment and selection |
+| `docs/decisions/INDEX.md` | Add ADR-316a entry (matches existing per-phase ADR convention, e.g. ADR-203a) |
+| `docs/phases/manifest.yaml`, `docs/phases/PHASE_316.md` | Correct the "`ja4pd sensor` subcommand" wording to the decided standalone `cmd/ja4-tap/` binary (§3b) |
+| `go.mod` / `go.sum` | Add `github.com/gopacket/gopacket` (must pass `govulncheck` gate) |
 | `internal/metrics/metrics.go` | Register TAP metrics |
 | `docs/OBSERVABILITY_STANDARDS.md` | Add TAP metrics definitions |
 | `internal/tap/capture.go` | New file — AF_PACKET and PCAP read loops |
@@ -191,8 +229,8 @@ Add to `internal/metrics` **and** `OBSERVABILITY_STANDARDS.md §1d`:
 | `cmd/ja4-tap/main.go` | New file — standalone sniffer entry point, privilege drop, seccomp |
 | `internal/tap/watchdog.go` | New file — health watchdog |
 | `config/proxy.yml` | Add `tap:` config section |
-| `docs/runbooks/tap_mode.md` | Update sniffer runbook |
-| `CHANGELOG.md` | Add Phase 316a changes |
+| `docs/runbooks/tap_mode.md` | Update sniffer runbook (append Go section) |
+| `docs/fragments/phase-316a-*.md` | New CHANGELOG news fragment (do NOT edit `CHANGELOG.md` directly) |
 
 ## 12. Out of scope (these are later sub-phases)
 
