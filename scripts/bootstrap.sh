@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# JA4proxy single-host bootstrapper (phase-231b).
+# JA4proxy single-host bootstrapper (phase-231b / phase-332).
 #
 # Zero-compile installer for a clean Linux host (Ubuntu/Debian or RHEL/Rocky):
-# installs *runtime* deps only, creates the service user + dirs, runs the setup
-# wizard to generate .env (secrets, chmod 600 — never echoed), installs the
-# systemd unit + logrotate + a daily backup cron, and gates the firewall so only
-# 80/443 are public while admin ports (read from .env) stay on loopback.
+# installs *runtime* deps only, creates the service user + dirs, runs the
+# Go-native setup wizard (`ja4p init`) to generate .env (secrets, chmod 600
+# — never echoed), installs the systemd unit + logrotate + a daily backup
+# cron, and gates the firewall so only 80/443 are public while admin ports
+# (read from .env) stay on loopback.
 #
 # Usage:
 #   sudo ./scripts/bootstrap.sh [--mode native|container] [--root /opt/ja4proxy]
@@ -61,8 +62,8 @@ install_runtime_deps() {
   local mgr; mgr="$(detect_pkg_mgr)"
   log "installing runtime dependencies via $mgr"
   case "$mgr" in
-    apt) apt-get update -qq && apt-get install -y --no-install-recommends openssl redis-server ;;
-    dnf) dnf install -y openssl redis ;;
+    apt) apt-get update -qq && apt-get install -y --no-install-recommends openssl ;;
+    dnf) dnf install -y openssl ;;
     *) err "unsupported package manager (need apt or dnf)"; return 1 ;;
   esac
   if [ "$MODE" = "container" ] && ! command -v docker >/dev/null 2>&1; then
@@ -91,13 +92,18 @@ load_offline_images() {
 }
 
 run_wizard() {
-  log "launching the setup wizard (generates .env + systemd unit; secrets never echoed)"
-  python3 "$HERE/scripts/setup_wizard.py" \
-    --env-path "$ROOT/.env" \
-    --systemd-out /etc/systemd/system/ja4proxy.service \
-    --deploy-root "$ROOT" \
-    --timestamp "$(date -Iseconds)"
-  chown "$SVC_USER:$SVC_USER" "$ROOT/.env"
+  log "launching Go-native setup wizard (generates .env + proxy.yml + systemd unit; secrets never echoed)"
+  if [ "$MODE" = "native" ]; then
+    "$ROOT/bin/ja4p" init
+  else
+    docker run --rm -it \
+      -v "$ROOT:$ROOT" \
+      -v /etc/systemd/system:/etc/systemd/system \
+      -w "$ROOT" \
+      ja4proxy:2.0.0 \
+      ja4p init
+  fi
+  chown "$SVC_USER:$SVC_USER" "$ROOT/.env" 2>/dev/null || true
 }
 
 install_logrotate() {
@@ -159,13 +165,14 @@ check_one() {  # check_one <test-cmd-ok?> <ok-msg> <err-msg>
 
 do_check() {
   log "diagnostics (dry-run)"
-  check_one "command -v python3" "python3 present" "python3 missing"
-  check_one "[ -f '$ROOT/.env' ]" ".env present at $ROOT/.env" "no .env at $ROOT/.env (run without --check first)"
   if [ "$MODE" = "container" ]; then
     check_one "command -v docker" "docker present" "docker missing"
+    check_one "docker image inspect ja4proxy:2.0.0 >/dev/null 2>&1" "ja4proxy:2.0.0 image present" "ja4proxy:2.0.0 image missing (load offline tarball or pull)"
   else
     check_one "[ -x '$ROOT/bin/ja4pd' ]" "ja4pd binary present" "ja4pd binary missing at $ROOT/bin/ja4pd"
+    check_one "[ -x '$ROOT/bin/ja4p' ]" "ja4p binary present" "ja4p binary missing at $ROOT/bin/ja4p"
   fi
+  check_one "[ -f '$ROOT/.env' ]" ".env present at $ROOT/.env" "no .env at $ROOT/.env (run without --check first)"
   check_one "systemctl is-enabled ja4proxy.service" "systemd unit enabled" "systemd unit not enabled"
 }
 

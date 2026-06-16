@@ -1,7 +1,7 @@
 <!--
 title: JA4proxy — Operations Guide
 audience: operator
-last_reviewed: 2026-06-04
+last_reviewed: 2026-06-15
 phase: v2.0
 -->
 
@@ -24,10 +24,12 @@ sudo ./scripts/bootstrap.sh --check            # dry-run diagnostics
 sudo ./scripts/bootstrap.sh --uninstall        # remove (prompts before purging volumes)
 ```
 
-The wizard (`scripts/setup_wizard.py`, run by the bootstrapper or standalone)
+The wizard (`ja4p init`, run by the bootstrapper or standalone as `bin/ja4p init`)
 prompts for the protected backend, deploy mode (native binary or containerized),
-admin bind IP, and admin user. It **generates strong secrets into `.env`
-(chmod 600) and never prints them** — the on-screen summary shows
+admin bind IP, admin user, networking (PROXY protocol, upstream LB, allowed SNIs),
+TLS certificates, threat-intel API keys, and hardening options (firewall, Fail2Ban,
+CrowdSec, monitoring stack, backup encryption). It **generates strong secrets
+into `.env` (chmod 600) and never prints them** — the on-screen summary shows
 `[generated — see .env]`. Published admin ports default to the real scheme
 (Management UI **8090**, metrics 9090, Prometheus 9091, Grafana 3000) and
 stay on loopback; nothing is hard-locked (override via `HOST_PORT_*`). The

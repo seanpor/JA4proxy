@@ -2682,11 +2682,12 @@ phases:
     summary: 'Go-daemon core split out of the monolithic Phase 231 proposal. (1) ja4pd now optionally WRITES a PROXY protocol header (v1/v2) to the backend so a TLS-passthrough deploy preserves the real client IP without decrypting — config write_proxy_protocol (default false) + write_proxy_protocol_version (1|2, default 1); builds on the existing inbound parser, reuses the resolved connCtx.ClientIP/Port, FP-safe (indeterminate addrs emit PROXY UNKNOWN / v2 LOCAL rather than dropping a valid client). (2) Manual bans (ban:{ip}) are now enforced at the top of the pipeline, before the dial fetch, so they block immediately even in monitor mode (dial=0); fail-open (Exists()->false on Redis error). (3) Fixed the CountKeys ban-prefix bug (ja4proxy:ban:* -> ban:*) that made the active-bans gauge always read 0. Go tests for the v1/v2 builder + the dial-0 ban path; build/vet/gofmt clean. Corrected the original proposal''s wrong ports (mgmt 8090 not 8113, no 3023) and GeoIP (GeoLite2 not IP2Location) — those land in 231b.'
   231b:
     name: Single-Host Bootstrap — Wizard, systemd, Firewall, Backups
-    status: IN_PROGRESS
-    action_plan: docs/phases/PHASE_231b.md
+    status: COMPLETE
+    completed: 2026-06-15
+    action_plan: docs/phases/complete/PHASE_231b.md
     dependencies: [231a]
     size: LARGE
-    summary: 'Operator-facing single-host deployment tooling split out of the monolithic Phase 231 proposal (depends on 231a). Zero-compile bootstrap.sh (native + containerized, offline tarball, --check/--uninstall), interactive setup_wizard.py (inline->ja4pd vs TAP->python tap node, monitor-mode default, secrets to .env never echoed), systemd unit, firewall gating that reads HOST_PORT_* from .env (real scheme: mgmt 8090, metrics 9090, prometheus 9091, grafana 3000 — not the proposal''s invented 8113/3023), logrotate, daily backup cron, GeoLite2 (not IP2Location) data. Note: Python wizard superseded by Phase 161 Go-native `ja4p init`. PROPOSED — awaiting review.'
+    summary: 'Operator-facing single-host deployment tooling split out of the monolithic Phase 231 proposal. Zero-compile bootstrap.sh (native + containerized, offline tarball, --check/--uninstall), Go-native setup wizard (ja4p init), systemd unit, firewall gating (reads HOST_PORT_* from .env), logrotate, daily backup cron. Python setup_wizard.py superseded by Phase 161 (ja4p init) and archived in Phase 333. Real-host E2E validation (clean-VM boot, offline-tarball, firewall-from-remote) deferred — requires physical/virtual host outside CI.'
   144:
     name: Operational Excellence & Repo Pruning
     status: COMPLETE
@@ -2828,3 +2829,10 @@ phases:
     dependencies: []
     size: SMALL
     summary: 'Removed the recurring merge-conflict churn parallel phase PRs hit. Untracked the auto-generated TODO.md/PROJECT_STATUS.md (the conflict that hit every PR) — CI now regenerates and publishes them as an artifact. Added make preflight + an AGENTS.md pre-PR mandate, trimmed the required-check set (Full Lint + Security Scan demoted to advisory, still run via preflight + push/nightly), and set strict=false on main to drop the rebase-on-base-advance loop. Merge queue was attempted but is unavailable (GitHub restricts it to org-owned repos; this repo is personal-account-owned) — the merge_group CI wiring is left in place for a future org move. Manifest manifest.d/ fragments were deferred as low-marginal-benefit.'
+  333:
+    name: Bootstrap Finish — Go Wizard Migration & 231b Close-Out
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_333.md
+    dependencies: [231b, 161, 231a]
+    size: SMALL
+    summary: 'Close-out of Phase 231b: update bootstrap.sh to use ja4p init (Go wizard, Phase 161) instead of the deprecated Python setup_wizard.py, archive superseded Python wizard, fix LaTeX install chapter to reflect Go-native wizard and remove stale TAP/Python references, mark Phase 231b COMPLETE. Deferred: real-host VM E2E validation (requires external infra).'

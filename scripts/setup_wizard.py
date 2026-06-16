@@ -1,5 +1,19 @@
 #!/usr/bin/env python3
-"""JA4proxy single-host setup wizard (phase-231b).
+"""
+DEPRECATED — superseded by Phase 161 Go-native ``ja4p init`` wizard.
+
+This Python wizard is retained for reference only. All new deployments
+should use ``ja4p init`` (the Go binary) instead, which provides the same
+functionality plus full config generation (proxy.yml, haproxy.cfg), lane
+isolation, and non-interactive mode.
+
+``bootstrap.sh`` was updated in Phase 332 to call ``ja4p init`` instead of
+this script. This file will be removed in a future phase.
+
+---
+Original docstring follows:
+
+JA4proxy single-host setup wizard (phase-231b).
 
 Interactively collects deployment choices for a single clean host and writes a
 ``.env`` (with strong, freshly-generated secrets) plus a systemd unit — so an
