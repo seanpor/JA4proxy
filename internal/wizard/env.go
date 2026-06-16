@@ -8,7 +8,48 @@ import (
 	"time"
 )
 
+// secretEnvKeys are the generated .env keys whose values are secrets and must
+// never be printed to stdout or logs. Single source of truth, shared by
+// mergeSecrets, the dry-run preview redaction (renderEnvRedacted), and the
+// lane re-run secret preservation (mergeEnvPreserveSecrets).
+var secretEnvKeys = []string{
+	"REDIS_PASSWORD", "REDIS_SIGNING_KEY", "MANAGEMENT_JWT_SECRET",
+	"MANAGEMENT_ADMIN_PASSWORD", "GRAFANA_PASSWORD", "HAPROXY_STATS_PASSWORD",
+}
+
+// isSecretEnvKey reports whether k is one of the statically-known secret keys.
+func isSecretEnvKey(k string) bool {
+	for _, s := range secretEnvKeys {
+		if s == k {
+			return true
+		}
+	}
+	return false
+}
+
+// buildEnv returns the full .env map, including secret values (admin password,
+// threat-intel API keys, and generated secrets). The result is safe to write to
+// the chmod-600 .env file but must NOT be printed; use renderEnvRedacted for any
+// human-visible preview.
 func buildEnv(a *Answers) map[string]string {
+	env := buildPublicEnv(a)
+
+	// Threat-intel API keys and the admin password are secrets — added here, on
+	// the disk-write path only. They are deliberately absent from buildPublicEnv
+	// so the dry-run preview is built from a map that never holds them.
+	for k, v := range a.TIKeys {
+		env[k] = v
+	}
+	if a.AdminPassword != "" {
+		env["MANAGEMENT_ADMIN_PASSWORD"] = a.AdminPassword
+	}
+	return mergeSecrets(env)
+}
+
+// buildPublicEnv returns only the non-secret .env entries. Keeping this free of
+// any secret value is load-bearing: renderEnvRedacted renders the preview from
+// it, so secret data never flows into the printed string.
+func buildPublicEnv(a *Answers) map[string]string {
 	env := map[string]string{
 		"COMPOSE_PROJECT_NAME":  projectName(a),
 		"ENVIRONMENT":           "production",
@@ -61,14 +102,6 @@ func buildEnv(a *Answers) map[string]string {
 		env["TLS_KEY_PATH"] = a.TLSKeyPath
 	}
 
-	for k, v := range a.TIKeys {
-		env[k] = v
-	}
-
-	if a.AdminPassword != "" {
-		env["MANAGEMENT_ADMIN_PASSWORD"] = a.AdminPassword
-	}
-	env = mergeSecrets(env)
 	return env
 }
 
@@ -99,11 +132,7 @@ func projectName(a *Answers) string {
 }
 
 func mergeSecrets(env map[string]string) map[string]string {
-	secretKeys := []string{
-		"REDIS_PASSWORD", "REDIS_SIGNING_KEY", "MANAGEMENT_JWT_SECRET",
-		"MANAGEMENT_ADMIN_PASSWORD", "GRAFANA_PASSWORD", "HAPROXY_STATS_PASSWORD",
-	}
-	for _, k := range secretKeys {
+	for _, k := range secretEnvKeys {
 		if _, exists := env[k]; !exists {
 			env[k] = genPassword(24)
 		}
@@ -129,6 +158,23 @@ func renderEnv(env map[string]string) string {
 		lines = append(lines, fmt.Sprintf("%s=%s", k, env[k]))
 	}
 	return strings.Join(lines, "\n") + "\n"
+}
+
+// renderEnvRedacted produces a .env preview safe for stdout/logs: every secret
+// value is replaced with a fixed placeholder. It is built from buildPublicEnv
+// (which holds no secrets) plus placeholder lines keyed only by secret-key NAMES
+// — secret values are never read, so no sensitive data flows into the result.
+func renderEnvRedacted(a *Answers) string {
+	env := buildPublicEnv(a)
+	const placeholder = "***REDACTED***"
+	for _, k := range secretEnvKeys {
+		env[k] = placeholder
+	}
+	// Threat-intel API keys have dynamic names; redact by key name only.
+	for k := range a.TIKeys {
+		env[k] = placeholder
+	}
+	return renderEnv(env)
 }
 
 func buildSystemdUnit(a *Answers) string {
