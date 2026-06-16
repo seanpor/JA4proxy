@@ -2765,8 +2765,9 @@ phases:
     summary: Add Prometheus scrape targets for tarpit and analytics, write critical system alert rules, replace redis-stack with a lightweight alpine image, cap events stream to 100k entries using XADD MAXLEN, and surface evictions count.
   234:
     name: "Dashboard: Threat Posture & Infrastructure Rows"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_234.md
+    status: COMPLETE
+    completed: 2026-06-16
+    action_plan: docs/phases/complete/PHASE_234.md
     dependencies: [231, 233]
     size: LARGE
     summary: Pass user role to templates to implement RBAC visibility controls, implement the Threat Posture dashboard row, add the Infrastructure service status row, and implement the Triage Queue for undecided clients.

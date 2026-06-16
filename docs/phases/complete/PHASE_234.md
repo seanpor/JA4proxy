@@ -1,7 +1,7 @@
 ---
 phase: 234
 title: Dashboard — Threat Posture & Infrastructure Rows
-status: PROPOSED
+status: IN_PROGRESS
 size: LARGE
 created: 2026-06-12
 audience: [developer, operator, secops]
@@ -421,7 +421,10 @@ async def test_all_pages_render_200_for_all_roles(role):
 **Run the tests (from project root):**
 ```bash
 # Working directory: <repo root>
-.venv/bin/python -m pytest tests/unit/test_pages_rbac.py -v
+make test-unit  # runs all unit tests in the pinned tools container (AGENTS.md § Container-Strict)
+# Or for targeted feedback:
+docker run --rm -v "$PWD":/src -w /src ja4proxy-tools \
+  python -m pytest tests/unit/test_pages_rbac.py -v --timeout=30
 ```
 
 ---
@@ -588,13 +591,16 @@ async def threat_posture_partial(
     ]
 
     # Action distribution as percentages
+    # Proxy action vocabulary: allow, flag, rate_limit, tarpit, block, ban
+    # (verified in internal/security/action_decider.go and internal/metrics/metrics.go)
+    DISPLAY_ACTIONS = ["allow", "flag", "rate_limit", "tarpit", "block", "ban"]
     total_actions = sum(action_dist.values()) or 1  # avoid division by zero
     action_pct = {
         act: {
             "count": action_dist.get(act, 0),
             "pct": round(action_dist.get(act, 0) / total_actions * 100, 1),
         }
-        for act in ("allow", "monitor", "challenge", "block", "tarpit")
+        for act in DISPLAY_ACTIONS
     }
 
     stream_warn = stream_depth > 80_000  # approaching 100k MAXLEN cap (Phase 233)
@@ -630,7 +636,7 @@ async def threat_posture_partial(
     windows: list[str] — ["5m","15m","1h","24h"]
     top_ips: list[{ip, score, action, count}]
     top_ja4: list[{fingerprint, label, count}]
-    action_pct: dict — {action: {count, pct}} for allow/monitor/challenge/block/tarpit
+    action_pct: dict — {action: {count, pct}} for allow/flag/rate_limit/tarpit/block/ban
     stream_depth: int
     stream_warn: bool
     total_events: int
@@ -639,15 +645,16 @@ async def threat_posture_partial(
 <!-- Action badge colour helper macros -->
 {% macro action_badge(action) %}
   {% set colours = {
-    "allow":     "bg-green-900/60 text-green-300",
-    "monitor":   "bg-blue-900/60 text-blue-300",
-    "challenge": "bg-yellow-900/60 text-yellow-300",
-    "block":     "bg-red-900/60 text-red-300",
-    "tarpit":    "bg-orange-900/60 text-orange-300",
+    "allow":      "bg-green-900/60 text-green-300",
+    "flag":       "bg-blue-900/60 text-blue-300",
+    "rate_limit": "bg-yellow-900/60 text-yellow-300",
+    "tarpit":     "bg-orange-900/60 text-orange-300",
+    "block":      "bg-red-900/60 text-red-300",
+    "ban":        "bg-red-900/60 text-red-300",
   } %}
   <span class="px-2 py-0.5 rounded text-[10px] font-mono font-semibold
                {{ colours.get(action, 'bg-slate-700 text-slate-300') }}">
-    {{ action | upper }}
+    {{ action | replace('_', ' ') | upper }}
   </span>
 {% endmacro %}
 
@@ -784,45 +791,54 @@ async def threat_posture_partial(
     Uses colour AND pattern fills for accessibility (Decision 238 / Finding H-5 area).
     Percentages are shown as tooltips and as a legend below the bar.
 
-    SVG patterns provide texture for colour-blind users:
-    - allow:     solid green
-    - monitor:   diagonal lines blue
-    - challenge: dotted yellow
-    - block:     dense cross-hatch red
-    - tarpit:    horizontal lines orange
+    Proxy action vocabulary (internal/security/action_decider.go):
+    allow:     solid green
+    flag:      diagonal lines blue
+    rate_limit: dotted yellow
+    tarpit:    horizontal lines orange
+    block:     dense cross-hatch red
+    ban:       cross-hatch + horizontal lines dark red
   -->
   <div class="bg-slate-800 border border-slate-700 rounded-xl p-4">
     <h3 class="text-xs font-semibold text-slate-300 mb-3">Action Distribution</h3>
     <svg class="w-full h-0" height="0">
       <defs>
-        <pattern id="pat-monitor"   width="4" height="4" patternUnits="userSpaceOnUse">
+        <pattern id="pat-flag"       width="4" height="4" patternUnits="userSpaceOnUse">
           <path d="M-1,1 l2,-2 M0,4 l4,-4 M3,5 l2,-2" stroke="#3b82f6" stroke-width="1"/>
         </pattern>
-        <pattern id="pat-challenge" width="4" height="4" patternUnits="userSpaceOnUse">
+        <pattern id="pat-rate_limit" width="4" height="4" patternUnits="userSpaceOnUse">
           <circle cx="2" cy="2" r="1" fill="#eab308"/>
         </pattern>
-        <pattern id="pat-block"     width="4" height="4" patternUnits="userSpaceOnUse">
+        <pattern id="pat-block"      width="4" height="4" patternUnits="userSpaceOnUse">
           <path d="M0,0 l4,4 M4,0 l-4,4" stroke="#ef4444" stroke-width="1"/>
         </pattern>
-        <pattern id="pat-tarpit"    width="4" height="4" patternUnits="userSpaceOnUse">
+        <pattern id="pat-tarpit"     width="4" height="4" patternUnits="userSpaceOnUse">
           <path d="M0,2 h4" stroke="#f97316" stroke-width="1"/>
+        </pattern>
+        <pattern id="pat-ban"        width="4" height="4" patternUnits="userSpaceOnUse">
+          <path d="M0,0 l4,4 M4,0 l-4,4" stroke="#dc2626" stroke-width="0.5"/>
+          <path d="M0,2 h4" stroke="#dc2626" stroke-width="0.5"/>
         </pattern>
       </defs>
     </svg>
 
+    {# Proxy action vocabulary (internal/security/action_decider.go): allow, flag, rate_limit, tarpit, block, ban #}
     <div class="flex h-6 rounded overflow-hidden w-full" role="img" aria-label="Action distribution bar">
-      {% for action, colour, pattern in [
-        ('allow',     '#16a34a', ''),
-        ('monitor',   '#3b82f6', 'url(#pat-monitor)'),
-        ('challenge', '#eab308', 'url(#pat-challenge)'),
-        ('block',     '#ef4444', 'url(#pat-block)'),
-        ('tarpit',    '#f97316', 'url(#pat-tarpit)'),
-      ] %}
+      {% set action_meta = {
+        'allow':     ('#16a34a', ''),
+        'flag':      ('#3b82f6', 'url(#pat-flag)'),
+        'rate_limit':('#eab308', 'url(#pat-rate_limit)'),
+        'tarpit':    ('#f97316', 'url(#pat-tarpit)'),
+        'block':     ('#ef4444', 'url(#pat-block)'),
+        'ban':       ('#dc2626', 'url(#pat-ban)'),
+      } %}
+      {% for action in ['allow', 'flag', 'rate_limit', 'tarpit', 'block', 'ban'] %}
       {% set pct = action_pct[action].pct %}
+      {% set colour, pattern = action_meta[action] %}
       {% if pct > 0 %}
       <div
-        title="{{ action | title }}: {{ action_pct[action].count }} ({{ pct }}%)"
-        style="width: {{ pct }}%; background-color: {{ colour }};"
+        title="{{ action | replace('_', ' ') | title }}: {{ action_pct[action].count }} ({{ pct }}%)"
+        style="width: {{ pct }}%; background-color: {{ colour }};{% if pattern %} background-image: {{ pattern }};{% endif %}"
         class="relative group">
         {% if pct > 5 %}
         <span class="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white/80">
@@ -836,13 +852,18 @@ async def threat_posture_partial(
 
     <!-- Legend -->
     <div class="flex flex-wrap gap-3 mt-2">
-      {% for action, colour in [
-        ('allow','#16a34a'), ('monitor','#3b82f6'), ('challenge','#eab308'),
-        ('block','#ef4444'), ('tarpit','#f97316')
-      ] %}
+      {% set legend = {
+        'allow':     '#16a34a',
+        'flag':      '#3b82f6',
+        'rate_limit':'#eab308',
+        'tarpit':    '#f97316',
+        'block':     '#ef4444',
+        'ban':       '#dc2626',
+      } %}
+      {% for action, colour in legend.items() %}
       <div class="flex items-center gap-1 text-[10px] text-slate-400">
         <span class="w-2.5 h-2.5 rounded-sm inline-block" style="background:{{ colour }}"></span>
-        {{ action | title }}: {{ action_pct[action].count }}
+        {{ action | replace('_', ' ') | title }}: {{ action_pct[action].count }}
       </div>
       {% endfor %}
     </div>
@@ -946,17 +967,23 @@ from management.api.auth import _create_access_token
 
 
 def _make_stream_entry(ip, ja4, score, action, ts_ms=None):
-    """Build a fake Redis stream entry tuple."""
-    import time
+    """Build a fake Redis stream entry tuple matching the Go proxy's payload shape.
+
+    The Go proxy writes a single 'event' field whose value is a JSON string
+    of flat, dot-delimited ECS keys (cmd/ja4pd/main.go):
+      event.action, event.risk_score, source.ip, ja4proxy.fingerprint.ja4, @timestamp
+    """
+    import json, time
     ts_ms = ts_ms or int(time.time() * 1000)
     entry_id = f"{ts_ms}-0"
-    fields = {
-        "ip": ip,
-        "ja4": ja4,
-        "risk_score": str(score),
-        "action_taken": action,
-        "timestamp": "2026-06-12T08:00:00Z",
-    }
+    payload = json.dumps({
+        "event.action": action,
+        "event.risk_score": score,
+        "source.ip": ip,
+        "ja4proxy.fingerprint.ja4": ja4,
+        "@timestamp": "2026-06-12T08:00:00Z",
+    })
+    fields = {"event": payload}
     return (entry_id, fields)
 
 
@@ -973,7 +1000,7 @@ async def test_top_n_ip_computation():
             ip=f"10.0.0.{i+1}",
             ja4="t13d1516h2_8daaf6152771_b1ff8ab2d16f",
             score=float(i * 5),   # scores 0, 5, 10, ... 70
-            action="monitor",
+            action="allow",
         ))
 
     with patch("management.api.routes.partials.get_redis") as mock_get_redis:
@@ -1029,7 +1056,7 @@ async def test_ja4_label_shown_when_present():
     fp = "t13d1516h2_8daaf6152771_b1ff8ab2d16f"
     label = "Chrome 120 / Windows"
 
-    entries = [_make_stream_entry("1.2.3.4", fp, 50, "monitor")]
+    entries = [_make_stream_entry("1.2.3.4", fp, 50, "flag")]
 
     with patch("management.api.routes.partials.get_redis") as mock_get_redis:
         mock_redis = AsyncMock()
@@ -1078,7 +1105,7 @@ async def test_action_distribution_percentages():
     entries = (
         [_make_stream_entry("1.1.1.1", "fp1", 10, "allow")]   * 50 +
         [_make_stream_entry("2.2.2.2", "fp2", 60, "block")]   * 30 +
-        [_make_stream_entry("3.3.3.3", "fp3", 40, "monitor")] * 20
+        [_make_stream_entry("3.3.3.3", "fp3", 40, "flag")] * 20
     )
 
     with patch("management.api.routes.partials.get_redis") as mock_get_redis:
@@ -1095,7 +1122,7 @@ async def test_action_distribution_percentages():
             )
 
     assert resp.status_code == 200
-    # 50% allow, 30% block, 20% monitor should appear somewhere
+    # 50% allow, 30% block, 20% flag should appear somewhere
     assert "50.0" in resp.text
     assert "30.0" in resp.text
     assert "20.0" in resp.text
@@ -1105,25 +1132,20 @@ async def test_action_distribution_percentages():
 
 ## 5. Sub-task C: Infrastructure Row
 
-### 5.0 Prerequisite — heartbeat producer (Go) — MUST ship with this sub-task
+### 5.0 Heartbeat producer — DEFERRED to follow-up Phase 239
 
 The infra row reads `proxy:heartbeat:*` to show the proxy up/down. **As of `main`
-nothing writes that key** (verified: no writer in `cmd/` or `internal/`; the only
-producers assumed by `health.py`, `pack_builder.py`, and `nodes.py` do not exist).
-Shipping only the consumer leaves the proxy permanently "down".
+nothing writes that key** (verified: no writer in `cmd/` or `internal/`); the
+producers assumed by `health.py`, `pack_builder.py`, and `nodes.py` do not exist.
 
-This sub-task must therefore **add the producer** to the Go proxy:
+**Decision: The Go heartbeat producer is deferred to Phase 239 (estimated < 1 day).**
+See `PHASE_239.md` for the planned implementation:
+- A heartbeat goroutine in `cmd/ja4pd/main.go` that `SET proxy:heartbeat:{instance_id} <epoch> EX 90` every ~30s.
+- Standardise `proxy:heartbeat:{instance_id}` as the program's chosen convention.
+- Converge the existing `mgmt:node:*` reader onto the same key, and correct `docs/REDIS_SCHEMA.md`.
 
-- In `cmd/ja4pd/main.go`, start a heartbeat goroutine that, every ~30s, does
-  `SET proxy:heartbeat:{instance_id} <epoch> EX 90` (TTL ≈ 3× the interval, so a
-  dead node's key lapses on its own). `{instance_id}` = hostname/pod name or a
-  startup-generated UUID.
-- Standardise on **`proxy:heartbeat:{instance_id}`** (this program's chosen
-  convention). Converge the existing `mgmt:node:*` reader (`nodes.py`) onto the
-  same key, and correct `docs/REDIS_SCHEMA.md` (which currently claims a producer
-  that does not exist).
-
-Do not merge the consumer without the producer.
+Until Phase 239 ships, the infra row will show `proxy_status: "unknown"` instead of `"DOWN"`.
+The endpoint handles this gracefully — no errors, just a missing-data indicator.
 
 ### 5.1 The complete endpoint
 
@@ -1132,7 +1154,9 @@ Do not merge the consumer without the producer.
 ```python
 import aiohttp  # for Prometheus HTTP API queries
 
-_PROMETHEUS_URL = "http://prometheus:9090"  # internal Docker network name
+import os
+
+_PROMETHEUS_URL = os.getenv("PROMETHEUS_URL", "http://prometheus:9090")  # configurable via env
 
 
 @router.get("/api/v1/partials/infrastructure", response_class=HTMLResponse)
@@ -1183,30 +1207,27 @@ async def infrastructure_partial(
         logger.warning("partials | event=infra_redis_error | error=%s", exc)
 
     # ── Proxy heartbeat ─────────────────────────────────────────────
+    # NOTE: The Go heartbeat producer is DEFERRED to Phase 239.
+    # Until then, no proxy:heartbeat:* key exists, and the proxy row
+    # shows status="unknown" — this is intentional and graceful.
     proxy_up = False
+    proxy_unknown = True
     proxy_last_seen = None
     try:
-        # PREREQUISITE: as of `main` NOTHING writes proxy:heartbeat:* (verified:
-        # no writer in cmd/ or internal/). This program MUST add the producer —
-        # a heartbeat worker in cmd/ja4pd/main.go that SET ... EX a
-        # proxy:heartbeat:{instance_id} key on an interval, TTL ~3× that interval
-        # (see "Prerequisite: heartbeat producer" below). Until it exists this
-        # SCAN returns empty and the proxy reads "down" forever.
-        # If any such key exists, the proxy is up.
         cursor = 0
         while True:
             cursor, keys = await redis.scan(cursor=cursor, match="proxy:heartbeat:*", count=50)
             if keys:
                 proxy_up = True
-                # Read one key's TTL to estimate last-seen
+                proxy_unknown = False
                 ttl = await redis.ttl(keys[0])
-                # TTL counts down from 90s; last_seen = now - (90 - TTL)
                 import time as _time
                 if ttl and ttl > 0:
                     secs_ago = 90 - ttl
                     proxy_last_seen = f"{secs_ago}s ago"
                 break
             if cursor == 0:
+                proxy_unknown = True
                 break
     except Exception as exc:  # noqa: BLE001
         logger.warning("partials | event=infra_proxy_hb_error | error=%s", exc)
@@ -1279,6 +1300,7 @@ async def infrastructure_partial(
             "mem_colour": mem_colour,
             "redis_evictions": redis_evictions,
             "proxy_up": proxy_up,
+            "proxy_unknown": proxy_unknown,
             "proxy_last_seen": proxy_last_seen,
             "analytics_up": analytics_up,
             "analytics_last_seen": analytics_last_seen,
@@ -1400,7 +1422,12 @@ async def infrastructure_partial(
     <!-- Proxy Status -->
     <div>
       <span class="text-xs text-slate-400 block mb-1">Proxy</span>
-      {% if proxy_up %}
+      {% if proxy_unknown %}
+        <span class="flex items-center gap-1 text-xs text-slate-500 font-semibold">
+          <span class="w-2 h-2 rounded-full bg-slate-500 inline-block"></span> Unknown
+        </span>
+        <span class="text-[10px] text-slate-600 block mt-0.5">Heartbeat producer deferred to Phase 239</span>
+      {% elif proxy_up %}
         <span class="flex items-center gap-1 text-xs text-green-400 font-semibold">
           <span class="w-2 h-2 rounded-full bg-green-400 inline-block"></span> UP
         </span>
@@ -1941,22 +1968,17 @@ partial templates; dashboard.html just contains the wiring:
 
 ### 8.1 Pytest commands
 
-All commands run from the project root:
+All commands run from the project root. Per AGENTS.md § Container-Strict Execution,
+**never create or use a host venv**. Use the tools container:
 
 ```bash
 # Run ONLY Phase 234 tests (fast feedback during development)
-.venv/bin/python -m pytest tests/unit/test_pages_rbac.py \
-                            tests/unit/test_threat_posture.py \
-                            tests/unit/test_infrastructure_partial.py \
-                            tests/unit/test_triage_queue.py \
-                            -v --timeout=30
-
-# Run without -x to surface all failures at once (see AGENTS.md)
-.venv/bin/python -m pytest tests/unit/test_pages_rbac.py \
-                            tests/unit/test_threat_posture.py \
-                            tests/unit/test_infrastructure_partial.py \
-                            tests/unit/test_triage_queue.py \
-                            -v --timeout=30 -p no:cacheprovider
+docker run --rm -v "$PWD":/src -w /src ja4proxy-tools \
+  python -m pytest tests/unit/test_pages_rbac.py \
+                    tests/unit/test_threat_posture.py \
+                    tests/unit/test_infrastructure_partial.py \
+                    tests/unit/test_triage_queue.py \
+                    -v --timeout=30
 
 # Full suite before merging (mandatory per AGENTS.md)
 make test
@@ -1988,6 +2010,7 @@ in `docs/phases/manifest.yaml`:
 - [ ] JA4 label lookup from `config:ja4_labels` working
 - [ ] `GET /api/v1/partials/infrastructure` endpoint implemented
 - [ ] `management/templates/partials/infrastructure.html` created
+- [ ] Proxy heartbeat producer deferred to Phase 239; infra row shows "Unknown" until then
 - [ ] HAProxy status documented (N/A fallback acceptable per Section 5.2)
 - [ ] `GET /api/v1/partials/triage-queue` endpoint implemented
 - [ ] `POST /api/v1/triage/dismiss/{ip}` endpoint implemented
@@ -1995,10 +2018,11 @@ in `docs/phases/manifest.yaml`:
 - [ ] `dashboard.html` updated with all four new section slots (Rows 2–4)
 - [ ] **Dashboard answers all 17 questions from the Phase 230 gap table**
   (verify each question in `PHASE_230.md` is now answerable from the dashboard)
+- [ ] `aiohttp` added to `management/requirements.txt`
 - [ ] All unit tests pass with zero warnings: `make test` exits 0
 - [ ] `ruff check management/ tests/` exits 0
 - [ ] `mypy management/` exits 0 (or all errors are approved exceptions)
-- [ ] `CHANGELOG.md` updated
+- [ ] Changelog fragment added to `docs/fragments/phase-234-<slug>.md`
 - [ ] `docs/phases/manifest.yaml` status set to `COMPLETE`
 - [ ] PR opened with `gh pr create --base main`; all four CI checks green
 - [ ] Merged with `gh pr merge --auto --squash --delete-branch`

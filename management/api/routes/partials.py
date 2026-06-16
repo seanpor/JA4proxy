@@ -19,7 +19,9 @@ GET /api/v1/partials/situation      — threat posture situation bar
 import html
 import json
 import logging
+import os
 import time
+from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -467,4 +469,451 @@ async def situation_partial(
             "max_risk": max_risk,
             "dial_value": dial_value,
         },
+    )
+
+
+# ── Threat Posture ──────────────────────────────────────────────────────────────
+# Proxy action vocabulary (verified in internal/security/action_decider.go
+# and internal/metrics/metrics.go): allow, flag, rate_limit, tarpit, block, ban
+
+_STREAM_KEY = "events:connection"
+_JA4_LABELS_KEY = "config:ja4_labels"
+
+_WINDOW_SECONDS: dict[str, int] = {
+    "5m":  5 * 60,
+    "15m": 15 * 60,
+    "1h":  60 * 60,
+    "24h": 24 * 60 * 60,
+}
+_DEFAULT_WINDOW = "15m"
+_VALID_ACTIONS = {"allow", "flag", "rate_limit", "tarpit", "block", "ban"}
+
+
+def _window_min_id(seconds: int) -> str:
+    """Return the Redis stream ID for 'seconds ago'."""
+    min_ms = int((time.time() - seconds) * 1000)
+    return f"{min_ms}-0"
+
+
+@router.get("/api/v1/partials/threat-posture", response_class=HTMLResponse)
+async def threat_posture_partial(
+    request: Request,
+    window: str = Query(_DEFAULT_WINDOW, description="Time window: 5m|15m|1h|24h"),
+    current_user=Depends(get_current_user),
+    redis=Depends(get_redis),
+) -> HTMLResponse:
+    """Return the Threat Posture row as an HTML fragment.
+
+    Reads the event stream for the selected time window and computes:
+    - Top 10 source IPs by maximum risk score
+    - Top 10 JA4 fingerprints by connection count
+    - Action distribution (counts and percentages)
+    - Stream depth (XLEN)
+
+    Polled every 30 seconds by the dashboard (hx-trigger="every 30s").
+    """
+    templates = _get_templates()
+
+    if window not in _WINDOW_SECONDS:
+        window = _DEFAULT_WINDOW
+    window_secs = _WINDOW_SECONDS[window]
+    min_id = _window_min_id(window_secs)
+
+    ip_scores: dict[str, float] = {}
+    ip_actions: dict[str, str] = {}
+    ip_counts: dict[str, int] = defaultdict(int)
+    ja4_counts: dict[str, int] = defaultdict(int)
+    action_dist: dict[str, int] = defaultdict(int)
+    stream_depth = 0
+    total_events = 0
+
+    try:
+        raw = await redis.xrevrange(_STREAM_KEY, max="+", min=min_id, count=5000)
+
+        for _entry_id, fields in raw:
+            total_events += 1
+            raw_event = fields.get("event")
+            if not raw_event:
+                continue
+            try:
+                ev = json.loads(raw_event)
+            except (ValueError, TypeError):
+                continue
+            ip = ev.get("source.ip", "")
+            ja4 = ev.get("ja4proxy.fingerprint.ja4", "")
+            action = ev.get("event.action", "")
+            risk_raw = ev.get("event.risk_score", 0)
+
+            try:
+                score = float(risk_raw)
+            except (ValueError, TypeError):
+                score = 0.0
+
+            if ip:
+                ip_counts[ip] += 1
+                if score > ip_scores.get(ip, -1):
+                    ip_scores[ip] = score
+                    ip_actions[ip] = action
+
+            if ja4:
+                ja4_counts[ja4] += 1
+
+            if action in _VALID_ACTIONS:
+                action_dist[action] += 1
+
+        stream_depth = await redis.xlen(_STREAM_KEY)
+
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("partials | event=threat_posture_redis_error | error=%s", exc)
+
+    top_ips = sorted(ip_scores.items(), key=lambda x: x[1], reverse=True)[:10]
+    top_ip_rows = [
+        {
+            "ip": ip,
+            "score": round(score, 1),
+            "action": ip_actions.get(ip, ""),
+            "count": ip_counts.get(ip, 0),
+        }
+        for ip, score in top_ips
+    ]
+
+    top_ja4_raw = sorted(ja4_counts.items(), key=lambda x: x[1], reverse=True)[:10]
+
+    ja4_labels: dict[str, str] = {}
+    if top_ja4_raw:
+        try:
+            for fp, _ in top_ja4_raw:
+                label = await redis.hget(_JA4_LABELS_KEY, fp)
+                if label:
+                    ja4_labels[fp] = label
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "partials | event=ja4_label_lookup_error | error=%s", exc
+            )
+
+    top_ja4_rows = [
+        {
+            "fingerprint": fp,
+            "label": ja4_labels.get(fp, ""),
+            "count": count,
+        }
+        for fp, count in top_ja4_raw
+    ]
+
+    DISPLAY_ACTIONS = ["allow", "flag", "rate_limit", "tarpit", "block", "ban"]
+    total_actions = sum(action_dist.values()) or 1
+    action_pct = {
+        act: {
+            "count": action_dist.get(act, 0),
+            "pct": round(action_dist.get(act, 0) / total_actions * 100, 1),
+        }
+        for act in DISPLAY_ACTIONS
+    }
+
+    stream_warn = stream_depth > 80_000
+
+    user = current_user[0]
+    role = current_user[1].value
+
+    return templates.TemplateResponse(
+        request,
+        "partials/threat_posture.html",
+        {
+            "user": user,
+            "role": role,
+            "window": window,
+            "windows": list(_WINDOW_SECONDS.keys()),
+            "top_ips": top_ip_rows,
+            "top_ja4": top_ja4_rows,
+            "action_pct": action_pct,
+            "stream_depth": stream_depth,
+            "stream_warn": stream_warn,
+            "total_events": total_events,
+        },
+    )
+
+
+# ── Infrastructure ─────────────────────────────────────────────────────────────
+
+_PROMETHEUS_URL = os.getenv("PROMETHEUS_URL", "http://prometheus:9090")
+
+
+@router.get("/api/v1/partials/infrastructure", response_class=HTMLResponse)
+async def infrastructure_partial(
+    request: Request,
+    current_user=Depends(get_current_user),
+    redis=Depends(get_redis),
+) -> HTMLResponse:
+    """Return the Infrastructure row as an HTML fragment.
+
+    Data sources:
+    - redis.info("memory") → memory usage
+    - redis.info("stats")  → evicted_keys
+    - proxy:heartbeat:*    → proxy up/down (deferred to Phase 239)
+    - analytics:heartbeat  → analytics up/down
+    - tarpit:active_count  → active tarpit connections
+
+    Polled every 30 seconds.
+    """
+    templates = _get_templates()
+
+    redis_mem_used = "?"
+    redis_mem_max = "?"
+    redis_mem_pct = 0.0
+    redis_evictions = 0
+    redis_ok = False
+
+    try:
+        mem_info = await redis.info("memory")
+        stats_info = await redis.info("stats")
+        redis_ok = True
+
+        used_bytes = int(mem_info.get("used_memory", 0))
+        max_bytes  = int(mem_info.get("maxmemory", 0))
+        redis_mem_used = mem_info.get("used_memory_human", "?")
+        redis_mem_max  = mem_info.get("maxmemory_human", "unlimited") if max_bytes else "unlimited"
+
+        if max_bytes > 0:
+            redis_mem_pct = round(used_bytes / max_bytes * 100, 1)
+        else:
+            redis_mem_pct = 0.0
+
+        redis_evictions = int(stats_info.get("evicted_keys", 0))
+
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("partials | event=infra_redis_error | error=%s", exc)
+
+    proxy_up = False
+    proxy_unknown = True
+    proxy_last_seen = None
+    try:
+        cursor = 0
+        while True:
+            cursor, keys = await redis.scan(cursor=cursor, match="proxy:heartbeat:*", count=50)
+            if keys:
+                proxy_up = True
+                proxy_unknown = False
+                ttl = await redis.ttl(keys[0])
+                if ttl and ttl > 0:
+                    secs_ago = 90 - ttl
+                    proxy_last_seen = f"{secs_ago}s ago"
+                break
+            if cursor == 0:
+                proxy_unknown = True
+                break
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("partials | event=infra_proxy_hb_error | error=%s", exc)
+
+    analytics_up = False
+    analytics_last_seen = None
+    try:
+        hb = await redis.get("analytics:heartbeat")
+        if hb:
+            analytics_up = True
+            analytics_last_seen = hb
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("partials | event=infra_analytics_hb_error | error=%s", exc)
+
+    tarpit_active = None
+    try:
+        raw_tarpit = await redis.get("tarpit:active_count")
+        if raw_tarpit is not None:
+            tarpit_active = int(raw_tarpit)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("partials | event=infra_tarpit_count_error | error=%s", exc)
+
+    if redis_mem_pct == 0:
+        mem_colour = "ok"
+    elif redis_mem_pct < 60:
+        mem_colour = "ok"
+    elif redis_mem_pct < 85:
+        mem_colour = "warn"
+    else:
+        mem_colour = "error"
+
+    user = current_user[0]
+    role = current_user[1].value
+
+    return templates.TemplateResponse(
+        request,
+        "partials/infrastructure.html",
+        {
+            "user": user,
+            "role": role,
+            "redis_ok": redis_ok,
+            "redis_mem_used": redis_mem_used,
+            "redis_mem_max": redis_mem_max,
+            "redis_mem_pct": redis_mem_pct,
+            "mem_colour": mem_colour,
+            "redis_evictions": redis_evictions,
+            "proxy_up": proxy_up,
+            "proxy_unknown": proxy_unknown,
+            "proxy_last_seen": proxy_last_seen,
+            "analytics_up": analytics_up,
+            "analytics_last_seen": analytics_last_seen,
+            "tarpit_active": tarpit_active,
+        },
+    )
+
+
+# ── Triage Queue ────────────────────────────────────────────────────────────────
+
+
+@router.get("/api/v1/partials/triage-queue", response_class=HTMLResponse)
+async def triage_queue_partial(
+    request: Request,
+    current_user=Depends(get_current_user),
+    redis=Depends(get_redis),
+) -> HTMLResponse:
+    """Return the Triage Queue as an HTML fragment.
+
+    The triage queue surfaces IPs in the 'grey zone': score 35-65, at least
+    50 connections in the last 24h, not on any list, score trending upward,
+    and not recently dismissed.
+
+    Polled every 60 seconds.
+    """
+    templates = _get_templates()
+
+    try:
+        triage_range_raw = await redis.get("config:triage_range") or "35,65"
+        triage_min_count_raw = await redis.get("config:triage_min_count") or "50"
+        score_min, score_max = (float(x) for x in triage_range_raw.split(",", 1))
+        min_count = int(triage_min_count_raw)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("partials | event=triage_config_error | error=%s", exc)
+        score_min, score_max, min_count = 35.0, 65.0, 50
+
+    min_id_24h = _window_min_id(24 * 60 * 60)
+    ip_scores: dict[str, list[float]] = {}
+    ip_counts: dict[str, int] = {}
+
+    try:
+        raw = await redis.xrevrange(_STREAM_KEY, max="+", min=min_id_24h, count=10000)
+        for _entry_id, fields in raw:
+            raw_event = fields.get("event")
+            if not raw_event:
+                continue
+            try:
+                ev = json.loads(raw_event)
+            except (ValueError, TypeError):
+                continue
+            ip = ev.get("source.ip", "")
+            if not ip:
+                continue
+            try:
+                score = float(ev.get("event.risk_score", 0))
+            except (ValueError, TypeError):
+                score = 0.0
+            ip_scores.setdefault(ip, []).append(score)
+            ip_counts[ip] = ip_counts.get(ip, 0) + 1
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("partials | event=triage_stream_error | error=%s", exc)
+
+    listed_ips: set[str] = set()
+    try:
+        for key in ("static:allowlist", "static:blocklist", "static:watchlist"):
+            members = await redis.smembers(key)
+            listed_ips.update(members)
+        cursor = 0
+        while True:
+            cursor, keys = await redis.scan(cursor=cursor, match="ban:*", count=100)
+            for k in keys:
+                listed_ips.add(k[len("ban:"):])
+            if cursor == 0:
+                break
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("partials | event=triage_list_error | error=%s", exc)
+
+    candidates = []
+    for ip, scores in ip_scores.items():
+        count = ip_counts.get(ip, 0)
+        max_score = max(scores)
+        if max_score < score_min or max_score > score_max:
+            continue
+        if count < min_count:
+            continue
+        if ip in listed_ips:
+            continue
+
+        if len(scores) >= 4:
+            mid = len(scores) // 2
+            first_half_avg = sum(scores[:mid]) / mid
+            second_half_avg = sum(scores[mid:]) / (len(scores) - mid)
+            trend = second_half_avg - first_half_avg
+        else:
+            trend = 0.0
+
+        if trend < 0:
+            continue
+
+        try:
+            dismissed = await redis.get(f"dismissed:triage:{ip}")
+        except Exception:
+            dismissed = None
+        if dismissed:
+            continue
+
+        if trend > 2:
+            trend_label = "↑"
+        elif trend > -2:
+            trend_label = "→"
+        else:
+            trend_label = "↓"
+
+        candidates.append({
+            "ip": ip,
+            "score": round(max_score, 1),
+            "count": count,
+            "trend": trend_label,
+            "trend_value": round(trend, 1),
+        })
+
+    candidates.sort(key=lambda x: x["score"], reverse=True)
+    candidates = candidates[:25]
+
+    user = current_user[0]
+    role = current_user[1].value
+
+    return templates.TemplateResponse(
+        request,
+        "partials/triage_queue.html",
+        {
+            "user": user,
+            "role": role,
+            "candidates": candidates,
+            "total_count": len(candidates),
+        },
+    )
+
+
+@router.post("/api/v1/triage/dismiss/{ip}", response_class=HTMLResponse)
+async def triage_dismiss(
+    ip: str,
+    request: Request,
+    current_user=Depends(get_current_user),
+    redis=Depends(get_redis),
+) -> HTMLResponse:
+    """Dismiss an IP from the triage queue for 4 hours."""
+    import re
+    if not re.match(r'^[\d\.]{7,15}$|^[\da-fA-F:]{3,39}$', ip):
+        from fastapi.responses import HTMLResponse as _H
+        return _H(
+            content='<div class="text-red-400 text-xs p-2">Invalid IP format</div>',
+            status_code=400,
+        )
+
+    try:
+        four_hours = 4 * 3600
+        await redis.set(f"dismissed:triage:{ip}", "1", ex=four_hours)
+        logger.info(
+            "partials | event=triage_dismiss | ip=%s | user=%s",
+            ip, current_user[0]
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("partials | event=triage_dismiss_error | ip=%s | error=%s", ip, exc)
+
+    return HTMLResponse(
+        content=f'<!-- dismissed: {ip} -->',
+        status_code=200,
     )
