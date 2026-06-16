@@ -250,6 +250,55 @@ func TestRenderEnv(t *testing.T) {
 	}
 }
 
+// TestRenderEnvRedacted is the regression for code-scanning alert 95
+// (go/clear-text-logging): the dry-run .env preview must never expose secret
+// values. Every secret key — generated secrets, the admin password, and dynamic
+// threat-intel API keys — must render as the placeholder, while non-secret keys
+// pass through unchanged.
+func TestRenderEnvRedacted(t *testing.T) {
+	a := &Answers{
+		BackendHost:   "10.0.0.1",
+		BackendPort:   443,
+		AdminUser:     "admin",
+		AdminPassword: "sup3r-s3cret-admin-pw",
+		LogLevel:      "INFO",
+		TIKeys:        map[string]string{"ABUSEIPDB_API_KEY": "ti-key-shh-do-not-log"},
+	}
+
+	full := buildEnv(a)             // disk path — must still carry real secrets
+	preview := renderEnvRedacted(a) // stdout path — must be masked
+
+	// Non-secret values still visible in the preview.
+	if !strings.Contains(preview, "BACKEND_HOST=10.0.0.1") {
+		t.Error("redacted preview dropped a non-secret key (BACKEND_HOST)")
+	}
+	if !strings.Contains(preview, "MANAGEMENT_ADMIN_USER=admin") {
+		t.Error("redacted preview dropped MANAGEMENT_ADMIN_USER")
+	}
+
+	// Every generated secret key plus the admin password must be masked, and its
+	// real value (present in the on-disk env) must be absent from the preview.
+	for _, k := range secretEnvKeys {
+		if !strings.Contains(preview, k+"=***REDACTED***") {
+			t.Errorf("secret %s not redacted in preview", k)
+		}
+		if v := full[k]; v != "" && strings.Contains(preview, v) {
+			t.Errorf("secret value for %s leaked into preview", k)
+		}
+	}
+
+	// Dynamic threat-intel API keys are masked and their value never appears.
+	if !strings.Contains(preview, "ABUSEIPDB_API_KEY=***REDACTED***") {
+		t.Error("TI API key not redacted in preview")
+	}
+	if strings.Contains(preview, "ti-key-shh-do-not-log") {
+		t.Error("TI API key value leaked into preview")
+	}
+	if strings.Contains(preview, "sup3r-s3cret-admin-pw") {
+		t.Error("admin password leaked into preview")
+	}
+}
+
 // ── lanes ────────────────────────────────────────────────────────────────────
 
 func TestComputeLanePorts(t *testing.T) {

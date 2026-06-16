@@ -51,10 +51,11 @@ type LaneInfo struct {
 }
 
 type GeneratedConfig struct {
-	Env      string // .env content
-	Systemd  string // systemd unit content
-	ProxyYML string // proxy.yml content
-	HAProxy  string // haproxy.cfg content (empty if not enabled)
+	Env         string // .env content (contains secrets — write to chmod-600 file, never print)
+	EnvRedacted string // .env preview with secret values masked — safe for stdout/logs
+	Systemd     string // systemd unit content
+	ProxyYML    string // proxy.yml content
+	HAProxy     string // haproxy.cfg content (empty if not enabled)
 }
 
 // Wizard orchestrates the setup wizard flow.
@@ -448,6 +449,7 @@ func (w *Wizard) generateConfigs() (*GeneratedConfig, error) {
 
 	env := buildEnv(&w.Answers)
 	envContent := renderEnv(env)
+	envRedacted := renderEnvRedacted(&w.Answers)
 
 	systemdContent := buildSystemdUnit(&w.Answers)
 
@@ -465,10 +467,11 @@ func (w *Wizard) generateConfigs() (*GeneratedConfig, error) {
 	}
 
 	return &GeneratedConfig{
-		Env:      envContent,
-		Systemd:  systemdContent,
-		ProxyYML: proxyYML,
-		HAProxy:  haproxyCfg,
+		Env:         envContent,
+		EnvRedacted: envRedacted,
+		Systemd:     systemdContent,
+		ProxyYML:    proxyYML,
+		HAProxy:     haproxyCfg,
 	}, nil
 }
 
@@ -492,8 +495,8 @@ func (w *Wizard) confirmAndWrite(ctx context.Context) error {
 
 	if w.Answers.DryRun {
 		w.Out.Section("Dry-Run Preview")
-		w.Out.Raw("--- .env ---")
-		w.Out.Raw(cfg.Env)
+		w.Out.Raw("--- .env (secrets redacted) ---")
+		w.Out.Raw(cfg.EnvRedacted)
 		w.Out.Raw("--- systemd unit ---")
 		w.Out.Raw(cfg.Systemd)
 		w.Out.Raw("--- proxy.yml ---")
