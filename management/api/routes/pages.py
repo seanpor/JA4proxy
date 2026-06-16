@@ -9,6 +9,7 @@ the frontend implementation agent — this module only wires the routes.
 """
 
 import logging
+import urllib.parse
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Request
@@ -16,6 +17,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from ..auth import COOKIE_NAME, _decode_token, get_current_user
+from ..redis_client import get_redis
 
 logger = logging.getLogger(__name__)
 
@@ -136,4 +138,49 @@ async def threat_intel_page(
     user, role = _extract_user_and_role(current_user)
     return templates.TemplateResponse(
         request, "threat_intel.html", {"user": user, "role": role}
+    )
+
+
+@router.get("/ip/{ip:path}", response_class=HTMLResponse)
+async def ip_detail_page(
+    request: Request,
+    ip: str,
+    current_user=Depends(get_current_user),
+    redis=Depends(get_redis),
+) -> HTMLResponse:
+    """Render the forensics page for an IP address.
+
+    Uses ``:path`` converter to preserve dots and colons in IPv4/IPv6.
+    """
+    templates = _get_templates()
+    user, role = _extract_user_and_role(current_user)
+    return templates.TemplateResponse(
+        request,
+        "ip_detail.html",
+        {
+            "user": user,
+            "role": role,
+            "ip": urllib.parse.unquote(ip),
+        },
+    )
+
+
+@router.get("/fingerprint/{ja4}", response_class=HTMLResponse)
+async def fingerprint_detail_page(
+    request: Request,
+    ja4: str,
+    current_user=Depends(get_current_user),
+    redis=Depends(get_redis),
+) -> HTMLResponse:
+    """Render the forensics page for a JA4 fingerprint."""
+    templates = _get_templates()
+    user, role = _extract_user_and_role(current_user)
+    return templates.TemplateResponse(
+        request,
+        "fingerprint.html",
+        {
+            "user": user,
+            "role": role,
+            "ja4": ja4,
+        },
     )

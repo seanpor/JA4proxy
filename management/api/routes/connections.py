@@ -31,7 +31,8 @@ does not affect the next page (position-stable).
 import base64
 import json
 import logging
-from datetime import datetime
+import urllib.parse
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -46,6 +47,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["connections"])
 
 _STREAM_KEY = "ja4proxy:events"
+
+# Go proxy stream — events:connection with JSON-in-event payload
+_STREAM_KEY_LIVE = "events:connection"
 _DEFAULT_LIMIT = 100
 _MAX_LIMIT = 10_000  # raised from 500 for compliance bulk exports
 
@@ -260,4 +264,171 @@ async def get_fingerprint_history(
         "fingerprint": ja4,
         "events": events,
         "count": len(events),
+    }
+
+
+@router.get("/api/v1/fingerprints/{ja4}/profile")
+async def get_fingerprint_profile(
+    ja4: str,
+    request: Request,
+    current_user=Depends(require_role(Role.analyst)),
+    redis=Depends(get_redis),
+):
+    """Aggregate profile for a JA4 fingerprint from the live event stream.
+
+    Reads from ``events:connection`` (the stream the Go proxy writes to)
+    and parses the JSON ``event`` field containing flat ECS-dotted keys.
+    """
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+    cutoff_ms = int(cutoff.timestamp() * 1000)
+
+    ips: set[str] = set()
+    action_counts: dict[str, int] = {}
+    hourly_buckets: dict[int, float] = {}
+    total_events = 0
+
+    events = await redis.xrevrange(_STREAM_KEY_LIVE, max="+", min="-", count=5000)
+    for _msg_id, fields in events:
+        raw = fields.get("event", "{}")
+        try:
+            parsed = json.loads(raw)
+        except (json.JSONDecodeError, TypeError):
+            continue
+
+        event_ts = parsed.get("@timestamp", "")
+        if event_ts:
+            try:
+                ts = datetime.fromisoformat(event_ts)
+                if ts.timestamp() * 1000 < cutoff_ms:
+                    break
+            except (ValueError, TypeError):
+                pass
+
+        evt_ja4 = parsed.get("ja4proxy.fingerprint.ja4", "")
+        if evt_ja4 != ja4:
+            continue
+
+        total_events += 1
+        src_ip = parsed.get("source.ip", "")
+        if src_ip:
+            ips.add(src_ip)
+
+        action = parsed.get("event.action", "allow")
+        action_counts[action] = action_counts.get(action, 0) + 1
+
+        if event_ts:
+            try:
+                ts = datetime.fromisoformat(event_ts)
+                hour_key = int(ts.replace(minute=0, second=0, microsecond=0).timestamp())
+                score = parsed.get("event.risk_score", 0)
+                if isinstance(score, (int, float)):
+                    hourly_buckets[hour_key] = max(hourly_buckets.get(hour_key, 0), float(score))
+            except (ValueError, TypeError):
+                pass
+
+    is_banned = await redis.exists(f"ban:{ja4}")
+    is_allowlisted = await redis.sismember("allowlist", ja4)
+
+    return {
+        "ja4": ja4,
+        "total_events": total_events,
+        "unique_ips": len(ips),
+        "ips_sample": sorted(ips)[:20],
+        "action_counts": action_counts,
+        "is_banned": bool(is_banned),
+        "is_allowlisted": bool(is_allowlisted),
+        "hourly_scores": [
+            {"timestamp": k, "max_score": v}
+            for k, v in sorted(hourly_buckets.items())
+        ],
+    }
+
+
+@router.get("/api/v1/ip/{ip:path}/profile")
+async def get_ip_profile(
+    ip: str,
+    request: Request,
+    current_user=Depends(require_role(Role.analyst)),
+    redis=Depends(get_redis),
+):
+    """Aggregate profile for a source IP from the live event stream.
+
+    Uses ``:path`` converter to preserve dots and colons in IPv4/IPv6.
+    Reads from ``events:connection`` and parses the JSON ``event`` field.
+    """
+    ip = urllib.parse.unquote(ip)
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+    cutoff_ms = int(cutoff.timestamp() * 1000)
+
+    ja4_set: set[str] = set()
+    history: list[dict] = []
+    hourly_buckets: dict[int, list[float]] = {}
+    total_events = 0
+
+    events = await redis.xrevrange(_STREAM_KEY_LIVE, max="+", min="-", count=5000)
+    for _msg_id, fields in events:
+        raw = fields.get("event", "{}")
+        try:
+            parsed = json.loads(raw)
+        except (json.JSONDecodeError, TypeError):
+            continue
+
+        event_ts = parsed.get("@timestamp", "")
+        if event_ts:
+            try:
+                ts = datetime.fromisoformat(event_ts)
+                if ts.timestamp() * 1000 < cutoff_ms:
+                    break
+            except (ValueError, TypeError):
+                pass
+
+        src_ip = parsed.get("source.ip", "")
+        if src_ip != ip:
+            continue
+
+        total_events += 1
+        ja4 = parsed.get("ja4proxy.fingerprint.ja4", "")
+        if ja4:
+            ja4_set.add(ja4)
+
+        action = parsed.get("event.action", "allow")
+        score = parsed.get("event.risk_score", 0)
+        try:
+            score = float(score)
+        except (ValueError, TypeError):
+            score = 0.0
+
+        history.append({
+            "timestamp": event_ts,
+            "action": action,
+            "score": score,
+            "ja4": ja4,
+        })
+
+        if event_ts:
+            try:
+                ts = datetime.fromisoformat(event_ts)
+                hour_key = int(ts.replace(minute=0, second=0, microsecond=0).timestamp())
+                if hour_key not in hourly_buckets:
+                    hourly_buckets[hour_key] = []
+                hourly_buckets[hour_key].append(score)
+            except (ValueError, TypeError):
+                pass
+
+    hourly_scores = [
+        {"timestamp": k, "avg_score": round(sum(v) / len(v), 1), "max_score": max(v)}
+        for k, v in sorted(hourly_buckets.items())
+    ]
+
+    is_banned = await redis.exists(f"ban:{ip}")
+
+    return {
+        "ip": ip,
+        "total_events": total_events,
+        "unique_ja4": len(ja4_set),
+        "fingerprints": sorted(ja4_set),
+        "is_banned": bool(is_banned),
+        "geo": {"country": "Unknown", "asn": "Unknown"},
+        "history": history[-50:],
+        "hourly_scores": hourly_scores,
     }
