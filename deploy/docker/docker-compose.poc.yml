@@ -308,8 +308,8 @@ services:
         max-size: "100m"
         max-file: "3"
 
-  # phase-232d: the unauthenticated `admin-api` service (legacy
-  # src/management/app on host port 8091) was decommissioned. All management
+  # phase-232d/232e: the unauthenticated `admin-api` service (host port 8091)
+  # was decommissioned and its legacy source module removed. All management
   # operations now go through the JWT-gated `management` service on port 8090.
 
   test:

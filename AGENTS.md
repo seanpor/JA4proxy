@@ -102,9 +102,26 @@ on. Edit `manifest.yaml`; run `make sync` to preview locally.
 > ### ⚠ Branch protection is ENFORCED on `main`
 >
 > `main` is branch-protected with **`enforce_admins: on`**, so the rule binds
-> *everyone*, admins included. A direct `git push origin main` is rejected, and
-> a PR cannot merge until the four required checks pass (Meta-Validation, Full
-> Lint, Full Test, Security Scan). There is no admin direct-merge shortcut.
+> *everyone*, admins included. A direct `git push origin main` is rejected and
+> there is no admin direct-merge shortcut.
+>
+> **Merging (Phase 332).** Land work with
+> `gh pr merge --auto --squash --delete-branch`; it merges once the required
+> checks pass. `main` is **not** strict (require-branches-up-to-date is **off**),
+> so an independent PR no longer has to rebase every time `main` advances — that
+> rebase-on-base-advance loop was the main merge-race driver. You only need to
+> rebase if your PR genuinely conflicts. *(A GitHub merge queue would automate
+> even that, but merge queue requires an **organization-owned** repo and this one
+> is personal-account-owned, so it is unavailable — see `docs/phases/PHASE_332.md`.)*
+>
+> **Required checks (the merge gate).** The fast required set is Meta-Validation,
+> Full Test, Secrets scan, SAST, the Python/Go dependency audits, Traceability,
+> and lychee. **Full Lint and Security Scan are deliberately NOT in the required
+> PR set** (Phase 332): they are heavy, so you run them locally via
+> **`make preflight`** before opening a PR, and they still run on push-to-`main`
+> (post-merge) and the weekly schedule. Skipping `make preflight` and letting a
+> lint/scan break reach `main` is the failure mode this is watching for. Because
+> `main` is non-strict, run `make preflight` against a reasonably current branch.
 >
 > **Emergency override** (use only when `main` is broken and a fix cannot wait
 > for normal CI): temporarily lift admin enforcement, land the fix, then

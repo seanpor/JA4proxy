@@ -354,7 +354,7 @@ lint: ## Phase 146 — Run all linters (Python, Go, Infra, Docs)
 
 # Security scanning with bandit (medium/high severity, skip B104 bind-all)
 lint-security: bandit-image
-	@$(BANDIT_RUN) bandit -r src/analytics/ src/management/ -ll --skip B104 && echo "  ✓ lint-security passed"
+	@$(BANDIT_RUN) bandit -r src/analytics/ -ll --skip B104 && echo "  ✓ lint-security passed"
 
 # Type checking with mypy (suppress output)
 lint-types:
@@ -368,13 +368,13 @@ lint-types:
 #   pip-audit: CVE scan of requirements.txt; urllib3 CVEs acknowledged (transitive, tracked backlog)
 lint-static: tools-image bandit-image
 	@echo "=== mypy: type checking ==="
-	@$(TOOLS_RUN) mypy src/analytics/ src/management/ && echo "  ✓ mypy passed"
+	@$(TOOLS_RUN) mypy src/analytics/ && echo "  ✓ mypy passed"
 	@echo ""
 	@echo "=== bandit: SAST (medium/high, Python 3.11 — see Dockerfile.bandit) ==="
-	@$(BANDIT_RUN) bandit -r src/analytics/ src/management/ -ll -q --skip B104 && echo "  ✓ bandit passed"
+	@$(BANDIT_RUN) bandit -r src/analytics/ -ll -q --skip B104 && echo "  ✓ bandit passed"
 	@echo ""
 	@echo "=== ruff: linting ==="
-	@$(TOOLS_RUN) ruff check src/analytics/ src/management/ && echo "  ✓ ruff passed (tests advisory only)"
+	@$(TOOLS_RUN) ruff check src/analytics/ && echo "  ✓ ruff passed (tests advisory only)"
 	@echo ""
 	@echo "=== pip-audit: CVE dependency scan ==="
 	@# phase-311: resilient wrapper — retries transient PyPI/OSV outages and
@@ -392,7 +392,7 @@ lint-static: tools-image bandit-image
 
 # Code quality with flake8 (suppress output)
 lint-quality:
-	docker run --rm -v $(PWD):/app python:3.14.0-slim sh -c "cd /app && pip install flake8 && flake8 src/analytics/ src/management/ scripts/ tests/ 2>/dev/null || echo 'Flake8 warnings above, see baseline docs/QUICK_REFERENCE.md'"
+	docker run --rm -v $(PWD):/app python:3.14.0-slim sh -c "cd /app && pip install flake8 && flake8 src/analytics/ scripts/ tests/ 2>/dev/null || echo 'Flake8 warnings above, see baseline docs/QUICK_REFERENCE.md'"
 
 # Coverage reporting with pytest-cov (Phase 16c gate: ≥80% all modules)
 lint-coverage:

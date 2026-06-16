@@ -1,4 +1,14 @@
-"""Phase-231b: unit tests for the single-host setup wizard.
+"""
+DEPRECATED — tests for the deprecated Python setup wizard (setup_wizard.py).
+
+The Python wizard is superseded by the Phase 161 Go-native ``ja4p init``
+command. These tests are retained for reference while the file remains in the
+repository but will be removed when ``setup_wizard.py`` is deleted.
+
+---
+Original docstring:
+
+Phase-231b: unit tests for the single-host setup wizard.
 
 Focus on the security-critical guarantees — strong, unique, never-echoed secrets
 and a 0600 .env — plus input validation and the corrected port scheme.

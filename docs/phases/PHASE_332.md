@@ -1,7 +1,7 @@
 ---
 phase: 332
 title: Merge-Race Reduction & CI Shift-Left
-status: PROPOSED
+status: COMPLETE
 size: SMALL
 created: 2026-06-15
 audience: [developer, operator]
@@ -10,22 +10,51 @@ dependencies: []
 
 # Merge-Race Reduction & CI Shift-Left
 
-> **STATUS: IN_PROGRESS.** A tooling/infra mini-phase. Removes the recurring
-> merge-conflict churn that parallel phase PRs hit, and trials a faster
-> required-check path on GitHub.
+> **STATUS: COMPLETE (2026-06-15).** A tooling/infra mini-phase that removed the
+> recurring merge-conflict churn parallel phase PRs hit, and trimmed the required-
+> check path. **Outcome summary:**
+> - ✅ Generated roadmap docs untracked (Increment 1) — removed the conflict that
+>   hit *every* PR. This was the high-leverage fix.
+> - ✅ `make preflight` + AGENTS.md pre-PR mandate (shift-left).
+> - ✅ Required-check set trimmed: **Full Lint + Security Scan demoted** to
+>   advisory (run via `make preflight` + push-to-`main` + nightly).
+> - ✅ **`strict=false`** on `main` (require-up-to-date OFF) — removes the
+>   rebase-on-base-advance loop that drove most of the remaining races.
+> - ⛔ **GitHub merge queue: UNAVAILABLE.** Merge queue requires an
+>   **organization-owned** repository; `seanpor/JA4proxy` is owned by a personal
+>   account, so the `merge_queue` ruleset rule is rejected (HTTP 422) and the UI
+>   toggle is absent. The `merge_group` CI wiring from Increment 2 is harmless and
+>   stays in place should the repo ever move to an org. `strict=false` is the
+>   substitute.
+> - ⏸️ Manifest `manifest.d/` fragments — **deferred** (low marginal benefit; see
+>   below).
 
 > **Delivery increments (2026-06-15).** To keep PRs reviewable and the blast
 > radius small, this phase lands in increments rather than one sweep. Decisions
-> taken at kickoff: Fix 1 uses **option A (untrack)**; the admin/branch-protection
-> changes (Fix 3 + the Fix 4 required-set flip) are **deferred until the
-> reversible code fixes have merged**, then performed with an explicit go-ahead.
+> taken: Fix 1 uses **option A (untrack)**; **Fix 2 (manifest fragments) is
+> DEFERRED** (see below); the admin/branch-protection changes are split out so
+> the reversible code lands first.
 >
-> - **Increment 1 (this PR):** untrack `TODO.md`/`PROJECT_STATUS.md` (option A) +
->   `make preflight` + the AGENTS.md pre-PR mandate. CI regenerates and publishes
->   the roadmap docs as an artifact; the close-out flow no longer commits them.
-> - **Increment 2 (next):** per-phase `manifest.d/` fragments (Fix 2).
-> - **Increment 3 (admin, on go-ahead):** GitHub merge queue + the time-boxed
->   trimmed-required-check trial (Fix 3 + Fix 4 flip).
+> - **Increment 1 (merged, #173):** untrack `TODO.md`/`PROJECT_STATUS.md`
+>   (option A) + `make preflight` + the AGENTS.md pre-PR mandate. CI regenerates
+>   and publishes the roadmap docs as an artifact; the close-out flow no longer
+>   commits them.
+> - **Increment 2 (this PR):** merge-queue *prerequisites* — `merge_group`
+>   triggers on `ci.yml` + `docs-link-check.yml` so every required check reports
+>   in the queue, with the demoted Lint/Scan/smoke jobs skipped in the queue to
+>   keep it fast. Plus the AGENTS.md merge-queue + trial documentation. **Dormant
+>   until the queue is enabled** (merge_group events only fire under an active
+>   queue), so this PR changes nothing on its own.
+> - **Admin flip (after Increment 2 merges, ordered — see "Admin flip" below):**
+>   trim the required-check set (demote Full Lint + Security Scan), then enable
+>   the merge queue. These are the only steps that touch branch protection.
+>
+> **Fix 2 (manifest `manifest.d/` fragments) — DEFERRED.** After Increment 1
+> removed the conflict that hit *every* PR (the two generated docs), the residual
+> `manifest.yaml` conflicts are rare (only when two agents edit *adjacent*
+> entries) and mechanical, and the merge queue auto-serialises even those. The
+> fragment refactor would touch **9 manifest consumers** + tests + CI for now-low
+> marginal benefit, so it is parked as optional future work rather than built.
 
 ## Problem
 
@@ -181,6 +210,40 @@ optionally `ci.yml` (mark demoted jobs non-blocking on `pull_request`).
 - **Revert trigger:** any lint/scan regression lands on `main` and is not caught
   by the push/nightly run within one cycle → re-add the demoted checks to the
   required set (single branch-protection edit; fully reversible).
+
+## Admin flip — what was applied (2026-06-15)
+
+Two branch-protection changes were applied via the REST API on `main`:
+
+1. **Trimmed the required-check set** — demoted Full Lint + Security Scan.
+   Remaining required contexts (8): Meta-Validation, Full Test, Secrets scan,
+   SAST, Python dep-audit, Go dep-audit, Traceability, lychee.
+2. **Set `strict=false`** (require-branches-up-to-date OFF). This is the
+   substitute for the unavailable merge queue: independent PRs no longer rebase
+   every time `main` advances, which was the dominant remaining race driver.
+
+**Merge queue was attempted and is unavailable.** GitHub only supports merge
+queue on **organization-owned** repositories; this repo is personal-account-
+owned, so the `merge_queue` ruleset rule is rejected with HTTP 422 (confirmed
+even for an isolated, disabled test ruleset) and the UI toggle is absent. If the
+repo ever moves under an org, the `merge_group` CI wiring is already in place —
+enable the queue (Settings → Rules, or a ruleset `merge_queue` rule using the
+trimmed required set) and consider re-evaluating `strict`.
+
+**Revert (single PATCH):** restore `strict=true` and/or re-add `Full Lint (make
+lint)` + `Security Scan (make scan)` to the required contexts. Fully reversible.
+
+```bash
+# revert example
+gh api -X PATCH repos/seanpor/JA4proxy/branches/main/protection/required_status_checks \
+  --input - <<'JSON'
+{ "strict": true, "contexts": ["Meta-Validation (Doctor + Meta-Lint)",
+  "Full Lint (make lint)", "Full Test Suite (make test)", "Security Scan (make scan)",
+  "Secrets scan (TruffleHog)", "SAST (Semgrep)", "Python dependency audit (pip-audit)",
+  "Go dependency audit (govulncheck)", "Traceability matrix check",
+  "lychee on conformance + audience-scoped docs"] }
+JSON
+```
 
 ## Test Strategy
 

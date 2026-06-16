@@ -3,7 +3,7 @@
 
 \chapter{Installation}
 \label{ch:installation}
-\index{installation}\newthought{JA4proxy can be deployed either as a systemd service} (supporting containerized Docker Compose or native Go binaries) or run manually via Docker Compose for local development. For production environments, we provide a secure, zero-compile bootstrapper that installs dependencies, runs an interactive configuration wizard, sets up system-level integrations (systemd, logrotate, daily cron backups), and configures host firewall rules.
+\index{installation}\newthought{JA4proxy can be deployed either as a systemd service} (supporting containerized Docker Compose or native Go binaries) or run manually via Docker Compose for local development. For production environments, we provide a secure, zero-compile bootstrapper that installs dependencies, runs the native Go configuration wizard (\code{ja4p init}), sets up system-level integrations (systemd, logrotate, daily cron backups), and configures host firewall rules.
 
 This chapter covers both the production automated deployment and the local development setup.
 
@@ -20,7 +20,6 @@ This chapter covers both the production automated deployment and the local devel
     \midrule
     Docker Engine & 24.0 & Required for containerized mode \\
     Docker Compose & v2.20 & Required for containerized mode \\
-    Python & 3.10 & Required for the setup wizard \\
     GNU Make & 3.81 & Required for local development commands \\
     Git & Any & For cloning the repository \\
     \bottomrule
@@ -65,7 +64,7 @@ The full stack requires:
 \section{Production Deployment (Automated)}
 \index{production deployment}
 \index{bootstrap.sh}
-\index{setup\_wizard.py}
+\index{ja4p init@\code{ja4p init}}
 
 The production installer automates system dependencies, user creation, config generation, log rotation, cron backups, and firewall rules.
 
@@ -80,21 +79,32 @@ sudo ./scripts/bootstrap.sh --mode native
 \end{bashcode}
 
 \subsection{Step 2: Setup Wizard}
-The bootstrapper automatically launches the setup wizard (\code{setup\_wizard.py}). It will prompt you for:
+The bootstrapper automatically launches the native Go configuration wizard (\code{ja4p init}). It will walk you through:
 \begin{enumerate}
-  \item \textbf{Topology:} Choose \code{inline} (active enforcement via \code{ja4pd}) or \code{tap} (passive sniffing).
-  \item \textbf{Sniff Interface:} (For TAP mode only) the network interface to sniff.
   \item \textbf{Backend Host/Port:} The address and port of your protected backend web server.
   \item \textbf{Deployment Mode:} Run as native binaries or Docker containers.
   \item \textbf{Bind IP:} The local IP for management services (default \code{127.0.0.1} for security).
   \item \textbf{Credentials:} Admin username and password for the Management UI.
+  \item \textbf{Networking:} Upstream load balancer, PROXY protocol, allowed SNIs.
+  \item \textbf{TLS Certificates:} Self-signed or user-supplied certificates.
+  \item \textbf{Threat Intel Keys:} Optional API keys for AbuseIPDB, GreyNoise, MISP, and others.
+  \item \textbf{Hardening:} Firewall backend, Fail2Ban, CrowdSec, monitoring stack, backup encryption.
 \end{enumerate}
 
 \begin{warningbox}[Secrets are Never Echoed]
 To comply with security guidelines, the wizard never prints generated secrets (e.g. Redis passwords, JWT signing keys) to the screen. They are written directly to \code{.env} with secure permissions (\code{chmod 0600}).
 \end{warningbox}
 
-\subsection{Step 3: Service Integration}
+\subsection{Step 3: Generated Files}
+The wizard generates four configuration files:
+\begin{itemize}
+  \item \code{.env} --- Secret environment variables (chmod 600), including generated passwords and keys.
+  \item \code{config/proxy.yml} --- JA4proxy daemon configuration (backend, signals, scoring, logging).
+  \item \code{config/haproxy.cfg} --- HAProxy configuration for multi-proxy deployments (container mode only).
+  \item \code{/etc/systemd/system/ja4proxy.service} --- systemd unit for production service management.
+\end{itemize}
+
+\subsection{Step 4: Service Integration}
 Once complete, the bootstrapper integrates the service into the host operating system:
 \begin{itemize}
   \item \textbf{systemd Unit:} Creates and starts \code{ja4proxy.service}.
