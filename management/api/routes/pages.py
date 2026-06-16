@@ -49,6 +49,18 @@ def _get_optional_user(request: Request) -> Optional[str]:
         return None
 
 
+def _extract_user_and_role(current_user) -> tuple[str, str]:
+    """Extract username and role string from the auth tuple.
+
+    get_current_user() returns (username, Role). This helper unpacks the
+    tuple and returns both values, converting Role to its string value
+    so Jinja2 templates can use simple string comparisons.
+    """
+    username = current_user[0]
+    role = current_user[1].value  # Role is a str Enum; .value gives 'auditor' etc.
+    return username, role
+
+
 @router.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request) -> HTMLResponse:
     """Render the login page. If already authenticated, redirect to /."""
@@ -69,8 +81,9 @@ async def dashboard_page(
 ) -> HTMLResponse:
     """Render the main dashboard page."""
     templates = _get_templates()
+    user, role = _extract_user_and_role(current_user)
     return templates.TemplateResponse(
-        request, "dashboard.html", {"user": current_user[0]}
+        request, "dashboard.html", {"user": user, "role": role}
     )
 
 
@@ -81,7 +94,10 @@ async def lists_page(
 ) -> HTMLResponse:
     """Render the JA4 / IP list management page."""
     templates = _get_templates()
-    return templates.TemplateResponse(request, "lists.html", {"user": current_user[0]})
+    user, role = _extract_user_and_role(current_user)
+    return templates.TemplateResponse(
+        request, "lists.html", {"user": user, "role": role}
+    )
 
 
 @router.get("/bans", response_class=HTMLResponse)
@@ -91,7 +107,10 @@ async def bans_page(
 ) -> HTMLResponse:
     """Render the active bans management page."""
     templates = _get_templates()
-    return templates.TemplateResponse(request, "bans.html", {"user": current_user[0]})
+    user, role = _extract_user_and_role(current_user)
+    return templates.TemplateResponse(
+        request, "bans.html", {"user": user, "role": role}
+    )
 
 
 @router.get("/audit", response_class=HTMLResponse)
@@ -101,7 +120,10 @@ async def audit_page(
 ) -> HTMLResponse:
     """Render the audit log page."""
     templates = _get_templates()
-    return templates.TemplateResponse(request, "audit.html", {"user": current_user[0]})
+    user, role = _extract_user_and_role(current_user)
+    return templates.TemplateResponse(
+        request, "audit.html", {"user": user, "role": role}
+    )
 
 
 @router.get("/threat-intel", response_class=HTMLResponse)
@@ -111,6 +133,7 @@ async def threat_intel_page(
 ) -> HTMLResponse:
     """Render the Phase 85 threat intelligence feeds page."""
     templates = _get_templates()
+    user, role = _extract_user_and_role(current_user)
     return templates.TemplateResponse(
-        request, "threat_intel.html", {"user": current_user[0]}
+        request, "threat_intel.html", {"user": user, "role": role}
     )

@@ -1,0 +1,97 @@
+<!--
+  HTMX Partial: infrastructure.html
+  GET /api/v1/partials/infrastructure
+  Polled every 30s.
+  Template vars: see partials.py infrastructure_partial()
+-->
+<div id="infrastructure"
+     hx-get="/api/v1/partials/infrastructure"
+     hx-trigger="every 30s"
+     hx-swap="outerHTML"
+     class="bg-slate-800 border border-slate-700 rounded-xl p-4 space-y-4">
+
+  <h2 class="text-sm font-semibold text-slate-100">Infrastructure</h2>
+
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+
+    <div class="col-span-2">
+      <div class="flex items-center justify-between mb-1">
+        <span class="text-xs text-slate-400">Redis Memory</span>
+        <span class="text-xs font-mono
+          {% if mem_colour == 'ok' %}text-green-400
+          {% elif mem_colour == 'warn' %}text-amber-400
+          {% else %}text-red-400{% endif %}">
+          {{ redis_mem_used }} / {{ redis_mem_max }}
+          {% if redis_mem_pct > 0 %}({{ redis_mem_pct }}%){% endif %}
+        </span>
+      </div>
+      {% if redis_mem_pct > 0 %}
+      <div class="w-full bg-slate-700 rounded-full h-2" role="progressbar"
+           aria-valuenow="{{ redis_mem_pct }}" aria-valuemin="0" aria-valuemax="100"
+           aria-label="Redis memory usage">
+        <div class="h-2 rounded-full transition-all
+          {% if mem_colour == 'ok' %}bg-green-500
+          {% elif mem_colour == 'warn' %}bg-amber-500
+          {% else %}bg-red-500{% endif %}"
+          style="width: {{ [redis_mem_pct, 100] | min }}%">
+        </div>
+      </div>
+      {% endif %}
+      {% if redis_evictions > 0 %}
+      <div class="mt-1 text-[10px] text-red-400 font-semibold">
+        ⚠ {{ redis_evictions }} key{{ 's' if redis_evictions != 1 }} evicted
+      </div>
+      {% endif %}
+    </div>
+
+    <div>
+      <span class="text-xs text-slate-400 block mb-1">Analytics</span>
+      {% if analytics_up %}
+        <span class="flex items-center gap-1 text-xs text-green-400 font-semibold">
+          <span class="w-2 h-2 rounded-full bg-green-400 inline-block"></span> UP
+        </span>
+        {% if analytics_last_seen %}
+        <span class="text-[10px] text-slate-500 block mt-0.5">
+          {{ analytics_last_seen[:19] | replace("T"," ") }} UTC
+        </span>
+        {% endif %}
+      {% else %}
+        <span class="flex items-center gap-1 text-xs text-red-400 font-semibold">
+          <span class="w-2 h-2 rounded-full bg-red-400 animate-ping inline-block"></span> DOWN
+        </span>
+        <span class="text-[10px] text-slate-500 block mt-0.5">No heartbeat</span>
+      {% endif %}
+    </div>
+
+    <div>
+      <span class="text-xs text-slate-400 block mb-1">Tarpit</span>
+      {% if tarpit_active is not none %}
+        <span class="text-xs text-green-400 font-semibold">{{ tarpit_active }} active</span>
+      {% else %}
+        <span class="text-xs text-slate-500">Unknown</span>
+      {% endif %}
+    </div>
+
+    <div>
+      <span class="text-xs text-slate-400 block mb-1">Proxy</span>
+      {% if proxy_unknown %}
+        <span class="flex items-center gap-1 text-xs text-slate-500 font-semibold">
+          <span class="w-2 h-2 rounded-full bg-slate-500 inline-block"></span> Unknown
+        </span>
+        <span class="text-[10px] text-slate-600 block mt-0.5">Heartbeat producer deferred to Phase 239</span>
+      {% elif proxy_up %}
+        <span class="flex items-center gap-1 text-xs text-green-400 font-semibold">
+          <span class="w-2 h-2 rounded-full bg-green-400 inline-block"></span> UP
+        </span>
+        {% if proxy_last_seen %}
+        <span class="text-[10px] text-slate-500 block mt-0.5">hb {{ proxy_last_seen }}</span>
+        {% endif %}
+      {% else %}
+        <span class="flex items-center gap-1 text-xs text-red-400 font-semibold">
+          <span class="w-2 h-2 rounded-full bg-red-500 animate-ping inline-block"></span> DOWN
+        </span>
+      {% endif %}
+    </div>
+
+  </div>
+</div>
