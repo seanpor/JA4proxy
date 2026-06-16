@@ -98,7 +98,7 @@ phase: 54
 | `fp:ja4:hll:{ja4}` | HyperLogLog | 30d | TAP `FingerprintStore` | Unique-IP cardinality per JA4. |
 | `fp:ja4:count:{ja4}` | String (INCR) | 30d | TAP `FingerprintStore` | Occurrence counter per JA4. |
 | `fp:os:count:{fp}` | String (INCR) | 30d | TAP `FingerprintStore` | Per-OS-fingerprint occurrence counter. |
-| `fp:os:ip:{ip}` | String (OS class) | 24h | TAP `FingerprintStore` | Observed OS class (from JA4T) for the client IP. **Read by:** Go proxy `tap_consumer` (Phase 203a) for OS-mismatch signal. |
+| `fp:os:ip:{ip}` | String (OS class) | 24h | Go TAP sensor `tap.Store` (Phase 316b); formerly Python `FingerprintStore` | Passive OS class observed for the client IP. **Value domain (316b):** exactly one canonical bare class — `windows`, `macos`, `linux`, or `ios` (the `fingerprint.OSClass` vocabulary). `unknown`/ambiguous classifications are **never written** (the key is simply absent), so a reader never sees an encoded or compound value. IP is canonical (`netip.Addr.String()`), v4 and v6. **Read by:** Go proxy `tap_consumer` (Phase 203a) for the OS-mismatch signal, which fires only when both the observed class and the JA4-implied class are concrete and disagree. |
 | `fp:ja4_to_ja4s:{ja4}` | Hash | 7d | TAP `FingerprintStore` | JA4 → JA4S co-occurrence map. |
 
 ---
