@@ -1,0 +1,131 @@
+<!--
+  HTMX Partial: triage_queue.html
+  GET /api/v1/partials/triage-queue
+  Polled every 60 seconds.
+  Template vars:
+    candidates: list[{ip, score, count, trend, trend_value}]
+    total_count: int
+    role: str — current user role for RBAC guards
+-->
+<div id="triage-queue"
+     hx-get="/api/v1/partials/triage-queue"
+     hx-trigger="every 60s"
+     hx-swap="outerHTML"
+     class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+
+  <div class="px-4 py-3 border-b border-slate-700 flex items-center justify-between">
+    <h2 class="text-sm font-semibold text-slate-100">
+      Needs Decision
+      {% if total_count > 0 %}
+      <span class="ml-2 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-600 text-white">
+        {{ total_count }}
+      </span>
+      {% endif %}
+    </h2>
+    <span class="text-xs text-slate-500">Score range 35-65 · 50+ connections/24h · polled 60s</span>
+  </div>
+
+  {% if not candidates %}
+  <div class="px-4 py-8 text-center">
+    <span class="text-green-400 text-lg">✓</span>
+    <p class="text-sm text-slate-400 mt-1">No IPs in the grey zone — system is acting decisively.</p>
+  </div>
+
+  {% else %}
+  <table class="w-full text-xs" aria-label="Triage queue">
+    <thead>
+      <tr class="border-b border-slate-700">
+        <th class="px-4 py-2 text-left text-slate-400 font-medium">IP</th>
+        <th class="px-4 py-2 text-right text-slate-400 font-medium">Score</th>
+        <th class="px-4 py-2 text-right text-slate-400 font-medium">24h Conn</th>
+        <th class="px-4 py-2 text-center text-slate-400 font-medium">Trend</th>
+        <th class="px-4 py-2 text-right text-slate-400 font-medium">Actions</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-slate-700/50">
+      {% for row in candidates %}
+      <tr id="triage-row-{{ row.ip | replace('.', '-') }}"
+          class="hover:bg-slate-700/30 transition-colors">
+
+        <td class="px-4 py-2.5 font-mono text-slate-200">
+          <a href="/ip/{{ row.ip }}"
+             class="hover:text-sky-400 transition-colors"
+             title="View IP detail">{{ row.ip }}</a>
+        </td>
+
+        <td class="px-4 py-2.5 text-right font-mono font-semibold
+                   {% if row.score >= 55 %}text-orange-400
+                   {% elif row.score >= 45 %}text-yellow-400
+                   {% else %}text-slate-300{% endif %}">
+          {{ row.score }}
+        </td>
+
+        <td class="px-4 py-2.5 text-right text-slate-400">{{ row.count }}</td>
+
+        <td class="px-4 py-2.5 text-center
+                   {% if row.trend == '↑' %}text-red-400
+                   {% elif row.trend == '↓' %}text-green-400
+                   {% else %}text-slate-400{% endif %}">
+          {{ row.trend }}
+          <span class="sr-only">
+            {% if row.trend == '↑' %}Trending upward
+            {% elif row.trend == '↓' %}Trending downward
+            {% else %}Stable{% endif %}
+          </span>
+        </td>
+
+        <td class="px-4 py-2.5 text-right">
+          <div class="flex items-center justify-end gap-1">
+
+            {% if role in ['operator', 'admin'] %}
+            <button
+              id="triage-block-{{ row.ip | replace('.', '-') }}"
+              class="px-2 py-1 text-[10px] font-semibold rounded
+                     bg-red-900/60 text-red-300 hover:bg-red-800 transition-colors"
+              type="button"
+              title="Block {{ row.ip }} — opens confirmation modal"
+              data-action="block"
+              data-ip="{{ row.ip }}"
+              data-score="{{ row.score }}"
+              onclick="if(window.ConfirmModal) ConfirmModal.open({action:'block',ip:'{{ row.ip }}',score:{{ row.score }}});">
+              Block
+            </button>
+
+            <button
+              id="triage-watchlist-{{ row.ip | replace('.', '-') }}"
+              class="px-2 py-1 text-[10px] font-semibold rounded
+                     bg-blue-900/60 text-blue-300 hover:bg-blue-800 transition-colors"
+              type="button"
+              title="Add {{ row.ip }} to watchlist"
+              data-action="watchlist"
+              data-ip="{{ row.ip }}"
+              data-score="{{ row.score }}"
+              onclick="if(window.ConfirmModal) ConfirmModal.open({action:'watchlist',ip:'{{ row.ip }}',score:{{ row.score }}});">
+              Watchlist
+            </button>
+            {% endif %}
+
+            {% if role in ['analyst', 'operator', 'admin'] %}
+            <button
+              id="triage-dismiss-{{ row.ip | replace('.', '-') }}"
+              class="px-2 py-1 text-[10px] font-semibold rounded
+                     bg-slate-700 text-slate-400 hover:bg-slate-600 transition-colors"
+              type="button"
+              title="Dismiss {{ row.ip }} for 4 hours"
+              hx-post="/api/v1/triage/dismiss/{{ row.ip }}"
+              hx-swap="outerHTML"
+              hx-target="#triage-row-{{ row.ip | replace('.', '-') }}"
+              hx-confirm="">
+              Dismiss 4h
+            </button>
+            {% endif %}
+
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+</div>

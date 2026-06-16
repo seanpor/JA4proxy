@@ -34,7 +34,37 @@
     </div>
   </section>
 
-  <!-- ── Row 2: Live feed + Dial widget ─────────────────────────── -->
+  <!-- ── Row 2: Threat Posture (30s poll, Phase 234 Sub-task B) ──── -->
+  <section aria-label="Threat posture">
+    <div id="threat-posture-outer"
+         hx-get="/api/v1/partials/threat-posture?window=15m"
+         hx-trigger="load"
+         hx-swap="outerHTML">
+      <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 animate-pulse h-48"></div>
+    </div>
+  </section>
+
+  <!-- ── Row 3: Infrastructure (30s poll, Phase 234 Sub-task C) ──── -->
+  <section aria-label="Infrastructure status">
+    <div id="infrastructure-outer"
+         hx-get="/api/v1/partials/infrastructure"
+         hx-trigger="load"
+         hx-swap="outerHTML">
+      <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 animate-pulse h-24"></div>
+    </div>
+  </section>
+
+  <!-- ── Row 4: Triage Queue (60s poll, Phase 234 Sub-task D) ────── -->
+  <section aria-label="Triage queue">
+    <div id="triage-queue-outer"
+         hx-get="/api/v1/partials/triage-queue"
+         hx-trigger="load"
+         hx-swap="outerHTML">
+      <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 animate-pulse h-20"></div>
+    </div>
+  </section>
+
+  <!-- ── Row 5: Live feed + Dial widget ─────────────────────────── -->
   <section class="grid grid-cols-1 lg:grid-cols-3 gap-6" aria-label="Live connections and dial">
 
     <!-- Live feed (2/3 width) -->

@@ -1,0 +1,239 @@
+<!--
+  HTMX Partial: threat_posture.html
+  GET /api/v1/partials/threat-posture?window=15m
+  Polled every 30s.
+  Template vars:
+    window: str — current window key (e.g. "15m")
+    windows: list[str] — ["5m","15m","1h","24h"]
+    top_ips: list[{ip, score, action, count}]
+    top_ja4: list[{fingerprint, label, count}]
+    action_pct: dict — {action: {count, pct}} for allow/flag/rate_limit/tarpit/block/ban
+    stream_depth: int
+    stream_warn: bool
+    total_events: int
+-->
+
+{% macro action_badge(action) %}
+  {% set colours = {
+    "allow":      "bg-green-900/60 text-green-300",
+    "flag":       "bg-blue-900/60 text-blue-300",
+    "rate_limit": "bg-yellow-900/60 text-yellow-300",
+    "tarpit":     "bg-orange-900/60 text-orange-300",
+    "block":      "bg-red-900/60 text-red-300",
+    "ban":        "bg-red-900/60 text-red-300",
+  } %}
+  <span class="px-2 py-0.5 rounded text-[10px] font-mono font-semibold
+               {{ colours.get(action, 'bg-slate-700 text-slate-300') }}">
+    {{ action | replace('_', ' ') | upper }}
+  </span>
+{% endmacro %}
+
+<div id="threat-posture"
+     hx-get="/api/v1/partials/threat-posture?window={{ window }}"
+     hx-trigger="every 30s"
+     hx-swap="outerHTML"
+     class="space-y-4">
+
+  <div class="flex items-center justify-between">
+    <h2 class="text-sm font-semibold text-slate-100">
+      Threat Posture
+      <span class="ml-2 text-xs font-normal text-slate-400">
+        {{ total_events }} events · stream depth: {{ stream_depth }}
+        {% if stream_warn %}
+        <span class="ml-1 text-orange-400 font-semibold" title="Approaching 100k MAXLEN cap">⚠ {{ stream_depth }}</span>
+        {% else %}
+        <span class="text-slate-500">{{ stream_depth }}</span>
+        {% endif %}
+      </span>
+    </h2>
+
+    <div class="flex gap-1" role="tablist" aria-label="Threat posture time window">
+      {% for w in windows %}
+      <button
+        id="window-tab-{{ w }}"
+        role="tab"
+        aria-selected="{{ 'true' if w == window else 'false' }}"
+        class="px-2.5 py-1 text-xs rounded
+               {% if w == window %}
+                 bg-sky-600 text-white font-semibold
+               {% else %}
+                 bg-slate-700 text-slate-300 hover:bg-slate-600
+               {% endif %}"
+        onclick="setThreatWindow('{{ w }}')"
+        type="button">{{ w }}</button>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+      <div class="px-4 py-2.5 border-b border-slate-700">
+        <h3 class="text-xs font-semibold text-slate-300">Top 10 Source IPs</h3>
+      </div>
+      {% if top_ips %}
+      <table class="w-full text-xs" aria-label="Top source IPs">
+        <thead>
+          <tr class="border-b border-slate-700">
+            <th class="px-3 py-2 text-left text-slate-400 font-medium">IP</th>
+            <th class="px-3 py-2 text-right text-slate-400 font-medium">Score</th>
+            <th class="px-3 py-2 text-left text-slate-400 font-medium">Action</th>
+            <th class="px-3 py-2 text-right text-slate-400 font-medium">Count</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-700/50">
+          {% for row in top_ips %}
+          <tr class="hover:bg-slate-700/30 transition-colors">
+            <td class="px-3 py-2 font-mono text-slate-200">
+              <a href="/ip/{{ row.ip }}"
+                 class="hover:text-sky-400 transition-colors"
+                 title="View IP detail">{{ row.ip }}</a>
+            </td>
+            <td class="px-3 py-2 text-right font-mono
+                       {% if row.score >= 80 %}text-red-400
+                       {% elif row.score >= 50 %}text-orange-400
+                       {% else %}text-slate-300{% endif %}">
+              {{ row.score }}
+            </td>
+            <td class="px-3 py-2">{{ action_badge(row.action) }}</td>
+            <td class="px-3 py-2 text-right text-slate-400">{{ row.count }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="px-4 py-6 text-xs text-slate-500 text-center">
+        No events in the {{ window }} window.
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+      <div class="px-4 py-2.5 border-b border-slate-700">
+        <h3 class="text-xs font-semibold text-slate-300">Top 10 JA4 Fingerprints</h3>
+      </div>
+      {% if top_ja4 %}
+      <table class="w-full text-xs" aria-label="Top JA4 fingerprints">
+        <thead>
+          <tr class="border-b border-slate-700">
+            <th class="px-3 py-2 text-left text-slate-400 font-medium">Fingerprint</th>
+            <th class="px-3 py-2 text-right text-slate-400 font-medium">Count</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-700/50">
+          {% for row in top_ja4 %}
+          <tr class="hover:bg-slate-700/30 transition-colors">
+            <td class="px-3 py-2">
+              <a href="/fingerprint/{{ row.fingerprint }}"
+                 class="hover:text-sky-400 transition-colors font-mono"
+                 title="View fingerprint detail">
+                {% if row.label %}
+                  <span class="text-slate-200 font-semibold">{{ row.label }}</span>
+                  <span class="text-slate-500 ml-1 text-[10px]">{{ row.fingerprint[:12] }}…</span>
+                {% else %}
+                  <span class="text-slate-400">{{ row.fingerprint }}</span>
+                {% endif %}
+              </a>
+            </td>
+            <td class="px-3 py-2 text-right text-slate-400">{{ row.count }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="px-4 py-6 text-xs text-slate-500 text-center">
+        No events in the {{ window }} window.
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="bg-slate-800 border border-slate-700 rounded-xl p-4">
+    <h3 class="text-xs font-semibold text-slate-300 mb-3">Action Distribution</h3>
+    <svg class="w-full h-0" height="0">
+      <defs>
+        <pattern id="pat-flag"       width="4" height="4" patternUnits="userSpaceOnUse">
+          <path d="M-1,1 l2,-2 M0,4 l4,-4 M3,5 l2,-2" stroke="#3b82f6" stroke-width="1"/>
+        </pattern>
+        <pattern id="pat-rate_limit" width="4" height="4" patternUnits="userSpaceOnUse">
+          <circle cx="2" cy="2" r="1" fill="#eab308"/>
+        </pattern>
+        <pattern id="pat-block"      width="4" height="4" patternUnits="userSpaceOnUse">
+          <path d="M0,0 l4,4 M4,0 l-4,4" stroke="#ef4444" stroke-width="1"/>
+        </pattern>
+        <pattern id="pat-tarpit"     width="4" height="4" patternUnits="userSpaceOnUse">
+          <path d="M0,2 h4" stroke="#f97316" stroke-width="1"/>
+        </pattern>
+        <pattern id="pat-ban"        width="4" height="4" patternUnits="userSpaceOnUse">
+          <path d="M0,0 l4,4 M4,0 l-4,4" stroke="#dc2626" stroke-width="0.5"/>
+          <path d="M0,2 h4" stroke="#dc2626" stroke-width="0.5"/>
+        </pattern>
+      </defs>
+    </svg>
+
+    {# Proxy action vocabulary: allow, flag, rate_limit, tarpit, block, ban #}
+    <div class="flex h-6 rounded overflow-hidden w-full" role="img" aria-label="Action distribution bar">
+      {% set action_meta = {
+        'allow':     ('#16a34a', ''),
+        'flag':      ('#3b82f6', 'url(#pat-flag)'),
+        'rate_limit':('#eab308', 'url(#pat-rate_limit)'),
+        'tarpit':    ('#f97316', 'url(#pat-tarpit)'),
+        'block':     ('#ef4444', 'url(#pat-block)'),
+        'ban':       ('#dc2626', 'url(#pat-ban)'),
+      } %}
+      {% for action in ['allow', 'flag', 'rate_limit', 'tarpit', 'block', 'ban'] %}
+      {% set pct = action_pct[action].pct %}
+      {% set colour, pattern = action_meta[action] %}
+      {% if pct > 0 %}
+      <div
+        title="{{ action | replace('_', ' ') | title }}: {{ action_pct[action].count }} ({{ pct }}%)"
+        style="width: {{ pct }}%; background-color: {{ colour }};{% if pattern %} background-image: {{ pattern }};{% endif %}"
+        class="relative group">
+        {% if pct > 5 %}
+        <span class="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white/80">
+          {{ pct }}%
+        </span>
+        {% endif %}
+      </div>
+      {% endif %}
+      {% endfor %}
+    </div>
+
+    <div class="flex flex-wrap gap-3 mt-2">
+      {% set legend = {
+        'allow':     '#16a34a',
+        'flag':      '#3b82f6',
+        'rate_limit':'#eab308',
+        'tarpit':    '#f97316',
+        'block':     '#ef4444',
+        'ban':       '#dc2626',
+      } %}
+      {% for action, colour in legend.items() %}
+      <div class="flex items-center gap-1 text-[10px] text-slate-400">
+        <span class="w-2.5 h-2.5 rounded-sm inline-block" style="background:{{ colour }}"></span>
+        {{ action | replace('_', ' ') | title }}: {{ action_pct[action].count }}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+</div>
+
+<script>
+function setThreatWindow(w) {
+  localStorage.setItem('threat_posture_window', w);
+  var url = '/api/v1/partials/threat-posture?window=' + encodeURIComponent(w);
+  var container = document.getElementById('threat-posture');
+  if (container) {
+    container.setAttribute('hx-get', url);
+    htmx.trigger(container, 'refresh');
+  }
+}
+
+(function () {
+  var stored = localStorage.getItem('threat_posture_window');
+  if (stored && stored !== '{{ window }}') {
+    setThreatWindow(stored);
+  }
+})();
+</script>
