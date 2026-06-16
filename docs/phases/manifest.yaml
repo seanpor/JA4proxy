@@ -2771,7 +2771,7 @@ phases:
     dependencies: [231, 233]
     size: LARGE
     summary: Pass user role to templates to implement RBAC visibility controls, implement the Threat Posture dashboard row, add the Infrastructure service status row, and implement the Triage Queue for undecided clients.
-   235:
+  235:
     name: Fingerprint & IP Drill-Down Pages
     status: IN_PROGRESS
     action_plan: docs/phases/PHASE_235.md
