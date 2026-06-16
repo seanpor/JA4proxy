@@ -50,8 +50,9 @@ image whose upstream has since shipped a fixed tag, then remove its row).
 
 | Image (pinned) | CVE(s) | Package | Upstream fix status | Recheck |
 |---|---|---|---|---|
-| `redis/redis-stack:7.4.0-v8` | CVE-2025-68973 | `gpgv` | Fixed in Ubuntu base `2.2.27-3ubuntu2.5`; awaiting redis-stack rebuild (already newest tag) | 2026-06-27 |
-| `redis/redis-stack:7.4.0-v8` | CVE-2026-45447 | `libssl3`, `libssl-dev` | Fixed in OpenSSL `3.0.2-0ubuntu1.25`; awaiting redis-stack rebuild | 2026-06-27 |
+| ~~`redis/redis-stack:7.4.0-v8`~~ | ~~CVE-2025-68973~~ | ~~`gpgv`~~ | ~~Fixed in Ubuntu base; awaiting redis-stack rebuild~~ | ~~2026-06-27~~ |
+| ~~`redis/redis-stack:7.4.0-v8`~~ | ~~CVE-2026-45447~~ | ~~`libssl3`, `libssl-dev`~~ | ~~Fixed in OpenSSL; awaiting redis-stack rebuild~~ | ~~2026-06-27~~ |
+| `redis:7.4.0-alpine` | — | — | Replaced `redis/redis-stack` — Phase 233; no CVE waivers required for this image | 2026-06-15 |
 | `prom/prometheus:v3.12.0` | CVE-2026-42504 | Go `stdlib` | Fixed in Go 1.26.4; awaiting upstream rebuild (already newest tag) | 2026-06-27 |
 | `prom/node-exporter:v1.11.1` | CVE-2026-32280/32281/32283/33810/33811/33814/39820/39823/39825/39836/42499/42504 | Go `stdlib` | Fixed in Go 1.25.9–1.26.4; awaiting upstream rebuild (already newest tag) | 2026-06-27 |
 | `grafana/grafana:13.0.2-ubuntu` | CVE-2026-21728, CVE-2026-28377 | `grafana/tempo` | Fixed in tempo 2.8.4/2.9.2/2.10.2/2.10.3; awaiting grafana rebuild | 2026-06-27 |

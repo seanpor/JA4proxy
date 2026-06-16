@@ -94,10 +94,19 @@ async def health_cards_partial(
     redis_status = "error"
     active_bans = 0
     events_per_min = 0
+    evictions = 0
 
     try:
         await redis.ping()
         redis_status = "ok"
+
+        # Eviction count: query via INFO stats
+        try:
+            info = await redis.info("stats")
+            if info:
+                evictions = int(info.get("evicted_keys", 0))
+        except Exception as exc:
+            logger.warning("partials | event=redis_info_error | error=%s", exc)
 
         # Count active bans via SCAN
         cursor = 0
@@ -125,9 +134,9 @@ async def health_cards_partial(
     health_cards = [
         {
             "label": "Redis",
-            "value": "OK" if redis_status == "ok" else "DOWN",
+            "value": f"OK ({evictions} evictions)" if redis_status == "ok" else "DOWN",
             "unit": "",
-            "status": "ok" if redis_status == "ok" else "error",
+            "status": "ok" if (redis_status == "ok" and evictions == 0) else ("warn" if evictions < 100 else "error"),
             "icon_path": "M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4",
         },
         {
