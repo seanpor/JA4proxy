@@ -410,3 +410,68 @@ and `ja4proxy_tap_ja4t_signal_total{action}`.
 
 The least-privilege ACL above (`~fp:*`) already covers `fp:ja4t:ip`; no change
 needed.
+
+## Go TAP Sensor (Phase 316d) — Out-of-Band Enforcement Bridge
+
+The sensor can *act* on a blocklisted JA4T — out of band, since it is never
+inline. It reuses the project's existing ban channel: the canonical `ban:{ip}`
+key the inline proxy already hard-blocks on (Phase 231a). A passive sensor can
+never block the connection it is observing, so enforcement is inherently
+**"one-strike"**: the *next* connection from that IP is the one the inline proxy
+refuses.
+
+There is no pub/sub fan-out and no iptables/BGP/webhook blocker in this binary —
+those would expand the sensor far past its least-privilege design. External
+blockers are 316e (exporters) territory.
+
+### Two tiers — advisory by default, blocking only when armed
+
+| Posture | Trigger config | What the sensor writes | Effect |
+|---|---|---|---|
+| **Advisory (default)** | `--ja4t-blocklist=<fps>` | `fp:ban_intent:ip:{ip}` (provenance `ja4t=…`, 1h) | **Nothing blocks.** This is the monitor-first surface — review it before arming. |
+| **Armed** | `--ja4t-blocklist=<fps> --enforce` **+** ACL `~ban:*` | also `ban:{ip}` (provenance `tap_enforce:ja4t=…`, short TTL, default 5m) | Inline proxy blocks the client's **next** connection. |
+
+Arming is a conscious **two-step**: the `--enforce` flag *and* a widened Redis
+ACL. With the default least-privilege ACL (`~fp:*`) the sensor physically cannot
+write `ban:`, so `--enforce` alone is a safe no-op that logs the failed writes as
+`error`. On startup an armed sensor emits a loud `WARN` and sets
+`ja4proxy_tap_enforcement_armed=1`, mirroring the inline proxy's high-risk-bypass
+arming convention.
+
+```
+# Default — advisory watchlist only (no ACL change):
+ja4-tap --interface eth1 --redis-url redis://redis:6379/0 \
+        --ja4t-blocklist "65535_2-1-3-1-1-8-4_1460_7"
+
+# Armed — also writes enforceable ban:{ip} (needs the widened ACL below):
+ja4-tap --interface eth1 --redis-url redis://redis:6379/0 \
+        --ja4t-blocklist "65535_2-1-3-1-1-8-4_1460_7" --enforce --ban-ttl 5m
+```
+
+Widened ACL for an **armed** sensor (only when you have reviewed the watchlist):
+
+```
+ACL SETUSER ja4tap on >SECRET ~fp:* ~ban:* +set +expire
+```
+
+### Safety invariants (non-negotiable)
+
+- **Empty blocklist ⇒ can never fire.** With no `--ja4t-blocklist`, a passive
+  misclassification cannot produce a ban — by construction, not by policy.
+- **Fail-open everywhere.** An unparsable IP, a nil/unreachable Redis, or a
+  failed watchlist write all count and stop; a failed watchlist write never
+  escalates to a ban (a sick Redis must not start blocking real users).
+- **Short ban TTL.** A sensor-written ban expires fast (default 5m) so a misfire
+  self-heals, per the core asymmetry (a blocked real user is the expensive
+  error).
+- **Single-IP only.** No CIDR auto-expansion — that blast radius belongs to
+  RDAP block-expansion, not a passive guess.
+- **GDPR.** Both `fp:ban_intent:ip` and `ban:{ip}` are purged by
+  `scripts/gdpr_delete.py`.
+
+### Metrics
+
+`ja4proxy_tap_enforcement_actions_total{result="skipped|watchlist|banned|error"}`
+and the `ja4proxy_tap_enforcement_armed` gauge, both on the sensor's registry.
+`watchlist` advancing with `banned` flat means advisory mode is working as
+intended; `banned` only ever advances when armed.

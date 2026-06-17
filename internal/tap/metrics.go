@@ -45,6 +45,27 @@ var (
 		Name: "ja4proxy_tap_ja4t_written_total",
 		Help: "Passive JA4T TCP fingerprints written to fp:ja4t:ip, by result (written|skipped_unknown|error). skipped_unknown counts SYN-less connections (no JA4T) and nil-backend dry runs.",
 	}, []string{"result"})
+	// EnforcementActionsTotal counts out-of-band enforcement decisions (Phase
+	// 316d). The result="error" label supersedes the outline's separate
+	// ja4proxy_tap_enforcement_errors_total — one counter, one taxonomy.
+	EnforcementActionsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "ja4proxy_tap_enforcement_actions_total",
+		Help: "TAP out-of-band enforcement decisions, by result (skipped|watchlist|banned|error). watchlist = advisory fp:ban_intent recorded (default); banned = enforceable ban:{ip} written (armed only); skipped = no blocklist match / empty blocklist / no JA4T / no backend; error = unparsable IP or Redis write failed (fail-open).",
+	}, []string{"result"})
+	// EnforcementArmed mirrors the high-risk-bypass arming convention: 1 when
+	// the sensor will write enforceable ban:{ip} keys, 0 when advisory-only.
+	EnforcementArmed = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "ja4proxy_tap_enforcement_armed",
+		Help: "1 when the sensor is armed to write enforceable ban:{ip} keys (active blocking); 0 when advisory-only (default).",
+	})
+)
+
+// results for EnforcementActionsTotal (Phase 316d).
+const (
+	enfSkipped   = "skipped"   // no blocklist match / empty blocklist / no JA4T / nil backend
+	enfWatchlist = "watchlist" // advisory ban intent recorded; nothing blocks (default)
+	enfBanned    = "banned"    // ban:{ip} written; inline proxy enforces on next connection (armed)
+	enfError     = "error"     // unparsable IP or Redis write failed; dropped fail-open
 )
 
 // results for FingerprintsWrittenTotal (Phase 316b).
@@ -65,6 +86,8 @@ func Collectors() []prometheus.Collector {
 		WorkerRestartsTotal,
 		FingerprintsWrittenTotal,
 		JA4TWrittenTotal,
+		EnforcementActionsTotal,
+		EnforcementArmed,
 	}
 }
 

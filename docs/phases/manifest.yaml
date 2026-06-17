@@ -2654,11 +2654,11 @@ phases:
     summary: 'Re-scoped after critical review (the original "full JA4 family" outline was largely infeasible on passive encrypted TLS — JA4H/JA4H2/JA4SSH need plaintext app/SSH data, JA4X needs the TLS1.3-encrypted Certificate, QUIC needs UDP — and nothing read the keys). This slice ships the one feasible client-side fingerprint paired with a real consumer: the sensor computes the canonical JA4T from each SYN (reusing 316b StackFeatures), writes fp:ja4t:ip:{ip} (24h), and a new inline ja4t_consumer emits an advisory, default-silent tap_ja4t_blocklist signal (empty blocklist by default, scored under the dial, never hard-blocks). JA4H/JA4H2/JA4SSH dropped from the roadmap as infeasible; JA4S/JA4L/JA4X(≤TLS1.2)/QUIC deferred to their own slices, each to land with its consumer. IN_PROGRESS.'
   316d:
     name: Go TAP Out-of-Band Enforcement Bridge
-    status: PROPOSED
+    status: COMPLETE
     action_plan: docs/phases/PHASE_316d.md
-    dependencies: [316b]
+    dependencies: [316a, 316b, 316c]
     size: MEDIUM
-    summary: 'OUTLINE — detailed plan before start. Implementation of the enforcement bridge: when the sensor identifies a high-risk client (e.g. bot JA4 + OS-mismatch), it writes a temporary ban key to Redis that the inline ja4proxy enforces on the NEXT connection from that IP. Advisory by default; includes the "one-strike" bypass logic. PROPOSED — outline.'
+    summary: 'Re-scoped after critical review (ADR-316d): the original outline''s ja4proxy:bans pub/sub has no Go consumer (dropped) and its iptables/BGP/webhook blockers would break the sensor''s least-privilege design (deferred to 316e). Instead the cmd/ja4-tap sensor enforces out of band by reusing the canonical ban:{ip} key the inline proxy already hard-blocks on (Phase 231a). Two tiers: advisory by default (a blocklisted JA4T is recorded only to fp:ban_intent:ip:{ip}, nothing blocks, empty blocklist can never fire); armed only on a conscious two-step (--enforce AND a widened Redis ACL ~ban:*), which also writes a short-TTL ban:{ip} (provenance value) so the inline proxy refuses the client''s NEXT connection (passive one-strike). Fail-open in every branch; a failed watchlist write never escalates to a ban; single-IP only (no CIDR expansion). New metrics ja4proxy_tap_enforcement_actions_total{result} + ja4proxy_tap_enforcement_armed gauge; gdpr_delete covers fp:ban_intent:ip. Unit + miniredis closed-loop tests prove armed→ban:{ip} and unarmed→watchlist-only. COMPLETE.'
   316e:
     name: Go TAP Intelligence Exporters
     status: PROPOSED
