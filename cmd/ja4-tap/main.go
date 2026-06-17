@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -46,25 +47,48 @@ func main() {
 		frameSize = flag.Int("frame-size", 0, "AF_PACKET frame size (0 = library default)")
 		quiet     = flag.Bool("quiet", false, "suppress per-handshake output; print only the final summary")
 		redisURL  = flag.String("redis-url", "", "Redis URL to write passive fingerprints to fp:os:ip and fp:ja4t:ip (empty = classify-and-log only, no writes)")
+		enforce   = flag.Bool("enforce", false, "ARM active blocking: write enforceable ban:{ip} keys for blocklisted clients (off = advisory fp:ban_intent watchlist only; arming also needs a widened Redis ACL ~ban:*)")
+		ja4tBlock = flag.String("ja4t-blocklist", "", "comma-separated JA4T fingerprints that trigger an out-of-band ban intent (empty = enforcement can never fire)")
+		banTTL    = flag.Duration("ban-ttl", 5*time.Minute, "TTL for a sensor-written ban:{ip} (kept short by the fail-open asymmetry)")
+		intentTTL = flag.Duration("intent-ttl", time.Hour, "TTL for an advisory fp:ban_intent:ip watchlist entry")
 	)
 	flag.Parse()
 
 	log := logrus.New()
-	if err := run(*pcapFile, *iface, *frameSize, *quiet, *redisURL, log); err != nil {
+	enfCfg := tap.EnforcerConfig{
+		Armed:         *enforce,
+		JA4TBlocklist: parseBlocklist(*ja4tBlock),
+		BanTTL:        *banTTL,
+		IntentTTL:     *intentTTL,
+	}
+	if err := run(*pcapFile, *iface, *frameSize, *quiet, *redisURL, enfCfg, log); err != nil {
 		log.WithError(err).Error("ja4-tap exited with error")
 		os.Exit(1)
 	}
 }
 
-func run(pcapFile, iface string, frameSize int, quiet bool, redisURL string, log *logrus.Logger) error {
+// parseBlocklist splits a comma-separated flag into a set, trimming whitespace
+// and dropping empties so a trailing comma or blank entry is harmless.
+func parseBlocklist(csv string) map[string]bool {
+	out := map[string]bool{}
+	for _, p := range strings.Split(csv, ",") {
+		if p = strings.TrimSpace(p); p != "" {
+			out[p] = true
+		}
+	}
+	return out
+}
+
+func run(pcapFile, iface string, frameSize int, quiet bool, redisURL string, enfCfg tap.EnforcerConfig, log *logrus.Logger) error {
 	if (pcapFile == "") == (iface == "") {
 		return fmt.Errorf("exactly one of --pcap-file or --interface must be set")
 	}
 
-	store, err := buildStore(redisURL, log)
+	store, enforcer, err := buildBackends(redisURL, enfCfg, log)
 	if err != nil {
 		return err
 	}
+	warnEnforcementPosture(redisURL, enfCfg, log)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -74,7 +98,7 @@ func run(pcapFile, iface string, frameSize int, quiet bool, redisURL string, log
 		if err != nil {
 			return fmt.Errorf("open pcap: %w", err)
 		}
-		return drive(ctx, tap.NewSensor(lt, 1024), src, closeFn, store, quiet, log)
+		return drive(ctx, tap.NewSensor(lt, 1024), src, closeFn, store, enforcer, quiet, log)
 	}
 
 	// Live capture. Capability drop + seccomp + kernel BPF are deferred to
@@ -84,25 +108,50 @@ func run(pcapFile, iface string, frameSize int, quiet bool, redisURL string, log
 	if err != nil {
 		return fmt.Errorf("open live interface %q: %w", iface, err)
 	}
-	return drive(ctx, tap.NewSensor(lt, 1024), src, func() error { closeFn(); return nil }, store, quiet, log)
+	return drive(ctx, tap.NewSensor(lt, 1024), src, func() error { closeFn(); return nil }, store, enforcer, quiet, log)
 }
 
-// buildStore returns a Store backed by Redis when redisURL is set, or a no-op
-// store (offline classify-and-log) when it is empty.
-func buildStore(redisURL string, log *logrus.Logger) (*tap.Store, error) {
+// warnEnforcementPosture emits the startup WARN + records the posture the same
+// way the inline proxy warns on every armed high-risk bypass. It also catches
+// the two foot-guns: armed with nowhere to write, and armed with nothing to
+// match.
+func warnEnforcementPosture(redisURL string, cfg tap.EnforcerConfig, log *logrus.Logger) {
+	if !cfg.Armed {
+		log.WithField("blocklist_size", len(cfg.JA4TBlocklist)).
+			Info("enforcement advisory-only: blocklisted clients are recorded to fp:ban_intent, nothing is blocked (--enforce to arm)")
+		return
+	}
+	log.WithFields(logrus.Fields{
+		"blocklist_size": len(cfg.JA4TBlocklist),
+		"ban_ttl":        cfg.BanTTL.String(),
+	}).Warn("ENFORCEMENT ARMED: matched clients will be written as enforceable ban:{ip} keys — needs Redis ACL ~ban:*; verify monitor-first review of fp:ban_intent before relying on this")
+	if redisURL == "" {
+		log.Warn("enforcement armed but no --redis-url: no ban can be written (no-op)")
+	}
+	if len(cfg.JA4TBlocklist) == 0 {
+		log.Warn("enforcement armed but --ja4t-blocklist is empty: enforcement can never fire")
+	}
+}
+
+// buildBackends returns the Store and Enforcer backed by one Redis client when
+// redisURL is set, or no-op backends (offline classify-and-log) when it is
+// empty. The Enforcer shares the same client — the ban:{ip} write is gated by
+// the server-side ACL, not the adapter, so one connection serves both.
+func buildBackends(redisURL string, enfCfg tap.EnforcerConfig, log *logrus.Logger) (*tap.Store, *tap.Enforcer, error) {
 	if redisURL == "" {
 		log.Info("no --redis-url: classifying OS but not writing fp:os:ip (offline/dry-run mode)")
-		return tap.NewStore(nil), nil
+		return tap.NewStore(nil), tap.NewEnforcer(enfCfg, nil), nil
 	}
 	opt, err := redis.ParseURL(redisURL)
 	if err != nil {
-		return nil, fmt.Errorf("parse --redis-url: %w", err)
+		return nil, nil, fmt.Errorf("parse --redis-url: %w", err)
 	}
 	log.WithField("addr", opt.Addr).Info("writing passive fingerprints to Redis (fp:os:ip, fp:ja4t:ip)")
-	return tap.NewStore(redisAdapter{rdb: redis.NewClient(opt)}), nil
+	adapter := redisAdapter{rdb: redis.NewClient(opt)}
+	return tap.NewStore(adapter), tap.NewEnforcer(enfCfg, adapter), nil
 }
 
-func drive(ctx context.Context, sensor *tap.Sensor, source tap.PacketSource, closeFn func() error, store *tap.Store, quiet bool, log *logrus.Logger) error {
+func drive(ctx context.Context, sensor *tap.Sensor, source tap.PacketSource, closeFn func() error, store *tap.Store, enforcer *tap.Enforcer, quiet bool, log *logrus.Logger) error {
 	defer func() { _ = closeFn() }()
 
 	done := make(chan error, 1)
@@ -120,6 +169,7 @@ func drive(ctx context.Context, sensor *tap.Sensor, source tap.PacketSource, clo
 		wctx, cancel := context.WithTimeout(context.Background(), storeWriteTimeout)
 		store.WriteOSClass(wctx, ev.ClientIP, class)
 		store.WriteJA4T(wctx, ev.ClientIP, ja4t)
+		enforcer.Consider(wctx, ev.ClientIP, ja4t)
 		cancel()
 
 		if !quiet {

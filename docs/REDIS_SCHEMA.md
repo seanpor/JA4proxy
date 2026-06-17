@@ -101,6 +101,16 @@ phase: 54
 | `fp:os:ip:{ip}` | String (OS class) | 24h | Go TAP sensor `tap.Store` (Phase 316b); formerly Python `FingerprintStore` | Passive OS class observed for the client IP. **Value domain (316b):** exactly one canonical bare class — `windows`, `macos`, `linux`, or `ios` (the `fingerprint.OSClass` vocabulary). `unknown`/ambiguous classifications are **never written** (the key is simply absent), so a reader never sees an encoded or compound value. IP is canonical (`netip.Addr.String()`), v4 and v6. **Read by:** Go proxy `tap_consumer` (Phase 203a) for the OS-mismatch signal, which fires only when both the observed class and the JA4-implied class are concrete and disagree. |
 | `fp:ja4t:ip:{ip}` | String (JA4T) | 24h | Go TAP sensor `tap.Store` (Phase 316c) | Passive JA4T TCP fingerprint observed on the client's SYN. **Value:** the canonical FoxIO JA4T string `{window}_{options}_{mss}_{wscale}` (e.g. `65535_2-1-3-1-1-8-4_1460_7`); written only when a client SYN was observed (mid-stream captures write nothing, so the key is simply absent). IP is canonical (`netip.Addr.String()`), v4 and v6. **Read by:** Go proxy `ja4t_consumer` (Phase 316c) for the advisory `tap_ja4t_blocklist` signal, which fires only when the observed JA4T is on the operator-configured blocklist (empty by default → silent). |
 | `fp:ja4_to_ja4s:{ja4}` | Hash | 7d | TAP `FingerprintStore` | JA4 → JA4S co-occurrence map. |
+| `fp:ban_intent:ip:{ip}` | String (provenance) | 1h (configurable) | Go TAP sensor `tap.Enforcer` (Phase 316d) | Advisory watchlist entry written whenever a client's observed JA4T is on the sensor's enforcement blocklist. **Value:** provenance string `ja4t={fingerprint}`. **Always** written on a match (even when armed), never enforced — it is the monitor-first surface and audit trail for sensor enforcement. Lives under `fp:*` so the sensor's least-privilege ACL already covers it. IP canonical, v4 and v6. **Read by:** humans / dashboards only (no inline consumer — intentional). |
+
+> **`ban:{ip}` may also be written by the TAP sensor (Phase 316d).** When the
+> sensor is *armed* (`--enforce` **and** a widened Redis ACL `~ban:*`), a
+> blocklisted client also gets a short-TTL `ban:{ip}` (value
+> `tap_enforce:ja4t={fingerprint}`, default 5m) — the **same** canonical
+> operator-ban key the inline proxy already hard-blocks on (see the Phase 231a
+> row). The inline proxy enforces it on the client's *next* connection; it
+> ignores the value, which exists purely for provenance/redaction. Off by
+> default: the unarmed sensor writes only `fp:ban_intent:ip`.
 
 ---
 
