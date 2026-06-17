@@ -55,6 +55,8 @@ _IP_KEY_PATTERNS = [
     "threatfox:data:{ip}",
     "virustotal:data:{ip}",
     "beacon:{ip}:*",  # wildcard — scan required
+    "fp:os:ip:{ip}",  # phase-316b — passive OS class observed by the TAP sensor
+    "fp:ip:{ip}",  # phase-316b — per-IP fingerprint history (TAP); covers 316c too
 ]
 
 # HyperLogLog keys: individual contributors CANNOT be removed from a sketch.

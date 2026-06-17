@@ -30,7 +30,22 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/seanpor/ja4proxy/internal/fingerprint"
 )
+
+// ja4OSClassStr resolves a JA4 to its canonical OS-class string via the shared
+// fingerprint vocabulary, returning "" for an unmapped JA4 (the fail-open
+// sentinel the tests below branch on). 316b moved the mapping out of
+// tap_consumer.go into internal/fingerprint; this keeps the existing assertions
+// expressed in plain strings.
+func ja4OSClassStr(ja4 string) string {
+	c := fingerprint.JA4OSClass(ja4)
+	if !c.IsKnown() {
+		return ""
+	}
+	return c.String()
+}
 
 // fakeRedis is a minimal Get-only Redis fake. The TapConsumer implementer
 // must define an interface narrow enough that this fake satisfies it
@@ -279,18 +294,18 @@ func TestJa4OSClass_StarterTable(t *testing.T) {
 		c := c
 		t.Run(c.prefix, func(t *testing.T) {
 			ja4 := c.prefix + "_aabbccddeeff_aabbccddeeff"
-			got := ja4OSClass(ja4)
+			got := ja4OSClassStr(ja4)
 			if got != c.expected {
 				t.Errorf("ja4OSClass(%q) = %q; want %q", ja4, got, c.expected)
 			}
 		})
 	}
 	// Unknown prefix must return "" (fail-open).
-	if got := ja4OSClass("t13ffffffh2_aa_bb"); got != "" {
+	if got := ja4OSClassStr("t13ffffffh2_aa_bb"); got != "" {
 		t.Errorf("unknown prefix must return \"\"; got %q", got)
 	}
 	// No underscore → "" (short-circuit guard).
-	if got := ja4OSClass("t13d1516h2"); got != "" {
+	if got := ja4OSClassStr("t13d1516h2"); got != "" {
 		t.Errorf("missing underscore must return \"\"; got %q", got)
 	}
 }
@@ -354,7 +369,7 @@ func TestTapConsumer_ContextCancelled_FailsOpen(t *testing.T) {
 }
 
 func BenchmarkTapConsumer_GetSignal_CacheHit(b *testing.B) {
-	claimed := ja4OSClass(chromeWindowsJA4)
+	claimed := ja4OSClassStr(chromeWindowsJA4)
 	if claimed == "" {
 		b.Skip("starter table does not map the benchmark JA4")
 	}
@@ -369,7 +384,7 @@ func BenchmarkTapConsumer_GetSignal_CacheHit(b *testing.B) {
 }
 
 func BenchmarkTapConsumer_GetSignal_RedisHit(b *testing.B) {
-	claimed := ja4OSClass(chromeWindowsJA4)
+	claimed := ja4OSClassStr(chromeWindowsJA4)
 	if claimed == "" {
 		b.Skip("starter table does not map the benchmark JA4")
 	}
@@ -398,5 +413,5 @@ func BenchmarkTapConsumer_GetSignal_RedisHit(b *testing.B) {
 // failure before implementation.
 func callJA4OSClass(t *testing.T, ja4 string) string {
 	t.Helper()
-	return ja4OSClass(ja4)
+	return ja4OSClassStr(ja4)
 }

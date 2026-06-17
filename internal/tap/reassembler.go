@@ -36,7 +36,50 @@ func (f *streamFactory) New(netFlow, tcpFlow gopacket.Flow, tcp *layers.TCP, ac 
 		clientPort: uint16(tcp.SrcPort),
 		serverPort: uint16(tcp.DstPort),
 		firstSeen:  ac.GetCaptureInfo().Timestamp,
+		stack:      synFeatures(tcp, ttlFromContext(ac)),
 	}
+}
+
+// ttlFromContext recovers the IP TTL the sensor stashed on the assembler context
+// (reassembly never exposes the IP layer). Returns 0 if the context is not ours.
+func ttlFromContext(ac reassembly.AssemblerContext) uint8 {
+	if c, ok := ac.(*assemblerCtx); ok {
+		return c.ttl
+	}
+	return 0
+}
+
+// synFeatures extracts the passive TCP/IP-stack signature from the connection's
+// first observed packet. It records features only for a genuine client SYN
+// (SYN set, ACK clear); for anything else (mid-stream capture, SYN-ACK seen
+// first) it returns HasSYN=false so 316b classifies the OS as Unknown and writes
+// nothing. It never panics on malformed options — gopacket has already validated
+// option framing by the time we see the slice.
+func synFeatures(tcp *layers.TCP, ttl uint8) StackFeatures {
+	if tcp == nil || !tcp.SYN || tcp.ACK {
+		return StackFeatures{}
+	}
+	sf := StackFeatures{
+		HasSYN:      true,
+		TTL:         ttl,
+		SYNWindow:   tcp.Window,
+		OptionOrder: make([]layers.TCPOptionKind, 0, len(tcp.Options)),
+	}
+	for _, opt := range tcp.Options {
+		sf.OptionOrder = append(sf.OptionOrder, opt.OptionType)
+		switch opt.OptionType {
+		case layers.TCPOptionKindMSS:
+			if len(opt.OptionData) == 2 {
+				sf.MSS = uint16(opt.OptionData[0])<<8 | uint16(opt.OptionData[1])
+			}
+		case layers.TCPOptionKindWindowScale:
+			sf.WSOptPresent = true
+			if len(opt.OptionData) == 1 {
+				sf.WindowScale = opt.OptionData[0]
+			}
+		}
+	}
+	return sf
 }
 
 // tlsStream tracks one connection's two half-streams, extracting the ClientHello
@@ -50,6 +93,7 @@ type tlsStream struct {
 	clientIP, serverIP     string
 	clientPort, serverPort uint16
 	firstSeen              time.Time
+	stack                  StackFeatures
 
 	clientBuf  []byte
 	serverBuf  []byte
@@ -173,5 +217,6 @@ func (s *tlsStream) maybeEmit(force bool) {
 		ClientHello: s.clientHello,
 		ServerHello: s.serverHello,
 		FirstSeen:   s.firstSeen,
+		Stack:       s.stack,
 	})
 }

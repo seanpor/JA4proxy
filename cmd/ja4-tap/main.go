@@ -17,11 +17,27 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
+	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 
 	"github.com/seanpor/ja4proxy/internal/tap"
 )
+
+// redisAdapter adapts a go-redis client to tap.redisSetter (Set returning an
+// error). It is the only Redis surface the sensor needs: a least-privilege
+// deployment grants the tap user write access to fp:* and nothing else.
+type redisAdapter struct{ rdb *redis.Client }
+
+func (a redisAdapter) Set(ctx context.Context, key, value string, ttl time.Duration) error {
+	return a.rdb.Set(ctx, key, value, ttl).Err()
+}
+
+// storeWriteTimeout bounds each fire-and-forget fingerprint write so a slow or
+// unreachable Redis can never stall the event drain (and thus, indirectly, the
+// capture path). On timeout the write is dropped and counted — fail-open.
+const storeWriteTimeout = 100 * time.Millisecond
 
 func main() {
 	var (
@@ -29,19 +45,25 @@ func main() {
 		iface     = flag.String("interface", "", "live capture interface (Linux AF_PACKET; needs CAP_NET_RAW)")
 		frameSize = flag.Int("frame-size", 0, "AF_PACKET frame size (0 = library default)")
 		quiet     = flag.Bool("quiet", false, "suppress per-handshake output; print only the final summary")
+		redisURL  = flag.String("redis-url", "", "Redis URL to write passive OS classes to fp:os:ip (empty = classify-and-log only, no writes)")
 	)
 	flag.Parse()
 
 	log := logrus.New()
-	if err := run(*pcapFile, *iface, *frameSize, *quiet, log); err != nil {
+	if err := run(*pcapFile, *iface, *frameSize, *quiet, *redisURL, log); err != nil {
 		log.WithError(err).Error("ja4-tap exited with error")
 		os.Exit(1)
 	}
 }
 
-func run(pcapFile, iface string, frameSize int, quiet bool, log *logrus.Logger) error {
+func run(pcapFile, iface string, frameSize int, quiet bool, redisURL string, log *logrus.Logger) error {
 	if (pcapFile == "") == (iface == "") {
 		return fmt.Errorf("exactly one of --pcap-file or --interface must be set")
+	}
+
+	store, err := buildStore(redisURL, log)
+	if err != nil {
+		return err
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -52,7 +74,7 @@ func run(pcapFile, iface string, frameSize int, quiet bool, log *logrus.Logger) 
 		if err != nil {
 			return fmt.Errorf("open pcap: %w", err)
 		}
-		return drive(ctx, tap.NewSensor(lt, 1024), src, closeFn, quiet, log)
+		return drive(ctx, tap.NewSensor(lt, 1024), src, closeFn, store, quiet, log)
 	}
 
 	// Live capture. Capability drop + seccomp + kernel BPF are deferred to
@@ -62,10 +84,25 @@ func run(pcapFile, iface string, frameSize int, quiet bool, log *logrus.Logger) 
 	if err != nil {
 		return fmt.Errorf("open live interface %q: %w", iface, err)
 	}
-	return drive(ctx, tap.NewSensor(lt, 1024), src, func() error { closeFn(); return nil }, quiet, log)
+	return drive(ctx, tap.NewSensor(lt, 1024), src, func() error { closeFn(); return nil }, store, quiet, log)
 }
 
-func drive(ctx context.Context, sensor *tap.Sensor, source tap.PacketSource, closeFn func() error, quiet bool, log *logrus.Logger) error {
+// buildStore returns a Store backed by Redis when redisURL is set, or a no-op
+// store (offline classify-and-log) when it is empty.
+func buildStore(redisURL string, log *logrus.Logger) (*tap.Store, error) {
+	if redisURL == "" {
+		log.Info("no --redis-url: classifying OS but not writing fp:os:ip (offline/dry-run mode)")
+		return tap.NewStore(nil), nil
+	}
+	opt, err := redis.ParseURL(redisURL)
+	if err != nil {
+		return nil, fmt.Errorf("parse --redis-url: %w", err)
+	}
+	log.WithField("addr", opt.Addr).Info("writing passive OS classes to Redis (fp:os:ip)")
+	return tap.NewStore(redisAdapter{rdb: redis.NewClient(opt)}), nil
+}
+
+func drive(ctx context.Context, sensor *tap.Sensor, source tap.PacketSource, closeFn func() error, store *tap.Store, quiet bool, log *logrus.Logger) error {
 	defer func() { _ = closeFn() }()
 
 	done := make(chan error, 1)
@@ -74,6 +111,14 @@ func drive(ctx context.Context, sensor *tap.Sensor, source tap.PacketSource, clo
 	var count int
 	for ev := range sensor.Events() {
 		count++
+		class := tap.Classify(ev.Stack)
+
+		// Fire-and-forget, time-bounded write; fail-open on a slow/unreachable
+		// Redis (the store also no-ops Unknown classes and the nil backend).
+		wctx, cancel := context.WithTimeout(context.Background(), storeWriteTimeout)
+		store.WriteOSClass(wctx, ev.ClientIP, class)
+		cancel()
+
 		if !quiet {
 			sh := "none"
 			if ev.HasServerHello() {
@@ -84,6 +129,7 @@ func drive(ctx context.Context, sensor *tap.Sensor, source tap.PacketSource, clo
 				"server":       fmt.Sprintf("%s:%d", ev.ServerIP, ev.ServerPort),
 				"client_hello": fmt.Sprintf("%d bytes", len(ev.ClientHello)),
 				"server_hello": sh,
+				"os_class":     class.String(),
 			}).Info("handshake")
 		}
 	}

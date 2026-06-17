@@ -2640,11 +2640,11 @@ phases:
     summary: 'OUTLINE — detailed plan before start. High-performance bidirectional TCP reassembly engine using gopacket + af_packet (mmap) or pcap (poll), following the capture-library ADR. ja4pd sensor subcommand: reads from interface or pcap file, reassembles flows, extracts TLS ClientHello/ServerHello (SNI, JA4, ALPN), and writes fp:ip:* records to Redis for the tap_consumer. PROPOSED — outline.'
   316b:
     name: Go TAP OS-Mismatch Signal (MVP)
-    status: PROPOSED
+    status: IN_PROGRESS
     action_plan: docs/phases/PHASE_316b.md
     dependencies: [316a]
     size: MEDIUM
-    summary: 'OUTLINE — detailed plan before start. First end-to-end signal from the passive sensor. Extracts the TCP stack fingerprint (TTL, Window, Options) from the SYN and compares it to the TLS ClientHello JA4 (e.g. Linux stack but Windows JA4). Lights up the tap_os_mismatch signal for the analytics engine; advisory-only (no blocks) until Tranco FP validated. PROPOSED — outline.'
+    summary: 'First end-to-end signal from the passive sensor. Plan revised after critical review: Step 0 extends 316a HandshakeEvent to carry SYN/IP-stack features (TTL, window, MSS, TCP option order — 316a emitted handshake bytes only); a single canonical fingerprint.OSClass vocabulary is shared by the sensor writer and the tap_consumer reader (fixes the windows-vs-encoded vocabulary-drift bug that kept the signal a silent no-op); the classifier is conservative (only exact high-confidence Windows/Linux stack signatures yield a concrete class; ambiguous/NAT-normalised/Darwin/SYN-less → unknown, never written) so real browsers are never mislabelled. fp:os:ip stores a bare class (24h TTL); the signal is advisory-only (scored under the dial). Dropped speculative middlebox-signature DB and android/other enum values from the first draft. Includes closed-loop round-trip test, zero-FP corpus test, gdpr_delete coverage. Code + tests complete on phase-316b-tap-osmismatch; landing via PR.'
   316c:
     name: Go TAP Full JA4 Fingerprint Family
     status: PROPOSED

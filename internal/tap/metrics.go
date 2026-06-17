@@ -37,6 +37,17 @@ var (
 		Name: "ja4proxy_tap_worker_restarts_total",
 		Help: "Sensor worker restarts triggered by the watchdog.",
 	})
+	FingerprintsWrittenTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "ja4proxy_tap_fingerprints_written_total",
+		Help: "Passive OS fingerprints, by result (written|skipped_unknown|error).",
+	}, []string{"result"})
+)
+
+// results for FingerprintsWrittenTotal (Phase 316b).
+const (
+	fpWritten        = "written"         // class persisted to fp:os:ip
+	fpSkippedUnknown = "skipped_unknown" // classifier returned Unknown; nothing written (conservative)
+	fpError          = "error"           // Redis write failed; dropped fail-open
 )
 
 // Collectors returns every TAP collector for registration on a registry.
@@ -48,6 +59,7 @@ func Collectors() []prometheus.Collector {
 		HandshakesExtractedTotal,
 		RingBufferFillRatio,
 		WorkerRestartsTotal,
+		FingerprintsWrittenTotal,
 	}
 }
 
