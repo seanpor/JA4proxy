@@ -69,7 +69,8 @@ type Pipeline struct {
 	beaconing      *BeaconingDetector
 	abuseipdb      *AbuseIPDB
 	rdap           *RDAPEnricher
-	tapConsumer    *TapConsumer // phase-203a
+	tapConsumer    *TapConsumer  // phase-203a
+	ja4tConsumer   *JA4TConsumer // phase-316c
 
 	// Bounded beaconing worker (F-002)
 	beaconingJobs chan beaconingJob
@@ -211,6 +212,13 @@ type PipelineConfig struct {
 	TapConsumerRedisTimeout int // milliseconds
 	TapConsumerCacheTTL     int // seconds
 	TapConsumerMaxAge       int // seconds
+
+	// Phase 316c — TAP-consumed JA4T blocklist signal.
+	JA4TConsumerEnabled      bool
+	JA4TConsumerScore        int
+	JA4TConsumerRedisTimeout int      // milliseconds
+	JA4TConsumerCacheTTL     int      // seconds
+	JA4TBlocklist            []string // JA4T fingerprints that raise the signal
 }
 
 // NewPipeline creates a Pipeline ready to process connections.
@@ -246,7 +254,8 @@ func NewPipeline(cfg *PipelineConfig, redis RedisReader, log *logrus.Logger) *Pi
 	p.beaconing = NewBeaconingDetector(buildBeaconingConfig(cfg), redis, log)
 	p.abuseipdb = NewAbuseIPDB(buildAbuseIPDBConfig(cfg), redis, log)
 	p.rdap = NewRDAPEnricher(buildRDAPConfig(cfg), redis, log)
-	p.tapConsumer = NewTapConsumer(buildTapConsumerConfig(cfg), redisReaderGetter{redis}, log) // phase-203a
+	p.tapConsumer = NewTapConsumer(buildTapConsumerConfig(cfg), redisReaderGetter{redis}, log)    // phase-203a
+	p.ja4tConsumer = NewJA4TConsumer(buildJA4TConsumerConfig(cfg), redisReaderGetter{redis}, log) // phase-316c
 	p.beaconingJobs = make(chan beaconingJob, beaconingJobBuf)
 	go p.beaconingWorker()
 	return p
@@ -272,6 +281,24 @@ func buildTapConsumerConfig(cfg *PipelineConfig) *TapConsumerConfig {
 		RedisTimeout: durationMillis(cfg.TapConsumerRedisTimeout, 50),
 		CacheTTL:     durationSeconds(cfg.TapConsumerCacheTTL, 60),
 		MaxAge:       durationSeconds(cfg.TapConsumerMaxAge, 300),
+	}
+}
+
+// buildJA4TConsumerConfig builds a JA4TConsumerConfig from the pipeline config.
+// The blocklist slice is materialised into a set for O(1) lookups on the hot path.
+func buildJA4TConsumerConfig(cfg *PipelineConfig) *JA4TConsumerConfig {
+	blocklist := make(map[string]bool, len(cfg.JA4TBlocklist))
+	for _, j := range cfg.JA4TBlocklist {
+		if j != "" {
+			blocklist[j] = true
+		}
+	}
+	return &JA4TConsumerConfig{
+		Enabled:      cfg.JA4TConsumerEnabled,
+		SignalScore:  cfg.JA4TConsumerScore,
+		RedisTimeout: durationMillis(cfg.JA4TConsumerRedisTimeout, 50),
+		CacheTTL:     durationSeconds(cfg.JA4TConsumerCacheTTL, 60),
+		Blocklist:    blocklist,
 	}
 }
 
@@ -428,6 +455,12 @@ func (p *Pipeline) processInternal(ctx context.Context, conn *ConnectionContext)
 
 	// Phase 203a — TAP-consumed OS mismatch. Fail-open; disabled by default.
 	if sig := p.tapConsumer.GetSignal(ctx, conn.ClientIP, conn.JA4); sig != nil {
+		signals = append(signals, *sig)
+	}
+
+	// Phase 316c — TAP-consumed JA4T blocklist. Fail-open; disabled and
+	// empty-blocklist by default, so silent until an operator opts in.
+	if sig := p.ja4tConsumer.GetSignal(ctx, conn.ClientIP); sig != nil {
 		signals = append(signals, *sig)
 	}
 

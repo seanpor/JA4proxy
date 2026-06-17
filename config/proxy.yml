@@ -633,6 +633,14 @@ tap_consumer:                 # phase-203a
   cache_ttl_seconds: 60       # LocalCache TTL for per-IP lookup result
   max_age_seconds: 300        # ignore TAP fingerprints older than this
 
+ja4t_consumer:                # phase-316c — advisory JA4T blocklist signal
+  enabled: false              # default OFF — requires the Go TAP sensor (cmd/ja4-tap) writing fp:ja4t:ip
+  signal_score: 30            # score added to RiskScorer when the observed JA4T is blocklisted
+  redis_timeout_ms: 50        # short to keep hot path fast; fail open on timeout
+  cache_ttl_seconds: 60       # LocalCache TTL for per-IP JA4T lookup result
+  blocklist: []               # JA4T fingerprints to flag, e.g. ["65535_2-1-3-1-1-8-4_1460_7"];
+                              # empty (default) = silent, never fires (cannot produce a false positive)
+
 # ── Phase 32: Attacker Attribution ───────────────────────────────────────────
 
 attribution:
