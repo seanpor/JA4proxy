@@ -16,6 +16,11 @@ from .aggregation import AggregationManager, HyperLogLogManager
 from .authentication import HMACAuthenticator
 from .detection import CampaignDetector, JA4FingerprintIntelligence, SlowScanDetector
 from .event_schemas import EVENT_SCHEMA
+from .output_writer import (
+    update_heartbeat,
+    write_active_connections,
+    write_finding,
+)
 from .validation import validate_event_comprehensive
 
 # Stream lag: seconds between the most recent event's Redis timestamp and now.
@@ -299,24 +304,54 @@ class StreamConsumer:
             if not self.redis:
                 await self.connect()
 
+            # Phase 236: Update heartbeat at start of every cycle
+            await update_heartbeat(self.redis, poll_interval_seconds=60)
+
             # Get detection results
             detection_results = await self.get_detection_results()
 
             # Store results in Redis
             if self.redis:
-                # Store campaigns
+                # Store campaigns as findings
                 for campaign in detection_results["campaigns"]:
                     key = f"analytics:campaign:{campaign['subnet']}"
                     await self.redis.set(
                         key, json.dumps(campaign), ex=3600
                     )  # 1 hour TTL
 
-                # Store slow scans
+                    # Phase 236: Write as structured finding
+                    await write_finding(
+                        self.redis,
+                        confidence=0.95,
+                        type="campaign",
+                        description=campaign.get("description", "Coordinated campaign detected"),
+                        evidence_count=campaign.get("ip_count", 0),
+                        model_version="analytics-1.0",
+                        model_trained_at="2026-01-01T00:00:00Z",
+                        fp_rate_estimate=0.05,
+                        suggested_action="investigate",
+                        subject_ip=campaign.get("subnet", ""),
+                    )
+
+                # Store slow scans as findings
                 for slow_scan in detection_results["slow_scans"]:
                     key = f"analytics:slowscan:{slow_scan['subnet']}"
                     await self.redis.set(
                         key, json.dumps(slow_scan), ex=1800
                     )  # 30 min TTL
+
+                    await write_finding(
+                        self.redis,
+                        confidence=0.85,
+                        type="slowscan",
+                        description=slow_scan.get("description", "Slow scan pattern detected"),
+                        evidence_count=slow_scan.get("connection_count", 0),
+                        model_version="analytics-1.0",
+                        model_trained_at="2026-01-01T00:00:00Z",
+                        fp_rate_estimate=0.10,
+                        suggested_action="monitor",
+                        subject_ip=slow_scan.get("subnet", ""),
+                    )
 
                 # Store JA4 candidates (sorted set by block rate)
                 if detection_results["ja4_candidates"]:

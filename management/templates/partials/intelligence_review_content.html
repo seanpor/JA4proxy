@@ -1,0 +1,56 @@
+<div id="review-content-inner" class="space-y-2">
+  {% if not findings %}
+  <p class="text-sm text-[#64748b] py-4">No matching findings to review.</p>
+  {% else %}
+  {% for f in findings %}
+  <div class="bg-[#1e293b] border border-[#334155] rounded-lg p-3"
+       id="finding-{{ f.id }}">
+    <div class="flex items-center gap-2 mb-2">
+      <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold
+        {% if f.tier == 'HIGH' %}bg-[#d97706] text-white
+        {% elif f.tier == 'MEDIUM' %}bg-[#2563eb] text-white
+        {% else %}bg-[#64748b] text-white{% endif %}">
+        {{ f.tier }} {{ '%.0f'|format(f.confidence * 100) }}%
+      </span>
+      <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[#0f172a] text-[#94a3b8] border border-[#334155]">
+        {{ f.type }}
+      </span>
+    </div>
+    <p class="text-sm text-[#f1f5f9]">{{ f.description }}</p>
+    <p class="text-xs text-[#64748b] mt-1">
+      {{ f.evidence_count }} events ·
+      FP est. {{ '%.1f'|format(f.fp_rate_estimate * 100) }}% ·
+      Model {{ f.model_version }}
+      {% if f.subject_ip %}· IP: {{ f.subject_ip }}{% endif %}
+      {% if f.subject_ja4 %}· JA4: {{ f.subject_ja4 }}{% endif %}
+    </p>
+    <div class="flex gap-1 mt-2">
+      <button type="button"
+              class="px-2 py-1 text-xs rounded bg-[#0ea5e9] hover:bg-[#0284c7] text-white transition-colors"
+              @click="window.ConfirmModal.open({
+                action: '{{ f.suggested_action if f.suggested_action in ['block','watchlist','tarpit','allow'] else 'block' }}',
+                ip: '{{ f.subject_ip }}',
+                ja4: '{{ f.subject_ja4 }}',
+                currentState: 'active'
+              })">
+        {{ f.suggested_action | capitalize }}
+      </button>
+      <button type="button"
+              hx-post="/api/v1/intelligence/dismiss/{{ f.id }}"
+              hx-target="#finding-{{ f.id }}"
+              hx-swap="outerHTML"
+              class="px-2 py-1 text-xs rounded bg-[#334155] hover:bg-[#475569] text-[#94a3b8] transition-colors">
+        Dismiss
+      </button>
+      <button type="button"
+              hx-post="/api/v1/intelligence/mark-fp/{{ f.id }}"
+              hx-target="#finding-{{ f.id }}"
+              hx-swap="outerHTML"
+              class="px-2 py-1 text-xs rounded bg-[#334155] hover:bg-[#475569] text-[#94a3b8] transition-colors">
+        Mark FP
+      </button>
+    </div>
+  </div>
+  {% endfor %}
+  {% endif %}
+</div>

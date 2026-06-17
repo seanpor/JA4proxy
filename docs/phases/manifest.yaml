@@ -2781,10 +2781,11 @@ phases:
     summary: Build a reusable Alpine.js confirmation modal and undo toast, implement fingerprint and IP forensics pages, and link live feed elements to detail views.
   236:
     name: Analytics Intelligence Visibility
-    status: IN_PROGRESS
-    action_plan: docs/phases/PHASE_236.md
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_236.md
     dependencies: [231, 235]
     size: LARGE
+    completed: 2026-06-17
     summary: Set up scoped Redis ACL credentials for the analytics engine, implement a validated output writer, build the Intelligence dashboard row and review page, and add false positive feedback flows.
   237:
     name: Operational Polish & Missing Workflows
