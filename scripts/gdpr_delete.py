@@ -56,6 +56,7 @@ _IP_KEY_PATTERNS = [
     "virustotal:data:{ip}",
     "beacon:{ip}:*",  # wildcard — scan required
     "fp:os:ip:{ip}",  # phase-316b — passive OS class observed by the TAP sensor
+    "fp:ja4t:ip:{ip}",  # phase-316c — passive JA4T TCP fingerprint observed by the TAP sensor
     "fp:ip:{ip}",  # phase-316b — per-IP fingerprint history (TAP); covers 316c too
 ]
 
