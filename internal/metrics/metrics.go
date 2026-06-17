@@ -97,6 +97,15 @@ var (
 		prometheus.CounterOpts{Name: "ja4proxy_tap_signal_total", Help: "TAP-derived OS mismatch signals emitted"},
 		[]string{"action"},
 	)
+	// phase-316c: TAP-consumed JA4T blocklist lookup and signal counters.
+	TapJA4TLookupsTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{Name: "ja4proxy_tap_ja4t_lookups_total", Help: "Passive JA4T fp:ja4t:ip lookup results (hit_blocklisted, hit_clean, miss, error)"},
+		[]string{"result"},
+	)
+	TapJA4TSignalTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{Name: "ja4proxy_tap_ja4t_signal_total", Help: "TAP-derived JA4T blocklist signals emitted"},
+		[]string{"action"},
+	)
 	WriteBufferQueueDepth = prometheus.NewGauge(
 		prometheus.GaugeOpts{Name: "ja4proxy_write_buffer_queue_depth", Help: "Current event buffer depth"},
 	)
@@ -408,6 +417,7 @@ func Register() {
 		RedisHealth, RedisScriptReloadsTotal,
 		// phase-203a/b
 		JA4TLSMismatchTotal, TapLookupsTotal, TapSignalTotal,
+		TapJA4TLookupsTotal, TapJA4TSignalTotal,
 		// JA4PROXY-2026-0001/-0002
 		ProxyProtocolParserEvents,
 		// JA4PROXY-2026-0031

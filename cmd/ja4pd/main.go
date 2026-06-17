@@ -1718,6 +1718,12 @@ func buildPipelineConfig(cfg *config.Config) *security.PipelineConfig {
 		TapConsumerRedisTimeout: cfg.TapConsumer.RedisTimeoutMs,
 		TapConsumerCacheTTL:     cfg.TapConsumer.CacheTTLSeconds,
 		TapConsumerMaxAge:       cfg.TapConsumer.MaxAgeSeconds,
+		// Phase 316c — TAP-consumed JA4T blocklist.
+		JA4TConsumerEnabled:      cfg.JA4TConsumer.Enabled,
+		JA4TConsumerScore:        cfg.JA4TConsumer.SignalScore,
+		JA4TConsumerRedisTimeout: cfg.JA4TConsumer.RedisTimeoutMs,
+		JA4TConsumerCacheTTL:     cfg.JA4TConsumer.CacheTTLSeconds,
+		JA4TBlocklist:            cfg.JA4TConsumer.Blocklist,
 	}
 }
 

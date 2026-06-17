@@ -41,6 +41,10 @@ var (
 		Name: "ja4proxy_tap_fingerprints_written_total",
 		Help: "Passive OS fingerprints, by result (written|skipped_unknown|error).",
 	}, []string{"result"})
+	JA4TWrittenTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "ja4proxy_tap_ja4t_written_total",
+		Help: "Passive JA4T TCP fingerprints written to fp:ja4t:ip, by result (written|skipped_unknown|error). skipped_unknown counts SYN-less connections (no JA4T) and nil-backend dry runs.",
+	}, []string{"result"})
 )
 
 // results for FingerprintsWrittenTotal (Phase 316b).
@@ -60,6 +64,7 @@ func Collectors() []prometheus.Collector {
 		RingBufferFillRatio,
 		WorkerRestartsTotal,
 		FingerprintsWrittenTotal,
+		JA4TWrittenTotal,
 	}
 }
 

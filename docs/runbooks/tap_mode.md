@@ -359,3 +359,54 @@ on the sensor's own registry. A healthy sensor on real traffic shows a large
 a class only for confidently-identified stacks. A near-zero `written` count is not
 a fault; a rising `error` count means Redis writes are failing (fail-open: the
 fingerprint is dropped, capture continues).
+
+## Go TAP Sensor (Phase 316c) — Passive JA4T Blocklist Signal
+
+The same sensor also computes the **JA4T** TCP fingerprint from each connection's
+SYN and writes it to `fp:ja4t:ip:{ip}` (24h TTL). The inline proxy's
+`ja4t_consumer` reads that key on the hot path and emits an advisory
+`tap_ja4t_blocklist` RiskSignal when the observed JA4T is on the operator's
+blocklist.
+
+### What it computes
+
+The canonical FoxIO JA4T string `{SYN window}_{TCP option kinds}_{MSS}_{window
+scale}` (e.g. `65535_2-1-3-1-1-8-4_1460_7`), interoperable with `foxio/ja4`
+tooling and JA4T threat feeds. It is written **only** when a client SYN was
+observed; mid-stream captures (no SYN) write nothing, so the key is simply absent.
+
+### Advisory-only and silent by default
+
+The signal is scored under the **dial** like any other and never hard-blocks. The
+blocklist is **empty by default**, so the consumer is inert until an operator opts
+in — it cannot produce a false positive on its own. Configure it under
+`ja4t_consumer` in `config/proxy.yml`:
+
+```yaml
+ja4t_consumer:
+  enabled: true
+  signal_score: 30
+  blocklist:
+    - "65535_2-1-3-1-1-8-4_1460_7"   # example: a known scanner's TCP signature
+```
+
+### Known false-positive sources (why it stays advisory)
+
+- **NAT / middlebox normalisation.** A VPN, load balancer, or transparent proxy
+  rewrites the client's TCP options/window to its *own* stack signature, so the
+  observed JA4T reflects the intermediary, not the end host. Blocklist a JA4T only
+  when you are confident it is not a shared intermediary.
+- **CGNAT / shared-IP last-writer-wins.** Like `fp:os:ip`, `fp:ja4t:ip` is keyed
+  by client IP; behind carrier-grade NAT the last observed SYN wins. Keep the
+  signal advisory and low-scored.
+
+### Metrics
+
+`ja4proxy_tap_ja4t_written_total{result}` on the sensor's registry (same
+`written|skipped_unknown|error` semantics as the OS counter — a high
+`skipped_unknown` here counts SYN-less connections). On the proxy:
+`ja4proxy_tap_ja4t_lookups_total{result="hit_blocklisted|hit_clean|miss|error"}`
+and `ja4proxy_tap_ja4t_signal_total{action}`.
+
+The least-privilege ACL above (`~fp:*`) already covers `fp:ja4t:ip`; no change
+needed.
