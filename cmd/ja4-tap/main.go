@@ -45,7 +45,7 @@ func main() {
 		iface     = flag.String("interface", "", "live capture interface (Linux AF_PACKET; needs CAP_NET_RAW)")
 		frameSize = flag.Int("frame-size", 0, "AF_PACKET frame size (0 = library default)")
 		quiet     = flag.Bool("quiet", false, "suppress per-handshake output; print only the final summary")
-		redisURL  = flag.String("redis-url", "", "Redis URL to write passive OS classes to fp:os:ip (empty = classify-and-log only, no writes)")
+		redisURL  = flag.String("redis-url", "", "Redis URL to write passive fingerprints to fp:os:ip and fp:ja4t:ip (empty = classify-and-log only, no writes)")
 	)
 	flag.Parse()
 
@@ -98,7 +98,7 @@ func buildStore(redisURL string, log *logrus.Logger) (*tap.Store, error) {
 	if err != nil {
 		return nil, fmt.Errorf("parse --redis-url: %w", err)
 	}
-	log.WithField("addr", opt.Addr).Info("writing passive OS classes to Redis (fp:os:ip)")
+	log.WithField("addr", opt.Addr).Info("writing passive fingerprints to Redis (fp:os:ip, fp:ja4t:ip)")
 	return tap.NewStore(redisAdapter{rdb: redis.NewClient(opt)}), nil
 }
 
@@ -112,11 +112,14 @@ func drive(ctx context.Context, sensor *tap.Sensor, source tap.PacketSource, clo
 	for ev := range sensor.Events() {
 		count++
 		class := tap.Classify(ev.Stack)
+		ja4t := tap.ComputeJA4T(ev.Stack)
 
-		// Fire-and-forget, time-bounded write; fail-open on a slow/unreachable
-		// Redis (the store also no-ops Unknown classes and the nil backend).
+		// Fire-and-forget, time-bounded writes; fail-open on a slow/unreachable
+		// Redis (the store also no-ops Unknown classes, empty JA4T, and the nil
+		// backend). Both writes share one deadline so the drain can't stall.
 		wctx, cancel := context.WithTimeout(context.Background(), storeWriteTimeout)
 		store.WriteOSClass(wctx, ev.ClientIP, class)
+		store.WriteJA4T(wctx, ev.ClientIP, ja4t)
 		cancel()
 
 		if !quiet {
@@ -124,12 +127,17 @@ func drive(ctx context.Context, sensor *tap.Sensor, source tap.PacketSource, clo
 			if ev.HasServerHello() {
 				sh = fmt.Sprintf("%d bytes", len(ev.ServerHello))
 			}
+			ja4tField := ja4t
+			if ja4tField == "" {
+				ja4tField = "none"
+			}
 			log.WithFields(logrus.Fields{
 				"client":       fmt.Sprintf("%s:%d", ev.ClientIP, ev.ClientPort),
 				"server":       fmt.Sprintf("%s:%d", ev.ServerIP, ev.ServerPort),
 				"client_hello": fmt.Sprintf("%d bytes", len(ev.ClientHello)),
 				"server_hello": sh,
 				"os_class":     class.String(),
+				"ja4t":         ja4tField,
 			}).Info("handshake")
 		}
 	}

@@ -181,6 +181,8 @@ ja4proxy_tarpit_overflow_total{action}               counter   Tarpit overflows 
 ```
 ja4proxy_tap_lookups_total{result}                   counter   Phase-20 TAP fingerprint lookup results
 ja4proxy_tap_signal_total{action}                    counter   TAP-derived OS mismatch signals emitted
+ja4proxy_tap_ja4t_lookups_total{result}              counter   Passive JA4T fp:ja4t:ip lookups (316c): hit_blocklisted|hit_clean|miss|error
+ja4proxy_tap_ja4t_signal_total{action}               counter   TAP-derived JA4T blocklist signals emitted (316c)
 ```
 
 #### Go TAP sensor (Phase 316) — standalone binary `cmd/ja4-tap`, own registry
@@ -190,6 +192,7 @@ ja4proxy_tap_packets_dropped_total{reason}           counter   Packets/bytes dro
 ja4proxy_tap_active_streams                          gauge     TCP connections currently tracked by the reassembler
 ja4proxy_tap_handshakes_extracted_total{kind}        counter   TLS handshakes extracted: clienthello|serverhello|connection
 ja4proxy_tap_fingerprints_written_total{result}      counter   Passive OS classes (316b): written|skipped_unknown|error
+ja4proxy_tap_ja4t_written_total{result}              counter   Passive JA4T fingerprints (316c): written|skipped_unknown|error
 ```
 
 #### Redis & config

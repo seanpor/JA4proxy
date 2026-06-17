@@ -345,6 +345,7 @@ type Config struct {
 	Sync                   SyncAgentConfig              `yaml:"sync"`                     // phase-88
 	TrustedUpstreamSources TrustedUpstreamSourcesConfig `yaml:"trusted_upstream_sources"` // phase-94i2
 	TapConsumer            TapConsumerConfigYAML        `yaml:"tap_consumer"`             // phase-203a
+	JA4TConsumer           JA4TConsumerConfigYAML       `yaml:"ja4t_consumer"`            // phase-316c
 }
 
 // TapConsumerConfigYAML configures the phase-203a TAP JA4T OS-mismatch consumer.
@@ -355,6 +356,17 @@ type TapConsumerConfigYAML struct {
 	RedisTimeoutMs  int  `yaml:"redis_timeout_ms"`
 	CacheTTLSeconds int  `yaml:"cache_ttl_seconds"`
 	MaxAgeSeconds   int  `yaml:"max_age_seconds"`
+}
+
+// JA4TConsumerConfigYAML configures the phase-316c TAP JA4T blocklist consumer.
+// Default: disabled with an empty blocklist (silent). Requires the Go TAP sensor
+// (Phase 316a/c) to be deployed writing fp:ja4t:ip:{ip}.
+type JA4TConsumerConfigYAML struct {
+	Enabled         bool     `yaml:"enabled"`
+	SignalScore     int      `yaml:"signal_score"`
+	RedisTimeoutMs  int      `yaml:"redis_timeout_ms"`
+	CacheTTLSeconds int      `yaml:"cache_ttl_seconds"`
+	Blocklist       []string `yaml:"blocklist"`
 }
 
 // MonitoringConfig holds multi-DC observability settings.

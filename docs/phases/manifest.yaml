@@ -2646,12 +2646,12 @@ phases:
     size: MEDIUM
     summary: 'First end-to-end signal from the passive sensor. Plan revised after critical review: Step 0 extends 316a HandshakeEvent to carry SYN/IP-stack features (TTL, window, MSS, TCP option order — 316a emitted handshake bytes only); a single canonical fingerprint.OSClass vocabulary is shared by the sensor writer and the tap_consumer reader (fixes the windows-vs-encoded vocabulary-drift bug that kept the signal a silent no-op); the classifier is conservative (only exact high-confidence Windows/Linux stack signatures yield a concrete class; ambiguous/NAT-normalised/Darwin/SYN-less → unknown, never written) so real browsers are never mislabelled. fp:os:ip stores a bare class (24h TTL); the signal is advisory-only (scored under the dial). Dropped speculative middlebox-signature DB and android/other enum values from the first draft. Includes closed-loop round-trip test, zero-FP corpus test, gdpr_delete coverage. Code + tests complete on phase-316b-tap-osmismatch; landing via PR.'
   316c:
-    name: Go TAP Full JA4 Fingerprint Family
-    status: PROPOSED
+    name: Go TAP Passive JA4T + Advisory Blocklist Signal
+    status: IN_PROGRESS
     action_plan: docs/phases/PHASE_316c.md
-    dependencies: [316a]
-    size: LARGE
-    summary: 'OUTLINE — detailed plan before start. Complete JA4+JA4H+JA4S+JA4L+JA4X implementation in the passive sensor. Extracts HTTP headers (JA4H), TLS extensions (JA4S/L/X), and QUIC (JA4Q) where possible. PROPOSED — outline.'
+    dependencies: [316a, 316b]
+    size: MEDIUM
+    summary: 'Re-scoped after critical review (the original "full JA4 family" outline was largely infeasible on passive encrypted TLS — JA4H/JA4H2/JA4SSH need plaintext app/SSH data, JA4X needs the TLS1.3-encrypted Certificate, QUIC needs UDP — and nothing read the keys). This slice ships the one feasible client-side fingerprint paired with a real consumer: the sensor computes the canonical JA4T from each SYN (reusing 316b StackFeatures), writes fp:ja4t:ip:{ip} (24h), and a new inline ja4t_consumer emits an advisory, default-silent tap_ja4t_blocklist signal (empty blocklist by default, scored under the dial, never hard-blocks). JA4H/JA4H2/JA4SSH dropped from the roadmap as infeasible; JA4S/JA4L/JA4X(≤TLS1.2)/QUIC deferred to their own slices, each to land with its consumer. IN_PROGRESS.'
   316d:
     name: Go TAP Out-of-Band Enforcement Bridge
     status: PROPOSED
