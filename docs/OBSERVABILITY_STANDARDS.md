@@ -193,6 +193,8 @@ ja4proxy_tap_active_streams                          gauge     TCP connections c
 ja4proxy_tap_handshakes_extracted_total{kind}        counter   TLS handshakes extracted: clienthello|serverhello|connection
 ja4proxy_tap_fingerprints_written_total{result}      counter   Passive OS classes (316b): written|skipped_unknown|error
 ja4proxy_tap_ja4t_written_total{result}              counter   Passive JA4T fingerprints (316c): written|skipped_unknown|error
+ja4proxy_tap_enforcement_actions_total{result}       counter   Out-of-band enforcement (316d): skipped|watchlist|banned|error
+ja4proxy_tap_enforcement_armed                       gauge     1 when armed to write enforceable ban:{ip} keys (316d); 0 = advisory-only (default)
 ```
 
 #### Redis & config
