@@ -283,3 +283,79 @@ python3 -m pytest tests/tap/fp_corpus/test_fingerprint_fp_rate.py -v
 - BGP announces validate prefix length: IPv4 ≥ /24, IPv6 ≥ /48.
 - Never configure TAP mode to read from the proxy's own listening interface —
   it would see its own traffic and could cause feedback loops.
+
+---
+
+## Go TAP Sensor (Phase 316) — Passive OS-Mismatch Signal
+
+> The sections above describe the original Python TAP node (Phase 20, archived).
+> Phase 316 reintroduces the sensor as a **standalone Go binary** (`cmd/ja4-tap`),
+> separate from the inline proxy so the proxy never carries `CAP_NET_RAW`. Phase
+> **316b** ships the first end-to-end signal: a passive OS classification written
+> to `fp:os:ip:{ip}`, which lights up the previously-dormant `tap_os_mismatch`
+> detector in the inline proxy.
+
+### What it does
+
+1. Captures mirrored traffic (live AF_PACKET, or an offline `.pcap`).
+2. For each TLS connection, reads the **SYN's** TCP/IP-stack features (TTL,
+   window, MSS, TCP option order).
+3. Classifies the OS **conservatively** — only a high-confidence, exact match of a
+   known stack signature yields a concrete class (`windows`/`linux`). Anything
+   ambiguous, NAT/middlebox-normalised, Apple/Darwin, or missing its SYN is left
+   `unknown` and **nothing is written**.
+4. Writes the concrete class to `fp:os:ip:{ip}` (24h TTL). The inline proxy's
+   `tap_consumer` compares it to the OS implied by the live JA4 and emits a
+   `tap_os_mismatch` RiskSignal on disagreement.
+
+### Advisory-only — this signal never blocks by itself
+
+`tap_os_mismatch` is scored under the **dial** like any other signal. With the
+default dial (0 = monitor), a mismatch is observed-and-scored, never an automatic
+block. Active enforcement from TAP is a separate, opt-in phase (316d). Do **not**
+treat a mismatch as a confirmed attacker.
+
+### Known false-positive sources (why it stays advisory + conservative)
+
+- **Imprecise passive fingerprinting.** TTL is observed after network hops;
+  window/MSS are perturbed by window-scaling, VPNs, and tunnels. The classifier
+  therefore emits a class only on an exact signature match, and macOS/iOS (the
+  shared Darwin stack) are deliberately left `unknown` — emitting one risks
+  mislabelling a real iOS user "macos" and vice-versa.
+- **CGNAT / shared IP last-writer-wins.** `fp:os:ip:{ip}` is keyed by client IP.
+  Many users behind one CGNAT/mobile IP can flap the stored OS, so a Linux host
+  can stamp `linux` onto an IP a Windows user later connects from → a false
+  mismatch. This is inherent to an IP-keyed signal; it is one more reason the
+  signal stays advisory under the dial.
+
+### Running
+
+```bash
+# Offline replay (no privileges, no writes — classify-and-log):
+ja4-tap --pcap-file capture.pcap
+
+# Offline replay, writing classes to Redis:
+ja4-tap --pcap-file capture.pcap --redis-url redis://127.0.0.1:6379/0
+
+# Live capture (needs CAP_NET_RAW; capability-drop/seccomp land in 316a inc. 2):
+ja4-tap --interface eth1 --redis-url redis://redis:6379/0
+```
+
+### Least-privilege Redis access
+
+The sensor only ever **writes** `fp:*` keys. Grant the tap binary's Redis user
+write access to `fp:*` and nothing else — it needs no read of policy, ban, or
+session keys. Example ACL:
+
+```
+ACL SETUSER ja4tap on >SECRET ~fp:* +set +expire
+```
+
+### Metrics
+
+`ja4proxy_tap_fingerprints_written_total{result="written|skipped_unknown|error"}`
+on the sensor's own registry. A healthy sensor on real traffic shows a large
+`skipped_unknown` count — that is **expected**: the conservative classifier writes
+a class only for confidently-identified stacks. A near-zero `written` count is not
+a fault; a rising `error` count means Redis writes are failing (fail-open: the
+fingerprint is dropped, capture continues).

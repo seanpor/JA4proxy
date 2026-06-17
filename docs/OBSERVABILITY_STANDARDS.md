@@ -183,6 +183,15 @@ ja4proxy_tap_lookups_total{result}                   counter   Phase-20 TAP fing
 ja4proxy_tap_signal_total{action}                    counter   TAP-derived OS mismatch signals emitted
 ```
 
+#### Go TAP sensor (Phase 316) — standalone binary `cmd/ja4-tap`, own registry
+```
+ja4proxy_tap_packets_received_total                  counter   Packets read from the capture source
+ja4proxy_tap_packets_dropped_total{reason}           counter   Packets/bytes dropped: decode|non_tcp|cap_exceeded|gap|event_overflow
+ja4proxy_tap_active_streams                          gauge     TCP connections currently tracked by the reassembler
+ja4proxy_tap_handshakes_extracted_total{kind}        counter   TLS handshakes extracted: clienthello|serverhello|connection
+ja4proxy_tap_fingerprints_written_total{result}      counter   Passive OS classes (316b): written|skipped_unknown|error
+```
+
 #### Redis & config
 ```
 ja4proxy_redis_health{status}                        gauge     Redis health status (1=current, 0=stale). Labels: status=ok|error.

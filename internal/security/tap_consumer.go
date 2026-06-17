@@ -19,10 +19,10 @@ import (
 	"context"
 	"fmt"
 	"net/netip"
-	"strings"
 	"time"
 
 	"github.com/seanpor/ja4proxy/internal/cache"
+	"github.com/seanpor/ja4proxy/internal/fingerprint"
 	"github.com/seanpor/ja4proxy/internal/metrics"
 	"github.com/sirupsen/logrus"
 )
@@ -94,52 +94,12 @@ func NewTapConsumer(cfg *TapConsumerConfig, r redisGetter, log *logrus.Logger) *
 	}
 }
 
-// ja4OSClass returns the OS class claimed by the JA4 fingerprint, or "" when
-// the fingerprint does not map to a known OS. The starter table is
-// intentionally small (see PHASE_203_review.md); gaps are fail-open.
-//
-// Keys are the JA4 prefix up to the first underscore (e.g. "t13d1516h2").
-// Mappings derived from config/os_fingerprints.yml and the public
-// FoxIO-LLC/ja4 dataset.
-func ja4OSClass(ja4 string) string {
-	if len(ja4) == 0 {
-		return ""
-	}
-	underscore := strings.IndexByte(ja4, '_')
-	if underscore <= 0 {
-		return ""
-	}
-	prefix := ja4[:underscore]
-	switch prefix {
-	case "t13d1516h2":
-		// Chrome/Edge on Windows (modern) — 10 extensions, 2 sigalgs.
-		return "windows"
-	case "t13d1517h2":
-		// Chrome on macOS variant — widely documented in FoxIO JA4 corpus.
-		return "macos"
-	case "t13d1715h2":
-		// Firefox on Linux — commonly reported JA4 shape.
-		return "linux"
-	case "t13d3112h2":
-		// Safari on macOS.
-		return "macos"
-	case "t13d3113h2":
-		// Safari on iOS.
-		return "ios"
-	case "t13d0310h2":
-		// curl / command-line TLS clients (Linux default builds).
-		return "linux"
-	case "t13d1314h1":
-		// Go http.Client default — Linux-shaped stack when run on Linux.
-		return "linux"
-	}
-	return ""
-}
-
 // GetSignal returns a *RiskSignal when the JA4-claimed OS disagrees with the
 // TAP-observed OS for this client IP. Returns nil on any fail-open condition
-// (disabled, unknown JA4, Redis miss/error/timeout, observed==claimed).
-// Never blocks longer than cfg.RedisTimeout on the hot path.
+// (disabled, unknown JA4, Redis miss/error/timeout, observed==claimed, or an
+// observed value that does not parse to a known OS class). The comparison fires
+// only when BOTH classes are concrete, so an unknown on either side never
+// produces a signal. Never blocks longer than cfg.RedisTimeout on the hot path.
 func (t *TapConsumer) GetSignal(ctx context.Context, clientIP, ja4 string) *RiskSignal {
 	if t == nil || t.cfg == nil || !t.cfg.Enabled {
 		return nil
@@ -147,14 +107,14 @@ func (t *TapConsumer) GetSignal(ctx context.Context, clientIP, ja4 string) *Risk
 	if ja4 == "" || clientIP == "" {
 		return nil
 	}
-	// Canonicalise IP to match what the Phase-20 TAP node stores.
+	// Canonicalise IP to match what the TAP sensor stores.
 	// Unparsable IP → fail open (no signal).
 	canonIP := canonicalIP(clientIP)
 	if canonIP == "" {
 		return nil
 	}
-	claimed := ja4OSClass(ja4)
-	if claimed == "" {
+	claimed := fingerprint.JA4OSClass(ja4)
+	if !claimed.IsKnown() {
 		return nil
 	}
 
@@ -169,12 +129,13 @@ func (t *TapConsumer) GetSignal(ctx context.Context, clientIP, ja4 string) *Risk
 		t.cache.Set(cacheKey(canonIP), observed, ttl)
 	}
 
-	if observed == "" {
-		// Miss already counted by redisLookup; nothing to emit.
+	observedClass := fingerprint.ParseOSClass(observed)
+	if !observedClass.IsKnown() {
+		// Miss, or a value that does not map to a known class; nothing to emit.
 		return nil
 	}
 
-	if observed == claimed {
+	if observedClass == claimed {
 		metrics.TapLookupsTotal.WithLabelValues("hit_match").Inc()
 		return nil
 	}
@@ -185,7 +146,7 @@ func (t *TapConsumer) GetSignal(ctx context.Context, clientIP, ja4 string) *Risk
 		Name:   "tap_os_mismatch",
 		Score:  t.cfg.SignalScore,
 		Weight: 1.0,
-		Reason: fmt.Sprintf("JA4 claims %s, TAP observed %s", claimed, observed),
+		Reason: fmt.Sprintf("JA4 claims %s, TAP observed %s", claimed, observedClass),
 	}
 }
 

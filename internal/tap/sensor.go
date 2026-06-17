@@ -62,12 +62,12 @@ func (s *Sensor) deliver(e HandshakeEvent) {
 // ProcessPacket decodes one frame and feeds it to the reassembler.
 func (s *Sensor) ProcessPacket(data []byte, ci gopacket.CaptureInfo) {
 	PacketsReceivedTotal.Inc()
-	netFlow, tcp, ok := s.decoder.decode(data)
+	netFlow, tcp, ttl, ok := s.decoder.decode(data)
 	if !ok {
 		PacketsDroppedTotal.WithLabelValues(dropNonTCP).Inc()
 		return
 	}
-	s.asm.AssembleWithContext(netFlow, tcp, &assemblerCtx{ci: ci})
+	s.asm.AssembleWithContext(netFlow, tcp, &assemblerCtx{ci: ci, ttl: ttl})
 }
 
 // Flush closes and emits all in-flight connections (call at shutdown / EOF).
@@ -108,7 +108,12 @@ func (s *Sensor) Run(ctx context.Context, src PacketSource) error {
 	}
 }
 
-// assemblerCtx carries the per-packet capture info into the reassembler.
-type assemblerCtx struct{ ci gopacket.CaptureInfo }
+// assemblerCtx carries per-packet info the reassembler callbacks need. The TTL
+// is included because reassembly never exposes the IP layer, yet the SYN's TTL
+// is a primary passive-OS-fingerprint feature (316b).
+type assemblerCtx struct {
+	ci  gopacket.CaptureInfo
+	ttl uint8
+}
 
 func (c *assemblerCtx) GetCaptureInfo() gopacket.CaptureInfo { return c.ci }

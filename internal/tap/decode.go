@@ -33,10 +33,12 @@ func newDecoder(linkType layers.LinkType) *decoder {
 }
 
 // decode reports the network flow (client→server orientation for the first
-// packet of a connection) and the decoded TCP layer. ok is false when the frame
-// is not IPv4/IPv6 + TCP. The returned *layers.TCP aliases reused storage and is
-// only valid until the next decode call.
-func (d *decoder) decode(data []byte) (netFlow gopacket.Flow, tcp *layers.TCP, ok bool) {
+// packet of a connection), the decoded TCP layer, and the IP TTL (IPv4) or
+// hop-limit (IPv6) of the frame. ok is false when the frame is not IPv4/IPv6 +
+// TCP. The returned *layers.TCP aliases reused storage and is only valid until
+// the next decode call. The TTL is plumbed through to OS classification (316b),
+// which needs it from the SYN; the reassembly callbacks never see the IP layer.
+func (d *decoder) decode(data []byte) (netFlow gopacket.Flow, tcp *layers.TCP, ttl uint8, ok bool) {
 	// DecodeLayers returns an error for the trailing unsupported/truncated
 	// layer; that's expected, so we inspect d.decoded rather than the error.
 	_ = d.parser.DecodeLayers(data, &d.decoded)
@@ -46,18 +48,20 @@ func (d *decoder) decode(data []byte) (netFlow gopacket.Flow, tcp *layers.TCP, o
 		switch lt {
 		case layers.LayerTypeIPv4:
 			netFlow = d.ip4.NetworkFlow()
+			ttl = d.ip4.TTL
 			haveIP = true
 		case layers.LayerTypeIPv6:
 			netFlow = d.ip6.NetworkFlow()
+			ttl = d.ip6.HopLimit
 			haveIP = true
 		case layers.LayerTypeTCP:
 			haveTCP = true
 		}
 	}
 	if !haveIP || !haveTCP {
-		return netFlow, nil, false
+		return netFlow, nil, 0, false
 	}
-	return netFlow, &d.tcp, true
+	return netFlow, &d.tcp, ttl, true
 }
 
 // firstLayerType maps a capture link type to the gopacket layer the parser
