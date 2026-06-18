@@ -918,8 +918,9 @@ async def triage_dismiss(
     except Exception as exc:  # noqa: BLE001
         logger.warning("partials | event=triage_dismiss_error | ip=%s | error=%s", ip, exc)
 
+    import html
     return HTMLResponse(
-        content=f'<!-- dismissed: {ip} -->',
+        content=f'<!-- dismissed: {html.escape(ip)} -->',
         status_code=200,
     )
 

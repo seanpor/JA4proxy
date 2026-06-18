@@ -23,7 +23,7 @@ from check_image_versions import (
     ImageRef,
     _extract_images,
     check,
-)  # noqa: E402
+)
 
 
 def _write_compose(tmp_path: Path, filename: str, content: str) -> Path:
