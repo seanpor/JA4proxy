@@ -2796,8 +2796,8 @@ phases:
     summary: Implement shift handover snapshots, dial auto-revert timers, CIDR range block support, manual action attribution, and TLS certificate expiry tracking.
   238:
     name: Accessibility Hardening & Infrastructure Docs
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_238.md
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_238.md
     dependencies: [231, 237]
     size: MEDIUM
     summary: Harden the dashboard status indicators using shape+color+text matching WCAG 2.1 AA, add ARIA live regions, style CSS Light Mode, configure Grafana secure cookies, publish the cAdvisor threat model, and write a HAProxy TCP mode CI test.

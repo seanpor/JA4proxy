@@ -21,7 +21,8 @@
          hx-get="/api/v1/partials/health-cards"
          hx-trigger="load, every 10s"
          hx-swap="innerHTML"
-         hx-indicator="#htmx-indicator">
+         hx-indicator="#htmx-indicator"
+         aria-live="polite" aria-atomic="false">
       <!-- Skeleton placeholders shown while first load is in flight -->
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {% for _ in range(4) %}
