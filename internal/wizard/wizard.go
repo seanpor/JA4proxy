@@ -65,6 +65,10 @@ type Wizard struct {
 	InputFn     func(string) (string, error)
 	GetPassFn   func(string) (string, error)
 	LaneManager LaneManager
+	// NonInteractive skips all prompts and uses the pre-filled Answers as-is
+	// (the caller is responsible for populating them). Only the lane is
+	// defaulted here. Set by `ja4p init --non-interactive`.
+	NonInteractive bool
 }
 
 type LaneManager interface {
@@ -106,7 +110,16 @@ func (w *Wizard) Run(ctx context.Context) (*Answers, *GeneratedConfig, error) {
 		}
 		return nil
 	}
-	if err := runWizard(); err != nil {
+	if w.NonInteractive {
+		// Answers are pre-filled by the caller; resolve only the lane so we
+		// never block on a prompt. (The prompt-driven path lives in runWizard.)
+		if w.Answers.Lane < 0 {
+			w.Answers.Lane = 0
+		}
+		if w.Answers.LaneName == "" {
+			w.Answers.LaneName = "default"
+		}
+	} else if err := runWizard(); err != nil {
 		return nil, nil, err
 	}
 
@@ -510,13 +523,15 @@ func (w *Wizard) confirmAndWrite(ctx context.Context) error {
 		return nil
 	}
 
-	confirm, err := askYesNo("Write configuration?", true, w.InputFn)
-	if err != nil {
-		return err
-	}
-	if !confirm {
-		w.Out.Info("Aborted — no files written.")
-		return nil
+	if !w.NonInteractive {
+		confirm, err := askYesNo("Write configuration?", true, w.InputFn)
+		if err != nil {
+			return err
+		}
+		if !confirm {
+			w.Out.Info("Aborted — no files written.")
+			return nil
+		}
 	}
 
 	wd, _ := os.Getwd()
