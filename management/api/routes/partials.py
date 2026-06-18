@@ -74,6 +74,38 @@ _AUDIT_KEY = "management:audit_log"
 _DIAL_KEY = "config:dial"
 
 
+async def _find_manual_attribution(redis, client_ip: str, event_ts: float) -> Optional[str]:
+    """Check the audit log for a manual ban on client_ip near event_ts.
+
+    Returns the operator username if a manual action is found within ±5 seconds,
+    None otherwise. Used to add [manual] attribution to live feed events.
+    """
+    try:
+        raw_entries = await redis.lrange("management:audit_log", 0, 199)
+        for raw in raw_entries:
+            try:
+                e = json.loads(raw)
+            except (json.JSONDecodeError, TypeError):
+                continue
+            if e.get("action") not in ("manual_ban", "list_add"):
+                continue
+            detail = e.get("detail", {})
+            if detail.get("ip") != client_ip:
+                continue
+            try:
+                audit_ts = datetime.fromisoformat(e["timestamp"]).timestamp()
+                if abs(audit_ts - event_ts) <= 5.0:
+                    return e.get("user", "operator")
+            except (ValueError, KeyError):
+                continue
+    except Exception as exc:
+        logger.warning(
+            "partials | event=attribution_lookup_error | ip=%s | error=%s",
+            client_ip, exc,
+        )
+    return None
+
+
 async def _get_dial(redis) -> int:
     """Read current dial from Redis (default 0)."""
     raw: Optional[str] = await redis.get(_DIAL_KEY)
@@ -192,10 +224,23 @@ async def dial_partial(
     templates = _get_templates()
     dial_value = await _get_dial(redis)
 
+    revert_seconds_remaining = 0
+    try:
+        raw = await redis.get("config:dial_override")
+        if raw:
+            rec = json.loads(raw)
+            revert_seconds_remaining = max(0, int(rec["expires_at_epoch"]) - int(time.time()))
+    except Exception:  # noqa: BLE001
+        pass
+
     return templates.TemplateResponse(
         request,
         "partials/dial_widget.html",
-        {"user": current_user[0], "dial_value": dial_value},
+        {
+            "user": current_user[0],
+            "dial_value": dial_value,
+            "revert_seconds_remaining": revert_seconds_remaining,
+        },
     )
 
 

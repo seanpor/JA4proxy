@@ -56,6 +56,10 @@ class DialUpdateRequest(BaseModel):
     value: int = Field(
         ..., ge=0, le=100, description="New dial value (0-100, max ±10 change)"
     )
+    revert_after_hours: Optional[int] = Field(
+        None, ge=1, le=24,
+        description="Auto-revert the dial to its current value after N hours (1-24).",
+    )
 
 
 # ── List models ───────────────────────────────────────────────────────────────

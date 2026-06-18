@@ -180,7 +180,7 @@ _AUDIT_KEY = "management:audit_log"
 _DIAL_KEY = "config:dial"
 _INTELLIGENCE_INDEX = "analytics:findings:index"
 _INTELLIGENCE_KEY_PREFIX = "analytics:finding:"
-_EVENTS_STREAM = "ja4proxy:events"
+_EVENTS_STREAM = "events:connection"  # Go proxy writes here
 
 
 async def _read_dial(redis) -> dict:
@@ -747,11 +747,15 @@ async def create_ban(
         raise HTTPException(status_code=422, detail="CIDR expansion produced zero IPs.")
 
     try:
-        pipe = redis.pipeline()
-        for ip in ips_to_ban:
-            key = f"ban:{ip}"
-            pipe.set(key, body.reason, ex=ttl_seconds)
-        await pipe.execute()
+        # Batch in chunks of 500 to avoid blocking Redis for large CIDRs
+        _BAN_BATCH_SIZE = 500
+        for i in range(0, len(ips_to_ban), _BAN_BATCH_SIZE):
+            batch = ips_to_ban[i : i + _BAN_BATCH_SIZE]
+            pipe = redis.pipeline()
+            for ip in batch:
+                key = f"ban:{ip}"
+                pipe.set(key, body.reason, ex=ttl_seconds)
+            await pipe.execute()
     except Exception as exc:
         logger.warning(
             "bans | event=ban_write_error | cidr=%s | ips=%s | error=%s",
@@ -960,9 +964,10 @@ bind-mounted into the management container from the haproxy container's cert pat
 
 import logging
 import os
-import ssl
 from datetime import datetime, timezone
 
+from cryptography import x509
+from cryptography.hazmat.backends import default_backend
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 
@@ -990,6 +995,10 @@ async def tls_health(
       - issuer (dict)
       - status ("ok" | "warn" | "crit" | "error")
       - band ("green" | "amber" | "red")
+
+    Uses the cryptography library (already a project dependency) rather
+    than the private CPython API ssl._ssl._test_decode_cert, which is
+    unavailable on PyPy and may be removed in future CPython versions.
     """
     cert_path = os.getenv("HAPROXY_TLS_CERT_PATH", _DEFAULT_CERT_PATH)
 
@@ -1003,8 +1012,9 @@ async def tls_health(
         }, status_code=200)  # 200 so the partial always renders
 
     try:
-        # Read certificate using ssl module — no subprocess needed
-        cert_dict = ssl._ssl._test_decode_cert(cert_path)  # type: ignore[attr-defined]
+        with open(cert_path, "rb") as f:
+            pem_data = f.read()
+        cert = x509.load_pem_x509_certificate(pem_data, default_backend())
     except Exception as exc:
         logger.warning("tls_health | event=cert_parse_error | path=%s | error=%s", cert_path, exc)
         return JSONResponse({
@@ -1015,9 +1025,7 @@ async def tls_health(
         })
 
     try:
-        # notAfter format: "Nov 12 00:00:00 2025 GMT"
-        not_after_str = cert_dict.get("notAfter", "")
-        not_after_dt = datetime.strptime(not_after_str, "%b %d %H:%M:%S %Y %Z").replace(tzinfo=timezone.utc)
+        not_after_dt = cert.not_valid_after_utc
         now = datetime.now(timezone.utc)
         days_remaining = (not_after_dt - now).days
 
@@ -1028,8 +1036,8 @@ async def tls_health(
         else:
             status, band = "crit", "red"
 
-        subject = dict(x[0] for x in cert_dict.get("subject", []))
-        issuer = dict(x[0] for x in cert_dict.get("issuer", []))
+        subject = {attr.oid._name: attr.value for attr in cert.subject}
+        issuer = {attr.oid._name: attr.value for attr in cert.issuer}
 
         logger.info(
             "tls_health | event=cert_read | days=%s | band=%s | subject_cn=%s",
@@ -1284,24 +1292,28 @@ def test_loopback_rejected():
 # tests/unit/test_tls_health.py
 
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, mock_open
 from datetime import datetime, timezone, timedelta
+
+
+def _make_cert(expiry_dt: datetime) -> MagicMock:
+    """Build a mock X.509 cert with the given not_valid_after_utc."""
+    cert = MagicMock()
+    cert.not_valid_after_utc = expiry_dt
+    cert.subject = []
+    cert.issuer = []
+    return cert
 
 
 @pytest.mark.asyncio
 async def test_cert_expiring_in_5_days_returns_red_band(test_client):
     """A certificate expiring in 5 days → band='red', status='crit'."""
     expiry = datetime.now(timezone.utc) + timedelta(days=5)
-    expiry_str = expiry.strftime("%b %d %H:%M:%S %Y GMT")
+    mock_cert = _make_cert(expiry)
 
-    mock_cert = {
-        "notAfter": expiry_str,
-        "subject": [[("commonName", "proxy.example.com")]],
-        "issuer": [[("organizationName", "Let's Encrypt")]],
-    }
-
-    with patch("ssl._ssl._test_decode_cert", return_value=mock_cert), \
-         patch("os.path.exists", return_value=True):
+    with patch("os.path.exists", return_value=True), \
+         patch("builtins.open", mock_open(read_data=b"pem")), \
+         patch("cryptography.x509.load_pem_x509_certificate", return_value=mock_cert):
         response = await test_client.get(
             "/api/v1/tls-health",
             headers={"Authorization": "Bearer test-operator-token"},
@@ -1317,11 +1329,11 @@ async def test_cert_expiring_in_5_days_returns_red_band(test_client):
 @pytest.mark.asyncio
 async def test_cert_expiring_in_20_days_returns_amber_band(test_client):
     expiry = datetime.now(timezone.utc) + timedelta(days=20)
-    expiry_str = expiry.strftime("%b %d %H:%M:%S %Y GMT")
-    mock_cert = {"notAfter": expiry_str, "subject": [], "issuer": []}
+    mock_cert = _make_cert(expiry)
 
-    with patch("ssl._ssl._test_decode_cert", return_value=mock_cert), \
-         patch("os.path.exists", return_value=True):
+    with patch("os.path.exists", return_value=True), \
+         patch("builtins.open", mock_open(read_data=b"pem")), \
+         patch("cryptography.x509.load_pem_x509_certificate", return_value=mock_cert):
         response = await test_client.get("/api/v1/tls-health",
                                          headers={"Authorization": "Bearer test-operator-token"})
 
@@ -1331,11 +1343,11 @@ async def test_cert_expiring_in_20_days_returns_amber_band(test_client):
 @pytest.mark.asyncio
 async def test_cert_expiring_in_60_days_returns_green_band(test_client):
     expiry = datetime.now(timezone.utc) + timedelta(days=60)
-    expiry_str = expiry.strftime("%b %d %H:%M:%S %Y GMT")
-    mock_cert = {"notAfter": expiry_str, "subject": [], "issuer": []}
+    mock_cert = _make_cert(expiry)
 
-    with patch("ssl._ssl._test_decode_cert", return_value=mock_cert), \
-         patch("os.path.exists", return_value=True):
+    with patch("os.path.exists", return_value=True), \
+         patch("builtins.open", mock_open(read_data=b"pem")), \
+         patch("cryptography.x509.load_pem_x509_certificate", return_value=mock_cert):
         response = await test_client.get("/api/v1/tls-health",
                                          headers={"Authorization": "Bearer test-operator-token"})
 
@@ -1355,29 +1367,32 @@ async def test_missing_cert_file_returns_error(test_client):
 
 ```bash
 # Working directory: <repo root>
+# All Python commands run inside the ja4proxy-tools container (container-strict rule).
 
 # Unit tests for this phase
-python3 -m pytest tests/unit/test_snapshot.py \
-                  tests/unit/test_dial_revert.py \
-                  tests/unit/test_cidr_bans.py \
-                  tests/unit/test_tls_health.py \
-                  -v
+docker run --rm -v "$PWD":/src -w /src ja4proxy-tools pytest \
+  tests/unit/test_snapshot.py \
+  tests/unit/test_dial_revert.py \
+  tests/unit/test_cidr_bans.py \
+  tests/unit/test_tls_health.py \
+  -v
 
 # Page rendering tests — verify new routes return 200 + text/html
-python3 -m pytest tests/management/test_pages.py -v
+docker run --rm -v "$PWD":/src -w /src ja4proxy-tools pytest \
+  tests/management/test_pages.py -v
 
 # Full suite (must pass before merge)
 make test
 
 # Lint and type check all new/modified files
-python3 -m ruff check \
+docker run --rm -v "$PWD":/src -w /src ja4proxy-tools ruff check \
   management/api/routes/snapshots.py \
   management/api/routes/bans.py \
   management/api/routes/dial.py \
   management/api/routes/tls_health.py \
   management/tasks/dial_revert.py
 
-python3 -m mypy \
+docker run --rm -v "$PWD":/src -w /src ja4proxy-tools mypy \
   management/api/routes/snapshots.py \
   management/api/routes/bans.py \
   management/api/routes/tls_health.py
@@ -1403,12 +1418,13 @@ All of the following must be true before this phase is marked COMPLETE in
 - [ ] Live feed shows `[manual: username]` badge for manually-applied actions.
 - [ ] `GET /api/v1/tls-health` returns correct days_remaining and band.
 - [ ] Infrastructure partial shows TLS cert row with colour-coded urgency.
+- [ ] Redis ACL config updated with patterns for new keys: `~config:dial_override`, `~management:audit_log`.
 - [ ] All unit tests pass with zero warnings.
 - [ ] `make test` exits 0.
-- [ ] `python3 -m ruff check` exits 0 on all new/modified files.
-- [ ] CHANGELOG.md updated with Phase 237 entry.
+- [ ] `make lint` exits 0 on all new/modified files.
+- [ ] CHANGELOG.md updated with Phase 237 entry (use `docs/fragments/`).
 - [ ] `docs/phases/manifest.yaml` updated: `status: COMPLETE`, `completed: YYYY-MM-DD`.
-- [ ] `python3 scripts/sync-roadmap.py` run.
+- [ ] `make sync` exits 0 (regenerates roadmap from manifest).
 
 ---
 
@@ -1427,8 +1443,9 @@ audit_entries = await redis.lrange("management:audit_log", 0, 199)
 **Mistake 2: Using `network.hosts()` for non-/24 CIDRs.**
 `ipaddress.IPv4Network.hosts()` excludes the network and broadcast addresses.
 For a /31 or /30, this leaves very few usable addresses. For a /16, it works
-correctly but produces 65,534 addresses — check that the pipeline write completes
-without a Redis timeout. Use `max_ttl` appropriately.
+correctly but produces 65,534 addresses. A single pipeline with 65K commands
+will block Redis for seconds and consume significant memory. Always batch in
+chunks of 500 (the endpoint handler does this).
 
 **Mistake 3: Forgetting to mount the HAProxy cert into the management container.**
 `/api/v1/tls-health` reads a certificate file. In Docker, that file is inside the
@@ -1459,3 +1476,16 @@ The snapshot downloads as a JSON file with no access controls beyond the initial
 authentication check. Do not include Redis passwords, JWT secrets, or TLS private key
 paths in the snapshot. Treat it as a document that could be emailed between SOC
 shifts — it should contain operational data, not credentials.
+
+**Mistake 7: Using `ssl._ssl._test_decode_cert` for TLS cert parsing.**
+This is a private CPython C extension function (`ssl._ssl._test_decode_cert`) that
+is undocumented, unavailable on PyPy, and may be removed in any future CPython
+version. Use `cryptography.x509.load_pem_x509_certificate()` instead — the
+`cryptography` library is already a project dependency.
+
+**Mistake 8: Reading from `ja4proxy:events` instead of `events:connection`.**
+The Go proxy writes connection events to the `events:connection` stream. The
+`ja4proxy:events` stream is an internal Python-proxy stream used for compliance
+and purge operations — it does NOT contain `client_ip` or `risk_score` fields
+needed by the snapshot endpoint. Always use `events:connection` for live
+threat data.

@@ -94,4 +94,15 @@
     </div>
 
   </div>
+
+  <!-- Phase 237: TLS Certificate Expiry -->
+  <div id="tls-cert-row"
+       hx-get="/api/v1/tls-health?format=html"
+       hx-trigger="load, every 3600s"
+       hx-swap="innerHTML">
+    <div class="flex items-center justify-between py-2 border-t border-[#334155]">
+      <span class="text-sm text-[#94a3b8]">TLS Certificate</span>
+      <span class="text-xs text-[#64748b]">Loading…</span>
+    </div>
+  </div>
 </div>

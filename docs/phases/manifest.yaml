@@ -2789,11 +2789,12 @@ phases:
     summary: Set up scoped Redis ACL credentials for the analytics engine, implement a validated output writer, build the Intelligence dashboard row and review page, and add false positive feedback flows.
   237:
     name: Operational Polish & Missing Workflows
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_237.md
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_237.md
     dependencies: [231, 236]
     size: MEDIUM
     summary: Implement shift handover snapshots, dial auto-revert timers, CIDR range block support, manual action attribution, and TLS certificate expiry tracking.
+    owner: opencode
   238:
     name: Accessibility Hardening & Infrastructure Docs
     status: COMPLETE
