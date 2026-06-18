@@ -316,12 +316,16 @@ class TestRunDetectionCycle:
         )
         c.redis.set = AsyncMock()
         c.redis.expire = AsyncMock()
+        # Phase 236: pipeline mock for write_finding
+        c.redis.pipeline = MagicMock()
+        c.redis.pipeline.return_value = MagicMock()
+        c.redis.pipeline.return_value.execute = AsyncMock()
         result = await c.run_detection_cycle()
-        # Should have called redis.set at least once for the campaign
+        # should have called redis.set at least once for the campaign
         c.redis.set.assert_called()
-        call_args = c.redis.set.call_args_list[0]
-        key = call_args[0][0]
-        assert key.startswith("analytics:campaign:")
+        # first call is heartbeat; find the campaign call
+        campaign_calls = [a for a in c.redis.set.call_args_list if "analytics:campaign:" in str(a[0][0])]
+        assert len(campaign_calls) == 1
 
     async def test_slow_scans_stored_in_redis(self):
         c = _make_consumer(slow_scan_detection=True)
@@ -329,10 +333,14 @@ class TestRunDetectionCycle:
             return_value=[{"subnet": "10.0.0.0/24"}]
         )
         c.redis.set = AsyncMock()
+        # Phase 236: pipeline mock for write_finding
+        c.redis.pipeline = MagicMock()
+        c.redis.pipeline.return_value = MagicMock()
+        c.redis.pipeline.return_value.execute = AsyncMock()
         result = await c.run_detection_cycle()
         c.redis.set.assert_called()
-        key = c.redis.set.call_args_list[0][0][0]
-        assert key.startswith("analytics:slowscan:")
+        slowscan_calls = [a for a in c.redis.set.call_args_list if "analytics:slowscan:" in str(a[0][0])]
+        assert len(slowscan_calls) == 1
 
     async def test_ja4_candidates_stored_in_sorted_set(self):
         # Security: the sorted set of JA4 candidates is read by proxies to auto-

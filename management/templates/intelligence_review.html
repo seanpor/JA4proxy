@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Intelligence Review{% endblock %}
+{% block page_title %}Intelligence Review{% endblock %}
+
+{% block content %}
+{% if role not in ['analyst', 'operator', 'admin'] %}
+  <div class="bg-[#dc2626]/10 border border-[#dc2626]/30 rounded-lg p-4 text-[#f87171]">
+    Access restricted. Analyst role or higher required.
+  </div>
+{% else %}
+
+<div class="space-y-4">
+  <p class="text-sm text-[#94a3b8]">
+    This page shows MEDIUM (70–89% confidence) and LOW (&lt;70%) analytics findings.
+    These are not shown on the main dashboard to avoid alert fatigue, but are worth
+    reviewing during quieter periods.
+  </p>
+
+  <div class="flex gap-2 flex-wrap">
+    <select id="filter-tier"
+            class="px-3 py-1.5 text-xs rounded bg-[#1e293b] border border-[#334155] text-[#f1f5f9] focus:outline-none focus:ring-2 focus:ring-[#0ea5e9]"
+            hx-get="/api/v1/partials/intelligence-review"
+            hx-trigger="change"
+            hx-target="#review-content"
+            name="tier">
+      <option value="all">All tiers</option>
+      <option value="MEDIUM">MEDIUM only</option>
+      <option value="LOW">LOW only</option>
+    </select>
+    <select id="filter-type"
+            class="px-3 py-1.5 text-xs rounded bg-[#1e293b] border border-[#334155] text-[#f1f5f9] focus:outline-none focus:ring-2 focus:ring-[#0ea5e9]"
+            hx-get="/api/v1/partials/intelligence-review"
+            hx-trigger="change"
+            hx-target="#review-content"
+            name="type"
+            hx-include="#filter-tier">
+      <option value="all">All types</option>
+      <option value="beaconing">Beaconing</option>
+      <option value="campaign">Campaign</option>
+      <option value="drift">Drift</option>
+      <option value="slowscan">Slow Scan</option>
+    </select>
+  </div>
+
+  <div id="review-content"
+       hx-get="/api/v1/partials/intelligence-review"
+       hx-trigger="load"
+       hx-vals='{"tier": "all", "type": "all"}'>
+    <p class="text-sm text-[#64748b]">Loading findings…</p>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

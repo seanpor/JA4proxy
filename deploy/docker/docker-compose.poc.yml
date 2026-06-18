@@ -116,6 +116,8 @@ services:
       - redis-server
       - --requirepass
       - ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+      - --aclfile
+      - /etc/redis/redis_acl.conf
       - --maxmemory
       - 256mb
       - --maxmemory-policy
@@ -135,6 +137,7 @@ services:
     volumes:
       - redis-data:/data
       - redis-sock:/var/run/redis
+      - ../../config/redis_acl.conf:/etc/redis/redis_acl.conf:ro
     security_opt:
       - no-new-privileges:true
     read_only: true
@@ -267,9 +270,9 @@ services:
     depends_on:
       - redis
     environment:
+      - REDIS_URL=redis://analytics:${ANALYTICS_REDIS_PASSWORD:?ANALYTICS_REDIS_PASSWORD is required}@redis:6379/0
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD is required}
       - WAIT_FOR_REDIS=true
       - PYTHONUNBUFFERED=1
       - PYTHONDONTWRITEBYTECODE=1

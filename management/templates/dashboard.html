@@ -54,7 +54,18 @@
     </div>
   </section>
 
-  <!-- ── Row 4: Triage Queue (60s poll, Phase 234 Sub-task D) ────── -->
+  <!-- ── Row 4: Intelligence (60s poll, Phase 236) ─────────────── -->
+  <section aria-label="Analytics Intelligence">
+    <div id="intelligence"
+         hx-get="/api/v1/partials/intelligence"
+         hx-trigger="load, every 60s"
+         hx-swap="innerHTML"
+         hx-indicator="#htmx-indicator">
+      <p class="text-sm text-[#64748b]">Loading intelligence…</p>
+    </div>
+  </section>
+
+  <!-- ── Row 5: Triage Queue (60s poll, Phase 234 Sub-task D) ────── -->
   <section aria-label="Triage queue">
     <div id="triage-queue-outer"
          hx-get="/api/v1/partials/triage-queue"

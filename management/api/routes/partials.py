@@ -8,15 +8,20 @@ rendered from templates in management/templates/partials/.
 
 Routes
 ------
-GET /api/v1/partials/health-cards   — health status card grid
-GET /api/v1/partials/dial           — dial widget with current value
-GET /api/v1/partials/bans           — active bans table
-GET /api/v1/partials/audit          — audit log table rows
-GET /api/v1/partials/list-table     — a single list table (whitelist/blacklist/allowlist)
-GET /api/v1/partials/situation      — threat posture situation bar
+GET /api/v1/partials/health-cards       — health status card grid
+GET /api/v1/partials/dial               — dial widget with current value
+GET /api/v1/partials/bans               — active bans table
+GET /api/v1/partials/audit              — audit log table rows
+GET /api/v1/partials/list-table         — a single list table (whitelist/blacklist/allowlist)
+GET /api/v1/partials/situation          — threat posture situation bar
+GET /api/v1/partials/intelligence       — analytics intelligence row (Phase 236)
+GET /api/v1/partials/intelligence-review — intelligence review page content (Phase 236)
+POST /api/v1/intelligence/dismiss/{id}  — dismiss an analytics finding (Phase 236)
+POST /api/v1/intelligence/mark-fp/{id}  — mark finding as false positive (Phase 236)
 """
 
 import html
+import ipaddress
 import json
 import logging
 import os
@@ -25,7 +30,7 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
@@ -914,6 +919,326 @@ async def triage_dismiss(
         logger.warning("partials | event=triage_dismiss_error | ip=%s | error=%s", ip, exc)
 
     return HTMLResponse(
-        content=f'<!-- dismissed: {ip} -->',
+        content=f'<!-- dismissed: {html.escape(ip)} -->',
         status_code=200,
     )
+
+
+# ── Phase 236: Analytics Intelligence ──────────────────────────────────────────
+
+# Phase 236 — schema constant (mirrors output_writer.FINDING_SCHEMA)
+# Intentionally duplicated: the two services run in separate containers and
+# the management Dockerfile only copies management/. A parity test at
+# tests/unit/test_schema_parity.py verifies both copies stay in sync.
+_FINDING_SCHEMA = {
+    "confidence":       {"type": float,  "required": True,  "min": 0.0,  "max": 1.0},
+    "tier":             {"type": str,    "required": True,  "enum": {"HIGH", "MEDIUM", "LOW"}},
+    "type":             {"type": str,    "required": True,  "enum": {"beaconing", "campaign", "drift", "slowscan"}},
+    "subject_ip":       {"type": str,    "required": False, "max_len": 45},
+    "subject_ja4":      {"type": str,    "required": False, "max_len": 64},
+    "description":      {"type": str,    "required": True,  "max_len": 500},
+    "evidence_count":   {"type": int,    "required": True,  "min": 0},
+    "model_version":    {"type": str,    "required": True,  "max_len": 32},
+    "model_trained_at": {"type": str,    "required": True,  "max_len": 32},
+    "fp_rate_estimate": {"type": float,  "required": True,  "min": 0.0,  "max": 1.0},
+    "suggested_action": {"type": str,    "required": True,  "enum": {"monitor", "watchlist", "investigate", "block"}},
+    "created_at":       {"type": str,    "required": True,  "max_len": 32},
+    "dismissed":        {"type": str,    "required": True,  "enum": {"0", "1"}},
+}
+
+_INTELLIGENCE_KEY_PREFIX = "analytics:finding:"
+_INTELLIGENCE_INDEX = "analytics:findings:index"
+
+
+def _validate_finding(raw: dict, finding_id: str) -> Optional[dict]:
+    """Validate an analytics finding against the schema.
+
+    Returns a cleaned dict if valid, None if invalid.
+    Any validation failure results in silent discard with a WARNING log.
+    This is the schema-validation security control described in PHASE_231.md
+    (Analytics Trust Boundary section).
+    """
+    cleaned: dict = {}
+    for field, rules in _FINDING_SCHEMA.items():
+        value = raw.get(field)
+        if value is None:
+            if rules.get("required"):
+                logger.warning(
+                    "partials | event=finding_schema_fail | id=%s | reason=missing_required | field=%s",
+                    finding_id, field,
+                )
+                return None
+            cleaned[field] = ""
+            continue
+        expected_type = rules["type"]
+        try:
+            coerced = expected_type(value)
+        except (ValueError, TypeError):
+            logger.warning(
+                "partials | event=finding_schema_fail | id=%s | reason=type_error | field=%s | value=%s",
+                finding_id, field, value,
+            )
+            return None
+        if "min" in rules and coerced < rules["min"]:
+            logger.warning(
+                "partials | event=finding_schema_fail | id=%s | reason=below_min | field=%s",
+                finding_id, field,
+            )
+            return None
+        if "max" in rules and coerced > rules["max"]:
+            logger.warning(
+                "partials | event=finding_schema_fail | id=%s | reason=above_max | field=%s",
+                finding_id, field,
+            )
+            return None
+        if "enum" in rules and coerced not in rules["enum"]:
+            logger.warning(
+                "partials | event=finding_schema_fail | id=%s | reason=invalid_enum | field=%s | value=%s",
+                finding_id, field, coerced,
+            )
+            return None
+        if "max_len" in rules and len(str(coerced)) > rules["max_len"]:
+            logger.warning(
+                "partials | event=finding_schema_fail | id=%s | reason=too_long | field=%s",
+                finding_id, field,
+            )
+            return None
+        cleaned[field] = coerced
+    cleaned["id"] = finding_id
+    return cleaned
+
+
+@router.get("/api/v1/partials/intelligence", response_class=HTMLResponse)
+async def intelligence_partial(
+    request: Request,
+    current_user=Depends(get_current_user),
+    redis=Depends(get_redis),
+) -> HTMLResponse:
+    """Return the analytics intelligence row as an HTML fragment.
+
+    Filters to HIGH-confidence, non-dismissed findings only.
+    All findings are schema-validated before rendering (Decision 5, PHASE_231.md).
+    """
+    templates = _get_templates()
+
+    high_findings: list[dict] = []
+    total_unreviewed = 0
+
+    try:
+        raw_ids = await redis.zrevrange(_INTELLIGENCE_INDEX, 0, 49)
+
+        for finding_id in raw_ids:
+            if isinstance(finding_id, bytes):
+                finding_id = finding_id.decode()
+
+            key = f"{_INTELLIGENCE_KEY_PREFIX}{finding_id}"
+            raw = await redis.hgetall(key)
+            if not raw:
+                continue
+
+            decoded = {
+                (k.decode() if isinstance(k, bytes) else k): (v.decode() if isinstance(v, bytes) else v)
+                for k, v in raw.items()
+            }
+
+            finding = _validate_finding(decoded, finding_id)
+            if finding is None:
+                continue
+
+            if finding.get("dismissed") == "1":
+                continue
+
+            total_unreviewed += 1
+
+            if finding.get("tier") == "HIGH":
+                high_findings.append(finding)
+
+        total_high = len(high_findings)
+        high_findings = high_findings[:5]
+
+    except Exception as exc:
+        logger.warning("partials | event=intelligence_redis_error | error=%s", exc)
+
+    dial_value = await _get_dial(redis)
+
+    return templates.TemplateResponse(
+        request,
+        "partials/intelligence.html",
+        {
+            "user": current_user[0],
+            "findings": high_findings,
+            "total_unreviewed": total_unreviewed,
+            "total_high": total_high,
+            "dial_value": dial_value,
+        },
+    )
+
+
+@router.get("/api/v1/partials/intelligence-review", response_class=HTMLResponse)
+async def intelligence_review_partial(
+    request: Request,
+    tier: str = Query("all", description="Filter by tier: all | MEDIUM | LOW"),
+    type: str = Query("all", description="Filter by type: all | beaconing | campaign | drift | slowscan"),
+    current_user=Depends(get_current_user),
+    redis=Depends(get_redis),
+) -> HTMLResponse:
+    """Return the intelligence review content as an HTML fragment.
+
+    Shows MEDIUM and LOW confidence findings for analyst review.
+    Supports tier and type filtering via query parameters.
+    """
+    templates = _get_templates()
+    findings: list[dict] = []
+
+    try:
+        raw_ids = await redis.zrevrange(_INTELLIGENCE_INDEX, 0, 199)
+
+        for finding_id in raw_ids:
+            if isinstance(finding_id, bytes):
+                finding_id = finding_id.decode()
+
+            key = f"{_INTELLIGENCE_KEY_PREFIX}{finding_id}"
+            raw = await redis.hgetall(key)
+            if not raw:
+                continue
+
+            decoded = {
+                (k.decode() if isinstance(k, bytes) else k): (v.decode() if isinstance(v, bytes) else v)
+                for k, v in raw.items()
+            }
+
+            finding = _validate_finding(decoded, finding_id)
+            if finding is None:
+                continue
+
+            if finding.get("dismissed") == "1":
+                continue
+
+            if tier != "all" and finding.get("tier") != tier:
+                continue
+            if type != "all" and finding.get("type") != type:
+                continue
+
+            findings.append(finding)
+
+    except Exception as exc:
+        logger.warning("partials | event=intelligence_review_redis_error | error=%s", exc)
+
+    return templates.TemplateResponse(
+        request,
+        "partials/intelligence_review_content.html",
+        {
+            "user": current_user[0],
+            "findings": findings,
+            "tier": tier,
+            "type": type,
+        },
+    )
+
+
+_DISMISS_TEMPLATE = """
+<div class="bg-[#1e293b] border border-[#334155] rounded-lg p-3 opacity-50"
+     id="finding-{finding_id}">
+  <p class="text-xs text-[#64748b]">Finding dismissed.</p>
+</div>
+"""
+
+_FP_TEMPLATE = """
+<div class="bg-[#1e293b] border border-[#334155] rounded-lg p-3 opacity-50"
+     id="finding-{finding_id}">
+  <p class="text-xs text-[#64748b]">Marked as false positive. Feedback sent to analytics engine.</p>
+</div>
+"""
+
+
+@router.post("/api/v1/intelligence/dismiss/{finding_id}", response_class=HTMLResponse)
+async def dismiss_finding(
+    finding_id: str,
+    request: Request,
+    current_user=Depends(get_current_user),
+    redis=Depends(get_redis),
+) -> HTMLResponse:
+    """Dismiss an analytics finding.
+
+    Sets dismissed=1 on the finding hash. The finding disappears from the
+    dashboard on the next 60s poll. The key retains its original TTL so it
+    reappears naturally if the pattern continues (after the TTL expires, the
+    finding is gone; the analytics engine will write a new one if the pattern
+    persists).
+    """
+    key = f"analytics:finding:{finding_id}"
+    try:
+        exists = await redis.exists(key)
+        if not exists:
+            raise HTTPException(status_code=404, detail="Finding not found")
+        await redis.hset(key, "dismissed", "1")
+        logger.info(
+            "partials | event=finding_dismissed | id=%s | user=%s",
+            finding_id, current_user[0],
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.warning(
+            "partials | event=dismiss_redis_error | id=%s | error=%s",
+            finding_id, exc,
+        )
+        raise HTTPException(status_code=500, detail="Redis error")
+
+    return HTMLResponse(content=_DISMISS_TEMPLATE.format(finding_id=html.escape(finding_id)))
+
+
+@router.post("/api/v1/intelligence/mark-fp/{finding_id}", response_class=HTMLResponse)
+async def mark_finding_fp(
+    finding_id: str,
+    request: Request,
+    current_user=Depends(get_current_user),
+    redis=Depends(get_redis),
+) -> HTMLResponse:
+    """Mark an analytics finding as a false positive.
+
+    Sets dismissed=1 and writes a feedback event to the analytics:feedback
+    stream. The analytics engine consumes this stream to adjust future
+    scoring. This implements the feedback loop described in Decision 5
+    of PHASE_231.md.
+    """
+    key = f"analytics:finding:{finding_id}"
+    feedback_stream = "analytics:feedback"
+
+    try:
+        exists = await redis.exists(key)
+        if not exists:
+            raise HTTPException(status_code=404, detail="Finding not found")
+
+        finding_type = await redis.hget(key, "type")
+        model_version = await redis.hget(key, "model_version")
+
+        pipe = redis.pipeline()
+        pipe.hset(key, "dismissed", "1")
+        pipe.xadd(
+            feedback_stream,
+            {
+                "finding_id": finding_id,
+                "feedback_type": "false_positive",
+                "finding_type": finding_type or "unknown",
+                "model_version": model_version or "unknown",
+                "reported_by": current_user[0],
+                "reported_at": datetime.now(timezone.utc).isoformat(),
+            },
+            maxlen=10000,
+        )
+        await pipe.execute()
+        logger.info(
+            "partials | event=finding_marked_fp | id=%s | user=%s",
+            finding_id, current_user[0],
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.warning(
+            "partials | event=mark_fp_redis_error | id=%s | error=%s",
+            finding_id, exc,
+        )
+        raise HTTPException(status_code=500, detail="Redis error")
+
+    return HTMLResponse(content=_FP_TEMPLATE.format(finding_id=html.escape(finding_id)))

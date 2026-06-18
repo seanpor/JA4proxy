@@ -3,6 +3,7 @@
 
 import asyncio
 import logging
+import os
 import signal
 import sys
 from typing import Any, Optional
@@ -53,18 +54,21 @@ class AnalyticsNode:
         setup_logging(format=log_format)
         logger.info("Starting JA4Proxy Analytics Node")
 
-        redis_host = self.config["redis"]["host"]
-        redis_port = int(self.config["redis"]["port"])
-        redis_password = self.config["redis"].get("password", "")
-        redis_db = int(self.config["redis"].get("db", 0))
+        # Phase 236: prefer REDIS_URL env var (includes scoped ACL user credentials)
+        redis_url = os.environ.get("REDIS_URL")
+        if not redis_url:
+            redis_host = self.config["redis"]["host"]
+            redis_port = int(self.config["redis"]["port"])
+            redis_password = self.config["redis"].get("password", "")
+            redis_db = int(self.config["redis"].get("db", 0))
 
-        # Phase 122 M-2: construct Redis URL without embedding the password
-        # in an f-string that could leak into tracebacks or debug logs.
-        if redis_password:
-            netloc = f":{quote(redis_password, safe='')}@{redis_host}:{redis_port}"
-        else:
-            netloc = f"{redis_host}:{redis_port}"
-        redis_url = urlunparse(("redis", netloc, f"/{redis_db}", "", "", ""))
+            # Phase 122 M-2: construct Redis URL without embedding the password
+            # in an f-string that could leak into tracebacks or debug logs.
+            if redis_password:
+                netloc = f":{quote(redis_password, safe='')}@{redis_host}:{redis_port}"
+            else:
+                netloc = f"{redis_host}:{redis_port}"
+            redis_url = urlunparse(("redis", netloc, f"/{redis_db}", "", "", ""))
 
         monitoring_config = self.config.get("monitoring", {})
         monitoring_enabled = monitoring_config.get("enabled", True)

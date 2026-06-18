@@ -165,6 +165,25 @@ async def ip_detail_page(
     )
 
 
+@router.get("/intelligence-review", response_class=HTMLResponse)
+async def intelligence_review_page(
+    request: Request,
+    current_user=Depends(get_current_user),
+) -> HTMLResponse:
+    """Render the Intelligence Review page (MEDIUM and LOW findings).
+
+    Requires analyst or admin role. Auditors do not have access.
+    Role check is done in the template (role is passed from current_user).
+    """
+    templates = _get_templates()
+    user, role = _extract_user_and_role(current_user)
+    return templates.TemplateResponse(
+        request,
+        "intelligence_review.html",
+        {"user": user, "role": role},
+    )
+
+
 @router.get("/fingerprint/{ja4}", response_class=HTMLResponse)
 async def fingerprint_detail_page(
     request: Request,
