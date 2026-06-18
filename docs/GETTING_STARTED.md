@@ -1,6 +1,6 @@
 <!--
 title: "Getting Started — 30 Minutes to Productive"
-audience: developers
+audience: developer
 last_reviewed: 2026-04-25
 phase: 105
 -->

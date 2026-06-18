@@ -1,6 +1,6 @@
 <!--
 title: Redis_Schema
-audience: Developers
+audience: reference
 last_reviewed: 2026-04-01
 phase: 54
 -->

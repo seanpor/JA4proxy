@@ -1,6 +1,6 @@
 <!--
 title: "Service Targets — SLA / SLO / SLI"
-audience: architects, operators, buyers, secops
+audience: reference
 last_reviewed: 2026-04-24
 phase: 106
 -->

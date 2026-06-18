@@ -1,6 +1,6 @@
 <!--
 title: "Audit Trail — what is logged, where, for how long"
-audience: compliance
+audience: security
 last_reviewed: 2026-04-25
 phase: 105
 -->

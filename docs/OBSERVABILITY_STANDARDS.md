@@ -1,6 +1,6 @@
 <!--
 title: Observability Standards
-audience: DevOps, SRE, Monitoring Teams
+audience: reference
 last_reviewed: 2026-03-27
 phase: 21
 -->

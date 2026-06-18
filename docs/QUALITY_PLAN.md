@@ -1,6 +1,6 @@
 <!--
 title: "JA4proxy Quality Plan"
-audience: architects, compliance, developers, maintainers
+audience: developer
 last_reviewed: 2026-04-24
 phase: 106h
 -->
