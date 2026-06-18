@@ -242,6 +242,85 @@ aside nav a.sidebar-item-active {
   animation: row-highlight 1.5s ease-out;
 }
 
+/* ── Light Mode ──────────────────────────────────────────────── */
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg-main: #f8fafc;
+    --bg-sidebar: #ffffff;
+    --bg-card: rgba(255, 255, 255, 0.7);
+    --bg-card-hover: rgba(248, 250, 252, 0.9);
+    --border-card: rgba(15, 23, 42, 0.08);
+    --border-card-hover: rgba(14, 165, 233, 0.25);
+    --shadow-premium: 0 4px 6px -1px rgb(0 0 0 / 0.05);
+    --shadow-glow-sky: 0 0 12px rgba(14, 165, 233, 0.1);
+  }
+
+  body {
+    background-color: var(--bg-main);
+    background-image: radial-gradient(circle at 50% 0%, rgba(200, 210, 230, 0.3) 0%, rgba(248, 250, 252, 0.95) 70%);
+    color: #0f172a;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #e2e8f0;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #94a3b8;
+  }
+
+  .glass-panel {
+    background: rgba(255, 255, 255, 0.85);
+    border-right: 1px solid rgba(15, 23, 42, 0.08);
+  }
+
+  .glass-card {
+    border-color: var(--border-card);
+  }
+
+  /* Remap Tailwind dark-text colors to light-mode equivalents */
+  .text-\\[\\#f8fafc\\],
+  .text-\\[\\#f1f5f9\\] {
+    color: #0f172a;
+  }
+  .text-\\[\\#94a3b8\\],
+  .text-\\[\\#64748b\\] {
+    color: #475569;
+  }
+  .text-\\[\\#e2e8f0\\] {
+    color: #334155;
+  }
+
+  .custom-table th {
+    background: rgba(226, 232, 240, 0.4);
+    color: #475569;
+  }
+  .custom-table td {
+    color: #334155;
+  }
+
+  .glass-input {
+    background: rgba(248, 250, 252, 0.95) !important;
+    color: #0f172a !important;
+    border-color: rgba(15, 23, 42, 0.15) !important;
+  }
+  .glass-input:focus {
+    border-color: var(--accent-sky) !important;
+  }
+
+  aside nav a.sidebar-item-active {
+    background: linear-gradient(90deg, rgba(14, 165, 233, 0.08) 0%, rgba(14, 165, 233, 0.01) 100%);
+    border-left-color: #0ea5e9;
+  }
+
+  /* Override badge colors for light background */
+  .badge-allow  { background-color: rgba(16, 185, 129, 0.1); color: #059669; }
+  .badge-block  { background-color: rgba(239, 68, 68, 0.1); color: #dc2626; }
+  .badge-tarpit { background-color: rgba(245, 158, 11, 0.1); color: #d97706; }
+  .badge-ban    { background-color: rgba(139, 92, 246, 0.1); color: #7c3aed; }
+  .badge-flag   { background-color: rgba(14, 165, 233, 0.1); color: #0284c7; }
+  .badge-rate   { background-color: rgba(249, 115, 22, 0.1); color: #ea580c; }
+}
+
 /* Responsive adjustments */
 @media (max-width: 900px) {
   #htmx-indicator {
