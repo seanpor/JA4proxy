@@ -313,5 +313,20 @@ as a Phase 85 security follow-up (see Phase 85 security findings).
 
 ---
 
+## Phase 316e — EDL Export Feed
+
+The outbound EDL feed (`management/api/routes/edl.py`,
+`GET /api/v1/edl/{list_name}`) is **read-only over ban state** — it serves a
+plaintext blocklist that firewalls (F5, Palo Alto) pull. It introduces no new
+persisted intelligence; it only **reads** `ban:{ip}` (Phase 231a / TAP 316d) and
+`ban_cidr:{cidr}` (Phase 11) via SCAN. The one key it writes is a transient
+per-token poll-rate limiter.
+
+| Key pattern | Type | TTL | Written by | Notes |
+|---|---|---|---|---|
+| `edl:ratelimit:{identity}` | ZSET (sorted set, score = epoch seconds) | 60 s | `edl._check_rate_limit` | Sliding-window poll-rate limit per EDL token identity. Same pattern as the Phase-85 threat-intel limiter; fail-open (any Redis error skips the check rather than blocking a poll). `identity` is the token name from the `mgmt:token:*` store, never raw client input. |
+
+---
+
 *Last updated: 2026-04-08, Phase 85 complete*
 

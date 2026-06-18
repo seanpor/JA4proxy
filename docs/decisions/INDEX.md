@@ -28,6 +28,7 @@
 | [ADR-203a](ADR-203a.md) | Go inline proxy consumes Phase-20 TAP JA4T from Redis (does not compute it) | Proposed | 203 | 2026-04-15 |
 | [ADR-316a](ADR-316a.md) | Go capture stack for TAP sensor — gopacket fork + AF_PACKET, no cgo | Accepted | 316 | 2026-06-16 |
 | [ADR-316d](ADR-316d.md) | TAP enforcement reuses the ban:{ip} key, not pub/sub or external blockers | Accepted | 316 | 2026-06-17 |
+| [ADR-316e](ADR-316e.md) | TAP intelligence export is one pull-based EDL endpoint, not seven push exporters | Accepted | 316 | 2026-06-18 |
 | [ADR-093a](ADR-093a-repository-topology.md) | Terraform provider repository topology | Accepted | 93/102 | 2026-04-15 |
 | [ADR-093b](ADR-093b-terraform-registry-namespace.md) | Terraform Registry namespace selection | Accepted | 93/102 | 2026-04-15 |
 | [ADR-093c](ADR-093c-ttl-renewal-and-drift-detection.md) | Ban TTL renewal and drift-detection strategy | Accepted | 93/102 | 2026-04-15 |

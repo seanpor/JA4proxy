@@ -641,6 +641,15 @@ ja4t_consumer:                # phase-316c — advisory JA4T blocklist signal
   blocklist: []               # JA4T fingerprints to flag, e.g. ["65535_2-1-3-1-1-8-4_1460_7"];
                               # empty (default) = silent, never fires (cannot produce a false positive)
 
+edl:                          # phase-316e — outbound EDL feed: firewalls (F5, Palo Alto) pull a
+                              # plaintext blocklist of active bans from GET /api/v1/edl/{list_name}
+  enabled: false              # default OFF — opt in consciously; when off the endpoint returns 404
+  max_entries: 100000         # cap the served list (F5/PaloAlto EDLs have vendor limits); truncation is logged
+  cache_ttl_seconds: 60       # Cache-Control max-age; ETag still yields a 304 on unchanged content
+  rate_limit_per_min: 120     # per-token sliding-window poll limit; <=0 disables. Fail-open on Redis error.
+                              # Auth: present a management-API token (POST /api/v1/tokens) as
+                              # X-API-Key, Authorization: Bearer, or ?token=. No token in this file.
+
 # ── Phase 32: Attacker Attribution ───────────────────────────────────────────
 
 attribution:
