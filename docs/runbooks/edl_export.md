@@ -1,3 +1,10 @@
+<!--
+title: EDL Export Feed Operator Runbook
+audience: operator
+last_reviewed: 2026-06-18
+phase: 316e
+-->
+
 # Runbook — EDL Export Feed (Phase 316e)
 
 The EDL (External Dynamic List) feed lets firewalls **pull** JA4proxy's active
