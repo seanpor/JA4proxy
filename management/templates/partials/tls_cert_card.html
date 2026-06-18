@@ -1,0 +1,34 @@
+<div class="flex items-center justify-between py-2 border-t border-[#334155]">
+  <span class="text-sm text-[#94a3b8]">TLS Certificate</span>
+  <div class="flex items-center gap-2">
+    {% if status == "error" %}
+      <span class="text-xs text-[#dc2626]">✖ Cannot read certificate — {{ message }}</span>
+    {% else %}
+      {% set band_color = {
+        "green": "text-[#16a34a]",
+        "amber": "text-[#d97706]",
+        "red":   "text-[#dc2626]",
+      }.get(band, "text-[#94a3b8]") %}
+      {% set band_shape = {
+        "green": "●",
+        "amber": "▲",
+        "red":   "✖",
+      }.get(band, "?") %}
+      <span class="text-xs {{ band_color }}">
+        {{ band_shape }}
+        {{ subject.get("commonName", "Unknown") }} —
+        expires {{ expires_at[:10] }}
+        ({{ days_remaining }} days)
+      </span>
+      {% if band == "red" %}
+      <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-[#dc2626] text-white animate-pulse">
+        ⚠ ACT NOW
+      </span>
+      {% elif band == "amber" %}
+      <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[#d97706] text-white">
+        Renew Soon
+      </span>
+      {% endif %}
+    {% endif %}
+  </div>
+</div>
