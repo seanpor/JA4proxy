@@ -435,9 +435,9 @@ lint-docker:
 		HAPROXY_STATS_USER=lint-placeholder HAPROXY_STATS_PASSWORD=lint-placeholder \
 		docker compose -f deploy/docker/docker-compose.monitoring.yml config --quiet \
 		&& echo "  deploy/docker/docker-compose.monitoring.yml               OK"
-	@BACKEND_HOST=lint-placeholder docker compose -f deploy/docker/docker-compose.prod.yml config --quiet \
+	@BACKEND_HOST=lint-placeholder ANALYTICS_REDIS_PASSWORD=lint-placeholder docker compose -f deploy/docker/docker-compose.prod.yml config --quiet \
 		&& echo "  deploy/docker/docker-compose.prod.yml                     OK"
-	@BACKEND_HOST=lint-placeholder REDIS_PASSWORD=lint-placeholder \
+	@BACKEND_HOST=lint-placeholder REDIS_PASSWORD=lint-placeholder ANALYTICS_REDIS_PASSWORD=lint-placeholder \
 		MANAGEMENT_JWT_SECRET=lint-placeholder MANAGEMENT_ADMIN_USER=lint-placeholder MANAGEMENT_ADMIN_PASSWORD=lint-placeholder \
 		docker compose -f deploy/docker/docker-compose.poc.yml -f deploy/docker/docker-compose.scale.yml config --quiet \
 		&& echo "  deploy/docker/docker-compose.scale.yml (overlay)          OK"
