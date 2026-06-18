@@ -5,11 +5,18 @@ from typing import AsyncGenerator
 import fakeredis.aioredis
 import pytest
 import pytest_asyncio
-from httpx import ASGITransport, AsyncClient
 
-from management.api import redis_client as _redis_module
-from management.api.auth import _create_access_token
-from management.api.main import create_app
+
+def _import_management_modules():
+    """Lazy import — avoids collection failures when management deps are absent."""
+    import importlib
+
+    return (
+        importlib.import_module("httpx"),
+        importlib.import_module("management.api"),
+        importlib.import_module("management.api.auth"),
+        importlib.import_module("management.api.main"),
+    )
 
 
 @pytest_asyncio.fixture()
@@ -23,13 +30,18 @@ async def fake_redis() -> AsyncGenerator[fakeredis.aioredis.FakeRedis, None]:
 @pytest_asyncio.fixture()
 async def operator_client(
     fake_redis: fakeredis.aioredis.FakeRedis,
-) -> AsyncGenerator[AsyncClient, None]:
-    app = create_app()
+) -> AsyncGenerator["httpx.AsyncClient", None]:
+    httpx_mod, _, auth_mod, main_mod = _import_management_modules()
+    app = main_mod.create_app()
+    from management.api import redis_client as _redis_module
+
     await _redis_module.init_redis(override_client=fake_redis)
-    ac = AsyncClient(
-        transport=ASGITransport(app=app),
+    ac = httpx_mod.AsyncClient(
+        transport=httpx_mod.ASGITransport(app=app),
         base_url="http://test",
-        cookies={"token": _create_access_token("operator", role="operator")},
+        cookies={
+            "token": auth_mod._create_access_token("operator", role="operator")
+        },
     )
     try:
         async with ac:
@@ -41,13 +53,16 @@ async def operator_client(
 @pytest_asyncio.fixture()
 async def admin_client(
     fake_redis: fakeredis.aioredis.FakeRedis,
-) -> AsyncGenerator[AsyncClient, None]:
-    app = create_app()
+) -> AsyncGenerator["httpx.AsyncClient", None]:
+    httpx_mod, _, auth_mod, main_mod = _import_management_modules()
+    app = main_mod.create_app()
+    from management.api import redis_client as _redis_module
+
     await _redis_module.init_redis(override_client=fake_redis)
-    ac = AsyncClient(
-        transport=ASGITransport(app=app),
+    ac = httpx_mod.AsyncClient(
+        transport=httpx_mod.ASGITransport(app=app),
         base_url="http://test",
-        cookies={"token": _create_access_token("admin", role="admin")},
+        cookies={"token": auth_mod._create_access_token("admin", role="admin")},
     )
     try:
         async with ac:
@@ -59,13 +74,16 @@ async def admin_client(
 @pytest_asyncio.fixture()
 async def auditor_client(
     fake_redis: fakeredis.aioredis.FakeRedis,
-) -> AsyncGenerator[AsyncClient, None]:
-    app = create_app()
+) -> AsyncGenerator["httpx.AsyncClient", None]:
+    httpx_mod, _, auth_mod, main_mod = _import_management_modules()
+    app = main_mod.create_app()
+    from management.api import redis_client as _redis_module
+
     await _redis_module.init_redis(override_client=fake_redis)
-    ac = AsyncClient(
-        transport=ASGITransport(app=app),
+    ac = httpx_mod.AsyncClient(
+        transport=httpx_mod.ASGITransport(app=app),
         base_url="http://test",
-        cookies={"token": _create_access_token("auditor", role="auditor")},
+        cookies={"token": auth_mod._create_access_token("auditor", role="auditor")},
     )
     try:
         async with ac:
