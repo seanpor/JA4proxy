@@ -193,6 +193,7 @@ curl -k --tls-max 1.1 https://localhost:443/
 | **Health API** | `curl localhost:9090/health/deep` | JSON status of the proxy, Redis, and Security pipeline. |
 
 ## 📚 Reference Links
-- **[Signal Mapping (MITRE ATT&CK)](OPERATIONS_MAPPING.md)**
+- **[MITRE ATT&CK Mapping](ATTACK_MAPPING.md)** — authoritative signal → technique mapping
+- **[SecOps Triage & Remediation Playbooks](OPERATIONS_MAPPING.md)** — what to do when an alert fires
 - **[Runbook Index](runbooks/)**
 - **[Architecture Deep-Dive](security/ARCHITECTURE.md)**

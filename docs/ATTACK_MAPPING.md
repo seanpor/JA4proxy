@@ -1,6 +1,6 @@
 <!--
 title: JA4proxy — Attack Mapping
-audience: operator
+audience: security
 last_reviewed: 2026-06-04
 phase: v2.0
 -->

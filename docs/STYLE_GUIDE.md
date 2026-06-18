@@ -1,6 +1,6 @@
 <!--
 title: Style_Guide
-audience: Developers
+audience: developer
 last_reviewed: 2026-03-27
 phase: 21
 -->

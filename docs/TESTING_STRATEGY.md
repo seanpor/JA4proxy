@@ -1,6 +1,6 @@
 <!--
 title: JA4proxy — Testing Strategy
-audience: operator
+audience: developer
 last_reviewed: 2026-06-04
 phase: v2.0
 -->

@@ -1,6 +1,6 @@
 <!--
 title: Scaling Guide
-audience: Operators, DevOps
+audience: operator
 version: 2.0.0
 last_reviewed: 2026-06-10
 phase: 309

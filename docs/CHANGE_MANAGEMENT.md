@@ -1,6 +1,6 @@
 <!--
 title: "Change Management — proposing, reviewing, applying, and reverting config changes"
-audience: compliance
+audience: security
 last_reviewed: 2026-04-25
 phase: 105
 -->

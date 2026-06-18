@@ -1,6 +1,6 @@
 <!--
 title: "SIEM Integration Recipes for JA4proxy"
-audience: architects
+audience: security
 last_reviewed: 2026-04-25
 phase: 105
 -->

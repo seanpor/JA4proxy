@@ -1,6 +1,6 @@
 <!--
 title: JA4proxy — Onboarding Guide
-audience: operator
+audience: developer
 last_reviewed: 2026-06-04
 phase: v2.0
 -->

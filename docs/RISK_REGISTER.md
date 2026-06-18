@@ -1,6 +1,6 @@
 <!--
 title: Risk Register
-audience: Security Teams, Auditors, Procurement, Engineering Management
+audience: security
 last_reviewed: 2026-04-24
 phase: 106b
 -->

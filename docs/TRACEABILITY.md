@@ -1,6 +1,6 @@
 <!--
 title: JA4proxy — Traceability Matrix
-audience: operator
+audience: reference
 last_reviewed: 2026-06-04
 phase: v2.0
 -->

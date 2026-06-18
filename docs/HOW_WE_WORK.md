@@ -1,6 +1,6 @@
 <!--
 title: "How We Work — Team Process"
-audience: developers
+audience: developer
 last_reviewed: 2026-04-25
 phase: 105
 -->

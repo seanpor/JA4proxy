@@ -1,6 +1,6 @@
 <!--
 title: Docker Image Inventory
-audience: Operators, DevOps
+audience: reference
 last_reviewed: 2026-06-14
 phase: 317
 -->
