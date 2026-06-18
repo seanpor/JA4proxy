@@ -19,11 +19,21 @@
   ]) %}
 
   {% for card in cards %}
-  {% set status_dot = {
-    "ok":    "bg-[#10b981] shadow-[0_0_8px_rgba(16,185,129,0.6)]",
-    "warn":  "bg-[#f59e0b] shadow-[0_0_8px_rgba(245,158,11,0.6)]",
-    "error": "bg-[#ef4444] shadow-[0_0_8px_rgba(239,68,68,0.6)]",
-  }.get(card.status, "bg-[#475569]") %}
+  {% set status_class = {
+    "ok":    "text-[#10b981]",
+    "warn":  "text-[#f59e0b]",
+    "error": "text-[#ef4444]",
+  }.get(card.status, "text-[#475569]") %}
+  {% set status_shape = {
+    "ok":    "●",
+    "warn":  "▲",
+    "error": "✖",
+  }.get(card.status, "?") %}
+  {% set status_label = {
+    "ok":    "OK",
+    "warn":  "WARN",
+    "error": "CRIT",
+  }.get(card.status, "UNKN") %}
   {% set icon_color = {
     "ok":    "text-[#10b981] filter drop-shadow-[0_0_4px_rgba(16,185,129,0.15)]",
     "warn":  "text-[#f59e0b] filter drop-shadow-[0_0_4px_rgba(245,158,11,0.15)]",
@@ -31,9 +41,10 @@
   }.get(card.status, "text-[#94a3b8]") %}
 
   <div class="relative glass-card p-4 flex flex-col justify-between min-h-[110px]">
-    <!-- Status dot -->
-    <span class="absolute top-4 right-4 w-2 h-2 rounded-full {{ status_dot }}
-                 {% if card.status == 'error' %}animate-ping{% endif %}"></span>
+    <!-- Status indicator (shape + color + text) -->
+    <span class="absolute top-4 right-4 text-xs font-bold {{ status_class }}" aria-label="Status: {{ status_label }}">
+      {{ status_shape }} {{ status_label }}
+    </span>
     <!-- Icon -->
     <div class="mb-3">
       <svg class="w-5 h-5 {{ icon_color }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
