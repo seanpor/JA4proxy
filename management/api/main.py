@@ -46,6 +46,7 @@ from .routes import (
     config_ops,
     connections,
     dial,
+    edl,  # phase-316e
     events,
     health,
     lists,
@@ -225,6 +226,7 @@ def create_app() -> FastAPI:
     app.include_router(canonical_lists.router)
     app.include_router(lists.router)
     app.include_router(bans.router)
+    app.include_router(edl.router)  # phase-316e
     app.include_router(events.router)
     app.include_router(config_ops.router)
     app.include_router(audit.router)
