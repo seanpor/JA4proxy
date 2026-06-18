@@ -73,6 +73,7 @@ Use --non-interactive with --lane to accept all defaults.`,
 			wiz.Answers.Lane = laneFlag
 			wiz.Answers.DryRun = dryRun
 			if nonInteractive {
+				wiz.NonInteractive = true
 				wiz.Answers.MonitoringStack = true
 				wiz.Answers.BackendHost = "backend"
 				wiz.Answers.BackendPort = 443

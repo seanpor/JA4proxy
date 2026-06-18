@@ -1,12 +1,66 @@
 package wizard
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+// silentOutput is a no-op Output for tests that drive Run().
+type silentOutput struct{}
+
+func (silentOutput) Header(string)                  {}
+func (silentOutput) Section(string)                 {}
+func (silentOutput) Info(string, ...interface{})    {}
+func (silentOutput) Warn(string, ...interface{})    {}
+func (silentOutput) Success(string, ...interface{}) {}
+func (silentOutput) Raw(string)                     {}
+
+// TestRunNonInteractiveSkipsPrompts locks the --non-interactive fix: with
+// NonInteractive set, Run must use the pre-filled Answers and never call the
+// input functions (which here error if invoked). Regression for the bug where
+// non-interactive still prompted and EOF'd on the first question.
+func TestRunNonInteractiveSkipsPrompts(t *testing.T) {
+	errIfCalled := func(string) (string, error) {
+		return "", errors.New("prompt invoked in non-interactive mode")
+	}
+	w := &Wizard{
+		Out:            silentOutput{},
+		InputFn:        errIfCalled,
+		GetPassFn:      errIfCalled,
+		NonInteractive: true,
+	}
+	// Pre-filled by the caller (mirrors cmd/ja4p init --non-interactive).
+	w.Answers.BackendHost = "backend"
+	w.Answers.BackendPort = 443
+	w.Answers.Mode = "container"
+	w.Answers.BindIP = "127.0.0.1"
+	w.Answers.AdminUser = "admin"
+	w.Answers.DialValue = 0
+	w.Answers.LogLevel = "INFO"
+	w.Answers.DryRun = true // don't write files
+
+	ans, cfg, err := w.Run(context.Background())
+	if err != nil {
+		t.Fatalf("non-interactive Run errored (prompt called?): %v", err)
+	}
+	if ans.BackendHost != "backend" || ans.Mode != "container" {
+		t.Errorf("pre-filled answers not preserved: host=%q mode=%q", ans.BackendHost, ans.Mode)
+	}
+	if ans.Lane != 0 {
+		t.Errorf("lane should default to 0; got %d", ans.Lane)
+	}
+	if ans.LaneName != "default" {
+		t.Errorf("lane name should default to 'default'; got %q", ans.LaneName)
+	}
+	if cfg == nil || cfg.Env == "" {
+		t.Fatal("expected a generated config with a populated .env")
+	}
+}
 
 // ── validators ───────────────────────────────────────────────────────────────
 
