@@ -503,10 +503,12 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 	bp := bufferPool.Get().(*[]byte)
 	buf := *bp
 	defer bufferPool.Put(bp)
-	clientConn.SetReadDeadline(time.Now().Add(time.Duration(cfg.Proxy.ReadTimeout) * time.Second))
+	// Errors are ignored: a SetReadDeadline failure means the conn is already
+	// broken, so the following Read fails immediately anyway.
+	_ = clientConn.SetReadDeadline(time.Now().Add(time.Duration(cfg.Proxy.ReadTimeout) * time.Second))
 	n, err := clientConn.Read(buf)
 	t1 = time.Now()
-	clientConn.SetReadDeadline(time.Time{}) // clear deadline
+	_ = clientConn.SetReadDeadline(time.Time{}) // clear deadline
 	if err != nil || n == 0 {
 		if err != nil {
 			// phase-63: classify and record the error against the availability SLI.

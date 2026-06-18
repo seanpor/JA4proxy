@@ -195,6 +195,7 @@ func (d *FeedDownloader) persist(fc BlocklistFeedConfig, data []byte) {
 		return
 	}
 	tmp := fc.Path + ".tmp"
+	// #nosec G306 -- blocklist cache holds public IP lists, non-secret by design
 	if err := os.WriteFile(tmp, data, 0o644); err != nil {
 		d.log.WithError(err).WithField("feed", fc.Name).Warn("blocklist: could not write cache file")
 		return

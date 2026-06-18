@@ -70,6 +70,6 @@ func handle(conn net.Conn) {
 	}
 
 	if line != "" {
-		io.WriteString(conn, "HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok")
+		_, _ = io.WriteString(conn, "HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok")
 	}
 }

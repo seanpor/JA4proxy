@@ -29,6 +29,7 @@ func (m *ShellLaneManager) ListLanes(ctx context.Context) ([]LaneInfo, error) {
 	if m.LaneEnvScript == "" {
 		return nil, nil
 	}
+	// #nosec G204 -- LaneEnvScript is an operator-configured trusted path, not request-derived input
 	cmd := exec.CommandContext(ctx, m.LaneEnvScript, "--list")
 	cmd.Dir = m.WorkDir
 	output, err := cmd.Output()

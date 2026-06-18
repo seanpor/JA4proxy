@@ -439,8 +439,11 @@ func (p *Pipeline) processInternal(ctx context.Context, conn *ConnectionContext)
 	// Blocklist scored signals (from the single Check() above).
 	signals = append(signals, blSigs...)
 
-	// TLS enforcement (hard block check first)
-	if tlsSigs, hardBlock := p.tlsEnforcer.Check(uint16(conn.TLSVersion), uint16s(conn.CipherList)); hardBlock { // #nosec G115 // TLS version is always uint16 range
+	// TLS enforcement (hard block check first). Hoist the conversion to its own
+	// line so the #nosec attaches to it — a trailing #nosec after `{` binds to
+	// the block, not the finding, and is silently ignored.
+	tlsVer := uint16(conn.TLSVersion) // #nosec G115 -- TLS version is always in uint16 range
+	if tlsSigs, hardBlock := p.tlsEnforcer.Check(tlsVer, uint16s(conn.CipherList)); hardBlock {
 		return &PipelineResult{Action: "block", Score: 100, BypassReason: "tls_enforcement"}
 	} else {
 		signals = append(signals, tlsSigs...)
@@ -448,7 +451,7 @@ func (p *Pipeline) processInternal(ctx context.Context, conn *ConnectionContext)
 
 	// Phase 203b — JA4 prefix vs negotiated TLS version mismatch.
 	if conn.JA4 != "" {
-		if sig := p.tlsEnforcer.CheckJA4TLSMismatch(conn.JA4, uint16(conn.TLSVersion)); sig != nil { // #nosec G115 // TLS version always uint16
+		if sig := p.tlsEnforcer.CheckJA4TLSMismatch(conn.JA4, tlsVer); sig != nil {
 			signals = append(signals, *sig)
 		}
 	}
