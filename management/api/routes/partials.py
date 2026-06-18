@@ -918,7 +918,6 @@ async def triage_dismiss(
     except Exception as exc:  # noqa: BLE001
         logger.warning("partials | event=triage_dismiss_error | ip=%s | error=%s", ip, exc)
 
-    import html
     return HTMLResponse(
         content=f'<!-- dismissed: {html.escape(ip)} -->',
         status_code=200,
@@ -1186,7 +1185,7 @@ async def dismiss_finding(
         )
         raise HTTPException(status_code=500, detail="Redis error")
 
-    return HTMLResponse(content=_DISMISS_TEMPLATE.format(finding_id=finding_id))
+    return HTMLResponse(content=_DISMISS_TEMPLATE.format(finding_id=html.escape(finding_id)))
 
 
 @router.post("/api/v1/intelligence/mark-fp/{finding_id}", response_class=HTMLResponse)
@@ -1242,4 +1241,4 @@ async def mark_finding_fp(
         )
         raise HTTPException(status_code=500, detail="Redis error")
 
-    return HTMLResponse(content=_FP_TEMPLATE.format(finding_id=finding_id))
+    return HTMLResponse(content=_FP_TEMPLATE.format(finding_id=html.escape(finding_id)))
