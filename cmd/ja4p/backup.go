@@ -193,6 +193,7 @@ func writeBackupTextfile(path string, res *backup.Result) error {
 	fmt.Fprintf(&b, "ja4proxy_backup_operations_total{status=\"success\"} 1\n")
 
 	tmp := path + ".tmp"
+	// #nosec G306 -- backup metrics file is non-secret, world-readable by design
 	if err := os.WriteFile(tmp, []byte(b.String()), 0o644); err != nil {
 		return err
 	}

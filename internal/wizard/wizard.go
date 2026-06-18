@@ -521,7 +521,9 @@ func (w *Wizard) confirmAndWrite(ctx context.Context) error {
 
 	wd, _ := os.Getwd()
 	configDir := filepath.Join(wd, "config")
-	os.MkdirAll(configDir, 0755)
+	if err := os.MkdirAll(configDir, 0755); err != nil { // #nosec G301 -- config dir is non-secret
+		return fmt.Errorf("creating config dir %s: %w", configDir, err)
+	}
 
 	envPath := filepath.Join(wd, ".env")
 	if err := os.WriteFile(envPath, []byte(cfg.Env), 0600); err != nil {
@@ -530,6 +532,7 @@ func (w *Wizard) confirmAndWrite(ctx context.Context) error {
 	w.Out.Success("Written .env (chmod 600)")
 
 	proxyPath := filepath.Join(configDir, "proxy.yml")
+	// #nosec G306 -- proxy.yml is non-secret config read by the proxy service user; secrets live in .env (0600)
 	if err := os.WriteFile(proxyPath, []byte(cfg.ProxyYML), 0644); err != nil {
 		return fmt.Errorf("writing proxy.yml: %w", err)
 	}
@@ -537,6 +540,7 @@ func (w *Wizard) confirmAndWrite(ctx context.Context) error {
 
 	if cfg.HAProxy != "" {
 		haproxyPath := filepath.Join(configDir, "haproxy.cfg")
+		// #nosec G306 -- haproxy.cfg is non-secret config, world-readable by design
 		if err := os.WriteFile(haproxyPath, []byte(cfg.HAProxy), 0644); err != nil {
 			return fmt.Errorf("writing haproxy.cfg: %w", err)
 		}
@@ -546,6 +550,7 @@ func (w *Wizard) confirmAndWrite(ctx context.Context) error {
 	sysdDir := "/etc/systemd/system"
 	if _, err := os.Stat(sysdDir); err == nil {
 		sysdPath := filepath.Join(sysdDir, "ja4proxy.service")
+		// #nosec G306 -- systemd unit must be world-readable (root-owned 0644, the systemd standard)
 		if err := os.WriteFile(sysdPath, []byte(cfg.Systemd), 0644); err != nil {
 			w.Out.Warn("Failed to write systemd unit: %v", err)
 		} else {
