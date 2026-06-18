@@ -16,6 +16,7 @@ Redis key: config:dial (String, value is str(int))
 
 import hashlib
 import hmac
+import json
 import logging
 from datetime import datetime, timezone
 from typing import Optional
@@ -110,6 +111,23 @@ async def update_dial(
             logger.error("dial | event=sign_failed | error=%s", e)
 
     await redis.set(_DIAL_KEY, str(body.value))
+
+    # Phase 237: schedule auto-revert if requested.
+    override_key = "config:dial_override"
+    if body.revert_after_hours is not None:
+        expires_at = int(datetime.now(timezone.utc).timestamp()) + body.revert_after_hours * 3600
+        await redis.set(override_key, json.dumps({
+            "original_value": current,
+            "override_value": body.value,
+            "expires_at_epoch": expires_at,
+        }))
+        logger.info(
+            "dial | event=revert_scheduled | user=%s | from=%s | to=%s | revert_in_hours=%s",
+            identity, current, body.value, body.revert_after_hours,
+        )
+    else:
+        await redis.delete(override_key)
+
     logger.info(
         "dial | event=dial_changed | user=%s | from=%d | to=%d",
         identity,
@@ -133,3 +151,35 @@ async def update_dial(
         value=body.value,
         updated_at=datetime.now(timezone.utc).isoformat(),
     )
+
+
+@router.delete("/api/v1/dial/revert")
+async def cancel_revert(
+    request: Request,
+    current_user=Depends(require_role(Role.admin)),
+    _mfa=Depends(require_mfa_verified),
+    redis=Depends(get_redis),
+):
+    """Cancel a scheduled dial revert by deleting the override record.
+
+    After this, the poller will no longer auto-revert the dial on the next tick.
+    """
+    override_key = "config:dial_override"
+    existed = await redis.delete(override_key)
+    if existed:
+        logger.info(
+            "dial | event=revert_cancelled | user=%s",
+            current_user[0],
+        )
+        await write_audit(
+            redis,
+            actor_id=current_user[0],
+            actor_ip=_client_ip(request),
+            action_type="dial.revert_cancelled",
+            resource_type="dial",
+            resource_id=None,
+            before_value=None,
+            after_value=None,
+            role=current_user[1].value,
+        )
+    return {"ok": True}

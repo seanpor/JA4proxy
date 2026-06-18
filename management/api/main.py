@@ -24,6 +24,7 @@ Architecture
 - Redis connection managed via lifespan.
 """
 
+import asyncio
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -35,6 +36,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from ..tasks.dial_revert import run_dial_revert_poller
 from . import redis_client
 from .auth import router as auth_router
 from .middleware.csrf import CSRFMiddleware
@@ -55,6 +57,7 @@ from .routes import (
     nodes,
     pages,
     partials,
+    snapshots,
     threat_intel,  # phase-85
     tokens,
     webhooks,
@@ -64,6 +67,9 @@ from .routes import (
 )
 from .routes import (
     saml as saml_routes,
+)
+from .routes import (
+    tls_health as tls_health_routes,
 )
 from .routes import (
     webauthn as webauthn_routes,
@@ -98,8 +104,12 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                     exc,
                 )
 
+    # Phase 237: start dial revert poller
+    poller = asyncio.create_task(run_dial_revert_poller(redis_client.get_redis_client))
+
     logger.info("management | event=startup | service=management_ui")
     yield
+    poller.cancel()
     await redis_client.close_redis()
     logger.info("management | event=shutdown | service=management_ui")
 
@@ -205,6 +215,7 @@ def create_app() -> FastAPI:
         templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
         pages.set_templates(templates)
         partials.set_templates(templates)
+        tls_health_routes.set_templates(templates)
     else:
         logger.warning("management | event=templates_missing | path=%s", _TEMPLATES_DIR)
 
@@ -238,6 +249,8 @@ def create_app() -> FastAPI:
     app.include_router(metrics.router)
     app.include_router(compliance.router)  # phase-84
     app.include_router(threat_intel.router)  # phase-85
+    app.include_router(snapshots.router)  # phase-237
+    app.include_router(tls_health_routes.router)  # phase-237
 
     # HTML page routes (auth enforced per-route via Depends)
     app.include_router(pages.router)

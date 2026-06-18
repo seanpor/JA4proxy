@@ -93,6 +93,70 @@
     </div>
   </div>
 
+  <!-- ── CIDR ban form (Phase 237) ─────────────────────────────── -->
+  <div x-data="{
+    cidr: '',
+    previewCount: 0,
+    previewError: '',
+    previewCidr() {
+      this.previewError = '';
+      this.previewCount = 0;
+      if (!this.cidr || !this.cidr.includes('/')) return;
+      const parts = this.cidr.split('/');
+      const prefix = parseInt(parts[1]);
+      if (isNaN(prefix) || prefix < 0 || prefix > 32) {
+        this.previewError = 'Invalid prefix length.';
+        return;
+      }
+      if (prefix < 16) {
+        this.previewError = 'Prefix /' + prefix + ' is too large (max /16).';
+        return;
+      }
+      this.previewCount = Math.pow(2, 32 - prefix) - (prefix >= 24 ? 2 : 0);
+    }
+  }" class="glass-card overflow-hidden">
+    <div class="flex items-center gap-2 px-4 py-3 border-b border-[#1e293b]/55">
+      <svg class="w-4 h-4 text-[#dc2626]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
+      </svg>
+      <h2 class="text-xs font-semibold text-[#64748b] uppercase tracking-wider">Ban CIDR Range</h2>
+    </div>
+    <div class="px-4 py-4">
+      <form hx-post="/api/v1/bans" hx-target="#bans-table" hx-swap="innerHTML" class="space-y-3">
+        <div>
+          <label for="ban-cidr-input" class="block text-[10px] font-semibold text-[#64748b] uppercase tracking-wider mb-1.5">
+            IP or CIDR range (e.g. 203.0.113.0/24)
+          </label>
+          <input type="text"
+                 id="ban-cidr-input"
+                 name="ip"
+                 x-model="cidr"
+                 @input.debounce.300ms="previewCidr()"
+                 placeholder="203.0.113.0/24"
+                 class="w-full glass-input" />
+          <p class="text-xs mt-1 text-[#d97706]" x-show="previewCount > 0 && !previewError"
+             x-text="'This will ban ' + previewCount + ' IP addresses in this range.'" style="display:none;"></p>
+          <p class="text-xs mt-1 text-[#f87171]" x-show="previewError" x-text="previewError" style="display:none;"></p>
+        </div>
+        <div>
+          <label for="ban-cidr-reason" class="block text-[10px] font-semibold text-[#64748b] uppercase tracking-wider mb-1.5">
+            Reason (minimum 10 characters)
+          </label>
+          <input type="text" id="ban-cidr-reason" name="reason" minlength="10"
+                 class="w-full glass-input" />
+        </div>
+        <input type="hidden" name="duration_hours" value="24" />
+        <button type="submit"
+                :disabled="previewError !== '' || cidr === ''"
+                class="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg h-[38px]
+                       bg-[#dc2626] hover:bg-[#b91c1c] disabled:opacity-40 disabled:cursor-not-allowed
+                       text-white text-xs font-semibold shadow-md shadow-[#dc2626]/10 transition-all duration-200">
+          Ban Range
+        </button>
+      </form>
+    </div>
+  </div>
+
   <!-- ── Active bans table ─────────────────────────────────────── -->
   <div class="glass-card overflow-hidden">
     <div class="flex items-center justify-between px-4 py-3 border-b border-[#1e293b]/55">

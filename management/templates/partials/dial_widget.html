@@ -113,6 +113,26 @@
       </div>
 
     </div>
+
+    <!-- Revert badge (Phase 237) -->
+    {% if revert_seconds_remaining and revert_seconds_remaining > 0 %}
+    {% set revert_hours = (revert_seconds_remaining // 3600) %}
+    {% set revert_mins  = ((revert_seconds_remaining % 3600) // 60) %}
+    <div class="flex items-center gap-2 mt-2 px-3 py-1.5 rounded bg-[#d97706]/10 border border-[#d97706]/30">
+      <span class="text-xs text-[#d97706]">
+        ▲ Auto-reverts in {{ revert_hours }}h {{ revert_mins }}m
+      </span>
+      <button type="button"
+              hx-delete="/api/v1/dial/revert"
+              hx-target="#dial-widget"
+              hx-swap="outerHTML"
+              class="text-xs text-[#94a3b8] hover:text-[#f87171] transition-colors
+                     focus:outline-none focus:ring-1 focus:ring-[#f87171]">
+        Cancel revert
+      </button>
+    </div>
+    {% endif %}
+
   </div>
 </div>
 
