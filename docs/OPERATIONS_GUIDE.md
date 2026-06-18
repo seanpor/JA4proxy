@@ -40,6 +40,19 @@ confirming legitimate traffic flows.
 > and the bootstrapper `docker load`s it (no egress). Production hosts are
 > **zero-compile** — the bootstrapper refuses to run if `gcc`/`make`/`go` are
 > present; ship pre-built `ja4pd`/`ja4p` binaries or images.
+
+**Validate the deployment.** After bootstrapping, run the real-host validator —
+the end-to-end checks that can't run in CI (service, `.env` secret hygiene,
+firewall posture, logrotate, backup cron, monitor-mode default):
+
+```bash
+sudo ./scripts/validate-single-host.sh                       # on the host: all on-box checks
+./scripts/validate-single-host.sh --from-remote <host-ip>    # from another machine: firewall posture
+./scripts/validate-single-host.sh --offline-tarball ./ja4proxy-offline.tar.gz  # air-gapped load
+```
+
+It exits non-zero on any failure, so it doubles as a post-deploy smoke gate.
+Reboot-persistence and `--uninstall` hygiene are printed as manual follow-ups.
 > 
 > **Management Console Assets**: All frontend dependencies (Tailwind CSS, HTMX, Alpine.js, Chart.js) are fully vendored under `management/static/vendor/` and locked with a strict Content Security Policy (`script-src 'self'`). The UI runs completely offline without making any third-party CDN or font requests.
 
