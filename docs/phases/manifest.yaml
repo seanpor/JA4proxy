@@ -2796,7 +2796,7 @@ phases:
     summary: Implement shift handover snapshots, dial auto-revert timers, CIDR range block support, manual action attribution, and TLS certificate expiry tracking.
   238:
     name: Accessibility Hardening & Infrastructure Docs
-    status: PROPOSED
+    status: IN_PROGRESS
     action_plan: docs/phases/PHASE_238.md
     dependencies: [231, 237]
     size: MEDIUM

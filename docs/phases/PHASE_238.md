@@ -6,6 +6,12 @@ size: MEDIUM
 created: 2026-06-12
 audience: [developer, operator, secops]
 dependencies: [231, 237]
+review_issues:
+- issue_1: HAProxy test file paths in Step G reference non-existent paths (deploy/monitoring/haproxy/haproxy.cfg, deploy/docker/haproxy.cfg); real path is deploy/haproxy/haproxy.cfg
+- issue_2: HAProxy test assertion `"mode http" not in content` too broad — HAProxy has legitimate mode http for management backend and stats; should only assert proxy backend has mode tcp
+- issue_3: Grafana GF_SECURITY_COOKIE_SECURE=true must use direct HTTPS (self-signed cert mounted via volume), not HAProxy which lives on DMZ/Internet side
+- issue_4: Light mode CSS override of .text-slate-300 misses other text color classes; should use CSS custom properties
+- issue_5: axe-core CLI should use npx or Docker image, not npm install -g (container-strict violation, npm not guaranteed)
 ---
 
 # Accessibility Hardening & Infrastructure Documentation
@@ -145,6 +151,7 @@ Append the following light mode variables at the bottom of the file:
         --bg-secondary: #ffffff;
         --text-primary: #0f172a;
         --text-secondary: #475569;
+        --text-muted: #64748b;
         --glass-bg: rgba(255, 255, 255, 0.7);
         --glass-border: rgba(15, 23, 42, 0.08);
     }
@@ -153,15 +160,20 @@ Append the following light mode variables at the bottom of the file:
         background-color: var(--bg-primary);
         color: var(--text-primary);
     }
-    
+
+    /* Map Tailwind text color classes to light-mode variables */
+    .text-slate-300, .text-slate-400, .text-gray-300, .text-gray-400,
+    .text-neutral-300, .text-neutral-400 {
+        color: var(--text-secondary);
+    }
+    .text-slate-500, .text-gray-500, .text-neutral-500 {
+        color: var(--text-muted);
+    }
+
     .glass-card {
         background: var(--glass-bg);
         border: 1px solid var(--glass-border);
         box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05);
-    }
-    
-    .text-slate-300 {
-        color: #334155;
     }
 }
 ```
@@ -172,15 +184,37 @@ Append the following light mode variables at the bottom of the file:
 
 We will secure cookie transmissions by forcing them over HTTPS.
 
+### Grafana serves HTTPS directly (no HAProxy route)
+
+HAProxy terminates external TLS on the DMZ/internet-facing network. Grafana lives on
+the internal management network (`ja4proxy-mgmt`) and **must not** route through HAProxy.
+Therefore Grafana terminates TLS itself with a self-signed certificate.
+
 ### File to modify: `deploy/docker/docker-compose.monitoring.yml`
 
 ```diff
    grafana:
      image: grafana/grafana:11.1.0
++    volumes:
++      - ./certs/grafana:/etc/grafana/certs:ro
      environment:
        - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
++      - GF_SERVER_PROTOCOL=https
++      - GF_SERVER_CERT_FILE=/etc/grafana/certs/grafana.crt
++      - GF_SERVER_KEY_FILE=/etc/grafana/certs/grafana.key
 +      - GF_SECURITY_COOKIE_SECURE=true
 +      - GF_SECURITY_ALLOW_EMBEDDING=false
+```
+
+### Generate the self-signed cert (dev/POC)
+
+```bash
+mkdir -p deploy/docker/certs/grafana
+openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
+  -keyout deploy/docker/certs/grafana/grafana.key \
+  -out deploy/docker/certs/grafana/grafana.crt \
+  -subj "/CN=grafana.internal" \
+  -addext "subjectAltName=DNS:grafana.internal,IP:127.0.0.1"
 ```
 
 ---
@@ -223,36 +257,121 @@ We will write a python script to assert that HAProxy configuration is in TCP mod
 ### File to create: `tests/unit/test_haproxy_mode.py`
 
 ```python
+import configparser
 import os
+from pathlib import Path
 
-def test_haproxy_config_mode():
-    config_path = "deploy/monitoring/haproxy/haproxy.cfg"
-    if not os.path.exists(config_path):
-        # check alternative paths
-        config_path = "deploy/docker/haproxy.cfg"
-        if not os.path.exists(config_path):
-            return # skip if no haproxy config in this env
+def _find_haproxy_cfg() -> Path | None:
+    for candidate in [
+        "deploy/haproxy/haproxy.cfg",
+        "config/haproxy.cfg",
+    ]:
+        p = Path(candidate)
+        if p.exists():
+            return p
+    return None
 
-    with open(config_path, "r") as f:
-        content = f.read()
+def test_proxy_backend_uses_tcp_mode():
+    """The JA4 proxy backend must use TCP passthrough to preserve ClientHello."""
+    cfg = _find_haproxy_cfg()
+    if cfg is None:
+        return  # skip if no haproxy config in this checkout
 
-    assert "mode tcp" in content, "HAProxy config must use 'mode tcp' to preserve raw ClientHello packet captures."
-    assert "mode http" not in content, "HAProxy must not decrypt TLS traffic at load balancer stage."
+    text = cfg.read_text()
+    # Find the proxy backend block — it has no 'mode http' directive
+    # and must contain 'mode tcp' or rely on default TCP mode.
+    lines = text.splitlines()
+    in_backend = False
+    proxy_has_http_mode = False
+    proxy_has_tcp_mode = False
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("backend ja4proxy_backend"):
+            in_backend = True
+            continue
+        if in_backend and stripped.startswith("backend "):
+            break
+        if in_backend:
+            if stripped == "mode http":
+                proxy_has_http_mode = True
+            if stripped == "mode tcp":
+                proxy_has_tcp_mode = True
+
+    assert not proxy_has_http_mode, \
+        "ja4proxy_backend must NOT use mode http (breaks JA4 capture)"
+    assert proxy_has_tcp_mode or not in_backend, \
+        "ja4proxy_backend should explicitly use mode tcp"
 ```
 
 ---
 
-## 11. Running the axe-core scan
+## 11. Step H: Network Architecture Diagram
 
-To verify that the console is accessible:
+Add a detailed Mermaid network diagram to `docs/architecture/NETWORK_ARCHITECTURE.md`.
+This diagram should show the three network zones (DMZ, Internal/Data, Management),
+service placement, data flows, and TLS termination boundaries.
+
+### File to create: `docs/architecture/NETWORK_ARCHITECTURE.md`
+
+```mermaid
+graph TB
+    subgraph Internet["Internet"]
+        U[("Operator Browser")]
+        A[("Attacker")]
+    end
+
+    subgraph DMZ["DMZ Zone (dmz_net)"]
+        HA[HAProxy<br/>port 443/80<br/>TLS termination]
+    end
+
+    subgraph Data["Internal/Data Zone (data_net)"]
+        P[JA4 Proxy<br/>port 8080<br/>TCP passthrough<br/>JA4 fingerprinting]
+        T[Tarpit<br/>slow response]
+    end
+
+    subgraph Mgmt["Management Zone (ja4proxy-mgmt)"]
+        MA["Management API<br/>FastAPI + Jinja2<br/>port 8090<br/>HTTPS (self-signed)"]
+        G["Grafana<br/>port 3000<br/>HTTPS (self-signed)<br/>GF_SECURITY_COOKIE_SECURE=true"]
+        R[(Redis<br/>port 6379<br/>ACL + TLS)]
+        ANA[Analytics<br/>port 9090]
+        CAD[cAdvisor<br/>hostfs:ro]
+    end
+
+    U -->|HTTPS (443)| HA
+    A -->|HTTP/HTTPS| HA
+    HA -->|TCP passthrough<br/>send-proxy-v2| P
+    P -->|Tarpit trigger| T
+    P -->|Events stream| R
+    P -->|Metrics| ANA
+    MA -->|Config + queries| R
+    MA -->|HTTPS| U
+    G -->|PromQL| ANA
+    G -->|Dashboards| U
+    CAD -->|Container metrics| G
+```
+
+Adjacent to the diagram, document:
+- **Zone boundaries**: which Compose network each service belongs to
+- **TLS termination points**: HAProxy (DMZ) terminates external TLS; Grafana and Management
+  API terminate their own TLS with self-signed certs on the mgmt network
+- **Data flows**: arrow labels and port numbers
+- **HAProxy TCP mode**: why the proxy backend uses TCP passthrough (preserves raw ClientHello
+  for JA4 fingerprinting — if HAProxy terminated TLS here, the proxy would see encrypted
+  bytes instead of TLS handshake records)
+
+---
+
+## 12. Running the axe-core scan
+
+To verify that the console is accessible (run via npx — no global install needed):
 ```bash
-axe http://localhost:8090/
+npx axe-core http://localhost:8090/
 ```
 Ensure the scan output lists **0 violations**.
 
 ---
 
-## 12. Tests to Run
+## 13. Tests to Run
 
 Execute the test suites:
 ```bash
@@ -261,7 +380,7 @@ pytest tests/unit/test_haproxy_mode.py
 
 ---
 
-## 13. Common Mistakes
+## 14. Common Mistakes
 
 *   **Forgetting focus-rings outline removal:** Writing `focus:ring-2` without `focus:outline-none` can cause the browser's default black outline to collide with the Tailwind ring color.
 *   **Enabling cookie_secure over HTTP:** Setting `GF_SECURITY_COOKIE_SECURE=true` while accessing Grafana over standard HTTP will cause browser cookie drops and login failure loop.
