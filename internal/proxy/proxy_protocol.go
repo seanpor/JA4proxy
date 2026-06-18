@@ -63,8 +63,8 @@ func buildProxyV2(srcIP net.IP, srcPort int, dstIP net.IP, dstPort int) []byte {
 		_ = binary.Write(buf, binary.BigEndian, uint16(12))
 		buf.Write(s4)
 		buf.Write(d4)
-		_ = binary.Write(buf, binary.BigEndian, uint16(srcPort))
-		_ = binary.Write(buf, binary.BigEndian, uint16(dstPort))
+		_ = binary.Write(buf, binary.BigEndian, uint16(srcPort)) // #nosec G115 -- srcPort bounded to 0..65535 by validPort
+		_ = binary.Write(buf, binary.BigEndian, uint16(dstPort)) // #nosec G115 -- dstPort bounded to 0..65535 by validPort
 		return buf.Bytes()
 	}
 	if s6, d6 := ip6Only(srcIP), ip6Only(dstIP); s6 != nil && d6 != nil && validPort(srcPort) && validPort(dstPort) {
@@ -73,8 +73,8 @@ func buildProxyV2(srcIP net.IP, srcPort int, dstIP net.IP, dstPort int) []byte {
 		_ = binary.Write(buf, binary.BigEndian, uint16(36))
 		buf.Write(s6)
 		buf.Write(d6)
-		_ = binary.Write(buf, binary.BigEndian, uint16(srcPort))
-		_ = binary.Write(buf, binary.BigEndian, uint16(dstPort))
+		_ = binary.Write(buf, binary.BigEndian, uint16(srcPort)) // #nosec G115 -- srcPort bounded to 0..65535 by validPort
+		_ = binary.Write(buf, binary.BigEndian, uint16(dstPort)) // #nosec G115 -- dstPort bounded to 0..65535 by validPort
 		return buf.Bytes()
 	}
 	// LOCAL command + AF_UNSPEC: the backend uses the real socket addresses.
