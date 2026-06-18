@@ -1,6 +1,6 @@
 <!--
 title: "Scope and Limitations: What JA4proxy Is and Is Not"
-audience: architects
+audience: product
 last_reviewed: 2026-04-25
 phase: 105
 -->

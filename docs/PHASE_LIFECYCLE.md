@@ -1,6 +1,6 @@
 <!--
 title: "Phase Lifecycle — Human Edition"
-audience: developers
+audience: developer
 last_reviewed: 2026-04-25
 phase: 105
 -->

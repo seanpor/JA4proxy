@@ -1,6 +1,6 @@
 <!--
 title: "Evaluation Checklist for Architects"
-audience: architects
+audience: product
 last_reviewed: 2026-04-25
 phase: 105
 -->

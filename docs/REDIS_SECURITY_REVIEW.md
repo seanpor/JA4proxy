@@ -1,6 +1,6 @@
 <!--
 title: Redis_Security_Review
-audience: Developers
+audience: security
 last_reviewed: 2026-03-27
 phase: 21
 -->
