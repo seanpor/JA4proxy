@@ -52,7 +52,7 @@ async def test_all_pages_render_200_for_all_roles(role):
     """Every page route returns 200 + text/html for all roles."""
     app = create_app()
     token = _create_access_token("testuser", role=role)
-    routes = ["/", "/audit"]
+    routes = ["/", "/audit", "/intelligence-review"]
     async with AsyncClient(app=app, base_url="http://test") as client:
         for route in routes:
             resp = await client.get(route, cookies={"token": token})

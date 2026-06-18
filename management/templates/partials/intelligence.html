@@ -1,0 +1,115 @@
+<div id="intelligence-row" aria-label="Analytics Intelligence">
+  <div class="flex items-center justify-between mb-3">
+    <div class="flex items-center gap-2">
+      <svg class="w-4 h-4 text-[#0ea5e9]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+      </svg>
+      <h2 class="text-sm font-semibold text-[#f1f5f9]">Intelligence</h2>
+      {% if total_unreviewed > 0 %}
+      <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#d97706] text-white"
+            title="{{ total_unreviewed }} unreviewed findings across all tiers">
+        {{ total_unreviewed }} unreviewed
+      </span>
+      {% endif %}
+    </div>
+    <a href="/intelligence-review"
+       class="text-xs text-[#94a3b8] hover:text-[#0ea5e9] transition-colors focus:outline-none focus:ring-2 focus:ring-[#0ea5e9]">
+      Review all →
+    </a>
+  </div>
+
+  {% if not findings %}
+  <div class="text-sm text-[#64748b] py-2">
+    No high-confidence findings active.
+    {% if total_unreviewed > 0 %}
+    <a href="/intelligence-review" class="text-[#0ea5e9] hover:underline">
+      {{ total_unreviewed }} lower-confidence finding{% if total_unreviewed != 1 %}s{% endif %} available for review.
+    </a>
+    {% endif %}
+  </div>
+
+  {% else %}
+  <div class="space-y-2">
+    {% for f in findings %}
+    <div class="bg-[#1e293b] border border-[#334155] rounded-lg p-3 flex flex-col sm:flex-row sm:items-start gap-3"
+         id="finding-{{ f.id }}">
+
+      <div class="flex items-center gap-2 flex-shrink-0">
+        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-[#d97706] text-white"
+              title="HIGH confidence — model score {{ '%.0f'|format(f.confidence * 100) }}%">
+          HIGH {{ '%.0f'|format(f.confidence * 100) }}%
+        </span>
+        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[#0f172a] text-[#94a3b8] border border-[#334155]">
+          {{ f.type }}
+        </span>
+      </div>
+
+      <div class="flex-1 min-w-0">
+        <p class="text-sm text-[#f1f5f9] leading-snug">
+          {% if f.description | length > 150 %}
+            {{ f.description[:150] }}&hellip;
+            <a href="/intelligence-review#finding-{{ f.id }}" class="text-[#0ea5e9] text-xs hover:underline">more</a>
+          {% else %}
+            {{ f.description }}
+          {% endif %}
+        </p>
+        <p class="text-xs text-[#64748b] mt-1">
+          {{ f.evidence_count }} events ·
+          FP est. {{ '%.1f'|format(f.fp_rate_estimate * 100) }}% ·
+          Model {{ f.model_version }} trained {{ f.model_trained_at[:10] }}
+          {% if f.subject_ip %}· IP: {{ f.subject_ip }}{% endif %}
+          {% if f.subject_ja4 %}· JA4: {{ f.subject_ja4 }}{% endif %}
+        </p>
+      </div>
+
+      <div class="flex flex-col gap-1.5 flex-shrink-0">
+        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
+          {% if f.suggested_action == 'block' %}bg-[#dc2626] text-white
+          {% elif f.suggested_action == 'investigate' %}bg-[#d97706] text-white
+          {% elif f.suggested_action == 'watchlist' %}bg-[#2563eb] text-white
+          {% else %}bg-[#334155] text-[#94a3b8]{% endif %}">
+          → {{ f.suggested_action }}
+        </span>
+        <div class="flex gap-1">
+          <button type="button"
+                  class="px-2 py-1 text-xs rounded bg-[#0ea5e9] hover:bg-[#0284c7] text-white transition-colors
+                         focus:outline-none focus:ring-2 focus:ring-[#0ea5e9]"
+                  title="Take action on this finding"
+                  @click="window.ConfirmModal.open({
+                    action: '{{ f.suggested_action if f.suggested_action in ['block','watchlist','tarpit','allow'] else 'block' }}',
+                    ip: '{{ f.subject_ip }}',
+                    ja4: '{{ f.subject_ja4 }}',
+                    currentState: 'active'
+                  })">
+            Action
+          </button>
+          <button type="button"
+                  hx-post="/api/v1/intelligence/dismiss/{{ f.id }}"
+                  hx-target="#finding-{{ f.id }}"
+                  hx-swap="outerHTML"
+                  class="px-2 py-1 text-xs rounded bg-[#334155] hover:bg-[#475569] text-[#94a3b8] transition-colors
+                         focus:outline-none focus:ring-2 focus:ring-[#475569]">
+            Dismiss
+          </button>
+          <button type="button"
+                  hx-post="/api/v1/intelligence/mark-fp/{{ f.id }}"
+                  hx-target="#finding-{{ f.id }}"
+                  hx-swap="outerHTML"
+                  class="px-2 py-1 text-xs rounded bg-[#334155] hover:bg-[#475569] text-[#94a3b8] transition-colors
+                         focus:outline-none focus:ring-2 focus:ring-[#475569]"
+                  title="Mark as false positive — sends feedback to the analytics engine">
+            Mark FP
+          </button>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% if findings|length < total_high %}
+  <p class="text-xs text-[#64748b] mt-2">
+    Showing {{ findings|length }} of {{ total_high }} high-confidence findings.
+    <a href="/intelligence-review" class="text-[#0ea5e9] hover:underline">Review all</a>
+  </p>
+  {% endif %}
+  {% endif %}
+</div>

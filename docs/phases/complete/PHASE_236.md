@@ -163,10 +163,15 @@ We already validate and sanitise all of those. We must do the same for Redis dat
 that originated from another container.
 
 Validation rules for analytics findings are defined as a schema constant dict in
-`output_writer.py`. The management console validates against this same schema. If
-the schemas ever drift (analytics writes a new field the console doesn't expect),
-the console ignores the unknown field safely. This is the "be liberal in what you
-accept" principle — applied safely because we only accept known-good fields.
+`output_writer.py`. The management console carries its own copy of the schema in
+`_FINDING_SCHEMA`. This duplication is by design — the two services run in
+separate containers and the management container does not have access to
+`output_writer.py` at runtime (its Dockerfile only copies `management/`).
+
+If the schemas ever drift (analytics writes a new field the console doesn't
+expect), the console safely ignores the unknown field. A **parity test** 
+(`tests/unit/test_schema_parity.py`) verifies both copies are identical in CI,
+catching drift at PR time.
 
 ---
 
@@ -604,6 +609,9 @@ import ipaddress
 from datetime import datetime, timezone
 
 # Phase 236 — schema constant (mirrors output_writer.FINDING_SCHEMA)
+# Intentionally duplicated: the two services run in separate containers and
+# the management Dockerfile only copies management/. A parity test at
+# tests/unit/test_schema_parity.py verifies both copies stay in sync.
 _FINDING_SCHEMA = {
     "confidence":       {"type": float,  "required": True,  "min": 0.0,  "max": 1.0},
     "tier":             {"type": str,    "required": True,  "enum": {"HIGH", "MEDIUM", "LOW"}},
@@ -742,7 +750,8 @@ async def intelligence_partial(
             if finding.get("tier") == "HIGH":
                 high_findings.append(finding)
 
-        # Cap at 5 HIGH findings on the dashboard card
+        # Cap at 5 HIGH findings on the dashboard card; track total for overflow indicator
+        total_high = len(high_findings)
         high_findings = high_findings[:5]
 
     except Exception as exc:
@@ -757,6 +766,7 @@ async def intelligence_partial(
             "user": current_user[0],
             "findings": high_findings,
             "total_unreviewed": total_unreviewed,
+            "total_high": total_high,
             "dial_value": dial_value,
         },
     )
@@ -861,11 +871,11 @@ Create `management/templates/partials/intelligence.html`:
                   class="px-2 py-1 text-xs rounded bg-[#0ea5e9] hover:bg-[#0284c7] text-white transition-colors
                          focus:outline-none focus:ring-2 focus:ring-[#0ea5e9]"
                   title="Take action on this finding"
-                  x-data
-                  @click="$dispatch('open-confirm-modal', {
-                    action: '{{ f.suggested_action }}',
+                  @click="window.ConfirmModal.open({
+                    action: '{{ f.suggested_action if f.suggested_action in ["block","watchlist","tarpit","allow"] else "block" }}',
                     ip: '{{ f.subject_ip }}',
-                    findingId: '{{ f.id }}'
+                    ja4: '{{ f.subject_ja4 }}',
+                    currentState: 'active'
                   })">
             Action
           </button>
@@ -891,6 +901,12 @@ Create `management/templates/partials/intelligence.html`:
     </div>
     {% endfor %}
   </div>
+  {% if findings|length < total_high %}
+  <p class="text-xs text-[#64748b] mt-2">
+    Showing {{ findings|length }} of {{ total_high }} high-confidence findings.
+    <a href="/intelligence-review" class="text-[#0ea5e9] hover:underline">Review all</a>
+  </p>
+  {% endif %}
   {% endif %}
 </div>
 ```
@@ -1250,7 +1266,35 @@ def test_optional_fields_can_be_absent():
     assert result["subject_ja4"] == ""
 ```
 
-### 7b. Unit Tests — Confidence Tier Filtering
+### 7b. Unit Tests — Schema Parity (Drift Detection)
+
+File: `tests/unit/test_schema_parity.py`
+
+```python
+"""Verify the two FINDING_SCHEMA copies stay identical.
+
+The schema is duplicated in analytics/output_writer.py (the authoritative
+source) and management/api/routes/partials.py (the consumer). Both services
+run in separate containers and cannot share code at runtime. This test catches
+drift between the two copies at PR time.
+
+If this test fails, update both copies in the same commit.
+"""
+
+from analytics.output_writer import FINDING_SCHEMA
+from management.api.routes.partials import _FINDING_SCHEMA
+
+
+def test_finding_schema_parity():
+    """Both copies of the finding schema must be identical."""
+    assert FINDING_SCHEMA == _FINDING_SCHEMA, (
+        "FINDING_SCHEMA in analytics/output_writer.py and _FINDING_SCHEMA in "
+        "management/api/routes/partials.py have drifted. Update both in the "
+        "same commit."
+    )
+```
+
+### 7c. Unit Tests — Confidence Tier Filtering
 
 File: `tests/unit/test_intelligence_tier_filter.py`
 
@@ -1325,7 +1369,7 @@ def test_dismissed_findings_excluded():
     assert result["dismissed"] == "1"
 ```
 
-### 7c. Integration Test — Redis ACL NOPERM Verification
+### 7d. Integration Test — Redis ACL NOPERM Verification
 
 File: `tests/integration/test_analytics_acl.py`
 
@@ -1378,27 +1422,41 @@ def test_analytics_cannot_write_blocklist():
         r.sadd("ja4:blocklist", "t13d1516h2_test")
 ```
 
-### 7d. Running the Tests
+### 7e. Page Rendering Test — Intelligence Routes
+
+Add to the existing `tests/management/test_pages.py`:
+
+```python
+@pytest.mark.asyncio
+async def test_intelligence_review_page_renders(client):
+    """GET /intelligence-review returns 200 with HTML for analyst+."""
+    response = await client.get("/intelligence-review")
+    assert response.status_code == 200
+    assert "text/html" in response.headers["content-type"]
+```
+
+### 7f. Running the Tests
 
 ```bash
 # Working directory: <repo root>
 
-# Unit tests (no external services needed — uses fakeredis via fixtures)
-python3 -m pytest tests/unit/test_intelligence_schema.py tests/unit/test_intelligence_tier_filter.py -v
+# Unit tests — run inside the tools container (container-strict rule)
+docker run --rm -v "$PWD":/src -w /src ja4proxy-tools \
+  pytest tests/unit/test_intelligence_schema.py tests/unit/test_schema_parity.py tests/unit/test_intelligence_tier_filter.py -v
 
 # Integration ACL test (requires Redis with ACL running)
-INTEGRATION_REDIS_URL=redis://analytics:${ANALYTICS_REDIS_PASSWORD}@localhost:6379/0 \
-  python3 -m pytest tests/integration/test_analytics_acl.py -v
+docker run --rm -v "$PWD":/src -w /src -e INTEGRATION_REDIS_URL ja4proxy-tools \
+  pytest tests/integration/test_analytics_acl.py -v
 
 # Full test suite (must be green before merging)
 make test
 
 # Page rendering test (verify new routes return 200 + text/html)
-python3 -m pytest tests/management/test_pages.py -k "intelligence" -v
+docker run --rm -v "$PWD":/src -w /src ja4proxy-tools \
+  pytest tests/management/test_pages.py -k "intelligence" -v
 
-# Ruff lint check on new files (no skips allowed)
-python3 -m ruff check src/analytics/output_writer.py management/api/routes/partials.py
-python3 -m mypy src/analytics/output_writer.py management/api/routes/partials.py
+# Ruff + mypy (via make targets — runs in tools container)
+make lint
 ```
 
 ---
@@ -1414,22 +1472,23 @@ All of the following must be true before this phase is marked COMPLETE in
 - [ ] Verification test confirms analytics CANNOT write `config:dial` (NOPERM error).
 - [ ] `src/analytics/output_writer.py` exists with all required functions:
       `write_finding`, `update_heartbeat`, `write_active_connections`.
-- [ ] `FINDING_SCHEMA` constant defined in `output_writer.py` and mirrored in
-      `partials.py` as `_FINDING_SCHEMA`.
+- [ ] `FINDING_SCHEMA` constant defined in `output_writer.py` with a matching
+      `_FINDING_SCHEMA` in `partials.py` (intentional cross-container duplication).
+- [ ] Schema parity test (`tests/unit/test_schema_parity.py`) verifies both copies match.
 - [ ] `output_writer` wired into `src/analytics/main.py` detection cycle.
 - [ ] `GET /api/v1/partials/intelligence` endpoint exists, validates schema, and
       returns only HIGH non-dismissed findings.
-- [ ] `intelligence.html` partial renders correctly.
+- [ ] `intelligence.html` partial renders correctly, including `"Showing X of Y"` overflow indicator when capped at 5.
 - [ ] `GET /intelligence-review` page route exists and renders for analyst+ role.
 - [ ] `intelligence_review.html` page renders correctly.
 - [ ] `dashboard.html` includes intelligence row polled every 60s.
 - [ ] `POST /api/v1/intelligence/dismiss/{id}` sets `dismissed=1`.
 - [ ] `POST /api/v1/intelligence/mark-fp/{id}` sets `dismissed=1` and writes to
       `analytics:feedback` stream.
-- [ ] All unit tests pass with zero warnings.
+- [ ] All unit tests pass with zero warnings, including `test_schema_parity.py`.
+- [ ] Page rendering test for `/intelligence-review` returns 200 + `text/html`.
 - [ ] `make test` exits 0.
-- [ ] `python3 -m ruff check` exits 0 on all new/modified files.
-- [ ] `python3 -m mypy` exits 0 on all new/modified files.
+- [ ] `make lint` exits 0 on all new/modified files (runs ruff + mypy in-container).
 - [ ] CHANGELOG.md updated with Phase 236 entry.
 - [ ] `docs/phases/manifest.yaml` updated: `status: COMPLETE`, `completed: YYYY-MM-DD`.
 - [ ] `python3 scripts/sync-roadmap.py` run to regenerate TODO.md and PROJECT_STATUS.md.
@@ -1483,3 +1542,16 @@ Add the role guard as shown in the Phase 234 RBAC sub-task pattern.
 **Mistake 7: Not testing that the `analytics:feedback` XADD is bounded.**
 Use `XADD ... MAXLEN ~ 10000` so the feedback stream doesn't grow unboundedly.
 Already shown in the `mark-fp` endpoint above — don't remove it when copying.
+
+**Mistake 8: Using `$dispatch` instead of `window.ConfirmModal.open`.**
+Phase 235's confirmation modal exposes `window.ConfirmModal.open(config)`. Do
+NOT use Alpine's `$dispatch('open-confirm-modal', ...)` — it does not exist.
+The `$dispatch` event from Phase 234 was deprecated by Phase 235's global shim.
+Always use the `window.ConfirmModal.open()` API and pass the config keys
+(`action`, `ip`, `ja4`, `currentState`) directly.
+
+**Mistake 9: Running pytest or ruff on the host machine.**
+The AGENTS.md container-strict rule forbids running Python tooling on the host.
+Always use `docker run --rm -v "$PWD":/src -w /src ja4proxy-tools pytest ...`
+or `make lint` / `make test-unit`. Running on the host with Python 3.10 may
+mask Python 3.14-specific syntax errors.

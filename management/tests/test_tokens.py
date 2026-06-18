@@ -34,7 +34,7 @@ from httpx import AsyncClient
 
 from management.api.auth import (
     _create_access_token,
-)  # noqa: F401 — used in bearer tests
+)
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
