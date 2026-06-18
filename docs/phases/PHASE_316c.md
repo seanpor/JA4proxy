@@ -103,13 +103,25 @@ SYN's window/MSS/option-order are gone by the time the proxy sees the socket).
 - **Dropped — infeasible on passive encrypted TLS:** JA4H, JA4H2, JA4SSH (require
   plaintext application/SSH data the sensor cannot see). Removed from the TAP
   fingerprint roadmap.
-- **Deferred — conditionally feasible, own slice when a consumer exists:**
-  - **JA4S** (ServerHello) — bytes are surfaced by 316a/b, needs a ServerHello
-    field parser; value is server-side (our backends), so lower threat priority.
-  - **JA4L** (RTT/distance → VPN/anonymizer distance-mismatch) — needs SYN-ACK/ACK
-    timestamps the event does not yet carry; genuinely valuable, its own slice.
-  - **JA4X** (cert) — passively TLS ≤1.2 only; needs Certificate-record capture.
-  - **QUIC** (JA4Q) — needs UDP capture; out of the TCP reassembler's scope.
+- **WON'T-DO (decided 2026-06-18) — low value / redundant for an inbound
+  bot-protection proxy:**
+  - **JA4S** (ServerHello) — fingerprints *our own backends'* responses, not the
+    client; wrong threat surface for an inbound protective proxy (the client is
+    the threat). No inbound allow/block decision depends on it.
+  - **JA4L** (RTT/distance) — redundant with the existing GeoIP/ASN/RDAP geo
+    signals (Phases 6/11), and a SPAN-port latency measurement is noisy and
+    spoofable.
+  - **JA4X** (cert) — the inline proxy already computes JA4X (`internal/tls/
+    ja4x.go`) on the live connection; a passive TAP could only do TLS ≤1.2, a
+    strict and shrinking subset of an existing capability.
+- **Deferred (conditional) — QUIC / JA4Q:** needs a new UDP capture + QUIC
+  Initial decode subsystem (the 316a reassembler is TCP-only). It is the one
+  genuine blind spot (the inline TCP proxy cannot see QUIC at all), so it is
+  *not* dropped — but it earns its cost only if QUIC/H3 actually appears in the
+  protected traffic. The product's threat model is bots abusing web forms over
+  HTTP(S) through the proxy; QUIC matters only when a QUIC-enabled backend lets
+  that traffic bypass the TCP path. Revisit then.
 
-Each deferred fingerprint should land **with its consumer**, not as a forward-
-compat dead key — the principle this slice establishes.
+The won't-do fingerprints would be write-only Redis keys with no decision to
+drive — the dead-key trap this slice exists to avoid. A fingerprint earns its
+place only when a consumer acts on it.
