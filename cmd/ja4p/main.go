@@ -51,6 +51,7 @@ func main() {
 		dryRun         bool
 		laneFlag       int
 		nonInteractive bool
+		modeFlag       string
 	)
 	initCmd := &cobra.Command{
 		Use:   "init",
@@ -77,7 +78,7 @@ Use --non-interactive with --lane to accept all defaults.`,
 				wiz.Answers.MonitoringStack = true
 				wiz.Answers.BackendHost = "backend"
 				wiz.Answers.BackendPort = 443
-				wiz.Answers.Mode = "container"
+				wiz.Answers.Mode = modeFlag
 				wiz.Answers.BindIP = "127.0.0.1"
 				wiz.Answers.AdminUser = "admin"
 				wiz.Answers.AdminPassword = ""
@@ -101,6 +102,7 @@ Use --non-interactive with --lane to accept all defaults.`,
 	initCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview configuration without writing anything")
 	initCmd.Flags().IntVar(&laneFlag, "lane", -1, "Pre-select lane number")
 	initCmd.Flags().BoolVar(&nonInteractive, "non-interactive", false, "Accept all defaults (requires --lane)")
+	initCmd.Flags().StringVar(&modeFlag, "mode", "container", "Deployment mode for --non-interactive: native or container")
 	rootCmd.AddCommand(initCmd)
 
 	// 3. Config Validate Command
