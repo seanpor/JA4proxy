@@ -364,6 +364,19 @@ Emitted for operational events (startup, config reload, background tasks, errors
 }
 ```
 
+#### EDL export feed (Phase 316e)
+
+The management-API EDL endpoint emits structured `subsystem=edl` events (the
+management API has no Prometheus exposition surface; these logs are the
+observability surface for the feed):
+
+- `event=served` — one per successful poll, with `list`, `client` (token
+  identity), `status` (200/304), and `count`.
+- `event=truncated` (WARN) — the list exceeded `edl.max_entries` and was capped;
+  carries `total` and `cap` so a silent truncation is never invisible.
+- `event=build_error` (ERROR) — a Redis error while building the list; the feed
+  is served **empty** (fail-open), and this line records that it happened.
+
 ### 2c. Required Fields
 
 Every log line must have: `ts`, `type`, `level`.
