@@ -210,6 +210,17 @@ func buildSystemdUnit(a *Answers) string {
 		"Restart=on-failure",
 		"RestartSec=5",
 		"NoNewPrivileges=true",
+	)
+	if a.Mode != "container" {
+		// Native ja4pd runs as the unprivileged ja4proxy user but must bind the
+		// public ingress port (e.g. 443). Grant just the bind capability — it
+		// survives NoNewPrivileges as an ambient cap — instead of running as root.
+		lines = append(lines,
+			"AmbientCapabilities=CAP_NET_BIND_SERVICE",
+			"CapabilityBoundingSet=CAP_NET_BIND_SERVICE",
+		)
+	}
+	lines = append(lines,
 		"",
 		"[Install]",
 		"WantedBy=multi-user.target",

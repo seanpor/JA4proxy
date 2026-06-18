@@ -10,6 +10,7 @@
 #
 # Usage:
 #   sudo ./scripts/bootstrap.sh [--mode native|container] [--root /opt/ja4proxy]
+#   sudo ./scripts/bootstrap.sh --non-interactive  # unattended (wizard takes defaults)
 #   sudo ./scripts/bootstrap.sh --check       # dry-run diagnostics
 #   sudo ./scripts/bootstrap.sh --uninstall   # remove (prompts before volumes)
 #
@@ -20,6 +21,7 @@ set -euo pipefail
 MODE="container"
 ROOT="/opt/ja4proxy"
 ACTION="install"
+NONINTERACTIVE="false"
 SVC_USER="ja4proxy"
 LOG_DIR="/var/log/ja4proxy"
 BACKUP_DIR="/backup/ja4proxy"
@@ -35,6 +37,7 @@ while [ $# -gt 0 ]; do
     --root) ROOT="$2"; shift 2 ;;
     --check) ACTION="check"; shift ;;
     --uninstall) ACTION="uninstall"; shift ;;
+    --non-interactive|--yes) NONINTERACTIVE="true"; shift ;;
     -h|--help) grep -E '^#( |$)' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) err "unknown argument: $1"; exit 2 ;;
   esac
@@ -61,9 +64,16 @@ assert_zero_compile() {
 install_runtime_deps() {
   local mgr; mgr="$(detect_pkg_mgr)"
   log "installing runtime dependencies via $mgr"
+  # Native mode runs Redis on the host (the systemd unit orders after
+  # redis-server.service); container mode gets Redis from compose.
+  local pkgs_apt="openssl" pkgs_dnf="openssl"
+  if [ "$MODE" = "native" ]; then
+    pkgs_apt="openssl redis-server"
+    pkgs_dnf="openssl redis"
+  fi
   case "$mgr" in
-    apt) apt-get update -qq && apt-get install -y --no-install-recommends openssl ;;
-    dnf) dnf install -y openssl ;;
+    apt) apt-get update -qq && apt-get install -y --no-install-recommends $pkgs_apt ;;
+    dnf) dnf install -y $pkgs_dnf ;;
     *) err "unsupported package manager (need apt or dnf)"; return 1 ;;
   esac
   if [ "$MODE" = "container" ] && ! command -v docker >/dev/null 2>&1; then
@@ -93,15 +103,22 @@ load_offline_images() {
 
 run_wizard() {
   log "launching Go-native setup wizard (generates .env + proxy.yml + systemd unit; secrets never echoed)"
+  local -a args=(init)
+  if [ "$NONINTERACTIVE" = "true" ]; then
+    # Unattended install: accept defaults, pass the chosen deployment mode.
+    args+=(--non-interactive --lane 0 --mode "$MODE")
+  fi
   if [ "$MODE" = "native" ]; then
-    "$ROOT/bin/ja4p" init
+    ( cd "$ROOT" && "$ROOT/bin/ja4p" "${args[@]}" )
   else
-    docker run --rm -it \
+    local dockerit="-it"
+    [ "$NONINTERACTIVE" = "true" ] && dockerit="-i"
+    docker run --rm "$dockerit" \
       -v "$ROOT:$ROOT" \
       -v /etc/systemd/system:/etc/systemd/system \
       -w "$ROOT" \
       ja4proxy:2.0.0 \
-      ja4p init
+      ja4p "${args[@]}"
   fi
   chown "$SVC_USER:$SVC_USER" "$ROOT/.env" 2>/dev/null || true
 }
@@ -141,9 +158,13 @@ configure_firewall() {
   [ -f "$ROOT/.env" ] && . "$ROOT/.env"
   local admin_ports="${HOST_PORT_MANAGEMENT:-8090} ${HOST_PORT_METRICS:-9090} ${HOST_PORT_PROMETHEUS:-9091} ${HOST_PORT_GRAFANA:-3000}"
   if command -v ufw >/dev/null 2>&1; then
+    # Allow SSH first so enabling the firewall never locks the operator out.
+    ufw allow OpenSSH >/dev/null 2>&1 || ufw allow 22/tcp
     ufw allow 80/tcp; ufw allow 443/tcp
     for p in $admin_ports; do ufw deny "$p"/tcp; done
-    ok "ufw: 80/443 public; admin ports denied externally ($admin_ports)"
+    # Activate it — configured-but-disabled rules are a false sense of security.
+    ufw --force enable
+    ok "ufw: enabled; 80/443 public; admin ports denied externally ($admin_ports)"
   elif command -v firewall-cmd >/dev/null 2>&1; then
     firewall-cmd --permanent --add-service=http --add-service=https
     firewall-cmd --reload
