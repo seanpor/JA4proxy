@@ -364,7 +364,7 @@ After running traffic tests:
 
 ## See Also
 
-- [POC Quickstart](POC_QUICKSTART.md)
-- [Security Configuration](../README.md)
-- [Monitoring & Metrics](OPERATIONS_GUIDE.md#📊-viewing-logs-&-assets)
-- [Test JA4 Blocking](../scripts/test-ja4-blocking.sh)
+- [POC Quickstart](../operations/POC_QUICKSTART.md)
+- [Security Configuration](../../README.md)
+- [Monitoring & Metrics](../operations/OPERATIONS_GUIDE.md#📊-viewing-logs-&-assets)
+- [Test JA4 Blocking](../../scripts/test-ja4-blocking.sh)

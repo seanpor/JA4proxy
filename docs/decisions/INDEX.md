@@ -89,4 +89,4 @@ These decisions are implemented and well-understood but not yet formally documen
 3. **Accept:** Merge to main, update this index
 4. **Maintain:** Review annually or when related code changes significantly
 
-See [DOCUMENTATION_STANDARDS.md](../DOCUMENTATION_STANDARDS.md) §5 for full ADR format.
+See [DOCUMENTATION_STANDARDS.md](../developer/DOCUMENTATION_STANDARDS.md) §5 for full ADR format.

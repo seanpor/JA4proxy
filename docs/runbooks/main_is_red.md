@@ -19,7 +19,7 @@ restored to green, every other contributor's PR cannot merge cleanly because
 their branches will inherit the same failure when rebased onto `main`. This
 is a **shared resource outage**, not a personal-PR problem.
 
-The keep-main-green policy ([`../HOW_WE_WORK.md`](../HOW_WE_WORK.md)
+The keep-main-green policy ([`../HOW_WE_WORK.md`](../developer/HOW_WE_WORK.md)
 §Keep-main-green policy) defines the required CI jobs and the response SLA.
 This runbook is the operational playbook.
 
@@ -51,7 +51,7 @@ gh run view <run-id> --log-failed
 ```
 
 Identify the failing job (one of the required jobs in
-[`../QUALITY_PLAN.md`](../QUALITY_PLAN.md)
+[`../QUALITY_PLAN.md`](../developer/QUALITY_PLAN.md)
 §Required jobs) and the commit SHA that introduced it.
 
 ## Acknowledge
@@ -210,12 +210,12 @@ not yet covered by an automated check. The note should propose that check.
 ## Related
 
 - Policy and SLA:
-  [`../HOW_WE_WORK.md`](../HOW_WE_WORK.md)
+  [`../HOW_WE_WORK.md`](../developer/HOW_WE_WORK.md)
   §Keep-main-green policy
 - What every CI job enforces:
-  [`../QUALITY_PLAN.md`](../QUALITY_PLAN.md)
+  [`../QUALITY_PLAN.md`](../developer/QUALITY_PLAN.md)
 - Local merge gate (must be green before any merge):
-  [`../HOW_WE_WORK.md`](../HOW_WE_WORK.md)
+  [`../HOW_WE_WORK.md`](../developer/HOW_WE_WORK.md)
   §Local merge gate
 - Approved exceptions process:
   [`../../AGENTS.md`](../../AGENTS.md) §Approved Exception Workflow

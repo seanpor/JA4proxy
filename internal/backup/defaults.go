@@ -1,7 +1,7 @@
 package backup
 
 // DefaultKeyPrefixes is the conservative default backup scope: the durable
-// security state the proxy depends on (see docs/REDIS_SCHEMA.md). SCAN MATCH is
+// security state the proxy depends on (see docs/reference/REDIS_SCHEMA.md). SCAN MATCH is
 // applied as "<prefix>*", so "ban" also covers "ban_cidr".
 //
 // These are defaults; a future `backup:` config block can override them.

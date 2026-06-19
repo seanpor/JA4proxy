@@ -80,7 +80,7 @@ The **Dial (0-100)** is your primary lever for controlling proxy aggression.
 
 - **Dial 0 (Monitor Mode):** Scores all risk signals but blocks nothing. Use for baselining.
 - **Dial 100 (Full Enforcement):** Enforces all configured risk thresholds.
-- **Effective Threshold Table**: See [`docs/OPERATIONS_MAPPING.md`](OPERATIONS_MAPPING.md).
+- **Effective Threshold Table**: See [`docs/security/OPERATIONS_MAPPING.md`](../security/OPERATIONS_MAPPING.md).
 
 ### Enforcement Paths
 1. **Hard Blocks**: Immediate RST for blacklisted IPs/JA4s. Independent of the Dial.
@@ -193,7 +193,7 @@ curl -k --tls-max 1.1 https://localhost:443/
 | **Health API** | `curl localhost:9090/health/deep` | JSON status of the proxy, Redis, and Security pipeline. |
 
 ## 📚 Reference Links
-- **[MITRE ATT&CK Mapping](ATTACK_MAPPING.md)** — authoritative signal → technique mapping
-- **[SecOps Triage & Remediation Playbooks](OPERATIONS_MAPPING.md)** — what to do when an alert fires
-- **[Runbook Index](runbooks/)**
-- **[Architecture Deep-Dive](security/ARCHITECTURE.md)**
+- **[MITRE ATT&CK Mapping](../security/ATTACK_MAPPING.md)** — authoritative signal → technique mapping
+- **[SecOps Triage & Remediation Playbooks](../security/OPERATIONS_MAPPING.md)** — what to do when an alert fires
+- **[Runbook Index](../runbooks/)**
+- **[Architecture Deep-Dive](../security/ARCHITECTURE.md)**

@@ -92,7 +92,7 @@ the WP's acceptance gate requires checking claims against that source.
 
 - Author name: `Sean O'Riordain` → **`Seán Ó Ríordáin`** (`user-guide/chapters/preface.tex:87`; check all signatures/`\author`/PDF metadata). UTF-8 + T1 fontenc already present, so it renders directly.
 - Versioning: replace `Edition 1.0` / `\date{Edition 1.0 \the\year}` / back-cover "Edition 1.0" with **Version 2.0.0** + a **last-reviewed date** via the new `\docversion`/`\lastreviewed` macros.
-- Add the markdown `version:`/`last_reviewed:` frontmatter convention (documented in `docs/DOCUMENTATION_STANDARDS.md`).
+- Add the markdown `version:`/`last_reviewed:` frontmatter convention (documented in `docs/developer/DOCUMENTATION_STANDARDS.md`).
 - Back-cover index link `docs/INDEX.md` → `docs/README.md` — **already fixed** (commit `92eca436`), rebuild the other two PDFs to match.
 - **Acceptance:** all 3 PDFs rebuild clean; name correct; version/date macros render a content date; standard documented.
 

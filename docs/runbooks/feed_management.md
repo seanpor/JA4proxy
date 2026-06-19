@@ -204,4 +204,4 @@ rate(ja4proxy_blocklist_matches_total{feed="spamhaus_drop"}[5m])
 - `docs/phases/complete/PHASE_08.md` — Spamhaus integration architecture
 - `docs/phases/complete/PHASE_06.md` — ASN classification and GeoIP
 - `docs/runbooks/redis_operations.md` — Redis key inspection
-- `docs/REDIS_SCHEMA.md` — Blocklist key patterns
+- `docs/reference/REDIS_SCHEMA.md` — Blocklist key patterns

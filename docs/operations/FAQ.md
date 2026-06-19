@@ -204,7 +204,7 @@ HAProxy load-balances across instances automatically. Measured throughput is ~21
 
 **Q: How much traffic can the proxy handle?**
 
-Single instance: ~210 connections/sec sustained, ~99% malicious fingerprint block rate with near-zero false positives on browser traffic. See [Performance Benchmark](reports/PERFORMANCE_BENCHMARK.md) for measured results.
+Single instance: ~210 connections/sec sustained, ~99% malicious fingerprint block rate with near-zero false positives on browser traffic. See [Performance Benchmark](../reports/PERFORMANCE_BENCHMARK.md) for measured results.
 
 ---
 
@@ -230,7 +230,7 @@ docker compose -f deploy/docker/docker-compose.poc.yml build
 make start
 ./poc-status-check.sh    # Verify
 ```
-Check the [Changelog](../CHANGELOG.md) for any config changes needed before upgrading.
+Check the [Changelog](../../CHANGELOG.md) for any config changes needed before upgrading.
 
 ---
 

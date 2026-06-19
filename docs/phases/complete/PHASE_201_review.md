@@ -67,7 +67,7 @@
 | D1 | `config/proxy.yml:44` already has `ssl: false` — 201b just needs to honour it, not add new keys. Phase doc suggests adding example with `# phase-201b` which is redundant | LOW |
 | D2 | No Helm / Compose change required — TLS is a runtime toggle. Good. | INFO |
 | D3 | Rollback is clean: all changes are additive struct fields with zero-value defaults matching current behaviour | INFO |
-| D4 | `sub-phase 201d` adds a new Prometheus metric `ja4proxy_redis_health` — must be registered in the shared registry (`internal/metrics/`) per `docs/OBSERVABILITY_STANDARDS.md`, not in the Redis package | MEDIUM |
+| D4 | `sub-phase 201d` adds a new Prometheus metric `ja4proxy_redis_health` — must be registered in the shared registry (`internal/metrics/`) per `docs/reference/OBSERVABILITY_STANDARDS.md`, not in the Redis package | MEDIUM |
 
 ### 2c. SRE
 | # | Finding | Sev |
@@ -100,7 +100,7 @@
 |---|---|---|
 | DOC1 | Phase-level CHANGELOG entry missing from acceptance criteria (sub-phases each require one, but there's no roll-up) | LOW |
 | DOC2 | ADR needed: "Why Go Redis client uses TLS MinVersion 1.2 and not 1.3" — this is a non-obvious security-vs-compat tradeoff | MEDIUM |
-| DOC3 | `docs/REDIS_SCHEMA.md` doesn't need updates (no new keys), but the health-check metric should be added to `docs/OBSERVABILITY_STANDARDS.md` | MEDIUM |
+| DOC3 | `docs/reference/REDIS_SCHEMA.md` doesn't need updates (no new keys), but the health-check metric should be added to `docs/reference/OBSERVABILITY_STANDARDS.md` | MEDIUM |
 | DOC4 | Phase doc "last revised 2026-04-11" but numbers don't match the code on `main` at 2026-04-15 — needs re-verification timestamp | INFO |
 
 ---
@@ -354,7 +354,7 @@
 #### Sub-task 6.1: CHANGELOG and manifest close-out
 **Size:** XS (20 min)
 **Depends on:** 3.x, 4.x, 5.x all merged
-**Files to touch:** `CHANGELOG.md`, `docs/phases/manifest.yaml`, `docs/PROJECT_STATUS.md` (regenerated)
+**Files to touch:** `CHANGELOG.md`, `docs/phases/manifest.yaml`, `docs/reference/PROJECT_STATUS.md` (regenerated)
 **What to do:**
 - Prepend CHANGELOG entry in standard format noting TLS + username support, ZRemRangeByScore logging, health check, rate-limiter validation. Mention that the "signal score drift" finding was withdrawn as invalid.
 - Set `phases.201.status: COMPLETE` in manifest.

@@ -34,13 +34,13 @@ This document maps JA4proxy's implemented security controls to the **ISO 27001:2
 | Control | JA4proxy Implementation | Evidence | Gap |
 |---------|--------------------------|----------|-----|
 | **A.5.1: Policies for information security** | ✅ Security policy documented | [Security Policy Runbook](../runbooks/security_policy.md) | None |
-| **A.5.2: Information security roles and responsibilities** | ✅ Roles defined in operations guides | [SecOps Operations Guide](../OPERATIONS_GUIDE.md) | None |
+| **A.5.2: Information security roles and responsibilities** | ✅ Roles defined in operations guides | [SecOps Operations Guide](../operations/OPERATIONS_GUIDE.md) | None |
 | **A.5.3: Segregation of duties** | ⚠️ Partial — small team context | Configuration management separation | Document formal segregation for production |
-| **A.5.4: Management responsibilities** | ✅ Incident response procedures | [Incident Response Runbook](../INCIDENT_RESPONSE.md) | None |
-| **A.5.5: Contact with authorities** | ✅ Breach notification template | [GDPR Compliance §9.3](../compliance/GDPR_COMPLIANCE.md#93-notification-template) | None |
+| **A.5.4: Management responsibilities** | ✅ Incident response procedures | [Incident Response Runbook](../operations/INCIDENT_RESPONSE.md) | None |
+| **A.5.5: Contact with authorities** | ✅ Breach notification template | [GDPR Compliance §9.3](GDPR_COMPLIANCE.md#93-notification-template) | None |
 | **A.5.6: Contact with special interest groups** | ❌ Not applicable | Open source community engagement | N/A |
 | **A.5.7: Threat intelligence** | ✅ Spamhaus, AbuseIPDB integration | [Phase 8 & 10 documentation](../phases/manifest.yaml) | None |
-| **A.5.8: Information security in project management** | ✅ Phase-based security gates | [TESTING_STRATEGY.md](../TESTING_STRATEGY.md) | None |
+| **A.5.8: Information security in project management** | ✅ Phase-based security gates | [TESTING_STRATEGY.md](../developer/TESTING_STRATEGY.md) | None |
 
 ### A.6: People Controls
 
@@ -48,12 +48,12 @@ This document maps JA4proxy's implemented security controls to the **ISO 27001:2
 |---------|--------------------------|----------|-----|
 | **A.6.1: Screening** | ❌ Not applicable | Open source contributors | N/A |
 | **A.6.2: Terms and conditions of employment** | ❌ Not applicable | Open source project | N/A |
-| **A.6.3: Information security awareness, education and training** | ✅ Documentation and guides | [Style Guide](../STYLE_GUIDE.md), [Testing Strategy](../TESTING_STRATEGY.md) | Formal training program needed |
+| **A.6.3: Information security awareness, education and training** | ✅ Documentation and guides | [Style Guide](../developer/STYLE_GUIDE.md), [Testing Strategy](../developer/TESTING_STRATEGY.md) | Formal training program needed |
 | **A.6.4: Disciplinary process** | ❌ Not applicable | Community governance | N/A |
 | **A.6.5: Responsible use of information security** | ✅ Code of conduct in CONTRIBUTING | [CONTRIBUTING.md](../../CONTRIBUTING.md) | None |
 | **A.6.6: Confidentiality or non-disclosure agreements** | ❌ Not applicable | Open source | N/A |
-| **A.6.7: Remote working** | ✅ Secure access documented | [DMZ Deployment Readiness](../DMZ_READINESS.md) | None |
-| **A.6.8: Information security event reporting** | ✅ Incident response procedures | [Incident Response Runbook](../INCIDENT_RESPONSE.md) | None |
+| **A.6.7: Remote working** | ✅ Secure access documented | [DMZ Deployment Readiness](../security/DMZ_READINESS.md) | None |
+| **A.6.8: Information security event reporting** | ✅ Incident response procedures | [Incident Response Runbook](../operations/INCIDENT_RESPONSE.md) | None |
 
 ### A.7: Physical Controls
 
@@ -87,7 +87,7 @@ This document maps JA4proxy's implemented security controls to the **ISO 27001:2
 | Control | JA4proxy Implementation | Evidence | Gap |
 |---------|--------------------------|----------|-----|
 | **A.8.2.1: Management of privileged access rights** | ✅ Redis ACL configuration | [Redis Operations Runbook](../runbooks/redis_operations.md) | None |
-| **A.8.2.2: Management of secret authentication information** | ✅ Secrets management documented | [Deployment Security Model](../DEPLOYMENT_SECURITY_MODEL.md) | None |
+| **A.8.2.2: Management of secret authentication information** | ✅ Secrets management documented | [Deployment Security Model](../security/DEPLOYMENT_SECURITY_MODEL.md) | None |
 | **A.8.2.3: Use of privileged utility programs** | ✅ Restricted utility access | Docker container hardening | None |
 
 #### A.8.3: Information Access Restriction
@@ -95,11 +95,11 @@ This document maps JA4proxy's implemented security controls to the **ISO 27001:2
 | Control | JA4proxy Implementation | Evidence | Gap |
 |---------|--------------------------|----------|-----|
 | **A.8.3.1: Access control policy** | ✅ Role-based access documented | [Security Policy Runbook](../runbooks/security_policy.md) | None |
-| **A.8.3.2: User access provisioning** | ✅ Configuration management | [SecOps Operations Guide](../OPERATIONS_GUIDE.md) | None |
-| **A.8.3.3: Management of privileged access rights** | ✅ Redis ACLs and firewall rules | [Redis Security Review](../REDIS_SECURITY_REVIEW.md) | None |
-| **A.8.3.4: Management of secret authentication information** | ✅ Password rotation procedures | [Incident Response §Breach Notification](../INCIDENT_RESPONSE.md) | None |
+| **A.8.3.2: User access provisioning** | ✅ Configuration management | [SecOps Operations Guide](../operations/OPERATIONS_GUIDE.md) | None |
+| **A.8.3.3: Management of privileged access rights** | ✅ Redis ACLs and firewall rules | [Redis Security Review](../security/REDIS_SECURITY_REVIEW.md) | None |
+| **A.8.3.4: Management of secret authentication information** | ✅ Password rotation procedures | [Incident Response §Breach Notification](../operations/INCIDENT_RESPONSE.md) | None |
 | **A.8.3.5: Review of user access rights** | ⚠️ Partial — manual review | Quarterly access review procedure needed | Automate access reviews |
-| **A.8.3.6: Removal or adjustment of access rights** | ✅ Deprovisioning procedures | [Incident Response Runbook](../INCIDENT_RESPONSE.md) | None |
+| **A.8.3.6: Removal or adjustment of access rights** | ✅ Deprovisioning procedures | [Incident Response Runbook](../operations/INCIDENT_RESPONSE.md) | None |
 
 #### A.8.4: Access to Source Code
 
@@ -107,7 +107,7 @@ This document maps JA4proxy's implemented security controls to the **ISO 27001:2
 |---------|--------------------------|----------|-----|
 | **A.8.4.1: Secure development environment** | ✅ GitHub security features | Repository settings, branch protection | None |
 | **A.8.4.2: Protection of source code integrity** | ✅ Code signing and verification | Git commit signing, CI/CD pipelines | None |
-| **A.8.4.3: Secure engineering principles** | ✅ Security by design | [Style Guide §Security](../STYLE_GUIDE.md) | None |
+| **A.8.4.3: Secure engineering principles** | ✅ Security by design | [Style Guide §Security](../developer/STYLE_GUIDE.md) | None |
 | **A.8.4.4: Outsourced development** | ❌ Not applicable | In-house development | N/A |
 
 ### A.9: Access Control
@@ -115,7 +115,7 @@ This document maps JA4proxy's implemented security controls to the **ISO 27001:2
 | Control | JA4proxy Implementation | Evidence | Gap |
 |---------|--------------------------|----------|-----|
 | **A.9.1.1: Access control policy** | ✅ Documented access policies | [Security Policy Runbook](../runbooks/security_policy.md) | None |
-| **A.9.1.2: Access to networks and network services** | ✅ Network segmentation | [DMZ Deployment Readiness](../DMZ_READINESS.md) | None |
+| **A.9.1.2: Access to networks and network services** | ✅ Network segmentation | [DMZ Deployment Readiness](../security/DMZ_READINESS.md) | None |
 | **A.9.1.3: User authentication for external connections** | ✅ TLS client authentication | PROXY protocol enforcement | None |
 | **A.9.1.4: Privileged utility programs** | ✅ Restricted access | Docker container hardening | None |
 | **A.9.1.5: User identification and authentication** | ✅ Redis ACL authentication | `requirepass` configuration | None |
@@ -125,7 +125,7 @@ This document maps JA4proxy's implemented security controls to the **ISO 27001:2
 
 | Control | JA4proxy Implementation | Evidence | Gap |
 |---------|--------------------------|----------|-----|
-| **A.10.1.1: Cryptographic controls policy** | ✅ Encryption policy documented | [Deployment Security Model](../DEPLOYMENT_SECURITY_MODEL.md) | None |
+| **A.10.1.1: Cryptographic controls policy** | ✅ Encryption policy documented | [Deployment Security Model](../security/DEPLOYMENT_SECURITY_MODEL.md) | None |
 | **A.10.1.2: Key management** | ✅ TLS key management | HAProxy TLS termination | None |
 | **A.10.1.3: Cryptographic techniques** | ✅ Strong cipher suites | [Phase 3: TLS Enforcement](../phases/manifest.yaml) | None |
 
@@ -139,15 +139,15 @@ This document maps JA4proxy's implemented security controls to the **ISO 27001:2
 |---------|--------------------------|----------|-----|
 | **A.12.1.1: Documented operating procedures** | ✅ Comprehensive runbooks | [Operator Documentation](../runbooks/) | None |
 | **A.12.1.2: Change management** | ✅ Configuration hot-reload | [Phase 0: Hot Reload](../phases/manifest.yaml) | None |
-| **A.12.1.3: Capacity management** | ✅ Resource monitoring | [Monitoring Setup §Capacity Planning](../OBSERVABILITY_STANDARDS.md) | None |
+| **A.12.1.3: Capacity management** | ✅ Resource monitoring | [Monitoring Setup §Capacity Planning](../reference/OBSERVABILITY_STANDARDS.md) | None |
 | **A.12.1.4: Separation of development, testing and production** | ✅ Environment isolation | Docker Compose environment variables | None |
 | **A.12.2.1: Controls against malware** | ✅ Container scanning | Trivy integration in CI/CD | None |
 | **A.12.2.2: Information backup** | ✅ Backup and restore | [Backup & Restore Runbook](../runbooks/cloud_backup_operations.md) | None |
-| **A.12.2.3: Logging** | ✅ Comprehensive logging | [Observability Standards](../OBSERVABILITY_STANDARDS.md) | None |
-| **A.12.2.4: Monitoring** | ✅ Prometheus + Grafana | [Monitoring Setup](../OBSERVABILITY_STANDARDS.md) | None |
+| **A.12.2.3: Logging** | ✅ Comprehensive logging | [Observability Standards](../reference/OBSERVABILITY_STANDARDS.md) | None |
+| **A.12.2.4: Monitoring** | ✅ Prometheus + Grafana | [Monitoring Setup](../reference/OBSERVABILITY_STANDARDS.md) | None |
 | **A.12.2.5: Clock synchronization** | ✅ NTP configuration | Docker container time sync | None |
 | **A.12.2.6: Installation of software on operational systems** | ✅ Immutable containers | Docker image signing | None |
-| **A.12.3.1: Information handling procedures** | ✅ Data classification | [GDPR Compliance §2](../compliance/GDPR_COMPLIANCE.md) | None |
+| **A.12.3.1: Information handling procedures** | ✅ Data classification | [GDPR Compliance §2](GDPR_COMPLIANCE.md) | None |
 | **A.12.3.2: Management of removable media** | ❌ Not applicable | No removable media | N/A |
 | **A.12.3.3: Disposal of media** | ✅ Secure deletion | Docker volume cleanup | None |
 | **A.12.3.4: Physical media transfer** | ❌ Not applicable | No physical media | N/A |
@@ -156,10 +156,10 @@ This document maps JA4proxy's implemented security controls to the **ISO 27001:2
 
 | Control | JA4proxy Implementation | Evidence | Gap |
 |---------|--------------------------|----------|-----|
-| **A.13.1.1: Network security management** | ✅ Firewall rules and segmentation | [DMZ Deployment Readiness](../DMZ_READINESS.md) | None |
+| **A.13.1.1: Network security management** | ✅ Firewall rules and segmentation | [DMZ Deployment Readiness](../security/DMZ_READINESS.md) | None |
 | **A.13.1.2: Network services security** | ✅ Service hardening | HAProxy + JA4proxy configuration | None |
 | **A.13.1.3: Network segmentation** | ✅ DMZ architecture | [System Architecture](../architecture/system-architecture.md) | None |
-| **A.13.2.1: Information transfer policies and procedures** | ✅ Data transfer controls | [GDPR Compliance §7](../compliance/GDPR_COMPLIANCE.md) | None |
+| **A.13.2.1: Information transfer policies and procedures** | ✅ Data transfer controls | [GDPR Compliance §7](GDPR_COMPLIANCE.md) | None |
 | **A.13.2.2: Agreements on information transfer** | ✅ Third-party agreements | AbuseIPDB DPA, MaxMind license | None |
 | **A.13.2.3: Electronic messaging** | ❌ Not applicable | No email functionality | N/A |
 | **A.13.2.4: Confidentiality or non-disclosure agreements** | ❌ Not applicable | Open source | N/A |
@@ -169,13 +169,13 @@ This document maps JA4proxy's implemented security controls to the **ISO 27001:2
 | Control | JA4proxy Implementation | Evidence | Gap |
 |---------|--------------------------|----------|-----|
 | **A.14.1.1: Information security requirements for new systems** | ✅ Phase-based requirements | [Phase Plans](../phases/) | None |
-| **A.14.1.2: Secure development lifecycle** | ✅ TDD and security testing | [Testing Strategy](../TESTING_STRATEGY.md) | None |
-| **A.14.1.3: Secure system engineering principles** | ✅ Security by design | [Style Guide §Security](../STYLE_GUIDE.md) | None |
+| **A.14.1.2: Secure development lifecycle** | ✅ TDD and security testing | [Testing Strategy](../developer/TESTING_STRATEGY.md) | None |
+| **A.14.1.3: Secure system engineering principles** | ✅ Security by design | [Style Guide §Security](../developer/STYLE_GUIDE.md) | None |
 | **A.14.1.4: Secure development environment** | ✅ GitHub security | Repository settings, CODEOWNERS | None |
 | **A.14.1.5: Outsourced development** | ❌ Not applicable | In-house development | N/A |
-| **A.14.2.1: Secure coding** | ✅ Coding standards | [Style Guide](../STYLE_GUIDE.md) | None |
-| **A.14.2.2: System security testing** | ✅ Comprehensive testing | [Test Organisation](../TESTING_STRATEGY.md) | None |
-| **A.14.2.3: System acceptance testing** | ✅ Phase completion gates | [TESTING_STRATEGY.md §5](../TESTING_STRATEGY.md) | None |
+| **A.14.2.1: Secure coding** | ✅ Coding standards | [Style Guide](../developer/STYLE_GUIDE.md) | None |
+| **A.14.2.2: System security testing** | ✅ Comprehensive testing | [Test Organisation](../developer/TESTING_STRATEGY.md) | None |
+| **A.14.2.3: System acceptance testing** | ✅ Phase completion gates | [TESTING_STRATEGY.md §5](../developer/TESTING_STRATEGY.md) | None |
 | **A.14.2.4: Protection of test data** | ✅ Mock data usage | [Mock Servers Documentation](../developer/MOCK_SERVERS.md) | None |
 | **A.14.3.1: Separation of development, test and production** | ✅ Environment isolation | Docker Compose profiles | None |
 | **A.14.3.2: Change management** | ✅ Version control and CI/CD | GitHub Actions workflows | None |
@@ -195,7 +195,7 @@ This document maps JA4proxy's implemented security controls to the **ISO 27001:2
 
 | Control | JA4proxy Implementation | Evidence | Gap |
 |---------|--------------------------|----------|-----|
-| **A.16.1.1: Responsibilities and procedures** | ✅ Incident response runbook | [Incident Response Runbook](../INCIDENT_RESPONSE.md) | None |
+| **A.16.1.1: Responsibilities and procedures** | ✅ Incident response runbook | [Incident Response Runbook](../operations/INCIDENT_RESPONSE.md) | None |
 | **A.16.1.2: Reporting information security events** | ✅ Event reporting procedures | Alertmanager integration | None |
 | **A.16.1.3: Reporting information security weaknesses** | ✅ Vulnerability reporting | GitHub Security Advisories | None |
 | **A.16.1.4: Assessment and decision on information security events** | ✅ Event classification | Severity matrix in runbook | None |
@@ -219,11 +219,11 @@ This document maps JA4proxy's implemented security controls to the **ISO 27001:2
 |---------|--------------------------|----------|-----|
 | **A.18.1.1: Identification of applicable legislation and contractual requirements** | ✅ Compliance mapping | This document | None |
 | **A.18.1.2: Intellectual property rights** | ✅ License compliance | Open source licenses | None |
-| **A.18.1.3: Protection of records** | ✅ Audit logging | [Observability Standards](../OBSERVABILITY_STANDARDS.md) | None |
-| **A.18.1.4: Privacy and protection of PII** | ✅ GDPR compliance | [GDPR Compliance Documentation](../compliance/GDPR_COMPLIANCE.md) | None |
+| **A.18.1.3: Protection of records** | ✅ Audit logging | [Observability Standards](../reference/OBSERVABILITY_STANDARDS.md) | None |
+| **A.18.1.4: Privacy and protection of PII** | ✅ GDPR compliance | [GDPR Compliance Documentation](GDPR_COMPLIANCE.md) | None |
 | **A.18.1.5: Independent review of information security** | ✅ Security audits | [Comprehensive Security Audit](../security/COMPREHENSIVE_SECURITY_AUDIT.md) | None |
 | **A.18.1.6: Compliance with policies and standards** | ✅ Policy enforcement | CI/CD compliance checks | None |
-| **A.18.2.1: Data protection and privacy** | ✅ Privacy by design | [GDPR Compliance §4](../compliance/GDPR_COMPLIANCE.md) | None |
+| **A.18.2.1: Data protection and privacy** | ✅ Privacy by design | [GDPR Compliance §4](GDPR_COMPLIANCE.md) | None |
 | **A.18.2.2: Reviews of information security** | ✅ Regular audits | Quarterly compliance reviews | None |
 | **A.18.2.3: Technical compliance review** | ✅ Security testing | Penetration testing (Phase 14) | None |
 

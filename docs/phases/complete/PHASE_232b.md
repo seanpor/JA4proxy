@@ -28,7 +28,7 @@ Provide operators with immediate awareness of the proxy security posture. This r
 - `management/templates/partials/situation_bar.html` — new template for the 4 states
 - `management/templates/dashboard.html` — insert HTMX polling slot for the bar
 - `tests/unit/test_situation_partial.py` — unit tests for all 4 states
-- `docs/OPERATIONS_GUIDE.md` — document threat posture states and operator response
+- `docs/operations/OPERATIONS_GUIDE.md` — document threat posture states and operator response
 
 ### Out of scope:
 - Compiling static Tailwind CSS or vendoring JS files (covered by 232a).
@@ -106,7 +106,7 @@ Use negative margins (`-mx-6 -mt-6`) to stretch edge-to-edge.
 
 ### 5. Update Operations Guide
 
-Add "Threat Posture Monitoring" section to `docs/OPERATIONS_GUIDE.md`:
+Add "Threat Posture Monitoring" section to `docs/operations/OPERATIONS_GUIDE.md`:
 - Thresholds and state interpretation
 - Recommended actions for each state
 - How heartbeat monitoring works
@@ -135,7 +135,7 @@ Assert correct HTML output, CSS classes, and visible text for each state.
 - [ ] `GET /api/v1/partials/situation` returns correct HTML for all 4 states
 - [ ] Dashboard includes situation bar in a 10s HTMX polling slot
 - [ ] `situation_bar.html` renders with proper colors, icons, and data for each state
-- [ ] `docs/OPERATIONS_GUIDE.md` updated with threat posture section
+- [ ] `docs/operations/OPERATIONS_GUIDE.md` updated with threat posture section
 - [ ] Unit tests cover all 4 states, 100% pass rate
 - [ ] `make lint` exits 0 (Go + Python)
 - [ ] `make test-unit` passes

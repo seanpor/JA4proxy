@@ -48,7 +48,7 @@ Every change of meaningful size — new feature, refactor, security hardening,
 documentation overhaul — begins as a planning document at
 [`docs/phases/PHASE_NN.md`](../phases/). The plan states the goal, the
 acceptance criteria (in the standard format from
-[`docs/STYLE_GUIDE.md`](../STYLE_GUIDE.md) §§5–6), the deliverables, and the
+[`docs/developer/STYLE_GUIDE.md`](../developer/STYLE_GUIDE.md) §§5–6), the deliverables, and the
 tests that will demonstrate the criteria are met. The plan is reviewed by a
 human **before any code is written**.
 
@@ -110,7 +110,7 @@ The full methodology — categories of tests required (unit, integration,
 chaos/resilience, adversarial/fuzz, false-positive corpus, performance,
 end-to-end), where they live, how mocks are organised, and the
 phase-completion gate — is in
-[`docs/TESTING_STRATEGY.md`](../TESTING_STRATEGY.md). The repository
+[`docs/developer/TESTING_STRATEGY.md`](../developer/TESTING_STRATEGY.md). The repository
 maintains a target test-to-code ratio of approximately **1.3×** (lines of
 test ≥ 1.3 × lines of production code); the rationale, calculation, and
 exceptions are documented there.
@@ -125,7 +125,7 @@ exceptions are documented there.
 - The phase-completion gate (see [`CLAUDE.md`](../../CLAUDE.md) §"How to
   Run a Phase", steps 8–14) requires `make test` to pass *and* the
   documentation gate from
-  [`docs/DOCUMENTATION_STANDARDS.md`](../DOCUMENTATION_STANDARDS.md) to
+  [`docs/developer/DOCUMENTATION_STANDARDS.md`](../developer/DOCUMENTATION_STANDARDS.md) to
   pass *and* `manifest.yaml` to be updated *and* `make sync` to have
   regenerated derived files. All four happen in one atomic commit.
 - If a hook fails, the commit did not happen. The agent fixes the
@@ -135,7 +135,7 @@ exceptions are documented there.
 
 The conventions for what counts as green — config syntax, log format,
 test acceptance-criteria language, doc tone — are codified in
-[`docs/STYLE_GUIDE.md`](../STYLE_GUIDE.md). Style is part of the gate, not
+[`docs/developer/STYLE_GUIDE.md`](../developer/STYLE_GUIDE.md). Style is part of the gate, not
 an afterthought.
 
 ## Acceptance-criteria tagging (REQ-IDs)
@@ -156,7 +156,7 @@ phases (the historical bulk) are skipped — backfilling is not required.
 
 The full grammar, a worked example, and the rationale (regulators ask for
 traceability; informal "see the test file" prose does not survive an
-audit) are in [`docs/STYLE_GUIDE.md`](../STYLE_GUIDE.md) §6
+audit) are in [`docs/developer/STYLE_GUIDE.md`](../developer/STYLE_GUIDE.md) §6
 "Acceptance-Criteria Tags (REQ-IDs)".
 
 ## Process metrics
@@ -238,9 +238,9 @@ not a contract.
 |----------|---------|
 | [`CLAUDE.md`](../../CLAUDE.md) | Master plan; multi-agent coordination; how to run a phase |
 | [`AGENTS.md`](../../AGENTS.md) | Mandatory Planning Protocol; agent operating rules |
-| [`docs/STYLE_GUIDE.md`](../STYLE_GUIDE.md) | Naming, config, log, test, REQ-ID, doc-language conventions |
-| [`docs/TESTING_STRATEGY.md`](../TESTING_STRATEGY.md) | Test categories, fixtures, phase-completion gate, 1.3× ratio |
-| [`docs/QUALITY_PLAN.md`](../QUALITY_PLAN.md) | Project-wide quality plan; gates and review responsibilities |
+| [`docs/developer/STYLE_GUIDE.md`](../developer/STYLE_GUIDE.md) | Naming, config, log, test, REQ-ID, doc-language conventions |
+| [`docs/developer/TESTING_STRATEGY.md`](../developer/TESTING_STRATEGY.md) | Test categories, fixtures, phase-completion gate, 1.3× ratio |
+| [`docs/developer/QUALITY_PLAN.md`](../developer/QUALITY_PLAN.md) | Project-wide quality plan; gates and review responsibilities |
 | [`docs/engineering-method/CASE_STUDIES.md`](CASE_STUDIES.md) | Worked examples of the method on Phases 15, 82, 200-series<!-- TODO: link will resolve when 106g sibling docs land --> |
 | [`docs/engineering-method/PHASE_ANATOMY.md`](PHASE_ANATOMY.md) | Annotated walk-through of one representative phase<!-- TODO: link will resolve when 106g sibling docs land --> |
 | [`docs/engineering-method/retrospectives/README.md`](retrospectives/README.md) | Quarterly retrospective cadence and inputs |

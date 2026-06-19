@@ -308,7 +308,7 @@ phase touches:
 | `config/proxy.yml` | Add `beaconing:` config section |
 | `tests/unit/security/test_beaconing_detector.py` | New file — unit tests |
 | `tests/chaos/test_beaconing_chaos.py` | New file — resilience tests |
-| `docs/REDIS_SCHEMA.md` | Document `beacon:{ip}:{ja4}` key |
+| `docs/reference/REDIS_SCHEMA.md` | Document `beacon:{ip}:{ja4}` key |
 | `CHANGELOG.md` | Add Phase 9 entry |
 ```
 
@@ -401,8 +401,8 @@ Do 16a–16e first — they unblock accurate coverage measurement for 16f–16k.
 Reference project-wide docs by path:
 
 ```markdown
-Read `docs/TESTING_STRATEGY.md §10` before starting.
-See `docs/OBSERVABILITY_STANDARDS.md` for the full metric naming spec.
+Read `docs/developer/TESTING_STRATEGY.md §10` before starting.
+See `docs/reference/OBSERVABILITY_STANDARDS.md` for the full metric naming spec.
 ```
 
 ---
@@ -412,12 +412,12 @@ See `docs/OBSERVABILITY_STANDARDS.md` for the full metric naming spec.
 | Content | Where it belongs |
 |---------|-----------------|
 | API reference docs | `docs/` or inline docstrings |
-| Redis key schema | `docs/REDIS_SCHEMA.md` |
-| Prometheus metric registry | `docs/OBSERVABILITY_STANDARDS.md` |
+| Redis key schema | `docs/reference/REDIS_SCHEMA.md` |
+| Prometheus metric registry | `docs/reference/OBSERVABILITY_STANDARDS.md` |
 | Runbook instructions | `docs/runbooks/` |
 | Architecture decision rationale | `docs/decisions/ADR-NNN.md` |
 | CHANGELOG entry | `CHANGELOG.md` |
-| Ongoing monitoring notes | `docs/OBSERVABILITY_STANDARDS.md` |
+| Ongoing monitoring notes | `docs/reference/OBSERVABILITY_STANDARDS.md` |
 | Security policy | `docs/security/` |
 
 Phase docs describe **what to build and how to verify it**. Everything else lives

@@ -82,10 +82,10 @@ the same `## [Unreleased]` heading. So **do NOT edit `CHANGELOG.md` directly**:
    serialized step). `tests/unit/test_changelog_fragments.py` (in the `make test`
    gate) keeps fragments well-formed.
 
-`README.md` / `docs/REDIS_SCHEMA.md` are *not* fragmented — edit them directly in
+`README.md` / `docs/reference/REDIS_SCHEMA.md` are *not* fragmented — edit them directly in
 your own section; conflicts there are rare and resolve trivially.
 
-The roadmap files (`docs/phases/TODO.md`, `docs/PROJECT_STATUS.md`) are **generated
+The roadmap files (`docs/phases/TODO.md`, `docs/reference/PROJECT_STATUS.md`) are **generated
 build artifacts, not committed source** (Phase 332): they are gitignored and
 regenerated from `manifest.yaml` by `make sync` (CI publishes them as an artifact).
 Never `git add` them — there is nothing to commit and therefore nothing to conflict

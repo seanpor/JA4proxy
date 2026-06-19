@@ -3,7 +3,7 @@
 GDPR Subject Erasure (Right to be Forgotten) — Live Redis Purge
 
 Deletes all per-IP personal data held in Redis for a given IP address.
-Covers every key pattern documented in docs/REDIS_SCHEMA.md that is
+Covers every key pattern documented in docs/reference/REDIS_SCHEMA.md that is
 keyed by IP address.
 
 Usage:

@@ -481,7 +481,7 @@ lint-shell:
 	@echo "✓ Shell lint passed"
 
 # Scan third-party Docker images for HIGH/CRITICAL CVEs (Trivy).
-# Third-party image list for CVE scanning. Keep in sync with docs/DOCKER_IMAGES.md.
+# Third-party image list for CVE scanning. Keep in sync with docs/reference/DOCKER_IMAGES.md.
 # Fails only on CRITICAL findings; HIGH findings are reported but non-blocking.
 # Scans only pinned third-party images (not images we build ourselves — use scan-first-party for those).
 # Shared Trivy cache (Phase 227): mounted into every trivy container so the

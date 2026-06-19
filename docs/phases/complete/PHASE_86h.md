@@ -124,7 +124,7 @@ Phase 86i will replace the estimates with real measurements and remove the warni
 
 ### Step 8 — Phase close-out
 
-Update `CHANGELOG.md`, `docs/phases/manifest.yaml`, `docs/REDIS_SCHEMA.md` (no new keys — confirm), run `make sync`, write `PHASE_86h_notes.md`, commit atomically.
+Update `CHANGELOG.md`, `docs/phases/manifest.yaml`, `docs/reference/REDIS_SCHEMA.md` (no new keys — confirm), run `make sync`, write `PHASE_86h_notes.md`, commit atomically.
 
 ---
 

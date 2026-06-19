@@ -825,7 +825,7 @@ These "Cunning Plays" will be documented as a separate **"Red Team Playbook"** i
       conformance evidence
 - [ ] `docs/compliance/CRA_CONFORMANCE.md` (Phase 107a) cites the
       pentest executive summary as evidence for Annex I
-- [ ] `docs/RISK_REGISTER.md` (Phase 106b) updated with any residual
+- [ ] `docs/security/RISK_REGISTER.md` (Phase 106b) updated with any residual
       risks from deferred findings
 
 **Close-out**
@@ -873,7 +873,7 @@ These "Cunning Plays" will be documented as a separate **"Red Team Playbook"** i
 | `README.md` | Add pentest + bug-bounty links |
 | `README.md` | Add executive summary link |
 | `docs/compliance/CRA_CONFORMANCE.md` | Cite executive summary |
-| `docs/RISK_REGISTER.md` | Add rows for deferred findings |
+| `docs/security/RISK_REGISTER.md` | Add rows for deferred findings |
 | `docs/phases/manifest.yaml` | Add Phase 108 entry; mark COMPLETE |
 | `CHANGELOG.md` | Phase 108 entry |
 

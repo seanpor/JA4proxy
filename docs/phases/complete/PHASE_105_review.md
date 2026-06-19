@@ -37,7 +37,7 @@ existing workflows.
 | `docs/phases/manifest.yaml` entry for 105 | ❌ **MISSING** (blocker B1) |
 | All declared dependencies complete | ✅ (phase declares "none") |
 | `config/proxy.yml` read | ✅ (no new config keys proposed — correct for docs phase) |
-| `docs/OBSERVABILITY_STANDARDS.md` read | ✅ (no new metrics proposed — correct) |
+| `docs/reference/OBSERVABILITY_STANDARDS.md` read | ✅ (no new metrics proposed — correct) |
 
 **Blocker B1:** Phase 105 must be added to `docs/phases/manifest.yaml` under
 an appropriate epic (suggested: "Quality Assurance & Test Maturity" or a new
@@ -130,7 +130,7 @@ The phase doc is the deliverable; review its own quality.
 | Q1 | **Acceptance criteria are numerous but mostly SMART** | 27 criteria; most pass SMART. Three are soft: "[ ] No doc under `docs/` claims Phase N as current where N < latest-complete-phase in manifest" is hard to automate — pair it with a CI grep check or drop the "no doc" wording for a named list. |
 | Q2 | **`Files to Modify` table missing a few derived targets** | `docs/api/ecs_extension.md` is cross-referenced by 105c but not listed; `docs/runbooks/main_is_red.md` promoted by R3 is not listed. Re-pass the Files table before execution. |
 | Q3 | **Sizing is high-confidence for prose, low-confidence for PDF work** | PDF chapter refresh effort depends heavily on how out-of-date the `.tex` chapters are. Add a 30-minute timeboxed "PDF drift audit" sub-task **first**, and re-size the PDF track after. |
-| Q4 | **CHANGELOG entry format not specified** | CLAUDE.md §Documentation Standards requires a specific CHANGELOG entry format. The phase doc says "CHANGELOG Phase 105 entry" but does not include the sample. Reference `docs/DOCUMENTATION_STANDARDS.md` and include a draft entry. |
+| Q4 | **CHANGELOG entry format not specified** | CLAUDE.md §Documentation Standards requires a specific CHANGELOG entry format. The phase doc says "CHANGELOG Phase 105 entry" but does not include the sample. Reference `docs/developer/DOCUMENTATION_STANDARDS.md` and include a draft entry. |
 | Q5 | **ADR candidates not named** | The phase creates at least two non-obvious decisions that should be ADRs: (a) the `docs/for-*/` naming convention vs. reorganising existing dirs, (b) keep-main-green SLA definition. Add ADR drafting sub-tasks. |
 | Q6 | **Phase size mismatch with style guide** | `docs/phases/STYLE_GUIDE.md` recommends splitting phases that grow beyond ~500 lines of substantive content. PHASE_105.md is 589 lines. Consider splitting into PHASE_105a (audience tracks) and PHASE_105b (PDFs + archival). Not required if execution stays parallel and well-bounded; flag as optional. |
 | Q7 | **Python badge in README still claims "Python 3.14+"** | Top-level README line 4 badge. After Phase 15 promoted Go to production, this badge is misleading even with the "dual" badge. 105a should replace/reorder badges. Phase doc mentions runtime banner but not the badges. Add to 105a. |
@@ -232,7 +232,7 @@ doc is wrong and needs another PR).
 **What to do:**
 - Write a short ADR (≤ 60 lines) deciding between: (a) new workflow `.github/workflows/docs-pdf.yml` triggered on `docs/pdf/**` path filter, or (b) new job in `ci.yml`
 - Recommendation: option (a) — cleaner separation, does not slow every PR
-- Capture the decision, alternatives, consequences per ADR template in `docs/DOCUMENTATION_STANDARDS.md`
+- Capture the decision, alternatives, consequences per ADR template in `docs/developer/DOCUMENTATION_STANDARDS.md`
 
 **Done when:**
 - [ ] ADR exists at `docs/decisions/ADR-105a-pdf-ci-placement.md`
@@ -351,13 +351,13 @@ doc is wrong and needs another PR).
 **Parallel with:** all Wave 1
 **Files to touch:** `FAQ.md`
 **What to do:**
-- 12–15 buyer questions. Source from: existing `docs/FAQ.md` (operator-focused — reframe), brochure Q&A, common security-evaluation questionnaires
+- 12–15 buyer questions. Source from: existing `docs/operations/FAQ.md` (operator-focused — reframe), brochure Q&A, common security-evaluation questionnaires
 - Must include: cost model, risk of blocking real users, GDPR posture, works-behind-Cloudflare, uptime impact, how-we-know-it-works, integration with existing WAF, comparison to Cloudflare Bot Management
 - Each answer ≤ 200 words
 
 **Done when:**
 - [ ] 12–15 Q&A entries
-- [ ] No overlap with `docs/FAQ.md` (operator) entries
+- [ ] No overlap with `docs/operations/FAQ.md` (operator) entries
 - [ ] Every answer under 200 words
 
 ---
@@ -370,7 +370,7 @@ doc is wrong and needs another PR).
 **Depends on:** 105.0.4
 **Files to touch:** `README.md`
 **What to do:**
-- Curated index linking: threat model (`docs/security/threat-model.md`), controls matrix (`docs/compliance/SECURITY_CONTROLS_MAPPING.md`), deployment security model (`docs/DEPLOYMENT_SECURITY_MODEL.md`), enterprise deployment (`docs/enterprise/deployment.md`), enterprise security architecture (`docs/enterprise/security-architecture.md`)
+- Curated index linking: threat model (`docs/security/threat-model.md`), controls matrix (`docs/compliance/SECURITY_CONTROLS_MAPPING.md`), deployment security model (`docs/security/DEPLOYMENT_SECURITY_MODEL.md`), enterprise deployment (`docs/enterprise/deployment.md`), enterprise security architecture (`docs/enterprise/security-architecture.md`)
 - Then the three new docs written in 105.2.2–4
 - Cap at 120 lines
 
@@ -463,7 +463,7 @@ doc is wrong and needs another PR).
 
 **Size:** S (1–2 h)
 **Depends on:** none
-**Files to touch:** `docs/DMZ_READINESS.md` (rewrite or move)
+**Files to touch:** `docs/security/DMZ_READINESS.md` (rewrite or move)
 **What to do:**
 - 30-minute audit: walk every claim in the doc; mark each as "current" or "pre-Phase 200"
 - If ≥ 70% pre-Phase-200: archive to `docs/reports/archive/DMZ_DEPLOYMENT_READINESS_2026-03-15.md` with supersede banner and write a thin replacement `DMZ_READINESS.md` summarising current Phase-200-series state
@@ -483,7 +483,7 @@ doc is wrong and needs another PR).
 **Depends on:** 105.0.4
 **Files to touch:** `README.md`
 **What to do:**
-- Curated index; link (do not copy) `docs/OPERATIONS.md`, `docs/INCIDENT_RESPONSE.md`, `docs/QUICK_REFERENCE.md`, `docs/MONITORING_SETUP.md`, the runbooks, the new `BLOCKING_OPERATIONS.md` (from 105.4.2)
+- Curated index; link (do not copy) `docs/OPERATIONS.md`, `docs/operations/INCIDENT_RESPONSE.md`, `docs/QUICK_REFERENCE.md`, `docs/MONITORING_SETUP.md`, the runbooks, the new `BLOCKING_OPERATIONS.md` (from 105.4.2)
 - Cap at 120 lines
 
 **Done when:** [ ] File ≤ 120 lines; all links present.
@@ -504,11 +504,11 @@ doc is wrong and needs another PR).
 
 ---
 
-##### Sub-task 105.3.3: Expand `docs/SCALING_GUIDE.md` with worked examples
+##### Sub-task 105.3.3: Expand `docs/operations/SCALING_GUIDE.md` with worked examples
 
 **Size:** M (2–4 h)
 **Depends on:** none
-**Files to touch:** `docs/SCALING_GUIDE.md`
+**Files to touch:** `docs/operations/SCALING_GUIDE.md`
 **What to do:**
 - Add three capacity scenarios: small site (100 req/s), enterprise (2,000 req/s), high-volume API (15,000 req/s)
 - Each scenario: instance count, Redis sizing, expected conn/s per instance, recommended dial progression, monitoring thresholds
@@ -579,12 +579,12 @@ doc is wrong and needs another PR).
 **Files to touch:** `AUDIT_TRAIL.md`
 **What to do:**
 - What gets logged, where, for how long
-- Policy-change audit — reference `management:policy_audit` Redis list from `docs/REDIS_SCHEMA.md`
+- Policy-change audit — reference `management:policy_audit` Redis list from `docs/reference/REDIS_SCHEMA.md`
 - Operator action log — reference existing mechanisms
-- Cross-reference `docs/REDIS_SCHEMA.md` for every key mentioned
+- Cross-reference `docs/reference/REDIS_SCHEMA.md` for every key mentioned
 
 **Done when:**
-- [ ] Every Redis key cited also appears in `docs/REDIS_SCHEMA.md`
+- [ ] Every Redis key cited also appears in `docs/reference/REDIS_SCHEMA.md`
 - [ ] Retention periods explicit for each log source
 
 ---
@@ -658,10 +658,10 @@ doc is wrong and needs another PR).
 - Ratio target ~1.3× test-to-code (cite current ratio from `make test-ratio`)
 - Test-category matrix (unit / integration / chaos / adversarial / FP corpus / performance / E2E) with "when to write each"
 - Mock rules (mocks in `tests/mocks/`, no real external API calls)
-- Link to `docs/TESTING_STRATEGY.md` as the deep reference
+- Link to `docs/developer/TESTING_STRATEGY.md` as the deep reference
 - Phase-gate-must-pass rule per CLAUDE.md
 
-**Done when:** [ ] TDD loop documented; test matrix present; `docs/TESTING_STRATEGY.md` linked as canonical.
+**Done when:** [ ] TDD loop documented; test matrix present; `docs/developer/TESTING_STRATEGY.md` linked as canonical.
 
 ---
 
@@ -725,8 +725,8 @@ doc is wrong and needs another PR).
 **Size:** M (2–4 h)
 **Depends on:** none
 **Files to touch:**
-- `docs/TESTING_STRATEGY.md` (expand)
-- `docs/TESTING_STRATEGY.md` (redirect stub)
+- `docs/developer/TESTING_STRATEGY.md` (expand)
+- `docs/developer/TESTING_STRATEGY.md` (redirect stub)
 - `docs/TEST_SUITE.md` (redirect stub)
 - `docs/TESTING_GO.md` (redirect stub)
 - `docs/TESTING.md` (redirect stub)
@@ -754,7 +754,7 @@ doc is wrong and needs another PR).
 **Files to touch:**
 - `docs/README.md` (frontmatter + content)
 - `docs/README.md` (frontmatter + content)
-- `docs/DEPLOYMENT_SECURITY_MODEL.md`
+- `docs/security/DEPLOYMENT_SECURITY_MODEL.md`
 - `CONTRIBUTING.md`
 - Any doc with `proxy.py` mention lacking "prototyping" qualifier
 **What to do:**
@@ -935,9 +935,9 @@ Files: `ch01-architecture.tex`, `ch04-signals.tex`, `ch06-redis-schema.tex`, `ch
 
 **Size:** XS (30 min)
 **Depends on:** everything else
-**Files to touch:** `CHANGELOG.md`, `docs/phases/manifest.yaml`, `docs/phases/TODO.md` (regenerated), `docs/PROJECT_STATUS.md` (regenerated)
+**Files to touch:** `CHANGELOG.md`, `docs/phases/manifest.yaml`, `docs/phases/TODO.md` (regenerated), `docs/reference/PROJECT_STATUS.md` (regenerated)
 **What to do:**
-- Prepend CHANGELOG entry for Phase 105 in the format required by `docs/DOCUMENTATION_STANDARDS.md`
+- Prepend CHANGELOG entry for Phase 105 in the format required by `docs/developer/DOCUMENTATION_STANDARDS.md`
 - Flip `status: PROPOSED` → `COMPLETE` in manifest.yaml
 - Add `completed: '2026-04-NN'` field
 - Run `make sync`; commit regenerated TODO.md and PROJECT_STATUS.md

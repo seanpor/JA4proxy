@@ -333,7 +333,7 @@ Close all documentation gates for phases 57a–57f. No new code.
   - DSAR compliance: when and how to run redactor before uploads
   - Cost optimisation: S3 lifecycle policies, storage class selection
   - Troubleshooting: credential failures, checksum mismatches, fallback paths
-- [ ] `docs/REDIS_SCHEMA.md` — add:
+- [ ] `docs/reference/REDIS_SCHEMA.md` — add:
   - `backup:artifacts` (Sorted Set, score=timestamp, member=JSON metadata) — if used
   - `backup:restored_from` (String, no TTL, written after each restore)
 - [ ] `scripts/ja4proxy_admin.py` — new subcommands:

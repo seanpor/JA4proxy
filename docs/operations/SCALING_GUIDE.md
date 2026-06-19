@@ -181,6 +181,6 @@ See `docs/performance/benchmarks.md` for method and recorded results.
 ## References
 
 - `docs/performance/benchmarks.md` — measured throughput and the bench harness
-- `docs/DEPLOYMENT_OPTIONS.md` — deployment topologies
-- `docs/OPERATIONS_GUIDE.md` — day-to-day operation and the dial
-- `docs/REDIS_SCHEMA.md` — the shared-state key schema
+- `docs/product/DEPLOYMENT_OPTIONS.md` — deployment topologies
+- `docs/operations/OPERATIONS_GUIDE.md` — day-to-day operation and the dial
+- `docs/reference/REDIS_SCHEMA.md` — the shared-state key schema

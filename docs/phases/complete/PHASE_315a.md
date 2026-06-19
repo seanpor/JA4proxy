@@ -35,7 +35,7 @@ real users) and deserves its own focused review.
 ## 2. Why this phase exists / background
 
 - The proxy is **stateless**; everything durable lives in Redis (see
-  `docs/REDIS_SCHEMA.md`). So "backup the proxy" really means "back up the right
+  `docs/reference/REDIS_SCHEMA.md`). So "backup the proxy" really means "back up the right
   Redis keys".
 - There is **no Go backup code today** (`internal/backup/` does not exist).
 - `deploy/monitoring/alertmanager/rules/backup.rules.yml` already alerts on
@@ -152,7 +152,7 @@ backup ones; 315b emits the restore ones):
 ## 6. Implementation plan (do these in order)
 
 1. **Registry first.** Add the four backup metrics to `internal/metrics` and to
-   `docs/OBSERVABILITY_STANDARDS.md §1d` (the standard requires registry-before-code).
+   `docs/reference/OBSERVABILITY_STANDARDS.md §1d` (the standard requires registry-before-code).
 2. **Config.** Add a `backup:` block to `config/proxy.yml` with **conservative
    defaults** and inline comments: `enabled: false`, `dir`, `key_prefixes:` (the
    scope), `exclude_prefixes:` (the D5 list), `retention_count`, `retention_days`,
@@ -170,7 +170,7 @@ backup ones; 315b emits the restore ones):
    at that volume. Without this the metrics are never scraped.
 7. **Rename** `…_last_success_timestamp` → `…_last_success_seconds` in
    `backup.rules.yml` (see §5 note).
-8. Docs: `docs/runbooks/backup_restore.md`, `docs/REDIS_SCHEMA.md` (update the
+8. Docs: `docs/runbooks/backup_restore.md`, `docs/reference/REDIS_SCHEMA.md` (update the
    `backup:*` "written by" attribution from the archived Python worker to this Go
    path; document `backup:operation_lock` usage), an **ADR** (logical DUMP vs
    BGSAVE; encryption choice), CHANGELOG, and the manifest `315a` entry.
@@ -226,7 +226,7 @@ or defer the bootstrap wiring to a 231b follow-up.
 | File | Change |
 |------|--------|
 | `internal/metrics/metrics.go` | Register backup Prometheus metrics |
-| `docs/OBSERVABILITY_STANDARDS.md` | Add backup metrics definitions |
+| `docs/reference/OBSERVABILITY_STANDARDS.md` | Add backup metrics definitions |
 | `config/proxy.yml` | Add `backup:` config section |
 | `internal/backup/crypto.go` | New file — AES-GCM and PBKDF2 crypto functions |
 | `internal/backup/backup.go` | New file — Redis SCAN, DUMP, gzip, write-to-file loop |
@@ -234,7 +234,7 @@ or defer the bootstrap wiring to a 231b follow-up.
 | `deploy/docker/docker-compose.monitoring.yml` | Mount node-exporter textfile directory |
 | `deploy/monitoring/alertmanager/rules/backup.rules.yml` | Rename `_last_success_timestamp` to `_seconds` |
 | `docs/runbooks/backup_restore.md` | Update backup execution runbook |
-| `docs/REDIS_SCHEMA.md` | Update `backup:*` keys documentation |
+| `docs/reference/REDIS_SCHEMA.md` | Update `backup:*` keys documentation |
 | `CHANGELOG.md` | Add Phase 315a changes |
 
 ## 10. Out of scope (explicitly)

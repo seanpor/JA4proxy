@@ -443,7 +443,7 @@ naming overlap could be confusing: "tap" in the old metrics refers to the
 Python TAP node, "tap" in the new metrics refers to the Go sensor.
 
 **Evidence:**
-- `docs/OBSERVABILITY_STANDARDS.md` shows both metric groups under "TAP mode (Phase 20)" and "Go TAP sensor (Phase 316)"
+- `docs/reference/OBSERVABILITY_STANDARDS.md` shows both metric groups under "TAP mode (Phase 20)" and "Go TAP sensor (Phase 316)"
 
 **Recommendation:** Rename the section headers or add a brief note explaining the
 two different producers (Python TAP vs Go TAP sensor) to reduce confusion.
@@ -2124,16 +2124,16 @@ const (
 **Description:**
 The sensor writes `fp:ban_intent:ip:{ip}` at `enforcement.go:112` with value `"ja4t=..."`. This key lives under the `fp:*` namespace and records advisory watchlist entries for blocklist-matched clients. It has no programmatic consumer — it's intended for operator/dashboard review.
 
-However, `docs/REDIS_SCHEMA.md` has no entry for this key prefix. An operator reading the schema documentation would not know:
+However, `docs/reference/REDIS_SCHEMA.md` has no entry for this key prefix. An operator reading the schema documentation would not know:
 - What key to query for the watchlist
 - What the value format is (`"ja4t=..."`)
 - What TTL applies (`defaultIntentTTL = time.Hour`)
 - That it's written by the TAP sensor, not the management API
 
 **Evidence:**
-- `rg "fp:ban_intent" docs/REDIS_SCHEMA.md` — no results
+- `rg "fp:ban_intent" docs/reference/REDIS_SCHEMA.md` — no results
 - `internal/tap/enforcement.go:112`: `e.redis.Set(ctx, banIntentKeyPrefix+ip, "ja4t="+ja4t, e.cfg.IntentTTL)`
 - `internal/tap/enforcement.go:14`: `banIntentKeyPrefix = "fp:ban_intent:ip:"`
 
 **Recommendation:**
-Add an entry to `docs/REDIS_SCHEMA.md` under the `fp:*` namespace documenting the key format, value format, TTL, and producer.
+Add an entry to `docs/reference/REDIS_SCHEMA.md` under the `fp:*` namespace documenting the key format, value format, TTL, and producer.

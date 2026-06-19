@@ -403,7 +403,7 @@ country = geoip_lookup.local_database_lookup(ip)  # Local file only
 |---------|----------------|
 | **Data Protection Officer** | Assigned DPO for deployment organization |
 | **Staff training** | Annual GDPR training for operators |
-| **Incident response** | [Documented procedure](../INCIDENT_RESPONSE.md) |
+| **Incident response** | [Documented procedure](../operations/INCIDENT_RESPONSE.md) |
 | **Policy review** | Quarterly compliance review |
 | **Data mapping** | This document (updated annually) |
 
@@ -686,8 +686,8 @@ DPIA: Conducted 2026-03-27, low risk
 
 - [Comprehensive Security Audit](../security/COMPREHENSIVE_SECURITY_AUDIT.md)
 - [Security Checklist](../security/SECURITY_CHECKLIST.md)
-- [Incident Response Runbook](../INCIDENT_RESPONSE.md)
-- [Redis Security Review](../REDIS_SECURITY_REVIEW.md)
+- [Incident Response Runbook](../operations/INCIDENT_RESPONSE.md)
+- [Redis Security Review](../security/REDIS_SECURITY_REVIEW.md)
 - [Security Controls Mapping](SECURITY_CONTROLS_MAPPING.md)
 
 ### 14.3. External Resources

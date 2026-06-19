@@ -244,5 +244,5 @@ Escalate to the on-call engineer if:
 ## Related
 
 - `docs/runbooks/redis_operations.md` — Redis health and memory operations
-- `docs/REDIS_SCHEMA.md` — Stream schema and field definitions
+- `docs/reference/REDIS_SCHEMA.md` — Stream schema and field definitions
 - `docs/phases/complete/PHASE_12.md` — Analytics node architecture

@@ -1,7 +1,7 @@
 """
 tests/docs/test_service_targets_sync.py — Phase 106 sub-task 5.3.
 
-Structure / sync test for ``docs/SERVICE_TARGETS.md``. Asserts that the
+Structure / sync test for ``docs/reference/SERVICE_TARGETS.md``. Asserts that the
 consolidated service-targets doc stays in sync with the canonical SLO
 runbooks under ``docs/runbooks/slo_*.md`` and contains the SLIs the
 phase document enumerates. If a runbook adds a new SLO or this doc
@@ -24,14 +24,14 @@ def repo_root() -> Path:
     """Walk up from this file until a directory containing ``docs/`` is found."""
     here = Path(__file__).resolve()
     for parent in here.parents:
-        if (parent / "docs" / "SERVICE_TARGETS.md").is_file():
+        if (parent / "docs" / "reference" / "SERVICE_TARGETS.md").is_file():
             return parent
-    raise RuntimeError("Could not locate repo root (docs/SERVICE_TARGETS.md not found)")
+    raise RuntimeError("Could not locate repo root (docs/reference/SERVICE_TARGETS.md not found)")
 
 
 @pytest.fixture(scope="module")
 def service_targets_path(repo_root: Path) -> Path:
-    return repo_root / "docs" / "SERVICE_TARGETS.md"
+    return repo_root / "docs" / "reference" / "SERVICE_TARGETS.md"
 
 
 @pytest.fixture(scope="module")
@@ -57,7 +57,7 @@ def test_service_targets_lists_every_slo_runbook(
     """Every slo_*.md runbook must be referenced by filename in SERVICE_TARGETS.md."""
     missing = [rb.name for rb in slo_runbooks if rb.name not in service_targets_text]
     assert not missing, (
-        f"docs/SERVICE_TARGETS.md does not reference SLO runbooks: {missing}. "
+        f"docs/reference/SERVICE_TARGETS.md does not reference SLO runbooks: {missing}. "
         "Add a row + cross-reference for each new runbook."
     )
 
@@ -76,7 +76,7 @@ def test_service_targets_has_required_slis(service_targets_text: str) -> None:
     ]
     missing = [token for token in required if token.lower() not in body]
     assert not missing, (
-        f"docs/SERVICE_TARGETS.md is missing required SLI references: {missing}. "
+        f"docs/reference/SERVICE_TARGETS.md is missing required SLI references: {missing}. "
         "Phase 106 enumerates: connection-accept latency p50/p99, FP rate, "
         "proxy availability, Redis availability, risk-score compute latency, "
         "signal-collection error rate."
@@ -87,7 +87,7 @@ def test_service_targets_has_error_budget_section(service_targets_text: str) -> 
     """Phase 106 requires an explicit error-budget policy section."""
     assert "error budget" in service_targets_text.lower() or (
         "error-budget" in service_targets_text.lower()
-    ), "docs/SERVICE_TARGETS.md must contain an 'error budget' / 'error-budget' section."
+    ), "docs/reference/SERVICE_TARGETS.md must contain an 'error budget' / 'error-budget' section."
 
 
 def test_service_targets_internal_links_resolve(

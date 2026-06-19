@@ -503,8 +503,8 @@ as the oracle, which handles v4, v6, v6+zone, and malformed input correctly.
 - `CHANGELOG.md` (prepend entry)
 - `docs/phases/manifest.yaml` (set phase 201 `status: COMPLETE`)
 - `docs/decisions/ADR-201a.md` (new — TLS MinVersion choice)
-- `docs/OBSERVABILITY_STANDARDS.md` (document the two new metrics)
-- Auto-regenerated: `docs/phases/TODO.md`, `docs/PROJECT_STATUS.md`
+- `docs/reference/OBSERVABILITY_STANDARDS.md` (document the two new metrics)
+- Auto-regenerated: `docs/phases/TODO.md`, `docs/reference/PROJECT_STATUS.md`
 
 ### Steps
 

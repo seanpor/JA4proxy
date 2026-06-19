@@ -64,9 +64,9 @@ You (the PM) do this step yourself. Do not delegate it.
    - **Check that all prerequisite phases (dependencies) have `status: COMPLETE`.**
      If not, abort and list which prerequisites are incomplete.
 4. Read `config/proxy.yml` for current config surface.
-5. Read `docs/REDIS_SCHEMA.md` if the phase touches Redis.
-6. Read `docs/STYLE_GUIDE.md` and `docs/TESTING_STRATEGY.md`.
-7. Read `docs/OBSERVABILITY_STANDARDS.md` if the phase adds metrics/alerts.
+5. Read `docs/reference/REDIS_SCHEMA.md` if the phase touches Redis.
+6. Read `docs/developer/STYLE_GUIDE.md` and `docs/developer/TESTING_STRATEGY.md`.
+7. Read `docs/reference/OBSERVABILITY_STANDARDS.md` if the phase adds metrics/alerts.
 8. Skim existing source files that the phase will modify or extend.
 9. If a `/review-phase` output exists at `docs/phases/PHASE_XX_review.md`, read it
    and use its sub-task decomposition as the starting work breakdown.
@@ -135,7 +135,7 @@ Spawn with `subagent_type: "general-purpose"`. Include in the prompt:
 Spawn with `subagent_type: "general-purpose"`. Include in the prompt:
 
 - The full phase document content
-- Current state of `config/proxy.yml`, `docs/REDIS_SCHEMA.md`, `CHANGELOG.md`
+- Current state of `config/proxy.yml`, `docs/reference/REDIS_SCHEMA.md`, `CHANGELOG.md`
 - The doc file paths they should create/update (from your file ownership map)
 
 **Their instructions:**
@@ -148,7 +148,7 @@ Spawn with `subagent_type: "general-purpose"`. Include in the prompt:
 > 1. **Config scaffolding:** Add new config keys to `config/proxy.yml` with
 >    inline comments (purpose, valid values, default, hot-reload status).
 >    Use safe/conservative defaults.
-> 2. **Redis schema:** Add new key patterns to `docs/REDIS_SCHEMA.md`
+> 2. **Redis schema:** Add new key patterns to `docs/reference/REDIS_SCHEMA.md`
 >    (pattern, type, TTL, purpose, phase number).
 > 3. **ADR stub:** If the phase makes non-obvious architectural decisions,
 >    create `docs/decisions/ADR-NNN.md` with the decision and rationale.
@@ -197,7 +197,7 @@ Spawn with `subagent_type: "general-purpose"`. Include in the prompt:
 >
 > **Phase XX tests are in:** [list test file paths]
 > **Config keys already scaffolded in:** `config/proxy.yml`
-> **Redis keys documented in:** `docs/REDIS_SCHEMA.md`
+> **Redis keys documented in:** `docs/reference/REDIS_SCHEMA.md`
 >
 > **Rules:**
 > - Read the failing tests first — they ARE the spec.
@@ -240,7 +240,7 @@ Spawn with `subagent_type: "general-purpose"`. Include in the prompt:
 - What was created in the early pass and what was left as TODO
 - The Coder's report: new function signatures, metric names, config keys, design decisions
 - The phase document for reference
-- Observability standards from `docs/OBSERVABILITY_STANDARDS.md`
+- Observability standards from `docs/reference/OBSERVABILITY_STANDARDS.md`
 
 **Their instructions:**
 

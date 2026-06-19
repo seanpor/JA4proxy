@@ -16,8 +16,8 @@ Files:
 - `internal/config/loader.go`, `cmd/ja4pd/main.go`, `config/proxy.yml` — `ja4t_consumer` config.
 - Tests: `internal/tap/ja4t_test.go`, `internal/tap/store_ja4t_test.go`,
   `internal/security/tap_ja4t_consumer_test.go`, `internal/tap/roundtrip_ja4t_test.go`.
-- Docs: `docs/phases/PHASE_316c.md`, `docs/REDIS_SCHEMA.md`,
-  `docs/OBSERVABILITY_STANDARDS.md`, `docs/runbooks/tap_mode.md`,
+- Docs: `docs/phases/PHASE_316c.md`, `docs/reference/REDIS_SCHEMA.md`,
+  `docs/reference/OBSERVABILITY_STANDARDS.md`, `docs/runbooks/tap_mode.md`,
   `docs/fragments/phase-316c-tap-ja4t.md`; `scripts/gdpr_delete.py`.
 
 ## Decisions

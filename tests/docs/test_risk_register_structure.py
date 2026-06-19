@@ -1,4 +1,4 @@
-"""Structural tests for ``docs/RISK_REGISTER.md``.
+"""Structural tests for ``docs/security/RISK_REGISTER.md``.
 
 Phase 106 sub-task 5.4. Asserts the schema and minimum-row constraints
 defined in ``docs/phases/PHASE_106.md`` §106b are preserved as the file
@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).parents[2]
-RISK_REGISTER = REPO_ROOT / "docs" / "RISK_REGISTER.md"
+RISK_REGISTER = REPO_ROOT / "docs" / "security" / "RISK_REGISTER.md"
 
 REQUIRED_COLUMNS = {
     "id",

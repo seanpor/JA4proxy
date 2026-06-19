@@ -432,7 +432,7 @@ Update all references to the old network key names in living documentation:
   acceptance criteria table (line 156)
 - `scripts/check-isolation.sh` — diagnostic comments at lines 139–184 that name
   `data_net` and `origin_net`
-- `docs/PROJECT_STATUS.md` — line 108 references the four-zone names
+- `docs/reference/PROJECT_STATUS.md` — line 108 references the four-zone names
 
 (Do **not** update `docs/phases/manifest.yaml` entries for Phases 71–75 — those entries
 describe historical state and must not be retroactively edited.)
@@ -1023,7 +1023,7 @@ test-phase-89-lint:
 - [ ] `docker/docker-compose.prod.yml` `redis_data` volume renamed to `redis-data`
 - [ ] `docker/docker-compose.monitoring.yml` external network `name:` fields updated to `ja4proxy-dmz`, `ja4proxy-data`, `ja4proxy-mgmt`; stale comment updated
 - [ ] `docker/docker-compose.python-legacy.yml` network references updated to hyphen names
-- [ ] `docs/architecture/ISOLATION_MODEL.md`, `scripts/check-isolation.sh`, `docs/PROJECT_STATUS.md` updated with new network names
+- [ ] `docs/architecture/ISOLATION_MODEL.md`, `scripts/check-isolation.sh`, `docs/reference/PROJECT_STATUS.md` updated with new network names
 - [ ] Zero occurrences of `network: host` in any `build:` block across all compose files
 - [ ] `docker/docker-compose.monitoring.yml` redis-exporter uses `${REDIS_PASSWORD:?REDIS_PASSWORD is required}` (was `${REDIS_PASSWORD:-changeme}`)
 - [ ] `proxy`, `redis`, `backend`, `tarpit`, `analytics`, `admin-api`, `trafficgen` all have `restart: unless-stopped` in `docker/docker-compose.poc.yml`
@@ -1060,7 +1060,7 @@ test-phase-89-lint:
 | `tarpit/Dockerfile` | Add `LABEL dockerfile.location="module"` |
 | `docs/architecture/ISOLATION_MODEL.md` | Update old network key names in zone table and acceptance criteria table |
 | `scripts/check-isolation.sh` | Update diagnostic comments referencing `data_net` and `origin_net` |
-| `docs/PROJECT_STATUS.md` | Update four-zone network names at line 108 |
+| `docs/reference/PROJECT_STATUS.md` | Update four-zone network names at line 108 |
 | `docker/README.md` | Create new file |
 | `tests/unit/test_docker_consistency.py` | Create new file |
 | `tests/integration/test_dockerfile_coverage.py` | Create new file |

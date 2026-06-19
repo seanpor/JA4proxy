@@ -1142,7 +1142,7 @@ producers assumed by `health.py`, `pack_builder.py`, and `nodes.py` do not exist
 See `PHASE_239.md` for the planned implementation:
 - A heartbeat goroutine in `cmd/ja4pd/main.go` that `SET proxy:heartbeat:{instance_id} <epoch> EX 90` every ~30s.
 - Standardise `proxy:heartbeat:{instance_id}` as the program's chosen convention.
-- Converge the existing `mgmt:node:*` reader onto the same key, and correct `docs/REDIS_SCHEMA.md`.
+- Converge the existing `mgmt:node:*` reader onto the same key, and correct `docs/reference/REDIS_SCHEMA.md`.
 
 Until Phase 239 ships, the infra row will show `proxy_status: "unknown"` instead of `"DOWN"`.
 The endpoint handles this gracefully — no errors, just a missing-data indicator.

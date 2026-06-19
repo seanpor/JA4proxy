@@ -107,4 +107,4 @@ own infrastructure, on your own dashboards.
   shapes and time-to-production.
 - [`TCO_AND_LICENSING.md`](TCO_AND_LICENSING.md) — licence,
   cost bands, support posture.
-- [`FAQ.md`](FAQ.md) — buyer and security-questionnaire questions.
+- [`FAQ.md`](../operations/FAQ.md) — buyer and security-questionnaire questions.

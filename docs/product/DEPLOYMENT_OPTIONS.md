@@ -12,7 +12,7 @@ This document is for the buyer or website owner who has read
 know **how it actually gets in front of their site, who runs it, and
 how long it takes to stand up.** It is non-technical by design;
 operators and engineers should follow the link to
-[`docs/DEPLOYMENT_SECURITY_MODEL.md`](DEPLOYMENT_SECURITY_MODEL.md) at the
+[`docs/security/DEPLOYMENT_SECURITY_MODEL.md`](../security/DEPLOYMENT_SECURITY_MODEL.md) at the
 end of each section for the technical depth.
 
 ## Three deployment paths
@@ -54,7 +54,7 @@ Redis, so a connection blocked by one instance is also blocked by
 all the others.
 
 For technical depth see
-[`docs/DEPLOYMENT_SECURITY_MODEL.md`](DEPLOYMENT_SECURITY_MODEL.md) and
+[`docs/security/DEPLOYMENT_SECURITY_MODEL.md`](../security/DEPLOYMENT_SECURITY_MODEL.md) and
 the SCALING_GUIDE referenced from there.
 
 ### 2. On-premises — bare metal or VM
@@ -77,7 +77,7 @@ VM), but time-to-production is typically longer because of internal
 change-control processes that on-prem deployments tend to attract.
 
 For technical depth see
-[`docs/DEPLOYMENT_SECURITY_MODEL.md`](DEPLOYMENT_SECURITY_MODEL.md).
+[`docs/security/DEPLOYMENT_SECURITY_MODEL.md`](../security/DEPLOYMENT_SECURITY_MODEL.md).
 
 ### 3. Managed service — not currently offered
 
@@ -141,7 +141,7 @@ The **production runtime is the Go proxy daemon** at `cmd/ja4pd/`, built to `bin
 
 - [`TCO_AND_LICENSING.md`](TCO_AND_LICENSING.md) — running costs
   for each shape, support posture, licence summary.
-- [`FAQ.md`](FAQ.md) — buyer-level answers on integration risk,
+- [`FAQ.md`](../operations/FAQ.md) — buyer-level answers on integration risk,
   GDPR, Cloudflare interoperability, and uptime.
-- [`docs/DEPLOYMENT_SECURITY_MODEL.md`](DEPLOYMENT_SECURITY_MODEL.md) —
+- [`docs/security/DEPLOYMENT_SECURITY_MODEL.md`](../security/DEPLOYMENT_SECURITY_MODEL.md) —
   technical reference for your platform team.

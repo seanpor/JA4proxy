@@ -114,7 +114,7 @@ Linters and CI tools look for these in root by convention.
 | `Dockerfile-cli` | `docker/Dockerfile.cli` or `deploy/docker/Dockerfile.cli` | Dockerfiles belong with Docker config |
 | `Jenkinsfile.ja4proxy-policy` | `.jenkins/Jenkinsfile` or `deploy/jenkins/` | CI config |
 | `quick-start.sh` | `scripts/quick-start.sh` | Utility script |
-| `ONBOARDING.md` | `docs/ONBOARDING.md` | Documentation |
+| `ONBOARDING.md` | `docs/developer/ONBOARDING.md` | Documentation |
 | `QWEN.md` | `.qwen/QWEN.md` | Qwen AI config |
 | `requirements-analytics.txt` | `management/requirements.txt` or consolidate | Per-component deps |
 | `requirements-test.txt` | `tests/requirements.txt` or consolidate | Test deps |
@@ -293,7 +293,7 @@ Run `grep -r` for each moved path and update every reference.
 ### 205e — Move Documentation Files (XS)
 
 **Files to move:**
-- `ONBOARDING.md` → `docs/ONBOARDING.md`
+- `ONBOARDING.md` → `docs/developer/ONBOARDING.md`
 - `QWEN.md` → `.qwen/QWEN.md`
 - `quick-start.sh` → `scripts/quick-start.sh`
 - `security/` → audit: if docs, move to `docs/security/`; if code, leave or move to `src/security/`

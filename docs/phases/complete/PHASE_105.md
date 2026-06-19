@@ -82,7 +82,7 @@ Rewrite `README.md` to ≤150 lines with this shape:
 4. 30-second product pitch, compressed
 5. Architecture diagram (keep; it's the one thing all audiences reference)
 6. **Download** row for PDF brochure / user guide / reference manual
-7. Link to `CHANGELOG.md` and `docs/PROJECT_STATUS.md`
+7. Link to `CHANGELOG.md` and `docs/reference/PROJECT_STATUS.md`
 8. Link to `CONTRIBUTING.md` and `SECURITY.md`
 
 Everything currently in README lines 112–350 moves into the audience-specific
@@ -111,7 +111,7 @@ it's in `docs/pdf/brochure/` and not linked from any top-level doc.
 | `DEPLOYMENT_OPTIONS.md` | Cloud / on-prem / managed-service summary. Time-to-deploy. Integration prerequisites. Who operates it |
 | `FAQ.md` | 12–15 Q&A: cost model, risk of blocking real users, does it work behind Cloudflare/AWS ALB, GDPR posture, uptime impact, how we know it's working |
 
-The existing `docs/FAQ.md` is operator-focused and stays; the new one is
+The existing `docs/operations/FAQ.md` is operator-focused and stays; the new one is
 buyer-focused.
 
 ### Size
@@ -136,7 +136,7 @@ Create `README.md` as a curated index (not a duplicate) of:
 
 - Threat model (`docs/security/threat-model.md`)
 - Control coverage matrix (`docs/compliance/SECURITY_CONTROLS_MAPPING.md`)
-- Data flow & trust boundaries (`docs/DEPLOYMENT_SECURITY_MODEL.md`)
+- Data flow & trust boundaries (`docs/security/DEPLOYMENT_SECURITY_MODEL.md`)
 - Enterprise deployment topology (`docs/enterprise/deployment.md`)
 - Enterprise security architecture (`docs/enterprise/security-architecture.md`)
 
@@ -154,7 +154,7 @@ Retire / restamp the following as historical:
 |------|--------|
 | `docs/reports/ENTERPRISE_REVIEW.md` | Move to `docs/reports/archive/ENTERPRISE_REVIEW_2026-02-15.md`, add banner "Snapshot pre-Phase 200 hardening. Current posture: see ``" |
 | `docs/GEMINI_CRITIQUE.md` | Move to `docs/reports/archive/GEMINI_CRITIQUE_2026-03-21.md`, add banner listing which findings are remediated (Phase 13/51/52 Management UI; Phase 200-series hardening) |
-| `docs/DMZ_READINESS.md` | Re-date and re-scope against Phase 200-series controls, or archive and supersede with a fresh readiness doc |
+| `docs/security/DMZ_READINESS.md` | Re-date and re-scope against Phase 200-series controls, or archive and supersede with a fresh readiness doc |
 
 ### Size
 
@@ -182,8 +182,8 @@ rules. Consolidate:
 | Action | Files |
 |--------|-------|
 | **Merge** into `docs/operator/BLOCKING_OPERATIONS.md` | `docs/operator/blocking-guide.md` + `BLOCKING_ANALYSIS.md` + `blocking-test-analysis.md` + `FINAL_BLOCKING_TEST_SUMMARY.md` |
-| **Promote** to top-level operator entry | `docs/OPERATIONS.md`, `docs/INCIDENT_RESPONSE.md`, `docs/QUICK_REFERENCE.md`, `docs/MONITORING_SETUP.md` (link, don't move) |
-| **Expand** | `docs/SCALING_GUIDE.md` — add worked capacity-planning examples (3 scenarios: small site / enterprise / high-volume API) |
+| **Promote** to top-level operator entry | `docs/OPERATIONS.md`, `docs/operations/INCIDENT_RESPONSE.md`, `docs/QUICK_REFERENCE.md`, `docs/MONITORING_SETUP.md` (link, don't move) |
+| **Expand** | `docs/operations/SCALING_GUIDE.md` — add worked capacity-planning examples (3 scenarios: small site / enterprise / high-volume API) |
 | **Add** | `UPGRADE_PATH.md` summarising the already-existing `docs/runbooks/rolling_upgrade.md` + version compatibility matrix |
 
 ### Size
@@ -208,7 +208,7 @@ documented for auditors.
 | File | Action |
 |------|--------|
 | `README.md` | New — role router linking the four existing compliance docs |
-| `AUDIT_TRAIL.md` | New — what gets logged, where, for how long; policy-change audit (`management:policy_audit` LIST); operator action log; Redis key retention summary; cross-reference `docs/REDIS_SCHEMA.md` |
+| `AUDIT_TRAIL.md` | New — what gets logged, where, for how long; policy-change audit (`management:policy_audit` LIST); operator action log; Redis key retention summary; cross-reference `docs/reference/REDIS_SCHEMA.md` |
 | `CHANGE_MANAGEMENT.md` | New — how config changes are proposed, reviewed, applied, reverted (SIGHUP + UI + pub/sub). Maps to auditor-expected CM evidence |
 
 ### Size
@@ -237,13 +237,13 @@ track.
 | `README.md` | Role router: pick your path — first-time contributor, returning contributor, maintainer |
 | `GETTING_STARTED.md` | Local dev in 30 min. Go and Python prereqs. Build, test, run. Points at `CONTRIBUTING.md` for deeper reference (do not duplicate) |
 | `HOW_WE_WORK.md` | **The team process doc.** Trunk-based development with short-lived `claude/phase-NN-*` and `feat/*` branches. Never commit direct to `main`. Keep-main-green rule: any red CI on `main` is treated as an incident; fix or revert within 1 hour. Phase protocol summary (link to `CLAUDE.md` + `AGENTS.md` for agent-specific rules). Commit message convention. PR size expectations. Review etiquette |
-| `TESTING_STRATEGY.md` | TDD loop the team uses: write the failing test first, smallest change to green, refactor, ratio target ~1.3× test-to-code. Test category matrix (unit / integration / chaos / adversarial / FP corpus / performance / E2E) with "when to write each". Link to `docs/TESTING_STRATEGY.md` as the deep reference. Explain mocks-in-`tests/mocks` rule, no-real-API rule, phase-gate-must-pass rule |
+| `TESTING_STRATEGY.md` | TDD loop the team uses: write the failing test first, smallest change to green, refactor, ratio target ~1.3× test-to-code. Test category matrix (unit / integration / chaos / adversarial / FP corpus / performance / E2E) with "when to write each". Link to `docs/developer/TESTING_STRATEGY.md` as the deep reference. Explain mocks-in-`tests/mocks` rule, no-real-API rule, phase-gate-must-pass rule |
 | `QUALITY_PLAN.md` | What `.github/workflows/ci.yml` enforces: test-go, test-python, lint, secrets-scan, SAST, dep audits (Py + Go), dependency review, SHA-pinned-actions check. Weekly CVE sweep cron. What a green PR looks like. How to reproduce a CI failure locally (`make quality`, `make test`, `make lint-all`). SBOM + Cosign signing in `go-proxy-image.yml`. Policy-bundle CI in `ja4proxy-policy.yml`. Release gate in `release-cli.yml` |
 | `PHASE_LIFECYCLE.md` | How to run a phase end-to-end, human edition. Mandatory planning protocol (phase doc before code). Branch naming. Commit cadence. `make sync` to regenerate TODO/PROJECT_STATUS. Manifest update + CHANGELOG entry. Phase-close checklist. Link to `AGENTS.md` for the agent-orchestration variant |
 | `SIGNAL_DEVELOPMENT.md` | Already exists at `docs/developer/SIGNAL_DEVELOPMENT.md` — move or link |
 
 Content source: much of this already exists in `CLAUDE.md`, `AGENTS.md`,
-`CONTRIBUTING.md`, `docs/TESTING_STRATEGY.md`, and the workflow YAML headers
+`CONTRIBUTING.md`, `docs/developer/TESTING_STRATEGY.md`, and the workflow YAML headers
 themselves. Job is to extract, reframe for humans, and ensure each doc has
 one clear audience.
 
@@ -260,21 +260,21 @@ existing material.
 ### Problem
 
 Six docs on testing with heavy overlap: `docs/TESTING.md` (Phase 0 baseline),
-`docs/TESTING_STRATEGY.md` (Phase 21 canonical), `docs/TESTING_GO.md` (Go
-specific), `docs/TESTING_STRATEGY.md` (file layout), `docs/TEST_SUITE.md`
-(categories), `docs/SECURITY_TESTING.md` (JA4 validation, unique scope).
+`docs/developer/TESTING_STRATEGY.md` (Phase 21 canonical), `docs/TESTING_GO.md` (Go
+specific), `docs/developer/TESTING_STRATEGY.md` (file layout), `docs/TEST_SUITE.md`
+(categories), `docs/developer/SECURITY_TESTING.md` (JA4 validation, unique scope).
 
 ### Fix
 
-Make `docs/TESTING_STRATEGY.md` the single canonical reference. Merge:
+Make `docs/developer/TESTING_STRATEGY.md` the single canonical reference. Merge:
 
-- `docs/TESTING_STRATEGY.md` → appendix "Test File Organisation" in
+- `docs/developer/TESTING_STRATEGY.md` → appendix "Test File Organisation" in
   TESTING_STRATEGY
 - `docs/TEST_SUITE.md` → appendix "Test Categories" in TESTING_STRATEGY
 - `docs/TESTING.md` → delete; replace with a stub that redirects
 - `docs/TESTING_GO.md` → appendix "Go-Specific Testing" in TESTING_STRATEGY
 
-Keep `docs/SECURITY_TESTING.md` — unique JA4-fingerprint scope.
+Keep `docs/developer/SECURITY_TESTING.md` — unique JA4-fingerprint scope.
 
 Ensure `TESTING_STRATEGY.md` links to the consolidated doc.
 
@@ -314,10 +314,10 @@ Refresh pass on each PDF source tree:
 | `docs/pdf/user-guide/chapters/ch02-installation.tex` | Update to reflect current Dockerfile.go-proxy non-root + USER directive, env-var credential requirements (Phase 202) |
 | `docs/pdf/user-guide/chapters/ch04-configuration.tex` | Reconcile against current `config/proxy.yml` |
 | `docs/pdf/user-guide/chapters/ch05-operations.tex` | Reconcile against `docs/OPERATIONS.md` |
-| `docs/pdf/user-guide/chapters/ch07-incident-response.tex` | Reconcile against `docs/INCIDENT_RESPONSE.md` |
+| `docs/pdf/user-guide/chapters/ch07-incident-response.tex` | Reconcile against `docs/operations/INCIDENT_RESPONSE.md` |
 | `docs/pdf/reference-manual/chapters/ch01-architecture.tex` | Refresh with current Go runtime as primary, Python as prototyping |
 | `docs/pdf/reference-manual/chapters/ch04-signals.tex` | Add Phase 203 signals: TAP OS-mismatch, JA4 TLS-version mismatch, expanded weak-cipher set, DGA parity, deep-health |
-| `docs/pdf/reference-manual/chapters/ch06-redis-schema.tex` | Reconcile against `docs/REDIS_SCHEMA.md` current state |
+| `docs/pdf/reference-manual/chapters/ch06-redis-schema.tex` | Reconcile against `docs/reference/REDIS_SCHEMA.md` current state |
 | `docs/pdf/reference-manual/chapters/ch09-security-ref.tex` | Add Phase 200-series hardening (Redis TLS, PROXY v2, default-credential removal) |
 | `docs/pdf/reference-manual/chapters/ch10-compliance.tex` | Reconcile against `docs/compliance/` current state |
 | `docs/pdf/Makefile` | Verify `make` builds all three PDFs reproducibly; document `latexmk` / `tectonic` prerequisite in `GETTING_STARTED.md` |
@@ -339,9 +339,9 @@ against existing living docs rather than original writing.
 
 The following docs reference Phase 14/19/21-era state as if current:
 
-- `docs/DMZ_READINESS.md` — "Phase 14 gap analysis" (Phase 14 is 90
+- `docs/security/DMZ_READINESS.md` — "Phase 14 gap analysis" (Phase 14 is 90
   phases ago)
-- `docs/DEPLOYMENT_SECURITY_MODEL.md` — "Phase 19 backup" references
+- `docs/security/DEPLOYMENT_SECURITY_MODEL.md` — "Phase 19 backup" references
 - `docs/README.md` — header says `last_reviewed: 2026-03-27, phase: 21`
 - `docs/README.md` — last reviewed Phase 21
 - `docs/GEMINI_CRITIQUE.md` — "Phase 13 Management UI deferred" (Phase 13/51/52
@@ -355,9 +355,9 @@ Python-vs-Go confusion in README lines 16–25 (badges + buried warning) and
 - `docs/README.md` and `docs/README.md`: update frontmatter to current date +
   `phase: 104` (or whatever is latest at close time) and re-audit every table
   row for stale entries
-- `docs/DMZ_READINESS.md`: either rewrite against current Phase
+- `docs/security/DMZ_READINESS.md`: either rewrite against current Phase
   200-series controls, or archive with supersede banner (decide in 105c)
-- `docs/DEPLOYMENT_SECURITY_MODEL.md`: re-date; remove Phase-19-specific
+- `docs/security/DEPLOYMENT_SECURITY_MODEL.md`: re-date; remove Phase-19-specific
   hedging; reference current backup runbook
 - `README.md`: runtime banner fix (see 105a)
 - `CONTRIBUTING.md`: reorder project-structure block so Go (`cmd/proxy/`,
@@ -443,15 +443,15 @@ the runbook is the step-by-step.
 
 **Developer track specifics**
 - [ ] `HOW_WE_WORK.md` documents trunk-based flow, branch naming, keep-main-green rule, PR size expectations, review etiquette
-- [ ] `TESTING_STRATEGY.md` documents the TDD loop and references `docs/TESTING_STRATEGY.md` as canonical
+- [ ] `TESTING_STRATEGY.md` documents the TDD loop and references `docs/developer/TESTING_STRATEGY.md` as canonical
 - [ ] `QUALITY_PLAN.md` describes every job in `.github/workflows/ci.yml`, `go-proxy-image.yml`, `ja4proxy-policy.yml`, `release-cli.yml`
 
 **Consolidation**
 - [ ] Blocking operations merged into `docs/operator/BLOCKING_OPERATIONS.md`; the 4 old blocking docs redirect or are archived
-- [ ] `docs/TESTING_STRATEGY.md` absorbs TEST_ORGANIZATION, TEST_SUITE, TESTING_GO as appendices; `docs/TESTING.md` is a redirect stub
+- [ ] `docs/developer/TESTING_STRATEGY.md` absorbs TEST_ORGANIZATION, TEST_SUITE, TESTING_GO as appendices; `docs/TESTING.md` is a redirect stub
 
 **Staleness repair**
-- [ ] `docs/DMZ_READINESS.md` is either rewritten against Phase 200-series controls or archived with a supersede banner
+- [ ] `docs/security/DMZ_READINESS.md` is either rewritten against Phase 200-series controls or archived with a supersede banner
 - [ ] `docs/GEMINI_CRITIQUE.md` and `docs/reports/ENTERPRISE_REVIEW.md` are under `docs/reports/archive/` with snapshot-date banners
 - [ ] No doc under `docs/` claims "Phase N" as current where N < latest-complete-phase in manifest
 
@@ -465,7 +465,7 @@ the runbook is the step-by-step.
 **Cross-cutting**
 - [ ] No README / top-level doc refers to `proxy.py` without a "prototyping surface" qualifier
 - [ ] Every `docs/for-*/README.md` is the audience's canonical entry point and is linked from the root `README.md` and `docs/README.md`
-- [ ] `make sync` has been run; `docs/phases/TODO.md` and `docs/PROJECT_STATUS.md` regenerated
+- [ ] `make sync` has been run; `docs/phases/TODO.md` and `docs/reference/PROJECT_STATUS.md` regenerated
 - [ ] `docs/phases/manifest.yaml` has Phase 105 marked COMPLETE
 - [ ] `CHANGELOG.md` has a Phase 105 entry
 
@@ -503,14 +503,14 @@ the runbook is the step-by-step.
 | `docs/operator/BLOCKING_ANALYSIS.md` | Redirect stub or delete |
 | `docs/operator/blocking-test-analysis.md` | Redirect stub or delete |
 | `docs/operator/FINAL_BLOCKING_TEST_SUMMARY.md` | Redirect stub or delete |
-| `docs/TESTING_STRATEGY.md` | Absorb TEST_ORGANIZATION, TEST_SUITE, TESTING_GO |
+| `docs/developer/TESTING_STRATEGY.md` | Absorb TEST_ORGANIZATION, TEST_SUITE, TESTING_GO |
 | `docs/TESTING.md` | Redirect stub |
-| `docs/TESTING_STRATEGY.md` | Redirect stub or delete |
+| `docs/developer/TESTING_STRATEGY.md` | Redirect stub or delete |
 | `docs/TEST_SUITE.md` | Redirect stub or delete |
 | `docs/TESTING_GO.md` | Redirect stub or delete |
-| `docs/SCALING_GUIDE.md` | Expand with three worked examples |
-| `docs/DMZ_READINESS.md` | Rewrite against Phase 200-series **or** archive |
-| `docs/DEPLOYMENT_SECURITY_MODEL.md` | Re-date; drop Phase-19 hedging |
+| `docs/operations/SCALING_GUIDE.md` | Expand with three worked examples |
+| `docs/security/DMZ_READINESS.md` | Rewrite against Phase 200-series **or** archive |
+| `docs/security/DEPLOYMENT_SECURITY_MODEL.md` | Re-date; drop Phase-19 hedging |
 | `docs/GEMINI_CRITIQUE.md` | Move to `docs/reports/archive/GEMINI_CRITIQUE_2026-03-21.md` with banner |
 | `docs/reports/ENTERPRISE_REVIEW.md` | Move to `docs/reports/archive/ENTERPRISE_REVIEW_2026-02-15.md` with banner |
 | `docs/reports/CYBER_RISK_REVIEW_2026-04-09.md` | Date-check; retain or archive |
@@ -531,7 +531,7 @@ the runbook is the step-by-step.
 | `.github/workflows/release-cli.yml` | Attach three PDFs to release artifacts |
 | `docs/phases/manifest.yaml` | Add Phase 105 entry; mark COMPLETE on close |
 | `docs/phases/TODO.md` | Regenerated by `make sync` |
-| `docs/PROJECT_STATUS.md` | Regenerated by `make sync` |
+| `docs/reference/PROJECT_STATUS.md` | Regenerated by `make sync` |
 | `CHANGELOG.md` | Phase 105 entry |
 
 ---
