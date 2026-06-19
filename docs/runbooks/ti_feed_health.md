@@ -7,6 +7,26 @@ phase: 59
 
 # TI Feed Health Monitoring — Runbook
 
+> **⚠ DEPRECATED (Phase 309 R4) — describes a subsystem that no longer ships.**
+> This runbook covers the **in-proxy secondary threat-intelligence feed
+> subsystem** (the MISP / GreyNoise / AlienVault OTX / VirusTotal / ThreatFox
+> provider classes, the `ConfidenceManager` accuracy weighting, the adaptive
+> cache, and the `ja4proxy:confidence:state` key — Phases 53/58/59). That code
+> lived in the Python proxy's `src/security/` and was **deleted** when the proxy
+> became Go-only; the Go proxy does **not** run these in-line feeds or a
+> confidence manager. The metrics, config keys, and Redis keys below have **no
+> live writer** and are retained for historical reference only.
+>
+> For the **current** threat-intelligence feed system — the Phase 85 TAXII/STIX
+> feed runner in the analytics container (`src/analytics/ti_feeds/`, `ti_feed:*`
+> Redis keys) — use these runbooks instead:
+> [`ti_feed_circuit_open.md`](ti_feed_circuit_open.md),
+> [`ti_feed_stale.md`](ti_feed_stale.md),
+> [`ti_feed_caps_hit.md`](ti_feed_caps_hit.md),
+> [`ti_feed_fp_blocked.md`](ti_feed_fp_blocked.md),
+> [`ti_feed_mgmt_api_errors.md`](ti_feed_mgmt_api_errors.md), and
+> [`feed_management.md`](feed_management.md) (Spamhaus DROP/EDROP + GeoIP).
+
 ## Quick Reference
 
 | Feed | Circuit breaker metric | Config key | Default failure threshold |
@@ -686,6 +706,6 @@ remaining timer.
 - `docs/runbooks/feed_management.md` — Spamhaus DROP/EDROP and GeoIP feed management
 - `docs/phases/complete/PHASE_59.md` — Phase 59 implementation spec
 - `docs/phases/complete/PHASE_58.md` — Confidence weighting and adaptive caching background
-- `src/security/feed_health.py` — `CircuitBreaker` and `FeedHealthMonitor` implementation
-- `src/security/confidence_manager.py` — `ConfidenceManager` and accuracy tracking
-- `src/security/adaptive_cache.py` — Adaptive TTL system
+- _(deleted with the Python proxy)_ `src/security/feed_health.py` — `CircuitBreaker` / `FeedHealthMonitor`
+- _(deleted with the Python proxy)_ `src/security/confidence_manager.py` — `ConfidenceManager` / accuracy tracking
+- _(deleted with the Python proxy)_ `src/security/adaptive_cache.py` — adaptive TTL system

@@ -38,15 +38,13 @@ TAP mode runs alongside the inline proxy:
 ## Quick Start
 
 ```bash
-# 1. Configure the capture interface in config/proxy.yml
-#    (See "Configuration" section below)
+# 1. Start the standalone Go TAP sensor (cmd/ja4-tap) on the capture interface,
+#    writing passive fingerprints to Redis. Live capture needs CAP_NET_RAW.
+ja4-tap --interface eth1 --redis-url redis://redis:6379/0
 
-# 2. Start the TAP sensor
-python3 -m src.tap.tap_sensor --config config/proxy.yml
-
-# 3. Verify capture is working
-curl http://localhost:9099/tap/health
-curl http://localhost:9099/tap/status
+# 2. Verify capture is working — the sensor logs per-handshake lines (or use
+#    --quiet for summary-only) and writes fp:os:ip / fp:ja4t:ip keys to Redis:
+redis-cli --scan --pattern 'fp:os:ip:*' | head
 ```
 
 ---

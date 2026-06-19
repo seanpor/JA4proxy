@@ -41,9 +41,13 @@ for line in sys.stdin:
    ```
 3. Check if a change ticket exists in your ITSM (ServiceNow, Jira, etc.):
    - Search for recent tickets with "JA4proxy" and "dial".
-4. Check if dial change was triggered by an automated response:
+4. Check who changed the dial — every dial change is recorded in the
+   `management:audit_log` LIST (each entry is a JSON object with
+   `action_type="dial.changed"`, plus `actor_id`, `actor_ip`, `before_value`,
+   `after_value`, `timestamp`):
    ```bash
-   redis-cli -h <redis-host> GET ja4proxy:dial:last_change_source
+   redis-cli -h <redis-host> LRANGE management:audit_log 0 49 \
+     | grep -i 'dial.changed' | head
    ```
 
 ## Resolution
