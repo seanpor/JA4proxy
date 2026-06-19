@@ -33,12 +33,12 @@ phase: 54
 | `ja4:blacklist` | SET of JA4 strings | none | Management UI, config reload | JA4 blacklist; loaded into in-process frozenset on startup |
 | `ban:{ip}` | String (reason) | configurable (default 3600s) | Scorer (Phase 1+), ActionEnforcer | Active ban from risk score or manual action; presence in Redis means IP is banned. |
 | `ip:blacklist` | SET of IPv4/IPv6 strings | none | Manual operator action | Static IP-level blocklist (distinct from `ja4:blacklist` which holds JA4 fingerprints). Read by `scripts/redis-to-ebpf.py` to populate the XDP kernel-drop map. IPv6 entries are logged but not enforced at the XDP layer (IPv4 only). *(Phase 35)* |
-| `session:ip:{ip}:ja4:{ja4}` | Hash `{total, resumed}` | 3600s | Proxy (Phase 5) | TLS session resumption tracking per IP+JA4 pair |
-| `lifespan:{ip}` | Sorted Set of durations (ms) | 1800s | Proxy (Phase 5) | Connection lifespan samples; score = timestamp |
+| `session:{ip}` | Hash `{total, resumed}` | 3600s | Go proxy (Phase 5, `internal/security/tcp_analyzer.go`) | TLS session-resumption tracking per IP. *(Phase 309 R3: corrected from the previously-documented `session:ip:{ip}:ja4:{ja4}` — the Go proxy keys on IP only.)* |
+| ~~`lifespan:{ip}`~~ | Sorted Set of durations (ms) | 1800s | — | **DEPRECATED (Phase 309 R3): no writer in the Go proxy.** The Python prototype wrote this; it now appears only in the sync-ACL skip-list. |
 | `beacon:{ip}:{ja4}` | Sorted Set | trimmed to long window (default 24h) | BeaconingDetector (Phase 9) | Connection timestamps per (IP, JA4); score = member = unix seconds. ZRANGEBYSCORE over the short window feeds the inter-arrival CV computation. |
 | `beacon:suspects` | Sorted Set | trimmed to short window (default 1h) | BeaconingDetector (Phase 9; Go gauge phase-309 WP-6) | Leaderboard of active beaconing suspects. Member = `{ip}:{ja4}`, score = last-seen unix seconds; entries older than the short window are trimmed on each write. `ZCARD` backs the `ja4proxy_beaconing_suspects` gauge / `BeaconingDetected` alert. |
 | `concurrent:{ip}` | Integer (INCR/DECR) | 60s | Proxy (Phase 5) | Live concurrent connection count per IP |
-| `visitor:{ip}` | Hash `{first_seen, last_seen, total, allowed, blocked}` | 604800s (7d) | Proxy (Phase 5) | Return visitor tracking |
+| `return_visitor:{ip}` | Hash `{first_seen, last_seen, total, allowed, blocked}` | 604800s (7d) | Go proxy (Phase 5, `internal/security/tcp_analyzer.go`) | Return-visitor tracking. *(Phase 309 R3: corrected from the previously-documented `visitor:{ip}`.)* |
 | `static:allowlist` | SET of IP/CIDR strings | none | Management UI | UI-added static allowlist entries; config-file entries are authoritative |
 | `management:audit_log` | List (last 1000 entries) | none | Management UI | All secops admin actions. Phase 79 C5 enhanced schema — each entry is a JSON object with fields: `timestamp` (ISO 8601 UTC), `actor_id` (token identity or username), `actor_ip` (client IP), `action_type` (dot-separated verb, e.g. `allowlist.created`), `resource_type`, `resource_id`, `before_value` (null on creates), `after_value` (null on deletes), `session_id`, `role` (actor role at time of action). |
 | `management:policy_audit` | List (last 1000 entries) | none | Management UI, config reload | Security policy bypass changes |
@@ -47,6 +47,11 @@ phase: 54
 ---
 
 ## Phase 32 — Attacker Attribution
+
+> **⚠ DEPRECATED (Phase 309 R3) — no live writer.** Written by the Python
+> `AttributionManager` (`src/security/attribution.py`), which was deleted with
+> the Python proxy. No Go code writes these keys. Retained for historical
+> reference only.
 
 | Key pattern | Type | TTL | Written by | Notes |
 |-------------|-|-|--------|-|
@@ -57,6 +62,11 @@ phase: 54
 
 ## Phase 54 — Behavioral Attribution
 
+> **⚠ DEPRECATED (Phase 309 R3) — no live writer.** Written by the Python
+> `BehavioralAnalyzer` (`src/security/`), deleted with the Python proxy. No Go
+> writer. (`behavioral:burst:` still appears in the Go sync-ACL skip-list but is
+> never written.) Retained for historical reference only.
+
 | Key pattern | Type | TTL | Written by | Notes |
 |-------------|-|-|--------|-|
 | `behavioral:probing:{fp}` | SET of SNI strings | 3600s (1h) | BehavioralAnalyzer._check_sequential_probing() | Set of unique hostnames probed by a specific fingerprint. |
@@ -66,6 +76,11 @@ phase: 54
 ---
 
 ## Phase 53 — Advanced Traffic Intelligence (Secondary Feeds)
+
+> **⚠ DEPRECATED (Phase 309 R3) — no live writer.** The GreyNoise / AlienVault /
+> MISP / ThreatFox / VirusTotal provider classes lived in `src/security/` and
+> were deleted with the Python proxy. No Go code writes these keys. Retained for
+> historical reference only.
 
 | Key pattern | Type | TTL | Written by | Notes |
 |-------------|-|-|--------|-|
@@ -82,6 +97,10 @@ phase: 54
 ---
 
 ## Phase 58 — Advanced Intelligence: Confidence Weighting
+
+> **⚠ DEPRECATED (Phase 309 R3) — no live writer.** Written by the Python
+> `ConfidenceManager`, deleted with the Python proxy. No Go writer. Retained for
+> historical reference only.
 
 | Key pattern | Type | TTL | Written by | Notes |
 |-------------|------|-----|------------|-------|
@@ -147,10 +166,16 @@ phase: 54
 
 ## Phase 6 — ASN & Datacenter Classification
 
+> **⚠ DEPRECATED (Phase 309 R3) — no live writer.** The Go proxy classifies Tor
+> exit nodes from a **file-backed** list loaded into an in-process set
+> (`config.tor_exit_list`, `internal/config/loader.go`), not from Redis. No Go
+> code writes either key below; they were written by the deleted Python proxy's
+> leader instance. Retained for historical reference only.
+
 | Key pattern | Type | TTL | Written by | Notes |
 |-------------|-|----|--------|-|
-| `tor:exit:ips` | SET of IP strings | 3900s (1h + 5m buffer) | Leader instance | Tor exit node IP addresses; refreshed hourly |
-| `leader:tor_exit_download` | String (instance_id) | 3600s (1h) | Leader instance | Leader election lock for Tor consensus download |
+| `tor:exit:ips` | SET of IP strings | 3900s (1h + 5m buffer) | Leader instance (Python, removed) | Tor exit node IP addresses; refreshed hourly. |
+| `leader:tor_exit_download` | String (instance_id) | 3600s (1h) | Leader instance (Python, removed) | Leader election lock for Tor consensus download. |
 
 ---
 
@@ -206,7 +231,12 @@ phase: 54
 | `webhook:idx` | SET of IDs | none | `POST /api/v1/webhooks` (SADD), `DELETE` (SREM) | Enumeration index for webhook subscriptions. *(Phase 79)* |
 | `proxy:reload` | Pub/Sub channel | n/a | `POST /api/v1/nodes/{host}/reload` | Control channel for triggering config reload on proxy instances. Message format: `{"action": "reload", "host": str}`. *(Phase 79)* |
 
-*Note: `GET /api/v1/nodes` reads `mgmt:node:{host}:{port}` heartbeat Hashes, but **no process writes them today** — the Go proxy has no heartbeat producer (verified on `main`: no writer in `cmd/`/`internal/`). The Phase 230–238 program adds a heartbeat producer to `cmd/ja4pd` and standardises on `proxy:heartbeat:{instance_id}`; `nodes.py` converges onto that key. Until then, node/proxy status reads as "down". See `docs/phases/PHASE_234.md` §5.0.*
+*Note (updated Phase 309 R3): The Go proxy **now publishes a heartbeat** —
+`cmd/ja4pd/main.go` writes `proxy:heartbeat:{hostname}` (`SET … EX 90` every 60s,
+added in Phase 232b; documented in the Go-proxy runtime section below). The
+`mgmt:node:{host}:{port}` Hash that `GET /api/v1/nodes` historically read still
+has no producer; node-status reads should be served from `proxy:heartbeat:*`.
+See `docs/phases/PHASE_234.md` §5.0.*
 
 ### Phase 79 — Cluster 6: TOTP MFA
 
@@ -259,6 +289,11 @@ phase: 54
 ---
 
 ## Phase 82 — Policy-as-Code, Shadow Mode & Governance
+
+> **⚠ DEPRECATED (Phase 309 R3) — no live writer.** The governance/shadow-mode
+> applier and analytics simulation runner referenced here have no implementation
+> in the current `src/` or `management/` tree (no writer found for
+> `decisions:*` / `sim:*`). Retained for historical reference only.
 
 | Key pattern | Type | TTL | Written by | Notes |
 |-------------|-|-|--------|-|
@@ -328,5 +363,75 @@ per-token poll-rate limiter.
 
 ---
 
-*Last updated: 2026-04-08, Phase 85 complete*
+## Go Proxy Runtime Keys (Phases 6–316)
+
+> Added in Phase 309 R3. These keys are written by the **Go proxy**
+> (`cmd/ja4pd`, `internal/`) on the live hot path but were never recorded in the
+> per-phase tables above (the schema doc predates the Go signal-module port).
+> They are listed here key-by-key, each verified against a concrete writer.
+
+| Key pattern | Type | TTL | Written by | Notes |
+|-------------|------|-----|------------|-------|
+| `ratelimit:ip:{ip}` | Sorted Set (sliding window, Lua) | window-bounded | `internal/security/rate_limiter.go` | Per-IP request rate. `ZCARD` over the window backs the by-IP rate signal. |
+| `ratelimit:ja4:{ja4}` | Sorted Set (sliding window, Lua) | window-bounded | `internal/security/rate_limiter.go` | Per-JA4 request rate (by-JA4 signal). |
+| `ratelimit:ip_ja4:{ip}:{ja4}` | Sorted Set (sliding window, Lua) | window-bounded | `internal/security/rate_limiter.go` | Per-(IP, JA4) request rate. The three strategies vote 2-of-3 in the scorer. |
+| `dns:fcrdns:{ip}` | String (verdict) | configurable (default 24h) | `internal/security/dns_enrichment.go` | Cached FCrDNS verdict for the client IP. Value domain: `no_ptr`, `fcrdns_failed`, `confirmed_residential`. Written fire-and-forget after async PTR/forward resolution. IP canonical, v4 and v6. |
+| `abuseipdb:{ip}` | String (confidence int 0–100) | 86400s (24h) | `internal/security/abuseipdb.go` | Cached AbuseIPDB confidence score. Written after a successful API call; absence means not-yet-enriched (fail-open). |
+| `audit:last_score:{ip}` | String (int 0–100) | 300s (5m) | `internal/security/pipeline.go` `auditDecision()` | Last risk score seen for this IP, used for cross-mesh score-drift detection (`>20`-point swing increments `ja4proxy_signal_drift_total` and logs a warning). |
+| `proxy:heartbeat:{hostname}` | String (Unix seconds) | 90s | `cmd/ja4pd/main.go` (Phase 232b) | Liveness heartbeat; `SET … EX 90` written immediately at startup then every 60s. `DEL` on graceful shutdown; TTL expiry covers hard crashes. Read by the management API for node-status. |
+| `geoip:blocked_cidrs` | SET of CIDR strings | none | `cmd/ja4pd/main.go` | Operator country/CIDR blocklist seeded from config and kept in sync; loaded into the in-process trie. Refreshed on the `geoip:cidr:update` pub/sub signal. |
+| `config:dial:sig` | String (HMAC signature) | none | Management API / sync agent | Detached HMAC over `config:dial`. The proxy refuses to trust a dial value whose signature is missing while the integrity key is set (defaults to dial 0 — fail-safe). See `internal/redis/client.go`. |
+| `ja4proxy:dc:{dc}:sync:out` | Redis Stream | maxlen-bounded | `internal/cluster/sync/agent.go` | Per-datacenter outbound mutation stream for multi-DC replication. One consumer group per peer (avoids head-of-line blocking). Carries `ban:*`, `ja4:whitelist`/`ja4:blacklist`, and `config:dial` mutations only (see `maybeSync` allow-list). |
+
+### Management-API keys not previously documented
+
+These are written by the FastAPI management service (`management/`) and read by
+the proxy or the UI. Listed for completeness; consult the route source for the
+authoritative field set.
+
+| Key pattern | Type | Written by | Notes |
+|-------------|------|------------|-------|
+| `ja4:watchlist` | SET of JA4 strings | `POST /api/v1/watchlist` | Watch-only JA4 list (dual-write companion to `ja4:whitelist`/`ja4:blacklist`). |
+| `static:blocklist` / `static:watchlist` | SET of IP/CIDR | management API | UI-added static IP lists (companions to `static:allowlist`). |
+
+## Pub/Sub Channel Registry
+
+The Go proxy subscribes to the following channels (`internal/redis/pubsub.go`).
+Channels marked *critical* are HMAC-verified when a pub/sub secret is configured
+(JA4PROXY-2026-0019) — unsigned messages are dropped.
+
+| Channel | Critical | Effect on proxy | Published by |
+|---------|----------|-----------------|--------------|
+| `config:reload` | yes | Triggers full config hot-reload | sync agent / SIGHUP path (see discrepancy note) |
+| `config:dial:change` | yes | Triggers reload (re-reads dial) | `internal/cluster/sync/agent.go` |
+| `ja4:blacklist:add` / `ja4:blacklist:remove` | yes | Refreshes in-process JA4 blacklist | management API |
+| `ja4:whitelist:add` / `ja4:whitelist:remove` | yes | Refreshes in-process JA4 whitelist | management API |
+| `geoip:cidr:update` | yes | Reloads `geoip:blocked_cidrs` into the trie | management API |
+
+## Known Code/Schema Discrepancies (Phase 309 R3)
+
+The R3 audit surfaced two writer/reader mismatches in **code** (not in this
+doc). They are recorded here so the schema reflects reality; fixing them is
+tracked as separate follow-up work, not part of this documentation pass.
+
+1. **`MultiCheck` reads bare `whitelist` / `blacklist` keys (dead code).**
+   `internal/redis/client.go` `MultiCheck()` calls `SIsMember(ctx, "blacklist", …)`
+   and `SIsMember(ctx, "whitelist", …)` — bare keys that **nothing writes** (every
+   writer uses the namespaced `ja4:whitelist` / `ja4:blacklist`). `MultiCheck` is
+   declared on the `RedisClient` interface but has **no caller** on the hot path,
+   so the mismatch is currently a latent landmine rather than a live bug. The
+   proxy actually consults JA4 lists via the in-process sets loaded from config
+   and from `ja4:whitelist`/`ja4:blacklist` `SMEMBERS` at startup/refresh.
+
+2. **Config-reload channel name mismatch (live).** The proxy subscribes to
+   `config:reload` (colon — `internal/redis/pubsub.go`). The management API's
+   `POST /api/v1/config/reload` publishes to `config.reload` (**dot** —
+   `management/api/routes/config_ops.py`). The two names do not match, so a
+   UI-triggered config reload never reaches the proxy. (Dial changes and
+   blacklist/whitelist edits use their own correctly-matched channels above and
+   are unaffected.)
+
+---
+
+*Last updated: 2026-06-19, Phase 309 R3 — REDIS_SCHEMA reconciled against Go proxy code*
 
