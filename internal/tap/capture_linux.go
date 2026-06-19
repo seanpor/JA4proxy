@@ -3,6 +3,9 @@
 package tap
 
 import (
+	"log"
+	"time"
+
 	"github.com/gopacket/gopacket/afpacket"
 	"github.com/gopacket/gopacket/layers"
 )
@@ -23,6 +26,9 @@ func NewLiveSource(iface string, frameSize int) (src PacketSource, linkType laye
 	tp, err := afpacket.NewTPacket(opts...)
 	if err != nil {
 		return nil, 0, nil, err
+	}
+	if err := tp.SetOption(afpacket.OptPollTimeout(100 * time.Millisecond)); err != nil {
+		log.Printf("failed to set poll timeout: %v", err)
 	}
 	return tp, layers.LinkTypeEthernet, tp.Close, nil
 }
