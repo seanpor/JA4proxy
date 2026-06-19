@@ -36,10 +36,12 @@ allowed or blocked (depending on configuration).
    ```bash
    curl -s http://<node>:9090/metrics | grep ja4proxy_tarpit_overflow
    ```
-4. Check if there's an active tarpit attack (many connections from same ASN):
+4. Check if there's an active tarpit attack (many connections from the same
+   source). ASN is classified in-process (no Redis key); inspect recent
+   connection events (each carries the client IP and ASN) or the Grafana
+   ASN/connection panels:
    ```bash
-   # From Management UI or direct Redis query
-   redis-cli -h <redis-host> KEYS 'ja4proxy:asn:*' | head -5
+   redis-cli -h <redis-host> XREVRANGE ja4proxy:events + - COUNT 50
    ```
 
 ## Resolution

@@ -33,8 +33,8 @@ python3 scripts/gdpr_delete.py --ip 1.2.3.4 --report
 
 | Key category | Example | Action |
 |---|---|---|
-| Exact match IP keys | `ban:1.2.3.4`, `visitor:1.2.3.4` | Deleted |
-| Wildcard IP keys | `session:ip:1.2.3.4:ja4:*`, `beacon:1.2.3.4:*` | Scanned and deleted |
+| Exact match IP keys | `ban:1.2.3.4`, `session:1.2.3.4`, `return_visitor:1.2.3.4`, `dns:fcrdns:1.2.3.4`, `audit:last_score:1.2.3.4` | Deleted |
+| Wildcard IP keys | `beacon:1.2.3.4:*` | Scanned and deleted |
 | ZSET members | `behavioral:burst:example.com` (member `1.2.3.4:ts`) | ZREM |
 | HyperLogLog sketches | `hll:cidr48:1.2.3.0/24` | NOT deleted (see limitations) |
 

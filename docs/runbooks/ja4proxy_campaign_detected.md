@@ -30,9 +30,12 @@ of Redis Streams.
    ```bash
    curl -sf http://<analytics-node>:<port>/api/v1/campaigns | python3 -m json.tool
    ```
-3. Check if campaign IPs are from a known ASN/datacenter:
+3. Check if campaign IPs are from a known ASN/datacenter. ASN is classified
+   in-process (MaxMind GeoLite2-ASN) — there is no ASN Redis key; the ASN is
+   recorded on each connection event and in the RDAP cache. Inspect a sample
+   campaign IP:
    ```bash
-   redis-cli -h <redis-host> KEYS 'ja4proxy:asn:*' | head -10
+   redis-cli -h <redis-host> GET 'rdap:ip:<campaign-ip>'   # JSON includes "asn"
    ```
 
 ## Resolution
