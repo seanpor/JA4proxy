@@ -90,15 +90,17 @@ completion gate checks both directions. Generated against the code on
 > **Histogram series:** each `histogram` metric also exposes the Prometheus
 > `_bucket`, `_sum`, and `_count` series (e.g. `ja4proxy_risk_score_bucket`).
 >
-> **⚠ Dashboards (§3) and alerts (§4) not yet fully reconciled.** Some example
-> panels and alert rules below still reference metric names from the **legacy
-> Python proxy** (e.g. `ja4proxy_pipeline_unexpected_errors_total`,
-> `ja4proxy_exception_handled_total`, `ja4proxy_cache_operations_total`,
-> `ja4proxy_*_last_refresh_success_seconds`, `ja4proxy_policy_changes_total`,
-> `ja4proxy_abuseipdb_quota_exhausted`) that this registry shows are **not
-> emitted** — those rules would never fire. Validate every PromQL expression
-> against this registry before deploying. Full §3/§4 reconciliation is tracked
-> as residual WP-6 work in `PHASE_309.md`.
+> **§3/§4 reconciled to the live registry (Phase 309 R1).** Earlier example panels
+> and alerts referenced legacy Python-proxy metric names the Go runtime does not
+> emit; these are now repointed to the emitted equivalents
+> (`exception_handled_total`→`handler_panics_total`,
+> `pipeline_unexpected_errors_total`→`connection_errors_total`,
+> `cache_operations_total`→`redis_operations_total`, and the Tor-staleness alert →
+> `tor_exit_list_entries == 0`). One example alert (high-risk-bypass-disabled) was
+> removed: the Go proxy emits `ja4proxy_bypass_total{rule}` (bypass *usage*) but no
+> bypass *config-state* metric — restoring it needs a new Go gauge, tracked as a
+> WP-6 code follow-on in `PHASE_309.md`. Always validate PromQL against the §1
+> registry before deploying.
 
 #### Core pipeline & scoring
 ```
@@ -501,10 +503,10 @@ Row 3: **Error Rates**
 - DNS resolver errors/min
 
 Row 3b: **Exception Health** (Phase 17b)
-- **Exception Rate by Module** — Bar gauge, `rate(ja4proxy_exception_handled_total[5m]) by (module)`.
+- **Handler Panic Rate** — Bar gauge, `rate(ja4proxy_handler_panics_total[5m])`.
   Thresholds: 0 = green, > 0.1/s = yellow, > 1/s = red.
-  Description: "Exceptions caught per module. Steady baseline is normal; sudden spike indicates new failure mode."
-- **Pipeline Internal Errors (Must Be Zero)** — Stat, `rate(ja4proxy_pipeline_unexpected_errors_total[5m])`.
+  Description: "Connection-handler goroutine panics recovered. Steady baseline is normal; a sudden spike indicates a new failure mode."
+- **Pipeline Internal Errors (Must Be Zero)** — Stat, `rate(ja4proxy_connection_errors_total[5m])`.
   Thresholds: 0 = green, any value > 0 = red (critical).
   Description: "Unexpected errors in pipeline logic. Non-zero requires immediate investigation."
 
@@ -544,7 +546,7 @@ groups:
           runbook: "docs/operations/INCIDENT_RESPONSE.md#proxy-instance-down"
 
       - alert: RedisConnectionFailed
-        expr: increase(ja4proxy_cache_operations_total{result="error"}[5m]) > 10
+        expr: increase(ja4proxy_redis_operations_total{result="error"}[5m]) > 10
         for: 2m
         labels:
           severity: critical
@@ -567,14 +569,14 @@ groups:
           summary: "Blocklist feed {{ $labels.feed }} has not refreshed in 24h"
           runbook: "docs/operations/INCIDENT_RESPONSE.md#blocklist-feed-stale"
 
-      - alert: TorListStale
-        expr: (time() - ja4proxy_tor_list_last_refresh_success_seconds) > 7200
-        for: 5m
+      - alert: TorListEmpty
+        expr: ja4proxy_tor_exit_list_entries == 0
+        for: 10m
         labels:
           severity: warning
           team: secops
         annotations:
-          summary: "Tor exit list has not refreshed in 2h"
+          summary: "Tor exit list is empty — feed failed to load or parse"
           runbook: "docs/operations/INCIDENT_RESPONSE.md#tor-list-stale"
 
       - alert: SpamhausMatchRate
@@ -648,14 +650,10 @@ groups:
     interval: 30s
     rules:
 
-      - alert: HighRiskBypassDisabled
-        expr: ja4proxy_policy_changes_total{bypass="alpn_browser_bypass"} > 0
-        labels:
-          severity: warning
-          team: secops
-        annotations:
-          summary: "High-risk bypass {{ $labels.bypass }} has been disabled"
-          runbook: "docs/operations/INCIDENT_RESPONSE.md#bypass-disabled"
+      # HighRiskBypassDisabled removed (Phase 309 R1): no Go metric tracks bypass
+      # config state. The proxy emits ja4proxy_bypass_total{rule} (bypass usage),
+      # not a disabled-state gauge — restoring this alert needs a new Go metric
+      # (tracked as a WP-6 code follow-on in PHASE_309.md).
 
       - alert: TarpitCapacityNearLimit
         expr: ja4proxy_tarpit_concurrent / 500 > 0.8
@@ -672,7 +670,7 @@ groups:
     rules:
 
       - alert: PipelineInternalError
-        expr: rate(ja4proxy_pipeline_unexpected_errors_total[1m]) > 0
+        expr: rate(ja4proxy_connection_errors_total[1m]) > 0
         for: 0m
         labels:
           severity: critical
@@ -682,16 +680,16 @@ groups:
           description: "An unexpected exception was re-raised in the pipeline. Check logs immediately."
           runbook: "docs/runbooks/security_incident_response.md#pipeline-internal-error"
 
-      - alert: ExceptionRateSpike
+      - alert: HandlerPanicRateSpike
         expr: |
-          rate(ja4proxy_exception_handled_total[5m]) > 2 *
-          avg_over_time(rate(ja4proxy_exception_handled_total[5m])[1h:5m])
+          rate(ja4proxy_handler_panics_total[5m]) > 2 *
+          avg_over_time(rate(ja4proxy_handler_panics_total[5m])[1h:5m])
         for: 5m
         labels:
           severity: warning
           team: secops
         annotations:
-          summary: "Exception rate 2× above 1h baseline in {{ $labels.module }}"
+          summary: "Handler panic rate 2× above 1h baseline"
           description: "Spike may indicate a new failure mode. Current: {{ $value | humanize }}/s"
           runbook: "docs/runbooks/security_incident_response.md#exception-rate-spike"
 ```
