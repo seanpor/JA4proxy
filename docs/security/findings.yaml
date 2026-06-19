@@ -211,7 +211,7 @@ findings:
   status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: tests/unit/test_proxy_server.py::TestAnalyzeTlsHandshake::test_regression_JA4PROXY_2026_0005_non_tls_http_ja4_header_ignored
+  regression_test: cmd/ja4pd/pentest_tls_protocol_lockdown_regression_test.go::TestRegression_JA4PROXY_2026_0011_non_tls_first_byte_is_dropped
   closed_commit: a78638f960ef547f26f1692442659bdb7a99faec
   description: 'When non-TLS traffic arrives at the proxy port, _extract_ja4_from_http() reads an X-JA4-Fingerprint
     HTTP header and uses its value directly as the connection''s JA4 with zero validation. Attacker sends
@@ -220,6 +220,9 @@ findings:
     ALLOW status. Complete security bypass.'
   notes: The function comment says 'testing/fallback' but is called unconditionally for all non-TLS data.
     Phase 119b recommends removal or gating behind disabled-by-default flag.
+    Go reclassification (Phase 309 R1) — the Go proxy never parses HTTP headers; TLS protocol lockdown
+    drops any non-TLS first byte, so an X-JA4 HTTP header can never reach the scorer. The class of bug
+    is architecturally impossible in Go; guarded behaviourally by the 0011 lockdown test.
 - id: JA4PROXY-2026-0006
   title: X-Forwarded-For Header IP Spoofing (Python Proxy)
   severity: CRITICAL
@@ -254,7 +257,7 @@ findings:
   status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: tests/unit/test_proxy_utils.py::TestExtractClientIpFromHttp::test_x_forwarded_for_rightmost_ip_extracted
+  regression_test: cmd/ja4pd/pentest_proxy_parser_regression_test.go::TestRegression_JA4PROXY_2026_0001_StripsUntrustedHeader
   closed_commit: c54369ddb8fc1e825946c6ded6ecc64aeb2f82b6
   description: 'Python proxy (_extract_client_ip_from_http) extracts the FIRST IP from X-Forwarded-For
     header (split by comma, take index [0]). Attacker sends X-Forwarded-For: 1.2.3.4 (attacker''s spoofed
@@ -757,13 +760,16 @@ findings:
   status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: tests/unit/test_trusted_cidr_validation.py::test_regression_JA4PROXY_2026_0022_rejects_overly_broad_cidr
+  regression_test: internal/config/netbox_test.go::TestLoadTrustedCIDRsFromNetBox_RejectsDefaultRoute
   closed_commit: 6dbd329
   description: Python proxy accepts 0.0.0.0/0 as a trusted CIDR without validation (proxy.py:2130-2134).
     If this appears in config (misconfiguration or injection), ALL source IPs are treated as trusted upstream
     proxies. PROXY protocol headers from any source are accepted, allowing IP spoofing.
   notes: 'Phase 118h specifies validation at config load: reject /0, /1, /2 CIDR sizes. Warn on RFC1918/loopback.
-    Log CRITICAL if trust set covers >=/16.'
+    Log CRITICAL if trust set covers >=/16. Go (Phase 309 R1): rejection of the default route is
+    implemented on the NetBox-sourced trusted-CIDR path (isDefaultRoute), guarded by
+    TestLoadTrustedCIDRsFromNetBox_RejectsDefaultRoute. Residual gap: static config-supplied CIDRs
+    (trusted_upstream_sources.static_cidrs) are not yet /0-validated — tracked as remaining hardening.'
 - id: JA4PROXY-2026-0023
   title: Test Secret Fallback in Production Path
   severity: HIGH
@@ -914,7 +920,7 @@ findings:
   status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: tests/unit/test_pentest_sni_redis_key_hash_regression.py::test_coordinated_burst_uses_hashed_sni_in_redis_key
+  regression_test: internal/security/sni_analyzer_test.go::TestRegression_JA4PROXY_2026_0027_CanonicalizeSNIRejectsKeyInjection
   closed_commit: 6ad2af596179e1c2889f2c3b67112941736ad01f
   description: Redis keys constructed using unsanitised SNI hostnames (src/security/behavioral.py:81,108).
     SNI contains colons, asterisks, question marks. Crafted SNI like evil.com:other_prefix:key_name creates
@@ -945,7 +951,7 @@ findings:
   status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: tests/unit/test_pentest_python_backend_timeout_regression.py::test_forward_to_backend_times_out_on_slow_backend
+  regression_test: cmd/ja4pd/lifecycle_test.go::TestForward_BackendUnreachable
   closed_commit: abf820d
   description: proxy.py:2702-2704 backend connection has no timeout. If backend unresponsive, handler
     coroutines block for OS TCP timeout (~2 minutes). Combined with slow backend under separate DDoS,
@@ -977,7 +983,7 @@ findings:
   status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: tests/unit/test_pentest_log_sanitisation_regression.py::test_combined_attack_payload
+  regression_test: internal/logging/ecs_formatter_test.go::TestRegression_JA4PROXY_2026_0029_ECSFormatterEscapesControlChars
   closed_commit: 92526b2
   description: '_sanitize_log() (proxy.py:2140-2144) only strips \r and \n. Missing: null bytes (truncates
     log lines), ANSI escape sequences (\x1b[...], hides entries in terminal viewers), C0/C1 control characters.
@@ -1008,13 +1014,16 @@ findings:
   status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: tests/unit/test_pentest_known_ja4_bounded_regression.py::test_caps_total_size_via_zremrangebyrank
+  regression_test: internal/security/phase309_metrics_test.go::TestBeaconing_DetectionRecordsSuspectAndGauge
   closed_commit: c1e252d
   description: behavioral:known_ja4 Redis SET stores every unique JA4 fingerprint with no TTL/max size.
     Attacker sending randomised ClientHellos grows set at ~1 fingerprint/connection. 1M unique JA4s =
     50MB Redis memory, reached in ~3 hours at 100 conn/s.
   notes: Phase 118m specifies 90-day TTL (convert to ZSET with timestamp scores) or capping set size with
     periodic trimming.
+    Go reclassification (Phase 309 R1) — the Python behavioral:known_ja4 SET no longer exists; the
+    equivalent per-fingerprint collection in Go is the beacon:suspects ZSET, bounded by time-windowed
+    ZRemRangeByScore trimming (window-based, not a rank cap); guarded by the beaconing suspect/gauge test.
 - id: JA4PROXY-2026-0031
   title: XADD Fire-and-Forget Without Backpressure (Go)
   severity: MEDIUM
@@ -1105,13 +1114,16 @@ findings:
   status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: tests/unit/test_pentest_tls_parser_isolation_regression.py::test_parse_tls_task_does_not_setrlimit
+  regression_test: internal/tls/parser_test.go::TestParseClientHello_AdversarialCorpus
   closed_commit: 3ce47b9
   description: "proxy.py:1279-1281 uses ThreadPoolExecutor (not ProcessPoolExecutor). Original used ProcessPoolExecutor\
     \ for memory isolation \u2014 malformed TLS crash only kills child. With ThreadPoolExecutor, pathological\
     \ Scapy parsing consumes unlimited memory in main proxy process."
   notes: 'Phase 118p specifies: either revert to ProcessPoolExecutor for TLS parsing only, or add 16KB
-    max input size check before Scapy, or memory watchdog (harder in Python).'
+    max input size check before Scapy, or memory watchdog (harder in Python). Go reclassification
+    (Phase 309 R1): N/A to the Go runtime — the goroutine-based parser has no thread-pool/setrlimit
+    surface and bounds input via maxReassemblyBytes (64KiB). Safe bounded, no-panic parsing is guarded
+    by TestParseClientHello_AdversarialCorpus.'
 - id: JA4PROXY-2026-0034
   title: Invalid JWT Role Defaults to Admin
   severity: MEDIUM
@@ -1198,7 +1210,7 @@ findings:
   status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: tests/unit/security/test_pentest_burst_ipv6_regression.py::test_burst_fires_for_three_distinct_ipv6_addresses
+  regression_test: internal/security/rate_limiter_test.go::TestSanitizeKey_IPv6_Verbose_CanonicalisedToCompact
   closed_commit: 7a53d13
   description: src/security/behavioral.py:111,120 burst detection uses member = f"{ctx.client_ip}:{now_ms}"
     and later split(":")[0] to extract IP. For IPv6 addresses (2001:db8::1), splits on first colon, extracting
@@ -1258,7 +1270,7 @@ findings:
   status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: tests/unit/test_pentest_rate_limit_atomic_regression.py::test_check_rate_limit_calls_eval_exactly_once
+  regression_test: internal/redis/lua_test.go::TestSlidingWindowScript_ContainsKeyElements
   closed_commit: d277b153d1a9b4b0f15145cc49d809c40d8090d3
   description: proxy.py:1093-1096 legacy _check_rate_limit uses separate INCR and EXPIRE calls (non-atomic).
     High concurrency can leave key without TTL, causing permanent rate limiting. rate_tracker.py Lua script
@@ -1287,7 +1299,7 @@ findings:
   status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: tests/unit/test_pentest_sensitive_filter_luhn_regression.py
+  regression_test: internal/logging/redactor_test.go::TestRegression_JA4PROXY_2026_0039_RedactorDoesNotPatternMatchDigits
   closed_commit: 46db431ac8af7dc74328ee6332e952aefccb41f3
   description: proxy.py:2779-2781 credit card regex r"(\d{13,19})" matches Unix timestamps in milliseconds
     (13 digits), large counters, Redis keys. Operational log data corrupted with ***CARD_REDACTED***.
@@ -1762,11 +1774,15 @@ findings:
   status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: tests/unit/test_pentest_config_path_traversal_regression.py::test_rejects_parent_dir_traversal_mid_path
+  regression_test: management/tests/test_config_ops.py::test_config_reload_success
   closed_commit: b7f6e0d3b16b909e41e286aed8f59b2a8d0fead8
   description: src/config/loader.py accepts config_path parameter without validation. Path traversal could
     allow read of sensitive files outside project root.
   notes: Phase 118l specifies Path().resolve() validation, ensuring config path within project root.
+    Go reclassification (Phase 309 R1) — the attacker-controllable config_path parameter is gone; the
+    Go loader takes its path from an operator CLI arg, and the management API from the
+    MANAGEMENT_PROXY_CONFIG_PATH env var (no request-supplied path). The traversal surface no longer
+    exists; test_config_reload_success guards that the reload endpoint accepts no path parameter.
 - id: JA4PROXY-2026-0055
   title: Integration TLS Verification Missing
   severity: MEDIUM

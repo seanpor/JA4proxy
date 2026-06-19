@@ -778,3 +778,35 @@ func TestECSFormatter_DialChange_Event(t *testing.T) {
 		t.Errorf("ja4proxy.dial.new_value = %v, want 75", raw)
 	}
 }
+
+// TestRegression_JA4PROXY_2026_0029_ECSFormatterEscapesControlChars guards the
+// "Log Sanitisation Incomplete (Control Characters, ANSI Escapes)" finding. The
+// deleted Python proxy emitted plaintext logs that could carry raw ANSI/control
+// bytes (terminal injection). The Go proxy emits ECS JSON via encoding/json,
+// which escapes every control byte: a client-controlled SNI carrying an ANSI
+// escape must appear escaped, never as a raw 0x1b byte, in the output.
+func TestRegression_JA4PROXY_2026_0029_ECSFormatterEscapesControlChars(t *testing.T) {
+	f := &ECSFormatter{Mode: "ecs"}
+	entry := &logrus.Entry{
+		Logger:  logrus.New(),
+		Data:    logrus.Fields{"sni": "evil\x1b[2J\x1b[31m.com", "client_ip": "1.2.3.4"},
+		Time:    time.Now(),
+		Level:   logrus.InfoLevel,
+		Message: "connection \x1b[31mPWNED\x1b[0m\r\nInjected\x00",
+	}
+	out, err := f.Format(entry)
+	if err != nil {
+		t.Fatalf("Format returned error: %v", err)
+	}
+	// The only legitimate raw control byte is the trailing '\n' line terminator;
+	// the ESC (0x1b) from the payload must have been JSON-escaped.
+	if bytes.IndexByte(out, 0x1b) != -1 {
+		t.Errorf("raw ESC (0x1b) present in log output — ANSI/terminal injection not escaped:\n%q", out)
+	}
+	// And the line must still be well-formed JSON — the control bytes were escaped,
+	// not truncated or left to corrupt the record.
+	var parsed map[string]interface{}
+	if err := json.Unmarshal(bytes.TrimRight(out, "\n"), &parsed); err != nil {
+		t.Fatalf("ECS output not valid JSON after control-char input: %v\nraw: %q", err, out)
+	}
+}
