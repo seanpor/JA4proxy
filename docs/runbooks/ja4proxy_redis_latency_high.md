@@ -48,11 +48,13 @@ rate limits, beaconing state, and signal enrichment.
 1. Check for key explosion (e.g., ban list growth):
    ```bash
    redis-cli -h <redis-host> DBSIZE
-   redis-cli -h <redis-host> KEYS 'ja4proxy:ban:*' | wc -l
+   # Use --scan, never KEYS — KEYS blocks Redis and would worsen the latency
+   # you are diagnosing.
+   redis-cli -h <redis-host> --scan --pattern 'ban:*' | wc -l
    ```
 2. If ban count is abnormally high, consider flushing stale bans:
    ```bash
-   redis-cli -h <redis-host> --scan --pattern 'ja4proxy:ban:*' | head -1000 | xargs -r redis-cli -h <redis-host> DEL
+   redis-cli -h <redis-host> --scan --pattern 'ban:*' | head -1000 | xargs -r redis-cli -h <redis-host> DEL
    ```
 
 **If network latency:**

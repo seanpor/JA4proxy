@@ -43,22 +43,27 @@ def _redis_client():
 # Each entry is a string template with {ip} as the placeholder.
 _IP_KEY_PATTERNS = [
     "ban:{ip}",
-    "session:ip:{ip}:ja4:*",  # wildcard — scan required
-    "lifespan:{ip}",
+    "session:{ip}",  # Go proxy (Phase 5) — TLS session-resumption tracking
     "concurrent:{ip}",
-    "visitor:{ip}",
+    "return_visitor:{ip}",  # Go proxy (Phase 5) — return-visitor tracking
+    "dns:fcrdns:{ip}",  # Go proxy (Phase 7) — cached FCrDNS verdict
+    "audit:last_score:{ip}",  # Go proxy — last risk score (mesh drift detection)
     "rdap:ip:{ip}",
     "abuseipdb:{ip}",
-    "greynoise:data:{ip}",
-    "alienvault:data:{ip}",
-    "misp:data:{ip}",
-    "threatfox:data:{ip}",
-    "virustotal:data:{ip}",
     "beacon:{ip}:*",  # wildcard — scan required
     "fp:os:ip:{ip}",  # phase-316b — passive OS class observed by the TAP sensor
     "fp:ja4t:ip:{ip}",  # phase-316c — passive JA4T TCP fingerprint observed by the TAP sensor
     "fp:ban_intent:ip:{ip}",  # phase-316d — advisory TAP enforcement watchlist entry
     "fp:ip:{ip}",  # phase-316b — per-IP fingerprint history (TAP); covers 316c too
+    # --- Deprecated namespaces (no live writer in the Go proxy) kept for
+    #     defensive erasure of any residual data from a prior Python deployment;
+    #     DEL on an absent key is a harmless no-op. See docs/reference/REDIS_SCHEMA.md.
+    "lifespan:{ip}",
+    "greynoise:data:{ip}",
+    "alienvault:data:{ip}",
+    "misp:data:{ip}",
+    "threatfox:data:{ip}",
+    "virustotal:data:{ip}",
 ]
 
 # HyperLogLog keys: individual contributors CANNOT be removed from a sketch.
@@ -71,7 +76,10 @@ _HLL_PATTERNS = [
 # Sorted sets where the IP appears as a member value (key is not the IP).
 # Requires ZREM rather than DEL.  Format: (key_glob, member_prefix_template)
 _ZSET_MEMBER_PATTERNS = [
-    ("behavioural:burst:*", "{ip}:"),  # member format: {ip}:{ts_ms}
+    # member format: {ip}:{ts_ms}. Deprecated namespace (no live writer); kept
+    # for defensive erasure of residual data. Spelling corrected from the prior
+    # "behavioural" (British) which never matched the real "behavioral" key.
+    ("behavioral:burst:*", "{ip}:"),
 ]
 
 # Patterns that need a SCAN (contain wildcard)

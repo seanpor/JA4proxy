@@ -211,7 +211,7 @@ grep -A5 'dns_enrichment' config/proxy.yml
 ### Worker stall (queue growing, no consumption)
 
 The DNS enrichment module uses an async worker loop with automatic restart on
-unhandled exception. The restart loop is documented in `src/security/dns_enrichment.py`.
+unhandled exception. The restart loop lives in `internal/security/dns_enrichment.go`.
 
 If the queue is growing but errors are not incrementing (workers are not consuming
 at all):

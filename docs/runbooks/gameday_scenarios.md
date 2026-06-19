@@ -179,9 +179,11 @@ done
 # Load environment for REDIS_PASSWORD (required for all facilitator triggers)
 [ -f .env ] && set -a && source .env && set +a
 
-# Set dial to an extreme value and publish config reload
-redis-cli -a "$REDIS_PASSWORD" SET ja4proxy:dial 100
-redis-cli -a "$REDIS_PASSWORD" PUBLISH ja4proxy:config_reload '{"source":"gameday","dial":100}'
+# Set dial to an extreme value. The proxy reads config:dial per connection, so
+# the SET takes effect immediately; the PUBLISH just nudges any cached config.
+# (If pub/sub HMAC is enabled, signed dial changes must go via the management API.)
+redis-cli -a "$REDIS_PASSWORD" SET config:dial 100
+redis-cli -a "$REDIS_PASSWORD" PUBLISH config:dial:change '{"source":"gameday","dial":100}'
 ```
 
 **What the team does BEFORE opening the runbook:**

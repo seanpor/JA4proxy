@@ -470,8 +470,9 @@ docker inspect proxy --format '{{.RestartCount}} restarts, last exit: {{.State.E
 # Last 100 lines before crash
 docker logs --tail 100 proxy
 
-# Check for configuration errors
-docker exec proxy python3 -c "from src.config.loader import ConfigLoader; ConfigLoader('config/proxy.yml')"
+# Check for configuration errors (the Go proxy validates config at startup;
+# this pre-checks YAML syntax before a restart)
+python3 -c "import yaml; yaml.safe_load(open('config/proxy.yml'))"
 ```
 
 **Common causes:**
@@ -482,8 +483,8 @@ docker exec proxy python3 -c "from src.config.loader import ConfigLoader; Config
 - Port conflict — another process took the proxy's listen port
 
 **Resolution steps:**
-1. Check exit code: `0` = clean exit (config issue), `137` = OOM kill, `1` = Python exception.
-2. For exit code 1: read last 50 lines of container log to find the Python traceback.
+1. Check exit code: `0` = clean exit (config issue), `137` = OOM kill, `1` = startup error (bad config, Redis unreachable at boot, or listen-port conflict).
+2. For exit code 1: read last 50 lines of the container log to find the Go startup error or panic message.
 3. For configuration errors: validate config before restart: `python3 -c "import yaml; yaml.safe_load(open('config/proxy.yml'))"`.
 4. For Redis dependency: ensure Redis container starts first — add `depends_on: redis` with health check in docker-compose.
 5. For port conflict: `ss -tlnp | grep 8080` to find the conflicting process.

@@ -152,7 +152,7 @@ Full scan with cursor continuation (bash loop):
 ```bash
 cursor=0
 while true; do
-  result=$(redis-cli SCAN $cursor MATCH 'ja4proxy:*' COUNT 200)
+  result=$(redis-cli SCAN $cursor MATCH '*' COUNT 200)
   cursor=$(echo "$result" | head -1)
   echo "$result" | tail -n +2
   [ "$cursor" = "0" ] && break
@@ -189,7 +189,7 @@ redis-cli TTL ban:192.0.2.1
 | `ja4proxy:events` | stream | Cross-instance analytics stream |
 | `management:policy_audit` | list | Policy change audit trail |
 | `dns:enrichment:queue` | list | Pending DNS enrichment jobs |
-| `visitor:{ip}` | hash | Return visitor tracking |
+| `return_visitor:{ip}` | hash | Return visitor tracking |
 | `concurrent:{ip}` | string | Current concurrent connection count |
 
 ---
@@ -213,7 +213,7 @@ During a Redis outage:
 - If neither cache has an entry, the proxy **fails open** (allows the connection).
 - No errors are surfaced to clients — connections are handled normally.
 - Prometheus counter `ja4proxy_redis_operations_total{result="error"}` increments for each failed call.
-- When Redis recovers, the proxy reconnects automatically (aioredis auto-reconnect).
+- When Redis recovers, the proxy reconnects automatically (go-redis pool auto-reconnect).
 - No proxy restart is needed.
 
 This behaviour is governed by the core asymmetry principle: a missed bad request is

@@ -102,7 +102,7 @@ curl -sf http://localhost:8090/api/v1/health/deep | python3 -m json.tool
 4. Verify ban enforcement has resumed:
    ```bash
    # Check that Redis has ban keys
-   redis-cli -a "$REDIS_PASSWORD" KEYS 'ja4proxy:ban:*' | head -5
+   redis-cli -a "$REDIS_PASSWORD" --scan --pattern 'ban:*' | head -5
    ```
 5. If the proxy did not auto-reconnect after 60 seconds, hot-reload it:
    ```bash
@@ -275,8 +275,8 @@ recovering fleet:
    Immediately set dial to 0 (monitor mode — all connections allowed but
    still scored and logged):
    ```bash
-   redis-cli -a "$REDIS_PASSWORD" SET ja4proxy:dial 0
-   redis-cli -a "$REDIS_PASSWORD" PUBLISH ja4proxy:config_reload '{"source":"dr-recovery","dial":0}'
+   redis-cli -a "$REDIS_PASSWORD" SET config:dial 0
+   redis-cli -a "$REDIS_PASSWORD" PUBLISH config:dial:change '{"source":"dr-recovery","dial":0}'
    ```
    Verify:
    ```bash
@@ -300,8 +300,8 @@ recovering fleet:
 3. **Phase 3 — Restore intended dial (RTO: 30 seconds):**
    Once config is verified, set the dial to the intended value:
    ```bash
-   redis-cli -a "$REDIS_PASSWORD" SET ja4proxy:dial 25  # or your production value
-   redis-cli -a "$REDIS_PASSWORD" PUBLISH ja4proxy:config_reload '{"source":"dr-recovery","dial":25}'
+   redis-cli -a "$REDIS_PASSWORD" SET config:dial 25  # or your production value
+   redis-cli -a "$REDIS_PASSWORD" PUBLISH config:dial:change '{"source":"dr-recovery","dial":25}'
    ```
    Verify:
    ```bash
@@ -319,7 +319,7 @@ recovering fleet:
 - All bans cleared — previously blocked IPs/JA4s now allowed
 - Rate limit counters reset to zero
 - Dial value reset to default (or missing)
-- `ja4proxy:ban:*` keys are gone from Redis
+- `ban:*` keys are gone from Redis
 
 **Simulate:**
 ```bash
@@ -334,7 +334,7 @@ docker volume rm "$REDIS_VOL"
 # Restart with empty Redis
 docker compose -f deploy/docker/docker-compose.poc.yml up -d redis
 redis-cli -a "$REDIS_PASSWORD" PING  # Should return PONG
-redis-cli -a "$REDIS_PASSWORD" KEYS 'ja4proxy:*'  # Should return empty
+redis-cli -a "$REDIS_PASSWORD" DBSIZE  # Should return 0 (empty Redis)
 ```
 
 **Impact:**
@@ -388,8 +388,8 @@ restorer.restore_backup(
 
 **Verify restoration:**
 ```bash
-redis-cli -a "$REDIS_PASSWORD" KEYS 'ja4proxy:ban:*' | wc -l
-redis-cli -a "$REDIS_PASSWORD" GET ja4proxy:dial
+redis-cli -a "$REDIS_PASSWORD" --scan --pattern 'ban:*' | wc -l
+redis-cli -a "$REDIS_PASSWORD" GET config:dial
 ```
 Set dial to 0 while verifying the restored state is correct, then restore
 the intended dial value.
@@ -398,16 +398,16 @@ the intended dial value.
 If no backup exists:
 1. Set dial to 0 (monitor mode) while state rebuilds:
    ```bash
-   redis-cli -a "$REDIS_PASSWORD" SET ja4proxy:dial 0
+   redis-cli -a "$REDIS_PASSWORD" SET config:dial 0
    ```
 2. Monitor the ban list growing:
    ```bash
-   watch -n 5 'redis-cli -a "$REDIS_PASSWORD" KEYS "ja4proxy:ban:*" | wc -l'
+   watch -n 5 'redis-cli -a "$REDIS_PASSWORD" --scan --pattern "ban:*" | wc -l'
    ```
 3. Once the ban list reaches expected volume (compare with pre-loss
    Grafana dashboards), restore dial to production value:
    ```bash
-   redis-cli -a "$REDIS_PASSWORD" SET ja4proxy:dial 25  # or your production value
+   redis-cli -a "$REDIS_PASSWORD" SET config:dial 25  # or your production value
    ```
 
 **RTO:** 30 minutes with backup, 4 hours without
