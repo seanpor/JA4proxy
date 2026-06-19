@@ -173,7 +173,7 @@ Required test cases (using `fakeredis`):
 | `test_empty_redis_no_error` | No keys seeded; assert exit code 0 and "No keys found" message |
 | `test_invalid_ip_exits_nonzero` | `--ip not-an-ip`; assert exit code 1 |
 
-#### Update `docs/REDIS_SCHEMA.md`
+#### Update `docs/reference/REDIS_SCHEMA.md`
 
 Add the erasure audit log key:
 
@@ -213,7 +213,7 @@ redis-cli LRANGE management:gdpr_erasure_log 0 -1
 - [ ] `make gdpr-delete IP=127.0.0.1 --dry-run` prints a complete key list and exits 0
 - [ ] All 10 unit tests in `tests/unit/test_gdpr_delete.py` pass
 - [ ] `python3 scripts/gdpr_delete.py --help` documents `--dry-run` and `--report` flags
-- [ ] `docs/REDIS_SCHEMA.md` updated with erasure audit log key
+- [ ] `docs/reference/REDIS_SCHEMA.md` updated with erasure audit log key
 - [ ] Runbook section written
 
 ---

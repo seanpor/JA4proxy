@@ -17,10 +17,10 @@ List of files to be modified:
 - [deploy/docker/docker-compose.monitoring.yml](../../../deploy/docker/docker-compose.monitoring.yml) - Update pinned container tags to match Makefile.
 - [go.mod](../../../go.mod) - Bump Go toolchain and dependencies to resolve first-party CVEs.
 - [go.sum](../../../go.sum) - Updated for bumped dependencies.
-- [docs/DOCKER_IMAGES.md](../../../docs/DOCKER_IMAGES.md) - Update documented pinned container tags to match Makefile and compose files.
+- [docs/reference/DOCKER_IMAGES.md](../../reference/DOCKER_IMAGES.md) - Update documented pinned container tags to match Makefile and compose files.
 - [.trivyignore](../../../.trivyignore) - Add dated, justified entries for any remaining unfixed CVEs.
 - [tests/integration/test_ci_flow.py](../../../tests/integration/test_ci_flow.py) - Update assertions to check that HIGH-severity vulnerabilities trigger failures.
-- [docs/phases/complete/PHASE_313.md](../../../docs/phases/complete/PHASE_313.md) - Mark the deferred subtask checkbox as completed.
+- [docs/phases/complete/PHASE_313.md](PHASE_313.md) - Mark the deferred subtask checkbox as completed.
 - [CHANGELOG.md](../../../CHANGELOG.md) - Document the changes made in this phase.
 
 ## Implementation Plan
@@ -36,7 +36,7 @@ List of files to be modified:
 5. **Handle Residual CVEs**: If any HIGH CVE has no upstream fix available, document a dated and justified exception in `.trivyignore`.
 6. **Enforce HIGH-severity Gating**: Modify the `scan-images` and `scan-first-party` targets in the `Makefile` to set `--severity HIGH,CRITICAL` and verify that any HIGH or CRITICAL finding returns exit code 1.
 7. **Test Adaptation**: Modify `tests/integration/test_ci_flow.py` to assert that the scanning pipeline now gates on HIGH+CRITICAL.
-8. **Documentation and Metadata updates**: Update `docs/DOCKER_IMAGES.md`, `docs/phases/complete/PHASE_313.md` (check the deferral box), and `CHANGELOG.md`.
+8. **Documentation and Metadata updates**: Update `docs/reference/DOCKER_IMAGES.md`, `docs/phases/complete/PHASE_313.md` (check the deferral box), and `CHANGELOG.md`.
 
 ## Test Strategy
 - **Unit & Integration Tests**: Run `pytest tests/integration/test_ci_flow.py` to assert that the CI flow scanner correctly enforces the HIGH-severity gate.
@@ -45,7 +45,7 @@ List of files to be modified:
 
 ## Acceptance Criteria
 - [ ] `make scan` exits 0 with `scan-images` and `scan-first-party` gating on **HIGH+CRITICAL** (no advisory status for HIGH).
-- [ ] Every pinned image bump is mirrored in the Docker Compose files and `docs/DOCKER_IMAGES.md`.
+- [ ] Every pinned image bump is mirrored in the Docker Compose files and `docs/reference/DOCKER_IMAGES.md`.
 - [ ] `make lint-docker` passes without errors.
 - [ ] First-party HIGH CVEs (e.g. stdlib, otel, thrift) are resolved at the source through dependency bumps in `go.mod`.
 - [ ] Any entries in `.trivyignore` are dated, individual, and justified.

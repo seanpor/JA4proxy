@@ -13,7 +13,7 @@ Significantly reduce the cognitive load, verbosity, and maintenance overhead of 
 
 ### Components in Scope
 - **Persona Directories**: ``, ``, ``, ``, ``
-- **Testing Docs**: `docs/TESTING_STRATEGY.md` and its associated stub files.
+- **Testing Docs**: `docs/developer/TESTING_STRATEGY.md` and its associated stub files.
 - **Operational Docs**: `docs/operator/`, `docs/runbooks/`, `docs/OPERATIONS.md`
 - **Root Indexes**: `docs/README.md`, `docs/README.md`
 
@@ -59,6 +59,6 @@ Significantly reduce the cognitive load, verbosity, and maintenance overhead of 
 - [ ] `docs/README.md` is deleted.
 - [ ] `docs/operator/` and `docs/runbooks/` are deleted.
 - [ ] A single `docs/OPERATIONS.md` exists.
-- [ ] `docs/TESTING_STRATEGY.md` is significantly reduced in line count.
+- [ ] `docs/developer/TESTING_STRATEGY.md` is significantly reduced in line count.
 - [ ] All redirect stub files for testing are deleted.
 - [ ] `make lint-markdown` or equivalent documentation linters pass.

@@ -68,7 +68,7 @@ These fields already exist in the register schema and become load-bearing
 under this protocol:
 
 - `regression_test` — pytest nodeid or Go test path; **required** once
-  status ≥ FIXED. See `docs/TESTING_STRATEGY.md §6` for naming and docstring
+  status ≥ FIXED. See `docs/developer/TESTING_STRATEGY.md §6` for naming and docstring
   rules. `validate` checks the file exists on disk.
 - `closed_commit` — the merge SHA at which the finding was closed. Required
   when `status == CLOSED`.
@@ -211,7 +211,7 @@ blocked.
 - `OWNERSHIP.md` — who the `owner` is and who acts as the verifier.
 - `INTAKE_RUNBOOK.md` — how findings get to `status: OPEN` in the first
   place.
-- `docs/TESTING_STRATEGY.md §6` — what the regression test looks like and
+- `docs/developer/TESTING_STRATEGY.md §6` — what the regression test looks like and
   where it lives.
 - `scripts/findings_register.py` — validates every rule above; the source
   of truth for the state machine's implementation.

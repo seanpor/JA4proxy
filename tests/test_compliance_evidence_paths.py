@@ -126,13 +126,13 @@ def test_evidence_path_pattern_extracts_real_paths() -> None:
     """The extraction regex must catch realistic evidence-link formats."""
     sample = """
     | ER1 | Security by default | See `docs/security/threat-model.md` and config/proxy.yml | none | N/A |
-    | ER7 | Logging | Per `docs/OBSERVABILITY_STANDARDS.md` | none | N/A |
+    | ER7 | Logging | Per `docs/reference/OBSERVABILITY_STANDARDS.md` | none | N/A |
     | PW.7 | SAST | Job `.github/workflows/ci.yml` Semgrep step | none | N/A |
     """
     matches = {m.group("path") for m in EVIDENCE_PATH_PATTERN.finditer(sample)}
     assert "docs/security/threat-model.md" in matches
     assert "config/proxy.yml" in matches
-    assert "docs/OBSERVABILITY_STANDARDS.md" in matches
+    assert "docs/reference/OBSERVABILITY_STANDARDS.md" in matches
     assert ".github/workflows/ci.yml" in matches
 
 

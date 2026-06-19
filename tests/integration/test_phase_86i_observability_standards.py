@@ -7,7 +7,7 @@ from __future__ import annotations
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-OBS_STANDARDS = REPO_ROOT / "docs" / "OBSERVABILITY_STANDARDS.md"
+OBS_STANDARDS = REPO_ROOT / "docs" / "reference" / "OBSERVABILITY_STANDARDS.md"
 
 REQUIRED_LOADTEST_METRICS = [
     "ja4proxy_loadtest_connections_attempted_total",

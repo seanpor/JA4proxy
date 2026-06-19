@@ -600,7 +600,7 @@ def cmd_verify_regression_tests(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         print(
-            "  on FIXED/VERIFIED/CLOSED findings per docs/TESTING_STRATEGY.md §6.",
+            "  on FIXED/VERIFIED/CLOSED findings per docs/developer/TESTING_STRATEGY.md §6.",
             file=sys.stderr,
         )
         return 1

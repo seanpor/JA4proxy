@@ -75,7 +75,7 @@ image whose upstream has since shipped a fixed tag, then remove its row).
 1. **Fortnightly** (or when Dependabot/the weekly scheduled scan flags movement),
    run `make scan-images` and `make scan-summary`.
 2. For any image above whose upstream has shipped a fixed tag, **bump it** in
-   `Makefile` (`TRIVY_IMAGES`) + the compose files + `docs/DOCKER_IMAGES.md`,
+   `Makefile` (`TRIVY_IMAGES`) + the compose files + `docs/reference/DOCKER_IMAGES.md`,
    re-scan to confirm, and **delete its row** here.
 3. If a CVE here is ever upgraded by Trivy to **CRITICAL**, it stops being
    advisory — it gates `make scan-images` immediately and must be bumped or, if

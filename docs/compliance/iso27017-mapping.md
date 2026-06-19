@@ -68,7 +68,7 @@ counts above reflect every CLD control listed in the table below.
 
 | CLD ID | Name | Applicability | Evidence | Gap |
 |--------|------|---------------|----------|-----|
-| CLD.8.1.5 | Removal of cloud service customer assets | Applies | When a deployment is decommissioned, all customer data held by JA4proxy is in Redis. The GDPR erasure script ([`scripts/gdpr_delete.py`](../../scripts/gdpr_delete.py)) removes per-IP records; the operator deletes the Redis instance to remove all aggregated state. Retention is bounded by per-key TTLs documented in [`docs/REDIS_SCHEMA.md`](../REDIS_SCHEMA.md). | None. |
+| CLD.8.1.5 | Removal of cloud service customer assets | Applies | When a deployment is decommissioned, all customer data held by JA4proxy is in Redis. The GDPR erasure script ([`scripts/gdpr_delete.py`](../../scripts/gdpr_delete.py)) removes per-IP records; the operator deletes the Redis instance to remove all aggregated state. Retention is bounded by per-key TTLs documented in [`docs/reference/REDIS_SCHEMA.md`](../reference/REDIS_SCHEMA.md). | None. |
 
 ### CLD.9 — Access control for cloud computing
 
@@ -81,9 +81,9 @@ counts above reflect every CLD control listed in the table below.
 
 | CLD ID | Name | Applicability | Evidence | Gap |
 |--------|------|---------------|----------|-----|
-| CLD.12.1.5 | Administrator's operational security | Applies | Administrator actions against the Management API are bearer-token authenticated, RBAC-gated, and recorded to `management:audit_log` (see [`docs/REDIS_SCHEMA.md`](../REDIS_SCHEMA.md) Phase 79 entry). Operator runbooks live in [`docs/runbooks/`](../runbooks/). | None. |
-| CLD.12.4.5 | Cloud service customer's monitoring of cloud services | Applies | JA4proxy exports Prometheus metrics and ECS-structured logs that the customer can aggregate into their own observability stack; the schema is documented in [`docs/OBSERVABILITY_STANDARDS.md`](../OBSERVABILITY_STANDARDS.md). The customer remains responsible for collecting and reviewing the telemetry. | None on the product side. Deployer-guidance: scrape `/metrics` and ship logs to a SIEM the customer controls. |
-| CLD.12.* | Operational logging guidance per ISO/IEC 27017:2015 §12 | Applies | All connection decisions, configuration reloads, and security-policy changes are logged to ECS-structured JSON sinks (see [`docs/OBSERVABILITY_STANDARDS.md`](../OBSERVABILITY_STANDARDS.md)) and to Redis audit lists (`management:audit_log`, `management:policy_audit` — see [`docs/REDIS_SCHEMA.md`](../REDIS_SCHEMA.md)). The operator owns retention and forwarding. | None on the product side. Deployer-guidance: forward audit and access logs into the customer's existing log-retention system. |
+| CLD.12.1.5 | Administrator's operational security | Applies | Administrator actions against the Management API are bearer-token authenticated, RBAC-gated, and recorded to `management:audit_log` (see [`docs/reference/REDIS_SCHEMA.md`](../reference/REDIS_SCHEMA.md) Phase 79 entry). Operator runbooks live in [`docs/runbooks/`](../runbooks/). | None. |
+| CLD.12.4.5 | Cloud service customer's monitoring of cloud services | Applies | JA4proxy exports Prometheus metrics and ECS-structured logs that the customer can aggregate into their own observability stack; the schema is documented in [`docs/reference/OBSERVABILITY_STANDARDS.md`](../reference/OBSERVABILITY_STANDARDS.md). The customer remains responsible for collecting and reviewing the telemetry. | None on the product side. Deployer-guidance: scrape `/metrics` and ship logs to a SIEM the customer controls. |
+| CLD.12.* | Operational logging guidance per ISO/IEC 27017:2015 §12 | Applies | All connection decisions, configuration reloads, and security-policy changes are logged to ECS-structured JSON sinks (see [`docs/reference/OBSERVABILITY_STANDARDS.md`](../reference/OBSERVABILITY_STANDARDS.md)) and to Redis audit lists (`management:audit_log`, `management:policy_audit` — see [`docs/reference/REDIS_SCHEMA.md`](../reference/REDIS_SCHEMA.md)). The operator owns retention and forwarding. | None on the product side. Deployer-guidance: forward audit and access logs into the customer's existing log-retention system. |
 
 > **Note on CLD coverage breadth.** ISO/IEC 27017 also adds *implementation
 > guidance* to many existing ISO/IEC 27002 controls (e.g. A.9, A.10, A.12,

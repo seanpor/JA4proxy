@@ -147,7 +147,7 @@ Specific files that exist and are functional:
 - Run: `make agent-up NAME=gemini && make go-start && make go-parity`
 
 **Gap 3 — Prometheus metric name alignment**
-- Audit Go metric names against `docs/OBSERVABILITY_STANDARDS.md`.
+- Audit Go metric names against `docs/reference/OBSERVABILITY_STANDARDS.md`.
 
 **Gap 4 — PubSub reconnect**
 - `internal/redis/pubsub.go`: implement retry with exponential backoff on channel close.

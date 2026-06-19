@@ -221,7 +221,7 @@ Add to `internal/metrics` **and** `OBSERVABILITY_STANDARDS.md §1d`:
 | `docs/phases/manifest.yaml`, `docs/phases/PHASE_316.md` | Correct the "`ja4pd sensor` subcommand" wording to the decided standalone `cmd/ja4-tap/` binary (§3b) |
 | `go.mod` / `go.sum` | Add `github.com/gopacket/gopacket` (must pass `govulncheck` gate) |
 | `internal/metrics/metrics.go` | Register TAP metrics |
-| `docs/OBSERVABILITY_STANDARDS.md` | Add TAP metrics definitions |
+| `docs/reference/OBSERVABILITY_STANDARDS.md` | Add TAP metrics definitions |
 | `internal/tap/capture.go` | New file — AF_PACKET and PCAP read loops |
 | `internal/tap/decode.go` | New file — zero-copy Ethernet/IP/TCP decoding |
 | `internal/tap/reassembler.go` | New file — TCP stream reassembly and pooling using `gopacket/tcpassembly` |

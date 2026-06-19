@@ -15,7 +15,7 @@ import yaml
 
 MANIFEST_PATH = "docs/phases/manifest.yaml"
 TODO_PATH = "docs/phases/TODO.md"
-STATUS_PATH = "docs/PROJECT_STATUS.md"
+STATUS_PATH = "docs/reference/PROJECT_STATUS.md"
 
 # Maps each canonical status value to the TODO.md section it belongs to.
 # None  = phase is not shown in TODO.md (work complete or abandoned).

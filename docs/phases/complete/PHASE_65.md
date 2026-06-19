@@ -48,7 +48,7 @@ Optimize the Python proxy hot path, close remaining Go configuration gaps, and e
 - [x] Go test: `tls.ComputeJA4(tls.ParseClientHello(fixture))` matches ground truth
 
 ### F — Signal score registry
-- [x] `config/signal_scores.yml` covers all signals in `docs/STYLE_GUIDE.md §1f`
+- [x] `config/signal_scores.yml` covers all signals in `docs/developer/STYLE_GUIDE.md §1f`
 - [x] `scripts/check-signal-scores.py` exits 0 on clean codebase
 - [x] `make check-scores` added and passing
 

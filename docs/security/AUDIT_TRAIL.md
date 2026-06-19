@@ -9,7 +9,7 @@ phase: 105
 
 > Authoritative source for **what** JA4proxy logs, **where** it stores it,
 > and **how long** it keeps it. Every Redis key cited below is documented
-> in [`docs/REDIS_SCHEMA.md`](REDIS_SCHEMA.md). If a key is not in the
+> in [`docs/reference/REDIS_SCHEMA.md`](../reference/REDIS_SCHEMA.md). If a key is not in the
 > schema, it is not part of the audit trail.
 
 This document covers three streams an auditor must be able to inspect:
@@ -18,7 +18,7 @@ This document covers three streams an auditor must be able to inspect:
    the dial setting.
 2. **Operator action log** — every Management UI / API admin action.
 3. **GDPR erasure log** — every data-subject erasure executed via the
-   tooling in [`docs/compliance/GDPR_COMPLIANCE.md`](compliance/GDPR_COMPLIANCE.md).
+   tooling in [`docs/compliance/GDPR_COMPLIANCE.md`](../compliance/GDPR_COMPLIANCE.md).
 
 A fourth stream (`ja4proxy:events`) carries per-connection decisions; it
 is operationally important and consumed by the SIEM pipeline, but is
@@ -34,7 +34,7 @@ It is summarised at the end.
 | Redis key | `management:policy_audit` |
 | Type | LIST |
 | Retention | **last 1000 entries**, **no TTL** (entries are bounded by length, not by time) |
-| Written by | Management UI, config reload (per [`docs/REDIS_SCHEMA.md`](REDIS_SCHEMA.md) §Phase 0) |
+| Written by | Management UI, config reload (per [`docs/reference/REDIS_SCHEMA.md`](../reference/REDIS_SCHEMA.md) §Phase 0) |
 | What it records | Security-policy bypass changes |
 
 `CLAUDE.md` §Bypass Rules states the invariant:
@@ -54,10 +54,10 @@ list — UI mutations and SIGHUP-driven config reloads both write here.
 ### Auditor evidence mapping
 
 - **SOC 2 CC7.1 (Detection of configuration changes)** — see
-  [`docs/compliance/soc2-control-narrative.md`](compliance/soc2-control-narrative.md)
+  [`docs/compliance/soc2-control-narrative.md`](../compliance/soc2-control-narrative.md)
   §CC7.1, which references this list directly.
 - **ISO 27001 A.12.1.2 (Change management)** — see
-  [`docs/compliance/SECURITY_CONTROLS_MAPPING.md`](compliance/SECURITY_CONTROLS_MAPPING.md)
+  [`docs/compliance/SECURITY_CONTROLS_MAPPING.md`](../compliance/SECURITY_CONTROLS_MAPPING.md)
   line 141.
 
 ### Inspection (read-only)
@@ -82,7 +82,7 @@ redis-cli LLEN management:policy_audit
 | Written by | Management UI / Management API |
 | What it records | All secops admin actions |
 
-Per [`docs/REDIS_SCHEMA.md`](REDIS_SCHEMA.md) §Phase 0, each entry is
+Per [`docs/reference/REDIS_SCHEMA.md`](../reference/REDIS_SCHEMA.md) §Phase 0, each entry is
 a JSON object (Phase 79 C5 enhanced schema) containing:
 
 ```
@@ -102,14 +102,14 @@ role             actor role at time of action
 
 This stream covers role assignments, allowlist/blocklist/watchlist
 mutations, dial changes (subject to four-eyes approval per
-[`docs/compliance/soc2-control-narrative.md`](compliance/soc2-control-narrative.md)
+[`docs/compliance/soc2-control-narrative.md`](../compliance/soc2-control-narrative.md)
 §CC7.1), bearer-token issuance/rotation/revocation, webhook subscription
 changes, and every other write to a Management API resource.
 
 ### Auditor evidence mapping
 
 - **SOC 2 CC6.1 (Access control policies)** — see
-  [`docs/compliance/soc2-control-narrative.md`](compliance/soc2-control-narrative.md)
+  [`docs/compliance/soc2-control-narrative.md`](../compliance/soc2-control-narrative.md)
   §CC6.1: "Role assignments are recorded in the audit log
   (`management:audit_log`) with actor, timestamp, and IP address."
 - **SOC 2 CC7.1 (Detection of configuration changes)**.
@@ -133,9 +133,9 @@ redis-cli LRANGE management:audit_log 0 99 | python3 -m json.tool
 | Written by | `scripts/gdpr_delete.py` |
 | Per-entry fields | `{timestamp, ip, dry_run, keys_deleted, keys_skipped_hll, zset_members_removed, invoked_by}` |
 
-Source of truth: [`docs/REDIS_SCHEMA.md`](REDIS_SCHEMA.md) §Phase 0.
+Source of truth: [`docs/reference/REDIS_SCHEMA.md`](../reference/REDIS_SCHEMA.md) §Phase 0.
 Procedure documentation:
-[`docs/compliance/GDPR_COMPLIANCE.md`](compliance/GDPR_COMPLIANCE.md) §5.3.
+[`docs/compliance/GDPR_COMPLIANCE.md`](../compliance/GDPR_COMPLIANCE.md) §5.3.
 
 This is the load-bearing evidence for GDPR Article 17 (right to erasure)
 requests. Each invocation — including dry runs — is recorded.
@@ -146,7 +146,7 @@ requests. Each invocation — including dry runs — is recorded.
 
 The table below lists every key in this audit document and the retention
 it carries. **Each row is verifiable against
-[`docs/REDIS_SCHEMA.md`](REDIS_SCHEMA.md).**
+[`docs/reference/REDIS_SCHEMA.md`](../reference/REDIS_SCHEMA.md).**
 
 | Key | Type | Retention | Source of truth |
 |-----|------|-----------|-----------------|
@@ -171,7 +171,7 @@ it carries. **Each row is verifiable against
   `maxlen=100,000` cap and a GDPR-driven purge enforced by
   `POST /api/v1/compliance/purge-expired` against the configured
   `gdpr.retention_days` (default 30; see
-  [`../compliance/GDPR_COMPLIANCE.md`](compliance/GDPR_COMPLIANCE.md)
+  [`../compliance/GDPR_COMPLIANCE.md`](../compliance/GDPR_COMPLIANCE.md)
   §5.2 and `config/proxy.yml`).
 - `decisions:history` (Phase 82 governance) is an append-only Stream
   recording every approve/reject for the four-eyes dial workflow. No
@@ -186,7 +186,7 @@ it carries. **Each row is verifiable against
 **operational** record of each decision (`ip`, `ja4`, `risk_score`,
 `action_taken`, `dial_setting`, `counterfactuals`) and feeds the
 analytics node and the SIEM pipeline. Per
-[`docs/REDIS_SCHEMA.md`](REDIS_SCHEMA.md) §Phase 12 and §Phase 84,
+[`docs/reference/REDIS_SCHEMA.md`](../reference/REDIS_SCHEMA.md) §Phase 12 and §Phase 84,
 it is bounded by `maxlen=100,000` and purged by GDPR retention. It is
 not the primary evidence for **change-control or operator-action**
 audit; for those, use the three lists above.
@@ -195,8 +195,8 @@ audit; for those, use the three lists above.
 
 ## Cross-references
 
-- [`docs/REDIS_SCHEMA.md`](REDIS_SCHEMA.md) — authoritative key schema for every key cited above.
-- [`docs/compliance/GDPR_COMPLIANCE.md`](compliance/GDPR_COMPLIANCE.md) — erasure procedure and retention policy.
-- [`docs/compliance/soc2-control-narrative.md`](compliance/soc2-control-narrative.md) — SOC 2 narrative referencing `management:audit_log` and `management:policy_audit`.
-- [`docs/compliance/SECURITY_CONTROLS_MAPPING.md`](compliance/SECURITY_CONTROLS_MAPPING.md) — ISO 27001 / NIST CSF / PCI DSS mapping.
+- [`docs/reference/REDIS_SCHEMA.md`](../reference/REDIS_SCHEMA.md) — authoritative key schema for every key cited above.
+- [`docs/compliance/GDPR_COMPLIANCE.md`](../compliance/GDPR_COMPLIANCE.md) — erasure procedure and retention policy.
+- [`docs/compliance/soc2-control-narrative.md`](../compliance/soc2-control-narrative.md) — SOC 2 narrative referencing `management:audit_log` and `management:policy_audit`.
+- [`docs/compliance/SECURITY_CONTROLS_MAPPING.md`](../compliance/SECURITY_CONTROLS_MAPPING.md) — ISO 27001 / NIST CSF / PCI DSS mapping.
 - [`CHANGE_MANAGEMENT.md`](CHANGE_MANAGEMENT.md) — how config changes flow into these logs.

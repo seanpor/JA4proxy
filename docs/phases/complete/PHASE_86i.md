@@ -58,7 +58,7 @@ ja4proxy_loadtest_latency_seconds               histogram (buckets [0.0001, 0.00
 ja4proxy_loadtest_throughput_cps                gauge
 ```
 
-Register these metrics in `docs/OBSERVABILITY_STANDARDS.md` under a new `Load Testing` subsection.
+Register these metrics in `docs/reference/OBSERVABILITY_STANDARDS.md` under a new `Load Testing` subsection.
 
 ### Gap 4 — No Grafana capacity planning dashboard
 
@@ -113,7 +113,7 @@ Audience is platform/capacity team, distinct from the SecOps (`ja4proxy-overview
 
 ### Step 6 — Observability standards update
 
-- Add new `Load Testing` subsection to `docs/OBSERVABILITY_STANDARDS.md §1d` registering the 5 `ja4proxy_loadtest_*` metrics.
+- Add new `Load Testing` subsection to `docs/reference/OBSERVABILITY_STANDARDS.md §1d` registering the 5 `ja4proxy_loadtest_*` metrics.
 
 ### Step 7 — Grafana capacity dashboard
 
@@ -165,7 +165,7 @@ Update `CHANGELOG.md`, `docs/phases/manifest.yaml`, run `make sync`, write `PHAS
 - `test_benchmarks_md_has_hardware_header`: asserts hardware / OS / Git SHA / Go version fields are all populated.
 
 **`tests/integration/test_phase_86i_observability_standards.py`** — new:
-- `test_observability_standards_registers_loadtest_metrics`: greps `docs/OBSERVABILITY_STANDARDS.md` for each of the 5 new metric names.
+- `test_observability_standards_registers_loadtest_metrics`: greps `docs/reference/OBSERVABILITY_STANDARDS.md` for each of the 5 new metric names.
 
 ### Not testing
 
@@ -206,7 +206,7 @@ Update `CHANGELOG.md`, `docs/phases/manifest.yaml`, run `make sync`, write `PHAS
 
 ### Observability standards
 
-- [ ] `docs/OBSERVABILITY_STANDARDS.md` has a new Load Testing subsection registering all 5 metrics.
+- [ ] `docs/reference/OBSERVABILITY_STANDARDS.md` has a new Load Testing subsection registering all 5 metrics.
 
 ### Grafana dashboard
 

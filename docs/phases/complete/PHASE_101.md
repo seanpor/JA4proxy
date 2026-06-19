@@ -184,7 +184,7 @@ but impact operational clarity and code quality.
 
 **Steps:**
 
-1. In `management/compliance/purge.py`, on first invocation of `GDPRPurge.run()`, check Redis version. The redis-py client exposes this as `client.info()["redis_version"]` (a string like `"6.2.14"`). Parse the major.minor with `packaging.version.parse()` or a simple `tuple(int(x) for x in v.split(".")[:2])` comparison. If < 6.2, log a WARN and fall back to a time-based XRANGE + XDEL loop instead of `XTRIM … MINID`. Add a unit test that mocks `client.info()` returning `{"redis_version": "6.0.0"}` and asserts the fallback path is taken. Document the minimum Redis version in `docs/REDIS_SCHEMA.md`. **Note:** the redis-py `info()` method returns a dict, not a string — use `client.info()`, not `client.execute_command("INFO")`.
+1. In `management/compliance/purge.py`, on first invocation of `GDPRPurge.run()`, check Redis version. The redis-py client exposes this as `client.info()["redis_version"]` (a string like `"6.2.14"`). Parse the major.minor with `packaging.version.parse()` or a simple `tuple(int(x) for x in v.split(".")[:2])` comparison. If < 6.2, log a WARN and fall back to a time-based XRANGE + XDEL loop instead of `XTRIM … MINID`. Add a unit test that mocks `client.info()` returning `{"redis_version": "6.0.0"}` and asserts the fallback path is taken. Document the minimum Redis version in `docs/reference/REDIS_SCHEMA.md`. **Note:** the redis-py `info()` method returns a dict, not a string — use `client.info()`, not `client.execute_command("INFO")`.
 2. Rename `beaconing_records_cleaned` → `beaconing_datapoints_cleaned` in the Python dataclass (`management/compliance/purge.py:138, 205`) and any exposed Prometheus metric. Add a `CHANGELOG.md` entry noting this as a breaking change for dashboards parsing the old field name.
 3. In `management/compliance/pack_builder.py:203`, replace the `LRANGE management:audit_log 0 -1` call with a chunked loop reading 10k entries at a time (`LRANGE start stop`), stopping early when the timestamp drops below the window. Define a documented constant `AUDIT_LOG_CHUNK_SIZE = 10_000`.
 4. In `management/compliance/report_renderer.py`, create a module-level `Environment` keyed on `(template_dir, template_name)`. Modify `ReportRenderer.__init__` to reuse the cached Environment. Add a test asserting two `ReportRenderer()` instances share compiled templates (`id(t1.environment) == id(t2.environment)`).
@@ -676,7 +676,7 @@ installations in field deployments may not support MINID at all.
 **Fix:** On `GDPRPurge.run()` first invocation, run `INFO server` to check
 `redis_version`. If < 6.2, log a WARN and fall back to time-based XRANGE +
 XDEL loop (slower but correct on all versions). Document the minimum Redis
-version in `docs/REDIS_SCHEMA.md`.
+version in `docs/reference/REDIS_SCHEMA.md`.
 
 **Acceptance:**
 - Startup check emits the Redis version via a log line and a gauge

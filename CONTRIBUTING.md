@@ -30,7 +30,7 @@ Before writing any code:
 
 1. **`CLAUDE.md`** — architecture overview, phase index, and cross-cutting requirements.
 2. **`docs/phases/`** — Look for the active phase document you are working on.
-3. **`docs/STYLE_GUIDE.md`** — coding standards, log formats, and documentation requirements.
+3. **`docs/developer/STYLE_GUIDE.md`** — coding standards, log formats, and documentation requirements.
 
 ## Project Structure
 

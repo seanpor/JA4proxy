@@ -31,7 +31,7 @@ any implementation begins, plus a number of smaller risks worth addressing.
 | # | Issue | Severity |
 |---|-------|----------|
 | B1 | **Dependency Phase 105 is still PROPOSED.** 106c/106a/106g explicitly target ``, ``, `` — none of which exist. 106 cannot land those docs in a yet-to-be-created audience tree without either guessing at Phase 105's structure or producing work that Phase 105 will later move. | HIGH |
-| B2 | **Phase doc references `docs/phases/STYLE_GUIDE.md`** (line 448) but the actual file is `docs/STYLE_GUIDE.md`. | MEDIUM |
+| B2 | **Phase doc references `docs/phases/STYLE_GUIDE.md`** (line 448) but the actual file is `docs/developer/STYLE_GUIDE.md`. | MEDIUM |
 | B3 | **"SHA-pinned" CI acceptance criterion (line 410-411) is miscategorised.** The project SHA-pins third-party actions, not local workspace scripts. `scripts/traceability.py` is not a third-party action. | LOW (wording) |
 | B4 | **106d "CI blocks if any `REQ-*` tag has no `Verified by:` clause"** conflicts with the retroactive scope cap of seven phases. If CI enforces `Verified by:` for every `REQ-*` tag, only the seven tagged phases can use the tag — but future phases will need it too. The rule needs to be "CI blocks if any `REQ-*` tag has no `Verified by:` **AND the phase's acceptance-criteria section uses `REQ-*` at all**" (opt-in per phase until universal). | MEDIUM |
 | B5 | **106g CASE_STUDIES.md requires reading 3 existing phase docs in full.** No sizing contingency if a case study turns out not to be load-bearing. Mitigation: pre-select the three case-study phases and verify each has enough "what went wrong" material before committing. | LOW |
@@ -52,7 +52,7 @@ case-study selection for B5.
 3. ✅ `docs/phases/manifest.yaml` — Phase 106 is PROPOSED. **Dependency
    Phase 105 is also PROPOSED** (see B1 above).
 4. ✅ `config/proxy.yml` — not touched by this phase.
-5. ✅ `docs/OBSERVABILITY_STANDARDS.md` — §1 (Prometheus Metrics) cited as
+5. ✅ `docs/reference/OBSERVABILITY_STANDARDS.md` — §1 (Prometheus Metrics) cited as
    source material for 106a SERVICE_TARGETS. SLI runbooks exist:
    `slo_availability.md`, `slo_fp_rate.md`, `slo_latency.md`,
    `slo_redis_correctness.md` (the fourth is uncited in the phase doc — a gap).
@@ -119,7 +119,7 @@ as the dominant quality attribute — not as one of several equal ones.
 - **D3 (INFO):** No changes to Dockerfile, docker-compose, Helm chart, or
   release pipeline. No rollback risk. No data-migration risk. No feature
   flag needed — this is documentation.
-- **D4 (LOW):** `scripts/traceability.py` generates `docs/TRACEABILITY.md`.
+- **D4 (LOW):** `scripts/traceability.py` generates `docs/reference/TRACEABILITY.md`.
   Is this file committed, or generated in CI? Phase doc is ambiguous.
   **Recommendation:** commit the generated file and have CI fail if it's
   out of sync with the source phase docs (same pattern as
@@ -149,7 +149,7 @@ as the dominant quality attribute — not as one of several equal ones.
 
 - **A1 (INFO):** No changes to the proxy pipeline (TCP accept → bypass
   → signals → scorer → action). No new modules introduced. No Redis
-  schema changes — `docs/REDIS_SCHEMA.md` unchanged.
+  schema changes — `docs/reference/REDIS_SCHEMA.md` unchanged.
 - **A2 (INFO):** No concurrency implications. Scripts are offline
   analysis tools run by CI.
 - **A3 (INFO):** IPv6 not applicable (no IP-touching code).
@@ -161,7 +161,7 @@ as the dominant quality attribute — not as one of several equal ones.
 - **A5 (MEDIUM):** 106d requires a schema for acceptance criteria
   (`REQ-105-01: …`). This is a **cross-cutting convention** that affects
   every future phase doc. **Recommendation:** the schema addition in
-  `docs/STYLE_GUIDE.md` (note: not `docs/phases/STYLE_GUIDE.md` — see B2)
+  `docs/developer/STYLE_GUIDE.md` (note: not `docs/phases/STYLE_GUIDE.md` — see B2)
   should be landed **before** any retroactive tagging, so the convention
   is clear and doesn't need re-work.
 
@@ -196,7 +196,7 @@ as the dominant quality attribute — not as one of several equal ones.
 - **Doc1 (HIGH, see B1 above):** 106c/106a/106g link into `docs/for-*/`
   directories that don't exist. Depends on Phase 105 delivering them.
 - **Doc2 (MEDIUM, see B2 above):** phase doc line 448 references
-  `docs/phases/STYLE_GUIDE.md` — correct path is `docs/STYLE_GUIDE.md`.
+  `docs/phases/STYLE_GUIDE.md` — correct path is `docs/developer/STYLE_GUIDE.md`.
 - **Doc3 (LOW):** CHANGELOG entry format — the phase doc says "Phase 106
   entry" (line 413) without specifying the format. Use the project's
   existing format (see recent `## [Unreleased] - Phase 101 — …` entries).
@@ -224,7 +224,7 @@ as the dominant quality attribute — not as one of several equal ones.
 | # | Finding | Severity | Lens | Recommendation |
 |---|---------|----------|------|----------------|
 | B1 | Phase 105 (dependency) is PROPOSED; `docs/for-*/` dirs missing | HIGH | Doc | Either wait for Phase 105 Wave 1 to land audience scaffolding, or pre-create minimal `docs/for-*/README.md` stubs within Phase 106 and reconcile with Phase 105 on merge |
-| B2 | Path typo `docs/phases/STYLE_GUIDE.md` | MEDIUM | Doc | Fix to `docs/STYLE_GUIDE.md` before task decomposition |
+| B2 | Path typo `docs/phases/STYLE_GUIDE.md` | MEDIUM | Doc | Fix to `docs/developer/STYLE_GUIDE.md` before task decomposition |
 | B4 | CI blocks on any `REQ-*` tag missing `Verified by:` — conflicts with 7-phase scope cap | MEDIUM | DevOps | Make tag-enforcement opt-in per phase (phase must mark itself REQ-tagged in its front-matter) |
 | T1 | Two new scripts have no test plan | HIGH | Testing | Add unit tests for `traceability.py` and `process_metrics.py` |
 | A5 | REQ-tag schema is cross-cutting; must land before retro-tagging | MEDIUM | Arch | Sequence: STYLE_GUIDE edit → retro-tag first phase → expand |
@@ -256,7 +256,7 @@ as the dominant quality attribute — not as one of several equal ones.
 **Parallel with:** all of Phase 1
 **Files to touch:** `docs/phases/complete/PHASE_106.md`
 **What to do:**
-- Change `docs/phases/STYLE_GUIDE.md` → `docs/STYLE_GUIDE.md` on line 448
+- Change `docs/phases/STYLE_GUIDE.md` → `docs/developer/STYLE_GUIDE.md` on line 448
 - Verify no other references to the wrong path in the file
 **Done when:**
 - [ ] `grep -n "phases/STYLE_GUIDE" docs/phases/complete/PHASE_106.md` returns nothing
@@ -287,7 +287,7 @@ marker makes its job easy (merge, don't overwrite).
 **Size:** S (30 min)
 **Depends on:** 1.1 (path fix)
 **Parallel with:** 1.2
-**Files to touch:** `docs/STYLE_GUIDE.md`
+**Files to touch:** `docs/developer/STYLE_GUIDE.md`
 **What to do:**
 - Add a new section "Acceptance-Criteria Tags" that defines:
   - Optional `REQ-NNN-MM:` prefix (NNN = phase number, MM = sequential 2-digit ID)
@@ -296,7 +296,7 @@ marker makes its job easy (merge, don't overwrite).
   - If a phase doesn't use tags, CI skips it — enforcement is opt-in per phase via `req_tagged: true` in the phase's frontmatter in `manifest.yaml`
 - Include one worked example.
 **Done when:**
-- [ ] New section exists in `docs/STYLE_GUIDE.md` with worked example
+- [ ] New section exists in `docs/developer/STYLE_GUIDE.md` with worked example
 - [ ] Section states opt-in-per-phase rule clearly
 **Watch out for:** Don't make tagging mandatory for existing phases; the enforcement is opt-in.
 
@@ -309,18 +309,18 @@ marker makes its job easy (merge, don't overwrite).
 - Ensure `req_tagged: true` is a recognised optional frontmatter field on phase entries in `manifest.yaml`.
 - No phase entries actually set it yet — that happens in Phase 3.
 **Done when:**
-- [ ] The field's semantics documented in `docs/STYLE_GUIDE.md` (same edit as 1.3)
+- [ ] The field's semantics documented in `docs/developer/STYLE_GUIDE.md` (same edit as 1.3)
 **Watch out for:** If there's a schema file for manifest.yaml (JSON-schema?), update it. Otherwise this is documentation-only.
 
 ---
 
 ### Phase 2 — Core docs (Wave 1, five agents can run in parallel)
 
-#### Sub-task 2.1: Write `docs/SERVICE_TARGETS.md` (106a)
+#### Sub-task 2.1: Write `docs/reference/SERVICE_TARGETS.md` (106a)
 **Size:** S (2-3h)
 **Depends on:** 1.2
 **Parallel with:** 2.2, 2.3, 2.7, 2.8
-**Files to touch:** `docs/SERVICE_TARGETS.md` (new)
+**Files to touch:** `docs/reference/SERVICE_TARGETS.md` (new)
 **What to do:**
 - Read all four SLO runbooks: `slo_availability.md`, `slo_fp_rate.md`, `slo_latency.md`, `slo_redis_correctness.md` (←**remember the 4th**)
 - For each SLI: name, what it measures, target (SLO), measurement window, source runbook link, alert name
@@ -329,23 +329,23 @@ marker makes its job easy (merge, don't overwrite).
 - Reporting cadence: quarterly retrospective doc (link to 106e output)
 - Add links from `README.md` and `README.md` (the placeholder files from 1.2)
 **Done when:**
-- [ ] `docs/SERVICE_TARGETS.md` exists with ≥ 4 SLIs (availability, FP rate, latency, Redis correctness)
+- [ ] `docs/reference/SERVICE_TARGETS.md` exists with ≥ 4 SLIs (availability, FP rate, latency, Redis correctness)
 - [ ] Each SLI cites its source runbook by file path
 - [ ] Two audience READMEs link back to SERVICE_TARGETS
 - [ ] Doc is ≤ 150 lines
 **Watch out for:** Don't invent SLOs. Only cite what's already in the runbooks. If an SLO is missing a number, write "TARGET TBD — see <runbook>" rather than guessing.
 
-#### Sub-task 2.2: Write `docs/RISK_REGISTER.md` (106b)
+#### Sub-task 2.2: Write `docs/security/RISK_REGISTER.md` (106b)
 **Size:** M (3-4h)
 **Depends on:** 1.2
 **Parallel with:** 2.1, 2.3, 2.7, 2.8
-**Files to touch:** `docs/RISK_REGISTER.md` (new)
+**Files to touch:** `docs/security/RISK_REGISTER.md` (new)
 **What to do:**
 - Read:
   - `docs/security/findings.yaml` (1802 lines — canonical findings)
   - `docs/security/threat-model.md`
   - `docs/security/COMPREHENSIVE_SECURITY_AUDIT.md`
-  - `docs/DMZ_READINESS.md`
+  - `docs/security/DMZ_READINESS.md`
   - `docs/security/EXCEPTIONS.md`, `CVE_EXCEPTIONS.md`
 - **Dedup rule (document at top of file):** two risks are the same if they share (attack surface, failure mode, primary mitigation).
 - Produce a table: `| ID | Risk | Category | Likelihood | Impact | Owner | Mitigation | Residual | Status |`
@@ -392,14 +392,14 @@ marker makes its job easy (merge, don't overwrite).
 **What to do:**
 - Walk `docs/phases/PHASE_*.md`, extract `REQ-NNN-MM:` tags and `Verified by:` clauses
 - Opt-in per phase: read `manifest.yaml`, skip phases without `req_tagged: true`
-- Emit `docs/TRACEABILITY.md` as a sortable table: REQ-ID | description | verifying test | status
+- Emit `docs/reference/TRACEABILITY.md` as a sortable table: REQ-ID | description | verifying test | status
 - Exit 1 if a phase marked `req_tagged: true` has a REQ-tag without a `Verified by:` clause — otherwise exit 0
 - Unit tests: fixture phase doc with tagged / untagged criteria, assert correct extraction, assert CI-failure exit on missing clause
 - Module docstring must state: "Reads local files + manifest.yaml only. No network."
 **Done when:**
 - [ ] `python3 scripts/traceability.py` runs clean on the current repo (exits 0)
 - [ ] `tests/unit/test_traceability.py` has ≥ 5 tests covering extraction, error paths
-- [ ] Generated `docs/TRACEABILITY.md` exists
+- [ ] Generated `docs/reference/TRACEABILITY.md` exists
 **Watch out for:** Don't add `pip install` requirements. Use stdlib + PyYAML (already in `requirements.txt`).
 
 #### Sub-task 2.5: Write `scripts/process_metrics.py` + unit tests (106e tooling)
@@ -463,11 +463,11 @@ marker makes its job easy (merge, don't overwrite).
 - [ ] Every row's `Test coverage` links to an existing test file
 **Watch out for:** Scope creep. If a row needs more than one-line description, it's too much — keep it an index.
 
-#### Sub-task 2.8: Write `docs/QUALITY_PLAN.md` (106h)
+#### Sub-task 2.8: Write `docs/developer/QUALITY_PLAN.md` (106h)
 **Size:** S (2h)
 **Depends on:** 2.1 (SERVICE_TARGETS) — should cite it
 **Parallel with:** 2.2, 2.3, 2.7
-**Files to touch:** `docs/QUALITY_PLAN.md` (new)
+**Files to touch:** `docs/developer/QUALITY_PLAN.md` (new)
 **What to do:**
 - Quality attributes (6 rows): performance, availability, security, maintainability, portability, usability — each with target + verification source
 - Defect management: reporting / triage / fix / verify. Cite `SECURITY.md` for security-bug SLA
@@ -565,7 +565,7 @@ Each of these is independent and parallelizable. Each is XS (~30 min per phase d
 **What to do:**
 - Entry point: why this section exists, who should read it, links to METHOD / CASE_STUDIES / PHASE_ANATOMY / retrospectives
 - ≤ 60 lines
-- Link from root `README.md` — single prominent line: "**How we build →** [engineering-method](docs/engineering-method/README.md)"
+- Link from root `README.md` — single prominent line: "**How we build →** [engineering-method](../../engineering-method/README.md)"
 **Done when:**
 - [ ] README exists with all four cross-links
 - [ ] Root `README.md` has the "How we build →" line
@@ -586,7 +586,7 @@ Each of these is independent and parallelizable. Each is XS (~30 min per phase d
   ```yaml
   continue-on-error: ${{ github.event.head_commit.timestamp < '2026-05-08T00:00:00Z' }}
   ```
-- Also run `make sync`-style drift check: if `docs/TRACEABILITY.md` differs from regenerated output, fail.
+- Also run `make sync`-style drift check: if `docs/reference/TRACEABILITY.md` differs from regenerated output, fail.
 - Third-party actions (checkout, setup-python) must be SHA-pinned per existing CI style (see ci.yml line 38). Local scripts do NOT need SHA-pinning — that's for Actions from external repos.
 **Done when:**
 - [ ] CI job runs green on the current repo
@@ -615,7 +615,7 @@ Each of these is independent and parallelizable. Each is XS (~30 min per phase d
 **Parallel with:** 5.1, 5.2, 5.4
 **Files to touch:** `tests/docs/test_service_targets_sync.py` (new)
 **What to do:**
-- Parse `docs/SERVICE_TARGETS.md` — extract SLI name → target
+- Parse `docs/reference/SERVICE_TARGETS.md` — extract SLI name → target
 - Parse each runbook — extract its target
 - Assert every runbook SLO appears in SERVICE_TARGETS with the same target
 - Assert every SERVICE_TARGETS row links to an existing runbook
@@ -664,7 +664,7 @@ Each of these is independent and parallelizable. Each is XS (~30 min per phase d
 **What to do:**
 - Set `status: COMPLETE`, `completed: YYYY-MM-DD` for Phase 106
 - Run `make sync`
-- Commit the generated `docs/phases/TODO.md` and `docs/PROJECT_STATUS.md` drift alongside the manifest change
+- Commit the generated `docs/phases/TODO.md` and `docs/reference/PROJECT_STATUS.md` drift alongside the manifest change
 **Done when:**
 - [ ] Manifest shows COMPLETE
 - [ ] `make sync` output committed

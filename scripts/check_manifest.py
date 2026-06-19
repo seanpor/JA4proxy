@@ -40,7 +40,7 @@ CLAUDE_PATH = ROOT / "CLAUDE.md"
 def check_sync() -> list[str]:
     """Return a list of failure messages (empty = pass).
 
-    Phase 332: docs/phases/TODO.md and docs/PROJECT_STATUS.md are no longer
+    Phase 332: docs/phases/TODO.md and docs/reference/PROJECT_STATUS.md are no longer
     committed — they are build artifacts regenerated from manifest.yaml by
     ``make sync`` (and published by CI). There is therefore nothing to diff and
     no "you forgot to regenerate" failure mode left. What still matters is that

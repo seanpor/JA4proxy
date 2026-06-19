@@ -21,7 +21,7 @@ date answered, the responsible engineer, and any deviation notes.
 > **Default dial = 0 (monitor-only).** JA4proxy never blocks on first deploy.
 > The dial is raised consciously, in the steps below, with explicit success
 > criteria and rollback triggers at each stage. See
-> [`docs/security/threat-model.md`](security/threat-model.md) §"Bypass
+> [`docs/security/threat-model.md`](../security/threat-model.md) §"Bypass
 > Rules" for the asymmetry rationale.
 
 ---
@@ -59,7 +59,7 @@ date answered, the responsible engineer, and any deviation notes.
 
 - [ ] SIEM ingestion verified end-to-end (synthetic event reaches SIEM within
       60 seconds of emission — see
-      [`SIEM_INTEGRATION.md`](SIEM_INTEGRATION.md))
+      [`SIEM_INTEGRATION.md`](../security/SIEM_INTEGRATION.md))
 - [ ] Grafana dashboard shows live `ja4proxy_*` metrics without gaps
 - [ ] Alertmanager has at least one routing path configured (email,
       PagerDuty, or webhook) and a test alert reaches the destination
@@ -83,7 +83,7 @@ date answered, the responsible engineer, and any deviation notes.
 - [ ] CPU usage per JA4proxy instance ≤ 50% of allocated quota at peak
 - [ ] Memory usage stable (no upward drift indicating a leak)
 - [ ] Redis memory usage tracking expected sizing in
-      [`docs/REDIS_SCHEMA.md`](REDIS_SCHEMA.md)
+      [`docs/reference/REDIS_SCHEMA.md`](../reference/REDIS_SCHEMA.md)
 - [ ] Connection-decision latency p99 ≤ 10 ms (p99 of
       `ja4proxy_request_duration_seconds`)
 
@@ -96,7 +96,7 @@ date answered, the responsible engineer, and any deviation notes.
 - [ ] No alerts fired for the asymmetry-violating events (browser blocked,
       whitelist bypass failed, etc.)
 - [ ] Operations team has run through the
-      [`docs/INCIDENT_RESPONSE.md`](INCIDENT_RESPONSE.md) playbook in a
+      [`docs/operations/INCIDENT_RESPONSE.md`](../operations/INCIDENT_RESPONSE.md) playbook in a
       tabletop exercise
 
 #### 7-day POC success criteria (all must be yes)
@@ -128,7 +128,7 @@ date answered, the responsible engineer, and any deviation notes.
       from Day 7 review
 - [ ] No customer support tickets attributable to JA4proxy
 - [ ] SIEM correlation rules (see
-      [`SIEM_INTEGRATION.md`](SIEM_INTEGRATION.md)) tuned against real flag
+      [`SIEM_INTEGRATION.md`](../security/SIEM_INTEGRATION.md)) tuned against real flag
       volume — no rule firing more than 5x per hour without operator
       acknowledgement
 
@@ -165,9 +165,9 @@ date answered, the responsible engineer, and any deviation notes.
 - [ ] Bot block volume materially exceeds the pre-JA4proxy baseline
       (validated against application logs / WAF reports)
 - [ ] Operations team independently produced and resolved one incident
-      following [`docs/INCIDENT_RESPONSE.md`](INCIDENT_RESPONSE.md)
+      following [`docs/operations/INCIDENT_RESPONSE.md`](../operations/INCIDENT_RESPONSE.md)
 - [ ] Compliance team has reviewed
-      [`docs/compliance/SECURITY_CONTROLS_MAPPING.md`](compliance/SECURITY_CONTROLS_MAPPING.md)
+      [`docs/compliance/SECURITY_CONTROLS_MAPPING.md`](../compliance/SECURITY_CONTROLS_MAPPING.md)
       and accepted residual risks
 - [ ] SIEM correlation rules in production with documented runbook entries
 
@@ -186,10 +186,10 @@ date answered, the responsible engineer, and any deviation notes.
 
 If all success criteria are met, escalate to dial `100` per the **graduated
 rollout** schedule documented in
-[`docs/OPERATIONS_GUIDE.md`](OPERATIONS_GUIDE.md#🛡-security-operations-the-dial). Continue
+[`docs/operations/OPERATIONS_GUIDE.md`](../operations/OPERATIONS_GUIDE.md#🛡-security-operations-the-dial). Continue
 the daily monitoring rhythm; transition operational ownership to the SecOps
 team using
-[`docs/OPERATIONS_GUIDE.md`](OPERATIONS_GUIDE.md).
+[`docs/operations/OPERATIONS_GUIDE.md`](../operations/OPERATIONS_GUIDE.md).
 
 If any rollback trigger fired, treat the trigger as the primary investigation
 artefact: file an ADR for the residual risk, document the mitigation, and
@@ -202,11 +202,11 @@ exercise.
 
 - [`SCOPE_AND_LIMITATIONS.md`](SCOPE_AND_LIMITATIONS.md)
   — what JA4proxy will and will not detect
-- [`SIEM_INTEGRATION.md`](SIEM_INTEGRATION.md) — log
+- [`SIEM_INTEGRATION.md`](../security/SIEM_INTEGRATION.md) — log
   forwarding recipes
-- [`docs/OPERATIONS_GUIDE.md`](OPERATIONS_GUIDE.md) — daily operations and dial playbook
+- [`docs/operations/OPERATIONS_GUIDE.md`](../operations/OPERATIONS_GUIDE.md) — daily operations and dial playbook
   — dial progression playbook
-- [`docs/runbooks/ja4proxy_dial_change_unexpected.md`](runbooks/ja4proxy_dial_change_unexpected.md)
+- [`docs/runbooks/ja4proxy_dial_change_unexpected.md`](../runbooks/ja4proxy_dial_change_unexpected.md)
   — incident runbook for unexpected dial changes
-- [`docs/INCIDENT_RESPONSE.md`](INCIDENT_RESPONSE.md) — incident response
+- [`docs/operations/INCIDENT_RESPONSE.md`](../operations/INCIDENT_RESPONSE.md) — incident response
   procedures

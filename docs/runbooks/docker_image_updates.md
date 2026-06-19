@@ -64,7 +64,7 @@ Trivy reports findings in a table. The columns that matter:
 1. Edit the image version in the relevant compose file(s):
    - `deploy/docker/docker-compose.prod.yml`
    - `deploy/docker/docker-compose.monitoring.yml`
-2. Update `docs/DOCKER_IMAGES.md` — change the `Pinned version` and `Last reviewed` columns.
+2. Update `docs/reference/DOCKER_IMAGES.md` — change the `Pinned version` and `Last reviewed` columns.
 3. Update `TRIVY_IMAGES` in `Makefile` to match the new version.
 4. Validate the compose files parse correctly:
    ```bash
@@ -90,7 +90,7 @@ First-party images (`ja4proxy`, `ja4proxy-analytics`, `ja4proxy-tarpit`) inherit
    - `deploy/docker/Dockerfile`
    - `src/analytics/Dockerfile`
    - `deploy/docker/Dockerfile.test`
-3. Update `docs/DOCKER_IMAGES.md` — `Pinned version` and `Last reviewed`.
+3. Update `docs/reference/DOCKER_IMAGES.md` — `Pinned version` and `Last reviewed`.
 4. Rebuild and scan:
    ```bash
    make build && make scan-first-party && make scan-dockerfiles

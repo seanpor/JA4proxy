@@ -23,33 +23,33 @@
 - **docs/developer/GO_PORT_GUIDE.md**: [404] https://github.com/ja4proxy/discussions (at 956:23) | Rejected status code: 404 Not Found
 - **docs/developer/SIGNAL_DEVELOPMENT.md**: [404] https://github.com/ja4proxy/discussions (at 774:23) | Rejected status code: 404 Not Found
 - **docs/engineering-method/METHOD.md**: [ERROR] file:///input/docs/phases/complete/PHASE_101_review.md (at 208:4) | File not found. Check if file exists and path is correct
-- **docs/EVALUATION_CHECKLIST.md**: [ERROR] file:///input/OPERATIONS.md (at 192:1) | File not found. Check if file exists and path is correct
-- **docs/EVALUATION_CHECKLIST.md**: [ERROR] file:///input/OPERATIONS.md (at 207:3) | File not found. Check if file exists and path is correct
-- **docs/EVALUATION_CHECKLIST.md**: [ERROR] file:///input/operator/BLOCKING_OPERATIONS.md#how-to-change-the-dial (at 189:1) | File not found. Check if file exists and path is correct
-- **docs/EVALUATION_CHECKLIST.md**: [ERROR] file:///input/operator/BLOCKING_OPERATIONS.md#how-to-change-the-dial (at 208:3) | File not found. Check if file exists and path is correct
-- **docs/GETTING_STARTED.md**: [ERROR] file:///AGENTS.md (at 94:35) | File not found. Check if file exists and path is correct
-- **docs/GETTING_STARTED.md**: [ERROR] file:///CONTRIBUTING.md (at 12:35) | File not found. Check if file exists and path is correct
-- **docs/GETTING_STARTED.md**: [ERROR] file:///CONTRIBUTING.md (at 91:4) | File not found. Check if file exists and path is correct
-- **docs/HOW_WE_WORK.md**: [ERROR] file:///AGENTS.md (at 16:28) | File not found. Check if file exists and path is correct
-- **docs/HOW_WE_WORK.md**: [ERROR] file:///AGENTS.md (at 213:1) | File not found. Check if file exists and path is correct
-- **docs/HOW_WE_WORK.md**: [ERROR] file:///AGENTS.md (at 222:3) | File not found. Check if file exists and path is correct
-- **docs/HOW_WE_WORK.md**: [ERROR] file:///CLAUDE.md (at 18:1) | File not found. Check if file exists and path is correct
-- **docs/HOW_WE_WORK.md**: [ERROR] file:///CLAUDE.md (at 220:41) | File not found. Check if file exists and path is correct
-- **docs/HOW_WE_WORK.md**: [ERROR] file:///CLAUDE.md (at 37:3) | File not found. Check if file exists and path is correct
-- **docs/HOW_WE_WORK.md**: [ERROR] file:///CLAUDE.md (at 80:1) | File not found. Check if file exists and path is correct
-- **docs/HOW_WE_WORK.md**: [ERROR] file:///CONTRIBUTING.md (at 224:3) | File not found. Check if file exists and path is correct
+- **docs/product/EVALUATION_CHECKLIST.md**: [ERROR] file:///input/OPERATIONS.md (at 192:1) | File not found. Check if file exists and path is correct
+- **docs/product/EVALUATION_CHECKLIST.md**: [ERROR] file:///input/OPERATIONS.md (at 207:3) | File not found. Check if file exists and path is correct
+- **docs/product/EVALUATION_CHECKLIST.md**: [ERROR] file:///input/operator/BLOCKING_OPERATIONS.md#how-to-change-the-dial (at 189:1) | File not found. Check if file exists and path is correct
+- **docs/product/EVALUATION_CHECKLIST.md**: [ERROR] file:///input/operator/BLOCKING_OPERATIONS.md#how-to-change-the-dial (at 208:3) | File not found. Check if file exists and path is correct
+- **docs/developer/GETTING_STARTED.md**: [ERROR] file:///AGENTS.md (at 94:35) | File not found. Check if file exists and path is correct
+- **docs/developer/GETTING_STARTED.md**: [ERROR] file:///CONTRIBUTING.md (at 12:35) | File not found. Check if file exists and path is correct
+- **docs/developer/GETTING_STARTED.md**: [ERROR] file:///CONTRIBUTING.md (at 91:4) | File not found. Check if file exists and path is correct
+- **docs/developer/HOW_WE_WORK.md**: [ERROR] file:///AGENTS.md (at 16:28) | File not found. Check if file exists and path is correct
+- **docs/developer/HOW_WE_WORK.md**: [ERROR] file:///AGENTS.md (at 213:1) | File not found. Check if file exists and path is correct
+- **docs/developer/HOW_WE_WORK.md**: [ERROR] file:///AGENTS.md (at 222:3) | File not found. Check if file exists and path is correct
+- **docs/developer/HOW_WE_WORK.md**: [ERROR] file:///CLAUDE.md (at 18:1) | File not found. Check if file exists and path is correct
+- **docs/developer/HOW_WE_WORK.md**: [ERROR] file:///CLAUDE.md (at 220:41) | File not found. Check if file exists and path is correct
+- **docs/developer/HOW_WE_WORK.md**: [ERROR] file:///CLAUDE.md (at 37:3) | File not found. Check if file exists and path is correct
+- **docs/developer/HOW_WE_WORK.md**: [ERROR] file:///CLAUDE.md (at 80:1) | File not found. Check if file exists and path is correct
+- **docs/developer/HOW_WE_WORK.md**: [ERROR] file:///CONTRIBUTING.md (at 224:3) | File not found. Check if file exists and path is correct
 - **docs/MONITORING_SETUP.md**: [ERROR] http://localhost:3001/ (at 786:14) | Connection refused - server may be down or port blocked
 - **docs/MONITORING_SETUP.md**: [ERROR] http://localhost:9091/ (at 186:6) | Connection refused - server may be down or port blocked
 - **docs/MONITORING_SETUP.md**: [ERROR] http://localhost:9091/ (at 784:17) | Connection refused - server may be down or port blocked
 - **docs/MONITORING_SETUP.md**: [ERROR] http://localhost:9093/ (at 785:19) | Connection refused - server may be down or port blocked
-- **docs/PHASE_LIFECYCLE.md**: [ERROR] file:///AGENTS.md (at 14:1) | File not found. Check if file exists and path is correct
-- **docs/PHASE_LIFECYCLE.md**: [ERROR] file:///AGENTS.md (at 151:1) | File not found. Check if file exists and path is correct
-- **docs/PHASE_LIFECYCLE.md**: [ERROR] file:///AGENTS.md (at 160:3) | File not found. Check if file exists and path is correct
-- **docs/PHASE_LIFECYCLE.md**: [ERROR] file:///AGENTS.md (at 28:25) | File not found. Check if file exists and path is correct
-- **docs/PHASE_LIFECYCLE.md**: [ERROR] file:///CLAUDE.md (at 158:3) | File not found. Check if file exists and path is correct
-- **docs/PHASE_LIFECYCLE.md**: [ERROR] file:///CLAUDE.md (at 76:3) | File not found. Check if file exists and path is correct
-- **docs/PHASE_LIFECYCLE.md**: [ERROR] file:///input/DOCUMENTATION_STANDARDS.md (at 136:12) | File not found. Check if file exists and path is correct
-- **docs/PHASE_LIFECYCLE.md**: [ERROR] file:///input/DOCUMENTATION_STANDARDS.md (at 168:3) | File not found. Check if file exists and path is correct
+- **docs/developer/PHASE_LIFECYCLE.md**: [ERROR] file:///AGENTS.md (at 14:1) | File not found. Check if file exists and path is correct
+- **docs/developer/PHASE_LIFECYCLE.md**: [ERROR] file:///AGENTS.md (at 151:1) | File not found. Check if file exists and path is correct
+- **docs/developer/PHASE_LIFECYCLE.md**: [ERROR] file:///AGENTS.md (at 160:3) | File not found. Check if file exists and path is correct
+- **docs/developer/PHASE_LIFECYCLE.md**: [ERROR] file:///AGENTS.md (at 28:25) | File not found. Check if file exists and path is correct
+- **docs/developer/PHASE_LIFECYCLE.md**: [ERROR] file:///CLAUDE.md (at 158:3) | File not found. Check if file exists and path is correct
+- **docs/developer/PHASE_LIFECYCLE.md**: [ERROR] file:///CLAUDE.md (at 76:3) | File not found. Check if file exists and path is correct
+- **docs/developer/PHASE_LIFECYCLE.md**: [ERROR] file:///input/DOCUMENTATION_STANDARDS.md (at 136:12) | File not found. Check if file exists and path is correct
+- **docs/developer/PHASE_LIFECYCLE.md**: [ERROR] file:///input/DOCUMENTATION_STANDARDS.md (at 168:3) | File not found. Check if file exists and path is correct
 - **docs/phases/archive/PHASE_22_JUNIOR.md**: [404] https://www.backblaze.com/blog/incremental-vs-differential-backup/ (at 450:16) | Rejected status code: 404 Not Found
 - **docs/phases/archive/PHASE_22_JUNIOR.md**: [404] https://www.youtube.com/watch?v=... (at 439:14) | Rejected status code: 404 Not Found
 - **docs/phases/archive/PHASE_23_JUNIOR.md**: [404] https://dev.maxmind.com/geoip/geolite2-free-geolocation-datasets (at 715:3) | Rejected status code: 404 Not Found
@@ -70,10 +70,10 @@
 - **docs/phases/complete/PHASE_17.md**: [ERROR] file:///input/docs/phases/complete/archive/PHASE_17_SENIOR.md (at 19:7) | File not found. Check if file exists and path is correct
 - **docs/phases/complete/PHASE_64.md**: [404] https://promlabs.com/promql-analyzer/ (at 635:63) | Rejected status code: 404 Not Found
 - **docs/phases/TODO.md**: [ERROR] file:///input/docs/phases/complete/PHASE_101.md (at 12:22) | File not found. Check if file exists and path is correct
-- **docs/POC_QUICKSTART.md**: [ERROR] http://localhost:3001/ (at 71:8) | Connection refused - server may be down or port blocked
-- **docs/QUALITY_PLAN.md**: [ERROR] file:///input/docs/phases/PHASE_106.md (at 158:28) | File not found. Check if file exists and path is correct
-- **docs/QUALITY_PLAN.md**: [ERROR] file:///input/docs/phases/PHASE_14.md (at 44:262) | File not found. Check if file exists and path is correct
-- **docs/QUALITY_PLAN.md**: [ERROR] file:///input/tests/unit/test_pages_threat_intel.py (at 47:159) | File not found. Check if file exists and path is correct
+- **docs/operations/POC_QUICKSTART.md**: [ERROR] http://localhost:3001/ (at 71:8) | Connection refused - server may be down or port blocked
+- **docs/developer/QUALITY_PLAN.md**: [ERROR] file:///input/docs/phases/PHASE_106.md (at 158:28) | File not found. Check if file exists and path is correct
+- **docs/developer/QUALITY_PLAN.md**: [ERROR] file:///input/docs/phases/PHASE_14.md (at 44:262) | File not found. Check if file exists and path is correct
+- **docs/developer/QUALITY_PLAN.md**: [ERROR] file:///input/tests/unit/test_pages_threat_intel.py (at 47:159) | File not found. Check if file exists and path is correct
 - **docs/README.md**: [ERROR] file:///input/docs/decisions/README.md (at 26:3) | File not found. Check if file exists and path is correct
 - **docs/reports/archive/ENTERPRISE_REVIEW_2026-02-15.md**: [ERROR] http://localhost:3001/ (at 102:28) | Connection refused - server may be down or port blocked
 - **docs/reports/archive/ENTERPRISE_REVIEW_2026-02-15.md**: [ERROR] http://localhost:9090/metrics (at 92:28) | Connection refused - server may be down or port blocked
@@ -88,23 +88,23 @@
 - **docs/runbooks/credential_rotation.md**: [404] https://www.abuseipdb.com/account/api (at 134:16) | Rejected status code: 404 Not Found
 - **docs/runbooks/main_is_red.md**: [ERROR] file:///input/docs/runbooks/QUALITY_PLAN.md (at 216:3) | File not found. Check if file exists and path is correct
 - **docs/runbooks/main_is_red.md**: [ERROR] file:///input/docs/runbooks/QUALITY_PLAN.md (at 54:1) | File not found. Check if file exists and path is correct
-- **docs/SCALING_GUIDE.md**: [ERROR] file:///input/docs/operator/CAPACITY_PLANNING.md (at 162:159) | File not found. Check if file exists and path is correct
-- **docs/SCALING_GUIDE.md**: [ERROR] file:///input/docs/operator/CAPACITY_PLANNING.md (at 187:134) | File not found. Check if file exists and path is correct
-- **docs/SCALING_GUIDE.md**: [ERROR] file:///input/docs/operator/CAPACITY_PLANNING.md (at 227:3) | File not found. Check if file exists and path is correct
-- **docs/SCALING_GUIDE.md**: [ERROR] file:///input/docs/phases/PHASE_26.md (at 507:3) | File not found. Check if file exists and path is correct
-- **docs/SECURITY_TESTING.md**: [ERROR] http://localhost:9091/ (at 598:3) | Error (cached)
-- **docs/SIEM_INTEGRATION.md**: [ERROR] file:///config/integrations/ecs-schema.json (at 320:3) | File not found. Check if file exists and path is correct
-- **docs/TCO_AND_LICENSING.md**: [ERROR] file:///input/SERVICE_TARGETS.md (at 346:11) | File not found. Check if file exists and path is correct
-- **docs/TCO_AND_LICENSING.md**: [ERROR] file:///input/SERVICE_TARGETS.md (at 362:3) | File not found. Check if file exists and path is correct
-- **docs/TCO_AND_LICENSING.md**: [ERROR] file:///input/SERVICE_TARGETS.md (at 56:3) | File not found. Check if file exists and path is correct
-- **docs/TCO_AND_LICENSING.md**: [ERROR] file:///input/SERVICE_TARGETS.md (at 95:31) | File not found. Check if file exists and path is correct
-- **docs/TCO_AND_LICENSING.md**: [ERROR] file:///LICENSE (at 27:7) | File not found. Check if file exists and path is correct
-- **docs/TCO_AND_LICENSING.md**: [ERROR] file:///LICENSE (at 339:28) | File not found. Check if file exists and path is correct
-- **docs/TCO_AND_LICENSING.md**: [ERROR] file:///LICENSE (at 359:3) | File not found. Check if file exists and path is correct
-- **docs/TCO_AND_LICENSING.md**: [ERROR] file:///README.md (at 219:27) | File not found. Check if file exists and path is correct
-- **docs/TCO_AND_LICENSING.md**: [ERROR] file:///SECURITY.md (at 105:36) | File not found. Check if file exists and path is correct
-- **docs/TCO_AND_LICENSING.md**: [ERROR] file:///SECURITY.md (at 360:3) | File not found. Check if file exists and path is correct
-- **docs/TCO_AND_LICENSING.md**: [ERROR] file:///SECURITY.md (at 96:8) | File not found. Check if file exists and path is correct
+- **docs/operations/SCALING_GUIDE.md**: [ERROR] file:///input/docs/operator/CAPACITY_PLANNING.md (at 162:159) | File not found. Check if file exists and path is correct
+- **docs/operations/SCALING_GUIDE.md**: [ERROR] file:///input/docs/operator/CAPACITY_PLANNING.md (at 187:134) | File not found. Check if file exists and path is correct
+- **docs/operations/SCALING_GUIDE.md**: [ERROR] file:///input/docs/operator/CAPACITY_PLANNING.md (at 227:3) | File not found. Check if file exists and path is correct
+- **docs/operations/SCALING_GUIDE.md**: [ERROR] file:///input/docs/phases/PHASE_26.md (at 507:3) | File not found. Check if file exists and path is correct
+- **docs/developer/SECURITY_TESTING.md**: [ERROR] http://localhost:9091/ (at 598:3) | Error (cached)
+- **docs/security/SIEM_INTEGRATION.md**: [ERROR] file:///config/integrations/ecs-schema.json (at 320:3) | File not found. Check if file exists and path is correct
+- **docs/product/TCO_AND_LICENSING.md**: [ERROR] file:///input/SERVICE_TARGETS.md (at 346:11) | File not found. Check if file exists and path is correct
+- **docs/product/TCO_AND_LICENSING.md**: [ERROR] file:///input/SERVICE_TARGETS.md (at 362:3) | File not found. Check if file exists and path is correct
+- **docs/product/TCO_AND_LICENSING.md**: [ERROR] file:///input/SERVICE_TARGETS.md (at 56:3) | File not found. Check if file exists and path is correct
+- **docs/product/TCO_AND_LICENSING.md**: [ERROR] file:///input/SERVICE_TARGETS.md (at 95:31) | File not found. Check if file exists and path is correct
+- **docs/product/TCO_AND_LICENSING.md**: [ERROR] file:///LICENSE (at 27:7) | File not found. Check if file exists and path is correct
+- **docs/product/TCO_AND_LICENSING.md**: [ERROR] file:///LICENSE (at 339:28) | File not found. Check if file exists and path is correct
+- **docs/product/TCO_AND_LICENSING.md**: [ERROR] file:///LICENSE (at 359:3) | File not found. Check if file exists and path is correct
+- **docs/product/TCO_AND_LICENSING.md**: [ERROR] file:///README.md (at 219:27) | File not found. Check if file exists and path is correct
+- **docs/product/TCO_AND_LICENSING.md**: [ERROR] file:///SECURITY.md (at 105:36) | File not found. Check if file exists and path is correct
+- **docs/product/TCO_AND_LICENSING.md**: [ERROR] file:///SECURITY.md (at 360:3) | File not found. Check if file exists and path is correct
+- **docs/product/TCO_AND_LICENSING.md**: [ERROR] file:///SECURITY.md (at 96:8) | File not found. Check if file exists and path is correct
 - **tests/fp_corpus/data/README.md**: [404] https://tranco-list.eu/top-10000.csv (at 11:35) | Rejected status code: 404 Not Found
 - **tests/fp_corpus/data/README.md**: [404] https://tranco-list.eu/top-10000.csv (at 38:54) | Rejected status code: 404 Not Found
 - **tests/performance/benchmarks_README.md**: [ERROR] http://localhost:8089/ (at 26:11) | Connection refused - server may be down or port blocked

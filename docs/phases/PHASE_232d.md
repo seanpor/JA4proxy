@@ -31,7 +31,7 @@ dependencies: [232a]
 >    `tests/integration/test_container_config.py` (where Phase 232c added its
 >    structural tests), **not** `tests/unit/test_container_config.py`. The
 >    regression test is added there.
-> 3. **Doc targets retargeted.** `docs/OPERATIONS_GUIDE.md` carries **no**
+> 3. **Doc targets retargeted.** `docs/operations/OPERATIONS_GUIDE.md` carries **no**
 >    `admin-api`/`8091` references — that cleanup step is a no-op. The docs that
 >    actually reference the service are `docs/runbooks/REMOTE_TESTING.md` (port
 >    table + bind-model list) and `deploy/docker/README.md` (service/network
@@ -64,7 +64,7 @@ Decommission and completely remove the unauthenticated `admin-api` container (wh
 - [scripts/agent-env.sh](../../scripts/agent-env.sh) — drop `HOST_PORT_ADMIN_API`.
 - [scripts/check_updates.py](../../scripts/check_updates.py) — drop `ja4proxy-admin-api` from the first-party image set.
 - [deploy/docker/README.md](../../deploy/docker/README.md) — remove `admin-api` from the service/network tables.
-- [docs/runbooks/REMOTE_TESTING.md](../../docs/runbooks/REMOTE_TESTING.md) — remove the `8091`/admin-api port row and bind-list mention.
+- [docs/runbooks/REMOTE_TESTING.md](../runbooks/REMOTE_TESTING.md) — remove the `8091`/admin-api port row and bind-list mention.
 
 ### Out of scope:
 - Vendoring assets or frontend situation bar code (covered by 232a/b).
@@ -88,7 +88,7 @@ Decommission and completely remove the unauthenticated `admin-api` container (wh
 4. **Update Runbooks and Image Inventory**:
    - Remove the legacy `admin-api`/`8091` references from
      `docs/runbooks/REMOTE_TESTING.md` and `deploy/docker/README.md`.
-     (`docs/OPERATIONS_GUIDE.md` carries no such references — grounding note 3.)
+     (`docs/operations/OPERATIONS_GUIDE.md` carries no such references — grounding note 3.)
 5. **Add Regression Test**:
    - Create `test_admin_api_absent_from_all_compose_files` in
      `tests/integration/test_container_config.py` asserting that `admin-api` and
@@ -103,7 +103,7 @@ Decommission and completely remove the unauthenticated `admin-api` container (wh
 
 - [x] `admin-api` container block is deleted from compose configurations.
 - [x] `Dockerfile.admin` is removed, and all build configs that referenced it
-      (Makefile `HADOLINT_DOCKERFILES` + Trivy scan list, `docs/DOCKER_IMAGES.md`)
+      (Makefile `HADOLINT_DOCKERFILES` + Trivy scan list, `docs/reference/DOCKER_IMAGES.md`)
       are updated so lint/scan no longer break on the missing file.
 - [x] Runbooks and the image inventory (`docs/runbooks/REMOTE_TESTING.md`,
       `docs/runbooks/multidc.md`, `deploy/docker/README.md`) are free of port

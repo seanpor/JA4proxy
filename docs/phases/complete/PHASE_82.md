@@ -444,7 +444,7 @@ New keys introduced in Phase 82:
 | `sim:conn:{hour_epoch}:{conn_id}` | Hash | 90 days | Connection signal snapshot for shadow mode replay |
 | `sim:job:{sim_id}` | Hash | 7 days | Simulation job state: `{status, hypothetical_dial, from_ts, to_ts, result_json}` |
 
-Add these entries to `docs/REDIS_SCHEMA.md` when Phase 82 is implemented.
+Add these entries to `docs/reference/REDIS_SCHEMA.md` when Phase 82 is implemented.
 
 ---
 

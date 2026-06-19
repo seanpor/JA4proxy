@@ -980,7 +980,7 @@ Document delivered as `docs/compliance/iso27001-annex-a-mapping.md`.
 
 ## 12. New Redis Keys
 
-Document these in `docs/REDIS_SCHEMA.md` in the same phase.
+Document these in `docs/reference/REDIS_SCHEMA.md` in the same phase.
 
 | Key pattern | Type | TTL | Owner | Description |
 |-------------|------|-----|-------|-------------|
@@ -1139,7 +1139,7 @@ test-phase-84-pdf:
 - [ ] Prometheus alert rule for compliance token expiry ≤ 60 days in `deploy/prometheus/alerts/compliance.yml`
 - [ ] ISO 27001 Annex A mapping committed to `docs/compliance/iso27001-annex-a-mapping.md`; A.8.6 noted as aspirational pending Phase 86
 - [ ] Monthly distribution playbook committed to `deploy/ansible/playbooks/monthly-report.yml`; variables documented
-- [ ] New Redis keys documented in `docs/REDIS_SCHEMA.md` (§12)
+- [ ] New Redis keys documented in `docs/reference/REDIS_SCHEMA.md` (§12)
 - [ ] `make test-phase-84` passes: all unit and integration tests for this phase
 - [ ] `CHANGELOG.md` updated with Phase 84 entry
 - [ ] `docs/phases/manifest.yaml` updated: `status: COMPLETE`; `make sync` run; all four status files committed atomically

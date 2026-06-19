@@ -69,7 +69,7 @@ jobs:
           name: roadmap-docs
           path: |
             docs/phases/TODO.md
-            docs/PROJECT_STATUS.md
+            docs/reference/PROJECT_STATUS.md
           if-no-files-found: error
 
   lint:

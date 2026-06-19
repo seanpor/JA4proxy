@@ -391,7 +391,7 @@ def check_script_shebangs(scripts_dir: str = "scripts") -> List[str]:
     return warnings
 
 
-def verify_documentation_commands(docs=("README.md", "docs/OPERATIONS_GUIDE.md")) -> List[str]:
+def verify_documentation_commands(docs=("README.md", "docs/operations/OPERATIONS_GUIDE.md")) -> List[str]:
     errors = []
     try:
         with open("Makefile", "r", encoding="utf-8") as f:

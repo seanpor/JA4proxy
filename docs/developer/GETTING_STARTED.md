@@ -9,7 +9,7 @@ phase: 105
 
 This page is the **30-minute path** from a fresh clone to a green local test
 run. For deeper material on project structure, code style, and the
-completing-a-phase mechanics, see [`../../CONTRIBUTING.md`](../../CONTRIBUTING.md);
+completing-a-phase mechanics, see [`../../CONTRIBUTING.md`](../../../CONTRIBUTING.md);
 this doc does not duplicate that content.
 
 > **Production runtime is the Go proxy daemon (`ja4pd`).** All legacy Python
@@ -96,10 +96,10 @@ make stop
    conventions. Read this **before** opening a branch.
 2. [`TESTING_STRATEGY.md`](TESTING_STRATEGY.md) — the test-first loop and the
    matrix of test categories.
-3. [`../CONTRIBUTING.md`](../CONTRIBUTING.md) — project structure, code
+3. [`../CONTRIBUTING.md`](../../CONTRIBUTING.md) — project structure, code
    style, completing-a-phase mechanics. Use as a reference, not a tutorial.
 4. [`PHASE_LIFECYCLE.md`](PHASE_LIFECYCLE.md) — only relevant if your work is
-   organised as a phase; see also [`../AGENTS.md`](../AGENTS.md).
+   organised as a phase; see also [`../AGENTS.md`](../../AGENTS.md).
 
 ## Troubleshooting
 

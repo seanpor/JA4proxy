@@ -67,7 +67,7 @@ upstream fix**, so they can't be `apt upgrade`-d away — the base itself must c
    and `Dockerfile.management`/`Dockerfile.admin` opportunistically) onto the D1
    base; fix any musl/distroless build fallout (wheels, shell assumptions,
    healthchecks); rebuild + scan each → confirm HIGH/CRITICAL-clean (or D4 residual).
-3. **Update `docs/DOCKER_IMAGES.md`** first-party + base rows to the new bases.
+3. **Update `docs/reference/DOCKER_IMAGES.md`** first-party + base rows to the new bases.
 4. **Flip `scan-first-party`** to HIGH+CRITICAL (count HIGH finding rows,
    `--exit-code` path), and update its advisory echo wording.
 5. **Update `tests/integration/test_ci_flow.py`** to assert `scan-first-party`
@@ -94,7 +94,7 @@ upstream fix**, so they can't be `apt upgrade`-d away — the base itself must c
 - [ ] `scan-first-party` gates on **HIGH+CRITICAL**; `make scan` exits 0.
 - [ ] `test_ci_flow.py` asserts the first-party HIGH gate.
 - [ ] Re-based images still build **and** pass a functional smoke test.
-- [ ] `docs/DOCKER_IMAGES.md` reflects the new bases; CHANGELOG + manifest updated.
+- [ ] `docs/reference/DOCKER_IMAGES.md` reflects the new bases; CHANGELOG + manifest updated.
 - [ ] The [[PHASE_313]] first-party HIGH-gate box is ticked; third-party remains
       waiver-tracked.
 - [ ] Full CI green.

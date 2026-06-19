@@ -19,7 +19,7 @@ This document does **not** itself answer the questions — it is a navigation ai
 - [ ] **A4. What is your GDPR posture?**
   Answer: see [`GDPR_COMPLIANCE.md`](GDPR_COMPLIANCE.md) — the project ships features that **support** the operator's GDPR obligations (the operator remains the data controller). Privacy-framework alignment in [`iso29100-mapping.md`](iso29100-mapping.md).
 - [ ] **A5. What PII does the product process and how long is it retained?**
-  Answer: [`iso29100-mapping.md` — Data-flow](iso29100-mapping.md#data-flow) plus retention TTLs in [`../REDIS_SCHEMA.md`](../REDIS_SCHEMA.md). PII is limited to the source IP; retention bounded by per-key Redis TTLs.
+  Answer: [`iso29100-mapping.md` — Data-flow](iso29100-mapping.md#data-flow) plus retention TTLs in [`../REDIS_SCHEMA.md`](../reference/REDIS_SCHEMA.md). PII is limited to the source IP; retention bounded by per-key Redis TTLs.
 
 ## B. Standards & frameworks
 
@@ -61,14 +61,14 @@ This document does **not** itself answer the questions — it is a navigation ai
 ## E. Detection / SOC integration
 
 - [ ] **E1. Provide a MITRE ATT&CK technique mapping for your detections.**
-  Answer: [`../ATTACK_MAPPING.md`](../ATTACK_MAPPING.md). Forward + reverse views, 16 technique mappings across 6 tactics, every row carries an honest high/medium/low confidence label.
+  Answer: [`../ATTACK_MAPPING.md`](../security/ATTACK_MAPPING.md). Forward + reverse views, 16 technique mappings across 6 tactics, every row carries an honest high/medium/low confidence label.
 - [ ] **E2. How do we integrate JA4proxy events with our SIEM?**
-  Answer: [`../SIEM_INTEGRATION.md`](../SIEM_INTEGRATION.md) plus the SIEM section in ATTACK_MAPPING.md.
+  Answer: [`../SIEM_INTEGRATION.md`](../security/SIEM_INTEGRATION.md) plus the SIEM section in ATTACK_MAPPING.md.
 
 ## F. Operational risk
 
 - [ ] **F1. Provide a risk register.**
-  Answer: [`../RISK_REGISTER.md`](../RISK_REGISTER.md). Includes the gaps surfaced by the Phase 107 mapping work (RR-043 SLSA L3, RR-044 No CVD SLA, RR-045 No formal RCA register).
+  Answer: [`../RISK_REGISTER.md`](../security/RISK_REGISTER.md). Includes the gaps surfaced by the Phase 107 mapping work (RR-043 SLSA L3, RR-044 No CVD SLA, RR-045 No formal RCA register).
 
 ---
 

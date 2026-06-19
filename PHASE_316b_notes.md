@@ -33,7 +33,7 @@ caught and the revised plan fixes:
 | `ja4proxy_tap_fingerprints_written_total{result}` | `internal/tap/metrics.go` |
 | Binary wiring (classify→store behind `--redis-url`) | `cmd/ja4-tap/main.go` |
 | GDPR erasure of `fp:os:ip`/`fp:ip` | `scripts/gdpr_delete.py` |
-| Docs | `docs/REDIS_SCHEMA.md`, `docs/OBSERVABILITY_STANDARDS.md`, `docs/runbooks/tap_mode.md`, `docs/fragments/phase-316b-tap-osmismatch.md` |
+| Docs | `docs/reference/REDIS_SCHEMA.md`, `docs/reference/OBSERVABILITY_STANDARDS.md`, `docs/runbooks/tap_mode.md`, `docs/fragments/phase-316b-tap-osmismatch.md` |
 
 ## Key design decisions
 

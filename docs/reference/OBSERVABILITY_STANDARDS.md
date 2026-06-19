@@ -12,7 +12,7 @@ phase: 21
 > dashboard layout, Alertmanager rules, health endpoints, and SLIs.
 >
 > Every phase that adds a metric, log line, or panel must conform to this document.
-> The phase completion gate (`docs/TESTING_STRATEGY.md §5`) includes an observability
+> The phase completion gate (`docs/developer/TESTING_STRATEGY.md §5`) includes an observability
 > checklist that references this document.
 
 ---
@@ -541,7 +541,7 @@ groups:
           team: secops
         annotations:
           summary: "No ja4proxy instances reporting to Prometheus"
-          runbook: "docs/INCIDENT_RESPONSE.md#proxy-instance-down"
+          runbook: "docs/operations/INCIDENT_RESPONSE.md#proxy-instance-down"
 
       - alert: RedisConnectionFailed
         expr: increase(ja4proxy_cache_operations_total{result="error"}[5m]) > 10
@@ -551,7 +551,7 @@ groups:
           team: secops
         annotations:
           summary: "Redis connection errors detected — proxy failing open"
-          runbook: "docs/INCIDENT_RESPONSE.md#redis-connection-failed"
+          runbook: "docs/operations/INCIDENT_RESPONSE.md#redis-connection-failed"
 
   - name: ja4proxy.feeds
     interval: 60s
@@ -565,7 +565,7 @@ groups:
           team: secops
         annotations:
           summary: "Blocklist feed {{ $labels.feed }} has not refreshed in 24h"
-          runbook: "docs/INCIDENT_RESPONSE.md#blocklist-feed-stale"
+          runbook: "docs/operations/INCIDENT_RESPONSE.md#blocklist-feed-stale"
 
       - alert: TorListStale
         expr: (time() - ja4proxy_tor_list_last_refresh_success_seconds) > 7200
@@ -575,7 +575,7 @@ groups:
           team: secops
         annotations:
           summary: "Tor exit list has not refreshed in 2h"
-          runbook: "docs/INCIDENT_RESPONSE.md#tor-list-stale"
+          runbook: "docs/operations/INCIDENT_RESPONSE.md#tor-list-stale"
 
       - alert: SpamhausMatchRate
         expr: rate(ja4proxy_blocklist_matches_total{feed="spamhaus_drop"}[5m]) > 50
@@ -585,7 +585,7 @@ groups:
           team: secops
         annotations:
           summary: "High Spamhaus DROP match rate — possible scan or attack"
-          runbook: "docs/INCIDENT_RESPONSE.md#high-block-rate"
+          runbook: "docs/operations/INCIDENT_RESPONSE.md#high-block-rate"
 
   - name: ja4proxy.scoring
     interval: 30s
@@ -599,7 +599,7 @@ groups:
           team: secops
         annotations:
           summary: "Risk score distribution has drifted from 7-day baseline"
-          runbook: "docs/INCIDENT_RESPONSE.md#score-drift"
+          runbook: "docs/operations/INCIDENT_RESPONSE.md#score-drift"
 
       - alert: BrowserShadowScoreElevated
         expr: histogram_quantile(0.95, rate(ja4proxy_risk_score_bucket{bypass="alpn_browser"}[5m])) > 15
@@ -609,7 +609,7 @@ groups:
           team: secops
         annotations:
           summary: "Known-good browser shadow score p95 > 15 — signal may be miscalibrated"
-          runbook: "docs/INCIDENT_RESPONSE.md#shadow-score-elevated"
+          runbook: "docs/operations/INCIDENT_RESPONSE.md#shadow-score-elevated"
 
       - alert: HighBlockRate
         expr: rate(ja4proxy_connections_total{action="block"}[5m]) > 100
@@ -619,7 +619,7 @@ groups:
           team: secops
         annotations:
           summary: "Block rate exceeds 100/s — attack in progress or miscalibration"
-          runbook: "docs/INCIDENT_RESPONSE.md#high-block-rate"
+          runbook: "docs/operations/INCIDENT_RESPONSE.md#high-block-rate"
 
   - name: ja4proxy.quotas
     interval: 60s
@@ -632,7 +632,7 @@ groups:
           team: secops
         annotations:
           summary: "AbuseIPDB daily quota exhausted — no new lookups until midnight UTC"
-          runbook: "docs/INCIDENT_RESPONSE.md#abuseipdb-quota-exhausted"
+          runbook: "docs/operations/INCIDENT_RESPONSE.md#abuseipdb-quota-exhausted"
 
       - alert: RDAPQueueDepthHigh
         expr: ja4proxy_rdap_enrichment_queue_depth > 400
@@ -642,7 +642,7 @@ groups:
           team: secops
         annotations:
           summary: "RDAP enrichment queue depth > 400 — workers may be falling behind"
-          runbook: "docs/INCIDENT_RESPONSE.md#enrichment-queue-high"
+          runbook: "docs/operations/INCIDENT_RESPONSE.md#enrichment-queue-high"
 
   - name: ja4proxy.policy
     interval: 30s
@@ -655,7 +655,7 @@ groups:
           team: secops
         annotations:
           summary: "High-risk bypass {{ $labels.bypass }} has been disabled"
-          runbook: "docs/INCIDENT_RESPONSE.md#bypass-disabled"
+          runbook: "docs/operations/INCIDENT_RESPONSE.md#bypass-disabled"
 
       - alert: TarpitCapacityNearLimit
         expr: ja4proxy_tarpit_concurrent / 500 > 0.8
@@ -665,7 +665,7 @@ groups:
           team: secops
         annotations:
           summary: "Tarpit at >80% capacity — overflow actions may begin"
-          runbook: "docs/INCIDENT_RESPONSE.md#tarpit-capacity"
+          runbook: "docs/operations/INCIDENT_RESPONSE.md#tarpit-capacity"
 
   - name: ja4proxy.exceptions
     interval: 30s
@@ -816,7 +816,7 @@ acceptance criteria in its phase file, following the format in STYLE_GUIDE.md §
 - [ ] Alertmanager: {AlertName} rule fires when {condition}
   (only include if phase introduces a new alert)
 
-- [ ] docs/OBSERVABILITY_STANDARDS.md metric registry updated with new metrics
+- [ ] docs/reference/OBSERVABILITY_STANDARDS.md metric registry updated with new metrics
 ```
 
 ---

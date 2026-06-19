@@ -71,7 +71,7 @@ with a single `lint-all` entry point.
 - [x] `make help` documents all new targets
 - [x] `make lint-phases` passes
 - [x] `docs/phases/manifest.yaml` updated to COMPLETE
-- [x] `docs/phases/TODO.md` and `docs/PROJECT_STATUS.md` regenerated
+- [x] `docs/phases/TODO.md` and `docs/reference/PROJECT_STATUS.md` regenerated
 
 ---
 

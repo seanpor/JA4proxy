@@ -41,7 +41,7 @@ no internal production service is ever republished on a wildcard interface.
 
 ### Out of scope:
 - `docker-compose.prod.yml` — already hardened in Phase 0046 (no change needed; this phase only guards it).
-- `docs/DOCKER_IMAGES.md` — an image inventory; it carries no port/network-topology tables to update (the compose files are the source of truth for topology).
+- `docs/reference/DOCKER_IMAGES.md` — an image inventory; it carries no port/network-topology tables to update (the compose files are the source of truth for topology).
 - Frontend asset changes or situation bar UI code (covered by 232a/b).
 - Removing the `admin-api` container or testing its absence (covered by 232d).
 

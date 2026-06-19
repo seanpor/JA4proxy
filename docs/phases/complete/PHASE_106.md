@@ -54,8 +54,8 @@ Foundations) are prerequisite knowledge, not project documentation.
 
 ### Problem
 
-JA4proxy has SLO content scattered across `docs/OBSERVABILITY_STANDARDS.md`,
-`docs/runbooks/slo_*.md` (availability, FP rate, latency), `docs/SCALING_GUIDE.md`,
+JA4proxy has SLO content scattered across `docs/reference/OBSERVABILITY_STANDARDS.md`,
+`docs/runbooks/slo_*.md` (availability, FP rate, latency), `docs/operations/SCALING_GUIDE.md`,
 and `docs/enterprise/security-architecture.md`. There is no single page that
 an architect, buyer, or operator can read to answer "what does JA4proxy
 commit to?". SWEBOK KA 6 (Operations) expects a consolidated service-targets
@@ -63,7 +63,7 @@ artefact. Enterprise procurement expects it too.
 
 ### Fix
 
-Create `docs/SERVICE_TARGETS.md` that collects:
+Create `docs/reference/SERVICE_TARGETS.md` that collects:
 
 - **SLIs** (what we measure): connection-accept latency p50/p99, FP rate on
   browser traffic, proxy availability, Redis availability, risk-score compute
@@ -82,7 +82,7 @@ Cross-link from `DEPLOYMENT_OPTIONS.md`,
 
 **Source material:** `docs/runbooks/slo_availability.md`,
 `docs/runbooks/slo_fp_rate.md`, `docs/runbooks/slo_latency.md`,
-`docs/OBSERVABILITY_STANDARDS.md` §SLIs.
+`docs/reference/OBSERVABILITY_STANDARDS.md` §SLIs.
 
 ### Size
 
@@ -95,13 +95,13 @@ Cross-link from `DEPLOYMENT_OPTIONS.md`,
 ### Problem
 
 Risk discussion is scattered across `docs/security/COMPREHENSIVE_SECURITY_AUDIT.md`,
-`docs/security/threat-model.md`, `docs/DMZ_READINESS.md`, phase
+`docs/security/threat-model.md`, `docs/security/DMZ_READINESS.md`, phase
 review docs, and ADRs. SWEBOK KA 8 (Engineering Management) expects a
 consolidated risk register. SOC 2 and ISO 27001 auditors expect one too.
 
 ### Fix
 
-Create `docs/RISK_REGISTER.md` with entries structured as:
+Create `docs/security/RISK_REGISTER.md` with entries structured as:
 
 | ID | Risk | Category | Likelihood | Impact | Owner | Mitigation | Residual | Status |
 |----|------|----------|------------|--------|-------|------------|----------|--------|
@@ -201,7 +201,7 @@ quality), mark it `MANUAL-REVIEW` and capture the reviewer sign-off.
 Write a small generator (`scripts/traceability.py`) that walks
 `docs/phases/PHASE_*.md`, extracts acceptance-criteria lines bearing the
 `REQ-NNN-MM:` tag, parses the `Verified by:` clauses, and produces
-`docs/TRACEABILITY.md` as a table: requirement ID → description → verifying
+`docs/reference/TRACEABILITY.md` as a table: requirement ID → description → verifying
 test(s) → status (PASS / FAIL / NOT-RUN / MANUAL).
 
 CI runs the generator and fails the build if any `REQ-*` tag has no
@@ -337,15 +337,15 @@ careful reading of source phase docs.
 
 ### Problem
 
-Quality information is scattered across `docs/TESTING_STRATEGY.md`,
-`docs/DOCUMENTATION_STANDARDS.md`, coverage gates in `Makefile`, per-phase
+Quality information is scattered across `docs/developer/TESTING_STRATEGY.md`,
+`docs/developer/DOCUMENTATION_STANDARDS.md`, coverage gates in `Makefile`, per-phase
 acceptance criteria, and `QUALITY_PLAN.md`
 (new in Phase 105). SWEBOK KA 11 (Software Quality) expects a single
 quality-plan artefact.
 
 ### Fix
 
-Create `docs/QUALITY_PLAN.md` as a short (~5 page) index covering:
+Create `docs/developer/QUALITY_PLAN.md` as a short (~5 page) index covering:
 
 - **Quality attributes and their targets**: performance, availability,
   security, maintainability, portability, usability. Each attribute lists
@@ -372,14 +372,14 @@ This doc should be mostly links. Its value is that one page exists.
 
 **Core deliverables**
 
-- [ ] `docs/SERVICE_TARGETS.md` exists, lists every SLI and SLO cited in
+- [ ] `docs/reference/SERVICE_TARGETS.md` exists, lists every SLI and SLO cited in
       existing runbooks, and is linked from the three `docs/for-*/README.md`
       entry points that need it
-- [ ] `docs/RISK_REGISTER.md` exists with ≥ 30 rows, each with a non-empty
+- [ ] `docs/security/RISK_REGISTER.md` exists with ≥ 30 rows, each with a non-empty
       Mitigation column and a link to the authoritative source
 - [ ] `TCO_AND_LICENSING.md` exists with three
       TCO scenarios and an explicit commercial-support statement
-- [ ] `docs/TRACEABILITY.md` exists and is auto-generated from phase docs
+- [ ] `docs/reference/TRACEABILITY.md` exists and is auto-generated from phase docs
 - [ ] `scripts/traceability.py` runs clean and is called from CI (non-blocking
       for 14 days, then blocking)
 - [ ] Phases 15, 79, 82, 102, 103, 104, 200 have acceptance criteria
@@ -391,17 +391,17 @@ This doc should be mostly links. Its value is that one page exists.
 - [ ] `scripts/process_metrics.py` exists and emits the four core metrics
       (phase throughput, duration, CI reliability, mean-time-to-green)
 - [ ] `docs/design/README.md` exists with ≥ 20 component rows
-- [ ] `docs/QUALITY_PLAN.md` exists (≤ 5 pages) and links all referenced docs
+- [ ] `docs/developer/QUALITY_PLAN.md` exists (≤ 5 pages) and links all referenced docs
 
 **Integration**
 
 - [ ] Root `README.md` links `docs/engineering-method/README.md` with a
       single prominent line
-- [ ] `README.md` links `docs/SERVICE_TARGETS.md`,
-      `docs/RISK_REGISTER.md`, `docs/engineering-method/README.md`,
-      `docs/QUALITY_PLAN.md`
-- [ ] `README.md` links `docs/RISK_REGISTER.md`,
-      `docs/TRACEABILITY.md`, `docs/QUALITY_PLAN.md`
+- [ ] `README.md` links `docs/reference/SERVICE_TARGETS.md`,
+      `docs/security/RISK_REGISTER.md`, `docs/engineering-method/README.md`,
+      `docs/developer/QUALITY_PLAN.md`
+- [ ] `README.md` links `docs/security/RISK_REGISTER.md`,
+      `docs/reference/TRACEABILITY.md`, `docs/developer/QUALITY_PLAN.md`
 - [ ] `README.md` links `TCO_AND_LICENSING.md`
 - [ ] No new doc exceeds its stated line-count target
 
@@ -411,7 +411,7 @@ This doc should be mostly links. Its value is that one page exists.
 - [ ] `scripts/process_metrics.py` CI job is SHA-pinned per existing discipline
 - [ ] `docs/phases/manifest.yaml` has Phase 106 entry marked COMPLETE
 - [ ] `CHANGELOG.md` has Phase 106 entry
-- [ ] SWEBOK v4 KA coverage table in `docs/QUALITY_PLAN.md` matches the
+- [ ] SWEBOK v4 KA coverage table in `docs/developer/QUALITY_PLAN.md` matches the
       post-106 target state (12 / 14 green)
 
 ---
@@ -420,10 +420,10 @@ This doc should be mostly links. Its value is that one page exists.
 
 | File | Change |
 |------|--------|
-| `docs/SERVICE_TARGETS.md` | New |
-| `docs/RISK_REGISTER.md` | New |
-| `docs/TRACEABILITY.md` | New — auto-generated |
-| `docs/QUALITY_PLAN.md` | New |
+| `docs/reference/SERVICE_TARGETS.md` | New |
+| `docs/security/RISK_REGISTER.md` | New |
+| `docs/reference/TRACEABILITY.md` | New — auto-generated |
+| `docs/developer/QUALITY_PLAN.md` | New |
 | `docs/design/README.md` | New |
 | `docs/engineering-method/README.md` | New |
 | `docs/engineering-method/METHOD.md` | New |
@@ -445,7 +445,7 @@ This doc should be mostly links. Its value is that one page exists.
 | `docs/phases/complete/PHASE_103.md` | Retro-tag |
 | `docs/phases/complete/PHASE_104.md` | Retro-tag |
 | `docs/phases/complete/PHASE_200.md` | Retro-tag |
-| `docs/STYLE_GUIDE.md` | Add REQ-tagging convention to the acceptance-criteria section |
+| `docs/developer/STYLE_GUIDE.md` | Add REQ-tagging convention to the acceptance-criteria section |
 | `.github/workflows/ci.yml` | Add traceability + process-metrics jobs (both `continue-on-error` for 14 days) |
 | `docs/phases/manifest.yaml` | Add Phase 106 entry; mark COMPLETE on close |
 | `CHANGELOG.md` | Phase 106 entry |

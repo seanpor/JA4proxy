@@ -151,7 +151,7 @@ The never-backup guard (`_KEY_PATTERNS_NEVER_BACKUP`) prevents accidental export
 ## ⚖️ Compliance & Privacy Review
 
 ### The "Win"
-The `include_audit_log: false` default (corrected in this phase) ensures the audit log — which contains operator IPs and action attribution — is not routinely included in backup artifacts. The `docs/DEPLOYMENT_SECURITY_MODEL.md` deployment checklist addresses backup directory permissions and encrypted transfer requirements at the operator level.
+The `include_audit_log: false` default (corrected in this phase) ensures the audit log — which contains operator IPs and action attribution — is not routinely included in backup artifacts. The `docs/security/DEPLOYMENT_SECURITY_MODEL.md` deployment checklist addresses backup directory permissions and encrypted transfer requirements at the operator level.
 
 ### The Critique
 1. **Backup artifacts contain PII (IP addresses) with no DSAR mechanism.** Every `ban:*` key contains a client IP address. Backup artifacts are retained for up to 30 days (configurable). If a GDPR Data Subject Access Request requires erasure of an IP, the operator must not only purge live Redis keys but also locate and redact (or delete) all backup artifacts containing that IP. There is no tooling for this. A `ja4proxy-admin backup redact --ip 1.2.3.4` command is needed to support DSAR compliance.

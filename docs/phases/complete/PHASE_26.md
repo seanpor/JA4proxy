@@ -430,7 +430,7 @@ traffic (ALPN bypass) is 40–60% higher as no signal collection runs.*
 
 ## Redis Impact
 
-This phase introduces no new Redis key patterns. All existing `docs/REDIS_SCHEMA.md`
+This phase introduces no new Redis key patterns. All existing `docs/reference/REDIS_SCHEMA.md`
 entries remain valid.
 
 The `WriteBuffer` (26e) introduces a new Prometheus metric:

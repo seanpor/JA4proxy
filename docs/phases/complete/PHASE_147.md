@@ -30,7 +30,7 @@ Recent stabilization efforts revealed that core commands (e.g., `make lint`) cou
 - **Benefit**: If a `make` target is broken, the CI fails immediately, preventing the merge of broken ergonomics.
 
 ### 4. Doc-to-Command Synchronization
-- **Verification**: Add a script that parses code blocks in `README.md` and `docs/OPERATIONS_GUIDE.md` to ensure that the commands listed there actually exist in the Makefile.
+- **Verification**: Add a script that parses code blocks in `README.md` and `docs/operations/OPERATIONS_GUIDE.md` to ensure that the commands listed there actually exist in the Makefile.
 
 ## Acceptance Criteria
 - [ ] `make doctor` reports 100% health for a correctly set up environment.

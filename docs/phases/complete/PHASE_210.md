@@ -24,7 +24,7 @@ Reduce `make help` output from 111 lines of flat text to ~50 lines by sub-dividi
 
 ### Files to create
 - `docs/phases/complete/PHASE_210.md` — this document
-- `docs/MAKEFILE_TARGETS.md` — comprehensive reference documenting every target
+- `docs/reference/MAKEFILE_TARGETS.md` — comprehensive reference documenting every target
 
 ### Not in scope
 - Adding or removing Makefile build logic (only help text / metadata changes)
@@ -41,7 +41,7 @@ Reduce `make help` output from 111 lines of flat text to ~50 lines by sub-dividi
 4. **Add missing help entries** for targets that had `.PHONY` entries but no help text.
 5. **Update `.gitignore`** — `s/.coverage/.coverage*/` to catch parallel-mode temp files.
 6. **Update `config/proxy.yml`** — document `on_unknown_ja4` and `dial_fail_closed` keys with phase 209 provenance.
-7. **Create `docs/MAKEFILE_TARGETS.md`** — full reference doc with every target, its description, arguments, and prerequisites.
+7. **Create `docs/reference/MAKEFILE_TARGETS.md`** — full reference doc with every target, its description, arguments, and prerequisites.
 8. **Sync roadmap** (`python3 scripts/sync-roadmap.py`).
 9. **Run lint-phases** (`make lint-phases`) to validate.
 
@@ -63,7 +63,7 @@ Reduce `make help` output from 111 lines of flat text to ~50 lines by sub-dividi
 - [x] Every target in `.PHONY` has a corresponding help entry in at least one sub-help.
 - [x] `.coverage*` in `.gitignore` excludes parallel-mode temp files.
 - [x] `on_unknown_ja4` and `dial_fail_closed` documented in `config/proxy.yml`.
-- [x] `docs/MAKEFILE_TARGETS.md` covers every target with description, args, and prerequisites.
+- [x] `docs/reference/MAKEFILE_TARGETS.md` covers every target with description, args, and prerequisites.
 - [x] `make lint-phases` exits 0.
 
 ---
