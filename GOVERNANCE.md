@@ -22,7 +22,7 @@ We welcome contributions from the community! Please follow these steps:
 1. **Check the Roadmap**: See `docs/phases/TODO.md` for planned features and tasks.
 2. **Open an Issue**: For bug reports or feature requests, open a GitHub issue.
 3. **Draft a Phase**: Large changes should be documented as a new Phase in `docs/phases/`.
-4. **Submit a Pull Request**: Ensure all tests pass (`make test-go test-unit`) and code follows the `docs/STYLE_GUIDE.md`.
+4. **Submit a Pull Request**: Ensure all tests pass (`make test-go test-unit`) and code follows the `docs/developer/STYLE_GUIDE.md`.
 
 ## Decision Making
 

@@ -323,7 +323,7 @@ func (s *MySignal) GetSignal(conn *ConnectionContext) *RiskSignal {
 }
 ```
 
-**Update `docs/OBSERVABILITY_STANDARDS.md`:**
+**Update `docs/reference/OBSERVABILITY_STANDARDS.md`:**
 
 ```markdown
 ### MySignal Metrics (Go)

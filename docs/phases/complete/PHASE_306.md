@@ -15,7 +15,7 @@ audience: [developer, security]
 > the good parts). Two things turned out to be *worse* than the plan assumed,
 > and one *better*:
 >
-> - **`docs/ATTACK_MAPPING.md` was stale on `main`, not just mangled by PR #95.**
+> - **`docs/security/ATTACK_MAPPING.md` was stale on `main`, not just mangled by PR #95.**
 >   The Python prototype files (`src/security/*.py`) were removed in v2.0.0, so
 >   the doc's prototype rows pointed at files that no longer exist — and the
 >   CI-gate test (`tests/test_attack_mapping.py`) was *already failing on main*
@@ -105,14 +105,14 @@ These are real improvements. We keep them, ideally byte-for-byte.
 | Backend port `443 → 8443` | `cmd/ja4p/main.go`, `scripts/start-poc.sh` | Correct bug fix. Our POC backend listens on **8443** (443 is HAProxy). This matches reality and matches the project memory note about the integration-test port. |
 | Tarpit logging: f-string → lazy `%s` | `src/tarpit/tarpit-server.py` | Lazy logging means the string is only formatted if the log level is active. Tiny, correct, idiomatic. |
 | Toning down marketing language ("Elite/beast" → "High/Verified") in some docs | various docs | We *want* sober, defensible language. This part is an improvement. |
-| Test path fix: `docs/for-architects/ATTACK_MAPPING.md` → `docs/ATTACK_MAPPING.md` | `tests/test_attack_mapping.py` | **This is a real fix and we MUST keep it.** The doc was moved to `docs/` earlier but the CI-gate test still pointed at the old path. The test is *currently failing on `main`* with `FileNotFoundError` (verified). PR #95 inadvertently repairs it. See §2.1 below — this finding is important. |
+| Test path fix: `docs/for-architects/ATTACK_MAPPING.md` → `docs/security/ATTACK_MAPPING.md` | `tests/test_attack_mapping.py` | **This is a real fix and we MUST keep it.** The doc was moved to `docs/` earlier but the CI-gate test still pointed at the old path. The test is *currently failing on `main`* with `FileNotFoundError` (verified). PR #95 inadvertently repairs it. See §2.1 below — this finding is important. |
 
 ### 🔴 FIX — the parts that must not ship as written
 
 | Change | File | Why it's a problem | What we do |
 |---|---|---|---|
 | **Removes the per-read idle timeout from the forward path** | `cmd/ja4pd/main.go` `forward()` | The old loop called `SetReadDeadline(ReadTimeout)` before every read and `SetWriteDeadline(WriteTimeout)` before every write. That is our **idle-connection reaper**. `io.CopyBuffer` sets **no deadlines at all** — so once a connection is established, `proxy.read_timeout` / `write_timeout` are silently *unenforced*. A slowloris / idle-hold client now ties up a goroutine **and a pooled 32 KB buffer forever**. This is both a resource-exhaustion vector and a config knob that no longer does anything. **This is the most important fix in the phase.** | Restore the deadlines **inside** the new pooled-buffer copy (see §3 task 1). We keep the buffer-pool win *and* the timeouts — they are not in conflict. |
-| **Corrupts `docs/ATTACK_MAPPING.md`** | `docs/ATTACK_MAPPING.md` | A blind `src/security/*.py → internal/security/*.go` find-replace was run over a doc that *deliberately* lists both the Go module and its Python prototype. Result: rows literally read "Python prototype … `internal/security/tcp_analyzer.go`" (self-contradictory); reverse-map rows have duplicate Go paths (`asn_classifier.go, asn_classifier.go`); and it references a `tests/test_attack_mapping.go` that does not exist (the test is `.py`). This is a security/compliance artefact — it must be accurate. | Revert the doc *content* to its correct form (keep the original Go-plus-Python references), while **keeping** the test-path fix from the KEEP list. See §3 task 2. |
+| **Corrupts `docs/security/ATTACK_MAPPING.md`** | `docs/security/ATTACK_MAPPING.md` | A blind `src/security/*.py → internal/security/*.go` find-replace was run over a doc that *deliberately* lists both the Go module and its Python prototype. Result: rows literally read "Python prototype … `internal/security/tcp_analyzer.go`" (self-contradictory); reverse-map rows have duplicate Go paths (`asn_classifier.go, asn_classifier.go`); and it references a `tests/test_attack_mapping.go` that does not exist (the test is `.py`). This is a security/compliance artefact — it must be accurate. | Revert the doc *content* to its correct form (keep the original Go-plus-Python references), while **keeping** the test-path fix from the KEEP list. See §3 task 2. |
 | **`> 10,000 CPS per core` unsubstantiated claim** | `docs/BENCHMARKING_GUIDE.md` | This number is extrapolated, not measured. Our verified host-native figure is ~3,500 CPS; the same doc honestly reports ~2,600 CPS in Docker with `network_mode: host`. Shipping a 10k claim we can't reproduce is exactly the "reckless" we're avoiding — and it contradicts the PR's *own* "Verified" language elsewhere. | Replace with the measured numbers and label them as measured, with the test command that produces them. See §3 task 4. |
 
 ### 🟠 RECONSIDER — defensible, but not as a silent drive-by
@@ -130,7 +130,7 @@ While checking PR #95 we ran `tests/test_attack_mapping.py` and it **fails on
 FileNotFoundError: .../docs/for-architects/ATTACK_MAPPING.md
 ```
 
-The mapping doc was relocated to `docs/ATTACK_MAPPING.md` in an earlier phase,
+The mapping doc was relocated to `docs/security/ATTACK_MAPPING.md` in an earlier phase,
 but this CI-gate test was never updated. PR #95's path change is the correct fix.
 **Lesson:** a good review doesn't just judge the diff — it runs the affected
 tests and sometimes uncovers latent breakage the diff happens to touch. Note
@@ -199,13 +199,13 @@ forensic-trace block, the `t3/t6` timing). Only the copy body changes.
 **Acceptance:** an integration/chaos test proves an idle client connection is
 closed after ~`read_timeout` seconds (see §4).
 
-### Task 2 — Repair `docs/ATTACK_MAPPING.md` (the compliance fix) 🔴
+### Task 2 — Repair `docs/security/ATTACK_MAPPING.md` (the compliance fix) 🔴
 
 Take the doc **content** from `main` (the correct version, which lists each Go
 module *and* its Python prototype), and apply **only** the legitimate path fix to
 the test:
 
-1. `git checkout main -- docs/ATTACK_MAPPING.md` to restore the correct content.
+1. `git checkout main -- docs/security/ATTACK_MAPPING.md` to restore the correct content.
 2. Keep PR #95's `tests/test_attack_mapping.py` path change
    (`docs/for-architects/…` → `docs/…`).
 3. Run `python3 -m pytest tests/test_attack_mapping.py -o addopts="" -q` and
@@ -257,7 +257,7 @@ Add/keep tests so the regressions can never silently come back:
    `cmd/ja4pd/` or `internal/security/` (match where forward-path tests already
    live).
 2. **ATT&CK mapping gate green.** `tests/test_attack_mapping.py` passes against
-   the repaired `docs/ATTACK_MAPPING.md`.
+   the repaired `docs/security/ATTACK_MAPPING.md`.
 3. **No new Go test regressions.** `GOROOT=/snap/go/current go test ./...`
    stays green (remember the snap-Go GOROOT note).
 4. **Full suite.** `make test` green; `make lint-phases` clean.
@@ -266,7 +266,7 @@ Add/keep tests so the regressions can never silently come back:
 
 1. Forward path uses the pooled buffer **and** re-enforces `read_timeout` /
    `write_timeout`; a regression test proves idle connections are reaped.
-2. `docs/ATTACK_MAPPING.md` content is correct (Go + Python references intact,
+2. `docs/security/ATTACK_MAPPING.md` content is correct (Go + Python references intact,
    no duplicates, no phantom `.go` test) **and** `tests/test_attack_mapping.py`
    passes (it currently fails on `main`).
 3. Redis pool tuning, 32 scoring workers / 20 000 queue, `443→8443`, and lazy

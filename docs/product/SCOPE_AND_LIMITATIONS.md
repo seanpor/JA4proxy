@@ -190,6 +190,6 @@ For the full signal catalogue, see the canonical phase documentation in
 
 - `docs/security/threat-model.md` — full STRIDE analysis and asset model
 - `docs/compliance/SECURITY_CONTROLS_MAPPING.md` — ISO 27001 control coverage
-- `docs/DEPLOYMENT_SECURITY_MODEL.md` — trust boundaries and OS user model
+- `docs/security/DEPLOYMENT_SECURITY_MODEL.md` — trust boundaries and OS user model
 - `SIEM_INTEGRATION.md` — log forwarding to your SIEM
 - `EVALUATION_CHECKLIST.md` — POC and 30-day evaluation

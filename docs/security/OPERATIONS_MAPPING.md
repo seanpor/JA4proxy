@@ -18,12 +18,12 @@ phase: v2.0
 
 | Alert Type | Suggested Action | Playbook |
 | :--- | :--- | :--- |
-| **Critical JA4 Match** | Increase Dial to 100; verify the JA4 in TI feeds. | [High Block Rate](runbooks/ja4proxy_block_rate_high.md) |
-| **Mesh Drift Alert** | Check configuration consistency; inspect Redis health. | [Unexpected Dial Change](runbooks/ja4proxy_dial_change_unexpected.md) |
-| **Tarpit Overflow** | Scale proxy instances; inspect for a Slowloris attack. | [Tarpit Pool Full](runbooks/ja4proxy_tarpit_pool_full.md) |
+| **Critical JA4 Match** | Increase Dial to 100; verify the JA4 in TI feeds. | [High Block Rate](../runbooks/ja4proxy_block_rate_high.md) |
+| **Mesh Drift Alert** | Check configuration consistency; inspect Redis health. | [Unexpected Dial Change](../runbooks/ja4proxy_dial_change_unexpected.md) |
+| **Tarpit Overflow** | Scale proxy instances; inspect for a Slowloris attack. | [Tarpit Pool Full](../runbooks/ja4proxy_tarpit_pool_full.md) |
 
 ## See also
 
 - [ATTACK_MAPPING.md](ATTACK_MAPPING.md) — authoritative MITRE ATT&CK technique mapping.
-- [INCIDENT_RESPONSE.md](INCIDENT_RESPONSE.md) — the full incident-response runbook.
-- [runbooks/](runbooks/) — the complete operational runbook set.
+- [INCIDENT_RESPONSE.md](../operations/INCIDENT_RESPONSE.md) — the full incident-response runbook.
+- [runbooks/](../runbooks/) — the complete operational runbook set.

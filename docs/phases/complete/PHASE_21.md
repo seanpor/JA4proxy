@@ -1,8 +1,8 @@
 # Phase 21 — Documentation Excellence & Knowledge Architecture
 
 >
-> Read this phase file fully before starting. Then read `docs/DOCUMENTATION_STANDARDS.md`
-> and skim `docs/STYLE_GUIDE.md §3`. This phase has no code changes — all work is
+> Read this phase file fully before starting. Then read `docs/developer/DOCUMENTATION_STANDARDS.md`
+> and skim `docs/developer/STYLE_GUIDE.md §3`. This phase has no code changes — all work is
 > documentation, so every task is independently verifiable.
 
 ---
@@ -53,11 +53,11 @@ The distribution and quality grades are:
 **Critical problems found:**
 - `../runbooks/management_ui.md` describes a component removed in v13.2.0.
 - Phase 15 status contradicts itself across CLAUDE.md, CHANGELOG.md, and PHASE_15.md.
-- `docs/OBSERVABILITY_STANDARDS.md §4` references a single alert file; Phase 14e split
+- `docs/reference/OBSERVABILITY_STANDARDS.md §4` references a single alert file; Phase 14e split
   it into three files.
-- `docs/TESTING_STRATEGY.md` states 1,174 tests; actual suite has 1,536.
+- `docs/developer/TESTING_STRATEGY.md` states 1,174 tests; actual suite has 1,536.
 - `PHASE_04A.md` and `PHASE_05A.md` are undocumented sub-files with no index entry.
-- ADR-004 through ADR-012 are required by `docs/DOCUMENTATION_STANDARDS.md §5` but
+- ADR-004 through ADR-012 are required by `docs/developer/DOCUMENTATION_STANDARDS.md §5` but
   do not exist.
 - `docs/GEMINI.md` has no stated purpose.
 - `docs/compliance/GDPR_COMPLIANCE.md` is two pages for a topic that needs ten.
@@ -203,7 +203,7 @@ per-subsystem Go implementation plan."` Do not remove it or merge it.
 
 ### 21a-3 Fix Alert Rules Reference in OBSERVABILITY_STANDARDS.md
 
-**Problem:** `docs/OBSERVABILITY_STANDARDS.md §4` references a single alert file:
+**Problem:** `docs/reference/OBSERVABILITY_STANDARDS.md §4` references a single alert file:
 `config/alertmanager/rules/ja4proxy.yml`. Phase 14e split this into three files
 (`../../monitoring/alertmanager/rules/proxy.rules.yml`, `../../monitoring/alertmanager/rules/redis.rules.yml`, `../../monitoring/alertmanager/rules/security.rules.yml`) in the new location
 `monitoring/alertmanager/rules/`.
@@ -222,7 +222,7 @@ per-subsystem Go implementation plan."` Do not remove it or merge it.
 
 ### 21a-4 Update Test Count in TESTING_STRATEGY.md
 
-**Problem:** `docs/TESTING_STRATEGY.md` states the test suite has ~1,174 tests.
+**Problem:** `docs/developer/TESTING_STRATEGY.md` states the test suite has ~1,174 tests.
 The actual count (as of March 2026) is 1,536.
 
 **Action:** Replace the specific count with a query-derived reference:
@@ -368,12 +368,12 @@ immediately after the one-paragraph introduction:
 
 | You are… | Read this first |
 |----------|----------------|
-| **Deploying for the first time** | [Quick-start (5 min)](docs/POC_QUICKSTART.md) |
-| **Daily operator / SecOps** | [Quick reference card](docs/QUICK_REFERENCE.md) |
-| **Investigating an incident** | [Incident response](docs/INCIDENT_RESPONSE.md) |
-| **Security architect / evaluator** | [Architecture overview](docs/architecture/system-architecture.md) |
+| **Deploying for the first time** | [Quick-start (5 min)](../../operations/POC_QUICKSTART.md) |
+| **Daily operator / SecOps** | [Quick reference card](../../QUICK_REFERENCE.md) |
+| **Investigating an incident** | [Incident response](../../operations/INCIDENT_RESPONSE.md) |
+| **Security architect / evaluator** | [Architecture overview](../../architecture/system-architecture.md) |
 | **Contributing code** | [Contributing guide](CONTRIBUTING.md) |
-| **Compliance / audit** | [GDPR & compliance](docs/compliance/GDPR_COMPLIANCE.md) |
+| **Compliance / audit** | [GDPR & compliance](../../compliance/GDPR_COMPLIANCE.md) |
 ```
 
 This costs six lines and eliminates the most common navigation failure.
@@ -484,12 +484,12 @@ understand what decisions have been documented vs. what still needs documentatio
 
 ## Phase 21c — Missing Architectural Decision Records
 
-`docs/DOCUMENTATION_STANDARDS.md §5` requires ADR-001 through ADR-007 plus ADR-013
+`docs/developer/DOCUMENTATION_STANDARDS.md §5` requires ADR-001 through ADR-007 plus ADR-013
 and ADR-015. Currently only ADR-001, ADR-002, ADR-003, ADR-013, ADR-015 exist.
 The missing ADRs are not optional documentation — they are the explanation for design
 choices that every architect and senior contributor needs.
 
-Each ADR must follow the template in `docs/DOCUMENTATION_STANDARDS.md §5.2`:
+Each ADR must follow the template in `docs/developer/DOCUMENTATION_STANDARDS.md §5.2`:
 
 ```markdown
 # ADR-NNN — Title
@@ -678,7 +678,7 @@ Reference existing controls: TLS in transit, Redis `requirepass`, no TLS key sto
 `SensitiveDataFilter` suppressing credentials from logs.
 
 **§7 — Incident and Breach Notification**
-Reference `docs/INCIDENT_RESPONSE.md §breach-notification` (create this subsection if
+Reference `docs/operations/INCIDENT_RESPONSE.md §breach-notification` (create this subsection if
 it doesn't exist).
 
 ### 21d-2 Add Breach Notification Subsection to INCIDENT_RESPONSE.md
@@ -885,7 +885,7 @@ Every PR must satisfy:
 - [x] No new Prometheus metrics outside the naming convention
   (`ja4proxy_{subsystem}_{metric}_{unit}`)
 - [x] `CHANGELOG.md` updated if this is a phase milestone
-- [x] `docs/REDIS_SCHEMA.md` updated if any new Redis keys introduced
+- [x] `docs/reference/REDIS_SCHEMA.md` updated if any new Redis keys introduced
 - [x] New signal module: FP corpus test added (`tests/fp_corpus/`)
 - [x] New external service: chaos test added (`tests/chaos/`)
 - [x] Config key added: inline YAML comment added to `config/proxy.yml`
@@ -901,7 +901,7 @@ Step-by-step guide for the most common contribution:
 6. Write unit tests in `tests/unit/test_{name}.py` — minimum 20 tests.
 7. Write chaos test in `tests/chaos/test_external_api_failure.py` (if external service).
 8. Write FP test in `tests/fp_corpus/test_{name}_fp.py` against Tranco top-10k.
-9. Update `docs/REDIS_SCHEMA.md` with any new keys.
+9. Update `docs/reference/REDIS_SCHEMA.md` with any new keys.
 10. Add a row to the phase's acceptance criteria table.
 
 **§6 — Go Contributions (Phase 15+)**
@@ -944,10 +944,10 @@ For contributors porting Python signal modules to Go (Phase 15 work):
 
 ### 21g-1 Consolidate Readiness Documents
 
-`docs/DMZ_READINESS.md` and `docs/reports/ENTERPRISE_READINESS_REPORT.md`
+`docs/security/DMZ_READINESS.md` and `docs/reports/ENTERPRISE_READINESS_REPORT.md`
 cover overlapping content (production hardening gaps, remediation status). Merge them:
 
-- Keep `docs/DMZ_READINESS.md` as the authoritative source (more detailed,
+- Keep `docs/security/DMZ_READINESS.md` as the authoritative source (more detailed,
   better structured, referenced from CLAUDE.md).
 - Add a `## Enterprise Readiness` section to `../DMZ_READINESS.md` that absorbs
   any non-overlapping content from `ENTERPRISE_READINESS_REPORT.md`.
@@ -956,7 +956,7 @@ cover overlapping content (production hardening gaps, remediation status). Merge
 
 ### 21g-2 Mark Old TESTING.md as Superseded
 
-`../TESTING.md` is superseded by `docs/TESTING_STRATEGY.md`. Add to the top of
+`../TESTING.md` is superseded by `docs/developer/TESTING_STRATEGY.md`. Add to the top of
 `../TESTING.md`:
 
 ```markdown
@@ -972,7 +972,7 @@ cover overlapping content (production hardening gaps, remediation status). Merge
 - `docs/developer/test-audit.md`: replace with a pointer to `make test-ratio` and
   delete (outdated counts are worse than no counts).
 - `docs/docker_container_test_layers_expanded.md`: evaluate whether this belongs in
-  `docs/TESTING_STRATEGY.md` (merge) or is obsolete (delete).
+  `docs/developer/TESTING_STRATEGY.md` (merge) or is obsolete (delete).
 
 ### 21g-4 Consolidate Enterprise/ Docs
 
@@ -988,7 +988,7 @@ network policy, secrets management with Vault. Reference realistic cloud provide
 ```markdown
 > **[ASPIRATIONAL]** This document describes a target enterprise architecture that has
 > not yet been validated in production. Treat as a starting point, not a specification.
-> See `docs/DMZ_READINESS.md` for the validated single-node deployment model.
+> See `docs/security/DMZ_READINESS.md` for the validated single-node deployment model.
 ```
 
 Choose Option B unless enterprise Kubernetes deployment is actively being built.
@@ -1071,7 +1071,7 @@ change without our knowledge and would create CI flakiness).
 
 ### 21h-3 Documentation Review as Part of Phase Gate
 
-Update `docs/DOCUMENTATION_STANDARDS.md §7` (per-phase documentation gate) to include:
+Update `docs/developer/DOCUMENTATION_STANDARDS.md §7` (per-phase documentation gate) to include:
 
 ```markdown
 ### Documentation gate checklist (add to every phase completion review)
@@ -1080,8 +1080,8 @@ Update `docs/DOCUMENTATION_STANDARDS.md §7` (per-phase documentation gate) to i
 - [x] New documents have audience stamp (§21b-2 format).
 - [x] `make lint-docs` passes with zero warnings.
 - [x] `make link-check` passes with zero broken internal links.
-- [x] New Redis keys documented in `docs/REDIS_SCHEMA.md`.
-- [x] New Prometheus metrics in `docs/OBSERVABILITY_STANDARDS.md §1d`.
+- [x] New Redis keys documented in `docs/reference/REDIS_SCHEMA.md`.
+- [x] New Prometheus metrics in `docs/reference/OBSERVABILITY_STANDARDS.md §1d`.
 - [x] CHANGELOG.md entry added.
 - [x] If any ADR was promised and not written, an entry added to `../decisions/README.md`
   with status "Proposed" and a GitHub issue number.
@@ -1119,9 +1119,9 @@ complete. Without this, documentation debt silently re-accumulates.
    `../decisions/README.md` with a GitHub issue number for follow-up. Unwritten ADRs
    that have no tracking entry constitute documentation debt.
 
-3. **New Redis keys** → document in `docs/REDIS_SCHEMA.md` before the PR merges.
+3. **New Redis keys** → document in `docs/reference/REDIS_SCHEMA.md` before the PR merges.
 
-4. **New Prometheus metrics** → add to `docs/OBSERVABILITY_STANDARDS.md §1d`.
+4. **New Prometheus metrics** → add to `docs/reference/OBSERVABILITY_STANDARDS.md §1d`.
 
 5. **New runbooks or operator commands** → apply the runbook template (21e-1) and link
    from the relevant persona section of `../README.md`.
@@ -1148,9 +1148,9 @@ All of the following must be true before Phase 21 is complete.
   index links to it without noting it is deprecated.
 - [x] `PHASE_15.md` has a `## Current Status` table showing per-subsystem Go
   completion (✅/❌); `CHANGELOG.md` v15.0.0 entry is accurate.
-- [x] `docs/OBSERVABILITY_STANDARDS.md §4` references all three alert rule files in
+- [x] `docs/reference/OBSERVABILITY_STANDARDS.md §4` references all three alert rule files in
   `monitoring/alertmanager/rules/`.
-- [x] `docs/TESTING_STRATEGY.md` no longer contains a hard-coded test count; it
+- [x] `docs/developer/TESTING_STRATEGY.md` no longer contains a hard-coded test count; it
   contains a `make` command to derive the live count.
 - [x] `docs/GEMINI.md` either has a clear header explaining its purpose or is removed.
 - [x] Every PHASE_NNa.md sub-file either has an explicit link from its parent or is
@@ -1180,7 +1180,7 @@ All of the following must be true before Phase 21 is complete.
 
 - [x] `docs/compliance/GDPR_COMPLIANCE.md` covers all seven sections defined in 21d-1.
   Minimum length: 600 words (10 pages of substance, not padding).
-- [x] `docs/INCIDENT_RESPONSE.md` contains a Breach Notification subsection.
+- [x] `docs/operations/INCIDENT_RESPONSE.md` contains a Breach Notification subsection.
 - [x] `../compliance/SECURITY_CONTROLS_MAPPING.md` exists and maps JA4proxy controls
   to at least 10 ISO 27001:2022 Annex A controls.
 - [x] `docs/security/threat-model.md` has a STRIDE table for the proxy hot path and
@@ -1190,7 +1190,7 @@ All of the following must be true before Phase 21 is complete.
 ### Operator Pack (21e)
 
 - [x] All eight active runbooks have the consistent structure defined in 21e-1.
-- [x] `docs/INCIDENT_RESPONSE.md` contains an Incident Severity Matrix.
+- [x] `docs/operations/INCIDENT_RESPONSE.md` contains an Incident Severity Matrix.
 - [x] `../operator/CAPACITY_PLANNING.md` exists with Python and Go sizing guidance.
 - [x] `../operator/TROUBLESHOOTING.md` exists with ≥10 common problems.
 
@@ -1204,7 +1204,7 @@ All of the following must be true before Phase 21 is complete.
 ### Consolidation (21g)
 
 - [x] `docs/reports/ENTERPRISE_READINESS_REPORT.md` redirects to
-  `docs/DMZ_READINESS.md`.
+  `docs/security/DMZ_READINESS.md`.
 - [x] `../TESTING.md` has a SUPERSEDED header.
 - [x] `docs/developer/traffic-generator-fix.md` and `docs/developer/test-audit.md`
   are deleted or have DEPRECATED headers with all useful content extracted.
@@ -1218,7 +1218,7 @@ All of the following must be true before Phase 21 is complete.
 - [x] `../../scripts/check_doc_frontmatter.py` exists and runs without error.
 - [x] `make lint-docs` runs and reports zero warnings against the updated docs/.
 - [x] `.mlc.json` exists and `make link-check` reports zero broken internal links.
-- [x] `docs/DOCUMENTATION_STANDARDS.md §7` includes the Phase 21 gate checklist.
+- [x] `docs/developer/DOCUMENTATION_STANDARDS.md §7` includes the Phase 21 gate checklist.
 - [x] `Makefile` has `lint-docs`, `link-check`, `doc-health`, and `test-ratio` targets.
 
 ---

@@ -151,16 +151,16 @@ security:
     # ... 5 more known-bad fingerprints
 ```
 
-See the main [README](../README.md) for full configuration reference.
+See the main [README](../../README.md) for full configuration reference.
 
 ## Further Reading
 
-- [README](../README.md) — Full feature overview and configuration reference
-- [Makefile Targets Reference](MAKEFILE_TARGETS.md) — Command cheat sheet
-- [Performance Benchmark](reports/PERFORMANCE_BENCHMARK.md) — Throughput data
-- [Security Audit](security/COMPREHENSIVE_SECURITY_AUDIT.md) — Vulnerability assessment
-- [Threat Model](security/threat-model.md) — Attack surface analysis
-- [Enterprise Deployment](DEPLOYMENT_SECURITY_MODEL.md) — Production hardening guide
-- [GDPR Compliance](compliance/GDPR_COMPLIANCE.md) — Data handling
+- [README](../../README.md) — Full feature overview and configuration reference
+- [Makefile Targets Reference](../reference/MAKEFILE_TARGETS.md) — Command cheat sheet
+- [Performance Benchmark](../reports/PERFORMANCE_BENCHMARK.md) — Throughput data
+- [Security Audit](../security/COMPREHENSIVE_SECURITY_AUDIT.md) — Vulnerability assessment
+- [Threat Model](../security/threat-model.md) — Attack surface analysis
+- [Enterprise Deployment](../security/DEPLOYMENT_SECURITY_MODEL.md) — Production hardening guide
+- [GDPR Compliance](../compliance/GDPR_COMPLIANCE.md) — Data handling
 
-> ⚠️ **This is a POC environment.** See [DMZ Deployment Readiness](DMZ_READINESS.md) for outstanding items before production use.
+> ⚠️ **This is a POC environment.** See [DMZ Deployment Readiness](../security/DMZ_READINESS.md) for outstanding items before production use.

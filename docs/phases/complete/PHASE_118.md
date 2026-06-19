@@ -282,20 +282,20 @@ SMALL (2-3 engineer-hours)
 No documented security guidance for config file handling, secrets rotation, or exposure risks.
 
 ### Location
-`docs/REDIS_SCHEMA.md`, new section in `docs/SECURITY.md`
+`docs/reference/REDIS_SCHEMA.md`, new section in `docs/SECURITY.md`
 
 ### Fix
 1. Add "Security Considerations" section to `REDIS_SCHEMA.md`:
    - Document that no API keys or secrets should be stored in Redis
    - Document Redis password rotation policy (90 days)
    - Document Redis ACL requirements
-2. Add "Config File Security" section to `docs/STYLE_GUIDE.md`:
+2. Add "Config File Security" section to `docs/developer/STYLE_GUIDE.md`:
    - Config files must not contain secrets (use env vars or secrets manager)
    - Config files must be world-unreadable (`chmod 600`)
    - Validate JSON Schema on config reload
 
 ### Test Criteria
-- [ ] `docs/REDIS_SCHEMA.md` includes security section
+- [ ] `docs/reference/REDIS_SCHEMA.md` includes security section
 - [ ] New `docs/CONFIG_SECURITY.md` exists with hardening guidance
 
 ### Size

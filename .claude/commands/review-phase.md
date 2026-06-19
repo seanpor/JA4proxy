@@ -19,7 +19,7 @@ with a parallel agent team.
    - Check that all prerequisite phases (dependencies) have `status: COMPLETE`.
      If not, warn the user and list which prerequisites are incomplete.
 4. Read `config/proxy.yml` to understand current config surface.
-5. Read `docs/OBSERVABILITY_STANDARDS.md` for metric/log/alert conventions.
+5. Read `docs/reference/OBSERVABILITY_STANDARDS.md` for metric/log/alert conventions.
 6. Skim related source files referenced in the phase doc.
 7. Determine whether this phase targets **Go (production)** or **Python (prototype)**
    per CLAUDE.md: "Default to the Go side. Touch the Python side only when the task
@@ -61,7 +61,7 @@ Produce a structured review covering each lens. For each, list specific findings
 - Data flow: any new coupling between components?
 - Concurrency: any shared state, race conditions, or hot-path blocking?
 - IPv6: does every IP-touching path handle both v4 and v6?
-- Redis schema: are new keys documented in `docs/REDIS_SCHEMA.md`?
+- Redis schema: are new keys documented in `docs/reference/REDIS_SCHEMA.md`?
 
 ### 2e. Testing Review
 - Are all acceptance criteria testable and unambiguous?

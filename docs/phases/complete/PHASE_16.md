@@ -7,7 +7,7 @@ JA4X extended fingerprinting, adaptive rate limiting, Kubernetes deployment supp
 and OpenTelemetry tracing. These items are prerequisites for enterprise production
 readiness beyond the baseline established in Phase 14.
 
-**Read `docs/TESTING_STRATEGY.md §10` (coverage gap table) before starting.**
+**Read `docs/developer/TESTING_STRATEGY.md §10` (coverage gap table) before starting.**
 
 Sections 16a–16e address the test gaps identified during the Phase 9 review.
 Sections 16f–16k address operational and feature improvements from the broader

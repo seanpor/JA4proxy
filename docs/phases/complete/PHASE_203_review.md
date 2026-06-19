@@ -224,7 +224,7 @@ interval is short (say, sub-5s) and you want to ride out single dropped PINGs.
 ### F. Documentation
 - CHANGELOG — one entry per sub-phase OR one consolidated entry (prefer
   consolidated; sub-phases are tightly related).
-- `docs/REDIS_SCHEMA.md` — no changes (no new keys).
+- `docs/reference/REDIS_SCHEMA.md` — no changes (no new keys).
 - `docs/runbooks/go_proxy_operations.md` — update for 203e.
 - ADRs — none required if 203a is dropped. If retained, **must** have an
   ADR explaining the JA4T-from-accepted-socket limitation.

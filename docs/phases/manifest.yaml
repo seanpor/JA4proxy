@@ -1662,7 +1662,7 @@ phases:
     - Load test accepts bypass-only / full-signal / attack-wave / mixed scenarios
     - Load test --push-gateway flag emits all 5 ja4proxy_loadtest_* metrics
     - deploy/monitoring/grafana/dashboards/04_capacity.json present and provisioned
-    - docs/OBSERVABILITY_STANDARDS.md registers the 5 loadtest metrics
+    - docs/reference/OBSERVABILITY_STANDARDS.md registers the 5 loadtest metrics
   87:
     name: Container & Host Infrastructure Observability
     status: COMPLETE
@@ -1802,7 +1802,7 @@ phases:
     - All 10 unit tests in tests/unit/test_gdpr_delete.py pass (fakeredis)
     - make gdpr-delete IP=127.0.0.1 runs without error against a live Redis
     - HLL keys are NOT deleted; limitation documented in erasure report output
-    - docs/REDIS_SCHEMA.md updated with management:gdpr_erasure_log key
+    - docs/reference/REDIS_SCHEMA.md updated with management:gdpr_erasure_log key
     - Runbook section written for GDPR erasure procedure
     - make test-phase-87-integration passes against a running monitoring stack
     - Phase 87 manifest success_criteria updated to include integration test target
@@ -2529,7 +2529,7 @@ phases:
     action_plan: docs/phases/complete/PHASE_306.md
     dependencies: [305]
     size: MEDIUM
-    summary: 'Took over external PR #95 ("unleash Go performance") on a clean branch off main, keeping every legitimate win and fixing the regressions. KEPT: io.CopyBuffer-style pooled 32KB buffer reuse in forward() (sync.Pool, sync.WaitGroup, JA4PROXY-2026-0009 invariant preserved), Redis PoolSize 100/MinIdleConns 10, 32-goroutine async scoring pool + workChan 10000->20000, dev/POC/Perf backend port 443->8443 (Production stays 443), lazy %s tarpit logging, and honest hyperbole tone-downs (Elite->Verified/High) in existing docs. FIXED: restored the per-read SetReadDeadline/SetWriteDeadline idle-reaper PR #95 silently dropped — without it a slowloris/idle-hold pins a goroutine + pooled buffer forever and read_timeout/write_timeout become dead config; the pooled-buffer win and the deadlines coexist. Added Go regression test TestForward_IdleConnectionIsReaped (tears down an idle pair at read_timeout; hangs/fails if deadlines removed). REPAIRED docs/ATTACK_MAPPING.md, which was stale on main (Python prototypes src/security/*.py retired in v2.0.0): dropped the dead prototype rows, repointed the two genuine rate-tracker rows to internal/security/rate_limiter.go, and fixed the CI-gate test path (docs/for-architects -> docs/) — the gate (tests/test_attack_mapping.py) was failing on main and now passes. The unsubstantiated ">10,000 CPS/core" claim lived only in PR-new marketing docs (BENCHMARKING_GUIDE.md, PHASE_161.md), which were simply not imported. Left the connection-decision log at Info (no Debug demotion) to preserve the audit trail. Go build/vet/gofmt clean; touched-package tests green.'
+    summary: 'Took over external PR #95 ("unleash Go performance") on a clean branch off main, keeping every legitimate win and fixing the regressions. KEPT: io.CopyBuffer-style pooled 32KB buffer reuse in forward() (sync.Pool, sync.WaitGroup, JA4PROXY-2026-0009 invariant preserved), Redis PoolSize 100/MinIdleConns 10, 32-goroutine async scoring pool + workChan 10000->20000, dev/POC/Perf backend port 443->8443 (Production stays 443), lazy %s tarpit logging, and honest hyperbole tone-downs (Elite->Verified/High) in existing docs. FIXED: restored the per-read SetReadDeadline/SetWriteDeadline idle-reaper PR #95 silently dropped — without it a slowloris/idle-hold pins a goroutine + pooled buffer forever and read_timeout/write_timeout become dead config; the pooled-buffer win and the deadlines coexist. Added Go regression test TestForward_IdleConnectionIsReaped (tears down an idle pair at read_timeout; hangs/fails if deadlines removed). REPAIRED docs/security/ATTACK_MAPPING.md, which was stale on main (Python prototypes src/security/*.py retired in v2.0.0): dropped the dead prototype rows, repointed the two genuine rate-tracker rows to internal/security/rate_limiter.go, and fixed the CI-gate test path (docs/for-architects -> docs/) — the gate (tests/test_attack_mapping.py) was failing on main and now passes. The unsubstantiated ">10,000 CPS/core" claim lived only in PR-new marketing docs (BENCHMARKING_GUIDE.md, PHASE_161.md), which were simply not imported. Left the connection-decision log at Info (no Debug demotion) to preserve the audit trail. Go build/vet/gofmt clean; touched-package tests green.'
   305:
     name: CodeQL Triage — Python Code-Scanning Findings
     status: COMPLETE
@@ -2724,7 +2724,7 @@ phases:
     action_plan: docs/phases/complete/PHASE_232a.md
     dependencies: [231]
     size: SMALL
-    summary: Vendor all third-party JavaScript dependencies and compile static CSS via Tailwind CLI to secure frontend assets from CDN risks. Updates docs/OPERATIONS_GUIDE.md.
+    summary: Vendor all third-party JavaScript dependencies and compile static CSS via Tailwind CLI to secure frontend assets from CDN risks. Updates docs/operations/OPERATIONS_GUIDE.md.
   232b:
     name: Threat Posture Situation Bar & Heartbeat Alerting
     status: COMPLETE
@@ -2732,7 +2732,7 @@ phases:
     action_plan: docs/phases/complete/PHASE_232b.md
     dependencies: [232a]
     size: SMALL
-    summary: Implement a top situation summary bar displaying current Threat Posture (NOMINAL/ELEVATED/ACTIVE) and a sticky warning banner for proxy downtime. Updates docs/OPERATIONS_GUIDE.md.
+    summary: Implement a top situation summary bar displaying current Threat Posture (NOMINAL/ELEVATED/ACTIVE) and a sticky warning banner for proxy downtime. Updates docs/operations/OPERATIONS_GUIDE.md.
   232c:
     name: Container Networking & Port Hardening
     status: COMPLETE

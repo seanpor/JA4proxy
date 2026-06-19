@@ -9,7 +9,7 @@ phase: 21
 
 > **Audience:** SecOps analysts, incident responders
 > **Prerequisites:** JA4proxy deployed; Redis and Prometheus accessible
-> **Related:** [SecOps Operations](OPERATIONS_GUIDE.md) · [Makefile Targets](MAKEFILE_TARGETS.md)
+> **Related:** [SecOps Operations](OPERATIONS_GUIDE.md) · [Makefile Targets](../reference/MAKEFILE_TARGETS.md)
 
 Quick reference for responding to active attacks. All commands take effect **immediately** — no proxy restart needed.
 

@@ -14,7 +14,7 @@
 |---|---|
 | `docs/phases/complete/PHASE_107.md` | ✅ Exists (476 lines, well-structured) |
 | Dependency: Phase 105 (audience-scoped doc directories) | ✅ COMPLETE — `docs/for-{architects,compliance,website-owners}/` all populated |
-| Dependency: Phase 106 (`RISK_REGISTER.md` etc.) | ✅ COMPLETE — `docs/RISK_REGISTER.md` exists for new rows |
+| Dependency: Phase 106 (`RISK_REGISTER.md` etc.) | ✅ COMPLETE — `docs/security/RISK_REGISTER.md` exists for new rows |
 | Dependency: Phase 202 (SBOM + Cosign baseline = SLSA L2) | ✅ COMPLETE — `.github/workflows/go-proxy-image.yml` already does keyless cosign + SBOM (see `ADR-202d`) |
 | Dependency: workflow SHA-pin enforcement | ✅ `tests/test_workflow_pinning.py` exists |
 | Existing CRA/SSDF/27017/29100/ATT&CK docs | ❌ None — all net-new (intended) |
@@ -215,7 +215,7 @@
 - **Files to touch:** `docs/compliance/CRA_CONFORMANCE.md`
 - **What to do:** ER5 (data minimisation), ER6 (DoS resilience), ER7 (security logging), ER8 (integrity protection). Same row format as 107a.2.
 - **Done when:** [ ] 4 ER rows; evidence paths verified `ls`-clean
-- **Watch out for:** ER7 evidence is `docs/OBSERVABILITY_STANDARDS.md` + `docs/runbooks/audit_log.md`-style refs; do not invent docs that don't exist
+- **Watch out for:** ER7 evidence is `docs/reference/OBSERVABILITY_STANDARDS.md` + `docs/runbooks/audit_log.md`-style refs; do not invent docs that don't exist
 
 #### Sub-task 107a.4: CRA Annex I — ER9-ER13 + Annex II
 - **Size:** S (3h) · **Depends on:** 107a.1 · **Parallel with:** 107a.2, 107a.3
@@ -337,7 +337,7 @@
 - **Size:** S (3h) · **Depends on:** 107e.1 · **Parallel with:** anything
 - **Files to touch:** `docs/compliance/iso29100-mapping.md`, `docs/compliance/GDPR_COMPLIANCE.md`
 - **What to do:**
-  - Fill all 11 principle rows. Most evidence already in `GDPR_COMPLIANCE.md` and `docs/REDIS_SCHEMA.md` — **link, don't duplicate**.
+  - Fill all 11 principle rows. Most evidence already in `GDPR_COMPLIANCE.md` and `docs/reference/REDIS_SCHEMA.md` — **link, don't duplicate**.
   - Add data-flow paragraph: PII = IP addresses, retention per Redis TTL, see GDPR doc for full picture.
   - Add cross-link from `GDPR_COMPLIANCE.md` to the new 29100 doc.
 - **Done when:** [ ] 11 rows filled; cross-links resolve
@@ -427,7 +427,7 @@
 
 #### Sub-task 107w.2: FAQ + risk register additions
 - **Size:** XS (1h) · **Depends on:** 107a content + 107c.5 done · **Parallel with:** 107w.1, 107w.3
-- **Files to touch:** `FAQ.md`, `docs/RISK_REGISTER.md`
+- **Files to touch:** `FAQ.md`, `docs/security/RISK_REGISTER.md`
 - **What to do:**
   - FAQ: add Q "Are you CRA-compliant?" → "We have a self-assessed CRA conformance statement: [link]" — and Q "Do you support SLSA provenance verification?" → link `ADR-107a-slsa-level-3.md`.
   - RISK_REGISTER: add rows for any *real* gap discovered during 107a/d/e content work (don't invent risks; link only to genuine TODO/gap entries in the new mapping docs).
@@ -496,7 +496,7 @@
 
 #### Sub-task 107z.3: Manifest + sync
 - **Size:** XS (0.5h) · **Depends on:** 107z.1, 107z.2, all CI gates green · **Parallel with:** none
-- **Files to touch:** `docs/phases/manifest.yaml` (status PROPOSED → COMPLETE), regenerated `docs/phases/TODO.md` + `docs/PROJECT_STATUS.md`
+- **Files to touch:** `docs/phases/manifest.yaml` (status PROPOSED → COMPLETE), regenerated `docs/phases/TODO.md` + `docs/reference/PROJECT_STATUS.md`
 - **What to do:** Bump status, run `make sync`, commit the regenerated index files.
 - **Done when:** [ ] `make sync` clean; manifest reflects COMPLETE
 - **Watch out for:** Don't mark COMPLETE if any of 107c.3/.4 is still under `workflow_dispatch`-only — push triggers must be re-enabled and verified first

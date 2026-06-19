@@ -368,7 +368,7 @@ Cross-link from: Phase 107a (CRA Annex II), Phase 107b (SSDF RV practices).
 - [ ] `docs/compliance/iso27001-annex-a-mapping.md` cross-links to
       iso27017-mapping
 - [ ] `docs/compliance/GDPR_COMPLIANCE.md` cross-links to iso29100-mapping
-- [ ] `docs/RISK_REGISTER.md` (from Phase 106b) has rows added for any
+- [ ] `docs/security/RISK_REGISTER.md` (from Phase 106b) has rows added for any
       gaps discovered during the mapping work
 - [ ] `FAQ.md` (from Phase 105) adds entries for
       "Are you CRA-compliant?" and "Do you support SLSA provenance
@@ -413,7 +413,7 @@ Cross-link from: Phase 107a (CRA Annex II), Phase 107b (SSDF RV practices).
 | `.github/workflows/go-proxy-image.yml` | Add SLSA generator; pin action |
 | `.github/workflows/release-cli.yml` | Add SLSA generator for CLI binary |
 | `.github/workflows/slsa-verify.yml` | New — verification test workflow |
-| `docs/RISK_REGISTER.md` | Add rows for discovered gaps (from Phase 106) |
+| `docs/security/RISK_REGISTER.md` | Add rows for discovered gaps (from Phase 106) |
 | `docs/phases/manifest.yaml` | Add Phase 107 entry; mark COMPLETE |
 | `CHANGELOG.md` | Phase 107 entry |
 

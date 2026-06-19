@@ -181,4 +181,4 @@ secrets/
 # source — committing them made every parallel phase PR conflict. Regenerate
 # locally with `make sync`; the source of truth is manifest.yaml.
 docs/phases/TODO.md
-docs/PROJECT_STATUS.md
+docs/reference/PROJECT_STATUS.md

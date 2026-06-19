@@ -11,7 +11,7 @@ This page is the **human-contributor** version of the phase protocol. It
 covers running a phase end-to-end: planning, branching, committing,
 syncing the manifest, and closing. The agent-orchestration variant — same
 content, more enforcement detail — is in
-[`../../AGENTS.md`](../../AGENTS.md). Where this page summarises a rule,
+[`../../AGENTS.md`](../../../AGENTS.md). Where this page summarises a rule,
 that file is the source of truth.
 
 > **Production runtime is the Go proxy daemon (`ja4pd`).** A phase that adds a signal
@@ -24,7 +24,7 @@ that file is the source of truth.
 
 **Write the plan before writing code.** Every phase starts with a
 `docs/phases/PHASE_NN.md` document that the user reviews and approves.
-The full protocol is in [`../../AGENTS.md`](../../AGENTS.md) §Mandatory
+The full protocol is in [`../../AGENTS.md`](../../../AGENTS.md) §Mandatory
 Planning Protocol; the summary:
 
 1. Pick the next available phase number from
@@ -72,7 +72,7 @@ git checkout -b phase-NN-description
 - Commit message format `phase-NN: description`, with a `Co-Authored-By:`
   trailer. See [`HOW_WE_WORK.md`](HOW_WE_WORK.md) §Commits.
 - Stage only files you own per the file-ownership table in
-  [`../../CLAUDE.md`](../../CLAUDE.md) §File Ownership. Do not edit shared
+  [`../../CLAUDE.md`](../../../CLAUDE.md) §File Ownership. Do not edit shared
   files outside the rules in that table.
 
 A phase commit history with 10–30 atomic commits is normal. A 1-commit
@@ -104,7 +104,7 @@ make sync
 ```
 
 `make sync` regenerates `docs/phases/TODO.md` and
-`docs/PROJECT_STATUS.md`. These files are read-only outputs of the manifest
+`docs/reference/PROJECT_STATUS.md`. These files are read-only outputs of the manifest
 — never hand-edit them, and always commit the regenerated versions
 together with the manifest change.
 
@@ -133,7 +133,7 @@ hand. The script runs ruff, gofmt, go vet, go test, `make test`, and
 - [ ] `make test` is fully green locally (paste tail into PR description).
 - [ ] `CHANGELOG.md` has a Phase NN entry in the standard format
       (see [`DOCUMENTATION_STANDARDS.md`](DOCUMENTATION_STANDARDS.md)).
-- [ ] `docs/REDIS_SCHEMA.md` updated for every new Redis key.
+- [ ] `docs/reference/REDIS_SCHEMA.md` updated for every new Redis key.
 - [ ] If scoring/pipeline affected: `make check-scores` and
       `make parity-check` exit 0.
 - [ ] `docs/phases/manifest.yaml` has `status: COMPLETE`,
@@ -146,16 +146,16 @@ hand. The script runs ruff, gofmt, go vet, go test, `make test`, and
 
 The full close-out narrative — pre-flight, local gate, independent
 critical review, post-merge verification — is in
-[`../../AGENTS.md`](../../AGENTS.md) §Phase Close-Out.
+[`../../AGENTS.md`](../../../AGENTS.md) §Phase Close-Out.
 
 ---
 
 ## Cross-references
 
 - Architectural rules and decision log:
-  [`../CLAUDE.md`](../CLAUDE.md)
+  [`../CLAUDE.md`](../../CLAUDE.md)
 - Agent-orchestration variant of this protocol:
-  [`../AGENTS.md`](../AGENTS.md)
+  [`../AGENTS.md`](../../AGENTS.md)
 - Branch flow, commit conventions, keep-main-green policy:
   [`HOW_WE_WORK.md`](HOW_WE_WORK.md)
 - Test discipline and the phase gate:

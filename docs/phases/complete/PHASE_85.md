@@ -144,11 +144,11 @@ single disabled feed; logs show `"ti_feeds runner started"` and clean shutdown o
 
 ---
 
-### Chunk C — `docs/REDIS_SCHEMA.md` updates  *(30 min)*
+### Chunk C — `docs/reference/REDIS_SCHEMA.md` updates  *(30 min)*
 
 **Goal:** Document the six `ti_feed:*` keys from §2.2 in the canonical schema doc.
 
-**Files:** `docs/REDIS_SCHEMA.md`
+**Files:** `docs/reference/REDIS_SCHEMA.md`
 
 **Action:** Append a new `## Phase 85 — Threat Intelligence Feeds` section. Copy the table
 from §2.2 of this phase doc. For each key state: pattern, type, TTL, writer, reader, purpose.
@@ -1062,7 +1062,7 @@ Each item is verifiable by a specific test or artifact. No dupes.
 - [ ] `docs/stix/README.md` links to both of the above
 - [ ] ADR-024 records the library choice (stix2 + taxii2-client vs hand-rolled)
 - [ ] `CHANGELOG.md` entry in project standard format
-- [ ] `docs/REDIS_SCHEMA.md` updated with the six `ti_feed:*` keys from §2.2
+- [ ] `docs/reference/REDIS_SCHEMA.md` updated with the six `ti_feed:*` keys from §2.2
 
 ### 12.2 Integration Contract
 

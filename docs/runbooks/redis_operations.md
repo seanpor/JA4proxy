@@ -317,5 +317,5 @@ Escalate to the on-call infrastructure team if:
 ## Related
 
 - `docs/runbooks/analytics_lag.md` — Stream consumer lag procedures
-- `docs/REDIS_SCHEMA.md` — Full key reference
+- `docs/reference/REDIS_SCHEMA.md` — Full key reference
 - `docs/runbooks/security_policy.md` — Dial and ban management

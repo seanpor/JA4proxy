@@ -20,7 +20,7 @@ This phase delivers integrations with enterprise monitoring tools, a capacity si
 
 | Sub-Phase | Deliverable | New files | Modified files |
 |-----------|------------|-----------|----------------|
-| **86a** | Management API summary endpoint — Python + Go | `src/management/routes/summary.py` (new route handler) | `src/management/app.py` (+1 route), `cmd/proxy/main.go` (deep health + `/summary` handlers), `docs/REDIS_SCHEMA.md` |
+| **86a** | Management API summary endpoint — Python + Go | `src/management/routes/summary.py` (new route handler) | `src/management/app.py` (+1 route), `cmd/proxy/main.go` (deep health + `/summary` handlers), `docs/reference/REDIS_SCHEMA.md` |
 | **86b** | Load testing harness + benchmark run | `scripts/load_test.py`, `scripts/load_test/` (TLS fingerprint fixtures) | `Makefile` (`load-test`, `load-test-report` targets), `docs/performance/benchmarks.md` (published numbers) |
 | **86c** | Capacity sizing calculator | `scripts/capacity_calculator.py` | None |
 | **86d** | Datadog integration | `deploy/datadog/checks/ja4proxy/check.py`, `deploy/datadog/checks/ja4proxy/__init__.py`, `deploy/datadog/ja4proxy-dashboard.json`, `deploy/datadog/ja4proxy-monitors.json`, `deploy/datadog/conf.d/ja4proxy.d/conf.yaml` | `docs/RELEASE_NOTES.md` (install instructions) |

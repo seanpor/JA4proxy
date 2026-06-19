@@ -12,7 +12,7 @@ Optimize the project for Cyber Ops evaluation and production deployment by strea
 ### 1. Repository Pruning & Hygiene
 - **Legacy Migration**: Move the `archive/` directory and obsolete Python-related documentation to a dedicated `legacy-v1` branch.
 - **Root Cleanup**: Remove transient files and ensure the `main` branch reflects only the stable v2.0.0 Go-centric stack.
-- **Documentation Consolidation**: Merge overlapping operational docs into a single, high-authority `docs/OPERATIONS_GUIDE.md`.
+- **Documentation Consolidation**: Merge overlapping operational docs into a single, high-authority `docs/operations/OPERATIONS_GUIDE.md`.
 
 ### 2. "Single-Binary" CLI Enhancements
 - **Config Validator**: Add `ja4p config validate` to the Go binary to verify YAML syntax and logical consistency (e.g., dial range, valid feed URLs) before service start.
@@ -20,7 +20,7 @@ Optimize the project for Cyber Ops evaluation and production deployment by strea
 - **Version Signal**: Ensure `ja4p version` includes the SLSA provenance hash and build timestamp.
 
 ### 3. MITRE ATT&CK & Ops Playbooks
-- **Signal Mapping**: Create `docs/OPERATIONS_MAPPING.md` linking JA4proxy signals (e.g., JA4 mismatch, malformed SNI) to MITRE ATT&CK techniques.
+- **Signal Mapping**: Create `docs/security/OPERATIONS_MAPPING.md` linking JA4proxy signals (e.g., JA4 mismatch, malformed SNI) to MITRE ATT&CK techniques.
 - **Remediation Playbooks**: Provide "If-This-Then-That" (IFTTT) playbooks for the Top 5 most common security alerts.
 
 ### 4. Enterprise Helm v2

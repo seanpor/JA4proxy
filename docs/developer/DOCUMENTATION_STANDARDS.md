@@ -56,7 +56,7 @@ Every phase completion requires a CHANGELOG.md entry. Use this exact format:
 ## §2. REDIS_SCHEMA.md Format
 
 Every Redis key added by any phase must be documented here.
-The file lives at `docs/REDIS_SCHEMA.md`.
+The file lives at `docs/reference/REDIS_SCHEMA.md`.
 
 ```markdown
 ## Key: `{prefix}:{variable_part}`
@@ -86,7 +86,7 @@ The file lives at `docs/REDIS_SCHEMA.md`.
 ## §3. Runbook Update Policy
 
 The existing runbook documents (`docs/OPERATIONS.md`,
-`docs/INCIDENT_RESPONSE.md`, `docs/QUICK_REFERENCE.md`) must be updated when a
+`docs/operations/INCIDENT_RESPONSE.md`, `docs/QUICK_REFERENCE.md`) must be updated when a
 phase adds a new service, new failure mode, or new operational command.
 
 ### What triggers a runbook update
@@ -239,11 +239,11 @@ Add this to the phase completion gate (§5 of TESTING_STRATEGY.md):
 Documentation gate — must pass before phase is marked complete:
 
 [ ] CHANGELOG.md entry written in standard format
-[ ] docs/REDIS_SCHEMA.md updated for all new Redis keys
+[ ] docs/reference/REDIS_SCHEMA.md updated for all new Redis keys
 [ ] README.md pipeline table updated (if new pipeline layer added)
 [ ] README.md services table updated (if new Docker service added)
 [ ] docs/OPERATIONS.md updated (if new operational procedure)
-[ ] docs/INCIDENT_RESPONSE.md updated (if new failure mode or module)
+[ ] docs/operations/INCIDENT_RESPONSE.md updated (if new failure mode or module)
 [ ] docs/QUICK_REFERENCE.md updated (if new commands)
 [ ] docs/MONITORING_SETUP.md updated (if new Grafana panels or alerts)
 [ ] OpenAPI spec regenerated (Phase 13+ only)

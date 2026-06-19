@@ -464,7 +464,7 @@ This phase uses a **four-agent TDD workflow** for every feature cluster:
    meaningful assertions; the Critical Review Agent will challenge every test.
 2. **Code Agent** — implements only enough code to make the failing tests pass.
    No gold-plating.
-3. **Docs Agent** — updates `docs/REDIS_SCHEMA.md`, `CHANGELOG.md`, OpenAPI spec,
+3. **Docs Agent** — updates `docs/reference/REDIS_SCHEMA.md`, `CHANGELOG.md`, OpenAPI spec,
    and inline docstrings after each cluster passes.
 4. **Critical Review Agent ("So What?" agent)** — challenges every test written by
    the Test Agent with: "Does this test actually verify behaviour, or does it always
@@ -590,7 +590,7 @@ This phase must be complete before any of the following phases can begin:
       `management/tests/test_health.py::test_health_is_public`
 
 ### Documentation
-- [ ] REQ-079-38: All new Redis keys documented in `docs/REDIS_SCHEMA.md`. Verified by: `[MANUAL-REVIEW]`
+- [ ] REQ-079-38: All new Redis keys documented in `docs/reference/REDIS_SCHEMA.md`. Verified by: `[MANUAL-REVIEW]`
 - [ ] REQ-079-39: `docs/api/openapi.yaml` committed (OpenAPI 3.1). Verified by: `[MANUAL-REVIEW]`
 - [ ] REQ-079-40: `CHANGELOG.md` updated with standard Phase 79 entry. Verified by: `[MANUAL-REVIEW]`
 - [ ] REQ-079-41: `management/requirements.txt` updated with Phase 79 dependencies commented. Verified by: `[MANUAL-REVIEW]`

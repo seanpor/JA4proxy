@@ -67,7 +67,7 @@ compares it for **exact equality** to the OS implied by the live JA4 string
 | # | Decision | Why |
 |---|---|---|
 | D1 | **One canonical OS-class type** — `windows`, `macos`, `linux`, `ios`, plus a distinct zero-value `Unknown` — defined once in `internal/fingerprint/osclass.go` and used by **both** the sensor writer **and** the consumer. | One source of truth; writer and reader can never drift again. The clean short form (`linux`) wins, per the "good code, not a faithful port" directive. |
-| D2 | `fp:os:ip:{ip}` stores **exactly** the bare class string (e.g. `linux`), TTL **24h** (matching the value `tap_consumer.go` already documents). `Unknown` is **never written**. Update `docs/REDIS_SCHEMA.md` to pin the value domain and TTL. | Removes the encoding ambiguity that caused the original silent-no-op bug; matches the consumer's freshness assumption. |
+| D2 | `fp:os:ip:{ip}` stores **exactly** the bare class string (e.g. `linux`), TTL **24h** (matching the value `tap_consumer.go` already documents). `Unknown` is **never written**. Update `docs/reference/REDIS_SCHEMA.md` to pin the value domain and TTL. | Removes the encoding ambiguity that caused the original silent-no-op bug; matches the consumer's freshness assumption. |
 | D3 | Refactor the consumer's `ja4OSClass()` to return the shared `OSClass` (behaviour unchanged; unknown JA4 prefix → `Unknown` → no signal, fail-open preserved). Add the **closed-loop round-trip test**: write via the new sensor store, assert `TapConsumer.GetSignal` returns a signal on mismatch and nothing on agreement. | Proves the loop is closed — the test the original code never had. |
 | D4 | The passive OS class is derived from **SYN/IP-stack features** (initial-TTL guess, SYN window, MSS, option presence/order — the inputs JA4T uses), mapped to a canonical class with a **conservative `Unknown` default**: anything that does not match a clean, high-confidence OS profile → `Unknown` → no write. | We must not emit a confident wrong class — that creates false mismatches (false positives), the expensive error. **When unsure, write nothing.** |
 | D5 | **No separate middlebox-signature classifier (descoped from the first draft).** Middlebox/NAT-normalized stacks (rewritten TTL, normalized option arrays) simply fail to match any clean OS profile and fall through to `Unknown` → no write. An explicit F5/AWS-ALB signature table is deferred to a later phase. | A speculative signature DB is more work than the classifier, has no fixed public reference, and adds its own FP/maintenance risk. The conservative default already covers the case safely. |
@@ -212,8 +212,8 @@ blocks capture and never produces a ban. A full event channel already drops in
 | `internal/tap/metrics.go` | New `ja4proxy_tap_fingerprints_written_total{result}` |
 | `cmd/ja4-tap/main.go` | Wire classify→store behind `--redis-url` (absent → log-only) |
 | `scripts/gdpr_delete.py` | Add `fp:os:ip:*` and `fp:ip:*` to IP patterns |
-| `docs/OBSERVABILITY_STANDARDS.md` | Add sensor fingerprint metric |
-| `docs/REDIS_SCHEMA.md` | Pin `fp:os:ip:{ip}` value domain + 24h TTL |
+| `docs/reference/OBSERVABILITY_STANDARDS.md` | Add sensor fingerprint metric |
+| `docs/reference/REDIS_SCHEMA.md` | Pin `fp:os:ip:{ip}` value domain + 24h TTL |
 | `docs/runbooks/tap_mode.md` | Advisory-only scoring; two FP sources; least-priv Redis ACL |
 | `docs/fragments/phase-316b-*.md` | CHANGELOG news fragment |
 | `docs/phases/manifest.yaml` | Mark 316b status |

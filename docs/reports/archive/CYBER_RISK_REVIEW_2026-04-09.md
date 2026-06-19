@@ -8,7 +8,7 @@ scope: JA4proxy (Go production runtime + Python prototype + supporting services)
 
 > **Archived snapshot — Phase 105 (2026-04-25).** This report reflects the
 > project state at the time of writing (Phase 92). Current canonical reference:
-> [`../../PROJECT_STATUS.md`](../../PROJECT_STATUS.md) and the
+> [`../../PROJECT_STATUS.md`](../../reference/PROJECT_STATUS.md) and the
 > [phase manifest](../../phases/manifest.yaml).
 > Body untouched below.
 
@@ -233,4 +233,4 @@ The risk that should keep leadership awake is **not** in the data plane. It is i
 
 ---
 
-*Prepared independently of the Phase 84 / Phase 101 compliance workstream. Cross-references to existing artefacts: `docs/security/COMPREHENSIVE_SECURITY_AUDIT.md`, `docs/security/threat-model.md`, `docs/compliance/*`, `docs/PROJECT_STATUS.md`, `docs/phases/manifest.yaml`, `CLAUDE.md`.*
+*Prepared independently of the Phase 84 / Phase 101 compliance workstream. Cross-references to existing artefacts: `docs/security/COMPREHENSIVE_SECURITY_AUDIT.md`, `docs/security/threat-model.md`, `docs/compliance/*`, `docs/reference/PROJECT_STATUS.md`, `docs/phases/manifest.yaml`, `CLAUDE.md`.*

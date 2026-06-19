@@ -1,6 +1,6 @@
 > **Archived snapshot — Phase 105 (2026-04-25).** This report reflects the
 > project state at the time of writing (2026-04-08, pre-Phase-200). Current
-> canonical reference: [`../../PROJECT_STATUS.md`](../../PROJECT_STATUS.md)
+> canonical reference: [`../../PROJECT_STATUS.md`](../../reference/PROJECT_STATUS.md)
 > and the [phase manifest](../../phases/manifest.yaml).
 > Body untouched below.
 
@@ -203,7 +203,7 @@ The backup system (Phase 40) is well-designed:
 
 ### 4.3 Redis Schema — Well Documented
 
-The `docs/REDIS_SCHEMA.md` is comprehensive and follows good conventions. All keys document pattern, type, TTL, writer, and notes.
+The `docs/reference/REDIS_SCHEMA.md` is comprehensive and follows good conventions. All keys document pattern, type, TTL, writer, and notes.
 
 **Finding D-3 (LOW):** Several keys have `none` TTL (no expiry): `config:dial`, `ja4:whitelist`, `ja4:blacklist`, `static:allowlist`, `behavioral:known_ja4`, `confidence:scores`. These persist indefinitely until explicitly deleted. If Redis is restored from a backup taken before a config change, stale values could be served. The pub/sub `config:reload` mechanism mitigates this, but only if the proxy is running when the restore happens.
 
@@ -484,7 +484,7 @@ This strategic review is supported by 5 detailed deep-dive reports:
 | Network | `proxy.py` (handle_connection, _parse_proxy_protocol, _forward_to_backend) |
 | Observability | `deploy/monitoring/`, Prometheus metrics across codebase |
 | Deployment | `.github/workflows/`, `deploy/helm/`, `Dockerfile*`, `deploy/docker/` |
-| Schema | `docs/REDIS_SCHEMA.md`, `config/proxy.yml` |
+| Schema | `docs/reference/REDIS_SCHEMA.md`, `config/proxy.yml` |
 
 ## Appendix D: Comparison with Existing Reports
 

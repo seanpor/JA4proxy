@@ -151,7 +151,7 @@ user backup-operator on >backup-password ~backup:* ~ja4:* ~ban:* ~config:* +@rea
 > **Background.** The backup/restore subsystem was introduced in Phase 19 and
 > hardened with AES-256-GCM at-rest encryption in Phase 40 and cloud adapters in
 > Phase 57. The current canonical operational reference is
-> [`runbooks/cloud_backup_operations.md`](runbooks/cloud_backup_operations.md);
+> [`runbooks/cloud_backup_operations.md`](../runbooks/cloud_backup_operations.md);
 > the security-model invariants below remain in force regardless of storage
 > backend.
 

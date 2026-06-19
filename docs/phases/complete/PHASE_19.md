@@ -562,7 +562,7 @@ BACKUP_CONFIG_SCHEMA = {
 
 ### Prometheus Metrics Registry
 
-Add these metrics to `docs/OBSERVABILITY_STANDARDS.md`:
+Add these metrics to `docs/reference/OBSERVABILITY_STANDARDS.md`:
 
 | Metric | Unit | Type | Description | Labels |
 |--------|------|------|-------------|--------|
@@ -992,8 +992,8 @@ class TestBackupFalsePositives:
 | `src/backup/worker.py` | New file — Backup worker class with schedule-based execution  |
 | `src/backup/restorer.py` | New file — Restore class with validation and non-destructive operations |
 | `../../src/analytics/main.py` or new `src/cmds/backup.py` | Wire CLI subcommands (`backup`, `restore`, `list`) |
-| `docs/REDIS_SCHEMA.md` | Add sections for backup control keys (latest, schedule, history) |
-| `docs/OBSERVABILITY_STANDARDS.md` | Register metrics under `ja4proxy_backup_*` prefix; add alert rules to runbook |
+| `docs/reference/REDIS_SCHEMA.md` | Add sections for backup control keys (latest, schedule, history) |
+| `docs/reference/OBSERVABILITY_STANDARDS.md` | Register metrics under `ja4proxy_backup_*` prefix; add alert rules to runbook |
 | `CHANGELOG.md` | Add Phase 19 entry with high-level summary |
 | `config/proxy.yml` | Add `backup:` config section documenting all keys from schema above |
 | `tests/unit/backup/test_worker.py` | New file — unit tests for worker and restorer classes |

@@ -1116,7 +1116,7 @@ When writing a new phase file or updating an existing one:
 ## §6. Acceptance-Criteria Tags (REQ-IDs)
 
 > Added in Phase 106. Optional, opt-in per phase. Lays groundwork for the
-> requirements-to-test traceability matrix (`docs/TRACEABILITY.md`).
+> requirements-to-test traceability matrix (`docs/reference/TRACEABILITY.md`).
 
 A phase MAY tag each acceptance-criteria line with a stable requirement ID and a
 pointer to the test that verifies it. When a phase opts in, **every** acceptance
@@ -1143,11 +1143,11 @@ Each tagged criterion has the form:
 ```markdown
 ## Acceptance Criteria
 
-- [ ] REQ-106-01: `docs/SERVICE_TARGETS.md` exists and lists every SLI from the
+- [ ] REQ-106-01: `docs/reference/SERVICE_TARGETS.md` exists and lists every SLI from the
       four SLO runbooks. Verified by:
       `tests/docs/test_service_targets_sync.py::test_every_runbook_sli_listed`
 
-- [ ] REQ-106-02: `docs/RISK_REGISTER.md` has at least 30 distinct rows with a
+- [ ] REQ-106-02: `docs/security/RISK_REGISTER.md` has at least 30 distinct rows with a
       non-empty Mitigation column. Verified by:
       `tests/docs/test_risk_register.py::test_minimum_row_count_with_mitigation`
 

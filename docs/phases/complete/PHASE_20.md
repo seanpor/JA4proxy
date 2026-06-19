@@ -1448,7 +1448,7 @@ fp:ja4_to_ja4s:{ja4}             → HSET {ja4s: count}
                                    TTL: 7 days
 ```
 
-Add these to `docs/REDIS_SCHEMA.md` in the TAP-mode section.
+Add these to `docs/reference/REDIS_SCHEMA.md` in the TAP-mode section.
 
 ### 8.3 Fingerprint Lookup API (New Management Endpoint)
 
@@ -3082,7 +3082,7 @@ JA4PROXY_REDIS_DB=1 ... python3 -m ja4proxy ...
 ### Changed
 - `proxy.py` / `main.go` now branches on `mode: passthrough|tap` at startup
 - `config/proxy.yml` extended with `tap:`, `tap_enforcement:`, and `intelligence_export:` sections
-- `docs/REDIS_SCHEMA.md` extended with TAP-mode `fp:*` key patterns
+- `docs/reference/REDIS_SCHEMA.md` extended with TAP-mode `fp:*` key patterns
 - `requirements.txt` extended with scapy, dpkt, pypcap, sortedcontainers, aiokafka, stix2
 ```
 
@@ -3205,7 +3205,7 @@ All criteria must pass before this phase is complete.
 
 ### 17k. Documentation
 
-- [x] `docs/REDIS_SCHEMA.md` updated with all `fp:*` key patterns and `intelligence_export` Redis usage
+- [x] `docs/reference/REDIS_SCHEMA.md` updated with all `fp:*` key patterns and `intelligence_export` Redis usage
 - [x] Runbook `../runbooks/tap_mode.md`: SPAN setup, capability setup, mode switching, enforcement, export, diagnostics, rollback, reconciliation, offline analysis
 - [x] `config/proxy.yml` inline comments explain every new key in `tap:`, `tap_enforcement:`, and `intelligence_export:`
 - [x] `CHANGELOG.md` updated per §16

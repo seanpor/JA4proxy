@@ -348,7 +348,7 @@ Before marking Phase 25 COMPLETE:
 ## Completion Checklist
 
 ```
-[ ] 25a: docs/DOCKER_IMAGES.md created
+[ ] 25a: docs/reference/DOCKER_IMAGES.md created
 [ ] 25a: redis/redis-stack:latest pinned to specific version
 [ ] 25a: prod/monitoring compose files harmonised (same version for shared images)
 [ ] 25a: Loki/Promtail v3 config validated before prod compose updated

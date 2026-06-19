@@ -92,7 +92,7 @@ The PRR is a uniquely high-leverage engagement because the reviewer's *deliverab
 
 **What to give them.**
 - Read access to the entire repo.
-- The current state of `docs/runbooks/`, `docs/PROJECT_STATUS.md`, the Phase 63 and 64 plans.
+- The current state of `docs/runbooks/`, `docs/reference/PROJECT_STATUS.md`, the Phase 63 and 64 plans.
 - The Prometheus metric list as currently emitted (`curl /metrics` from a running instance).
 - The current Grafana dashboard JSON if any.
 - Whatever incident history exists, even if it's "we have not had one yet" — that itself is a signal.
@@ -584,4 +584,4 @@ JA4proxy is, on the evidence, a better-than-typical security product built by a 
 
 ---
 
-*Companion document to `CYBER_RISK_REVIEW_2026-04-09.md`. Cross-references: `docs/PROJECT_STATUS.md`, `docs/phases/manifest.yaml`, `docs/security/COMPREHENSIVE_SECURITY_AUDIT.md`, `docs/security/threat-model.md`, `docs/compliance/`, `CLAUDE.md`.*
+*Companion document to `CYBER_RISK_REVIEW_2026-04-09.md`. Cross-references: `docs/reference/PROJECT_STATUS.md`, `docs/phases/manifest.yaml`, `docs/security/COMPREHENSIVE_SECURITY_AUDIT.md`, `docs/security/threat-model.md`, `docs/compliance/`, `CLAUDE.md`.*

@@ -22,7 +22,7 @@ import (
 const schemaVersion = 1
 
 // lockKey is the distributed lock guarding backup/restore against concurrent
-// runs producing a torn artifact. Documented in docs/REDIS_SCHEMA.md.
+// runs producing a torn artifact. Documented in docs/reference/REDIS_SCHEMA.md.
 const lockKey = "backup:operation_lock"
 const lockTTL = 600 * time.Second
 

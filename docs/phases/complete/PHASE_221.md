@@ -66,10 +66,10 @@ This avoids re-reading every living doc from scratch.
 - `docs/pdf/user-guide/chapters/ch01-introduction.tex` — remove Phase 15 framing, position as Go-production guide
 - `docs/pdf/user-guide/chapters/ch02-installation.tex` — reflect current `Dockerfile.go-proxy` (non-root, USER directive), env-var credentials
 - `docs/pdf/user-guide/chapters/ch04-configuration.tex` — reconcile against `config/proxy.yml`
-- `docs/pdf/user-guide/chapters/ch05-operations.tex` — reconcile against `docs/OPERATIONS_GUIDE.md`
-- `docs/pdf/user-guide/chapters/ch07-incident-response.tex` — reconcile against `docs/INCIDENT_RESPONSE.md`
+- `docs/pdf/user-guide/chapters/ch05-operations.tex` — reconcile against `docs/operations/OPERATIONS_GUIDE.md`
+- `docs/pdf/user-guide/chapters/ch07-incident-response.tex` — reconcile against `docs/operations/INCIDENT_RESPONSE.md`
 - `docs/pdf/user-guide/user-guide.tex` — add `%% Last updated: YYYY-MM-DD`
-- `docs/GETTING_STARTED.md` — add "Building PDFs" subsection
+- `docs/developer/GETTING_STARTED.md` — add "Building PDFs" subsection
 
 **Implementation:**
 1. Read the 5 chapter `.tex` files + their living-doc counterparts in parallel
@@ -77,14 +77,14 @@ This avoids re-reading every living doc from scratch.
 3. Add `%% Last updated:` to `user-guide.tex`
 4. Add PDF build instructions to `GETTING_STARTED.md`
 5. Build and verify
-6. Commit: `docs/pdf/user-guide/`, `docs/GETTING_STARTED.md`
+6. Commit: `docs/pdf/user-guide/`, `docs/developer/GETTING_STARTED.md`
 
 ### C — Reference Manual Refresh
 
 **Scope:**
 - `docs/pdf/reference-manual/chapters/ch01-architecture.tex` — Go runtime as primary, Python as prototyping
 - `docs/pdf/reference-manual/chapters/ch04-signals.tex` — add Phase 203 signals
-- `docs/pdf/reference-manual/chapters/ch06-redis-schema.tex` — reconcile against `docs/REDIS_SCHEMA.md`
+- `docs/pdf/reference-manual/chapters/ch06-redis-schema.tex` — reconcile against `docs/reference/REDIS_SCHEMA.md`
 - `docs/pdf/reference-manual/chapters/ch09-security-ref.tex` — add Phase 200-series hardening
 - `docs/pdf/reference-manual/chapters/ch10-compliance.tex` — reconcile against `docs/compliance/`
 - `docs/pdf/reference-manual/reference-manual.tex` — add `%% Last updated: YYYY-MM-DD`
@@ -121,7 +121,7 @@ This is a **human-maintained** date. It is updated only when the *text content* 
 5. User-guide chapters 1, 2, 4, 5, 7 reconciled against living docs
 6. Reference-manual chapters 1, 4, 6, 9, 10 reconciled; Phase 203 signals and Phase 200-series hardening present
 7. `README.md` PDF table date updated
-8. `docs/GETTING_STARTED.md` has "Building PDFs" subsection
+8. `docs/developer/GETTING_STARTED.md` has "Building PDFs" subsection
 9. `make lint-phases` exits 0
 10. `make test` exits 0
 
