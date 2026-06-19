@@ -316,7 +316,3 @@ func TestRateLimiter_Check_FailOpenOnBadIP(t *testing.T) {
 		t.Errorf("expected WARN with ip_hash=/^[0-9a-f]{16}$/ and message containing 'fail-open'; got entries: %+v", hook.AllEntries())
 	}
 }
-
-func (*mockRedisCounter) MultiCheck(_ context.Context, _ string) (int, bool, bool) {
-	return 0, false, false
-}

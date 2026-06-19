@@ -192,7 +192,7 @@ class ConfigReloadResponse(BaseModel):
     """Response from POST /api/v1/config/reload."""
 
     message: str = "Config reload signal published"
-    published_to: str = "config.reload"
+    published_to: str = "config:reload"
 
 
 # ── Token models (MFA/SSO Hardening) ───────────────────────────────────────────────────

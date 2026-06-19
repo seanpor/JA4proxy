@@ -402,34 +402,37 @@ Channels marked *critical* are HMAC-verified when a pub/sub secret is configured
 
 | Channel | Critical | Effect on proxy | Published by |
 |---------|----------|-----------------|--------------|
-| `config:reload` | yes | Triggers full config hot-reload | sync agent / SIGHUP path (see discrepancy note) |
+| `config:reload` | yes | Triggers full config hot-reload | management API (`POST /api/v1/config/reload`, signed), sync agent / SIGHUP path |
 | `config:dial:change` | yes | Triggers reload (re-reads dial) | `internal/cluster/sync/agent.go` |
 | `ja4:blacklist:add` / `ja4:blacklist:remove` | yes | Refreshes in-process JA4 blacklist | management API |
 | `ja4:whitelist:add` / `ja4:whitelist:remove` | yes | Refreshes in-process JA4 whitelist | management API |
 | `geoip:cidr:update` | yes | Reloads `geoip:blocked_cidrs` into the trie | management API |
 
-## Known Code/Schema Discrepancies (Phase 309 R3)
+## Code/Schema Discrepancies — history (Phase 309 R3 → R5)
 
-The R3 audit surfaced two writer/reader mismatches in **code** (not in this
-doc). They are recorded here so the schema reflects reality; fixing them is
-tracked as separate follow-up work, not part of this documentation pass.
+The R3 audit surfaced two writer/reader mismatches in **code**. Both were fixed
+in the Phase 309 R5 follow-up; the entries are kept for provenance.
 
-1. **`MultiCheck` reads bare `whitelist` / `blacklist` keys (dead code).**
-   `internal/redis/client.go` `MultiCheck()` calls `SIsMember(ctx, "blacklist", …)`
-   and `SIsMember(ctx, "whitelist", …)` — bare keys that **nothing writes** (every
-   writer uses the namespaced `ja4:whitelist` / `ja4:blacklist`). `MultiCheck` is
-   declared on the `RedisClient` interface but has **no caller** on the hot path,
-   so the mismatch is currently a latent landmine rather than a live bug. The
-   proxy actually consults JA4 lists via the in-process sets loaded from config
-   and from `ja4:whitelist`/`ja4:blacklist` `SMEMBERS` at startup/refresh.
+1. **`MultiCheck` read bare `whitelist` / `blacklist` keys (dead code).** ✅
+   *Resolved (R5):* `internal/redis/client.go` `MultiCheck()` called
+   `SIsMember(ctx, "blacklist", …)` / `SIsMember(ctx, "whitelist", …)` — bare keys
+   nothing writes (every writer uses the namespaced `ja4:whitelist` /
+   `ja4:blacklist`). It was declared on the `RedisReader` interface but had **no
+   caller**, so it was a latent landmine, not a live bug. Removed entirely
+   (interface method, concrete impl, and the inert mock methods). The proxy
+   consults JA4 lists via the in-process sets loaded from config and from
+   `ja4:whitelist`/`ja4:blacklist` `SMEMBERS` at startup/refresh.
 
-2. **Config-reload channel name mismatch (live).** The proxy subscribes to
-   `config:reload` (colon — `internal/redis/pubsub.go`). The management API's
-   `POST /api/v1/config/reload` publishes to `config.reload` (**dot** —
-   `management/api/routes/config_ops.py`). The two names do not match, so a
-   UI-triggered config reload never reaches the proxy. (Dial changes and
-   blacklist/whitelist edits use their own correctly-matched channels above and
-   are unaffected.)
+2. **Config-reload channel name mismatch (was live).** ✅ *Resolved (R5):* the
+   proxy subscribes to `config:reload` (colon — `internal/redis/pubsub.go`); the
+   management API's `POST /api/v1/config/reload` published to `config.reload`
+   (**dot**), so a UI-triggered reload never reached the proxy.
+   `management/api/routes/config_ops.py` now publishes to `config:reload` with an
+   HMAC-signed envelope (via `management/api/pubsub_signing.py`) when
+   `redis.pubsub_hmac_secret` is set. **Related, still open:** the per-node
+   `POST /api/v1/nodes/{host}/reload` (`management/api/routes/nodes.py`) publishes
+   to `proxy:reload`, which the proxy does **not** subscribe to — tracked as a
+   separate follow-up.
 
 ---
 
