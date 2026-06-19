@@ -100,28 +100,69 @@ get forgotten.
 
 <!-- BEGIN GENERATED: findings_register.py render -->
 
-## Register snapshot (2026-04-22)
+## Register snapshot (2026-06-19)
 
-**Total:** 54 canonical finding(s).
+**Total:** 61 canonical finding(s).
 
 | Severity | Count | Status | Count |
 |----------|-------|--------|-------|
-| CRITICAL | 10 | OPEN | 0 |
-| HIGH | 14 | IN_PROGRESS | 0 |
-| MEDIUM | 21 | FIXED | 54 |
-| LOW | 9 | VERIFIED | 0 |
+| CRITICAL | 11 | OPEN | 7 |
+| HIGH | 15 | IN_PROGRESS | 0 |
+| MEDIUM | 23 | FIXED | 54 |
+| LOW | 12 | VERIFIED | 0 |
 |  |  | CLOSED | 0 |
 |  |  | DUPLICATE | 0 |
 
-### SLA breaches (5)
+### SLA breaches (46)
 
 | ID | Severity | Due | Title |
 |----|----------|-----|-------|
 | JA4PROXY-2026-0001 | CRITICAL | 2026-04-16 | PROXY Protocol v2 Spoofing from Untrusted Source |
 | JA4PROXY-2026-0002 | CRITICAL | 2026-04-16 | PROXY Protocol v2 Smuggling via Double Header Injection |
 | JA4PROXY-2026-0003 | CRITICAL | 2026-04-16 | TLS ClientHello Fragmentation Bypass |
+| JA4PROXY-2026-0004 | CRITICAL | 2026-04-24 | ALPN Browser Bypass Trusts Attacker-Controlled Signal |
+| JA4PROXY-2026-0005 | CRITICAL | 2026-04-24 | X-JA4-Fingerprint HTTP Header Injection Bypass |
 | JA4PROXY-2026-0006 | CRITICAL | 2026-04-16 | X-Forwarded-For Header IP Spoofing (Python Proxy) |
 | JA4PROXY-2026-0007 | CRITICAL | 2026-04-16 | Webhook URL SSRF (Management API) |
+| JA4PROXY-2026-0008 | CRITICAL | 2026-04-24 | Unauthenticated /metrics and /health/deep Endpoints |
+| JA4PROXY-2026-0009 | CRITICAL | 2026-04-24 | Goroutine Leak in forward() and tarpit() |
+| JA4PROXY-2026-0010 | CRITICAL | 2026-04-24 | Redis Fail-Open Masks Misconfiguration |
+| JA4PROXY-2026-0011 | HIGH | 2026-05-17 | TLS Record Reassembly and Protocol Lockdown |
+| JA4PROXY-2026-0012 | HIGH | 2026-05-17 | Unbounded Goroutines from Accept Loop |
+| JA4PROXY-2026-0013 | HIGH | 2026-05-17 | Tarpit Slot Exhaustion via Timeout-Free Connections |
+| JA4PROXY-2026-0015 | HIGH | 2026-05-17 | HAProxy Stats Default Credentials |
+| JA4PROXY-2026-0016 | HIGH | 2026-05-17 | Privileged cAdvisor Container |
+| JA4PROXY-2026-0017 | HIGH | 2026-05-17 | Docker Socket Exposed to Promtail |
+| JA4PROXY-2026-0018 | HIGH | 2026-05-17 | CI/CD Token Exposed on Command Line |
+| JA4PROXY-2026-0019 | HIGH | 2026-05-17 | Redis PubSub Poisoning (No HMAC on Critical Channels) |
+| JA4PROXY-2026-0020 | HIGH | 2026-05-17 | Stored XSS in Management UI (Ban IP in Alpine.js) |
+| JA4PROXY-2026-0021 | HIGH | 2026-05-17 | In-Memory Rate Limiting Bypass (Management API) |
+| JA4PROXY-2026-0022 | HIGH | 2026-05-17 | Trusted CIDR /0 Acceptance (Python Proxy) |
+| JA4PROXY-2026-0023 | HIGH | 2026-05-17 | Test Secret Fallback in Production Path |
+| JA4PROXY-2026-0024 | HIGH | 2026-05-17 | JWT Cookie Secure Flag Not Gated to Production |
+| JA4PROXY-2026-0025 | MEDIUM | 2026-06-16 | Committed .env With Real Credentials |
+| JA4PROXY-2026-0026 | MEDIUM | 2026-06-16 | Unauthenticated Health/Metrics Endpoints Missing Rate Limiting |
+| JA4PROXY-2026-0027 | MEDIUM | 2026-06-16 | Redis Key Injection via SNI Hostnames |
+| JA4PROXY-2026-0028 | MEDIUM | 2026-06-16 | Python Backend Connection Timeout Missing |
+| JA4PROXY-2026-0029 | MEDIUM | 2026-06-16 | Log Sanitisation Incomplete (Control Characters, ANSI Escapes) |
+| JA4PROXY-2026-0030 | MEDIUM | 2026-06-16 | Unbounded behavioral:known_ja4 Redis SET |
+| JA4PROXY-2026-0031 | MEDIUM | 2026-06-16 | XADD Fire-and-Forget Without Backpressure (Go) |
+| JA4PROXY-2026-0032 | MEDIUM | 2026-06-16 | OIDC Token Signature Not Verified |
+| JA4PROXY-2026-0033 | MEDIUM | 2026-06-16 | Python TLS Parser Runs in ThreadPool Without Memory Isolation |
+| JA4PROXY-2026-0034 | MEDIUM | 2026-06-16 | Invalid JWT Role Defaults to Admin |
+| JA4PROXY-2026-0035 | MEDIUM | 2026-06-16 | DSAR Export Reads Entire Redis Stream Into Memory |
+| JA4PROXY-2026-0036 | MEDIUM | 2026-06-16 | IPv6 Burst Detection Parsing Bug |
+| JA4PROXY-2026-0037 | MEDIUM | 2026-06-16 | Blocklist Double-Check with Stale Signals |
+| JA4PROXY-2026-0038 | MEDIUM | 2026-06-16 | Rate Limit TOCTOU Race (INCR/EXPIRE Non-Atomic) |
+| JA4PROXY-2026-0047 | MEDIUM | 2026-06-16 | Redis TLS Binds to All Interfaces (Duplicate/Related to 0015) |
+| JA4PROXY-2026-0048 | HIGH | 2026-05-17 | Verbose Error Logging Exposes Internals |
+| JA4PROXY-2026-0049 | MEDIUM | 2026-06-16 | Weak AbuseIPDB API Key Handling |
+| JA4PROXY-2026-0050 | MEDIUM | 2026-06-16 | Redis ACLs Disabled by Default |
+| JA4PROXY-2026-0051 | MEDIUM | 2026-06-16 | Webhook Secrets in Memory |
+| JA4PROXY-2026-0052 | MEDIUM | 2026-06-16 | No Per-Service Redis User Enforcement |
+| JA4PROXY-2026-0054 | MEDIUM | 2026-06-16 | Configuration Path Traversal Prevention |
+| JA4PROXY-2026-0055 | MEDIUM | 2026-06-16 | Integration TLS Verification Missing |
+| JA4PROXY-2026-0056 | CRITICAL | 2026-06-10 | No Panic Recovery in Connection Handler Goroutine |
 
 ### All findings
 
@@ -181,5 +222,12 @@ get forgotten.
 | JA4PROXY-2026-0053 | LOW | FIXED | python-management | 2026-08-15 | Redis Password in Log Messages (Partial) |
 | JA4PROXY-2026-0054 | MEDIUM | FIXED | python-management | 2026-06-16 | Configuration Path Traversal Prevention |
 | JA4PROXY-2026-0055 | MEDIUM | FIXED | infrastructure | 2026-06-16 | Integration TLS Verification Missing |
+| JA4PROXY-2026-0056 | CRITICAL | OPEN | go-proxy | 2026-06-10 | No Panic Recovery in Connection Handler Goroutine |
+| JA4PROXY-2026-0057 | HIGH | OPEN | go-proxy | 2026-07-03 | Unbounded Beaconing Goroutine per Connection |
+| JA4PROXY-2026-0058 | MEDIUM | OPEN | go-proxy | 2026-08-02 | BlacklistBypass Flag Naming is Inverted |
+| JA4PROXY-2026-0059 | MEDIUM | OPEN | go-proxy | 2026-08-02 | TLS Record Reassembly Allocates Per-Fragment Buffers |
+| JA4PROXY-2026-0060 | LOW | OPEN | go-proxy | 2026-10-01 | Reassembly Buffer Purging Logged Inconsistently |
+| JA4PROXY-2026-0061 | LOW | OPEN | go-proxy | 2026-10-01 | Active Connection Gauge May Overcount After Handler Panic |
+| JA4PROXY-2026-0062 | LOW | OPEN | go-proxy | 2026-10-01 | Config MaxConnectionLimit Field Not Implemented in Production Path |
 
 <!-- END GENERATED -->

@@ -159,3 +159,27 @@ func TestSNIAnalyzer_ExpectedHostnames_EmptyList_NoUnexpectedSignal(t *testing.T
 		}
 	}
 }
+
+// TestRegression_JA4PROXY_2026_0027_CanonicalizeSNIRejectsKeyInjection guards the
+// "Redis Key Injection via SNI Hostnames" finding. The deleted Python proxy built
+// Redis keys from raw SNI; the Go proxy never does — CanonicalizeSNI rejects
+// anything that is not a strict RFC-1123 hostname, so colon/CRLF/glob/NUL
+// key-injection payloads are flagged invalid before any value reaches a Redis key.
+func TestRegression_JA4PROXY_2026_0027_CanonicalizeSNIRejectsKeyInjection(t *testing.T) {
+	injection := []string{
+		"evil.com:other:key",      // ':' Redis-key separator smuggling
+		"evil.com\r\nSET foo bar", // CRLF command smuggling
+		"key\x00inject",           // NUL byte
+		"*",                       // glob / KEYS pattern
+		"foo bar",                 // whitespace
+		"a/b",                     // path separator
+	}
+	for _, s := range injection {
+		if _, ok := CanonicalizeSNI(s); ok {
+			t.Errorf("CanonicalizeSNI(%q) accepted; want rejected (key-injection vector)", s)
+		}
+	}
+	if _, ok := CanonicalizeSNI("good.example.com"); !ok {
+		t.Error("CanonicalizeSNI(good.example.com) rejected a legitimate hostname")
+	}
+}
