@@ -213,5 +213,35 @@ func TestNewSensitiveFieldRedactor_respects_ENVIRONMENT(t *testing.T) {
 	}
 }
 
+// TestRegression_JA4PROXY_2026_0039_RedactorDoesNotPatternMatchDigits guards the
+// "Sensitive Data Filter Matches Timestamps (False Positive)" finding. The deleted
+// Python proxy ran a Luhn/credit-card regex (\d{13,19}) over log values and
+// false-matched epoch timestamps. The Go redactor redacts strictly by field *name*
+// (path/addr/opaque/key) and performs no value/digit pattern matching, so long
+// digit strings and timestamps pass through untouched — the false positive is
+// architecturally impossible.
+func TestRegression_JA4PROXY_2026_0039_RedactorDoesNotPatternMatchDigits(t *testing.T) {
+	r := NewSensitiveFieldRedactor()
+	r.Enabled = true // force production behaviour regardless of test ENVIRONMENT
+	want := map[string]string{
+		"ts_ms":    "1700000000000",    // 13-digit epoch ms — tripped the Python Luhn regex
+		"counter":  "4111111111111111", // 16 digits (test-card shape)
+		"duration": "9223372036854775", // long digit run
+	}
+	fields := logrus.Fields{}
+	for k, v := range want {
+		fields[k] = v
+	}
+	entry := &logrus.Entry{Data: fields}
+	if err := r.Fire(entry); err != nil {
+		t.Fatalf("Fire returned error: %v", err)
+	}
+	for k, expected := range want {
+		if got := entry.Data[k]; got != expected {
+			t.Errorf("field %q = %v; want unchanged %q (Go redactor must not digit/Luhn-match)", k, got, expected)
+		}
+	}
+}
+
 // Compile-time proof that we implement logrus.Hook.
 var _ logrus.Hook = (*SensitiveFieldRedactor)(nil)
