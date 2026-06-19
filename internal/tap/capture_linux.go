@@ -3,7 +3,6 @@
 package tap
 
 import (
-	"log"
 	"time"
 
 	"github.com/gopacket/gopacket/afpacket"
@@ -19,16 +18,13 @@ import (
 // on userspace filtering (non-TCP frames are dropped in ProcessPacket) and the
 // operator must constrain privileges externally (cap_add: NET_RAW only).
 func NewLiveSource(iface string, frameSize int) (src PacketSource, linkType layers.LinkType, closeFn func(), err error) {
-	opts := []any{afpacket.OptInterface(iface)}
+	opts := []any{afpacket.OptInterface(iface), afpacket.OptPollTimeout(100 * time.Millisecond)}
 	if frameSize > 0 {
 		opts = append(opts, afpacket.OptFrameSize(frameSize))
 	}
 	tp, err := afpacket.NewTPacket(opts...)
 	if err != nil {
 		return nil, 0, nil, err
-	}
-	if err := tp.SetOption(afpacket.OptPollTimeout(100 * time.Millisecond)); err != nil {
-		log.Printf("failed to set poll timeout: %v", err)
 	}
 	return tp, layers.LinkTypeEthernet, tp.Close, nil
 }

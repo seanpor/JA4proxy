@@ -53,6 +53,8 @@ epics:
   - 216
   - 308
   - 330
+  - 335
+  - 336
 - name: 'Epic: Analytics & Intelligence'
   description: Cross-instance behavior analysis and threat intelligence.
   phases:
@@ -2841,3 +2843,22 @@ phases:
     dependencies: [231b, 161, 231a]
     size: SMALL
     summary: 'Close-out of Phase 231b: update bootstrap.sh to use ja4p init (Go wizard, Phase 161) instead of the deprecated Python setup_wizard.py, archive superseded Python wizard, fix LaTeX install chapter to reflect Go-native wizard and remove stale TAP/Python references, mark Phase 231b COMPLETE. Deferred: real-host VM E2E validation (requires external infra).'
+  335:
+    name: TAP Sensor Hardening — Phase 334 Findings Remediation
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_335.md
+    dependencies:
+    - 316a
+    - 316b
+    - 316c
+    - 316d
+    size: MEDIUM
+    summary: Remediated 25 CRITICAL/HIGH/MEDIUM/LOW findings from the Phase 334 expert code review of the Go TAP/SPAN passive sensor series. Panic recovery, Prometheus metrics/health endpoint, shutdown poll timeout, busyloop guard, RWMutex on blocklist, capability drop + seccomp, Makefile tap-build, alert/dashboard metric name fixes, ban provenance check, TLS parser non-handshake record fix, shared canonicalIP, sentinel-based negative cache, Redis TLS/password/Ping flags, deep-copy OptionOrder, packaging (Dockerfile, compose service, Redis ACL user, tap config section), structured logging flags, ServerHello edge case fix, TLS version validation, and Phase 316a manifest status update.
+  336:
+    name: Security Hardening — Capability Drop, Seccomp, Poll Timeout, Metrics, Panic Recovery
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_336.md
+    dependencies:
+    - 335
+    size: SMALL
+    summary: Isolated deferred security hardening from Phase 335 into independent phase. Created internal/tap/hardening.go with DropCapabilities() and LoadSeccomp() (placeholder), wired into cmd/ja4-tap/main.go, fixed Makefile tap-build target (missing TAB), fixed changelog fragment bullet syntax, and registered Phase 335/336 in manifest.
