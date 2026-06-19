@@ -186,5 +186,3 @@ func TestPipeline_ALPNBypassDisabled(t *testing.T) {
 		t.Error("h2 ALPN should NOT bypass when alpn_browser_bypass is disabled")
 	}
 }
-
-func (*mockRedis) MultiCheck(_ context.Context, _ string) (int, bool, bool) { return 0, false, false }

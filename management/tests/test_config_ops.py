@@ -2,7 +2,9 @@
 
 Covers
 ------
-- POST /api/v1/config/reload publishes to config.reload channel
+- POST /api/v1/config/reload publishes to the config:reload channel (colon —
+  the channel the Go proxy actually subscribes to; a dot ``config.reload`` reaches
+  no proxy)
 - Audit log entry created
 - Requires authentication
 """
@@ -59,3 +61,6 @@ async def test_config_reload_response_structure(
     data = r.json()
     assert "message" in data
     assert "published_to" in data
+    # Regression: must be the colon channel the Go proxy subscribes to, never
+    # the dot form (config.reload), which reaches no proxy.
+    assert data["published_to"] == "config:reload"

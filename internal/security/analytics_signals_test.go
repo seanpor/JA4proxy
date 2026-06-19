@@ -68,7 +68,3 @@ func TestAnalyticsSignals_RedisDown_EmptyNotPanic(t *testing.T) {
 		t.Errorf("redis down: expected no signals (fail open), got %d", len(sigs))
 	}
 }
-
-func (*mockRedisExists) MultiCheck(_ context.Context, _ string) (int, bool, bool) {
-	return 0, false, false
-}
