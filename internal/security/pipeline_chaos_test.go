@@ -265,5 +265,3 @@ func TestPipeline_DialFlip_PropagatesAndChangesAction(t *testing.T) {
 			synthHighScore, res1.Dial, action1)
 	}
 }
-
-func (*faultyRedis) MultiCheck(_ context.Context, _ string) (int, bool, bool) { return 0, false, false }
