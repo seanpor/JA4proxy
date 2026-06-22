@@ -41,7 +41,7 @@
 #   notes               free-text, optional
 
 schema_version: 1
-last_allocated_id: 65
+last_allocated_id: 66
 findings:
 - id: JA4PROXY-2026-0001
   title: PROXY Protocol v2 Spoofing from Untrusted Source
@@ -2033,13 +2033,13 @@ findings:
   cvss_v3_1:
     score: 3.3
     vector: CVSS:3.1/AV:N/AC:H/PR:H/UI:N/S:U/C:L/I:L/A:N
-  description: >
-    GetDial() in internal/redis/client.go:335 compares the HMAC signature
-    from Redis against the expected value using != (regular string comparison),
-    which is not constant-time. The PubSub HMAC verifier at pubsub.go:212
-    correctly uses hmac.Equal. This inconsistency means an attacker with
-    Redis write access could theoretically extract timing information about
-    the HMAC signature through repeated requests.
+  description: 'GetDial() in internal/redis/client.go:335 compares the HMAC signature from Redis against
+    the expected value using != (regular string comparison), which is not constant-time. The PubSub HMAC
+    verifier at pubsub.go:212 correctly uses hmac.Equal. This inconsistency means an attacker with Redis
+    write access could theoretically extract timing information about the HMAC signature through repeated
+    requests.
+
+    '
   notes: PubSub HMAC at pubsub.go:212 uses hmac.Equal (correct). GetDial at client.go:335 uses != (incorrect).
     Both compare hex-encoded HMAC-SHA256 signatures.
 - id: JA4PROXY-2026-0065
@@ -2065,13 +2065,48 @@ findings:
   cvss_v3_1:
     score: 6.5
     vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:N
-  description: >
-    GetDial() in internal/redis/client.go:338-340 logs the expected HMAC
-    signature in plaintext when a signature mismatch is detected. The log
-    message includes fields val, sig, and expected — where expected is the
-    correct HMAC-SHA256 signature computed from the integrity key. An attacker
-    with access to proxy logs can use this value to brute-force the integrity
-    key offline, then forge dial values to manipulate the proxy's security
-    posture.
+  description: "GetDial() in internal/redis/client.go:338-340 logs the expected HMAC signature in plaintext\
+    \ when a signature mismatch is detected. The log message includes fields val, sig, and expected \u2014\
+    \ where expected is the correct HMAC-SHA256 signature computed from the integrity key. An attacker\
+    \ with access to proxy logs can use this value to brute-force the integrity key offline, then forge\
+    \ dial values to manipulate the proxy's security posture.\n"
   notes: 'Log line: Warn redis: config:dial signature mismatch ... fields val, sig, expected. The expected
     field is the correct HMAC value. Remove expected from log or hash it.'
+- id: JA4PROXY-2026-0066
+  title: "Webhook URL Validation TOCTOU \u2014 DNS Rebinding Between Validation and Delivery"
+  severity: LOW
+  severity_rationale: L-1 (TOCTOU on DNS resolution). Python validates at creation, Go re-validates at
+    delivery, but a small window exists between Go validation and HTTP POST.
+  source_refs:
+  - report: PHASE_500
+    id: 510a-01
+    discovered: '2026-06-22'
+  remediation_phases:
+  - 510a
+  owner: '@seanpor'
+  lane: python-management
+  discovered: '2026-06-22'
+  due: '2026-10-20'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  cvss_v3_1:
+    score: 3.3
+    vector: CVSS:3.1/AV:N/AC:H/PR:L/UI:N/S:U/C:L/I:L/A:N
+  description: >
+    Webhook URL validation in management/api/routes/webhooks.py:73 resolves
+    DNS and checks for private/loopback IPs at model-parse time. The Go
+    webhook dispatcher (internal/webhook/delivery.go:304) re-validates at
+    delivery time. However, a TOCTOU window exists between the Go validation
+    and the actual HTTP POST, allowing a DNS rebinding attack to redirect
+    the webhook to an internal service after validation passes.
+  impact: >
+    An attacker with webhook creation permission could exploit DNS rebinding
+    to redirect a webhook delivery to an internal service (e.g., Redis,
+    cloud IMDS) after both Python and Go validation pass. The window is
+    small (milliseconds) and requires the attacker to control DNS for the
+    webhook hostname.
+  notes: 'Python validates at model-parse time (webhooks.py:73). Go re-validates at delivery time (delivery.go:304).
+    Remaining gap: window between Go validation and HTTP POST allows DNS rebinding.'
