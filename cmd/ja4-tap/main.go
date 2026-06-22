@@ -14,12 +14,15 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 
@@ -42,19 +45,22 @@ const storeWriteTimeout = 100 * time.Millisecond
 
 func main() {
 	var (
-		pcapFile  = flag.String("pcap-file", "", "offline .pcap file to replay (no privileges required)")
-		iface     = flag.String("interface", "", "live capture interface (Linux AF_PACKET; needs CAP_NET_RAW)")
-		frameSize = flag.Int("frame-size", 0, "AF_PACKET frame size (0 = library default)")
-		quiet     = flag.Bool("quiet", false, "suppress per-handshake output; print only the final summary")
-		redisURL  = flag.String("redis-url", "", "Redis URL to write passive fingerprints to fp:os:ip and fp:ja4t:ip (empty = classify-and-log only, no writes)")
-		enforce   = flag.Bool("enforce", false, "ARM active blocking: write enforceable ban:{ip} keys for blocklisted clients (off = advisory fp:ban_intent watchlist only; arming also needs a widened Redis ACL ~ban:*)")
-		ja4tBlock = flag.String("ja4t-blocklist", "", "comma-separated JA4T fingerprints that trigger an out-of-band ban intent (empty = enforcement can never fire)")
-		banTTL    = flag.Duration("ban-ttl", 5*time.Minute, "TTL for a sensor-written ban:{ip} (kept short by the fail-open asymmetry)")
-		intentTTL = flag.Duration("intent-ttl", time.Hour, "TTL for an advisory fp:ban_intent:ip watchlist entry")
+		pcapFile    = flag.String("pcap-file", "", "offline .pcap file to replay (no privileges required)")
+		iface       = flag.String("interface", "", "live capture interface (Linux AF_PACKET; needs CAP_NET_RAW)")
+		frameSize   = flag.Int("frame-size", 0, "AF_PACKET frame size (0 = library default)")
+		quiet       = flag.Bool("quiet", false, "suppress per-handshake output; print only the final summary")
+		redisURL    = flag.String("redis-url", "", "Redis URL to write passive fingerprints to fp:os:ip and fp:ja4t:ip (empty = classify-and-log only, no writes)")
+		enforce     = flag.Bool("enforce", false, "ARM active blocking: write enforceable ban:{ip} keys for blocklisted clients (off = advisory fp:ban_intent watchlist only; arming also needs a widened Redis ACL ~ban:*)")
+		ja4tBlock   = flag.String("ja4t-blocklist", "", "comma-separated JA4T fingerprints that trigger an out-of-band ban intent (empty = enforcement can never fire)")
+		banTTL      = flag.Duration("ban-ttl", 5*time.Minute, "TTL for a sensor-written ban:{ip} (kept short by the fail-open asymmetry)")
+		intentTTL   = flag.Duration("intent-ttl", time.Hour, "TTL for an advisory fp:ban_intent:ip watchlist entry")
+		metricsAddr = flag.String("metrics-addr", "", "HTTP address for Prometheus metrics and /health (empty = disabled)")
 	)
 	flag.Parse()
 
 	log := logrus.New()
+	prometheus.MustRegister(tap.Collectors()...)
+	startMetricsServer(log, *metricsAddr)
 	enfCfg := tap.EnforcerConfig{
 		Armed:         *enforce,
 		JA4TBlocklist: parseBlocklist(*ja4tBlock),
@@ -87,6 +93,13 @@ func run(pcapFile, iface string, frameSize int, quiet bool, redisURL string, enf
 	store, enforcer, err := buildBackends(redisURL, enfCfg, log)
 	if err != nil {
 		return err
+	}
+	// Apply post-bind security hardening before starting the capture loop.
+	if err := tap.DropCapabilities(); err != nil {
+		log.WithError(err).Warn("failed to drop capabilities; proceeding with current UID/GID")
+	}
+	if err := tap.LoadSeccomp(); err != nil {
+		log.WithError(err).Warn("failed to load seccomp profile; proceeding without seccomp")
 	}
 	warnEnforcementPosture(redisURL, enfCfg, log)
 
@@ -155,7 +168,7 @@ func drive(ctx context.Context, sensor *tap.Sensor, source tap.PacketSource, clo
 	defer func() { _ = closeFn() }()
 
 	done := make(chan error, 1)
-	go func() { done <- sensor.Run(ctx, source) }()
+	go func() { defer tap.Recover(done, sensor); done <- sensor.Run(ctx, source) }()
 
 	var count int
 	for ev := range sensor.Events() {
@@ -198,4 +211,27 @@ func drive(ctx context.Context, sensor *tap.Sensor, source tap.PacketSource, clo
 		return runErr
 	}
 	return nil
+}
+
+// startMetricsServer registers Prometheus metrics and /health endpoint if addr is non-empty.
+func startMetricsServer(log *logrus.Logger, addr string) {
+	if addr == "" {
+		return
+	}
+	go func() {
+		mux := http.NewServeMux()
+		mux.Handle("/metrics", promhttp.Handler())
+		mux.Handle("/health", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		}))
+		// Plain HTTP is intentional: this is a Prometheus scrape/health endpoint
+		// bound to an operator-supplied address (disabled by default), guarded at
+		// the network layer like the main proxy's metrics server (cmd/ja4pd).
+		// ReadHeaderTimeout bounds slow-header (Slowloris) clients.
+		srv := &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 10 * time.Second}
+		log.Printf("Prometheus metrics listening on %s", addr)
+		if err := srv.ListenAndServe(); err != nil {
+			log.Fatalf("metrics HTTP server failed: %v", err)
+		}
+	}()
 }
