@@ -55,6 +55,7 @@ epics:
   - 330
   - 335
   - 336
+  - 500
 - name: 'Epic: Analytics & Intelligence'
   description: Cross-instance behavior analysis and threat intelligence.
   phases:
@@ -2862,3 +2863,26 @@ phases:
     - 335
     size: SMALL
     summary: Isolated deferred security hardening from Phase 335 into independent phase. Created internal/tap/hardening.go with DropCapabilities() and LoadSeccomp() (placeholder), wired into cmd/ja4-tap/main.go, fixed Makefile tap-build target (missing TAB), fixed changelog fragment bullet syntax, and registered Phase 335/336 in manifest.
+  400:
+    name: Comprehensive Security Review
+    status: IN_PROGRESS
+    action_plan: docs/phases/PHASE_400.md
+    dependencies: []
+    size: LARGE
+    summary: Full codebase security audit across Go proxy, Python Management API, Redis
+      client, infrastructure, and configuration. Covers 12 new findings and 7 stale
+      findings.yaml entries. Addresses cryptographic, input validation, authentication,
+      network, Docker, and operational security domains.
+  500:
+    name: Full Codebase Bug Hunt — Multi-Strand Security Audit
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_500.md
+    dependencies: []
+    size: XLARGE
+    summary: 'Systematic multi-strand bug hunt across the entire JA4proxy codebase organised
+      by CWE family. 12 independent sub-phases: 500a-500f for the Go production proxy
+      (protocol parsing, concurrency, access control, cryptography, resource exhaustion,
+      information exposure) and 510a-510f for non-proxy components (injection/web security,
+      auth/session, data exposure, misconfiguration, crypto integrity, supply chain).
+      Every finding registered in findings.yaml with regression test; every confirmed
+      bug triggers similar-bug propagation sweep across the codebase.'
