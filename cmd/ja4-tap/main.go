@@ -219,12 +219,18 @@ func startMetricsServer(log *logrus.Logger, addr string) {
 		return
 	}
 	go func() {
-		http.Handle("/metrics", promhttp.Handler())
-		http.Handle("/health", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mux := http.NewServeMux()
+		mux.Handle("/metrics", promhttp.Handler())
+		mux.Handle("/health", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 		}))
+		// Plain HTTP is intentional: this is a Prometheus scrape/health endpoint
+		// bound to an operator-supplied address (disabled by default), guarded at
+		// the network layer like the main proxy's metrics server (cmd/ja4pd).
+		// ReadHeaderTimeout bounds slow-header (Slowloris) clients.
+		srv := &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 10 * time.Second}
 		log.Printf("Prometheus metrics listening on %s", addr)
-		if err := http.ListenAndServe(addr, nil); err != nil {
+		if err := srv.ListenAndServe(); err != nil {
 			log.Fatalf("metrics HTTP server failed: %v", err)
 		}
 	}()
