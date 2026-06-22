@@ -2025,7 +2025,7 @@ findings:
   lane: go-proxy
   discovered: '2026-06-22'
   due: '2026-10-20'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
   regression_test: internal/redis/pentest_getdial_hmac_regression_test.go::TestRegression_JA4PROXY_2026_0064_GetDialHMACConstantTime
@@ -2057,7 +2057,7 @@ findings:
   lane: go-proxy
   discovered: '2026-06-22'
   due: '2026-08-21'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
   regression_test: internal/redis/pentest_getdial_hmac_regression_test.go::TestRegression_JA4PROXY_2026_0065_GetDialLogNoExpectedSig
