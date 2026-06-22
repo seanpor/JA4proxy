@@ -78,9 +78,9 @@ rg 'ansible.builtin.(command|shell)' deploy/ansible/ -n
 ### Example bug (from prior findings)
 
 ```
-JA4PROXY-2026-0020 (HIGH): Reflected XSS in /api/v1/partials/list-table.
-The `list` query parameter was reflected into HTML without escaping.
-Fix: html.escape(list_param).
+JA4PROXY-2026-0020: Stored XSS in Management UI — ban IP input in Alpine.js
+@click handler was not sanitised, allowing script injection. Fix: escape
+user input before embedding in Alpine.js directives.
 ```
 
 ### Regression test template
@@ -109,10 +109,8 @@ be forged? Can a session cookie be stolen?
 
 | File | What to check |
 |------|--------------|
-| `management/api/auth.py` | JWT handling: algorithm allowlist, token expiry, refresh logic, bearer-to-cookie fallback |
-| `management/api/routes/auth.py` | Login endpoint: rate limiting, lockout, MFA enforcement |
+| `management/api/auth.py` | JWT handling: algorithm allowlist, token expiry, refresh logic, bearer-to-cookie fallback. Login endpoint at `@router.post("/auth/login")` (line 619). Rate limiting and lockout logic also here. |
 | `management/api/middleware/csrf.py` | CSRF: HMAC key source, token predictability, same-site policy |
-| `management/api/middleware/rate_limit.py` | Lockout: can it be bypassed? Distributed? |
 | `management/api/pubsub_signing.py` | HMAC: which channels are signed? Missing-secret behavior? |
 
 ### Grep commands
@@ -124,7 +122,7 @@ rg 'jwt\.|PyJWT|python-jose|jose' management/api/ -n
 # Find all cookie setting — verify secure, httponly, samesite
 rg 'set_cookie|Set-Cookie' management/api/ -n
 
-# Find all rate limiting — verify lockout cannot be bypassed
+# Find all rate limiting / lockout — verify it cannot be bypassed
 rg 'rate.limit|lockout|login_failures' management/api/ -n
 
 # Find all require_role / require_admin decorators — verify every route has one

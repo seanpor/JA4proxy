@@ -71,8 +71,9 @@ rg 'make\(\[\]byte' internal/tls/ internal/proxy/ cmd/ja4pd/ -n
 ### Example bug (from prior findings)
 
 ```
-JA4PROXY-2026-0003 (CRITICAL): TLS ClientHello parser accepted oversized
-session ID that exceeded the record body, causing an out-of-bounds read.
+JA4PROXY-2026-0003: TLS ClientHello Fragmentation Bypass — crafted fragmented
+ClientHello records bypassed JA4 fingerprinting, removing all JA4-based
+security controls. Fix: enforce 16KB record cap and 65KB connection cap.
 ```
 
 ### Regression test template
@@ -92,14 +93,21 @@ func TestParseClientHello_TruncatedSessionID(t *testing.T) {
 ### Finding template
 
 ```yaml
-- id: JA4PROXY-2026-500a-N
+- id: JA4PROXY-2026-NNNN   # use next sequential 4-digit ID from findings.yaml
   severity: HIGH
   cwe: CWE-20
-  file: internal/tls/parser.go:NNN
-  description: "One-line description of the bug"
-  regression_test: "internal/tls/parser_test.go:TestXxx"
+  file: internal/tls/parser.go:123
+  title: "One-line description of the bug"
+  description: >
+    Detailed description of the bug and why it matters.
+  impact: >
+    What an attacker could achieve by exploiting this.
+  regression_test: internal/tls/parser_test.go:TestXxx
+  remediation: >
+    What the fix does (one line).
   status: OPEN
   phase: 500a
+  similar_to: null  # or: JA4PROXY-2026-NNNN if this is a propagation sweep find
 ```
 
 ---
@@ -406,12 +414,13 @@ func TestFunctionName_AdversarialInput(t *testing.T) {
 Add an entry like this to `docs/security/findings.yaml`:
 
 ```yaml
-- id: JA4PROXY-2026-500a-1
+- id: JA4PROXY-2026-NNNN   # use next sequential 4-digit ID from findings.yaml
   severity: HIGH
   cwe: CWE-20
   file: internal/tls/parser.go:123
+  title: "One-line summary of the bug"
   description: >
-    One-line summary of what the bug is and why it matters.
+    Detailed description of the bug and why it matters.
   impact: >
     What an attacker could achieve by exploiting this.
   regression_test: internal/tls/parser_test.go:TestParseClientHello_TruncatedSessionID

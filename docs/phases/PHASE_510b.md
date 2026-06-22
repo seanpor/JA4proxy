@@ -84,8 +84,9 @@ rg 'no-new-privileges' deploy/docker/
 ### Example bug (from prior findings)
 
 ```
-JA4PROXY-2026-0015 (HIGH): Grafana defaulted to admin/admin credentials.
-Fix: Grafana refuses to start without GRAFANA_PASSWORD env var.
+JA4PROXY-2026-0015: HAProxy Stats Default Credentials — HAProxy stats page
+used default admin/admin123 credentials. Fix: require HAPROXY_STATS_PASSWORD
+env var, refuse to start without it.
 ```
 
 ### Regression test pattern
@@ -208,8 +209,9 @@ rg 'mktemp|NamedTemporaryFile|tempfile' scripts/ -n
 ### Example bug (from prior findings)
 
 ```
-JA4PROXY-2026-0018 (HIGH): Docker entrypoint script printed secrets to stdout
-during initialization. Fix: secrets are injected via env vars, never printed.
+JA4PROXY-2026-0018: CI/CD Token Exposed on Command Line — build scripts
+passed API tokens as command-line arguments, visible in process lists
+and build logs. Fix: inject tokens via environment variables.
 ```
 
 ---
@@ -219,12 +221,12 @@ during initialization. Fix: secrets are injected via env vars, never printed.
 Same format as the Go guide — add to `docs/security/findings.yaml`:
 
 ```yaml
-- id: JA4PROXY-2026-510d-1
+- id: JA4PROXY-2026-NNNN   # use next sequential 4-digit ID from findings.yaml
   severity: MEDIUM
   cwe: CWE-1188
   file: deploy/docker/docker-compose.prod.yml:45
-  description: "Service X is bound to 0.0.0.0 instead of 127.0.0.1"
-  impact: "Unnecessary attack surface on public interfaces"
+  title: "Service X is bound to 0.0.0.0 instead of 127.0.0.1"
+  description: "Unnecessary attack surface on public interfaces"
   regression_test: tests/unit/test_container_config.py:TestXxx
   remediation: "Bind service to ${AGENT_BIND_IP:-127.0.0.1}"
   status: OPEN
