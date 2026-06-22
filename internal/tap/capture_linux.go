@@ -3,6 +3,8 @@
 package tap
 
 import (
+	"time"
+
 	"github.com/gopacket/gopacket/afpacket"
 	"github.com/gopacket/gopacket/layers"
 )
@@ -16,7 +18,7 @@ import (
 // on userspace filtering (non-TCP frames are dropped in ProcessPacket) and the
 // operator must constrain privileges externally (cap_add: NET_RAW only).
 func NewLiveSource(iface string, frameSize int) (src PacketSource, linkType layers.LinkType, closeFn func(), err error) {
-	opts := []any{afpacket.OptInterface(iface)}
+	opts := []any{afpacket.OptInterface(iface), afpacket.OptPollTimeout(100 * time.Millisecond)}
 	if frameSize > 0 {
 		opts = append(opts, afpacket.OptFrameSize(frameSize))
 	}
