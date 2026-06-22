@@ -23,7 +23,11 @@ def _make_cert(expiry_dt: datetime) -> MagicMock:
 @pytest.mark.asyncio
 async def test_cert_expiring_in_5_days_returns_red_band(admin_client):
     """A certificate expiring in 5 days => band='red', status='crit'."""
-    expiry = datetime.now(timezone.utc) + timedelta(days=5)
+    # The endpoint computes (not_after - now).days, which floors. A bare
+    # `now + timedelta(days=5)` is already <5 days away by the time the request
+    # runs, so .days floors to 4. The half-day buffer keeps days_remaining at a
+    # deterministic 5 regardless of execution drift, without changing the band.
+    expiry = datetime.now(timezone.utc) + timedelta(days=5, hours=12)
     mock_cert = _make_cert(expiry)
 
     with patch("os.path.exists", return_value=True), \
