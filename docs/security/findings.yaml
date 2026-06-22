@@ -41,7 +41,7 @@
 #   notes               free-text, optional
 
 schema_version: 1
-last_allocated_id: 62
+last_allocated_id: 66
 findings:
 - id: JA4PROXY-2026-0001
   title: PROXY Protocol v2 Spoofing from Untrusted Source
@@ -218,11 +218,11 @@ findings:
     plain HTTP with X-JA4-Fingerprint: t13d1516h2_8daaf6152771_02713d6af862 (whitelisted fingerprint).
     The proxy treats this as a Chrome connection, applies whitelist bypass, and forwards traffic with
     ALLOW status. Complete security bypass.'
-  notes: The function comment says 'testing/fallback' but is called unconditionally for all non-TLS data.
-    Phase 119b recommends removal or gating behind disabled-by-default flag.
-    Go reclassification (Phase 309 R1) — the Go proxy never parses HTTP headers; TLS protocol lockdown
-    drops any non-TLS first byte, so an X-JA4 HTTP header can never reach the scorer. The class of bug
-    is architecturally impossible in Go; guarded behaviourally by the 0011 lockdown test.
+  notes: "The function comment says 'testing/fallback' but is called unconditionally for all non-TLS data.\
+    \ Phase 119b recommends removal or gating behind disabled-by-default flag. Go reclassification (Phase\
+    \ 309 R1) \u2014 the Go proxy never parses HTTP headers; TLS protocol lockdown drops any non-TLS first\
+    \ byte, so an X-JA4 HTTP header can never reach the scorer. The class of bug is architecturally impossible\
+    \ in Go; guarded behaviourally by the 0011 lockdown test."
 - id: JA4PROXY-2026-0006
   title: X-Forwarded-For Header IP Spoofing (Python Proxy)
   severity: CRITICAL
@@ -765,11 +765,11 @@ findings:
   description: Python proxy accepts 0.0.0.0/0 as a trusted CIDR without validation (proxy.py:2130-2134).
     If this appears in config (misconfiguration or injection), ALL source IPs are treated as trusted upstream
     proxies. PROXY protocol headers from any source are accepted, allowing IP spoofing.
-  notes: 'Phase 118h specifies validation at config load: reject /0, /1, /2 CIDR sizes. Warn on RFC1918/loopback.
-    Log CRITICAL if trust set covers >=/16. Go (Phase 309 R1): rejection of the default route is
-    implemented on the NetBox-sourced trusted-CIDR path (isDefaultRoute), guarded by
-    TestLoadTrustedCIDRsFromNetBox_RejectsDefaultRoute. Residual gap: static config-supplied CIDRs
-    (trusted_upstream_sources.static_cidrs) are not yet /0-validated — tracked as remaining hardening.'
+  notes: "Phase 118h specifies validation at config load: reject /0, /1, /2 CIDR sizes. Warn on RFC1918/loopback.\
+    \ Log CRITICAL if trust set covers >=/16. Go (Phase 309 R1): rejection of the default route is implemented\
+    \ on the NetBox-sourced trusted-CIDR path (isDefaultRoute), guarded by TestLoadTrustedCIDRsFromNetBox_RejectsDefaultRoute.\
+    \ Residual gap: static config-supplied CIDRs (trusted_upstream_sources.static_cidrs) are not yet /0-validated\
+    \ \u2014 tracked as remaining hardening."
 - id: JA4PROXY-2026-0023
   title: Test Secret Fallback in Production Path
   severity: HIGH
@@ -1019,11 +1019,11 @@ findings:
   description: behavioral:known_ja4 Redis SET stores every unique JA4 fingerprint with no TTL/max size.
     Attacker sending randomised ClientHellos grows set at ~1 fingerprint/connection. 1M unique JA4s =
     50MB Redis memory, reached in ~3 hours at 100 conn/s.
-  notes: Phase 118m specifies 90-day TTL (convert to ZSET with timestamp scores) or capping set size with
-    periodic trimming.
-    Go reclassification (Phase 309 R1) — the Python behavioral:known_ja4 SET no longer exists; the
-    equivalent per-fingerprint collection in Go is the beacon:suspects ZSET, bounded by time-windowed
-    ZRemRangeByScore trimming (window-based, not a rank cap); guarded by the beaconing suspect/gauge test.
+  notes: "Phase 118m specifies 90-day TTL (convert to ZSET with timestamp scores) or capping set size\
+    \ with periodic trimming. Go reclassification (Phase 309 R1) \u2014 the Python behavioral:known_ja4\
+    \ SET no longer exists; the equivalent per-fingerprint collection in Go is the beacon:suspects ZSET,\
+    \ bounded by time-windowed ZRemRangeByScore trimming (window-based, not a rank cap); guarded by the\
+    \ beaconing suspect/gauge test."
 - id: JA4PROXY-2026-0031
   title: XADD Fire-and-Forget Without Backpressure (Go)
   severity: MEDIUM
@@ -1119,11 +1119,10 @@ findings:
   description: "proxy.py:1279-1281 uses ThreadPoolExecutor (not ProcessPoolExecutor). Original used ProcessPoolExecutor\
     \ for memory isolation \u2014 malformed TLS crash only kills child. With ThreadPoolExecutor, pathological\
     \ Scapy parsing consumes unlimited memory in main proxy process."
-  notes: 'Phase 118p specifies: either revert to ProcessPoolExecutor for TLS parsing only, or add 16KB
-    max input size check before Scapy, or memory watchdog (harder in Python). Go reclassification
-    (Phase 309 R1): N/A to the Go runtime — the goroutine-based parser has no thread-pool/setrlimit
-    surface and bounds input via maxReassemblyBytes (64KiB). Safe bounded, no-panic parsing is guarded
-    by TestParseClientHello_AdversarialCorpus.'
+  notes: "Phase 118p specifies: either revert to ProcessPoolExecutor for TLS parsing only, or add 16KB\
+    \ max input size check before Scapy, or memory watchdog (harder in Python). Go reclassification (Phase\
+    \ 309 R1): N/A to the Go runtime \u2014 the goroutine-based parser has no thread-pool/setrlimit surface\
+    \ and bounds input via maxReassemblyBytes (64KiB). Safe bounded, no-panic parsing is guarded by TestParseClientHello_AdversarialCorpus."
 - id: JA4PROXY-2026-0034
   title: Invalid JWT Role Defaults to Admin
   severity: MEDIUM
@@ -1778,11 +1777,11 @@ findings:
   closed_commit: b7f6e0d3b16b909e41e286aed8f59b2a8d0fead8
   description: src/config/loader.py accepts config_path parameter without validation. Path traversal could
     allow read of sensitive files outside project root.
-  notes: Phase 118l specifies Path().resolve() validation, ensuring config path within project root.
-    Go reclassification (Phase 309 R1) — the attacker-controllable config_path parameter is gone; the
-    Go loader takes its path from an operator CLI arg, and the management API from the
-    MANAGEMENT_PROXY_CONFIG_PATH env var (no request-supplied path). The traversal surface no longer
-    exists; test_config_reload_success guards that the reload endpoint accepts no path parameter.
+  notes: "Phase 118l specifies Path().resolve() validation, ensuring config path within project root.\
+    \ Go reclassification (Phase 309 R1) \u2014 the attacker-controllable config_path parameter is gone;\
+    \ the Go loader takes its path from an operator CLI arg, and the management API from the MANAGEMENT_PROXY_CONFIG_PATH\
+    \ env var (no request-supplied path). The traversal surface no longer exists; test_config_reload_success\
+    \ guards that the reload endpoint accepts no path parameter."
 - id: JA4PROXY-2026-0055
   title: Integration TLS Verification Missing
   severity: MEDIUM
@@ -1970,3 +1969,144 @@ findings:
   closed_commit: ''
   notes: Config struct defines MaxConnectionLimit but it's only read in Python proxy. Go proxy's acceptSem
     semaphore does not read this value. Either wire it up or remove the field.
+- id: JA4PROXY-2026-0063
+  title: Reassembled TLS Handshake >16KB Bypasses JA4 Fingerprinting
+  severity: HIGH
+  severity_rationale: "H-2 (JA4 bypass \u2014 all JA4-based security controls circumvented). CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N\
+    \ scores ~7.5."
+  source_refs:
+  - report: PHASE_500
+    id: 500a-01
+    discovered: '2026-06-22'
+  remediation_phases:
+  - 500a
+  owner: '@seanpor'
+  lane: go-proxy
+  discovered: '2026-06-22'
+  due: '2026-07-22'
+  status: FIXED
+  supersedes: []
+  depends_on: []
+  regression_test: cmd/ja4pd/pentest_reassembly_oversized_test.go::TestReassemblyOversizedHandshake
+  closed_commit: ''
+  cvss_v3_1:
+    score: 7.5
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N
+  description: 'reassembleClientHello in cmd/ja4pd/main.go uses hardCap=16640 to limit the first TLS record
+    read, but the fragmentation loop can append additional record bodies, growing data beyond 16384 bytes.
+    The header update at line 832 writes the total reassembled body length into the record header, but
+    ParseClientHello rejects records with recordLen>16384. The connection then proceeds without JA4 fingerprinting
+    (fail-open), bypassing all JA4-based security controls including protocol lockdown, scoring, and tarpitting.
+
+    '
+  impact: 'An attacker can fragment a ClientHello across multiple TLS records such that the total reassembled
+    body exceeds 16384 bytes. The proxy fails to compute a JA4 fingerprint, causing the connection to
+    be scored without JA4 context. This bypasses protocol lockdown (JA4PROXY-2026-0011), JA4-based allow/deny
+    lists, and any security policy that depends on the JA4 fingerprint. The attacker''s connection proceeds
+    as if it were an unknown client.
+
+    '
+  notes: 'Root cause: hardCap=16640 in reassembleClientHello allows data to exceed the TLS record maximum
+    (16384). Parser rejects the oversized record, connection proceeds without JA4. Attacker fragments
+    ClientHello across multiple records to trigger.'
+- id: JA4PROXY-2026-0064
+  title: GetDial HMAC Signature Comparison Uses Non-Constant-Time String Compare
+  severity: LOW
+  severity_rationale: 'L-3 (timing side-channel on HMAC comparison). Requires Redis write access to exploit;
+    timing difference on 64-char hex string is minimal. Consistency issue: PubSub verifier uses hmac.Equal
+    correctly.'
+  source_refs:
+  - report: PHASE_500
+    id: 500c-01
+    discovered: '2026-06-22'
+  remediation_phases:
+  - 500c
+  owner: '@seanpor'
+  lane: go-proxy
+  discovered: '2026-06-22'
+  due: '2026-10-20'
+  status: FIXED
+  supersedes: []
+  depends_on: []
+  regression_test: internal/redis/pentest_getdial_hmac_regression_test.go::TestRegression_JA4PROXY_2026_0064_GetDialHMACConstantTime
+  closed_commit: ''
+  cvss_v3_1:
+    score: 3.3
+    vector: CVSS:3.1/AV:N/AC:H/PR:H/UI:N/S:U/C:L/I:L/A:N
+  description: 'GetDial() in internal/redis/client.go:335 compares the HMAC signature from Redis against
+    the expected value using != (regular string comparison), which is not constant-time. The PubSub HMAC
+    verifier at pubsub.go:212 correctly uses hmac.Equal. This inconsistency means an attacker with Redis
+    write access could theoretically extract timing information about the HMAC signature through repeated
+    requests.
+
+    '
+  notes: PubSub HMAC at pubsub.go:212 uses hmac.Equal (correct). GetDial at client.go:335 uses != (incorrect).
+    Both compare hex-encoded HMAC-SHA256 signatures.
+- id: JA4PROXY-2026-0065
+  title: GetDial Log Message Leaks Expected HMAC Signature
+  severity: MEDIUM
+  severity_rationale: M-3 (sensitive data in logs). The log at client.go:338 includes the expected HMAC-SHA256
+    signature, which an attacker with log access can use to brute-force the integrity key. Violates CWE-532.
+  source_refs:
+  - report: PHASE_500
+    id: 500c-02
+    discovered: '2026-06-22'
+  remediation_phases:
+  - 500c
+  owner: '@seanpor'
+  lane: go-proxy
+  discovered: '2026-06-22'
+  due: '2026-08-21'
+  status: FIXED
+  supersedes: []
+  depends_on: []
+  regression_test: internal/redis/pentest_getdial_hmac_regression_test.go::TestRegression_JA4PROXY_2026_0065_GetDialLogNoExpectedSig
+  closed_commit: ''
+  cvss_v3_1:
+    score: 6.5
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:N
+  description: "GetDial() in internal/redis/client.go:338-340 logs the expected HMAC signature in plaintext\
+    \ when a signature mismatch is detected. The log message includes fields val, sig, and expected \u2014\
+    \ where expected is the correct HMAC-SHA256 signature computed from the integrity key. An attacker\
+    \ with access to proxy logs can use this value to brute-force the integrity key offline, then forge\
+    \ dial values to manipulate the proxy's security posture.\n"
+  notes: 'Log line: Warn redis: config:dial signature mismatch ... fields val, sig, expected. The expected
+    field is the correct HMAC value. Remove expected from log or hash it.'
+- id: JA4PROXY-2026-0066
+  title: "Webhook URL Validation TOCTOU \u2014 DNS Rebinding Between Validation and Delivery"
+  severity: LOW
+  severity_rationale: L-1 (TOCTOU on DNS resolution). Python validates at creation, Go re-validates at
+    delivery, but a small window exists between Go validation and HTTP POST.
+  source_refs:
+  - report: PHASE_500
+    id: 510a-01
+    discovered: '2026-06-22'
+  remediation_phases:
+  - 510a
+  owner: '@seanpor'
+  lane: python-management
+  discovered: '2026-06-22'
+  due: '2026-10-20'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  cvss_v3_1:
+    score: 3.3
+    vector: CVSS:3.1/AV:N/AC:H/PR:L/UI:N/S:U/C:L/I:L/A:N
+  description: >
+    Webhook URL validation in management/api/routes/webhooks.py:73 resolves
+    DNS and checks for private/loopback IPs at model-parse time. The Go
+    webhook dispatcher (internal/webhook/delivery.go:304) re-validates at
+    delivery time. However, a TOCTOU window exists between the Go validation
+    and the actual HTTP POST, allowing a DNS rebinding attack to redirect
+    the webhook to an internal service after validation passes.
+  impact: >
+    An attacker with webhook creation permission could exploit DNS rebinding
+    to redirect a webhook delivery to an internal service (e.g., Redis,
+    cloud IMDS) after both Python and Go validation pass. The window is
+    small (milliseconds) and requires the attacker to control DNS for the
+    webhook hostname.
+  notes: 'Python validates at model-parse time (webhooks.py:73). Go re-validates at delivery time (delivery.go:304).
+    Remaining gap: window between Go validation and HTTP POST allows DNS rebinding.'

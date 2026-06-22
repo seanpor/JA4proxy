@@ -27,12 +27,43 @@ var ErrTruncated = errors.New("truncated ClientHello")
 // It never panics on malformed input; all errors are returned as values.
 // The caller should treat any error as "not a recognisable ClientHello" and
 // fail open.
+//
+// JA4PROXY-2026-0063: when the input contains multiple TLS records (e.g.
+// from reassembled fragmented ClientHello), their handshake payloads are
+// concatenated before parsing so the full handshake message is available.
 func ParseClientHello(data []byte) (*ClientHelloInfo, error) {
 	if len(data) < 5 {
 		return nil, ErrTruncated
 	}
 
-	// TLS Record Layer:
+	// JA4PROXY-2026-0063: if the input contains multiple TLS records
+	// (e.g. from reassembled fragmented ClientHello), concatenate their
+	// handshake payloads and parse from the concatenated buffer. This avoids
+	// creating a single oversized record that the 16384-byte limit rejects.
+	if data[0] == 0x16 {
+		var payloads []byte
+		pos := 0
+		recordCount := 0
+		for pos+5 <= len(data) {
+			if data[pos] != 0x16 {
+				break
+			}
+			recLen := int(data[pos+3])<<8 | int(data[pos+4])
+			if pos+5+recLen > len(data) {
+				break
+			}
+			payloads = append(payloads, data[pos+5:pos+5+recLen]...)
+			pos += 5 + recLen
+			recordCount++
+		}
+		// If we accumulated payloads from multiple records, parse from the
+		// concatenated handshake payloads directly instead of through the
+		// record layer. This handles fragmented ClientHello messages that
+		// exceed the 16384-byte TLS record limit.
+		if recordCount > 1 && len(payloads) >= 4 {
+			return parseClientHelloBody(payloads, data)
+		}
+	}
 	//   byte 0:    content type (0x16 = Handshake)
 	//   bytes 1-2: legacy record version
 	//   bytes 3-4: record length (uint16 big-endian)
@@ -51,6 +82,13 @@ func ParseClientHello(data []byte) (*ClientHelloInfo, error) {
 	//   byte 0:    handshake type (0x01 = ClientHello)
 	//   bytes 1-3: body length (uint24 big-endian)
 	body := data[5 : 5+recordLen]
+	return parseClientHelloBody(body, data)
+}
+
+// parseClientHelloBody parses a handshake body (handshake type + length +
+// ClientHello payload) and returns the structured ClientHelloInfo.
+// rawRecord is the original TLS record bytes, stored in info.Raw.
+func parseClientHelloBody(body []byte, rawRecord []byte) (*ClientHelloInfo, error) {
 	if len(body) < 4 {
 		return nil, ErrTruncated
 	}
@@ -69,7 +107,7 @@ func ParseClientHello(data []byte) (*ClientHelloInfo, error) {
 	hello := body[4 : 4+helloLen]
 
 	info := &ClientHelloInfo{}
-	info.Raw = data
+	info.Raw = rawRecord
 
 	// ClientHello body:
 	//   bytes 0-1:  legacy_version

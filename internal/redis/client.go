@@ -332,11 +332,14 @@ func (c *Client) GetDial(ctx context.Context) int {
 		mac.Write([]byte(val))
 		expectedSig := hex.EncodeToString(mac.Sum(nil))
 
-		if sig != expectedSig {
+		// JA4PROXY-2026-0064: use constant-time comparison to prevent
+		// timing side-channel on HMAC signature verification.
+		if !hmac.Equal([]byte(sig), []byte(expectedSig)) {
+			// JA4PROXY-2026-0065: do NOT log expectedSig — it is the correct
+			// HMAC and leaking it enables offline brute-force of the integrity key.
 			c.log.WithFields(logrus.Fields{
-				"val":      val,
-				"sig":      sig,
-				"expected": expectedSig,
+				"val": val,
+				"sig": sig,
 			}).Warn("redis: config:dial signature mismatch; tampering suspected; defaulting to 0 (JA4PROXY-2026-0040)")
 			return 0
 		}

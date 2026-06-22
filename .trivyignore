@@ -346,3 +346,10 @@ CVE-2026-46323 exp:2026-06-27
 # Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
 # Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
 CVE-2026-46330 exp:2026-06-27
+
+# GHSA-6v7p-g79w-8964: msgpack out-of-bounds read/crash in test container.
+# Why not exploitable: The test container (ja4proxy-test) runs msgpack only for
+# JSON serialization of test fixtures; no untrusted msgpack input is processed.
+# The test image uses Python 3.14 base; msgpack is pinned transitively via
+# dependencies. Fix tracked upstream.
+GHSA-6v7p-g79w-8964 exp:2026-07-22
