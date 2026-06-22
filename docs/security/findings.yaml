@@ -41,7 +41,7 @@
 #   notes               free-text, optional
 
 schema_version: 1
-last_allocated_id: 63
+last_allocated_id: 65
 findings:
 - id: JA4PROXY-2026-0001
   title: PROXY Protocol v2 Spoofing from Untrusted Source
@@ -1992,23 +1992,86 @@ findings:
   cvss_v3_1:
     score: 7.5
     vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N
-  description: >
-    reassembleClientHello in cmd/ja4pd/main.go uses hardCap=16640 to limit
-    the first TLS record read, but the fragmentation loop can append
-    additional record bodies, growing data beyond 16384 bytes. The header
-    update at line 832 writes the total reassembled body length into the
-    record header, but ParseClientHello rejects records with recordLen>16384.
-    The connection then proceeds without JA4 fingerprinting (fail-open),
-    bypassing all JA4-based security controls including protocol lockdown,
-    scoring, and tarpitting.
-  impact: >
-    An attacker can fragment a ClientHello across multiple TLS records such
-    that the total reassembled body exceeds 16384 bytes. The proxy fails to
-    compute a JA4 fingerprint, causing the connection to be scored without
-    JA4 context. This bypasses protocol lockdown (JA4PROXY-2026-0011),
-    JA4-based allow/deny lists, and any security policy that depends on the
-    JA4 fingerprint. The attacker's connection proceeds as if it were an
-    unknown client.
+  description: 'reassembleClientHello in cmd/ja4pd/main.go uses hardCap=16640 to limit the first TLS record
+    read, but the fragmentation loop can append additional record bodies, growing data beyond 16384 bytes.
+    The header update at line 832 writes the total reassembled body length into the record header, but
+    ParseClientHello rejects records with recordLen>16384. The connection then proceeds without JA4 fingerprinting
+    (fail-open), bypassing all JA4-based security controls including protocol lockdown, scoring, and tarpitting.
+
+    '
+  impact: 'An attacker can fragment a ClientHello across multiple TLS records such that the total reassembled
+    body exceeds 16384 bytes. The proxy fails to compute a JA4 fingerprint, causing the connection to
+    be scored without JA4 context. This bypasses protocol lockdown (JA4PROXY-2026-0011), JA4-based allow/deny
+    lists, and any security policy that depends on the JA4 fingerprint. The attacker''s connection proceeds
+    as if it were an unknown client.
+
+    '
   notes: 'Root cause: hardCap=16640 in reassembleClientHello allows data to exceed the TLS record maximum
     (16384). Parser rejects the oversized record, connection proceeds without JA4. Attacker fragments
     ClientHello across multiple records to trigger.'
+- id: JA4PROXY-2026-0064
+  title: GetDial HMAC Signature Comparison Uses Non-Constant-Time String Compare
+  severity: LOW
+  severity_rationale: 'L-3 (timing side-channel on HMAC comparison). Requires Redis write access to exploit;
+    timing difference on 64-char hex string is minimal. Consistency issue: PubSub verifier uses hmac.Equal
+    correctly.'
+  source_refs:
+  - report: PHASE_500
+    id: 500c-01
+    discovered: '2026-06-22'
+  remediation_phases:
+  - 500c
+  owner: '@seanpor'
+  lane: go-proxy
+  discovered: '2026-06-22'
+  due: '2026-10-20'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: internal/redis/pentest_getdial_hmac_regression_test.go::TestRegression_JA4PROXY_2026_0064_GetDialHMACConstantTime
+  closed_commit: ''
+  cvss_v3_1:
+    score: 3.3
+    vector: CVSS:3.1/AV:N/AC:H/PR:H/UI:N/S:U/C:L/I:L/A:N
+  description: >
+    GetDial() in internal/redis/client.go:335 compares the HMAC signature
+    from Redis against the expected value using != (regular string comparison),
+    which is not constant-time. The PubSub HMAC verifier at pubsub.go:212
+    correctly uses hmac.Equal. This inconsistency means an attacker with
+    Redis write access could theoretically extract timing information about
+    the HMAC signature through repeated requests.
+  notes: PubSub HMAC at pubsub.go:212 uses hmac.Equal (correct). GetDial at client.go:335 uses != (incorrect).
+    Both compare hex-encoded HMAC-SHA256 signatures.
+- id: JA4PROXY-2026-0065
+  title: GetDial Log Message Leaks Expected HMAC Signature
+  severity: MEDIUM
+  severity_rationale: M-3 (sensitive data in logs). The log at client.go:338 includes the expected HMAC-SHA256
+    signature, which an attacker with log access can use to brute-force the integrity key. Violates CWE-532.
+  source_refs:
+  - report: PHASE_500
+    id: 500c-02
+    discovered: '2026-06-22'
+  remediation_phases:
+  - 500c
+  owner: '@seanpor'
+  lane: go-proxy
+  discovered: '2026-06-22'
+  due: '2026-08-21'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: internal/redis/pentest_getdial_hmac_regression_test.go::TestRegression_JA4PROXY_2026_0065_GetDialLogNoExpectedSig
+  closed_commit: ''
+  cvss_v3_1:
+    score: 6.5
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:N
+  description: >
+    GetDial() in internal/redis/client.go:338-340 logs the expected HMAC
+    signature in plaintext when a signature mismatch is detected. The log
+    message includes fields val, sig, and expected — where expected is the
+    correct HMAC-SHA256 signature computed from the integrity key. An attacker
+    with access to proxy logs can use this value to brute-force the integrity
+    key offline, then forge dial values to manipulate the proxy's security
+    posture.
+  notes: 'Log line: Warn redis: config:dial signature mismatch ... fields val, sig, expected. The expected
+    field is the correct HMAC value. Remove expected from log or hash it.'
