@@ -61,10 +61,12 @@ def _read_cert(cert_path: str) -> Optional[dict]:
         cert = x509.load_pem_x509_certificate(pem_data, default_backend())
     except Exception as exc:
         logger.warning("tls_health | event=cert_parse_error | path=%s | error=%s", cert_path, exc)
+        # Do not surface the raw exception to the client (CodeQL py/stack-trace-exposure);
+        # the detail is in the log above. The SOC reads logs, not the API payload.
         return {
             "status": "error",
             "band": "red",
-            "message": f"Failed to parse certificate: {exc}",
+            "message": "Failed to parse certificate (see proxy logs for detail)",
             "cert_path": cert_path,
         }
 
@@ -100,10 +102,11 @@ def _read_cert(cert_path: str) -> Optional[dict]:
 
     except Exception as exc:
         logger.warning("tls_health | event=cert_processing_error | path=%s | error=%s", cert_path, exc)
+        # Generic client message; full exception is logged above (CodeQL py/stack-trace-exposure).
         return {
             "status": "error",
             "band": "red",
-            "message": f"Error computing expiry: {exc}",
+            "message": "Error computing certificate expiry (see proxy logs for detail)",
         }
 
 
