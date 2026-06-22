@@ -820,20 +820,19 @@ func (p *proxy) reassembleClientHello(clientConn net.Conn, data, buf []byte) []b
 				break
 			}
 
+			// JA4PROXY-2026-0063: prepend the 5-byte TLS record header so
+			// ParseClientHello can detect multiple records and concatenate
+			// their handshake payloads.
+			data = append(data, header...)
 			data = append(data, body...)
 			currentHandshake += nextLen
 			totalReassemblyBytes += nextLen
 		}
 
-		// Update the first record header to reflect total reassembled size
-		// so tlsparse.ParseClientHello treats it as one big record.
-		if len(data) > 5 {
-			totalBody := len(data) - 5
-			if totalBody <= 65535 {
-				data[3] = byte(totalBody >> 8)
-				data[4] = byte(totalBody & 0xFF)
-			}
-		}
+		// JA4PROXY-2026-0063: ParseClientHello now handles multi-record input
+		// by concatenating handshake payloads. We pass the raw reassembled data
+		// (multiple TLS records) directly to the parser, which detects and
+		// concatenates them internally. No header update needed here.
 	}
 
 	_ = clientConn.SetReadDeadline(time.Time{})

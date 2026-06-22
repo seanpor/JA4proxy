@@ -1984,7 +1984,7 @@ findings:
   lane: go-proxy
   discovered: '2026-06-22'
   due: '2026-07-22'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
   regression_test: cmd/ja4pd/pentest_reassembly_oversized_test.go::TestReassemblyOversizedHandshake
