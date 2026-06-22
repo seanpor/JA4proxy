@@ -71,3 +71,22 @@ async def test_missing_cert_file_returns_error(admin_client):
 
     assert response.status_code == 200
     assert response.json()["status"] == "error"
+
+
+@pytest.mark.asyncio
+async def test_parse_error_does_not_leak_exception_to_client(admin_client):
+    """A cert-parse failure returns a generic message — the raw exception text
+    (which CodeQL py/stack-trace-exposure flags) must never reach the client."""
+    secret = "s3cr3t-internal-path-/var/run/private.key"
+    with patch("os.path.exists", return_value=True), \
+         patch("builtins.open", mock_open(read_data=b"not-a-pem")), \
+         patch(
+             "cryptography.x509.load_pem_x509_certificate",
+             side_effect=ValueError(secret),
+         ):
+        response = await admin_client.get("/api/v1/tls-health")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "error"
+    assert secret not in str(body)
