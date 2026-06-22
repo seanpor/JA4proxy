@@ -2881,7 +2881,7 @@ phases:
     deferred_to: 500
   500:
     name: Full Codebase Bug Hunt — Multi-Strand Security Audit
-    status: PROPOSED
+    status: IN_PROGRESS
     action_plan: docs/phases/PHASE_500.md
     dependencies:
     - 400
