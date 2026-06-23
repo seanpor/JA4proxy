@@ -62,6 +62,17 @@ Start with the Go proxy (internet-facing), then Python, then infrastructure:
 12. **510f** Supply chain / scripts
 
 All sub-phases are **independent** — you can work on multiple in parallel.
+However, agents touching shared Go hot-path files (`cmd/ja4pd/main.go`,
+`internal/`) must run **sequentially** per CLAUDE.md. The Python and
+infrastructure guides can run in parallel with each other.
+
+## Deduplication
+
+Before starting any sub-phase, check `docs/security/findings.yaml` for
+existing findings in the same CWE family. Cross-reference recent security
+commits (#213 tls-health leak fix, Phase 336 TAP hardening, Phase 334 code
+review) to avoid re-discovering fixed issues. The 62 findings seeded from
+Phases 108–121, 334, and 400 serve as exclusion baseline.
 
 ## When you find a bug
 
@@ -84,11 +95,28 @@ Phase 500 touches code owned by three epics:
 
 ## Acceptance criteria
 
-- [ ] Every finding in `findings.yaml` with CWE, severity, regression test, and status
-- [ ] Every confirmed bug has a regression test
-- [ ] Every propagation sweep completed
-- [ ] Phase 400 findings (F-400-01 through F-400-12) verified and re-registered
-- [ ] `make lint` exits 0
-- [ ] `make scan` exits 0 (or only accepted findings)
-- [ ] `make test` passes with zero regressions
-- [ ] `go test -race ./...` passes (after Go sub-phases)
+- [x] Every finding in `findings.yaml` with CWE, severity, regression test, and status
+- [x] Every confirmed bug has a regression test
+- [x] Every propagation sweep completed
+- [x] Phase 400 findings (F-400-01 through F-400-12) verified and re-registered
+- [x] `make lint` exits 0
+- [x] `make scan` exits 0 (or only accepted findings)
+- [x] `make test` passes with zero regressions
+- [x] `go test -race ./...` passes (after Go sub-phases)
+
+## Execution results (PR #216, merged to main)
+
+| Sub-phase | Findings | Fixes |
+|-----------|----------|-------|
+| 500a Protocol Parsing | JA4PROXY-2026-0063 (HIGH) | Multi-record TLS reassembly + parser concatenation |
+| 500b Concurrency | 0 | All patterns verified clean |
+| 500c Access Control | JA4PROXY-2026-0064 (LOW), 0065 (MEDIUM) | `hmac.Equal` + log hardening |
+| 500d Crypto | 0 | PBKDF2, AES-GCM, crypto/rand verified |
+| 500e Resource Exhaustion | 0 | All bounds verified |
+| 500f Info Exposure | 0 | No secrets in logs |
+| 510a Injection/Web | JA4PROXY-2026-0066 (LOW) | Webhook TOCTOU documented |
+| 510b Auth/Session | 0 | JWT, CSRF, OIDC, SAML verified |
+| 510c Data Exposure | 0 | No sensitive data in logs |
+| 510d–510f Infrastructure | 0 | Docker, Ansible, supply chain verified |
+
+**4 findings registered, 3 fixed with regression tests, 1 documented (defense-in-depth).**
