@@ -106,17 +106,17 @@ Phase 500 touches code owned by three epics:
 
 ## Execution results (PR #216, merged to main)
 
-| Sub-phase | Findings | Fixes |
-|-----------|----------|-------|
-| 500a Protocol Parsing | JA4PROXY-2026-0063 (HIGH) | Multi-record TLS reassembly + parser concatenation |
-| 500b Concurrency | 0 | All patterns verified clean |
-| 500c Access Control | JA4PROXY-2026-0064 (LOW), 0065 (MEDIUM) | `hmac.Equal` + log hardening |
-| 500d Crypto | 0 | PBKDF2, AES-GCM, crypto/rand verified |
-| 500e Resource Exhaustion | 0 | All bounds verified |
-| 500f Info Exposure | 0 | No secrets in logs |
-| 510a Injection/Web | JA4PROXY-2026-0066 (LOW) | Webhook TOCTOU documented |
-| 510b Auth/Session | 0 | JWT, CSRF, OIDC, SAML verified |
-| 510c Data Exposure | 0 | No sensitive data in logs |
-| 510d–510f Infrastructure | 0 | Docker, Ansible, supply chain verified |
+| Sub-phase | Findings | Fixes | Sweep evidence |
+|-----------|----------|-------|----------------|
+| 500a Protocol Parsing | JA4PROXY-2026-0063 (HIGH) | Multi-record TLS reassembly + parser concatenation | TLS header manipulation grep: only reassembleClientHello (2 sites). ✓ |
+| 500b Concurrency | 0 | — | `go test -race` clean on security/redis/cmd packages. All maps have mutex, all goroutines have context cancellation. ✓ |
+| 500c Access Control | JA4PROXY-2026-0064 (LOW), 0065 (MEDIUM) | `hmac.Equal` + log hardening | Non-constant-time comparison grep: only GetDial had `!=` (now fixed). PubSub already used `hmac.Equal`. ✓ |
+| 500d Crypto | 0 | — | PBKDF2 100K iterations, crypto/rand salt/nonce, AES-GCM tag verify, empty passphrase rejected. ✓ |
+| 500e Resource Exhaustion | 0 | — | acceptSem bounded, auditDecision goroutine bounded by Redis pool, cache eviction, feed download cap (64MB). ✓ |
+| 500f Info Exposure | 0 | — | Log leakage grep: no passwords/keys/tokens in log calls. /health/deep exposes only operational fields. ✓ |
+| 510a Injection/Web | JA4PROXY-2026-0066 (LOW) | Webhook TOCTOU documented | No `|safe` in templates, html.escape() in partials, gdpr_delete.py validates IP, no shell=True with user input. ✓ |
+| 510b Auth/Session | 0 | — | JWT HS256/8h, OIDC state Redis 5min TTL, SAML strict=production guard, rate limit 5/5min, CSRF HMAC-SHA256. ✓ |
+| 510c Data Exposure | 0 | — | No secrets in logging, generic login errors, stack traces not in responses, no PII in analytics. ✓ |
+| 510d–510f Infrastructure | 0 | — | No default creds, containers hardened (read_only, cap_drop, no-new-privileges), CORS rejects wildcards, GitHub Actions SHA-pinned. ✓ |
 
 **4 findings registered, 3 fixed with regression tests, 1 documented (defense-in-depth).**

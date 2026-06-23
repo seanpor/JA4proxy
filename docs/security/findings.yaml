@@ -1827,7 +1827,7 @@ findings:
   supersedes: []
   depends_on: []
   regression_test: ''
-  closed_commit: ''
+  closed_commit: deeb2b617fb15ee629a27e40e52263a4e8e38a78
   cvss_v3_1:
     score: 7.5
     vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H
@@ -1851,7 +1851,7 @@ findings:
   supersedes: []
   depends_on: []
   regression_test: ''
-  closed_commit: ''
+  closed_commit: deeb2b617fb15ee629a27e40e52263a4e8e38a78
   cvss_v3_1:
     score: 5.3
     vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L
@@ -1874,7 +1874,7 @@ findings:
   supersedes: []
   depends_on: []
   regression_test: ''
-  closed_commit: ''
+  closed_commit: deeb2b617fb15ee629a27e40e52263a4e8e38a78
   cvss_v3_1:
     score: 4.3
     vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:N/A:L
@@ -1897,7 +1897,7 @@ findings:
   supersedes: []
   depends_on: []
   regression_test: ''
-  closed_commit: ''
+  closed_commit: deeb2b617fb15ee629a27e40e52263a4e8e38a78
   cvss_v3_1:
     score: 5.3
     vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L
@@ -1920,7 +1920,7 @@ findings:
   supersedes: []
   depends_on: []
   regression_test: ''
-  closed_commit: ''
+  closed_commit: deeb2b617fb15ee629a27e40e52263a4e8e38a78
   cvss_v3_1:
     score: 3.1
     vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L
@@ -1943,7 +1943,7 @@ findings:
   supersedes: []
   depends_on: []
   regression_test: ''
-  closed_commit: ''
+  closed_commit: deeb2b617fb15ee629a27e40e52263a4e8e38a78
   cvss_v3_1:
     score: 3.1
     vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L
@@ -1966,7 +1966,7 @@ findings:
   supersedes: []
   depends_on: []
   regression_test: ''
-  closed_commit: ''
+  closed_commit: deeb2b617fb15ee629a27e40e52263a4e8e38a78
   notes: Config struct defines MaxConnectionLimit but it's only read in Python proxy. Go proxy's acceptSem
     semaphore does not read this value. Either wire it up or remove the field.
 - id: JA4PROXY-2026-0063
@@ -1988,7 +1988,7 @@ findings:
   supersedes: []
   depends_on: []
   regression_test: cmd/ja4pd/pentest_reassembly_oversized_test.go::TestReassemblyOversizedHandshake
-  closed_commit: ''
+  closed_commit: deeb2b617fb15ee629a27e40e52263a4e8e38a78
   cvss_v3_1:
     score: 7.5
     vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N
@@ -2029,7 +2029,7 @@ findings:
   supersedes: []
   depends_on: []
   regression_test: internal/redis/pentest_getdial_hmac_regression_test.go::TestRegression_JA4PROXY_2026_0064_GetDialHMACConstantTime
-  closed_commit: ''
+  closed_commit: deeb2b617fb15ee629a27e40e52263a4e8e38a78
   cvss_v3_1:
     score: 3.3
     vector: CVSS:3.1/AV:N/AC:H/PR:H/UI:N/S:U/C:L/I:L/A:N
@@ -2061,7 +2061,7 @@ findings:
   supersedes: []
   depends_on: []
   regression_test: internal/redis/pentest_getdial_hmac_regression_test.go::TestRegression_JA4PROXY_2026_0065_GetDialLogNoExpectedSig
-  closed_commit: ''
+  closed_commit: deeb2b617fb15ee629a27e40e52263a4e8e38a78
   cvss_v3_1:
     score: 6.5
     vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:N
@@ -2091,7 +2091,7 @@ findings:
   supersedes: []
   depends_on: []
   regression_test: ''
-  closed_commit: ''
+  closed_commit: deeb2b617fb15ee629a27e40e52263a4e8e38a78
   cvss_v3_1:
     score: 3.3
     vector: CVSS:3.1/AV:N/AC:H/PR:L/UI:N/S:U/C:L/I:L/A:N
