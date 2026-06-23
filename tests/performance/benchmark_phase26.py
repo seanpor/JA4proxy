@@ -82,8 +82,8 @@ security_policy:
   ja4_whitelist_bypass: {enabled: true}
   mtls_bypass: {enabled: true}
   static_ip_allowlist: {enabled: true}
-  ja4_blacklist_bypass: {enabled: true}
-  country_blacklist_bypass: {enabled: true}
+  ja4_blocking_enabled: {enabled: true}
+  country_blocking_enabled: {enabled: true}
 """
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False) as f:

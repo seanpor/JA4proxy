@@ -37,8 +37,8 @@ Each bypass can be independently enabled or disabled. Defaults are conservative.
 
 | Bypass | Default | Effect of disabling |
 |--------|---------|---------------------|
-| `ja4_blacklist_bypass` | enabled | Blacklisted fingerprints scored; blocked only if score >= threshold |
-| `country_blacklist_bypass` | enabled | Blocked countries go through scorer |
+| `ja4_blocking_enabled` | enabled | Blacklisted fingerprints are hard-blocked (RST) |
+| `country_blocking_enabled` | enabled | Blocked countries are hard-blocked |
 | `spamhaus_bypass` | enabled | Spamhaus matches generate +80 signal instead of hard block |
 | `tls_version_bypass` | enabled | Old TLS versions go through scorer with risk contribution |
 
