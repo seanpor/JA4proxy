@@ -405,6 +405,27 @@ def _gh_create_issue(finding: dict[str, Any]) -> int | None:
     return number
 
 
+def _gh_comment_canonical(number: int, canonical_id: str) -> None:
+    """Leave a comment on an existing issue recording the canonical register ID."""
+    if not _gh_available():
+        return
+    body = (
+        f"This issue has been triaged and registered in the canonical findings register "
+        f"as **`{canonical_id}`**.\n\n"
+        f"The authoritative record (CVSS, SLA, status) is maintained in "
+        f"`docs/security/findings.yaml`. This issue is the work-surface; "
+        f"status updates flow from the YAML via "
+        f"`python3 scripts/findings_register.py sync-issues`."
+    )
+    try:
+        subprocess.run(
+            ["gh", "issue", "comment", str(number), "--repo", GITHUB_REPO, "--body", body],
+            capture_output=True, timeout=30,
+        )
+    except subprocess.TimeoutExpired:
+        pass
+
+
 def _gh_close_issue(number: int, comment: str = "") -> bool:
     """Close a GitHub issue, optionally leaving a comment."""
     if not _gh_available():
@@ -546,7 +567,19 @@ def cmd_add(args: argparse.Namespace) -> int:
     reg.save()
     print(f"added {finding['id']}: {finding['title']}")
 
-    if not args.no_issue:
+    if args.issue:
+        # Caller supplied an existing issue number — link it, add a comment to
+        # tie the canonical ID back to the issue, but do not create a new one.
+        existing = int(args.issue)
+        _gh_comment_canonical(existing, finding["id"])
+        reg2 = Register.load()
+        for f in reg2.findings:
+            if f["id"] == finding["id"]:
+                f["github_issue"] = existing
+                break
+        reg2.save()
+        print(f"  linked existing GitHub issue #{existing} (github_issue written to findings.yaml)")
+    elif not args.no_issue:
         issue_num = _gh_create_issue(finding)
         if issue_num is not None:
             # Reload and patch so we don't clobber the just-written file.
@@ -953,10 +986,17 @@ def _build_parser() -> argparse.ArgumentParser:
     pa.add_argument("--cvss-score", type=float)
     pa.add_argument("--remediation-phases", nargs="*", help="Phase IDs, e.g. 118a 109")
     pa.add_argument("--notes")
-    pa.add_argument(
+    issue_group = pa.add_mutually_exclusive_group()
+    issue_group.add_argument(
         "--no-issue",
         action="store_true",
         help="Skip GitHub issue creation (offline / CI use)",
+    )
+    issue_group.add_argument(
+        "--issue",
+        type=int,
+        metavar="N",
+        help="Link an existing GitHub issue number instead of creating a new one",
     )
 
     pd = sub.add_parser(

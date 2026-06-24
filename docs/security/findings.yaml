@@ -12,7 +12,9 @@
 #     python3 scripts/findings_register.py list [--status=OPEN] [--severity=HIGH] [--sla-breach]
 #     python3 scripts/findings_register.py add --source=PHASE_118 --source-id=118a-01 \
 #         --title="..." --severity=HIGH --cvss="CVSS:3.1/AV:N/..." --discovered=2026-04-17
-#         # `add` opens a GitHub issue automatically; use --no-issue to skip (offline/CI).
+#         # `add` opens a GitHub issue automatically.
+#         # --no-issue: skip creation (offline/CI).
+#         # --issue N:  link an existing issue instead (e.g. externally-opened reports).
 #     python3 scripts/findings_register.py dedup-hint "PROXY protocol spoofing"
 #     python3 scripts/findings_register.py promote-verified
 #     python3 scripts/findings_register.py sync-issues [--dry-run] [--report-missing]

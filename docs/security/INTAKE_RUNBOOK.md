@@ -189,6 +189,32 @@ issues whose finding has regressed to an earlier status.
 - ❌ **Deferring severity classification** by leaving `severity_rationale`
   empty. `make verify-findings` will fail.
 
+## Externally-opened GitHub issues
+
+Anyone can open a GitHub issue. When an issue is confirmed as a real security
+finding it must be backported into `findings.yaml` — the YAML is the audit
+record, not GitHub. Use `--issue N` to link the existing issue instead of
+creating a new one:
+
+```bash
+python3 scripts/findings_register.py add \
+    --source GITHUB_ISSUE \
+    --source-id 42 \
+    --title "Short, searchable title" \
+    --severity HIGH \
+    --lane go-proxy \
+    --owner @seanpor \
+    --issue 42          # ← link issue #42 instead of opening a new one
+```
+
+`add --issue` writes the number to `github_issue` in `findings.yaml` and
+leaves a comment on the issue recording the canonical ID (`JA4PROXY-YYYY-NNNN`)
+and pointing to the register. The issue is then managed via `sync-issues` like
+any other.
+
+Issues that are **not** confirmed security findings (feature requests, general
+bugs, questions) do not belong in `findings.yaml`. Leave them as plain issues.
+
 ## Coordinated vulnerability disclosure (CVD) intake
 
 Reports arrive via GitHub Security Advisories (see `docs/security/CVD_POLICY.md` §2).
@@ -197,8 +223,10 @@ Triage on a best-effort basis (no SLA committed):
 1. Acknowledge receipt to the reporter when first reviewed.
 2. Reproduce against the most recent stable release.
 3. Classify severity per `docs/security/SEVERITY_RUBRIC.md`.
-4. Assign a maintainer; track in the GHSA itself (no separate ticket required).
-5. On fix availability, request a CVE via GHSA, publish the advisory, credit the reporter unless they declined.
+4. Register in `findings.yaml` using `add --issue N` (where N is the GHSA-linked
+   issue number) to avoid opening a duplicate issue.
+5. Assign a maintainer; track in the GHSA itself (no separate ticket required).
+6. On fix availability, request a CVE via GHSA, publish the advisory, credit the reporter unless they declined.
 
 See `docs/security/CVD_POLICY.md` for the full policy including safe-harbour terms.
 
