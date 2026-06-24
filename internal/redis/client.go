@@ -322,6 +322,18 @@ func (c *Client) GetDial(ctx context.Context) int {
 			return 0
 		}
 
+		// JA4PROXY-2026-0070: verify key file has restrictive permissions
+		// BEFORE reading key material into memory.
+		if info, err := os.Stat(c.integrityKeyFile); err == nil {
+			if info.Mode().Perm()&0077 != 0 {
+				c.log.WithFields(logrus.Fields{
+					"path":        c.integrityKeyFile,
+					"permissions": info.Mode().Perm(),
+				}).Error("redis: integrity key file has overly permissive permissions (must be 0600 or 0400)")
+				return 0
+			}
+		}
+
 		key, err := os.ReadFile(c.integrityKeyFile)
 		if err != nil {
 			c.log.WithError(err).WithField("path", c.integrityKeyFile).Error("redis: failed to read integrity key file")

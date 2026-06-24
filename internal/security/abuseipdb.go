@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"net/http"
 	"net/url"
@@ -242,7 +243,9 @@ func (a *AbuseIPDB) lookup(ctx context.Context, ip string) {
 			AbuseConfidenceScore int `json:"abuseConfidenceScore"`
 		} `json:"data"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	// JA4PROXY-2026-0072: limit response body to 256 KiB to prevent memory
+	// exhaustion from a compromised API endpoint (responses are typically <5 KB).
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 256<<10)).Decode(&result); err != nil {
 		metrics.AbuseIPDBLookupsTotal.WithLabelValues("error").Inc()
 		return
 	}

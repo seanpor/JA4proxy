@@ -233,6 +233,24 @@ var (
 		[]string{"source", "type"},
 	)
 
+	// WorkChanDroppedTotal counts connections that bypassed async scoring
+	// because the workChan was full (fail-open by design, but actionable).
+	WorkChanDroppedTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "ja4proxy_workchan_dropped_total",
+			Help: "Connections that bypassed async scoring due to full workChan",
+		},
+	)
+
+	// AuditJobsDroppedTotal counts mesh drift audit jobs dropped because the
+	// bounded audit worker queue was saturated.
+	AuditJobsDroppedTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "ja4proxy_audit_jobs_dropped_total",
+			Help: "Mesh drift audit jobs dropped due to saturated audit worker queue",
+		},
+	)
+
 	ConnectionErrorsTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "ja4proxy_connection_errors_total",
@@ -399,6 +417,8 @@ func Register() {
 		ConnectionsTotal,
 		SignalLatencySeconds,
 		SignalDriftTotal,
+		WorkChanDroppedTotal,
+		AuditJobsDroppedTotal,
 		ActiveConnections, RiskScore,
 		DialCurrent, DialChangesTotal, SecurityEventsTotal, TarpitConcurrent,
 		TarpitOverflowTotal, ConfigReloadsTotal, BypassTotal, SignalTotal,
