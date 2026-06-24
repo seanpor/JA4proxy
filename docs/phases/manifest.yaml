@@ -56,6 +56,7 @@ epics:
   - 335
   - 336
   - 500
+  - 501
 - name: 'Epic: Analytics & Intelligence'
   description: Cross-instance behavior analysis and threat intelligence.
   phases:
@@ -72,6 +73,7 @@ epics:
   - 58
   - 59
   - 500
+  - 501
 - name: 'Epic: Next-Gen Passive Capture'
   description: Out-of-band monitoring and enforcement.
   phases:
@@ -120,6 +122,7 @@ epics:
   - 329
   - 331
   - 500
+  - 501
 - name: 'Epic: Quality Assurance & Test Maturity'
   description: Comprehensive testing, adversarial coverage, and performance validation.
   phases:
@@ -2881,7 +2884,8 @@ phases:
     deferred_to: 500
   500:
     name: Full Codebase Bug Hunt — Multi-Strand Security Audit
-    status: IN_PROGRESS
+    status: COMPLETE
+    completed: '2026-06-24'
     action_plan: docs/phases/PHASE_500.md
     dependencies:
     - 400
@@ -2891,6 +2895,19 @@ phases:
       (protocol parsing, concurrency, access control, cryptography, resource exhaustion,
       information exposure) and 510a-510f for non-proxy components (injection/web security,
       auth/session, data exposure, misconfiguration, crypto integrity, supply chain).
-      Every finding registered in findings.yaml with regression test; every confirmed
-      bug triggers similar-bug propagation sweep across the codebase. Supersedes Phase
-      400 (Comprehensive Security Review) which provided the initial findings seed.'
+      18 findings registered (0063-0080), 13 fixed, 5 OPEN (GitHub issues #217-#221).
+      Expert critical review: security (approved after fixes), concurrency (approved),
+      code quality (approved). Supersedes Phase 400. Followed by Phase 501 (IEEE 1044
+      second pass).'
+  501:
+    name: 'Codebase Bug Hunt — Pass 2 (IEEE 1044 Classification)'
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_501.md
+    dependencies:
+    - 500
+    size: XLARGE
+    summary: 'Second pass of bug hunt organized by IEEE 1044-2009 classification
+      (activity, type, severity, cause) rather than CWE family. Targets coverage
+      gaps in Phase 500: algorithm correctness, design flaws, interface contracts,
+      timing/lifecycle, test adequacy, documentation accuracy, data integrity.
+      Every finding classified on all 4 IEEE 1044 dimensions.'
