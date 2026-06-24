@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -221,7 +222,10 @@ func (r *RDAPEnricher) enrich(ctx context.Context, job rdapJob) {
 	}
 	defer resp.Body.Close()
 	var result map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	// JA4PROXY-2026-0072: limit response body to 256 KiB to prevent memory
+	// exhaustion from a compromised or MITM'd RDAP endpoint (responses are
+	// typically <10 KB).
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 256<<10)).Decode(&result); err != nil {
 		return
 	}
 	// Extract org name

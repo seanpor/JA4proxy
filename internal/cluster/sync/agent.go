@@ -591,13 +591,26 @@ func (a *SyncAgent) loadIntegrityKeys() error {
 		return nil
 	}
 
+	// JA4PROXY-2026-0070: verify key file has restrictive permissions
+	// BEFORE reading key material into memory.
+	if info, err := os.Stat(a.cfg.Sync.IntegrityKeyFile); err == nil {
+		if info.Mode().Perm()&0077 != 0 {
+			return fmt.Errorf("integrity key file %s has overly permissive permissions %o (must be 0600 or 0400)",
+				a.cfg.Sync.IntegrityKeyFile, info.Mode().Perm())
+		}
+	}
+
 	keyData, err := os.ReadFile(a.cfg.Sync.IntegrityKeyFile)
 	if err != nil {
 		return err
 	}
+
 	rawKey, err := base64.StdEncoding.DecodeString(string(keyData))
 	if err != nil {
 		return err
+	}
+	if len(rawKey) != ed25519.PrivateKeySize {
+		return fmt.Errorf("integrity key has invalid length %d (expected %d for ed25519 — must be base64-encoded 64-byte key: seed || pubkey)", len(rawKey), ed25519.PrivateKeySize)
 	}
 	a.privKey = ed25519.PrivateKey(rawKey)
 	a.pubKey = a.privKey.Public().(ed25519.PublicKey)

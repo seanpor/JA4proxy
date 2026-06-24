@@ -923,10 +923,10 @@ func (p *proxy) forward(clientConn net.Conn, initialData []byte, srcIP string, s
 		defer bufferPool.Put(bp)
 		buf := *bp
 		for {
-			_ = src.SetReadDeadline(time.Now().Add(time.Duration(p.cfg.Proxy.ReadTimeout) * time.Second))
+			_ = src.SetReadDeadline(time.Now().Add(time.Duration(cfg.Proxy.ReadTimeout) * time.Second))
 			n, rerr := src.Read(buf)
 			if n > 0 {
-				_ = dst.SetWriteDeadline(time.Now().Add(time.Duration(p.cfg.Proxy.WriteTimeout) * time.Second))
+				_ = dst.SetWriteDeadline(time.Now().Add(time.Duration(cfg.Proxy.WriteTimeout) * time.Second))
 				if _, werr := dst.Write(buf[:n]); werr != nil {
 					break
 				}
