@@ -114,6 +114,8 @@ services:
     # connect.)
     command:
       - redis-server
+      # JA4PROXY-2026-0079: Password visible in process list for PoC only.
+      # Production compose uses Docker secrets + --requirepass-file.
       - --requirepass
       - ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
       - --aclfile

@@ -157,8 +157,8 @@ func (h *PubSubHandler) runOnce(ctx context.Context) {
 
 func (h *PubSubHandler) handleMessage(msg *rdb.Message) {
 	h.log.WithFields(logrus.Fields{
-		"channel": msg.Channel,
-		"payload": msg.Payload,
+		"channel":    msg.Channel,
+		"pubsub_raw": msg.Payload,
 	}).Debug("pubsub: received message")
 
 	if _, critical := criticalChannels[msg.Channel]; critical && len(h.hmacSecret) > 0 {
