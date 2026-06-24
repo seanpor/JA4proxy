@@ -53,17 +53,8 @@ func (d *BeaconingDetector) GetSignal(ctx context.Context, conn *ConnectionConte
 	}
 
 	shortWindow := d.cfg.ShortWindowSec
-	if shortWindow == 0 {
-		shortWindow = 3600
-	}
 	minObs := d.cfg.MinObservations
-	if minObs == 0 {
-		minObs = 5
-	}
 	scoreCap := d.cfg.ScoreCap
-	if scoreCap == 0 {
-		scoreCap = 35
-	}
 
 	if d.redis == nil {
 		return nil

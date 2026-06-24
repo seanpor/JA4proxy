@@ -203,8 +203,7 @@ func TestDNSEnrichment_GetSignal_H1ALPN_NeverEnqueued(t *testing.T) {
 func TestDNSEnrichment_GetSignal_DefaultScores(t *testing.T) {
 	r := newMockRedisRW()
 	r.strings["dns:fcrdns:1.2.3.4"] = "no_ptr"
-	// Use zero values to trigger defaults
-	d := NewDNSEnrichment(&DNSEnrichmentConfig{Enabled: true}, r, nil)
+	d := NewDNSEnrichment(&DNSEnrichmentConfig{Enabled: true, NoPTRScore: 15, FCrDNSFailedScore: 20, ResidentialScore: -10}, r, nil)
 	sig := d.GetSignal(context.Background(), &ConnectionContext{ParsedIP: net.ParseIP("1.2.3.4"), ClientIP: "1.2.3.4"})
 	if sig == nil {
 		t.Fatal("expected signal for no_ptr")

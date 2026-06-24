@@ -147,17 +147,8 @@ func (d *DNSEnrichment) GetSignal(ctx context.Context, conn *ConnectionContext) 
 	cached := d.redis.GetString(ctx, key)
 
 	noPTRScore := d.cfg.NoPTRScore
-	if noPTRScore == 0 {
-		noPTRScore = 15
-	}
 	fcrdnsScore := d.cfg.FCrDNSFailedScore
-	if fcrdnsScore == 0 {
-		fcrdnsScore = 20
-	}
 	residentialScore := d.cfg.ResidentialScore
-	if residentialScore == 0 {
-		residentialScore = -10
-	}
 
 	switch cached {
 	case "no_ptr":

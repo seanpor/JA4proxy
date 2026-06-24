@@ -496,7 +496,11 @@ func (c *Client) GetString(ctx context.Context, key string) string {
 }
 
 // SetString stores a string value with TTL in seconds. Fails open.
+// Negative TTLs are clamped to 0 (no expiry) to prevent accidental permanent keys.
 func (c *Client) SetString(ctx context.Context, key, value string, ttlSeconds int) {
+	if ttlSeconds < 0 {
+		ttlSeconds = 0
+	}
 	c.Set(ctx, key, value, time.Duration(ttlSeconds)*time.Second)
 }
 
