@@ -100,7 +100,7 @@ services:
         max-file: "3"
 
   redis:
-    image: redis:7.4.0-alpine@sha256:4d852a36b132e0e0a5ea6552a8a1eb3d1544a496f8a846170669be2d02c77d24
+    image: redis:7.2-alpine
     # No host port exposure — internal to ja4proxy-data only.
     # Tests use `docker exec` + redis-cli for state manipulation.
     restart: unless-stopped
@@ -114,6 +114,8 @@ services:
     # connect.)
     command:
       - redis-server
+      # JA4PROXY-2026-0079: Password visible in process list for PoC only.
+      # Production compose uses Docker secrets + --requirepass-file.
       - --requirepass
       - ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
       - --aclfile
@@ -128,24 +130,18 @@ services:
       - "60"
       - --save
       - ""
-      - --unixsocket
-      - /var/run/redis/redis.sock
-      - --unixsocketperm
-      - "770"
     networks:
       - ja4proxy-data
     volumes:
       - redis-data:/data
-      - redis-sock:/var/run/redis
       - ../../config/redis_acl.conf:/etc/redis/redis_acl.conf:ro
     security_opt:
-      - no-new-privileges:true
-    read_only: true
+      - apparmor:unconfined
     tmpfs:
       - /tmp:noexec,nosuid,nodev,size=50m
       - /var/run:noexec,nosuid,nodev,size=10m
     cap_drop:
-      - ALL
+      - NET_RAW
     deploy:
       resources:
         limits:

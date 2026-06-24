@@ -59,6 +59,10 @@ redis:
   # Enable TLS for Redis connections in production
   ssl: false
   ssl_cert_reqs: "required"
+  # JA4PROXY-2026-0080: HMAC secret for PubSub message signing.
+  # Set via REDIS_SIGNING_KEY environment variable. Without this, pub/sub
+  # messages are unsigned and accepted from any Redis client on the network.
+  pubsub_hmac_secret: "${REDIS_SIGNING_KEY}"
   acl_users:
     # Per-service ACL users. Requires Redis 6+ with ACL support.
     # Create these users in Redis with:

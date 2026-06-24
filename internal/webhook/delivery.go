@@ -20,6 +20,17 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// isReservedIPv4 returns true for addresses in 240.0.0.0/4 (legacy reserved).
+// Go's net package does not expose this check, but Python's ipaddress module
+// considers these reserved and rejects them in webhook URL validation.
+func isReservedIPv4(ip net.IP) bool {
+	ip4 := ip.To4()
+	if ip4 == nil {
+		return false
+	}
+	return ip4[0] >= 240
+}
+
 // WebhookEndpoint describes a single outbound webhook target.
 //
 // JA4PROXY-2026-0051 — the Secret field is a long-lived HMAC signing key.
@@ -215,7 +226,10 @@ func (d *Dispatcher) deliverToEndpoint(ep WebhookEndpoint, event WebhookEvent) e
 	if timeout == 0 {
 		timeout = 30
 	}
-	client := &http.Client{Timeout: time.Duration(timeout * float64(time.Second))}
+	client := &http.Client{
+		Timeout:   time.Duration(timeout * float64(time.Second)),
+		Transport: newSafeTransport(time.Duration(timeout * float64(time.Second))),
+	}
 
 	// Build the payload once so the signature is consistent.
 	// We sign the final payload (with signature field set to computed value).
@@ -270,32 +284,74 @@ func (d *Dispatcher) deliverToEndpoint(ep WebhookEndpoint, event WebhookEvent) e
 	return lastErr
 }
 
-// isPrivateTarget reports whether the URL resolves to a private or loopback IP.
-// JA4PROXY-2026-0043: Webhook SSRF protection.
+// isPrivateIP reports whether an IP is private, loopback, unspecified,
+// link-local, or reserved — matching Python's ipaddress._ip_is_internal.
+func isPrivateIP(ip net.IP) bool {
+	if os.Getenv("JA4PROXY_TEST_ALLOW_LOOPBACK") == "true" {
+		return false
+	}
+	return ip.IsLoopback() || ip.IsPrivate() || ip.IsUnspecified() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || isReservedIPv4(ip)
+}
+
 func isPrivateTarget(u string) bool {
 	if os.Getenv("JA4PROXY_TEST_ALLOW_LOOPBACK") == "true" {
 		return false
 	}
 	parsed, err := url.Parse(u)
 	if err != nil {
-		return true // invalid URL
+		return true
 	}
 	host := parsed.Hostname()
-	// Check if host is already an IP
 	if ip := net.ParseIP(host); ip != nil {
-		return ip.IsLoopback() || ip.IsPrivate() || ip.IsUnspecified() || ip.IsLinkLocalUnicast()
+		return isPrivateIP(ip)
 	}
-	// Resolve and check all IPs
 	ips, err := net.LookupIP(host)
 	if err != nil {
-		return true // resolution failure
+		return true
 	}
 	for _, ip := range ips {
-		if ip.IsLoopback() || ip.IsPrivate() || ip.IsUnspecified() || ip.IsLinkLocalUnicast() {
+		if isPrivateIP(ip) {
 			return true
 		}
 	}
 	return false
+}
+
+// newSafeTransport returns an http.Transport whose DialContext resolves the
+// target hostname and rejects private/loopback/reserved IPs at connection
+// time, closing the TOCTOU window between URL validation and TCP connect.
+func newSafeTransport(timeout time.Duration) *http.Transport {
+	return &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			host, port, err := net.SplitHostPort(addr)
+			if err != nil {
+				return nil, fmt.Errorf("webhook: split host:port: %w", err)
+			}
+			ips, err := net.DefaultResolver.LookupIPAddr(ctx, host)
+			if err != nil {
+				return nil, fmt.Errorf("webhook: resolve %s: %w", host, err)
+			}
+			if len(ips) == 0 {
+				return nil, fmt.Errorf("webhook: no addresses for %s", host)
+			}
+			for _,ipa := range ips {
+				if isPrivateIP(ipa.IP) {
+					return nil, fmt.Errorf("webhook: blocked private/resolved target %s (%s) (SSRF prevention)", host, ipa.IP)
+				}
+			}
+			var lastErr error
+			for _, ipa := range ips {
+				conn, err := (&net.Dialer{Timeout: timeout}).DialContext(ctx, network, net.JoinHostPort(ipa.IP.String(), port))
+				if err == nil {
+					return conn, nil
+				}
+				lastErr = err
+			}
+			return nil, fmt.Errorf("webhook: dial %s: %w", host, lastErr)
+		},
+		TLSHandshakeTimeout: timeout,
+	}
 }
 
 // doHTTPPost performs a single HTTP POST attempt using the provided client.

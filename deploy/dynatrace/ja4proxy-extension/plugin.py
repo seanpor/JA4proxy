@@ -189,7 +189,13 @@ def scrape_metrics(
     """
     req = urllib.request.Request(url, headers={"Accept": "text/plain"})
     if api_token:
-        req.add_header("Authorization", f"Bearer {api_token}")
+        if url.startswith("https"):
+            req.add_header("Authorization", f"Bearer {api_token}")
+        else:
+            _log.warning(
+                "ja4proxy dynatrace: refusing to send Bearer token over HTTP (url=%s)",
+                url,
+            )
     try:
         ctx = ssl.create_default_context() if url.startswith("https") else None
         with urllib.request.urlopen(  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
