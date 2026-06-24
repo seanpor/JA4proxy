@@ -3045,7 +3045,7 @@ phases:
       (protocol parsing, concurrency, access control, cryptography, resource exhaustion,
       information exposure) and 510a-510f for non-proxy components (injection/web security,
       auth/session, data exposure, misconfiguration, crypto integrity, supply chain).
-      18 findings registered (0063-0080), 13 fixed, 5 OPEN (GitHub issues #217-#221).
+      18 findings registered (0063-0080), 16 fixed, 2 OPEN (0066 webhook TOCTOU, 0079 Redis pwd on CLI deferred for PoC). Issues #217-#221 closed.
       Expert critical review: security (approved after fixes), concurrency (approved),
       code quality (approved). Supersedes Phase 400. Followed by Phase 501 (IEEE 1044
       second pass).'
