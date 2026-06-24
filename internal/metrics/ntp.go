@@ -6,10 +6,13 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/sirupsen/logrus"
 )
+
+var ntpWarnOnce sync.Once
 
 // StartNTPMonitor starts a background goroutine to periodically check NTP drift.
 func StartNTPMonitor(ctx context.Context, intervalSeconds int, log *logrus.Logger) {
@@ -21,8 +24,16 @@ func StartNTPMonitor(ctx context.Context, intervalSeconds int, log *logrus.Logge
 
 	log.WithField("interval", intervalSeconds).Info("metrics: NTP drift monitor started")
 
-	// Initial check
-	checkNTP(log)
+	// Initial check — log which binary is available (or neither)
+	drift, err := getNTPDrift()
+	if err != nil {
+		ntpWarnOnce.Do(func() {
+			log.WithError(err).Warn("metrics: NTP drift monitoring unavailable — neither chronyc nor ntpstat found")
+		})
+	} else {
+		SyncClockDriftSeconds.Set(drift)
+		log.WithField("drift", drift).Debug("metrics: NTP drift monitor initialised")
+	}
 
 	for {
 		select {
@@ -37,7 +48,9 @@ func StartNTPMonitor(ctx context.Context, intervalSeconds int, log *logrus.Logge
 func checkNTP(log *logrus.Logger) {
 	drift, err := getNTPDrift()
 	if err != nil {
-		log.WithError(err).Debug("metrics: failed to get NTP drift")
+		ntpWarnOnce.Do(func() {
+			log.WithError(err).Warn("metrics: NTP drift monitoring unavailable — neither chronyc nor ntpstat found")
+		})
 		return
 	}
 	SyncClockDriftSeconds.Set(drift)
