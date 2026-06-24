@@ -4,7 +4,9 @@
 
 package security
 
-import "sync"
+import (
+	"sync"
+)
 
 type DecisionCache struct {
 	mu    sync.RWMutex
@@ -30,7 +32,14 @@ func (c *DecisionCache) Set(ja4 string, res *PipelineResult) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if len(c.data) >= c.limit {
-		c.data = make(map[string]*PipelineResult)
+		evictCount := c.limit / 10
+		for k := range c.data {
+			if evictCount <= 0 {
+				break
+			}
+			delete(c.data, k)
+			evictCount--
+		}
 	}
 	c.data[ja4] = res
 }

@@ -60,9 +60,6 @@ func (a *TCPAnalyzer) Analyze(ctx context.Context, conn *ConnectionContext) []Ri
 			total, _ := strconv.Atoi(sessionData["total"])
 			resumed, _ := strconv.Atoi(sessionData["resumed"])
 			min := a.cfg.MinConnectionsForSessionCheck
-			if min == 0 {
-				min = 10
-			}
 			if total >= min && total > 0 {
 				ratio := float64(resumed) / float64(total)
 				if ratio < 0.05 {
@@ -81,9 +78,6 @@ func (a *TCPAnalyzer) Analyze(ctx context.Context, conn *ConnectionContext) []Ri
 	// Short connection lifespan
 	if a.cfg.ShortLifespanEnabled && conn.ConnectionLifespanMS > 0 {
 		threshold := a.cfg.ShortLifespanThresholdMS
-		if threshold == 0 {
-			threshold = 500
-		}
 		if conn.ConnectionLifespanMS < threshold {
 			metrics.TCPSignalTotal.WithLabelValues("short_connection_lifespan").Inc()
 			signals = append(signals, RiskSignal{
@@ -105,15 +99,6 @@ func (a *TCPAnalyzer) Analyze(ctx context.Context, conn *ConnectionContext) []Ri
 		severe := a.cfg.ConcurrencySevere
 		high := a.cfg.ConcurrencyHigh
 		moderate := a.cfg.ConcurrencyModerate
-		if severe == 0 {
-			severe = 100
-		}
-		if high == 0 {
-			high = 50
-		}
-		if moderate == 0 {
-			moderate = 20
-		}
 
 		if concurrent >= severe {
 			metrics.TCPSignalTotal.WithLabelValues("severe_concurrency").Inc()
@@ -153,13 +138,7 @@ func (a *TCPAnalyzer) Analyze(ctx context.Context, conn *ConnectionContext) []Ri
 			if total > 0 && firstSeenStr != "" {
 				firstSeen, err := strconv.ParseInt(firstSeenStr, 10, 64)
 				minDays := a.cfg.ReturnVisitorMinDays
-				if minDays == 0 {
-					minDays = 7
-				}
 				minRate := a.cfg.ReturnVisitorMinAllowRate
-				if minRate == 0 {
-					minRate = 0.90
-				}
 				ageDays := time.Since(time.Unix(firstSeen, 0)).Hours() / 24
 				allowRate := float64(allowed) / float64(total)
 				if err == nil && ageDays >= float64(minDays) && allowRate >= minRate {

@@ -33,6 +33,7 @@ Design
 - Old /api/v1/lists/... routes are untouched and continue to work.
 """
 
+import ipaddress
 import logging
 import uuid
 from datetime import datetime, timezone
@@ -89,7 +90,13 @@ _VALID_LIST_NAMES = frozenset(("allowlist", "blocklist", "watchlist"))
 
 def _is_ip_entry(entry: str) -> bool:
     """Return True if *entry* looks like an IP address or CIDR."""
-    return entry[:1].isdigit() or ":" in entry
+    if "/" in entry:
+        entry = entry.split("/", 1)[0]
+    try:
+        ipaddress.ip_address(entry)
+        return True
+    except ValueError:
+        return False
 
 
 def _resolve_list_config(

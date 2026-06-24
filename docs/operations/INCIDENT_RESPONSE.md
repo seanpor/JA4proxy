@@ -244,15 +244,14 @@ This is the key advantage of JA4 fingerprinting over IP blocking — one command
 
 ## TLS Version Enforcement — Legitimate Traffic Blocked (Phase 3)
 
-**Symptoms:** Users on older devices or enterprise software report connection failures. Logs show connections dropped with `tls_version_blocked` or `weak_cipher_blocked`. The `ja4proxy_tls_version_total` metric shows a spike for a version like `TLSv1` or `TLSv1.1`.
+**Symptoms:** Users on older devices or enterprise software report connection failures. Logs show connections dropped with `tls_version_blocked` or `weak_cipher_blocked`. The `ja4proxy_weak_cipher_total` metric shows a spike.
 
 **Check which versions are being blocked:**
 ```bash
 # Look for tls_version_bypass disabled warning at startup
 docker compose -f deploy/docker/docker-compose.poc.yml logs proxy | grep bypass_disabled
 
-# Check metrics for blocked TLS version breakdown
-curl -s http://localhost:9090/metrics | grep ja4proxy_tls_version_total
+# Check metrics for blocked weak cipher count
 curl -s http://localhost:9090/metrics | grep ja4proxy_weak_cipher_total
 ```
 
@@ -263,7 +262,7 @@ curl -s http://localhost:9090/metrics | grep ja4proxy_weak_cipher_total
 #   tls_version_bypass:
 #     enabled: false
 # Then send SIGHUP to hot-reload (no restart required)
-kill -HUP $(pgrep -f proxy.py)
+kill -HUP $(pgrep -f ja4pd)
 
 # Option 2: If a specific IP needs immediate relief
 ./scripts/ja4-admin.sh whitelist-ja4 <fingerprint>    # if fingerprint is known-good
@@ -307,7 +306,7 @@ sni_analysis:
     score: 30                  # risk score contribution
 ```
 
-Send SIGHUP after config change: `kill -HUP $(pgrep -f proxy.py)`
+Send SIGHUP after config change: `kill -HUP $(pgrep -f ja4pd)`
 
 **Root cause:** Some legitimate CDN hostnames (e.g. `a0b1c2d3.cdn.example.com`) or auto-generated subdomains have high entropy. If the domain is known-good, raise the threshold or add it to an SNI allowlist in config.
 
@@ -336,7 +335,7 @@ spamhaus_bypass:
 # Spamhaus matches now produce a RiskSignal (+80) instead of a hard block.
 # At dial=0 (monitor mode) the connection still passes.
 ```
-Then `kill -HUP $(pgrep -f proxy.py)` to hot-reload.
+Then `kill -HUP $(pgrep -f ja4pd)` to hot-reload.
 
 Option 2 — Add the specific IP to the static allowlist (overrides all block decisions):
 ```yaml
@@ -378,11 +377,11 @@ Then hot-reload with SIGHUP. Static allowlist entries bypass all scoring and blo
 
 | Mechanism | Duration | Redis key pattern |
 |-----------|----------|-------------------|
-| Tarpit block | 300s (config) | `blocked:tarpit:<entity>` |
-| Hard block | 300s (config) | `blocked:block:<entity>` |
-| Temporary ban | 300s (config) | `banned:temporary:<entity>` |
-| Manual IP block | 3600s (default) | `blocked:block:<ip>` |
+| IP ban | TTL-based | `ban:<ip>` (Redis STRING with TTL) |
 | JA4 blacklist | Permanent | `ja4:blacklist` (Redis SET) |
+| JA4X blacklist | Permanent | `ja4x:blacklist` (Redis SET) |
+| Country block | Permanent | `geoip:blocked_countries` (Redis SET) |
+| CIDR block | Permanent | `geoip:blocked_cidrs` (Redis SET) |
 
 ### Prometheus alerts to watch
 
