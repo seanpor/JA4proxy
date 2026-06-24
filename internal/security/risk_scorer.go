@@ -2,6 +2,7 @@ package security
 
 import (
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 )
@@ -85,7 +86,7 @@ func (r *RiskScorer) Score(signals []RiskSignal) RiskAssessment {
 		if w == 0 {
 			w = 1.0
 		}
-		raw += int(float64(s.Score) * w)
+		raw += int(math.Round(float64(s.Score) * w))
 	}
 
 	// Clamp composite to 0–100

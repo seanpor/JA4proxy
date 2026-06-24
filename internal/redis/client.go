@@ -496,7 +496,11 @@ func (c *Client) GetString(ctx context.Context, key string) string {
 }
 
 // SetString stores a string value with TTL in seconds. Fails open.
+// Negative TTLs are clamped to 0 (no expiry) to prevent accidental permanent keys.
 func (c *Client) SetString(ctx context.Context, key, value string, ttlSeconds int) {
+	if ttlSeconds < 0 {
+		ttlSeconds = 0
+	}
 	c.Set(ctx, key, value, time.Duration(ttlSeconds)*time.Second)
 }
 
@@ -519,7 +523,7 @@ func (c *Client) ZAdd(ctx context.Context, key string, score float64, member str
 		return
 	}
 	observeOp("zadd", "ok")
-	c.maybeSync(ctx, "zadd", key, member, 0)
+	c.maybeSync(ctx, "zadd", key, fmt.Sprintf("%f:%s", score, member), 0)
 }
 
 // ZRemRangeByScore removes members with scores between min and max. Fails open.

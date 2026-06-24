@@ -2901,7 +2901,7 @@ phases:
       second pass).'
   501:
     name: 'Codebase Bug Hunt — Pass 2 (IEEE 1044 Classification)'
-    status: PROPOSED
+    status: IN_PROGRESS
     action_plan: docs/phases/PHASE_501.md
     dependencies:
     - 500

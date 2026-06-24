@@ -366,9 +366,15 @@ func (d *Dispatcher) Run(ctx context.Context) {
 				if !ok {
 					continue
 				}
-				var event WebhookEvent
-				if err := json.Unmarshal([]byte(eventJSON), &event); err != nil {
+				var ecsFields map[string]interface{}
+				if err := json.Unmarshal([]byte(eventJSON), &ecsFields); err != nil {
 					continue
+				}
+				event := WebhookEvent{
+					ID:        msg.ID,
+					Timestamp: fmt.Sprintf("%v", ecsFields["@timestamp"]),
+					EventType: fmt.Sprintf("%v", ecsFields["event.action"]),
+					Data:      ecsFields,
 				}
 				d.Deliver(event) //nolint:errcheck,gosec // fire-and-forget delivery from stream replay
 			}

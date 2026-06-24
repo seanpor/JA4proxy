@@ -53,17 +53,8 @@ func (d *BeaconingDetector) GetSignal(ctx context.Context, conn *ConnectionConte
 	}
 
 	shortWindow := d.cfg.ShortWindowSec
-	if shortWindow == 0 {
-		shortWindow = 3600
-	}
 	minObs := d.cfg.MinObservations
-	if minObs == 0 {
-		minObs = 5
-	}
 	scoreCap := d.cfg.ScoreCap
-	if scoreCap == 0 {
-		scoreCap = 35
-	}
 
 	if d.redis == nil {
 		return nil
@@ -189,8 +180,8 @@ func computeCV(timestamps []float64) float64 {
 		mean += v
 	}
 	mean /= float64(len(iats))
-	if mean == 0 {
-		return 0.0
+	if mean <= 0 {
+		return 1.0
 	}
 	variance := 0.0
 	for _, v := range iats {

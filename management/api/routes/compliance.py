@@ -48,7 +48,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["compliance"])
 
-_STREAM_KEY = "ja4proxy:events"
+_STREAM_KEY = "events:connection"
 _AUDIT_KEY = "management:audit_log"
 
 # JA4PROXY-2026-0035 — DSAR export must never pull the entire stream into
