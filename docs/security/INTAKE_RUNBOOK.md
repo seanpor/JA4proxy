@@ -90,6 +90,10 @@ python3 scripts/findings_register.py add \
     --remediation-phases 118b
 ```
 
+`add` automatically opens a GitHub issue titled `JA4PROXY-YYYY-NNNN: <title>`
+and writes the issue number back to `findings.yaml` as `github_issue`. If `gh`
+is unavailable (offline, CI), pass `--no-issue` and create the issue manually.
+
 Severity is assigned **per `SEVERITY_RUBRIC.md`**, not copied from the
 source's CVSS. Record any rubric-vs-CVSS disagreement in
 `severity_rationale`.
@@ -150,17 +154,26 @@ Must exit 0. If it fails, fix the schema errors before the intake commit.
 line each to existing entries' `source_refs`. The 2 novel findings use `add`.
 The one new phase is opened because "SBOM generation" has no existing owner.
 
-## Migration trigger: >100 canonical findings
+## GitHub issue sync
 
-When `python3 scripts/findings_register.py list | wc -l` exceeds 100 canonical
-entries, migrate from YAML to a GitHub Projects board with custom fields
-matching the schema. Keep `findings.yaml` in git as a snapshot export, but
-treat the Projects board as the source of truth and regenerate
-`FINDINGS_REGISTER.md` from the Projects API.
+Every finding created by `add` gets a mirrored GitHub issue (title:
+`JA4PROXY-YYYY-NNNN: <title>`). The `github_issue` field in `findings.yaml`
+stores the issue number. The YAML remains the authoritative record; GitHub
+issues are the work surface.
 
-Reason: beyond 100 entries, filtering / sorting / assignment workflow
-benefits outweigh the YAML-in-git diff clarity. The trigger is documented
-here so the migration is not forgotten when the threshold is crossed.
+To reconcile issue state after bulk status changes (e.g. a wave of findings
+moved to CLOSED after a release):
+
+```bash
+python3 scripts/findings_register.py sync-issues
+# or, to preview without mutating:
+python3 scripts/findings_register.py sync-issues --dry-run
+# to report findings that predate the sync and have no issue number:
+python3 scripts/findings_register.py sync-issues --report-missing
+```
+
+`sync-issues` closes issues whose finding is CLOSED/DUPLICATE, and reopens
+issues whose finding has regressed to an earlier status.
 
 ## Anti-patterns
 

@@ -12,8 +12,11 @@
 #     python3 scripts/findings_register.py list [--status=OPEN] [--severity=HIGH] [--sla-breach]
 #     python3 scripts/findings_register.py add --source=PHASE_118 --source-id=118a-01 \
 #         --title="..." --severity=HIGH --cvss="CVSS:3.1/AV:N/..." --discovered=2026-04-17
+#         # `add` opens a GitHub issue automatically; use --no-issue to skip (offline/CI).
 #     python3 scripts/findings_register.py dedup-hint "PROXY protocol spoofing"
 #     python3 scripts/findings_register.py promote-verified
+#     python3 scripts/findings_register.py sync-issues [--dry-run] [--report-missing]
+#         # Reconcile github_issue state with status (closes/reopens issues as needed).
 #
 # Schema (see docs/security/FINDINGS_REGISTER.md for full definitions):
 #
@@ -38,6 +41,7 @@
 #   depends_on          list of canonical IDs that must be fixed first
 #   regression_test     pytest nodeid or go test path, required once status ≥ FIXED
 #   closed_commit       git SHA of the merge that moved status to CLOSED
+#   github_issue        GitHub issue number (integer) — set automatically by `add`
 #   notes               free-text, optional
 
 schema_version: 1
