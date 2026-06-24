@@ -2625,11 +2625,11 @@ findings:
   lane: go-proxy
   discovered: '2026-06-22'
   due: '2026-08-21'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
   regression_test: ''
-  closed_commit: ''
+  closed_commit: ec3d7839
   github_issue: 244
   cvss_v3_1:
     score: 5.3
@@ -2643,8 +2643,9 @@ findings:
     If the TAP container is compromised, the attacker has unrestricted
     syscall access. DropCapabilities() drops root, limiting blast radius,
     but seccomp would provide defense-in-depth.
-  notes: 'Either implement using libseccomp-golang with a minimal syscall
-    whitelist, or remove the stub and document the deferral decision.'
+  notes: 'Removed placeholder stub. Seccomp deferred — requires per-syscall
+    auditing of AF_PACKET + metric-export paths. DropCapabilities() already
+    drops root, limiting blast radius.'
 - id: JA4PROXY-2026-0082
   title: 'NTP Drift Monitor Silently Degrades When chronyc/ntpstat Missing'
   severity: LOW
@@ -2659,11 +2660,11 @@ findings:
   lane: go-proxy
   discovered: '2026-06-22'
   due: '2026-10-20'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: internal/metrics/metrics_coverage_test.go::TestCheckNTP_DoesNotPanic
+  closed_commit: ec3d7839
   github_issue: 245
   cvss_v3_1:
     score: 3.1
@@ -2675,8 +2676,8 @@ findings:
   impact: >
     NTP drift is used for multi-DC consistency. Silent degradation could
     mask clock skew that affects Redis Stream ordering.
-  notes: 'Recommend logging WARN on first failure and adding a startup
-    log indicating which NTP binary was found (or neither).'
+  notes: 'Fixed: warn via sync.Once on first failure, log which binary
+    is available at startup.'
 - id: JA4PROXY-2026-0083
   title: 'CountKeys Uses O(N) KEYS Command in Health Endpoint'
   severity: LOW
@@ -2691,11 +2692,11 @@ findings:
   lane: go-proxy
   discovered: '2026-06-22'
   due: '2026-10-20'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: internal/redis/client_ops_test.go::TestClient_CountKeys
+  closed_commit: ec3d7839
   github_issue: 246
   cvss_v3_1:
     score: 3.1
@@ -2708,5 +2709,5 @@ findings:
     Under extreme key counts, this could cause Redis latency spikes.
     Usage is bounded (pattern is typically ban:*) but O(N) behavior is
     undesirable in production.
-  notes: 'Replace with SCAN-based counting or periodic caching. Document
-    the O(N) behavior in the health endpoint.'
+  notes: 'Fixed: replaced KEYS with SCAN iterator to avoid blocking
+    Redis.'

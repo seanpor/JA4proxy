@@ -440,16 +440,21 @@ func (c *Client) Ping(ctx context.Context) error {
 }
 
 // CountKeys returns the number of keys matching a glob pattern.
+// Uses SCAN instead of KEYS to avoid blocking Redis on large key sets.
 // Used for ban counting in health/deep endpoint. Returns 0 on error.
 func (c *Client) CountKeys(ctx context.Context, pattern string) int {
-	keys, err := c.rdb.Keys(ctx, pattern).Result()
-	if err != nil {
+	var count int
+	iter := c.rdb.Scan(ctx, 0, pattern, 0).Iterator()
+	for iter.Next(ctx) {
+		count++
+	}
+	if err := iter.Err(); err != nil {
 		observeOp("keys", "error")
-		c.log.WithError(err).WithField("pattern", pattern).Warn("redis: KEYS failed")
+		c.log.WithError(err).WithField("pattern", pattern).Warn("redis: SCAN failed")
 		return 0
 	}
 	observeOp("keys", "ok")
-	return len(keys)
+	return count
 }
 
 // SlidingWindowCount executes the sliding_window.lua EVALSHA.
