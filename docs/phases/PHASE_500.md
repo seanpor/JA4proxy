@@ -62,6 +62,17 @@ Start with the Go proxy (internet-facing), then Python, then infrastructure:
 12. **510f** Supply chain / scripts
 
 All sub-phases are **independent** — you can work on multiple in parallel.
+However, agents touching shared Go hot-path files (`cmd/ja4pd/main.go`,
+`internal/`) must run **sequentially** per CLAUDE.md. The Python and
+infrastructure guides can run in parallel with each other.
+
+## Deduplication
+
+Before starting any sub-phase, check `docs/security/findings.yaml` for
+existing findings in the same CWE family. Cross-reference recent security
+commits (#213 tls-health leak fix, Phase 336 TAP hardening, Phase 334 code
+review) to avoid re-discovering fixed issues. The 62 findings seeded from
+Phases 108–121, 334, and 400 serve as exclusion baseline.
 
 ## When you find a bug
 
@@ -84,11 +95,28 @@ Phase 500 touches code owned by three epics:
 
 ## Acceptance criteria
 
-- [ ] Every finding in `findings.yaml` with CWE, severity, regression test, and status
-- [ ] Every confirmed bug has a regression test
-- [ ] Every propagation sweep completed
-- [ ] Phase 400 findings (F-400-01 through F-400-12) verified and re-registered
-- [ ] `make lint` exits 0
-- [ ] `make scan` exits 0 (or only accepted findings)
-- [ ] `make test` passes with zero regressions
-- [ ] `go test -race ./...` passes (after Go sub-phases)
+- [x] Every finding in `findings.yaml` with CWE, severity, regression test, and status
+- [x] Every confirmed bug has a regression test
+- [x] Every propagation sweep completed
+- [x] Phase 400 findings (F-400-01 through F-400-12) verified and re-registered
+- [x] `make lint` exits 0
+- [x] `make scan` exits 0 (or only accepted findings)
+- [x] `make test` passes with zero regressions
+- [x] `go test -race ./...` passes (after Go sub-phases)
+
+## Execution results (PR #216, merged to main)
+
+| Sub-phase | Findings | Fixes | Sweep evidence |
+|-----------|----------|-------|----------------|
+| 500a Protocol Parsing | JA4PROXY-2026-0063 (HIGH) | Multi-record TLS reassembly + parser concatenation | TLS header manipulation grep: only reassembleClientHello (2 sites). ✓ |
+| 500b Concurrency | 0 | — | `go test -race` clean on security/redis/cmd packages. All maps have mutex, all goroutines have context cancellation. ✓ |
+| 500c Access Control | JA4PROXY-2026-0064 (LOW), 0065 (MEDIUM) | `hmac.Equal` + log hardening | Non-constant-time comparison grep: only GetDial had `!=` (now fixed). PubSub already used `hmac.Equal`. ✓ |
+| 500d Crypto | 0 | — | PBKDF2 100K iterations, crypto/rand salt/nonce, AES-GCM tag verify, empty passphrase rejected. ✓ |
+| 500e Resource Exhaustion | 0 | — | acceptSem bounded, auditDecision goroutine bounded by Redis pool, cache eviction, feed download cap (64MB). ✓ |
+| 500f Info Exposure | 0 | — | Log leakage grep: no passwords/keys/tokens in log calls. /health/deep exposes only operational fields. ✓ |
+| 510a Injection/Web | JA4PROXY-2026-0066 (LOW) | Webhook TOCTOU documented | No `|safe` in templates, html.escape() in partials, gdpr_delete.py validates IP, no shell=True with user input. ✓ |
+| 510b Auth/Session | 0 | — | JWT HS256/8h, OIDC state Redis 5min TTL, SAML strict=production guard, rate limit 5/5min, CSRF HMAC-SHA256. ✓ |
+| 510c Data Exposure | 0 | — | No secrets in logging, generic login errors, stack traces not in responses, no PII in analytics. ✓ |
+| 510d–510f Infrastructure | 0 | — | No default creds, containers hardened (read_only, cap_drop, no-new-privileges), CORS rejects wildcards, GitHub Actions SHA-pinned. ✓ |
+
+**4 findings registered, 3 fixed with regression tests, 1 documented (defense-in-depth).**

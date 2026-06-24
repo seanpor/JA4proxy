@@ -379,9 +379,9 @@ security_policy:
     enabled: true           # Default: true. IP in static allowlist → ALLOW without scoring.
 
   # ── BLOCK BYPASSES ────────────────────────────────────────────────────
-  ja4_blacklist_bypass:
+  ja4_blocking_enabled:
     enabled: true           # Default: true. JA4 in blacklist → immediate RST.
-  country_blacklist_bypass:
+  country_blocking_enabled:
     enabled: true           # Default: true. Country in GeoIP blocklist → immediate block.
   spamhaus_bypass:
     enabled: true           # Default: true. Spamhaus DROP/EDROP match → immediate block.
