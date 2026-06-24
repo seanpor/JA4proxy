@@ -322,7 +322,8 @@ func isPrivateTarget(u string) bool {
 // time, closing the TOCTOU window between URL validation and TCP connect.
 func newSafeTransport(timeout time.Duration) *http.Transport {
 	return &http.Transport{
-		Proxy: http.ProxyFromEnvironment,
+		Proxy:             http.ProxyFromEnvironment,
+		DisableKeepAlives: true,
 		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 			host, port, err := net.SplitHostPort(addr)
 			if err != nil {
@@ -335,7 +336,7 @@ func newSafeTransport(timeout time.Duration) *http.Transport {
 			if len(ips) == 0 {
 				return nil, fmt.Errorf("webhook: no addresses for %s", host)
 			}
-			for _,ipa := range ips {
+			for _, ipa := range ips {
 				if isPrivateIP(ipa.IP) {
 					return nil, fmt.Errorf("webhook: blocked private/resolved target %s (%s) (SSRF prevention)", host, ipa.IP)
 				}
