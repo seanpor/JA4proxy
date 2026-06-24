@@ -98,9 +98,9 @@ func run(pcapFile, iface string, frameSize int, quiet bool, redisURL string, enf
 	if err := tap.DropCapabilities(); err != nil {
 		log.WithError(err).Warn("failed to drop capabilities; proceeding with current UID/GID")
 	}
-	if err := tap.LoadSeccomp(); err != nil {
-		log.WithError(err).Warn("failed to load seccomp profile; proceeding without seccomp")
-	}
+	// Seccomp: not implemented. A proper profile requires per-syscall auditing
+	// of the TAP sensor's AF_PACKET + metric-export paths. DropCapabilities()
+	// above already drops root, which limits blast radius. See JA4PROXY-2026-0081.
 	warnEnforcementPosture(redisURL, enfCfg, log)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
