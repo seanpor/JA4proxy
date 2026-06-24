@@ -140,6 +140,13 @@ services:
       - redis-data:/data
       - redis-sock:/var/run/redis
       - ../../config/redis_acl.conf:/etc/redis/redis_acl.conf:ro
+    # JA4PROXY-2026-0079: Hardening controls below are mandatory for Redis.
+    # Do NOT weaken or remove without explicit security review (issue #238).
+    #   1. Pinned image with digest (immutable, not mutable tag)
+    #   2. no-new-privileges — prevent setuid escalation
+    #   3. cap_drop: ALL — drop all Linux capabilities
+    #   4. read_only: true — prevent filesystem writes
+    #   5. No apparmor:unconfined — use default or custom profile
     security_opt:
       - no-new-privileges:true
     read_only: true
