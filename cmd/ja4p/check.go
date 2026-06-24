@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 
 	gotls "github.com/seanpor/ja4proxy/internal/tls"
@@ -14,7 +15,13 @@ func buildCheckCmd() *cobra.Command {
 		Short: "Compute JA4 fingerprint from a raw binary file",
 		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			data, err := os.ReadFile(args[0])
+			f, err := os.Open(args[0])
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error reading file: %v\n", err)
+				os.Exit(1)
+			}
+			defer f.Close()
+			data, err := io.ReadAll(io.LimitReader(f, 1<<20))
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error reading file: %v\n", err)
 				os.Exit(1)

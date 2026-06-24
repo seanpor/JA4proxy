@@ -351,7 +351,6 @@ func (c *Client) GetDial(ctx context.Context) int {
 			// HMAC and leaking it enables offline brute-force of the integrity key.
 			c.log.WithFields(logrus.Fields{
 				"val": val,
-				"sig": sig,
 			}).Warn("redis: config:dial signature mismatch; tampering suspected; defaulting to 0 (JA4PROXY-2026-0040)")
 			return 0
 		}
