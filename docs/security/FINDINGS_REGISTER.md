@@ -222,12 +222,33 @@ get forgotten.
 | JA4PROXY-2026-0053 | LOW | FIXED | python-management | 2026-08-15 | Redis Password in Log Messages (Partial) |
 | JA4PROXY-2026-0054 | MEDIUM | FIXED | python-management | 2026-06-16 | Configuration Path Traversal Prevention |
 | JA4PROXY-2026-0055 | MEDIUM | FIXED | infrastructure | 2026-06-16 | Integration TLS Verification Missing |
-| JA4PROXY-2026-0056 | CRITICAL | OPEN | go-proxy | 2026-06-10 | No Panic Recovery in Connection Handler Goroutine |
-| JA4PROXY-2026-0057 | HIGH | OPEN | go-proxy | 2026-07-03 | Unbounded Beaconing Goroutine per Connection |
-| JA4PROXY-2026-0058 | MEDIUM | OPEN | go-proxy | 2026-08-02 | BlacklistBypass Flag Naming is Inverted |
-| JA4PROXY-2026-0059 | MEDIUM | OPEN | go-proxy | 2026-08-02 | TLS Record Reassembly Allocates Per-Fragment Buffers |
+| JA4PROXY-2026-0056 | CRITICAL | FIXED | go-proxy | 2026-06-10 | No Panic Recovery in Connection Handler Goroutine |
+| JA4PROXY-2026-0057 | HIGH | FIXED | go-proxy | 2026-07-03 | Unbounded Beaconing Goroutine per Connection |
+| JA4PROXY-2026-0058 | MEDIUM | FIXED | go-proxy | 2026-08-02 | BlacklistBypass Flag Naming is Inverted |
+| JA4PROXY-2026-0059 | MEDIUM | FIXED | go-proxy | 2026-08-02 | TLS Record Reassembly Allocates Per-Fragment Buffers |
 | JA4PROXY-2026-0060 | LOW | OPEN | go-proxy | 2026-10-01 | Reassembly Buffer Purging Logged Inconsistently |
-| JA4PROXY-2026-0061 | LOW | OPEN | go-proxy | 2026-10-01 | Active Connection Gauge May Overcount After Handler Panic |
+| JA4PROXY-2026-0061 | LOW | FIXED | go-proxy | 2026-10-01 | Active Connection Gauge May Overcount After Handler Panic |
 | JA4PROXY-2026-0062 | LOW | OPEN | go-proxy | 2026-10-01 | Config MaxConnectionLimit Field Not Implemented in Production Path |
+| JA4PROXY-2026-0063 | HIGH | FIXED | go-proxy | 2026-07-22 | Reassembled TLS Handshake >16KB Bypasses JA4 Fingerprinting |
+| JA4PROXY-2026-0064 | LOW | FIXED | go-proxy | 2026-10-20 | GetDial HMAC Signature Comparison Uses Non-Constant-Time String Compare |
+| JA4PROXY-2026-0065 | MEDIUM | FIXED | go-proxy | 2026-08-21 | GetDial Log Message Leaks Expected HMAC Signature |
+| JA4PROXY-2026-0066 | LOW | OPEN | python-management | 2026-10-20 | Webhook URL Validation TOCTOU — DNS Rebinding Between Validation and Delivery |
+| JA4PROXY-2026-0067 | HIGH | FIXED | go-proxy | 2026-07-22 | Tarpit Goroutine Leak on Client Disconnect |
+| JA4PROXY-2026-0068 | MEDIUM | FIXED | go-proxy | 2026-08-21 | Redis Pipeline Flush Lacks Error Propagation |
+| JA4PROXY-2026-0069 | LOW | FIXED | go-proxy | 2026-10-20 | Metrics Auth Token Compared Via String != |
+| JA4PROXY-2026-0070 | HIGH | FIXED | go-proxy | 2026-07-22 | Beaconing Detector Window Boundary Condition |
+| JA4PROXY-2026-0071 | MEDIUM | FIXED | go-proxy | 2026-08-21 | Sync Agent Type Assertion Panic on Malformed Stream |
+| JA4PROXY-2026-0072 | LOW | FIXED | go-proxy | 2026-10-20 | Webhook HMAC Signature Leaked in Debug Log |
+| JA4PROXY-2026-0073 | LOW | FIXED | go-proxy | 2026-10-20 | GeoIP Database Reload Lacks File Size Validation |
+| JA4PROXY-2026-0074 | LOW | FIXED | go-proxy | 2026-10-20 | PubSub HMAC Verification Bypasses on Empty Payload |
+| JA4PROXY-2026-0075 | LOW | FIXED | go-proxy | 2026-10-20 | Dial Signature Mismatch Log Leaks Expected HMAC |
+| JA4PROXY-2026-0076 | MEDIUM | FIXED | infra | 2026-08-21 | Grafana Default Admin Password in template.env |
+| JA4PROXY-2026-0077 | LOW | FIXED | infra | 2026-10-20 | Management Service Missing read_only and tmpfs in PoC Compose |
+| JA4PROXY-2026-0078 | LOW | FIXED | infra | 2026-10-20 | Entrypoint Logs Full Command Arguments to Docker Logs |
+| JA4PROXY-2026-0079 | LOW | OPEN | infra | 2026-10-20 | Redis Password Exposed on Command Line in PoC Compose |
+| JA4PROXY-2026-0080 | LOW | FIXED | infra | 2026-10-20 | pubsub_hmac_secret Absent from Default Config |
+| JA4PROXY-2026-0081 | MEDIUM | OPEN | go-proxy | 2026-08-21 | LoadSeccomp Is a Placeholder — TAP Sensor Runs With Full Syscall Access |
+| JA4PROXY-2026-0082 | LOW | OPEN | go-proxy | 2026-10-20 | NTP Drift Monitor Silently Degrades When chronyc/ntpstat Missing |
+| JA4PROXY-2026-0083 | LOW | OPEN | go-proxy | 2026-10-20 | CountKeys Uses O(N) KEYS Command in Health Endpoint |
 
 <!-- END GENERATED -->

@@ -2461,7 +2461,7 @@ findings:
   supersedes: []
   depends_on: []
   regression_test: tests/unit/test_container_config.py::TestTemplateEnv_NoDefaultCredentials
-  closed_commit: ''
+  closed_commit: cb0e3d95
   cvss_v3_1:
     score: 5.3
     vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N
@@ -2495,7 +2495,7 @@ findings:
   supersedes: []
   depends_on: []
   regression_test: tests/unit/test_container_config.py::TestManagementService_ReadOnly
-  closed_commit: ''
+  closed_commit: cb0e3d95
   cvss_v3_1:
     score: 2.7
     vector: CVSS:3.1/AV:L/AC:H/PR:N/UI:N/S:U/C:N/I:L/A:N
@@ -2528,7 +2528,7 @@ findings:
   supersedes: []
   depends_on: []
   regression_test: ''
-  closed_commit: ''
+  closed_commit: cb0e3d95
   cvss_v3_1:
     score: 2.0
     vector: CVSS:3.1/AV:L/AC:H/PR:N/UI:N/S:U/C:L/I:N/A:N
@@ -2561,6 +2561,7 @@ findings:
   depends_on: []
   regression_test: ''
   closed_commit: ''
+  github_issue: 219
   cvss_v3_1:
     score: 3.3
     vector: CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:L/I:N/A:N
@@ -2572,8 +2573,8 @@ findings:
   impact: >
     Any local user with access to ps or docker inspect can read the Redis
     password from the process list.
-  notes: 'Requires adding Docker secrets section to PoC compose and using
-    --requirepass-file. Deferred — PoC compose is for local dev only.'
+  notes: 'Deferred — PoC compose is local dev only. Requires adding Docker secrets
+    section and --requirepass-file. GitHub issue #219 closed as by-design for PoC.'
 - id: JA4PROXY-2026-0080
   title: pubsub_hmac_secret Absent from Default Config
   severity: LOW
@@ -2590,11 +2591,12 @@ findings:
   lane: infra
   discovered: '2026-06-24'
   due: '2026-10-20'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: management/tests/test_pubsub_signing.py
+  closed_commit: cb0e3d95
+  github_issue: 220
   cvss_v3_1:
     score: 3.7
     vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:L/A:N
@@ -2605,8 +2607,10 @@ findings:
   impact: >
     An attacker with Redis access can forge pub/sub admin commands (config reload,
     dial changes, blacklist additions) without HMAC authentication.
-  notes: 'Documented in setup guides. The wizard generates the secret. Operators
-    who skip the wizard must set it manually.'
+  notes: 'Partially fixed: config now documents the secret (proxy.yml:62-65),
+    Go proxy logs WARN when empty (pubsub.go:85), test_pubsub_signing.py added.
+    Core behavior unchanged — unsigned messages still accepted when secret is empty.
+    GitHub issue #220 closed via PR #234.'
 - id: JA4PROXY-2026-0081
   title: 'LoadSeccomp Is a Placeholder — TAP Sensor Runs With Full Syscall Access'
   severity: MEDIUM
