@@ -84,7 +84,7 @@ Before starting any upgrade, confirm all of the following:
       than the agreed RPO (default 24 h). If absent, take one before
       proceeding — see `cloud_backup_operations.md`.
 - [ ] **Dial is recorded.** Note the current dial value
-      (`redis-cli GET ja4proxy:dial`) so you can restore it after rollback if
+      (`redis-cli GET config:dial`) so you can restore it after rollback if
       needed.
 
 ---

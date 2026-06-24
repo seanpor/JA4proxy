@@ -119,6 +119,20 @@ func redactAddr(addr string) string {
 	if addr == "" {
 		return addr
 	}
+	// Bracketed IPv6: "[::1]:443"
+	if strings.HasPrefix(addr, "[") {
+		if close := strings.Index(addr, "]"); close > 0 && close+1 < len(addr) && addr[close+1] == ':' {
+			port := addr[close+2:]
+			for _, c := range port {
+				if c < '0' || c > '9' {
+					return "<redacted>"
+				}
+			}
+			return "<redacted>:" + port
+		}
+		return "<redacted>"
+	}
+	// IPv4 or bare host: "10.0.0.5:443" or "hostname:443"
 	if idx := strings.LastIndex(addr, ":"); idx > 0 && idx < len(addr)-1 {
 		port := addr[idx+1:]
 		for _, c := range port {

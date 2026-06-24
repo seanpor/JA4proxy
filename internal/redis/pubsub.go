@@ -95,7 +95,7 @@ func (h *PubSubHandler) Run(ctx context.Context) {
 		minBackoff = 100 * time.Millisecond
 		maxBackoff = 30 * time.Second
 	)
-	backoff := minBackoff
+	backoff := time.Duration(0)
 
 	for {
 		select {
@@ -109,16 +109,20 @@ func (h *PubSubHandler) Run(ctx context.Context) {
 
 		// If we stayed connected for more than 10 seconds, reset backoff
 		if time.Since(start) > 10*time.Second {
-			backoff = minBackoff
+			backoff = 0
 		}
 
 		select {
 		case <-ctx.Done():
 			return
 		case <-time.After(backoff):
-			backoff *= 2
-			if backoff > maxBackoff {
-				backoff = maxBackoff
+			if backoff == 0 {
+				backoff = minBackoff
+			} else {
+				backoff *= 2
+				if backoff > maxBackoff {
+					backoff = maxBackoff
+				}
 			}
 		}
 	}

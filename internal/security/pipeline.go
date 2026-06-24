@@ -274,6 +274,32 @@ func NewPipeline(cfg *PipelineConfig, redis RedisReader, log *logrus.Logger) *Pi
 	return p
 }
 
+func (p *Pipeline) ReplaceConfig(cfg *PipelineConfig) {
+	if cfg == nil {
+		cfg = &PipelineConfig{}
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.cfg = cfg
+	p.Whitelist = cfg.Whitelist
+	p.Blacklist = cfg.Blacklist
+	p.scorer = NewRiskScorer(cfg.Thresholds)
+	p.decider = NewActionDecider(cfg.Thresholds)
+	p.tlsEnforcer = NewTLSEnforcer(buildTLSEnforcerConfig(cfg), p.log)
+	p.sniAnalyzer = NewSNIAnalyzer(buildSNIAnalyzerConfig(cfg), p.log)
+	p.rateLimiter = NewRateLimiter(buildRateLimiterConfig(cfg), p.redis, p.log)
+	p.tcpAnalyzer = NewTCPAnalyzer(buildTCPAnalyzerConfig(cfg), p.redis, p.log)
+	p.asnClassifier = NewASNClassifier(buildASNClassifierConfig(cfg), p.log)
+	p.dnsEnrichment = NewDNSEnrichment(buildDNSEnrichmentConfig(cfg), p.redis, p.log)
+	p.blocklists = NewBlocklistManager(buildBlocklistConfig(cfg), p.log)
+	p.feedDownloader = NewFeedDownloader(cfg.BlocklistFeeds, p.blocklists, p.log)
+	p.beaconing = NewBeaconingDetector(buildBeaconingConfig(cfg), p.redis, p.log)
+	p.abuseipdb = NewAbuseIPDB(buildAbuseIPDBConfig(cfg), p.redis, p.log)
+	p.rdap = NewRDAPEnricher(buildRDAPConfig(cfg), p.redis, p.log)
+	p.tapConsumer = NewTapConsumer(buildTapConsumerConfig(cfg), redisReaderGetter{p.redis}, p.log)
+	p.ja4tConsumer = NewJA4TConsumer(buildJA4TConsumerConfig(cfg), redisReaderGetter{p.redis}, p.log)
+}
+
 // redisReaderGetter adapts RedisReader (which uses GetString) to the narrow
 // redisGetter interface expected by TapConsumer. Fail-open: GetString's
 // underlying implementation already swallows errors.
@@ -911,7 +937,15 @@ func (p *Pipeline) runAsyncScoringLoop(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			return
+			for {
+				select {
+				case conn := <-p.workChan:
+					result := p.processInternal(ctx, conn)
+					p.cache.Set(conn.JA4, result)
+				default:
+					return
+				}
+			}
 		case conn := <-p.workChan:
 			result := p.processInternal(ctx, conn)
 			p.cache.Set(conn.JA4, result)

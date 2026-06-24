@@ -1099,12 +1099,103 @@ func (c *Config) Validate() error {
 	if c.Proxy.BackendHost == "" {
 		return fmt.Errorf("proxy backend host is required")
 	}
+	if c.Proxy.MaxConnections <= 0 {
+		return fmt.Errorf("proxy max_connections must be > 0, got %d", c.Proxy.MaxConnections)
+	}
 	if c.MonitorMode.Dial < 0 || c.MonitorMode.Dial > 100 {
 		return fmt.Errorf("invalid security dial (0-100): %d", c.MonitorMode.Dial)
+	}
+	if c.Redis.Timeout.Int() <= 0 {
+		return fmt.Errorf("redis timeout must be > 0, got %d", c.Redis.Timeout.Int())
+	}
+	if c.DNSEnrichment.Enabled {
+		if c.DNSEnrichment.QueueSize <= 0 {
+			return fmt.Errorf("dns_enrichment queue_size must be > 0, got %d", c.DNSEnrichment.QueueSize)
+		}
+		if c.DNSEnrichment.WorkerCount <= 0 {
+			return fmt.Errorf("dns_enrichment worker_count must be > 0, got %d", c.DNSEnrichment.WorkerCount)
+		}
+		if c.DNSEnrichment.TTLSeconds < 0 {
+			return fmt.Errorf("dns_enrichment ttl_seconds must be >= 0, got %d", c.DNSEnrichment.TTLSeconds)
+		}
+	}
+	if err := c.validateRiskScorerThresholds(); err != nil {
+		return err
+	}
+	if err := c.validateRateLimiterThresholds(); err != nil {
+		return err
 	}
 	for _, feed := range c.Blocklists.Feeds {
 		if feed.Enabled && feed.Name == "" {
 			return fmt.Errorf("blocklist feed enabled but missing name")
+		}
+	}
+	if c.AbuseIPDB.CacheTTLSeconds < 0 {
+		return fmt.Errorf("abuseipdb cache_ttl_seconds must be >= 0, got %d", c.AbuseIPDB.CacheTTLSeconds)
+	}
+	if c.RDAPEnrichment.QueueSize < 0 {
+		return fmt.Errorf("rdap_enrichment queue_size must be >= 0, got %d", c.RDAPEnrichment.QueueSize)
+	}
+	if c.RDAPEnrichment.WorkerCount < 0 {
+		return fmt.Errorf("rdap_enrichment worker_count must be >= 0, got %d", c.RDAPEnrichment.WorkerCount)
+	}
+	if c.AbuseIPDB.QueueSize < 0 {
+		return fmt.Errorf("abuseipdb queue_size must be >= 0, got %d", c.AbuseIPDB.QueueSize)
+	}
+	if c.AbuseIPDB.WorkerCount < 0 {
+		return fmt.Errorf("abuseipdb worker_count must be >= 0, got %d", c.AbuseIPDB.WorkerCount)
+	}
+	return nil
+}
+
+func (c *Config) validateRiskScorerThresholds() error {
+	th := c.RiskScorer.Thresholds
+	fields := []struct {
+		name  string
+		value int
+	}{
+		{"flag", th.Flag},
+		{"rate_limit", th.RateLimit},
+		{"tarpit", th.Tarpit},
+		{"block", th.Block},
+		{"ban", th.Ban},
+	}
+	for _, f := range fields {
+		if f.value < 0 || f.value > 100 {
+			return fmt.Errorf("risk_scorer thresholds.%s must be in 0-100, got %d", f.name, f.value)
+		}
+	}
+	if th.Flag > th.RateLimit || th.RateLimit > th.Tarpit || th.Tarpit > th.Block || th.Block > th.Ban {
+		return fmt.Errorf("risk_scorer thresholds must be non-decreasing: flag(%d) <= rate_limit(%d) <= tarpit(%d) <= block(%d) <= ban(%d)",
+			th.Flag, th.RateLimit, th.Tarpit, th.Block, th.Ban)
+	}
+	return nil
+}
+
+func (c *Config) validateRateLimiterThresholds() error {
+	strategies := []struct {
+		name     string
+		strategy RateLimiterStrategyYAML
+	}{
+		{"by_ip", c.RateLimiter.ByIP},
+		{"by_ja4", c.RateLimiter.ByJA4},
+		{"by_ip_ja4", c.RateLimiter.ByIPJA4},
+	}
+	for _, s := range strategies {
+		if !s.strategy.Enabled {
+			continue
+		}
+		if s.strategy.Ban <= 0 {
+			return fmt.Errorf("rate_limiter %s.ban must be > 0, got %d", s.name, s.strategy.Ban)
+		}
+		if s.strategy.Block <= 0 {
+			return fmt.Errorf("rate_limiter %s.block must be > 0, got %d", s.name, s.strategy.Block)
+		}
+		if s.strategy.Suspicious <= 0 {
+			return fmt.Errorf("rate_limiter %s.suspicious must be > 0, got %d", s.name, s.strategy.Suspicious)
+		}
+		if s.strategy.TTL < 0 {
+			return fmt.Errorf("rate_limiter %s.ttl must be >= 0, got %d", s.name, s.strategy.TTL)
 		}
 	}
 	return nil

@@ -56,6 +56,18 @@ func NewRateLimiter(cfg *RateLimiterConfig, redis RedisReader, log *logrus.Logge
 	if cfg == nil {
 		cfg = &RateLimiterConfig{}
 	}
+	// Validate thresholds — zero or negative values would cause every request to trigger.
+	for _, s := range []*StrategyConfig{&cfg.ByIP, &cfg.ByJA4, &cfg.ByIPJA4} {
+		if s.Ban <= 0 {
+			s.Ban = 1
+		}
+		if s.Block <= 0 {
+			s.Block = 1
+		}
+		if s.Suspicious <= 0 {
+			s.Suspicious = 1
+		}
+	}
 	return &RateLimiter{cfg: cfg, redis: redis, log: log}
 }
 

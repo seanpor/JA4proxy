@@ -1069,13 +1069,14 @@ func (p *proxy) reload() error {
 	if err != nil {
 		return err
 	}
+	pipelineCfg := buildPipelineConfig(newCfg)
+	p.pipeline.ReplaceConfig(pipelineCfg)
 	p.mu.Lock()
 	p.cfg = newCfg
 	p.mu.Unlock()
+	loadSecurityLists(context.Background(), p.redis, p.pipeline)
 	metrics.ConfigReloadsTotal.Inc()
-	// phase-63: refresh the TLS cert expiry gauge on every reload.
 	updateTLSCertExpiryGauge(os.Getenv("JA4PROXY_TLS_CERT_FILE"), p.log)
-	// phase-94i2: reload trusted CIDRs from NetBox if enabled.
 	p.reloadTrustedCIDRs(context.Background(), newCfg)
 	p.log.Info("config reloaded")
 	return nil
