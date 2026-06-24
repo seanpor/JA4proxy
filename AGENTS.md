@@ -181,3 +181,48 @@ maintain. Python that remains is **not** the proxy: the Management API
   in your shell (`~/.bashrc`) so direct `go` invocations work too.
 - **Go tests run on the host** — `go test ./...` has no virtualenv fragility, so
   the container-strict rule above applies to Python only, not Go.
+- **Go via Docker (when Go is not installed):** If Go is not available on the
+  host (no snap, no apt), run build/test/vet through Docker:
+  ```bash
+  docker run --rm -v "$PWD":/src -w /src golang:1.26.4-alpine go build ./...
+  docker run --rm -v "$PWD":/src -w /src golang:1.26.4-alpine go test ./... -count=1
+  docker run --rm -v "$PWD":/src -w /src golang:1.26.4-alpine go vet ./...
+  ```
+  Race detector requires non-alpine image with cgo:
+  ```bash
+  docker run --rm -v "$PWD":/src -w /src -e CGO_ENABLED=1 golang:1.26.4 go test -race ./...
+  ```
+
+---
+
+## Security Bug Hunt Workflow
+
+When executing a bug hunt phase (Phase 500-series or similar):
+
+### Log findings BEFORE fixing
+1. **Register the finding** in `docs/security/findings.yaml` with `status: OPEN`.
+2. **Create a GitHub issue** immediately with the finding details.
+3. **Fix the code** and write regression tests.
+4. **Update the finding** status to `FIXED` and link the regression test.
+5. **Close the GitHub issue** via the PR (use `Fixes #NN` in the PR body).
+
+This creates a proper audit trail. Never fix-then-forget — every finding must
+have a corresponding issue, even if it's fixed in the same PR.
+
+### Critical review (mandatory for security work)
+After completing a bug hunt phase, spawn **parallel expert reviewers**:
+- **Security expert** — findings accuracy, CVSS vectors, fix completeness
+- **Concurrency expert** — race conditions, goroutine leaks, deadlock potential
+- **Code quality expert** — style, patterns, test quality
+
+All three must APPROVE before merging. If any requests changes, fix and re-review.
+
+### Code patterns to enforce
+- **Permission checks BEFORE `os.ReadFile`**, not after. Key material should
+  never be in memory if the file fails the permission check.
+- **HTTP response body limits**: wrap `resp.Body` with `io.LimitReader` before
+  JSON decoding. Use 256 KiB for external APIs (responses are typically <10 KB).
+- **Every `select/default` drop needs a metric counter**. Silent fail-open paths
+  are invisible to operators. Pattern: `metrics.XxxDroppedTotal.Inc()`.
+- **YAML compose files**: verify no duplicate keys after editing. Use
+  `rg 'key_name' file.yml -n` to check. Consider a yamllint CI check.
