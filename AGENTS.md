@@ -219,14 +219,23 @@ maintain. Python that remains is **not** the proxy: the Management API
 When executing a bug hunt phase (Phase 500-series or similar):
 
 ### Log findings BEFORE fixing
-1. **Register the finding** in `docs/security/findings.yaml` with `status: OPEN`.
-2. **Create a GitHub issue** immediately with the finding details.
-3. **Fix the code** and write regression tests.
-4. **Update the finding** status to `FIXED` and link the regression test.
-5. **Close the GitHub issue** via the PR (use `Fixes #NN` in the PR body).
+1. **Register the finding** — `python3 scripts/findings_register.py add ...`
+   This allocates a canonical `JA4PROXY-YYYY-NNNN` ID, writes the entry to
+   `docs/security/findings.yaml` with `status: OPEN`, and **automatically opens
+   a GitHub issue** titled `JA4PROXY-YYYY-NNNN: <title>`. The issue number is
+   written back to `findings.yaml` as `github_issue`.
+   - Use `--no-issue` only when offline or in CI where `gh` is unavailable.
+2. **Fix the code** and write regression tests.
+3. **Update the finding** — set `status: FIXED`, populate `regression_test`,
+   and record `closed_commit` once the PR merges. Use `Fixes #NN` in the PR
+   body so GitHub closes the issue automatically on merge.
+4. **Sync if needed** — if you update `status` without a PR merge (e.g. bulk
+   triage), run `python3 scripts/findings_register.py sync-issues` to reconcile
+   GitHub issue state with the YAML.
 
 This creates a proper audit trail. Never fix-then-forget — every finding must
-have a corresponding issue, even if it's fixed in the same PR.
+have a corresponding GitHub issue and YAML entry, even if the fix lands in the
+same PR.
 
 ### Critical review (mandatory for security work)
 After completing a bug hunt phase, spawn **parallel expert reviewers**:
