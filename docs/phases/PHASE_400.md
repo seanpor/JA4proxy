@@ -72,6 +72,7 @@ func unsafeString(b []byte) string {
 **File:** `internal/tap/hardening.go:25-30`
 **Severity:** MEDIUM
 **Category:** Container Hardening
+**Status:** OPEN — registered as JA4PROXY-2026-0081, GitHub issue [#244](https://github.com/seanpor/JA4proxy/issues/244)
 
 ```go
 func LoadSeccomp() error {
@@ -118,6 +119,7 @@ func LoadSeccomp() error {
 **File:** `internal/metrics/ntp.go:50-56`
 **Severity:** LOW
 **Category:** Observability
+**Status:** OPEN — registered as JA4PROXY-2026-0082, GitHub issue [#245](https://github.com/seanpor/JA4proxy/issues/245)
 
 ```go
 out, err := exec.Command("/usr/bin/chronyc", "tracking").Output()
@@ -176,6 +178,7 @@ InsecureSkipVerify: true, //nolint:gosec // see #nosec above
 **File:** `management/api/pubsub_signing.py:57-71`, `internal/config/loader.go:456-458`
 **Severity:** MEDIUM
 **Category:** Authentication
+**Status:** PARTIALLY FIXED — startup WARN added (pubsub.go:85), config documented (proxy.yml:62-65). Core behavior unchanged: unsigned messages still accepted when secret is empty. Related to JA4PROXY-2026-0080.
 
 **Description:** When `redis.pubsub_hmac_secret` is empty or unset, the proxy accepts all pub/sub messages without HMAC verification. The management API gracefully degrades to unsigned envelopes. This is a deliberate design choice for ease of deployment, but means that any process with Redis access can issue config:reload, ja4:blacklist:add, and other critical commands without authentication.
 
@@ -220,6 +223,7 @@ InsecureSkipVerify: true, //nolint:gosec // see #nosec above
 **File:** `internal/redis/client.go:431`
 **Severity:** LOW
 **Category:** Redis Operations / DoS
+**Status:** OPEN — registered as JA4PROXY-2026-0083, GitHub issue [#246](https://github.com/seanpor/JA4proxy/issues/246)
 
 ```go
 func (c *Client) CountKeys(ctx context.Context, pattern string) int {
@@ -334,7 +338,8 @@ Either:
 
 ## Acceptance Criteria
 
-- [ ] All 7 stale findings.yaml entries updated with correct status
+- [x] All 7 stale findings.yaml entries updated with correct status (0056-0059, 0061 FIXED; 0060, 0062 OPEN)
+- [x] F-400-02, F-400-04, F-400-10 registered in findings.yaml as JA4PROXY-2026-0081, -0082, -0083 with GitHub issues (#244, #245, #246)
 - [ ] F-400-02 (seccomp) either implemented or explicitly deferred with documentation
 - [ ] F-400-04 (NTP logging) hardened
 - [ ] `make lint` exits 0

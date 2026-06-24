@@ -1,5 +1,5 @@
 schema_version: 1
-last_allocated_id: 80
+last_allocated_id: 83
 findings:
 - id: JA4PROXY-2026-0001
   title: PROXY Protocol v2 Spoofing from Untrusted Source
@@ -2558,3 +2558,102 @@ findings:
     dial changes, blacklist additions) without HMAC authentication.
   notes: 'Documented in setup guides. The wizard generates the secret. Operators
     who skip the wizard must set it manually.'
+- id: JA4PROXY-2026-0081
+  title: 'LoadSeccomp Is a Placeholder — TAP Sensor Runs With Full Syscall Access'
+  severity: MEDIUM
+  severity_rationale: 'M-2 (CWE-693). TAP container runs without seccomp restrictions.
+    If compromised, attacker has unrestricted syscall access.'
+  source_refs:
+  - report: PHASE_400
+    id: F-400-02
+    discovered: '2026-06-22'
+  remediation_phases: []
+  owner: '@seanpor'
+  lane: go-proxy
+  discovered: '2026-06-22'
+  due: '2026-08-21'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  github_issue: 244
+  cvss_v3_1:
+    score: 5.3
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L
+  description: >
+    LoadSeccomp() in internal/tap/hardening.go:25-30 is called from
+    cmd/ja4-tap/main.go:101 but only logs an intention and returns nil.
+    No seccomp profile is loaded. The TAP sensor runs with full syscall
+    access despite the intent to restrict it.
+  impact: >
+    If the TAP container is compromised, the attacker has unrestricted
+    syscall access. DropCapabilities() drops root, limiting blast radius,
+    but seccomp would provide defense-in-depth.
+  notes: 'Either implement using libseccomp-golang with a minimal syscall
+    whitelist, or remove the stub and document the deferral decision.'
+- id: JA4PROXY-2026-0082
+  title: 'NTP Drift Monitor Silently Degrades When chronyc/ntpstat Missing'
+  severity: LOW
+  severity_rationale: 'L-1 (CWE-755). Silent degradation of NTP monitoring
+    could mask clock skew affecting Redis Stream ordering.'
+  source_refs:
+  - report: PHASE_400
+    id: F-400-04
+    discovered: '2026-06-22'
+  remediation_phases: []
+  owner: '@seanpor'
+  lane: go-proxy
+  discovered: '2026-06-22'
+  due: '2026-10-20'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  github_issue: 245
+  cvss_v3_1:
+    score: 3.1
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L
+  description: >
+    checkNTP() in internal/metrics/ntp.go:37-43 logs at Debug level when
+    neither chronyc nor ntpstat is available. SyncClockDriftSeconds is
+    never set, and operators may not notice drift monitoring is disabled.
+  impact: >
+    NTP drift is used for multi-DC consistency. Silent degradation could
+    mask clock skew that affects Redis Stream ordering.
+  notes: 'Recommend logging WARN on first failure and adding a startup
+    log indicating which NTP binary was found (or neither).'
+- id: JA4PROXY-2026-0083
+  title: 'CountKeys Uses O(N) KEYS Command in Health Endpoint'
+  severity: LOW
+  severity_rationale: 'L-1 (CWE-400). Redis KEYS is O(N) and blocks the
+    server. Under extreme key counts, causes latency spikes.'
+  source_refs:
+  - report: PHASE_400
+    id: F-400-10
+    discovered: '2026-06-22'
+  remediation_phases: []
+  owner: '@seanpor'
+  lane: go-proxy
+  discovered: '2026-06-22'
+  due: '2026-10-20'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  github_issue: 246
+  cvss_v3_1:
+    score: 3.1
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L
+  description: >
+    CountKeys in internal/redis/client.go:444-453 uses c.rdb.Keys(ctx,
+    pattern).Result(), which is O(N) and blocks the Redis server. Called
+    from cmd/ja4pd/main.go:1385 in the /health/deep endpoint.
+  impact: >
+    Under extreme key counts, this could cause Redis latency spikes.
+    Usage is bounded (pattern is typically ban:*) but O(N) behavior is
+    undesirable in production.
+  notes: 'Replace with SCAN-based counting or periodic caching. Document
+    the O(N) behavior in the health endpoint.'
