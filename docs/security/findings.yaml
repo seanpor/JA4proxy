@@ -41,7 +41,7 @@
 #   notes               free-text, optional
 
 schema_version: 1
-last_allocated_id: 66
+last_allocated_id: 80
 findings:
 - id: JA4PROXY-2026-0001
   title: PROXY Protocol v2 Spoofing from Untrusted Source
@@ -2110,3 +2110,494 @@ findings:
     webhook hostname.
   notes: 'Python validates at model-parse time (webhooks.py:73). Go re-validates at delivery time (delivery.go:304).
     Remaining gap: window between Go validation and HTTP POST allows DNS rebinding.'
+- id: JA4PROXY-2026-0067
+  title: Unbounded Fire-and-Forget Goroutines for Mesh Drift Audit
+  severity: HIGH
+  severity_rationale: "H-4 (resource exhaustion). Under load with slow Redis, unbounded goroutine
+    creation per scored connection can exhaust memory. Same class as JA4PROXY-2026-0031 (XADD)."
+  source_refs:
+  - report: PHASE_500
+    id: 500b-01
+    discovered: '2026-06-22'
+  remediation_phases:
+  - 500b
+  owner: '@seanpor'
+  lane: go-proxy
+  discovered: '2026-06-22'
+  due: '2026-07-22'
+  status: FIXED
+  supersedes: []
+  depends_on: []
+  regression_test: internal/security/pipeline_test.go:TestPipeline_AuditWorkerBounded
+  closed_commit: ''
+  cvss_v3_1:
+    score: 7.5
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H
+  description: >
+    pipeline.go:548 spawns an unbounded fire-and-forget goroutine
+    (go p.auditDecision(...)) for every connection with TotalScore > 0.
+    Each goroutine makes two Redis calls (GET + SET). Under load with a
+    slow or partitioned Redis, goroutines pile up without bound, consuming
+    memory and eventually causing OOM.
+  impact: >
+    An attacker can trigger high connection volume with scored connections
+    to exhaust proxy memory via unbounded goroutine accumulation, causing
+    denial of service.
+  notes: 'Fixed by replacing go p.auditDecision(...) with a bounded auditWorker
+    pool (auditJobs channel, buffer 256, non-blocking send with drop-on-full).
+    Matches the existing beaconingJobs pattern.'
+- id: JA4PROXY-2026-0068
+  title: forward() Copy Goroutines Read Config Without Lock
+  severity: HIGH
+  severity_rationale: "H-2 (data race under Go memory model). The cp closure captures the
+    proxy receiver and reads p.cfg.Proxy.ReadTimeout/WriteTimeout without
+    holding p.mu.RLock(). Concurrent reload() can swap p.cfg mid-copy."
+  source_refs:
+  - report: PHASE_500
+    id: 500b-02
+    discovered: '2026-06-22'
+  remediation_phases:
+  - 500b
+  owner: '@seanpor'
+  lane: go-proxy
+  discovered: '2026-06-22'
+  due: '2026-07-22'
+  status: FIXED
+  supersedes: []
+  depends_on: []
+  regression_test: cmd/ja4pd/main_test.go:TestForward_ConfigLocalCapture
+  closed_commit: ''
+  cvss_v3_1:
+    score: 7.5
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N
+  description: >
+    main.go:920-940 defines a cp closure inside forward() that reads
+    p.cfg.Proxy.ReadTimeout and p.cfg.Proxy.WriteTimeout at lines 926
+    and 929 through the proxy receiver, without holding p.mu.RLock().
+    The forward() function captures a local cfg at line 844 under RLock,
+    but the cp closure captures p (the proxy) and re-reads p.cfg directly.
+    A concurrent reload() that swaps p.cfg can cause the goroutine to read
+    a partially-constructed config.
+  impact: >
+    Under concurrent config reload, the copy-loop goroutine may read
+    stale or partially-initialized timeout values, potentially causing
+    connections to hang indefinitely (zero timeout) or timeout prematurely.
+  notes: 'Fixed by changing p.cfg.Proxy.ReadTimeout to cfg.Proxy.ReadTimeout
+    in the cp closure, using the local cfg variable already captured under
+    RLock at line 844.'
+- id: JA4PROXY-2026-0069
+  title: processInternal Reads PipelineConfig Fields Outside Lock
+  severity: MEDIUM
+  severity_rationale: "M-1 (data race). processInternal reads p.cfg.JA4XEnabled and
+    p.cfg.JA4XBlockingEnabled at line 470 before acquiring p.mu.RLock()
+    at line 471. Concurrent reload() can swap p.cfg mid-read."
+  source_refs:
+  - report: PHASE_500
+    id: 500b-03
+    discovered: '2026-06-22'
+  remediation_phases:
+  - 500b
+  owner: '@seanpor'
+  lane: go-proxy
+  discovered: '2026-06-22'
+  due: '2026-08-21'
+  status: FIXED
+  supersedes: []
+  depends_on: []
+  regression_test: internal/security/pipeline_test.go:TestPipeline_ConfigReadUnderLock
+  closed_commit: ''
+  cvss_v3_1:
+    score: 5.3
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:L/A:N
+  description: >
+    pipeline.go:470 reads p.cfg.JA4XEnabled and p.cfg.JA4XBlockingEnabled
+    outside any lock scope. The RLock at line 471 only covers the subsequent
+    reads of p.JA4XBlacklist and p.cfg.JA4XBlacklistScore. A concurrent
+    reload() that swaps p.cfg can cause a torn read of the config pointer.
+  impact: >
+    Under concurrent config reload, JA4X blacklist checks may use stale
+    or partially-initialized config values, potentially applying incorrect
+    scoring or bypass logic.
+  notes: 'Fixed by moving all p.cfg reads (JA4XEnabled, JA4XBlockingEnabled)
+    inside the RLock scope at line 492.'
+- id: JA4PROXY-2026-0070
+  title: Integrity Key File Read Without Permission Check
+  severity: MEDIUM
+  severity_rationale: "M-3 (CWE-732: Incorrect Permission Assignment for Critical Resource).
+    If the key file is world-readable (e.g., 0644), any local process can read
+    the HMAC secret and forge dial values."
+  source_refs:
+  - report: PHASE_500
+    id: 500d-01
+    discovered: '2026-06-24'
+  remediation_phases:
+  - 500d
+  owner: '@seanpor'
+  lane: go-proxy
+  discovered: '2026-06-24'
+  due: '2026-08-21'
+  status: FIXED
+  supersedes: []
+  depends_on: []
+  regression_test: internal/redis/pentest_keyfile_permissions_test.go::TestRegression_JA4PROXY_2026_0070
+  closed_commit: ''
+  cvss_v3_1:
+    score: 5.5
+    vector: CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:N
+  description: >
+    GetDial() in internal/redis/client.go:325 reads the HMAC integrity key
+    file via os.ReadFile without verifying Unix file permissions. If the file
+    is world- or group-readable (e.g., 0644), any local user can extract the
+    HMAC secret used to sign config:dial values. The sync agent
+    (internal/cluster/sync/agent.go:594) has the same issue for its ed25519
+    private key file.
+  impact: >
+    A local attacker with read access to the key file can forge dial
+    signatures to manipulate the proxy's security posture (change dial
+    value to block/allow specific traffic).
+  notes: 'Fixed by adding os.Stat permission check (mode & 0077 != 0) before
+    os.ReadFile in both client.go and agent.go. Also added ed25519 key
+    length validation in agent.go.'
+- id: JA4PROXY-2026-0071
+  title: Ed25519 Private Key File Read Without Permission Check or Length Validation
+  severity: MEDIUM
+  severity_rationale: "M-3 (CWE-732 + CWE-330). Same permission issue as 0070, plus missing
+    ed25519.PrivateKeySize validation allows truncated/garbage keys."
+  source_refs:
+  - report: PHASE_500
+    id: 500d-02
+    discovered: '2026-06-24'
+  remediation_phases:
+  - 500d
+  owner: '@seanpor'
+  lane: go-proxy
+  discovered: '2026-06-24'
+  due: '2026-08-21'
+  status: FIXED
+  supersedes: []
+  depends_on: []
+  regression_test: internal/cluster/sync/agent_test.go::TestSyncAgent_IntegrityKeyPermissions
+  closed_commit: ''
+  cvss_v3_1:
+    score: 5.5
+    vector: CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:N
+  description: >
+    loadIntegrityKeys() in internal/cluster/sync/agent.go:594 reads the
+    ed25519 private key file without checking Unix file permissions. After
+    base64 decoding, the raw key length is not validated against
+    ed25519.PrivateKeySize (64 bytes). A truncated key file produces a
+    silently invalid signing key, allowing unsigned or malformed sync events
+    to pass verification.
+  impact: >
+    A local attacker can read the ed25519 private key from a world-readable
+    file and forge sync events. A truncated key causes all signature
+    operations to produce invalid signatures, silently breaking sync
+    integrity.
+  notes: 'Fixed by adding permission check (mode & 0077 != 0) and
+    len(rawKey) != ed25519.PrivateKeySize validation.'
+- id: JA4PROXY-2026-0072
+  title: RDAP and AbuseIPDB Response Bodies Not Size-Limited
+  severity: LOW
+  severity_rationale: "L-2 (CWE-770: Allocation Without Limits). HTTP client timeout
+    bounds the window, but a compromised endpoint can push ~unlimited data
+    into memory within the timeout."
+  source_refs:
+  - report: PHASE_500
+    id: 500e-01
+    discovered: '2026-06-24'
+  remediation_phases:
+  - 500e
+  owner: '@seanpor'
+  lane: go-proxy
+  discovered: '2026-06-24'
+  due: '2026-10-20'
+  status: FIXED
+  supersedes: []
+  depends_on: []
+  regression_test: internal/security/rdap_enrichment_test.go::TestRDAP_ResponseLimit
+  closed_commit: ''
+  cvss_v3_1:
+    score: 3.7
+    vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:L
+  description: >
+    json.NewDecoder(resp.Body).Decode() in rdap_enrichment.go:224 and
+    abuseipdb.go:245 reads the entire HTTP response body into memory
+    without size limits. A compromised or MITM'd RDAP/API endpoint can
+    return an arbitrarily large JSON payload, exhausting memory within the
+    HTTP client timeout window.
+  impact: >
+    A compromised RDAP or AbuseIPDB endpoint can cause memory exhaustion
+    by returning an oversized response body. The 10s/5s HTTP timeouts bound
+    the attack window but not the payload size.
+  notes: 'Fixed by wrapping resp.Body with io.LimitReader(resp.Body, 1<<20)
+    (1 MiB) before JSON decoding in both rdap_enrichment.go and abuseipdb.go.
+    RDAP responses are typically <10 KB; AbuseIPDB <5 KB.'
+- id: JA4PROXY-2026-0073
+  title: Async Scoring Channel Drops Are Not Observable
+  severity: LOW
+  severity_rationale: "L-4 (operational visibility gap). When workChan is full,
+    all connections silently bypass scoring with no metric or log. Operators
+    cannot detect sustained scoring saturation."
+  source_refs:
+  - report: PHASE_500
+    id: 500e-02
+    discovered: '2026-06-24'
+  remediation_phases:
+  - 500e
+  owner: '@seanpor'
+  lane: go-proxy
+  discovered: '2026-06-24'
+  due: '2026-10-20'
+  status: FIXED
+  supersedes: []
+  depends_on: []
+  regression_test: internal/security/pipeline_test.go::TestPipeline_WorkChanDropMetric
+  closed_commit: ''
+  cvss_v3_1:
+    score: 3.1
+    vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:L
+  description: >
+    pipeline.go:380-384 sends connections to workChan for async scoring.
+    When the channel is full (capacity 20,000), the connection is silently
+    allowed with score 0 — no log, no metric increment. Under sustained
+    load exceeding 20K concurrent async requests, all connections bypass
+    scoring entirely with no way for operators to detect the condition.
+  impact: >
+    Operators cannot detect when the async scoring path is saturated and
+    all connections are being allowed without scoring. This is a silent
+    security degradation.
+  notes: 'Fixed by adding metrics.WorkChanDroppedTotal counter incremented on
+    workChan drop. Operators can alert on non-zero values.'
+- id: JA4PROXY-2026-0074
+  title: PubSub Debug Log Includes Full HMAC-Signed Payload
+  severity: LOW
+  severity_rationale: "L-2 (CWE-532). Debug log includes HMAC signatures in the
+    payload field. Debug is off by default; SensitiveFieldRedactor does not
+    cover the payload field."
+  source_refs:
+  - report: PHASE_500
+    id: 500f-01
+    discovered: '2026-06-24'
+  remediation_phases:
+  - 500f
+  owner: '@seanpor'
+  lane: go-proxy
+  discovered: '2026-06-24'
+  due: '2026-10-20'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  cvss_v3_1:
+    score: 2.6
+    vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:N/A:N
+  description: >
+    pubsub.go:155-158 logs the full pub/sub message payload at DEBUG level,
+    including the HMAC signature field. The SensitiveFieldRedactor does not
+    cover the "payload" field name, so the signature appears in logs if
+    DEBUG is enabled in production.
+  impact: >
+    If DEBUG logging is enabled in production and log files are accessible
+    to an attacker, HMAC signatures from pub/sub messages can be extracted
+    for offline brute-force of the HMAC key.
+  notes: 'DEBUG is off by default. Add "payload" to opaqueFields in redactor.go
+    for defense-in-depth.'
+- id: JA4PROXY-2026-0075
+  title: Dial Signature Mismatch Log Includes Tampered Signature
+  severity: LOW
+  severity_rationale: "L-2 (CWE-532). The logged sig is the tampered (wrong) value,
+    not the correct HMAC. Cannot directly derive the integrity key. Partially
+    mitigated by SensitiveFieldRedactor covering the val field."
+  source_refs:
+  - report: PHASE_500
+    id: 500f-02
+    discovered: '2026-06-24'
+  remediation_phases:
+  - 500f
+  owner: '@seanpor'
+  lane: go-proxy
+  discovered: '2026-06-24'
+  due: '2026-10-20'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  cvss_v3_1:
+    score: 2.6
+    vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:N/A:N
+  description: >
+    client.go:351-354 logs the tampered dial value and tampered HMAC signature
+    at WARN level on signature mismatch. The "val" field is covered by the
+    SensitiveFieldRedactor but the "sig" field is not.
+  impact: >
+    An attacker with log access sees the tampered signature value. Since it
+    is the wrong signature, it cannot directly reveal the integrity key.
+  notes: 'Add "sig" to opaqueFields in redactor.go for defense-in-depth.'
+- id: JA4PROXY-2026-0076
+  title: Grafana Default Admin Password in template.env
+  severity: MEDIUM
+  severity_rationale: "M-2 (CWE-1188: Insecure Default). Unlike all other secrets
+    which use REPLACE_ME_SECURELY, Grafana defaults to 'admin'. Operators who
+    skip the wizard get a production Grafana with default credentials."
+  source_refs:
+  - report: PHASE_500
+    id: 510d-01
+    discovered: '2026-06-24'
+  remediation_phases:
+  - 510d
+  owner: '@seanpor'
+  lane: infra
+  discovered: '2026-06-24'
+  due: '2026-08-21'
+  status: FIXED
+  supersedes: []
+  depends_on: []
+  regression_test: tests/unit/test_container_config.py::TestTemplateEnv_NoDefaultCredentials
+  closed_commit: ''
+  cvss_v3_1:
+    score: 5.3
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N
+  description: >
+    template.env:59 sets GRAFANA_PASSWORD=admin. Every other security-sensitive
+    value in the file uses REPLACE_ME_SECURELY. An operator who runs
+    cp template.env .env without running the wizard gets a production Grafana
+    with the default admin password.
+  impact: >
+    An attacker can log into Grafana with default admin/admin credentials,
+    accessing dashboards with proxy telemetry, IP addresses, JA4 fingerprints,
+    and potentially more.
+  notes: 'Fixed by changing to REPLACE_ME_SECURELY.'
+- id: JA4PROXY-2026-0077
+  title: Management Service Missing read_only and tmpfs in PoC Compose
+  severity: LOW
+  severity_rationale: "L-2 (CWE-250: Excessive Privileges). All other services
+    have read_only and tmpfs; management is the only exception. Low impact since
+    the service already has cap_drop:ALL and no-new-privileges."
+  source_refs:
+  - report: PHASE_500
+    id: 510d-02
+    discovered: '2026-06-24'
+  remediation_phases:
+  - 510d
+  owner: '@seanpor'
+  lane: infra
+  discovered: '2026-06-24'
+  due: '2026-10-20'
+  status: FIXED
+  supersedes: []
+  depends_on: []
+  regression_test: tests/unit/test_container_config.py::TestManagementService_ReadOnly
+  closed_commit: ''
+  cvss_v3_1:
+    score: 2.7
+    vector: CVSS:3.1/AV:L/AC:H/PR:N/UI:N/S:U/C:N/I:L/A:N
+  description: >
+    The management service in deploy/docker/docker-compose.poc.yml is the only
+    service missing read_only: true and tmpfs entries. All other services
+    (proxy, redis, backend, tarpit, analytics) have both.
+  impact: >
+    Without read_only, the management container filesystem is writable,
+    allowing an attacker who achieves code execution to persist malware
+    or modify application files.
+  notes: 'Fixed by adding read_only: true and tmpfs: [/tmp] to management service.'
+- id: JA4PROXY-2026-0078
+  title: Entrypoint Logs Full Command Arguments to Docker Logs
+  severity: LOW
+  severity_rationale: "L-4 (CWE-532). Currently benign (proxy binary has no secret
+    args), but any future container using this entrypoint with secret arguments
+    would leak them to docker logs."
+  source_refs:
+  - report: PHASE_500
+    id: 510f-01
+    discovered: '2026-06-24'
+  remediation_phases:
+  - 510f
+  owner: '@seanpor'
+  lane: infra
+  discovered: '2026-06-24'
+  due: '2026-10-20'
+  status: FIXED
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  cvss_v3_1:
+    score: 2.0
+    vector: CVSS:3.1/AV:L/AC:H/PR:N/UI:N/S:U/C:L/I:N/A:N
+  description: >
+    scripts/docker-entrypoint.sh:21 prints "Executing: $*" which logs the full
+    command arguments to stdout (Docker logs). While current usage has no secrets
+    in args, any future container using this entrypoint with secret arguments
+    would leak them.
+  impact: >
+    Command arguments containing secrets would be visible in Docker logs.
+  notes: 'Fixed by removing the echo line.'
+- id: JA4PROXY-2026-0079
+  title: Redis Password Exposed on Command Line in PoC Compose
+  severity: LOW
+  severity_rationale: "L-2 (CWE-214). Redis password passed as CLI argument via
+    --requirepass, visible in ps aux and docker inspect. Production compose uses
+    --requirepass-file with Docker secrets. PoC compose should match."
+  source_refs:
+  - report: PHASE_500
+    id: 510d-03
+    discovered: '2026-06-24'
+  remediation_phases:
+  - 510d
+  owner: '@seanpor'
+  lane: infra
+  discovered: '2026-06-24'
+  due: '2026-10-20'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  cvss_v3_1:
+    score: 3.3
+    vector: CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:L/I:N/A:N
+  description: >
+    deploy/docker/docker-compose.poc.yml:118 passes the Redis password as a
+    CLI argument via --requirepass. This is visible in ps aux, /proc/PID/cmdline,
+    and docker inspect. The production compose correctly uses --requirepass-file
+    with Docker secrets.
+  impact: >
+    Any local user with access to ps or docker inspect can read the Redis
+    password from the process list.
+  notes: 'Requires adding Docker secrets section to PoC compose and using
+    --requirepass-file. Deferred — PoC compose is for local dev only.'
+- id: JA4PROXY-2026-0080
+  title: pubsub_hmac_secret Absent from Default Config
+  severity: LOW
+  severity_rationale: "L-2 (CWE-1188). Without the secret, pub/sub messages are
+    unsigned. The Go proxy accepts unsigned messages when the secret is not set.
+    This is the expected PoC behavior — the secret should be set for production."
+  source_refs:
+  - report: PHASE_500
+    id: 510d-04
+    discovered: '2026-06-24'
+  remediation_phases:
+  - 510d
+  owner: '@seanpor'
+  lane: infra
+  discovered: '2026-06-24'
+  due: '2026-10-20'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  cvss_v3_1:
+    score: 3.7
+    vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:L/A:N
+  description: >
+    config/proxy.yml does not define redis.pubsub_hmac_secret. Without it,
+    pub/sub messages are unsigned and the Go proxy accepts them. Any Redis
+    client on the network can issue admin commands via pub/sub.
+  impact: >
+    An attacker with Redis access can forge pub/sub admin commands (config reload,
+    dial changes, blacklist additions) without HMAC authentication.
+  notes: 'Documented in setup guides. The wizard generates the secret. Operators
+    who skip the wizard must set it manually.'

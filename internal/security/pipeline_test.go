@@ -2,8 +2,12 @@ package security
 
 import (
 	"context"
+	"fmt"
 	"net"
+	"runtime"
+	"sync"
 	"testing"
+	"time"
 )
 
 // mockRedis is a test double for RedisReader.
@@ -185,4 +189,101 @@ func TestPipeline_ALPNBypassDisabled(t *testing.T) {
 	if result.Bypassed {
 		t.Error("h2 ALPN should NOT bypass when alpn_browser_bypass is disabled")
 	}
+}
+
+// Regression test for JA4PROXY-2026-0067 — Unbounded fire-and-forget goroutines
+// for mesh drift audit. Before the fix, every scored connection spawned an
+// unbounded goroutine. The fix uses a bounded auditWorker pool.
+func TestPipeline_AuditWorkerBounded(t *testing.T) {
+	cfg := &PipelineConfig{
+		Whitelist: map[string]bool{},
+		Blacklist: map[string]bool{},
+	}
+	redis := &mockRedis{dial: 0, data: make(map[string]string)}
+	p := NewPipeline(cfg, redis, nil)
+	p.Sync = true
+
+	runtime.GC()
+	time.Sleep(50 * time.Millisecond)
+	base := runtime.NumGoroutine()
+
+	// Process many connections with score > 0 to trigger audit jobs.
+	var wg sync.WaitGroup
+	const iterations = 500
+	wg.Add(iterations)
+	for i := 0; i < iterations; i++ {
+		go func(idx int) {
+			defer wg.Done()
+			conn := &ConnectionContext{
+				ParsedIP: net.ParseIP(fmt.Sprintf("192.168.1.%d", idx%250+1)),
+				ClientIP: fmt.Sprintf("192.168.1.%d", idx%250+1),
+			}
+			p.Process(context.Background(), conn)
+		}(i)
+	}
+	wg.Wait()
+
+	// Allow goroutines to settle.
+	for i := 0; i < 10; i++ {
+		runtime.GC()
+		time.Sleep(20 * time.Millisecond)
+	}
+	after := runtime.NumGoroutine()
+	growth := after - base
+	// The bounded worker pool should prevent unbounded growth.
+	// Pre-fix: 500 goroutines would leak. Post-fix: bounded to 1 audit worker.
+	if growth > 20 {
+		t.Fatalf("audit worker leaked goroutines: base=%d after=%d growth=%d "+
+			"(0067 regression — unbounded goroutine spawn)",
+			base, after, growth)
+	}
+}
+
+// Regression test for JA4PROXY-2026-0069 — processInternal reads
+// PipelineConfig fields outside the lock scope. Verifies that config reads
+// for JA4X toggles are performed under RLock.
+func TestPipeline_ConfigReadUnderLock(t *testing.T) {
+	cfg := &PipelineConfig{
+		Whitelist:           map[string]bool{},
+		Blacklist:           map[string]bool{},
+		JA4XEnabled:         true,
+		JA4XBlockingEnabled: false,
+		JA4XBlacklistScore:  50,
+	}
+	redis := &mockRedis{dial: 0}
+	p := NewPipeline(cfg, redis, nil)
+	p.JA4XBlacklist = map[string]bool{"test_ja4x": true}
+	p.Sync = true
+
+	// Concurrently process connections and reload config to exercise the lock.
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	// Writer: periodically swap config to trigger data race detection.
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 100; i++ {
+			p.mu.Lock()
+			newCfg := *p.cfg
+			p.cfg = &newCfg
+			p.mu.Unlock()
+			time.Sleep(time.Microsecond)
+		}
+	}()
+
+	// Reader: process connections that read JA4X config fields.
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 100; i++ {
+			conn := &ConnectionContext{
+				ParsedIP: net.ParseIP("10.0.0.1"),
+				ClientIP: "10.0.0.1",
+				JA4X:     "test_ja4x",
+			}
+			p.Process(context.Background(), conn)
+		}
+	}()
+
+	wg.Wait()
+	// Run with -race flag to detect data races.
 }

@@ -46,7 +46,16 @@ type beaconingJob struct {
 	action string
 }
 
-const beaconingJobBuf = 256
+type auditJob struct {
+	ctx          context.Context
+	ip           string
+	currentScore int
+}
+
+const (
+	beaconingJobBuf = 256
+	auditJobBuf     = 256
+)
 
 type Pipeline struct {
 	cfg            *PipelineConfig
@@ -73,6 +82,9 @@ type Pipeline struct {
 
 	// Bounded beaconing worker (F-002)
 	beaconingJobs chan beaconingJob
+
+	// Bounded audit worker — prevents unbounded goroutine growth on slow Redis
+	auditJobs chan auditJob
 
 	// JA4 lists (dynamic, synchronized with Redis)
 	Whitelist   map[string]bool
@@ -256,7 +268,9 @@ func NewPipeline(cfg *PipelineConfig, redis RedisReader, log *logrus.Logger) *Pi
 	p.tapConsumer = NewTapConsumer(buildTapConsumerConfig(cfg), redisReaderGetter{redis}, log)    // phase-203a
 	p.ja4tConsumer = NewJA4TConsumer(buildJA4TConsumerConfig(cfg), redisReaderGetter{redis}, log) // phase-316c
 	p.beaconingJobs = make(chan beaconingJob, beaconingJobBuf)
+	p.auditJobs = make(chan auditJob, auditJobBuf)
 	go p.beaconingWorker()
+	go p.auditWorker()
 	return p
 }
 
@@ -324,6 +338,14 @@ func (p *Pipeline) beaconingWorker() {
 	}
 }
 
+// auditWorker processes mesh drift audit jobs from a bounded channel.
+// Prevents unbounded goroutine growth when Redis is slow.
+func (p *Pipeline) auditWorker() {
+	for job := range p.auditJobs {
+		p.auditDecision(job.ctx, job.ip, job.currentScore)
+	}
+}
+
 // asyncScoringWorkers is the fixed fan-out of goroutines draining workChan.
 // phase-306 (from PR #95): a single scoring goroutine bottlenecks throughput on
 // a multi-core box. This is a *bounded* pool (a fixed constant, not scaled by
@@ -358,6 +380,8 @@ func (p *Pipeline) Process(ctx context.Context, conn *ConnectionContext) *Pipeli
 	select {
 	case p.workChan <- conn:
 	default:
+		// JA4PROXY-2026-0073: track workChan saturation for operational visibility.
+		metrics.WorkChanDroppedTotal.Inc()
 	}
 	return &PipelineResult{Action: "allow", Score: 0}
 }
@@ -467,11 +491,13 @@ func (p *Pipeline) processInternal(ctx context.Context, conn *ConnectionContext)
 	}
 
 	// JA4X blacklist signal (non-hard-block case)
-	if conn.JA4X != "" && p.cfg.JA4XEnabled && !p.cfg.JA4XBlockingEnabled {
-		p.mu.RLock()
-		ja4xBlacklist := p.JA4XBlacklist
-		blacklistScore := p.cfg.JA4XBlacklistScore
-		p.mu.RUnlock()
+	p.mu.RLock()
+	ja4xEnabled := p.cfg.JA4XEnabled
+	ja4xBlockingEnabled := p.cfg.JA4XBlockingEnabled
+	ja4xBlacklist := p.JA4XBlacklist
+	blacklistScore := p.cfg.JA4XBlacklistScore
+	p.mu.RUnlock()
+	if conn.JA4X != "" && ja4xEnabled && !ja4xBlockingEnabled {
 		if blacklistScore == 0 {
 			blacklistScore = 80
 		}
@@ -543,9 +569,13 @@ func (p *Pipeline) processInternal(ctx context.Context, conn *ConnectionContext)
 	// ── 4. COMPOSITE SCORING ─────────────────────────────────────────────
 	assessment := p.scorer.Score(signals)
 
-	// Mesh Drift Detection (async)
+	// Mesh Drift Detection (async, bounded worker pool)
 	if assessment.TotalScore > 0 {
-		go p.auditDecision(ctx, conn.ClientIP, assessment.TotalScore)
+		select {
+		case p.auditJobs <- auditJob{ctx: ctx, ip: conn.ClientIP, currentScore: assessment.TotalScore}:
+		default:
+			metrics.AuditJobsDroppedTotal.Inc()
+		}
 	}
 
 	// ── 5. ACTION DECISION ───────────────────────────────────────────────

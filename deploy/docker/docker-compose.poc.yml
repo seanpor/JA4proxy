@@ -18,8 +18,8 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
-    cap_add:
-      - NET_BIND_SERVICE
+    tmpfs:
+      - /tmp
     deploy:
       resources:
         limits:
@@ -391,6 +391,9 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
     deploy:
       resources:
         limits:
