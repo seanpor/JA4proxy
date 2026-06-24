@@ -747,9 +747,12 @@ func (p *proxy) reassembleClientHello(clientConn net.Conn, data, buf []byte) []b
 	// 1. Reassemble the first TLS record if it is incomplete.
 	recordLen := int(data[3])<<8 | int(data[4])
 	want := 5 + recordLen
-	const hardCap = 16640 // ~16KB limit to prevent OOM/DoS
-	if want > hardCap {
-		want = hardCap
+	// JA4PROXY-2026-0063: cap the first-record read at 64KB so the
+	// fragmentation loop has room to read subsequent records without
+	// hitting the per-connection cap prematurely.
+	const firstRecordCap = 65536
+	if want > firstRecordCap {
+		want = firstRecordCap
 	}
 
 	deadline := time.Now().Add(200 * time.Millisecond)
@@ -783,17 +786,14 @@ func (p *proxy) reassembleClientHello(clientConn net.Conn, data, buf []byte) []b
 		currentHandshake := len(data) - 5
 
 		// Per-connection cap to prevent OOM under fragmentation attack (F-004).
+		// JA4PROXY-2026-0063: use this as the ONLY bound — the old hardCap
+		// (16640) silently truncated large handshakes, allowing the bypass
+		// to move to ~33KB instead of closing it.
 		const maxReassemblyBytes = 65536
-		totalReassemblyBytes := 0
 
 		// If the handshake spans multiple records, read them and append bodies.
 		for currentHandshake < totalHandshakeWanted {
-			if len(data) >= hardCap || time.Now().After(deadline) {
-				break
-			}
-			if totalReassemblyBytes >= maxReassemblyBytes {
-				p.log.WithField("remote", clientConn.RemoteAddr()).
-					Warn("reassembly: per-connection cap exceeded, closing")
+			if len(data) >= maxReassemblyBytes || time.Now().After(deadline) {
 				break
 			}
 
@@ -826,7 +826,6 @@ func (p *proxy) reassembleClientHello(clientConn net.Conn, data, buf []byte) []b
 			data = append(data, header...)
 			data = append(data, body...)
 			currentHandshake += nextLen
-			totalReassemblyBytes += nextLen
 		}
 
 		// JA4PROXY-2026-0063: ParseClientHello now handles multi-record input

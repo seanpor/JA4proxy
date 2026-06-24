@@ -155,6 +155,25 @@ stay fast. Do not push a branch / open a PR until `make preflight` passes. If
 `make test` executes Python tooling, it MUST be configured in the Makefile to
 execute inside the Docker container.
 
+### Security-fix self-review checklist (mandatory for HIGH/CRITICAL findings)
+Before pushing a PR that fixes a HIGH or CRITICAL severity finding, complete
+this checklist and include the results in the PR description:
+
+1. **Propagation sweep:** grep the codebase for the same bug pattern in other
+   files. Document what you checked and the result (e.g., "TLS header grep: 2
+   sites, only reassembleClientHello — clean").
+2. **Regression test:** the test must assert the **fixed** behaviour (not just
+   log it). If the fix is reverted, the test must fail.
+3. **closed_commit:** populate `closed_commit` in `findings.yaml` with the
+   merge commit SHA after merge.
+4. **findings.yaml validation:** run `python3 scripts/findings_register.py
+   validate` — must exit 0.
+5. **Cross-reference existing findings:** check `findings.yaml` for prior
+   findings in the same CWE family to avoid duplicating fixed work.
+
+Do **not** auto-merge HIGH/CRITICAL security PRs without at least one human
+review or an explicit agent self-review completing the above checklist.
+
 ### Python Import Hygiene (Containerized)
 Every new `.py` file must pass ruff immediately, via the tools image:
 ```bash
