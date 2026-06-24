@@ -5,7 +5,6 @@
 package security
 
 import (
-	"math/rand"
 	"sync"
 )
 
@@ -34,16 +33,12 @@ func (c *DecisionCache) Set(ja4 string, res *PipelineResult) {
 	defer c.mu.Unlock()
 	if len(c.data) >= c.limit {
 		evictCount := c.limit / 10
-		remaining := len(c.data)
 		for k := range c.data {
 			if evictCount <= 0 {
 				break
 			}
-			if rand.Intn(remaining) < evictCount {
-				delete(c.data, k)
-				evictCount--
-			}
-			remaining--
+			delete(c.data, k)
+			evictCount--
 		}
 	}
 	c.data[ja4] = res
