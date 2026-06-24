@@ -152,6 +152,8 @@ func TestRegression_JA4PROXY_2026_0048_redacts_opaque_fields_in_production(t *te
 	}{
 		{"prefix", "10.0.0.0/24"},
 		{"val", "not-a-number-oops"},
+		{"pubsub_raw", "dial:42:hmacABCDEF"},
+		{"sig", "aabbccddeeff00112233445566778899aabbccdd"},
 	}
 	for _, tc := range cases {
 		out := logWithRedactor(t, true, logrus.Fields{tc.field: tc.in}, "prod: opaque field")

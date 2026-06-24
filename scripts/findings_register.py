@@ -7,12 +7,13 @@ Human-readable view: docs/security/FINDINGS_REGISTER.md (generated)
 Subcommands:
     validate                  Schema + referential integrity checks. Exit 1 on error.
     list                      Filtered listing. --status, --severity, --lane, --sla-breach, --phase.
-    add                       Allocate next canonical ID and append a new finding.
+    add                       Allocate next canonical ID, append a new finding, and open a GitHub issue.
     dedup-hint                Fuzzy match a title against existing findings.
     render                    Regenerate FINDINGS_REGISTER.md human view.
     promote-verified          Auto-promote VERIFIED → CLOSED after 14 days no regression.
     show                      Print a single finding by ID.
     verify-regression-tests   Run just the regression tests listed in the register.
+    sync-issues               Reconcile findings.yaml status with GitHub issue state.
 """
 
 from __future__ import annotations
@@ -33,6 +34,19 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parents[1]
 REGISTER_PATH = REPO_ROOT / "docs" / "security" / "findings.yaml"
 MARKDOWN_PATH = REPO_ROOT / "docs" / "security" / "FINDINGS_REGISTER.md"
+
+GITHUB_REPO = "seanpor/JA4proxy"
+
+# Severities → GitHub issue label (labels must already exist in the repo)
+SEVERITY_LABELS = {
+    "CRITICAL": "severity: critical",
+    "HIGH": "severity: high",
+    "MEDIUM": "severity: medium",
+    "LOW": "severity: low",
+}
+
+# Statuses that should result in the GitHub issue being closed
+CLOSED_STATUSES = {"CLOSED", "DUPLICATE"}
 
 VALID_SEVERITIES = ("CRITICAL", "HIGH", "MEDIUM", "LOW")
 VALID_STATUSES = ("OPEN", "IN_PROGRESS", "FIXED", "VERIFIED", "CLOSED", "DUPLICATE")
@@ -299,6 +313,164 @@ def _regression_test_exists(nodeid: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# GitHub issue helpers
+# ---------------------------------------------------------------------------
+
+
+def _gh_available() -> bool:
+    """Return True if `gh` CLI is on PATH and authenticated."""
+    try:
+        r = subprocess.run(
+            ["gh", "auth", "status"],
+            capture_output=True,
+            timeout=10,
+        )
+        return r.returncode == 0
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return False
+
+
+def _issue_body(finding: dict[str, Any]) -> str:
+    lines = [
+        f"**Canonical ID:** `{finding['id']}`",
+        f"**Severity:** {finding['severity']}",
+        f"**Lane:** {finding.get('lane', '')}",
+        f"**SLA due:** {finding.get('due', '')}",
+        "",
+    ]
+    cvss = finding.get("cvss_v3_1")
+    if cvss:
+        lines += [
+            f"**CVSS v3.1:** {cvss.get('score', '')} — `{cvss.get('vector', '')}`",
+            "",
+        ]
+    rationale = finding.get("severity_rationale", "")
+    if rationale and not rationale.startswith("TODO"):
+        lines += [f"**Severity rationale:** {rationale}", ""]
+    refs = finding.get("source_refs") or []
+    if refs:
+        lines.append("**Source references:**")
+        for ref in refs:
+            lines.append(f"- {ref.get('report','')} / {ref.get('id','')} (discovered {ref.get('discovered','')})")
+        lines.append("")
+    notes = finding.get("notes", "")
+    if notes:
+        lines += ["**Notes:**", notes, ""]
+    lines += [
+        "---",
+        "_This issue is mirrored from `docs/security/findings.yaml`. "
+        "The YAML file is the authoritative record; update status there, "
+        "then run `python3 scripts/findings_register.py sync-issues`._",
+    ]
+    return "\n".join(lines)
+
+
+def _gh_create_issue(finding: dict[str, Any]) -> int | None:
+    """Create a GitHub issue for a finding. Returns the issue number or None on failure."""
+    if not _gh_available():
+        print("  gh CLI not available or not authenticated — skipping issue creation", file=sys.stderr)
+        return None
+
+    label_name = SEVERITY_LABELS.get(finding["severity"], "")
+    cmd = [
+        "gh", "issue", "create",
+        "--repo", GITHUB_REPO,
+        "--title", f"{finding['id']}: {finding['title']}",
+        "--body", _issue_body(finding),
+        "--label", "security",
+    ]
+    if label_name:
+        cmd += ["--label", label_name]
+
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+    except subprocess.TimeoutExpired:
+        print("  gh issue create timed out", file=sys.stderr)
+        return None
+
+    if r.returncode != 0:
+        # Missing label is the most common transient error — warn but don't abort.
+        print(f"  gh issue create failed: {r.stderr.strip()}", file=sys.stderr)
+        return None
+
+    # `gh issue create` prints the issue URL as its last line.
+    url = r.stdout.strip().splitlines()[-1] if r.stdout.strip() else ""
+    m = re.search(r"/issues/(\d+)$", url)
+    if not m:
+        print(f"  could not parse issue number from: {url!r}", file=sys.stderr)
+        return None
+
+    number = int(m.group(1))
+    print(f"  opened GitHub issue #{number}: {url}")
+    return number
+
+
+def _gh_comment_canonical(number: int, canonical_id: str) -> None:
+    """Leave a comment on an existing issue recording the canonical register ID."""
+    if not _gh_available():
+        return
+    body = (
+        f"This issue has been triaged and registered in the canonical findings register "
+        f"as **`{canonical_id}`**.\n\n"
+        f"The authoritative record (CVSS, SLA, status) is maintained in "
+        f"`docs/security/findings.yaml`. This issue is the work-surface; "
+        f"status updates flow from the YAML via "
+        f"`python3 scripts/findings_register.py sync-issues`."
+    )
+    try:
+        subprocess.run(
+            ["gh", "issue", "comment", str(number), "--repo", GITHUB_REPO, "--body", body],
+            capture_output=True, timeout=30,
+        )
+    except subprocess.TimeoutExpired:
+        pass
+
+
+def _gh_close_issue(number: int, comment: str = "") -> bool:
+    """Close a GitHub issue, optionally leaving a comment."""
+    if not _gh_available():
+        return False
+    cmd = ["gh", "issue", "close", str(number), "--repo", GITHUB_REPO]
+    if comment:
+        cmd += ["--comment", comment]
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        return r.returncode == 0
+    except subprocess.TimeoutExpired:
+        return False
+
+
+def _gh_reopen_issue(number: int) -> bool:
+    """Reopen a GitHub issue (used by sync-issues when status regresses to OPEN)."""
+    if not _gh_available():
+        return False
+    try:
+        r = subprocess.run(
+            ["gh", "issue", "reopen", str(number), "--repo", GITHUB_REPO],
+            capture_output=True, text=True, timeout=30,
+        )
+        return r.returncode == 0
+    except subprocess.TimeoutExpired:
+        return False
+
+
+def _gh_issue_state(number: int) -> str | None:
+    """Return 'OPEN' or 'CLOSED', or None if the issue can't be fetched."""
+    if not _gh_available():
+        return None
+    try:
+        r = subprocess.run(
+            ["gh", "issue", "view", str(number), "--repo", GITHUB_REPO, "--json", "state", "-q", ".state"],
+            capture_output=True, text=True, timeout=30,
+        )
+        if r.returncode != 0:
+            return None
+        return r.stdout.strip().upper() or None
+    except subprocess.TimeoutExpired:
+        return None
+
+
+# ---------------------------------------------------------------------------
 # list
 # ---------------------------------------------------------------------------
 
@@ -394,6 +566,30 @@ def cmd_add(args: argparse.Namespace) -> int:
     reg.findings.append(finding)
     reg.save()
     print(f"added {finding['id']}: {finding['title']}")
+
+    if args.issue:
+        # Caller supplied an existing issue number — link it, add a comment to
+        # tie the canonical ID back to the issue, but do not create a new one.
+        existing = int(args.issue)
+        _gh_comment_canonical(existing, finding["id"])
+        reg2 = Register.load()
+        for f in reg2.findings:
+            if f["id"] == finding["id"]:
+                f["github_issue"] = existing
+                break
+        reg2.save()
+        print(f"  linked existing GitHub issue #{existing} (github_issue written to findings.yaml)")
+    elif not args.no_issue:
+        issue_num = _gh_create_issue(finding)
+        if issue_num is not None:
+            # Reload and patch so we don't clobber the just-written file.
+            reg2 = Register.load()
+            for f in reg2.findings:
+                if f["id"] == finding["id"]:
+                    f["github_issue"] = issue_num
+                    break
+            reg2.save()
+            print(f"  github_issue: {issue_num} written to findings.yaml")
     return 0
 
 
@@ -658,6 +854,90 @@ def cmd_verify_regression_tests(args: argparse.Namespace) -> int:
 
 
 # ---------------------------------------------------------------------------
+# sync-issues
+# ---------------------------------------------------------------------------
+
+
+def cmd_sync_issues(args: argparse.Namespace) -> int:
+    """Reconcile findings.yaml status with GitHub issue state.
+
+    For each finding that has a github_issue number:
+    - If status is CLOSED or DUPLICATE → close the issue (if open).
+    - If status is OPEN/IN_PROGRESS/FIXED/VERIFIED → reopen the issue (if closed).
+
+    Findings without a github_issue are optionally reported with --report-missing.
+    With --dry-run, no GitHub mutations are made.
+    """
+    if not _gh_available():
+        print("gh CLI not available or not authenticated", file=sys.stderr)
+        return 1
+
+    reg = Register.load()
+    closed_count = 0
+    reopened_count = 0
+    skipped_count = 0
+    missing: list[str] = []
+
+    for f in reg.findings:
+        fid = f["id"]
+        issue_num = f.get("github_issue")
+        if not issue_num:
+            missing.append(fid)
+            continue
+
+        status = f.get("status", "OPEN")
+        gh_state = _gh_issue_state(issue_num)
+        if gh_state is None:
+            print(f"  {fid} #{issue_num}: could not fetch state — skipped", file=sys.stderr)
+            skipped_count += 1
+            continue
+
+        should_be_closed = status in CLOSED_STATUSES
+
+        if should_be_closed and gh_state == "OPEN":
+            comment = f"Auto-closed: findings.yaml status is {status}."
+            if not args.dry_run:
+                ok = _gh_close_issue(issue_num, comment=comment)
+                if ok:
+                    print(f"  {fid} #{issue_num}: closed (status={status})")
+                    closed_count += 1
+                else:
+                    print(f"  {fid} #{issue_num}: close failed", file=sys.stderr)
+                    skipped_count += 1
+            else:
+                print(f"  [dry-run] {fid} #{issue_num}: would close (status={status})")
+                closed_count += 1
+
+        elif not should_be_closed and gh_state == "CLOSED":
+            if not args.dry_run:
+                ok = _gh_reopen_issue(issue_num)
+                if ok:
+                    print(f"  {fid} #{issue_num}: reopened (status={status})")
+                    reopened_count += 1
+                else:
+                    print(f"  {fid} #{issue_num}: reopen failed", file=sys.stderr)
+                    skipped_count += 1
+            else:
+                print(f"  [dry-run] {fid} #{issue_num}: would reopen (status={status})")
+                reopened_count += 1
+        else:
+            # Already in sync.
+            pass
+
+    if args.report_missing and missing:
+        print(f"\nFindings without a github_issue ({len(missing)}):")
+        for fid in missing:
+            print(f"  {fid}")
+
+    prefix = "[dry-run] " if args.dry_run else ""
+    print(
+        f"\n{prefix}sync-issues: {closed_count} closed, {reopened_count} reopened, "
+        f"{skipped_count} skipped, {len(missing)} without issue number"
+    )
+    return 0
+
+
+# ---------------------------------------------------------------------------
 # show
 # ---------------------------------------------------------------------------
 
@@ -691,7 +971,7 @@ def _build_parser() -> argparse.ArgumentParser:
     pl.add_argument("--sla-breach", action="store_true", help="Only past-due findings")
     pl.add_argument("--json", action="store_true")
 
-    pa = sub.add_parser("add", help="Allocate a new canonical finding")
+    pa = sub.add_parser("add", help="Allocate a new canonical finding and open a GitHub issue")
     pa.add_argument("--title", required=True)
     pa.add_argument("--severity", required=True)
     pa.add_argument("--severity-rationale")
@@ -706,6 +986,18 @@ def _build_parser() -> argparse.ArgumentParser:
     pa.add_argument("--cvss-score", type=float)
     pa.add_argument("--remediation-phases", nargs="*", help="Phase IDs, e.g. 118a 109")
     pa.add_argument("--notes")
+    issue_group = pa.add_mutually_exclusive_group()
+    issue_group.add_argument(
+        "--no-issue",
+        action="store_true",
+        help="Skip GitHub issue creation (offline / CI use)",
+    )
+    issue_group.add_argument(
+        "--issue",
+        type=int,
+        metavar="N",
+        help="Link an existing GitHub issue number instead of creating a new one",
+    )
 
     pd = sub.add_parser(
         "dedup-hint", help="Fuzzy match a title against existing findings"
@@ -735,6 +1027,21 @@ def _build_parser() -> argparse.ArgumentParser:
     ps = sub.add_parser("show", help="Print a single finding by ID")
     ps.add_argument("id")
 
+    psi = sub.add_parser(
+        "sync-issues",
+        help="Reconcile findings.yaml status with GitHub issue state",
+    )
+    psi.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print what would change without making any GitHub mutations",
+    )
+    psi.add_argument(
+        "--report-missing",
+        action="store_true",
+        help="List findings that have no github_issue number",
+    )
+
     return p
 
 
@@ -750,6 +1057,7 @@ def main(argv: list[str] | None = None) -> int:
         "promote-verified": cmd_promote_verified,
         "verify-regression-tests": cmd_verify_regression_tests,
         "show": cmd_show,
+        "sync-issues": cmd_sync_issues,
     }
     return handlers[args.cmd](args)
 

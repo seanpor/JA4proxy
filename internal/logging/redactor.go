@@ -73,6 +73,7 @@ var opaqueFields = map[string]struct{}{
 	"prefix":  {}, // CIDR from netbox — can expose trusted network topology
 	"val":     {}, // generic "offending value" context on parse errors
 	"pubsub_raw": {}, // JA4PROXY-2026-0074: pubsub message payload may contain HMAC signatures
+	"sig":        {}, // JA4PROXY-2026-0075: tampered HMAC signature on dial mismatch log
 }
 
 // Fire implements logrus.Hook. It mutates entry.Data in place.
