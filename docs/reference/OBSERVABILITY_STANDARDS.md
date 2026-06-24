@@ -727,8 +727,8 @@ This is distinct from the Prometheus `/metrics` endpoint.
     "ja4_whitelist_bypass":    true,
     "mtls_bypass":             true,
     "static_ip_allowlist":     true,
-    "ja4_blacklist_bypass":    true,
-    "country_blacklist_bypass": true,
+    "ja4_blocking_enabled":    true,
+    "country_blocking_enabled": true,
     "spamhaus_bypass":         true,
     "tls_version_bypass":      true
   }
