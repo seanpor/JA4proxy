@@ -189,8 +189,8 @@ func computeCV(timestamps []float64) float64 {
 		mean += v
 	}
 	mean /= float64(len(iats))
-	if mean == 0 {
-		return 0.0
+	if mean <= 0 {
+		return 1.0
 	}
 	variance := 0.0
 	for _, v := range iats {

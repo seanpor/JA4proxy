@@ -170,7 +170,7 @@ async def get_snapshot(
     """
     user_name, user_role = current_user[0], (current_user[1] if len(current_user) > 1 else "auditor")
 
-    if user_role not in ("operator", "admin"):
+    if user_role not in (Role.operator, Role.admin):
         raise HTTPException(status_code=403, detail="Operator or admin role required.")
 
     generated_at = datetime.now(timezone.utc).isoformat()

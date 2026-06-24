@@ -46,22 +46,34 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["connections"])
 
-_STREAM_KEY = "ja4proxy:events"
-
 # Go proxy stream — events:connection with JSON-in-event payload
-_STREAM_KEY_LIVE = "events:connection"
+_STREAM_KEY = "events:connection"
 _DEFAULT_LIMIT = 100
 _MAX_LIMIT = 10_000  # raised from 500 for compliance bulk exports
 
 
 def _parse_entry(fields: Dict[str, Any]) -> Dict[str, Any]:
-    """Extract the standard connection fields from a stream entry field dict."""
+    """Extract the standard connection fields from a stream entry field dict.
+
+    The Go proxy writes ECS-dotted JSON in the ``event`` field:
+    ``{"@timestamp":"...","event.action":"...","source.ip":"...","ja4proxy.fingerprint.ja4":"...","event.risk_score":...}``.
+    """
+    raw = fields.get("event", "")
+    if isinstance(raw, str):
+        try:
+            parsed = json.loads(raw)
+        except (json.JSONDecodeError, TypeError):
+            parsed = {}
+    elif isinstance(raw, dict):
+        parsed = raw
+    else:
+        parsed = {}
     return {
-        "ip": fields.get("ip", ""),
-        "ja4": fields.get("ja4", ""),
-        "risk_score": fields.get("risk_score"),
-        "action_taken": fields.get("action_taken", ""),
-        "timestamp": fields.get("timestamp", ""),
+        "ip": parsed.get("source.ip", ""),
+        "ja4": parsed.get("ja4proxy.fingerprint.ja4", ""),
+        "risk_score": parsed.get("event.risk_score"),
+        "action_taken": parsed.get("event.action", ""),
+        "timestamp": parsed.get("@timestamp", ""),
     }
 
 
@@ -287,7 +299,7 @@ async def get_fingerprint_profile(
     hourly_buckets: dict[int, float] = {}
     total_events = 0
 
-    events = await redis.xrevrange(_STREAM_KEY_LIVE, max="+", min="-", count=5000)
+    events = await redis.xrevrange(_STREAM_KEY, max="+", min="-", count=5000)
     for _msg_id, fields in events:
         raw = fields.get("event", "{}")
         try:
@@ -326,8 +338,8 @@ async def get_fingerprint_profile(
             except (ValueError, TypeError):
                 pass
 
-    is_banned = await redis.exists(f"ban:{ja4}")
-    is_allowlisted = await redis.sismember("allowlist", ja4)
+    is_banned = any(await redis.exists(f"ban:{ip}") for ip in ips) if ips else False
+    is_allowlisted = await redis.sismember("ja4:whitelist", ja4)
 
     return {
         "ja4": ja4,
@@ -365,7 +377,7 @@ async def get_ip_profile(
     hourly_buckets: dict[int, list[float]] = {}
     total_events = 0
 
-    events = await redis.xrevrange(_STREAM_KEY_LIVE, max="+", min="-", count=5000)
+    events = await redis.xrevrange(_STREAM_KEY, max="+", min="-", count=5000)
     for _msg_id, fields in events:
         raw = fields.get("event", "{}")
         try:

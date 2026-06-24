@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["metrics"])
 
-_STREAM_KEY = "ja4proxy:events"
+_STREAM_KEY = "events:connection"
 _BAN_PATTERN = "ban:*"
 
 

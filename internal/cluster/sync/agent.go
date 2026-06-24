@@ -321,8 +321,16 @@ func (a *SyncAgent) processInbound(event SyncEvent) {
 	case "srem":
 		a.rc.SRem(ctx, event.Key, event.Value)
 	case "zadd":
-		score, _ := strconv.ParseFloat(event.Value, 64)
-		a.rc.ZAdd(ctx, event.Key, score, event.Value)
+		// Value is "score:member" — split on first colon (score is always a float, no colons)
+		score := 0.0
+		member := event.Value
+		if idx := strings.Index(event.Value, ":"); idx > 0 {
+			if s, err := strconv.ParseFloat(event.Value[:idx], 64); err == nil {
+				score = s
+				member = event.Value[idx+1:]
+			}
+		}
+		a.rc.ZAdd(ctx, event.Key, score, member)
 	}
 }
 
@@ -368,10 +376,18 @@ func (a *SyncAgent) runPeerReplicationLoop(peerAddr string) error {
 
 		for _, xstream := range msgs {
 			for _, msg := range xstream.Messages {
+				op, _ := msg.Values["op"].(string)
+				key, _ := msg.Values["key"].(string)
+				value, _ := msg.Values["value"].(string)
+				if op == "" || key == "" {
+					a.log.WithFields(logrus.Fields{"id": msg.ID, "values": msg.Values}).Warn("sync: malformed message, skipping")
+					a.rc.XAck(a.ctx, stream, group, msg.ID)
+					continue
+				}
 				event := SyncEvent{
-					Op:       msg.Values["op"].(string),
-					Key:      msg.Values["key"].(string),
-					Value:    msg.Values["value"].(string),
+					Op:       op,
+					Key:      key,
+					Value:    value,
 					OriginDC: a.cfg.Sync.DCID,
 				}
 				if tsVal, ok := msg.Values["origin_ts"]; ok {

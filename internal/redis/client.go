@@ -519,7 +519,7 @@ func (c *Client) ZAdd(ctx context.Context, key string, score float64, member str
 		return
 	}
 	observeOp("zadd", "ok")
-	c.maybeSync(ctx, "zadd", key, member, 0)
+	c.maybeSync(ctx, "zadd", key, fmt.Sprintf("%f:%s", score, member), 0)
 }
 
 // ZRemRangeByScore removes members with scores between min and max. Fails open.
