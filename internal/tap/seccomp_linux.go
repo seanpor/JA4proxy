@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"runtime"
+	"sort"
 	"syscall"
 	"unsafe"
 )
@@ -38,6 +40,10 @@ func applySeccompProfile(data []byte) error {
 
 	if profile.DefaultAction != "SCMP_ACT_ERRNO" {
 		return fmt.Errorf("unsupported default action: %s", profile.DefaultAction)
+	}
+
+	if profile.DefaultErrnoRet < 1 || profile.DefaultErrnoRet > 255 {
+		return fmt.Errorf("defaultErrnoRet %d out of range [1,255]", profile.DefaultErrnoRet)
 	}
 
 	allow := make(map[int]bool)
@@ -77,6 +83,7 @@ func loadBPF(allow map[int]bool, errno int) error {
 		0,
 		uintptr(unsafe.Pointer(&prog[0])),
 	)
+	runtime.KeepAlive(sockFilter)
 	if errnoSys != 0 {
 		return fmt.Errorf("seccomp load: %w", errnoSys)
 	}
@@ -99,34 +106,38 @@ func buildBPFFilter(allow map[int]bool, errno int) []sockFilter {
 	for nr := range allow {
 		sorted = append(sorted, nr)
 	}
-	for i := 1; i < len(sorted); i++ {
-		for j := i; j > 0 && sorted[j] < sorted[j-1]; j-- {
-			sorted[j], sorted[j-1] = sorted[j-1], sorted[j]
-		}
-	}
+	sort.Ints(sorted)
 
 	var filter []sockFilter
 
+	// [0] Load architecture
 	filter = append(filter, sockFilter{
 		Code: 0x20, // BPF_LD | BPF_W | BPF_ABS
 		K:    4,    // offsetof(seccomp_data, arch)
 	})
 
+	// [1] Check arch — on mismatch, jump past all per-syscall checks to ERRNO.
+	// Layout: [1] JEQ, [2] LOAD_NR, N*(JEQ+RET_ALLOW), RET_ERRNO
+	// From [1], RET_ERRNO is at index 3 + 2*N, so jump = (3+2*N) - 1 = 2*N + 2
+	archMismatchJmp := uint8(2*len(sorted) + 2)
 	filter = append(filter, sockFilter{
 		Code: 0x15, // BPF_JMP | BPF_JEQ | BPF_K
-		Jt:   0, Jf: 1,
+		Jt:   0, Jf: archMismatchJmp,
 		K:    auditArchX86_64,
 	})
 
+	// [2] Load syscall number
 	filter = append(filter, sockFilter{
 		Code: 0x20, // BPF_LD | BPF_W | BPF_ABS
 		K:    0,    // offsetof(seccomp_data, nr)
 	})
 
+	// [3+] Per-syscall checks: on match (Jt=0), fall through to RET_ALLOW;
+	// on mismatch (Jf=1), skip RET_ALLOW to next check.
 	for _, nr := range sorted {
 		filter = append(filter, sockFilter{
 			Code: 0x15, // BPF_JMP | BPF_JEQ | BPF_K
-			Jt:   1, Jf: 0,
+			Jt:   0, Jf: 1,
 			K:    uint32(nr),
 		})
 		filter = append(filter, sockFilter{
@@ -135,6 +146,7 @@ func buildBPFFilter(allow map[int]bool, errno int) []sockFilter {
 		})
 	}
 
+	// Default: ERRNO
 	filter = append(filter, sockFilter{
 		Code: 0x06, // BPF_RET | BPF_K
 		K:    deniedRet,
@@ -175,7 +187,7 @@ var x86_64Syscalls = map[string]int{
 	"select":              23,
 	"sched_yield":         24,
 	"mremap":              25,
-	"msync":               27,
+	"msync":               26,
 	"mincore":             27,
 	"madvise":             28,
 	"dup":                 32,

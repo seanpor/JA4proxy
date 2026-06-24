@@ -2,6 +2,7 @@ package tap
 
 import (
 	"encoding/json"
+	"os"
 	"testing"
 )
 
@@ -39,7 +40,6 @@ func TestBuildBPFFilter_DeniedSyscall(t *testing.T) {
 		t.Fatalf("expected at least 5 instructions, got %d", len(filter))
 	}
 
-	// Last instruction should be the ERRNO return
 	last := filter[len(filter)-1]
 	if last.Code != 0x06 {
 		t.Errorf("last instruction should be BPF_RET, got code %d", last.Code)
@@ -57,7 +57,6 @@ func TestBuildBPFFilter_AllowedSyscall(t *testing.T) {
 	}
 	filter := buildBPFFilter(allowed, 1)
 
-	// Find the RET_ALLOW instructions (code 0x06, K = 0x00000000)
 	allowCount := 0
 	for _, f := range filter {
 		if f.Code == 0x06 && f.K == seccompRetAllow {
@@ -73,7 +72,6 @@ func TestBuildBPFFilter_ArchCheck(t *testing.T) {
 	allowed := map[int]bool{0: true}
 	filter := buildBPFFilter(allowed, 1)
 
-	// Second instruction should check architecture
 	if len(filter) < 2 {
 		t.Fatal("filter too short")
 	}
@@ -86,11 +84,41 @@ func TestBuildBPFFilter_ArchCheck(t *testing.T) {
 	}
 }
 
+func TestBuildBPFFilter_ArchMismatchSkipsToErrno(t *testing.T) {
+	allowed := map[int]bool{0: true, 1: true}
+	filter := buildBPFFilter(allowed, 1)
+
+	archCheck := filter[1]
+	// Arch mismatch Jf should jump past all per-syscall checks to the final ERRNO.
+	// Layout: [1] JEQ, [2] LOAD_NR, N*(JEQ+RET_ALLOW), RET_ERRNO
+	// RET_ERRNO is at index 3 + 2*N, so Jf = (3+2*N) - 1 = 2*N + 2
+	expectedJf := uint8(2*len(allowed) + 2)
+	if archCheck.Jf != expectedJf {
+		t.Errorf("arch mismatch Jf = %d, want %d (should skip to ERRNO)", archCheck.Jf, expectedJf)
+	}
+}
+
+func TestBuildBPFFilter_PerSyscallJumpCorrect(t *testing.T) {
+	allowed := map[int]bool{0: true, 1: true, 2: true}
+	filter := buildBPFFilter(allowed, 1)
+
+	// Per-syscall JEQ should have Jt=0 (fall through to RET_ALLOW on match)
+	// and Jf=1 (skip RET_ALLOW on mismatch)
+	for i := 3; i < len(filter)-1; i += 2 {
+		if filter[i].Code != 0x15 {
+			continue
+		}
+		if filter[i].Jt != 0 || filter[i].Jf != 1 {
+			t.Errorf("per-syscall JEQ at [%d]: Jt=%d Jf=%d, want Jt=0 Jf=1",
+				i, filter[i].Jt, filter[i].Jf)
+		}
+	}
+}
+
 func TestBuildBPFFilter_EmptyAllowlist(t *testing.T) {
 	allowed := map[int]bool{}
 	filter := buildBPFFilter(allowed, 1)
 
-	// Should still have arch check + nr load + ERRNO return
 	if len(filter) < 3 {
 		t.Fatalf("expected at least 3 instructions for empty allowlist, got %d", len(filter))
 	}
@@ -105,6 +133,8 @@ func TestSyscallToNumber(t *testing.T) {
 		{"read", 0, true},
 		{"write", 1, true},
 		{"socket", 41, true},
+		{"msync", 26, true},
+		{"mincore", 27, true},
 		{"epoll_create1", 291, true},
 		{"nonexistent", 0, false},
 	}
@@ -159,6 +189,22 @@ func TestApplySeccompProfile_InvalidJSON(t *testing.T) {
 	}
 }
 
+func TestApplySeccompProfile_ErrnoOutOfRange(t *testing.T) {
+	profile := seccompProfile{
+		DefaultAction:   "SCMP_ACT_ERRNO",
+		DefaultErrnoRet: 256,
+		Syscalls:        []seccompRule{},
+	}
+	data, err := json.Marshal(profile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = applySeccompProfile(data)
+	if err == nil {
+		t.Error("expected error for out-of-range defaultErrnoRet")
+	}
+}
+
 func TestDefaultProfileValid(t *testing.T) {
 	var profile seccompProfile
 	if err := json.Unmarshal(defaultSeccompProfile, &profile); err != nil {
@@ -176,5 +222,15 @@ func TestDefaultProfileValid(t *testing.T) {
 				t.Errorf("embedded profile references unknown syscall: %s", name)
 			}
 		}
+	}
+}
+
+func TestEmbeddedMatchesConfig(t *testing.T) {
+	configData, err := os.ReadFile("../../config/seccomp_tap_go.json")
+	if err != nil {
+		t.Skipf("config file not accessible: %v", err)
+	}
+	if string(defaultSeccompProfile) != string(configData) {
+		t.Error("embedded profile differs from config/seccomp_tap_go.json — update both or embed directly")
 	}
 }
