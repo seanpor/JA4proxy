@@ -26,7 +26,7 @@ anomalies. These are operational incidents (proxy misbehaving), not security inc
 | `ja4proxy_signal_error_total` | 0 in normal operation | Any sustained rate |
 | `ja4proxy_signal_skipped_total` | Low; spikes if Redis/DNS degrades | > 10/s sustained |
 | `ja4proxy_dns_ptr_errors_total` | < 0.5/s | > 5/s sustained |
-| `ja4proxy_rdap_lookup_errors_total` | 0–1/min | > 10/min sustained |
+| `ja4proxy_rdap_enrichment_queue_depth` | 0–1/min | > 10/min sustained |
 
 ### Alerting Rules
 
@@ -59,7 +59,7 @@ module logic (not an external failure, which is caught and handled lower down).
    blocking while you investigate. The proxy continues operating fail-open.
    ```bash
    # Via Redis
-   redis-cli SET proxy:dial 0
+    redis-cli SET config:dial 0
    ```
 
 4. **Collect the stack trace** from the log `stack_trace` field and file a bug.

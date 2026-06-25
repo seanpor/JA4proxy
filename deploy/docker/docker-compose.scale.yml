@@ -14,7 +14,7 @@ services:
       - "443:443"
       - "8404:8404"  # HAProxy stats port
     volumes:
-      - ./config/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+      - ../../config/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
     networks:
       - ja4proxy-network
     restart: unless-stopped

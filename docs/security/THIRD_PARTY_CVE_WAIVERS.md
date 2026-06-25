@@ -19,7 +19,7 @@ phase: 314
 > capped at a 14-day window. This register tracks *advisory* HIGH findings whose
 > only fix is an upstream image rebuild we don't control.
 
-See [PHASE_314](../phases/PHASE_314.md) for the full background and the
+See [PHASE_314](../phases/complete/PHASE_314.md) for the full background and the
 differentiated-gating decision.
 
 ## Why these can't just be "bumped away"

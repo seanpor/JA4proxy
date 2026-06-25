@@ -122,16 +122,16 @@ reducing false positives at the cost of some missed blocks.
 
 **Check current dial value:**
 ```bash
-redis-cli GET dial:setting
+redis-cli GET config:dial
 ```
 
 **Increment dial safely (recommended: max 10 points at a time):**
 ```bash
 # Check current value first
-redis-cli GET dial:setting
+redis-cli GET config:dial
 
 # Set to new value (example: 10 → 20)
-redis-cli SET dial:setting 20
+redis-cli SET config:dial 20
 
 # Trigger reload so DialManager reads the new value
 docker compose kill -s SIGHUP proxy
@@ -143,7 +143,7 @@ docker compose kill -s SIGHUP proxy
 
 **Emergency dial=0 (monitor mode):**
 ```bash
-redis-cli SET dial:setting 0
+redis-cli SET config:dial 0
 docker compose kill -s SIGHUP proxy
 ```
 

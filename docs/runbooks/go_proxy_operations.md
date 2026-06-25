@@ -85,8 +85,8 @@ redis-cli publish config:reload "reload"
 |--------|-------------|
 | `ja4proxy_connections_total{action}` | Cumulative connections by decision |
 | `ja4proxy_active_connections` | Current in-flight connections |
-| `ja4proxy_risk_score_distribution` | Risk score histogram |
-| `ja4proxy_dial_setting` | Current dial value |
+| `ja4proxy_risk_score` | Risk score histogram |
+| `ja4proxy_dial_current` | Current dial value |
 | `ja4proxy_bypass_hits_total{reason}` | Bypass short-circuit hits |
 | `ja4proxy_signal_total{signal}` | Individual signal firing counts |
 | `ja4proxy_config_reloads_total` | Number of config reloads |

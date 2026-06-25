@@ -292,7 +292,7 @@
           "mfa"
         ],
         "summary": "Webauthn Auth Complete",
-        "description": "Verify a WebAuthn assertion and mark the session as MFA-verified.\n\nRequest body: the ``PublicKeyCredential`` JSON from ``navigator.credentials.get()``.\nMust contain an ``id`` field (base64url credential ID).\n\nOn success sets ``mgmt:mfa:session:{sha256(jwt)}`` → \"verified\" (8h TTL).\n\nReturns:\n    200 ``{\"verified\": true}``\n    400 if no authentication challenge found.\n    404 if the credential ID is not registered.\n    401 if assertion verification fails.",
+        "description": "Verify a WebAuthn assertion and mark the session as MFA-verified.\n\nRequest body: the ``PublicKeyCredential`` JSON from ``navigator.credentials.get()``.\nMust contain an ``id`` field (base64url credential ID).\n\nOn success sets ``mgmt:mfa:session:{sha256(jwt)}`` \u2192 \"verified\" (8h TTL).\n\nReturns:\n    200 ``{\"verified\": true}``\n    400 if no authentication challenge found.\n    404 if the credential ID is not registered.\n    401 if assertion verification fails.",
         "operationId": "webauthn_auth_complete_auth_mfa_webauthn_auth_complete_post",
         "parameters": [
           {
@@ -360,7 +360,7 @@
           "sso"
         ],
         "summary": "Saml Login",
-        "description": "Initiate SAML 2.0 login — redirect browser to the IdP SSO URL.\n\nGenerates a random nonce, stores it in Redis (5-min TTL) for CSRF\nprotection, and passes it as the RelayState.  The IdP will echo the\nRelayState back in the ACS POST so we can verify it there.\n\nNo authentication required (this is the start of the login flow).\n\nReturns:\n    302 redirect to IdP SSO URL.\n    503 if SAML is not configured.",
+        "description": "Initiate SAML 2.0 login \u2014 redirect browser to the IdP SSO URL.\n\nGenerates a random nonce, stores it in Redis (5-min TTL) for CSRF\nprotection, and passes it as the RelayState.  The IdP will echo the\nRelayState back in the ACS POST so we can verify it there.\n\nNo authentication required (this is the start of the login flow).\n\nReturns:\n    302 redirect to IdP SSO URL.\n    503 if SAML is not configured.",
         "operationId": "saml_login_auth_sso_saml_login_get",
         "responses": {
           "200": {
@@ -380,7 +380,7 @@
           "sso"
         ],
         "summary": "Saml Acs",
-        "description": "SAML Assertion Consumer Service — receive and process IdP response.\n\nThe IdP POST-binds the base64-encoded SAMLResponse and the RelayState\n(nonce) here.  On success, issues a JWT cookie and redirects to the\nstored redirect URL.\n\nNo authentication required (this IS the authentication step).\n\nReturns:\n    302 redirect to post-login URL with ``token`` cookie set.\n    400 if relay state (nonce) is missing or expired.\n    401 if the SAML assertion is invalid.\n    403 if the user's groups do not map to any role.\n    503 if SAML is not configured.",
+        "description": "SAML Assertion Consumer Service \u2014 receive and process IdP response.\n\nThe IdP POST-binds the base64-encoded SAMLResponse and the RelayState\n(nonce) here.  On success, issues a JWT cookie and redirects to the\nstored redirect URL.\n\nNo authentication required (this IS the authentication step).\n\nReturns:\n    302 redirect to post-login URL with ``token`` cookie set.\n    400 if relay state (nonce) is missing or expired.\n    401 if the SAML assertion is invalid.\n    403 if the user's groups do not map to any role.\n    503 if SAML is not configured.",
         "operationId": "saml_acs_auth_sso_saml_acs_post",
         "responses": {
           "200": {
@@ -440,7 +440,7 @@
           "health"
         ],
         "summary": "Health",
-        "description": "Return system health status.\n\nNever raises — all failures are caught and reflected in the response body.",
+        "description": "Return system health status.\n\nNever raises \u2014 all failures are caught and reflected in the response body.",
         "operationId": "health_api_v1_health_get",
         "responses": {
           "200": {
@@ -462,7 +462,7 @@
           "health"
         ],
         "summary": "Health Deep",
-        "description": "Deep health check — verifies Redis connectivity and returns latency.\n\nReturns HTTP 200 when Redis is healthy, 503 when degraded.\nRequires at minimum the Auditor role.",
+        "description": "Deep health check \u2014 verifies Redis connectivity and returns latency.\n\nReturns HTTP 200 when Redis is healthy, 503 when degraded.\nRequires at minimum the Auditor role.",
         "operationId": "health_deep_api_v1_health_deep_get",
         "parameters": [
           {
@@ -510,7 +510,7 @@
           "health"
         ],
         "summary": "Ready",
-        "description": "Readiness probe — no authentication required.\n\nReturns 200 {\"ready\": True} when Redis is reachable and accessible.\nReturns 503 {\"ready\": False, \"reason\": ...} on any failure.\n\nIntended for load-balancer health checks that must not require auth.",
+        "description": "Readiness probe \u2014 no authentication required.\n\nReturns 200 {\"ready\": True} when Redis is reachable and accessible.\nReturns 503 {\"ready\": False, \"reason\": ...} on any failure.\n\nIntended for load-balancer health checks that must not require auth.",
         "operationId": "ready_api_v1_ready_get",
         "responses": {
           "200": {
@@ -578,7 +578,7 @@
           "dial"
         ],
         "summary": "Update Dial",
-        "description": "Update the dial value.\n\nEnforces a maximum change of ±10 per request to prevent accidental\njumps in blocking aggression.\n\nArgs:\n    body: New dial value (0-100).\n\nRaises:\n    HTTPException(400): If the requested change exceeds ±10.",
+        "description": "Update the dial value.\n\nEnforces a maximum change of \u00b110 per request to prevent accidental\njumps in blocking aggression.\n\nArgs:\n    body: New dial value (0-100).\n\nRaises:\n    HTTPException(400): If the requested change exceeds \u00b110.",
         "operationId": "update_dial_api_v1_dial_put",
         "parameters": [
           {
@@ -636,7 +636,7 @@
           "dial"
         ],
         "summary": "Update Dial",
-        "description": "Update the dial value.\n\nEnforces a maximum change of ±10 per request to prevent accidental\njumps in blocking aggression.\n\nArgs:\n    body: New dial value (0-100).\n\nRaises:\n    HTTPException(400): If the requested change exceeds ±10.",
+        "description": "Update the dial value.\n\nEnforces a maximum change of \u00b110 per request to prevent accidental\njumps in blocking aggression.\n\nArgs:\n    body: New dial value (0-100).\n\nRaises:\n    HTTPException(400): If the requested change exceeds \u00b110.",
         "operationId": "update_dial_api_v1_dial_patch",
         "parameters": [
           {
@@ -1451,7 +1451,7 @@
           "lists"
         ],
         "summary": "Add To List",
-        "description": "Add an entry to the specified list (idempotent — safe to call multiple times).",
+        "description": "Add an entry to the specified list (idempotent \u2014 safe to call multiple times).",
         "operationId": "add_to_list_api_v1_lists__list_type___list_name___entry__post",
         "parameters": [
           {
@@ -1598,13 +1598,23 @@
       }
     },
     "/api/v1/bans": {
-      "get": {
+      "post": {
         "tags": [
           "bans"
         ],
-        "summary": "List Bans",
-        "description": "List all active bans by scanning ban:* keys.",
-        "operationId": "list_bans_api_v1_bans_get",
+        "summary": "Create Ban",
+        "description": "Create a CIDR ban (bulk ban by IP range).",
+        "operationId": "create_ban_api_v1_bans_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BanCreateRequest"
+              }
+            }
+          }
+        },
         "parameters": [
           {
             "name": "token",
@@ -1628,9 +1638,7 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BanList"
-                }
+                "schema": {}
               }
             }
           },
@@ -1648,13 +1656,13 @@
       }
     },
     "/api/v1/bans/{ip}": {
-      "post": {
+      "patch": {
         "tags": [
           "bans"
         ],
-        "summary": "Create Ban",
-        "description": "Create a ban for the given IP address.\n\nThe IP is URL-decoded so IPv6 addresses passed percent-encoded work.",
-        "operationId": "create_ban_api_v1_bans__ip__post",
+        "summary": "Extend Ban",
+        "description": "Extend active ban TTL.",
+        "operationId": "extend_ban_api_v1_bans__ip__patch",
         "parameters": [
           {
             "name": "ip",
@@ -1683,18 +1691,11 @@
           }
         ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "anyOf": [
-                  {
-                    "$ref": "#/components/schemas/BanCreateRequest"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "title": "Body"
+                "$ref": "#/components/schemas/BanCreateRequest"
               }
             }
           }
@@ -1704,76 +1705,7 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BanCreateResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "bans"
-        ],
-        "summary": "Lift Ban",
-        "description": "Lift (remove) a ban for the given IP address.\n\nRaises:\n    HTTPException(404): If no ban exists for the IP.",
-        "operationId": "lift_ban_api_v1_bans__ip__delete",
-        "parameters": [
-          {
-            "name": "ip",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Ip"
-            }
-          },
-          {
-            "name": "token",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Token"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BanRemoveResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
+                "schema": {}
               }
             }
           }
@@ -1786,7 +1718,7 @@
           "events"
         ],
         "summary": "Stream Events",
-        "description": "Stream live connection events as Server-Sent Events.\n\nClients should connect with ``Accept: text/event-stream``.\nThe stream never ends — clients must disconnect when done.\n\nWhen the client requests ``Accept: application/json`` (e.g. in tests or\nwhen probing the endpoint), a non-streaming JSON acknowledgement is returned\ninstead of an infinite SSE stream.",
+        "description": "Stream live connection events as Server-Sent Events.\n\nClients should connect with ``Accept: text/event-stream``.\nThe stream never ends \u2014 clients must disconnect when done.\n\nWhen the client requests ``Accept: application/json`` (e.g. in tests or\nwhen probing the endpoint), a non-streaming JSON acknowledgement is returned\ninstead of an infinite SSE stream.",
         "operationId": "stream_events_api_v1_events_get",
         "parameters": [
           {
@@ -1834,7 +1766,7 @@
           "config"
         ],
         "summary": "Reload Config",
-        "description": "Publish a config reload signal to all proxy instances.\n\nAll instances subscribed to ``config.reload`` will hot-reload their\nconfiguration on receipt.",
+        "description": "Publish a config reload signal to all proxy instances.\n\nAll instances subscribed to ``config:reload`` will hot-reload their\nconfiguration on receipt.",
         "operationId": "reload_config_api_v1_config_reload_post",
         "parameters": [
           {
@@ -2348,7 +2280,7 @@
           "tokens"
         ],
         "summary": "List Tokens",
-        "description": "List all tokens (metadata only — no hash, no plaintext).",
+        "description": "List all tokens (metadata only \u2014 no hash, no plaintext).",
         "operationId": "list_tokens_api_v1_tokens_get",
         "parameters": [
           {
@@ -2455,7 +2387,7 @@
           "tokens"
         ],
         "summary": "Delete Token",
-        "description": "Revoke a token.  Idempotent — returns 204 even if token did not exist.",
+        "description": "Revoke a token.  Idempotent \u2014 returns 204 even if token did not exist.",
         "operationId": "delete_token_api_v1_tokens__token_id__delete",
         "parameters": [
           {
@@ -2636,10 +2568,46 @@
                   "type": "null"
                 }
               ],
-              "description": "ISO 8601 timestamp — only events after this",
+              "description": "ISO 8601 timestamp \u2014 only events after this",
               "title": "Since"
             },
-            "description": "ISO 8601 timestamp — only events after this"
+            "description": "ISO 8601 timestamp \u2014 only events after this"
+          },
+          {
+            "name": "until",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "ISO 8601 timestamp \u2014 only events before this",
+              "title": "Until"
+            },
+            "description": "ISO 8601 timestamp \u2014 only events before this"
+          },
+          {
+            "name": "page_token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Opaque cursor for pagination",
+              "title": "Page Token"
+            },
+            "description": "Opaque cursor for pagination"
           },
           {
             "name": "limit",
@@ -2647,7 +2615,7 @@
             "required": false,
             "schema": {
               "type": "integer",
-              "maximum": 500,
+              "maximum": 10000,
               "minimum": 1,
               "description": "Max results",
               "default": 100,
@@ -2862,7 +2830,7 @@
           "nodes"
         ],
         "summary": "Reload Node",
-        "description": "Publish a reload signal to the named proxy host.\n\nThe signal is published to the ``proxy:reload`` channel so that any\nproxy instance subscribed to it will receive the message.\n\nAlways returns 200 with ``published: True`` — the endpoint does not\nverify that the host actually exists or received the message.",
+        "description": "Publish a reload signal to the named proxy host.\n\nThe signal is published to the ``proxy:reload`` channel so that any\nproxy instance subscribed to it will receive the message.\n\nAlways returns 200 with ``published: True`` \u2014 the endpoint does not\nverify that the host actually exists or received the message.",
         "operationId": "reload_node_api_v1_nodes__host__reload_post",
         "parameters": [
           {
@@ -3143,7 +3111,7 @@
           "webhooks"
         ],
         "summary": "Delete Webhook",
-        "description": "Delete a webhook subscription.\n\nIdempotent — returns 204 whether or not the webhook existed.",
+        "description": "Delete a webhook subscription.\n\nIdempotent \u2014 returns 204 whether or not the webhook existed.",
         "operationId": "delete_webhook_api_v1_webhooks__webhook_id__delete",
         "parameters": [
           {
@@ -3195,7 +3163,7 @@
           "metrics"
         ],
         "summary": "Metrics Summary",
-        "description": "Return an operational metrics snapshot.\n\nAll values are read from Redis at request time — no caching.",
+        "description": "Return an operational metrics snapshot.\n\nAll values are read from Redis at request time \u2014 no caching.",
         "operationId": "metrics_summary_api_v1_metrics_summary_get",
         "parameters": [
           {
@@ -3458,6 +3426,832 @@
           }
         }
       }
+    },
+    "/api/v1/tls-health": {
+      "get": {
+        "tags": [
+          "tls"
+        ],
+        "summary": "TLS Health",
+        "description": "Check TLS certificate expiry health for HAProxy.",
+        "operationId": "tls_health_api_v1_tls_health_get",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/snapshot": {
+      "get": {
+        "tags": [
+          "snapshot"
+        ],
+        "summary": "Get Snapshot",
+        "description": "Get shift handover snapshot.",
+        "operationId": "get_snapshot_api_v1_snapshot_get",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/fingerprints/{ja4}/profile": {
+      "get": {
+        "tags": [
+          "connections"
+        ],
+        "summary": "Fingerprint Profile",
+        "description": "Get 24h aggregate profile for a JA4 fingerprint.",
+        "operationId": "fingerprint_profile_api_v1_fingerprints__ja4__profile_get",
+        "parameters": [
+          {
+            "name": "ja4",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Ja4"
+            }
+          },
+          {
+            "name": "token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ip/{ip}/profile": {
+      "get": {
+        "tags": [
+          "connections"
+        ],
+        "summary": "IP Profile",
+        "description": "Get 24h aggregate profile for a source IP.",
+        "operationId": "ip_profile_api_v1_ip__ip__profile_get",
+        "parameters": [
+          {
+            "name": "ip",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Ip"
+            }
+          },
+          {
+            "name": "token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dial/revert": {
+      "delete": {
+        "tags": [
+          "dial"
+        ],
+        "summary": "Revert Dial",
+        "description": "Cancel a scheduled dial revert.",
+        "operationId": "revert_dial_api_v1_dial_revert_delete",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/threat-intel/feeds": {
+      "get": {
+        "tags": [
+          "threat-intel"
+        ],
+        "summary": "List Threat Intel Feeds",
+        "description": "List all threat intelligence feeds.",
+        "operationId": "list_threat_intel_feeds_api_v1_threat_intel_feeds_get",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/threat-intel/feeds/{feed_id}": {
+      "get": {
+        "tags": [
+          "threat-intel"
+        ],
+        "summary": "Get Threat Intel Feed",
+        "description": "Get a specific threat intelligence feed.",
+        "operationId": "get_threat_intel_feed_api_v1_threat_intel_feeds__feed_id__get",
+        "parameters": [
+          {
+            "name": "feed_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Feed Id"
+            }
+          },
+          {
+            "name": "token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/threat-intel/feeds/{feed_id}/enable": {
+      "post": {
+        "tags": [
+          "threat-intel"
+        ],
+        "summary": "Enable Feed",
+        "description": "Enable a threat intelligence feed.",
+        "operationId": "enable_feed_api_v1_threat_intel_feeds__feed_id__enable_post",
+        "parameters": [
+          {
+            "name": "feed_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Feed Id"
+            }
+          },
+          {
+            "name": "token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/threat-intel/feeds/{feed_id}/disable": {
+      "post": {
+        "tags": [
+          "threat-intel"
+        ],
+        "summary": "Disable Feed",
+        "description": "Disable a threat intelligence feed.",
+        "operationId": "disable_feed_api_v1_threat_intel_feeds__feed_id__disable_post",
+        "parameters": [
+          {
+            "name": "feed_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Feed Id"
+            }
+          },
+          {
+            "name": "token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/threat-intel/feeds/{feed_id}/poll": {
+      "post": {
+        "tags": [
+          "threat-intel"
+        ],
+        "summary": "Poll Feed",
+        "description": "Manually poll a threat intelligence feed.",
+        "operationId": "poll_feed_api_v1_threat_intel_feeds__feed_id__poll_post",
+        "parameters": [
+          {
+            "name": "feed_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Feed Id"
+            }
+          },
+          {
+            "name": "token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/compliance/pci-dss-pack": {
+      "post": {
+        "tags": [
+          "compliance"
+        ],
+        "summary": "PCI DSS Pack",
+        "description": "Generate PCI-DSS evidence pack.",
+        "operationId": "pci_dss_pack_api_v1_compliance_pci_dss_pack_post",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/compliance/report": {
+      "post": {
+        "tags": [
+          "compliance"
+        ],
+        "summary": "Compliance Report",
+        "description": "Generate compliance report.",
+        "operationId": "compliance_report_api_v1_compliance_report_post",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/compliance/dsar/{ip}": {
+      "get": {
+        "tags": [
+          "compliance"
+        ],
+        "summary": "DSAR Lookup",
+        "description": "Data Subject Access Request lookup for an IP.",
+        "operationId": "dsar_lookup_api_v1_compliance_dsar__ip__get",
+        "parameters": [
+          {
+            "name": "ip",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Ip"
+            }
+          },
+          {
+            "name": "token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "compliance"
+        ],
+        "summary": "DSAR Erase",
+        "description": "Execute GDPR erasure for an IP.",
+        "operationId": "dsar_erase_api_v1_compliance_dsar__ip__delete",
+        "parameters": [
+          {
+            "name": "ip",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Ip"
+            }
+          },
+          {
+            "name": "token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/compliance/purge-expired": {
+      "post": {
+        "tags": [
+          "compliance"
+        ],
+        "summary": "Purge Expired",
+        "description": "Purge expired compliance data.",
+        "operationId": "purge_expired_api_v1_compliance_purge_expired_post",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/compliance/signal-categories": {
+      "get": {
+        "tags": [
+          "compliance"
+        ],
+        "summary": "Signal Categories",
+        "description": "List signal categories for compliance reporting.",
+        "operationId": "signal_categories_api_v1_compliance_signal_categories_get",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/edl/{list_name}": {
+      "get": {
+        "tags": [
+          "edl"
+        ],
+        "summary": "Get EDL",
+        "description": "Get External Dynamic List for firewall consumption.",
+        "operationId": "get_edl_api_v1_edl__list_name__get",
+        "parameters": [
+          {
+            "name": "list_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "List Name"
+            }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Token"
+            }
+          },
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/mfa/webauthn/credentials": {
+      "get": {
+        "tags": [
+          "mfa"
+        ],
+        "summary": "List WebAuthn Credentials",
+        "description": "List enrolled WebAuthn credentials.",
+        "operationId": "list_webauthn_credentials_auth_mfa_webauthn_credentials_get",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/mfa/webauthn/credentials/{credential_id_b64}": {
+      "delete": {
+        "tags": [
+          "mfa"
+        ],
+        "summary": "Delete WebAuthn Credential",
+        "description": "Delete a WebAuthn credential.",
+        "operationId": "delete_webauthn_credential_auth_mfa_webauthn_credentials__credential_id_b64__delete",
+        "parameters": [
+          {
+            "name": "credential_id_b64",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Credential Id B64"
+            }
+          },
+          {
+            "name": "token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -3594,7 +4388,7 @@
           "published_to": {
             "type": "string",
             "title": "Published To",
-            "default": "config.reload"
+            "default": "config:reload"
           }
         },
         "type": "object",
@@ -3608,7 +4402,7 @@
             "maximum": 100.0,
             "minimum": 0.0,
             "title": "Value",
-            "description": "New dial value (0-100, max ±10 change)"
+            "description": "New dial value (0-100, max \u00b110 change)"
           }
         },
         "type": "object",
@@ -3996,7 +4790,7 @@
           "token"
         ],
         "title": "TokenCreateResponse",
-        "description": "Returned once on creation — includes the plaintext token."
+        "description": "Returned once on creation \u2014 includes the plaintext token."
       },
       "TokenListResponse": {
         "properties": {
@@ -4069,7 +4863,7 @@
           "created_at"
         ],
         "title": "TokenResponse",
-        "description": "Token metadata — no hash, no plaintext."
+        "description": "Token metadata \u2014 no hash, no plaintext."
       },
       "TokenRotateResponse": {
         "properties": {
@@ -4201,6 +4995,34 @@
         "title": "WebhookUpdate",
         "description": "Body for PUT /api/v1/webhooks/{id}."
       }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "JWT token in Authorization header (alternative to cookie)"
+      },
+      "cookieAuth": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "token",
+        "description": "JWT token in httpOnly cookie"
+      },
+      "apiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key",
+        "description": "API key for EDL endpoints"
+      }
     }
-  }
+  },
+  "security": [
+    {
+      "cookieAuth": []
+    },
+    {
+      "bearerAuth": []
+    }
+  ]
 }

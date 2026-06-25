@@ -307,18 +307,13 @@ JA4proxy is designed to support ISO 27001 compliance for organizations that:
 
 **Target Implementation:**
 ```yaml
-# config/compliance.yml
-access_review:
-  schedule: quarterly
-  procedure:
-    - Review all Redis ACL users
-    - Verify active users against HR records
-    - Remove inactive accounts
-    - Document review in audit log
-  automation:
-    enabled: true
-    script: scripts/access_review.py
-    notification: slack:#security-audit
+# Access review procedure (manual — no automated script)
+# Schedule: quarterly
+# Steps:
+#   1. Review all Redis ACL users
+#   2. Verify active users against HR records
+#   3. Remove inactive accounts
+#   4. Document review in audit log
 ```
 
 ### A.12.4.3: Administrator and Operator Logs
