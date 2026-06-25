@@ -36,10 +36,25 @@
 </head>
 <body class="dark h-full bg-[#0b0f19] text-[#f1f5f9]">
 
-<div class="flex h-full min-h-screen">
+<div class="flex h-full min-h-screen" x-data="{ sidebarOpen: false }">
+
+  <!-- ── Mobile hamburger ────────────────────────────────────────── -->
+  <button @click="sidebarOpen = !sidebarOpen"
+          class="fixed top-3 left-3 z-50 md:hidden p-2 rounded-lg bg-[#1e293b]/80 text-slate-300 hover:text-white"
+          aria-label="Toggle sidebar">
+    <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+      <path x-show="!sidebarOpen" stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+      <path x-show="sidebarOpen" stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" style="display:none;"/>
+    </svg>
+  </button>
+
+  <!-- ── Mobile overlay ──────────────────────────────────────────── -->
+  <div x-show="sidebarOpen" @click="sidebarOpen = false"
+       class="fixed inset-0 z-20 bg-black/50 md:hidden" style="display:none;"></div>
 
   <!-- ── Sidebar ─────────────────────────────────────────────────── -->
-  <aside class="fixed inset-y-0 left-0 z-30 w-[200px] flex flex-col glass-panel border-r border-[#1e293b]/55">
+  <aside :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'"
+         class="fixed inset-y-0 left-0 z-30 w-[200px] flex flex-col glass-panel border-r border-[#1e293b]/55 transition-transform duration-200">
 
     <!-- Logo / Brand -->
     <div class="flex items-center gap-2 px-4 py-5 border-b border-[#334155]">
@@ -73,7 +88,7 @@
         {% set required_level = min_levels.get(min_role, 0) %}
         {% if user_level >= required_level %}
         <!-- nosemgrep: generic.html-templates.security.var-in-href.var-in-href -->
-        <a href="{{ href }}"
+        <a href="{{ href }}" @click="sidebarOpen = false"
            class="flex items-center gap-3 px-3 py-2 text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-slate-900 rounded
                   {% if active %}sidebar-item-active text-sky-400 font-medium{% else %}text-[#94a3b8] hover:bg-[#1e293b]/30 hover:text-[#f1f5f9]{% endif %}">
           <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
@@ -112,7 +127,7 @@
   </aside>
 
   <!-- ── Main area ────────────────────────────────────────────────── -->
-  <div class="flex-1 flex flex-col ml-[200px] min-w-0">
+  <div class="flex-1 flex flex-col ml-0 md:ml-[200px] min-w-0">
 
     <!-- Top bar -->
     <header class="sticky top-0 z-20 flex items-center justify-between px-6 py-3 bg-[#0f1524]/85 backdrop-blur-md border-b border-[#1e293b]/55">

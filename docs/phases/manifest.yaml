@@ -3122,7 +3122,8 @@ phases:
       dashboard button with presets."
   245.7:
     name: "Management UI — Polish"
-    status: OPEN
+    status: COMPLETE
+    completed: '2026-06-25'
     action_plan: docs/phases/PHASE_245.md
     dependencies: []
     size: LARGE
