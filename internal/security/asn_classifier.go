@@ -85,11 +85,19 @@ func NewASNClassifier(cfg *ASNClassifierConfig, log *logrus.Logger) *ASNClassifi
 		if _, err := os.Stat(cfg.DBPath); err == nil {
 			db, err := geoip2.Open(cfg.DBPath)
 			if err != nil {
-				log.WithError(err).Warn("asn_classifier: failed to open GeoLite2-ASN DB; signals disabled")
+				log.WithError(err).Warn("asn_classifier: failed to open GeoLite2-ASN DB; country blocking and ASN enrichment disabled")
 			} else {
 				c.db = db
 			}
+		} else {
+			log.WithField("path", cfg.DBPath).Warn(
+				"asn_classifier: GeoIP database not found — country blocking and ASN enrichment disabled. " +
+					"Download from https://dev.maxmind.com/geoip/geolite2-free-geolocation-data or run: make update-geoip")
 		}
+	} else {
+		log.Warn(
+			"asn_classifier: no GeoIP database configured — country blocking and ASN enrichment disabled. " +
+				"See docs/operations/EMERGENCY_DEPLOY.md for setup instructions")
 	}
 
 	// Load Tor exit list
