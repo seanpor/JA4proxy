@@ -14,7 +14,7 @@ No config files, no wizard, no monitoring stack.
 
 - Docker and Docker Compose (v2)
 - Your backend server's hostname or IP (the server you're protecting)
-- Ports 8443 (proxy) and 6379 (Redis, internal only) available
+- Ports 8443 (proxy), 8090 (dashboard), and 6379 (Redis, internal only) available
 
 ## Deploy
 
@@ -31,6 +31,19 @@ That's it. JA4proxy is now accepting TLS connections on port **8443** and
 forwarding them to your backend. Point your DNS or load balancer at this
 host's port 8443.
 
+## See your traffic
+
+Open the dashboard in your browser:
+
+**http://localhost:8090**
+
+Log in with `admin` / `changeme` (change these in production by setting
+`MANAGEMENT_ADMIN_USER` and `MANAGEMENT_ADMIN_PASSWORD` environment variables).
+
+The dashboard shows every connection arriving at your server — fingerprints,
+risk scores, source countries, and top offenders. You can block fingerprints
+and IPs directly from the UI.
+
 ## Verify it works
 
 ```bash
@@ -41,9 +54,9 @@ curl -kv https://localhost:8443/
 docker compose logs ja4proxy | tail -20
 ```
 
-You should see log lines with JA4 fingerprints and risk scores. In monitor
-mode (the default), everything is allowed through — the proxy is scoring
-but not blocking.
+You should see log lines with JA4 fingerprints and risk scores, and the
+dashboard will update in real time. In monitor mode (the default), everything
+is allowed through — the proxy is scoring but not blocking.
 
 ## Start blocking
 
@@ -82,7 +95,7 @@ sudo setcap cap_net_bind_service=+ep ./bin/ja4pd
 
 ## What's next?
 
-You're running a minimal 2-container setup (proxy + Redis). For production:
+You're running a 3-container setup (proxy + Redis + dashboard). For production:
 
 | Next step | Guide |
 |-----------|-------|

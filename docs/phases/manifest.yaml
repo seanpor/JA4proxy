@@ -100,6 +100,8 @@ epics:
   - 236
   - 237
   - 238
+  - 245
+  - 246
 - name: 'Epic: Operational Excellence & Lifecycle Management'
   description: Zero-downtime upgrades, robust health monitoring, and deployment orchestration.
   phases:
@@ -3167,4 +3169,62 @@ phases:
     summary: "Complete. Real seccomp(2) BPF filter via raw syscalls (no cgo). JSON profile\
       \ loader, embedded default profile (~110 syscalls), --seccomp-profile flag. 8 unit\
       \ tests. PR #252."
+  246:
+    name: "Discovery, Onboarding & First-5-Minutes Experience"
+    status: OPEN
+    action_plan: docs/phases/PHASE_246.md
+    dependencies:
+    - 245
+    size: MEDIUM
+    summary: "README rewrite for non-technical audiences, GitHub repo description and
+      topics for discoverability, management dashboard in minimal docker-compose,
+      first-5-minutes onboarding guide, integration quick-reference cards."
+  246.1:
+    name: "GitHub Repo Description & Topics"
+    status: COMPLETE
+    completed: '2026-06-25'
+    action_plan: docs/phases/PHASE_246.md
+    dependencies: []
+    size: SMALL
+    summary: "Update GitHub repo description to lead with problem (bot protection),
+      add 13 discoverable topics including bot-protection, anti-bot, self-hosted."
+  246.2:
+    name: "README Rewrite for Humans"
+    status: COMPLETE
+    completed: '2026-06-25'
+    action_plan: docs/phases/PHASE_246.md
+    dependencies: []
+    size: MEDIUM
+    summary: "Restructure README: lead with problem, plain-English how-it-works,
+      will-this-break-my-site reassurance, emergency deploy with dashboard URL,
+      integration quick-reference, badges moved to bottom."
+  246.3:
+    name: "Management UI in Minimal Docker Compose"
+    status: COMPLETE
+    completed: '2026-06-25'
+    action_plan: docs/phases/PHASE_246.md
+    dependencies: []
+    size: SMALL
+    summary: "Add management dashboard service to docker-compose.yml with safe defaults.
+      Update EMERGENCY_DEPLOY.md to reference dashboard at localhost:8090."
+  246.4:
+    name: "First-5-Minutes Onboarding Guide"
+    status: COMPLETE
+    completed: '2026-06-25'
+    action_plan: docs/phases/PHASE_246.md
+    dependencies:
+    - 246.2
+    size: SMALL
+    summary: "Step-by-step guide in README covering dashboard, fingerprint review,
+      first block, dial adjustment, and recovery from accidental over-blocking."
+  246.5:
+    name: "Integration Quick-Reference Cards"
+    status: COMPLETE
+    completed: '2026-06-25'
+    action_plan: docs/phases/PHASE_246.md
+    dependencies:
+    - 246.2
+    size: MEDIUM
+    summary: "README section with 4 integration paths (direct, nginx, AWS NLB,
+      Cloudflare) each linking to full DEPLOYMENT_MODES.md instructions."
 

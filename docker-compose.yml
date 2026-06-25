@@ -1,7 +1,7 @@
-# JA4proxy — Minimal Quick Start
+# JA4proxy — Quick Start
 #
-# 2 containers: proxy + Redis. No HAProxy, no monitoring, no analytics.
-# Designed for emergency deployment and evaluation.
+# 3 containers: proxy + Redis + dashboard. Designed for emergency deployment
+# and evaluation.
 #
 # Usage:
 #   BACKEND_HOST=your-server.com docker compose up -d
@@ -9,6 +9,8 @@
 # The proxy listens on port 8443 (no root required) and forwards TLS
 # connections to BACKEND_HOST:443. It starts in monitor mode (dial=0):
 # scores everything, blocks nothing.
+#
+# Dashboard: http://localhost:8090 (admin / changeme — change in production!)
 #
 # For the full multi-container stack with HAProxy, monitoring, and analytics:
 #   docker compose -f deploy/docker/docker-compose.poc.yml up -d
@@ -43,6 +45,31 @@ services:
       driver: json-file
       options:
         max-size: "10m"
+        max-file: "3"
+
+  management:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.management
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${MANAGEMENT_PORT:-8090}:8090"
+    depends_on:
+      - redis
+    environment:
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-changeme}@redis:6379/0
+      - MANAGEMENT_JWT_SECRET=${MANAGEMENT_JWT_SECRET:-ja4proxy-quickstart-secret-change-me}
+      - MANAGEMENT_ADMIN_USER=${MANAGEMENT_ADMIN_USER:-admin}
+      - MANAGEMENT_ADMIN_PASSWORD=${MANAGEMENT_ADMIN_PASSWORD:-changeme}
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=10M
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
         max-file: "3"
 
   redis:
