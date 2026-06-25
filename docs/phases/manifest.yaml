@@ -3147,7 +3147,8 @@ phases:
       Cloudflare — each with config snippet and verify command."
   245.10:
     name: "Graceful GeoIP Degradation + Setup Guidance"
-    status: OPEN
+    status: COMPLETE
+    completed: '2026-06-25'
     action_plan: docs/phases/PHASE_245.md
     dependencies: []
     size: SMALL
