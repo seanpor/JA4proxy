@@ -381,7 +381,7 @@ func (a *SyncAgent) runPeerReplicationLoop(peerAddr string) error {
 				value, _ := msg.Values["value"].(string)
 				if op == "" || key == "" {
 					a.log.WithFields(logrus.Fields{"id": msg.ID, "values": msg.Values}).Warn("sync: malformed message, skipping")
-					a.rc.XAck(a.ctx, stream, group, msg.ID)
+					_ = a.rc.XAck(a.ctx, stream, group, msg.ID)
 					continue
 				}
 				event := SyncEvent{
