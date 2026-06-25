@@ -101,7 +101,7 @@ across instances:
 
 - Bans and CIDR bans (`ban:*`, `ban_cidr:*`)
 - Rate-limit sliding windows (`ratelimit:*`)
-- Dial setting (`dial:setting`)
+- Dial setting (`config:dial`)
 - JA4 whitelist and blacklist
 - Analytics findings from Phase 12
 

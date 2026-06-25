@@ -10,7 +10,7 @@ phase: 91
 ## Purpose
 
 Fulfils the GDPR "Right to be Forgotten" (Article 17) for live Redis state.
-For backup archive redaction, see `src/backup/redactor.py` (Phase 40).
+For backup archive redaction, see `ja4p restore --help` (Go backup tool).
 
 ## Live Redis Erasure
 
@@ -53,7 +53,7 @@ lists skipped HLL keys so the limitation is auditable.
 ### Backup archives are a separate concern
 
 Running `make gdpr-delete` erases **live Redis state only**. Backup archives created
-by Phase 19/40 must be separately redacted using `src/backup/redactor.py`.
+by Phase 19/40 must be separately redacted using `ja4p restore --help` (Go backup tool).
 
 ## Audit Trail
 
@@ -80,6 +80,6 @@ The log retains the last 1,000 entries with no TTL.
 
 ## Related
 
-- Phase 40: Backup archive DSAR redaction — `src/backup/redactor.py`
+- Phase 40: Backup archive DSAR redaction — `ja4p restore --help` (Go backup tool)
 - Phase 91: This runbook was introduced
 - Redis key: `management:gdpr_erasure_log`

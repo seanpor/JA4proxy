@@ -118,7 +118,7 @@ make stop
 ### Prometheus
 
 1. Open `http://<SERVER_IP>:9091`
-2. Try queries: `ja4proxy_connections_total`, `ja4proxy_blocked_total`, `up`
+2. Try queries: `ja4proxy_connections_total`, `ja4proxy_connections_total{action="block"}`, `up`
 3. Alert rules at `http://<SERVER_IP>:9093`
 
 ---
