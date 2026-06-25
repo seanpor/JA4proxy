@@ -2806,12 +2806,15 @@ phases:
     summary: Master planning document and implementation index for the 7-phase container and interface consolidation programme.
   232:
     name: Security Foundations & Quick Wins (Index)
-    status: PROPOSED
+    status: COMPLETE
+    completed: '2026-06-25'
     action_plan: docs/phases/PHASE_232.md
     dependencies:
     - 231
     size: SMALL
-    summary: Index/map for the security foundations and quick wins sub-phases.
+    summary: "Complete. All sub-phases (232a–e) finished: frontend asset vendoring,\
+      \ threat posture dashboard, container networking hardening, admin-API decommissioning,\
+      \ legacy module removal."
   232a:
     name: Frontend Asset Vendoring & Static Compilation
     status: COMPLETE
