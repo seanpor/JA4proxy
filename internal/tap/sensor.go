@@ -50,6 +50,9 @@ func NewSensor(linkType layers.LinkType, eventBuffer int) *Sensor {
 // Events returns the channel of emitted handshakes.
 func (s *Sensor) Events() <-chan HandshakeEvent { return s.events }
 
+// LinkType returns the capture link type this sensor was built for.
+func (s *Sensor) LinkType() layers.LinkType { return s.decoder.linkType }
+
 func (s *Sensor) deliver(e HandshakeEvent) {
 	select {
 	case s.events <- e:

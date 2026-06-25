@@ -1048,3 +1048,19 @@ sni_analyzer:
     - "localhost"
 sync:
   integrity_key_file: "config/integrity.key"
+
+# TAP/SPAN passive sensor configuration.
+# The sensor runs as a standalone binary (cmd/ja4-tap), not inline with this proxy.
+# These settings document the sensor's flags — they are NOT read by the proxy.
+# Interface, frame-size, and BPF are restart-only (cannot hot-reload).
+tap:
+  enabled: false
+  # interface: "eth0"          # Live capture interface (needs CAP_NET_RAW)
+  # pcap_file: ""              # Offline .pcap replay (no privileges needed)
+  # frame_size: 0              # AF_PACKET frame size (0 = library default)
+  # redis_url: ""              # Redis for fp:os:ip / fp:ja4t:ip writes (empty = dry-run)
+  # enforce: false             # ARM active ban:{ip} writes (off = advisory fp:ban_intent only)
+  # ja4t_blocklist: ""         # Comma-separated JA4T fingerprints to ban
+  # ban_ttl: "5m"              # TTL for sensor-written ban:{ip}
+  # intent_ttl: "1h"           # TTL for advisory fp:ban_intent:ip
+  # metrics_addr: ""           # Prometheus metrics endpoint (empty = disabled)

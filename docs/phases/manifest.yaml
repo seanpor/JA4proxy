@@ -2660,16 +2660,17 @@ phases:
       \ QUIC/JA4Q remains DEFERRED (conditional): the one genuine blind spot the inline TCP proxy cannot see, but it needs\
       \ a new UDP+QUIC-Initial subsystem and only earns its cost if QUIC/H3 enters the protected traffic."
   316a:
-    name: "Go TAP Core \u2014 Capture & TCP Reassembly"
-    status: PROPOSED
+    name: "Go TAP Core — Capture & TCP Reassembly"
+    status: COMPLETE
+    completed: '2026-06-25'
     action_plan: docs/phases/PHASE_316a.md
     dependencies:
     - 231b
     size: LARGE
-    summary: "OUTLINE \u2014 detailed plan before start. High-performance bidirectional TCP reassembly engine using gopacket\
-      \ + af_packet (mmap) or pcap (poll), following the capture-library ADR. ja4pd sensor subcommand: reads from interface\
-      \ or pcap file, reassembles flows, extracts TLS ClientHello/ServerHello (SNI, JA4, ALPN), and writes fp:ip:* records\
-      \ to Redis for the tap_consumer. PROPOSED \u2014 outline."
+    summary: "Complete. Standalone cmd/ja4-tap binary with AF_PACKET capture + PCAP offline\
+      \ replay, zero-copy layer decoder, gopacket/reassembly with 16KB per-direction cap,\
+      \ HandshakeEvent extraction, watchdog with rapid-crash detection, metrics (packets_received,\
+      \ packets_dropped, active_streams), ADR-316a, CHANGELOG fragment. 50+ tests. 2868 LOC."
   316b:
     name: Go TAP OS-Mismatch Signal (MVP)
     status: COMPLETE
