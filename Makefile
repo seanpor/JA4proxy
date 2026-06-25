@@ -1430,3 +1430,7 @@ preflight: ## Phase 332 — full local gate before opening a PR (lint + scan + t
 	@echo "✓ preflight passed — safe to open a PR"
 tap-build: ## Build standalone TAP sensor binary
 	GOBIN=$(GOPATH)/bin go build -o bin/ja4-tap ./cmd/ja4-tap
+
+# ── Phase 245.5: First-class admin CLI ───────────────────────────────────────
+admin: ## Run the ja4-admin incident response CLI (pass ARGS for commands)
+	@./scripts/ja4-admin.sh $(ARGS)

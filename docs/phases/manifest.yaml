@@ -3094,7 +3094,8 @@ phases:
       document direct mode (proxy_protocol: false) as default."
   245.4:
     name: "Emergency Dial Override"
-    status: OPEN
+    status: COMPLETE
+    completed: '2026-06-25'
     action_plan: docs/phases/PHASE_245.md
     dependencies: []
     size: MEDIUM
@@ -3102,7 +3103,8 @@ phases:
       infrastructure. Presets, auto-revert TTL, admin+MFA required."
   245.5:
     name: "Surface ja4-admin.sh as First-Class CLI"
-    status: OPEN
+    status: COMPLETE
+    completed: '2026-06-25'
     action_plan: docs/phases/PHASE_245.md
     dependencies:
     - 245.4
@@ -3135,7 +3137,8 @@ phases:
       with random Redis password, skip all optional integrations."
   245.9:
     name: "Deployment Guides for Non-HAProxy Environments"
-    status: OPEN
+    status: COMPLETE
+    completed: '2026-06-25'
     action_plan: docs/phases/PHASE_245.md
     dependencies: []
     size: SMALL

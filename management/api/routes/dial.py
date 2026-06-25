@@ -25,7 +25,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from ..audit_utils import write_audit
 from ..auth import _client_ip, require_mfa_verified, require_role
-from ..models import DialUpdateRequest, DialValue, Role
+from ..models import DialUpdateRequest, DialValue, EmergencyDialRequest, EMERGENCY_PRESETS, Role
 from ..redis_client import get_redis
 
 logger = logging.getLogger(__name__)
@@ -149,6 +149,82 @@ async def update_dial(
 
     return DialValue(
         value=body.value,
+        updated_at=datetime.now(timezone.utc).isoformat(),
+    )
+
+
+@router.post("/api/v1/dial/emergency", response_model=DialValue)
+async def emergency_dial(
+    body: EmergencyDialRequest,
+    request: Request,
+    current_user=Depends(require_role(Role.admin)),
+    _mfa=Depends(require_mfa_verified),
+    redis=Depends(get_redis),
+) -> DialValue:
+    """Set the dial to any value, bypassing the ±10 step limit.
+
+    Requires admin role + MFA. Always schedules an auto-revert (1-4 hours).
+    Reuses the Phase 237 config:dial_override key and revert poller.
+    """
+    identity, role = current_user
+
+    if body.value is not None and body.preset is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Provide either 'value' or 'preset', not both.",
+        )
+    if body.value is None and body.preset is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Provide either 'value' or 'preset'.",
+        )
+
+    target = body.value if body.value is not None else EMERGENCY_PRESETS[body.preset]
+    current = await _get_current_dial(redis)
+
+    from ..proxy_config import get_proxy_config
+    cfg = get_proxy_config()
+    key_path = (cfg.get("sync") or {}).get("integrity_key_file")
+
+    if key_path and os.path.exists(key_path):
+        try:
+            with open(key_path, "rb") as f:
+                key = f.read().strip()
+            if key:
+                sig = hmac.new(key, str(target).encode(), hashlib.sha256).hexdigest()
+                await redis.set(_DIAL_KEY + ":sig", sig)
+        except Exception as e:
+            logger.error("dial | event=sign_failed | error=%s", e)
+
+    await redis.set(_DIAL_KEY, str(target))
+
+    expires_at = int(datetime.now(timezone.utc).timestamp()) + body.revert_after_hours * 3600
+    override_key = "config:dial_override"
+    await redis.set(override_key, json.dumps({
+        "original_value": current,
+        "override_value": target,
+        "expires_at_epoch": expires_at,
+    }))
+
+    logger.warning(
+        "dial | event=emergency_override | user=%s | from=%d | to=%d | preset=%s | revert_hours=%d",
+        identity, current, target, body.preset, body.revert_after_hours,
+    )
+
+    await write_audit(
+        redis,
+        actor_id=identity,
+        actor_ip=_client_ip(request),
+        action_type="dial.emergency",
+        resource_type="dial",
+        resource_id=None,
+        before_value={"value": current},
+        after_value={"value": target, "preset": body.preset, "revert_hours": body.revert_after_hours},
+        role=role.value,
+    )
+
+    return DialValue(
+        value=target,
         updated_at=datetime.now(timezone.utc).isoformat(),
     )
 
