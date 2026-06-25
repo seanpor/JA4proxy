@@ -129,7 +129,7 @@ func run(pcapFile, iface string, frameSize int, quiet bool, redisURL string, enf
 		log.WithError(err).Warn("failed to load seccomp profile; proceeding without seccomp")
 	}
 
-	return drive(ctx, tap.NewSensor(lt, 1024), src, closeFn, store, enforcer, quiet, log)
+	return drive(ctx, lt, src, closeFn, store, enforcer, quiet, log)
 }
 
 // warnEnforcementPosture emits the startup WARN + records the posture the same
@@ -172,18 +172,15 @@ func buildBackends(redisURL string, enfCfg tap.EnforcerConfig, log *logrus.Logge
 	return tap.NewStore(adapter), tap.NewEnforcer(enfCfg, adapter), nil
 }
 
-func drive(ctx context.Context, sensor *tap.Sensor, source tap.PacketSource, closeFn func() error, store *tap.Store, enforcer *tap.Enforcer, quiet bool, log *logrus.Logger) error {
+func drive(ctx context.Context, lt layers.LinkType, source tap.PacketSource, closeFn func() error, store *tap.Store, enforcer *tap.Enforcer, quiet bool, log *logrus.Logger) error {
 	defer func() { _ = closeFn() }()
 
 	wd := tap.NewWatchdog(log)
 	return wd.Run(ctx,
 		func() (tap.PacketSource, func(), error) {
-			// On restart, re-open the source. For pcap files this is
-			// problematic (can't seek), so restarts only make sense for
-			// live sources. Pcap crashes just return the error.
 			return source, func() {}, nil
 		},
-		func() *tap.Sensor { return tap.NewSensor(sensor.LinkType(), 1024) },
+		func() *tap.Sensor { return tap.NewSensor(lt, 1024) },
 		func(s *tap.Sensor) {
 			var count int
 			for ev := range s.Events() {
