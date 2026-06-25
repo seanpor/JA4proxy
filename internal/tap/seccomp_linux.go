@@ -100,7 +100,7 @@ type sockFilter struct {
 }
 
 func buildBPFFilter(allow map[int]bool, errno int) []sockFilter {
-	deniedRet := seccompRetErrno | uint32(errno&0xFF)
+	deniedRet := seccompRetErrno | uint32(errno&0xFF) //nolint:gosec // errno is bounded to 0-255 by caller
 
 	sorted := make([]int, 0, len(allow))
 	for nr := range allow {
