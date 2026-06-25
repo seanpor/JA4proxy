@@ -41,6 +41,8 @@ from . import redis_client
 from .auth import router as auth_router
 from .middleware.csrf import CSRFMiddleware
 from .routes import (
+    attack,  # phase-247
+    attack_mode,  # phase-247
     audit,
     bans,
     canonical_lists,
@@ -251,6 +253,8 @@ def create_app() -> FastAPI:
     app.include_router(threat_intel.router)  # phase-85
     app.include_router(snapshots.router)  # phase-237
     app.include_router(tls_health_routes.router)  # phase-237
+    app.include_router(attack_mode.router)  # phase-247
+    app.include_router(attack.router)  # phase-247
 
     # HTML page routes (auth enforced per-route via Depends)
     app.include_router(pages.router)

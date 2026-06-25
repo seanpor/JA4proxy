@@ -94,6 +94,19 @@ EMERGENCY_PRESETS: dict[str, int] = {
 }
 
 
+# ── Attack Mode models ────────────────────────────────────────────────────────
+
+
+class AttackModeStatus(BaseModel):
+    """Response from GET/POST/DELETE /api/v1/attack-mode."""
+
+    active: bool
+    dial: Optional[int] = None
+    original_dial: Optional[int] = None
+    reverts_at: Optional[str] = None
+    message: str = ""
+
+
 # ── List models ───────────────────────────────────────────────────────────────
 
 
