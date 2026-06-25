@@ -366,6 +366,10 @@ func (p *Pipeline) beaconingWorker() {
 
 // auditWorker processes mesh drift audit jobs from a bounded channel.
 // Prevents unbounded goroutine growth when Redis is slow.
+// The goroutine lifetime is tied to the process — the Pipeline is never
+// shut down, so the channel is never closed. This is intentional: the
+// process exits on SIGINT/SIGTERM, and adding a Stop() method would
+// require plumbing shutdown through the entire call chain for no benefit.
 func (p *Pipeline) auditWorker() {
 	for job := range p.auditJobs {
 		p.auditDecision(job.ctx, job.ip, job.currentScore)
