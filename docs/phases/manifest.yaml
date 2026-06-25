@@ -2986,13 +2986,6 @@ phases:
     - 231b
     summary: "Complete. bootstrap.sh calls ja4p init (Go-native wizard), Python wizard
       archived with deprecation banner, 231b doc archived, manifest synced."
-    - 161
-    - 231a
-    size: SMALL
-    summary: 'Close-out of Phase 231b: update bootstrap.sh to use ja4p init (Go wizard, Phase 161) instead of the deprecated
-      Python setup_wizard.py, archive superseded Python wizard, fix LaTeX install chapter to reflect Go-native wizard and
-      remove stale TAP/Python references, mark Phase 231b COMPLETE. Deferred: real-host VM E2E validation (requires external
-      infra).'
   335:
     name: "TAP Sensor Hardening \u2014 Phase 334 Findings Remediation"
     status: COMPLETE
