@@ -29,18 +29,14 @@ unknown IPs receive a score of 0 (fail open — they are not penalised for the c
 
 **Check current quota:**
 ```bash
-redis-cli GET abuseipdb:quota:remaining
-# Returns integer: remaining lookups today
-# Key has TTL aligned to UTC midnight reset
+# AbuseIPDB quota is not tracked in Redis — check Prometheus metric
+ja4proxy_abuseipdb_lookups_total
 ```
 
 **Check recent error rate:**
 ```bash
 # Prometheus metric
 ja4proxy_abuseipdb_lookups_total{result="error"}
-
-# Redis key for last error timestamp
-redis-cli GET abuseipdb:last_error
 ```
 
 **Immediate mitigation — disable AbuseIPDB temporarily:**
@@ -120,11 +116,11 @@ redis-cli DEL rdap:tokens:ripe
 # The bucket is recreated with full tokens on the next RDAP lookup attempt.
 ```
 
-**Check RDAP error rate:**
+**Check RDAP enrichment status:**
 ```bash
-# Prometheus
-ja4proxy_rdap_lookups_total{result="error"}
-ja4proxy_rdap_lookups_total{result="timeout"}
+# RDAP token buckets are managed in-memory, not Redis
+# Check queue depth via Prometheus
+ja4proxy_rdap_enrichment_queue_depth
 ```
 
 ### Block expansion emergency disable
@@ -172,7 +168,7 @@ docker compose kill -s SIGHUP proxy
 
 ### DNS resolver unreachable
 
-**Alert indicator:** `ja4proxy_dns_enrichment_errors_total` counter rising rapidly.
+**Alert indicator:** `ja4proxy_dns_enrichment_total{result="error"}` counter rising rapidly.
 
 The DNS enrichment worker performs async PTR lookups (FCrDNS). If the configured resolver
 is unreachable, all lookups fail with NXDOMAIN or timeout.
@@ -180,9 +176,9 @@ is unreachable, all lookups fail with NXDOMAIN or timeout.
 **Check error counter:**
 ```bash
 # Prometheus
-ja4proxy_dns_enrichment_errors_total{error_type="timeout"}
-ja4proxy_dns_enrichment_errors_total{error_type="nxdomain"}
-ja4proxy_dns_enrichment_errors_total{error_type="servfail"}
+ja4proxy_dns_enrichment_total{result="error"}
+ja4proxy_dns_ptr_errors_total
+ja4proxy_dns_resolver_errors_total
 ```
 
 **Check queue depth:**

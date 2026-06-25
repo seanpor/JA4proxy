@@ -106,6 +106,6 @@ If issues are detected, rollback takes < 30 seconds:
 
 Key Grafana panels to watch:
 - `ja4proxy_connections_total` by action (should match Python rates)
-- `ja4proxy_risk_score_distribution` (should match Python distribution)
+- `ja4proxy_risk_score` (should match Python distribution)
 - `ja4proxy_active_connections` (should be bounded)
 - Go runtime metrics: `go_goroutines`, `go_gc_duration_seconds`

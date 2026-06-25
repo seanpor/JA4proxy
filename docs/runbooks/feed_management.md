@@ -145,15 +145,15 @@ INFO | asn_classifier | event=db_reloaded | path=/data/geoip/GeoLite2-ASN.mmdb
 
 **Verify new database is active:**
 ```bash
-# Check the mtime stored in Redis (written after each successful reload)
-redis-cli GET geoip:db:mtime
-# Compare against the filesystem mtime of the .mmdb file
+# GeoIP database is loaded at startup from file, not tracked in Redis
+# Check the filesystem mtime of the .mmdb file
 stat /data/geoip/GeoLite2-ASN.mmdb
 ```
 
 **Database age check:**
 ```bash
-redis-cli GET geoip:db:mtime
+# Check filesystem mtime directly
+stat -c %Y /data/geoip/GeoLite2-ASN.mmdb
 # Value is Unix timestamp. Age = now - mtime.
 # Alert if age > 30 days (2592000 seconds).
 ```

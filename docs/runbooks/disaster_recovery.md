@@ -119,7 +119,7 @@ No ban or rate-limit state is lost.
 
 **Symptoms:**
 - HAProxy backend health check marks the node as DOWN
-- `ja4proxy_haproxy_backend_status` metric shows backend as DOWN in Grafana
+- `haproxy_backend_status` metric shows backend as DOWN in Grafana (via HAProxy exporter)
 - Brief increase in connection errors (during the `fall` window)
 - Traffic redistributes to remaining healthy nodes
 
@@ -181,7 +181,7 @@ docker compose -f deploy/docker/docker-compose.poc.yml exec haproxy \
 **Symptoms:**
 - All HAProxy backends marked DOWN
 - 503 errors to all users
-- `ja4proxy_haproxy_backend_status` shows all backends DOWN
+- `haproxy_backend_status` shows all backends DOWN (via HAProxy exporter)
 - Health endpoint unreachable (all proxy nodes down)
 - **P1 incident** — declare immediately
 
@@ -253,7 +253,7 @@ is lost and rebuilds from live traffic (1–4 hours).
 ## Scenario 4: Config corruption / malformed dial
 
 **Symptoms:**
-- Sudden spike or drop in block rate (check Grafana `ja4proxy_blocks_total`)
+- Sudden spike or drop in block rate (check Grafana `ja4proxy_connections_total{action="block"}`)
 - Dial value changed unexpectedly — check health endpoint:
   ```bash
   curl -sf http://localhost:8090/api/v1/health/deep | python3 -c \
@@ -367,23 +367,14 @@ else
     echo "Latest backup: $LATEST"
 fi
 
-# Restore using the Phase 19 Python backup tool
+# Restore using the Go backup tool
 BACKUP_DIR="/var/backups/ja4proxy/backups"
 BACKUP_FILE="backup_<TIMESTAMP>.bin"  # Replace with actual filename from above
-python3 -c "
-from src.backup.restorer import BackupRestorer
-restorer = BackupRestorer(
-    redis_host='localhost',
-    redis_port=6379,
-    redis_db=0,
-    encryption_key='${BACKUP_ENCRYPTION_KEY:-}',
-)
-restorer.restore_backup(
-    backup_path='${BACKUP_DIR}/${BACKUP_FILE}',
-    manifest_path='${BACKUP_DIR}/${BACKUP_FILE}.manifest.json',
-    destructive=False,
-)
-"
+ja4p restore \
+  --backup "${BACKUP_DIR}/${BACKUP_FILE}" \
+  --key "${BACKUP_ENCRYPTION_KEY:-}" \
+  --redis-url "redis://:${REDIS_PASSWORD}@localhost:6379/0" \
+  --no-destructive
 ```
 
 **Verify restoration:**

@@ -18,11 +18,10 @@ This document analyzes threats specific to the backup and restore framework impl
 ## System Components
 
 ### In Scope
-- `src/backup/worker.py` — Backup creation and retention
-- `src/backup/restorer.py` — Restore operations
-- `src/backup/policy.py` — Key inclusion/exclusion policy
-- `src/cli/backup_cli.py` — CLI interface
-- Backup artifacts (`.bin` and `.manifest.json` files)
+- `cmd/ja4p/backup.go` — Backup creation and retention (Go)
+- `cmd/ja4p/restore.go` — Restore operations (Go)
+- `internal/backup/` — Backup policy and key management
+- Backup artifacts (`.bin` files with AES-256-GCM encryption)
 - Redis control keys (`backup:*`)
 
 ### Out of Scope

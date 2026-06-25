@@ -135,7 +135,7 @@ func buildBPFFilter(allow map[int]bool) []sockFilter {
 	if archJmpOffset <= 255 {
 		filter = append(filter, sockFilter{
 			Code: 0x15, // BPF_JMP | BPF_JEQ | BPF_K
-			Jt:   0, Jf: uint8(archJmpOffset),
+			Jt:   0, Jf: uint8(archJmpOffset), //nolint:gosec // bounds-checked above
 			K:    auditArchX86_64,
 		})
 	} else {
@@ -150,7 +150,7 @@ func buildBPFFilter(allow map[int]bool) []sockFilter {
 		// BPF_JA offset = (4 + 2*N) - (2 + 1) = 2*N + 1.
 		filter = append(filter, sockFilter{
 			Code: 0x05, // BPF_JMP | BPF_JA
-			K:    uint32(2*len(sorted) + 1),
+			K:    uint32(2*len(sorted) + 1), //nolint:gosec // BPF offset, bounded by filter size
 		})
 	}
 
@@ -166,7 +166,7 @@ func buildBPFFilter(allow map[int]bool) []sockFilter {
 		filter = append(filter, sockFilter{
 			Code: 0x15, // BPF_JMP | BPF_JEQ | BPF_K
 			Jt:   0, Jf: 1,
-			K:    uint32(nr),
+			K:    uint32(nr), //nolint:gosec // syscall numbers are positive ints
 		})
 		filter = append(filter, sockFilter{
 			Code: 0x06, // BPF_RET | BPF_K

@@ -158,9 +158,9 @@ restored state has been verified.
 Within 15 minutes of completing the rollout:
 
 1. All HAProxy backends UP; no node flapping.
-2. `ja4proxy_redis_errors_total` flat (no new errors after upgrade).
+2. `ja4proxy_redis_operations_total{result="error"}` flat (no new errors after upgrade).
 3. Block-rate within ±20% of pre-upgrade baseline (Grafana
-   `ja4proxy_blocks_total`).
+   `ja4proxy_connections_total{action="block"}`).
 4. Latency P99 within 20% of pre-upgrade baseline.
 5. Threat-intel feeds green (`ti_feed_health.md` checks).
 6. Dial value matches the value recorded in §3 (or has been deliberately

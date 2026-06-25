@@ -265,7 +265,7 @@ services:
     ports:
       # 0046: loopback-or-private only (never 0.0.0.0) — Prometheus UI for
       # debugging. Was published on 0.0.0.0:9091. Matches the grafana binding.
-      - "${AGENT_BIND_IP:-127.0.0.1}:9091:9090"
+      - "${AGENT_BIND_IP:-127.0.0.1}:${HOST_PORT_PROMETHEUS:-9091}:9090"
     volumes:
       - ../monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ../monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
@@ -395,6 +395,8 @@ networks:
 secrets:
   redis_password:
     file: ../secrets/redis_password.txt
+  analytics_redis_password:
+    file: ../secrets/analytics_redis_password.txt
   grafana_password:
     file: ../secrets/grafana_password.txt
   abuseipdb_api_key:
