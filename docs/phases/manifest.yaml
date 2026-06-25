@@ -2447,9 +2447,9 @@ phases:
       \ Scorecard \"highs\" documented as benign noise; 9 CodeQL Python findings left as case-by-case follow-up (no blanket\
       \ suppression)."
   309:
-    name: "Documentation Content Audit \u2014 Source-of-Truth Review of All Docs"
-    status: IN_PROGRESS
-    action_plan: docs/phases/PHASE_309.md
+    name: "Documentation Content Audit — Source-of-Truth Review of All Docs"
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_309.md
     dependencies:
     - 307
     size: LARGE
@@ -3003,7 +3003,7 @@ phases:
       OptionOrder, packaging (Dockerfile, compose service, Redis ACL user, tap config section), structured logging flags,
       ServerHello edge case fix, TLS version validation, and Phase 316a manifest status update.
   336:
-    name: "Security Hardening \u2014 Capability Drop, Seccomp, Poll Timeout, Metrics, Panic Recovery"
+    name: "Security Hardening — Capability Drop, Seccomp, Poll Timeout, Metrics, Panic Recovery"
     status: COMPLETE
     action_plan: docs/phases/complete/PHASE_336.md
     dependencies:
@@ -3012,6 +3012,17 @@ phases:
     summary: Isolated deferred security hardening from Phase 335 into independent phase. Created internal/tap/hardening.go
       with DropCapabilities() and LoadSeccomp() (placeholder), wired into cmd/ja4-tap/main.go, fixed Makefile tap-build target
       (missing TAB), fixed changelog fragment bullet syntax, and registered Phase 335/336 in manifest.
+  340:
+    name: "Documentation Audit Refresh — Post-Phase-309 Reconciliation"
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_340.md
+    dependencies:
+    - 309
+    size: LARGE
+    summary: "Comprehensive doc audit completing Phase 309 residuals. WP-R1: REDIS_SCHEMA key-by-key audit. WP-R2: OBSERVABILITY
+      census (skipped). WP-R3: Runbooks batch-2 audit. WP-R4: findings.yaml regression_test repointing. WP-R5: ADR status
+      validation. WP-R6: Security/compliance/config/API doc audit. WP-R7: Final sweep (Redis keys, metrics, template.env,
+      docker-compose, dangling links)."
   400:
     name: Comprehensive Security Review
     status: DEFERRED
@@ -3055,8 +3066,8 @@ phases:
       \ under IEEE 1044 dimensions."
   245:
     name: "Front Door — Time-to-Protection & Operator UX"
-    status: OPEN
-    action_plan: docs/phases/PHASE_245.md
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_245.md
     dependencies: []
     size: LARGE
     summary: "Usability overhaul addressing the gap between product capability and operator
