@@ -21,6 +21,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/gopacket/gopacket/layers"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
@@ -94,34 +95,37 @@ func run(pcapFile, iface string, frameSize int, quiet bool, redisURL string, enf
 	if err != nil {
 		return err
 	}
-	// Apply post-bind security hardening before starting the capture loop.
-	if err := tap.DropCapabilities(); err != nil {
-		log.WithError(err).Warn("failed to drop capabilities; proceeding with current UID/GID")
-	}
-	// Seccomp: not implemented. A proper profile requires per-syscall auditing
-	// of the TAP sensor's AF_PACKET + metric-export paths. DropCapabilities()
-	// above already drops root, which limits blast radius. See JA4PROXY-2026-0081.
 	warnEnforcementPosture(redisURL, enfCfg, log)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
+	var src tap.PacketSource
+	var lt layers.LinkType
+	var closeFn func() error
+
 	if pcapFile != "" {
-		src, lt, closeFn, err := tap.OpenPcapFile(pcapFile)
+		src, lt, closeFn, err = tap.OpenPcapFile(pcapFile)
 		if err != nil {
 			return fmt.Errorf("open pcap: %w", err)
 		}
-		return drive(ctx, tap.NewSensor(lt, 1024), src, closeFn, store, enforcer, quiet, log)
+	} else {
+		var liveClose func()
+		src, lt, liveClose, err = tap.NewLiveSource(iface, frameSize)
+		if err != nil {
+			return fmt.Errorf("open live interface %q: %w", iface, err)
+		}
+		closeFn = func() error { liveClose(); return nil }
 	}
 
-	// Live capture. Capability drop + seccomp + kernel BPF are deferred to
-	// 316a increment 2; warn loudly so this isn't mistaken for hardened.
-	log.Warn("live capture: capability-drop, seccomp and kernel BPF are not yet wired (316a increment 2) — run with NET_RAW only")
-	src, lt, closeFn, err := tap.NewLiveSource(iface, frameSize)
-	if err != nil {
-		return fmt.Errorf("open live interface %q: %w", iface, err)
+	// Drop capabilities AFTER socket creation — AF_PACKET (live capture) requires
+	// CAP_NET_RAW which is needed before this point. For pcap-file mode this is
+	// harmless (no special caps needed) but we apply it uniformly.
+	if err := tap.DropCapabilities(); err != nil {
+		log.WithError(err).Warn("failed to drop capabilities; proceeding with current UID/GID")
 	}
-	return drive(ctx, tap.NewSensor(lt, 1024), src, func() error { closeFn(); return nil }, store, enforcer, quiet, log)
+
+	return drive(ctx, tap.NewSensor(lt, 1024), src, closeFn, store, enforcer, quiet, log)
 }
 
 // warnEnforcementPosture emits the startup WARN + records the posture the same
