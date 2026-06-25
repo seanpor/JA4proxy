@@ -3044,16 +3044,16 @@ phases:
       second pass).'
   501:
     name: 'Codebase Bug Hunt — Pass 2 (IEEE 1044 Classification)'
-    status: IN_PROGRESS
+    status: COMPLETE
+    completed: '2026-06-25'
     action_plan: docs/phases/PHASE_501.md
     dependencies:
     - 500
     size: XLARGE
-    summary: 'Second pass of bug hunt organized by IEEE 1044-2009 classification
-      (activity, type, severity, cause) rather than CWE family. Targets coverage
-      gaps in Phase 500: algorithm correctness, design flaws, interface contracts,
-      timing/lifecycle, test adequacy, documentation accuracy, data integrity.
-      Every finding classified on all 4 IEEE 1044 dimensions.'
+    summary: "Complete. IEEE 1044 second-pass bug hunt across 7 sub-phases (501a–g):\
+      \ algorithm correctness, design, interface contracts, timing/lifecycle, test adequacy,\
+      \ documentation, data integrity. Fixes merged via PRs #231 and #249. All findings reclassified\
+      \ under IEEE 1044 dimensions."
   244:
     name: Seccomp Hardening for TAP Sensor
     status: COMPLETE
