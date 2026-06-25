@@ -1431,6 +1431,9 @@ preflight: ## Phase 332 — full local gate before opening a PR (lint + scan + t
 tap-build: ## Build standalone TAP sensor binary
 	GOBIN=$(GOPATH)/bin go build -o bin/ja4-tap ./cmd/ja4-tap
 
-# ── Phase 245.5: First-class admin CLI ───────────────────────────────────────
+# ── Phase 245: First-class admin CLI + minimal init ──────────────────────────
 admin: ## Run the ja4-admin incident response CLI (pass ARGS for commands)
 	@./scripts/ja4-admin.sh $(ARGS)
+
+init-minimal: setup-build ## Emergency init: prompt for BACKEND_HOST, generate .env, done
+	@./bin/ja4p init --minimal

@@ -3129,7 +3129,8 @@ phases:
       (country table with one-click block)."
   245.8:
     name: "ja4p init --minimal Fast Path"
-    status: OPEN
+    status: COMPLETE
+    completed: '2026-06-25'
     action_plan: docs/phases/PHASE_245.md
     dependencies: []
     size: SMALL
