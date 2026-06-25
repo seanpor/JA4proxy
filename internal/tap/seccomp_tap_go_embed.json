@@ -1,0 +1,48 @@
+{
+  "_comment": "Seccomp allowlist for JA4proxy TAP sensor — Go binary (Phase 244).",
+  "_description": "Restricts the TAP sensor to only required syscalls. Derived from proxy.json with AF_PACKET additions. No fork/exec/ptrace. Applied in-process via raw BPF (CGO_ENABLED=0 compatible).",
+  "defaultAction": "SCMP_ACT_ERRNO",
+  "defaultErrnoRet": 1,
+  "syscalls": [
+    {
+      "names": [
+        "socket", "bind", "listen", "accept", "accept4", "connect",
+        "sendto", "recvfrom", "sendmsg", "recvmsg", "sendmmsg", "recvmmsg",
+        "setsockopt", "getsockopt", "shutdown", "getpeername", "getsockname",
+        "read", "write", "readv", "writev", "pread64", "pwrite64",
+        "open", "openat", "close", "stat", "fstat", "lstat", "lseek",
+        "newfstatat", "statx",
+        "mmap", "mprotect", "munmap", "madvise", "mincore", "msync",
+        "brk", "mremap",
+        "ioctl",
+        "preadv", "pwritev", "preadv2", "pwritev2",
+        "getpid", "getppid", "getuid", "getgid", "geteuid", "getegid",
+        "getgroups", "getpgrp", "gettid",
+        "getrlimit", "setrlimit", "prlimit64",
+        "getrusage", "uname", "sysinfo", "times",
+        "gettimeofday", "clock_gettime", "clock_getres", "clock_nanosleep",
+        "rt_sigaction", "rt_sigprocmask", "rt_sigreturn", "sigaltstack",
+        "kill", "tkill", "tgkill",
+        "futex", "set_tid_address", "set_robust_list", "get_robust_list",
+        "nanosleep", "poll", "ppoll", "pselect6",
+        "epoll_create", "epoll_create1", "epoll_ctl", "epoll_wait", "epoll_pwait",
+        "eventfd", "eventfd2", "pipe", "pipe2",
+        "select",
+        "dup", "dup2", "dup3",
+        "fcntl", "flock", "fsync", "fdatasync",
+        "access", "faccessat",
+        "chdir", "fchdir", "getcwd",
+        "readlink", "readlinkat",
+        "truncate", "ftruncate",
+        "exit", "exit_group",
+        "prctl", "arch_prctl",
+        "getrandom", "memfd_create",
+        "clone", "rseq",
+        "splice", "tee",
+        "inotify_add_watch", "inotify_rm_watch", "inotify_init1",
+        "fanotify_mark"
+      ],
+      "action": "SCMP_ACT_ALLOW"
+    }
+  ]
+}
