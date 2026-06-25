@@ -11,17 +11,18 @@ import (
 // (PHASE_316a §3 zero-copy decode). A decoder is NOT safe for concurrent use;
 // each sensor owns one and decodes packets on a single goroutine.
 type decoder struct {
-	parser  *gopacket.DecodingLayerParser
-	eth     layers.Ethernet
-	ip4     layers.IPv4
-	ip6     layers.IPv6
-	tcp     layers.TCP
-	payload gopacket.Payload
-	decoded []gopacket.LayerType
+	parser   *gopacket.DecodingLayerParser
+	linkType layers.LinkType
+	eth      layers.Ethernet
+	ip4      layers.IPv4
+	ip6      layers.IPv6
+	tcp      layers.TCP
+	payload  gopacket.Payload
+	decoded  []gopacket.LayerType
 }
 
 func newDecoder(linkType layers.LinkType) *decoder {
-	d := &decoder{decoded: make([]gopacket.LayerType, 0, 6)}
+	d := &decoder{linkType: linkType, decoded: make([]gopacket.LayerType, 0, 6)}
 	d.parser = gopacket.NewDecodingLayerParser(
 		firstLayerType(linkType),
 		&d.eth, &d.ip4, &d.ip6, &d.tcp, &d.payload,

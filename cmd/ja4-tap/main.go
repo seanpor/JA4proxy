@@ -171,50 +171,50 @@ func buildBackends(redisURL string, enfCfg tap.EnforcerConfig, log *logrus.Logge
 func drive(ctx context.Context, sensor *tap.Sensor, source tap.PacketSource, closeFn func() error, store *tap.Store, enforcer *tap.Enforcer, quiet bool, log *logrus.Logger) error {
 	defer func() { _ = closeFn() }()
 
-	done := make(chan error, 1)
-	go func() { defer tap.Recover(done, sensor); done <- sensor.Run(ctx, source) }()
+	wd := tap.NewWatchdog(log)
+	return wd.Run(ctx,
+		func() (tap.PacketSource, func(), error) {
+			// On restart, re-open the source. For pcap files this is
+			// problematic (can't seek), so restarts only make sense for
+			// live sources. Pcap crashes just return the error.
+			return source, func() {}, nil
+		},
+		func() *tap.Sensor { return tap.NewSensor(sensor.LinkType(), 1024) },
+		func(s *tap.Sensor) {
+			var count int
+			for ev := range s.Events() {
+				count++
+				class := tap.Classify(ev.Stack)
+				ja4t := tap.ComputeJA4T(ev.Stack)
 
-	var count int
-	for ev := range sensor.Events() {
-		count++
-		class := tap.Classify(ev.Stack)
-		ja4t := tap.ComputeJA4T(ev.Stack)
+				wctx, cancel := context.WithTimeout(context.Background(), storeWriteTimeout)
+				store.WriteOSClass(wctx, ev.ClientIP, class)
+				store.WriteJA4T(wctx, ev.ClientIP, ja4t)
+				enforcer.Consider(wctx, ev.ClientIP, ja4t)
+				cancel()
 
-		// Fire-and-forget, time-bounded writes; fail-open on a slow/unreachable
-		// Redis (the store also no-ops Unknown classes, empty JA4T, and the nil
-		// backend). Both writes share one deadline so the drain can't stall.
-		wctx, cancel := context.WithTimeout(context.Background(), storeWriteTimeout)
-		store.WriteOSClass(wctx, ev.ClientIP, class)
-		store.WriteJA4T(wctx, ev.ClientIP, ja4t)
-		enforcer.Consider(wctx, ev.ClientIP, ja4t)
-		cancel()
-
-		if !quiet {
-			sh := "none"
-			if ev.HasServerHello() {
-				sh = fmt.Sprintf("%d bytes", len(ev.ServerHello))
+				if !quiet {
+					sh := "none"
+					if ev.HasServerHello() {
+						sh = fmt.Sprintf("%d bytes", len(ev.ServerHello))
+					}
+					ja4tField := ja4t
+					if ja4tField == "" {
+						ja4tField = "none"
+					}
+					log.WithFields(logrus.Fields{
+						"client":       fmt.Sprintf("%s:%d", ev.ClientIP, ev.ClientPort),
+						"server":       fmt.Sprintf("%s:%d", ev.ServerIP, ev.ServerPort),
+						"client_hello": fmt.Sprintf("%d bytes", len(ev.ClientHello)),
+						"server_hello": sh,
+						"os_class":     class.String(),
+						"ja4t":         ja4tField,
+					}).Info("handshake")
+				}
 			}
-			ja4tField := ja4t
-			if ja4tField == "" {
-				ja4tField = "none"
-			}
-			log.WithFields(logrus.Fields{
-				"client":       fmt.Sprintf("%s:%d", ev.ClientIP, ev.ClientPort),
-				"server":       fmt.Sprintf("%s:%d", ev.ServerIP, ev.ServerPort),
-				"client_hello": fmt.Sprintf("%d bytes", len(ev.ClientHello)),
-				"server_hello": sh,
-				"os_class":     class.String(),
-				"ja4t":         ja4tField,
-			}).Info("handshake")
-		}
-	}
-
-	runErr := <-done
-	log.WithField("handshakes", count).Info("capture finished")
-	if runErr != nil && runErr != context.Canceled {
-		return runErr
-	}
-	return nil
+			log.WithField("handshakes", count).Info("capture finished")
+		},
+	)
 }
 
 // startMetricsServer registers Prometheus metrics and /health endpoint if addr is non-empty.
