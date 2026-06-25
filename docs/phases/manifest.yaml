@@ -3054,4 +3054,14 @@ phases:
       gaps in Phase 500: algorithm correctness, design flaws, interface contracts,
       timing/lifecycle, test adequacy, documentation accuracy, data integrity.
       Every finding classified on all 4 IEEE 1044 dimensions.'
+  244:
+    name: Seccomp Hardening for TAP Sensor
+    status: IN_PROGRESS
+    action_plan: docs/phases/PHASE_244.md
+    dependencies:
+    - 336
+    size: MEDIUM
+    summary: Replace placeholder LoadSeccomp() with real BPF filter loading from JSON
+      profile. In-process seccomp via raw syscalls (no cgo) + Docker-level profile.
+      Addresses F-400-02 (issue #244).
 

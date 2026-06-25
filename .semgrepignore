@@ -1,0 +1,6 @@
+internal/tap/hardening_test.go
+internal/tap/seccomp_linux.go
+internal/test/bench/ja4bench.go
+*_test.go
+**/test_*.py
+**/tests/**
