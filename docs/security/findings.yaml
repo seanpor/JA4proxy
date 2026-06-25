@@ -1926,7 +1926,7 @@ findings:
   status: OPEN
   supersedes: []
   depends_on: []
-  regression_test: ''
+  regression_test: cmd/ja4pd/pentest_f003_f005_test.go::TestReassemblyLogLevel
   closed_commit: deeb2b617fb15ee629a27e40e52263a4e8e38a78
   cvss_v3_1:
     score: 3.1
@@ -2134,7 +2134,7 @@ findings:
   status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: internal/security/pipeline_test.go:TestPipeline_AuditWorkerBounded
+  regression_test: internal/security/pipeline_test.go::TestPipeline_AuditWorkerBounded
   closed_commit: ''
   cvss_v3_1:
     score: 7.5
@@ -2171,7 +2171,7 @@ findings:
   status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: cmd/ja4pd/main_test.go:TestForward_ConfigLocalCapture
+  regression_test: cmd/ja4pd/pentest_forward_config_local_capture_test.go::TestForward_ConfigLocalCapture
   closed_commit: ''
   cvss_v3_1:
     score: 7.5
@@ -2210,7 +2210,7 @@ findings:
   status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: internal/security/pipeline_test.go:TestPipeline_ConfigReadUnderLock
+  regression_test: internal/security/pipeline_test.go::TestPipeline_ConfigReadUnderLock
   closed_commit: ''
   cvss_v3_1:
     score: 5.3
@@ -2241,11 +2241,11 @@ findings:
   owner: '@seanpor'
   lane: go-proxy
   discovered: '2026-06-24'
-  due: '2026-08-21'
+  due: '2026-08-23'
   status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: internal/redis/pentest_keyfile_permissions_test.go::TestRegression_JA4PROXY_2026_0070
+  regression_test: ''
   closed_commit: ''
   cvss_v3_1:
     score: 5.5
@@ -2278,11 +2278,11 @@ findings:
   owner: '@seanpor'
   lane: go-proxy
   discovered: '2026-06-24'
-  due: '2026-08-21'
+  due: '2026-08-23'
   status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: internal/cluster/sync/agent_test.go::TestSyncAgent_IntegrityKeyPermissions
+  regression_test: ''
   closed_commit: ''
   cvss_v3_1:
     score: 5.5
@@ -2316,7 +2316,7 @@ findings:
   owner: '@seanpor'
   lane: go-proxy
   discovered: '2026-06-24'
-  due: '2026-10-20'
+  due: '2026-10-22'
   status: FIXED
   supersedes: []
   depends_on: []
@@ -2353,7 +2353,7 @@ findings:
   owner: '@seanpor'
   lane: go-proxy
   discovered: '2026-06-24'
-  due: '2026-10-20'
+  due: '2026-10-22'
   status: FIXED
   supersedes: []
   depends_on: []
@@ -2389,7 +2389,7 @@ findings:
   owner: '@seanpor'
   lane: go-proxy
   discovered: '2026-06-24'
-  due: '2026-10-20'
+  due: '2026-10-22'
   status: OPEN
   supersedes: []
   depends_on: []
@@ -2424,7 +2424,7 @@ findings:
   owner: '@seanpor'
   lane: go-proxy
   discovered: '2026-06-24'
-  due: '2026-10-20'
+  due: '2026-10-22'
   status: OPEN
   supersedes: []
   depends_on: []
@@ -2454,13 +2454,13 @@ findings:
   remediation_phases:
   - 510d
   owner: '@seanpor'
-  lane: infra
+  lane: infrastructure
   discovered: '2026-06-24'
-  due: '2026-08-21'
+  due: '2026-08-23'
   status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: tests/unit/test_container_config.py::TestTemplateEnv_NoDefaultCredentials
+  regression_test: ''
   closed_commit: cb0e3d95
   cvss_v3_1:
     score: 5.3
@@ -2488,13 +2488,13 @@ findings:
   remediation_phases:
   - 510d
   owner: '@seanpor'
-  lane: infra
+  lane: infrastructure
   discovered: '2026-06-24'
-  due: '2026-10-20'
+  due: '2026-10-22'
   status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: tests/unit/test_container_config.py::TestManagementService_ReadOnly
+  regression_test: ''
   closed_commit: cb0e3d95
   cvss_v3_1:
     score: 2.7
@@ -2521,9 +2521,9 @@ findings:
   remediation_phases:
   - 510f
   owner: '@seanpor'
-  lane: infra
+  lane: infrastructure
   discovered: '2026-06-24'
-  due: '2026-10-20'
+  due: '2026-10-22'
   status: FIXED
   supersedes: []
   depends_on: []
@@ -2553,9 +2553,9 @@ findings:
   remediation_phases:
   - 510d
   owner: '@seanpor'
-  lane: infra
+  lane: infrastructure
   discovered: '2026-06-24'
-  due: '2026-10-20'
+  due: '2026-10-22'
   status: OPEN
   supersedes: []
   depends_on: []
@@ -2588,9 +2588,9 @@ findings:
   remediation_phases:
   - 510d
   owner: '@seanpor'
-  lane: infra
+  lane: infrastructure
   discovered: '2026-06-24'
-  due: '2026-10-20'
+  due: '2026-10-22'
   status: FIXED
   supersedes: []
   depends_on: []
