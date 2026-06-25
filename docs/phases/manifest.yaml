@@ -2978,11 +2978,14 @@ phases:
       \ the merge_group CI wiring is left in place for a future org move. Manifest manifest.d/ fragments were deferred as\
       \ low-marginal-benefit."
   333:
-    name: "Bootstrap Finish \u2014 Go Wizard Migration & 231b Close-Out"
-    status: PROPOSED
+    name: "Bootstrap Finish — Go Wizard Migration & 231b Close-Out"
+    status: COMPLETE
+    completed: '2026-06-25'
     action_plan: docs/phases/PHASE_333.md
     dependencies:
     - 231b
+    summary: "Complete. bootstrap.sh calls ja4p init (Go-native wizard), Python wizard
+      archived with deprecation banner, 231b doc archived, manifest synced."
     - 161
     - 231a
     size: SMALL
