@@ -3075,7 +3075,8 @@ phases:
       with 3-command deploy path."
   245.2:
     name: "Root-Level Minimal Docker Compose"
-    status: OPEN
+    status: COMPLETE
+    completed: '2026-06-25'
     action_plan: docs/phases/PHASE_245.md
     dependencies:
     - 245.3
@@ -3084,7 +3085,8 @@ phases:
       single BACKEND_HOST env var, no root required (:8443)."
   245.3:
     name: "Minimal Config + Direct Mode"
-    status: OPEN
+    status: COMPLETE
+    completed: '2026-06-25'
     action_plan: docs/phases/PHASE_245.md
     dependencies: []
     size: MEDIUM
