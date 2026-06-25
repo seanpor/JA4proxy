@@ -26,9 +26,12 @@
 | [ADR-121a](ADR-121a-cvss-version.md) | Stay on CVSS v3.1 for the findings register | Accepted | 121 | 2026-04-19 |
 | [ADR-201a](ADR-201a.md) | Go Redis client TLS MinVersion=1.2, system CA pool only | Proposed | 201 | 2026-04-15 |
 | [ADR-203a](ADR-203a.md) | Go inline proxy consumes Phase-20 TAP JA4T from Redis (does not compute it) | Proposed | 203 | 2026-04-15 |
-| [ADR-316a](ADR-316a.md) | Go capture stack for TAP sensor — gopacket fork + AF_PACKET, no cgo | Accepted | 316 | 2026-06-16 |
-| [ADR-316d](ADR-316d.md) | TAP enforcement reuses the ban:{ip} key, not pub/sub or external blockers | Accepted | 316 | 2026-06-17 |
-| [ADR-316e](ADR-316e.md) | TAP intelligence export is one pull-based EDL endpoint, not seven push exporters | Accepted | 316 | 2026-06-18 |
+| [ADR-204](ADR-204.md) | Go Blocklist Feed Downloader — no leader election | Accepted | 309 | 2026-06-25 |
+| [ADR-205](ADR-205.md) | Go Redis backup: logical DUMP/RESTORE + AES-256-GCM artifact | Accepted | 315 | 2026-06-25 |
+| [ADR-206](ADR-206.md) | Go Redis restore: selective, GDPR-aware safety model | Accepted | 315 | 2026-06-25 |
+| [ADR-316a](ADR-316a.md) | Go capture stack for TAP sensor — gopacket fork + AF_PACKET, no cgo | Accepted | 316 | 2026-06-25 |
+| [ADR-316d](ADR-316d.md) | TAP enforcement reuses the ban:{ip} key, not pub/sub or external blockers | Accepted | 316 | 2026-06-25 |
+| [ADR-316e](ADR-316e.md) | TAP intelligence export is one pull-based EDL endpoint, not seven push exporters | Accepted | 316 | 2026-06-25 |
 | [ADR-093a](ADR-093a-repository-topology.md) | Terraform provider repository topology | Accepted | 93/102 | 2026-04-15 |
 | [ADR-093b](ADR-093b-terraform-registry-namespace.md) | Terraform Registry namespace selection | Accepted | 93/102 | 2026-04-15 |
 | [ADR-093c](ADR-093c-ttl-renewal-and-drift-detection.md) | Ban TTL renewal and drift-detection strategy | Accepted | 93/102 | 2026-04-15 |
@@ -72,6 +75,15 @@ These decisions are implemented and well-understood but not yet formally documen
 ### Scoring & Detection
 - ADR-004, ADR-012: Dial semantics and always-on scoring
 - ADR-008: Auto-classification safety limits
+
+### Data Lifecycle & Resilience
+- ADR-204: Blocklist feed downloading (no leader election)
+- ADR-205, ADR-206: Redis backup/restore (encrypted, GDPR-aware)
+
+### TAP Sensor Architecture
+- ADR-316a: Capture stack (gopacket fork, AF_PACKET, no cgo)
+- ADR-316d: Enforcement via ban:{ip} key
+- ADR-316e: EDL pull endpoint (replaces seven push exporters)
 
 ---
 
