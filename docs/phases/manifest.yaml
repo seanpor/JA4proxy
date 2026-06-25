@@ -2644,21 +2644,13 @@ phases:
       \ WARN."
   316:
     name: Go TAP / SPAN Passive Sensor (index)
-    status: PROPOSED
+    status: COMPLETE
+    completed: '2026-06-25'
     action_plan: docs/phases/PHASE_316.md
     size: LARGE
-    summary: "RESURRECTED Go TAP/SPAN passive sensor \u2014 originally drafted as Phase 314 before 313/314 were repurposed,\
-      \ orphaning the plan. Plans recovered verbatim from git 53a8e14 and renumbered. The Go proxy ships only the TAP consumer\
-      \ (internal/security/tap_consumer.go) which reads fp:* keys nothing currently writes (the Python Phase-20 sensor was\
-      \ archived in 5afeba26). Split after critical review (original WP-1 alone was ~3.6-4.2k LOC) into: 316a (capture + bidirectional\
-      \ TCP reassembly + ClientHello/ServerHello extraction, capture-library ADR), 316b (OS-mismatch MVP \u2014 lights up\
-      \ the dormant tap_os_mismatch signal, advisory-only, Tranco FP test), 316c (passive JA4T + advisory blocklist signal,\
-      \ re-scoped from the infeasible \"full JA4 family\"), 316d (out-of-band enforcement bridge reusing ban:{ip}, advisory\
-      \ by default), 316e (intelligence exporters \u2014 PROPOSED). STATUS (2026-06-18): 316a\u2013316d COMPLETE (PRs #...\
-      \ a/b #184 / c #189 / d #190); 316e PROPOSED. WON'T-DO fingerprint slices (decided 2026-06-18): JA4H/JA4H2/JA4SSH (infeasible\
-      \ on passive encrypted TLS) and JA4S/JA4L/JA4X (low value/redundant for an inbound bot-protection proxy \u2014 see 316c).\
-      \ QUIC/JA4Q remains DEFERRED (conditional): the one genuine blind spot the inline TCP proxy cannot see, but it needs\
-      \ a new UDP+QUIC-Initial subsystem and only earns its cost if QUIC/H3 enters the protected traffic."
+    summary: "Complete. Split into 316a–316e sub-phases, all COMPLETE. Standalone cmd/ja4-tap\
+      \ binary with AF_PACKET capture, TCP reassembly, OS-mismatch fingerprinting, passive\
+      \ JA4T, out-of-band enforcement, and EDL exporter. QUIC/JA4Q remains DEFERRED."
   316a:
     name: "Go TAP Core — Capture & TCP Reassembly"
     status: COMPLETE
