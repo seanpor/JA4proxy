@@ -3112,7 +3112,8 @@ phases:
     summary: "Add dial commands to ja4-admin.sh, document in README, add make admin target."
   245.6:
     name: "Management UI — Incident Response Shortcuts"
-    status: OPEN
+    status: COMPLETE
+    completed: '2026-06-25'
     action_plan: docs/phases/PHASE_245.md
     dependencies:
     - 245.4
