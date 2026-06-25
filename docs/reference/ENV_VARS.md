@@ -1,3 +1,10 @@
+<!--
+title: Environment_Variables
+audience: reference
+last_reviewed: 2026-06-25
+phase: 340
+-->
+
 # Environment Variables Reference
 
 Complete census of all environment variables consumed by JA4proxy components.
