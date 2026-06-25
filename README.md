@@ -1,5 +1,9 @@
 # JA4proxy
 
+> **Under attack right now?** &rarr; [Emergency deployment](docs/operations/EMERGENCY_DEPLOY.md) (3 commands, 2 containers, &lt;5 minutes)
+>
+> **Already running?** &rarr; [Incident response](docs/operations/INCIDENT_RESPONSE.md) (block a fingerprint in 30 seconds)
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.14](https://img.shields.io/badge/python-3.14-blue.svg)](https://www.python.org/downloads/)
 [![Go 1.26.4](https://img.shields.io/badge/go-1.26.4-00ADD8.svg)](https://go.dev/)

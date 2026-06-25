@@ -4,7 +4,8 @@ Covers
 ------
 - GET  /api/v1/dial — returns current value (default 0)
 - PUT  /api/v1/dial — updates value, validates range, validates max ±10 change
-- Audit log entry created on every PUT
+- POST /api/v1/dial/emergency — bypasses ±10 limit, requires auto-revert
+- Audit log entry created on every PUT/POST
 - Requires authentication
 """
 
@@ -151,3 +152,151 @@ async def test_dial_exact_10_change_allowed(
     response = await authenticated_client.put("/api/v1/dial", json={"value": 50})
     assert response.status_code == 200
     assert response.json()["value"] == 50
+
+
+# ── Emergency Dial Override (Phase 245.4) ────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_emergency_dial_with_value(
+    authenticated_client: AsyncClient,
+    fake_redis,
+) -> None:
+    """POST /api/v1/dial/emergency bypasses the ±10 limit."""
+    await fake_redis.set("config:dial", "0")
+    response = await authenticated_client.post(
+        "/api/v1/dial/emergency", json={"value": 75}
+    )
+    assert response.status_code == 200
+    assert response.json()["value"] == 75
+    assert await fake_redis.get("config:dial") == "75"
+
+
+@pytest.mark.asyncio
+async def test_emergency_dial_schedules_revert(
+    authenticated_client: AsyncClient,
+    fake_redis,
+) -> None:
+    """Emergency dial always schedules an auto-revert."""
+    await fake_redis.set("config:dial", "10")
+    await authenticated_client.post(
+        "/api/v1/dial/emergency", json={"value": 80, "revert_after_hours": 2}
+    )
+    raw = await fake_redis.get("config:dial_override")
+    assert raw is not None
+    rec = json.loads(raw)
+    assert rec["original_value"] == 10
+    assert rec["override_value"] == 80
+
+
+@pytest.mark.asyncio
+async def test_emergency_dial_preset_block_known_bad(
+    authenticated_client: AsyncClient,
+    fake_redis,
+) -> None:
+    """Preset 'block_known_bad' sets dial to 50."""
+    response = await authenticated_client.post(
+        "/api/v1/dial/emergency", json={"preset": "block_known_bad"}
+    )
+    assert response.status_code == 200
+    assert response.json()["value"] == 50
+
+
+@pytest.mark.asyncio
+async def test_emergency_dial_preset_active_defense(
+    authenticated_client: AsyncClient,
+    fake_redis,
+) -> None:
+    """Preset 'active_defense' sets dial to 75."""
+    response = await authenticated_client.post(
+        "/api/v1/dial/emergency", json={"preset": "active_defense"}
+    )
+    assert response.status_code == 200
+    assert response.json()["value"] == 75
+
+
+@pytest.mark.asyncio
+async def test_emergency_dial_preset_lockdown(
+    authenticated_client: AsyncClient,
+    fake_redis,
+) -> None:
+    """Preset 'lockdown' sets dial to 90."""
+    response = await authenticated_client.post(
+        "/api/v1/dial/emergency", json={"preset": "lockdown"}
+    )
+    assert response.status_code == 200
+    assert response.json()["value"] == 90
+
+
+@pytest.mark.asyncio
+async def test_emergency_dial_rejects_both_value_and_preset(
+    authenticated_client: AsyncClient,
+) -> None:
+    """Cannot provide both value and preset."""
+    response = await authenticated_client.post(
+        "/api/v1/dial/emergency",
+        json={"value": 50, "preset": "lockdown"},
+    )
+    assert response.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_emergency_dial_rejects_neither_value_nor_preset(
+    authenticated_client: AsyncClient,
+) -> None:
+    """Must provide either value or preset."""
+    response = await authenticated_client.post(
+        "/api/v1/dial/emergency", json={}
+    )
+    assert response.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_emergency_dial_rejects_invalid_preset(
+    authenticated_client: AsyncClient,
+) -> None:
+    """Unknown preset is rejected by validation."""
+    response = await authenticated_client.post(
+        "/api/v1/dial/emergency", json={"preset": "nuke_everything"}
+    )
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_emergency_dial_revert_hours_max_4(
+    authenticated_client: AsyncClient,
+) -> None:
+    """revert_after_hours > 4 is rejected."""
+    response = await authenticated_client.post(
+        "/api/v1/dial/emergency",
+        json={"value": 75, "revert_after_hours": 5},
+    )
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_emergency_dial_creates_audit_entry(
+    authenticated_client: AsyncClient,
+    fake_redis,
+) -> None:
+    """Emergency dial writes an audit entry with action_type 'dial.emergency'."""
+    await authenticated_client.post(
+        "/api/v1/dial/emergency", json={"preset": "lockdown"}
+    )
+    entries = await fake_redis.lrange("management:audit_log", 0, 0)
+    assert len(entries) == 1
+    entry = json.loads(entries[0])
+    assert entry["action_type"] == "dial.emergency"
+    assert entry["after_value"]["preset"] == "lockdown"
+    assert entry["after_value"]["value"] == 90
+
+
+@pytest.mark.asyncio
+async def test_emergency_dial_requires_auth(test_client: AsyncClient) -> None:
+    """POST /api/v1/dial/emergency without auth returns 401."""
+    response = await test_client.post(
+        "/api/v1/dial/emergency",
+        json={"value": 75},
+        headers={"Accept": "application/json"},
+    )
+    assert response.status_code == 401
