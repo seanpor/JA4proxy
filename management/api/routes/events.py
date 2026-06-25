@@ -65,6 +65,29 @@ def _build_row(parsed: dict, entry_id: str) -> str:
     else:
         action_class = "bg-slate-700/50 text-slate-300"
 
+    block_btn = ""
+    if ja4:
+        block_btn += (
+            f"<button "
+            f"hx-post=\"/api/v1/lists/ja4/blacklist/{ja4}\" "
+            f"hx-swap=\"outerHTML\" "
+            f"hx-confirm=\"Block fingerprint {ja4[:20]}…?\" "
+            f"class=\"px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-900/40 text-red-300 "
+            f"hover:bg-red-800/60 transition-colors\" "
+            f"title=\"Blacklist this JA4 fingerprint\">Block</button> "
+        )
+    if ip:
+        block_btn += (
+            f"<button "
+            f"hx-post=\"/api/v1/bans\" "
+            f"hx-vals='{{\"ip\": \"{ip}\", \"reason\": \"Banned from live feed\", \"ttl_seconds\": 3600}}' "
+            f"hx-swap=\"outerHTML\" "
+            f"hx-confirm=\"Ban IP {ip} for 1 hour?\" "
+            f"class=\"px-1.5 py-0.5 rounded text-[10px] font-medium bg-orange-900/40 text-orange-300 "
+            f"hover:bg-orange-800/60 transition-colors\" "
+            f"title=\"Ban this IP for 1 hour\">Ban</button>"
+        )
+
     return (
         f"<tr class=\"border-b border-slate-700/50 hover:bg-slate-700/30 transition-colors\">"
         f"<td class=\"py-2 px-3 text-xs text-slate-400\">{ts_display}</td>"
@@ -75,6 +98,7 @@ def _build_row(parsed: dict, entry_id: str) -> str:
         f"<td class=\"py-2 px-3\">"
         f"<span class=\"px-1.5 py-0.5 rounded text-xs font-medium {action_class}\">{action}</span></td>"
         f"<td class=\"py-2 px-3 text-xs text-slate-300 text-right\">{score}</td>"
+        f"<td class=\"py-2 px-3 text-right whitespace-nowrap\">{block_btn}</td>"
         f"</tr>"
     )
 

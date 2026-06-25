@@ -1,0 +1,27 @@
+# JA4proxy — minimal configuration
+#
+# This is all you need to start the proxy. Every other setting has a
+# compiled-in default (see internal/config/loader.go DefaultConfig).
+#
+# For the full reference config with all options: config/proxy.yml
+#
+# Usage:
+#   CONFIG_PATH=config/proxy.minimal.yml ./bin/ja4pd
+#   # or via docker compose (see docker-compose.yml in repo root)
+
+proxy:
+  bind_host: "0.0.0.0"
+  bind_port: "${PROXY_PORT:-8443}"
+  backend_host: "${BACKEND_HOST:-backend}"
+  backend_port: "${BACKEND_PORT:-443}"
+  # Direct mode: no upstream load balancer, no PROXY protocol.
+  # Set to true if you have HAProxy or another LB sending PROXY protocol v2.
+  proxy_protocol: false
+
+redis:
+  host: "${REDIS_HOST:-redis}"
+  port: 6379
+  password: "${REDIS_PASSWORD:-}"
+
+monitor_mode:
+  dial: 0  # scores everything, blocks nothing — raise to start enforcement

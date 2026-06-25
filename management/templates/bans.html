@@ -158,20 +158,28 @@
   </div>
 
   <!-- ── Active bans table ─────────────────────────────────────── -->
-  <div class="glass-card overflow-hidden">
+  <div class="glass-card overflow-hidden" x-data="bansFilter()">
     <div class="flex items-center justify-between px-4 py-3 border-b border-[#1e293b]/55">
       <div class="flex items-center gap-2">
         <span class="w-1.5 h-1.5 rounded-full bg-[#8b5cf6] shadow-[0_0_8px_rgba(139,92,246,0.6)]"></span>
         <h2 class="text-xs font-semibold text-[#64748b] uppercase tracking-wider">Active Bans</h2>
       </div>
-      <span class="text-[10px] text-[#475569] font-medium">Auto-refreshes every 30s</span>
+      <div class="flex items-center gap-3">
+        <input type="text"
+               x-model="query"
+               @input.debounce.200ms="filterRows()"
+               placeholder="Filter by IP, reason…"
+               class="glass-input text-xs py-1 px-2 w-48" />
+        <span class="text-[10px] text-[#475569] font-medium">Auto-refreshes every 30s</span>
+      </div>
     </div>
 
     <div id="bans-table"
          hx-get="/api/v1/partials/bans"
          hx-trigger="load, every 30s, refresh"
          hx-swap="innerHTML"
-         hx-indicator="#htmx-indicator">
+         hx-indicator="#htmx-indicator"
+         @htmx:after-settle.window="$nextTick(() => filterRows())">
       <div class="px-4 py-8 text-center text-sm text-[#94a3b8]">Loading bans…</div>
     </div>
   </div>
@@ -179,6 +187,24 @@
 </div>
 
 <script>
+function bansFilter() {
+  return {
+    query: '',
+    filterRows() {
+      var table = document.getElementById('bans-table');
+      if (!table) return;
+      var rows = table.querySelectorAll('tr');
+      var q = this.query.toLowerCase().trim();
+      rows.forEach(function(row) {
+        if (row.querySelector('th')) return;
+        if (!q) { row.style.display = ''; return; }
+        var text = row.textContent.toLowerCase();
+        row.style.display = text.indexOf(q) !== -1 ? '' : 'none';
+      });
+    }
+  }
+}
+
 function banForm() {
   return {
     ip: '',

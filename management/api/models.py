@@ -62,6 +62,38 @@ class DialUpdateRequest(BaseModel):
     )
 
 
+class EmergencyDialRequest(BaseModel):
+    """Body for POST /api/v1/dial/emergency — bypasses the ±10 step limit."""
+
+    value: Optional[int] = Field(
+        None, ge=0, le=100,
+        description="Exact dial value. Mutually exclusive with preset.",
+    )
+    preset: Optional[str] = Field(
+        None,
+        description="Named preset: block_known_bad (50), active_defense (75), lockdown (90).",
+    )
+    revert_after_hours: int = Field(
+        1, ge=1, le=4,
+        description="Auto-revert after N hours (1-4). Default 1.",
+    )
+
+    @field_validator("preset")
+    @classmethod
+    def validate_preset(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in EMERGENCY_PRESETS:
+            allowed = ", ".join(sorted(EMERGENCY_PRESETS))
+            raise ValueError(f"Unknown preset {v!r}. Allowed: {allowed}")
+        return v
+
+
+EMERGENCY_PRESETS: dict[str, int] = {
+    "block_known_bad": 50,
+    "active_defense": 75,
+    "lockdown": 90,
+}
+
+
 # ── List models ───────────────────────────────────────────────────────────────
 
 
