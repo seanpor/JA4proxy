@@ -14,15 +14,14 @@ Auditor < Analyst < Operator < Admin. Role assignments are recorded in the audit
 (`management:audit_log`) with actor, timestamp, and IP address.
 
 **Evidence artefacts (included in SOC 2 pack):**
-- `rbac_config.json` — exported snapshot of current role assignments and API permissions
+- `04_rbac_configuration.json` — exported snapshot of current role assignments and API permissions
 - `audit_log.csv` — operator-accessible audit entries for the evidence period
 
 ### CC6.2 — Authentication mechanism
 
-All Management API access requires a short-lived JWT (default: 60-minute expiry) issued
+All Management API access requires a short-lived JWT (default: 8-hour expiry) issued
 after credential validation. Tokens are issued as `httpOnly` cookies to prevent XSS
-extraction.  Token rotation is enforced; the `rotate-compliance-token` CI workflow
-automates this.
+extraction.  Token rotation is enforced via the Management API.
 
 ### CC6.6 — Restrictions on inbound traffic
 
@@ -48,8 +47,8 @@ changes above 50.
 
 ### CC7.2 — Monitoring of system components
 
-Prometheus metrics expose `ja4proxy_connections_total`, `ja4proxy_blocks_total`,
-`ja4proxy_risk_score_distribution`, and `ja4proxy_dial_setting`. Grafana SLO dashboards
+Prometheus metrics expose `ja4proxy_connections_total`, `ja4proxy_risk_score`,
+and `ja4proxy_dial_current`. Grafana SLO dashboards
 (Phase 63) alert when block rate drops below the configured baseline or error rate
 exceeds the burn-rate threshold.
 
@@ -81,9 +80,9 @@ The PCI-DSS/SOC 2 evidence pack (`POST /api/v1/compliance/pci-dss-pack`) include
 | `blocklist.json` | JA4 fingerprint blocklist with reason and ticket |
 | `audit_log.csv` | All operator-accessible audit entries |
 | `config_change_log.csv` | Configuration changes in the evidence period |
-| `rbac_config.json` | Role assignments and API permission matrix |
+| `04_rbac_configuration.json` | Role assignments and API permission matrix |
 | `risk_thresholds.json` | Dial setting and active scoring thresholds |
-| `summary.pdf` | Executive summary with SHA-256 integrity footer |
+| `07_access_denied_summary.pdf` | Executive summary with SHA-256 integrity footer |
 
 ---
 

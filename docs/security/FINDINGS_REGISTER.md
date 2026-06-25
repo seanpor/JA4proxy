@@ -100,16 +100,16 @@ get forgotten.
 
 <!-- BEGIN GENERATED: findings_register.py render -->
 
-## Register snapshot (2026-06-19)
+## Register snapshot (2026-06-25)
 
-**Total:** 61 canonical finding(s).
+**Total:** 82 canonical finding(s).
 
 | Severity | Count | Status | Count |
 |----------|-------|--------|-------|
-| CRITICAL | 11 | OPEN | 7 |
-| HIGH | 15 | IN_PROGRESS | 0 |
-| MEDIUM | 23 | FIXED | 54 |
-| LOW | 12 | VERIFIED | 0 |
+| CRITICAL | 11 | OPEN | 6 |
+| HIGH | 18 | IN_PROGRESS | 0 |
+| MEDIUM | 29 | FIXED | 76 |
+| LOW | 24 | VERIFIED | 0 |
 |  |  | CLOSED | 0 |
 |  |  | DUPLICATE | 0 |
 
@@ -233,22 +233,22 @@ get forgotten.
 | JA4PROXY-2026-0064 | LOW | FIXED | go-proxy | 2026-10-20 | GetDial HMAC Signature Comparison Uses Non-Constant-Time String Compare |
 | JA4PROXY-2026-0065 | MEDIUM | FIXED | go-proxy | 2026-08-21 | GetDial Log Message Leaks Expected HMAC Signature |
 | JA4PROXY-2026-0066 | LOW | OPEN | python-management | 2026-10-20 | Webhook URL Validation TOCTOU — DNS Rebinding Between Validation and Delivery |
-| JA4PROXY-2026-0067 | HIGH | FIXED | go-proxy | 2026-07-22 | Tarpit Goroutine Leak on Client Disconnect |
-| JA4PROXY-2026-0068 | MEDIUM | FIXED | go-proxy | 2026-08-21 | Redis Pipeline Flush Lacks Error Propagation |
-| JA4PROXY-2026-0069 | LOW | FIXED | go-proxy | 2026-10-20 | Metrics Auth Token Compared Via String != |
-| JA4PROXY-2026-0070 | HIGH | FIXED | go-proxy | 2026-07-22 | Beaconing Detector Window Boundary Condition |
-| JA4PROXY-2026-0071 | MEDIUM | FIXED | go-proxy | 2026-08-21 | Sync Agent Type Assertion Panic on Malformed Stream |
-| JA4PROXY-2026-0072 | LOW | FIXED | go-proxy | 2026-10-20 | Webhook HMAC Signature Leaked in Debug Log |
-| JA4PROXY-2026-0073 | LOW | FIXED | go-proxy | 2026-10-20 | GeoIP Database Reload Lacks File Size Validation |
-| JA4PROXY-2026-0074 | LOW | FIXED | go-proxy | 2026-10-20 | PubSub HMAC Verification Bypasses on Empty Payload |
-| JA4PROXY-2026-0075 | LOW | FIXED | go-proxy | 2026-10-20 | Dial Signature Mismatch Log Leaks Expected HMAC |
-| JA4PROXY-2026-0076 | MEDIUM | FIXED | infra | 2026-08-21 | Grafana Default Admin Password in template.env |
-| JA4PROXY-2026-0077 | LOW | FIXED | infra | 2026-10-20 | Management Service Missing read_only and tmpfs in PoC Compose |
-| JA4PROXY-2026-0078 | LOW | FIXED | infra | 2026-10-20 | Entrypoint Logs Full Command Arguments to Docker Logs |
-| JA4PROXY-2026-0079 | LOW | OPEN | infra | 2026-10-20 | Redis Password Exposed on Command Line in PoC Compose |
-| JA4PROXY-2026-0080 | LOW | FIXED | infra | 2026-10-20 | pubsub_hmac_secret Absent from Default Config |
-| JA4PROXY-2026-0081 | MEDIUM | OPEN | go-proxy | 2026-08-21 | LoadSeccomp Is a Placeholder — TAP Sensor Runs With Full Syscall Access |
-| JA4PROXY-2026-0082 | LOW | OPEN | go-proxy | 2026-10-20 | NTP Drift Monitor Silently Degrades When chronyc/ntpstat Missing |
-| JA4PROXY-2026-0083 | LOW | OPEN | go-proxy | 2026-10-20 | CountKeys Uses O(N) KEYS Command in Health Endpoint |
+| JA4PROXY-2026-0067 | HIGH | FIXED | go-proxy | 2026-07-22 | Unbounded Fire-and-Forget Goroutines for Mesh Drift Audit |
+| JA4PROXY-2026-0068 | HIGH | FIXED | go-proxy | 2026-07-22 | forward() Copy Goroutines Read Config Without Lock |
+| JA4PROXY-2026-0069 | MEDIUM | FIXED | go-proxy | 2026-08-21 | processInternal Reads PipelineConfig Fields Outside Lock |
+| JA4PROXY-2026-0070 | MEDIUM | FIXED | go-proxy | 2026-08-23 | Integrity Key File Read Without Permission Check |
+| JA4PROXY-2026-0071 | MEDIUM | FIXED | go-proxy | 2026-08-23 | Ed25519 Private Key File Read Without Permission Check or Length Validation |
+| JA4PROXY-2026-0072 | LOW | FIXED | go-proxy | 2026-10-22 | RDAP and AbuseIPDB Response Bodies Not Size-Limited |
+| JA4PROXY-2026-0073 | LOW | FIXED | go-proxy | 2026-10-22 | Async Scoring Channel Drops Are Not Observable |
+| JA4PROXY-2026-0074 | LOW | OPEN | go-proxy | 2026-10-22 | PubSub Debug Log Includes Full HMAC-Signed Payload |
+| JA4PROXY-2026-0075 | LOW | OPEN | go-proxy | 2026-10-22 | Dial Signature Mismatch Log Includes Tampered Signature |
+| JA4PROXY-2026-0076 | MEDIUM | FIXED | infrastructure | 2026-08-23 | Grafana Default Admin Password in template.env |
+| JA4PROXY-2026-0077 | LOW | FIXED | infrastructure | 2026-10-22 | Management Service Missing read_only and tmpfs in PoC Compose |
+| JA4PROXY-2026-0078 | LOW | FIXED | infrastructure | 2026-10-22 | Entrypoint Logs Full Command Arguments to Docker Logs |
+| JA4PROXY-2026-0079 | LOW | OPEN | infrastructure | 2026-10-22 | Redis Password Exposed on Command Line in PoC Compose |
+| JA4PROXY-2026-0080 | LOW | FIXED | infrastructure | 2026-10-22 | pubsub_hmac_secret Absent from Default Config |
+| JA4PROXY-2026-0081 | MEDIUM | FIXED | go-proxy | 2026-08-21 | LoadSeccomp Is a Placeholder — TAP Sensor Runs With Full Syscall Access |
+| JA4PROXY-2026-0082 | LOW | FIXED | go-proxy | 2026-10-20 | NTP Drift Monitor Silently Degrades When chronyc/ntpstat Missing |
+| JA4PROXY-2026-0083 | LOW | FIXED | go-proxy | 2026-10-20 | CountKeys Uses O(N) KEYS Command in Health Endpoint |
 
 <!-- END GENERATED -->

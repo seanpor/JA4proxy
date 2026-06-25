@@ -1195,7 +1195,7 @@ paths:
       description: 'Publish a config reload signal to all proxy instances.
 
 
-        All instances subscribed to ``config.reload`` will hot-reload their
+        All instances subscribed to ``config:reload`` will hot-reload their
 
         configuration on receipt.'
       operationId: reload_config_api_v1_config_reload_post
@@ -1686,12 +1686,32 @@ paths:
           description: ISO 8601 timestamp — only events after this
           title: Since
         description: ISO 8601 timestamp — only events after this
+      - name: until
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: ISO 8601 timestamp — only events before this
+          title: Until
+        description: ISO 8601 timestamp — only events before this
+      - name: page_token
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Opaque cursor for pagination
+          title: Page Token
+        description: Opaque cursor for pagination
       - name: limit
         in: query
         required: false
         schema:
           type: integer
-          maximum: 500
+          maximum: 10000
           minimum: 1
           description: Max results
           default: 100
@@ -2214,6 +2234,559 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/tls-health:
+    get:
+      tags:
+      - tls
+      summary: TLS Health
+      description: Check TLS certificate expiry health for HAProxy.
+      operationId: tls_health_api_v1_tls_health_get
+      parameters:
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/v1/bans:
+    post:
+      tags:
+      - bans
+      summary: Create Ban
+      description: Create a CIDR ban (bulk ban by IP range).
+      operationId: create_ban_api_v1_bans_post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BanCreateRequest'
+      parameters:
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/bans/{ip}:
+    patch:
+      tags:
+      - bans
+      summary: Extend Ban
+      description: Extend active ban TTL.
+      operationId: extend_ban_api_v1_bans__ip__patch
+      parameters:
+      - name: ip
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Ip
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BanCreateRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/v1/snapshot:
+    get:
+      tags:
+      - snapshot
+      summary: Get Snapshot
+      description: Get shift handover snapshot.
+      operationId: get_snapshot_api_v1_snapshot_get
+      parameters:
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/v1/fingerprints/{ja4}/profile:
+    get:
+      tags:
+      - connections
+      summary: Fingerprint Profile
+      description: Get 24h aggregate profile for a JA4 fingerprint.
+      operationId: fingerprint_profile_api_v1_fingerprints__ja4__profile_get
+      parameters:
+      - name: ja4
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Ja4
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/v1/ip/{ip}/profile:
+    get:
+      tags:
+      - connections
+      summary: IP Profile
+      description: Get 24h aggregate profile for a source IP.
+      operationId: ip_profile_api_v1_ip__ip__profile_get
+      parameters:
+      - name: ip
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Ip
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/v1/dial/revert:
+    delete:
+      tags:
+      - dial
+      summary: Revert Dial
+      description: Cancel a scheduled dial revert.
+      operationId: revert_dial_api_v1_dial_revert_delete
+      parameters:
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/v1/threat-intel/feeds:
+    get:
+      tags:
+      - threat-intel
+      summary: List Threat Intel Feeds
+      description: List all threat intelligence feeds.
+      operationId: list_threat_intel_feeds_api_v1_threat_intel_feeds_get
+      parameters:
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/v1/threat-intel/feeds/{feed_id}:
+    get:
+      tags:
+      - threat-intel
+      summary: Get Threat Intel Feed
+      description: Get a specific threat intelligence feed.
+      operationId: get_threat_intel_feed_api_v1_threat_intel_feeds__feed_id__get
+      parameters:
+      - name: feed_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Feed Id
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/v1/threat-intel/feeds/{feed_id}/enable:
+    post:
+      tags:
+      - threat-intel
+      summary: Enable Feed
+      description: Enable a threat intelligence feed.
+      operationId: enable_feed_api_v1_threat_intel_feeds__feed_id__enable_post
+      parameters:
+      - name: feed_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Feed Id
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/v1/threat-intel/feeds/{feed_id}/disable:
+    post:
+      tags:
+      - threat-intel
+      summary: Disable Feed
+      description: Disable a threat intelligence feed.
+      operationId: disable_feed_api_v1_threat_intel_feeds__feed_id__disable_post
+      parameters:
+      - name: feed_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Feed Id
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/v1/threat-intel/feeds/{feed_id}/poll:
+    post:
+      tags:
+      - threat-intel
+      summary: Poll Feed
+      description: Manually poll a threat intelligence feed.
+      operationId: poll_feed_api_v1_threat_intel_feeds__feed_id__poll_post
+      parameters:
+      - name: feed_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Feed Id
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/v1/compliance/pci-dss-pack:
+    post:
+      tags:
+      - compliance
+      summary: PCI DSS Pack
+      description: Generate PCI-DSS evidence pack.
+      operationId: pci_dss_pack_api_v1_compliance_pci_dss_pack_post
+      parameters:
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/v1/compliance/report:
+    post:
+      tags:
+      - compliance
+      summary: Compliance Report
+      description: Generate compliance report.
+      operationId: compliance_report_api_v1_compliance_report_post
+      parameters:
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/v1/compliance/dsar/{ip}:
+    get:
+      tags:
+      - compliance
+      summary: DSAR Lookup
+      description: Data Subject Access Request lookup for an IP.
+      operationId: dsar_lookup_api_v1_compliance_dsar__ip__get
+      parameters:
+      - name: ip
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Ip
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+    delete:
+      tags:
+      - compliance
+      summary: DSAR Erase
+      description: Execute GDPR erasure for an IP.
+      operationId: dsar_erase_api_v1_compliance_dsar__ip__delete
+      parameters:
+      - name: ip
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Ip
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/v1/compliance/purge-expired:
+    post:
+      tags:
+      - compliance
+      summary: Purge Expired
+      description: Purge expired compliance data.
+      operationId: purge_expired_api_v1_compliance_purge_expired_post
+      parameters:
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/v1/compliance/signal-categories:
+    get:
+      tags:
+      - compliance
+      summary: Signal Categories
+      description: List signal categories for compliance reporting.
+      operationId: signal_categories_api_v1_compliance_signal_categories_get
+      parameters:
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/v1/edl/{list_name}:
+    get:
+      tags:
+      - edl
+      summary: Get EDL
+      description: Get External Dynamic List for firewall consumption.
+      operationId: get_edl_api_v1_edl__list_name__get
+      parameters:
+      - name: list_name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: List Name
+      - name: token
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      - name: X-API-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Api-Key
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /auth/mfa/webauthn/credentials:
+    get:
+      tags:
+      - mfa
+      summary: List WebAuthn Credentials
+      description: List enrolled WebAuthn credentials.
+      operationId: list_webauthn_credentials_auth_mfa_webauthn_credentials_get
+      parameters:
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /auth/mfa/webauthn/credentials/{credential_id_b64}:
+    delete:
+      tags:
+      - mfa
+      summary: Delete WebAuthn Credential
+      description: Delete a WebAuthn credential.
+      operationId: delete_webauthn_credential_auth_mfa_webauthn_credentials__credential_id_b64__delete
+      parameters:
+      - name: credential_id_b64
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Credential Id B64
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
 components:
   schemas:
     BanCreateRequest:
@@ -2314,7 +2887,7 @@ components:
         published_to:
           type: string
           title: Published To
-          default: config.reload
+          default: config:reload
       type: object
       title: ConfigReloadResponse
       description: Response from POST /api/v1/config/reload.
@@ -2730,3 +3303,22 @@ components:
       type: object
       title: WebhookUpdate
       description: Body for PUT /api/v1/webhooks/{id}.
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token in Authorization header (alternative to cookie)
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: token
+      description: JWT token in httpOnly cookie
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key for EDL endpoints
+security:
+  - cookieAuth: []
+  - bearerAuth: []

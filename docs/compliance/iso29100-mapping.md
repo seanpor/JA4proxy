@@ -16,7 +16,7 @@ Information Management System standard) which some buyers require.
 This mapping is a **self-assessment**. It is **not** a certification. PII
 handling content is **not duplicated** here — every principle row links the
 authoritative source ([`GDPR_COMPLIANCE.md`](GDPR_COMPLIANCE.md) for legal
-basis and data-subject rights, and [`../REDIS_SCHEMA.md`](../reference/REDIS_SCHEMA.md)
+basis and data-subject rights, and [`../reference/REDIS_SCHEMA.md`](../reference/REDIS_SCHEMA.md)
 for retention via TTL). This document is a navigation layer, not a
 re-statement of the data-handling design.
 
@@ -26,7 +26,7 @@ re-statement of the data-handling design.
 
 - See also: [`GDPR_COMPLIANCE.md`](GDPR_COMPLIANCE.md) — GDPR mapping (the
   authoritative source for PII handling, retention, and data-subject rights)
-- See also: [`../REDIS_SCHEMA.md`](../reference/REDIS_SCHEMA.md) — Redis key TTLs (the
+- See also: [`../reference/REDIS_SCHEMA.md`](../reference/REDIS_SCHEMA.md) — Redis key TTLs (the
   authoritative source for retention periods)
 - See also: [`CRA_CONFORMANCE.md`](CRA_CONFORMANCE.md) — EU CRA conformance
 - See also: [`iso27017-mapping.md`](iso27017-mapping.md) — ISO 27017 cloud controls

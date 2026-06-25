@@ -70,8 +70,8 @@ graph TD
 | Storage Location | Data Types | Retention Mechanism | Encryption |
 |------------------|------------|---------------------|------------|
 | **Redis keys** (`ban:{ip}`) | IP addresses | TTL (configurable) | ✅ TLS to Redis |
-| **Redis keys** (`visitor:{ip}`) | IP addresses, JA4 | TTL (configurable) | ✅ TLS to Redis |
-| **Redis streams** (`analytics:events`) | IP addresses, JA4, timestamps | Stream trimming (7d) | ✅ TLS to Redis |
+| **Redis keys** (`return_visitor:{ip}`) | IP addresses, JA4 | TTL (configurable) | ✅ TLS to Redis |
+| **Redis streams** (`ja4proxy:events`) | IP addresses, JA4, timestamps | Stream trimming (MAXLEN ~100000) | ✅ TLS to Redis |
 | **Access logs** | IP addresses, JA4, timestamps | Log rotation (30d) | ✅ File system |
 | **Prometheus metrics** | Aggregated counts (no IPs) | Volatile (no retention) | ✅ HTTPS |
 
@@ -169,38 +169,35 @@ JA4proxy processes personal data (IP addresses) based on **legitimate interest**
 
 | Redis Key Pattern | Data Stored | Default TTL | Config Key | Rationale |
 |-------------------|-------------|-------------|------------|-----------|
-| `ban:{ip}` | Blocked IP addresses | 24 hours | `redis.ban_ttl_seconds` | Short-term enforcement; revisit on next connection |
-| `visitor:{ip}` | Return visitor classification | 30 days | `redis.visitor_ttl_seconds` | Return visitor detection window |
-| `rate_limit:{ip}` | Rate limit counters | 60 seconds | `rate_limit.window_seconds` | Sliding window duration |
-| `beaconing:{ip}` | Beaconing timestamps | 24 hours | `beaconing.long_window_hours` | Detection window |
-| `abuseipdb:{ip}` | AbuseIPDB cache | 24 hours | `abuseipdb.cache_ttl_seconds` | API quota preservation |
-| `analytics:events` | Connection events | 7 days | `redis.stream_max_age_seconds` | Replay and analysis window |
-| `analytics:report:*` | Aggregated reports | 30 days | `analytics.report_ttl_seconds` | Trend analysis window |
+| `ban:{ip}` | Blocked IP addresses | 5 minutes (TAP) / operator-specified (API) | `tap.ban_ttl` | Short-term enforcement; revisit on next connection |
+| `return_visitor:{ip}` | Return visitor classification | Configurable | `tcp_analyzer.return_visitor_ttl` | Return visitor detection window |
+| `ratelimit:ip:{ip}` | Rate limit counters | 60 seconds | `rate_limiter.window_seconds` | Sliding window duration |
+| `beacon:{ip}:{ja4}` | Beaconing timestamps | 1 hour | `beaconing.window_seconds` | Detection window |
+| `abuseipdb:{ip}` | AbuseIPDB cache | 4 hours (14400s) | `abuseipdb.cache_ttl_seconds` | API quota preservation |
+| `ja4proxy:events` | Connection events | MAXLEN ~100000 (count-based) | `proxy.stream_max_len` | Replay and analysis window |
 
 ### 5.2. Automatic Expiration Mechanisms
 
 **Redis TTL:** All keys have explicit TTL (Time-To-Live) set on creation
 
-```python
-# Example: Setting TTL for ban key
-redis.set(f"ban:{ip}", "1", ex=config.redis.ban_ttl_seconds)
+```go
+// Example: Setting TTL for ban key (internal/tap/enforcement.go)
+r.client.Set(ctx, fmt.Sprintf("ban:%s", ip), "1", defaultBanTTL)
 ```
 
-**Stream Trimming:** Analytics streams automatically trimmed based on age and size
+**Stream Trimming:** Analytics streams automatically trimmed by count
 
 ```bash
-# Redis configuration for stream trimming
-127.0.0.1:6379> XTRIM analytics:events MAXLEN ~ 100000 MINID ~ 604800000
+# Redis stream uses MAXLEN-based trimming (config/proxy.yml)
+XADD ja4proxy:events * ip <ip> ja4 <ja4> ...
+XTRIM ja4proxy:events MAXLEN ~ 100000
 ```
 
 **Log Rotation:** Access logs rotated and deleted after 30 days
 
 ```yaml
-# config/logging.yml
-access_log:
-  rotation: daily
-  retention: 30  # days
-  compress: true
+# Managed by container logging driver or external log rotation
+# No config/logging.yml — rotation is infrastructure-level
 ```
 
 ### 5.3. Data Subject Erasure Procedures
@@ -208,7 +205,11 @@ access_log:
 **Manual Erasure Command:**
 ```bash
 # Erase all data for a specific IP address
-redis-cli DEL ban:{ip} visitor:{ip} rate_limit:{ip} beaconing:{ip} abuseipdb:{ip}
+redis-cli DEL ban:{ip} return_visitor:{ip} ratelimit:ip:{ip} abuseipdb:{ip}
+redis-cli SREM beacon:suspects {ip}
+
+# Delete from analytics streams (requires Lua script or pipeline)
+# Stream entries cannot be deleted by key — they expire via MAXLEN trimming
 
 # Verify erasure
 redis-cli KEYS "*{ip}*" | wc -l  # Should return 0
@@ -216,24 +217,16 @@ redis-cli KEYS "*{ip}*" | wc -l  # Should return 0
 
 **Automated Erasure Script:**
 ```bash
-# docs/compliance/gdpr_erasure.sh
-#!/bin/bash
-IP=$1
-if [ -z "$IP" ]; then
-    echo "Usage: $0 <IP_ADDRESS>"
-    exit 1
-fi
-
-# Delete all keys containing the IP
-echo "Deleting Redis keys for $IP..."
-redis-cli DEL ban:$IP visitor:$IP rate_limit:$IP beaconing:$IP abuseipdb:$IP
-
-# Delete from analytics streams (requires Lua script)
-echo "Purging from analytics streams..."
-redis-cli --eval purge_from_stream.lua analytics:events , $IP
-
-echo "Erasure complete for $IP"
+# scripts/gdpr_delete.py — canonical GDPR erasure tool
+python3 scripts/gdpr_delete.py --ip <IP_ADDRESS>
 ```
+
+The script handles all key patterns including:
+- `ban:{ip}`, `return_visitor:{ip}`, `ratelimit:ip:{ip}`, `abuseipdb:{ip}`
+- `session:{ip}`, `dns:fcrdns:{ip}`, `audit:last_score:{ip}`
+- `fp:os:ip:{ip}`, `fp:ja4t:ip:{ip}`, `fp:ban_intent:ip:{ip}`, `fp:ip:{ip}`
+- Beacon suspect removal from `beacon:suspects`
+- Stream entries expire via MAXLEN trimming (no manual purge needed)
 
 ---
 
@@ -249,7 +242,7 @@ echo "Erasure complete for $IP"
 redis-cli GET ban:{ip}
 
 # Check visitor history
-redis-cli HGETALL visitor:{ip}
+redis-cli HGETALL return_visitor:{ip}
 
 # Search analytics stream for IP (last 7 days)
 redis-cli XRANGE analytics:events - + COUNT 10000 | grep "\"ip\":\"{ip}\""
@@ -281,11 +274,13 @@ redis-cli XRANGE analytics:events - + COUNT 10000 | grep "\"ip\":\"{ip}\""
 
 **Procedure for disputed blocks:**
 ```bash
-# Manually whitelist an IP (removes from all block lists)
-redis-cli SADD whitelist:ips {ip}
-
-# Clear any existing ban
+# Manually unban an IP
 redis-cli DEL ban:{ip}
+
+# Add to IP allowlist (if using canonical lists)
+curl -X POST http://localhost:8090/api/v1/allowlist \
+  -H "Content-Type: application/json" \
+  -d '{"resource": "<ip>", "reason": "disputed_block"}'
 ```
 
 ### 6.3. Right to Erasure (Article 17)
@@ -303,11 +298,13 @@ grep "\"ip\": \"{ip}\"" /var/log/ja4proxy/access*.log
 
 ### 6.4. Right to Restrict Processing (Article 18)
 
-**Implementation:** Temporary whitelisting
+**Implementation:** Temporary allowlisting via Management API
 
 ```bash
-# Add to temporary whitelist (expires in 24h)
-redis-cli SETEX temp_whitelist:{ip} 86400 1
+# Add to IP allowlist (persistent until manually removed)
+curl -X POST http://localhost:8090/api/v1/allowlist \
+  -H "Content-Type: application/json" \
+  -d '{"resource": "<ip>", "reason": "processing_restricted"}'
 ```
 
 ### 6.5. Right to Data Portability (Article 20)
@@ -323,14 +320,8 @@ redis-cli SETEX temp_whitelist:{ip} 86400 1
 4. Document decision in audit log
 
 ```yaml
-# config/audit.yml
-audit:
-  dsar_actions:
-    - type: whitelist_add
-      ip: "1.2.3.4"
-      reason: "data_subject_objected"
-      timestamp: "2026-03-27T14:30:00Z"
-      approved_by: "dpo@example.com"
+# Audit log entry (written to Redis audit:last_score:{ip})
+# DSAR actions are logged via the management API audit trail
 ```
 
 ### 6.7. Rights Related to Automated Decision-Making (Article 22)

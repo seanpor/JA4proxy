@@ -1927,7 +1927,7 @@ findings:
   supersedes: []
   depends_on: []
   regression_test: ''
-  closed_commit: deeb2b617fb15ee629a27e40e52263a4e8e38a78
+  closed_commit: ''
   cvss_v3_1:
     score: 3.1
     vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L
@@ -1973,7 +1973,7 @@ findings:
   supersedes: []
   depends_on: []
   regression_test: ''
-  closed_commit: deeb2b617fb15ee629a27e40e52263a4e8e38a78
+  closed_commit: ''
   notes: Config struct defines MaxConnectionLimit but it's only read in Python proxy. Go proxy's acceptSem
     semaphore does not read this value. Either wire it up or remove the field.
 - id: JA4PROXY-2026-0063
@@ -2098,7 +2098,7 @@ findings:
   supersedes: []
   depends_on: []
   regression_test: ''
-  closed_commit: deeb2b617fb15ee629a27e40e52263a4e8e38a78
+  closed_commit: ''
   cvss_v3_1:
     score: 3.3
     vector: CVSS:3.1/AV:N/AC:H/PR:L/UI:N/S:U/C:L/I:L/A:N
@@ -2134,7 +2134,7 @@ findings:
   status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: internal/security/pipeline_test.go:TestPipeline_AuditWorkerBounded
+  regression_test: internal/security/pipeline_test.go::TestPipeline_AuditWorkerBounded
   closed_commit: ''
   cvss_v3_1:
     score: 7.5
@@ -2171,7 +2171,7 @@ findings:
   status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: cmd/ja4pd/main_test.go:TestForward_ConfigLocalCapture
+  regression_test: cmd/ja4pd/main_test.go::TestForward_ConfigLocalCapture
   closed_commit: ''
   cvss_v3_1:
     score: 7.5
@@ -2210,7 +2210,7 @@ findings:
   status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: internal/security/pipeline_test.go:TestPipeline_ConfigReadUnderLock
+  regression_test: internal/security/pipeline_test.go::TestPipeline_ConfigReadUnderLock
   closed_commit: ''
   cvss_v3_1:
     score: 5.3
@@ -2241,7 +2241,7 @@ findings:
   owner: '@seanpor'
   lane: go-proxy
   discovered: '2026-06-24'
-  due: '2026-08-21'
+  due: '2026-08-23'
   status: FIXED
   supersedes: []
   depends_on: []
@@ -2278,7 +2278,7 @@ findings:
   owner: '@seanpor'
   lane: go-proxy
   discovered: '2026-06-24'
-  due: '2026-08-21'
+  due: '2026-08-23'
   status: FIXED
   supersedes: []
   depends_on: []
@@ -2316,7 +2316,7 @@ findings:
   owner: '@seanpor'
   lane: go-proxy
   discovered: '2026-06-24'
-  due: '2026-10-20'
+  due: '2026-10-22'
   status: FIXED
   supersedes: []
   depends_on: []
@@ -2353,7 +2353,7 @@ findings:
   owner: '@seanpor'
   lane: go-proxy
   discovered: '2026-06-24'
-  due: '2026-10-20'
+  due: '2026-10-22'
   status: FIXED
   supersedes: []
   depends_on: []
@@ -2389,7 +2389,7 @@ findings:
   owner: '@seanpor'
   lane: go-proxy
   discovered: '2026-06-24'
-  due: '2026-10-20'
+  due: '2026-10-22'
   status: OPEN
   supersedes: []
   depends_on: []
@@ -2424,7 +2424,7 @@ findings:
   owner: '@seanpor'
   lane: go-proxy
   discovered: '2026-06-24'
-  due: '2026-10-20'
+  due: '2026-10-22'
   status: OPEN
   supersedes: []
   depends_on: []
@@ -2454,9 +2454,9 @@ findings:
   remediation_phases:
   - 510d
   owner: '@seanpor'
-  lane: infra
+  lane: infrastructure
   discovered: '2026-06-24'
-  due: '2026-08-21'
+  due: '2026-08-23'
   status: FIXED
   supersedes: []
   depends_on: []
@@ -2488,9 +2488,9 @@ findings:
   remediation_phases:
   - 510d
   owner: '@seanpor'
-  lane: infra
+  lane: infrastructure
   discovered: '2026-06-24'
-  due: '2026-10-20'
+  due: '2026-10-22'
   status: FIXED
   supersedes: []
   depends_on: []
@@ -2521,13 +2521,13 @@ findings:
   remediation_phases:
   - 510f
   owner: '@seanpor'
-  lane: infra
+  lane: infrastructure
   discovered: '2026-06-24'
-  due: '2026-10-20'
+  due: '2026-10-22'
   status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
+  regression_test: tests/unit/test_entrypoint.py::test_entrypoint_no_command_leak
   closed_commit: cb0e3d95
   cvss_v3_1:
     score: 2.0
@@ -2553,9 +2553,9 @@ findings:
   remediation_phases:
   - 510d
   owner: '@seanpor'
-  lane: infra
+  lane: infrastructure
   discovered: '2026-06-24'
-  due: '2026-10-20'
+  due: '2026-10-22'
   status: OPEN
   supersedes: []
   depends_on: []
@@ -2588,9 +2588,9 @@ findings:
   remediation_phases:
   - 510d
   owner: '@seanpor'
-  lane: infra
+  lane: infrastructure
   discovered: '2026-06-24'
-  due: '2026-10-20'
+  due: '2026-10-22'
   status: FIXED
   supersedes: []
   depends_on: []
