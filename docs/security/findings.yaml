@@ -2628,8 +2628,8 @@ findings:
   status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ec3d7839
+  regression_test: internal/tap/hardening_test.go
+  closed_commit: 0c0c2727
   github_issue: 244
   cvss_v3_1:
     score: 5.3
@@ -2643,9 +2643,9 @@ findings:
     If the TAP container is compromised, the attacker has unrestricted
     syscall access. DropCapabilities() drops root, limiting blast radius,
     but seccomp would provide defense-in-depth.
-  notes: 'Removed placeholder stub. Seccomp deferred — requires per-syscall
-    auditing of AF_PACKET + metric-export paths. DropCapabilities() already
-    drops root, limiting blast radius.'
+  notes: 'Fixed in PR #252 (0c0c2727): real in-process seccomp BPF filter
+    with SECCOMP_RET_KILL_PROCESS for denied syscalls, dangerous-syscall
+    denylist, and uint8 overflow fix for large allowlists.'
 - id: JA4PROXY-2026-0082
   title: 'NTP Drift Monitor Silently Degrades When chronyc/ntpstat Missing'
   severity: LOW

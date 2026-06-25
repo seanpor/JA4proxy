@@ -8,10 +8,6 @@ import (
 )
 
 const (
-	// minRunBeforeReset is the minimum uptime before a crash is considered
-	// a clean restart (not a rapid-crash loop).
-	minRunBeforeReset = 10 * time.Second
-
 	// maxRapidRestarts is the number of restarts within the window before
 	// the watchdog gives up (prevents infinite crash loops).
 	maxRapidRestarts = 5
