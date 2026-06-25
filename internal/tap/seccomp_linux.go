@@ -74,14 +74,14 @@ func loadBPF(allow map[int]bool, errno int) error {
 	sockFilter := buildBPFFilter(allow, errno)
 	prog := [2]uintptr{
 		uintptr(len(sockFilter)),
-		uintptr(unsafe.Pointer(&sockFilter[0])),
+		uintptr(unsafe.Pointer(&sockFilter[0])), //nolint:gosec // required for seccomp(2) syscall interface
 	}
 
 	_, _, errnoSys := syscall.RawSyscall(
 		317, // SYS_SECCOMP (x86_64)
 		seccompSetModeFilter,
 		0,
-		uintptr(unsafe.Pointer(&prog[0])),
+		uintptr(unsafe.Pointer(&prog[0])), //nolint:gosec // required for seccomp(2) syscall interface
 	)
 	runtime.KeepAlive(sockFilter)
 	if errnoSys != 0 {
