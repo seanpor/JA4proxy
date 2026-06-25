@@ -1,1 +1,2 @@
+internal/tap/hardening_test.go
 internal/tap/seccomp_linux.go
