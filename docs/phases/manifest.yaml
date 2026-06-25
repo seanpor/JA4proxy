@@ -3053,6 +3053,99 @@ phases:
       \ algorithm correctness, design, interface contracts, timing/lifecycle, test adequacy,\
       \ documentation, data integrity. Fixes merged via PRs #231 and #249. All findings reclassified\
       \ under IEEE 1044 dimensions."
+  245:
+    name: "Front Door — Time-to-Protection & Operator UX"
+    status: OPEN
+    action_plan: docs/phases/PHASE_245.md
+    dependencies: []
+    size: LARGE
+    summary: "Usability overhaul addressing the gap between product capability and operator
+      onboarding experience. 10 sub-phases covering emergency deploy docs, minimal
+      docker-compose, minimal config, emergency dial override, CLI discoverability,
+      UI incident shortcuts, UI polish, init fast path, deployment guides, and GeoIP
+      degradation handling."
+  245.1:
+    name: "README Banner + Emergency Quickstart"
+    status: OPEN
+    action_plan: docs/phases/PHASE_245.md
+    dependencies: []
+    size: SMALL
+    summary: "Add 'Under Attack?' banner to README top, create EMERGENCY_DEPLOY.md
+      with 3-command deploy path."
+  245.2:
+    name: "Root-Level Minimal Docker Compose"
+    status: OPEN
+    action_plan: docs/phases/PHASE_245.md
+    dependencies:
+    - 245.3
+    size: SMALL
+    summary: "Create docker-compose.yml in repo root with 2 services (proxy + Redis),
+      single BACKEND_HOST env var, no root required (:8443)."
+  245.3:
+    name: "Minimal Config + Direct Mode"
+    status: OPEN
+    action_plan: docs/phases/PHASE_245.md
+    dependencies: []
+    size: MEDIUM
+    summary: "Create proxy.minimal.yml, verify compiled-in defaults in Go config loader,
+      document direct mode (proxy_protocol: false) as default."
+  245.4:
+    name: "Emergency Dial Override"
+    status: OPEN
+    action_plan: docs/phases/PHASE_245.md
+    dependencies: []
+    size: MEDIUM
+    summary: "POST /api/v1/dial/emergency bypassing ±10 limit, reusing Phase 237 revert
+      infrastructure. Presets, auto-revert TTL, admin+MFA required."
+  245.5:
+    name: "Surface ja4-admin.sh as First-Class CLI"
+    status: OPEN
+    action_plan: docs/phases/PHASE_245.md
+    dependencies:
+    - 245.4
+    size: SMALL
+    summary: "Add dial commands to ja4-admin.sh, document in README, add make admin target."
+  245.6:
+    name: "Management UI — Incident Response Shortcuts"
+    status: OPEN
+    action_plan: docs/phases/PHASE_245.md
+    dependencies:
+    - 245.4
+    size: MEDIUM
+    summary: "Inline block/ban from live feed, search/filter on bans page, emergency mode
+      dashboard button with presets."
+  245.7:
+    name: "Management UI — Polish"
+    status: OPEN
+    action_plan: docs/phases/PHASE_245.md
+    dependencies: []
+    size: LARGE
+    summary: "Mobile-responsive sidebar (hamburger menu), geographic attack visualisation
+      (country table with one-click block)."
+  245.8:
+    name: "ja4p init --minimal Fast Path"
+    status: OPEN
+    action_plan: docs/phases/PHASE_245.md
+    dependencies: []
+    size: SMALL
+    summary: "Add --minimal flag to wizard: prompt only for BACKEND_HOST, generate .env
+      with random Redis password, skip all optional integrations."
+  245.9:
+    name: "Deployment Guides for Non-HAProxy Environments"
+    status: OPEN
+    action_plan: docs/phases/PHASE_245.md
+    dependencies: []
+    size: SMALL
+    summary: "Create DEPLOYMENT_MODES.md covering direct, HAProxy, nginx, AWS NLB, and
+      Cloudflare — each with config snippet and verify command."
+  245.10:
+    name: "Graceful GeoIP Degradation + Setup Guidance"
+    status: OPEN
+    action_plan: docs/phases/PHASE_245.md
+    dependencies: []
+    size: SMALL
+    summary: "Actionable WARN on missing GeoIP data with setup link, /health/deep degraded
+      subsystem, consider bundling IP2Location LITE."
   244:
     name: Seccomp Hardening for TAP Sensor
     status: COMPLETE
