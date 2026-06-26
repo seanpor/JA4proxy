@@ -637,3 +637,28 @@ func (c *Client) SeedDialIfAbsent(ctx context.Context, dial int) {
 		c.log.WithField("dial", dial).Info("redis: seeded config:dial from config file")
 	}
 }
+
+// Incr atomically increments the integer stored at key and returns the new value.
+// Creates the key with value 1 if it does not exist.
+// Used by the offense counter (phase-248). Returns 0 and the error on failure.
+func (c *Client) Incr(ctx context.Context, key string) (int64, error) {
+	val, err := c.rdb.Incr(ctx, key).Result()
+	if err != nil {
+		observeOp("incr", "error")
+		return 0, err
+	}
+	observeOp("incr", "ok")
+	return val, nil
+}
+
+// Expire sets a timeout on key. The key will be deleted after ttl.
+// Used by the offense counter (phase-248) to implement the sliding TTL window.
+func (c *Client) Expire(ctx context.Context, key string, ttl time.Duration) error {
+	err := c.rdb.Expire(ctx, key, ttl).Err()
+	if err != nil {
+		observeOp("expire", "error")
+		return err
+	}
+	observeOp("expire", "ok")
+	return nil
+}
