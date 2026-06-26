@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/sirupsen/logrus"
 	"go.yaml.in/yaml/v3"
 )
 
@@ -75,6 +76,17 @@ func Load(path string) (*Config, error) {
 			return cfg, nil
 		}
 		return nil, fmt.Errorf("config: parse %q: %w", path, err)
+	}
+	// Validate datacenter_policy.action — unknown values default to "score".
+	switch cfg.DatacenterPolicy.Action {
+	case "score", "tarpit", "block", "":
+		if cfg.DatacenterPolicy.Action == "" {
+			cfg.DatacenterPolicy.Action = "score"
+		}
+	default:
+		logrus.WithField("value", cfg.DatacenterPolicy.Action).
+			Warn("config: unknown datacenter_policy.action — defaulting to 'score'")
+		cfg.DatacenterPolicy.Action = "score"
 	}
 	return cfg, nil
 }
@@ -334,6 +346,11 @@ func DefaultConfig() *Config {
 			OffenseTTLHours:       48,
 			SharedIPCIDRThreshold: 10,
 		},
+		DatacenterPolicy: DatacenterPolicyConfig{
+			Action:     "score",
+			Exceptions: []uint{13335, 54113, 20940}, // Cloudflare, Fastly, Akamai
+			LogActions: true,
+		},
 	}
 }
 
@@ -370,6 +387,7 @@ type Config struct {
 	TapConsumer            TapConsumerConfigYAML        `yaml:"tap_consumer"`             // phase-203a
 	JA4TConsumer           JA4TConsumerConfigYAML       `yaml:"ja4t_consumer"`            // phase-316c
 	AutoEscalate           AutoEscalateConfig           `yaml:"auto_escalate"`            // phase-248
+	DatacenterPolicy       DatacenterPolicyConfig       `yaml:"datacenter_policy"`        // phase-249
 }
 
 // AutoEscalateConfig configures auto-escalating IP defense (Phase 248).
@@ -383,6 +401,15 @@ type AutoEscalateConfig struct {
 	BanHours              int  `yaml:"ban_hours"`
 	OffenseTTLHours       int  `yaml:"offense_ttl_hours"`
 	SharedIPCIDRThreshold int  `yaml:"shared_ip_cidr_threshold"`
+}
+
+// DatacenterPolicyConfig controls how traffic from datacenter ASNs is handled (Phase 249).
+type DatacenterPolicyConfig struct {
+	// Action: "score" (default) | "tarpit" | "block"
+	// Unknown values are normalised to "score" on load.
+	Action     string `yaml:"action"`
+	Exceptions []uint `yaml:"exceptions"` // ASN numbers exempt from the policy
+	LogActions bool   `yaml:"log_actions"`
 }
 
 // TapConsumerConfigYAML configures the phase-203a TAP JA4T OS-mismatch consumer.

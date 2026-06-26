@@ -1076,6 +1076,13 @@ func (p *proxy) reload() error {
 	if p.redis.GetString(context.Background(), "attack_mode:escalate") == "1" {
 		pipelineCfg.AutoEscalate.Enabled = true
 	}
+	// Phase 249: apply Redis override for datacenter policy (set by management UI).
+	if raw := p.redis.GetString(context.Background(), "config:datacenter_policy"); raw != "" {
+		var override config.DatacenterPolicyConfig
+		if err := json.Unmarshal([]byte(raw), &override); err == nil {
+			pipelineCfg.DatacenterPolicy = override
+		}
+	}
 	p.pipeline.ReplaceConfig(pipelineCfg)
 	p.mu.Lock()
 	p.cfg = newCfg
@@ -1732,7 +1739,8 @@ func buildPipelineConfig(cfg *config.Config) *security.PipelineConfig {
 		JA4TConsumerRedisTimeout: cfg.JA4TConsumer.RedisTimeoutMs,
 		JA4TConsumerCacheTTL:     cfg.JA4TConsumer.CacheTTLSeconds,
 		JA4TBlocklist:            cfg.JA4TConsumer.Blocklist,
-		AutoEscalate:             cfg.AutoEscalate, // phase-248
+		AutoEscalate:             cfg.AutoEscalate,    // phase-248
+		DatacenterPolicy:         cfg.DatacenterPolicy, // phase-249
 	}
 }
 

@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+
+{% block title %}Security Policy{% endblock %}
+{% block page_title %}Security Policy{% endblock %}
+
+{% block content %}
+<div class="space-y-6 max-w-[900px] fade-in"
+     x-data="datacenterPolicy()"
+     x-init="init()">
+
+  <!-- ── Datacenter Traffic Policy ──────────────────────────────── -->
+  <div class="glass-card overflow-hidden">
+    <div class="flex items-center gap-2 px-4 py-3 border-b border-[#1e293b]/55">
+      <svg class="w-4 h-4 text-[#8b5cf6] filter drop-shadow-[0_0_4px_rgba(139,92,246,0.3)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+      </svg>
+      <h2 class="text-xs font-semibold text-[#64748b] uppercase tracking-wider">Datacenter Traffic Policy</h2>
+      <span class="ml-auto text-xs text-[#475569]" x-text="asnCount ? asnCount + ' datacenter ASNs monitored' : ''"></span>
+    </div>
+
+    <div class="px-4 py-4 space-y-4">
+      <p class="text-sm text-[#94a3b8]">
+        Most bot traffic originates from cloud provider IP ranges. Choose how to treat datacenter connections.
+      </p>
+
+      <!-- Feedback message -->
+      <div x-show="feedback"
+           :class="feedbackOk ? 'bg-[#10b981]/10 border-[#10b981]/25 text-[#34d399]' : 'bg-[#ef4444]/10 border-[#ef4444]/25 text-[#f87171]'"
+           class="flex items-center gap-2 px-3 py-2 rounded-lg border text-xs"
+           style="display:none;"
+           x-text="feedback">
+      </div>
+
+      <!-- Action selector -->
+      <div class="grid grid-cols-3 gap-3">
+
+        <!-- Score -->
+        <label class="relative cursor-pointer">
+          <input type="radio" name="dc_action" value="score" class="sr-only"
+                 x-model="action"
+                 @change="applyAction('score')">
+          <div :class="action === 'score' ? 'border-[#8b5cf6] bg-[#8b5cf6]/10' : 'border-[#1e293b]/55'"
+               class="rounded-lg border p-3 transition-colors">
+            <div class="text-xs font-semibold text-[#e2e8f0] mb-1">Score</div>
+            <div class="text-xs text-[#64748b]">Normal scoring — no special treatment (default, safe).</div>
+          </div>
+        </label>
+
+        <!-- Tarpit -->
+        <label class="relative cursor-pointer">
+          <input type="radio" name="dc_action" value="tarpit" class="sr-only"
+                 x-model="action"
+                 @change="applyAction('tarpit')">
+          <div :class="action === 'tarpit' ? 'border-[#f59e0b] bg-[#f59e0b]/10' : 'border-[#1e293b]/55'"
+               class="rounded-lg border p-3 transition-colors">
+            <div class="text-xs font-semibold text-[#e2e8f0] mb-1">⚠ Tarpit</div>
+            <div class="text-xs text-[#64748b]">Slows down bots. Legitimate traffic eventually succeeds.</div>
+          </div>
+        </label>
+
+        <!-- Block -->
+        <label class="relative cursor-pointer">
+          <input type="radio" name="dc_action" value="block" class="sr-only"
+                 x-model="action"
+                 @change="confirmBlock()">
+          <div :class="action === 'block' ? 'border-[#ef4444] bg-[#ef4444]/10' : 'border-[#1e293b]/55'"
+               class="rounded-lg border p-3 transition-colors">
+            <div class="text-xs font-semibold text-[#e2e8f0] mb-1">✕ Block</div>
+            <div class="text-xs text-[#64748b]">Stops all datacenter connections with RST. May affect VPN users.</div>
+          </div>
+        </label>
+      </div>
+
+      <!-- Block confirmation dialog -->
+      <div x-show="showBlockConfirm"
+           class="rounded-lg border border-[#ef4444]/40 bg-[#ef4444]/10 px-4 py-3 space-y-2"
+           style="display:none;">
+        <p class="text-xs text-[#f87171]">
+          Block ALL datacenter traffic? This may affect legitimate users on VPNs or proxied through Cloudflare.
+          You can revert this instantly by selecting "Score" or "Tarpit".
+        </p>
+        <div class="flex gap-2">
+          <button @click="applyAction('block')"
+                  class="px-3 py-1 rounded text-xs bg-[#ef4444] text-white hover:bg-[#dc2626] transition-colors">
+            Confirm Block
+          </button>
+          <button @click="cancelBlock()"
+                  class="px-3 py-1 rounded text-xs border border-[#475569] text-[#94a3b8] hover:border-[#64748b] transition-colors">
+            Cancel
+          </button>
+        </div>
+      </div>
+
+      <!-- Exceptions -->
+      <div class="mt-4">
+        <div class="text-xs font-semibold text-[#64748b] uppercase tracking-wider mb-2">Exceptions</div>
+        <p class="text-xs text-[#475569] mb-3">These ASNs are always scored normally, regardless of the policy above.</p>
+
+        <div class="space-y-1">
+          <template x-for="ex in exceptions" :key="ex.asn">
+            <div class="flex items-center justify-between px-3 py-2 rounded bg-[#0f172a]/50 border border-[#1e293b]/55">
+              <div class="text-xs">
+                <span class="font-mono text-[#94a3b8]" x-text="ex.asn"></span>
+                <span class="ml-2 text-[#64748b]" x-text="ex.name"></span>
+              </div>
+              <button @click="removeException(ex.asn)"
+                      class="text-xs text-[#ef4444] hover:text-[#f87171] transition-colors">
+                Remove
+              </button>
+            </div>
+          </template>
+        </div>
+
+        <!-- Add exception -->
+        <div class="flex gap-2 mt-3">
+          <input type="number" x-model="newASN" placeholder="ASN number (e.g. 13335)"
+                 min="1" max="4294967295"
+                 class="flex-1 px-3 py-2 rounded-lg bg-[#0f172a]/60 border border-[#1e293b]/55 text-xs text-[#e2e8f0] placeholder-[#475569] focus:outline-none focus:border-[#8b5cf6]/50">
+          <button @click="addException()"
+                  :disabled="!newASN"
+                  class="px-3 py-2 rounded-lg bg-[#8b5cf6]/20 border border-[#8b5cf6]/30 text-xs text-[#a78bfa] hover:bg-[#8b5cf6]/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+            Add
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function datacenterPolicy() {
+  return {
+    action: 'score',
+    exceptions: [],
+    asnCount: 0,
+    feedback: '',
+    feedbackOk: true,
+    showBlockConfirm: false,
+    pendingAction: null,
+    newASN: '',
+
+    async init() {
+      try {
+        const res = await fetch('/api/v1/datacenter-policy');
+        if (!res.ok) return;
+        const data = await res.json();
+        this.action = data.action || 'score';
+        this.exceptions = data.exceptions || [];
+        this.asnCount = data.asn_list_count || 0;
+      } catch (e) {
+        this.showError('Could not load policy');
+      }
+    },
+
+    confirmBlock() {
+      if (this.action !== 'block') {
+        this.showBlockConfirm = true;
+      }
+    },
+
+    cancelBlock() {
+      this.showBlockConfirm = false;
+      this.action = this.action === 'block' ? 'score' : this.action;
+    },
+
+    async applyAction(newAction) {
+      this.showBlockConfirm = false;
+      const exceptionASNs = this.exceptions.map(e => e.asn);
+      try {
+        const res = await fetch('/api/v1/datacenter-policy', {
+          method: 'PUT',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ action: newAction, exceptions: exceptionASNs }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          this.showError(err.detail || 'Update failed');
+          return;
+        }
+        const data = await res.json();
+        this.action = data.action;
+        this.exceptions = data.exceptions || [];
+        this.showSuccess('Policy updated');
+      } catch (e) {
+        this.showError('Network error');
+      }
+    },
+
+    async removeException(asn) {
+      const newExceptions = this.exceptions.filter(e => e.asn !== asn).map(e => e.asn);
+      try {
+        const res = await fetch('/api/v1/datacenter-policy', {
+          method: 'PUT',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ action: this.action, exceptions: newExceptions }),
+        });
+        if (!res.ok) { this.showError('Remove failed'); return; }
+        const data = await res.json();
+        this.exceptions = data.exceptions || [];
+        this.showSuccess('Exception removed');
+      } catch (e) {
+        this.showError('Network error');
+      }
+    },
+
+    async addException() {
+      const asn = parseInt(this.newASN, 10);
+      if (!asn || asn < 1 || asn > 4294967295) {
+        this.showError('Enter a valid ASN (1–4294967295)');
+        return;
+      }
+      if (this.exceptions.some(e => e.asn === asn)) {
+        this.showError('ASN already in exceptions list');
+        return;
+      }
+      const newExceptions = [...this.exceptions.map(e => e.asn), asn];
+      try {
+        const res = await fetch('/api/v1/datacenter-policy', {
+          method: 'PUT',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ action: this.action, exceptions: newExceptions }),
+        });
+        if (!res.ok) { this.showError('Add failed'); return; }
+        const data = await res.json();
+        this.exceptions = data.exceptions || [];
+        this.newASN = '';
+        this.showSuccess('Exception added');
+      } catch (e) {
+        this.showError('Network error');
+      }
+    },
+
+    showSuccess(msg) {
+      this.feedbackOk = true;
+      this.feedback = msg;
+      setTimeout(() => { this.feedback = ''; }, 3000);
+    },
+
+    showError(msg) {
+      this.feedbackOk = false;
+      this.feedback = msg;
+      setTimeout(() => { this.feedback = ''; }, 5000);
+    },
+  };
+}
+</script>
+{% endblock %}
