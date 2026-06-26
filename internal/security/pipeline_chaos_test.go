@@ -16,8 +16,10 @@ package security
 
 import (
 	"context"
+	"errors"
 	"sync/atomic"
 	"testing"
+	"time"
 )
 
 // faultyRedis is a RedisReader test double that returns zero values for
@@ -110,6 +112,15 @@ func (f *faultyRedis) ZRangeScores(_ context.Context, _ string, _, _ int64) []fl
 	f.shouldFail()
 	return nil
 }
+
+// phase-248: offense counter operations.
+func (f *faultyRedis) Incr(_ context.Context, _ string) (int64, error) {
+	return 0, errors.New("faulty")
+}
+func (f *faultyRedis) Expire(_ context.Context, _ string, _ time.Duration) error {
+	return errors.New("faulty")
+}
+func (f *faultyRedis) CountKeys(_ context.Context, _ string) int { return 0 }
 
 // newChaosPipeline builds a pipeline wired to a fault-injecting Redis. It is
 // the chaos-test counterpart to newTestPipeline in pipeline_test.go and is

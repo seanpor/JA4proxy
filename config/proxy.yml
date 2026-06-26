@@ -1064,3 +1064,28 @@ tap:
   # ban_ttl: "5m"              # TTL for sensor-written ban:{ip}
   # intent_ttl: "1h"           # TTL for advisory fp:ban_intent:ip
   # metrics_addr: ""           # Prometheus metrics endpoint (empty = disabled)
+
+# Auto-escalating IP defense (Phase 248).
+# When enabled, IPs that keep connecting after a tarpit or block get
+# progressively stronger responses — automatically, without manual intervention.
+# Off by default. Enable consciously after understanding the fail-open principle.
+auto_escalate:
+  enabled: false            # Set true to enable. Off by default.
+
+  # How many times an IP must trigger a rate-limit signal before escalation.
+  # Offense 1: tarpit. Offense 3: block. Offense 5: ban (defaults).
+  # Lower thresholds are more aggressive — be careful with shared IPs (NAT, VPN).
+  tarpit_at_offense: 1      # Minimum: 1
+  block_at_offense:  3      # Minimum: tarpit_at_offense + 1
+  ban_at_offense:    5      # Minimum: block_at_offense + 1
+
+  ban_hours: 24             # Auto-ban duration. Range: 1–168 (one week max).
+
+  # How long until clean traffic resets the offense counter.
+  # An IP that stops misbehaving gets a clean slate after this many hours.
+  offense_ttl_hours: 48     # Range: 1–720
+
+  # Shared-IP protection: if this many IPs in the same /24 (IPv4) or /48 (IPv6)
+  # have accumulated offenses, do not auto-ban any of them (likely a NAT).
+  # Set to 0 to disable this check.
+  shared_ip_cidr_threshold: 10 # phase-248

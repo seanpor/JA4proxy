@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/seanpor/ja4proxy/internal/config"
 	"github.com/seanpor/ja4proxy/internal/metrics"
 	ja4tls "github.com/seanpor/ja4proxy/internal/tls"
 	"github.com/sirupsen/logrus"
@@ -30,6 +31,10 @@ type RedisReader interface {
 	ZRange(ctx context.Context, key string, start, stop int64) []string
 	ZCard(ctx context.Context, key string) int64
 	ZRangeScores(ctx context.Context, key string, start, stop int64) []float64
+	// phase-248: offense counter needs these atomic operations.
+	Incr(ctx context.Context, key string) (int64, error)
+	Expire(ctx context.Context, key string, ttl time.Duration) error
+	CountKeys(ctx context.Context, pattern string) int
 }
 
 // Pipeline orchestrates the JA4proxy connection decision flow:
@@ -77,8 +82,9 @@ type Pipeline struct {
 	beaconing      *BeaconingDetector
 	abuseipdb      *AbuseIPDB
 	rdap           *RDAPEnricher
-	tapConsumer    *TapConsumer  // phase-203a
-	ja4tConsumer   *JA4TConsumer // phase-316c
+	tapConsumer    *TapConsumer    // phase-203a
+	ja4tConsumer   *JA4TConsumer   // phase-316c
+	offenseCounter *OffenseCounter // phase-248
 
 	// Bounded beaconing worker (F-002)
 	beaconingJobs chan beaconingJob
@@ -230,6 +236,9 @@ type PipelineConfig struct {
 	JA4TConsumerRedisTimeout int      // milliseconds
 	JA4TConsumerCacheTTL     int      // seconds
 	JA4TBlocklist            []string // JA4T fingerprints that raise the signal
+
+	// Phase 248 — Auto-escalating IP defense.
+	AutoEscalate config.AutoEscalateConfig
 }
 
 // NewPipeline creates a Pipeline ready to process connections.
@@ -267,6 +276,9 @@ func NewPipeline(cfg *PipelineConfig, redis RedisReader, log *logrus.Logger) *Pi
 	p.rdap = NewRDAPEnricher(buildRDAPConfig(cfg), redis, log)
 	p.tapConsumer = NewTapConsumer(buildTapConsumerConfig(cfg), redisReaderGetter{redis}, log)    // phase-203a
 	p.ja4tConsumer = NewJA4TConsumer(buildJA4TConsumerConfig(cfg), redisReaderGetter{redis}, log) // phase-316c
+	if cfg.AutoEscalate.Enabled {
+		p.offenseCounter = NewOffenseCounter(redis, &cfg.AutoEscalate, log)
+	}
 	p.beaconingJobs = make(chan beaconingJob, beaconingJobBuf)
 	p.auditJobs = make(chan auditJob, auditJobBuf)
 	go p.beaconingWorker()
@@ -298,6 +310,11 @@ func (p *Pipeline) ReplaceConfig(cfg *PipelineConfig) {
 	p.rdap = NewRDAPEnricher(buildRDAPConfig(cfg), p.redis, p.log)
 	p.tapConsumer = NewTapConsumer(buildTapConsumerConfig(cfg), redisReaderGetter{p.redis}, p.log)
 	p.ja4tConsumer = NewJA4TConsumer(buildJA4TConsumerConfig(cfg), redisReaderGetter{p.redis}, p.log)
+	if cfg.AutoEscalate.Enabled {
+		p.offenseCounter = NewOffenseCounter(p.redis, &cfg.AutoEscalate, p.log)
+	} else {
+		p.offenseCounter = nil
+	}
 }
 
 // redisReaderGetter adapts RedisReader (which uses GetString) to the narrow
@@ -547,8 +564,30 @@ func (p *Pipeline) processInternal(ctx context.Context, conn *ConnectionContext)
 
 	// Rate limiter
 	startRL := time.Now()
-	signals = append(signals, p.rateLimiter.Check(ctx, conn.ClientIP, conn.JA4)...)
+	rlSignals := p.rateLimiter.Check(ctx, conn.ClientIP, conn.JA4)
+	signals = append(signals, rlSignals...)
 	p.measure("rate_limiter", startRL)
+
+	// Auto-escalation (phase-248): if rate limiter fired, increment offense counter.
+	if len(rlSignals) > 0 && p.offenseCounter != nil {
+		count, _ := p.offenseCounter.Increment(ctx, conn.ClientIP)
+		if escalated, _ := p.offenseCounter.EscalatedAction(ctx, conn.ClientIP); escalated != "" {
+			p.log.WithFields(logrus.Fields{
+				"event.action":             "offense_escalation",
+				"client.ip":                conn.ClientIP,
+				"offense.count":            count,
+				"offense.escalated_action": escalated,
+			}).Warn("offense escalation")
+			metrics.OffenseEscalationsTotal.WithLabelValues(escalated).Inc()
+			if escalated == "ban" {
+				banKey := fmt.Sprintf("ban:%s", conn.ClientIP)
+				reason := fmt.Sprintf(
+					`{"reason":"auto_escalation","offense_count":%d,"auto":true}`, count)
+				p.redis.SetString(ctx, banKey, reason, p.cfg.AutoEscalate.BanHours*3600)
+			}
+			return &PipelineResult{Action: escalated, Score: 100, BypassReason: "auto_escalation"}
+		}
+	}
 
 	// TCP analyzer
 	startTCP := time.Now()
