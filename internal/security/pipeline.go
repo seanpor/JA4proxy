@@ -239,6 +239,8 @@ type PipelineConfig struct {
 
 	// Phase 248 — Auto-escalating IP defense.
 	AutoEscalate config.AutoEscalateConfig
+	// Phase 249 — Datacenter ASN policy.
+	DatacenterPolicy config.DatacenterPolicyConfig
 }
 
 // NewPipeline creates a Pipeline ready to process connections.
@@ -598,6 +600,39 @@ func (p *Pipeline) processInternal(ctx context.Context, conn *ConnectionContext)
 	startASN := time.Now()
 	signals = append(signals, p.asnClassifier.Classify(conn.ClientIP)...)
 	p.measure("asn", startASN)
+
+	// Datacenter policy enforcement (Phase 249) — runs immediately after ASN classification.
+	// ASN data is not available at bypass-check time, so this lives here.
+	// When action is "score" (default), the block is skipped entirely.
+	if dc := p.cfg.DatacenterPolicy; dc.Action == "tarpit" || dc.Action == "block" {
+		if isDatacenter, asn := p.asnClassifier.IsDatacenter(conn.ClientIP); isDatacenter {
+			excepted := false
+			for _, exASN := range dc.Exceptions {
+				if uint32(exASN) == asn {
+					excepted = true
+					break
+				}
+			}
+			if !excepted {
+				if dc.LogActions {
+					p.log.WithFields(logrus.Fields{
+						"event.action":            "datacenter_policy",
+						"client.ip":               conn.ClientIP,
+						"network.asn":             asn,
+						"ja4proxy.policy.action":  dc.Action,
+					}).Warn("datacenter policy applied")
+				}
+				metrics.DatacenterPolicyActionsTotal.WithLabelValues(dc.Action, "false").Inc()
+				return &PipelineResult{
+					Action:       dc.Action,
+					Score:        100,
+					BypassReason: "datacenter_policy",
+				}
+			}
+			// Excepted ASN — log and continue to scorer.
+			metrics.DatacenterPolicyActionsTotal.WithLabelValues(dc.Action, "true").Inc()
+		}
+	}
 
 	// DNS enrichment (cached result; lookup happens async)
 	var sig *RiskSignal

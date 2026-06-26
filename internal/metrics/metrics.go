@@ -415,6 +415,15 @@ var (
 		prometheus.CounterOpts{Name: "ja4proxy_offense_escalations_total", Help: "Auto-escalation actions taken. Labels: action=tarpit|block|ban."},
 		[]string{"action"},
 	)
+
+	// phase-249: Datacenter policy enforcement.
+	DatacenterPolicyActionsTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "ja4proxy_datacenter_policy_actions_total",
+			Help: "Datacenter policy actions applied. Labels: action=tarpit|block, exception=true|false.",
+		},
+		[]string{"action", "exception"},
+	)
 )
 
 func Register() {
@@ -462,6 +471,8 @@ func Register() {
 		RestoreDurationSeconds, RestoreSkippedTotal,
 		// phase-248: offense escalation
 		OffenseEscalationsTotal,
+		// phase-249: datacenter policy
+		DatacenterPolicyActionsTotal,
 	)
 	for _, action := range []string{"allow", "flag", "rate_limit", "tarpit", "block", "ban"} {
 		ConnectionsTotal.WithLabelValues(action)

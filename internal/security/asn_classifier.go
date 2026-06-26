@@ -231,3 +231,26 @@ func (c *ASNClassifier) Classify(clientIP string) []RiskSignal {
 	metrics.ASNClassificationTotal.WithLabelValues("residential").Inc()
 	return nil // residential / mobile / unknown-benign
 }
+
+// IsDatacenter returns (true, asn) if clientIP belongs to a known datacenter ASN.
+// Uses the same in-memory map as Classify — O(1), no Redis call.
+func (c *ASNClassifier) IsDatacenter(clientIP string) (bool, uint32) {
+	ip := net.ParseIP(clientIP)
+	if ip == nil {
+		return false, 0
+	}
+	asnNum, orgName, err := c.lookupFn(ip)
+	if err != nil || (asnNum == 0 && orgName == "") {
+		return false, 0
+	}
+	if c.cfg.DatacenterASNs[asnNum] {
+		return true, uint32(asnNum)
+	}
+	lowerOrg := strings.ToLower(orgName)
+	for _, pat := range c.cfg.DatacenterOrgs {
+		if strings.Contains(lowerOrg, strings.ToLower(pat)) {
+			return true, uint32(asnNum)
+		}
+	}
+	return false, 0
+}
