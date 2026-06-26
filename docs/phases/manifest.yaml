@@ -3195,6 +3195,19 @@ phases:
     summary: "IPs that persist after tarpit are automatically escalated to block then ban.
       auto_escalate config (off by default), offense:{ip} Redis key, shared-IP protection,
       Prometheus counter, management offense API."
+  249:
+    name: "Datacenter ASN One-Click Block"
+    status: COMPLETE
+    completed: '2026-06-26'
+    action_plan: docs/phases/PHASE_249.md
+    dependencies:
+    - 247
+    - 248
+    size: MEDIUM
+    summary: "One-click tarpit/block all datacenter traffic from Security Policy page.
+      Hot-reload via Redis pub/sub. datacenter_policy config section, IsDatacenter()
+      on ASNClassifier, DatacenterPolicyConfig, Prometheus counter,
+      GET/PUT /api/v1/datacenter-policy. 249.5 staged for Phase 247 merge."
   250:
     name: "Botnet Fingerprint Detection & One-Click Block"
     status: COMPLETE

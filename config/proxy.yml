@@ -1089,3 +1089,23 @@ auto_escalate:
   # have accumulated offenses, do not auto-ban any of them (likely a NAT).
   # Set to 0 to disable this check.
   shared_ip_cidr_threshold: 10 # phase-248
+
+# Datacenter ASN policy (Phase 249)
+# Controls how traffic from known cloud/hosting provider IP ranges is handled.
+# Datacenter IPs are identified by the ASN list in config/asn_datacenter_list.yml.
+#
+# action: "score" | "tarpit" | "block"
+#   score:  normal scoring, no special treatment (default — safe for first deploy)
+#   tarpit: all datacenter connections are tarpitted (slows bots, allows legitimate to succeed)
+#   block:  all datacenter connections are blocked with RST
+#
+# Caution: some legitimate traffic comes via datacenters (Cloudflare-proxied
+# visitors, corporate VPNs, CI systems). Use 'tarpit' first to observe impact
+# before switching to 'block'. Add ASN exceptions for providers you want to allow.
+datacenter_policy:
+  action: score           # phase-249
+  exceptions:
+    - 13335   # Cloudflare — real visitors may be proxied through Cloudflare
+    - 54113   # Fastly
+    - 20940   # Akamai
+  log_actions: true       # set false to suppress logs during high-volume attacks
