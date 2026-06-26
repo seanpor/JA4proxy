@@ -4,6 +4,8 @@ import (
 	"time"
 
 	"github.com/gopacket/gopacket/layers"
+
+	"github.com/seanpor/ja4proxy/internal/quic"
 )
 
 // StackFeatures holds the passive TCP/IP-stack features needed for OS
@@ -75,6 +77,13 @@ type HandshakeEvent struct {
 	// IsQUIC is true when the ClientHello was extracted from a QUIC Initial
 	// packet (UDP) rather than a TCP TLS handshake.
 	IsQUIC bool
+
+	// QUICVersion is the QUIC version number (only set when IsQUIC=true).
+	QUICVersion uint32
+
+	// Features holds the parsed ClientHello fields for JA4Q fingerprinting.
+	// Only set when IsQUIC=true and decryption succeeds.
+	Features *quic.ClientHelloFeatures
 }
 
 // HasServerHello reports whether the server side of the handshake was captured.

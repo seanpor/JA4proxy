@@ -113,7 +113,7 @@ func (m *memSource) ReadPacketData() ([]byte, gopacket.CaptureInfo, error) {
 // runSensor feeds frames through a sensor and returns every emitted event.
 func runSensor(t *testing.T, frames [][]byte) []HandshakeEvent {
 	t.Helper()
-	s := NewSensor(layers.LinkTypeEthernet, 64, false)
+	s := NewSensor(layers.LinkTypeEthernet, 64, false, nil)
 	var got []HandshakeEvent
 	done := make(chan struct{})
 	go func() {

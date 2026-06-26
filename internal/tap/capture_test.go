@@ -41,7 +41,7 @@ func TestOpenPcapFileRoundTrip(t *testing.T) {
 		t.Fatalf("link type = %v, want Ethernet", lt)
 	}
 
-	s := NewSensor(lt, 16, false)
+	s := NewSensor(lt, 16, false, nil)
 	var got []HandshakeEvent
 	done := make(chan struct{})
 	go func() {
@@ -85,7 +85,7 @@ func writePcap(t *testing.T, path string, frames [][]byte) {
 // TestSensorRunContextCancel ensures Run returns promptly when the context is
 // cancelled, flushing in-flight state without emitting a partial connection.
 func TestSensorRunContextCancel(t *testing.T) {
-	s := NewSensor(layers.LinkTypeEthernet, 4, false)
+	s := NewSensor(layers.LinkTypeEthernet, 4, false, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // already cancelled before Run starts
 

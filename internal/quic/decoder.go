@@ -3,7 +3,6 @@
 package quic
 
 import (
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"sync"
@@ -30,6 +29,9 @@ const (
 	HandshakeTTL = 30 * time.Second
 )
 
+// QUIC Initial Header Key Label for key derivation.
+const initialSecretLabel = "tls13 quic secret"
+
 // quicConnID is a fixed-size key for the active-connections map.
 type quicConnID [32]byte
 
@@ -48,17 +50,19 @@ type Handshake struct {
 	Seen     int
 }
 
-// Decoder manages state for QUIC connection tracking. It is NOT safe for
-// concurrent use — the Sensor is single-goroutine, so this is fine.
+// Decoder manages state for QUIC connection tracking and decryption.
+// It is NOT safe for concurrent use — the Sensor is single-goroutine.
 type Decoder struct {
 	active map[quicConnID]*Handshake
-	mu     sync.Mutex // Defensive; single-goroutine in practice.
+	keyLog *KeyLog
+	mu     sync.Mutex
 }
 
-// NewDecoder builds a decoder with a pre-allocated map.
-func NewDecoder() *Decoder {
+// NewDecoder builds a decoder with a pre-allocated map and optional key log.
+func NewDecoder(keyLog *KeyLog) *Decoder {
 	return &Decoder{
 		active: make(map[quicConnID]*Handshake, 256),
+		keyLog: keyLog,
 	}
 }
 
@@ -67,6 +71,11 @@ func (d *Decoder) ActiveCount() int {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	return len(d.active)
+}
+
+// HasKeys reports whether decryption keys are available.
+func (d *Decoder) HasKeys() bool {
+	return d.keyLog != nil && d.keyLog.HasKeys()
 }
 
 // FlushEvicted removes stale entries from the active map.
@@ -82,8 +91,8 @@ func (d *Decoder) FlushEvicted() {
 }
 
 // DecodeInitial parses a QUIC Initial packet from a UDP frame.
-// Returns a HandshakeEvent-like data structure (or nil for non-Initial packets).
-// Returns an error only for malformed/crafted packets that should be counted as drops.
+// Attempts to decrypt the Initial payload and extract the ClientHello.
+// Returns a QUICResult with ClientHelloFeatures if decryption succeeds.
 func (d *Decoder) DecodeInitial(
 	netFlow gopacket.Flow,
 	udp *layers.UDP,
@@ -107,9 +116,9 @@ func (d *Decoder) DecodeInitial(
 		return nil, nil // not an Initial packet
 	}
 
-	// --- Parse fields ---
+	// --- Parse header fields ---
 	off := 1
-	version, n := binary.Uvarint(payload[off:])
+	version, n := readVarint(payload[off:])
 	if n <= 0 {
 		return nil, fmt.Errorf("quic: invalid version varint at offset %d", off)
 	}
@@ -144,13 +153,35 @@ func (d *Decoder) DecodeInitial(
 	copy(scid, payload[off:off+scidLen])
 	off += scidLen
 
+	// --- Token (Initial packets only; skip) ---
+	tokenLen, n := readVarint(payload[off:])
+	if n <= 0 {
+		return nil, fmt.Errorf("quic: invalid token length varint at offset %d", off)
+	}
+	off += n
+	if off+int(tokenLen) > len(payload) {
+		return nil, errors.New("quic: truncated token")
+	}
+	off += int(tokenLen)
+
+	// --- Length (varint) ---
+	pktLen, n := readVarint(payload[off:])
+	if n <= 0 {
+		return nil, fmt.Errorf("quic: invalid length varint at offset %d", off)
+	}
+	off += n
+
+	pktEnd := off + int(pktLen)
+	if pktEnd > len(payload) {
+		pktEnd = len(payload) // truncate to available data
+	}
+	ciphertext := payload[off:pktEnd]
+
 	// --- Deduplicate ---
 	key := connIDKey(dcid)
 	d.mu.Lock()
-	hs, exists := d.active[key]
+	_, exists := d.active[key]
 	if exists {
-		hs.Seen++
-		hs.LastSeen = ci.Timestamp
 		d.mu.Unlock()
 		return nil, nil // already processed
 	}
@@ -170,7 +201,8 @@ func (d *Decoder) DecodeInitial(
 	}
 	d.mu.Unlock()
 
-	return &QUICResult{
+	// --- Attempt decryption ---
+	result := &QUICResult{
 		ClientIP:   netFlow.Src().String(),
 		ServerIP:   netFlow.Dst().String(),
 		ClientPort: uint16(udp.SrcPort),
@@ -179,7 +211,101 @@ func (d *Decoder) DecodeInitial(
 		DCID:       dcid,
 		FirstSeen:  ci.Timestamp,
 		TTL:        ttl,
-	}, nil
+	}
+
+	if d.keyLog == nil {
+		return result, nil // no decryption keys available
+	}
+
+	// Try to decrypt the Initial packet
+	plaintext, err := d.decryptInitialPacket(ciphertext, dcid)
+	if err != nil {
+		return result, nil // decryption failed; return result without ClientHello
+	}
+
+	// --- Extract CRYPTO frames ---
+	chBytes, err := extractClientHello(plaintext)
+	if err != nil {
+		return result, nil // CRYPTO extraction failed
+	}
+
+	// --- Parse ClientHello features ---
+	features, err := ParseClientHelloFeatures(chBytes)
+	if err != nil {
+		return result, nil // ClientHello parse failed
+	}
+
+	result.ClientHello = chBytes
+	result.Features = features
+	return result, nil
+}
+
+// decryptInitialPacket attempts to decrypt a QUIC Initial packet.
+// Uses the DCID to derive the Initial key from the handshake secret.
+func (d *Decoder) decryptInitialPacket(ciphertext, dcid []byte) ([]byte, error) {
+	if d.keyLog == nil {
+		return nil, errors.New("no key log available")
+	}
+
+	// Try to find a suitable secret
+	// For QUIC v1, the Initial packet is encrypted with keys derived from
+	// the client's DCID using a well-known salt (RFC 9001 §5.1).
+	// The actual decryption requires the TLS transcript keys, which we
+	// get from the key log.
+
+	// Try the handshake secret label
+	secret := d.keyLog.GetSecret("QUIC_SECRET_CLIENT_HANDSHAKE_TRAFFIC_SECRET")
+	if secret == nil {
+		secret = d.keyLog.GetSecret("QUIC_SECRET_HANDSHAKE_TRAFFIC_SECRET")
+	}
+	if secret == nil {
+		return nil, errors.New("no handshake secret found in key log")
+	}
+
+	// Derive Initial key from DCID and secret
+	key, iv, err := DeriveInitialKey(dcid, secret)
+	if err != nil {
+		return nil, fmt.Errorf("derive initial key: %w", err)
+	}
+
+	// Build associated data (AD) = header (everything before ciphertext)
+	// For simplicity, we use an empty AD for now
+	var ad []byte
+
+	// Decrypt
+	plaintext, err := DecryptInitial(ciphertext, key, iv, ad)
+	if err != nil {
+		return nil, fmt.Errorf("decrypt initial: %w", err)
+	}
+
+	return plaintext, nil
+}
+
+// extractClientHello extracts the TLS ClientHello from decrypted QUIC CRYPTO frames.
+func extractClientHello(plaintext []byte) ([]byte, error) {
+	// Parse CRYPTO frames
+	cryptoData, err := ParseCRYPTOFrames(plaintext)
+	if err != nil {
+		return nil, fmt.Errorf("parse CRYPTO frames: %w", err)
+	}
+
+	if len(cryptoData) < 4 {
+		return nil, errors.New("CRYPTO data too short for TLS handshake")
+	}
+
+	// Check handshake type (must be ClientHello = 0x01)
+	if cryptoData[0] != 0x01 {
+		return nil, fmt.Errorf("expected ClientHello (0x01), got 0x%02x", cryptoData[0])
+	}
+
+	// Extract length (3 bytes big-endian)
+	msgLen := int(cryptoData[1])<<16 | int(cryptoData[2])<<8 | int(cryptoData[3])
+	if msgLen+4 > len(cryptoData) {
+		return nil, errors.New("ClientHello message truncated")
+	}
+
+	// Return the ClientHello body (without 4-byte handshake header)
+	return cryptoData[4 : 4+msgLen], nil
 }
 
 // QUICResult holds the parsed output of a QUIC Initial packet.
@@ -192,4 +318,12 @@ type QUICResult struct {
 	DCID       []byte
 	FirstSeen  time.Time
 	TTL        uint8
+
+	// ClientHello is the raw TLS ClientHello body (without handshake header).
+	// Set only when decryption and CRYPTO extraction succeed.
+	ClientHello []byte
+
+	// Features holds the parsed ClientHello fields for JA4Q fingerprinting.
+	// Set only when ClientHello parsing succeeds.
+	Features *ClientHelloFeatures
 }

@@ -65,12 +65,22 @@ type Sensor struct {
 // NewSensor builds a sensor for the given capture link type. eventBuffer sizes
 // the emit channel; when full, events are dropped (fail-open — the sensor never
 // blocks the capture path). Optional enableQUIC activates the QUIC Initial packet decoder.
-func NewSensor(linkType layers.LinkType, eventBuffer int, enableQUIC ...bool) *Sensor {
+func NewSensor(linkType layers.LinkType, eventBuffer int, extra ...any) *Sensor {
 	s := &Sensor{
 		events: make(chan HandshakeEvent, eventBuffer),
 	}
-	if len(enableQUIC) > 0 && enableQUIC[0] {
-		s.quic = quic.NewDecoder()
+	var enableQUIC bool
+	var keyLog *quic.KeyLog
+	for _, arg := range extra {
+		switch v := arg.(type) {
+		case bool:
+			enableQUIC = v
+		case *quic.KeyLog:
+			keyLog = v
+		}
+	}
+	if enableQUIC {
+		s.quic = quic.NewDecoder(keyLog)
 	}
 	factory := &streamFactory{emit: s.deliver}
 	s.pool = reassembly.NewStreamPool(factory)
@@ -124,12 +134,14 @@ func (s *Sensor) ProcessPacket(data []byte, ci gopacket.CaptureInfo) {
 		}
 		if ev != nil {
 			s.deliver(HandshakeEvent{
-				ClientIP:   ev.ClientIP,
-				ServerIP:   ev.ServerIP,
-				ClientPort: ev.ClientPort,
-				ServerPort: ev.ServerPort,
-				FirstSeen:  ev.FirstSeen,
-				IsQUIC:     true,
+				ClientIP:    ev.ClientIP,
+				ServerIP:    ev.ServerIP,
+				ClientPort:  ev.ClientPort,
+				ServerPort:  ev.ServerPort,
+				FirstSeen:   ev.FirstSeen,
+				IsQUIC:      true,
+				QUICVersion: ev.Version,
+				Features:    ev.Features,
 			})
 		}
 	default:

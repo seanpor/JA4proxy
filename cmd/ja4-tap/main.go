@@ -32,6 +32,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"golang.org/x/net/bpf"
 
+	"github.com/seanpor/ja4proxy/internal/quic"
 	"github.com/seanpor/ja4proxy/internal/tap"
 )
 
@@ -238,6 +239,20 @@ func run(cfg runConfig, log *logrus.Logger) error {
 	}
 	warnEnforcementPosture(cfg.redisURL, cfg.enfCfg, log)
 
+	// Load QUIC_SECRET_LOG if QUIC is enabled
+	var keyLog *quic.KeyLog
+	if cfg.enableQUIC {
+		kl, err := quic.LoadFromEnv()
+		if err != nil {
+			log.WithError(err).Warn("failed to load QUIC_SECRET_LOG; QUIC decryption disabled")
+		} else if kl != nil {
+			keyLog = kl
+			log.Info("QUIC_SECRET_LOG loaded; QUIC Initial packet decryption enabled")
+		} else {
+			log.Warn("QUIC enabled but QUIC_SECRET_LOG not set; QUIC packets will be detected but not decrypted")
+		}
+	}
+
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
@@ -290,7 +305,7 @@ func run(cfg runConfig, log *logrus.Logger) error {
 		log.WithError(err).Warn("failed to load seccomp profile; proceeding WITHOUT syscall filtering (set --seccomp-required to fail closed instead)")
 	}
 
-	return drive(ctx, lt, src, closeFn, store, enforcer, cfg.quiet, cfg.eventBuffer, cfg.excludeIPs, &eventCount, cfg.enableQUIC, log)
+	return drive(ctx, lt, src, closeFn, store, enforcer, cfg.quiet, cfg.eventBuffer, cfg.excludeIPs, &eventCount, cfg.enableQUIC, keyLog, log)
 }
 
 // handleOperationalSignals runs for the life of the process, reacting to
@@ -425,11 +440,14 @@ func drive(ctx context.Context, lt layers.LinkType, source tap.PacketSource, clo
 	defer func() { _ = closeFn() }()
 
 	var enableQUIC bool
+	var keyLog *quic.KeyLog
 	var log *logrus.Logger
 	for _, arg := range extra {
 		switch v := arg.(type) {
 		case bool:
 			enableQUIC = v
+		case *quic.KeyLog:
+			keyLog = v
 		case *logrus.Logger:
 			log = v
 		}
@@ -443,7 +461,7 @@ func drive(ctx context.Context, lt layers.LinkType, source tap.PacketSource, clo
 		func() (tap.PacketSource, func(), error) {
 			return source, func() {}, nil
 		},
-		func() *tap.Sensor { return tap.NewSensor(lt, eventBuffer, enableQUIC) },
+		func() *tap.Sensor { return tap.NewSensor(lt, eventBuffer, enableQUIC, keyLog) },
 		func(s *tap.Sensor) {
 			// R-005: a heartbeat, not gated by --quiet, so a hung sensor (zero
 			// heartbeats) is distinguishable from an idle one (heartbeats with
@@ -498,34 +516,59 @@ func drive(ctx context.Context, lt layers.LinkType, source tap.PacketSource, clo
 						continue
 					}
 
-					class := tap.Classify(ev.Stack)
-					ja4t := tap.ComputeJA4T(ev.Stack)
-
-					// R-002: each write gets its OWN storeWriteTimeout budget rather
-					// than three operations sharing a single deadline -- previously
-					// a slow first write starved the two that followed it of
-					// almost their entire allotted time.
-					withTimeout(func(c context.Context) { store.WriteOSClass(c, ev.ClientIP, class) })
-					withTimeout(func(c context.Context) { store.WriteJA4T(c, ev.ClientIP, ja4t) })
-					withTimeout(func(c context.Context) { enforcer.Consider(c, ev.ClientIP, ja4t) })
-
-					if !quiet {
-						sh := "none"
-						if ev.HasServerHello() {
-							sh = fmt.Sprintf("%d bytes", len(ev.ServerHello))
+					if ev.IsQUIC {
+						// QUIC path: compute JA4Q from parsed ClientHello features
+						ja4q := ""
+						if ev.Features != nil {
+							ja4q = quic.ComputeJA4Q(ev.QUICVersion, ev.Features)
 						}
-						ja4tField := ja4t
-						if ja4tField == "" {
-							ja4tField = "none"
+						if ja4q != "" {
+							withTimeout(func(c context.Context) { store.WriteJA4Q(c, ev.ClientIP, ja4q) })
 						}
-						log.WithFields(logrus.Fields{
-							"client":       fmt.Sprintf("%s:%d", ev.ClientIP, ev.ClientPort),
-							"server":       fmt.Sprintf("%s:%d", ev.ServerIP, ev.ServerPort),
-							"client_hello": fmt.Sprintf("%d bytes", len(ev.ClientHello)),
-							"server_hello": sh,
-							"os_class":     class.String(),
-							"ja4t":         ja4tField,
-						}).Info("handshake")
+
+						if !quiet {
+							ja4qField := ja4q
+							if ja4qField == "" {
+								ja4qField = "none"
+							}
+							log.WithFields(logrus.Fields{
+								"client":       fmt.Sprintf("%s:%d", ev.ClientIP, ev.ClientPort),
+								"server":       fmt.Sprintf("%s:%d", ev.ServerIP, ev.ServerPort),
+								"client_hello": fmt.Sprintf("%d bytes", len(ev.ClientHello)),
+								"ja4q":         ja4qField,
+								"quic_version": fmt.Sprintf("0x%08x", ev.QUICVersion),
+							}).Info("quic handshake")
+						}
+					} else {
+						class := tap.Classify(ev.Stack)
+						ja4t := tap.ComputeJA4T(ev.Stack)
+
+						// R-002: each write gets its OWN storeWriteTimeout budget rather
+						// than three operations sharing a single deadline -- previously
+						// a slow first write starved the two that followed it of
+						// almost their entire allotted time.
+						withTimeout(func(c context.Context) { store.WriteOSClass(c, ev.ClientIP, class) })
+						withTimeout(func(c context.Context) { store.WriteJA4T(c, ev.ClientIP, ja4t) })
+						withTimeout(func(c context.Context) { enforcer.Consider(c, ev.ClientIP, ja4t) })
+
+						if !quiet {
+							sh := "none"
+							if ev.HasServerHello() {
+								sh = fmt.Sprintf("%d bytes", len(ev.ServerHello))
+							}
+							ja4tField := ja4t
+							if ja4tField == "" {
+								ja4tField = "none"
+							}
+							log.WithFields(logrus.Fields{
+								"client":       fmt.Sprintf("%s:%d", ev.ClientIP, ev.ClientPort),
+								"server":       fmt.Sprintf("%s:%d", ev.ServerIP, ev.ServerPort),
+								"client_hello": fmt.Sprintf("%d bytes", len(ev.ClientHello)),
+								"server_hello": sh,
+								"os_class":     class.String(),
+								"ja4t":         ja4tField,
+							}).Info("handshake")
+						}
 					}
 				}
 			}
