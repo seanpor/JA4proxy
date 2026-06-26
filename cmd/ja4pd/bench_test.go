@@ -25,6 +25,7 @@ import (
 	"context"
 	"net"
 	"testing"
+	"time"
 
 	"github.com/seanpor/ja4proxy/internal/security"
 )
@@ -49,6 +50,10 @@ func (benchRedis) ZRemRangeByScore(_ context.Context, _ string, _, _ float64)   
 func (benchRedis) ZRange(_ context.Context, _ string, _, _ int64) []string        { return nil }
 func (benchRedis) ZCard(_ context.Context, _ string) int64                        { return 0 }
 func (benchRedis) ZRangeScores(_ context.Context, _ string, _, _ int64) []float64 { return nil }
+// phase-248: offense counter operations.
+func (benchRedis) Incr(_ context.Context, _ string) (int64, error) { return 0, nil }
+func (benchRedis) Expire(_ context.Context, _ string, _ time.Duration) error { return nil }
+func (benchRedis) CountKeys(_ context.Context, _ string) int { return 0 }
 
 func newBenchPipeline(_ testing.TB) *security.Pipeline {
 	cfg := &security.PipelineConfig{

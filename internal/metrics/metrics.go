@@ -410,6 +410,11 @@ var (
 		prometheus.CounterOpts{Name: "ja4proxy_restore_skipped_total", Help: "Keys skipped during restore. Labels: reason=erased|block_gated."},
 		[]string{"reason"},
 	)
+	// phase-248: auto-escalating IP defense escalation counter
+	OffenseEscalationsTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{Name: "ja4proxy_offense_escalations_total", Help: "Auto-escalation actions taken. Labels: action=tarpit|block|ban."},
+		[]string{"action"},
+	)
 )
 
 func Register() {
@@ -455,6 +460,8 @@ func Register() {
 		// phase-315b: restore engine
 		RestoreOperationsTotal, RestoreCurrentlyRunning,
 		RestoreDurationSeconds, RestoreSkippedTotal,
+		// phase-248: offense escalation
+		OffenseEscalationsTotal,
 	)
 	for _, action := range []string{"allow", "flag", "rate_limit", "tarpit", "block", "ban"} {
 		ConnectionsTotal.WithLabelValues(action)

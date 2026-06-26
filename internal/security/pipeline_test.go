@@ -41,6 +41,10 @@ func (m *mockRedis) ZRemRangeByScore(_ context.Context, _ string, _, _ float64) 
 func (m *mockRedis) ZRange(_ context.Context, _ string, _, _ int64) []string        { return nil }
 func (m *mockRedis) ZCard(_ context.Context, _ string) int64                        { return 0 }
 func (m *mockRedis) ZRangeScores(_ context.Context, _ string, _, _ int64) []float64 { return nil }
+// phase-248: offense counter operations.
+func (m *mockRedis) Incr(_ context.Context, _ string) (int64, error)            { return 0, nil }
+func (m *mockRedis) Expire(_ context.Context, _ string, _ time.Duration) error  { return nil }
+func (m *mockRedis) CountKeys(_ context.Context, _ string) int                  { return 0 }
 
 func newTestPipeline(dial int) *Pipeline {
 	cfg := &PipelineConfig{

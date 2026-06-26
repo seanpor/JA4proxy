@@ -325,6 +325,15 @@ func DefaultConfig() *Config {
 			StreamWorkers:             4,
 			StreamWriteTimeoutSeconds: 2.0,
 		},
+		AutoEscalate: AutoEscalateConfig{
+			Enabled:               false,
+			TarpitAtOffense:       1,
+			BlockAtOffense:        3,
+			BanAtOffense:          5,
+			BanHours:              24,
+			OffenseTTLHours:       48,
+			SharedIPCIDRThreshold: 10,
+		},
 	}
 }
 
@@ -360,6 +369,20 @@ type Config struct {
 	TrustedUpstreamSources TrustedUpstreamSourcesConfig `yaml:"trusted_upstream_sources"` // phase-94i2
 	TapConsumer            TapConsumerConfigYAML        `yaml:"tap_consumer"`             // phase-203a
 	JA4TConsumer           JA4TConsumerConfigYAML       `yaml:"ja4t_consumer"`            // phase-316c
+	AutoEscalate           AutoEscalateConfig           `yaml:"auto_escalate"`            // phase-248
+}
+
+// AutoEscalateConfig configures auto-escalating IP defense (Phase 248).
+// Off by default. Enabled by setting auto_escalate.enabled: true in proxy.yml,
+// or by Attack Mode activation (which sets attack_mode:escalate in Redis).
+type AutoEscalateConfig struct {
+	Enabled               bool `yaml:"enabled"`
+	TarpitAtOffense       int  `yaml:"tarpit_at_offense"`
+	BlockAtOffense        int  `yaml:"block_at_offense"`
+	BanAtOffense          int  `yaml:"ban_at_offense"`
+	BanHours              int  `yaml:"ban_hours"`
+	OffenseTTLHours       int  `yaml:"offense_ttl_hours"`
+	SharedIPCIDRThreshold int  `yaml:"shared_ip_cidr_threshold"`
 }
 
 // TapConsumerConfigYAML configures the phase-203a TAP JA4T OS-mismatch consumer.
