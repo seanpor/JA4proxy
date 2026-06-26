@@ -1,0 +1,1 @@
+- Closed 4 remaining OPEN security findings (Phase 341): TAP reassembly buffer logging (F-0060), stale MaxConnectionLimit (F-0062), webhook URL validation TOCTOU (F-0066), Redis password exposed on CLI in PoC compose (F-0079).

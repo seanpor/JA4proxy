@@ -3025,6 +3025,17 @@ phases:
       census (skipped). WP-R3: Runbooks batch-2 audit. WP-R4: findings.yaml regression_test repointing. WP-R5: ADR status
       validation. WP-R6: Security/compliance/config/API doc audit. WP-R7: Final sweep (Redis keys, metrics, template.env,
       docker-compose, dangling links)."
+  341:
+    name: "Close Remaining OPEN Findings"
+    status: COMPLETE
+    completed: '2026-06-26'
+    action_plan: docs/phases/PHASE_341.md
+    dependencies: []
+    size: SMALL
+    summary: "Closed 4 remaining OPEN findings: F-0060 (TAP reassembly buffer logging — added Debug log lines
+      in reassembler.go, extended test), F-0062 (MaxConnectionLimit — stale, already fixed as MaxConnections),
+      F-0066 (webhook TOCTOU — removed redundant isPrivateTarget pre-check), F-0079 (Redis password on CLI
+      — switched PoC compose to --requirepass-file with Docker secrets)."
   400:
     name: Comprehensive Security Review
     status: DEFERRED
