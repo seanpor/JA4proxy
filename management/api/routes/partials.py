@@ -1287,3 +1287,86 @@ async def mark_finding_fp(
         raise HTTPException(status_code=500, detail="Redis error")
 
     return HTMLResponse(content=_FP_TEMPLATE.format(finding_id=html.escape(finding_id)))
+
+
+@router.get("/api/v1/partials/attack-table", response_class=HTMLResponse)
+async def attack_table_partial(
+    request: Request,
+    current_user=Depends(get_current_user),
+    redis=Depends(get_redis),
+) -> HTMLResponse:
+    """Return the top-attackers table as an HTML fragment (polled every 5s).
+
+    Calls the same aggregation logic as GET /api/v1/attack/top.
+    """
+    from .attack import _read_attack_window
+    from collections import defaultdict
+    from datetime import timedelta, timezone
+    import datetime as _dt
+
+    templates = _get_templates()
+
+    try:
+        entries = await _read_attack_window(redis, window_seconds=300)
+    except Exception:
+        logger.warning("partials | event=attack_table_read_error")
+        entries = []
+
+    ip_data = defaultdict(lambda: {
+        "connection_count": 0, "block_count": 0,
+        "max_score": 0, "last_seen": None, "ja4": "",
+    })
+
+    for entry in entries:
+        ip = entry.get("ip", "")
+        if not ip:
+            continue
+        d = ip_data[ip]
+        d["connection_count"] += 1
+        if entry.get("action_taken") in ("block", "ban", "tarpit"):
+            d["block_count"] += 1
+        score = 0
+        try:
+            score = int(entry.get("risk_score") or 0)
+        except (ValueError, TypeError):
+            pass
+        if score > d["max_score"]:
+            d["max_score"] = score
+        ts = entry.get("timestamp", "")
+        if ts and (d["last_seen"] is None or ts > d["last_seen"]):
+            d["last_seen"] = ts
+        if not d["ja4"] and entry.get("ja4"):
+            d["ja4"] = entry["ja4"]
+
+    attackers = []
+    for ip, d in sorted(ip_data.items(), key=lambda x: x[1]["connection_count"], reverse=True):
+        try:
+            ttl_secs = await redis.ttl(f"ban:{ip}")
+        except Exception:
+            ttl_secs = -2
+
+        if ttl_secs > 0:
+            current_status = "banned"
+            ban_expires = (
+                _dt.datetime.now(timezone.utc) + timedelta(seconds=ttl_secs)
+            ).isoformat()
+        else:
+            current_status = "active"
+            ban_expires = None
+
+        attackers.append({
+            "ip": ip,
+            "connection_count": d["connection_count"],
+            "block_count": d["block_count"],
+            "max_score": d["max_score"],
+            "last_seen": d["last_seen"],
+            "ja4": d["ja4"],
+            "current_status": current_status,
+            "ban_expires": ban_expires,
+        })
+
+    return templates.TemplateResponse(
+        request,
+        "partials/attack_table.html",
+        {"attackers": attackers, "role": current_user[1].value},
+    )
