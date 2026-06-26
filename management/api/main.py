@@ -257,7 +257,7 @@ def create_app() -> FastAPI:
     app.include_router(snapshots.router)  # phase-237
     app.include_router(tls_health_routes.router)  # phase-237
     app.include_router(attack_mode.router)  # phase-247
-    app.include_router(attack.router)  # phase-247
+    app.include_router(attack.router)  # phase-247 / phase-250
     app.include_router(offense_routes.router)  # phase-248
 
     # HTML page routes (auth enforced per-route via Depends)

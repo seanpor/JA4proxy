@@ -1,145 +1,249 @@
-"""Under-attack aggregation endpoints.
+"""Attack view API endpoints (Phase 247 + Phase 250).
 
-GET /api/v1/attack/top  — top attacking IPs in the last 5 minutes
+Routes
+------
+GET /api/v1/attack/top                 — top attacking IPs (Phase 247)
+GET /api/v1/attack/top-fingerprints    — top attacking JA4 fingerprints (Phase 250)
 
-This is the data source for the Under Attack live dashboard, polled every 5s.
+Both endpoints read the recent event stream (last 300s) and are designed to be
+polled every 5 seconds by the Under Attack dashboard.
 """
 
+import asyncio
+import json
 import logging
 import time
 from collections import defaultdict
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from datetime import datetime, timezone
+from ipaddress import ip_address
+from typing import Optional
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query
 from fastapi.responses import JSONResponse
 
 from ..auth import require_role
+from ..ja4_corpus import browser_label, is_known_browser
 from ..models import Role
 from ..redis_client import get_redis
-from .connections import _parse_entry
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["attack"])
 
 _STREAM_KEY = "events:connection"
+_ATTACK_WINDOW_SECONDS = 300  # 5 minutes
 
 
-async def _read_attack_window(redis, window_seconds: int = 300) -> List[Dict[str, Any]]:
-    """Read recent stream events within window_seconds.
+def detect_botnet_signal(
+    unique_ip_count: int,
+    avg_score: float,
+    is_browser: bool,
+    attack_mode: bool = False,
+) -> str:
+    """Classify a fingerprint's botnet threat level.
 
-    Returns a list of parsed entry dicts, newest-first, filtered to the window.
-    Each dict has: ip, ja4, risk_score, action_taken, timestamp (ISO8601 str).
+    Returns: "botnet" | "suspect" | "tool" | "browser" | "unknown"
 
-    _parse_entry is imported from connections.py and takes the fields dict
-    (second element of each XREVRANGE tuple). Returns None for malformed entries.
+    Conservative thresholds: a fingerprint needs BOTH spread (multiple IPs)
+    AND elevated scores to qualify as a botnet signal.
+    Attack mode lowers thresholds to catch emerging campaigns faster.
     """
-    cutoff_dt = datetime.now(timezone.utc) - timedelta(seconds=window_seconds)
-    try:
-        raw = await redis.xrevrange(_STREAM_KEY, "+", "-", count=500)
-    except Exception:
-        logger.warning("attack | event=stream_read_error")
-        return []
+    if is_browser:
+        return "browser"
+    if attack_mode:
+        if unique_ip_count >= 3 and avg_score >= 50:
+            return "botnet"
+        if unique_ip_count >= 2 and avg_score >= 30:
+            return "suspect"
+    else:
+        if unique_ip_count >= 5 and avg_score >= 60:
+            return "botnet"
+        if unique_ip_count >= 3 and avg_score >= 40:
+            return "suspect"
+    if unique_ip_count >= 2:
+        return "tool"
+    return "unknown"
 
-    entries = []
-    for _entry_id, fields in raw:
-        parsed = _parse_entry(fields)
-        if not parsed or not parsed.get("timestamp"):
-            continue
-        try:
-            ts_str = parsed["timestamp"]
-            ts = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
-        except (ValueError, AttributeError):
-            continue
-        # Entries are newest-first; once we pass the cutoff, all remaining are older.
-        if ts < cutoff_dt:
-            break
-        entries.append(parsed)
-    return entries
+
+async def _read_attack_window(redis, window_seconds: int = _ATTACK_WINDOW_SECONDS) -> list:
+    """Read events from the last window_seconds from the event stream.
+
+    Returns a list of dicts (parsed event payloads) in reverse-chronological order.
+    Returns empty list on Redis error (fail open).
+    """
+    min_ms = int((time.time() - window_seconds) * 1000)
+    min_id = f"{min_ms}-0"
+    try:
+        raw = await redis.xrevrange(_STREAM_KEY, max="+", min=min_id, count=500)
+        events = []
+        for _entry_id, fields in raw:
+            raw_event = fields.get("event")
+            if not raw_event:
+                continue
+            try:
+                events.append(json.loads(raw_event))
+            except (ValueError, TypeError):
+                continue
+        return events
+    except Exception as exc:
+        logger.warning("attack | event=stream_read_error | error=%s", exc)
+        return []
 
 
 @router.get("/api/v1/attack/top")
-async def get_top_attackers(
-    current_user=Depends(require_role(Role.auditor)),
+async def top_attackers(
+    window: int = Query(_ATTACK_WINDOW_SECONDS, description="Window in seconds"),
+    _user=Depends(require_role(Role.auditor)),
     redis=Depends(get_redis),
 ) -> JSONResponse:
-    """Return the top attacking IPs from the last 5 minutes, sorted by connection count."""
-    try:
-        entries = await _read_attack_window(redis, window_seconds=300)
-    except Exception:
-        logger.warning("attack | event=read_error")
-        return JSONResponse({"generated_at": datetime.now(timezone.utc).isoformat(),
-                             "window_seconds": 300, "attackers": []})
+    """Top attacking IPs in the last window_seconds, sorted by max risk score."""
+    events = await _read_attack_window(redis, window)
 
-    # Aggregate per IP.
-    ip_data: Dict[str, Dict[str, Any]] = defaultdict(lambda: {
-        "connection_count": 0,
-        "block_count": 0,
-        "max_score": 0,
-        "last_seen": None,
-        "ja4": "",
-    })
+    ip_scores: dict[str, float] = {}
+    ip_counts: dict[str, int] = defaultdict(int)
+    ip_actions: dict[str, str] = {}
+    ip_ja4: dict[str, str] = {}
 
-    for entry in entries:
-        ip = entry.get("ip", "")
+    for ev in events:
+        ip = ev.get("source.ip", "")
         if not ip:
             continue
-        d = ip_data[ip]
-        d["connection_count"] += 1
-        action = entry.get("action_taken", "")
-        if action in ("block", "ban", "tarpit"):
-            d["block_count"] += 1
-        score = entry.get("risk_score") or 0
-        try:
-            score = int(score)
-        except (ValueError, TypeError):
-            score = 0
-        if score > d["max_score"]:
-            d["max_score"] = score
-        ts = entry.get("timestamp", "")
-        if ts and (d["last_seen"] is None or ts > d["last_seen"]):
-            d["last_seen"] = ts
-        if not d["ja4"] and entry.get("ja4"):
-            d["ja4"] = entry["ja4"]
+        score = float(ev.get("event.risk_score", 0) or 0)
+        action = ev.get("event.action", "")
+        ja4 = ev.get("ja4proxy.fingerprint.ja4", "")
+        ip_counts[ip] += 1
+        if score > ip_scores.get(ip, -1):
+            ip_scores[ip] = score
+            ip_actions[ip] = action
+            if ja4:
+                ip_ja4[ip] = ja4
 
-    if not ip_data:
-        return JSONResponse({
-            "generated_at": datetime.now(timezone.utc).isoformat(),
-            "window_seconds": 300,
-            "attackers": [],
-        })
-
-    # Enrich with ban status (batch TTL checks).
-    attackers = []
-    for ip, d in sorted(ip_data.items(), key=lambda x: x[1]["connection_count"], reverse=True):
-        try:
-            ttl_secs = await redis.ttl(f"ban:{ip}")
-        except Exception:
-            ttl_secs = -2
-
-        if ttl_secs > 0:
-            current_status = "banned"
-            ban_expires = (
-                datetime.now(timezone.utc) + timedelta(seconds=ttl_secs)
-            ).isoformat()
-        else:
-            current_status = "active"
-            ban_expires = None
-
-        attackers.append({
-            "ip": ip,
-            "connection_count": d["connection_count"],
-            "block_count": d["block_count"],
-            "max_score": d["max_score"],
-            "last_seen": d["last_seen"],
-            "ja4": d["ja4"],
-            "current_status": current_status,
-            "ban_expires": ban_expires,
-        })
+    top = sorted(ip_scores.items(), key=lambda x: x[1], reverse=True)[:20]
 
     return JSONResponse({
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "window_seconds": 300,
-        "attackers": attackers,
+        "window_seconds": window,
+        "attackers": [
+            {
+                "ip": ip,
+                "max_score": round(score, 1),
+                "connection_count": ip_counts.get(ip, 0),
+                "last_action": ip_actions.get(ip, ""),
+                "ja4": ip_ja4.get(ip, ""),
+            }
+            for ip, score in top
+        ],
+    })
+
+
+@router.get("/api/v1/attack/top-fingerprints")
+async def top_fingerprints(
+    attack_mode: bool = Query(False, description="Lower thresholds for Attack Mode"),
+    _user=Depends(require_role(Role.auditor)),
+    redis=Depends(get_redis),
+) -> JSONResponse:
+    """Top JA4 fingerprints active in the last 5 minutes, with botnet signal.
+
+    Sorted by unique_ip_count DESC (the key botnet indicator).
+    Fail open: returns empty list if Redis is unavailable.
+    """
+    events = await _read_attack_window(redis)
+
+    # Aggregate per fingerprint.
+    fp_connections: dict[str, int] = defaultdict(int)
+    fp_ips: dict[str, set] = defaultdict(set)
+    fp_scores: dict[str, list] = defaultdict(list)
+    fp_actions: dict[str, set] = defaultdict(set)
+    fp_ja4t: dict[str, set] = defaultdict(set)
+    fp_countries: dict[str, set] = defaultdict(set)
+    fp_asns: dict[str, set] = defaultdict(set)
+
+    for ev in events:
+        ja4 = ev.get("ja4proxy.fingerprint.ja4", "")
+        if not ja4:
+            continue
+        ip = ev.get("source.ip", "")
+        score = float(ev.get("event.risk_score", 0) or 0)
+        action = ev.get("event.action", "")
+        ja4t = ev.get("ja4proxy.fingerprint.ja4t", "")
+        country = ev.get("source.geo.country_iso_code", "")
+        asn = ev.get("source.as.number", "")
+
+        fp_connections[ja4] += 1
+        if ip:
+            fp_ips[ja4].add(ip)
+        fp_scores[ja4].append(score)
+        if action:
+            fp_actions[ja4].add(action)
+        if ja4t:
+            fp_ja4t[ja4].add(ja4t)
+        if country:
+            fp_countries[ja4].add(country)
+        if asn:
+            fp_asns[ja4].add(str(asn))
+
+    if not fp_connections:
+        return JSONResponse({
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "window_seconds": _ATTACK_WINDOW_SECONDS,
+            "fingerprints": [],
+        })
+
+    # Batch blacklist/whitelist check.
+    fps_list = list(fp_connections.keys())
+    try:
+        blacklisted_raw = await redis.smismember("ja4:blacklist", fps_list)
+        whitelisted_raw = await redis.smismember("ja4:whitelist", fps_list)
+    except Exception:
+        # smismember unavailable (older Redis or missing method) — fall back.
+        try:
+            blacklisted_raw = await asyncio.gather(
+                *[redis.sismember("ja4:blacklist", fp) for fp in fps_list]
+            )
+            whitelisted_raw = await asyncio.gather(
+                *[redis.sismember("ja4:whitelist", fp) for fp in fps_list]
+            )
+        except Exception as exc:
+            logger.warning("attack | event=list_check_error | error=%s", exc)
+            blacklisted_raw = [False] * len(fps_list)
+            whitelisted_raw = [False] * len(fps_list)
+
+    blacklisted = {fp: bool(v) for fp, v in zip(fps_list, blacklisted_raw)}
+    whitelisted = {fp: bool(v) for fp, v in zip(fps_list, whitelisted_raw)}
+
+    results = []
+    for fp in fps_list:
+        scores = fp_scores[fp]
+        unique_ips = fp_ips[fp]
+        avg_score = sum(scores) / len(scores) if scores else 0.0
+        max_score = max(scores) if scores else 0
+        is_browser = is_known_browser(fp)
+        signal = detect_botnet_signal(len(unique_ips), avg_score, is_browser, attack_mode)
+        # sample_ips: only for non-browser fingerprints (up to 5 for drill-down).
+        sample = sorted(unique_ips)[:5] if not is_browser else []
+
+        results.append({
+            "ja4": fp,
+            "browser_label": browser_label(fp),
+            "total_connections": fp_connections[fp],
+            "unique_ip_count": len(unique_ips),
+            "avg_score": round(avg_score, 1),
+            "max_score": int(max_score),
+            "is_known_browser": is_browser,
+            "is_blacklisted": blacklisted.get(fp, False),
+            "is_whitelisted": whitelisted.get(fp, False),
+            "botnet_signal": signal,
+            "ja4t_values": sorted(fp_ja4t[fp]),
+            "countries": sorted(fp_countries[fp]),
+            "asn_count": len(fp_asns[fp]),
+            "sample_ips": sample,
+        })
+
+    # Sort by unique_ip_count DESC, then total_connections DESC.
+    results.sort(key=lambda x: (-x["unique_ip_count"], -x["total_connections"]))
+
+    return JSONResponse({
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "window_seconds": _ATTACK_WINDOW_SECONDS,
+        "fingerprints": results[:20],
     })

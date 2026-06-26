@@ -190,12 +190,12 @@ async def under_attack_page(
     current_user=Depends(get_current_user),
     redis=Depends(get_redis),
 ) -> HTMLResponse:
-    """Render the Under Attack triage page."""
+    """Render the Under Attack live dashboard (Phase 247/250)."""
     templates = _get_templates()
     user, role = _extract_user_and_role(current_user)
     try:
-        raw = await redis.get("attack_mode:active")
-        attack_mode_active = raw is not None
+        attack_raw = await redis.get("attack_mode:active")
+        attack_mode_active = attack_raw is not None
     except Exception:
         attack_mode_active = False
     return templates.TemplateResponse(

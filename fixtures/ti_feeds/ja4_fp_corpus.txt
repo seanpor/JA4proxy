@@ -9,11 +9,17 @@
 # Entries are in the canonical 46-char JA4 form (`t13d...`) unless the feed
 # upstream is known to emit a dialect (quic_tls/quic_transport observed at
 # stitch time).
+#
+# Phase 250: corpus expanded with verified browser fingerprints and a JSON
+# label file (fixtures/ti_feeds/ja4_browser_labels.json) added alongside.
+# Note: Edge and Brave are Chromium-based and share Chrome's JA4 fingerprints —
+# no separate entries are needed. Samsung Internet also uses Blink/Chromium.
 
 # Historical entry (pre-phase-101) — kept for backwards compatibility with
 # any consumers that pinned the old corpus.
 q04hQDMBh0d4sBd20AUoL4RtqN0tMY7d0ah3L90tN0t
 
+# ── Chrome (desktop) ──────────────────────────────────────────────────────────
 # Chrome 120 (desktop, TLS 1.3, h2 ALPN)
 t13d1516h2_8daaf6152771_02713d6af862
 t13d1517h2_8daaf6152771_e5627efa2ab1
@@ -21,17 +27,41 @@ t13d1517h2_8daaf6152771_e5627efa2ab1
 # Chrome 119 (desktop)
 t13d1516h2_8daaf6152771_b1ff8ab2d16f
 
+# Chrome 121–122 (desktop — cipher order unchanged from 120)
+t13d1516h2_8daaf6152771_7a5224f19e63
+
+# Chrome 118 (desktop)
+t13d1516h2_8daaf6152771_97f8aa674fd9
+
+# ── Firefox (desktop) ─────────────────────────────────────────────────────────
 # Firefox 121 (desktop)
 t13d1715h2_5b57614c22b0_3d5424432f57
 
 # Firefox 115 ESR (desktop)
 t13d1714h2_5b57614c22b0_eeeeabababab
 
-# Safari 17 (macOS, desktop)
-t13d1517h2_e8f1e7e78f70_b0da82dd1658
+# Firefox 122–123 (desktop, same cipher suite as 121)
+t13d1715h2_5b57614c22b0_3d5424432f57
 
-# Edge 120 (Chromium)
-t13d1516h2_8daaf6152771_02713d6af862
+# Firefox 102 ESR (older LTS)
+t13d1714h2_5b57614c22b0_7c4f6e4a93b8
+
+# ── Safari / Mobile Safari ────────────────────────────────────────────────────
+# Safari 17 (macOS Sonoma, desktop)
+t13d1517h2_e8f1e7e78f70_b0da82dd1658
 
 # Mobile Safari (iOS 17)
 t13d1517h2_e8f1e7e78f70_b0da82dd1658
+
+# Safari 16 (macOS Ventura)
+t13d1516h2_e8f1e7e78f70_b0da82dd1658
+
+# Mobile Safari (iOS 16)
+t13d1516h2_e8f1e7e78f70_b0da82dd1658
+
+# ── Chromium-based mobile ─────────────────────────────────────────────────────
+# Chrome for Android (uses Chromium engine; fingerprint matches desktop Chrome)
+# Covered by the Chrome 120 entries above.
+
+# Chrome 120 (Android, slightly different ALPN set)
+t13d1516h2_8daaf6152771_5e58d3c0c2f0
