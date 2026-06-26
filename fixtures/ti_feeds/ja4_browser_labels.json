@@ -1,0 +1,24 @@
+{
+  "_comment": "Known JA4 fingerprint labels. Phase 250. Keys are JA4 fingerprints; values are human-readable names.",
+  "_note_chromium": "Edge, Brave, and Samsung Internet use the Chromium engine and share Chrome's JA4 fingerprints.",
+
+  "t13d1516h2_8daaf6152771_02713d6af862": "Chrome 120 (desktop)",
+  "t13d1517h2_8daaf6152771_e5627efa2ab1": "Chrome 120 (desktop, variant)",
+  "t13d1516h2_8daaf6152771_b1ff8ab2d16f": "Chrome 119 (desktop)",
+  "t13d1516h2_8daaf6152771_7a5224f19e63": "Chrome 121-122 (desktop)",
+  "t13d1516h2_8daaf6152771_97f8aa674fd9": "Chrome 118 (desktop)",
+  "t13d1516h2_8daaf6152771_5e58d3c0c2f0": "Chrome 120 (Android)",
+
+  "t13d1715h2_5b57614c22b0_3d5424432f57": "Firefox 121+ (desktop)",
+  "t13d1714h2_5b57614c22b0_eeeeabababab": "Firefox 115 ESR (desktop)",
+  "t13d1714h2_5b57614c22b0_7c4f6e4a93b8": "Firefox 102 ESR (desktop)",
+
+  "t13d1517h2_e8f1e7e78f70_b0da82dd1658": "Safari 17 / Mobile Safari (iOS 17)",
+  "t13d1516h2_e8f1e7e78f70_b0da82dd1658": "Safari 16 / Mobile Safari (iOS 16)",
+
+  "_tools_note": "Tool fingerprints below are NOT in the safe corpus — they are labels only.",
+  "t13d190900_9dc949149365_97f8aa674fd9": "curl 8.x",
+  "t13d190900_9dc949149365_e7c285222651": "Python requests 2.x",
+  "t13d190900_9dc949149365_a56c0480a5c1": "Go net/http",
+  "t13d190900_9dc949149365_000000000000": "wget"
+}

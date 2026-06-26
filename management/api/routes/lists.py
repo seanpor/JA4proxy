@@ -33,9 +33,10 @@ import logging
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
 from ..auth import _client_ip, require_role
+from ..ja4_corpus import is_known_browser as _is_known_browser  # phase-250
 from ..models import ListAddResponse, ListEntries, ListRemoveResponse, Role
 from ..redis_client import get_redis
 
@@ -113,11 +114,25 @@ async def add_to_list(
     list_name: str,
     entry: str,
     request: Request,
+    source: Optional[str] = Query(None),  # phase-250: "attack_ui" triggers safety gate
     current_user=Depends(require_role(Role.operator)),
     redis=Depends(get_redis),
 ) -> ListAddResponse:
     """Add an entry to the specified list (idempotent — safe to call multiple times)."""
     identity = current_user[0]
+
+    # Phase 250 safety gate: when called from the attack UI dashboard,
+    # refuse to block known-browser fingerprints.
+    if source == "attack_ui" and list_type == "ja4" and list_name == "blacklist":
+        if _is_known_browser(entry):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=(
+                    f"Safety gate: '{entry}' is in the known-browser corpus. "
+                    "Blocking it would affect real users browsing with this browser. "
+                    "To override, use the fingerprint detail page."
+                ),
+            )
     redis_key = _resolve_key(list_type, list_name)
     await redis.sadd(redis_key, entry)
     logger.info(
