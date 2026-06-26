@@ -79,6 +79,7 @@ from .routes import (
 from .routes import (
     webauthn as webauthn_routes,
 )
+from .routes import datacenter_policy as datacenter_policy_routes  # phase-249
 from .routes.canonical_lists import migrate_legacy_entries
 
 logger = logging.getLogger(__name__)
@@ -259,6 +260,7 @@ def create_app() -> FastAPI:
     app.include_router(attack_mode.router)  # phase-247
     app.include_router(attack.router)  # phase-247
     app.include_router(offense_routes.router)  # phase-248
+    app.include_router(datacenter_policy_routes.router)  # phase-249
 
     # HTML page routes (auth enforced per-route via Depends)
     app.include_router(pages.router)
