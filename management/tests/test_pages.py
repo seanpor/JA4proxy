@@ -225,3 +225,24 @@ async def test_unauthenticated_page_never_crashes(
         f"GET {path} returned {response.status_code} to an unauthenticated "
         "client. Auth must run before any other code that can crash."
     )
+
+
+# ---------------------------------------------------------------------------
+# Phase 247: Under Attack page
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_under_attack_page_renders(authenticated_client: AsyncClient) -> None:
+    """GET /under-attack returns 200 with HTML containing landmark string."""
+    response = await authenticated_client.get("/under-attack")
+    assert response.status_code == 200
+    assert _is_html(response)
+    assert "Under Attack" in response.text
+
+
+@pytest.mark.asyncio
+async def test_under_attack_page_unauthenticated(test_client: AsyncClient) -> None:
+    """GET /under-attack without auth must not return 5xx."""
+    response = await test_client.get("/under-attack")
+    assert response.status_code < 500

@@ -158,3 +158,38 @@ async def test_tarpit_actions_count_as_blocks(
     assert response.status_code == 200
     assert "ELEVATED" in response.text
     assert "1 block" in response.text
+
+
+# ---------------------------------------------------------------------------
+# Phase 247: View Attack link
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_active_state_shows_view_attack_link(
+    authenticated_client: AsyncClient,
+) -> None:
+    """ACTIVE situation bar contains View Attack link."""
+    await _seed_heartbeat()
+    # 10+ blocks → ACTIVE state
+    for _ in range(10):
+        await _add_event("block", risk_score=90)
+
+    response = await authenticated_client.get("/api/v1/partials/situation")
+    assert response.status_code == 200
+    assert "ACTIVE" in response.text
+    assert "/under-attack" in response.text
+
+
+@pytest.mark.asyncio
+async def test_nominal_state_has_no_view_attack_link(
+    authenticated_client: AsyncClient,
+) -> None:
+    """NOMINAL situation bar does NOT contain View Attack link."""
+    await _seed_heartbeat()
+    # No blocks → NOMINAL
+
+    response = await authenticated_client.get("/api/v1/partials/situation")
+    assert response.status_code == 200
+    assert "NOMINAL" in response.text
+    assert "/under-attack" not in response.text
