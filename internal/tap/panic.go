@@ -22,8 +22,11 @@ import (
 
 // Recover wraps a goroutine to recover from panics, log the stack trace,
 // and send an error to the done channel. It is used for the sensor's main
-// goroutine to prevent hangs on panic. The events channel is closed by
-// Run()'s defer — Recover must NOT close it (double-close panics).
+// goroutine to prevent hangs on panic. The events channel is NOT closed here —
+// the Sensor.Run method defers close(s.events) on entry, which runs during the
+// panic unwind before Recover is invoked (defer order is LIFO; Run's defer runs
+// before the enclosing goroutine's defer). Recover must NOT close the channel
+// (double-close panics).
 func Recover(done chan<- error, s *Sensor) {
 	if r := recover(); r != nil {
 		log.Printf("tap sensor panic: %v\n%s", r, string(debug.Stack()))

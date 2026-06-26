@@ -5,22 +5,35 @@ import (
 	"fmt"
 	"log"
 	"syscall"
+
+	"golang.org/x/sys/unix"
 )
 
 //go:embed seccomp_tap_go_embed.json
 var defaultSeccompProfile []byte
 
-// DropCapabilities permanently drops root privileges and sets a low‑privilege UID/GID.
-// It must be called after any privileged setup (e.g. AF_PACKET socket bind) and
-// before any network capture begins.
+// DropCapabilities switches the process from root to the nobody user, dropping
+// all Linux capabilities in the process. It must be called after any privileged
+// setup (e.g. AF_PACKET socket bind) and before any network capture begins.
+//
+// The ordering is deliberate: supplementary groups first, then GID, then UID.
+// Changing the UID from 0 (root) to a non-zero value causes the kernel to
+// discard all capabilities unless PR_SET_KEEPCAPS is set (we explicitly clear
+// it as belt-and-suspenders).
 func DropCapabilities() error {
+	if err := unix.Prctl(unix.PR_SET_KEEPCAPS, 0, 0, 0, 0); err != nil {
+		return fmt.Errorf("PR_SET_KEEPCAPS=0: %w", err)
+	}
+	if err := syscall.Setgroups([]int{65534}); err != nil {
+		return fmt.Errorf("setgroups: %w", err)
+	}
 	if err := syscall.Setgid(65534); err != nil {
-		return err
+		return fmt.Errorf("setgid: %w", err)
 	}
 	if err := syscall.Setuid(65534); err != nil {
-		return err
+		return fmt.Errorf("setuid: %w", err)
 	}
-	log.Printf("capabilities dropped: uid=%d,gid=%d", syscall.Getuid(), syscall.Getgid())
+	log.Printf("privileges dropped: uid=%d gid=%d groups=%v", syscall.Getuid(), syscall.Getgid(), []int{65534})
 	return nil
 }
 
