@@ -20,6 +20,20 @@ func TestMetricNames_ActiveConnections(t *testing.T) {
 	}
 }
 
+func TestMetricNames_RiskScore(t *testing.T) {
+	s := descString(RiskScore)
+	if !strings.Contains(s, "ja4proxy_risk_score") {
+		t.Errorf("wrong metric name for RiskScore histogram: %s", s)
+	}
+}
+
+func TestMetricNames_DialCurrent(t *testing.T) {
+	s := descString(DialCurrent)
+	if !strings.Contains(s, "ja4proxy_dial_current") {
+		t.Errorf("wrong metric name for DialCurrent gauge: %s", s)
+	}
+}
+
 // Phase 63: SLO metrics must exist with the expected names.
 
 func TestMetricNames_ConnectionErrorsTotal(t *testing.T) {

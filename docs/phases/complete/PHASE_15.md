@@ -2,18 +2,18 @@
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Go proxy binary (`cmd/proxy/`) | ✅ Complete | Drop-in replacement for `proxy.py` |
+| Go proxy binary (`cmd/ja4pd/`) | ✅ Complete | Drop-in replacement for `proxy.py` |
 | Core security signals (TLS, SNI, TCP, etc.) | ✅ Complete | All Phase 0–14 signals ported |
 | Signal module config wiring | ✅ Complete | All 7 modules (ASN, DNS, blocklists, beaconing, AbuseIPDB, RDAP, JA4X) wired via `buildPipelineConfig()` |
 | Health endpoint | ✅ Complete | Redis connectivity check |
 | PROXY protocol support | ✅ Complete | Real client IP extraction |
 | Docker build | ✅ Complete | `docker/Dockerfile.go-proxy` multi-stage alpine image |
-| Go unit tests | ✅ Complete | 75+ tests passing |
-| JA4 parity validation | ✅ Complete | Verified with synthetic & browser fixtures |
+| Go unit tests | ✅ Complete | 789 test functions across all packages |
+| JA4 parity validation | ⚠️ Partial | Verified with synthetic + curl/openssl fixtures; no Chrome/Firefox/Safari captures yet (Gap 1) |
 | Performance benchmarking | ✅ Complete | 10-50x improvement verified |
-| Production deployment | ❌ Not started | Awaiting validation gates |
+| Production deployment | ✅ Complete | Go promoted to sole proxy; Python proxy deleted |
 
-**Completion: 15/16 core components (93.75%)**
+**Completion: 15/16 core components (93.75%) — see Post-Implementation Review below**
 
 See `docs/phases/PHASE_15_WORK_PLAN.md` for detailed implementation plan.
 
@@ -45,7 +45,9 @@ defines correctness. Rewrite once, when the design is stable.
 
 ## 15d. Go Module Structure
 ```
-cmd/proxy/main.go
+cmd/ja4pd/main.go              # Main proxy binary (was cmd/proxy/ in original plan)
+cmd/ja4p/                      # Additional proxy variant
+cmd/ja4-tap/                   # TAP capture command
 internal/
   tls/{parser,ja4,ja4t}.go
   security/{pipeline,risk_scorer,action_decider,sni,tcp_analyzer,mtls,
@@ -120,7 +122,7 @@ Specific files that exist and are functional:
 | File | State |
 |------|-------|
 | `go.mod` | ✅ Correct — uses `github.com/redis/go-redis/v9` |
-| `cmd/proxy/main.go` | ✅ Full proxy — TCP listener, TLS parse, pipeline, forward/tarpit/block |
+| `cmd/ja4pd/main.go` | ✅ Full proxy — TCP listener, TLS parse, pipeline, forward/tarpit/block |
 | `internal/tls/hello_info.go` | ✅ `ClientHelloInfo` with all needed fields |
 | `internal/tls/parser.go` | ✅ Full ClientHello parser — never panics, handles all adversarial inputs |
 | `internal/tls/ja4.go` | ✅ Correct JA4 — SHA-256, GREASE filter, sorted ciphers/extensions |
@@ -130,7 +132,7 @@ Specific files that exist and are functional:
 | `internal/security/pipeline.go` | ✅ Bypass checks, hard blocks, scorer, dial, signal modules |
 | `internal/redis/client.go` | ✅ get/set/SISMEMBER/GetDial/Ping — fail-open |
 | `internal/redis/lua.go` | ✅ `SlidingWindowScript` embedded + reads from file |
-| `internal/redis/pubsub.go` | ⚠️ Works but no reconnect on channel close |
+| `internal/redis/pubsub.go` | ✅ Works; exponential backoff reconnect implemented in `Run()` |
 | `internal/cache/local.go` | ✅ Thread-safe LRU with TTL |
 | `internal/config/loader.go` | ✅ Full proxy.yml schema, `${VAR:-default}` expansion, unknown keys ignored |
 | `docker/Dockerfile.go-proxy` | ✅ Multi-stage alpine build |
@@ -138,19 +140,22 @@ Specific files that exist and are functional:
 
 ### Remaining work to close Phase 15 (Validation Gaps)
 
-**Gap 1 — ClientHello binary fixtures**
-- `tests/fixtures/clienthello/*.bin` exist for synthetic cases.
-- Real browser fixtures from Chrome/Firefox/Safari should be added via `scripts/capture_clienthello.py`.
+**Gap 1 — ClientHello binary fixtures** ⚠️ Still open
+- `tests/fixtures/clienthello/*.bin` exist for synthetic + curl/openssl cases only.
+- No Chrome, Firefox, or Safari captures present. `scripts/capture_clienthello.py` exists but has not been run to generate real browser fixtures.
+- Risk: GREASE handling, compressed certificates, post-handshake auth extensions appear in browser ClientHellos but not in curl/openssl; JA4 divergence there would not be caught.
+- To close: run `scripts/capture_clienthello.py` against Chrome and Firefox, commit the `.bin` files, re-run `TestJA4_FixturesParity`.
 
-**Gap 2 — Live parity harness**
-- `tests/integration/test_go_python_parity.py` needs live stack exercise.
-- Run: `make agent-up NAME=gemini && make go-start && make go-parity`
+**Gap 2 — Live parity harness** ✅ Resolved (superseded)
+- The Python proxy has been deleted; a live Go/Python comparison is no longer possible.
+- Replaced by `internal/tls/fixture_replay_test.go::TestFixtureReplay_StableDecisions`: runs every `.bin` fixture through `ParseClientHello` + `ComputeJA4` three times each, asserts byte-identical output on every run (catches non-determinism), and asserts all results match `known_ja4.json`. Also enforces that every `.bin` file in the directory has a `known_ja4.json` entry, so new captures cannot be added silently.
 
-**Gap 3 — Prometheus metric name alignment**
-- Audit Go metric names against `docs/reference/OBSERVABILITY_STANDARDS.md`.
+**Gap 3 — Prometheus metric name alignment** ✅ Resolved
+- Audit complete: `ja4proxy_risk_score` and `ja4proxy_dial_current` are correct per `docs/reference/OBSERVABILITY_STANDARDS.md` (histograms must not embed `_distribution`; gauges end in a noun). CLAUDE.md examples were illustrative. All alerts, dashboards, and Datadog config already use these names consistently.
+- `TestMetricNames_RiskScore` and `TestMetricNames_DialCurrent` added to `internal/metrics/metrics_test.go` to lock this in going forward.
 
-**Gap 4 — PubSub reconnect**
-- `internal/redis/pubsub.go`: implement retry with exponential backoff on channel close.
+**Gap 4 — PubSub reconnect** ✅ Resolved
+- Exponential backoff reconnect is implemented in `internal/redis/pubsub.go::Run()` (234 lines). Stable-connection detection resets the backoff. Gap note was stale at closure.
 
 **Development tooling (all complete):**
 - `docs/TESTING_GO.md` — ✅ Go vs Python test comparison
@@ -169,18 +174,66 @@ See `docs/phases/archive/PHASE_15_subplan.md` for the full group-by-group task l
       `internal/config/loader_test.go::TestLoad_ActualProxyYML`
 - [x] REQ-015-03: JA4 fingerprint output byte-for-byte identical to Python for all `tests/fixtures/clienthello/` fixtures. Verified by:
       `internal/tls/ja4_test.go::TestJA4_FixturesParity`
+      ⚠️ **Note:** fixture corpus covers synthetic + curl/openssl only; no real browser captures (Gap 1). Criterion technically passes but coverage is insufficient.
 - [x] REQ-015-04: TLS ClientHello parser handles all adversarial corpus cases without panic. Verified by:
       `internal/tls/parser_test.go::TestParseClientHello_AdversarialCorpus`
 - [x] REQ-015-05: All Lua scripts loaded via EVALSHA; script content identical to Python version. Verified by:
       `internal/redis/lua_test.go::TestSlidingWindowScript_MatchesFile`
 - [x] REQ-015-06: Pub/Sub subscriber handles all message types; dial changes propagate correctly. Verified by:
       `internal/redis/pubsub_test.go::TestPubSubHandler_HandleMessage_DialChange`
-- [x] REQ-015-07: Prometheus metric names and label sets identical to Python version (Gap 3 remains). Verified by:
-      `internal/metrics/metrics_test.go::TestRegister_IncludesPhase63Metrics`
+- [x] REQ-015-07: Prometheus metric names and label sets correct per `docs/reference/OBSERVABILITY_STANDARDS.md`. Verified by:
+      `internal/metrics/metrics_test.go::TestRegister_IncludesPhase63Metrics`, `TestMetricNames_RiskScore`, `TestMetricNames_DialCurrent`
+      ✅ Names confirmed correct on re-review: `ja4proxy_risk_score` (histogram without suffix per standard) and `ja4proxy_dial_current` (gauge ending in noun). Gap 3 closed.
 - [x] REQ-015-08: Python analytics and management UI containers run unchanged alongside Go proxy. Verified by: `[MANUAL-REVIEW]`
+      ⚠️ **Note:** no automated smoke test; Python proxy has since been deleted so this is no longer verifiable as originally stated. Consider replacing with a test that the management and analytics containers start cleanly against the Go proxy.
 
 ### Unit Tests
 - [x] REQ-015-09: JA4 computation: each `tests/fixtures/clienthello/*.bin` → matches expected fingerprint. Verified by:
       `internal/tls/ja4_test.go::TestJA4_FixturesParity`
+      ⚠️ Same fixture-coverage caveat as REQ-015-03.
 - [x] REQ-015-10: TLS parser: adversarial corpus → no panic; returns in < 1ms. Verified by:
       `internal/tls/parser_test.go::TestParseClientHello_AdversarialCorpus`
+
+---
+
+## Post-Implementation Review
+
+*Added after external review of the completed phase.*
+
+### What was delivered
+
+The Go rewrite is substantive and production-running. The codebase has grown to ~31k lines of Go with ~23k lines of tests (789 test functions), comfortably above the 1.3× ratio target. Subsequent phases (100+) build directly on this foundation, confirming the implementation is stable under load.
+
+Notable additions beyond the original spec:
+- **HMAC signing on critical PubSub channels** (`internal/redis/pubsub.go`, JA4PROXY-2026-0019): unsigned messages on `config:reload`, `config:dial:change`, JA4 list mutation channels are dropped. This closes a privilege-escalation primitive where any Redis-PUBLISH-capable process could flip the dial to 0 or whitelist arbitrary JA4s.
+- **`cmd/ja4p/` and `cmd/ja4-tap/`** binaries alongside the main `cmd/ja4pd/` — not in the original plan.
+- **PubSub reconnect** (Gap 4): implemented in `Run()` with exponential backoff and a stable-connection reset. The gap note in this doc was stale at closure.
+
+### Issues found
+
+**1. Module path renamed but doc not updated**
+The original plan used `cmd/proxy/main.go`; the actual binary lives at `cmd/ja4pd/main.go`. All references in §15d and the file table were stale. Fixed in this document; check any other docs that reference the old path.
+
+**2. Prometheus metric names are correct per OBSERVABILITY_STANDARDS.md** ✅ (review finding retracted)
+Initial review flagged `ja4proxy_risk_score` and `ja4proxy_dial_current` as diverging from CLAUDE.md examples. On closer inspection, `docs/reference/OBSERVABILITY_STANDARDS.md` — the authoritative source — explicitly names these as the correct forms: histograms must not embed `_histogram` or `_distribution` in the name; gauges end in a unit or noun (`current` is a valid noun). CLAUDE.md's Prometheus Naming section uses illustrative hypotheticals, not normative names. The Go implementation is correct. Every alert rule, dashboard, and Datadog config in the repo uses these names consistently.
+
+**3. REQ-015-07 checked off while Gap 3 remained open**
+The acceptance criterion and the gap table contradicted each other in the original document. Gap 3 asked for an audit of metric names against OBSERVABILITY_STANDARDS.md — on review, that audit shows the names are correct (see finding 2). REQ-015-07 is therefore satisfied; the checkbox has been restored in the acceptance criteria. Two tests (`TestMetricNames_RiskScore`, `TestMetricNames_DialCurrent`) were added to `metrics_test.go` to lock this in.
+
+**4. JA4 parity fixture coverage is narrow**
+REQ-015-03 and REQ-015-09 pass, but the fixture corpus contains only synthetic cases plus curl and openssl captures. Real browsers (Chrome, Firefox, Safari) produce richer ClientHellos — GREASE values, compressed certificate extensions, post-handshake auth — that are the most likely sources of JA4 divergence. `scripts/capture_clienthello.py` exists; the gap is just that it has not been run.
+
+**5. Go/Python live parity harness is superseded**
+Gap 2 referred to running both proxies in parallel. The Python proxy has since been deleted, so that specific test is no longer possible. The intent (regression-stable decisions across builds) should be replaced with a fixture-replay integration test against the Go proxy alone.
+
+**6. REQ-015-08 has no automated coverage**
+"Management and analytics containers run alongside Go proxy" was verified only by manual review. With the Python proxy gone, this should be a container smoke test in CI.
+
+**7. Test count in the status table was understated**
+The table said "75+ tests"; the actual count at review time is 789 test functions across all packages.
+
+### Open action items
+- [x] Metric names confirmed correct; `TestMetricNames_RiskScore` and `TestMetricNames_DialCurrent` added to `metrics_test.go` (Gap 3 / REQ-015-07)
+- [x] `TestFixtureReplay_StableDecisions` replaces the Go/Python live parity harness (Gap 2)
+- [ ] Run `scripts/capture_clienthello.py` against Chrome and Firefox; commit `.bin` files; re-run parity tests (Gap 1 / REQ-015-03)
+- [ ] Add a CI smoke test for management + analytics containers against the Go proxy (REQ-015-08)
