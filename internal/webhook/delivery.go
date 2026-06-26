@@ -358,9 +358,6 @@ func newSafeTransport(timeout time.Duration) *http.Transport {
 // doHTTPPost performs a single HTTP POST attempt using the provided client.
 
 func (d *Dispatcher) doHTTPPost(client *http.Client, ep WebhookEndpoint, payload []byte, sig string) error {
-	if isPrivateTarget(ep.URL) {
-		return fmt.Errorf("webhook: blocked private/loopback target (SSRF prevention): %s", ep.URL)
-	}
 	req, err := http.NewRequest(http.MethodPost, ep.URL, bytes.NewReader(payload))
 	if err != nil {
 		return fmt.Errorf("webhook: create request: %w", err)

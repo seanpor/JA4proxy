@@ -3029,6 +3029,17 @@ phases:
       census (skipped). WP-R3: Runbooks batch-2 audit. WP-R4: findings.yaml regression_test repointing. WP-R5: ADR status
       validation. WP-R6: Security/compliance/config/API doc audit. WP-R7: Final sweep (Redis keys, metrics, template.env,
       docker-compose, dangling links)."
+  341:
+    name: "Close Remaining OPEN Findings"
+    status: COMPLETE
+    completed: '2026-06-26'
+    action_plan: docs/phases/PHASE_341.md
+    dependencies: []
+    size: SMALL
+    summary: "Closed 4 remaining OPEN findings: F-0060 (TAP reassembly buffer logging — added Debug log lines
+      in reassembler.go, extended test), F-0062 (MaxConnectionLimit — stale, already fixed as MaxConnections),
+      F-0066 (webhook TOCTOU — removed redundant isPrivateTarget pre-check), F-0079 (Redis password on CLI
+      — switched PoC compose to --requirepass-file with Docker secrets)."
   400:
     name: Comprehensive Security Review
     status: DEFERRED
@@ -3085,7 +3096,7 @@ phases:
     name: "README Banner + Emergency Quickstart"
     status: COMPLETE
     completed: '2026-06-25'
-    action_plan: docs/phases/PHASE_245.md
+    action_plan: docs/phases/complete/PHASE_245.md
     dependencies: []
     size: SMALL
     summary: "Add 'Under Attack?' banner to README top, create EMERGENCY_DEPLOY.md
@@ -3094,7 +3105,7 @@ phases:
     name: "Root-Level Minimal Docker Compose"
     status: COMPLETE
     completed: '2026-06-25'
-    action_plan: docs/phases/PHASE_245.md
+    action_plan: docs/phases/complete/PHASE_245.md
     dependencies:
     - 245.3
     size: SMALL
@@ -3104,7 +3115,7 @@ phases:
     name: "Minimal Config + Direct Mode"
     status: COMPLETE
     completed: '2026-06-25'
-    action_plan: docs/phases/PHASE_245.md
+    action_plan: docs/phases/complete/PHASE_245.md
     dependencies: []
     size: MEDIUM
     summary: "Create proxy.minimal.yml, verify compiled-in defaults in Go config loader,
@@ -3113,7 +3124,7 @@ phases:
     name: "Emergency Dial Override"
     status: COMPLETE
     completed: '2026-06-25'
-    action_plan: docs/phases/PHASE_245.md
+    action_plan: docs/phases/complete/PHASE_245.md
     dependencies: []
     size: MEDIUM
     summary: "POST /api/v1/dial/emergency bypassing ±10 limit, reusing Phase 237 revert
@@ -3122,7 +3133,7 @@ phases:
     name: "Surface ja4-admin.sh as First-Class CLI"
     status: COMPLETE
     completed: '2026-06-25'
-    action_plan: docs/phases/PHASE_245.md
+    action_plan: docs/phases/complete/PHASE_245.md
     dependencies:
     - 245.4
     size: SMALL
@@ -3131,7 +3142,7 @@ phases:
     name: "Management UI — Incident Response Shortcuts"
     status: COMPLETE
     completed: '2026-06-25'
-    action_plan: docs/phases/PHASE_245.md
+    action_plan: docs/phases/complete/PHASE_245.md
     dependencies:
     - 245.4
     size: MEDIUM
@@ -3141,7 +3152,7 @@ phases:
     name: "Management UI — Polish"
     status: COMPLETE
     completed: '2026-06-25'
-    action_plan: docs/phases/PHASE_245.md
+    action_plan: docs/phases/complete/PHASE_245.md
     dependencies: []
     size: LARGE
     summary: "Mobile-responsive sidebar (hamburger menu), geographic attack visualisation
@@ -3150,7 +3161,7 @@ phases:
     name: "ja4p init --minimal Fast Path"
     status: COMPLETE
     completed: '2026-06-25'
-    action_plan: docs/phases/PHASE_245.md
+    action_plan: docs/phases/complete/PHASE_245.md
     dependencies: []
     size: SMALL
     summary: "Add --minimal flag to wizard: prompt only for BACKEND_HOST, generate .env
@@ -3159,7 +3170,7 @@ phases:
     name: "Deployment Guides for Non-HAProxy Environments"
     status: COMPLETE
     completed: '2026-06-25'
-    action_plan: docs/phases/PHASE_245.md
+    action_plan: docs/phases/complete/PHASE_245.md
     dependencies: []
     size: SMALL
     summary: "Create DEPLOYMENT_MODES.md covering direct, HAProxy, nginx, AWS NLB, and
@@ -3168,7 +3179,7 @@ phases:
     name: "Graceful GeoIP Degradation + Setup Guidance"
     status: COMPLETE
     completed: '2026-06-25'
-    action_plan: docs/phases/PHASE_245.md
+    action_plan: docs/phases/complete/PHASE_245.md
     dependencies: []
     size: SMALL
     summary: "Actionable WARN on missing GeoIP data with setup link, /health/deep degraded

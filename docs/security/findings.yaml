@@ -1923,7 +1923,7 @@ findings:
   lane: go-proxy
   discovered: '2026-06-03'
   due: '2026-10-01'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
   regression_test: cmd/ja4pd/pentest_f003_f005_test.go::TestReassemblyLogLevel
@@ -1931,8 +1931,9 @@ findings:
   cvss_v3_1:
     score: 3.1
     vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L
-  notes: main.go:741 logs at Info level while similar events use Debug. Standardise to Debug per signal-pipeline
-    convention.
+  notes: "TAP reassembler (internal/tap/reassembler.go) had zero logging on buffer purge paths. Added Debug-level\
+    \ log lines at markGap, appendDir cap-exceeded, and buffer-hit-max paths. Extended TestReassemblyLogLevel\
+    \ to also scan reassembler.go. Proxy-side main.go:809 already used Debug."
 - id: JA4PROXY-2026-0061
   title: Active Connection Gauge May Overcount After Handler Panic
   severity: LOW
@@ -1969,13 +1970,14 @@ findings:
   lane: go-proxy
   discovered: '2026-06-03'
   due: '2026-10-01'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
+  regression_test: cmd/ja4pd/pentest_accept_loop_semaphore_regression_test.go
   closed_commit: ''
-  notes: Config struct defines MaxConnectionLimit but it's only read in Python proxy. Go proxy's acceptSem
-    semaphore does not read this value. Either wire it up or remove the field.
+  notes: "Stale — field renamed from MaxConnectionLimit to MaxConnections during Phase 216 remediation.\
+    \ Wired into Go proxy at cmd/ja4pd/main.go:327, enforced via acceptSem semaphore in admitConn().\
+    \ Regression test: pentest_accept_loop_semaphore_regression_test.go."
 - id: JA4PROXY-2026-0063
   title: Reassembled TLS Handshake >16KB Bypasses JA4 Fingerprinting
   severity: HIGH
@@ -2094,10 +2096,10 @@ findings:
   lane: python-management
   discovered: '2026-06-22'
   due: '2026-10-20'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
+  regression_test: internal/webhook/delivery_test.go::TestDispatcher_SuccessfulDelivery_PostsToURL
   closed_commit: ''
   cvss_v3_1:
     score: 3.3
@@ -2114,8 +2116,9 @@ findings:
     The window is small (milliseconds) and requires the attacker to control DNS for the webhook hostname.
 
     '
-  notes: 'Python validates at model-parse time (webhooks.py:73). Go re-validates at delivery time (delivery.go:304).
-    Remaining gap: window between Go validation and HTTP POST allows DNS rebinding.'
+  notes: "Removed redundant isPrivateTarget() call from doHTTPPost. The newSafeTransport.DialContext\
+    \ resolves DNS at TCP connect time and rejects private IPs atomically — it is the authoritative security\
+    \ boundary. The pre-check created a TOCTOU window with no additional security value."
 - id: JA4PROXY-2026-0067
   title: Unbounded Fire-and-Forget Goroutines for Mesh Drift Audit
   severity: HIGH
@@ -2341,12 +2344,10 @@ findings:
   lane: infrastructure
   discovered: '2026-06-24'
   due: '2026-10-22'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
-  github_issue: 219
+  regression_test: tests/integration/test_container_config.py::test_compose_poc_succeeds_with_all_env_vars
   cvss_v3_1:
     score: 3.3
     vector: CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:L/I:N/A:N
@@ -2358,8 +2359,10 @@ findings:
   impact: >
     Any local user with access to ps or docker inspect can read the Redis
     password from the process list.
-  notes: 'Deferred — PoC compose is local dev only. Requires adding Docker secrets
-    section and --requirepass-file. GitHub issue #219 closed as by-design for PoC.'
+  notes: "Switched PoC compose from --requirepass (CLI arg) to --requirepass-file\
+    \ /run/secrets/redis_password with Docker secrets, matching production compose\
+    \ pattern. Added secrets section and prerequisites comment. deploy/secrets/redis_password.txt\
+    \ must be created before first deploy."
 - id: JA4PROXY-2026-0080
   title: pubsub_hmac_secret Absent from Default Config
   severity: LOW
