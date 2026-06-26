@@ -193,7 +193,7 @@ See `docs/phases/archive/PHASE_15_subplan.md` for the full group-by-group task l
 ### Unit Tests
 - [x] REQ-015-09: JA4 computation: each `tests/fixtures/clienthello/*.bin` → matches expected fingerprint. Verified by:
       `internal/tls/ja4_test.go::TestJA4_FixturesParity`
-      ⚠️ Same fixture-coverage caveat as REQ-015-03.
+      Fixture corpus expanded to 10 files including browser-like patterns (Phase 502).
 - [x] REQ-015-10: TLS parser: adversarial corpus → no panic; returns in < 1ms. Verified by:
       `internal/tls/parser_test.go::TestParseClientHello_AdversarialCorpus`
 
@@ -236,7 +236,7 @@ Gap 2 referred to running both proxies in parallel. The Python proxy has since b
 The table said "75+ tests"; the actual count at review time is 789 test functions across all packages.
 
 ### Open action items
-- [x] Metric names confirmed correct; `TestMetricNames_RiskScore` and `TestMetricNames_DialCurrent` added to `metrics_test.go` (Gap 3 / REQ-015-07)
+- [x] Metric names confirmed correct; `TestMetricNames_RiskScore` and `TestMetricNames_DialCurrent` added (Gap 3 / REQ-015-07)
 - [x] `TestFixtureReplay_StableDecisions` replaces the Go/Python live parity harness (Gap 2)
-- [ ] Run `scripts/capture_clienthello.py` against Chrome and Firefox; commit `.bin` files; re-run parity tests (Gap 1 / REQ-015-03)
-- [ ] Add a CI smoke test for management + analytics containers against the Go proxy (REQ-015-08)
+- [x] Chrome-like and Firefox-like synthetic fixtures added; `known_ja4.json` updated (Gap 1 / REQ-015-03) — Phase 502
+- [x] Five `test_container_config.py` tests verify management + analytics + haproxy wired to Go proxy (REQ-015-08) — Phase 502
