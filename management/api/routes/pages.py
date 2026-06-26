@@ -205,6 +205,19 @@ async def under_attack_page(
     )
 
 
+@router.get("/security-policy", response_class=HTMLResponse)
+async def security_policy_page(
+    request: Request,
+    current_user=Depends(get_current_user),
+) -> HTMLResponse:
+    """Render the security policy page (datacenter ASN policy, etc.)."""
+    templates = _get_templates()
+    user, role = _extract_user_and_role(current_user)
+    return templates.TemplateResponse(
+        request, "security_policy.html", {"user": user, "role": role}
+    )
+
+
 @router.get("/fingerprint/{ja4}", response_class=HTMLResponse)
 async def fingerprint_detail_page(
     request: Request,
