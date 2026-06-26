@@ -68,7 +68,13 @@ type HandshakeEvent struct {
 
 	// Stack carries the passive TCP/IP-stack features from the SYN. Stack.HasSYN
 	// is false when no client SYN was observed (mid-stream capture).
+	// For QUIC events, Stack is zero-valued (HasSYN=false) because QUIC has
+	// no TCP SYN. Downstream consumers must check IsQUIC before using Stack.
 	Stack StackFeatures
+
+	// IsQUIC is true when the ClientHello was extracted from a QUIC Initial
+	// packet (UDP) rather than a TCP TLS handshake.
+	IsQUIC bool
 }
 
 // HasServerHello reports whether the server side of the handshake was captured.

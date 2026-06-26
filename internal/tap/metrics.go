@@ -139,4 +139,6 @@ const (
 	dropGap           = "gap"            // missing bytes before the handshake; cannot parse
 	dropEventOverflow = "event_overflow" // handshake-event channel full; event dropped (F-007)
 	dropReadError     = "read_error"     // genuine (non-timeout) PacketSource read error (F-020)
+	dropNonQUIC       = "non_quic_port"  // UDP but not port 443, or QUIC disabled
+	dropQUICDecode    = "quic_decode"    // QUIC Initial parse failed
 )
