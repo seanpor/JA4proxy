@@ -132,7 +132,7 @@ func ParseClientHelloFeatures(body []byte) (*ClientHelloFeatures, error) {
 	if off >= len(body) {
 		return nil, fmt.Errorf("tls: truncated session ID length")
 	}
-	sessionIDLen := int(body[0])
+	sessionIDLen := int(body[off])
 	off++
 	off += sessionIDLen
 
