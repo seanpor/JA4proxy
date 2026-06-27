@@ -106,7 +106,7 @@ CVE-2025-69720 exp:2026-06-27
 # CVE-2026-0994: Denial of service in Python protobuf.
 # Why no fix: Transitive dependency of moto/gcs in test runner; pip resolver cannot handle direct upgrade due to depth limit.
 # Why not exploitable: The test runner is short-lived and only executed in secure development/CI environments.
-CVE-2026-0994 exp:2026-06-27
+CVE-2026-0994 exp:2026-07-11
 
 # CVE-2026-8376: Heap buffer overflow in Perl (through 5.43.10).
 # Why no fix: Affects perl-base in Debian base image; no patch available yet.

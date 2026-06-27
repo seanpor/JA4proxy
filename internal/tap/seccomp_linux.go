@@ -68,14 +68,14 @@ func loadBPF(allow map[int]bool, errno int) error {
 	sockFilter := buildBPFFilter(allow, errno)
 	prog := [2]uintptr{
 		uintptr(len(sockFilter)),
-		uintptr(unsafe.Pointer(&sockFilter[0])),
+		uintptr(unsafe.Pointer(&sockFilter[0])), //nolint:govet // nosemgrep: go.lang.security.audit.unsafe.use-of-unsafe-block
 	}
 
 	_, _, errnoSys := syscall.RawSyscall(
 		317, // SYS_SECCOMP (x86_64)
 		seccompSetModeFilter,
 		0,
-		uintptr(unsafe.Pointer(&prog[0])),
+		uintptr(unsafe.Pointer(&prog[0])), //nolint:govet // nosemgrep: go.lang.security.audit.unsafe.use-of-unsafe-block
 	)
 	if errnoSys != 0 {
 		return fmt.Errorf("seccomp load: %w", errnoSys)
