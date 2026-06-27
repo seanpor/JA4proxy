@@ -574,3 +574,126 @@ def test_compose_poc_succeeds_with_all_env_vars() -> None:
         f"docker compose config for poc.yml FAILED even with all env vars set:\n"
         f"STDERR:\n{proc.stderr}\nSTDOUT:\n{proc.stdout}"
     )
+
+
+# ── REQ-015-08 — Management and analytics wired to Go proxy (Phase 502) ──────
+# Phase 15 closed with "management and analytics run alongside Go proxy"
+# verified only by [MANUAL-REVIEW]. These tests close that gap without
+# requiring a running Docker daemon (config-parsing only).
+
+
+def test_poc_proxy_service_uses_go_dockerfile() -> None:
+    """The `proxy` service in poc compose must build from Dockerfile.go-proxy.
+
+    This asserts the Python proxy (`proxy.py`) is not reintroduced as the
+    compose service. The Go proxy is the only implementation that ships.
+    REQ-015-08 / Phase 502.
+    """
+    compose = yaml.safe_load(POC_COMPOSE.read_text()) or {}
+    services = compose.get("services", {}) or {}
+
+    assert "proxy" in services, (
+        "poc compose has no `proxy` service; expected the Go proxy service"
+    )
+    proxy_svc = services["proxy"]
+    build = proxy_svc.get("build", {}) or {}
+    dockerfile = build.get("dockerfile", "") if isinstance(build, dict) else ""
+
+    assert "Dockerfile.go-proxy" in dockerfile, (
+        f"proxy service build.dockerfile is {dockerfile!r}; "
+        "expected Dockerfile.go-proxy (Go proxy, not Python proxy). "
+        "REQ-015-08 / Phase 502."
+    )
+
+
+def test_poc_no_python_proxy_references() -> None:
+    """No compose file in deploy/docker/ must reference proxy.py or python proxy.
+
+    Catches any attempt to reintroduce the deleted Python proxy as a compose
+    service, entrypoint, or command. REQ-015-08 / Phase 502.
+    """
+    compose_files = sorted(DEPLOY_DOCKER.glob("docker-compose*.yml"))
+    assert compose_files, f"no compose files found under {DEPLOY_DOCKER}"
+
+    forbidden_tokens = ("proxy.py", "python proxy", "python3 proxy")
+    offenders: list[str] = []
+
+    for path in compose_files:
+        for lineno, line in enumerate(path.read_text().splitlines(), start=1):
+            stripped = line.lstrip()
+            if stripped.startswith("#"):
+                continue
+            for token in forbidden_tokens:
+                if token in line.lower():
+                    offenders.append(f"{path.name}:{lineno}: {token!r}")
+
+    assert not offenders, (
+        "Python proxy reference(s) found in compose files — "
+        "the Python proxy was deleted in Phase 15; all proxy work is Go:\n  "
+        + "\n  ".join(offenders)
+    )
+
+
+def test_poc_management_on_both_networks() -> None:
+    """The `management` service must be on both ja4proxy-mgmt and ja4proxy-data.
+
+    management needs ja4proxy-data to reach Redis (dial updates, list mutations)
+    and ja4proxy-mgmt for the HAProxy / client-facing management port.
+    REQ-015-08 / Phase 502.
+    """
+    compose = yaml.safe_load(POC_COMPOSE.read_text()) or {}
+    services = compose.get("services", {}) or {}
+
+    assert "management" in services, "poc compose has no `management` service"
+    nets = set(_service_networks(services["management"]))
+
+    for required in ("ja4proxy-mgmt", "ja4proxy-data"):
+        assert required in nets, (
+            f"management service is not on network {required!r} (has: {sorted(nets)}); "
+            "it needs both mgmt (client-facing) and data (Redis access). "
+            "REQ-015-08 / Phase 502."
+        )
+
+
+def test_poc_analytics_on_data_network() -> None:
+    """The `analytics` service must be on ja4proxy-data to reach Redis.
+
+    analytics reads the Redis event stream; if it is not on the data network,
+    the `redis` hostname does not resolve and the service silently stops
+    processing. Mirrors the existing test_poc_analytics_shares_redis_data_network
+    but explicitly references REQ-015-08. REQ-015-08 / Phase 502.
+    """
+    compose = yaml.safe_load(POC_COMPOSE.read_text()) or {}
+    services = compose.get("services", {}) or {}
+
+    assert "analytics" in services, "poc compose has no `analytics` service"
+    nets = set(_service_networks(services["analytics"]))
+
+    assert "ja4proxy-data" in nets, (
+        f"analytics service is not on ja4proxy-data network (has: {sorted(nets)}); "
+        "analytics needs the data network to reach Redis. "
+        "REQ-015-08 / Phase 502."
+    )
+
+
+def test_poc_haproxy_depends_on_go_proxy() -> None:
+    """HAProxy must declare `proxy` in its depends_on, routing traffic to Go proxy.
+
+    REQ-015-08 / Phase 502.
+    """
+    compose = yaml.safe_load(POC_COMPOSE.read_text()) or {}
+    services = compose.get("services", {}) or {}
+
+    assert "haproxy" in services, "poc compose has no `haproxy` service"
+    deps_raw = services["haproxy"].get("depends_on", []) or []
+    # depends_on can be a list or a dict (long-form).
+    if isinstance(deps_raw, dict):
+        deps = set(deps_raw.keys())
+    else:
+        deps = set(deps_raw)
+
+    assert "proxy" in deps, (
+        f"haproxy depends_on does not include `proxy` (has: {sorted(deps)}); "
+        "haproxy must route upstream traffic to the Go proxy service. "
+        "REQ-015-08 / Phase 502."
+    )

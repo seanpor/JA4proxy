@@ -54,7 +54,8 @@ func main() {
 		ja4tBlock   = flag.String("ja4t-blocklist", "", "comma-separated JA4T fingerprints that trigger an out-of-band ban intent (empty = enforcement can never fire)")
 		banTTL      = flag.Duration("ban-ttl", 5*time.Minute, "TTL for a sensor-written ban:{ip} (kept short by the fail-open asymmetry)")
 		intentTTL   = flag.Duration("intent-ttl", time.Hour, "TTL for an advisory fp:ban_intent:ip watchlist entry")
-		metricsAddr = flag.String("metrics-addr", "", "HTTP address for Prometheus metrics and /health (empty = disabled)")
+		metricsAddr  = flag.String("metrics-addr", "", "HTTP address for Prometheus metrics and /health (empty = disabled)")
+		seccompPath  = flag.String("seccomp-profile", "/etc/ja4proxy/seccomp_tap.json", "path to seccomp JSON profile (empty = embedded default)")
 	)
 	flag.Parse()
 
@@ -67,7 +68,7 @@ func main() {
 		BanTTL:        *banTTL,
 		IntentTTL:     *intentTTL,
 	}
-	if err := run(*pcapFile, *iface, *frameSize, *quiet, *redisURL, enfCfg, log); err != nil {
+	if err := run(*pcapFile, *iface, *frameSize, *quiet, *redisURL, enfCfg, *seccompPath, log); err != nil {
 		log.WithError(err).Error("ja4-tap exited with error")
 		os.Exit(1)
 	}
@@ -85,7 +86,7 @@ func parseBlocklist(csv string) map[string]bool {
 	return out
 }
 
-func run(pcapFile, iface string, frameSize int, quiet bool, redisURL string, enfCfg tap.EnforcerConfig, log *logrus.Logger) error {
+func run(pcapFile, iface string, frameSize int, quiet bool, redisURL string, enfCfg tap.EnforcerConfig, seccompPath string, log *logrus.Logger) error {
 	if (pcapFile == "") == (iface == "") {
 		return fmt.Errorf("exactly one of --pcap-file or --interface must be set")
 	}
@@ -98,7 +99,7 @@ func run(pcapFile, iface string, frameSize int, quiet bool, redisURL string, enf
 	if err := tap.DropCapabilities(); err != nil {
 		log.WithError(err).Warn("failed to drop capabilities; proceeding with current UID/GID")
 	}
-	if err := tap.LoadSeccomp(); err != nil {
+	if err := tap.LoadSeccomp(seccompPath); err != nil {
 		log.WithError(err).Warn("failed to load seccomp profile; proceeding without seccomp")
 	}
 	warnEnforcementPosture(redisURL, enfCfg, log)
@@ -114,9 +115,8 @@ func run(pcapFile, iface string, frameSize int, quiet bool, redisURL string, enf
 		return drive(ctx, tap.NewSensor(lt, 1024), src, closeFn, store, enforcer, quiet, log)
 	}
 
-	// Live capture. Capability drop + seccomp + kernel BPF are deferred to
-	// 316a increment 2; warn loudly so this isn't mistaken for hardened.
-	log.Warn("live capture: capability-drop, seccomp and kernel BPF are not yet wired (316a increment 2) — run with NET_RAW only")
+	// Live capture.
+	log.Warn("live capture: kernel BPF filtering deferred — run with NET_RAW only")
 	src, lt, closeFn, err := tap.NewLiveSource(iface, frameSize)
 	if err != nil {
 		return fmt.Errorf("open live interface %q: %w", iface, err)

@@ -1,10 +1,12 @@
 {
+  "chrome_tls13_like": "t13d1516h2_8daaf6152771_adfa42fcc48a",
   "curl_tls12": "t12i2807h2_d943125447b4_dd0a478c1db3",
   "curl_tls13": "t13i0411h2_16476d049b0b_a908d7afddfc",
+  "firefox_tls13_like": "t13d1515h2_8daaf6152771_71eade900fa7",
   "openssl_tls13": "t13i040800_16476d049b0b_1da349255cb8",
   "python_tls13": "t13d181100_85036bcba153_d41ae481755e",
-  "synthetic_tls13_basic": "t13d030500_55b375c5d22e_ef2b5d879b42",
+  "synthetic_grease": "t13d030400_55b375c5d22e_4f9fa6652b40",
   "synthetic_tls12_basic": "t12d040500_6826bf00caa0_020a1b99a7f1",
-  "synthetic_tls13_no_sni": "t13i020300_62ed6f6ca7ad_4f9fa6652b40",
-  "synthetic_grease": "t13d030400_55b375c5d22e_4f9fa6652b40"
+  "synthetic_tls13_basic": "t13d030500_55b375c5d22e_ef2b5d879b42",
+  "synthetic_tls13_no_sni": "t13i020300_62ed6f6ca7ad_4f9fa6652b40"
 }
