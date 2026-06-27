@@ -140,6 +140,7 @@ test-results/
 # Go build artifacts
 /bin/
 /_build/
+/ja4-tap
 /ja4check
 /ja4proxy
 /ja4proxy-cli
