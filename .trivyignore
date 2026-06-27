@@ -106,7 +106,7 @@ CVE-2025-69720 exp:2026-06-27
 # CVE-2026-0994: Denial of service in Python protobuf.
 # Why no fix: Transitive dependency of moto/gcs in test runner; pip resolver cannot handle direct upgrade due to depth limit.
 # Why not exploitable: The test runner is short-lived and only executed in secure development/CI environments.
-CVE-2026-0994 exp:2026-06-27
+CVE-2026-0994 exp:2026-07-11
 
 # CVE-2026-8376: Heap buffer overflow in Perl (through 5.43.10).
 # Why no fix: Affects perl-base in Debian base image; no patch available yet.
@@ -353,3 +353,12 @@ CVE-2026-46330 exp:2026-06-27
 # The test image uses Python 3.14 base; msgpack is pinned transitively via
 # dependencies. Fix tracked upstream.
 GHSA-6v7p-g79w-8964 exp:2026-07-22
+
+# CVE-2026-56123: Heap-based buffer overflow in socat (1.8.0.0–1.8.1.1) in haproxy:2.8.24-alpine.
+# Why no fix: haproxy:2.8.24-alpine bundles socat 1.8.1.1-r0; no newer haproxy:2.8.24-alpine
+# image tag exists with the patched socat 1.8.1.2-r0. Fix requires upgrading the haproxy
+# image tag (tracked separately — upgrade to haproxy:2.8.25-alpine or later).
+# Why not exploitable: socat in this image is used only for haproxy admin socket operations
+# on a Unix domain socket (/var/run/haproxy.sock). It is not exposed to external network
+# input from untrusted clients and is not reachable by the internet-facing attack surface.
+CVE-2026-56123 exp:2026-07-11
