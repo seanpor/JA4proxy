@@ -144,6 +144,7 @@ test-results/
 /ja4check
 /ja4proxy
 /ja4proxy-cli
+/ja4-tap
 /cmd/proxy/proxy
 /proxy
 
