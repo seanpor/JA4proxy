@@ -15,7 +15,9 @@ require (
 	github.com/yl2chen/cidranger v1.0.2
 	github.com/zalando/go-keyring v0.2.8
 	go.yaml.in/yaml/v3 v3.0.4
+	golang.org/x/net v0.43.0
 	golang.org/x/sync v0.21.0
+	golang.org/x/sys v0.45.0
 	pgregory.net/rapid v1.2.0
 )
 
@@ -45,7 +47,5 @@ require (
 	github.com/yuin/gopher-lua v1.1.1 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
-	golang.org/x/net v0.43.0 // indirect
-	golang.org/x/sys v0.45.0 // indirect
 	google.golang.org/protobuf v1.36.8 // indirect
 )
