@@ -270,7 +270,7 @@ Roll back immediately (do not troubleshoot first) if:
 |--------|-----------|--------|
 | 5xx error rate | > 1% of requests over 1 minute | HAProxy stats / Prometheus |
 | Health check failures | Any pod/instance marked DOWN for > 30s | HAProxy stats / K8s events |
-| Block rate anomaly | Block rate changes > 50% from baseline | Grafana `ja4proxy_blocks_total` |
+| Block rate anomaly | Block rate changes > 50% from baseline | Grafana `ja4proxy_connections_total{action="block"}` |
 | Redis connection errors | Any new errors after upgrade | Prometheus `ja4proxy_redis_operations_total{result="error"}` |
 | Latency P99 | > 2× baseline | Grafana SLO dashboard |
 

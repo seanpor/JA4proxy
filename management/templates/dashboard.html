@@ -15,6 +15,45 @@
     {% include "partials/situation_bar.html" %}
   </div>
 
+  <!-- ── Emergency Mode (Phase 245.6) ───────────────────────────── -->
+  <div x-data="emergencyMode()" class="glass-card overflow-hidden border-red-900/30"
+       x-show="visible" style="display:none;">
+    <div class="flex items-center justify-between px-4 py-3">
+      <div class="flex items-center gap-2">
+        <svg class="w-5 h-5 text-red-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+        </svg>
+        <h2 class="text-xs font-semibold text-red-400 uppercase tracking-wider">Emergency Mode</h2>
+      </div>
+      <button @click="visible = false" class="text-slate-500 hover:text-slate-300 text-xs">Dismiss</button>
+    </div>
+    <div class="px-4 pb-4">
+      <p class="text-xs text-slate-400 mb-3">Jump to an emergency dial level. Auto-reverts after the selected TTL.</p>
+      <div class="flex flex-wrap gap-2">
+        <template x-for="p in presets" :key="p.name">
+          <button @click="activate(p)"
+                  :disabled="submitting"
+                  class="px-3 py-2 rounded-lg text-xs font-semibold transition-all duration-200
+                         disabled:opacity-40 disabled:cursor-not-allowed"
+                  :class="p.color">
+            <span x-text="p.label"></span>
+            <span class="opacity-60 ml-1" x-text="'(dial ' + p.value + ')'"></span>
+          </button>
+        </template>
+      </div>
+      <div x-show="feedback" class="mt-3 text-xs" :class="feedbackOk ? 'text-green-400' : 'text-red-400'"
+           x-text="feedback" style="display:none;"></div>
+    </div>
+  </div>
+
+  <!-- Toggle emergency panel from anywhere -->
+  <div class="flex justify-end -mt-2 mb-2">
+    <button @click="$dispatch('toggle-emergency')"
+            class="text-[10px] text-red-400/60 hover:text-red-400 font-medium transition-colors">
+      Emergency Mode
+    </button>
+  </div>
+
   <!-- ── Row 1: Health cards (polled every 10s via HTMX) ──────────── -->
   <section aria-label="System health">
     <div id="health-cards"
@@ -111,4 +150,53 @@
   </section>
 
 </div>
+
+<script>
+function emergencyMode() {
+  return {
+    visible: false,
+    submitting: false,
+    feedback: '',
+    feedbackOk: false,
+    presets: [
+      { name: 'block_known_bad', label: 'Block Known Bad', value: 50,
+        color: 'bg-yellow-900/50 text-yellow-300 hover:bg-yellow-800/60 border border-yellow-700/30' },
+      { name: 'active_defense', label: 'Active Defense', value: 75,
+        color: 'bg-orange-900/50 text-orange-300 hover:bg-orange-800/60 border border-orange-700/30' },
+      { name: 'lockdown', label: 'Lockdown', value: 90,
+        color: 'bg-red-900/50 text-red-300 hover:bg-red-800/60 border border-red-700/30' }
+    ],
+    init() {
+      this.$el.addEventListener('toggle-emergency', () => { this.visible = !this.visible; });
+    },
+    async activate(preset) {
+      if (!confirm('Set dial to ' + preset.value + ' (' + preset.label + ')? Auto-reverts in 1 hour.')) return;
+      this.submitting = true;
+      this.feedback = '';
+      try {
+        var resp = await fetch('/api/v1/dial/emergency', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ preset: preset.name, revert_after_hours: 1 })
+        });
+        if (resp.ok) {
+          this.feedback = preset.label + ' activated (dial ' + preset.value + '). Auto-reverts in 1 hour.';
+          this.feedbackOk = true;
+          htmx.trigger('#dial-widget', 'refresh');
+        } else {
+          var data = await resp.json().catch(function() { return { detail: 'Request failed' }; });
+          this.feedback = data.detail || 'Failed to activate emergency mode';
+          this.feedbackOk = false;
+        }
+      } catch (err) {
+        this.feedback = 'Network error: ' + err.message;
+        this.feedbackOk = false;
+      } finally {
+        this.submitting = false;
+      }
+    }
+  }
+}
+</script>
 {% endblock %}

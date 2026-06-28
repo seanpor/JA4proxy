@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}Under Attack — Live Dashboard{% endblock %}
+{% block page_title %}Under Attack{% endblock %}
+
+{% block content %}
+<div class="space-y-6 max-w-[1100px] fade-in">
+
+  {% if attack_mode_active %}
+  <div class="rounded-lg border border-[#ef4444]/40 bg-[#ef4444]/10 px-4 py-3 flex items-center gap-3">
+    <span class="text-[#f87171] text-sm font-semibold">⚠ ATTACK MODE ACTIVE</span>
+    <span class="text-[#ef4444]/70 text-xs">Dial elevated to 75 — auto-reverts in 4 hours</span>
+  </div>
+  {% endif %}
+
+  <!-- ── Tab switcher ───────────────────────────────────────────────── -->
+  <div x-data="{ tab: 'ips' }">
+
+    <div class="flex gap-2 mb-4">
+      <button @click="tab = 'ips'"
+              :class="tab === 'ips' ? 'bg-[#1e293b] text-white border-[#8b5cf6]' : 'text-[#64748b] border-transparent'"
+              class="px-4 py-2 text-sm font-semibold rounded-lg border transition-colors">
+        IPs
+      </button>
+      <button @click="tab = 'fingerprints'"
+              :class="tab === 'fingerprints' ? 'bg-[#1e293b] text-white border-[#8b5cf6]' : 'text-[#64748b] border-transparent'"
+              class="px-4 py-2 text-sm font-semibold rounded-lg border transition-colors">
+        Fingerprints
+      </button>
+    </div>
+
+    <!-- ── IP Tab ─────────────────────────────────────────────────────── -->
+    <div x-show="tab === 'ips'">
+      <div class="glass-card overflow-hidden">
+        <div class="flex items-center gap-2 px-4 py-3 border-b border-[#1e293b]/55">
+          <svg class="w-4 h-4 text-[#ef4444] filter drop-shadow-[0_0_4px_rgba(239,68,68,0.3)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+          </svg>
+          <h2 class="text-xs font-semibold text-[#64748b] uppercase tracking-wider">Top Attackers (last 5 min)</h2>
+          <span class="ml-auto text-xs text-[#475569]">auto-refreshes every 5s</span>
+        </div>
+        <div class="p-4"
+             hx-get="/api/v1/partials/attack-top{% if attack_mode_active %}?attack_mode=true{% endif %}"
+             hx-trigger="load, every 5s"
+             hx-swap="innerHTML">
+          <p class="text-[#64748b] text-sm">Loading top attackers…</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Fingerprints Tab ───────────────────────────────────────────── -->
+    <div x-show="tab === 'fingerprints'" style="display:none;">
+      <div class="glass-card overflow-hidden">
+        <div class="flex items-center gap-2 px-4 py-3 border-b border-[#1e293b]/55">
+          <svg class="w-4 h-4 text-[#8b5cf6] filter drop-shadow-[0_0_4px_rgba(139,92,246,0.3)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/>
+          </svg>
+          <h2 class="text-xs font-semibold text-[#64748b] uppercase tracking-wider">Top Fingerprints (last 5 min)</h2>
+          <span class="ml-auto text-xs text-[#475569]">auto-refreshes every 5s</span>
+        </div>
+        <div class="p-4"
+             hx-get="/api/v1/partials/attack-fingerprint-table{% if attack_mode_active %}?attack_mode=true{% endif %}"
+             hx-trigger="load, every 5s"
+             hx-swap="innerHTML">
+          <p class="text-[#64748b] text-sm">Loading fingerprints…</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

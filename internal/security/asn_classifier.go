@@ -85,11 +85,19 @@ func NewASNClassifier(cfg *ASNClassifierConfig, log *logrus.Logger) *ASNClassifi
 		if _, err := os.Stat(cfg.DBPath); err == nil {
 			db, err := geoip2.Open(cfg.DBPath)
 			if err != nil {
-				log.WithError(err).Warn("asn_classifier: failed to open GeoLite2-ASN DB; signals disabled")
+				log.WithError(err).Warn("asn_classifier: failed to open GeoLite2-ASN DB; country blocking and ASN enrichment disabled")
 			} else {
 				c.db = db
 			}
+		} else {
+			log.WithField("path", cfg.DBPath).Warn(
+				"asn_classifier: GeoIP database not found — country blocking and ASN enrichment disabled. " +
+					"Download from https://dev.maxmind.com/geoip/geolite2-free-geolocation-data or run: make update-geoip")
 		}
+	} else {
+		log.Warn(
+			"asn_classifier: no GeoIP database configured — country blocking and ASN enrichment disabled. " +
+				"See docs/operations/EMERGENCY_DEPLOY.md for setup instructions")
 	}
 
 	// Load Tor exit list
@@ -222,4 +230,27 @@ func (c *ASNClassifier) Classify(clientIP string) []RiskSignal {
 
 	metrics.ASNClassificationTotal.WithLabelValues("residential").Inc()
 	return nil // residential / mobile / unknown-benign
+}
+
+// IsDatacenter returns (true, asn) if clientIP belongs to a known datacenter ASN.
+// Uses the same in-memory map as Classify — O(1), no Redis call.
+func (c *ASNClassifier) IsDatacenter(clientIP string) (bool, uint32) {
+	ip := net.ParseIP(clientIP)
+	if ip == nil {
+		return false, 0
+	}
+	asnNum, orgName, err := c.lookupFn(ip)
+	if err != nil || (asnNum == 0 && orgName == "") {
+		return false, 0
+	}
+	if c.cfg.DatacenterASNs[asnNum] {
+		return true, uint32(asnNum)
+	}
+	lowerOrg := strings.ToLower(orgName)
+	for _, pat := range c.cfg.DatacenterOrgs {
+		if strings.Contains(lowerOrg, strings.ToLower(pat)) {
+			return true, uint32(asnNum)
+		}
+	}
+	return false, 0
 }

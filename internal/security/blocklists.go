@@ -168,7 +168,11 @@ func parseFeedLine(raw, format string) (string, bool) {
 // ReplaceFeed atomically swaps the live trie for the named feed. Returns false
 // if no feed with that name is registered. Safe to call concurrently with
 // Check(); readers see either the old or new trie, never a partial one.
+// Rejects nil ranger to prevent panics on subsequent Check() calls.
 func (m *BlocklistManager) ReplaceFeed(name string, ranger cidranger.Ranger) bool {
+	if ranger == nil {
+		return false
+	}
 	for _, feed := range m.feeds {
 		if feed.name == name {
 			feed.ranger.Store(&rangerBox{ranger: ranger})

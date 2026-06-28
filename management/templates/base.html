@@ -36,10 +36,25 @@
 </head>
 <body class="dark h-full bg-[#0b0f19] text-[#f1f5f9]">
 
-<div class="flex h-full min-h-screen">
+<div class="flex h-full min-h-screen" x-data="{ sidebarOpen: false }">
+
+  <!-- ── Mobile hamburger ────────────────────────────────────────── -->
+  <button @click="sidebarOpen = !sidebarOpen"
+          class="fixed top-3 left-3 z-50 md:hidden p-2 rounded-lg bg-[#1e293b]/80 text-slate-300 hover:text-white"
+          aria-label="Toggle sidebar">
+    <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+      <path x-show="!sidebarOpen" stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+      <path x-show="sidebarOpen" stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" style="display:none;"/>
+    </svg>
+  </button>
+
+  <!-- ── Mobile overlay ──────────────────────────────────────────── -->
+  <div x-show="sidebarOpen" @click="sidebarOpen = false"
+       class="fixed inset-0 z-20 bg-black/50 md:hidden" style="display:none;"></div>
 
   <!-- ── Sidebar ─────────────────────────────────────────────────── -->
-  <aside class="fixed inset-y-0 left-0 z-30 w-[200px] flex flex-col glass-panel border-r border-[#1e293b]/55">
+  <aside :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'"
+         class="fixed inset-y-0 left-0 z-30 w-[200px] flex flex-col glass-panel border-r border-[#1e293b]/55 transition-transform duration-200">
 
     <!-- Logo / Brand -->
     <div class="flex items-center gap-2 px-4 py-5 border-b border-[#334155]">
@@ -58,11 +73,13 @@
     <nav class="flex-1 px-2 py-4 space-y-1" aria-label="Sidebar">
       {% set nav_items = [
         ("/",      "Dashboard",  "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6",    "all"),
+        ("/under-attack", "Under Attack", "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z", "all"),
         ("/bans",   "Bans",      "M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636", "analyst"),
         ("/audit",  "Audit Log", "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",    "all"),
         ("/lists",  "Lists",     "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2",     "operator"),
         ("/threat-intel", "Threat Intel", "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z", "analyst"),
         ("/intelligence-review", "Intelligence", "M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z", "analyst"),
+        ("/security-policy", "Security Policy", "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z", "operator"),
       ] %}
       {# Role level ordering for nav gating #}
       {% set role_levels = {"auditor": 0, "analyst": 1, "operator": 2, "admin": 3} %}
@@ -73,13 +90,20 @@
         {% set required_level = min_levels.get(min_role, 0) %}
         {% if user_level >= required_level %}
         <!-- nosemgrep: generic.html-templates.security.var-in-href.var-in-href -->
-        <a href="{{ href }}"
+        <a href="{{ href }}" @click="sidebarOpen = false"
            class="flex items-center gap-3 px-3 py-2 text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-slate-900 rounded
                   {% if active %}sidebar-item-active text-sky-400 font-medium{% else %}text-[#94a3b8] hover:bg-[#1e293b]/30 hover:text-[#f1f5f9]{% endif %}">
           <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" d="{{ icon_path }}"/>
           </svg>
           {{ label }}
+          {% if href == "/under-attack" %}
+          <span id="attack-mode-indicator"
+                hx-get="/api/v1/partials/attack-mode-indicator"
+                hx-trigger="load, every 10s"
+                hx-target="#attack-mode-indicator"
+                hx-swap="outerHTML"></span>
+          {% endif %}
         </a>
         {% endif %}
       {% endfor %}
@@ -112,7 +136,7 @@
   </aside>
 
   <!-- ── Main area ────────────────────────────────────────────────── -->
-  <div class="flex-1 flex flex-col ml-[200px] min-w-0">
+  <div class="flex-1 flex flex-col ml-0 md:ml-[200px] min-w-0">
 
     <!-- Top bar -->
     <header class="sticky top-0 z-20 flex items-center justify-between px-6 py-3 bg-[#0f1524]/85 backdrop-blur-md border-b border-[#1e293b]/55">

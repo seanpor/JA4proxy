@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/sirupsen/logrus"
 	"go.yaml.in/yaml/v3"
 )
 
@@ -75,6 +76,17 @@ func Load(path string) (*Config, error) {
 			return cfg, nil
 		}
 		return nil, fmt.Errorf("config: parse %q: %w", path, err)
+	}
+	// Validate datacenter_policy.action — unknown values default to "score".
+	switch cfg.DatacenterPolicy.Action {
+	case "score", "tarpit", "block", "":
+		if cfg.DatacenterPolicy.Action == "" {
+			cfg.DatacenterPolicy.Action = "score"
+		}
+	default:
+		logrus.WithField("value", cfg.DatacenterPolicy.Action).
+			Warn("config: unknown datacenter_policy.action — defaulting to 'score'")
+		cfg.DatacenterPolicy.Action = "score"
 	}
 	return cfg, nil
 }
@@ -325,6 +337,20 @@ func DefaultConfig() *Config {
 			StreamWorkers:             4,
 			StreamWriteTimeoutSeconds: 2.0,
 		},
+		AutoEscalate: AutoEscalateConfig{
+			Enabled:               false,
+			TarpitAtOffense:       1,
+			BlockAtOffense:        3,
+			BanAtOffense:          5,
+			BanHours:              24,
+			OffenseTTLHours:       48,
+			SharedIPCIDRThreshold: 10,
+		},
+		DatacenterPolicy: DatacenterPolicyConfig{
+			Action:     "score",
+			Exceptions: []uint{13335, 54113, 20940}, // Cloudflare, Fastly, Akamai
+			LogActions: true,
+		},
 	}
 }
 
@@ -360,6 +386,30 @@ type Config struct {
 	TrustedUpstreamSources TrustedUpstreamSourcesConfig `yaml:"trusted_upstream_sources"` // phase-94i2
 	TapConsumer            TapConsumerConfigYAML        `yaml:"tap_consumer"`             // phase-203a
 	JA4TConsumer           JA4TConsumerConfigYAML       `yaml:"ja4t_consumer"`            // phase-316c
+	AutoEscalate           AutoEscalateConfig           `yaml:"auto_escalate"`            // phase-248
+	DatacenterPolicy       DatacenterPolicyConfig       `yaml:"datacenter_policy"`        // phase-249
+}
+
+// AutoEscalateConfig configures auto-escalating IP defense (Phase 248).
+// Off by default. Enabled by setting auto_escalate.enabled: true in proxy.yml,
+// or by Attack Mode activation (which sets attack_mode:escalate in Redis).
+type AutoEscalateConfig struct {
+	Enabled               bool `yaml:"enabled"`
+	TarpitAtOffense       int  `yaml:"tarpit_at_offense"`
+	BlockAtOffense        int  `yaml:"block_at_offense"`
+	BanAtOffense          int  `yaml:"ban_at_offense"`
+	BanHours              int  `yaml:"ban_hours"`
+	OffenseTTLHours       int  `yaml:"offense_ttl_hours"`
+	SharedIPCIDRThreshold int  `yaml:"shared_ip_cidr_threshold"`
+}
+
+// DatacenterPolicyConfig controls how traffic from datacenter ASNs is handled (Phase 249).
+type DatacenterPolicyConfig struct {
+	// Action: "score" (default) | "tarpit" | "block"
+	// Unknown values are normalised to "score" on load.
+	Action     string `yaml:"action"`
+	Exceptions []uint `yaml:"exceptions"` // ASN numbers exempt from the policy
+	LogActions bool   `yaml:"log_actions"`
 }
 
 // TapConsumerConfigYAML configures the phase-203a TAP JA4T OS-mismatch consumer.

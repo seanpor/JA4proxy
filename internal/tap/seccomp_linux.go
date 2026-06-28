@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"runtime"
+	"sort"
 	"syscall"
 	"unsafe"
 )
@@ -46,6 +48,9 @@ func applySeccompProfile(data []byte) error {
 			continue
 		}
 		for _, name := range rule.Names {
+			if _, blocked := dangerousSyscalls[name]; blocked {
+				return fmt.Errorf("syscall %q is blocked for TAP sensor security", name)
+			}
 			nr, ok := syscallToNumber(name)
 			if !ok {
 				return fmt.Errorf("unknown syscall: %s", name)
@@ -54,29 +59,30 @@ func applySeccompProfile(data []byte) error {
 		}
 	}
 
-	return loadBPF(allow, profile.DefaultErrnoRet)
+	return loadBPF(allow)
 }
 
 const (
-	seccompSetModeFilter = 1
-	seccompRetAllow      = 0x00000000
-	seccompRetErrno      = 0x00050000
-	auditArchX86_64      = 0xC000003E
+	seccompSetModeFilter    = 1
+	seccompRetAllow         = 0x00000000
+	seccompRetKillProcess   = 0x80000000
+	auditArchX86_64         = 0xC000003E
 )
 
-func loadBPF(allow map[int]bool, errno int) error {
-	sockFilter := buildBPFFilter(allow, errno)
+func loadBPF(allow map[int]bool) error {
+	sockFilter := buildBPFFilter(allow)
 	prog := [2]uintptr{
 		uintptr(len(sockFilter)),
-		uintptr(unsafe.Pointer(&sockFilter[0])), //nolint:govet // nosemgrep: go.lang.security.audit.unsafe.use-of-unsafe-block
+		uintptr(unsafe.Pointer(&sockFilter[0])), //nolint:gosec // required for seccomp(2) syscall interface
 	}
 
 	_, _, errnoSys := syscall.RawSyscall(
 		317, // SYS_SECCOMP (x86_64)
 		seccompSetModeFilter,
 		0,
-		uintptr(unsafe.Pointer(&prog[0])), //nolint:govet // nosemgrep: go.lang.security.audit.unsafe.use-of-unsafe-block
+		uintptr(unsafe.Pointer(&prog[0])), //nolint:gosec // required for seccomp(2) syscall interface
 	)
+	runtime.KeepAlive(sockFilter)
 	if errnoSys != 0 {
 		return fmt.Errorf("seccomp load: %w", errnoSys)
 	}
@@ -92,42 +98,75 @@ type sockFilter struct {
 	K    uint32
 }
 
-func buildBPFFilter(allow map[int]bool, errno int) []sockFilter {
-	deniedRet := seccompRetErrno | uint32(errno&0xFF)
-
+func buildBPFFilter(allow map[int]bool) []sockFilter {
 	sorted := make([]int, 0, len(allow))
 	for nr := range allow {
 		sorted = append(sorted, nr)
 	}
-	for i := 1; i < len(sorted); i++ {
-		for j := i; j > 0 && sorted[j] < sorted[j-1]; j-- {
-			sorted[j], sorted[j-1] = sorted[j-1], sorted[j]
-		}
+	sort.Ints(sorted)
+
+	if len(sorted) > 4000 {
+		panic("seccomp: too many allowed syscalls for BPF jump encoding")
 	}
+
+	// Layout: [0] LOAD_ARCH, [1] JNE→KILL, [2] LOAD_NR, [3..] N×(JEQ+RET_ALLOW), [last] RET_KILL
+	// Total instructions after arch check: 1 (load_nr) + 2*N (jeq+ret pairs) + 1 (default ret) = 2*N+2
+	// BPF jt/jf fields are uint8 (max 255), so for large N we chain through
+	// intermediate jumps. But since we use jf=1 per check (skip one RET_ALLOW),
+	// only the arch-mismatch jump needs to span the full filter.
+	//
+	// For arch mismatch we use JNE (jt=far, jf=0) so the "true" branch (not-equal)
+	// jumps to KILL. jt can be up to 255, so we need intermediate trampolines
+	// if 2*N+2 > 255.
 
 	var filter []sockFilter
 
+	// [0] Load architecture
 	filter = append(filter, sockFilter{
 		Code: 0x20, // BPF_LD | BPF_W | BPF_ABS
 		K:    4,    // offsetof(seccomp_data, arch)
 	})
 
-	filter = append(filter, sockFilter{
-		Code: 0x15, // BPF_JMP | BPF_JEQ | BPF_K
-		Jt:   0, Jf: 1,
-		K:    auditArchX86_64,
-	})
+	// [1] Check arch — on mismatch, jump to KILL.
+	// RET_KILL is the last instruction. From [1], the next instruction is [2] (LOAD_NR).
+	// RET_KILL is at index 2 + 2*N + 1 = 3 + 2*N (load_nr, N pairs, default).
+	// BPF jf offset = target_index - (current_index + 1) = (3 + 2*N) - 2 = 2*N + 1.
+	archJmpOffset := 2*len(sorted) + 1
+	if archJmpOffset <= 255 {
+		filter = append(filter, sockFilter{
+			Code: 0x15, // BPF_JMP | BPF_JEQ | BPF_K
+			Jt:   0, Jf: uint8(archJmpOffset), //nolint:gosec // bounds-checked above
+			K:    auditArchX86_64,
+		})
+	} else {
+		// Arch match: skip the trampoline. Mismatch: fall through to trampoline.
+		filter = append(filter, sockFilter{
+			Code: 0x15, // BPF_JMP | BPF_JEQ | BPF_K
+			Jt:   1, Jf: 0,
+			K:    auditArchX86_64,
+		})
+		// Trampoline: unconditional jump to KILL. From [2] (this instruction),
+		// KILL is at [3 + 2*N + 1] = [4 + 2*N] (extra instruction from trampoline).
+		// BPF_JA offset = (4 + 2*N) - (2 + 1) = 2*N + 1.
+		filter = append(filter, sockFilter{
+			Code: 0x05, // BPF_JMP | BPF_JA
+			K:    uint32(2*len(sorted) + 1), //nolint:gosec // BPF offset, bounded by filter size
+		})
+	}
 
+	// Load syscall number
 	filter = append(filter, sockFilter{
 		Code: 0x20, // BPF_LD | BPF_W | BPF_ABS
 		K:    0,    // offsetof(seccomp_data, nr)
 	})
 
+	// Per-syscall checks: on match, fall through to RET_ALLOW;
+	// on mismatch, skip RET_ALLOW to next check.
 	for _, nr := range sorted {
 		filter = append(filter, sockFilter{
 			Code: 0x15, // BPF_JMP | BPF_JEQ | BPF_K
-			Jt:   1, Jf: 0,
-			K:    uint32(nr),
+			Jt:   0, Jf: 1,
+			K:    uint32(nr), //nolint:gosec // syscall numbers are positive ints
 		})
 		filter = append(filter, sockFilter{
 			Code: 0x06, // BPF_RET | BPF_K
@@ -135,12 +174,30 @@ func buildBPFFilter(allow map[int]bool, errno int) []sockFilter {
 		})
 	}
 
+	// Default: KILL the process
 	filter = append(filter, sockFilter{
 		Code: 0x06, // BPF_RET | BPF_K
-		K:    deniedRet,
+		K:    seccompRetKillProcess,
 	})
 
 	return filter
+}
+
+// dangerousSyscalls that a TAP sensor must never be allowed, even via custom profiles.
+var dangerousSyscalls = map[string]struct{}{
+	"fork":       {},
+	"vfork":      {},
+	"execve":     {},
+	"execveat":   {},
+	"ptrace":     {},
+	"mount":      {},
+	"umount2":    {},
+	"pivot_root": {},
+	"reboot":     {},
+	"kexec_load": {},
+	"init_module":   {},
+	"delete_module": {},
+	"finit_module":  {},
 }
 
 func syscallToNumber(name string) (int, bool) {
@@ -175,7 +232,7 @@ var x86_64Syscalls = map[string]int{
 	"select":              23,
 	"sched_yield":         24,
 	"mremap":              25,
-	"msync":               27,
+	"msync":               26,
 	"mincore":             27,
 	"madvise":             28,
 	"dup":                 32,

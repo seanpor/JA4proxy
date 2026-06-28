@@ -2,6 +2,7 @@ package tap
 
 import (
 	_ "embed"
+	"fmt"
 	"log"
 	"syscall"
 )
@@ -25,14 +26,14 @@ func DropCapabilities() error {
 
 // LoadSeccomp loads a seccomp BPF filter that restricts the process to a minimal
 // syscall set required for packet capture and metric exporting. If profilePath is
-// non-empty and the file exists, it is loaded; otherwise the embedded default is used.
+// non-empty the file is loaded; otherwise the embedded default is used.
 func LoadSeccomp(profilePath string) error {
 	if profilePath != "" {
-		if err := loadSeccompProfile(profilePath); err != nil {
-			log.Printf("seccomp: external profile %s failed (%v), using embedded default", profilePath, err)
-		} else {
-			return nil
-		}
+		return loadSeccompProfile(profilePath)
 	}
 	return applySeccompProfile(defaultSeccompProfile)
 }
+
+// ErrSeccompFallback is returned when an external seccomp profile fails and the
+// caller should decide whether to fall back to the embedded default.
+var ErrSeccompFallback = fmt.Errorf("seccomp: external profile failed")

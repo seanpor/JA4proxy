@@ -1,88 +1,146 @@
-# JA4proxy
+# JA4proxy — Open-Source Bot Protection
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Python 3.14](https://img.shields.io/badge/python-3.14-blue.svg)](https://www.python.org/downloads/)
-[![Go 1.26.4](https://img.shields.io/badge/go-1.26.4-00ADD8.svg)](https://go.dev/)
-![CI](https://github.com/seanpor/JA4proxy/actions/workflows/ci.yml/badge.svg)
-[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/seanpor/JA4proxy/badge)](https://scorecard.dev/viewer/?uri=github.com/seanpor/JA4proxy)
-[![Go Report Card](https://goreportcard.com/badge/github.com/seanpor/JA4proxy)](https://goreportcard.com/report/github.com/seanpor/JA4proxy)
-[![SLSA 3](https://slsa.dev/images/gh-badge-level3.svg)](https://slsa.dev)
+> **Under attack right now?** Jump to [Emergency Deploy](#emergency-deploy) — 3 commands, 5 minutes, no config files.
+>
+> **Already running?** &rarr; [Incident response](docs/operations/INCIDENT_RESPONSE.md) (block a fingerprint in 30 seconds)
 
-[![Coverage](https://img.shields.io/badge/coverage-verified-brightgreen)](#-go-test-coverage)
-[![GitHub release (latest by mature)](https://img.shields.io/github/v/release/seanpor/JA4proxy)](https://github.com/seanpor/JA4proxy/releases)
+## What is this?
 
-> **Enterprise-Grade Go Runtime**: JA4proxy is a high-performance, strictly typed Go application built for sub-millisecond latency. All legacy Python prototyping components have been archived. The ecosystem includes a robust Python Management API and Analytics worker.
+If bots are filling out your forms, scraping your content, stuffing credentials
+into your login page, or hammering your checkout — JA4proxy stops them.
 
-JA4proxy is a TLS-aware passthrough security proxy that sits in front of web server infrastructure. It makes allow/block/tarpit decisions from the plaintext metadata visible before and during the TLS handshake — JA4 fingerprint, SNI, ALPN, ASN, reputation feeds, behavioural signals — and forwards allowed connections byte-for-byte unchanged. It never decrypts traffic and never holds TLS keys.
+It sits in front of your website and identifies automated tools by *how their
+software connects*, not by what they send. Every piece of software — browsers,
+bots, scrapers, curl, Python requests — creates a unique fingerprint when it
+opens a connection. Real browsers look structurally different from everything
+else. JA4proxy sees that difference on the very first connection, before the
+bot even sends a request, and blocks it.
 
-## Security Posture (Trust but Verify)
+**Think of it like a bouncer who can tell a real ID from a fake one by the paper
+it's printed on — before reading the name.**
 
-Our governance model aligns with **OpenSSF** and **SLSA** best practices to ensure a hardened supply chain:
-- **Immutable Dependencies**: All Docker base images are pinned to SHA256 digests.
-- **SBOM Generation**: Full CycloneDX Software Bill of Materials via `make sbom`.
-- **Automated Auditing**: Continuous OpenSSF Scorecard auditing on the `main` branch.
-- **Least Privilege**: Strict GitHub Action token permissions (`read-all` default).
-- **Control Plane Integrity**: Tamper-proof, signed enforcement updates via Redis.
+You don't need to change your website, add CAPTCHAs, or modify any code. The
+proxy forwards legitimate traffic byte-for-byte unchanged. It never decrypts
+your traffic and never touches your TLS keys.
+
+## Will this break my site?
+
+**No.** Three guarantees make this safe to deploy:
+
+1. **Monitor mode by default.** On first deploy, JA4proxy scores every
+   connection but blocks nothing. You see exactly what *would* be blocked
+   before you turn on enforcement. Go at your own pace.
+
+2. **Real browsers can't be blocked.** Modern browsers identify themselves
+   during the connection handshake in a way bots can't fake. These connections
+   bypass all scoring — they cannot be blocked by any rule, threshold, or
+   misconfiguration. This is an architectural guarantee, not a heuristic.
+
+3. **Fail open, always.** If anything goes wrong — a lookup service is slow,
+   Redis is down, a signal module crashes — the proxy lets the connection
+   through and logs the problem. A missed bad request is recoverable. A blocked
+   customer is not.
+
+## Emergency Deploy
+
+Get protection running in under 5 minutes. You need Docker and your backend's
+hostname.
+
+```bash
+git clone https://github.com/seanpor/JA4proxy.git && cd JA4proxy
+export BACKEND_HOST=your-server.com
+docker compose up -d
+```
+
+JA4proxy is now scoring connections on port **8443**. Open the dashboard to see
+your traffic:
+
+**http://localhost:8090** — live dashboard showing every connection, risk
+scores, top fingerprints, and one-click blocking.
+
+To verify traffic is flowing through the proxy:
+
+```bash
+curl -kv https://localhost:8443/
+```
+
+For the full emergency deployment guide with port 443 setup, DNS changes, and
+blocking instructions, see [Emergency Deploy](docs/operations/EMERGENCY_DEPLOY.md).
+
+### First 5 minutes after deploy
+
+1. **Open the dashboard** at http://localhost:8090 — you'll see connections
+   arriving with fingerprints and risk scores.
+2. **Watch for a few minutes.** The proxy is in monitor mode (dial=0) — scoring
+   everything, blocking nothing.
+3. **Look at the top fingerprints.** Bots cluster on a small number of
+   signatures. Real browsers are labelled and bypassed automatically.
+4. **Block a bad fingerprint.** Click the block button next to a bot signature,
+   or from the CLI: `./scripts/ja4-admin.sh block-ja4 <fingerprint>`
+5. **Raise the dial.** When you're comfortable, raise the enforcement dial from
+   0 toward 100. At 25, the proxy starts auto-blocking the worst offenders.
+   At 0, it goes back to monitor mode instantly.
+
+**Accidentally blocked everything?** Set the dial back to 0 — all traffic is
+immediately allowed through. No restart needed.
+
+## How do I point my traffic here?
+
+JA4proxy sits between your users and your backend. How you route traffic
+depends on your setup:
+
+| Your setup | What to do | Full guide |
+|------------|-----------|------------|
+| **No load balancer** (direct) | Point DNS at the JA4proxy host, map port 443→8443 | [Direct mode](docs/operations/DEPLOYMENT_MODES.md#direct-mode-default) |
+| **nginx** | Add a `stream` block forwarding to JA4proxy with PROXY protocol | [nginx setup](docs/operations/DEPLOYMENT_MODES.md#behind-nginx) |
+| **AWS** | Create a TCP NLB target group with PROXY protocol v2 | [AWS NLB setup](docs/operations/DEPLOYMENT_MODES.md#behind-aws-nlb) |
+| **Cloudflare** | Use Spectrum (Enterprise) or DNS-only mode (grey cloud) | [Cloudflare setup](docs/operations/DEPLOYMENT_MODES.md#behind-cloudflare) |
 
 ## Start by role
 
 | You are a… | Start here |
 |------------|------------|
-| **Website owner / CISO** evaluating fit | [`docs/product/WHY_JA4PROXY.md`](docs/product/WHY_JA4PROXY.md) |
+| **Website owner** under attack | [Emergency Deploy](#emergency-deploy) above, then [Incident Response](docs/operations/INCIDENT_RESPONSE.md) |
+| **Website owner / CISO** evaluating fit | [`docs/product/WHY_JA4PROXY.md`](docs/product/WHY_JA4PROXY.md) — plain-language business case |
 | **Security architect** designing integration | [`docs/security/ARCHITECTURE.md`](docs/security/ARCHITECTURE.md) |
 | **Operator** running it day-to-day | [`docs/operations/OPERATIONS_GUIDE.md`](docs/operations/OPERATIONS_GUIDE.md) |
 | **Compliance / audit** | [`docs/compliance/`](docs/compliance/) |
 | **Developer / contributor** | [`docs/developer/`](docs/developer/) |
 
-## PDFs (offline reading)
+## Full Setup (Production)
 
-| Audience | PDF | Source |
-|----------|-----|--------|
-| Business / commercial | [brochure](docs/pdf/brochure/brochure.pdf) | `docs/pdf/brochure/` |
-| Operator | [user guide](docs/pdf/user-guide/user-guide.pdf) | `docs/pdf/user-guide/` |
-| Architect | [reference manual](docs/pdf/reference-manual/reference-manual.pdf) | `docs/pdf/reference-manual/` |
-
-## Quick Start & Onboarding
-
-To bootstrap your environment, run the interactive guided setup wizard which handles secret generation, environment variables (`.env`), and dependency checks:
+For a complete production deployment with monitoring, analytics, and the
+management API:
 
 ```bash
 git clone https://github.com/seanpor/JA4proxy && cd JA4proxy
-make init
+make init          # guided setup wizard — secrets, env vars, dependency checks
+make build         # build the Go proxy and CLI
 ```
 
-### Verification (Developers)
+See the [Operations Guide](docs/operations/OPERATIONS_GUIDE.md) for day-2
+operations, scaling, and maintenance.
 
-Once initialized, build the binaries and run the test suite:
+### PDFs (offline reading)
 
-```bash
-make build
-make test
-```
+| Audience | PDF |
+|----------|-----|
+| Business / commercial | [brochure](docs/pdf/brochure/brochure.pdf) |
+| Operator | [user guide](docs/pdf/user-guide/user-guide.pdf) |
+| Architect | [reference manual](docs/pdf/reference-manual/reference-manual.pdf) |
 
-### Multi-Environment Support
+---
 
-JA4proxy supports running multiple isolated instances on the same host (e.g., parallel dev and test environments). During the guided setup (`make init`), you can specify a **unique project name** and a **port offset** to prevent port conflicts and resource overlaps.
+## How it works (technical)
 
-### Manual Testing
-
-Verify your running setup locally:
-
-```bash
-# Verify legitimate traffic (must pass through the proxy)
-curl -kv https://localhost:443/
-
-# Simulate a security pipeline decision for an IP using the CLI
-./bin/ja4p test ip 8.8.8.8
-```
-
-## Architecture (one-paragraph)
-
-The proxy sits between a TLS-passthrough load balancer and the backend. Every connection is parsed for ClientHello metadata, run through strict hard-block checks (Blacklists, GeoIP), then scored by parallel signal modules (Malformed SNI, TLS version mismatch). The result is mapped to an action by a configurable, signed dial. The backend completes TLS itself — JA4proxy never decrypts the payload.
+JA4proxy is a TLS-aware passthrough proxy. It reads the plaintext metadata
+visible *before and during* the TLS handshake — JA4 fingerprint, SNI, ALPN,
+ASN, IP reputation, behavioural signals — and makes allow/block/tarpit
+decisions without ever decrypting the traffic.
 
 ```
-Internet ──TLS──▶ HAProxy (LB) ──TCP──▶ JA4proxy ×N ──TLS──▶ Backend (HTTPS)
-                      :443                  :8080               :443
+Internet ──TLS──▶ Load Balancer ──TCP──▶ JA4proxy ×N ──TLS──▶ Your Server
+                      :443                  :8443               :443
                                               │  ▲
                            write events       │  │  signed dial & lists
                            (Redis Stream)     ▼  │  (Redis pub/sub)
@@ -91,7 +149,28 @@ Internet ──TLS──▶ HAProxy (LB) ──TCP──▶ JA4proxy ×N ──T
                                          │    Node      │
                                          └──────────────┘
                                          ┌──────────────┐
-                                         │  Management  │  FastAPI
-                                         │     API      │
+                                         │  Management  │  Dashboard :8090
+                                         │     UI       │
                                          └──────────────┘
 ```
+
+The proxy is a high-performance Go application built for sub-millisecond
+latency. The ecosystem includes a Python management API, analytics worker,
+and CLI tooling.
+
+## Security & Supply Chain
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Go 1.26.4](https://img.shields.io/badge/go-1.26.4-00ADD8.svg)](https://go.dev/)
+![CI](https://github.com/seanpor/JA4proxy/actions/workflows/ci.yml/badge.svg)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/seanpor/JA4proxy/badge)](https://scorecard.dev/viewer/?uri=github.com/seanpor/JA4proxy)
+[![Go Report Card](https://goreportcard.com/badge/github.com/seanpor/JA4proxy)](https://goreportcard.com/report/github.com/seanpor/JA4proxy)
+[![SLSA 3](https://slsa.dev/images/gh-badge-level3.svg)](https://slsa.dev)
+[![Coverage](https://img.shields.io/badge/coverage-verified-brightgreen)](#)
+[![GitHub release](https://img.shields.io/github/v/release/seanpor/JA4proxy)](https://github.com/seanpor/JA4proxy/releases)
+
+- **Immutable Dependencies**: Docker base images pinned to SHA256 digests
+- **SBOM Generation**: Full CycloneDX Software Bill of Materials via `make sbom`
+- **OpenSSF Scorecard**: Continuous auditing on the `main` branch
+- **SLSA Level 3**: Hardened build provenance
+- **Control Plane Integrity**: Tamper-proof, signed enforcement updates via Redis

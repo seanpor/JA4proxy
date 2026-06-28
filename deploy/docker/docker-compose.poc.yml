@@ -1,3 +1,15 @@
+# JA4proxy Proof-of-Compose stack.
+#
+# Prerequisites (must be created before first deploy):
+#   deploy/secrets/redis_password.txt — strong random password (min 32 chars)
+#
+# Quick start:
+#   mkdir -p deploy/secrets
+#   openssl rand -base64 48 > deploy/secrets/redis_password.txt
+#   chmod 600 deploy/secrets/*.txt
+#   cp template.env .env  # edit as needed
+#   docker compose up -d
+
 name: ja4proxy
 
 services:
@@ -114,10 +126,8 @@ services:
     # connect.)
     command:
       - redis-server
-      # JA4PROXY-2026-0079: Password visible in process list for PoC only.
-      # Production compose uses Docker secrets + --requirepass-file.
-      - --requirepass
-      - ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+      - --requirepass-file
+      - /run/secrets/redis_password
       - --aclfile
       - /etc/redis/redis_acl.conf
       - --maxmemory
@@ -140,6 +150,15 @@ services:
       - redis-data:/data
       - redis-sock:/var/run/redis
       - ../../config/redis_acl.conf:/etc/redis/redis_acl.conf:ro
+    secrets:
+      - redis_password
+    # JA4PROXY-2026-0079: Hardening controls below are mandatory for Redis.
+    # Do NOT weaken or remove without explicit security review (issue #238).
+    #   1. Pinned image with digest (immutable, not mutable tag)
+    #   2. no-new-privileges — prevent setuid escalation
+    #   3. cap_drop: ALL — drop all Linux capabilities
+    #   4. read_only: true — prevent filesystem writes
+    #   5. No apparmor:unconfined — use default or custom profile
     security_opt:
       - no-new-privileges:true
     read_only: true
@@ -413,6 +432,10 @@ volumes:
   redis-data:
   redis-sock:
   reports-data:  # Per-agent test reports — prefixed by COMPOSE_PROJECT_NAME
+
+secrets:
+  redis_password:
+    file: ../secrets/redis_password.txt
 
 networks:
   ja4proxy-dmz:

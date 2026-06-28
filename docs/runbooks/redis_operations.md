@@ -175,13 +175,12 @@ redis-cli TTL ban:192.0.2.1
 |-------------|------|---------|
 | `ban:{ip}` | string | Active IP ban (TTL = ban duration) |
 | `ban_cidr:{cidr}` | string | CIDR-level ban from RDAP expansion |
-| `dial:setting` | string | Current dial value (0–100) |
+| `config:dial` | string | Current dial value (0–100) |
 | `ratelimit:{ip}:{window}` | zset | Sliding window rate limiting |
 | `beacon:{ip}:{ja4}` | zset | Beaconing timestamps |
 | `beacon:suspects` | zset | Beaconing leaderboard (score = count) |
 | `abuseipdb:cache:{ip}` | string | Cached AbuseIPDB score + TTL |
-| `abuseipdb:quota:remaining` | string | Daily API quota remaining |
-| `rdap:tokens:{rir}` | hash | Token bucket per RIR |
+| `rdap:ip:{ip}` | string | Cached RDAP enrichment data |
 | `rdap:org:{org_hash}` | string | Cached org reputation |
 | `blocklist:cidrs:{feed}` | string | JSON CIDR list per feed |
 | `blocklist:etag:{feed}` | string | ETag for feed HTTP cache |

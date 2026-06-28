@@ -41,6 +41,8 @@ from . import redis_client
 from .auth import router as auth_router
 from .middleware.csrf import CSRFMiddleware
 from .routes import (
+    attack,  # phase-247
+    attack_mode,  # phase-247
     audit,
     bans,
     canonical_lists,
@@ -72,8 +74,12 @@ from .routes import (
     tls_health as tls_health_routes,
 )
 from .routes import (
+    offense as offense_routes,  # phase-248
+)
+from .routes import (
     webauthn as webauthn_routes,
 )
+from .routes import datacenter_policy as datacenter_policy_routes  # phase-249
 from .routes.canonical_lists import migrate_legacy_entries
 
 logger = logging.getLogger(__name__)
@@ -251,6 +257,10 @@ def create_app() -> FastAPI:
     app.include_router(threat_intel.router)  # phase-85
     app.include_router(snapshots.router)  # phase-237
     app.include_router(tls_health_routes.router)  # phase-237
+    app.include_router(attack_mode.router)  # phase-247
+    app.include_router(attack.router)  # phase-247 / phase-250
+    app.include_router(offense_routes.router)  # phase-248
+    app.include_router(datacenter_policy_routes.router)  # phase-249
 
     # HTML page routes (auth enforced per-route via Depends)
     app.include_router(pages.router)

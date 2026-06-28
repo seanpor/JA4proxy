@@ -35,6 +35,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from ..auth import get_current_user
+from ..ja4_corpus import browser_label as _corpus_label  # phase-250
 from ..redis_client import get_redis
 
 logger = logging.getLogger(__name__)
@@ -644,7 +645,8 @@ async def threat_posture_partial(
     top_ja4_rows = [
         {
             "fingerprint": fp,
-            "label": ja4_labels.get(fp, ""),
+            # Redis label takes precedence; fall back to corpus label (phase-250).
+            "label": ja4_labels.get(fp, "") or _corpus_label(fp),
             "count": count,
         }
         for fp, count in top_ja4_raw
@@ -1287,3 +1289,56 @@ async def mark_finding_fp(
         raise HTTPException(status_code=500, detail="Redis error")
 
     return HTMLResponse(content=_FP_TEMPLATE.format(finding_id=html.escape(finding_id)))
+
+
+# ── Phase 247 / Phase 250: Attack IP Table partial ───────────────────────────
+
+@router.get("/api/v1/partials/attack-top", response_class=HTMLResponse)
+@router.get("/api/v1/partials/attack-table", response_class=HTMLResponse)
+async def attack_table_partial(
+    request: Request,
+    current_user=Depends(get_current_user),
+    redis=Depends(get_redis),
+) -> HTMLResponse:
+    """Return the top-attackers table as an HTML fragment (polled every 5s).
+
+    Registered under both /attack-top (Phase 250 template) and /attack-table
+    (Phase 247 compatibility). Uses Phase 250's ECS event field format.
+    """
+    from .attack import top_attackers  # local import to avoid circular dep
+    import json as _json
+
+    templates = _get_templates()
+    result = await top_attackers(redis=redis, _user=current_user)
+    data = _json.loads(result.body)
+    return templates.TemplateResponse(
+        request,
+        "partials/attack_table.html",
+        {"attackers": data.get("attackers", []), "role": current_user[1].value},
+    )
+
+
+# ── Phase 250: Attack Fingerprint Table partial ───────────────────────────────
+
+@router.get("/api/v1/partials/attack-fingerprint-table", response_class=HTMLResponse)
+async def attack_fingerprint_table_partial(
+    request: Request,
+    attack_mode: bool = Query(False),
+    current_user=Depends(get_current_user),
+    redis=Depends(get_redis),
+) -> HTMLResponse:
+    """Return the attack fingerprint table as an HTML fragment for HTMX polling.
+
+    Delegates to the JSON endpoint in attack.py and renders the result as HTML.
+    """
+    from .attack import top_fingerprints  # local import to avoid circular dep
+    import json as _json
+
+    templates = _get_templates()
+    result = await top_fingerprints(attack_mode=attack_mode, _user=current_user, redis=redis)
+    data = _json.loads(result.body)
+    return templates.TemplateResponse(
+        request,
+        "partials/attack_fingerprint_table.html",
+        {"data": data, "attack_mode": attack_mode},
+    )

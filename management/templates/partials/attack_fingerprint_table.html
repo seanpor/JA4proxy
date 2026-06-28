@@ -1,0 +1,121 @@
+{# Phase 250: Attack fingerprint table — rendered by HTMX poll every 5s #}
+{% set fps = data.get("fingerprints", []) %}
+{% set botnet_fps = fps | selectattr("botnet_signal", "equalto", "botnet") | list %}
+{% set total_botnet_ips = botnet_fps | sum(attribute="unique_ip_count") %}
+{% set has_ja4t = fps | selectattr("ja4t_values") | list | length > 0 %}
+
+{% if not fps %}
+<p class="text-[#64748b] text-sm py-4">No fingerprint data in the last 5 minutes.</p>
+{% else %}
+
+{% if botnet_fps %}
+<div class="rounded-lg border border-[#ef4444]/40 bg-[#ef4444]/10 px-4 py-3 mb-4">
+  <p class="text-sm text-[#f87171] font-semibold">
+    ⚠ {{ botnet_fps | length }} botnet fingerprint{{ 's' if botnet_fps | length != 1 else '' }}
+    detected across {{ total_botnet_ips }} IP{{ 's' if total_botnet_ips != 1 else '' }}.
+    Blocking {{ 'it' if botnet_fps | length == 1 else 'them' }} will stop
+    all {{ total_botnet_ips }} attacking IP{{ 's' if total_botnet_ips != 1 else '' }} at once.
+  </p>
+</div>
+{% endif %}
+
+<div class="overflow-x-auto">
+<table class="w-full text-xs">
+  <thead>
+    <tr class="border-b border-[#1e293b]/55 text-[#475569] uppercase tracking-wider">
+      <th class="px-3 py-2 text-right w-12">IPs</th>
+      <th class="px-3 py-2 text-left">Fingerprint</th>
+      <th class="px-3 py-2 text-right w-16">Score</th>
+      <th class="px-3 py-2 text-left w-28">Signal</th>
+      <th class="px-3 py-2 text-left w-40">Label</th>
+      {% if has_ja4t %}<th class="px-3 py-2 text-left w-32">JA4T</th>{% endif %}
+      <th class="px-3 py-2 text-left w-28">Action</th>
+    </tr>
+  </thead>
+  <tbody class="divide-y divide-[#1e293b]/40">
+  {% for fp in fps %}
+    {% set signal = fp.botnet_signal %}
+    <tr class="hover:bg-[#1e293b]/20 transition-colors">
+      <td class="px-3 py-2 text-right font-mono text-[#94a3b8]">
+        {% if fp.sample_ips %}
+        <span class="cursor-help" title="{{ fp.sample_ips | join(', ') }}">{{ fp.unique_ip_count }}</span>
+        {% else %}
+        {{ fp.unique_ip_count }}
+        {% endif %}
+      </td>
+      <td class="px-3 py-2 font-mono text-[#94a3b8]">
+        <a href="/fingerprint/{{ fp.ja4 }}"
+           class="hover:text-[#a78bfa] transition-colors"
+           title="{{ fp.ja4 }}">
+          {{ fp.ja4[:18] }}…{{ fp.ja4[-4:] }}
+        </a>
+      </td>
+      <td class="px-3 py-2 text-right font-mono">
+        <span class="{% if fp.avg_score >= 70 %}text-[#ef4444]{% elif fp.avg_score >= 40 %}text-[#f59e0b]{% else %}text-[#64748b]{% endif %}">
+          {{ fp.avg_score }}
+        </span>
+      </td>
+      <td class="px-3 py-2">
+        {% if signal == "botnet" %}
+        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-[#ef4444]/20 text-[#f87171] border border-[#ef4444]/30">
+          🔴 BOTNET
+        </span>
+        {% elif signal == "suspect" %}
+        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-[#f59e0b]/20 text-[#fbbf24] border border-[#f59e0b]/30">
+          🟡 SUSPECT
+        </span>
+        {% elif signal == "tool" %}
+        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-[#3b82f6]/20 text-[#60a5fa] border border-[#3b82f6]/30">
+          🔵 TOOL
+        </span>
+        {% elif signal == "browser" %}
+        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-[#10b981]/20 text-[#34d399] border border-[#10b981]/30">
+          🟢 BROWSER
+        </span>
+        {% else %}
+        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-[#475569]/20 text-[#64748b] border border-[#475569]/30">
+          ⚪ UNKNOWN
+        </span>
+        {% endif %}
+      </td>
+      <td class="px-3 py-2 text-[#64748b]">{{ fp.browser_label or "—" }}</td>
+      {% if has_ja4t %}
+      <td class="px-3 py-2 font-mono text-[#475569] text-[10px]">
+        {% if fp.ja4t_values | length == 1 %}
+          {{ fp.ja4t_values[0] }}
+        {% elif fp.ja4t_values | length > 1 %}
+          ({{ fp.ja4t_values | length }} variants)
+        {% else %}
+          —
+        {% endif %}
+      </td>
+      {% endif %}
+      <td class="px-3 py-2">
+        {% if fp.is_blacklisted %}
+        <span class="text-xs text-[#10b981] font-semibold">Blocked ✓</span>
+        {% elif fp.is_whitelisted %}
+        <span class="text-xs text-[#64748b]" title="Whitelisted fingerprints bypass blacklist checks">Allowlisted</span>
+        {% elif signal == "browser" %}
+        <button disabled
+                class="px-2 py-1 text-[10px] font-semibold rounded bg-[#1e293b] text-[#475569] cursor-not-allowed"
+                title="Cannot block: this is a {{ fp.browser_label or 'known browser' }} fingerprint. Blocking it would affect all real visitors using this browser. To override, go to the fingerprint detail page.">
+          Protected
+        </button>
+        {% else %}
+        <button hx-post="/api/v1/lists/ja4/blacklist/{{ fp.ja4 }}?source=attack_ui"
+                hx-target="closest tr"
+                hx-swap="outerHTML"
+                {% if signal == "unknown" %}
+                title="⚠ Unknown fingerprint — verify before blocking"
+                {% endif %}
+                class="px-2 py-1 text-[10px] font-semibold rounded bg-[#ef4444]/20 text-[#f87171] border border-[#ef4444]/30 hover:bg-[#ef4444]/30 transition-colors">
+          Block
+        </button>
+        {% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endif %}

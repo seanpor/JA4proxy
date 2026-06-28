@@ -6,7 +6,10 @@ import (
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
 	"github.com/gopacket/gopacket/reassembly"
+	"github.com/sirupsen/logrus"
 )
+
+var logger = logrus.New()
 
 // Global reassembly memory ceiling (PHASE_316a §5). These bound the page cache
 // shared across all tracked connections, on top of the per-direction
@@ -143,9 +146,13 @@ func (s *tlsStream) markGap(isClient bool) {
 	if isClient && !s.clientDone {
 		s.clientDone = true
 		PacketsDroppedTotal.WithLabelValues(dropGap).Inc()
+		logger.Debugf("reassembly: gap detected in client→server stream, abandoning (conn=%s:%d→%s:%d)",
+			s.clientIP, s.clientPort, s.serverIP, s.serverPort)
 	} else if !isClient && !s.serverDone {
 		s.serverDone = true
 		PacketsDroppedTotal.WithLabelValues(dropGap).Inc()
+		logger.Debugf("reassembly: gap detected in server→client stream, abandoning (conn=%s:%d→%s:%d)",
+			s.clientIP, s.clientPort, s.serverIP, s.serverPort)
 	}
 }
 
@@ -165,6 +172,8 @@ func (s *tlsStream) appendDir(buf *[]byte, done *bool, hello *[]byte, data []byt
 	if room <= 0 {
 		*done = true
 		PacketsDroppedTotal.WithLabelValues(dropCapExceeded).Inc()
+		logger.Debugf("reassembly: buffer full, purging direction (conn=%s:%d→%s:%d, client=%v)",
+			s.clientIP, s.clientPort, s.serverIP, s.serverPort, isClient)
 		return
 	}
 	if len(data) > room {
@@ -194,6 +203,8 @@ func (s *tlsStream) appendDir(buf *[]byte, done *bool, hello *[]byte, data []byt
 	case len(*buf) >= maxHandshakeBytes:
 		*done = true
 		PacketsDroppedTotal.WithLabelValues(dropCapExceeded).Inc()
+		logger.Debugf("reassembly: buffer exceeded max handshake bytes, purging direction (conn=%s:%d→%s:%d, client=%v)",
+			s.clientIP, s.clientPort, s.serverIP, s.serverPort, isClient)
 	}
 }
 

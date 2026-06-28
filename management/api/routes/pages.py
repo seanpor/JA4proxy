@@ -184,6 +184,41 @@ async def intelligence_review_page(
     )
 
 
+@router.get("/under-attack", response_class=HTMLResponse)
+async def under_attack_page(
+    request: Request,
+    current_user=Depends(get_current_user),
+    redis=Depends(get_redis),
+) -> HTMLResponse:
+    """Render the Under Attack live dashboard (Phase 247/250)."""
+    templates = _get_templates()
+    user, role = _extract_user_and_role(current_user)
+    try:
+        attack_raw = await redis.get("attack_mode:active")
+        attack_mode_active = attack_raw is not None
+    except Exception:
+        attack_mode_active = False
+    return templates.TemplateResponse(
+        request,
+        "under_attack.html",
+        {"user": user, "role": role, "attack_mode_active": attack_mode_active},
+    )
+
+
+
+@router.get("/security-policy", response_class=HTMLResponse)
+async def security_policy_page(
+    request: Request,
+    current_user=Depends(get_current_user),
+) -> HTMLResponse:
+    """Render the security policy page (datacenter ASN policy, etc.)."""
+    templates = _get_templates()
+    user, role = _extract_user_and_role(current_user)
+    return templates.TemplateResponse(
+        request, "security_policy.html", {"user": user, "role": role}
+    )
+
+
 @router.get("/fingerprint/{ja4}", response_class=HTMLResponse)
 async def fingerprint_detail_page(
     request: Request,

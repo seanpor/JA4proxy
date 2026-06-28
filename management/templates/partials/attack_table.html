@@ -1,0 +1,88 @@
+<!--
+  HTMX Partial: attack_table.html
+  GET /api/v1/partials/attack-table
+  Polled every 5s from under_attack.html.
+  Template vars: attackers (list[dict]), role (str)
+-->
+{% if not attackers %}
+<div class="text-center py-8 text-slate-400 text-sm">
+  No high-activity IPs in the last 5 minutes.
+  {% if not proxy_up %}
+  <p class="mt-2 text-slate-500">The proxy may not be running — check <code class="bg-slate-800 px-1 rounded">docker ps</code>.</p>
+  {% endif %}
+</div>
+{% else %}
+<table class="w-full text-sm text-left">
+  <thead>
+    <tr class="text-xs uppercase tracking-wider text-slate-400 border-b border-slate-700">
+      <th class="pb-2 pr-4">Connections</th>
+      <th class="pb-2 pr-4">IP Address</th>
+      <th class="pb-2 pr-4">Max Score</th>
+      <th class="pb-2 pr-4">Status</th>
+      <th class="pb-2">Actions</th>
+    </tr>
+  </thead>
+  <tbody class="divide-y divide-slate-800">
+    {% for a in attackers %}
+    <tr class="py-2" id="ip-row-{{ a.ip | replace('.', '-') | replace(':', '-') }}">
+      <td class="py-2 pr-4 font-mono text-slate-200">{{ a.connection_count }}</td>
+      <td class="py-2 pr-4">
+        <a href="/ip/{{ a.ip }}" class="font-mono text-sky-400 hover:text-sky-200 text-xs">{{ a.ip }}</a>
+        {% if a.ja4 %}
+        <div class="text-[10px] text-slate-500 truncate max-w-[160px]" title="{{ a.ja4 }}">{{ a.ja4[:18] }}…</div>
+        {% endif %}
+      </td>
+      <td class="py-2 pr-4">
+        <span class="{% if a.max_score >= 80 %}text-red-400{% elif a.max_score >= 50 %}text-amber-400{% else %}text-slate-300{% endif %} font-semibold">
+          {{ a.max_score }}
+        </span>
+      </td>
+      <td class="py-2 pr-4">
+        {% if a.current_status == "banned" %}
+        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-red-900/50 text-red-300">
+          Banned{% if a.ban_expires %} · expires {{ a.ban_expires[:16] }}{% endif %}
+        </span>
+        {% else %}
+        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-900/40 text-amber-300">
+          Active
+        </span>
+        {% endif %}
+      </td>
+      <td class="py-2">
+        <div class="flex gap-2 flex-wrap">
+          {% if a.current_status != "banned" %}
+          <button
+            hx-post="/api/v1/bans/{{ a.ip }}"
+            hx-vals='{"duration_hours": 1, "reason": "1h ban from attack dashboard"}'
+            hx-target="#ip-row-{{ a.ip | replace('.', '-') | replace(':', '-') }}"
+            hx-swap="outerHTML"
+            hx-confirm="Ban {{ a.ip }} for 1 hour?"
+            class="px-2 py-1 text-[11px] font-semibold rounded bg-amber-700 hover:bg-amber-600 text-white">
+            1h Ban
+          </button>
+          <button
+            hx-post="/api/v1/bans/{{ a.ip }}"
+            hx-vals='{"duration_hours": 24, "reason": "24h ban from attack dashboard"}'
+            hx-target="#ip-row-{{ a.ip | replace('.', '-') | replace(':', '-') }}"
+            hx-swap="outerHTML"
+            hx-confirm="Ban {{ a.ip }} for 24 hours?"
+            class="px-2 py-1 text-[11px] font-semibold rounded bg-red-700 hover:bg-red-600 text-white">
+            24h Ban
+          </button>
+          {% else %}
+          <button
+            hx-delete="/api/v1/bans/{{ a.ip }}"
+            hx-target="#ip-row-{{ a.ip | replace('.', '-') | replace(':', '-') }}"
+            hx-swap="outerHTML"
+            hx-confirm="Lift ban on {{ a.ip }}?"
+            class="px-2 py-1 text-[11px] font-semibold rounded bg-slate-600 hover:bg-slate-500 text-white">
+            Lift Ban
+          </button>
+          {% endif %}
+        </div>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}

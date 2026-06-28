@@ -100,6 +100,12 @@ epics:
   - 236
   - 237
   - 238
+  - 245
+  - 246
+  - 247
+  - 248
+  - 249
+  - 250
 - name: 'Epic: Operational Excellence & Lifecycle Management'
   description: Zero-downtime upgrades, robust health monitoring, and deployment orchestration.
   phases:
@@ -2447,9 +2453,9 @@ phases:
       \ Scorecard \"highs\" documented as benign noise; 9 CodeQL Python findings left as case-by-case follow-up (no blanket\
       \ suppression)."
   309:
-    name: "Documentation Content Audit \u2014 Source-of-Truth Review of All Docs"
-    status: IN_PROGRESS
-    action_plan: docs/phases/PHASE_309.md
+    name: "Documentation Content Audit — Source-of-Truth Review of All Docs"
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_309.md
     dependencies:
     - 307
     size: LARGE
@@ -2644,32 +2650,25 @@ phases:
       \ WARN."
   316:
     name: Go TAP / SPAN Passive Sensor (index)
-    status: PROPOSED
+    status: COMPLETE
+    completed: '2026-06-25'
     action_plan: docs/phases/PHASE_316.md
     size: LARGE
-    summary: "RESURRECTED Go TAP/SPAN passive sensor \u2014 originally drafted as Phase 314 before 313/314 were repurposed,\
-      \ orphaning the plan. Plans recovered verbatim from git 53a8e14 and renumbered. The Go proxy ships only the TAP consumer\
-      \ (internal/security/tap_consumer.go) which reads fp:* keys nothing currently writes (the Python Phase-20 sensor was\
-      \ archived in 5afeba26). Split after critical review (original WP-1 alone was ~3.6-4.2k LOC) into: 316a (capture + bidirectional\
-      \ TCP reassembly + ClientHello/ServerHello extraction, capture-library ADR), 316b (OS-mismatch MVP \u2014 lights up\
-      \ the dormant tap_os_mismatch signal, advisory-only, Tranco FP test), 316c (passive JA4T + advisory blocklist signal,\
-      \ re-scoped from the infeasible \"full JA4 family\"), 316d (out-of-band enforcement bridge reusing ban:{ip}, advisory\
-      \ by default), 316e (intelligence exporters \u2014 PROPOSED). STATUS (2026-06-18): 316a\u2013316d COMPLETE (PRs #...\
-      \ a/b #184 / c #189 / d #190); 316e PROPOSED. WON'T-DO fingerprint slices (decided 2026-06-18): JA4H/JA4H2/JA4SSH (infeasible\
-      \ on passive encrypted TLS) and JA4S/JA4L/JA4X (low value/redundant for an inbound bot-protection proxy \u2014 see 316c).\
-      \ QUIC/JA4Q remains DEFERRED (conditional): the one genuine blind spot the inline TCP proxy cannot see, but it needs\
-      \ a new UDP+QUIC-Initial subsystem and only earns its cost if QUIC/H3 enters the protected traffic."
+    summary: "Complete. Split into 316a–316e sub-phases, all COMPLETE. Standalone cmd/ja4-tap\
+      \ binary with AF_PACKET capture, TCP reassembly, OS-mismatch fingerprinting, passive\
+      \ JA4T, out-of-band enforcement, and EDL exporter. QUIC/JA4Q remains DEFERRED."
   316a:
-    name: "Go TAP Core \u2014 Capture & TCP Reassembly"
-    status: PROPOSED
+    name: "Go TAP Core — Capture & TCP Reassembly"
+    status: COMPLETE
+    completed: '2026-06-25'
     action_plan: docs/phases/PHASE_316a.md
     dependencies:
     - 231b
     size: LARGE
-    summary: "OUTLINE \u2014 detailed plan before start. High-performance bidirectional TCP reassembly engine using gopacket\
-      \ + af_packet (mmap) or pcap (poll), following the capture-library ADR. ja4pd sensor subcommand: reads from interface\
-      \ or pcap file, reassembles flows, extracts TLS ClientHello/ServerHello (SNI, JA4, ALPN), and writes fp:ip:* records\
-      \ to Redis for the tap_consumer. PROPOSED \u2014 outline."
+    summary: "Complete. Standalone cmd/ja4-tap binary with AF_PACKET capture + PCAP offline\
+      \ replay, zero-copy layer decoder, gopacket/reassembly with 16KB per-direction cap,\
+      \ HandshakeEvent extraction, watchdog with rapid-crash detection, metrics (packets_received,\
+      \ packets_dropped, active_streams), ADR-316a, CHANGELOG fragment. 50+ tests. 2868 LOC."
   316b:
     name: Go TAP OS-Mismatch Signal (MVP)
     status: COMPLETE
@@ -2813,12 +2812,15 @@ phases:
     summary: Master planning document and implementation index for the 7-phase container and interface consolidation programme.
   232:
     name: Security Foundations & Quick Wins (Index)
-    status: PROPOSED
+    status: COMPLETE
+    completed: '2026-06-25'
     action_plan: docs/phases/PHASE_232.md
     dependencies:
     - 231
     size: SMALL
-    summary: Index/map for the security foundations and quick wins sub-phases.
+    summary: "Complete. All sub-phases (232a–e) finished: frontend asset vendoring,\
+      \ threat posture dashboard, container networking hardening, admin-API decommissioning,\
+      \ legacy module removal."
   232a:
     name: Frontend Asset Vendoring & Static Compilation
     status: COMPLETE
@@ -2982,18 +2984,14 @@ phases:
       \ the merge_group CI wiring is left in place for a future org move. Manifest manifest.d/ fragments were deferred as\
       \ low-marginal-benefit."
   333:
-    name: "Bootstrap Finish \u2014 Go Wizard Migration & 231b Close-Out"
-    status: PROPOSED
+    name: "Bootstrap Finish — Go Wizard Migration & 231b Close-Out"
+    status: COMPLETE
+    completed: '2026-06-25'
     action_plan: docs/phases/PHASE_333.md
     dependencies:
     - 231b
-    - 161
-    - 231a
-    size: SMALL
-    summary: 'Close-out of Phase 231b: update bootstrap.sh to use ja4p init (Go wizard, Phase 161) instead of the deprecated
-      Python setup_wizard.py, archive superseded Python wizard, fix LaTeX install chapter to reflect Go-native wizard and
-      remove stale TAP/Python references, mark Phase 231b COMPLETE. Deferred: real-host VM E2E validation (requires external
-      infra).'
+    summary: "Complete. bootstrap.sh calls ja4p init (Go-native wizard), Python wizard
+      archived with deprecation banner, 231b doc archived, manifest synced."
   335:
     name: "TAP Sensor Hardening \u2014 Phase 334 Findings Remediation"
     status: COMPLETE
@@ -3011,7 +3009,7 @@ phases:
       OptionOrder, packaging (Dockerfile, compose service, Redis ACL user, tap config section), structured logging flags,
       ServerHello edge case fix, TLS version validation, and Phase 316a manifest status update.
   336:
-    name: "Security Hardening \u2014 Capability Drop, Seccomp, Poll Timeout, Metrics, Panic Recovery"
+    name: "Security Hardening — Capability Drop, Seccomp, Poll Timeout, Metrics, Panic Recovery"
     status: COMPLETE
     action_plan: docs/phases/complete/PHASE_336.md
     dependencies:
@@ -3020,6 +3018,28 @@ phases:
     summary: Isolated deferred security hardening from Phase 335 into independent phase. Created internal/tap/hardening.go
       with DropCapabilities() and LoadSeccomp() (placeholder), wired into cmd/ja4-tap/main.go, fixed Makefile tap-build target
       (missing TAB), fixed changelog fragment bullet syntax, and registered Phase 335/336 in manifest.
+  340:
+    name: "Documentation Audit Refresh — Post-Phase-309 Reconciliation"
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_340.md
+    dependencies:
+    - 309
+    size: LARGE
+    summary: "Comprehensive doc audit completing Phase 309 residuals. WP-R1: REDIS_SCHEMA key-by-key audit. WP-R2: OBSERVABILITY
+      census (skipped). WP-R3: Runbooks batch-2 audit. WP-R4: findings.yaml regression_test repointing. WP-R5: ADR status
+      validation. WP-R6: Security/compliance/config/API doc audit. WP-R7: Final sweep (Redis keys, metrics, template.env,
+      docker-compose, dangling links)."
+  341:
+    name: "Close Remaining OPEN Findings"
+    status: COMPLETE
+    completed: '2026-06-26'
+    action_plan: docs/phases/PHASE_341.md
+    dependencies: []
+    size: SMALL
+    summary: "Closed 4 remaining OPEN findings: F-0060 (TAP reassembly buffer logging — added Debug log lines
+      in reassembler.go, extended test), F-0062 (MaxConnectionLimit — stale, already fixed as MaxConnections),
+      F-0066 (webhook TOCTOU — removed redundant isPrivateTarget pre-check), F-0079 (Redis password on CLI
+      — switched PoC compose to --requirepass-file with Docker secrets)."
   400:
     name: Comprehensive Security Review
     status: DEFERRED
@@ -3045,20 +3065,515 @@ phases:
       (protocol parsing, concurrency, access control, cryptography, resource exhaustion,
       information exposure) and 510a-510f for non-proxy components (injection/web security,
       auth/session, data exposure, misconfiguration, crypto integrity, supply chain).
-      18 findings registered (0063-0080), 13 fixed, 5 OPEN (GitHub issues #217-#221).
+      18 findings registered (0063-0080), 16 fixed, 2 OPEN (0066 webhook TOCTOU, 0079 Redis pwd on CLI deferred for PoC). Issues #217-#221 closed.
       Expert critical review: security (approved after fixes), concurrency (approved),
       code quality (approved). Supersedes Phase 400. Followed by Phase 501 (IEEE 1044
       second pass).'
   501:
     name: 'Codebase Bug Hunt — Pass 2 (IEEE 1044 Classification)'
-    status: IN_PROGRESS
+    status: COMPLETE
+    completed: '2026-06-25'
     action_plan: docs/phases/PHASE_501.md
     dependencies:
     - 500
     size: XLARGE
-    summary: 'Second pass of bug hunt organized by IEEE 1044-2009 classification
-      (activity, type, severity, cause) rather than CWE family. Targets coverage
-      gaps in Phase 500: algorithm correctness, design flaws, interface contracts,
-      timing/lifecycle, test adequacy, documentation accuracy, data integrity.
-      Every finding classified on all 4 IEEE 1044 dimensions.'
+    summary: "Complete. IEEE 1044 second-pass bug hunt across 7 sub-phases (501a–g):\
+      \ algorithm correctness, design, interface contracts, timing/lifecycle, test adequacy,\
+      \ documentation, data integrity. Fixes merged via PRs #231 and #249. All findings reclassified\
+      \ under IEEE 1044 dimensions."
+  245:
+    name: "Front Door — Time-to-Protection & Operator UX"
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_245.md
+    dependencies: []
+    size: LARGE
+    summary: "Usability overhaul addressing the gap between product capability and operator
+      onboarding experience. 10 sub-phases covering emergency deploy docs, minimal
+      docker-compose, minimal config, emergency dial override, CLI discoverability,
+      UI incident shortcuts, UI polish, init fast path, deployment guides, and GeoIP
+      degradation handling."
+  245.1:
+    name: "README Banner + Emergency Quickstart"
+    status: COMPLETE
+    completed: '2026-06-25'
+    action_plan: docs/phases/complete/PHASE_245.md
+    dependencies: []
+    size: SMALL
+    summary: "Add 'Under Attack?' banner to README top, create EMERGENCY_DEPLOY.md
+      with 3-command deploy path."
+  245.2:
+    name: "Root-Level Minimal Docker Compose"
+    status: COMPLETE
+    completed: '2026-06-25'
+    action_plan: docs/phases/complete/PHASE_245.md
+    dependencies:
+    - 245.3
+    size: SMALL
+    summary: "Create docker-compose.yml in repo root with 2 services (proxy + Redis),
+      single BACKEND_HOST env var, no root required (:8443)."
+  245.3:
+    name: "Minimal Config + Direct Mode"
+    status: COMPLETE
+    completed: '2026-06-25'
+    action_plan: docs/phases/complete/PHASE_245.md
+    dependencies: []
+    size: MEDIUM
+    summary: "Create proxy.minimal.yml, verify compiled-in defaults in Go config loader,
+      document direct mode (proxy_protocol: false) as default."
+  245.4:
+    name: "Emergency Dial Override"
+    status: COMPLETE
+    completed: '2026-06-25'
+    action_plan: docs/phases/complete/PHASE_245.md
+    dependencies: []
+    size: MEDIUM
+    summary: "POST /api/v1/dial/emergency bypassing ±10 limit, reusing Phase 237 revert
+      infrastructure. Presets, auto-revert TTL, admin+MFA required."
+  245.5:
+    name: "Surface ja4-admin.sh as First-Class CLI"
+    status: COMPLETE
+    completed: '2026-06-25'
+    action_plan: docs/phases/complete/PHASE_245.md
+    dependencies:
+    - 245.4
+    size: SMALL
+    summary: "Add dial commands to ja4-admin.sh, document in README, add make admin target."
+  245.6:
+    name: "Management UI — Incident Response Shortcuts"
+    status: COMPLETE
+    completed: '2026-06-25'
+    action_plan: docs/phases/complete/PHASE_245.md
+    dependencies:
+    - 245.4
+    size: MEDIUM
+    summary: "Inline block/ban from live feed, search/filter on bans page, emergency mode
+      dashboard button with presets."
+  245.7:
+    name: "Management UI — Polish"
+    status: COMPLETE
+    completed: '2026-06-25'
+    action_plan: docs/phases/complete/PHASE_245.md
+    dependencies: []
+    size: LARGE
+    summary: "Mobile-responsive sidebar (hamburger menu), geographic attack visualisation
+      (country table with one-click block)."
+  245.8:
+    name: "ja4p init --minimal Fast Path"
+    status: COMPLETE
+    completed: '2026-06-25'
+    action_plan: docs/phases/complete/PHASE_245.md
+    dependencies: []
+    size: SMALL
+    summary: "Add --minimal flag to wizard: prompt only for BACKEND_HOST, generate .env
+      with random Redis password, skip all optional integrations."
+  245.9:
+    name: "Deployment Guides for Non-HAProxy Environments"
+    status: COMPLETE
+    completed: '2026-06-25'
+    action_plan: docs/phases/complete/PHASE_245.md
+    dependencies: []
+    size: SMALL
+    summary: "Create DEPLOYMENT_MODES.md covering direct, HAProxy, nginx, AWS NLB, and
+      Cloudflare — each with config snippet and verify command."
+  245.10:
+    name: "Graceful GeoIP Degradation + Setup Guidance"
+    status: COMPLETE
+    completed: '2026-06-25'
+    action_plan: docs/phases/complete/PHASE_245.md
+    dependencies: []
+    size: SMALL
+    summary: "Actionable WARN on missing GeoIP data with setup link, /health/deep degraded
+      subsystem, consider bundling IP2Location LITE."
+  248:
+    name: "Auto-Escalating IP Defense"
+    status: COMPLETE
+    completed: '2026-06-26'
+    action_plan: docs/phases/PHASE_248.md
+    dependencies:
+    - 247
+    size: MEDIUM
+    summary: "IPs that persist after tarpit are automatically escalated to block then ban.
+      auto_escalate config (off by default), offense:{ip} Redis key, shared-IP protection,
+      Prometheus counter, management offense API."
+  249:
+    name: "Datacenter ASN One-Click Block"
+    status: COMPLETE
+    completed: '2026-06-26'
+    action_plan: docs/phases/PHASE_249.md
+    dependencies:
+    - 247
+    - 248
+    size: MEDIUM
+    summary: "One-click tarpit/block all datacenter traffic from Security Policy page.
+      Hot-reload via Redis pub/sub. datacenter_policy config section, IsDatacenter()
+      on ASNClassifier, DatacenterPolicyConfig, Prometheus counter,
+      GET/PUT /api/v1/datacenter-policy. 249.5 staged for Phase 247 merge."
+  250:
+    name: "Botnet Fingerprint Detection & One-Click Block"
+    status: COMPLETE
+    completed: '2026-06-26'
+    action_plan: docs/phases/PHASE_250.md
+    dependencies:
+    - 247
+    - 248
+    - 249
+    size: MEDIUM
+    summary: "Fingerprint tab on Under Attack page groups attack by JA4. detect_botnet_signal
+      classification. One-click block with browser safety gate (corpus 15+ entries).
+      GET /api/v1/attack/top-fingerprints. HTMX partial. 250.5 staged for Phase 247 merge."
+  244:
+    name: Seccomp Hardening for TAP Sensor
+    status: COMPLETE
+    completed: '2026-06-25'
+    action_plan: docs/phases/PHASE_244.md
+    dependencies:
+    - 336
+    size: MEDIUM
+    summary: "Complete. Real seccomp(2) BPF filter via raw syscalls (no cgo). JSON profile\
+      \ loader, embedded default profile (~110 syscalls), --seccomp-profile flag. 8 unit\
+      \ tests. PR #252."
+  246:
+    name: "Discovery, Onboarding & First-5-Minutes Experience"
+    status: OPEN
+    action_plan: docs/phases/PHASE_246.md
+    dependencies:
+    - 245
+    size: MEDIUM
+    summary: "README rewrite for non-technical audiences, GitHub repo description and
+      topics for discoverability, management dashboard in minimal docker-compose,
+      first-5-minutes onboarding guide, integration quick-reference cards."
+  246.1:
+    name: "GitHub Repo Description & Topics"
+    status: COMPLETE
+    completed: '2026-06-25'
+    action_plan: docs/phases/PHASE_246.md
+    dependencies: []
+    size: SMALL
+    summary: "Update GitHub repo description to lead with problem (bot protection),
+      add 13 discoverable topics including bot-protection, anti-bot, self-hosted."
+  246.2:
+    name: "README Rewrite for Humans"
+    status: COMPLETE
+    completed: '2026-06-25'
+    action_plan: docs/phases/PHASE_246.md
+    dependencies: []
+    size: MEDIUM
+    summary: "Restructure README: lead with problem, plain-English how-it-works,
+      will-this-break-my-site reassurance, emergency deploy with dashboard URL,
+      integration quick-reference, badges moved to bottom."
+  246.3:
+    name: "Management UI in Minimal Docker Compose"
+    status: COMPLETE
+    completed: '2026-06-25'
+    action_plan: docs/phases/PHASE_246.md
+    dependencies: []
+    size: SMALL
+    summary: "Add management dashboard service to docker-compose.yml with safe defaults.
+      Update EMERGENCY_DEPLOY.md to reference dashboard at localhost:8090."
+  246.4:
+    name: "First-5-Minutes Onboarding Guide"
+    status: COMPLETE
+    completed: '2026-06-25'
+    action_plan: docs/phases/PHASE_246.md
+    dependencies:
+    - 246.2
+    size: SMALL
+    summary: "Step-by-step guide in README covering dashboard, fingerprint review,
+      first block, dial adjustment, and recovery from accidental over-blocking."
+  246.5:
+    name: "Integration Quick-Reference Cards"
+    status: COMPLETE
+    completed: '2026-06-25'
+    action_plan: docs/phases/PHASE_246.md
+    dependencies:
+    - 246.2
+    size: MEDIUM
+    summary: "README section with 4 integration paths (direct, nginx, AWS NLB,
+      Cloudflare) each linking to full DEPLOYMENT_MODES.md instructions."
+  247:
+    name: "Under-Attack Live Dashboard"
+    status: COMPLETE
+    action_plan: docs/phases/PHASE_247.md
+    dependencies:
+    - 246
+    size: MEDIUM
+    summary: "Dedicated triage page for site owners under active bot attack. Live
+      table of top attacking IPs enriched with JA4 fingerprint, ASN, and datacenter
+      label. One-click tarpit/block/ban per IP. Attack Mode toggle raises dial to 75
+      with 4-hour auto-revert. Situation bar links to this page when state is ACTIVE
+      or ELEVATED."
+  247.1:
+    name: "Attack Mode API"
+    status: COMPLETE
+    action_plan: docs/phases/PHASE_247.md
+    dependencies: []
+    size: SMALL
+    summary: "POST /api/v1/attack-mode raises dial to 75 via existing emergency dial
+      logic with 4h auto-revert. attack_mode:active Redis key tracks state. DELETE
+      cancels and resets dial to 0."
+  247.2:
+    name: "Attacker Table API"
+    status: COMPLETE
+    action_plan: docs/phases/PHASE_247.md
+    dependencies: []
+    size: MEDIUM
+    summary: "GET /api/v1/attack/top aggregates recent events stream, returns top
+      attacking IPs enriched with JA4, ASN, datacenter label, country, and current
+      ban/tarpit status. Polled every 5s by UI."
+  247.3:
+    name: "Under-Attack Page (HTML)"
+    status: COMPLETE
+    action_plan: docs/phases/PHASE_247.md
+    dependencies:
+    - 247.1
+    - 247.2
+    size: MEDIUM
+    summary: "/under-attack page with attack mode card and live attacker table via
+      HTMX polling. Situation bar updated to link here when state is ACTIVE or ELEVATED."
+  247.4:
+    name: "Sidebar Navigation Link"
+    status: COMPLETE
+    action_plan: docs/phases/PHASE_247.md
+    dependencies:
+    - 247.3
+    size: SMALL
+    summary: "Under Attack nav link with red dot indicator when situation state is ACTIVE."
+  247.5:
+    name: "Tests"
+    status: COMPLETE
+    action_plan: docs/phases/PHASE_247.md
+    dependencies:
+    - 247.1
+    - 247.2
+    - 247.3
+    size: MEDIUM
+    summary: "Unit and integration tests for attack mode API, attacker table API, and
+      page render. Extends test_pages.py with /under-attack smoke test."
+  248:
+    name: "Auto-Escalating IP Defense"
+    status: OPEN
+    action_plan: docs/phases/PHASE_248.md
+    dependencies:
+    - 247
+    size: MEDIUM
+    summary: "Persistent offense counter per IP in Redis. IPs that ignore tarpit are
+      automatically blocked; IPs that ignore block are automatically banned. Off by
+      default, opt-in via auto_escalate config section. Attack Mode also activates
+      auto-escalation for its duration."
+  248.1:
+    name: "Config Schema"
+    status: OPEN
+    action_plan: docs/phases/PHASE_248.md
+    dependencies: []
+    size: SMALL
+    summary: "auto_escalate section in config/proxy.yml with enabled flag, offense
+      thresholds (tarpit_at_offense, block_at_offense, ban_at_offense), ban_hours,
+      offense_ttl_hours, shared_ip_cidr_threshold. Loaded into AutoEscalateConfig struct."
+  248.2:
+    name: "Offense Counter (Go)"
+    status: OPEN
+    action_plan: docs/phases/PHASE_248.md
+    dependencies:
+    - 248.1
+    size: MEDIUM
+    summary: "internal/security/offense_counter.go: Increment/Get/Reset/EscalatedAction
+      using Redis INCR. Shared-IP CIDR threshold check before incrementing. All methods
+      fail open on Redis errors."
+  248.3:
+    name: "Pipeline Integration (Go)"
+    status: OPEN
+    action_plan: docs/phases/PHASE_248.md
+    dependencies:
+    - 248.2
+    size: MEDIUM
+    summary: "After rate limiter signal, increment offense counter and check EscalatedAction.
+      Override action decider result when escalation applies. Write ban:{ip} key on
+      ban escalation. Prometheus counter + ECS log line."
+  248.4:
+    name: "Management UI: IP Offense Display"
+    status: OPEN
+    action_plan: docs/phases/PHASE_248.md
+    dependencies:
+    - 248.2
+    size: SMALL
+    summary: "GET /api/v1/ip/{ip}/offense and DELETE to reset. Offense count shown in
+      IP detail view and attack table. Admin-only reset button with audit log."
+  248.5:
+    name: "Attack Mode Integration"
+    status: OPEN
+    action_plan: docs/phases/PHASE_248.md
+    dependencies:
+    - 247.1
+    - 248.1
+    size: SMALL
+    summary: "POST /api/v1/attack-mode also writes attack_mode:escalate Redis key.
+      Go proxy reads this on config reload to temporarily enable auto-escalation."
+  248.6:
+    name: "Tests"
+    status: OPEN
+    action_plan: docs/phases/PHASE_248.md
+    dependencies:
+    - 248.1
+    - 248.2
+    - 248.3
+    - 248.4
+    - 248.5
+    size: MEDIUM
+    summary: "Go unit tests for offense counter and pipeline escalation. Python unit
+      tests for offense API. Chaos test: Redis down, offense counter fails open."
+  249:
+    name: "Datacenter ASN One-Click Block"
+    status: OPEN
+    action_plan: docs/phases/PHASE_249.md
+    dependencies:
+    - 247
+    size: MEDIUM
+    summary: "Policy toggle for all datacenter-origin traffic: score (default) | tarpit
+      | block. Uses existing asn_datacenter_list.yml (847 ASNs). Hot-reloadable via
+      Redis pub/sub. Default exceptions for Cloudflare, Fastly, Akamai. Per-ASN
+      exception management in UI. Attack Mode also switches to tarpit automatically."
+  249.1:
+    name: "Config Schema & Go Loader"
+    status: OPEN
+    action_plan: docs/phases/PHASE_249.md
+    dependencies: []
+    size: SMALL
+    summary: "datacenter_policy section in config/proxy.yml: action (score|tarpit|block),
+      exceptions list, log_actions flag. DatacenterPolicyConfig struct in loader.go."
+  249.2:
+    name: "Pipeline Enforcement (Go)"
+    status: OPEN
+    action_plan: docs/phases/PHASE_249.md
+    dependencies:
+    - 249.1
+    size: MEDIUM
+    summary: "Bypass check after allow-bypasses: if policy != score and IP is datacenter
+      and ASN not in exceptions, apply tarpit or block. Atomic value swap for hot-reload.
+      Prometheus counter + ECS log line."
+  249.3:
+    name: "Management API"
+    status: OPEN
+    action_plan: docs/phases/PHASE_249.md
+    dependencies:
+    - 249.1
+    size: MEDIUM
+    summary: "GET /api/v1/datacenter-policy returns current policy with resolved ASN
+      names. PUT updates policy, writes config:datacenter_policy to Redis, publishes
+      config:reload. Admin + MFA required for PUT."
+  249.4:
+    name: "Settings Page UI"
+    status: OPEN
+    action_plan: docs/phases/PHASE_249.md
+    dependencies:
+    - 249.3
+    size: MEDIUM
+    summary: "Datacenter Policy card in security policy page: three-way radio (Score/
+      Tarpit/Block) with HTMX immediate apply. Block requires confirmation dialog.
+      Exception list with Add/Remove. Sidebar nav link."
+  249.5:
+    name: "Attack Mode Integration"
+    status: OPEN
+    action_plan: docs/phases/PHASE_249.md
+    dependencies:
+    - 247.1
+    - 249.3
+    size: SMALL
+    summary: "POST /api/v1/attack-mode saves current datacenter policy and switches to
+      tarpit. DELETE restores previous policy. UI countdown shows warning that datacenter
+      policy does not auto-revert."
+  249.6:
+    name: "Tests"
+    status: OPEN
+    action_plan: docs/phases/PHASE_249.md
+    dependencies:
+    - 249.1
+    - 249.2
+    - 249.3
+    - 249.4
+    - 249.5
+    size: MEDIUM
+    summary: "Go pipeline tests for all three actions, exception handling, h2/h1 bypass.
+      Python API tests for GET/PUT validation and config:reload publish. Page smoke
+      test. Container config test."
+  250:
+    name: "Botnet Fingerprint Detection & One-Click Block"
+    status: OPEN
+    action_plan: docs/phases/PHASE_250.md
+    dependencies:
+    - 247
+    size: MEDIUM
+    summary: "Fingerprint-centric attack view for residential botnets where IP banning
+      is ineffective. Groups attack traffic by JA4 fingerprint, shows unique IP count
+      per fingerprint, labels known browsers vs bot tools, flags botnet patterns (N
+      unique IPs + high avg score + not a browser). One-click block stops entire
+      botnet in one action. Safety gate prevents blocking Chrome/Firefox/Safari.
+      JA4T TCP correlation shown when TAP data available."
+  250.1:
+    name: "Expand and Version Known-Browser Corpus"
+    status: OPEN
+    action_plan: docs/phases/PHASE_250.md
+    dependencies: []
+    size: SMALL
+    summary: "Expand fixtures/ti_feeds/ja4_fp_corpus.txt to 15+ browser fingerprints
+      (Chrome 120-122, Firefox 121-123, Safari 17, Edge, Samsung Internet). Add
+      ja4_browser_labels.json with human-readable labels for corpus + common tools."
+  250.2:
+    name: "Attack Fingerprint Aggregation API"
+    status: OPEN
+    action_plan: docs/phases/PHASE_250.md
+    dependencies:
+    - 250.1
+    size: MEDIUM
+    summary: "GET /api/v1/attack/top-fingerprints: aggregates event stream by JA4
+      over 300s window, returns unique_ip_count, avg_score, botnet_signal
+      (botnet/suspect/tool/browser/unknown), JA4T values, is_blacklisted,
+      browser_label. Sorted by unique_ip_count DESC."
+  250.3:
+    name: "Fingerprint Tab on Under Attack Page"
+    status: OPEN
+    action_plan: docs/phases/PHASE_250.md
+    dependencies:
+    - 247.3
+    - 250.2
+    size: MEDIUM
+    summary: "Second tab on /under-attack page showing fingerprint table with BOTNET/
+      SUSPECT/BROWSER badges, unique IP count with popover, JA4T column when available,
+      and summary banner when botnet signal detected."
+  250.4:
+    name: "Block Safety Gate"
+    status: OPEN
+    action_plan: docs/phases/PHASE_250.md
+    dependencies:
+    - 250.2
+    - 250.3
+    size: SMALL
+    summary: "Disable Block button for known-browser fingerprints in attack UI with
+      explanation tooltip. API-level gate on POST /api/v1/lists/ja4/blacklist/{fp}
+      ?source=attack_ui returns 422 for corpus fingerprints. Fingerprint detail page
+      retains ability to block any fingerprint."
+  250.5:
+    name: "Attack Mode Integration"
+    status: OPEN
+    action_plan: docs/phases/PHASE_250.md
+    dependencies:
+    - 247.1
+    - 250.2
+    size: SMALL
+    summary: "Lower botnet detection thresholds during Attack Mode (3 IPs + score 50
+      vs normal 5 IPs + score 60). Audit log marks blocks during attack mode with
+      context field."
+  250.6:
+    name: "Tests"
+    status: OPEN
+    action_plan: docs/phases/PHASE_250.md
+    dependencies:
+    - 250.1
+    - 250.2
+    - 250.3
+    - 250.4
+    - 250.5
+    size: MEDIUM
+    summary: "Tests for all botnet_signal classifications, safety gate (422 for browser
+      fp with attack_ui source, 200 without), corpus expansion, JA4T column visibility,
+      attack mode threshold lowering."
 

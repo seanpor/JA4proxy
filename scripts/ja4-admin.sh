@@ -124,6 +124,12 @@ usage() {
     echo "  block-ip   <IP> [secs]      Hard-block an IP (default: 3600s)"
     echo "  unblock-ip <IP>             Remove all blocks/bans for an IP"
     echo ""
+    echo -e "${CYAN}Dial Management${NC}  (takes effect immediately)"
+    echo "  dial                        Show current dial value"
+    echo "  dial <N>                    Set dial to N (0-100)"
+    echo "  dial <N> --emergency [TTL]  Emergency override — skip ±10 limit, auto-revert"
+    echo "                              TTL in seconds (default: 3600 = 1 hour, max 14400)"
+    echo ""
     echo -e "${CYAN}State Management${NC}"
     echo "  flush                       Clear transient state (keep whitelist/blacklist)"
     echo ""
@@ -714,6 +720,80 @@ cmd_report() {
     echo ""
 }
 
+cmd_dial() {
+    local target="${1:-}"
+    local emergency=""
+    local ttl=3600
+
+    # No args: show current value
+    if [ -z "$target" ]; then
+        local val
+        val=$(redis_cmd GET "config:dial" 2>/dev/null || echo "?")
+        [ "$val" = "" ] && val="0"
+        echo -e "${BOLD}Current dial:${NC} ${CYAN}${val}${NC} / 100"
+
+        local override
+        override=$(redis_cmd GET "config:dial_override" 2>/dev/null)
+        if [ -n "$override" ] && [ "$override" != "" ]; then
+            local orig expires_at now remaining
+            orig=$(echo "$override" | python3 -c "import sys,json; print(json.load(sys.stdin)['original_value'])" 2>/dev/null || echo "?")
+            expires_at=$(echo "$override" | python3 -c "import sys,json; print(json.load(sys.stdin)['expires_at_epoch'])" 2>/dev/null || echo "0")
+            now=$(date +%s)
+            remaining=$(( expires_at - now ))
+            if [ "$remaining" -gt 0 ] 2>/dev/null; then
+                echo -e "${YELLOW}  ⚠ Emergency override active — reverts to ${orig} in $(( remaining / 60 ))m${NC}"
+            fi
+        fi
+        return
+    fi
+
+    # Parse flags
+    shift || true
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --emergency) emergency=1 ;;
+            *)
+                if [ -n "$emergency" ]; then
+                    ttl="$1"
+                fi
+                ;;
+        esac
+        shift
+    done
+
+    # Validate target
+    [[ "$target" =~ ^[0-9]+$ ]] || die "Dial value must be an integer (0-100). Got: $target"
+    [ "$target" -ge 0 ] && [ "$target" -le 100 ] || die "Dial value must be 0-100. Got: $target"
+
+    local current
+    current=$(redis_cmd GET "config:dial" 2>/dev/null || echo "0")
+    [ "$current" = "" ] && current="0"
+    local delta=$(( target - current ))
+    [ "$delta" -lt 0 ] && delta=$(( -delta ))
+
+    if [ -n "$emergency" ]; then
+        # Emergency: bypass ±10 limit, schedule auto-revert
+        [ "$ttl" -ge 60 ] 2>/dev/null || die "TTL must be at least 60 seconds. Got: $ttl"
+        [ "$ttl" -le 14400 ] 2>/dev/null || die "TTL must be at most 14400 seconds (4 hours). Got: $ttl"
+
+        local expires_at=$(( $(date +%s) + ttl ))
+        redis_cmd SET "config:dial" "$target" >/dev/null
+        redis_cmd SET "config:dial_override" "{\"original_value\":${current},\"override_value\":${target},\"expires_at_epoch\":${expires_at}}" >/dev/null
+
+        echo -e "${RED}${BOLD}⚠ EMERGENCY DIAL OVERRIDE${NC}"
+        echo -e "  Dial: ${current} → ${BOLD}${target}${NC}"
+        echo -e "  Auto-reverts to ${current} in $(( ttl / 60 )) minutes"
+        echo -e "  ${YELLOW}Use '${0} dial' to check status${NC}"
+    else
+        # Normal: enforce ±10 limit
+        if [ "$delta" -gt 10 ]; then
+            die "Change of ${delta} exceeds ±10 limit. Current: ${current}, requested: ${target}. Use --emergency to override."
+        fi
+        redis_cmd SET "config:dial" "$target" >/dev/null
+        echo -e "${GREEN}✓ Dial: ${current} → ${target}${NC}"
+    fi
+}
+
 cmd_flush() {
     echo -e "${YELLOW}Flushing all transient security state...${NC}"
     COUNT=$(redis_cmd EVAL \
@@ -753,6 +833,7 @@ case "$COMMAND" in
     unblock-cidr)       cmd_unblock_cidr "${1:-}" ;;
     block-ip)           cmd_block_ip "${1:-}" "${2:-3600}" ;;
     unblock-ip)         cmd_unblock_ip "${1:-}" ;;
+    dial)               cmd_dial "$@" ;;
     flush)              cmd_flush ;;
     help|--help|-h)     usage ;;
     *)

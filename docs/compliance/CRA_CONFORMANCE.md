@@ -17,7 +17,7 @@
 - Build provenance: [`../decisions/ADR-107a-slsa-level-3.md`](../decisions/ADR-107a-slsa-level-3.md), [`../decisions/ADR-202d.md`](../decisions/ADR-202d.md)
 - Threat model: [`../security/threat-model.md`](../security/threat-model.md)
 - Comprehensive security audit: [`../security/COMPREHENSIVE_SECURITY_AUDIT.md`](../security/COMPREHENSIVE_SECURITY_AUDIT.md)
-- Observability standards (logging schema, metrics registry): [`../OBSERVABILITY_STANDARDS.md`](../reference/OBSERVABILITY_STANDARDS.md)
+- Observability standards (logging schema, metrics registry): [`../reference/OBSERVABILITY_STANDARDS.md`](../reference/OBSERVABILITY_STANDARDS.md)
 - Redis schema (data model, retention): [`../REDIS_SCHEMA.md`](../reference/REDIS_SCHEMA.md)
 
 ---

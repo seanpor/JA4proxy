@@ -497,7 +497,7 @@ Restore completed successfully (destructive mode)
 
 | Alert | Meaning | Action |
 |-------|---------|--------|
-| `BackupStale` | No successful backup in 24h | Check `ja4proxy_backup_last_success_timestamp`; run manual backup |
+| `BackupStale` | No successful backup in 24h | Check `ja4proxy_backup_last_success_seconds`; run manual backup |
 | `BackupFailureDetected` | Backup job failed | Check logs: `grep backup_failed /var/log/ja4proxy/backup.log` |
 | `RestoreFailureDetected` | Restore failed | Check manifest validity; try previous backup |
 

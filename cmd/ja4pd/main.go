@@ -1069,6 +1069,20 @@ func (p *proxy) reload() error {
 		return err
 	}
 	pipelineCfg := buildPipelineConfig(newCfg)
+	// phase-248: Attack Mode can activate auto-escalation via Redis key.
+	// attack_mode:escalate is set by the management API when Attack Mode activates
+	// and deleted when it deactivates. The Phase 237 revert poller fires a
+	// config:reload when the dial auto-reverts, which triggers this check.
+	if p.redis.GetString(context.Background(), "attack_mode:escalate") == "1" {
+		pipelineCfg.AutoEscalate.Enabled = true
+	}
+	// Phase 249: apply Redis override for datacenter policy (set by management UI).
+	if raw := p.redis.GetString(context.Background(), "config:datacenter_policy"); raw != "" {
+		var override config.DatacenterPolicyConfig
+		if err := json.Unmarshal([]byte(raw), &override); err == nil {
+			pipelineCfg.DatacenterPolicy = override
+		}
+	}
 	p.pipeline.ReplaceConfig(pipelineCfg)
 	p.mu.Lock()
 	p.cfg = newCfg
@@ -1725,6 +1739,8 @@ func buildPipelineConfig(cfg *config.Config) *security.PipelineConfig {
 		JA4TConsumerRedisTimeout: cfg.JA4TConsumer.RedisTimeoutMs,
 		JA4TConsumerCacheTTL:     cfg.JA4TConsumer.CacheTTLSeconds,
 		JA4TBlocklist:            cfg.JA4TConsumer.Blocklist,
+		AutoEscalate:             cfg.AutoEscalate,    // phase-248
+		DatacenterPolicy:         cfg.DatacenterPolicy, // phase-249
 	}
 }
 
