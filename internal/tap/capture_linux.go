@@ -3,21 +3,22 @@
 package tap
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/gopacket/gopacket/afpacket"
 	"github.com/gopacket/gopacket/layers"
+	"golang.org/x/net/bpf"
 )
 
 // NewLiveSource opens an AF_PACKET (TPACKETv3) capture handle on iface in
-// promiscuous mode. It is pure-Go (no cgo/libpcap) — see ADR-316a. *TPacket
-// already implements PacketSource via ReadPacketData.
+// promiscuous mode, optionally applying a kernel BPF filter (compiled from
+// bpfFilter) to discard non-TLS traffic before every userspace read.
 //
-// NOTE (deferred to 316a increment 2): kernel BPF filtering and post-bind
-// capability drop + seccomp are not wired here yet. Until then the sensor relies
-// on userspace filtering (non-TCP frames are dropped in ProcessPacket) and the
-// operator must constrain privileges externally (cap_add: NET_RAW only).
-func NewLiveSource(iface string, frameSize int) (src PacketSource, linkType layers.LinkType, closeFn func(), err error) {
+// When bpfFilter is empty the sensor relies on userspace filtering in
+// ProcessPacket instead.  Privilege dropping and seccomp are handled by the
+// caller (DropCapabilities / LoadSeccomp).
+func NewLiveSource(iface string, frameSize int, bpfFilter []bpf.RawInstruction) (src PacketSource, linkType layers.LinkType, closeFn func(), err error) {
 	opts := []any{afpacket.OptInterface(iface), afpacket.OptPollTimeout(100 * time.Millisecond)}
 	if frameSize > 0 {
 		opts = append(opts, afpacket.OptFrameSize(frameSize))
@@ -25,6 +26,12 @@ func NewLiveSource(iface string, frameSize int) (src PacketSource, linkType laye
 	tp, err := afpacket.NewTPacket(opts...)
 	if err != nil {
 		return nil, 0, nil, err
+	}
+	if len(bpfFilter) > 0 {
+		if err := tp.SetBPF(bpfFilter); err != nil {
+			tp.Close()
+			return nil, 0, nil, fmt.Errorf("set BPF filter: %w", err)
+		}
 	}
 	return tp, layers.LinkTypeEthernet, tp.Close, nil
 }

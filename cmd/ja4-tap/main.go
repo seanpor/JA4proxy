@@ -26,6 +26,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/net/bpf"
 
 	"github.com/seanpor/ja4proxy/internal/tap"
 )
@@ -49,6 +50,7 @@ func main() {
 		pcapFile    = flag.String("pcap-file", "", "offline .pcap file to replay (no privileges required)")
 		iface       = flag.String("interface", "", "live capture interface (Linux AF_PACKET; needs CAP_NET_RAW)")
 		frameSize   = flag.Int("frame-size", 0, "AF_PACKET frame size (0 = library default)")
+		bpfPorts    = flag.String("bpf-ports", "443,8443", "comma-separated TCP dst ports for the kernel BPF filter (empty = no kernel filter, userspace only)")
 		quiet       = flag.Bool("quiet", false, "suppress per-handshake output; print only the final summary")
 		redisURL    = flag.String("redis-url", "", "Redis URL to write passive fingerprints to fp:os:ip and fp:ja4t:ip (empty = classify-and-log only, no writes)")
 		enforce     = flag.Bool("enforce", false, "ARM active blocking: write enforceable ban:{ip} keys for blocklisted clients (off = advisory fp:ban_intent watchlist only; arming also needs a widened Redis ACL ~ban:*)")
@@ -63,13 +65,21 @@ func main() {
 	log := logrus.New()
 	prometheus.MustRegister(tap.Collectors()...)
 	startMetricsServer(log, *metricsAddr)
+	bpfFilter, err := tap.ParsePortList(*bpfPorts)
+	if err != nil {
+		log.WithError(err).Fatal("invalid --bpf-ports")
+	}
+	bpfProg, err := tap.CompilePortBPF(bpfFilter...)
+	if err != nil {
+		log.WithError(err).Fatal("failed to compile BPF filter")
+	}
 	enfCfg := tap.EnforcerConfig{
 		Armed:         *enforce,
 		JA4TBlocklist: parseBlocklist(*ja4tBlock),
 		BanTTL:        *banTTL,
 		IntentTTL:     *intentTTL,
 	}
-	if err := run(*pcapFile, *iface, *frameSize, *quiet, *redisURL, enfCfg, *seccompPath, log); err != nil {
+	if err := run(*pcapFile, *iface, *frameSize, bpfProg, *quiet, *redisURL, enfCfg, *seccompPath, log); err != nil {
 		log.WithError(err).Error("ja4-tap exited with error")
 		os.Exit(1)
 	}
@@ -87,7 +97,7 @@ func parseBlocklist(csv string) map[string]bool {
 	return out
 }
 
-func run(pcapFile, iface string, frameSize int, quiet bool, redisURL string, enfCfg tap.EnforcerConfig, seccompPath string, log *logrus.Logger) error {
+func run(pcapFile, iface string, frameSize int, bpfProg []bpf.RawInstruction, quiet bool, redisURL string, enfCfg tap.EnforcerConfig, seccompPath string, log *logrus.Logger) error {
 	if (pcapFile == "") == (iface == "") {
 		return fmt.Errorf("exactly one of --pcap-file or --interface must be set")
 	}
@@ -101,22 +111,24 @@ func run(pcapFile, iface string, frameSize int, quiet bool, redisURL string, enf
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	var src tap.PacketSource
-	var lt layers.LinkType
-	var closeFn func() error
-
+	var (
+		src     tap.PacketSource
+		lt      layers.LinkType
+		closeFn func() error
+	)
 	if pcapFile != "" {
 		src, lt, closeFn, err = tap.OpenPcapFile(pcapFile)
 		if err != nil {
 			return fmt.Errorf("open pcap: %w", err)
 		}
 	} else {
-		var liveClose func()
-		src, lt, liveClose, err = tap.NewLiveSource(iface, frameSize)
+		rawSrc, rawLT, rawClose, err := tap.NewLiveSource(iface, frameSize, bpfProg)
 		if err != nil {
 			return fmt.Errorf("open live interface %q: %w", iface, err)
 		}
-		closeFn = func() error { liveClose(); return nil }
+		src = rawSrc
+		lt = rawLT
+		closeFn = func() error { rawClose(); return nil }
 	}
 
 	// Drop capabilities AFTER socket creation — AF_PACKET (live capture) requires
