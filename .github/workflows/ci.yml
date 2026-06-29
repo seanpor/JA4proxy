@@ -304,9 +304,8 @@ jobs:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
       - name: Smoke test
         run: |
-          # Create minimal .env for CI if absent
-          [ -f .env ] || {
-            echo "REDIS_PASSWORD=smoketest" >> .env
-            echo "BACKEND_HOST=localhost" >> .env
-          }
+          # docker-compose.yml (root quick-start) uses sensible defaults for
+          # everything except REDIS_PASSWORD. BACKEND_HOST defaults to a dummy
+          # value so the proxy starts in monitor mode without a real backend.
+          [ -f .env ] || echo "REDIS_PASSWORD=smoketest" >> .env
           bash scripts/smoke/test_docker_compose.sh
