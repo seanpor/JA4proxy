@@ -10,8 +10,13 @@
 # connections to BACKEND_HOST:443. It starts in monitor mode (dial=0):
 # scores everything, blocks nothing.
 #
-# Dashboard: http://localhost:8090  (admin / changeme — change in production!)
-# Health:    http://localhost:8090/api/v1/health  (public, no auth required)
+# Dashboard (plain HTTP, loopback only — access via SSH tunnel or locally):
+#   http://127.0.0.1:8090          (admin / changeme — change in production!)
+# Dashboard (HTTPS, via Caddy sidecar — self-signed cert, click through warning):
+#   https://127.0.0.1:8444
+# Health:    http://127.0.0.1:8090/api/v1/health  (public, no auth required)
+#
+# Remote access from home / DMZ: see docs/runbooks/dashboard_access.md
 #
 # ── Compose file map ─────────────────────────────────────────────────────────
 # This file (docker-compose.yml)
@@ -123,3 +128,32 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+  # phase-511: HTTPS sidecar for the management dashboard.
+  # Terminates TLS on port 8444 (loopback-only) and proxies to management:8090.
+  # Self-signed cert is generated automatically by Caddy — no cert management needed.
+  # Browser will show a certificate warning on first visit; click "Advanced → Proceed".
+  # Access via SSH tunnel: ssh -L 8444:127.0.0.1:8444 user@dmz-host -N
+  # then open: https://127.0.0.1:8444
+  management-tls:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${MGMT_TLS_PORT:-8444}:8444"
+    volumes:
+      - ./deploy/caddy/Caddyfile.management:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - management
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+
+volumes:
+  caddy_data:
+  caddy_config:
