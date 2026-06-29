@@ -1,7 +1,7 @@
 # JA4proxy — Quick Start
 #
-# 3 containers: proxy + Redis + dashboard. Designed for emergency deployment
-# and evaluation.
+# 3 containers: proxy + Redis + management dashboard.
+# Designed for emergency deployment, evaluation, and CI smoke testing.
 #
 # Usage:
 #   BACKEND_HOST=your-server.com docker compose up -d
@@ -10,41 +10,62 @@
 # connections to BACKEND_HOST:443. It starts in monitor mode (dial=0):
 # scores everything, blocks nothing.
 #
-# Dashboard: http://localhost:8090 (admin / changeme — change in production!)
+# Dashboard: http://localhost:8090  (admin / changeme — change in production!)
+# Health:    http://localhost:8090/api/v1/health  (public, no auth required)
 #
-# For the full multi-container stack with HAProxy, monitoring, and analytics:
-#   docker compose -f deploy/docker/docker-compose.poc.yml up -d
+# ── Compose file map ─────────────────────────────────────────────────────────
+# This file (docker-compose.yml)
+#   Quick start / CI smoke test. Sensible defaults, no required secrets.
 #
-# Docs: docs/operations/EMERGENCY_DEPLOY.md
+# deploy/docker/docker-compose.poc.yml
+#   Full local dev stack: HAProxy + proxy + Redis + backend + analytics +
+#   management + tarpit. Requires .env (run 'make init'). Used by 'make start'.
+#
+# deploy/docker/docker-compose.prod.yml
+#   Single-instance production. No test services. Requires real secrets.
+#
+# deploy/docker/docker-compose.monitoring.yml
+#   Monitoring overlay: Prometheus + Grafana + Alertmanager + Loki.
+#   Compose alongside poc or prod: docker compose -f poc.yml -f monitoring.yml up
+#
+# deploy/docker/docker-compose.scale.yml
+#   Scale overlay: 4× proxy workers behind HAProxy.
+#
+# deploy/docker/docker-compose.test.yml
+#   Isolated Go integration/chaos/perf test environment. Used by 'make test'.
+#
+# deploy/docker/docker-compose.redis-tls.yml
+#   Redis-TLS overlay for TLS-specific integration tests.
+# ─────────────────────────────────────────────────────────────────────────────
 
 services:
-  ja4proxy:
-    build:
-      context: .
-      dockerfile: deploy/docker/Dockerfile.go-proxy
+  redis:
+    image: redis:7-alpine
     restart: unless-stopped
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD:-changeme}
+      --maxmemory 128mb
+      --maxmemory-policy allkeys-lru
+      --save ""
+      --appendonly no
     ports:
-      - "${PROXY_PORT:-8443}:8443"
-      - "127.0.0.1:9090:9090"
-    depends_on:
-      - redis
-    volumes:
-      - ./config:/app/config:ro
-    environment:
-      - CONFIG_PATH=/app/config/proxy.minimal.yml
-      - REDIS_HOST=redis
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-changeme}
-      - BACKEND_HOST=${BACKEND_HOST:?Set BACKEND_HOST to your backend server}
-      - BACKEND_PORT=${BACKEND_PORT:-443}
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-changeme}", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
     security_opt:
       - no-new-privileges:true
     read_only: true
     tmpfs:
-      - /tmp:size=10M
+      - /data:size=256M
     logging:
       driver: json-file
       options:
-        max-size: "10m"
+        max-size: "5m"
         max-file: "3"
 
   management:
@@ -55,7 +76,8 @@ services:
     ports:
       - "127.0.0.1:${MANAGEMENT_PORT:-8090}:8090"
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
     environment:
       - REDIS_URL=redis://:${REDIS_PASSWORD:-changeme}@redis:6379/0
       - MANAGEMENT_JWT_SECRET=${MANAGEMENT_JWT_SECRET:-ja4proxy-quickstart-secret-change-me}
@@ -72,25 +94,32 @@ services:
         max-size: "5m"
         max-file: "3"
 
-  redis:
-    image: redis:7-alpine
+  ja4proxy:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.go-proxy
     restart: unless-stopped
-    command: >
-      redis-server
-      --requirepass ${REDIS_PASSWORD:-changeme}
-      --maxmemory 128mb
-      --maxmemory-policy allkeys-lru
-      --save ""
-      --appendonly no
     ports:
-      - "127.0.0.1:6379:6379"
+      - "${PROXY_PORT:-8443}:8443"
+      - "127.0.0.1:9090:9090"
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./config:/app/config:ro
+    environment:
+      - CONFIG_PATH=/app/config/proxy.minimal.yml
+      - REDIS_HOST=redis
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-changeme}
+      - BACKEND_HOST=${BACKEND_HOST:-_no_backend_}
+      - BACKEND_PORT=${BACKEND_PORT:-443}
     security_opt:
       - no-new-privileges:true
     read_only: true
     tmpfs:
-      - /data:size=256M
+      - /tmp:size=10M
     logging:
       driver: json-file
       options:
-        max-size: "5m"
+        max-size: "10m"
         max-file: "3"
