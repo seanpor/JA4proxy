@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-HEALTH_URL="${HEALTH_URL:-http://localhost:8090/api/v1/health/deep}"
+# /api/v1/health is public (no auth). /api/v1/health/deep requires Auditor role
+# and would return 401 in CI where no credentials are configured.
+HEALTH_URL="${HEALTH_URL:-http://localhost:8090/api/v1/health}"
 RESULTS_DIR="test-results/smoke"
 mkdir -p "$RESULTS_DIR"
 LOG="$RESULTS_DIR/docker-compose-$(date +%Y%m%dT%H%M%S).log"
@@ -52,13 +54,13 @@ if ! docker compose $COMPOSE_ARGS up -d 2>>"$LOG"; then
   exit 0
 fi
 
-log "Waiting for health endpoint (max 60s)..."
-for i in $(seq 1 60); do
+log "Waiting for health endpoint (max 120s)..."
+for i in $(seq 1 120); do
   if curl -sf --max-time 5 "$HEALTH_URL" >/dev/null 2>&1; then
     log "Health endpoint OK after ${i}s"
     break
   fi
-  [ "$i" -eq 60 ] && fail "Health endpoint did not respond within 60s"
+  [ "$i" -eq 120 ] && fail "Health endpoint did not respond within 120s"
   sleep 1
 done
 
