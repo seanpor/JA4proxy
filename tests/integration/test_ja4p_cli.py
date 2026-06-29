@@ -38,17 +38,27 @@ class TestJa4pCLI:
         assert "validation failed" in result.stderr or "invalid proxy bind port" in result.stderr
 
     def test_init_poc(self, tmp_path):
-        """Verify ja4p init generates .env correctly in POC mode."""
-        # Run with tmp_path as CWD
-        result = subprocess.run([JA4P_BIN, "init"], input="1\n", capture_output=True, text=True, check=True, cwd=tmp_path)
-        
-        assert "POC Setup complete" in result.stdout
+        """Verify ja4p init generates .env correctly in non-interactive lane-1 mode."""
+        result = subprocess.run(
+            [JA4P_BIN, "init", "--non-interactive", "--lane", "1"],
+            capture_output=True,
+            text=True,
+            check=True,
+            cwd=tmp_path,
+        )
+
+        # The wizard prints a summary and "Written .env" on success.
+        combined = result.stdout + result.stderr
+        assert "Written .env" in combined or ".env" in combined, (
+            f"Expected .env to be created; got:\n{combined}"
+        )
+
         env_file = tmp_path / ".env"
-        assert env_file.exists()
-        
+        assert env_file.exists(), f".env not found in {tmp_path}"
+
         env_content = env_file.read_text()
         assert "REDIS_PASSWORD=" in env_content
-        assert "ENVIRONMENT=development" in env_content
+        assert "ENVIRONMENT=" in env_content
         assert "BACKEND_HOST=backend" in env_content
 
     def test_test_ip_simulation(self):

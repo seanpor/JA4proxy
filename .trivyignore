@@ -362,3 +362,37 @@ GHSA-6v7p-g79w-8964 exp:2026-07-22
 # on a Unix domain socket (/var/run/haproxy.sock). It is not exposed to external network
 # input from untrusted clients and is not reachable by the internet-facing attack surface.
 CVE-2026-56123 exp:2026-07-11
+
+# CVE-2024-12797: libssl/libcrypto OpenSSL NULL dereference in redis:7.4.0-alpine.
+# Why no fix: Fix requires OpenSSL 3.3.3-r0; no newer redis:7.4.0-alpine image tag exists
+# with that version of libcrypto3/libssl3.
+# Why not exploitable: Redis in our deployment is not configured for client-certificate
+# TLS (mTLS), which is the only code path that triggers the NULL dereference in the
+# custom certificate-verification callback.
+CVE-2024-12797 exp:2026-07-13
+
+# CVE-2022-27664: Go net/http server DoS in gosu binary inside redis:7.4.0-alpine.
+# Why no fix: gosu is compiled with Go 1.18.2; no newer redis:7.4.0-alpine image with a
+# rebuilt gosu exists. This CVE has been present since 2022 with no upstream fix for the
+# bundled binary.
+# Why not exploitable: gosu is a one-shot setuid+exec wrapper; it does not run an HTTP
+# server, does not listen on any port, and is never called from the network. The vulnerable
+# net/http code path is statically linked but completely unreachable at runtime.
+CVE-2022-27664 exp:2026-07-13
+
+# CVE-2026-39827: golang.org/x/crypto before 0.52.0 — SSH keep-alive DoS.
+# Why no fix: Affects prometheus:v3.12.0, alertmanager:v0.33.0, node-exporter:v1.11.1,
+# grafana:13.0.2-ubuntu, loki:3.7.2, and promtail:3.6.11 as a transitive dep compiled
+# into each binary. No updated image tags exist for any of these at the required version.
+# Why not exploitable: None of these components act as an SSH client or server in our
+# deployment. The vulnerable golang.org/x/crypto/ssh code path is statically linked but
+# never reachable during normal operation.
+CVE-2026-39827 exp:2026-07-13
+
+# CVE-2026-27145: Go stdlib crypto/x509 certificate parsing DoS in grafana:13.0.2-ubuntu.
+# Why no fix: Fix requires Go 1.25.11 or 1.26.4; grafana:13.0.2-ubuntu is compiled with
+# an older Go version and no newer 13.0.2 image tag exists.
+# Why not exploitable: Grafana in our deployment only processes certificates from our own
+# PKI (not from untrusted external sources), so maliciously crafted certificates cannot
+# reach the vulnerable parsing code.
+CVE-2026-27145 exp:2026-07-13

@@ -42,6 +42,8 @@ import os
 # from causing test failures or refusing to start.
 os.environ["ENVIRONMENT"] = "dev"
 os.environ["LOG_LEVEL"] = "INFO"
+os.environ.setdefault("MANAGEMENT_TEST_MODE", "1")
+os.environ.setdefault("MANAGEMENT_DISABLE_CSRF", "1")
 
 import ast
 import asyncio
@@ -61,7 +63,7 @@ _SESSION_START: list[float] = []  # populated by pytest_sessionstart
 # Tests that are expected to be skipped in a local dev environment are listed
 # here.  Any skip ABOVE this count is flagged as "◀ UNEXPECTED" in the summary.
 #
-# Current approved skips (21 total):
+# Current approved skips (18 total):
 #   4  Go chaos tests      — tests/chaos/test_go_proxy_chaos.py
 #                            (bin/ja4pd not built; build: GOROOT=/snap/go/current go build)
 #   8  Go parity tests     — tests/integration/test_go_python_parity.py
@@ -70,9 +72,9 @@ _SESSION_START: list[float] = []  # populated by pytest_sessionstart
 #                            (no live Redis at localhost:6379; run: make start)
 #   2  Docker enforcement  — tests/integration/test_multi_process_enforcement.py
 #                            (requires Docker Compose multi-process env; set CI_DOCKER=1)
-#   4  Go perf benchmarks  — tests/performance/test_bench_go_proxy.py
-#                            (Go proxy binary not built or running)
-_APPROVED_SKIP_COUNT = 21
+#   1  K8s operator tests  — tests/unit/test_managed_by_operator_k8s.py
+#                            (requires Helm binary and K8s tooling)
+_APPROVED_SKIP_COUNT = 18
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

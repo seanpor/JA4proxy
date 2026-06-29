@@ -154,7 +154,9 @@ async def update_datacenter_policy(
         action_type="datacenter_policy.updated",
         resource_type="config",
         resource_id="datacenter_policy",
-        details={"before": old_policy, "after": new_policy},
+        before_value=old_policy,
+        after_value=new_policy,
+        role=_role,
     )
 
     logger.info(
