@@ -70,8 +70,8 @@ var addrFields = map[string]struct{}{
 // opaqueFields are field names whose entire value is sensitive and has no
 // useful residual shape — drop the value altogether.
 var opaqueFields = map[string]struct{}{
-	"prefix":  {}, // CIDR from netbox — can expose trusted network topology
-	"val":     {}, // generic "offending value" context on parse errors
+	"prefix":     {}, // CIDR from netbox — can expose trusted network topology
+	"val":        {}, // generic "offending value" context on parse errors
 	"pubsub_raw": {}, // JA4PROXY-2026-0074: pubsub message payload may contain HMAC signatures
 	"sig":        {}, // JA4PROXY-2026-0075: tampered HMAC signature on dial mismatch log
 }

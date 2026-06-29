@@ -53,13 +53,13 @@ func (e *escalationRedis) SetString(_ context.Context, key, value string, _ int)
 
 func newEscalationPipeline(redis *escalationRedis, offenseEnabled bool, banAt int) *Pipeline {
 	cfg := &PipelineConfig{
-		ALPNBrowserBypass:   false,
-		JA4WhitelistBypass:  false,
-		JA4BlockingEnabled:  false,
-		MTLSBypass:          false,
-		Whitelist:           map[string]bool{},
-		Blacklist:           map[string]bool{},
-		RateLimiterEnabled:  true,
+		ALPNBrowserBypass:  false,
+		JA4WhitelistBypass: false,
+		JA4BlockingEnabled: false,
+		MTLSBypass:         false,
+		Whitelist:          map[string]bool{},
+		Blacklist:          map[string]bool{},
+		RateLimiterEnabled: true,
 		RateLimiterByIP: StrategyConfig{
 			Enabled:    true,
 			Suspicious: 1,
