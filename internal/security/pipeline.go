@@ -608,7 +608,7 @@ func (p *Pipeline) processInternal(ctx context.Context, conn *ConnectionContext)
 		if isDatacenter, asn := p.asnClassifier.IsDatacenter(conn.ClientIP); isDatacenter {
 			excepted := false
 			for _, exASN := range dc.Exceptions {
-				if uint32(exASN) == asn {
+				if uint32(exASN) == asn { //nolint:gosec // ASN numbers are IANA-defined 32-bit values; config type is uint for yaml convenience
 					excepted = true
 					break
 				}
@@ -616,10 +616,10 @@ func (p *Pipeline) processInternal(ctx context.Context, conn *ConnectionContext)
 			if !excepted {
 				if dc.LogActions {
 					p.log.WithFields(logrus.Fields{
-						"event.action":            "datacenter_policy",
-						"client.ip":               conn.ClientIP,
-						"network.asn":             asn,
-						"ja4proxy.policy.action":  dc.Action,
+						"event.action":           "datacenter_policy",
+						"client.ip":              conn.ClientIP,
+						"network.asn":            asn,
+						"ja4proxy.policy.action": dc.Action,
 					}).Warn("datacenter policy applied")
 				}
 				metrics.DatacenterPolicyActionsTotal.WithLabelValues(dc.Action, "false").Inc()

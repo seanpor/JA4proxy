@@ -244,12 +244,12 @@ func (c *ASNClassifier) IsDatacenter(clientIP string) (bool, uint32) {
 		return false, 0
 	}
 	if c.cfg.DatacenterASNs[asnNum] {
-		return true, uint32(asnNum)
+		return true, uint32(asnNum) //nolint:gosec // ASN numbers are IANA-defined 32-bit values; safe to narrow from uint
 	}
 	lowerOrg := strings.ToLower(orgName)
 	for _, pat := range c.cfg.DatacenterOrgs {
 		if strings.Contains(lowerOrg, strings.ToLower(pat)) {
-			return true, uint32(asnNum)
+			return true, uint32(asnNum) //nolint:gosec // ASN numbers are IANA-defined 32-bit values; safe to narrow from uint
 		}
 	}
 	return false, 0

@@ -95,7 +95,7 @@ func TestGenBrowserLikeFixtures(t *testing.T) {
 // Expected JA4 prefix: t13d1516h2
 func buildChromeLike() []byte {
 	ciphers := []uint16{
-		0x0a0a, // GREASE — filtered by JA4
+		0x0a0a,                 // GREASE — filtered by JA4
 		0x1301, 0x1302, 0x1303, // TLS 1.3 suites
 		0xc02b, 0xc02f, // ECDHE-ECDSA/RSA AES-128-GCM
 		0xc02c, 0xc030, // ECDHE-ECDSA/RSA AES-256-GCM
@@ -113,8 +113,8 @@ func buildChromeLike() []byte {
 		{extType: 0x000a, data: buildSupportedGroupsExt()},                   // supported_groups
 		{extType: 0x000b, data: []byte{0x01, 0x00}},                          // ec_point_formats
 		{extType: 0x0023, data: []byte{}},                                    // session_ticket
-		{extType: 0x0010, data: buildALPNExt([]string{"h2", "http/1.1"})},   // ALPN
-		{extType: 0x0005, data: []byte{0x01, 0x00, 0x00, 0x00, 0x00}},       // status_request
+		{extType: 0x0010, data: buildALPNExt([]string{"h2", "http/1.1"})},    // ALPN
+		{extType: 0x0005, data: []byte{0x01, 0x00, 0x00, 0x00, 0x00}},        // status_request
 		{extType: 0x000d, data: buildSigAlgsExt()},                           // signature_algorithms
 		{extType: 0x0012, data: []byte{}},                                    // signed_certificate_timestamp
 		{extType: 0x0033, data: buildKeyShareExt()},                          // key_share
@@ -149,10 +149,10 @@ func buildFirefoxLike() []byte {
 		0x1303,                         // TLS_CHACHA20_POLY1305_SHA256 (Firefox orders before AES-256)
 		0x1302,                         // TLS_AES_256_GCM_SHA384
 		0xc02b, 0xc02f, 0xcca9, 0xcca8, // ECDHE ECDSA/RSA GCM + CHACHA20
-		0xc02c, 0xc030,                 // ECDHE ECDSA/RSA AES-256-GCM
-		0xc014, 0xc013,                 // ECDHE-RSA AES-256/128-CBC (reversed vs Chrome)
-		0x009c, 0x009d,                 // RSA AES-128/256-GCM
-		0x002f, 0x0035,                 // RSA AES-128/256-CBC
+		0xc02c, 0xc030, // ECDHE ECDSA/RSA AES-256-GCM
+		0xc014, 0xc013, // ECDHE-RSA AES-256/128-CBC (reversed vs Chrome)
+		0x009c, 0x009d, // RSA AES-128/256-GCM
+		0x002f, 0x0035, // RSA AES-128/256-CBC
 	} // 15 cipher suites
 
 	exts := []extensionSpec{
@@ -162,8 +162,8 @@ func buildFirefoxLike() []byte {
 		{extType: 0x000a, data: buildSupportedGroupsExt()},                   // supported_groups
 		{extType: 0x000b, data: []byte{0x01, 0x00}},                          // ec_point_formats
 		{extType: 0x0023, data: []byte{}},                                    // session_ticket
-		{extType: 0x0010, data: buildALPNExt([]string{"h2", "http/1.1"})},   // ALPN
-		{extType: 0x0005, data: []byte{0x01, 0x00, 0x00, 0x00, 0x00}},       // status_request
+		{extType: 0x0010, data: buildALPNExt([]string{"h2", "http/1.1"})},    // ALPN
+		{extType: 0x0005, data: []byte{0x01, 0x00, 0x00, 0x00, 0x00}},        // status_request
 		{extType: 0x000d, data: buildSigAlgsExt()},                           // signature_algorithms
 		{extType: 0x0033, data: buildKeyShareExt()},                          // key_share
 		{extType: 0x002b, data: buildSupportedVersionsExt([]uint16{0x0304})}, // supported_versions
@@ -210,7 +210,7 @@ func buildKeyShareExt() []byte {
 	// client_shares: one entry — group x25519 (0x001d), 32-byte zero key
 	key := make([]byte, 32)
 	var entry []byte
-	entry = appendUint16(entry, 0x001d)       // group
+	entry = appendUint16(entry, 0x001d)           // group
 	entry = appendUint16(entry, uint16(len(key))) // key_exchange length
 	entry = append(entry, key...)
 	var data []byte

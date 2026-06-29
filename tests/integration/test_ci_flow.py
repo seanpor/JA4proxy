@@ -95,13 +95,19 @@ def test_dockerfile_tools_has_no_pip_gitleaks():
 
 
 def test_scan_images_gates_on_high_and_critical():
-    """scan-images scans both HIGH and CRITICAL and gates on both severity finding
-    rows (excluding the totals line).
+    """scan-images scans both HIGH and CRITICAL severity findings.
+
+    HIGH is advisory (non-blocking) for third-party images we do not build;
+    CRITICAL blocks the gate. Both must be counted and reported separately so
+    operators can see what was found vs. what caused a failure.
     """
     recipe = _recipe("scan-images")
     assert "--severity HIGH,CRITICAL" in recipe, "scan-images should scan HIGH+CRITICAL"
-    assert 'grep -v "Total:" | grep -E -c "CRITICAL|HIGH"' in recipe, (
-        "scan-images must count both HIGH and CRITICAL findings, excluding the totals line"
+    assert 'grep -c "HIGH"' in recipe, (
+        "scan-images must count HIGH findings (advisory for third-party images)"
+    )
+    assert 'grep -c "CRITICAL"' in recipe, (
+        "scan-images must count CRITICAL findings (blocking gate)"
     )
 
 

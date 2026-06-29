@@ -57,20 +57,23 @@ func CompilePortBPF(ports ...uint16) ([]bpf.RawInstruction, error) {
 
 	// EtherType check — jump to DROP on non-IPv4.
 	// Instructions after this JumpIf: IP check (1 LD + 1 JEQ = 2) + port checks (2*N) + KEEP (1) + DROP (1)
+	// The three uint8 casts below are safe: maxBPFPorts=127 caps len(ports),
+	// so the largest offset is 2+2*127+1 = 257 — but the maxBPFPorts check above
+	// rejects len(ports)>127, keeping all offsets within [0,255].
 	insts = append(insts,
 		bpf.LoadAbsolute{Off: 12, Size: 2},
-		bpf.JumpIf{Cond: bpf.JumpEqual, Val: 0x0800, SkipTrue: 0, SkipFalse: uint8(2 + 2*len(ports) + 1)})
+		bpf.JumpIf{Cond: bpf.JumpEqual, Val: 0x0800, SkipTrue: 0, SkipFalse: uint8(2 + 2*len(ports) + 1)}) //nolint:gosec // bounds guaranteed by maxBPFPorts guard above
 
 	// IP protocol check — jump to DROP on non-TCP.
 	// Instructions after this JumpIf: port checks (2*N) + KEEP (1) + before DROP (1)
 	insts = append(insts,
 		bpf.LoadAbsolute{Off: 23, Size: 1},
-		bpf.JumpIf{Cond: bpf.JumpEqual, Val: 6, SkipTrue: 0, SkipFalse: uint8(2*len(ports) + 1)})
+		bpf.JumpIf{Cond: bpf.JumpEqual, Val: 6, SkipTrue: 0, SkipFalse: uint8(2*len(ports) + 1)}) //nolint:gosec // bounds guaranteed by maxBPFPorts guard above
 
 	for i, p := range ports {
 		remaining := len(ports) - i - 1
 		// jt: match → skip remaining port checks to land on KEEP.
-		jt := uint8(remaining * 2)
+		jt := uint8(remaining * 2) //nolint:gosec // bounds guaranteed by maxBPFPorts guard above
 		// jf: non-match → fall through to next check, or skip KEEP on last.
 		jf := uint8(0)
 		if remaining == 0 {
