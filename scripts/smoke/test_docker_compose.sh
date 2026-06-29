@@ -4,6 +4,9 @@ set -euo pipefail
 # /api/v1/health is public (no auth). /api/v1/health/deep requires Auditor role
 # and would return 401 in CI where no credentials are configured.
 HEALTH_URL="${HEALTH_URL:-http://localhost:8090/api/v1/health}"
+# Proxy TLS port: 8443 for the quick-start compose (docker-compose.yml),
+# 8080 for the full POC stack behind HAProxy (docker-compose.poc.yml).
+PROXY_TLS_PORT="${PROXY_TLS_PORT:-8443}"
 RESULTS_DIR="test-results/smoke"
 mkdir -p "$RESULTS_DIR"
 LOG="$RESULTS_DIR/docker-compose-$(date +%Y%m%dT%H%M%S).log"
@@ -86,10 +89,10 @@ for s in data:
 [ -n "$UNHEALTHY" ] && fail "Containers not running: $UNHEALTHY"
 
 if command -v openssl &>/dev/null; then
-  log "Sending synthetic TLS connection through port 8080..."
-  echo "Q" | openssl s_client -connect localhost:8080 -servername localhost \
+  log "Sending synthetic TLS connection through port ${PROXY_TLS_PORT}..."
+  echo "Q" | openssl s_client -connect "localhost:${PROXY_TLS_PORT}" -servername localhost \
     -verify_return_error 2>>"$LOG" || {
-    grep -q "Connection refused" "$LOG" && fail "Proxy port 8080 is not listening"
+    grep -q "Connection refused" "$LOG" && fail "Proxy port ${PROXY_TLS_PORT} is not listening"
     log "Proxy responded at TLS layer (connection accepted and processed)"
   }
 else
