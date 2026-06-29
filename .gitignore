@@ -137,6 +137,9 @@ test-results/
 # Machine-specific calibration (worker count, benchmark data)
 .local/
 
+# Build number (derived from git commit count — no file needed)
+BUILD_NUMBER
+
 # Go build artifacts
 /bin/
 /_build/
