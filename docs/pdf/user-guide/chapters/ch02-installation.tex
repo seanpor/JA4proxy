@@ -41,9 +41,10 @@ The following ports are used on the host. In production, only the public ingress
     \toprule
     \textbf{Port} & \textbf{Service} & \textbf{Purpose} \\
     \midrule
-    443 & HAProxy / Ingress & Public TLS entry point (Inbound traffic) \\
-    8081 & JA4proxy Direct & Direct proxy access (internal loopback) \\
-    8090 & Management UI & FastAPI administration dashboard \\
+    443 & HAProxy / Ingress & Public TLS entry point (inbound traffic) \\
+    8443 & JA4proxy & Proxy TLS entry point (receives traffic from HAProxy or iptables redirect) \\
+    8090 & Management UI & FastAPI dashboard (plain HTTP, loopback only — access via SSH tunnel) \\
+    8444 & Management UI HTTPS & Caddy TLS sidecar for management dashboard (self-signed cert) \\
     9090 & JA4proxy metrics & Prometheus scrape endpoint (proxy) \\
     9091 & Prometheus & Prometheus query UI \\
     3000 & Grafana & Visual analytics dashboards \\
@@ -136,9 +137,23 @@ cp .env.example .env
 Edit the file to configure your \code{BACKEND\_HOST} and credentials.
 
 \subsection{Step 3: Start the stack}
+
 \begin{bashcode}
-make start
+docker compose pull && docker compose up -d
 \end{bashcode}
+
+\begin{tipbox}[Pre-built images — no build step needed]
+Both the Go proxy and the management API are published as container images to the
+GitHub Container Registry (GHCR) on every merge to \code{main}. Running
+\code{docker compose pull} fetches them automatically. No compiler or build tools
+are required on the host:
+\begin{lstlisting}[language=bash, numbers=none]
+ghcr.io/seanpor/ja4proxy-go:main
+ghcr.io/seanpor/ja4proxy-management:main
+\end{lstlisting}
+Both packages are public. \code{docker compose build} is only needed when
+developing changes to the proxy or management API locally.
+\end{tipbox}
 
 \subsection{Step 4: Download GeoIP Data}
 To enable country classification in development:
@@ -163,11 +178,12 @@ docker compose ps
 \subsection{Proxy Health Endpoint}
 Verify the local health API returns a healthy status:
 \begin{bashcode}
-curl -s http://localhost:9090/health | python3 -m json.tool
+curl -s http://127.0.0.1:8090/api/v1/health
+# Expected: {"status":"ok",...}
 \end{bashcode}
 
 \subsection{Grafana Dashboard}
-Access Grafana at \url{http://localhost:3000}. Check that the \emph{JA4proxy Overview} dashboard is present. To generate test traffic to verify dashboards:
+Access Grafana at \url{http://127.0.0.1:3000}. Check that the \emph{JA4proxy Overview} dashboard is present. To generate test traffic to verify dashboards:
 \begin{bashcode}
 ./scripts/generate-tls-traffic.sh 30 50 5
 \end{bashcode}

@@ -74,7 +74,7 @@ The JA4 blacklist, whitelist, patterns, and labels all live in
   \item Edit \code{config/proxy.yml}
   \item Reload without restart:
 \begin{bashcode}
-kill -HUP $(docker compose exec ja4proxy cat /var/run/proxy.pid)
+docker compose kill -s HUP ja4proxy
 \end{bashcode}
   \item Verify the reload in logs:
 \begin{bashcode}
