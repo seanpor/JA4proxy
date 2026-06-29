@@ -1,0 +1,30 @@
+# .lycheeignore — URLs excluded from lychee link-checking.
+# Format: one regex per line. Lines starting with # are comments.
+# These are either known-dead external URLs we cannot control, placeholder
+# URLs in docs, or URLs that require authentication/running services.
+
+# Localhost — requires a running stack; always fails in lint context
+http://localhost
+http://127\.0\.0\.1
+
+# GitHub repos that don't exist yet or have moved
+https://github\.com/foxio/ja4
+https://github\.com/ja4proxy/discussions
+https://github\.com/yourorg/ja4proxy
+https://github\.com/seanpor/terraform-provider-ja4proxy
+
+# External URLs that are permanently down or moved
+https://promlabs\.com/promql-analyzer/
+https://tls-fingerprint\.io/
+https://tranco-list\.eu/top-10000\.csv
+https://www\.abuseipdb\.com/account/api
+https://www\.backblaze\.com/blog/incremental-vs-differential-backup/
+https://www\.coursera\.org/specializations/cyber-security
+https://www\.contributor-covenant\.org/faq/n
+https://dev\.maxmind\.com/geoip/geolite2-free-geolocation-datasets
+
+# EDPB — redirects to www.edpb.europa.eu but lychee rejects the 301
+https://edpb\.europa\.eu/our-work-tools
+
+# Placeholder YouTube URLs (no video ID)
+https://www\.youtube\.com/watch\?v=$

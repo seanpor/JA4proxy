@@ -9,7 +9,7 @@ phase: 105
 
 This page is the **30-minute path** from a fresh clone to a green local test
 run. For deeper material on project structure, code style, and the
-completing-a-phase mechanics, see [`../../CONTRIBUTING.md`](../../../CONTRIBUTING.md);
+completing-a-phase mechanics, see [`../../CONTRIBUTING.md`](../../CONTRIBUTING.md);
 this doc does not duplicate that content.
 
 > **Production runtime is the Go proxy daemon (`ja4pd`).** All legacy Python

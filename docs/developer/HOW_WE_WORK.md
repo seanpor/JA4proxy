@@ -13,9 +13,9 @@ etiquette. The rules here are the contract every contributor — human or
 agent — works under.
 
 For agent-specific orchestration rules (mandatory planning protocol, phase
-close-out automation), see [`../../AGENTS.md`](../../../AGENTS.md). For the
+close-out automation), see [`../../AGENTS.md`](../../AGENTS.md). For the
 architectural context behind these rules, see
-[`../../CLAUDE.md`](../../../CLAUDE.md) §Multi-Agent Coordination.
+[`../../CLAUDE.md`](../../CLAUDE.md) §Multi-Agent Coordination.
 
 ---
 
@@ -210,18 +210,18 @@ Before merging any PR (yours, an agent's, or a Dependabot bump):
    CI run reflects the post-merge state.
 
 Skipping this is the single most common cause of breakages on `main`. The
-[`AGENTS.md`](../../../AGENTS.md) §`make test` must be green locally before every
+[`AGENTS.md`](../../AGENTS.md) §`make test` must be green locally before every
 merge to main section is the canonical statement.
 
 ---
 
 ## Cross-references
 
-- Architectural rules and decision log: [`../../CLAUDE.md`](../../../CLAUDE.md)
+- Architectural rules and decision log: [`../../CLAUDE.md`](../../CLAUDE.md)
 - Agent-orchestration variant of phase protocol:
-  [`../../AGENTS.md`](../../../AGENTS.md)
+  [`../../AGENTS.md`](../../AGENTS.md)
 - Day-1 mechanics, code style, project layout:
-  [`../../CONTRIBUTING.md`](../../../CONTRIBUTING.md)
+  [`../../CONTRIBUTING.md`](../../CONTRIBUTING.md)
 - TDD loop and test-category matrix:
   [`TESTING_STRATEGY.md`](TESTING_STRATEGY.md)
 - Per-workflow CI gate descriptions:

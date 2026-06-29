@@ -1248,7 +1248,14 @@ test-doc-links: ## Phase 107w.3 — lychee-check all docs for broken internal li
 	@echo "=== lychee: internal link check (containerised; advisory in make lint) ==="
 	@docker run --rm -v $(PWD):/input lycheeverse/lychee:0.24.2 \
 		--no-progress --accept 200,204,301,302,403,429 \
-		--exclude-path /input/archive --exclude-path /input/node_modules \
+		--exclude-path /input/archive \
+		--exclude-path /input/node_modules \
+		--exclude-path /input/docs/reports/archive \
+		--exclude-path /input/docs/phases/cancelled \
+		--exclude-path /input/docs/reports/LINK_AUDIT_2026-06-03.md \
+		--exclude 'http://localhost' \
+		--exclude 'http://127\.0\.0\.1' \
+		--exclude-file /input/.lycheeignore \
 		"/input/**/*.md" \
 		|| echo "  ! lychee reported link issues (advisory — see the docs-link-check workflow for the gate)"
 lint-meta: tools-image ## Phase 147 — Verify Makefile and automation script health
