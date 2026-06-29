@@ -3576,4 +3576,36 @@ phases:
     summary: "Tests for all botnet_signal classifications, safety gate (422 for browser
       fp with attack_ui source, 200 without), corpus expansion, JA4T column visibility,
       attack mode threshold lowering."
+  511:
+    name: "SecOps Emergency Dashboard Access"
+    status: COMPLETE
+    action_plan: docs/phases/PHASE_511.md
+    dependencies: []
+    size: MEDIUM
+    summary: "Closed the gap where operators in the field could not access the management
+      dashboard remotely. Added Caddy TLS sidecar (management-tls, port 8444, self-signed
+      cert via 'tls internal') to docker-compose.yml. Added make traffic-on / traffic-off
+      targets (iptables PREROUTING redirect :443→:8443 with instant rollback). Rewrote
+      EMERGENCY_DEPLOY.md as an 8-step remote-first procedure with SSH tunnel patterns,
+      two-DC support, and emergency change record template. Added docs/runbooks/dashboard_access.md
+      (full runbook with bastion pattern, corporate proxy bypass, CLI fallbacks). Published
+      both GHCR images public: ghcr.io/seanpor/ja4proxy-go:main and
+      ghcr.io/seanpor/ja4proxy-management:main. docker compose pull now works for all
+      four services with no build step."
+  512:
+    name: "PDF Documentation Sync (Phase 511)"
+    status: COMPLETE
+    action_plan: docs/phases/PHASE_512.md
+    dependencies:
+    - 511
+    size: SMALL
+    summary: "Synced all three offline PDFs to reflect Phase 511 changes. User-guide ch07
+      gains SSH tunnel access section, emergency deploy section (GHCR images, docker compose
+      pull), traffic insertion section (make traffic-on/off), rewritten fingerprint blocking
+      using ja4-admin.sh CLI, and h2/h1 safety guarantee callout. Ch02 port table adds 8443
+      and 8444, documents GHCR image names, fixes health-check URL. Ch05 kill -HUP pattern
+      updated to docker compose kill -s HUP. Ch06 localhost URLs changed to 127.0.0.1.
+      Reference-manual ch08 services table adds management-tls Caddy row, updates proxy port
+      to 8443, adds GHCR image names and iptables traffic insertion subsections. All three
+      PDFs build with zero LaTeX errors."
 

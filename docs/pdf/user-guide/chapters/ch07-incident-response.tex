@@ -5,6 +5,109 @@
 \label{ch:incident}
 \index{incident response}
 
+\section{Accessing the Dashboard Remotely}
+\index{SSH tunnel}
+\index{dashboard!remote access}
+
+\newthought{The management dashboard is bound to loopback only} (\code{127.0.0.1}).
+In a typical deployment the proxy runs in a datacentre DMZ host and you are on a
+laptop at home or over a corporate VPN. You cannot open \code{localhost:8090} in a
+browser — you need an SSH port-forward first.
+
+\subsection{Setting Up the SSH Tunnel}
+
+If your organisation routes SSH through a bastion host (common in regulated
+environments):
+
+\begin{bashcode}
+ssh -J YOU@bastion.mgmt.corp.example.com YOU@dmz-web01 \
+    -L 8090:127.0.0.1:8090 \
+    -L 8444:127.0.0.1:8444 \
+    -N &
+\end{bashcode}
+
+If your VPN gives you direct SSH access to DMZ hosts:
+
+\begin{bashcode}
+ssh YOU@dmz-web01.corp.example.com \
+    -L 8090:127.0.0.1:8090 \
+    -L 8444:127.0.0.1:8444 \
+    -N &
+\end{bashcode}
+
+Then open in your browser:
+
+\begin{itemize}
+  \item \code{https://127.0.0.1:8444} — HTTPS (Caddy sidecar, self-signed cert;
+    click through the certificate warning — this is expected)
+  \item \code{http://127.0.0.1:8090} — plain HTTP fallback if the HTTPS sidecar
+    is not running
+\end{itemize}
+
+\begin{tipbox}[Corporate proxy and localhost]
+Some corporate web proxies intercept \code{localhost} URLs. Use
+\code{127.0.0.1} (the numeric address) in every URL — it bypasses the proxy.
+\end{tipbox}
+
+For two-datacentre setups and full troubleshooting guidance, see
+\code{docs/runbooks/dashboard\_access.md}.
+
+\section{Emergency Deploy (JA4proxy Not Yet Running)}
+\index{emergency deploy}
+
+If \ja\ is not yet deployed on the host, get it running in under 5 minutes:
+
+\begin{bashcode}
+# SSH into the DMZ host
+ssh -J YOU@bastion YOU@dmz-web01
+
+cd /opt && git clone https://github.com/seanpor/JA4proxy.git && cd JA4proxy
+export BACKEND_HOST=your-actual-backend.internal.example.com
+
+# Pull pre-built images — no compiler or build tools needed on the host
+docker compose pull && docker compose up -d
+\end{bashcode}
+
+Pre-built images are published to GHCR on every merge to main:
+\begin{itemize}
+  \item \code{ghcr.io/seanpor/ja4proxy-go:main}
+  \item \code{ghcr.io/seanpor/ja4proxy-management:main}
+\end{itemize}
+
+Verify the proxy is up before proceeding:
+\begin{bashcode}
+docker compose ps          # all containers should be "Up"
+curl -kv https://127.0.0.1:8443/   # should return backend response
+\end{bashcode}
+
+\section{Inserting JA4proxy Into the Live Traffic Path}
+\index{traffic insertion}
+\index{iptables}
+
+If \ja\ is running but traffic is not yet flowing through it, insert it with a
+single iptables rule:
+
+\begin{bashcode}
+make traffic-on
+# Runs: sudo iptables -t nat -I PREROUTING -p tcp --dport 443 \
+#         -j REDIRECT --to-port 8443
+\end{bashcode}
+
+This redirects all inbound port 443 connections to JA4proxy on port 8443.
+It takes effect immediately with no service restart. Instant rollback:
+
+\begin{bashcode}
+make traffic-off
+# Restores the original path in under 1 second.
+\end{bashcode}
+
+\begin{notebox}[iptables availability]
+\code{make traffic-on} requires \code{sudo iptables} on the DMZ host. If
+iptables is not available (some hardened or cloud hosts restrict it), use a
+HAProxy backend swap or DNS cutover instead — see
+\code{docs/runbooks/dashboard\_access.md\#step-5}.
+\end{notebox}
+
 \newthought{An active attack looks different depending on its type.}
 A fingerprint-consistent botnet shows up immediately in the Grafana fingerprint
 panel. A slow scan with randomised tool configurations might only show up in the
@@ -61,36 +164,44 @@ docker compose logs analytics | grep -E "campaign|slow.scan|score.drift"
 \index{blacklist!emergency}
 
 \subsection{Blocking a JA4 Fingerprint Immediately}
+\index{ja4-admin.sh}
 
-When you identify a malicious fingerprint and need to block it immediately:
+When you identify a malicious fingerprint and need to block it immediately, use
+the admin CLI — it takes effect for new connections within seconds:
 
-\begin{enumerate}
-  \item Add it to the blacklist in \code{config/proxy.yml}:
+\begin{bashcode}
+./scripts/ja4-admin.sh block-ja4 t13d0912_a1b2c3d4e5f6_987654321abc
+\end{bashcode}
+
+Verify the block is active:
+\begin{bashcode}
+docker compose logs -f ja4proxy | grep "JA4 blacklisted"
+\end{bashcode}
+
+You can also block directly from the dashboard: open the \emph{Top Fingerprints}
+panel and click the \textbf{Block} button next to the fingerprint.
+
+\begin{tipbox}[Safety guarantee — what to say on the incident call]
+\emph{``Real browsers using Chrome, Firefox, or Safari cannot be blocked by this
+proxy. Browser TLS fingerprints always include h2/h1 ALPN and are bypassed before
+scoring. The fingerprint we are blocking is a Python library signature with no
+browser ALPN. Legitimate users on the form are unaffected.''}
+\end{tipbox}
+
+\begin{notebox}[Persistent blocking across restarts]
+Blocking via the CLI or dashboard writes to Redis and takes effect immediately,
+but is lost on a Redis restart. For a permanent entry that survives restarts,
+also add the fingerprint to \code{config/proxy.yml}:
 \begin{yamlcode}
 security:
   blacklist:
     - t13d0912_a1b2c3d4e5f6_987654321abc  # Sliver C2 — 2026-04-04 incident
 \end{yamlcode}
-  \item Reload config:
+Then reload config:
 \begin{bashcode}
-kill -HUP $(docker compose exec ja4proxy cat /var/run/proxy.pid)
+docker compose kill -s HUP ja4proxy
 \end{bashcode}
-  \item Verify in logs that subsequent connections from that fingerprint are blocked:
-\begin{bashcode}
-docker compose logs -f ja4proxy | grep "JA4 blacklisted"
-\end{bashcode}
-\end{enumerate}
-
-\begin{tipbox}[Blocking via Redis directly]
-For even faster response (before you can edit the config file), you can add a
-fingerprint to the Redis blacklist set directly:
-\begin{lstlisting}[language=bash, numbers=none]
-docker compose exec redis redis-cli SADD ja4:blacklist \
-  "t13d0912_a1b2c3d4e5f6_987654321abc"
-\end{lstlisting}
-This takes effect immediately for new connections. Remember to also add it to
-\code{config/proxy.yml} to persist the change through restarts.
-\end{tipbox}
+\end{notebox}
 
 \subsection{Blocking a Specific IP Address}
 

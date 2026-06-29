@@ -32,8 +32,10 @@ backend (:443).
 \textbf{Service} & \textbf{Image} & \textbf{Ports} & \textbf{Role} \\
 \midrule
 \code{haproxy} & \code{haproxy:2.9-alpine} & \code{0.0.0.0:443:443} & TLS passthrough LB; injects PROXY protocol v2 \\
-\code{proxy} & \code{ja4proxy:latest} & \code{127.0.0.1:8080:8080} & \ja\ pipeline; exposes metrics on :9090 \\
-\code{redis} & \code{redis:7.2-alpine} & \code{127.0.0.1:6379:6379} & Shared state; NOT exposed to internet \\
+\code{ja4proxy} & \code{ghcr.io/seanpor/ja4proxy-go:main} & \code{0.0.0.0:8443:8443} & \ja\ pipeline; exposes metrics on :9090 \\
+\code{management} & \code{ghcr.io/seanpor/ja4proxy-management:main} & \code{127.0.0.1:8090:8090} & Management API and dashboard (plain HTTP, loopback only) \\
+\code{management-tls} & \code{caddy:2-alpine} & \code{127.0.0.1:8444:8444} & HTTPS sidecar for management dashboard; auto-generates self-signed cert \\
+\code{redis} & \code{redis:7-alpine} & \code{127.0.0.1:6379:6379} & Shared state; NOT exposed to internet \\
 \code{analytics} & \code{ja4analytics:latest} & — & Redis Streams consumer; findings writer \\
 \code{prometheus} & \code{prom/prometheus:v2.51.0} & \code{127.0.0.1:9090:9090} & Metrics collection \\
 \code{grafana} & \code{grafana/grafana:10.4.0} & \code{127.0.0.1:3000:3000} & Dashboards \\
@@ -115,6 +117,8 @@ proxy & \code{./config} & \code{/app/config} & Read-only (RO). Config files. \\
 proxy & \code{./certs} & \code{/app/certs} & Read-only. mTLS CA and certs. \\
 proxy & \code{./data/geoip} & \code{/app/data/geoip} & Read-only. MaxMind DB files. \\
 redis & \code{./data/redis} & \code{/data} & Redis persistence (RDB/AOF). \\
+management-tls & \code{caddy\_data} (named volume) & \code{/data} & Caddy certificate storage. \\
+management-tls & \code{caddy\_config} (named volume) & \code{/config} & Caddy runtime config. \\
 prometheus & \code{./data/prometheus} & \code{/prometheus} & Prometheus TSDB. \\
 grafana & \code{./data/grafana} & \code{/var/lib/grafana} & Grafana dashboards and state. \\
 loki & \code{./data/loki} & \code{/loki} & Loki log chunks. \\
@@ -150,6 +154,59 @@ HAProxy must be configured in TCP mode (\code{mode tcp}), not HTTP mode
 defeating the purpose of \ja. In TCP mode, HAProxy passes the raw TLS bytes through
 to \ja\ unchanged. Only the PROXY protocol header is added by HAProxy.
 \end{warningbox}
+
+\subsection{Pre-built Container Images}
+\index{GHCR}
+\index{container images}
+
+The Go proxy and management API are published to the GitHub Container Registry
+(GHCR) on every merge to \code{main}. Running \code{docker compose pull} fetches
+them automatically — no build toolchain is required on the production host:
+
+\begin{bashcode}
+docker compose pull && docker compose up -d
+\end{bashcode}
+
+Published image names:
+\begin{itemize}
+  \item \code{ghcr.io/seanpor/ja4proxy-go:main}
+  \item \code{ghcr.io/seanpor/ja4proxy-management:main}
+\end{itemize}
+
+Both packages are public. Images are also tagged \code{sha-<commit>} for
+pinning and \code{v*} on version releases.
+
+\subsection{Traffic Insertion via iptables}
+\index{iptables}
+\index{traffic insertion}
+
+When \ja\ is deployed on the same host as an existing service (nginx, HAProxy,
+or the application directly), it can be inserted into the live traffic path
+without changing any upstream configuration by using an iptables PREROUTING
+redirect:
+
+\begin{bashcode}
+# Insert JA4proxy into the traffic path (:443 → :8443):
+make traffic-on
+
+# Remove JA4proxy from the traffic path (instant rollback):
+make traffic-off
+\end{bashcode}
+
+These targets expand to:
+\begin{bashcode}
+# traffic-on:
+sudo iptables -t nat -I PREROUTING -p tcp --dport 443 \
+    -j REDIRECT --to-port 8443
+
+# traffic-off:
+sudo iptables -t nat -D PREROUTING -p tcp --dport 443 \
+    -j REDIRECT --to-port 8443
+\end{bashcode}
+
+The redirect applies to incoming packets only (PREROUTING). Loopback traffic
+is unaffected. Rollback is instantaneous and requires no service restart.
+Requires \code{sudo iptables} on the host.
 
 \section{Helm Chart Reference}
 \index{Helm}

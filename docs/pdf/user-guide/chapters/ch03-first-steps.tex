@@ -148,8 +148,15 @@ docker compose logs ja4proxy | grep "185.220.0.1"
 \index{Grafana}
 \index{dashboard}
 
-Open \url{http://localhost:3000} and navigate to the \emph{JA4proxy Overview} dashboard.
+Open \url{http://127.0.0.1:3000} and navigate to the \emph{JA4proxy Overview} dashboard.
 After running the traffic generator you should see all panels populated.
+
+\begin{notebox}[Management dashboard — separate from Grafana]
+The \emph{management dashboard} (fingerprint lists, dial control, one-click blocking) is a
+separate service at \code{https://127.0.0.1:8444} (HTTPS via Caddy sidecar, self-signed cert)
+or \code{http://127.0.0.1:8090} (plain HTTP). If working remotely, set up an SSH tunnel
+before opening either URL — see Chapter~\ref{ch:incident}.
+\end{notebox}
 
 \subsection{Panel-by-Panel Guide}
 
