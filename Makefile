@@ -1,4 +1,4 @@
-.PHONY: all bench-all build bump-build check ci-verify clean cli-build compose-validate doc-health doctor go-build help help-dev help-legacy help-lint help-ops help-scan init install-hooks ja4p-validate link-check lint lint-ansible lint-docs lint-phases lint-semgrep logs management-down management-logs management-shell management-up rebuild reload remote-bot sbom scan scan-exceptions scorecard-local setup-build start start-poc status stop sync test test-component-suites test-ip test-ratio tunnel verify-all preflight
+.PHONY: all bench-all build bump-build check ci-verify clean cli-build compose-validate doc-health doctor go-build help help-dev help-legacy help-lint help-ops help-scan init install-hooks ja4p-validate link-check lint lint-ansible lint-docs lint-phases lint-semgrep logs management-down management-logs management-shell management-up rebuild reload remote-bot sbom scan scan-exceptions scorecard-local setup-build start start-poc status stop sync test test-component-suites test-ip test-ratio traffic-off traffic-on tunnel verify-all preflight
 PYTHON ?= $(shell command -v python || command -v python3 || echo python)
 GO ?= $(shell command -v go || echo go)
 
@@ -1485,3 +1485,22 @@ admin: ## Run the ja4-admin incident response CLI (pass ARGS for commands)
 
 init-minimal: setup-build ## Emergency init: prompt for BACKEND_HOST, generate .env, done
 	@./bin/ja4p init --minimal
+
+# ── Phase 511: Emergency traffic insertion / rollback ────────────────────────
+# Routes incoming :443 through JA4proxy :8443 using iptables PREROUTING.
+# Requires sudo. Rollback is instant — see docs/runbooks/dashboard_access.md.
+TRAFFIC_PUBLIC_PORT ?= 443
+TRAFFIC_PROXY_PORT  ?= 8443
+
+traffic-on: ## Insert JA4proxy into the traffic path (iptables redirect :443→:8443; needs sudo)
+	@echo "=== Routing port $(TRAFFIC_PUBLIC_PORT) → JA4proxy :$(TRAFFIC_PROXY_PORT) ==="
+	@sudo iptables -t nat -I PREROUTING -p tcp --dport $(TRAFFIC_PUBLIC_PORT) -j REDIRECT --to-port $(TRAFFIC_PROXY_PORT)
+	@echo "✓ Live traffic now flowing through JA4proxy."
+	@echo "  Monitor: docker compose logs -f ja4proxy"
+	@echo "  Rollback at any time: make traffic-off"
+
+traffic-off: ## Remove JA4proxy from the traffic path (instant rollback; needs sudo)
+	@echo "=== Removing JA4proxy from traffic path ==="
+	@sudo iptables -t nat -D PREROUTING -p tcp --dport $(TRAFFIC_PUBLIC_PORT) -j REDIRECT --to-port $(TRAFFIC_PROXY_PORT) 2>/dev/null \
+		&& echo "✓ Traffic bypassing JA4proxy. Original service restored." \
+		|| echo "Rule not found — JA4proxy was not in the traffic path."

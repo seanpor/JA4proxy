@@ -1,0 +1,10 @@
+# Management dashboard TLS sidecar — phase-511
+# Terminates HTTPS on :8444, proxies to the management API on :8090.
+# 'tls internal' generates a self-signed cert automatically; no cert files needed.
+# Browser will show an "untrusted cert" warning on first visit — click through.
+# For a trusted cert, replace 'tls internal' with 'tls /certs/cert.pem /certs/key.pem'
+# and mount your cert files into the container at /certs/.
+:8444 {
+    tls internal
+    reverse_proxy management:8090
+}

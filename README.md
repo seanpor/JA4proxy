@@ -52,25 +52,40 @@ export BACKEND_HOST=your-server.com
 docker compose up -d
 ```
 
-JA4proxy is now scoring connections on port **8443**. Open the dashboard to see
-your traffic:
+JA4proxy is now scoring connections on port **8443**.
 
-**http://localhost:8090** — live dashboard showing every connection, risk
-scores, top fingerprints, and one-click blocking.
+**If you're on this machine:** open `http://127.0.0.1:8090` or `https://127.0.0.1:8444`
+for the dashboard.
 
-To verify traffic is flowing through the proxy:
+**If you're working remotely** (the normal case — the server is in a datacentre and
+you're at home or on a different network):
 
 ```bash
-curl -kv https://localhost:8443/
+# SSH tunnel — works through corporate VPN, bastion hosts, and firewalls
+# Replace bastion.example.com and dmz-host with your actual hostnames
+ssh -J you@bastion.example.com you@dmz-host \
+    -L 8090:127.0.0.1:8090 \
+    -L 8444:127.0.0.1:8444 \
+    -N
+# Then open: https://127.0.0.1:8444  (or http://127.0.0.1:8090)
 ```
 
-For the full emergency deployment guide with port 443 setup, DNS changes, and
+See [Dashboard Access](docs/runbooks/dashboard_access.md) for the full guide including
+corporate proxy bypass, two-datacentre setups, and the emergency change procedure.
+
+To verify traffic is flowing through the proxy (from the server itself):
+
+```bash
+curl -kv https://127.0.0.1:8443/
+```
+
+For the full emergency deployment guide with port 443 setup, traffic insertion, and
 blocking instructions, see [Emergency Deploy](docs/operations/EMERGENCY_DEPLOY.md).
 
 ### First 5 minutes after deploy
 
-1. **Open the dashboard** at http://localhost:8090 — you'll see connections
-   arriving with fingerprints and risk scores.
+1. **Open the dashboard** — see the SSH tunnel command above if working remotely.
+   You'll see connections arriving with fingerprints and risk scores.
 2. **Watch for a few minutes.** The proxy is in monitor mode (dial=0) — scoring
    everything, blocking nothing.
 3. **Look at the top fingerprints.** Bots cluster on a small number of
