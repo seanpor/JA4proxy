@@ -77,6 +77,10 @@ services:
     build:
       context: .
       dockerfile: deploy/docker/Dockerfile.management
+    # Pre-built image — 'docker compose pull' fetches this instead of building.
+    # Published to GHCR on every merge to main that touches management/ source.
+    # Make package public: GitHub → Packages → ja4proxy-management → Package settings
+    image: ghcr.io/seanpor/ja4proxy-management:main
     restart: unless-stopped
     ports:
       - "127.0.0.1:${MANAGEMENT_PORT:-8090}:8090"
@@ -103,6 +107,10 @@ services:
     build:
       context: .
       dockerfile: deploy/docker/Dockerfile.go-proxy
+    # Pre-built image — 'docker compose pull' fetches this instead of building.
+    # Published to GHCR on every merge to main that touches proxy source.
+    # Make package public: GitHub → Packages → ja4proxy-go → Package settings
+    image: ghcr.io/seanpor/ja4proxy-go:main
     restart: unless-stopped
     ports:
       - "${PROXY_PORT:-8443}:8443"
