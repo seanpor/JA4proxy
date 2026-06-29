@@ -107,6 +107,7 @@ wheels/
 .coverage*
 coverage.json
 coverage.xml
+coverage.txt
 htmlcov/
 .tox/
 .hypothesis/
