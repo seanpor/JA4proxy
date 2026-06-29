@@ -144,9 +144,12 @@ test-results/
 /ja4check
 /ja4proxy
 /ja4proxy-cli
-/ja4-tap
 /cmd/proxy/proxy
 /proxy
+# Stray root-level go builds (correct output is bin/ via the Makefile targets)
+/ja4pd
+/ja4p
+/ja4p-setup
 
 # LaTeX build artifacts (docs/pdf/)
 *.aux
