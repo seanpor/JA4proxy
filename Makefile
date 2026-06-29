@@ -1,4 +1,4 @@
-.PHONY: all bench-all build bump-build ci-verify clean cli-build doc-health doctor go-build help help-dev help-legacy help-lint help-ops help-scan init install-hooks ja4p-validate link-check lint lint-ansible lint-docs lint-phases lint-semgrep logs management-down management-logs management-shell management-up rebuild reload remote-bot sbom scan scan-exceptions scorecard-local setup-build start start-poc status stop sync test test-component-suites test-ip test-ratio tunnel verify-all preflight
+.PHONY: all bench-all build bump-build check ci-verify clean cli-build compose-validate doc-health doctor go-build help help-dev help-legacy help-lint help-ops help-scan init install-hooks ja4p-validate link-check lint lint-ansible lint-docs lint-phases lint-semgrep logs management-down management-logs management-shell management-up rebuild reload remote-bot sbom scan scan-exceptions scorecard-local setup-build start start-poc status stop sync test test-component-suites test-ip test-ratio tunnel verify-all preflight
 PYTHON ?= $(shell command -v python || command -v python3 || echo python)
 GO ?= $(shell command -v go || echo go)
 
@@ -6,7 +6,7 @@ GO ?= $(shell command -v go || echo go)
 
 # ── Build Metadata ────────────────────────────────────────────────────────────
 VERSION ?= $(shell cat VERSION 2>/dev/null || echo "2.0")
-BUILD_NUMBER ?= $(shell cat BUILD_NUMBER 2>/dev/null || echo "0")
+BUILD_NUMBER ?= $(shell git rev-list --count HEAD 2>/dev/null || echo "0")
 GIT_COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILD_DATE ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 FULL_VERSION := v$(VERSION).$(BUILD_NUMBER)
@@ -59,55 +59,80 @@ doctor: ## Phase 147/225 — Verify environment and toolchain health
 # ── Master help ───────────────────────────────────────────────────────────
 help: ## Show the essential front-door targets
 	@echo "======================================================================"
-	@echo "  JA4proxy v2.0.0 — Essential Operational Commands"
+	@echo "  JA4proxy $(FULL_VERSION) — Essential Operational Commands"
 	@echo "======================================================================"
 	@echo ""
-	@echo "── Lifecycle ─────────────────────────────────────────────────────────"
-	@echo "  make build          - Build production Docker images"
-	@echo "  make start          - Start full stack (Proxy + Monitoring)"
-	@echo "  make start-poc      - Start POC environment only"
-	@echo "  make stop           - Stop all services"
-	@echo "  make status         - Show cluster health and security state"
-	@echo "  make logs           - Stream real-time structured proxy logs"
+	@echo "── First time? ───────────────────────────────────────────────────────"
+	@echo "  make doctor              - Check local environment for missing tools"
+	@echo "  make init                - Run guided setup wizard (generates .env)"
 	@echo ""
-	@echo "── Quality & Security ────────────────────────────────────────────────"
-	@echo "  make doctor         - Check local environment for missing tools"
-	@echo "  make lint           - Run all code and documentation linters"
-	@echo "  make scan           - Run all security and container scans"
-	@echo "  make test           - Run the complete Go and Python test suite"
-	@echo "  make lint scan test - The full gate (everything except heavy benchmarks)"
-	@echo "  make bench-all      - Run the heavy benchmarks (perf, load, MTTR) — slow"
-	@echo "  make verify-all     - lint + scan + test + bench-all (release gate) — slow"
+	@echo "── Build ─────────────────────────────────────────────────────────────"
+	@echo "  make go-build            - Compile Go proxy + CLI binaries (~5s)"
+	@echo "  make compose-validate    - Validate env vars in compose files (fast)"
+	@echo "  make build               - go-build + all Docker images (requires .env)"
 	@echo ""
-	@echo "── Troubleshooting & Simulation ──────────────────────────────────────"
-	@echo "  make reload         - Reload config without downtime (SIGHUP)"
-	@echo "  make test-ip IP=..    - Simulate pipeline decision for an IP"
+	@echo "── Operate ───────────────────────────────────────────────────────────"
+	@echo "  make start               - Start full stack (Proxy + Monitoring)"
+	@echo "  make start-poc           - Start POC environment only"
+	@echo "  make stop                - Stop all services"
+	@echo "  make status              - Show cluster health and security state"
+	@echo "  make logs                - Stream real-time structured proxy logs"
+	@echo "  make reload              - Reload config without restart (SIGHUP)"
 	@echo ""
-	@echo "── Advanced Help ─────────────────────────────────────────────────────"
-	@echo "  make help-ops       - Incident response, blacklisting, threat-intel"
-	@echo "  make help-lint      - Granular linter control (shell, yaml, helm, etc.)"
-	@echo "  make help-scan      - Granular scanner control (CVEs, images, IaC)"
-	@echo "  make help-dev       - Internal build, benchmark, and agent targets"
+	@echo "── Quality gates (three tiers) ───────────────────────────────────────"
+	@echo "  make check               - FAST: compile + env validate + tests (~3m)"
+	@echo "                             Matches CI required checks. Run before push."
+	@echo "  make preflight           - FULL: lint + scan + test (~25m, pre-PR)"
+	@echo "                             Includes Trivy CVE scan — run 'make build' first."
+	@echo "  make verify-all          - RELEASE: preflight + heavy benchmarks (~45m)"
+	@echo ""
+	@echo "── Incident response ─────────────────────────────────────────────────"
+	@echo "  make attack-status       - Quick security snapshot (bans, block totals)"
+	@echo "  make top-attackers       - Top 10 fingerprints by traffic"
+	@echo "  make dial LEVEL=75       - Raise blocking threshold (0=monitor, 100=full)"
+	@echo "  make block-ip IP=x.x.x.x - Hard-block IP for 1 hour"
+	@echo "  make test-ip IP=x.x.x.x  - Simulate pipeline decision for an IP"
+	@echo "  make help-ops            - Full incident response command reference"
+	@echo ""
+	@echo "── More help ─────────────────────────────────────────────────────────"
+	@echo "  make help-ops            - Incident response + threat-intel details"
+	@echo "  make help-lint           - Granular linter control"
+	@echo "  make help-scan           - Granular scanner control"
+	@echo "  make help-dev            - Build, benchmark, and agent targets"
 	@echo ""
 
 help-ops: ## Incident response and threat intelligence help
 	@echo ""
-	@echo "── Incident Response (no restart needed) ─────────────────────"
-	@echo "  attack-status   - Quick security snapshot"
-	@echo "  top-attackers   - Top 10 fingerprints by traffic"
-	@echo "  block-ja4 FP=.. - Blacklist JA4 fingerprint (instant TCP RST)"
-	@echo "  block-ip IP=..  - Hard-block IP for 1 hour"
-	@echo "  unblock-ip IP=. - Remove all blocks for IP"
-	@echo "  flush-redis     - Reset bans/blocks/rates"
-	@echo "  dial LEVEL=0-100- Set blocking dial via pubsub"
+	@echo "  Forms being stuffed? Start here:"
 	@echo ""
-	@echo "── Threat Intelligence ────────────────────────────────────────"
-	@echo "  fetch-db        - Fetch malicious fingerprints from ja4db/FoxIO"
-	@echo "  list-pending    - Show fingerprints awaiting admin approval"
-	@echo "  approve-all     - Approve all pending fingerprints"
-	@echo "  update-geoip    - Download latest IP2Location LITE DB (monthly)"
-	@echo "  check-geoip     - Check age of current GeoIP database"
-	@echo "  geoip-report    - Full blocking report"
+	@echo "── Step 1: understand what is happening ──────────────────────────────"
+	@echo "  make attack-status              - Bans, block totals, top threats"
+	@echo "  make top-attackers              - Top 10 fingerprints by traffic"
+	@echo "  make logs                       - Live structured log stream"
+	@echo ""
+	@echo "── Step 2: raise the blocking threshold ──────────────────────────────"
+	@echo "  make dial LEVEL=50              - Start scoring + light blocking"
+	@echo "  make dial LEVEL=75              - Block most bots, pass browsers"
+	@echo "  make dial LEVEL=100             - Full blocking at configured thresholds"
+	@echo "  (dial=0 is monitor-only; raise gradually to avoid false positives)"
+	@echo ""
+	@echo "── Step 3: targeted blocks (no restart needed) ───────────────────────"
+	@echo "  make block-ip IP=1.2.3.4        - Hard-block IP for 1 hour"
+	@echo "  make block-ja4 FP=t13d...       - Blacklist JA4 fingerprint (instant RST)"
+	@echo "  make unblock-ip IP=1.2.3.4      - Remove all blocks for IP (false positive)"
+	@echo "  make flush-redis                - Nuclear option: reset all bans/blocks/rates"
+	@echo ""
+	@echo "── Step 4: reload without downtime ───────────────────────────────────"
+	@echo "  make reload                     - Push config changes via SIGHUP"
+	@echo "  make test-ip IP=1.2.3.4         - Verify decision for a specific IP"
+	@echo ""
+	@echo "── Threat Intelligence ───────────────────────────────────────────────"
+	@echo "  make fetch-db                   - Fetch malicious fingerprints (ja4db/FoxIO)"
+	@echo "  make list-pending               - Show fingerprints awaiting approval"
+	@echo "  make approve-all                - Approve all pending fingerprints"
+	@echo "  make update-geoip               - Download latest GeoIP DB (run monthly)"
+	@echo "  make check-geoip                - Check age of current GeoIP database"
+	@echo "  make geoip-report               - Full geo-blocking report"
 	@echo ""
 
 help-lint:
@@ -296,17 +321,25 @@ agent-status:
 
 # ── Build ──────────────────────────────────────────────────────────────────────
 
-# Build Docker images
-
-build: bump-build ## Build all production binaries (Proxy, CLI)
+build: bump-build ## Build Go binaries + all Docker images (requires .env — run 'make init' first)
 	@mkdir -p bin
 	@$(MAKE) go-build cli-build
+	@$(MAKE) compose-validate
 	@echo "Building Docker images (BuildKit enabled)..."
-	DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 \
+	@DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 \
 	VERSION=$(FULL_VERSION) GIT_COMMIT=$(GIT_COMMIT) BUILD_DATE=$(BUILD_DATE) \
 	docker compose -f deploy/docker/docker-compose.poc.yml --env-file .env build
-	VERSION=$(FULL_VERSION) GIT_COMMIT=$(GIT_COMMIT) BUILD_DATE=$(BUILD_DATE) \
-	docker compose -f deploy/docker/docker-compose.poc.yml --env-file .env build
+
+# Validate compose files without building images (fast — no Docker daemon build step)
+# Catches missing required env vars before you waste time on a full 'make build'.
+# Safe to run without a running Docker daemon; used by CI as a merge gate.
+compose-validate: ## Validate docker-compose files and required env vars (fast, no image build)
+	@if [ ! -f .env ]; then \
+		echo "ERROR: .env not found. Run 'make init' to generate it."; \
+		exit 1; \
+	fi
+	@docker compose -f deploy/docker/docker-compose.poc.yml --env-file .env config > /dev/null
+	@echo "✓ compose config valid — all required env vars present"
 
 # Run all tests locally in parallel (fast — no Docker required)
 # Skips tests marked @pytest.mark.live_services (require Go/Python proxy + Redis stack)
@@ -1291,9 +1324,8 @@ init: setup-build ## Start the guided setup wizard
 
 	@echo "✓ bin/ja4ps"
 
-bump-build: ## Increment the build number
-	@expr $$(cat BUILD_NUMBER) + 1 > BUILD_NUMBER
-	@echo "✓ Build number bumped to $$(cat BUILD_NUMBER)"
+bump-build: ## Show build number (derived from git commit count — no file needed)
+	@echo "✓ Build number: $$(git rev-list --count HEAD 2>/dev/null || echo 0)"
 
 go-build: ## Build the Go proxy daemon into bin/ja4pd
 	@mkdir -p bin
@@ -1420,7 +1452,11 @@ loadtest: go-build cli-build ## Lane-isolated good/bad load test -> watch Grafan
 # shift-left half of the CI trial: heavy checks (lint, scan) run here on the
 # author's machine so the PR path can stay fast. All three must be green before
 # you push a branch and open a PR. See docs/phases/PHASE_332.md.
-preflight: ## Phase 332 — full local gate before opening a PR (lint + scan + test)
+check: go-build cli-build compose-validate test ## Fast gate: compile + env validate + tests (~3 min, no image builds or CVE scans)
+	@echo "✓ check passed — matches CI required checks"
+
+preflight: ## Full local gate before opening a PR: lint + scan + test (~25 min)
+	@echo "NOTE: scan-first-party scans Docker images — run 'make build' first to ensure they are current."
 	@echo "=== preflight [1/3] make lint ==="
 	@$(MAKE) lint
 	@echo "=== preflight [2/3] make scan ==="
