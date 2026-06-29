@@ -57,8 +57,8 @@ func main() {
 		ja4tBlock   = flag.String("ja4t-blocklist", "", "comma-separated JA4T fingerprints that trigger an out-of-band ban intent (empty = enforcement can never fire)")
 		banTTL      = flag.Duration("ban-ttl", 5*time.Minute, "TTL for a sensor-written ban:{ip} (kept short by the fail-open asymmetry)")
 		intentTTL   = flag.Duration("intent-ttl", time.Hour, "TTL for an advisory fp:ban_intent:ip watchlist entry")
-		metricsAddr  = flag.String("metrics-addr", "", "HTTP address for Prometheus metrics and /health (empty = disabled)")
-		seccompPath  = flag.String("seccomp-profile", "/etc/ja4proxy/seccomp_tap.json", "path to seccomp JSON profile (empty = embedded default)")
+		metricsAddr = flag.String("metrics-addr", "", "HTTP address for Prometheus metrics and /health (empty = disabled)")
+		seccompPath = flag.String("seccomp-profile", "/etc/ja4proxy/seccomp_tap.json", "path to seccomp JSON profile (empty = embedded default)")
 	)
 	flag.Parse()
 

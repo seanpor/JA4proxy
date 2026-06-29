@@ -1739,7 +1739,7 @@ func buildPipelineConfig(cfg *config.Config) *security.PipelineConfig {
 		JA4TConsumerRedisTimeout: cfg.JA4TConsumer.RedisTimeoutMs,
 		JA4TConsumerCacheTTL:     cfg.JA4TConsumer.CacheTTLSeconds,
 		JA4TBlocklist:            cfg.JA4TConsumer.Blocklist,
-		AutoEscalate:             cfg.AutoEscalate,    // phase-248
+		AutoEscalate:             cfg.AutoEscalate,     // phase-248
 		DatacenterPolicy:         cfg.DatacenterPolicy, // phase-249
 	}
 }
