@@ -573,7 +573,8 @@ scan-images:
 			--format table "$$img" 2>&1); \
 		high=$$(echo "$$result" | grep -v "Total:" | grep -c "HIGH" || true); \
 		crit=$$(echo "$$result" | grep -v "Total:" | grep -c "CRITICAL" || true); \
-		echo "    $$(echo \"$$result\" | grep -E \"CRITICAL|HIGH|Total:\" || true)"; \
+		matches=$$(echo "$$result" | grep -E "CRITICAL|HIGH|Total:" || true); \
+		echo "    $$matches"; \
 		if [ "$$high" -gt 0 ]; then \
 			echo "    ⚠ ADVISORY: $$high HIGH CVE(s) in $$img (non-blocking — upstream third-party image; tracked in docs/security/THIRD_PARTY_CVE_WAIVERS.md)"; \
 			advisory=$$((advisory + high)); \
