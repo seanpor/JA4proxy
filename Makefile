@@ -563,7 +563,7 @@ scan-images:
 	@echo "     docs/security/THIRD_PARTY_CVE_WAIVERS.md, not silently ignored.)"
 	@echo "    CVEs listed in .trivyignore are documented exceptions."
 	@echo ""
-	@fail=0; \
+	@fail=0; advisory=0; \
 	for img in $(TRIVY_IMAGES); do \
 		echo "  Scanning $$img ..."; \
 		result=$$(docker run --rm -v "$(PWD):/scan:ro" -v "$(TRIVY_CACHE):/root/.cache/trivy" aquasec/trivy:0.71.0 image \
@@ -571,16 +571,27 @@ scan-images:
 			--no-progress --scanners vuln \
 			--ignorefile /scan/.trivyignore \
 			--format table "$$img" 2>&1); \
-		echo "$$result" | grep -v "Total:" | grep -E -c "CRITICAL|HIGH" > /dev/null 2>&1 && findings=1 || findings=0; \
-		critical=$$(echo "$$result" | grep -v "Total:" | grep -E -c "CRITICAL|HIGH" || true); \
+		high=$$(echo "$$result" | grep -v "Total:" | grep -c "HIGH" || true); \
+		crit=$$(echo "$$result" | grep -v "Total:" | grep -c "CRITICAL" || true); \
 		echo "    $$(echo \"$$result\" | grep -E \"CRITICAL|HIGH|Total:\" || true)"; \
-		[ "$$critical" -lt 1 ] || { echo "    Note: $$critical HIGH/CRITICAL findings in $$img"; }; \
-		if echo "$$result" | grep -q "^│.*CRITICAL"; then echo "    ✗ CRITICAL findings in $$img — fix the image or add a justified, dated .trivyignore entry"; fail=1; fi; \
+		if [ "$$high" -gt 0 ]; then \
+			echo "    ⚠ ADVISORY: $$high HIGH CVE(s) in $$img (non-blocking — upstream third-party image; tracked in docs/security/THIRD_PARTY_CVE_WAIVERS.md)"; \
+			advisory=$$((advisory + high)); \
+		fi; \
+		if [ "$$crit" -gt 0 ]; then \
+			echo "    ✗ CRITICAL: $$crit CRITICAL CVE(s) in $$img — fix the image or add a justified, dated .trivyignore entry"; \
+			fail=1; \
+		fi; \
 		echo ""; \
 	done; \
-	[ $$fail -eq 0 ] || { echo "✗ CRITICAL CVEs found — see .trivyignore for documented exceptions"; exit 1; }
-	@echo "✓ Image scan complete"
-	@python3 scripts/ci_summary.py scan
+	[ $$fail -eq 0 ] || { echo "✗ CRITICAL CVEs found — see .trivyignore for documented exceptions"; exit 1; }; \
+	if [ $$advisory -gt 0 ]; then \
+		echo "⚠ Image scan: $$advisory advisory HIGH CVE(s) in third-party images (non-blocking)"; \
+		echo "  These are upstream CVEs in images we do not build. Tracked in docs/security/THIRD_PARTY_CVE_WAIVERS.md."; \
+		echo "  Re-run when updated image tags are available, or add a justified, dated .trivyignore entry."; \
+	else \
+		echo "✓ Image scan complete — no findings"; \
+	fi
 
 # Trivy misconfiguration scan of Dockerfiles and compose files.
 # Does NOT require building images — analyses file content only.
@@ -996,7 +1007,7 @@ scan: ## Phase 146 — Run all security and container scans
 	@python3 scripts/pipeline_summary.py scan
 
 scan-all: scan-container scan-dockerfiles scan-first-party scan-images
-	@echo "✓ All scans passed"
+	@echo "✓ All blocking scan gates passed (CRITICAL=0; any advisory HIGHs listed above)"
 
 # Analyze Docker containers and dependencies for version discrepancies
 check-updates-container:
@@ -1256,9 +1267,21 @@ lint-python: ## Run all Python linters (ruff, mypy, bandit)
 
 lint-go: ## Run all Go linters (fmt, vet, golangci-lint)
 	@echo "=== lint-go: go fmt + go vet + golangci-lint ==="
-	@GOROOT=$(GOROOT) go fmt ./...
+	@unfmt=$$(GOROOT=$(GOROOT) go fmt ./... 2>&1); \
+	if [ -n "$$unfmt" ]; then \
+		echo "  ✗ gofmt: the following files needed formatting (they have been reformatted; commit them):"; \
+		echo "$$unfmt" | sed 's/^/    /'; \
+		exit 1; \
+	fi
+	@echo "  ✓ gofmt: all files formatted"
 	@GOROOT=$(GOROOT) go vet ./...
-	@golangci-lint run ./... || echo "  ! Warning: golangci-lint failed or not installed"
+	@echo "  ✓ go vet passed"
+	@if command -v golangci-lint > /dev/null 2>&1; then \
+		golangci-lint run ./...; \
+		echo "  ✓ golangci-lint passed"; \
+	else \
+		echo "  ! golangci-lint not installed — skipping (will run in CI)"; \
+	fi
 
 lint-sast: ## Run cross-language SAST (Semgrep)
 	@echo "=== lint-sast: Semgrep ==="

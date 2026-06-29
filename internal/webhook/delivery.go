@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"time"
 
@@ -291,30 +290,6 @@ func isPrivateIP(ip net.IP) bool {
 		return false
 	}
 	return ip.IsLoopback() || ip.IsPrivate() || ip.IsUnspecified() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || isReservedIPv4(ip)
-}
-
-func isPrivateTarget(u string) bool {
-	if os.Getenv("JA4PROXY_TEST_ALLOW_LOOPBACK") == "true" {
-		return false
-	}
-	parsed, err := url.Parse(u)
-	if err != nil {
-		return true
-	}
-	host := parsed.Hostname()
-	if ip := net.ParseIP(host); ip != nil {
-		return isPrivateIP(ip)
-	}
-	ips, err := net.LookupIP(host)
-	if err != nil {
-		return true
-	}
-	for _, ip := range ips {
-		if isPrivateIP(ip) {
-			return true
-		}
-	}
-	return false
 }
 
 // newSafeTransport returns an http.Transport whose DialContext resolves the
