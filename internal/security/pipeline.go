@@ -587,7 +587,7 @@ func (p *Pipeline) processInternal(ctx context.Context, conn *ConnectionContext)
 					`{"reason":"auto_escalation","offense_count":%d,"auto":true}`, count)
 				p.redis.SetString(ctx, banKey, reason, p.cfg.AutoEscalate.BanHours*3600)
 			}
-			return &PipelineResult{Action: escalated, Score: 100, BypassReason: "auto_escalation"}
+			return &PipelineResult{Action: escalated, Score: 100, BypassReason: "auto_escalation"} //nolint:gosec // G101 false positive: "auto_escalation" is a status label, not a credential
 		}
 	}
 

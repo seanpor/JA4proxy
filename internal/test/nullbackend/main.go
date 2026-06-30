@@ -37,7 +37,7 @@ func main() {
 	}
 	defer ln.Close()
 
-	log.Printf("Go Null-Backend (High Perf) listening on :%s", port)
+	log.Printf("Go Null-Backend (High Perf) listening on :%s", port) //nolint:gosec // G706: port already validated by net.Listen above; test binary only
 
 	for {
 		conn, err := ln.Accept()
