@@ -114,14 +114,17 @@ on. Edit `manifest.yaml`; run `make sync` to preview locally.
 > even that, but merge queue requires an **organization-owned** repo and this one
 > is personal-account-owned, so it is unavailable — see `docs/phases/PHASE_332.md`.)*
 >
-> **Required checks (the merge gate).** The fast required set is Meta-Validation,
-> Full Test, Secrets scan, SAST, the Python/Go dependency audits, Traceability,
-> and lychee. **Full Lint and Security Scan are deliberately NOT in the required
-> PR set** (Phase 332): they are heavy, so you run them locally via
-> **`make preflight`** before opening a PR, and they still run on push-to-`main`
-> (post-merge) and the weekly schedule. Skipping `make preflight` and letting a
-> lint/scan break reach `main` is the failure mode this is watching for. Because
-> `main` is non-strict, run `make preflight` against a reasonably current branch.
+> **Required checks (the merge gate).** The full required set is Meta-Validation,
+> Full Lint, Full Test, Security Scan, Secrets scan, SAST, the Python/Go
+> dependency audits, Traceability, lychee, and Go Build + Compose Validate.
+> Full Lint and Security Scan were run as **non-required, advisory-only** for a
+> time-boxed two-week Phase 332 trial (2026-06-15 → 2026-06-29); the trial
+> expired with zero lint/scan regressions reaching `main` undetected, and both
+> were **restored to required on 2026-07-01**. Run **`make preflight`**
+> (lint + scan + test) locally before opening any PR regardless — it's the same
+> gate CI now enforces, and catching a break locally is faster than waiting on
+> CI. Because `main` is non-strict, run `make preflight` against a reasonably
+> current branch.
 >
 > **Emergency override** (use only when `main` is broken and a fix cannot wait
 > for normal CI): temporarily lift admin enforcement, land the fix, then

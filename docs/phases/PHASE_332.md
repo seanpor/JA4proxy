@@ -28,6 +28,18 @@ dependencies: []
 >   substitute.
 > - ⏸️ Manifest `manifest.d/` fragments — **deferred** (low marginal benefit; see
 >   below).
+>
+> **Trial concluded (2026-07-01).** The two-week window (2026-06-15 → 2026-06-29)
+> expired with zero lint/scan regressions reaching `main` undetected — the
+> push-to-`main`/nightly safety net caught everything, satisfying the trial's
+> stated success criteria. Full Lint and Security Scan were **restored to
+> required** on `main` the same day (phase-514), matching what
+> `scripts/branch_protection.sh` and `tests/test_workflow_pinning.py` had
+> declared as required throughout — the live branch-protection API setting had
+> drifted from that source of truth for the two days between expiry and review.
+> `ci.yml`'s per-job `if: github.event_name != 'merge_group'` guards on the lint
+> and scan jobs were removed as part of the same change (merge_group is still
+> dormant; see below).
 
 > **Delivery increments (2026-06-15).** To keep PRs reviewable and the blast
 > radius small, this phase lands in increments rather than one sweep. Decisions
@@ -211,9 +223,10 @@ optionally `ci.yml` (mark demoted jobs non-blocking on `pull_request`).
   by the push/nightly run within one cycle → re-add the demoted checks to the
   required set (single branch-protection edit; fully reversible).
 
-## Admin flip — what was applied (2026-06-15)
+## Admin flip — what was applied (2026-06-15), and the trial revert (2026-07-01)
 
-Two branch-protection changes were applied via the REST API on `main`:
+Two branch-protection changes were applied via the REST API on `main` on
+2026-06-15:
 
 1. **Trimmed the required-check set** — demoted Full Lint + Security Scan.
    Remaining required contexts (8): Meta-Validation, Full Test, Secrets scan,
@@ -221,6 +234,15 @@ Two branch-protection changes were applied via the REST API on `main`:
 2. **Set `strict=false`** (require-branches-up-to-date OFF). This is the
    substitute for the unavailable merge queue: independent PRs no longer rebase
    every time `main` advances, which was the dominant remaining race driver.
+   `strict=false` is unrelated to the lint/scan trial and stays in effect.
+
+**2026-07-01: Full Lint + Security Scan restored to required.** The trial
+window (2026-06-15 → 2026-06-29) expired two days prior without review; on
+review it had cleanly met its success criteria (no undetected regression), so
+both checks were added back to `required_status_checks.contexts` (`strict`
+left at `false`). Required contexts are now (11): Meta-Validation, Full Lint,
+Full Test, Security Scan, Secrets scan, SAST, Python dep-audit, Go dep-audit,
+Traceability, lychee, and Go Build + Compose Validate.
 
 **Merge queue was attempted and is unavailable.** GitHub only supports merge
 queue on **organization-owned** repositories; this repo is personal-account-
@@ -230,20 +252,25 @@ repo ever moves under an org, the `merge_group` CI wiring is already in place �
 enable the queue (Settings → Rules, or a ruleset `merge_queue` rule using the
 trimmed required set) and consider re-evaluating `strict`.
 
-**Revert (single PATCH):** restore `strict=true` and/or re-add `Full Lint (make
-lint)` + `Security Scan (make scan)` to the required contexts. Fully reversible.
+**Current live setting (applied 2026-07-01, matches `scripts/branch_protection.sh`
+and `tests/test_workflow_pinning.py`):** `strict=false`, all 11 contexts above
+required.
 
 ```bash
-# revert example
+# applied 2026-07-01 to restore Full Lint + Security Scan as required
 gh api -X PATCH repos/seanpor/JA4proxy/branches/main/protection/required_status_checks \
   --input - <<'JSON'
-{ "strict": true, "contexts": ["Meta-Validation (Doctor + Meta-Lint)",
+{ "strict": false, "contexts": ["Meta-Validation (Doctor + Meta-Lint)",
   "Full Lint (make lint)", "Full Test Suite (make test)", "Security Scan (make scan)",
   "Secrets scan (TruffleHog)", "SAST (Semgrep)", "Python dependency audit (pip-audit)",
   "Go dependency audit (govulncheck)", "Traceability matrix check",
-  "lychee on conformance + audience-scoped docs"] }
+  "lychee on conformance + audience-scoped docs", "Go Build + Compose Validate"] }
 JSON
 ```
+
+Should a future trial need to demote a check again: edit the `contexts` list
+above, apply via the same PATCH, and **set an explicit calendar expiry date in
+this file** (not just "N weeks") so it can't silently lapse the way this one did.
 
 ## Test Strategy
 
