@@ -670,7 +670,13 @@ check-image-versions:
 # Lint YAML config and monitoring files with yamllint.
 # Line-length disabled (long Prometheus expressions are unavoidable).
 # See .yamllint.yaml for full config.
-YAML_DIRS := config monitoring
+# `monitoring/` moved to `deploy/monitoring/` in phase-205's repo-root cleanup;
+# this reference was never updated, so on a clean checkout (no repo-root
+# `monitoring/` dir) `lint-yaml` always crashed with FileNotFoundError. Only
+# ever passed locally here because of a stray, untracked, root-owned
+# `monitoring/` directory left over on this host from an unrelated Docker run
+# — never present in git, so CI always hit this (phase-514).
+YAML_DIRS := config deploy/monitoring
 lint-yaml:
 	@echo "=== yamllint: config and monitoring YAML ==="
 	@yamllint -c .yamllint.yaml $(YAML_DIRS) && echo "✓ YAML lint passed"
