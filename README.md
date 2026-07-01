@@ -179,7 +179,6 @@ and CLI tooling.
 [![Go 1.26.4](https://img.shields.io/badge/go-1.26.4-00ADD8.svg)](https://go.dev/)
 ![CI](https://github.com/seanpor/JA4proxy/actions/workflows/ci.yml/badge.svg)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/seanpor/JA4proxy/badge)](https://scorecard.dev/viewer/?uri=github.com/seanpor/JA4proxy)
-[![Go Report Card](https://goreportcard.com/badge/github.com/seanpor/JA4proxy)](https://goreportcard.com/report/github.com/seanpor/JA4proxy)
 [![SLSA 3](https://slsa.dev/images/gh-badge-level3.svg)](https://slsa.dev)
 ![Coverage](https://img.shields.io/badge/coverage-verified-brightgreen)
 [![GitHub release](https://img.shields.io/github/v/release/seanpor/JA4proxy)](https://github.com/seanpor/JA4proxy/releases)
