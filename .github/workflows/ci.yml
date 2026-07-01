@@ -91,8 +91,12 @@ jobs:
         run: |
           # pip-audit is required by `make lint` (lint-static's CVE gate);
           # without it lint-static fails with exit 127 (command not found).
+          # golangci-lint itself is NOT installed here — `make lint` runs it via
+          # the pinned `golangci/golangci-lint` Docker image (see Makefile
+          # lint-go-full), so a `go install` of the binary here would just be
+          # unused dead weight (this step used to install v1.64.5 and nothing
+          # ever invoked it — phase-514).
           pip install ruff mypy bandit pytest-cov pip-audit
-          go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.5
       - name: make lint
         run: make lint
 

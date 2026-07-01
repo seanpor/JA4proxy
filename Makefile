@@ -715,11 +715,18 @@ lint-secrets:
 
 # Comprehensive Go linting with golangci-lint (errcheck, ineffassign, staticcheck, govet, unused).
 # Uses the container's own Go — do not pass GOROOT. See .golangci.yaml for config and rationale.
+# Pinned (was `:latest`, which drifts independently of any code change — a
+# newer release enabling a new check turned this red with nothing in the diff
+# to explain it; see phase-514). v1.64.5 (ci.yml's old `go install` pin) can't
+# run at all here: its own toolchain (go1.24) is older than this repo's target
+# (go1.26.4) and it refuses to load the config. Pin to v2.11.4 instead — the
+# same version `:latest` currently resolves to, built with go1.26.1. Bump this
+# and ci.yml's SAST/CI action pins together when intentionally upgrading.
 lint-go-full:
 	@echo "=== golangci-lint: Go code ==="
 	@docker run --rm \
 		-v "$(PWD):/app" -w /app \
-		golangci/golangci-lint:latest \
+		golangci/golangci-lint:v2.11.4 \
 		golangci-lint run --config .golangci.yaml ./... \
 		&& echo "✓ Go lint passed"
 
