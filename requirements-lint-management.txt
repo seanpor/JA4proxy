@@ -1,0 +1,14 @@
+# Extra packages installed in the lint toolchain image so pylint can resolve
+# management/ imports. Version constraints are intentionally loose — the lint
+# environment does not run management code, only type-checks it.
+#
+# fastapi, redis, jinja2, httpx, uvicorn, and cryptography are already pinned
+# in requirements.txt / requirements-test.txt and are NOT repeated here.
+python-jose[cryptography]
+passlib[bcrypt]
+bcrypt>=4.0
+webauthn>=2.0
+python3-saml>=1.16
+authlib>=1.0
+pyotp>=2.9
+qrcode[pil]>=7.0

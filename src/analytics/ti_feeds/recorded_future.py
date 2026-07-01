@@ -221,7 +221,8 @@ class RecordedFutureClient(FeedClient):
         (confidence gating, expiry filter, mgmt-client routing) is shared
         between RF and plain TAXII.
         """
-        assert self._page_fetch is not None  # narrow for type checkers
+        if self._page_fetch is None:
+            raise RuntimeError("page_fetch not set")
         cursor: Optional[str] = None
         while True:
             bundle = await self._page_fetch(collection_id, cursor=cursor)

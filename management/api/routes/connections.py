@@ -338,7 +338,7 @@ async def get_fingerprint_profile(
             except (ValueError, TypeError):
                 pass
 
-    is_banned = any(await redis.exists(f"ban:{ip}") for ip in ips) if ips else False
+    is_banned = any([await redis.exists(f"ban:{ip}") for ip in ips]) if ips else False
     is_allowlisted = await redis.sismember("ja4:whitelist", ja4)
 
     return {

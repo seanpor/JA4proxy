@@ -16,15 +16,25 @@ updates:
       actions:
         patterns:
           - "*"
+    # Wait 7 days after a new version is published before proposing it — a
+    # freshly published (potentially malicious or unstable) release has time
+    # to get pulled/patched first. Required by Semgrep's
+    # dependabot-missing-cooldown rule.
+    cooldown:
+      default-days: 7
 
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
       interval: "monthly"
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
 
   - package-ecosystem: "gomod"
     directory: "/"
     schedule:
       interval: "monthly"
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7

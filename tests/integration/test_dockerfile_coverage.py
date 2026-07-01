@@ -163,6 +163,7 @@ def test_standalone_compose_files_validate():
             "deploy/docker/docker-compose.poc.yml",
             {
                 "REDIS_PASSWORD": "test",
+                "ANALYTICS_REDIS_PASSWORD": "test",
                 "BACKEND_HOST": "lint",
                 "MANAGEMENT_JWT_SECRET": "lint",
                 "MANAGEMENT_ADMIN_USER": "lint",
@@ -172,7 +173,7 @@ def test_standalone_compose_files_validate():
         ("deploy/docker/docker-compose.test.yml", {}),
         (
             "deploy/docker/docker-compose.prod.yml",
-            {"BACKEND_HOST": "lint"},
+            {"BACKEND_HOST": "lint", "ANALYTICS_REDIS_PASSWORD": "test"},
         ),
     ]
     for compose_file, env in test_cases:

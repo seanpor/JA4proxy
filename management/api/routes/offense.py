@@ -93,7 +93,8 @@ async def reset_offense_count(
         action_type="offense.reset",
         resource_type="ip",
         resource_id=ip,
-        detail=json.dumps({"ip": ip}),
+        before_value={"ip": ip},
+        role=role,
     )
 
     return OffenseStatus(ip=ip, offense_count=0, current_action="active")

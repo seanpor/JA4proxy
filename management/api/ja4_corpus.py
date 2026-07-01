@@ -13,9 +13,9 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 # Resolve paths relative to this file so the module works regardless of cwd.
-# management/api/ja4_corpus.py → .parents[3] = repo root.
-_CORPUS_PATH = Path(__file__).parents[3] / "fixtures" / "ti_feeds" / "ja4_fp_corpus.txt"
-_LABELS_PATH = Path(__file__).parents[3] / "fixtures" / "ti_feeds" / "ja4_browser_labels.json"
+# management/api/ja4_corpus.py → .parents[2] = repo root.
+_CORPUS_PATH = Path(__file__).parents[2] / "fixtures" / "ti_feeds" / "ja4_fp_corpus.txt"
+_LABELS_PATH = Path(__file__).parents[2] / "fixtures" / "ti_feeds" / "ja4_browser_labels.json"
 
 
 def _load_corpus() -> frozenset:

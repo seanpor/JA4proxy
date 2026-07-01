@@ -59,7 +59,7 @@ Decommission and completely remove the unauthenticated `admin-api` container (wh
 
 ### Files to create/modify:
 - [deploy/docker/docker-compose.poc.yml](../../deploy/docker/docker-compose.poc.yml) — remove the `admin-api` service block.
-- [deploy/docker/Dockerfile.admin](../../deploy/docker/Dockerfile.admin) — `git rm`.
+- `deploy/docker/Dockerfile.admin` — `git rm` (already removed).
 - [tests/integration/test_container_config.py](../../tests/integration/test_container_config.py) — add the absence regression test (corrected from `tests/unit/`).
 - [scripts/agent-env.sh](../../scripts/agent-env.sh) — drop `HOST_PORT_ADMIN_API`.
 - [scripts/check_updates.py](../../scripts/check_updates.py) — drop `ja4proxy-admin-api` from the first-party image set.

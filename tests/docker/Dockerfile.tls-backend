@@ -1,6 +1,10 @@
 FROM python:3.14.0-slim
+RUN useradd -r -u 1001 -s /bin/false testuser
 RUN openssl req -x509 -newkey rsa:2048 -keyout /key.pem -out /cert.pem \
-    -days 3650 -nodes -subj '/CN=test-backend' 2>/dev/null
+    -days 3650 -nodes -subj '/CN=test-backend' 2>/dev/null && \
+    chmod 644 /key.pem /cert.pem
 EXPOSE 443
 COPY tests/docker/tls_backend.py /tls_backend.py
+HEALTHCHECK NONE
+USER testuser
 CMD ["python3", "/tls_backend.py"]

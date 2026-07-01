@@ -8,15 +8,17 @@ import (
 	"testing"
 )
 
-// buildCLI builds the ja4proxy-cli binary and returns its path.
+// buildCLI builds the unified ja4p binary — cmd/ja4proxy-cli was folded into
+// it as the "management" subcommand (phase-151; engine.BuildManagementRoot()
+// is mounted at `ja4p management`) — and returns its path.
 // Skips the test if the build fails (e.g., in CI without GOROOT).
 func buildCLI(t *testing.T) string {
 	t.Helper()
-	binPath := filepath.Join(t.TempDir(), "ja4proxy-cli")
+	binPath := filepath.Join(t.TempDir(), "ja4p")
 	cmd := exec.Command("go", "build", "-o", binPath, ".")
-	cmd.Dir = filepath.Join(managementFindModuleRoot(t), "cmd", "ja4proxy-cli")
+	cmd.Dir = filepath.Join(managementFindModuleRoot(t), "cmd", "ja4p")
 	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Skipf("skipping: could not build ja4proxy-cli binary: %v\n%s", err, out)
+		t.Skipf("skipping: could not build ja4p binary: %v\n%s", err, out)
 	}
 	return binPath
 }
@@ -30,8 +32,11 @@ func TestCLI_NoArgs_ShowsHelp(t *testing.T) {
 		// Some cobra setups exit 0, some exit 1 — both are fine for --help
 		t.Logf("exit error (acceptable): %v", err)
 	}
-	if !strings.Contains(string(out), "ja4proxy-cli") {
-		t.Errorf("output should contain 'ja4proxy-cli': %s", out)
+	if !strings.Contains(string(out), "ja4p") {
+		t.Errorf("output should contain 'ja4p': %s", out)
+	}
+	if !strings.Contains(string(out), "Available Commands") {
+		t.Errorf("output should list available commands: %s", out)
 	}
 }
 
@@ -42,15 +47,15 @@ func TestCLI_Help(t *testing.T) {
 	if err != nil {
 		t.Fatalf("--help should exit 0: %v\n%s", err, out)
 	}
-	if !strings.Contains(string(out), "ja4proxy-cli") {
-		t.Errorf("output should contain 'ja4proxy-cli': %s", out)
+	if !strings.Contains(string(out), "ja4p") {
+		t.Errorf("output should contain 'ja4p': %s", out)
 	}
 	if !strings.Contains(string(out), "Available Commands") {
 		t.Errorf("output should list available commands: %s", out)
 	}
 }
 
-// TestCLI_SubcommandHelp verifies --help on each major subcommand.
+// TestCLI_SubcommandHelp verifies --help on each major `management` subcommand.
 func TestCLI_SubcommandHelp(t *testing.T) {
 	bin := buildCLI(t)
 	subcommands := []string{
@@ -67,30 +72,33 @@ func TestCLI_SubcommandHelp(t *testing.T) {
 	}
 	for _, sub := range subcommands {
 		t.Run(sub, func(t *testing.T) {
-			out, err := exec.Command(bin, sub, "--help").CombinedOutput()
+			out, err := exec.Command(bin, "management", sub, "--help").CombinedOutput()
 			if err != nil {
-				t.Fatalf("%s --help failed: %v\n%s", sub, err, out)
+				t.Fatalf("management %s --help failed: %v\n%s", sub, err, out)
 			}
 			if len(out) == 0 {
-				t.Errorf("%s --help produced no output", sub)
+				t.Errorf("management %s --help produced no output", sub)
 			}
 		})
 	}
 }
 
-// TestCLI_PolicyValidateHelp verifies policy validate --help works.
+// TestCLI_PolicyValidateHelp verifies management policy validate --help works.
 func TestCLI_PolicyValidateHelp(t *testing.T) {
 	bin := buildCLI(t)
-	out, err := exec.Command(bin, "policy", "validate", "--help").CombinedOutput()
+	out, err := exec.Command(bin, "management", "policy", "validate", "--help").CombinedOutput()
 	if err != nil {
-		t.Fatalf("policy validate --help failed: %v\n%s", err, out)
+		t.Fatalf("management policy validate --help failed: %v\n%s", err, out)
 	}
 	if !strings.Contains(string(out), "--file") {
 		t.Errorf("output should mention --file flag: %s", out)
 	}
 }
 
-// TestCLI_UnknownCommand verifies that an unknown command exits with error.
+// TestCLI_UnknownCommand verifies that an unknown top-level command exits
+// with an error (cobra treats an unrecognized subcommand under `management`
+// as a bare positional argument and just prints help — this only errors at
+// the root).
 func TestCLI_UnknownCommand(t *testing.T) {
 	bin := buildCLI(t)
 	_, err := exec.Command(bin, "nonexistent-command").CombinedOutput()

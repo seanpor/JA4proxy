@@ -1,6 +1,10 @@
 FROM python:3.14.0-slim
+RUN useradd -r -u 1001 -s /bin/false recorder
 WORKDIR /app
 COPY scripts/capture_server.py scripts/
 COPY tests/fixtures/clienthello/ tests/fixtures/clienthello/
+RUN chown -R recorder:recorder /app
 EXPOSE 9443 9444 9445 9446
+HEALTHCHECK NONE
+USER recorder
 CMD ["python3", "scripts/capture_server.py", "--names", "chrome_tls13,firefox_tls13,curl_tls13,curl_tls12", "--timeout", "120"]
