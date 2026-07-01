@@ -1076,8 +1076,8 @@ auto_escalate:
   # Offense 1: tarpit. Offense 3: block. Offense 5: ban (defaults).
   # Lower thresholds are more aggressive — be careful with shared IPs (NAT, VPN).
   tarpit_at_offense: 1      # Minimum: 1
-  block_at_offense:  3      # Minimum: tarpit_at_offense + 1
-  ban_at_offense:    5      # Minimum: block_at_offense + 1
+  block_at_offense: 3       # Minimum: tarpit_at_offense + 1
+  ban_at_offense: 5         # Minimum: block_at_offense + 1
 
   ban_hours: 24             # Auto-ban duration. Range: 1–168 (one week max).
 

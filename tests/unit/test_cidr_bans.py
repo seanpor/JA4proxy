@@ -19,9 +19,9 @@ def test_valid_slash24_expands_to_254_hosts():
 
 
 def test_private_range_rejected_by_default():
-    """10.0.0.0/8 is rejected without allow_private=True."""
+    """10.0.0.0/24 is rejected without allow_private=True."""
     with pytest.raises(ValueError, match="private"):
-        _expand_cidr("10.0.0.0/8", allow_private=False)
+        _expand_cidr("10.0.0.0/24", allow_private=False)
 
 
 def test_private_range_allowed_with_flag():

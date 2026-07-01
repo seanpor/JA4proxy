@@ -44,7 +44,7 @@ ever drift, SERVICE_TARGETS wins.
 | **Security** | No HIGH or CRITICAL findings unmitigated; pentest campaign findings closed per [`docs/security/FINDINGS_REGISTER.md`](../security/FINDINGS_REGISTER.md) | [`docs/security/COMPREHENSIVE_SECURITY_AUDIT.md`](../security/COMPREHENSIVE_SECURITY_AUDIT.md), Phase 14 hardening, Phase 118-119 remediation |
 | **Maintainability** | Go coverage ≥ 80%, Python coverage ≥ 80%, test-to-code ratio ~1.3× | `Makefile` targets `quality` and `lint-coverage`, [`docs/developer/TESTING_STRATEGY.md`](TESTING_STRATEGY.md), enforced in [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) |
 | **Portability** | Linux x86_64; Docker image (Go + Python services) builds clean; Helm chart deploys on k8s ≥ 1.27 | [`docs/reference/DOCKER_IMAGES.md`](../reference/DOCKER_IMAGES.md), [`tests/integration/test_dockerfile_coverage.py`](../../tests/integration/test_dockerfile_coverage.py), CI matrix in [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) |
-| **Usability** (Management UI) | Authenticated GET on every HTML route returns 200 + landmark; unauth returns < 500 | Per-phase `test_pages*.py` tests (e.g. [`tests/unit/test_pages_threat_intel.py`](../../tests/unit/test_pages_threat_intel.py)); pattern documented in [`CLAUDE.md`](../../CLAUDE.md) §Testing Standards |
+| **Usability** (Management UI) | Authenticated GET on every HTML route returns 200 + landmark; unauth returns < 500 | Per-phase `test_pages*.py` tests (e.g. `tests/unit/test_pages_<module>.py`); pattern documented in [`CLAUDE.md`](../../CLAUDE.md) §Testing Standards |
 
 The **core asymmetry** governs every threshold: blocking a real user costs
 more than missing a bad bot, so the false-positive-rate row above is treated

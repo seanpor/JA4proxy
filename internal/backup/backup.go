@@ -430,10 +430,12 @@ func gunzipBytes(in []byte) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("backup: gunzip: %w", err)
 	}
-	defer zr.Close()
-	out, err := readAllLimited(zr)
-	if err != nil {
-		return nil, fmt.Errorf("backup: gunzip read: %w", err)
+	out, readErr := readAllLimited(zr)
+	if closeErr := zr.Close(); closeErr != nil && readErr == nil {
+		return nil, fmt.Errorf("backup: gunzip close: %w", closeErr)
+	}
+	if readErr != nil {
+		return nil, fmt.Errorf("backup: gunzip read: %w", readErr)
 	}
 	return out, nil
 }

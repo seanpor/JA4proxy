@@ -214,7 +214,8 @@ class ManagementClient:
         path. Both shapes return an async context manager that yields a
         response object exposing ``status`` and ``text()``.
         """
-        assert self._session is not None
+        if self._session is None:
+            raise RuntimeError("HTTP session not initialized; call connect() first")
         headers = self._default_headers() if self._injected_session else None
         if self._injected_session:
             method_up = method.upper()
@@ -247,7 +248,8 @@ class ManagementClient:
         """
         if self._session is None:
             await self.connect()
-        assert self._session is not None  # narrow for type checkers
+        if self._session is None:
+            raise RuntimeError("HTTP session not initialized; call connect() first")
 
         if not self._token:
             # Surface clearly — no silent retries.

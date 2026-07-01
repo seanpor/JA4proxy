@@ -14,7 +14,8 @@ except ImportError:
 @pytest.mark.asyncio
 async def test_revert_override_written_on_put(admin_client, fake_redis):
     """PUT /api/v1/dial with revert_after_hours writes config:dial_override."""
-    await fake_redis.set("config:dial", "50")
+    # Start at 65 so the delta to 75 is 10, within the per-request limit.
+    await fake_redis.set("config:dial", "65")
     body = {"value": 75, "revert_after_hours": 2}
     resp = await admin_client.put("/api/v1/dial", json=body)
     assert resp.status_code == 200
@@ -22,7 +23,7 @@ async def test_revert_override_written_on_put(admin_client, fake_redis):
     raw = await fake_redis.get("config:dial_override")
     assert raw is not None, "config:dial_override must be set"
     rec = json.loads(raw)
-    assert rec["original_value"] == 50
+    assert rec["original_value"] == 65
     assert rec["override_value"] == 75
     assert rec["expires_at_epoch"] > int(time.time())
 
@@ -30,6 +31,8 @@ async def test_revert_override_written_on_put(admin_client, fake_redis):
 @pytest.mark.asyncio
 async def test_revert_override_cleared_without_revert(admin_client, fake_redis):
     """PUT without revert_after_hours deletes any existing override."""
+    # Start at 45 so the delta to 50 is 5, within the per-request limit.
+    await fake_redis.set("config:dial", "45")
     await fake_redis.set("config:dial_override", json.dumps({
         "original_value": 0, "override_value": 75, "expires_at_epoch": 9999999999,
     }))

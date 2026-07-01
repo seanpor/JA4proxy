@@ -560,6 +560,7 @@ def test_compose_poc_succeeds_with_all_env_vars() -> None:
             "MANAGEMENT_ADMIN_USER": "qa-admin",
             "MANAGEMENT_ADMIN_PASSWORD": "qa-placeholder-admin-pw",
             "REDIS_PASSWORD": "qa-placeholder-redis-pw",
+            "ANALYTICS_REDIS_PASSWORD": "qa-placeholder-analytics-redis-pw",
             "BACKEND_HOST": "qa-placeholder-backend",
         }
     )

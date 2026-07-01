@@ -190,7 +190,7 @@ func (d *FeedDownloader) persist(fc BlocklistFeedConfig, data []byte) {
 	if fc.Path == "" {
 		return
 	}
-	if err := os.MkdirAll(filepath.Dir(fc.Path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(fc.Path), 0o750); err != nil {
 		d.log.WithError(err).WithField("feed", fc.Name).Warn("blocklist: could not create cache dir")
 		return
 	}

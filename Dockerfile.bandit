@@ -16,7 +16,13 @@
 #   fix, not a bandit-version one.
 FROM python:3.11-slim
 
+RUN useradd -r -u 1001 -s /bin/false bandit
+
 WORKDIR /src
 
 # pbr is bandit's build/runtime metadata dependency.
 RUN pip install --no-cache-dir bandit==1.8.* pbr
+
+HEALTHCHECK NONE
+
+USER bandit

@@ -16,6 +16,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from ..auth import get_current_user
+from ..models import Role
 from ..redis_client import get_redis
 
 logger = logging.getLogger(__name__)

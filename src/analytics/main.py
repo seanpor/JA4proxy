@@ -187,8 +187,8 @@ class AnalyticsNode:
             if self._ti_async_redis is not None:
                 try:
                     await self._ti_async_redis.aclose()
-                except Exception:  # noqa: BLE001
-                    pass
+                except Exception as e:  # noqa: BLE001
+                    logger.debug("ti_redis close error (ignored at shutdown): %s", e)
                 self._ti_async_redis = None
 
     def _handle_shutdown(self) -> None:

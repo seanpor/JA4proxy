@@ -14,6 +14,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get update && apt-get install -y --no-install-recommends \
     curl openssl redis-tools netcat-openbsd \
     && rm -rf /var/lib/apt/lists/*
+RUN useradd -r -u 1001 -s /bin/false testrunner
 WORKDIR /app
 COPY requirements*.txt ./
 RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked \
@@ -22,8 +23,11 @@ RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked \
 COPY . .
 COPY --from=go-builder /ja4check /usr/local/bin/ja4check
 COPY --from=go-builder /ja4proxy /usr/local/bin/ja4proxy
-RUN mkdir -p bin && ln -sf /usr/local/bin/ja4proxy bin/ja4proxy
+RUN mkdir -p bin && ln -sf /usr/local/bin/ja4proxy bin/ja4proxy && \
+    chown -R testrunner:testrunner /app
 ENV PYTHONPATH=/app
+HEALTHCHECK NONE
+USER testrunner
 CMD ["python3", "-m", "pytest", \
      "tests/integration/test_go_python_parity.py", \
      "tests/chaos/test_go_proxy_chaos.py", \

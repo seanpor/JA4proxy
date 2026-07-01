@@ -3,7 +3,7 @@ tests/unit/test_pages_rbac.py
 Test that each role sees the correct nav items and action controls.
 """
 import pytest
-from httpx import AsyncClient
+from httpx import AsyncClient, ASGITransport
 
 try:
     from management.api.auth import _create_access_token
@@ -23,7 +23,7 @@ async def test_dashboard_role_visibility(role, expect_lists_nav, expect_block_bt
     """Log in as each role; assert correct nav items visible."""
     app = create_app()
     token = _create_access_token("testuser", role=role)
-    async with AsyncClient(app=app, base_url="http://test") as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.get("/", cookies={"token": token})
     assert resp.status_code == 200
     assert "text/html" in resp.headers["content-type"]
@@ -41,7 +41,7 @@ async def test_dashboard_role_visibility(role, expect_lists_nav, expect_block_bt
 async def test_unauthenticated_dashboard_never_500():
     """Unauthenticated dashboard request must not 500."""
     app = create_app()
-    async with AsyncClient(app=app, base_url="http://test") as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.get("/")
     assert resp.status_code < 500
 
@@ -53,7 +53,7 @@ async def test_all_pages_render_200_for_all_roles(role):
     app = create_app()
     token = _create_access_token("testuser", role=role)
     routes = ["/", "/audit", "/intelligence-review"]
-    async with AsyncClient(app=app, base_url="http://test") as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         for route in routes:
             resp = await client.get(route, cookies={"token": token})
             assert resp.status_code == 200, f"route={route} role={role}"

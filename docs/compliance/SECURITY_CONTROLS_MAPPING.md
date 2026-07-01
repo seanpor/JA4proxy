@@ -67,7 +67,7 @@ This document maps JA4proxy's implemented security controls to the **ISO 27001:2
 | **A.7.6: Working in secure areas** | ❌ Not applicable | Remote development | N/A |
 | **A.7.7: Clear desk and clear screen policy** | ❌ Not applicable | Development practices | N/A |
 | **A.7.8: Equipment maintenance** | ❌ Not applicable | Cloud provider responsibility | N/A |
-| **A.7.9: Secure disposal or re-use of equipment** | ❌ Not applicable | Container lifecycle | N/A |
+| **A.7.9: Secure disposal or reuse of equipment** | ❌ Not applicable | Container lifecycle | N/A |
 | **A.7.10: Unattended user equipment** | ❌ Not applicable | No user workstations | N/A |
 | **A.7.11: Clear desk for paper documents** | ❌ Not applicable | Digital-only | N/A |
 

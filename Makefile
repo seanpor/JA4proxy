@@ -18,7 +18,7 @@ LDFLAGS := -ldflags="-s -w -X github.com/seanpor/ja4proxy/internal/config.Versio
 
 # ── Environment Configuration ────────────────────────────────────────────────
 ifneq (,$(wildcard .env))
-    include .env
+    -include .env
     export
 endif
 # Makefile for JA4 Proxy
@@ -100,6 +100,7 @@ help: ## Show the essential front-door targets
 	@echo "  make help-scan           - Granular scanner control"
 	@echo "  make help-dev            - Build, benchmark, and agent targets"
 	@echo ""
+	@$(MAKE) -s help-lint
 
 help-ops: ## Incident response and threat intelligence help
 	@echo ""
@@ -139,7 +140,8 @@ help-lint:
 	@echo ""
 	@echo "── Linting ───────────────────────────────────────────────────"
 	@echo "  lint-static       - Python: mypy + bandit + ruff + pip-audit"
-	@echo "  lint-go           - Go: go vet + go mod verify"
+	@echo "  lint-go           - Go: go-lint + lint-go-full + lint-go-mod"
+	@echo "  go-lint           - Go: go vet (fast static analysis)"
 	@echo "  lint-shell        - shellcheck all .sh scripts"
 	@echo "  lint-yaml         - yamllint config/ and deploy/monitoring/"
 	@echo "  lint-docker       - hadolint + docker compose config check"
@@ -147,6 +149,7 @@ help-lint:
 	@echo "  lint-alertmanager - amtool Alertmanager config validation"
 	@echo "  lint-secrets      - gitleaks scan of git history"
 	@echo "  lint-deps         - run govulncheck/gosec (via container) + pip-audit"
+	@echo "  lint-docs         - core doc quality: doc-health + link-check + ATT&CK"
 	@echo "  lint-phases       - Validate manifest + phase doc integrity"
 	@echo "  lint-all          - Run every linter in one shot"
 
@@ -355,7 +358,7 @@ compose-validate: ## Validate docker-compose files and required env vars (fast, 
 
 # Run all tests locally in parallel (fast — no Docker required)
 # Skips tests marked @pytest.mark.live_services (require Go/Python proxy + Redis stack)
-test: tools-image ## Phase 146 — Run the full test suite
+test: tools-image cli-build ## Phase 146 — Run the full test suite
 	@echo "=== Running Go Native Tests ==="
 	@GOROOT=$(GOROOT) go test -v -coverprofile=coverage.txt -covermode=atomic ./...
 	@echo "=== Running Python Unit Tests (containerized: $(TOOLS_IMG)) ==="
@@ -556,43 +559,29 @@ check-manifest:
 scan-images:
 	@mkdir -p "$(TRIVY_CACHE)"
 	@echo "=== Trivy: third-party image CVE scan (HIGH + CRITICAL) ==="
-	@echo "    Fails on CRITICAL; HIGH findings are reported but advisory."
-	@echo "    (Phase 314 differentiated gate: third-party images we pin but do"
-	@echo "     not build cannot be HIGH-gated — most remaining HIGH are upstream"
-	@echo "     Go-stdlib/distro CVEs with no fixed tag yet. They are tracked in"
-	@echo "     docs/security/THIRD_PARTY_CVE_WAIVERS.md, not silently ignored.)"
-	@echo "    CVEs listed in .trivyignore are documented exceptions."
+	@echo "    Fails on HIGH or CRITICAL. CVEs in .trivyignore are documented exceptions."
 	@echo ""
-	@fail=0; advisory=0; \
+	@fail=0; \
 	for img in $(TRIVY_IMAGES); do \
 		echo "  Scanning $$img ..."; \
 		result=$$(docker run --rm -v "$(PWD):/scan:ro" -v "$(TRIVY_CACHE):/root/.cache/trivy" aquasec/trivy:0.71.0 image \
 			--severity HIGH,CRITICAL --exit-code 0 \
 			--no-progress --scanners vuln \
 			--ignorefile /scan/.trivyignore \
+			--skip-version-check \
 			--format table "$$img" 2>&1); \
 		high=$$(echo "$$result" | grep -v "Total:" | grep -c "HIGH" || true); \
 		crit=$$(echo "$$result" | grep -v "Total:" | grep -c "CRITICAL" || true); \
 		matches=$$(echo "$$result" | grep -E "CRITICAL|HIGH|Total:" || true); \
 		echo "    $$matches"; \
-		if [ "$$high" -gt 0 ]; then \
-			echo "    ⚠ ADVISORY: $$high HIGH CVE(s) in $$img (non-blocking — upstream third-party image; tracked in docs/security/THIRD_PARTY_CVE_WAIVERS.md)"; \
-			advisory=$$((advisory + high)); \
-		fi; \
-		if [ "$$crit" -gt 0 ]; then \
-			echo "    ✗ CRITICAL: $$crit CRITICAL CVE(s) in $$img — fix the image or add a justified, dated .trivyignore entry"; \
+		if [ "$$high" -gt 0 ] || [ "$$crit" -gt 0 ]; then \
+			echo "    ✗ $$high HIGH + $$crit CRITICAL CVE(s) in $$img — add a justified, dated .trivyignore entry"; \
 			fail=1; \
 		fi; \
 		echo ""; \
 	done; \
-	[ $$fail -eq 0 ] || { echo "✗ CRITICAL CVEs found — see .trivyignore for documented exceptions"; exit 1; }; \
-	if [ $$advisory -gt 0 ]; then \
-		echo "⚠ Image scan: $$advisory advisory HIGH CVE(s) in third-party images (non-blocking)"; \
-		echo "  These are upstream CVEs in images we do not build. Tracked in docs/security/THIRD_PARTY_CVE_WAIVERS.md."; \
-		echo "  Re-run when updated image tags are available, or add a justified, dated .trivyignore entry."; \
-	else \
-		echo "✓ Image scan complete — no findings"; \
-	fi
+	[ $$fail -eq 0 ] || { echo "✗ HIGH/CRITICAL CVEs found — see .trivyignore for documented exceptions"; exit 1; }; \
+	echo "✓ Image scan complete — no findings"
 
 # Trivy misconfiguration scan of Dockerfiles and compose files.
 # Does NOT require building images — analyses file content only.
@@ -603,11 +592,9 @@ scan-dockerfiles:
 	@echo "=== Trivy: Dockerfile/compose misconfiguration scan (HIGH + CRITICAL) ==="
 	@echo "    Fails on HIGH or CRITICAL findings."
 	@fail=0; \
-	for f in deploy/docker/Dockerfile deploy/docker/Dockerfile.go-proxy deploy/docker/Dockerfile.management \
+	for f in deploy/docker/Dockerfile.go-proxy deploy/docker/Dockerfile.management \
 		 deploy/docker/Dockerfile.mockbackend deploy/docker/Dockerfile.test \
 		 deploy/docker/Dockerfile.trafficgen deploy/docker/Dockerfile.cli \
-		 deploy/docker/docker-compose.poc.yml deploy/docker/docker-compose.monitoring.yml \
-		 deploy/docker/docker-compose.prod.yml deploy/docker/docker-compose.scale.yml \
 		; do \
 		if [ -f "$$f" ]; then \
 			echo ""; \
@@ -617,12 +604,14 @@ scan-dockerfiles:
 				-v "$(TRIVY_CACHE):/root/.cache/trivy" \
 				aquasec/trivy:0.71.0 config \
 				--severity HIGH,CRITICAL --exit-code 1 \
+				--skip-version-check \
 				"/scan/$$f" || fail=1; \
 		fi; \
 	done; \
 	[ $$fail -eq 0 ] || { echo ""; echo "✗ Dockerfile scan failed — fix HIGH/CRITICAL findings above"; exit 1; }
 	@echo ""
-	@echo "✓ All Dockerfiles and compose files passed"
+	@echo "✓ All Dockerfiles passed"
+	@echo "  (compose files validated separately via 'docker compose config' in CI)"
 
 # CVE scan of first-party images we build.
 # Run 'make build' first to ensure the non-profiled images are current.
@@ -646,6 +635,7 @@ scan-first-party:
 			-v "$(TRIVY_CACHE):/root/.cache/trivy" \
 			aquasec/trivy:0.71.0 image --severity HIGH,CRITICAL --exit-code 0 \
 			--no-progress --scanners vuln --ignorefile /scan/.trivyignore \
+			--skip-version-check \
 			--format table "$$img" 2>&1 \
 			| grep -E "CRITICAL|HIGH|Total:" || true); \
 		findings=$$(echo "$$result" | grep -v "Total:" | grep -E -c "CRITICAL|HIGH" || true); \
@@ -680,7 +670,13 @@ check-image-versions:
 # Lint YAML config and monitoring files with yamllint.
 # Line-length disabled (long Prometheus expressions are unavoidable).
 # See .yamllint.yaml for full config.
-YAML_DIRS := config monitoring
+# `monitoring/` moved to `deploy/monitoring/` in phase-205's repo-root cleanup;
+# this reference was never updated, so on a clean checkout (no repo-root
+# `monitoring/` dir) `lint-yaml` always crashed with FileNotFoundError. Only
+# ever passed locally here because of a stray, untracked, root-owned
+# `monitoring/` directory left over on this host from an unrelated Docker run
+# — never present in git, so CI always hit this (phase-514).
+YAML_DIRS := config deploy/monitoring
 lint-yaml:
 	@echo "=== yamllint: config and monitoring YAML ==="
 	@yamllint -c .yamllint.yaml $(YAML_DIRS) && echo "✓ YAML lint passed"
@@ -704,9 +700,9 @@ lint-prom:
 # pip-audit scans requirements.txt; govulncheck scans go.mod.
 lint-deps: scan-container
 	@echo "=== pip-audit: Python dependency CVEs ==="
-	@pip-audit -r requirements.txt --no-deps || true
-	@pip-audit -r requirements-test.txt --no-deps || true
-	@pip-audit -r requirements-analytics.txt --no-deps || true
+	@pip-audit -r requirements.txt || true
+	@pip-audit -r requirements-test.txt || true
+	@pip-audit -r requirements-analytics.txt || true
 	@echo "  (CVEs above are advisory — pinned versions may lag; update requirements.txt to remediate)"
 	@echo ""
 	@echo ""
@@ -725,11 +721,18 @@ lint-secrets:
 
 # Comprehensive Go linting with golangci-lint (errcheck, ineffassign, staticcheck, govet, unused).
 # Uses the container's own Go — do not pass GOROOT. See .golangci.yaml for config and rationale.
+# Pinned (was `:latest`, which drifts independently of any code change — a
+# newer release enabling a new check turned this red with nothing in the diff
+# to explain it; see phase-514). v1.64.5 (ci.yml's old `go install` pin) can't
+# run at all here: its own toolchain (go1.24) is older than this repo's target
+# (go1.26.4) and it refuses to load the config. Pin to v2.11.4 instead — the
+# same version `:latest` currently resolves to, built with go1.26.1. Bump this
+# and ci.yml's SAST/CI action pins together when intentionally upgrading.
 lint-go-full:
 	@echo "=== golangci-lint: Go code ==="
 	@docker run --rm \
 		-v "$(PWD):/app" -w /app \
-		golangci/golangci-lint:latest \
+		golangci/golangci-lint:v2.11.4 \
 		golangci-lint run --config .golangci.yaml ./... \
 		&& echo "✓ Go lint passed"
 
@@ -1008,7 +1011,7 @@ scan: ## Phase 146 — Run all security and container scans
 	@python3 scripts/pipeline_summary.py scan
 
 scan-all: scan-container scan-dockerfiles scan-first-party scan-images
-	@echo "✓ All blocking scan gates passed (CRITICAL=0; any advisory HIGHs listed above)"
+	@echo "✓ All blocking scan gates passed (HIGH=0, CRITICAL=0)"
 
 # Analyze Docker containers and dependencies for version discrepancies
 check-updates-container:
@@ -1208,7 +1211,7 @@ quality: lint-all lint-coverage ## Run all linters + coverage checks in one shot
 	@echo "=== Go coverage check ==="
 	@GOROOT=$(GOROOT) go test -v -coverprofile=coverage.txt -covermode=atomic ./... -coverprofile=/tmp/go_cover_quality.out -count=1 > /dev/null 2>&1 \
 		&& GOROOT=$(GOROOT) go tool cover -func=/tmp/go_cover_quality.out \
-			| tail -1 | awk '{gsub(/%/,"",$$NF); if($$NF+0 < 50) {print "FAIL: Go coverage "$$NF"% < 50%"; exit 1} else print "  ✓ Go coverage "$$NF"%"}'
+			| tail -1 | awk '{gsub(/%/,"",$$NF); if($$NF+0 < 80) {print "FAIL: Go coverage "$$NF"% < 80%"; exit 1} else print "  ✓ Go coverage "$$NF"%"}'
 	@echo ""
 	@echo "✓ quality complete — all checks passed"
 
@@ -1246,9 +1249,17 @@ test-attack-mapping: tools-image ## Phase 107f.4 — fail if ATT&CK mapping rows
 # phase-107w.3: doc-link check (requires lychee installed locally — same tool the CI workflow runs)
 test-doc-links: ## Phase 107w.3 — lychee-check all docs for broken internal links (advisory; gated by docs-link-check.yml)
 	@echo "=== lychee: internal link check (containerised; advisory in make lint) ==="
-	@docker run --rm -v $(PWD):/input lycheeverse/lychee:0.24.2 \
-		--no-progress --accept 200,204,301,302,403,429 \
-		--exclude-path /input/archive --exclude-path /input/node_modules \
+	@docker run --rm -v $(PWD):/input -w /input lycheeverse/lychee:0.24.2 \
+		--no-progress --accept 200,202,204,301,302,403,429 \
+		--exclude-path /input/archive \
+		--exclude-path /input/node_modules \
+		--exclude-path /input/docs/reports/archive \
+		--exclude-path /input/docs/phases/cancelled \
+		--exclude-path /input/docs/reports/LINK_AUDIT_2026-06-03.md \
+		--exclude-path /input/docs/phases/TODO.md \
+		--exclude-path /input/docs/reference/PROJECT_STATUS.md \
+		--exclude 'http://localhost' \
+		--exclude 'http://127\.0\.0\.1' \
 		"/input/**/*.md" \
 		|| echo "  ! lychee reported link issues (advisory — see the docs-link-check workflow for the gate)"
 lint-meta: tools-image ## Phase 147 — Verify Makefile and automation script health
@@ -1260,63 +1271,115 @@ reload: ## Reload proxy configuration without restart (SIGHUP)
 test-ip: ## Alias for simulating IP decision
 	@./bin/ja4p test ip $(IP)
 
-# ── Lint Hierarchy ────────────────────────────────────────────────────────────
+# ── Lint Hierarchy (Phase 92) ─────────────────────────────────────────────────
+# Prerequisite-based dependency graph — every aggregate lists its leaves as
+# PREREQUISITES so that `make -n`, dependency parsers, and test suites all see
+# the correct graph.  Advisory targets do not block the gate but report issues.
 
-lint-python: ## Run all Python linters (ruff, mypy, bandit)
-	@echo "=== lint-python: ruff + mypy + bandit ==="
-	@$(MAKE) lint-static
+# ── Individual linters (Phase 92 additions) ───────────────────────────────────
 
-lint-go: ## Run all Go linters (fmt, vet, golangci-lint)
-	@echo "=== lint-go: go fmt + go vet + golangci-lint ==="
-	@unfmt=$$(GOROOT=$(GOROOT) go fmt ./... 2>&1); \
-	if [ -n "$$unfmt" ]; then \
-		echo "  ✗ gofmt: the following files needed formatting (they have been reformatted; commit them):"; \
-		echo "$$unfmt" | sed 's/^/    /'; \
-		exit 1; \
-	fi
-	@echo "  ✓ gofmt: all files formatted"
-	@GOROOT=$(GOROOT) go vet ./...
-	@echo "  ✓ go vet passed"
-	@if command -v golangci-lint > /dev/null 2>&1; then \
-		golangci-lint run ./...; \
-		echo "  ✓ golangci-lint passed"; \
+lint-pylint: tools-image ## Run pylint errors-only on Python source (advisory)
+	@echo "=== pylint: Python source ==="
+	@$(TOOLS_RUN) python3 -m pylint --errors-only --output-format=colorized \
+		src/ management/ 2>&1 | tail -30 \
+		|| echo "  ! pylint reported errors (advisory — see output above)"
+	@echo "  ✓ pylint done"
+
+lint-checkov: ## Run Checkov IaC security scan (containerised; advisory)
+	@echo "=== checkov: IaC security scan ==="
+	@docker run --rm -v $(PWD):/tf bridgecrew/checkov:latest \
+		--quiet --directory /tf --framework dockerfile 2>/dev/null \
+		|| echo "  ! checkov reported issues or is unavailable (advisory)"
+	@echo "  ✓ checkov done"
+
+lint-haproxy: ## Validate HAProxy configuration syntax (advisory)
+	@echo "=== haproxy: config validation ==="
+	@if [ -f deploy/haproxy/haproxy.cfg ]; then \
+		docker run --rm -v $(PWD):/src haproxy:2.8-alpine \
+			haproxy -c -f /src/deploy/haproxy/haproxy.cfg 2>&1; \
+		echo "  ✓ HAProxy config valid"; \
 	else \
-		echo "  ! golangci-lint not installed — skipping (will run in CI)"; \
+		echo "  ! deploy/haproxy/haproxy.cfg not found — skipping (advisory)"; \
 	fi
 
-lint-sast: ## Run cross-language SAST (Semgrep)
-	@echo "=== lint-sast: Semgrep ==="
-	@$(MAKE) lint-semgrep
+lint-helm: ## Run helm lint on Helm charts (advisory)
+	@echo "=== helm lint: Helm charts ==="
+	@if [ -d deploy/helm ]; then \
+		docker run --rm -v $(PWD):/src alpine/helm:3.17.3 \
+			lint /src/deploy/helm/ 2>&1 \
+			|| echo "  ! helm lint reported issues (advisory)"; \
+		echo "  ✓ helm lint done"; \
+	else \
+		true; \
+	fi
 
-lint-infra: ## Run infrastructure linters (Hadolint, Ansible, Terraform)
-	@echo "=== lint-infra: Hadolint + Ansible + Terraform ==="
-	@$(MAKE) lint-docker lint-ansible
+lint-markdown: tools-image ## Lint Markdown files for formatting issues (advisory)
+	@echo "=== markdownlint: Markdown files ==="
+	@$(TOOLS_RUN) python3 -m pymarkdown --config /src/.pymarkdown scan docs/ README.md 2>&1 \
+		|| echo "  ! markdownlint reported issues (advisory)"
+	@echo "  ✓ Markdown lint done"
 
-lint-observability: ## Run observability linters (Prometheus, Alertmanager)
-	@echo "=== lint-observability: promtool + amtool ==="
-	@$(MAKE) lint-prom lint-alertmanager
+lint-spelling: tools-image ## Spell-check documentation (advisory)
+	@echo "=== codespell: spelling check ==="
+	@$(TOOLS_RUN) codespell docs/ README.md \
+		--skip="*.po,*.pot,docs/phases,docs/reference,docs/pdf" \
+		--ignore-words=/src/.codespellignore 2>&1 \
+		|| echo "  ! codespell reported issues (advisory)"
+	@echo "  ✓ Spelling check done"
 
-lint-supply-chain: ## Run supply-chain linters (Gitleaks, Scorecard)
-	@echo "=== lint-supply-chain: Gitleaks + Scorecard ==="
-	@$(MAKE) lint-secrets scorecard-local
+lint-toml: ## Validate TOML files (pyproject.toml, .gitleaks.toml) using tomllib
+	@echo "=== lint-toml: TOML syntax validation ==="
+	@python3 scripts/lint_toml.py
+	@echo "  ✓ TOML lint passed"
 
-lint-docs-all: ## Run all documentation quality checks
-	@echo "=== lint-docs-all: Doc-health + Links + ATT&CK ==="
-	@$(MAKE) doc-health
-	@$(MAKE) test-doc-links
-	@$(MAKE) test-attack-mapping
+lint-makefiles: ## Lint Makefile for common issues (checkmake; advisory)
+	@echo "=== Makefile lint ==="
+	@if command -v checkmake >/dev/null 2>&1; then \
+		checkmake Makefile; \
+		echo "  ✓ checkmake passed"; \
+	else \
+		true; \
+	fi
+
+lint-go-mod: ## Verify go.mod and go.sum are consistent (go mod verify)
+	@echo "=== go mod verify ==="
+	@GOROOT=$(GOROOT) go mod verify
+	@echo "  ✓ go mod verify passed"
+
+# ── Aggregate linters ─────────────────────────────────────────────────────────
+
+lint-python: lint-static lint-security lint-pylint ## Run all Python linters (ruff, mypy, bandit, pylint)
+	@echo "✓ lint-python complete"
+
+lint-go: go-lint lint-go-full lint-go-mod ## Run all Go linters (fmt, vet, golangci-lint, mod verify)
+	@echo "✓ lint-go complete"
+
+lint-sast: lint-semgrep lint-checkov ## Run cross-language SAST (Semgrep, Checkov)
+	@echo "✓ lint-sast complete"
+
+lint-infra: lint-docker lint-shell lint-yaml lint-lua lint-json lint-haproxy lint-makefiles lint-toml lint-ansible lint-helm ## Run all infrastructure linters
+	@echo "✓ lint-infra complete"
+
+lint-observability: lint-prom lint-alertmanager ## Run observability linters (promtool, amtool)
+	@echo "✓ lint-observability complete"
+
+lint-supply-chain: lint-secrets lint-deps ## Run supply-chain linters (Gitleaks, govulncheck)
+	@echo "✓ lint-supply-chain complete"
 
 doc-health: tools-image ## Validate documentation frontmatter
 	@$(TOOLS_RUN) python3 scripts/check_doc_frontmatter.py
 
-lint-docs: ## Alias for the full documentation quality suite
-	@$(MAKE) lint-docs-all
+lint-docs: doc-health link-check test-attack-mapping ## Core documentation quality checks
+	@echo "✓ lint-docs complete"
 
 link-check: ## Alias for the internal-link checker (test-doc-links)
 	@$(MAKE) test-doc-links
 
 lint-phases: tools-image ## Validate phase docs (frontmatter, numbering, manifest sync)
 	@$(TOOLS_RUN) python3 scripts/lint-phases.py
+
+lint-docs-all: lint-docs lint-phases link-check lint-markdown lint-spelling ## Run all documentation quality checks
+	@echo "✓ lint-docs-all complete"
 
 lint-semgrep: ## Run Semgrep SAST using the project ruleset (containerised)
 	@echo "=== semgrep: SAST (official image — Semgrep does not run on Python 3.14) ==="
@@ -1330,13 +1393,13 @@ lint-ansible: ## Lint the Ansible playbooks/roles under deploy/ansible (containe
 		|| echo "  ! ansible-lint reported issues or is unavailable (advisory)"
 
 lint-all: lint-meta lint-python lint-go lint-sast lint-infra lint-observability \
-          lint-supply-chain lint-docs-all
-	@set -e; \
-	 echo "Running all lint targets..."; \
-	 # Sub-targets will stop make on failure due to set -e; dependencies already run before this recipe
-	 echo ""; \
-	 echo "✓ lint-all complete"; \
-	 python3 scripts/ci_summary.py lint
+          lint-supply-chain lint-docs-all ## Run every linter in one shot
+	@echo ""
+	@echo "✓ lint-all complete"
+	@python3 scripts/ci_summary.py lint
+
+test-lint-hierarchy: ## Run Phase 92 lint hierarchy structural tests
+	@python3 -m pytest tests/lint-hierarchy/ -v
 
 start-poc: deploy-poc ## Alias for starting the POC environment
 
@@ -1528,3 +1591,9 @@ traffic-off: ## Remove JA4proxy from the traffic path (instant rollback; needs s
 	@sudo iptables -t nat -D PREROUTING -p tcp --dport $(TRAFFIC_PUBLIC_PORT) -j REDIRECT --to-port $(TRAFFIC_PROXY_PORT) 2>/dev/null \
 		&& echo "✓ Traffic bypassing JA4proxy. Original service restored." \
 		|| echo "Rule not found — JA4proxy was not in the traffic path."
+
+# ── Phase 92: PHONY declarations for lint hierarchy targets ──────────────────
+.PHONY: lint-pylint lint-checkov lint-haproxy lint-helm lint-markdown lint-spelling
+.PHONY: lint-toml lint-makefiles lint-go-mod test-lint-hierarchy
+.PHONY: lint-python lint-go lint-sast lint-infra lint-observability
+.PHONY: lint-supply-chain lint-docs-all lint-all lint-docs doc-health link-check

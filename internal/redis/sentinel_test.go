@@ -11,13 +11,14 @@ func TestNew_SentinelConfig(t *testing.T) {
 	log := logrus.New()
 	log.SetLevel(logrus.ErrorLevel)
 
-	// Test Sentinel configuration
+	// Use a 1ms dial timeout so pool goroutines fail instantly when there is
+	// no running Sentinel (avoids the test hanging on connection retries).
 	cfg := Config{
 		MasterName: "ja4proxy-primary",
 		Sentinels:  []string{"127.0.0.1:26379", "127.0.0.1:26380"},
 		Password:   "secret",
 		DB:         0,
-		Timeout:    2 * time.Second,
+		Timeout:    1 * time.Millisecond,
 	}
 
 	c := New(cfg, log)
@@ -25,10 +26,6 @@ func TestNew_SentinelConfig(t *testing.T) {
 		t.Fatal("New returned nil for Sentinel config")
 	}
 	defer c.Close()
-
-	// Since we can't easily inspect the internal go-redis client type/options
-	// without reflection or export changes, we'll verify it doesn't panic
-	// and handles the configuration.
 }
 
 func TestNew_SingleNodeConfig(t *testing.T) {

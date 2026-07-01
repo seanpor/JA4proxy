@@ -203,7 +203,8 @@ class RESTGenericClient(FeedClient):
         # would send so test fixtures can assert on auth.
         if self._fetch is not None:
             return await self._fetch(self.config.url, headers=self._build_headers())
-        assert aiohttp is not None
+        if aiohttp is None:
+            raise ImportError("aiohttp is required but not installed")
         # H6 (PHASE_101): SafeResolver blocks DNS-level SSRF to private/metadata IPs.
         from .safe_resolver import SafeResolver
 

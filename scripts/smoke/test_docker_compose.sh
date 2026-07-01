@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# /api/v1/health is public (no auth). /api/v1/health/deep requires Auditor role
-# and would return 401 in CI where no credentials are configured.
+# Deep health check: http://localhost:8090/api/v1/health/deep (requires Auditor role)
+# Shallow health check: http://localhost:8090/api/v1/health (public, no auth)
+# Default to the public endpoint so CI without credentials still passes.
 HEALTH_URL="${HEALTH_URL:-http://localhost:8090/api/v1/health}"
 # Proxy TLS port: 8443 for the quick-start compose (docker-compose.yml),
 # 8080 for the full POC stack behind HAProxy (docker-compose.poc.yml).

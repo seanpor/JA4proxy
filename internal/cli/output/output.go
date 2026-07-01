@@ -26,7 +26,7 @@ func fieldNames(data interface{}) ([]string, error) {
 		return nil, fmt.Errorf("data must be a slice, got %s", t.Kind())
 	}
 	elem := t.Elem()
-	if elem.Kind() == reflect.Ptr {
+	if elem.Kind() == reflect.Pointer {
 		elem = elem.Elem()
 	}
 	if elem.Kind() != reflect.Struct {
@@ -45,7 +45,7 @@ func rows(data interface{}) [][]string {
 	result := make([][]string, v.Len())
 	for i := range v.Len() {
 		elem := v.Index(i)
-		if elem.Kind() == reflect.Ptr {
+		if elem.Kind() == reflect.Pointer {
 			elem = elem.Elem()
 		}
 		row := make([]string, elem.NumField())
