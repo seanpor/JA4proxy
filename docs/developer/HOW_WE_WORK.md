@@ -34,7 +34,7 @@ The repository is **trunk-based**:
   abandon it.
 
 > **Never commit directly to `main`.** This rule is restated in
-> [`CLAUDE.md`](../../../CLAUDE.md) §Git Rules. Direct pushes are blocked by
+> [`CLAUDE.md`](../../CLAUDE.md) §Git Rules. Direct pushes are blocked by
 > branch protection; the keep-main-green policy below assumes every change
 > arrives via PR.
 
@@ -77,7 +77,7 @@ commits also make `git revert` safe; see Keep-main-green policy below.
 
 Each phase agent owns only the files in `src/`, `tests/`, and
 `docs/phases/` relevant to its phase. Shared files have specific rules — see
-[`CLAUDE.md`](../../../CLAUDE.md) §File Ownership for the table (Makefile,
+[`CLAUDE.md`](../../CLAUDE.md) §File Ownership for the table (Makefile,
 README.md, CHANGELOG.md, requirements.txt, config/proxy.yml, etc.). Do not
 restate the table here; CLAUDE.md is the source of truth.
 

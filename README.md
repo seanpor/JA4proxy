@@ -153,7 +153,7 @@ visible *before and during* the TLS handshake — JA4 fingerprint, SNI, ALPN,
 ASN, IP reputation, behavioural signals — and makes allow/block/tarpit
 decisions without ever decrypting the traffic.
 
-```
+```text
 Internet ──TLS──▶ Load Balancer ──TCP──▶ JA4proxy ×N ──TLS──▶ Your Server
                       :443                  :8443               :443
                                               │  ▲
@@ -181,7 +181,7 @@ and CLI tooling.
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/seanpor/JA4proxy/badge)](https://scorecard.dev/viewer/?uri=github.com/seanpor/JA4proxy)
 [![Go Report Card](https://goreportcard.com/badge/github.com/seanpor/JA4proxy)](https://goreportcard.com/report/github.com/seanpor/JA4proxy)
 [![SLSA 3](https://slsa.dev/images/gh-badge-level3.svg)](https://slsa.dev)
-[![Coverage](https://img.shields.io/badge/coverage-verified-brightgreen)](#)
+![Coverage](https://img.shields.io/badge/coverage-verified-brightgreen)
 [![GitHub release](https://img.shields.io/github/v/release/seanpor/JA4proxy)](https://github.com/seanpor/JA4proxy/releases)
 
 - **Immutable Dependencies**: Docker base images pinned to SHA256 digests

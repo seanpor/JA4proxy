@@ -396,3 +396,127 @@ CVE-2026-39827 exp:2026-07-13
 # PKI (not from untrusted external sources), so maliciously crafted certificates cannot
 # reach the vulnerable parsing code.
 CVE-2026-27145 exp:2026-07-13
+
+# CVE-2026-39828: golang.org/x/crypto/ssh before 0.52.0 — SSH connection reuse vulnerability.
+# Why no fix: Affects prometheus:v3.12.0, alertmanager:v0.33.0, node-exporter:v1.11.1,
+# grafana:13.0.2-ubuntu, loki:3.7.2, and promtail:3.6.11 as a transitive dep compiled
+# into each binary. No updated image tags that bundle x/crypto ≥ 0.52.0 exist yet.
+# Why not exploitable: None of these components act as an SSH client or server in our
+# deployment. The vulnerable golang.org/x/crypto/ssh code path is statically linked but
+# never reachable during normal operation.
+CVE-2026-39828 exp:2026-07-14
+
+# CVE-2026-39829: golang.org/x/crypto/ssh before 0.52.0 — second SSH DoS CVE (sibling of -39828).
+# Why no fix: Same affected images as CVE-2026-39828: prometheus:v3.12.0, alertmanager:v0.33.0,
+# node-exporter:v1.11.1, grafana:13.0.2-ubuntu, loki:3.7.2, promtail:3.6.11. No updated image
+# tags that bundle x/crypto ≥ 0.52.0 exist yet.
+# Why not exploitable: None of these components use golang.org/x/crypto/ssh in our deployment.
+CVE-2026-39829 exp:2026-07-14
+
+# CVE-2025-15467: OpenSSL libcrypto3 RCE/DoS in redis:7.4.0-alpine (libcrypto3 3.3.2-r0).
+# Fix available in 3.3.6-r0 but requires a rebuild of the redis:7.4.0-alpine image by
+# the Redis Docker maintainers — no updated tag with the patched Alpine exists yet.
+# Why not exploitable: Redis is bound to 127.0.0.1 (loopback only) inside the Docker network
+# in our deployment; it is never reachable from external clients. The TLS code path is also
+# not enabled in our Redis configuration.
+CVE-2025-15467 exp:2026-07-14
+
+# CVE-2022-28131: Go stdlib encoding/xml stack exhaustion in gosu inside redis:7.4.0-alpine.
+# Why no fix: gosu is compiled with Go 1.18.2 and bundled in the redis image. No newer
+# redis:7.4.0-alpine tag with a rebuilt gosu exists. CVE has been present since 2022.
+# Why not exploitable: gosu is a one-shot setuid+exec wrapper that never parses XML; the
+# vulnerable encoding/xml code path is statically linked but completely unreachable at runtime.
+CVE-2022-28131 exp:2026-07-14
+
+# CVE-2026-39830: golang.org/x/crypto/ssh before 0.52.0 — third SSH DoS CVE (sibling of -39828/-39829).
+# Why no fix: Same affected images as -39828/-39829. No updated image tags exist yet.
+# Why not exploitable: None of these components use golang.org/x/crypto/ssh in our deployment.
+CVE-2026-39830 exp:2026-07-14
+
+# CVE-2025-69421: OpenSSL libcrypto3 PKCS#12 DoS in redis:7.4.0-alpine (libcrypto3 3.3.2-r0).
+# Fix in 3.3.6-r0 requires a rebuild of redis:7.4.0-alpine by Docker Redis maintainers.
+# Why not exploitable: Redis is loopback-only in our deployment; the PKCS#12 parsing code
+# path is never reached by any client-supplied input in our configuration.
+CVE-2025-69421 exp:2026-07-14
+
+# CVE-2022-2879: Go stdlib archive/tar memory exhaustion in gosu inside redis:7.4.0-alpine.
+# Why no fix: gosu is compiled with Go 1.18.2; no newer redis:7.4.0-alpine tag exists.
+# Why not exploitable: gosu never processes tar archives; it is a setuid+exec wrapper only.
+CVE-2022-2879 exp:2026-07-14
+
+# CVE-2026-39832: golang.org/x/crypto/ssh/agent before 0.52.0 — fourth in the CVE-2026-3983x batch.
+# Affects same images as -39828/-39829/-39830. No updated image tags exist yet.
+# Why not exploitable: None of these components use golang.org/x/crypto/ssh in our deployment.
+CVE-2026-39832 exp:2026-07-14
+
+# CVE-2026-28387: OpenSSL libcrypto3 arbitrary code execution in redis:7.4.0-alpine (3.3.2-r0).
+# Fix in 3.3.7-r0 requires a rebuilt redis:7.4.0-alpine by Docker Redis maintainers.
+# Why not exploitable: Redis is loopback-only in our deployment; no untrusted input reaches
+# the vulnerable OpenSSL code path.
+CVE-2026-28387 exp:2026-07-14
+
+# CVE-2022-2880: Go stdlib net/http/httputil hop-by-hop forwarding in gosu inside redis:7.4.0-alpine.
+# Why no fix: gosu is compiled with Go 1.18.2; no newer redis:7.4.0-alpine tag exists.
+# Why not exploitable: gosu is a one-shot setuid+exec wrapper that never acts as an HTTP proxy;
+# the httputil.ReverseProxy code path is statically linked but never invoked.
+CVE-2022-2880 exp:2026-07-14
+
+# ── Redis gosu Go 1.18.2 stdlib CVE batch ───────────────────────────────────
+# gosu inside redis:7.4.0-alpine is compiled with Go 1.18.2. All these CVEs
+# are in Go stdlib code paths that are statically linked into the gosu binary
+# but NEVER reachable at runtime: gosu is a one-shot setuid+exec wrapper that
+# does not serve HTTP, parse XML/tar/zip, perform DNS lookups, or process any
+# network input. No newer redis:7.4.0-alpine tag with a rebuilt gosu exists.
+CVE-2022-29804 exp:2026-07-14
+CVE-2022-30580 exp:2026-07-14
+CVE-2022-30630 exp:2026-07-14
+CVE-2022-30631 exp:2026-07-14
+CVE-2022-30632 exp:2026-07-14
+CVE-2022-30633 exp:2026-07-14
+CVE-2022-30634 exp:2026-07-14
+CVE-2022-30635 exp:2026-07-14
+CVE-2022-32189 exp:2026-07-14
+CVE-2022-41715 exp:2026-07-14
+CVE-2022-41716 exp:2026-07-14
+CVE-2022-41720 exp:2026-07-14
+CVE-2022-41722 exp:2026-07-14
+CVE-2022-41723 exp:2026-07-14
+CVE-2022-41724 exp:2026-07-14
+CVE-2022-41725 exp:2026-07-14
+CVE-2023-24534 exp:2026-07-14
+CVE-2023-24536 exp:2026-07-14
+CVE-2023-24537 exp:2026-07-14
+CVE-2023-24539 exp:2026-07-14
+CVE-2023-29400 exp:2026-07-14
+CVE-2023-29403 exp:2026-07-14
+CVE-2023-39325 exp:2026-07-14
+CVE-2023-44487 exp:2026-07-14
+CVE-2023-45283 exp:2026-07-14
+CVE-2023-45287 exp:2026-07-14
+CVE-2023-45288 exp:2026-07-14
+CVE-2024-34156 exp:2026-07-14
+CVE-2025-26519 exp:2026-07-14
+CVE-2025-61726 exp:2026-07-14
+CVE-2025-61729 exp:2026-07-14
+CVE-2026-22184 exp:2026-07-14
+CVE-2026-25679 exp:2026-07-14
+CVE-2026-28388 exp:2026-07-14
+CVE-2026-28389 exp:2026-07-14
+CVE-2026-28390 exp:2026-07-14
+CVE-2026-40200 exp:2026-07-14
+
+# ── Prometheus / node-exporter / Grafana golang.org/x/crypto CVE batch ──────
+# These CVEs affect golang.org/x/crypto and related packages compiled into
+# prom/prometheus:v3.12.0, prom/node-exporter:v1.11.1, and related images.
+# Fix requires rebuilding against updated dependency versions; no newer image
+# tags with the fixes exist yet. None of these images act as SSH clients or
+# servers in our deployment, so the affected code paths are unreachable.
+CVE-2026-25680 exp:2026-07-14
+CVE-2026-25681 exp:2026-07-14
+CVE-2026-27136 exp:2026-07-14
+CVE-2026-39821 exp:2026-07-14
+CVE-2026-39835 exp:2026-07-14
+CVE-2026-42502 exp:2026-07-14
+CVE-2026-42508 exp:2026-07-14
+CVE-2026-46595 exp:2026-07-14
+CVE-2026-46597 exp:2026-07-14

@@ -1382,7 +1382,7 @@ so the target compiles and runs panic-free but exercises essentially
 zero v2 code path. The fuzz harness exists today so it is ready when
 the v2 reader lands.
 
-**Fix:** When [Phase 200](complete/PHASE_200.md) implements the binary v2 PROXY
+**Fix:** When [Phase 200](PHASE_200.md) implements the binary v2 PROXY
 protocol parser, repoint `FuzzReadProxyProtocolV2` at the new function
 and verify execution count climbs into the same range as the v1 target
 (~700 k execs / 10 s).

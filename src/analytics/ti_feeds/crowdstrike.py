@@ -273,7 +273,8 @@ class CrowdStrikeFalconClient(FeedClient):
         """
         if aiohttp is None:  # pragma: no cover
             raise RuntimeError("aiohttp required")
-        assert self._token
+        if not self._token:
+            raise RuntimeError("CrowdStrike token not set; call authenticate() first")
 
         offset: Optional[str] = None
         type_csv = ",".join(self.config.indicator_types or ["ip_address"])
@@ -325,7 +326,8 @@ class CrowdStrikeFalconClient(FeedClient):
 
     async def _poll_paginated_via_fetcher(self, result: FeedPollResult) -> None:
         """Drive a cursor-paginated stream against an injected ``page_fetcher``."""
-        assert self._page_fetcher is not None  # narrow for type checkers
+        if self._page_fetcher is None:
+            raise RuntimeError("page_fetcher not set")
         offset: Optional[str] = None
         # Build a filters string mirroring the production query so the
         # test can inspect it if it wants to.

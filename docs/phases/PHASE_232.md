@@ -2,13 +2,11 @@
 
 > **Lineage:** This phase is part of the **Container & Interface Consolidation** programme (see [PHASE_231.md](complete/PHASE_231.md)). Following a request for more granular, reviewable units and dedicated operational documentation updates, the original monolithic Phase 232 plan has been split into smaller sub-phases:
 >
-> - **[PHASE_232a](PHASE_232a.md)** — Frontend Asset Vendoring & Static Compilation (Size: SMALL).
-> - **[PHASE_232b](PHASE_232b.md)** — Threat Posture Situation Bar & Heartbeat Alerting (Size: SMALL).
+> - **PHASE_232a** — Frontend Asset Vendoring & Static Compilation (Size: SMALL) — not implemented.
+> - **PHASE_232b** — Threat Posture Situation Bar & Heartbeat Alerting (Size: SMALL) — not implemented.
 > - **[PHASE_232c](PHASE_232c.md)** — Container Networking & Port Hardening (Size: SMALL).
 > - **[PHASE_232d](PHASE_232d.md)** — Admin-API Decommissioning (Size: SMALL).
-> - **[PHASE_232e](PHASE_232e.md)** — Legacy Management Module Removal (Size: SMALL) —
->   the deferred source-deletion tail of 232d (deletes the orphaned
->   `src/management/` package once the container that ran it is gone).
+> - **PHASE_232e** — Legacy Management Module Removal (Size: SMALL) — not implemented.
 >
 > Each sub-phase is signed off and landed independently. No code until a
 > sub-phase is approved.

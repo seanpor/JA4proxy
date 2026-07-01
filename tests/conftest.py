@@ -57,24 +57,39 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 import redis
 
+# Configure hypothesis to use an in-memory database when the default location
+# (.hypothesis/examples) is not writable — avoids a HypothesisWarning in the
+# tools container where /src is mounted read-owned by a different UID.
+try:
+    from hypothesis import settings
+    from hypothesis.database import InMemoryExampleDatabase
+
+    _hyp_dir = Path(".hypothesis/examples")
+    if not (_hyp_dir.exists() and os.access(_hyp_dir, os.W_OK)):
+        settings.register_profile("_no_disk_db", database=InMemoryExampleDatabase())
+        settings.load_profile("_no_disk_db")
+except Exception:  # noqa: BLE001  # hypothesis is optional for non-hypothesis tests
+    pass
+
 _SESSION_START: list[float] = []  # populated by pytest_sessionstart
 
 # ── Approved skip registry ────────────────────────────────────────────────────
 # Tests that are expected to be skipped in a local dev environment are listed
 # here.  Any skip ABOVE this count is flagged as "◀ UNEXPECTED" in the summary.
 #
-# Current approved skips (18 total):
-#   4  Go chaos tests      — tests/chaos/test_go_proxy_chaos.py
-#                            (bin/ja4pd not built; build: GOROOT=/snap/go/current go build)
-#   8  Go parity tests     — tests/integration/test_go_python_parity.py
-#                            (Go proxy binary not built or running)
-#   3  Real Redis tests    — tests/integration/backup/test_real_redis_integration.py
-#                            (no live Redis at localhost:6379; run: make start)
+# Current approved skips (13 total) — assumes `make test` or `make cli-build`
+# has run so bin/ja4p is present.  Adding to this list requires sign-off.
+#   3  Go chaos tests      — tests/chaos/test_go_proxy_chaos.py
+#                            (require bin/ja4pd and live proxy; run make start)
+#   3  Real Redis tests    — tests/integration/test_analytics_acl.py
+#                            (no live Redis with ACL config; set INTEGRATION_REDIS_URL)
 #   2  Docker enforcement  — tests/integration/test_multi_process_enforcement.py
 #                            (requires Docker Compose multi-process env; set CI_DOCKER=1)
-#   1  K8s operator tests  — tests/unit/test_managed_by_operator_k8s.py
-#                            (requires Helm binary and K8s tooling)
-_APPROVED_SKIP_COUNT = 18
+#   4  Performance tests   — tests/performance/test_bench_go_proxy.py
+#                            (require live proxy; run make start then make test-perf)
+#   1  Schema parity test  — tests/unit/test_schema_parity.py
+#                            (requires analytics + management packages importable)
+_APPROVED_SKIP_COUNT = 13
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

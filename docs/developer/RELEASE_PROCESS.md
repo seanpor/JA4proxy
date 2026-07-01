@@ -219,4 +219,4 @@ If you need to re-release the same version (e.g., after fixing a broken artifact
 2. Delete the tag locally and remotely: `git tag -d v1.0.0 && git push origin :refs/tags/v1.0.0`.
 3. Re-create the tag and push it.
 
-Do not re-use a version tag for a different commit. Use a patch version bump instead.
+Do not reuse a version tag for a different commit. Use a patch version bump instead.

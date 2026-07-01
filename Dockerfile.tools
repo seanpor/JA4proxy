@@ -9,23 +9,29 @@
 # trivy, gitleaks, gosec, promtool, amtool, scorecard, lychee — are run from
 # those images directly by the Makefile and are intentionally NOT installed here.
 # The Go toolchain (go fmt/vet) is provided by the CI runner / host, not here.
+# checkov:skip=CKV_DOCKER_3: This is an internal lint/test-runner image that writes
+# cache files to the bind-mounted /src volume (owned by the host user). Running as a
+# non-root user breaks write access; no network exposure — not a runtime service image.
 FROM python:3.14-slim
 
 # git + certs: needed by pip-audit and a few linters. bash ships in the base.
 # build-essential: some pinned deps (e.g. pytricia) build C extensions from sdist.
+# xmlsec1: required by python3-saml (management dep) for SAML signature validation.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends git ca-certificates build-essential \
+ && apt-get install -y --no-install-recommends git ca-certificates build-essential xmlsec1 \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src
 
 # Project deps first (own layer, cached unless requirements change) so mypy can
 # resolve imports and pytest/conftest can import redis, fastapi, etc.
-COPY requirements.txt requirements-test.txt requirements-analytics.txt ./
+# Management deps are included so pylint can resolve all imports.
+COPY requirements.txt requirements-test.txt requirements-analytics.txt requirements-lint-management.txt ./
 RUN pip install --no-cache-dir \
       -r requirements.txt \
       -r requirements-test.txt \
-      -r requirements-analytics.txt
+      -r requirements-analytics.txt \
+      -r requirements-lint-management.txt
 
 # Third-party Python linters (pinned major versions) that are compatible with
 # the project's Python 3.14. semgrep and ansible-lint are NOT installed here —
@@ -34,7 +40,11 @@ RUN pip install --no-cache-dir \
 RUN pip install --no-cache-dir \
       ruff==0.4.* \
       mypy==1.* \
-      pip-audit==2.*
+      pip-audit==2.* \
+      pymarkdownlnt==0.9.* \
+      codespell==2.*
 # NOTE: bandit is intentionally NOT installed here. It runs on Python 3.11 from
 # Dockerfile.bandit — its B502/B604/B607 plugins use ast.Num (removed in 3.12),
 # so on this 3.14 image bandit silently skips whole files. See Dockerfile.bandit.
+
+HEALTHCHECK NONE

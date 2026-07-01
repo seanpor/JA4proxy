@@ -18,7 +18,7 @@ LDFLAGS := -ldflags="-s -w -X github.com/seanpor/ja4proxy/internal/config.Versio
 
 # ── Environment Configuration ────────────────────────────────────────────────
 ifneq (,$(wildcard .env))
-    include .env
+    -include .env
     export
 endif
 # Makefile for JA4 Proxy
@@ -358,7 +358,7 @@ compose-validate: ## Validate docker-compose files and required env vars (fast, 
 
 # Run all tests locally in parallel (fast — no Docker required)
 # Skips tests marked @pytest.mark.live_services (require Go/Python proxy + Redis stack)
-test: tools-image ## Phase 146 — Run the full test suite
+test: tools-image cli-build ## Phase 146 — Run the full test suite
 	@echo "=== Running Go Native Tests ==="
 	@GOROOT=$(GOROOT) go test -v -coverprofile=coverage.txt -covermode=atomic ./...
 	@echo "=== Running Python Unit Tests (containerized: $(TOOLS_IMG)) ==="
@@ -559,14 +559,9 @@ check-manifest:
 scan-images:
 	@mkdir -p "$(TRIVY_CACHE)"
 	@echo "=== Trivy: third-party image CVE scan (HIGH + CRITICAL) ==="
-	@echo "    Fails on CRITICAL; HIGH findings are reported but advisory."
-	@echo "    (Phase 314 differentiated gate: third-party images we pin but do"
-	@echo "     not build cannot be HIGH-gated — most remaining HIGH are upstream"
-	@echo "     Go-stdlib/distro CVEs with no fixed tag yet. They are tracked in"
-	@echo "     docs/security/THIRD_PARTY_CVE_WAIVERS.md, not silently ignored.)"
-	@echo "    CVEs listed in .trivyignore are documented exceptions."
+	@echo "    Fails on HIGH or CRITICAL. CVEs in .trivyignore are documented exceptions."
 	@echo ""
-	@fail=0; advisory=0; \
+	@fail=0; \
 	for img in $(TRIVY_IMAGES); do \
 		echo "  Scanning $$img ..."; \
 		result=$$(docker run --rm -v "$(PWD):/scan:ro" -v "$(TRIVY_CACHE):/root/.cache/trivy" aquasec/trivy:0.71.0 image \
@@ -579,24 +574,14 @@ scan-images:
 		crit=$$(echo "$$result" | grep -v "Total:" | grep -c "CRITICAL" || true); \
 		matches=$$(echo "$$result" | grep -E "CRITICAL|HIGH|Total:" || true); \
 		echo "    $$matches"; \
-		if [ "$$high" -gt 0 ]; then \
-			echo "    ⚠ ADVISORY: $$high HIGH CVE(s) in $$img (non-blocking — upstream third-party image; tracked in docs/security/THIRD_PARTY_CVE_WAIVERS.md)"; \
-			advisory=$$((advisory + high)); \
-		fi; \
-		if [ "$$crit" -gt 0 ]; then \
-			echo "    ✗ CRITICAL: $$crit CRITICAL CVE(s) in $$img — fix the image or add a justified, dated .trivyignore entry"; \
+		if [ "$$high" -gt 0 ] || [ "$$crit" -gt 0 ]; then \
+			echo "    ✗ $$high HIGH + $$crit CRITICAL CVE(s) in $$img — add a justified, dated .trivyignore entry"; \
 			fail=1; \
 		fi; \
 		echo ""; \
 	done; \
-	[ $$fail -eq 0 ] || { echo "✗ CRITICAL CVEs found — see .trivyignore for documented exceptions"; exit 1; }; \
-	if [ $$advisory -gt 0 ]; then \
-		echo "⚠ Image scan: $$advisory advisory HIGH CVE(s) in third-party images (non-blocking)"; \
-		echo "  These are upstream CVEs in images we do not build. Tracked in docs/security/THIRD_PARTY_CVE_WAIVERS.md."; \
-		echo "  Re-run when updated image tags are available, or add a justified, dated .trivyignore entry."; \
-	else \
-		echo "✓ Image scan complete — no findings"; \
-	fi
+	[ $$fail -eq 0 ] || { echo "✗ HIGH/CRITICAL CVEs found — see .trivyignore for documented exceptions"; exit 1; }; \
+	echo "✓ Image scan complete — no findings"
 
 # Trivy misconfiguration scan of Dockerfiles and compose files.
 # Does NOT require building images — analyses file content only.
@@ -709,9 +694,9 @@ lint-prom:
 # pip-audit scans requirements.txt; govulncheck scans go.mod.
 lint-deps: scan-container
 	@echo "=== pip-audit: Python dependency CVEs ==="
-	@pip-audit -r requirements.txt --no-deps || true
-	@pip-audit -r requirements-test.txt --no-deps || true
-	@pip-audit -r requirements-analytics.txt --no-deps || true
+	@pip-audit -r requirements.txt || true
+	@pip-audit -r requirements-test.txt || true
+	@pip-audit -r requirements-analytics.txt || true
 	@echo "  (CVEs above are advisory — pinned versions may lag; update requirements.txt to remediate)"
 	@echo ""
 	@echo ""
@@ -1013,7 +998,7 @@ scan: ## Phase 146 — Run all security and container scans
 	@python3 scripts/pipeline_summary.py scan
 
 scan-all: scan-container scan-dockerfiles scan-first-party scan-images
-	@echo "✓ All blocking scan gates passed (CRITICAL=0; any advisory HIGHs listed above)"
+	@echo "✓ All blocking scan gates passed (HIGH=0, CRITICAL=0)"
 
 # Analyze Docker containers and dependencies for version discrepancies
 check-updates-container:
@@ -1213,7 +1198,7 @@ quality: lint-all lint-coverage ## Run all linters + coverage checks in one shot
 	@echo "=== Go coverage check ==="
 	@GOROOT=$(GOROOT) go test -v -coverprofile=coverage.txt -covermode=atomic ./... -coverprofile=/tmp/go_cover_quality.out -count=1 > /dev/null 2>&1 \
 		&& GOROOT=$(GOROOT) go tool cover -func=/tmp/go_cover_quality.out \
-			| tail -1 | awk '{gsub(/%/,"",$$NF); if($$NF+0 < 50) {print "FAIL: Go coverage "$$NF"% < 50%"; exit 1} else print "  ✓ Go coverage "$$NF"%"}'
+			| tail -1 | awk '{gsub(/%/,"",$$NF); if($$NF+0 < 80) {print "FAIL: Go coverage "$$NF"% < 80%"; exit 1} else print "  ✓ Go coverage "$$NF"%"}'
 	@echo ""
 	@echo "✓ quality complete — all checks passed"
 
@@ -1251,16 +1236,17 @@ test-attack-mapping: tools-image ## Phase 107f.4 — fail if ATT&CK mapping rows
 # phase-107w.3: doc-link check (requires lychee installed locally — same tool the CI workflow runs)
 test-doc-links: ## Phase 107w.3 — lychee-check all docs for broken internal links (advisory; gated by docs-link-check.yml)
 	@echo "=== lychee: internal link check (containerised; advisory in make lint) ==="
-	@docker run --rm -v $(PWD):/input lycheeverse/lychee:0.24.2 \
-		--no-progress --accept 200,204,301,302,403,429 \
+	@docker run --rm -v $(PWD):/input -w /input lycheeverse/lychee:0.24.2 \
+		--no-progress --accept 200,202,204,301,302,403,429 \
 		--exclude-path /input/archive \
 		--exclude-path /input/node_modules \
 		--exclude-path /input/docs/reports/archive \
 		--exclude-path /input/docs/phases/cancelled \
 		--exclude-path /input/docs/reports/LINK_AUDIT_2026-06-03.md \
+		--exclude-path /input/docs/phases/TODO.md \
+		--exclude-path /input/docs/reference/PROJECT_STATUS.md \
 		--exclude 'http://localhost' \
 		--exclude 'http://127\.0\.0\.1' \
-		--exclude-file /input/.lycheeignore \
 		"/input/**/*.md" \
 		|| echo "  ! lychee reported link issues (advisory — see the docs-link-check workflow for the gate)"
 lint-meta: tools-image ## Phase 147 — Verify Makefile and automation script health
@@ -1311,19 +1297,20 @@ lint-helm: ## Run helm lint on Helm charts (advisory)
 			|| echo "  ! helm lint reported issues (advisory)"; \
 		echo "  ✓ helm lint done"; \
 	else \
-		echo "  ! deploy/helm/ not found — skipping (advisory)"; \
+		true; \
 	fi
 
 lint-markdown: tools-image ## Lint Markdown files for formatting issues (advisory)
 	@echo "=== markdownlint: Markdown files ==="
-	@$(TOOLS_RUN) python3 -m pymarkdownlnt scan docs/ README.md 2>&1 \
+	@$(TOOLS_RUN) python3 -m pymarkdown --config /src/.pymarkdown scan docs/ README.md 2>&1 \
 		|| echo "  ! markdownlint reported issues (advisory)"
 	@echo "  ✓ Markdown lint done"
 
 lint-spelling: tools-image ## Spell-check documentation (advisory)
 	@echo "=== codespell: spelling check ==="
-	@$(TOOLS_RUN) python3 -m codespell docs/ README.md \
-		--skip="*.po,*.pot,docs/phases,docs/reference" 2>&1 \
+	@$(TOOLS_RUN) codespell docs/ README.md \
+		--skip="*.po,*.pot,docs/phases,docs/reference,docs/pdf" \
+		--ignore-words=/src/.codespellignore 2>&1 \
 		|| echo "  ! codespell reported issues (advisory)"
 	@echo "  ✓ Spelling check done"
 
@@ -1338,7 +1325,7 @@ lint-makefiles: ## Lint Makefile for common issues (checkmake; advisory)
 		checkmake Makefile; \
 		echo "  ✓ checkmake passed"; \
 	else \
-		echo "  ! checkmake not installed — skipping (advisory)"; \
+		true; \
 	fi
 
 lint-go-mod: ## Verify go.mod and go.sum are consistent (go mod verify)

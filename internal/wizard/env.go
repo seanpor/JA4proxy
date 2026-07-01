@@ -15,6 +15,7 @@ import (
 var secretEnvKeys = []string{
 	"REDIS_PASSWORD", "REDIS_SIGNING_KEY", "MANAGEMENT_JWT_SECRET",
 	"MANAGEMENT_ADMIN_PASSWORD", "GRAFANA_PASSWORD", "HAPROXY_STATS_PASSWORD",
+	"ANALYTICS_REDIS_PASSWORD",
 }
 
 // isSecretEnvKey reports whether k is one of the statically-known secret keys.

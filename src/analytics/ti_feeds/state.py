@@ -592,8 +592,8 @@ class FeedState:
         """Reset empty streak to 0."""
         try:
             await self._redis.set(_KEY_EMPTY_STREAK.format(feed_id=feed_id), "0")
-        except Exception:
-            pass
+        except Exception as e:  # noqa: BLE001
+            logger.debug("reset_empty_streak redis error (ignored): %s", e)
 
     # ── leader election (Phase 8 pattern) ─────────────────────────────────
 

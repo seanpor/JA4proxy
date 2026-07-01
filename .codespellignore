@@ -1,0 +1,7 @@
+# codespell ignore-words list — one word per line (case-insensitive).
+# Add only legitimate technical terms and acronyms that codespell flags incorrectly.
+CAF
+intoto
+CNA
+SME
+aNULL

@@ -172,8 +172,8 @@ class FeedRunner:
         for client in self._clients.values():
             try:
                 await client.close()
-            except Exception:  # noqa: BLE001
-                pass
+            except Exception as e:  # noqa: BLE001
+                logger.debug("client close error during stop (ignored): %s", e)
         await self._mgmt.close()
 
     async def reload_config(self, new_config: dict[str, Any]) -> None:
@@ -257,8 +257,8 @@ class FeedRunner:
         if client is not None:
             try:
                 await client.close()
-            except Exception:  # noqa: BLE001
-                pass
+            except Exception as e:  # noqa: BLE001
+                logger.debug("client close error during feed stop (ignored): %s", e)
         self._breakers.drop(feed_id)
         logger.info(
             "ti_feed | event=feed_stopped | feed=%s | rules_retained=true",

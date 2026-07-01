@@ -317,5 +317,5 @@ search the SIEM for the same `@timestamp` to confirm round-trip ingestion.
   — non-goals; SIEM is one of the named complementary controls
 - [`EVALUATION_CHECKLIST.md`](../product/EVALUATION_CHECKLIST.md)
   — what to monitor in your SIEM during a POC
-- [`config/integrations/ecs-schema.json`](../../../config/integrations/ecs-schema.json)
+- [`config/integrations/ecs-schema.json`](../../config/integrations/ecs-schema.json)
   — JSON Schema for CI validation of emitted events
