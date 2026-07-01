@@ -7,26 +7,27 @@ import (
 	"testing"
 )
 
-// buildJa4check builds the ja4check binary and returns its path.
+// buildJa4check builds the unified ja4p binary (cmd/ja4check was folded into
+// it as the "check" subcommand — phase-151) and returns its path.
 // Skips the test if the build fails (e.g., in CI without GOROOT).
 func buildJa4check(t *testing.T) string {
 	t.Helper()
-	binPath := filepath.Join(t.TempDir(), "ja4check")
+	binPath := filepath.Join(t.TempDir(), "ja4p")
 	cmd := exec.Command("go", "build", "-o", binPath, ".")
-	cmd.Dir = filepath.Join(checkFindModuleRoot(t), "cmd", "ja4check")
+	cmd.Dir = filepath.Join(checkFindModuleRoot(t), "cmd", "ja4p")
 	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Skipf("skipping: could not build ja4check binary: %v\n%s", err, out)
+		t.Skipf("skipping: could not build ja4p binary: %v\n%s", err, out)
 	}
 	return binPath
 }
 
-// TestJa4check_NoArgs verifies that running ja4check without arguments exits
-// with code 1 and prints usage to stderr.
+// TestJa4check_NoArgs verifies that running `ja4p check` without arguments
+// exits with code 1 and prints usage to stderr.
 func TestJa4check_NoArgs(t *testing.T) {
 	binPath := buildJa4check(t)
 
 	// Run without args
-	runCmd := exec.Command(binPath)
+	runCmd := exec.Command(binPath, "check")
 	out, err := runCmd.CombinedOutput()
 	if err == nil {
 		t.Fatal("expected non-zero exit for no arguments")
@@ -43,12 +44,12 @@ func TestJa4check_NoArgs(t *testing.T) {
 	}
 }
 
-// TestJa4check_InvalidFile verifies that ja4check exits with code 1 for a
+// TestJa4check_InvalidFile verifies that `ja4p check` exits with code 1 for a
 // nonexistent file.
 func TestJa4check_InvalidFile(t *testing.T) {
 	binPath := buildJa4check(t)
 
-	runCmd := exec.Command(binPath, "/nonexistent/file.bin")
+	runCmd := exec.Command(binPath, "check", "/nonexistent/file.bin")
 	_, err := runCmd.CombinedOutput()
 	if err == nil {
 		t.Fatal("expected non-zero exit for missing file")
@@ -62,8 +63,9 @@ func TestJa4check_InvalidFile(t *testing.T) {
 	}
 }
 
-// TestJa4check_InvalidData verifies that ja4check exits with code 2 for data
-// that is not a valid TLS ClientHello.
+// TestJa4check_InvalidData verifies that `ja4p check` exits with code 1 for
+// data that is not a valid TLS ClientHello (check.go os.Exit(1)s on every
+// error path — parse failures are not distinguished from I/O failures).
 func TestJa4check_InvalidData(t *testing.T) {
 	binPath := buildJa4check(t)
 
@@ -73,7 +75,7 @@ func TestJa4check_InvalidData(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	runCmd := exec.Command(binPath, tmpFile)
+	runCmd := exec.Command(binPath, "check", tmpFile)
 	_, err := runCmd.CombinedOutput()
 	if err == nil {
 		t.Fatal("expected non-zero exit for invalid TLS data")
@@ -82,8 +84,8 @@ func TestJa4check_InvalidData(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected ExitError, got %T: %v", err, err)
 	}
-	if exitErr.ExitCode() != 2 {
-		t.Errorf("exit code = %d; want 2", exitErr.ExitCode())
+	if exitErr.ExitCode() != 1 {
+		t.Errorf("exit code = %d; want 1", exitErr.ExitCode())
 	}
 }
 
