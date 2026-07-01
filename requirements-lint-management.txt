@@ -6,7 +6,7 @@
 # in requirements.txt / requirements-test.txt and are NOT repeated here.
 python-jose[cryptography]
 passlib[bcrypt]
-bcrypt>=4.0
+bcrypt>=5.0.0
 webauthn>=2.0
 python3-saml>=1.16
 authlib>=1.0
