@@ -41,6 +41,7 @@ a Unix signal.
 \code{abuseipdb} & Yes & Cache TTL change affects new lookups \\
 \code{rdap} & Yes & block\_expansion toggle applies immediately \\
 \code{spamhaus} & No (refresh\_interval) & Next trie refresh uses new URL \\
+\code{decision\_cache} & Yes & New TTLs apply to decisions cached after reload \\
 \code{redis.url} / \code{redis.password} & No & Requires process restart \\
 \bottomrule
 \end{tabular}
@@ -384,6 +385,46 @@ accessible inside the container.
 redis:
   url: "redis://redis:6379"
   password: "${REDIS_PASSWORD}"
+\end{yamlcode}
+
+\section{decision\_cache — Per-Client Decision Cache}
+\index{configuration!decision\_cache}
+\index{decision cache!configuration}
+
+The in-process decision cache lets \ja\ skip the full signal pipeline for a
+recently-seen client. Per ADR-003 it is keyed \textbf{per client} — the client
+IP combined with its JA4 fingerprint — so a decision made for one client is never
+served to another that merely shares a TLS fingerprint. Entries use
+\textbf{asymmetric TTLs}: an \code{allow} is cached for a long window (a client
+judged legitimate stays fast without re-scoring), while every blocking action
+(\code{block}, \code{ban}, \code{tarpit}, \code{rate\_limit}, \code{flag}) is
+cached only briefly so a mistaken or stale block self-heals and a lifted ban takes
+effect almost immediately.
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{\code{decision\_cache} section}
+\label{tab:config-decision-cache}
+\begin{tabular}{@{}lllp{5.5cm}@{}}
+\toprule
+\textbf{Key} & \textbf{Type} & \textbf{Default} & \textbf{Description} \\
+\midrule
+\code{allow\_ttl\_seconds} & integer & \code{1800} & TTL for cached \code{allow} decisions (long window; ADR-003) \\
+\code{block\_ttl\_seconds} & integer & \code{30} & TTL for cached blocking actions (short window; self-healing) \\
+\code{max\_entries} & integer & \code{10000} & Cap on cached decisions; bounds memory \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+Both TTLs are hot-reloadable. Zero or absent values fall back to the defaults
+above, so a partial configuration can never disable expiry.
+
+\begin{yamlcode}
+decision_cache:
+  allow_ttl_seconds: 1800
+  block_ttl_seconds: 30
+  max_entries: 10000
 \end{yamlcode}
 
 \section{Complete Configuration Example}

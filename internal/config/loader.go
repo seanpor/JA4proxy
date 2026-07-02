@@ -388,6 +388,17 @@ type Config struct {
 	JA4TConsumer           JA4TConsumerConfigYAML       `yaml:"ja4t_consumer"`            // phase-316c
 	AutoEscalate           AutoEscalateConfig           `yaml:"auto_escalate"`            // phase-248
 	DatacenterPolicy       DatacenterPolicyConfig       `yaml:"datacenter_policy"`        // phase-249
+	DecisionCache          DecisionCacheConfig          `yaml:"decision_cache"`           // phase-515
+}
+
+// DecisionCacheConfig configures the in-process per-connection decision cache
+// (ADR-003). Zero/absent values fall back to the ADR-003 defaults in
+// security.NewDecisionCache (ALLOW 30m, BLOCK 30s, 10000 entries), so the
+// asymmetric-TTL behaviour holds even when the block is omitted. phase-515.
+type DecisionCacheConfig struct {
+	AllowTTLSeconds int `yaml:"allow_ttl_seconds"` // ALLOW cached long (ADR-003; default 1800)
+	BlockTTLSeconds int `yaml:"block_ttl_seconds"` // BLOCK/other cached short (ADR-003; default 30)
+	MaxEntries      int `yaml:"max_entries"`       // cap on cached decisions (default 10000)
 }
 
 // AutoEscalateConfig configures auto-escalating IP defense (Phase 248).

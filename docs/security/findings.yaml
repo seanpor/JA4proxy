@@ -48,7 +48,7 @@
 
 
 schema_version: 1
-last_allocated_id: 86
+last_allocated_id: 91
 findings:
 - id: JA4PROXY-2026-0001
   title: PROXY Protocol v2 Spoofing from Untrusted Source
@@ -1931,9 +1931,9 @@ findings:
   cvss_v3_1:
     score: 3.1
     vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L
-  notes: "TAP reassembler (internal/tap/reassembler.go) had zero logging on buffer purge paths. Added Debug-level\
-    \ log lines at markGap, appendDir cap-exceeded, and buffer-hit-max paths. Extended TestReassemblyLogLevel\
-    \ to also scan reassembler.go. Proxy-side main.go:809 already used Debug."
+  notes: TAP reassembler (internal/tap/reassembler.go) had zero logging on buffer purge paths. Added Debug-level
+    log lines at markGap, appendDir cap-exceeded, and buffer-hit-max paths. Extended TestReassemblyLogLevel
+    to also scan reassembler.go. Proxy-side main.go:809 already used Debug.
 - id: JA4PROXY-2026-0061
   title: Active Connection Gauge May Overcount After Handler Panic
   severity: LOW
@@ -1975,9 +1975,9 @@ findings:
   depends_on: []
   regression_test: cmd/ja4pd/pentest_accept_loop_semaphore_regression_test.go
   closed_commit: ''
-  notes: "Stale — field renamed from MaxConnectionLimit to MaxConnections during Phase 216 remediation.\
-    \ Wired into Go proxy at cmd/ja4pd/main.go:327, enforced via acceptSem semaphore in admitConn().\
-    \ Regression test: pentest_accept_loop_semaphore_regression_test.go."
+  notes: "Stale \u2014 field renamed from MaxConnectionLimit to MaxConnections during Phase 216 remediation.\
+    \ Wired into Go proxy at cmd/ja4pd/main.go:327, enforced via acceptSem semaphore in admitConn(). Regression\
+    \ test: pentest_accept_loop_semaphore_regression_test.go."
 - id: JA4PROXY-2026-0063
   title: Reassembled TLS Handshake >16KB Bypasses JA4 Fingerprinting
   severity: HIGH
@@ -2116,11 +2116,10 @@ findings:
     The window is small (milliseconds) and requires the attacker to control DNS for the webhook hostname.
 
     '
-  notes: "Removed redundant isPrivateTarget() call from doHTTPPost. The newSafeTransport.DialContext\
-    \ resolves DNS at TCP connect time and rejects private IPs atomically — it is the authoritative security\
-    \ boundary. Python validates at model-parse time (webhooks.py:73); Go re-validates\
-    \ at delivery time (delivery.go:304). The pre-check created a TOCTOU window with\
-    \ no additional security value."
+  notes: "Removed redundant isPrivateTarget() call from doHTTPPost. The newSafeTransport.DialContext resolves\
+    \ DNS at TCP connect time and rejects private IPs atomically \u2014 it is the authoritative security\
+    \ boundary. Python validates at model-parse time (webhooks.py:73); Go re-validates at delivery time\
+    \ (delivery.go:304). The pre-check created a TOCTOU window with no additional security value."
 - id: JA4PROXY-2026-0067
   title: Unbounded Fire-and-Forget Goroutines for Mesh Drift Audit
   severity: HIGH
@@ -2276,7 +2275,7 @@ findings:
   owner: '@seanpor'
   lane: go-proxy
   discovered: '2026-06-24'
-  due: '2026-08-21'
+  due: '2026-08-23'
   status: FIXED
   supersedes: []
   depends_on: []
@@ -2312,7 +2311,7 @@ findings:
   owner: '@seanpor'
   lane: go-proxy
   discovered: '2026-06-24'
-  due: '2026-10-20'
+  due: '2026-10-22'
   status: FIXED
   supersedes: []
   depends_on: []
@@ -2346,7 +2345,7 @@ findings:
   owner: '@seanpor'
   lane: go-proxy
   discovered: '2026-06-24'
-  due: '2026-10-20'
+  due: '2026-10-22'
   status: FIXED
   supersedes: []
   depends_on: []
@@ -2379,7 +2378,7 @@ findings:
   owner: '@seanpor'
   lane: go-proxy
   discovered: '2026-06-24'
-  due: '2026-10-20'
+  due: '2026-10-22'
   status: OPEN
   supersedes: []
   depends_on: []
@@ -2413,25 +2412,7 @@ findings:
   owner: '@seanpor'
   lane: go-proxy
   discovered: '2026-06-24'
-  due: '2026-10-20'
-  status: OPEN
-  supersedes: []
-  depends_on: []
-  regression_test: ''
-  closed_commit: ''
-  cvss_v3_1:
-    score: 2.6
-    vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:N/A:N
-  description: 'client.go:351-354 logs the tampered dial value and tampered HMAC signature at WARN level
-    on signature mismatch. The "val" field is covered by the SensitiveFieldRedactor but the "sig" field
-    is not.
-
-    '
-  impact: 'An attacker with log access sees the tampered signature value. Since it is the wrong signature,
-    it cannot directly reveal the integrity key.
-
-    '
-  notes: Add "sig" to opaqueFields in redactor.go for defense-in-depth.
+  due: '2026-10-22'
   status: FIXED
   supersedes: []
   depends_on: []
@@ -2538,18 +2519,18 @@ findings:
   cvss_v3_1:
     score: 3.3
     vector: CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:L/I:N/A:N
-  description: >
-    deploy/docker/docker-compose.poc.yml:118 passes the Redis password as a
-    CLI argument via --requirepass. This is visible in ps aux, /proc/PID/cmdline,
-    and docker inspect. The production compose correctly uses --requirepass-file
-    with Docker secrets.
-  impact: >
-    Any local user with access to ps or docker inspect can read the Redis
-    password from the process list.
-  notes: "Switched PoC compose from --requirepass (CLI arg) to --requirepass-file\
-    \ /run/secrets/redis_password with Docker secrets, matching production compose\
-    \ pattern. Added secrets section and prerequisites comment. deploy/secrets/redis_password.txt\
-    \ must be created before first deploy."
+  description: 'deploy/docker/docker-compose.poc.yml:118 passes the Redis password as a CLI argument via
+    --requirepass. This is visible in ps aux, /proc/PID/cmdline, and docker inspect. The production compose
+    correctly uses --requirepass-file with Docker secrets.
+
+    '
+  impact: 'Any local user with access to ps or docker inspect can read the Redis password from the process
+    list.
+
+    '
+  notes: Switched PoC compose from --requirepass (CLI arg) to --requirepass-file /run/secrets/redis_password
+    with Docker secrets, matching production compose pattern. Added secrets section and prerequisites
+    comment. deploy/secrets/redis_password.txt must be created before first deploy.
 - id: JA4PROXY-2026-0080
   title: pubsub_hmac_secret Absent from Default Config
   severity: LOW
@@ -2575,22 +2556,23 @@ findings:
   cvss_v3_1:
     score: 3.7
     vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:L/A:N
-  description: >
-    config/proxy.yml does not define redis.pubsub_hmac_secret. Without it,
-    pub/sub messages are unsigned and the Go proxy accepts them. Any Redis
-    client on the network can issue admin commands via pub/sub.
-  impact: >
-    An attacker with Redis access can forge pub/sub admin commands (config reload,
-    dial changes, blacklist additions) without HMAC authentication.
-  notes: 'Partially fixed: config now documents the secret (proxy.yml:62-65),
-    Go proxy logs WARN when empty (pubsub.go:85), test_pubsub_signing.py added.
-    Core behavior unchanged — unsigned messages still accepted when secret is empty.
-    GitHub issue #220 closed via PR #234.'
+  description: 'config/proxy.yml does not define redis.pubsub_hmac_secret. Without it, pub/sub messages
+    are unsigned and the Go proxy accepts them. Any Redis client on the network can issue admin commands
+    via pub/sub.
+
+    '
+  impact: 'An attacker with Redis access can forge pub/sub admin commands (config reload, dial changes,
+    blacklist additions) without HMAC authentication.
+
+    '
+  notes: "Partially fixed: config now documents the secret (proxy.yml:62-65), Go proxy logs WARN when\
+    \ empty (pubsub.go:85), test_pubsub_signing.py added. Core behavior unchanged \u2014 unsigned messages\
+    \ still accepted when secret is empty. GitHub issue #220 closed via PR #234."
 - id: JA4PROXY-2026-0081
-  title: 'LoadSeccomp Is a Placeholder — TAP Sensor Runs With Full Syscall Access'
+  title: "LoadSeccomp Is a Placeholder \u2014 TAP Sensor Runs With Full Syscall Access"
   severity: MEDIUM
-  severity_rationale: 'M-2 (CWE-693). TAP container runs without seccomp restrictions.
-    If compromised, attacker has unrestricted syscall access.'
+  severity_rationale: M-2 (CWE-693). TAP container runs without seccomp restrictions. If compromised,
+    attacker has unrestricted syscall access.
   source_refs:
   - report: PHASE_400
     id: F-400-02
@@ -2609,23 +2591,22 @@ findings:
   cvss_v3_1:
     score: 5.3
     vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L
-  description: >
-    LoadSeccomp() in internal/tap/hardening.go:25-30 is called from
-    cmd/ja4-tap/main.go:101 but only logs an intention and returns nil.
-    No seccomp profile is loaded. The TAP sensor runs with full syscall
-    access despite the intent to restrict it.
-  impact: >
-    If the TAP container is compromised, the attacker has unrestricted
-    syscall access. DropCapabilities() drops root, limiting blast radius,
-    but seccomp would provide defense-in-depth.
-  notes: 'Fixed in PR #252 (0c0c2727): real in-process seccomp BPF filter
-    with SECCOMP_RET_KILL_PROCESS for denied syscalls, dangerous-syscall
-    denylist, and uint8 overflow fix for large allowlists.'
+  description: 'LoadSeccomp() in internal/tap/hardening.go:25-30 is called from cmd/ja4-tap/main.go:101
+    but only logs an intention and returns nil. No seccomp profile is loaded. The TAP sensor runs with
+    full syscall access despite the intent to restrict it.
+
+    '
+  impact: 'If the TAP container is compromised, the attacker has unrestricted syscall access. DropCapabilities()
+    drops root, limiting blast radius, but seccomp would provide defense-in-depth.
+
+    '
+  notes: 'Fixed in PR #252 (0c0c2727): real in-process seccomp BPF filter with SECCOMP_RET_KILL_PROCESS
+    for denied syscalls, dangerous-syscall denylist, and uint8 overflow fix for large allowlists.'
 - id: JA4PROXY-2026-0082
-  title: 'NTP Drift Monitor Silently Degrades When chronyc/ntpstat Missing'
+  title: NTP Drift Monitor Silently Degrades When chronyc/ntpstat Missing
   severity: LOW
-  severity_rationale: 'L-1 (CWE-755). Silent degradation of NTP monitoring
-    could mask clock skew affecting Redis Stream ordering.'
+  severity_rationale: L-1 (CWE-755). Silent degradation of NTP monitoring could mask clock skew affecting
+    Redis Stream ordering.
   source_refs:
   - report: PHASE_400
     id: F-400-04
@@ -2644,20 +2625,21 @@ findings:
   cvss_v3_1:
     score: 3.1
     vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L
-  description: >
-    checkNTP() in internal/metrics/ntp.go:37-43 logs at Debug level when
-    neither chronyc nor ntpstat is available. SyncClockDriftSeconds is
-    never set, and operators may not notice drift monitoring is disabled.
-  impact: >
-    NTP drift is used for multi-DC consistency. Silent degradation could
-    mask clock skew that affects Redis Stream ordering.
-  notes: 'Fixed: warn via sync.Once on first failure, log which binary
-    is available at startup.'
+  description: 'checkNTP() in internal/metrics/ntp.go:37-43 logs at Debug level when neither chronyc nor
+    ntpstat is available. SyncClockDriftSeconds is never set, and operators may not notice drift monitoring
+    is disabled.
+
+    '
+  impact: 'NTP drift is used for multi-DC consistency. Silent degradation could mask clock skew that affects
+    Redis Stream ordering.
+
+    '
+  notes: 'Fixed: warn via sync.Once on first failure, log which binary is available at startup.'
 - id: JA4PROXY-2026-0083
-  title: 'CountKeys Uses O(N) KEYS Command in Health Endpoint'
+  title: CountKeys Uses O(N) KEYS Command in Health Endpoint
   severity: LOW
-  severity_rationale: 'L-1 (CWE-400). Redis KEYS is O(N) and blocks the
-    server. Under extreme key counts, causes latency spikes.'
+  severity_rationale: L-1 (CWE-400). Redis KEYS is O(N) and blocks the server. Under extreme key counts,
+    causes latency spikes.
   source_refs:
   - report: PHASE_400
     id: F-400-10
@@ -2676,16 +2658,16 @@ findings:
   cvss_v3_1:
     score: 3.1
     vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L
-  description: >
-    CountKeys in internal/redis/client.go:444-453 uses c.rdb.Keys(ctx,
-    pattern).Result(), which is O(N) and blocks the Redis server. Called
-    from cmd/ja4pd/main.go:1385 in the /health/deep endpoint.
-  impact: >
-    Under extreme key counts, this could cause Redis latency spikes.
-    Usage is bounded (pattern is typically ban:*) but O(N) behavior is
-    undesirable in production.
-  notes: 'Fixed: replaced KEYS with SCAN iterator to avoid blocking
-    Redis.'
+  description: 'CountKeys in internal/redis/client.go:444-453 uses c.rdb.Keys(ctx, pattern).Result(),
+    which is O(N) and blocks the Redis server. Called from cmd/ja4pd/main.go:1385 in the /health/deep
+    endpoint.
+
+    '
+  impact: 'Under extreme key counts, this could cause Redis latency spikes. Usage is bounded (pattern
+    is typically ban:*) but O(N) behavior is undesirable in production.
+
+    '
+  notes: 'Fixed: replaced KEYS with SCAN iterator to avoid blocking Redis.'
 - id: JA4PROXY-2026-0084
   title: Capability Drop Ordering Inverted (sensor unusable in live mode)
   severity: CRITICAL
@@ -2750,3 +2732,157 @@ findings:
   closed_commit: ''
   notes: 'Fixed in phase-316a-closeout: removed close(s.events) from Recover() in internal/tap/panic.go.
     Run() defer in sensor.go is the sole owner of events channel close.'
+- id: JA4PROXY-2026-0087
+  title: Decision cache keyed on shared JA4 leaks per-IP decisions across clients (no TTL)
+  severity: HIGH
+  severity_rationale: 'H (CWE-807/CWE-524). DecisionCache is keyed on the JA4 fingerprint alone, which
+    is shared by all clients using the same TLS stack, and has no TTL. A block/ban derived from one IP
+    is served to every other client sharing that JA4 (false positive: real browsers blocked, never self-healing
+    without TTL); an allow warmed by one client lets an attacker with the same ClientHello bypass all
+    per-IP controls incl. ban:{ip} (false negative). Contradicts ADR-003 (per-client cache, asymmetric
+    TTLs).'
+  source_refs:
+  - report: PHASE_515
+    id: 515-01
+    discovered: '2026-07-02'
+  remediation_phases:
+  - '515'
+  owner: '@seanpor'
+  lane: go-proxy
+  discovered: '2026-07-02'
+  due: '2026-08-01'
+  status: FIXED
+  supersedes: []
+  depends_on: []
+  regression_test: internal/security/pipeline_cache_isolation_test.go
+  closed_commit: ''
+  cvss_v3_1:
+    score: 8.1
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:L/A:H
+  notes: 'Production hot path (Pipeline.Process async mode, the default). Cache lookup runs before checkHardBlocks
+    so a cached allow overrides country/CIDR/JA4-blacklist hard blocks too. Fix: composite key clientIP|JA4
+    + asymmetric ALLOW/BLOCK TTLs per ADR-003.'
+- id: JA4PROXY-2026-0088
+  title: 'Data race: processInternal reads p.cfg and sub-analyzers unlocked while ReplaceConfig swaps
+    them on hot reload'
+  severity: MEDIUM
+  severity_rationale: M (CWE-362 race condition). Pipeline.ReplaceConfig (SIGHUP / pub/sub config reload)
+    reassigns p.cfg and every signal-module pointer under p.mu.Lock(), but the async scoring path (processInternal)
+    reads most of them without the lock. Concurrent interface/pointer read+write is memory-unsafe in Go
+    and can crash the proxy or use a half-updated module set during a reload under load. go test -race
+    flags it; the make test gate does not run -race, so it was invisible in CI. Pre-existing (phases 248/249);
+    surfaced during phase-515 second-pass review.
+  source_refs:
+  - report: PHASE_515
+    id: 515-02
+    discovered: '2026-07-02'
+  remediation_phases:
+  - '515'
+  owner: '@seanpor'
+  lane: go-proxy
+  discovered: '2026-07-02'
+  due: '2026-08-31'
+  status: FIXED
+  supersedes: []
+  depends_on: []
+  regression_test: internal/security/pipeline_reload_race_test.go
+  closed_commit: ''
+  cvss_v3_1:
+    score: 4.0
+    vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:L/A:L
+  notes: 'Fix: snapshot p.cfg + all ReplaceConfig-mutated module pointers under one RLock at the top of
+    processInternal; use locals thereafter. Add -race regression coverage. Consider adding -race to a
+    CI Go target as follow-up.'
+- id: JA4PROXY-2026-0089
+  title: "Hot config reload orphans async enrichment workers (DNS/AbuseIPDB/RDAP/feed) \u2014 enrichment\
+    \ silently degrades after SIGHUP"
+  severity: MEDIUM
+  severity_rationale: M (CWE-404 improper resource shutdown/release + reload lifecycle). StartBackgroundWorkers
+    starts DNSEnrichment/AbuseIPDB/RDAP/FeedDownloader workers ONCE at startup on the original module
+    instances. ReplaceConfig (SIGHUP / pub/sub reload) replaces each module with a fresh NewX instance
+    but never Start()s its workers and never cancels the old ones. After any reload, processInternal enqueues
+    to the new instances whose drain goroutines never run; their bounded queues fill and enqueues drop
+    silently (DNSEnrichmentQueueDropsTotal), and periodic blocklist-feed refresh stops. Fail-open (enrichment
+    merely stops contributing signals), but detection quietly weakens after the first reload. Enqueue
+    is non-blocking, so no hot-path stall.
+  source_refs:
+  - report: PHASE_515
+    id: 515-03
+    discovered: '2026-07-02'
+  remediation_phases:
+  - '517'
+  owner: '@seanpor'
+  lane: go-proxy
+  discovered: '2026-07-02'
+  due: '2026-08-31'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  cvss_v3_1:
+    score: 2.2
+    vector: CVSS:3.1/AV:N/AC:H/PR:H/UI:N/S:U/C:N/I:L/A:N
+  notes: 'DEFERRED from phase-515 (scope: cache isolation + config-read races). Correct fix needs per-module
+    worker lifecycle: cancel old workers and Start new ones on reload, or reconfigure modules in place
+    instead of recreating. Own phase + regression tests. Discovered in phase-515 second-pass review.'
+- id: JA4PROXY-2026-0090
+  title: beaconing/audit workers started at construction with no stop path leak goroutines per Pipeline
+  severity: MEDIUM
+  severity_rationale: "M (CWE-401/CWE-772 missing release of resource). NewPipeline launched beaconingWorker+auditWorker\
+    \ at construction; both blocked forever on never-closed channels, each pinning the whole Pipeline\
+    \ (and every field) via closure. In the ja4pd daemon the Pipeline is a process-lifetime singleton\
+    \ so production impact is one-time, but the ja4p CLI and every unit test build+discard Pipelines,\
+    \ leaking 2 goroutines + the Pipeline each \u2014 and any future dynamic-pipeline use would leak unboundedly.\
+    \ Reported by Hunter as goroutine_and_resource_leaks-pipeline (auditWorker; beaconingWorker identical)."
+  source_refs:
+  - report: PHASE_515
+    id: 515-04
+    discovered: '2026-07-02'
+  remediation_phases:
+  - '515'
+  owner: '@seanpor'
+  lane: go-proxy
+  discovered: '2026-07-02'
+  due: '2026-08-31'
+  status: FIXED
+  supersedes: []
+  depends_on: []
+  regression_test: internal/security/pipeline_worker_lifecycle_test.go
+  closed_commit: ''
+  cvss_v3_1:
+    score: 2.5
+    vector: CVSS:3.1/AV:L/AC:H/PR:H/UI:N/S:U/C:N/I:N/A:L
+  notes: 'Fix: move beaconingWorker/auditWorker startup from NewPipeline into StartBackgroundWorkers(ctx)
+    alongside the async scoring workers, and select on ctx.Done() so they exit on shutdown. Construction
+    now starts zero background goroutines. Merged from Hunter 2026-06-24-0033.'
+- id: JA4PROXY-2026-0091
+  title: BlocklistManager nil-Ranger could panic in Check() (ReplaceFeed nil); already guarded, read-side
+    hardened
+  severity: LOW
+  severity_rationale: "L. Hunter (2026-06-24-0031) reported ReplaceFeed(name, nil) storing a nil Ranger\
+    \ that panics on a later Check(). Verified against current code: ReplaceFeed ALREADY rejects nil (blocklists.go:\
+    \ 'if ranger == nil { return false }') and is only called internally from feed_downloader.go \u2014\
+    \ NOT an unauthenticated management endpoint as the report claimed. Residual risk is defense-in-depth\
+    \ only; the report references pre-remediation code."
+  source_refs:
+  - report: PHASE_515
+    id: 515-05
+    discovered: '2026-07-02'
+  remediation_phases:
+  - '515'
+  owner: '@seanpor'
+  lane: go-proxy
+  discovered: '2026-07-02'
+  due: '2026-10-30'
+  status: FIXED
+  supersedes: []
+  depends_on: []
+  regression_test: internal/security/blocklists_nil_ranger_test.go
+  closed_commit: ''
+  cvss_v3_1:
+    score: 2.0
+    vector: CVSS:3.1/AV:L/AC:H/PR:H/UI:N/S:U/C:N/I:N/A:L
+  notes: Write-side nil guard pre-existing. Phase-515 adds a read-side guard in Check() (box.ranger ==
+    nil -> continue) so no future store path can crash. Merged from Hunter 2026-06-24-0031; trigger 'unauthenticated
+    attacker' was inaccurate.

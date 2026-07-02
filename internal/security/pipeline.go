@@ -241,6 +241,12 @@ type PipelineConfig struct {
 	AutoEscalate config.AutoEscalateConfig
 	// Phase 249 — Datacenter ASN policy.
 	DatacenterPolicy config.DatacenterPolicyConfig
+
+	// Phase 515 — decision cache (ADR-003). Zero values fall back to the
+	// ADR-003 defaults (ALLOW 30m, BLOCK 30s, 10000 entries) in NewDecisionCache.
+	DecisionCacheAllowTTLSeconds int
+	DecisionCacheBlockTTLSeconds int
+	DecisionCacheMaxEntries      int
 }
 
 // NewPipeline creates a Pipeline ready to process connections.
@@ -259,7 +265,11 @@ func NewPipeline(cfg *PipelineConfig, redis RedisReader, log *logrus.Logger) *Pi
 		log:       log,
 		Whitelist: cfg.Whitelist,
 		Blacklist: cfg.Blacklist,
-		cache:     NewDecisionCache(10000),
+		cache: NewDecisionCache(
+			cfg.DecisionCacheMaxEntries,
+			time.Duration(cfg.DecisionCacheAllowTTLSeconds)*time.Second,
+			time.Duration(cfg.DecisionCacheBlockTTLSeconds)*time.Second,
+		),
 		// phase-306 (from PR #95): deeper async-scoring queue so accept bursts
 		// are absorbed rather than dropped/blocked. Drained by a fixed pool of
 		// scoring workers (see StartBackgroundWorkers).
@@ -283,8 +293,13 @@ func NewPipeline(cfg *PipelineConfig, redis RedisReader, log *logrus.Logger) *Pi
 	}
 	p.beaconingJobs = make(chan beaconingJob, beaconingJobBuf)
 	p.auditJobs = make(chan auditJob, auditJobBuf)
-	go p.beaconingWorker()
-	go p.auditWorker()
+	// JA4PROXY-2026-0090: the beaconing and audit workers are started by
+	// StartBackgroundWorkers(ctx) — alongside the async scoring workers — so
+	// they are bound to the process lifecycle and exit on ctx cancellation.
+	// Previously they were launched here at construction with no stop path,
+	// which leaked two goroutines (each pinning the whole Pipeline via closure)
+	// for every Pipeline that was built and discarded without running for the
+	// life of the process (e.g. the ja4p CLI and every unit test).
 	return p
 }
 
@@ -297,6 +312,14 @@ func (p *Pipeline) ReplaceConfig(cfg *PipelineConfig) {
 	p.cfg = cfg
 	p.Whitelist = cfg.Whitelist
 	p.Blacklist = cfg.Blacklist
+	// Phase 515: apply hot-reloaded decision-cache TTLs without dropping warm
+	// entries. Zero values are ignored by SetTTLs so the ADR-003 defaults hold.
+	if p.cache != nil {
+		p.cache.SetTTLs(
+			time.Duration(cfg.DecisionCacheAllowTTLSeconds)*time.Second,
+			time.Duration(cfg.DecisionCacheBlockTTLSeconds)*time.Second,
+		)
+	}
 	p.scorer = NewRiskScorer(cfg.Thresholds)
 	p.decider = NewActionDecider(cfg.Thresholds)
 	p.tlsEnforcer = NewTLSEnforcer(buildTLSEnforcerConfig(cfg), p.log)
@@ -377,21 +400,36 @@ func durationSeconds(s, def int) time.Duration {
 // beaconingWorker processes beaconing jobs from the bounded channel (F-002).
 // Runs in a single goroutine — the channel buffer absorbs bursts and
 // non-blocking sends prevent the pipeline from blocking on a saturated worker.
-func (p *Pipeline) beaconingWorker() {
-	for job := range p.beaconingJobs {
-		p.beaconing.MaybeRecord(job.ctx, job.conn, job.action)
+// JA4PROXY-2026-0090: bound to ctx so it exits on shutdown instead of blocking
+// forever on the never-closed channel and leaking the Pipeline via closure.
+func (p *Pipeline) beaconingWorker(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case job := <-p.beaconingJobs:
+			// JA4PROXY-2026-0088: read the current detector under the lock —
+			// ReplaceConfig() swaps p.beaconing on hot reload.
+			p.mu.RLock()
+			beaconing := p.beaconing
+			p.mu.RUnlock()
+			beaconing.MaybeRecord(job.ctx, job.conn, job.action)
+		}
 	}
 }
 
 // auditWorker processes mesh drift audit jobs from a bounded channel.
 // Prevents unbounded goroutine growth when Redis is slow.
-// The goroutine lifetime is tied to the process — the Pipeline is never
-// shut down, so the channel is never closed. This is intentional: the
-// process exits on SIGINT/SIGTERM, and adding a Stop() method would
-// require plumbing shutdown through the entire call chain for no benefit.
-func (p *Pipeline) auditWorker() {
-	for job := range p.auditJobs {
-		p.auditDecision(job.ctx, job.ip, job.currentScore)
+// JA4PROXY-2026-0090: bound to ctx so it exits on shutdown instead of blocking
+// forever on the never-closed channel and leaking the Pipeline via closure.
+func (p *Pipeline) auditWorker(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case job := <-p.auditJobs:
+			p.auditDecision(job.ctx, job.ip, job.currentScore)
+		}
 	}
 }
 
@@ -401,11 +439,16 @@ func (p *Pipeline) auditWorker() {
 // request volume) so it cannot become a resource-exhaustion vector itself.
 const asyncScoringWorkers = 32
 
-// StartBackgroundWorkers starts all async background workers.
+// StartBackgroundWorkers starts all async background workers. All are bound to
+// ctx and exit when it is cancelled (JA4PROXY-2026-0090) — including the
+// beaconing and audit workers, which were previously started at construction
+// with no stop path.
 func (p *Pipeline) StartBackgroundWorkers(ctx context.Context) {
 	for i := 0; i < asyncScoringWorkers; i++ {
 		go p.runAsyncScoringLoop(ctx)
 	}
+	go p.beaconingWorker(ctx)
+	go p.auditWorker(ctx)
 	p.dnsEnrichment.Start(ctx)
 	p.abuseipdb.Start(ctx)
 	p.rdap.Start(ctx)
@@ -415,8 +458,11 @@ func (p *Pipeline) StartBackgroundWorkers(ctx context.Context) {
 // Process runs a connection through the full pipeline and returns the result.
 // It never panics; all module errors are caught and logged.
 func (p *Pipeline) Process(ctx context.Context, conn *ConnectionContext) *PipelineResult {
+	// Phase 515 (JA4PROXY-2026-0087): consult the cache under the composite
+	// per-client key so a decision for one client is never served to another
+	// client that merely shares its JA4 fingerprint.
 	if conn.JA4 != "" {
-		if res, hit := p.cache.Get(conn.JA4); hit {
+		if res, hit := p.cache.Get(decisionCacheKey(conn.ClientIP, conn.JA4)); hit {
 			return res
 		}
 	}
@@ -436,6 +482,34 @@ func (p *Pipeline) Process(ctx context.Context, conn *ConnectionContext) *Pipeli
 }
 
 func (p *Pipeline) processInternal(ctx context.Context, conn *ConnectionContext) *PipelineResult {
+	// JA4PROXY-2026-0088 (phase-515): snapshot the config and every signal
+	// module under a single read lock. ReplaceConfig() reassigns all of these
+	// under p.mu on SIGHUP / pub/sub reload; reading them here without the lock
+	// is a data race (concurrent interface/pointer read+write is memory-unsafe
+	// in Go and can crash the proxy or mix an old-and-new module set). We copy
+	// the references once and operate on the locals for the rest of the call, so
+	// a reload that lands mid-scoring is applied atomically to the next
+	// connection, never torn across this one. p.redis and p.log are never
+	// reassigned after construction, so they stay accessed via p.
+	p.mu.RLock()
+	cfg := p.cfg
+	scorer := p.scorer
+	decider := p.decider
+	tlsEnforcer := p.tlsEnforcer
+	sniAnalyzer := p.sniAnalyzer
+	rateLimiter := p.rateLimiter
+	tcpAnalyzer := p.tcpAnalyzer
+	asnClassifier := p.asnClassifier
+	dnsEnrichment := p.dnsEnrichment
+	blocklists := p.blocklists
+	beaconing := p.beaconing
+	abuseipdb := p.abuseipdb
+	rdap := p.rdap
+	tapConsumer := p.tapConsumer
+	ja4tConsumer := p.ja4tConsumer
+	offenseCounter := p.offenseCounter
+	ja4xBlacklist := p.JA4XBlacklist
+	p.mu.RUnlock()
 
 	// ── 1. HARD BLOCKS (Blacklists, etc.)
 	if block, reason := p.checkHardBlocks(conn); block {
@@ -465,7 +539,7 @@ func (p *Pipeline) processInternal(ctx context.Context, conn *ConnectionContext)
 	// update between the two calls could cause a hard-block decision and
 	// a soft-signal decision to disagree on the same connection.
 	startBL := time.Now()
-	blSigs, blHardBlock := p.blocklists.Check(conn.ParsedIP)
+	blSigs, blHardBlock := blocklists.Check(conn.ParsedIP)
 	p.measure("blocklist", startBL)
 	if blHardBlock {
 		return &PipelineResult{Action: "block", Score: 100, BypassReason: "blocklist"}
@@ -515,7 +589,7 @@ func (p *Pipeline) processInternal(ctx context.Context, conn *ConnectionContext)
 	// line so the #nosec attaches to it — a trailing #nosec after `{` binds to
 	// the block, not the finding, and is silently ignored.
 	tlsVer := uint16(conn.TLSVersion) // #nosec G115 -- TLS version is always in uint16 range
-	if tlsSigs, hardBlock := p.tlsEnforcer.Check(tlsVer, uint16s(conn.CipherList)); hardBlock {
+	if tlsSigs, hardBlock := tlsEnforcer.Check(tlsVer, uint16s(conn.CipherList)); hardBlock {
 		return &PipelineResult{Action: "block", Score: 100, BypassReason: "tls_enforcement"}
 	} else {
 		signals = append(signals, tlsSigs...)
@@ -523,29 +597,27 @@ func (p *Pipeline) processInternal(ctx context.Context, conn *ConnectionContext)
 
 	// Phase 203b — JA4 prefix vs negotiated TLS version mismatch.
 	if conn.JA4 != "" {
-		if sig := p.tlsEnforcer.CheckJA4TLSMismatch(conn.JA4, tlsVer); sig != nil {
+		if sig := tlsEnforcer.CheckJA4TLSMismatch(conn.JA4, tlsVer); sig != nil {
 			signals = append(signals, *sig)
 		}
 	}
 
 	// Phase 203a — TAP-consumed OS mismatch. Fail-open; disabled by default.
-	if sig := p.tapConsumer.GetSignal(ctx, conn.ClientIP, conn.JA4); sig != nil {
+	if sig := tapConsumer.GetSignal(ctx, conn.ClientIP, conn.JA4); sig != nil {
 		signals = append(signals, *sig)
 	}
 
 	// Phase 316c — TAP-consumed JA4T blocklist. Fail-open; disabled and
 	// empty-blocklist by default, so silent until an operator opts in.
-	if sig := p.ja4tConsumer.GetSignal(ctx, conn.ClientIP); sig != nil {
+	if sig := ja4tConsumer.GetSignal(ctx, conn.ClientIP); sig != nil {
 		signals = append(signals, *sig)
 	}
 
-	// JA4X blacklist signal (non-hard-block case)
-	p.mu.RLock()
-	ja4xEnabled := p.cfg.JA4XEnabled
-	ja4xBlockingEnabled := p.cfg.JA4XBlockingEnabled
-	ja4xBlacklist := p.JA4XBlacklist
-	blacklistScore := p.cfg.JA4XBlacklistScore
-	p.mu.RUnlock()
+	// JA4X blacklist signal (non-hard-block case). Config read from the
+	// snapshot taken at function entry (JA4PROXY-2026-0088).
+	ja4xEnabled := cfg.JA4XEnabled
+	ja4xBlockingEnabled := cfg.JA4XBlockingEnabled
+	blacklistScore := cfg.JA4XBlacklistScore
 	if conn.JA4X != "" && ja4xEnabled && !ja4xBlockingEnabled {
 		if blacklistScore == 0 {
 			blacklistScore = 80
@@ -561,19 +633,19 @@ func (p *Pipeline) processInternal(ctx context.Context, conn *ConnectionContext)
 
 	// SNI analysis
 	startSNI := time.Now()
-	signals = append(signals, p.sniAnalyzer.Analyze(conn.SNI)...)
+	signals = append(signals, sniAnalyzer.Analyze(conn.SNI)...)
 	p.measure("sni", startSNI)
 
 	// Rate limiter
 	startRL := time.Now()
-	rlSignals := p.rateLimiter.Check(ctx, conn.ClientIP, conn.JA4)
+	rlSignals := rateLimiter.Check(ctx, conn.ClientIP, conn.JA4)
 	signals = append(signals, rlSignals...)
 	p.measure("rate_limiter", startRL)
 
 	// Auto-escalation (phase-248): if rate limiter fired, increment offense counter.
-	if len(rlSignals) > 0 && p.offenseCounter != nil {
-		count, _ := p.offenseCounter.Increment(ctx, conn.ClientIP)
-		if escalated, _ := p.offenseCounter.EscalatedAction(ctx, conn.ClientIP); escalated != "" {
+	if len(rlSignals) > 0 && offenseCounter != nil {
+		count, _ := offenseCounter.Increment(ctx, conn.ClientIP)
+		if escalated, _ := offenseCounter.EscalatedAction(ctx, conn.ClientIP); escalated != "" {
 			p.log.WithFields(logrus.Fields{
 				"event.action":             "offense_escalation",
 				"client.ip":                conn.ClientIP,
@@ -585,7 +657,7 @@ func (p *Pipeline) processInternal(ctx context.Context, conn *ConnectionContext)
 				banKey := fmt.Sprintf("ban:%s", conn.ClientIP)
 				reason := fmt.Sprintf(
 					`{"reason":"auto_escalation","offense_count":%d,"auto":true}`, count)
-				p.redis.SetString(ctx, banKey, reason, p.cfg.AutoEscalate.BanHours*3600)
+				p.redis.SetString(ctx, banKey, reason, cfg.AutoEscalate.BanHours*3600)
 			}
 			return &PipelineResult{Action: escalated, Score: 100, BypassReason: "auto_escalation"} //nolint:gosec // G101 false positive: "auto_escalation" is a status label, not a credential
 		}
@@ -593,19 +665,19 @@ func (p *Pipeline) processInternal(ctx context.Context, conn *ConnectionContext)
 
 	// TCP analyzer
 	startTCP := time.Now()
-	signals = append(signals, p.tcpAnalyzer.Analyze(ctx, conn)...)
+	signals = append(signals, tcpAnalyzer.Analyze(ctx, conn)...)
 	p.measure("tcp_analyzer", startTCP)
 
 	// ASN classification
 	startASN := time.Now()
-	signals = append(signals, p.asnClassifier.Classify(conn.ClientIP)...)
+	signals = append(signals, asnClassifier.Classify(conn.ClientIP)...)
 	p.measure("asn", startASN)
 
 	// Datacenter policy enforcement (Phase 249) — runs immediately after ASN classification.
 	// ASN data is not available at bypass-check time, so this lives here.
 	// When action is "score" (default), the block is skipped entirely.
-	if dc := p.cfg.DatacenterPolicy; dc.Action == "tarpit" || dc.Action == "block" {
-		if isDatacenter, asn := p.asnClassifier.IsDatacenter(conn.ClientIP); isDatacenter {
+	if dc := cfg.DatacenterPolicy; dc.Action == "tarpit" || dc.Action == "block" {
+		if isDatacenter, asn := asnClassifier.IsDatacenter(conn.ClientIP); isDatacenter {
 			excepted := false
 			for _, exASN := range dc.Exceptions {
 				if uint32(exASN) == asn { //nolint:gosec // ASN numbers are IANA-defined 32-bit values; config type is uint for yaml convenience
@@ -637,7 +709,7 @@ func (p *Pipeline) processInternal(ctx context.Context, conn *ConnectionContext)
 	// DNS enrichment (cached result; lookup happens async)
 	var sig *RiskSignal
 	startDNS := time.Now()
-	sig = p.dnsEnrichment.GetSignal(ctx, conn)
+	sig = dnsEnrichment.GetSignal(ctx, conn)
 	p.measure("dns", startDNS)
 	if sig != nil {
 		signals = append(signals, *sig)
@@ -645,7 +717,7 @@ func (p *Pipeline) processInternal(ctx context.Context, conn *ConnectionContext)
 
 	// Beaconing detection
 	startBeac := time.Now()
-	sig = p.beaconing.GetSignal(ctx, conn)
+	sig = beaconing.GetSignal(ctx, conn)
 	p.measure("beaconing", startBeac)
 	if sig != nil {
 		signals = append(signals, *sig)
@@ -653,16 +725,16 @@ func (p *Pipeline) processInternal(ctx context.Context, conn *ConnectionContext)
 
 	// AbuseIPDB
 	startAbuse := time.Now()
-	sig = p.abuseipdb.GetSignal(conn.ClientIP)
+	sig = abuseipdb.GetSignal(conn.ClientIP)
 	p.measure("abuseipdb", startAbuse)
 	if sig != nil {
 		signals = append(signals, *sig)
 	}
 
 	// RDAP — needs interim score to decide whether to enqueue
-	interimAssessment := p.scorer.Score(signals)
+	interimAssessment := scorer.Score(signals)
 	startRDAP := time.Now()
-	signals = append(signals, p.rdap.GetSignals(ctx, conn, interimAssessment.TotalScore)...)
+	signals = append(signals, rdap.GetSignals(ctx, conn, interimAssessment.TotalScore)...)
 	p.measure("rdap", startRDAP)
 
 	// Analytics signals
@@ -671,7 +743,7 @@ func (p *Pipeline) processInternal(ctx context.Context, conn *ConnectionContext)
 	p.measure("analytics", startAnal)
 
 	// ── 4. COMPOSITE SCORING ─────────────────────────────────────────────
-	assessment := p.scorer.Score(signals)
+	assessment := scorer.Score(signals)
 
 	// Mesh Drift Detection (async, bounded worker pool)
 	if assessment.TotalScore > 0 {
@@ -683,7 +755,7 @@ func (p *Pipeline) processInternal(ctx context.Context, conn *ConnectionContext)
 	}
 
 	// ── 5. ACTION DECISION ───────────────────────────────────────────────
-	action := p.decider.Decide(assessment.TotalScore, dial)
+	action := decider.Decide(assessment.TotalScore, dial)
 
 	// Record beaconing timestamp (bounded worker, F-002)
 	select {
@@ -695,7 +767,7 @@ func (p *Pipeline) processInternal(ctx context.Context, conn *ConnectionContext)
 	// Build counterfactuals for monitor-mode logging
 	var counterfactuals map[int]string
 	if dial == 0 {
-		counterfactuals = p.decider.Counterfactuals(assessment.TotalScore, []int{25, 50, 75, 100})
+		counterfactuals = decider.Counterfactuals(assessment.TotalScore, []int{25, 50, 75, 100})
 	}
 
 	if p.log.IsLevelEnabled(logrus.DebugLevel) {
@@ -1019,14 +1091,14 @@ func (p *Pipeline) runAsyncScoringLoop(ctx context.Context) {
 				select {
 				case conn := <-p.workChan:
 					result := p.processInternal(ctx, conn)
-					p.cache.Set(conn.JA4, result)
+					p.cache.Set(decisionCacheKey(conn.ClientIP, conn.JA4), result)
 				default:
 					return
 				}
 			}
 		case conn := <-p.workChan:
 			result := p.processInternal(ctx, conn)
-			p.cache.Set(conn.JA4, result)
+			p.cache.Set(decisionCacheKey(conn.ClientIP, conn.JA4), result)
 		}
 	}
 }
