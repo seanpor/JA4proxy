@@ -18,8 +18,93 @@ FROM python:3.14-slim
 # build-essential: some pinned deps (e.g. pytricia) build C extensions from sdist.
 # xmlsec1: required by python3-saml (management dep) for SAML signature validation.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends git ca-certificates build-essential xmlsec1 \
+ && apt-get install -y --no-install-recommends git ca-certificates build-essential xmlsec1 curl \
  && rm -rf /var/lib/apt/lists/*
+
+# helm CLI (pinned, checksum-verified) — required for
+# tests/unit/test_pentest_helm_probes_and_networkpolicy_regression.py, which
+# runs `helm template` in-process to assert Helm-chart security invariants
+# (DaemonSet liveness/readiness probes, NetworkPolicy defaults). Without it on
+# PATH here, all 7 of those tests silently `pytest.skip()` in every `make
+# test` run instead of actually checking anything (phase-514). This is a
+# separate, deliberately minimal static-binary install from the
+# `alpine/helm:3.17.3` image `lint-helm` uses via Docker — that target lints
+# the chart from outside; this test renders it in-process and needs the
+# binary directly on PATH.
+ARG HELM_VERSION=3.17.3
+ARG HELM_SHA256=ee88b3c851ae6466a3de507f7be73fe94d54cbf2987cbaa3d1a3832ea331f2cd
+RUN curl -fsSL -o /tmp/helm.tar.gz "https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz" \
+ && echo "${HELM_SHA256}  /tmp/helm.tar.gz" | sha256sum -c - \
+ && tar -xzf /tmp/helm.tar.gz -C /tmp linux-amd64/helm \
+ && mv /tmp/linux-amd64/helm /usr/local/bin/helm \
+ && chmod +x /usr/local/bin/helm \
+ && rm -rf /tmp/helm.tar.gz /tmp/linux-amd64
+
+# promtool CLI (pinned, checksum-verified) — required for
+# tests/integration/test_phase_86h_alertmanager_runbook_urls.py, which checks
+# the on-disk Alertmanager/Prometheus rule files directly with `promtool
+# check rules` (not via Docker). Pinned to the SAME version (v2.48.0) as
+# `lint-prom`'s `prom/prometheus:v2.48.0` image so the two checks of the same
+# rule files can never silently disagree (phase-514 also fixed one drifted
+# tool version already — see the golangci-lint pin above this file's sibling
+# fix in Makefile).
+ARG PROMETHEUS_VERSION=2.48.0
+ARG PROMETHEUS_SHA256=5871ca9e01ae35bb7ab7a129a845a7a80f0e1453f00f776ac564dd41ff4d754e
+RUN curl -fsSL -o /tmp/prom.tar.gz "https://github.com/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}/prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz" \
+ && echo "${PROMETHEUS_SHA256}  /tmp/prom.tar.gz" | sha256sum -c - \
+ && tar -xzf /tmp/prom.tar.gz -C /tmp "prometheus-${PROMETHEUS_VERSION}.linux-amd64/promtool" \
+ && mv "/tmp/prometheus-${PROMETHEUS_VERSION}.linux-amd64/promtool" /usr/local/bin/promtool \
+ && chmod +x /usr/local/bin/promtool \
+ && rm -rf /tmp/prom.tar.gz "/tmp/prometheus-${PROMETHEUS_VERSION}.linux-amd64"
+
+# docker CLI client only (no daemon/containerd/runc — this container talks to
+# the HOST's Docker daemon via the bind-mounted socket, see Makefile
+# TOOLS_RUN). Required for tests/integration/test_container_config.py,
+# test_dockerfile_coverage.py, and test_go_proxy_image.py, which all
+# `shutil.which("docker")`-gate on the CLI being present and otherwise
+# silently skip. No official per-file checksum is published for the static
+# binary bundle (unlike Helm/Prometheus above), so this hash was computed
+# directly from the file fetched over TLS from download.docker.com and is
+# pinned here to catch any future substitution.
+ARG DOCKER_VERSION=29.6.1
+ARG DOCKER_SHA256=b0df4a43a98d7ecb708acbdb5a34a3416e13b6e39bcbbdf296f51f0f3442b29f
+RUN curl -fsSL -o /tmp/docker.tgz "https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKER_VERSION}.tgz" \
+ && echo "${DOCKER_SHA256}  /tmp/docker.tgz" | sha256sum -c - \
+ && tar -xzf /tmp/docker.tgz -C /tmp docker/docker \
+ && mv /tmp/docker/docker /usr/local/bin/docker \
+ && chmod +x /usr/local/bin/docker \
+ && rm -rf /tmp/docker.tgz /tmp/docker
+
+# docker compose CLI plugin (pinned, checksum-verified) — `docker compose config`
+# in test_container_config.py/test_dockerfile_coverage.py needs the `compose`
+# subcommand, which the docker static client tarball above does NOT include
+# (it's a separate CLI plugin, installed to the plugins dir, not the base binary).
+ARG COMPOSE_VERSION=5.2.0
+ARG COMPOSE_SHA256=018f9612ecabc5f2d7aaa53d6f5f44453a87611e2d72c8ef84d7b1eca070e719
+RUN mkdir -p /usr/local/lib/docker/cli-plugins \
+ && curl -fsSL -o /usr/local/lib/docker/cli-plugins/docker-compose "https://github.com/docker/compose/releases/download/v${COMPOSE_VERSION}/docker-compose-linux-x86_64" \
+ && echo "${COMPOSE_SHA256}  /usr/local/lib/docker/cli-plugins/docker-compose" | sha256sum -c - \
+ && chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+
+# docker buildx CLI plugin (pinned, checksum-verified against docker/buildx's
+# published checksums.txt) — this repo's Dockerfiles use BuildKit-only
+# `RUN --mount=type=cache,...` syntax, which the legacy builder rejects.
+# Current Docker CLI versions require the buildx plugin to actually be
+# present to use BuildKit — DOCKER_BUILDKIT=1 alone is no longer sufficient
+# without it (confirmed: fails with "BuildKit is enabled but the buildx
+# component is missing or broken" otherwise).
+ARG BUILDX_VERSION=0.35.0
+ARG BUILDX_SHA256=d41ece72044243b4f58b343441ae37446d9c29a7d6b5e11c61847bbcf8f7dfda
+RUN curl -fsSL -o /usr/local/lib/docker/cli-plugins/docker-buildx "https://github.com/docker/buildx/releases/download/v${BUILDX_VERSION}/buildx-v${BUILDX_VERSION}.linux-amd64" \
+ && echo "${BUILDX_SHA256}  /usr/local/lib/docker/cli-plugins/docker-buildx" | sha256sum -c - \
+ && chmod +x /usr/local/lib/docker/cli-plugins/docker-buildx
+
+# Set as a default here so every `docker build` invoked from this image
+# (including from Python subprocess calls in tests, which don't set it
+# themselves) uses BuildKit without every call site needing to remember it —
+# the Makefile already sets this ad-hoc in several targets; this makes it the
+# image's default instead.
+ENV DOCKER_BUILDKIT=1
 
 WORKDIR /src
 

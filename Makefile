@@ -499,7 +499,12 @@ lint-docker:
 # promtool, amtool, scorecard, lychee, semgrep) are run from those directly.
 tools-image:
 	@docker build -q -t $(TOOLS_IMG) -f Dockerfile.tools . >/dev/null
-TOOLS_RUN = docker run --rm -v $(PWD):/src -w /src $(TOOLS_IMG)
+# Docker socket mounted so tests/integration/test_container_config.py,
+# test_dockerfile_coverage.py, and test_go_proxy_image.py (all gated on
+# `shutil.which("docker")` + a reachable daemon) actually run instead of
+# silently skipping (phase-514). The tools image runs as root (no USER
+# directive), so no socket-permission workaround is needed.
+TOOLS_RUN = docker run --rm -v $(PWD):/src -w /src -v /var/run/docker.sock:/var/run/docker.sock $(TOOLS_IMG)
 
 # Bandit runs on Python 3.11 (see Dockerfile.bandit): its B502/B604/B607 plugins
 # use ast.Num, removed in 3.12, which makes bandit silently skip whole files on
