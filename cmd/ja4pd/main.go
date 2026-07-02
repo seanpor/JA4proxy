@@ -1741,6 +1741,10 @@ func buildPipelineConfig(cfg *config.Config) *security.PipelineConfig {
 		JA4TBlocklist:            cfg.JA4TConsumer.Blocklist,
 		AutoEscalate:             cfg.AutoEscalate,     // phase-248
 		DatacenterPolicy:         cfg.DatacenterPolicy, // phase-249
+		// phase-515 — decision cache (ADR-003): per-client key + asymmetric TTLs.
+		DecisionCacheAllowTTLSeconds: cfg.DecisionCache.AllowTTLSeconds,
+		DecisionCacheBlockTTLSeconds: cfg.DecisionCache.BlockTTLSeconds,
+		DecisionCacheMaxEntries:      cfg.DecisionCache.MaxEntries,
 	}
 }
 

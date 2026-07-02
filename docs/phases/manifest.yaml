@@ -3608,4 +3608,36 @@ phases:
       Reference-manual ch08 services table adds management-tls Caddy row, updates proxy port
       to 8443, adds GHCR image names and iptables traffic insertion subsections. All three
       PDFs build with zero LaTeX errors."
+  515:
+    name: "Decision-Cache Client Isolation & Asymmetric TTLs"
+    status: COMPLETE
+    completed: '2026-07-02'
+    action_plan: docs/phases/PHASE_515.md
+    dependencies: []
+    size: MEDIUM
+    summary: "Fixed the Go proxy decision cache (internal/security/cache.go), which was
+      keyed on the JA4 fingerprint alone, cached IP-derived decisions, and had no TTL —
+      contradicting ADR-003. Because a JA4 is shared across all clients on the same TLS
+      stack, a block/ban from one IP was served to every client sharing that fingerprint
+      (false positive: real browsers blocked, never self-healing) and an allow warmed by
+      one client let an attacker bypass all per-IP controls (false negative). Fix: composite
+      per-client key (clientIP|JA4) + asymmetric ALLOW/BLOCK TTLs enforced on read, per
+      ADR-003; new hot-reloadable decision_cache config block. Registered JA4PROXY-2026-0087
+      (HIGH). Second-pass review found and fixed JA4PROXY-2026-0088 (MEDIUM data race:
+      processInternal/beaconingWorker read p.cfg and swappable modules unlocked while
+      ReplaceConfig swapped them on hot reload — go test -race clean after a per-call config
+      snapshot). Registered and deferred JA4PROXY-2026-0089 (hot-reload orphans async
+      enrichment workers) to Phase 517."
+  516:
+    name: "Documentation Sync — Decision Cache (Phase 515)"
+    status: COMPLETE
+    completed: '2026-07-02'
+    action_plan: docs/phases/PHASE_516.md
+    dependencies:
+    - 515
+    size: SMALL
+    summary: "Sync prose and offline PDF documentation to the Phase 515 decision-cache
+      behaviour: document the decision_cache config block and per-client keying / asymmetric
+      TTLs in the reference manual (config + pipeline chapters) and any operator docs that
+      describe caching, and rebuild the affected PDFs."
 
