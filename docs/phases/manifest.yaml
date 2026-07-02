@@ -3662,4 +3662,38 @@ phases:
       case a corrupted ALPN missing the h2/h1 browser bypass -> real browser blocked). Fixed
       by cloning SNI/ALPN at a single choke point (populateTLSFingerprints); regression test
       fails if reverted. No crash/RCE vector found on the remote surface."
+  520:
+    name: "Aggressive Bug Hunt — Go Proxy (Red-Team Pass)"
+    status: IN_PROGRESS
+    action_plan: docs/phases/PHASE_520.md
+    dependencies: []
+    size: MEDIUM
+    summary: "Adversarial second pass over the remotely-reachable Go proxy. Documents a
+      junior-implementable finding JA4PROXY-2026-0094 (MEDIUM, OPEN): the operator manual ban
+      (ban:{ip}) and Spamhaus blocklist are hard blocks evaluated only on the async
+      processInternal path, so when the scoring queue (workChan) saturates under flood,
+      Process returns allow and handleConn forwards a banned/blocklisted IP to the backend.
+      Fix spec: move those hard-block checks into the synchronous checkHardBlocks path.
+      Includes exact repro, fix steps, an acceptance test, and a critical review (similar bugs:
+      auto-escalation ban + datacenter policy also terminal-from-async). Byte parsers
+      re-confirmed clean (fuzzed to convergence, zero crashers). NOT YET IMPLEMENTED —
+      documented for a junior engineer."
+  521:
+    name: "Aggressive Bug Hunt — Infrastructure & Management API (Red-Team Pass)"
+    status: IN_PROGRESS
+    action_plan: docs/phases/PHASE_521.md
+    dependencies: []
+    size: MEDIUM
+    summary: "Adversarial pass over the non-proxy surface (management API auth/OIDC/SAML/
+      WebAuthn/TOTP/CSRF/DSAR, analytics, tarpit, Redis control plane, compose wiring).
+      Documents a junior-implementable finding JA4PROXY-2026-0093 (HIGH, OPEN): _is_production()
+      (3 copies) returns True only for ENVIRONMENT in {production,prod}, so every test-mode
+      escape hatch and its startup guard fail open for unset/'dmz'/'staging' — a DMZ appliance
+      with a stray MANAGEMENT_TEST_MODE=1 serves a PUBLIC hardcoded JWT signing secret and
+      skips OIDC signature checks (admin-token forgery); same fail-open affects CSRF disable and
+      SAML strict-off. Fix spec: consolidate to one fail-CLOSED helper (explicit dev/test
+      allowlist; unset/unknown => production) + stricter startup guard. Includes repro, fix,
+      acceptance test, an honest NOT-fully-audited backlog (IDOR/authorization, Redis-outage
+      auth fail-open, callback origin/audience binding, compose/inter-container, analytics/
+      tarpit) and a critical review. NOT YET IMPLEMENTED — documented for a junior engineer."
 

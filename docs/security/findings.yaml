@@ -48,7 +48,7 @@
 
 
 schema_version: 1
-last_allocated_id: 92
+last_allocated_id: 94
 findings:
 - id: JA4PROXY-2026-0001
   title: PROXY Protocol v2 Spoofing from Untrusted Source
@@ -2921,3 +2921,75 @@ findings:
   notes: 'Fix: clone SNI/ALPN (strings.Clone) when populating connCtx in handleConn so they no longer
     alias the pooled buffer, before connCtx can escape to the async queue. Keep the parser''s zero-copy
     unsafeString for the synchronous callers. Discovered in phase-519 remote-exploitability hunt.'
+- id: JA4PROXY-2026-0093
+  title: Security escape-hatches (TEST_MODE hardcoded JWT secret, CSRF disable, SAML strict-off) fail
+    open when ENVIRONMENT is not exactly 'production'
+  severity: HIGH
+  severity_rationale: "H (CWE-1188 insecure default + CWE-636 fail-open). _is_production() returns True\
+    \ ONLY for ENVIRONMENT in {production,prod}; every test-mode escape hatch and its startup guard gate\
+    \ on it, so ENVIRONMENT unset / 'staging' / 'dmz' is treated as non-production. is_test_mode() then\
+    \ activates on MANAGEMENT_TEST_MODE=1 alone, and _get_secret_key() falls back to the PUBLIC hardcoded\
+    \ 'test-secret-do-not-use-in-production' (plus OIDC signature verification is skipped) \u2014 an attacker\
+    \ who sets/knows these can forge admin JWTs. The startup guard _enforce_no_test_mode_in_production()\
+    \ does NOT fire because _is_production() is False. Same fail-open affects MANAGEMENT_DISABLE_CSRF\
+    \ and MANAGEMENT_SAML_STRICT=false. JA4proxy's core use case is a DMZ appliance where ENVIRONMENT\
+    \ is plausibly unset or 'dmz'. Requires an operator/image to carry a test flag, but the fail-open-on-unknown-ENVIRONMENT\
+    \ turns a common misconfig into an auth/CSRF/SAML bypass on an internet-facing service."
+  source_refs:
+  - report: PHASE_521
+    id: 521-01
+    discovered: '2026-07-02'
+  remediation_phases:
+  - '521'
+  owner: '@seanpor'
+  lane: python-management
+  discovered: '2026-07-02'
+  due: '2026-08-01'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  cvss_v3_1:
+    score: 7.4
+    vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N
+  notes: "Root: _is_production() (3 copies: auth.py, main.py, csrf.py) fails open. Fix (junior): invert\
+    \ to fail closed \u2014 escape hatches activate ONLY when ENVIRONMENT is an explicit non-prod allowlist\
+    \ value (dev/test/local/ci); unset/unknown => treated as production. Add a startup guard that also\
+    \ refuses the hardcoded JWT secret whenever ENVIRONMENT is not an explicit dev value. NOT YET FIXED\
+    \ \u2014 documented for implementation."
+- id: JA4PROXY-2026-0094
+  title: Manual ban (ban:{ip}) and Spamhaus blocklist bypassed when the async scoring queue (workChan)
+    is saturated
+  severity: MEDIUM
+  severity_rationale: "M (CWE-636 fail-open under resource exhaustion). Pipeline.Process runs checkHardBlocks\
+    \ synchronously (JA4/JA4X/country/dynamic-CIDR blacklists) but the operator manual ban (Redis ban:{ip})\
+    \ and the Spamhaus DROP/EDROP blocklist are evaluated ONLY inside processInternal, which in async\
+    \ mode (production default) runs on workChan. When workChan is full (20000 buffer, 32 workers) Process\
+    \ hits the select default, increments WorkChanDroppedTotal, returns {allow,0}, and handleConn FORWARDS\
+    \ the connection to the backend without ever checking ban:{ip} or Spamhaus. An attacker who sustains\
+    \ enough load to saturate the queue can slip a banned or Spamhaus-listed IP through \u2014 the two\
+    \ hard blocks operators most expect to always hold. Fail-open is the project philosophy for scoring,\
+    \ but these are documented HARD blocks."
+  source_refs:
+  - report: PHASE_520
+    id: 520-01
+    discovered: '2026-07-02'
+  remediation_phases:
+  - '520'
+  owner: '@seanpor'
+  lane: go-proxy
+  discovered: '2026-07-02'
+  due: '2026-08-31'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  cvss_v3_1:
+    score: 5.9
+    vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:H/A:N
+  notes: "Fix (junior): move the ban:{ip} and blocklist (Spamhaus) hard-block checks into the synchronous\
+    \ checkHardBlocks path in Pipeline.Process (before the async enqueue), like the other hard blocks\
+    \ \u2014 or gate the workChan-drop fallback so a dropped connection is not forwarded without at least\
+    \ the hard-block checks. NOT YET FIXED \u2014 documented for implementation."
