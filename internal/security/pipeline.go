@@ -293,8 +293,13 @@ func NewPipeline(cfg *PipelineConfig, redis RedisReader, log *logrus.Logger) *Pi
 	}
 	p.beaconingJobs = make(chan beaconingJob, beaconingJobBuf)
 	p.auditJobs = make(chan auditJob, auditJobBuf)
-	go p.beaconingWorker()
-	go p.auditWorker()
+	// JA4PROXY-2026-0090: the beaconing and audit workers are started by
+	// StartBackgroundWorkers(ctx) — alongside the async scoring workers — so
+	// they are bound to the process lifecycle and exit on ctx cancellation.
+	// Previously they were launched here at construction with no stop path,
+	// which leaked two goroutines (each pinning the whole Pipeline via closure)
+	// for every Pipeline that was built and discarded without running for the
+	// life of the process (e.g. the ja4p CLI and every unit test).
 	return p
 }
 
@@ -395,26 +400,36 @@ func durationSeconds(s, def int) time.Duration {
 // beaconingWorker processes beaconing jobs from the bounded channel (F-002).
 // Runs in a single goroutine — the channel buffer absorbs bursts and
 // non-blocking sends prevent the pipeline from blocking on a saturated worker.
-func (p *Pipeline) beaconingWorker() {
-	for job := range p.beaconingJobs {
-		// JA4PROXY-2026-0088: read the current detector under the lock —
-		// ReplaceConfig() swaps p.beaconing on hot reload.
-		p.mu.RLock()
-		beaconing := p.beaconing
-		p.mu.RUnlock()
-		beaconing.MaybeRecord(job.ctx, job.conn, job.action)
+// JA4PROXY-2026-0090: bound to ctx so it exits on shutdown instead of blocking
+// forever on the never-closed channel and leaking the Pipeline via closure.
+func (p *Pipeline) beaconingWorker(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case job := <-p.beaconingJobs:
+			// JA4PROXY-2026-0088: read the current detector under the lock —
+			// ReplaceConfig() swaps p.beaconing on hot reload.
+			p.mu.RLock()
+			beaconing := p.beaconing
+			p.mu.RUnlock()
+			beaconing.MaybeRecord(job.ctx, job.conn, job.action)
+		}
 	}
 }
 
 // auditWorker processes mesh drift audit jobs from a bounded channel.
 // Prevents unbounded goroutine growth when Redis is slow.
-// The goroutine lifetime is tied to the process — the Pipeline is never
-// shut down, so the channel is never closed. This is intentional: the
-// process exits on SIGINT/SIGTERM, and adding a Stop() method would
-// require plumbing shutdown through the entire call chain for no benefit.
-func (p *Pipeline) auditWorker() {
-	for job := range p.auditJobs {
-		p.auditDecision(job.ctx, job.ip, job.currentScore)
+// JA4PROXY-2026-0090: bound to ctx so it exits on shutdown instead of blocking
+// forever on the never-closed channel and leaking the Pipeline via closure.
+func (p *Pipeline) auditWorker(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case job := <-p.auditJobs:
+			p.auditDecision(job.ctx, job.ip, job.currentScore)
+		}
 	}
 }
 
@@ -424,11 +439,16 @@ func (p *Pipeline) auditWorker() {
 // request volume) so it cannot become a resource-exhaustion vector itself.
 const asyncScoringWorkers = 32
 
-// StartBackgroundWorkers starts all async background workers.
+// StartBackgroundWorkers starts all async background workers. All are bound to
+// ctx and exit when it is cancelled (JA4PROXY-2026-0090) — including the
+// beaconing and audit workers, which were previously started at construction
+// with no stop path.
 func (p *Pipeline) StartBackgroundWorkers(ctx context.Context) {
 	for i := 0; i < asyncScoringWorkers; i++ {
 		go p.runAsyncScoringLoop(ctx)
 	}
+	go p.beaconingWorker(ctx)
+	go p.auditWorker(ctx)
 	p.dnsEnrichment.Start(ctx)
 	p.abuseipdb.Start(ctx)
 	p.rdap.Start(ctx)

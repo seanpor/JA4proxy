@@ -3626,8 +3626,12 @@ phases:
       (HIGH). Second-pass review found and fixed JA4PROXY-2026-0088 (MEDIUM data race:
       processInternal/beaconingWorker read p.cfg and swappable modules unlocked while
       ReplaceConfig swapped them on hot reload — go test -race clean after a per-call config
-      snapshot). Registered and deferred JA4PROXY-2026-0089 (hot-reload orphans async
-      enrichment workers) to Phase 517."
+      snapshot). Merged two external Hunter findings into the same phase and fixed them:
+      JA4PROXY-2026-0090 (MEDIUM — beaconing/audit workers started at construction leaked
+      goroutines per Pipeline; moved to StartBackgroundWorkers with ctx cancellation) and
+      JA4PROXY-2026-0091 (LOW — nil-Ranger crash class in BlocklistManager.Check; read-side
+      guard added, write-side already present). Registered and deferred JA4PROXY-2026-0089
+      (hot-reload orphans async enrichment workers) to Phase 517."
   516:
     name: "Documentation Sync — Decision Cache (Phase 515)"
     status: COMPLETE

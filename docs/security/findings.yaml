@@ -48,7 +48,7 @@
 
 
 schema_version: 1
-last_allocated_id: 89
+last_allocated_id: 91
 findings:
 - id: JA4PROXY-2026-0001
   title: PROXY Protocol v2 Spoofing from Untrusted Source
@@ -2826,3 +2826,63 @@ findings:
   notes: 'DEFERRED from phase-515 (scope: cache isolation + config-read races). Correct fix needs per-module
     worker lifecycle: cancel old workers and Start new ones on reload, or reconfigure modules in place
     instead of recreating. Own phase + regression tests. Discovered in phase-515 second-pass review.'
+- id: JA4PROXY-2026-0090
+  title: beaconing/audit workers started at construction with no stop path leak goroutines per Pipeline
+  severity: MEDIUM
+  severity_rationale: "M (CWE-401/CWE-772 missing release of resource). NewPipeline launched beaconingWorker+auditWorker\
+    \ at construction; both blocked forever on never-closed channels, each pinning the whole Pipeline\
+    \ (and every field) via closure. In the ja4pd daemon the Pipeline is a process-lifetime singleton\
+    \ so production impact is one-time, but the ja4p CLI and every unit test build+discard Pipelines,\
+    \ leaking 2 goroutines + the Pipeline each \u2014 and any future dynamic-pipeline use would leak unboundedly.\
+    \ Reported by Hunter as goroutine_and_resource_leaks-pipeline (auditWorker; beaconingWorker identical)."
+  source_refs:
+  - report: PHASE_515
+    id: 515-04
+    discovered: '2026-07-02'
+  remediation_phases:
+  - '515'
+  owner: '@seanpor'
+  lane: go-proxy
+  discovered: '2026-07-02'
+  due: '2026-08-31'
+  status: FIXED
+  supersedes: []
+  depends_on: []
+  regression_test: internal/security/pipeline_worker_lifecycle_test.go
+  closed_commit: ''
+  cvss_v3_1:
+    score: 2.5
+    vector: CVSS:3.1/AV:L/AC:H/PR:H/UI:N/S:U/C:N/I:N/A:L
+  notes: 'Fix: move beaconingWorker/auditWorker startup from NewPipeline into StartBackgroundWorkers(ctx)
+    alongside the async scoring workers, and select on ctx.Done() so they exit on shutdown. Construction
+    now starts zero background goroutines. Merged from Hunter 2026-06-24-0033.'
+- id: JA4PROXY-2026-0091
+  title: BlocklistManager nil-Ranger could panic in Check() (ReplaceFeed nil); already guarded, read-side
+    hardened
+  severity: LOW
+  severity_rationale: "L. Hunter (2026-06-24-0031) reported ReplaceFeed(name, nil) storing a nil Ranger\
+    \ that panics on a later Check(). Verified against current code: ReplaceFeed ALREADY rejects nil (blocklists.go:\
+    \ 'if ranger == nil { return false }') and is only called internally from feed_downloader.go \u2014\
+    \ NOT an unauthenticated management endpoint as the report claimed. Residual risk is defense-in-depth\
+    \ only; the report references pre-remediation code."
+  source_refs:
+  - report: PHASE_515
+    id: 515-05
+    discovered: '2026-07-02'
+  remediation_phases:
+  - '515'
+  owner: '@seanpor'
+  lane: go-proxy
+  discovered: '2026-07-02'
+  due: '2026-10-30'
+  status: FIXED
+  supersedes: []
+  depends_on: []
+  regression_test: internal/security/blocklists_nil_ranger_test.go
+  closed_commit: ''
+  cvss_v3_1:
+    score: 2.0
+    vector: CVSS:3.1/AV:L/AC:H/PR:H/UI:N/S:U/C:N/I:N/A:L
+  notes: Write-side nil guard pre-existing. Phase-515 adds a read-side guard in Check() (box.ranger ==
+    nil -> continue) so no future store path can crash. Merged from Hunter 2026-06-24-0031; trigger 'unauthenticated
+    attacker' was inaccurate.

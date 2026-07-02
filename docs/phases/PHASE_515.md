@@ -208,6 +208,29 @@ locals thereafter; read `p.beaconing` under the lock in `beaconingWorker`.
 `p.redis`/`p.log` are never reassigned, so they stay accessed via `p`. Now clean
 under `-race`. Follow-up: add a `-race` Go target to CI (noted in 0088).
 
+**JA4PROXY-2026-0090 — beaconing/audit workers leaked per Pipeline (MEDIUM).**
+Merged from the external Hunter report `2026-06-24-0033`. `NewPipeline` launched
+`beaconingWorker` + `auditWorker` at construction; both blocked forever on
+never-closed channels, each pinning the whole `Pipeline` via closure. In the
+`ja4pd` daemon the Pipeline is a process-lifetime singleton (one-time), but the
+`ja4p` CLI and every unit test build and discard Pipelines, leaking two
+goroutines + the Pipeline each. Fix: move both workers' startup into
+`StartBackgroundWorkers(ctx)` (beside the async scoring workers) and `select` on
+`ctx.Done()` so they exit on shutdown; construction now starts **zero** background
+goroutines. Regression: `pipeline_worker_lifecycle_test.go` (fails — 100
+goroutines for 50 pipelines — if the workers move back to the constructor).
+
+**JA4PROXY-2026-0091 — nil-Ranger crash class in `BlocklistManager` (LOW).**
+Merged from the external Hunter report `2026-06-24-0031`, which claimed an
+unauthenticated `ReplaceFeed(name, nil)` could panic a later `Check()`. Verified
+against current code: `ReplaceFeed` **already** rejects nil (`if ranger == nil {
+return false }`) and is only called internally from `feed_downloader.go` — not an
+unauthenticated endpoint, so the report references pre-remediation code and an
+inaccurate trigger. Added defense-in-depth on the read side (`Check()` now skips a
+box whose `ranger` interface is nil) so no future store path can crash.
+Regression: `blocklists_nil_ranger_test.go` pins both the write-side and
+read-side guards.
+
 ### Registered and deferred (out of this phase's scope)
 
 **JA4PROXY-2026-0089 — hot reload orphans async enrichment workers (MEDIUM,
