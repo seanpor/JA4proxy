@@ -48,7 +48,7 @@
 
 
 schema_version: 1
-last_allocated_id: 91
+last_allocated_id: 92
 findings:
 - id: JA4PROXY-2026-0001
   title: PROXY Protocol v2 Spoofing from Untrusted Source
@@ -2886,3 +2886,38 @@ findings:
   notes: Write-side nil guard pre-existing. Phase-515 adds a read-side guard in Check() (box.ranger ==
     nil -> continue) so no future store path can crash. Merged from Hunter 2026-06-24-0031; trigger 'unauthenticated
     attacker' was inaccurate.
+- id: JA4PROXY-2026-0092
+  title: connCtx SNI/ALPN alias the pooled read buffer and escape to async scorer (use-after-return, cross-connection
+    bleed)
+  severity: MEDIUM
+  severity_rationale: 'M (CWE-825 use of pointer after free/return + CWE-362). handleConn parses the ClientHello
+    out of a sync.Pool buffer; tls.ParseClientHello returns SNI/ALPN as unsafe strings ALIASING that buffer.
+    connCtx (carrying SNI/ALPN) is then handed to Pipeline.Process which, in the default async mode, enqueues
+    it on workChan and returns. handleConn''s deferred bufferPool.Put returns the buffer; a subsequent
+    connection Gets the same buffer and overwrites it while the async scoring worker still reads conn.SNI
+    (sniAnalyzer.Analyze) and conn.ALPN (checkBypasses h2/h1 bypass). Result: the async decision is scored
+    on another connection''s bytes and one connection''s SNI hostname can bleed into another''s structured
+    logs. Remotely triggerable under normal connection churn (many short connections with distinct SNIs);
+    worst case a corrupted ALPN misses the browser bypass and a real browser is scored/blocked (violates
+    the core asymmetry). Not a crash/RCE. JA4/JA4X are fmt.Sprintf-owned and unaffected.'
+  source_refs:
+  - report: PHASE_519
+    id: 519-01
+    discovered: '2026-07-02'
+  remediation_phases:
+  - '519'
+  owner: '@seanpor'
+  lane: go-proxy
+  discovered: '2026-07-02'
+  due: '2026-08-31'
+  status: FIXED
+  supersedes: []
+  depends_on: []
+  regression_test: cmd/ja4pd/pentest_pooled_buffer_alias_test.go
+  closed_commit: ''
+  cvss_v3_1:
+    score: 4.8
+    vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:N
+  notes: 'Fix: clone SNI/ALPN (strings.Clone) when populating connCtx in handleConn so they no longer
+    alias the pooled buffer, before connCtx can escape to the async queue. Keep the parser''s zero-copy
+    unsafeString for the synchronous callers. Discovered in phase-519 remote-exploitability hunt.'

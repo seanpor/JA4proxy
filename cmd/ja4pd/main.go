@@ -620,18 +620,11 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 		// hit a ceiling / the client stops sending.
 		data = p.reassembleClientHello(clientConn, data, buf)
 		if hello, err := tlsparse.ParseClientHello(data); err == nil {
-			ja4 := tlsparse.ComputeJA4(hello)
 			t2 = time.Now()
-			connCtx.JA4 = ja4
-			connCtx.TLSVersion = int(hello.LegacyVersion)
-			connCtx.SNI = hello.SNI
-			if len(hello.ALPNProtocols) > 0 {
-				connCtx.ALPN = hello.ALPNProtocols[0]
-			}
-			connCtx.CipherList = make([]int, len(hello.CipherSuites))
-			for i, cs := range hello.CipherSuites {
-				connCtx.CipherList[i] = int(cs)
-			}
+			// JA4PROXY-2026-0092: populateTLSFingerprints clones SNI/ALPN so
+			// connCtx does not alias the pooled read buffer once it escapes to
+			// the async scorer (see the helper's doc comment).
+			populateTLSFingerprints(connCtx, hello)
 		} else {
 			// phase-63 (review fix B3): TLS parse failures are NOT availability
 			// errors — the connection is still handled and reaches a policy
@@ -1558,6 +1551,31 @@ func remotePort(conn net.Conn) int {
 		return addr.Port
 	}
 	return 0
+}
+
+// populateTLSFingerprints copies the parsed ClientHello fields into connCtx.
+//
+// JA4PROXY-2026-0092: tls.ParseClientHello returns SNI and ALPN as zero-copy
+// strings that ALIAS the input buffer — which here is a sync.Pool buffer that
+// handleConn returns to the pool as soon as it finishes. Because the pipeline
+// runs in async mode by default, connCtx is enqueued on workChan and read by a
+// scoring worker *after* handleConn returns; a later connection can by then have
+// reused the buffer and overwritten those bytes. That corrupts the SNI/ALPN the
+// async scorer sees (wrong scoring, missed h2/h1 browser bypass) and can bleed
+// one connection's SNI hostname into another's logs. We therefore clone SNI and
+// ALPN so connCtx owns them and no longer aliases the pooled buffer. JA4/JA4X
+// are fmt.Sprintf-owned already; CipherList is copied by value.
+func populateTLSFingerprints(connCtx *security.ConnectionContext, hello *tlsparse.ClientHelloInfo) {
+	connCtx.JA4 = tlsparse.ComputeJA4(hello)
+	connCtx.TLSVersion = int(hello.LegacyVersion)
+	connCtx.SNI = strings.Clone(hello.SNI)
+	if len(hello.ALPNProtocols) > 0 {
+		connCtx.ALPN = strings.Clone(hello.ALPNProtocols[0])
+	}
+	connCtx.CipherList = make([]int, len(hello.CipherSuites))
+	for i, cs := range hello.CipherSuites {
+		connCtx.CipherList[i] = int(cs)
+	}
 }
 
 func newLogger(cfg *config.Config) *logrus.Logger {

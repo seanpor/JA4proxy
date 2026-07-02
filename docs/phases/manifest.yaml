@@ -3644,4 +3644,22 @@ phases:
       behaviour: document the decision_cache config block and per-client keying / asymmetric
       TTLs in the reference manual (config + pipeline chapters) and any operator docs that
       describe caching, and rebuild the affected PDFs."
+  519:
+    name: "Remote-Exploitability Bug Hunt (Go Proxy Hot Path)"
+    status: IN_PROGRESS
+    action_plan: docs/phases/PHASE_519.md
+    dependencies: []
+    size: MEDIUM
+    summary: "Focused security bug hunt over the remotely-reachable Go proxy surface
+      (accept loop, ClientHello parser, reassembly, PROXY v1/v2 parser, JA4/JA4X) for
+      crashes/RCE/memory-safety/data-integrity. All Go fuzz targets ran to convergence with
+      zero crashers (ClientHello parser 10.7M execs, fragmentation, PROXY v1/v2, smuggling).
+      Found and fixed JA4PROXY-2026-0092 (MEDIUM): tls.ParseClientHello returns SNI/ALPN as
+      zero-copy strings aliasing the sync.Pool read buffer, and handleConn handed connCtx to
+      the default async scorer via workChan before returning the buffer to the pool — a later
+      connection reusing the buffer could corrupt the SNI/ALPN the scoring/beaconing workers
+      read (cross-connection bleed: wrong scoring, SNI hostname leak into other logs, worst
+      case a corrupted ALPN missing the h2/h1 browser bypass -> real browser blocked). Fixed
+      by cloning SNI/ALPN at a single choke point (populateTLSFingerprints); regression test
+      fails if reverted. No crash/RCE vector found on the remote surface."
 
