@@ -2755,7 +2755,7 @@ findings:
   supersedes: []
   depends_on: []
   regression_test: internal/security/pipeline_cache_isolation_test.go
-  closed_commit: ''
+  closed_commit: accdfff0
   cvss_v3_1:
     score: 8.1
     vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:L/A:H
@@ -2786,7 +2786,7 @@ findings:
   supersedes: []
   depends_on: []
   regression_test: internal/security/pipeline_reload_race_test.go
-  closed_commit: ''
+  closed_commit: accdfff0
   cvss_v3_1:
     score: 4.0
     vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:L/A:L
@@ -2849,7 +2849,7 @@ findings:
   supersedes: []
   depends_on: []
   regression_test: internal/security/pipeline_worker_lifecycle_test.go
-  closed_commit: ''
+  closed_commit: accdfff0
   cvss_v3_1:
     score: 2.5
     vector: CVSS:3.1/AV:L/AC:H/PR:H/UI:N/S:U/C:N/I:N/A:L
@@ -2879,7 +2879,7 @@ findings:
   supersedes: []
   depends_on: []
   regression_test: internal/security/blocklists_nil_ranger_test.go
-  closed_commit: ''
+  closed_commit: accdfff0
   cvss_v3_1:
     score: 2.0
     vector: CVSS:3.1/AV:L/AC:H/PR:H/UI:N/S:U/C:N/I:N/A:L
