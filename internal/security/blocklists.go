@@ -195,7 +195,11 @@ func (m *BlocklistManager) Check(ip net.IP) (signals []RiskSignal, hardBlock boo
 	}
 	for _, feed := range m.feeds {
 		box := feed.ranger.Load()
-		if box == nil {
+		if box == nil || box.ranger == nil {
+			// JA4PROXY-2026-0091 (defense in depth): a box holding a nil Ranger
+			// interface would panic on Contains(). ReplaceFeed already rejects a
+			// nil ranger at the write side; this guards the read side too so no
+			// future store path can turn a blocklist swap into a crash.
 			continue
 		}
 		contains, err := box.ranger.Contains(ip)

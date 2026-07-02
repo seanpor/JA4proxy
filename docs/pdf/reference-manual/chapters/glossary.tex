@@ -97,10 +97,11 @@ section where each concept is covered in detail.
   See Chapter~\ref{ch:architecture}, Section on Data Flow.
 
   \item[Cold cache\index{cold cache}]
-  The state of the local in-process LRU cache immediately after startup, or for a
-  newly seen IP address. Cold cache state means there is no locally cached decision;
-  the pipeline must execute in full (including Redis lookups and signal collection)
-  to produce a decision for this IP.
+  The state of the local in-process decision cache immediately after startup, or
+  for a newly seen client (a client IP + JA4 fingerprint not seen recently). Cold
+  cache state means there is no locally cached decision; the pipeline must execute
+  in full (including Redis lookups and signal collection) to produce a decision for
+  this client.
   Contrast with \textit{warm cache}.
 
   \item[Coefficient of variation (CV)\index{coefficient of variation}]
@@ -257,11 +258,13 @@ section where each concept is covered in detail.
   See Chapter~\ref{ch:signals}.
 
   \item[Warm cache\index{warm cache}]
-  The state of the local in-process LRU cache when it contains a recent decision
-  for a given IP address. A warm cache hit means the pipeline can return a decision
-  in under 100 microseconds without any Redis or signal collection overhead. Cache
-  entries have asymmetric TTLs: ALLOW entries are cached for 30 minutes; BLOCK
-  entries for 30 seconds.
+  The state of the local in-process decision cache when it contains a recent
+  decision for a given client — keyed on the client IP together with its JA4
+  fingerprint, so clients sharing a fingerprint do not share a decision. A warm
+  cache hit means the pipeline can return a decision in under 100 microseconds
+  without any Redis or signal collection overhead. Cache entries have asymmetric
+  TTLs: ALLOW entries are cached for 30 minutes; every blocking action for 30
+  seconds (ADR-003).
   Contrast with \textit{cold cache}.
 
 \end{description}

@@ -1109,3 +1109,15 @@ datacenter_policy:
     - 54113   # Fastly
     - 20940   # Akamai
   log_actions: true       # set false to suppress logs during high-volume attacks
+
+# ── Phase 515: Decision Cache (ADR-003) ───────────────────────────────────
+# In-process per-connection decision cache. Keyed per client (client IP + JA4)
+# so a decision for one client is never served to another that merely shares a
+# TLS fingerprint. Asymmetric TTLs enforce the core asymmetry: an ALLOW is
+# cached long (a legitimate client stays fast); everything else is cached
+# briefly so a mistaken/stale block self-heals and a lifted ban takes effect
+# quickly. Both TTLs are hot-reloadable. Zero/absent values use the defaults.
+decision_cache:            # phase-515
+  allow_ttl_seconds: 1800  # Default 1800 (30 min). ALLOW cached long (ADR-003).
+  block_ttl_seconds: 30    # Default 30. block/ban/tarpit/rate_limit/flag cached short (ADR-003).
+  max_entries: 10000       # Default 10000. Cap on cached decisions (bounded memory).
