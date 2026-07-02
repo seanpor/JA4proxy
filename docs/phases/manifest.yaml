@@ -3644,6 +3644,22 @@ phases:
       behaviour: document the decision_cache config block and per-client keying / asymmetric
       TTLs in the reference manual (config + pipeline chapters) and any operator docs that
       describe caching, and rebuild the affected PDFs."
+  518:
+    name: "Race-Detector CI Gate + cmd/ja4pd Test-Race Fixes"
+    status: IN_PROGRESS
+    action_plan: docs/phases/PHASE_518.md
+    dependencies:
+    - 515
+    size: SMALL
+    summary: "Enforce the Go concurrency regression tests in CI. Added a test-race Makefile
+      target (go test -race ./...) and a race CI job that runs it on every PR, so the config
+      hot-reload snapshot (JA4PROXY-2026-0088), worker lifecycle (0090), and forward() config
+      capture (0068) regression tests actually guard main — the required make test gate runs
+      without -race. Fixed two pre-existing cmd/ja4pd TEST races that kept the -race run red:
+      TestClientHelloFragmentation shared a bytes.Buffer across goroutines (now mutex-guarded)
+      and TestForward_ConfigLocalCapture hung under -race load (net.Pipe timer starvation +
+      reload-vs-capture ordering flaw; now real TCP + correct ordering). No production code
+      changed; whole-suite go test -race ./... green across repeated runs."
   519:
     name: "Remote-Exploitability Bug Hunt (Go Proxy Hot Path)"
     status: IN_PROGRESS

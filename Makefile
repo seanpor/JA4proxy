@@ -1,4 +1,4 @@
-.PHONY: all bench-all build bump-build check ci-verify clean cli-build compose-validate doc-health doctor go-build help help-dev help-legacy help-lint help-ops help-scan init install-hooks ja4p-validate link-check lint lint-ansible lint-docs lint-phases lint-semgrep logs management-down management-logs management-shell management-up rebuild reload remote-bot sbom scan scan-exceptions scorecard-local setup-build start start-poc status stop sync test test-component-suites test-ip test-ratio traffic-off traffic-on tunnel verify-all preflight
+.PHONY: all bench-all build bump-build check ci-verify clean cli-build compose-validate doc-health doctor go-build help help-dev help-legacy help-lint help-ops help-scan init install-hooks ja4p-validate link-check lint lint-ansible lint-docs lint-phases lint-semgrep logs management-down management-logs management-shell management-up rebuild reload remote-bot sbom scan scan-exceptions scorecard-local setup-build start start-poc status stop sync test test-component-suites test-ip test-race test-ratio traffic-off traffic-on tunnel verify-all preflight
 PYTHON ?= $(shell command -v python || command -v python3 || echo python)
 GO ?= $(shell command -v go || echo go)
 
@@ -979,6 +979,14 @@ GO     := GOROOT=$(GOROOT) go
 # Run all Go unit tests
 go-test:
 	$(GO) test ./... -count=1
+
+# Run all Go tests under the race detector (phase-518). This is the enforcement
+# arm for the concurrency regression tests — several of them (config hot-reload
+# snapshot JA4PROXY-2026-0088, forward() config capture 0068, worker lifecycle
+# 0090) only *detect* a regression when run with -race, and the plain `make test`
+# gate does not pass -race. Requires cgo (a C toolchain); CI runners have one.
+test-race:
+	$(GO) test -race ./... -count=1
 
 # Run go vet (static analysis)
 go-lint:
