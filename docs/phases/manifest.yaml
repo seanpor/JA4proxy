@@ -3712,4 +3712,24 @@ phases:
       acceptance test, an honest NOT-fully-audited backlog (IDOR/authorization, Redis-outage
       auth fail-open, callback origin/audience binding, compose/inter-container, analytics/
       tarpit) and a critical review. NOT YET IMPLEMENTED — documented for a junior engineer."
+  522:
+    name: "Aggressive Bug Hunt — Management Auth, Access Control & Wiring (Pass 2)"
+    status: IN_PROGRESS
+    action_plan: docs/phases/PHASE_522.md
+    dependencies:
+    - 521
+    size: MEDIUM
+    summary: "Works the Phase 521 backlog (authorization/IDOR, Redis-outage auth fail-open,
+      SSO callback binding, compose wiring). Most held up (RBAC via require_role on all
+      mutating routes; login lockout fails CLOSED; bearer-token revocation via Redis;
+      OIDC PKCE+state+alg-allowlist+fixed redirect; SAML library+nonce; Redis loopback-bound
+      with requirepass). Two junior-implementable findings (OPEN): JA4PROXY-2026-0095 (MEDIUM)
+      — insecure role defaults inconsistent with the 0034 least-privilege posture: bearer +
+      token-rotate default to operator, _create_access_token defaults to admin, malformed
+      token expiry treated as non-expiring; fix all to fail closed to auditor. JA4PROXY-2026-0096
+      (MEDIUM) — quickstart docker-compose ships a committed known-value MANAGEMENT_JWT_SECRET
+      with no boot guard, so a non-overridden deploy signs admin JWTs with a public key; fix
+      is a startup guard tied to the 0093 fail-closed env helper. Honest NOT-fully-audited
+      backlog -> Phase 523: OIDC aud/iss binding, WebAuthn origin, analytics input validation,
+      tarpit bounds, inter-container pubsub HMAC. NOT YET IMPLEMENTED — documented for a junior."
 

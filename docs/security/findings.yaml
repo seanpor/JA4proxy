@@ -48,7 +48,7 @@
 
 
 schema_version: 1
-last_allocated_id: 94
+last_allocated_id: 96
 findings:
 - id: JA4PROXY-2026-0001
   title: PROXY Protocol v2 Spoofing from Untrusted Source
@@ -2993,3 +2993,77 @@ findings:
     \ checkHardBlocks path in Pipeline.Process (before the async enqueue), like the other hard blocks\
     \ \u2014 or gate the workChan-drop fallback so a dropped connection is not forwarded without at least\
     \ the hard-block checks. NOT YET FIXED \u2014 documented for implementation."
+- id: JA4PROXY-2026-0095
+  title: Insecure role defaults in token issuance/validation contradict the JA4PROXY-2026-0034 least-privilege
+    posture (bearer->operator, create->admin, rotate->operator)
+  severity: MEDIUM
+  severity_rationale: "M (CWE-1188 insecure default + CWE-269 improper privilege management). JA4PROXY-2026-0034\
+    \ established that the management plane must default to the least-privileged role (auditor) on a missing/invalid\
+    \ role claim, and fixed the cookie path accordingly. Three sibling paths were left inconsistent: (1)\
+    \ get_bearer_user (auth.py:410,414) defaults a bearer token with a missing/invalid 'role' field to\
+    \ OPERATOR (write access: bans/lists), not auditor; (2) _create_access_token (auth.py:186) defaults\
+    \ role='admin' \u2014 a footgun where any future caller that omits role mints an admin token (only\
+    \ today's admin-only local login relies on it); (3) the token-rotate path (routes/tokens.py:194) defaults\
+    \ a role-less old token to OPERATOR. Also get_bearer_user (auth.py:396) treats a malformed expires_at\
+    \ as non-expiring (fail-open on token expiry). New tokens always store a valid role today, so no direct\
+    \ live exploit, but a legacy/corrupt/rotated token silently gains write access \u2014 exactly the\
+    \ escalation class 0034 fixed. Defense-in-depth, but the posture is already mandated."
+  source_refs:
+  - report: PHASE_522
+    id: 522-01
+    discovered: '2026-07-02'
+  remediation_phases:
+  - '522'
+  owner: '@seanpor'
+  lane: python-management
+  discovered: '2026-07-02'
+  due: '2026-08-31'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  cvss_v3_1:
+    score: 4.2
+    vector: CVSS:3.1/AV:N/AC:H/PR:L/UI:N/S:U/C:L/I:L/A:N
+  notes: "Fix (junior): default every role fallback to Role.auditor (least privilege), not operator/admin;\
+    \ make _create_access_token require an explicit role (no default) or default to auditor; reject (treat\
+    \ as invalid) a token whose expires_at is unparseable instead of accepting it. Add tests mirroring\
+    \ the 0034 cookie tests for the bearer + rotate paths. NOT YET FIXED \u2014 documented for implementation."
+- id: JA4PROXY-2026-0096
+  title: Quickstart docker-compose ships a known-value MANAGEMENT_JWT_SECRET / admin password with no
+    guard rejecting the committed default
+  severity: MEDIUM
+  severity_rationale: "M (CWE-1188 insecure default / CWE-798 hardcoded credential). docker-compose.yml\
+    \ (the quickstart, and the one a DMZ operator is most likely to copy) sets the JWT secret default\
+    \ to the committed literal ja4proxy-quickstart-secret-change-me and the admin password default to\
+    \ changeme. Because the JWT secret default is committed in the repo, any deployment that does not\
+    \ override it signs admin JWTs with a publicly-known key \u2014 anyone who can reach the management\
+    \ port (loopback-bound, but reachable via SSH tunnel, a co-located container, or SSRF) forges an admin\
+    \ token. _get_secret_key() accepts whatever the secret env var is set to; nothing refuses to boot\
+    \ on the known-default value or a too-short secret outside an explicit dev environment. Mitigated\
+    \ by loopback binding and by docker-compose.prod.yml requiring real secrets, but the product is a\
+    \ DMZ appliance and the quickstart file is the path of least resistance. Compounds JA4PROXY-2026-0093."
+  source_refs:
+  - report: PHASE_522
+    id: 522-02
+    discovered: '2026-07-02'
+  remediation_phases:
+  - '522'
+  owner: '@seanpor'
+  lane: infrastructure
+  discovered: '2026-07-02'
+  due: '2026-08-31'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  cvss_v3_1:
+    score: 7.1
+    vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N
+  notes: "Fix (junior): at management startup, refuse to run (RuntimeError) when the JWT secret env var\
+    \ is unset, equals the committed quickstart default literal, or is shorter than ~32 chars, UNLESS\
+    \ ENVIRONMENT is an explicit dev/test value (tie into the JA4PROXY-2026-0093 fail-closed helper).\
+    \ Same for the default admin password. Keep the quickstart working by gating the relaxation on ENVIRONMENT=dev.\
+    \ NOT YET FIXED \u2014 documented for implementation."
