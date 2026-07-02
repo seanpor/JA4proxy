@@ -3612,7 +3612,7 @@ phases:
     name: "Decision-Cache Client Isolation & Asymmetric TTLs"
     status: COMPLETE
     completed: '2026-07-02'
-    action_plan: docs/phases/PHASE_515.md
+    action_plan: docs/phases/complete/PHASE_515.md
     dependencies: []
     size: MEDIUM
     summary: "Fixed the Go proxy decision cache (internal/security/cache.go), which was
@@ -3636,7 +3636,7 @@ phases:
     name: "Documentation Sync — Decision Cache (Phase 515)"
     status: COMPLETE
     completed: '2026-07-02'
-    action_plan: docs/phases/PHASE_516.md
+    action_plan: docs/phases/complete/PHASE_516.md
     dependencies:
     - 515
     size: SMALL
