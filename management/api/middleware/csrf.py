@@ -51,6 +51,8 @@ from jose import JWTError, jwt
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
+from ..environment import is_explicit_nonproduction, is_production
+
 logger = logging.getLogger(__name__)
 
 CSRF_COOKIE_NAME = "csrf_token"
@@ -63,15 +65,16 @@ _MUTATING_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 def _get_signing_key() -> bytes:
     """Return the shared signing key — same secret as JWT.
 
-    Falls back to the dev secret when ``MANAGEMENT_TEST_MODE=1`` and we
-    are not in production so the test suite does not need to seed env.
+    Falls back to the dev secret when ``MANAGEMENT_TEST_MODE=1`` and
+    ENVIRONMENT is an explicit, known dev/test value (JA4PROXY-2026-0093 —
+    unset/unrecognised ENVIRONMENT is treated as production, so the test
+    suite must set ENVIRONMENT to opt into this fallback, not merely avoid
+    setting it to "production").
     """
     secret = os.environ.get("MANAGEMENT_JWT_SECRET")
     if secret:
         return secret.encode()
-    env = os.environ.get("ENVIRONMENT", "").strip().lower()
-    in_prod = env in {"production", "prod"}
-    if not in_prod and os.environ.get("MANAGEMENT_TEST_MODE") == "1":
+    if is_explicit_nonproduction() and os.environ.get("MANAGEMENT_TEST_MODE") == "1":
         return b"test-secret-do-not-use-in-production"
     raise RuntimeError(
         "MANAGEMENT_JWT_SECRET must be set for CSRF middleware to sign tokens."
@@ -148,11 +151,6 @@ def _extract_session_id(request: Request) -> Optional[str]:
     return str(sub) if sub else None
 
 
-def _is_production() -> bool:
-    env = os.environ.get("ENVIRONMENT", "").strip().lower()
-    return env in {"production", "prod"}
-
-
 class CSRFMiddleware(BaseHTTPMiddleware):
     """Double-submit CSRF enforcement for ``/api/v1/*`` mutating routes."""
 
@@ -169,12 +167,15 @@ class CSRFMiddleware(BaseHTTPMiddleware):
 
         # Test-only bypass: the management test suite has ~97 inline
         # AsyncClient instantiations that predate the middleware. When
-        # ``MANAGEMENT_DISABLE_CSRF=1`` AND we are not in production,
-        # skip enforcement so those tests keep passing. Production
-        # deployments never set this flag; the _is_production check is
-        # the backstop. Tests that verify CSRF enforcement (test_csrf.py)
-        # explicitly unset the flag in their module-level env.
-        if os.environ.get("MANAGEMENT_DISABLE_CSRF") == "1" and not _is_production():
+        # ``MANAGEMENT_DISABLE_CSRF=1`` AND ENVIRONMENT is an explicit,
+        # known dev/test value, skip enforcement so those tests keep
+        # passing. Production deployments never set this flag; the
+        # is_explicit_nonproduction() check is the backstop — unset or
+        # unrecognised ENVIRONMENT (e.g. a DMZ deployment) is production
+        # (JA4PROXY-2026-0093), so this bypass cannot activate there even
+        # if the flag is set. Tests that verify CSRF enforcement explicitly
+        # unset the flag or set ENVIRONMENT to a non-allowlisted value.
+        if os.environ.get("MANAGEMENT_DISABLE_CSRF") == "1" and is_explicit_nonproduction():
             return await call_next(request)
 
         # Not an API route → middleware is a no-op.
@@ -249,7 +250,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
                     max_age=TOKEN_VALIDITY_SECONDS,
                     httponly=False,
                     samesite="strict",
-                    secure=_is_production() or request.url.scheme == "https",
+                    secure=is_production() or request.url.scheme == "https",
                 )
             response.headers[CSRF_HEADER_NAME] = token
 

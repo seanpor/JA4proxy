@@ -19,6 +19,11 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
 # Set test-mode env vars before importing any management module
+# JA4PROXY-2026-0093 (phase-521): ENVIRONMENT must now be an EXPLICIT
+# dev/test value for test-mode escape hatches to activate — unset is
+# treated as production. The suite used to rely on ENVIRONMENT being
+# unset (implicitly "not production"); it must now opt in explicitly.
+os.environ.setdefault("ENVIRONMENT", "test")
 os.environ.setdefault("MANAGEMENT_JWT_SECRET", "test-secret-do-not-use-in-production")
 os.environ.setdefault("MANAGEMENT_ADMIN_USER", "admin")
 os.environ.setdefault("MANAGEMENT_ADMIN_PASSWORD", "testpassword")

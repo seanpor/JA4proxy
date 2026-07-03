@@ -53,12 +53,26 @@ def test_regression_JA4PROXY_2026_0024_secure_on_production(
         ), f"ENVIRONMENT={env_val!r} must force secure cookies even on HTTP"
 
 
+def test_regression_JA4PROXY_2026_0093_secure_on_unset_or_unrecognised_environment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """JA4PROXY-2026-0093: unset/unrecognised ENVIRONMENT is production, so
+    this hardening now also forces Secure for those values on plain HTTP —
+    strictly safer than the pre-fix behaviour, which treated them as dev."""
+    for env_val in ("", "staging", "dmz"):
+        monkeypatch.setenv("ENVIRONMENT", env_val)
+        assert (
+            _should_set_secure_cookie(_request_with_scheme("http")) is True
+        ), f"ENVIRONMENT={env_val!r} must be treated as production (fail closed)"
+
+
 def test_regression_JA4PROXY_2026_0024_not_secure_on_dev_http(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     # Local dev over http://localhost must still allow the cookie through
-    # (browsers reject Secure cookies on plain HTTP).
-    for env_val in ("", "dev", "development", "staging", "test"):
+    # (browsers reject Secure cookies on plain HTTP) — only for an EXPLICIT
+    # dev/test ENVIRONMENT (JA4PROXY-2026-0093).
+    for env_val in ("dev", "development", "test", "testing", "local", "ci"):
         monkeypatch.setenv("ENVIRONMENT", env_val)
         assert (
             _should_set_secure_cookie(_request_with_scheme("http")) is False

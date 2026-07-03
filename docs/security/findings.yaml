@@ -2945,19 +2945,27 @@ findings:
   lane: python-management
   discovered: '2026-07-02'
   due: '2026-08-01'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
+  regression_test: management/tests/test_environment_failclosed.py::test_unset_environment_with_test_mode_fails_closed
   closed_commit: ''
   cvss_v3_1:
     score: 7.4
     vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N
-  notes: "Root: _is_production() (3 copies: auth.py, main.py, csrf.py) fails open. Fix (junior): invert\
-    \ to fail closed \u2014 escape hatches activate ONLY when ENVIRONMENT is an explicit non-prod allowlist\
-    \ value (dev/test/local/ci); unset/unknown => treated as production. Add a startup guard that also\
-    \ refuses the hardcoded JWT secret whenever ENVIRONMENT is not an explicit dev value. NOT YET FIXED\
-    \ \u2014 documented for implementation."
+  notes: "Fixed (phase-521): consolidated the 3 duplicate _is_production() copies (auth.py, main.py,\
+    \ csrf.py) plus a 4th inline copy in csrf.py's _get_signing_key() into one shared module,\
+    \ management/api/environment.py. is_explicit_nonproduction() is True ONLY for an allowlisted\
+    \ dev/test ENVIRONMENT (dev/development/test/testing/local/ci); is_production() is its inverse,\
+    \ so unset/unknown/dmz/staging now fail CLOSED as production. Every test-mode escape hatch\
+    \ (hardcoded JWT secret, CSRF disable, SAML strict-off) and the startup guard now gate on the\
+    \ shared helper. _get_secret_key() adds a second, independent is_explicit_nonproduction() check\
+    \ before returning the hardcoded secret. management/tests/conftest.py now sets ENVIRONMENT=test\
+    \ explicitly (previously relied on it being unset). Updated test_test_mode_hardening.py and\
+    \ test_cookie_secure_flag.py to reflect that \"\" and \"staging\" are now production-equivalent,\
+    \ and added management/tests/test_environment_failclosed.py per the phase's acceptance criteria\
+    \ (verified to fail on revert). OIDC signature-verification bypass was already removed in Phase\
+    \ 122 H-5, so no code change was needed there."
 - id: JA4PROXY-2026-0094
   title: Manual ban (ban:{ip}) and Spamhaus blocklist bypassed when the async scoring queue (workChan)
     is saturated

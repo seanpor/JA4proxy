@@ -39,6 +39,7 @@ from fastapi.templating import Jinja2Templates
 from ..tasks.dial_revert import run_dial_revert_poller
 from . import redis_client
 from .auth import router as auth_router
+from .environment import is_production
 from .middleware.csrf import CSRFMiddleware
 from .routes import (
     attack,  # phase-247
@@ -64,6 +65,10 @@ from .routes import (
     tokens,
     webhooks,
 )
+from .routes import datacenter_policy as datacenter_policy_routes  # phase-249
+from .routes import (
+    offense as offense_routes,  # phase-248
+)
 from .routes import (
     oidc as oidc_routes,
 )
@@ -74,12 +79,8 @@ from .routes import (
     tls_health as tls_health_routes,
 )
 from .routes import (
-    offense as offense_routes,  # phase-248
-)
-from .routes import (
     webauthn as webauthn_routes,
 )
-from .routes import datacenter_policy as datacenter_policy_routes  # phase-249
 from .routes.canonical_lists import migrate_legacy_entries
 
 logger = logging.getLogger(__name__)
@@ -120,46 +121,50 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("management | event=shutdown | service=management_ui")
 
 
-def _is_production() -> bool:
-    """True if ENVIRONMENT is set to a production-equivalent value."""
-    env = os.environ.get("ENVIRONMENT", "").strip().lower()
-    return env in {"production", "prod"}
-
-
 def _enforce_no_test_mode_in_production() -> None:
     """Refuse to build the app when test-mode bypasses are armed in production.
 
     JA4PROXY-2026-0023 — MANAGEMENT_TEST_MODE=1 enables a hardcoded JWT secret
     and skips OIDC signature verification. These flags must never activate
-    alongside ENVIRONMENT=production. If an operator (or attacker-controlled
-    env) sets both, fail loudly at startup so the condition cannot go
-    unnoticed.
+    unless ENVIRONMENT is an explicit, known dev/test value. If an operator
+    (or attacker-controlled env) sets both, fail loudly at startup so the
+    condition cannot go unnoticed.
+
+    JA4PROXY-2026-0093 (phase-521) — ``is_production()`` used to return False
+    for anything other than exactly ``production``/``prod``, so this guard
+    was a no-op for an unset or unrecognised ENVIRONMENT (e.g. a DMZ
+    deployment with ENVIRONMENT unset or "dmz"). ``is_production()`` now
+    treats every non-explicit-dev/test value as production, so the guard
+    fires there too.
 
     Phase 122 M-1: also refuses to start when MANAGEMENT_SAML_STRICT=false
     in production — SAML signature verification must not be disabled.
     """
-    if _is_production() and os.environ.get("MANAGEMENT_TEST_MODE") == "1":
+    if is_production() and os.environ.get("MANAGEMENT_TEST_MODE") == "1":
         raise RuntimeError(
-            "refusing to start: ENVIRONMENT=production and MANAGEMENT_TEST_MODE=1 "
-            "are mutually exclusive (test mode disables authentication checks). "
-            "Unset MANAGEMENT_TEST_MODE or set ENVIRONMENT to dev/staging."
+            "refusing to start: ENVIRONMENT is not an explicit dev/test value and "
+            "MANAGEMENT_TEST_MODE=1 is set — these are mutually exclusive (test "
+            "mode disables authentication checks). Unset MANAGEMENT_TEST_MODE or "
+            "set ENVIRONMENT to one of dev/development/test/testing/local/ci."
         )
     if (
-        _is_production()
+        is_production()
         and os.environ.get("MANAGEMENT_DISABLE_CSRF") == "1"
     ):
         raise RuntimeError(
-            "refusing to start: ENVIRONMENT=production and MANAGEMENT_DISABLE_CSRF=1 "
-            "are mutually exclusive (CSRF bypass is a test-only escape hatch)."
+            "refusing to start: ENVIRONMENT is not an explicit dev/test value and "
+            "MANAGEMENT_DISABLE_CSRF=1 is set — these are mutually exclusive "
+            "(CSRF bypass is a test-only escape hatch)."
         )
     if (
-        _is_production()
+        is_production()
         and os.environ.get("MANAGEMENT_SAML_STRICT", "true").lower() != "true"
     ):
         raise RuntimeError(
-            "refusing to start: ENVIRONMENT=production and MANAGEMENT_SAML_STRICT=false "
-            "are mutually exclusive (SAML signature verification must not be disabled "
-            "in production). Unset MANAGEMENT_SAML_STRICT or set it to 'true'."
+            "refusing to start: ENVIRONMENT is not an explicit dev/test value and "
+            "MANAGEMENT_SAML_STRICT=false is set — these are mutually exclusive "
+            "(SAML signature verification must not be disabled in production). "
+            "Unset MANAGEMENT_SAML_STRICT or set it to 'true'."
         )
 
 
@@ -173,9 +178,9 @@ def create_app() -> FastAPI:
 
     # Phase 122 C-1: disable OpenAPI docs in production to prevent
     # unauthenticated API surface reconnaissance.
-    docs_url = None if _is_production() else "/api/docs"
-    redoc_url = None if _is_production() else "/api/redoc"
-    openapi_url = None if _is_production() else "/openapi.json"
+    docs_url = None if is_production() else "/api/docs"
+    redoc_url = None if is_production() else "/api/redoc"
+    openapi_url = None if is_production() else "/openapi.json"
 
     app = FastAPI(
         title="JA4proxy Management UI",
@@ -192,7 +197,7 @@ def create_app() -> FastAPI:
     # in production when credentials are enabled.
     cors_origins_raw = os.environ.get("MANAGEMENT_CORS_ORIGINS", "http://localhost:8090")
     cors_origins = [o.strip() for o in cors_origins_raw.split(",") if o.strip()]
-    if _is_production():
+    if is_production():
         for origin in cors_origins:
             if origin == "*":
                 raise RuntimeError(

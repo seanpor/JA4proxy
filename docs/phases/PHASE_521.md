@@ -5,7 +5,31 @@
 > code, why it's wrong, the exact change, and the exact test. Read "How to work
 > this phase" first. Do findings in order. Ask before deviating.
 
-## Status: OPEN
+## Status: COMPLETE
+
+Finding 1 (`JA4PROXY-2026-0093`) is fixed: a shared `management/api/environment.py`
+module (`is_explicit_nonproduction()` / `is_production()`) replaces the three
+duplicate `_is_production()` copies (`auth.py`, `main.py`, `middleware/csrf.py`)
+plus a fourth inline copy inside `csrf.py`'s `_get_signing_key()`. Unset,
+unrecognised, `dmz`, and `staging` `ENVIRONMENT` values now fail **closed** as
+production; only an explicit allowlist (`dev`/`development`/`test`/`testing`/
+`local`/`ci`) enables the test-mode escape hatches. `_get_secret_key()` adds a
+second, independent check before serving the hardcoded JWT secret.
+`management/tests/conftest.py` now sets `ENVIRONMENT=test` explicitly (it used
+to rely on the flag being unset); `test_test_mode_hardening.py` and
+`test_cookie_secure_flag.py` were updated to reflect that `""`/`"staging"` are
+now production-equivalent, and `management/tests/test_environment_failclosed.py`
+adds the acceptance tests from this doc — verified to fail on revert. OIDC's
+signature-verification bypass was already removed in Phase 122 H-5, so it
+needed no code change. `docs/security/findings.yaml` 0093 → `FIXED`.
+
+The "Areas NOT fully audited" backlog below (IDOR/authorization,
+Redis-outage auth fail-open, callback origin/audience binding, compose
+wiring, analytics/tarpit input validation) was picked up by Phase 522, which
+cleared most of it and opened two new findings (JA4PROXY-2026-0095,
+JA4PROXY-2026-0096) plus its own residual backlog (Phase 523: OIDC aud/iss
+binding, WebAuthn origin, analytics input validation, tarpit bounds,
+inter-container pubsub HMAC).
 
 ## Summary
 
