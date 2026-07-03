@@ -3234,7 +3234,7 @@ phases:
       \ tests. PR #252."
   246:
     name: "Discovery, Onboarding & First-5-Minutes Experience"
-    status: IN_PROGRESS
+    status: COMPLETE
     action_plan: docs/phases/PHASE_246.md
     dependencies:
     - 245
