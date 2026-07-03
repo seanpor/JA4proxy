@@ -187,13 +187,15 @@ def _verify_password(plain: str) -> bool:
     return False
 
 
-def _create_access_token(username: str, role: str = "admin") -> str:
+def _create_access_token(username: str, role: str) -> str:
     """Create a signed JWT for *username* with an 8-hour expiry.
 
     Args:
         username: The subject claim (username or SSO NameID).
-        role: The role to embed in the token (default ``"admin"`` for the
-              hard-coded admin login; SSO flows pass the mapped role explicitly).
+        role: The role to embed in the token. Required — JA4PROXY-2026-0095:
+              this used to default to ``"admin"``, so any caller that forgot
+              the argument minted an admin token. Every caller (local login,
+              OIDC, SAML) now states the role explicitly.
     """
     now = datetime.now(timezone.utc)
     payload = {
@@ -398,7 +400,11 @@ async def get_bearer_user(
                 if expires_dt <= datetime.now(timezone.utc):
                     continue  # expired — treat as invalid
             except ValueError:
-                pass  # malformed date; ignore
+                # JA4PROXY-2026-0095 — a malformed expires_at used to be
+                # silently ignored, which treated the token as NON-expiring.
+                # A corrupt credential must fail closed: reject it rather
+                # than skip the expiry check.
+                continue
 
         # Update last_used_at (fire-and-forget)
         try:
@@ -411,11 +417,16 @@ async def get_bearer_user(
             pass
 
         name = fields.get("name", token_id)
-        role_str = fields.get("role", "operator")
+        # JA4PROXY-2026-0095 — default to the least-privileged role (auditor)
+        # when the stored token hash carries no/an invalid role field, same
+        # rule JA4PROXY-2026-0034 applied to the cookie-JWT path. The old
+        # "operator" default silently granted write access to a corrupt or
+        # partially-written token record.
+        role_str = fields.get("role", "auditor")
         try:
             role = Role(role_str)
         except ValueError:
-            role = Role.operator
+            role = Role.auditor
 
         return (f"token:{name}", role)
 
@@ -659,7 +670,10 @@ async def login(
         )
 
     await _record_success(ip, redis)
-    token_str = _create_access_token(creds.username)
+    # This is the hard-coded local admin login (checked against
+    # MANAGEMENT_ADMIN_USER/PASSWORD above), so role="admin" is correct and
+    # now explicit — JA4PROXY-2026-0095 removed the implicit default.
+    token_str = _create_access_token(creds.username, role="admin")
     logger.info("auth | event=login_success | ip=%s | username=%s", ip, creds.username)
 
     resp = RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)

@@ -69,7 +69,7 @@ async def _auditor_client(
     """Yield an AsyncClient with an admin cookie (sufficient to reach the route)."""
     app = create_app()
     await _redis_module.init_redis(override_client=fake_redis)
-    cookies = {"token": _create_access_token("admin")}
+    cookies = {"token": _create_access_token("admin", role="admin")}
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",
@@ -127,7 +127,7 @@ class _FailingRedis:
 async def _client_with_failing_redis() -> AsyncGenerator[AsyncClient, None]:
     app = create_app()
     app.dependency_overrides[get_redis] = lambda: _FailingRedis()
-    cookies = {"token": _create_access_token("admin")}
+    cookies = {"token": _create_access_token("admin", role="admin")}
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",

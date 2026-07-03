@@ -81,7 +81,7 @@ async def _bearer_client(
     app = create_app()
     await _redis_module.init_redis(override_client=fake_redis)
 
-    admin_cookie = {"token": _create_access_token("admin")}
+    admin_cookie = {"token": _create_access_token("admin", role="admin")}
 
     async with AsyncClient(
         transport=ASGITransport(app=app),
@@ -412,7 +412,7 @@ async def test_audit_entries_not_cleared_on_second_read(
     app = create_app()
     await _redis_module.init_redis(override_client=fake_redis)
 
-    admin_cookie = {"token": _create_access_token("admin")}
+    admin_cookie = {"token": _create_access_token("admin", role="admin")}
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",
@@ -455,7 +455,7 @@ async def test_get_audit_jsonl_format(
 
     app = create_app()
     await _redis_module.init_redis(override_client=fake_redis)
-    admin_cookie = {"token": _create_access_token("admin")}
+    admin_cookie = {"token": _create_access_token("admin", role="admin")}
 
     async with AsyncClient(
         transport=ASGITransport(app=app),
@@ -492,7 +492,7 @@ async def test_get_audit_jsonl_each_line_is_valid_json(
 
     app = create_app()
     await _redis_module.init_redis(override_client=fake_redis)
-    admin_cookie = {"token": _create_access_token("admin")}
+    admin_cookie = {"token": _create_access_token("admin", role="admin")}
 
     async with AsyncClient(
         transport=ASGITransport(app=app),
@@ -561,7 +561,7 @@ async def test_get_audit_csv_format(
 
     app = create_app()
     await _redis_module.init_redis(override_client=fake_redis)
-    admin_cookie = {"token": _create_access_token("admin")}
+    admin_cookie = {"token": _create_access_token("admin", role="admin")}
 
     async with AsyncClient(
         transport=ASGITransport(app=app),
@@ -596,7 +596,7 @@ async def test_get_audit_csv_header_row(
     # No entries seeded — log is empty
     app = create_app()
     await _redis_module.init_redis(override_client=fake_redis)
-    admin_cookie = {"token": _create_access_token("admin")}
+    admin_cookie = {"token": _create_access_token("admin", role="admin")}
 
     async with AsyncClient(
         transport=ASGITransport(app=app),
@@ -634,7 +634,7 @@ async def test_get_audit_csv_data_values(
 
     app = create_app()
     await _redis_module.init_redis(override_client=fake_redis)
-    admin_cookie = {"token": _create_access_token("admin")}
+    admin_cookie = {"token": _create_access_token("admin", role="admin")}
 
     async with AsyncClient(
         transport=ASGITransport(app=app),
@@ -705,7 +705,7 @@ async def test_get_audit_filter_by_action(
 
     app = create_app()
     await _redis_module.init_redis(override_client=fake_redis)
-    admin_cookie = {"token": _create_access_token("admin")}
+    admin_cookie = {"token": _create_access_token("admin", role="admin")}
 
     async with AsyncClient(
         transport=ASGITransport(app=app),
@@ -745,7 +745,7 @@ async def test_get_audit_filter_by_actor(
 
     app = create_app()
     await _redis_module.init_redis(override_client=fake_redis)
-    admin_cookie = {"token": _create_access_token("admin")}
+    admin_cookie = {"token": _create_access_token("admin", role="admin")}
 
     async with AsyncClient(
         transport=ASGITransport(app=app),
@@ -781,7 +781,7 @@ async def test_get_audit_since_filter(
 
     app = create_app()
     await _redis_module.init_redis(override_client=fake_redis)
-    admin_cookie = {"token": _create_access_token("admin")}
+    admin_cookie = {"token": _create_access_token("admin", role="admin")}
 
     async with AsyncClient(
         transport=ASGITransport(app=app),

@@ -116,7 +116,7 @@ async def fake_redis() -> "fakeredis.aioredis.FakeRedis":
 async def _admin_client(fake_redis: "fakeredis.aioredis.FakeRedis") -> AsyncClient:
     app = create_app()
     await _redis_module.init_redis(override_client=fake_redis)
-    cookie = {"token": _create_access_token("admin")}
+    cookie = {"token": _create_access_token("admin", role="admin")}
     return AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",

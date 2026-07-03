@@ -5,7 +5,21 @@
 > code, why it's wrong, the exact change, and the exact test. Read "How to work
 > this phase" first. Do findings in order. Ask before deviating.
 
-## Status: OPEN
+## Status: COMPLETE
+
+Both findings fixed. `JA4PROXY-2026-0095`: every role fallback in
+`auth.py` `get_bearer_user` now defaults to `Role.auditor`;
+`_create_access_token`'s `role` parameter is required (no default) with the
+local-login caller now passing `role="admin"` explicitly; the token-rotate
+handler in `routes/tokens.py` defaults a role-less old token to `auditor`;
+a malformed `expires_at` now rejects the token instead of treating it as
+non-expiring. `JA4PROXY-2026-0096`: `management.api.main._enforce_strong_secrets()`
+refuses to boot on the committed quickstart JWT secret, an unset/short
+secret, or the default `changeme` admin password, unless `ENVIRONMENT` is
+an explicit dev/test value. New tests:
+`management/tests/test_role_defaults_failclosed.py`,
+`management/tests/test_secret_boot_guard.py` — both verified to fail on
+revert. `docs/security/findings.yaml` 0095/0096 → `FIXED`.
 
 ## Summary
 

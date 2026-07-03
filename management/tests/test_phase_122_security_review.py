@@ -37,7 +37,7 @@ class TestOpenAPIDocsDisabledInProduction:
 
     def test_docs_disabled_when_environment_is_production(self, monkeypatch):
         monkeypatch.setenv("ENVIRONMENT", "production")
-        monkeypatch.setenv("MANAGEMENT_JWT_SECRET", "test-secret")
+        monkeypatch.setenv("MANAGEMENT_JWT_SECRET", "unit-test-secret-at-least-32-characters-long")
         monkeypatch.setenv("MANAGEMENT_ADMIN_PASSWORD", "test")
         monkeypatch.delenv("MANAGEMENT_TEST_MODE", raising=False)
         monkeypatch.delenv("MANAGEMENT_DISABLE_CSRF", raising=False)
@@ -53,7 +53,7 @@ class TestOpenAPIDocsDisabledInProduction:
     def test_docs_available_in_dev(self, monkeypatch):
         monkeypatch.setenv("ENVIRONMENT", "dev")
         monkeypatch.setenv("MANAGEMENT_TEST_MODE", "1")
-        monkeypatch.setenv("MANAGEMENT_JWT_SECRET", "test-secret")
+        monkeypatch.setenv("MANAGEMENT_JWT_SECRET", "unit-test-secret-at-least-32-characters-long")
         monkeypatch.setenv("MANAGEMENT_ADMIN_PASSWORD", "test")
         monkeypatch.setenv("MANAGEMENT_DISABLE_CSRF", "1")
 
@@ -225,7 +225,7 @@ class TestSAMLStrictProductionGuard:
     def test_saml_strict_false_rejected_in_production(self, monkeypatch):
         monkeypatch.setenv("ENVIRONMENT", "production")
         monkeypatch.setenv("MANAGEMENT_SAML_STRICT", "false")
-        monkeypatch.setenv("MANAGEMENT_JWT_SECRET", "test-secret")
+        monkeypatch.setenv("MANAGEMENT_JWT_SECRET", "unit-test-secret-at-least-32-characters-long")
         monkeypatch.setenv("MANAGEMENT_ADMIN_PASSWORD", "test")
         monkeypatch.delenv("MANAGEMENT_TEST_MODE", raising=False)
         monkeypatch.delenv("MANAGEMENT_DISABLE_CSRF", raising=False)
@@ -238,7 +238,7 @@ class TestSAMLStrictProductionGuard:
     def test_saml_strict_true_allowed_in_production(self, monkeypatch):
         monkeypatch.setenv("ENVIRONMENT", "production")
         monkeypatch.setenv("MANAGEMENT_SAML_STRICT", "true")
-        monkeypatch.setenv("MANAGEMENT_JWT_SECRET", "test-secret")
+        monkeypatch.setenv("MANAGEMENT_JWT_SECRET", "unit-test-secret-at-least-32-characters-long")
         monkeypatch.setenv("MANAGEMENT_ADMIN_PASSWORD", "test")
         monkeypatch.delenv("MANAGEMENT_TEST_MODE", raising=False)
         monkeypatch.delenv("MANAGEMENT_DISABLE_CSRF", raising=False)
@@ -387,7 +387,7 @@ class TestCORSWildcardRejectedInProduction:
     def test_cors_wildcard_raises_in_production(self, monkeypatch):
         monkeypatch.setenv("ENVIRONMENT", "production")
         monkeypatch.setenv("MANAGEMENT_CORS_ORIGINS", "*")
-        monkeypatch.setenv("MANAGEMENT_JWT_SECRET", "test-secret")
+        monkeypatch.setenv("MANAGEMENT_JWT_SECRET", "unit-test-secret-at-least-32-characters-long")
         monkeypatch.setenv("MANAGEMENT_ADMIN_PASSWORD", "test")
         monkeypatch.delenv("MANAGEMENT_TEST_MODE", raising=False)
         monkeypatch.delenv("MANAGEMENT_DISABLE_CSRF", raising=False)
@@ -401,7 +401,7 @@ class TestCORSWildcardRejectedInProduction:
     def test_cors_explicit_origins_allowed_in_production(self, monkeypatch):
         monkeypatch.setenv("ENVIRONMENT", "production")
         monkeypatch.setenv("MANAGEMENT_CORS_ORIGINS", "https://mgmt.example.com")
-        monkeypatch.setenv("MANAGEMENT_JWT_SECRET", "test-secret")
+        monkeypatch.setenv("MANAGEMENT_JWT_SECRET", "unit-test-secret-at-least-32-characters-long")
         monkeypatch.setenv("MANAGEMENT_ADMIN_PASSWORD", "test")
         monkeypatch.delenv("MANAGEMENT_TEST_MODE", raising=False)
         monkeypatch.delenv("MANAGEMENT_DISABLE_CSRF", raising=False)

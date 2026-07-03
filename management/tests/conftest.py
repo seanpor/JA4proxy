@@ -75,7 +75,7 @@ async def fake_redis() -> AsyncGenerator[fakeredis.aioredis.FakeRedis, None]:
 @pytest.fixture()
 def auth_token() -> str:
     """Return a valid JWT token for the test admin user."""
-    return _create_access_token("admin")
+    return _create_access_token("admin", role="admin")
 
 
 @pytest.fixture()
