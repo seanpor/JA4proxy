@@ -7,6 +7,14 @@ phase: 246
 
 # Phase 246 — Discovery, Onboarding & First-5-Minutes Experience
 
+## Status: COMPLETE
+
+All five sub-phases (246.1–246.5) shipped in #269 (`cd55a96d`): GitHub repo
+description/topics, README rewrite, management dashboard in
+`docker-compose.yml`, the "First 5 minutes" guide, and the integration
+quick-reference table. The `246` roll-up entry in `manifest.yaml` was still
+`IN_PROGRESS` despite every sub-phase being `COMPLETE` — corrected here.
+
 ## Problem Statement
 
 JA4proxy has strong product documentation (WHY_JA4PROXY.md), solid deployment
@@ -49,8 +57,9 @@ web-security, ja4, self-hosted, open-source, waf-alternative,
 bot-mitigation, credential-stuffing, scraping-protection
 
 **Acceptance criteria:**
-- [ ] `gh repo edit` updates description and topics
-- [ ] Description is under 250 chars and contains "bot", "protection", "open source"
+- [x] `gh repo edit` updates description and topics
+- [x] Description is under 250 chars and contains "bot", "protection", "open source"
+      (verified 2026-07-03; description was 252 chars, trimmed to 220)
 
 ### 246.2 — README Rewrite for Humans
 **Size:** MEDIUM | **Dependencies:** none
@@ -63,14 +72,14 @@ Restructure the README so the first screen answers three questions:
 Then progressive disclosure: quick start, architecture, badges, compliance.
 
 **Acceptance criteria:**
-- [ ] First paragraph mentions bots/scrapers/form spam — not TLS internals
-- [ ] "How it works" uses an analogy a non-engineer can follow
-- [ ] "Will this break my site?" section exists above the fold
-- [ ] Badges moved below the intro (still present, just not leading)
-- [ ] Emergency banner preserved at top
-- [ ] "Start by role" table preserved
-- [ ] Quick start references both `docker compose` and pre-built image
-- [ ] Architecture section preserved (moved lower)
+- [x] First paragraph mentions bots/scrapers/form spam — not TLS internals
+- [x] "How it works" uses an analogy a non-engineer can follow (bouncer/fake ID)
+- [x] "Will this break my site?" section exists above the fold
+- [x] Badges moved below the intro (still present, just not leading)
+- [x] Emergency banner preserved at top
+- [x] "Start by role" table preserved
+- [x] Quick start references both `docker compose` and pre-built image
+- [x] Architecture section preserved (moved lower)
 
 ### 246.3 — Management UI in Minimal Docker Compose
 **Size:** SMALL | **Dependencies:** none
@@ -79,9 +88,9 @@ Add the management UI service to `docker-compose.yml` so emergency deployers
 get a dashboard at `http://localhost:8090` immediately.
 
 **Acceptance criteria:**
-- [ ] `docker-compose.yml` includes management service on port 8090
-- [ ] EMERGENCY_DEPLOY.md updated with "Open http://localhost:8090 to see your traffic"
-- [ ] Dashboard link appears in `docker compose up` output or README quick start
+- [x] `docker-compose.yml` includes management service on port 8090
+- [x] EMERGENCY_DEPLOY.md updated with "Open http://localhost:8090 to see your traffic"
+- [x] Dashboard link appears in `docker compose up` output or README quick start
 
 ### 246.4 — "What To Do Next" First-Run Guide
 **Size:** SMALL | **Dependencies:** 246.2
@@ -95,9 +104,9 @@ minutes after deploy:
 5. Monitor for a day before going higher
 
 **Acceptance criteria:**
-- [ ] Step-by-step guide with expected output at each step
-- [ ] Links to incident response doc for deeper actions
-- [ ] Covers the "oh shit I blocked everything" recovery (set dial back to 0)
+- [x] Step-by-step guide with expected output at each step
+- [x] Links to incident response doc for deeper actions
+- [x] Covers the "oh shit I blocked everything" recovery (set dial back to 0)
 
 ### 246.5 — Integration Quick-Reference Cards
 **Size:** MEDIUM | **Dependencies:** 246.2
@@ -107,9 +116,9 @@ one-paragraph integration summaries (nginx, Cloudflare, AWS, bare metal)
 that each link to the full DEPLOYMENT_MODES.md section.
 
 **Acceptance criteria:**
-- [ ] README section with 4 integration paths
-- [ ] Each path is 3-4 lines max with a link to full instructions
-- [ ] Covers: nginx, Cloudflare, AWS NLB, direct (no LB)
+- [x] README section with 4 integration paths
+- [x] Each path is 3-4 lines max with a link to full instructions
+- [x] Covers: nginx, Cloudflare, AWS NLB, direct (no LB)
 
 ## Out of Scope
 
