@@ -2981,18 +2981,22 @@ findings:
   lane: go-proxy
   discovered: '2026-07-02'
   due: '2026-08-31'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
+  regression_test: internal/security/pipeline_saturation_hardblock_test.go::TestPipeline_ManualBanEnforcedUnderSaturation
   closed_commit: ''
   cvss_v3_1:
     score: 5.9
     vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:H/A:N
-  notes: "Fix (junior): move the ban:{ip} and blocklist (Spamhaus) hard-block checks into the synchronous\
-    \ checkHardBlocks path in Pipeline.Process (before the async enqueue), like the other hard blocks\
-    \ \u2014 or gate the workChan-drop fallback so a dropped connection is not forwarded without at least\
-    \ the hard-block checks. NOT YET FIXED \u2014 documented for implementation."
+  notes: "Fixed (phase-520): moved the ban:{ip} and blocklist (Spamhaus) hard-block checks into\
+    \ Pipeline.Process, synchronously, before the async enqueue \u2014 they now run on every connection\
+    \ regardless of workChan saturation. blocklists.Check() is still called exactly once per connection\
+    \ (now in Process; the result is stashed on ConnectionContext.blocklistSignals and reused by\
+    \ processInternal) to avoid reintroducing the JA4PROXY-2026-0037 TOCTOU. Non-hard-block traffic is\
+    \ unaffected \u2014 it still returns allow under saturation (fail-open for scoring preserved).\
+    \ Regression tests fill workChan to force the saturation path and assert both hard blocks still\
+    \ fire, plus a control asserting ordinary traffic still gets allow; verified to fail on revert."
 - id: JA4PROXY-2026-0095
   title: Insecure role defaults in token issuance/validation contradict the JA4PROXY-2026-0034 least-privilege
     posture (bearer->operator, create->admin, rotate->operator)

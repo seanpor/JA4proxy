@@ -6,7 +6,17 @@
 > test to add. Read the "How to work this phase" section first. Do the findings
 > in order. Ask before deviating.
 
-## Status: OPEN
+## Status: COMPLETE
+
+Finding 1 (`JA4PROXY-2026-0094`) is fixed: `internal/security/pipeline.go`
+`Process` now runs the manual-ban and blocklist hard-block checks
+synchronously, before the async enqueue. Regression tests in
+`internal/security/pipeline_saturation_hardblock_test.go` fill `workChan` to
+force the saturation path and assert both hard blocks still fire, plus a
+control asserting ordinary traffic still gets `allow`; verified to fail on
+revert. `docs/security/findings.yaml` 0094 is `FIXED`. See the "Decision on
+related controls" section below for the auto-escalation-ban / datacenter-policy
+question raised in the self-audit.
 
 ## Summary
 
@@ -210,6 +220,33 @@ to copy, and a revert-check. Gaps a junior may hit, addressed here:
   green.
 
 ---
+
+## Decision on related controls (auto-escalation ban / datacenter policy)
+
+The self-audit above flagged two other terminal returns in `processInternal`
+that, like 0094, are not in `checkHardBlocks` and therefore don't run when
+`workChan` is saturated: the **auto-escalation ban** (phase-248, triggered by
+the rate-limiter signal + offense counter) and the **datacenter policy**
+block/tarpit (phase-249, triggered by ASN classification). Decision: **leave
+both async, no code change.**
+
+Rationale: 0094's manual ban and blocklist are O(1) checks against static,
+pre-computed state (a Redis key existence check; an in-process trie lookup)
+that need no per-connection signal collection — moving them synchronous cost
+nothing extra. Auto-escalation and datacenter policy are different in kind:
+both are *outputs of* the signal-collection pipeline itself (the rate
+limiter's sliding-window count; the ASN/datacenter classification), not
+independent lookups. Making them synchronous would mean running the rate
+limiter and ASN classifier — plus, for auto-escalation, an offense-counter
+Redis `INCR` — on the hot path for every connection, which is exactly the
+blocking-I/O-on-hot-path anti-pattern the project's async design exists to
+avoid, and a materially bigger change than this phase's scope. They remain
+subject to the same fail-open-under-saturation behavior as the rest of
+scoring, which is intended: a sustained-flood attacker who saturates the queue
+gets `allow` (unscored) rather than an escalated ban/tarpit they haven't
+technically earned yet under that connection. If this is judged unacceptable,
+it needs its own phase (redesigning offense-counter/ASN lookups to be
+synchronous-cheap, e.g. via a local cache) rather than a quick fix here.
 
 ## Out of scope
 - Implementation of the fix (this phase documents; a separate implementation PR

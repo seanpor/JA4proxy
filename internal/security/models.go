@@ -43,6 +43,16 @@ type ConnectionContext struct {
 	TCPOptions           string
 	ConnectionLifespanMS int
 	TLSAlerts            []string
+
+	// blocklistSignals / blocklistChecked (phase-520, JA4PROXY-2026-0094): the
+	// one exception to "immutable snapshot" above. Pipeline.Process() calls
+	// BlocklistManager.Check() exactly once and stashes the result here before
+	// handing conn to the async worker (or straight to processInternal in Sync
+	// mode) so processInternal never calls Check() a second time — a second
+	// call would reintroduce the JA4PROXY-2026-0037 TOCTOU. Safe to mutate:
+	// the write in Process() happens-before the read in processInternal via
+	// either a direct call or the workChan send/receive.
+	blocklistSignals []RiskSignal
 }
 
 // PipelineResult is the outcome of processing one connection.

@@ -3680,20 +3680,26 @@ phases:
       fails if reverted. No crash/RCE vector found on the remote surface."
   520:
     name: "Aggressive Bug Hunt — Go Proxy (Red-Team Pass)"
-    status: IN_PROGRESS
+    status: COMPLETE
     action_plan: docs/phases/PHASE_520.md
     dependencies: []
     size: MEDIUM
-    summary: "Adversarial second pass over the remotely-reachable Go proxy. Documents a
-      junior-implementable finding JA4PROXY-2026-0094 (MEDIUM, OPEN): the operator manual ban
-      (ban:{ip}) and Spamhaus blocklist are hard blocks evaluated only on the async
-      processInternal path, so when the scoring queue (workChan) saturates under flood,
-      Process returns allow and handleConn forwards a banned/blocklisted IP to the backend.
-      Fix spec: move those hard-block checks into the synchronous checkHardBlocks path.
-      Includes exact repro, fix steps, an acceptance test, and a critical review (similar bugs:
-      auto-escalation ban + datacenter policy also terminal-from-async). Byte parsers
-      re-confirmed clean (fuzzed to convergence, zero crashers). NOT YET IMPLEMENTED —
-      documented for a junior engineer."
+    summary: "Adversarial second pass over the remotely-reachable Go proxy, then fixed the one
+      finding it produced: JA4PROXY-2026-0094 (MEDIUM, FIXED) — the operator manual ban (ban:{ip})
+      and Spamhaus blocklist were hard blocks evaluated only on the async processInternal path, so
+      when the scoring queue (workChan) saturated under flood, Process returned allow and
+      handleConn forwarded a banned/blocklisted IP to the backend. Fix: both checks now run
+      synchronously in Pipeline.Process, before the async enqueue; BlocklistManager.Check is still
+      called exactly once per connection (result cached on ConnectionContext, reused by
+      processInternal) to avoid reintroducing the JA4PROXY-2026-0037 TOCTOU. Fail-open for scoring
+      preserved — non-hard-block traffic still returns allow under saturation. Regression tests
+      (internal/security/pipeline_saturation_hardblock_test.go) fill workChan to force the
+      saturation path; verified to fail on revert. Reviewed and decided (no code change, documented
+      in PHASE_520.md): the auto-escalation ban and datacenter policy terminal-from-async paths stay
+      async because they are outputs of signal collection itself (rate limiter, ASN classifier),
+      not independent O(1) lookups like ban:{ip}/blocklist — making them synchronous would put
+      blocking I/O on the hot path, a bigger change than this phase's scope. Byte parsers
+      re-confirmed clean (fuzzed to convergence, zero crashers)."
   521:
     name: "Aggressive Bug Hunt — Infrastructure & Management API (Red-Team Pass)"
     status: IN_PROGRESS
