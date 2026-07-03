@@ -1,6 +1,10 @@
 # Phase 518 — Race-Detector CI Gate + `cmd/ja4pd` Test-Race Fixes
 
-## Status: OPEN
+## Status: COMPLETE
+
+Merged via #309 (`ci(phase-518): enforce Go race detector on PRs + fix
+cmd/ja4pd test races`). `make test-race` is a required PR check
+("Go race tests (make test-race)") and green on `main`.
 
 ## Summary
 
