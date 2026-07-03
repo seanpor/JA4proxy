@@ -469,6 +469,44 @@ func (p *Pipeline) Process(ctx context.Context, conn *ConnectionContext) *Pipeli
 	if block, reason := p.checkHardBlocks(conn); block {
 		return &PipelineResult{Action: "block", Score: 100, BypassReason: reason}
 	}
+
+	// JA4PROXY-2026-0094 (phase-520): the operator manual ban and the
+	// Spamhaus-style blocklist are hard blocks, but used to be evaluated only
+	// inside processInternal (the async path, reached via the workChan select
+	// below). Under scoring-queue saturation the select fell through to
+	// `default` and Process returned "allow" *without ever reaching
+	// processInternal* — a banned or blocklisted IP was forwarded to the
+	// backend. Both checks now run here, synchronously, before the async
+	// enqueue, so they take effect on every connection regardless of queue
+	// state. This must NOT change fail-open behaviour for *scoring*: a
+	// connection that clears these two checks still gets "allow" below when
+	// the queue is full — only these two explicit-block decisions become
+	// unconditional.
+	if p.redis != nil && conn.ClientIP != "" && p.redis.Exists(ctx, "ban:"+conn.ClientIP) {
+		result := &PipelineResult{Action: "block", Score: 100, BypassReason: "manual_ban"}
+		p.cacheResult(conn, result)
+		return result
+	}
+
+	// Blocklist check (hard block). JA4PROXY-2026-0037: Check() must be called
+	// exactly once per connection so a PubSub-driven feed reload can never
+	// produce a hard-block decision from one call and a signal-only decision
+	// from another for the same connection. This is now that single call
+	// site; the result is cached on conn and reused by processInternal instead
+	// of calling Check() again (see JA4PROXY-2026-0094 fix note there).
+	p.mu.RLock()
+	blocklists := p.blocklists
+	p.mu.RUnlock()
+	startBL := time.Now()
+	blSigs, blHardBlock := blocklists.Check(conn.ParsedIP)
+	p.measure("blocklist", startBL)
+	conn.blocklistSignals = blSigs
+	if blHardBlock {
+		result := &PipelineResult{Action: "block", Score: 100, BypassReason: "blocklist"}
+		p.cacheResult(conn, result)
+		return result
+	}
+
 	if p.Sync {
 		return p.processInternal(ctx, conn)
 	}
@@ -501,7 +539,6 @@ func (p *Pipeline) processInternal(ctx context.Context, conn *ConnectionContext)
 	tcpAnalyzer := p.tcpAnalyzer
 	asnClassifier := p.asnClassifier
 	dnsEnrichment := p.dnsEnrichment
-	blocklists := p.blocklists
 	beaconing := p.beaconing
 	abuseipdb := p.abuseipdb
 	rdap := p.rdap
@@ -533,30 +570,19 @@ func (p *Pipeline) processInternal(ctx context.Context, conn *ConnectionContext)
 		conn.JA4X = ja4tls.ExtractJA4X(conn.ClientCertificate)
 	}
 
-	// Blocklist check (hard block — before dial fetch). JA4PROXY-2026-0037:
-	// Check() is called exactly once; the previous version called it here
-	// and again during signal collection, so a PubSub-driven blocklist
-	// update between the two calls could cause a hard-block decision and
-	// a soft-signal decision to disagree on the same connection.
-	startBL := time.Now()
-	blSigs, blHardBlock := blocklists.Check(conn.ParsedIP)
-	p.measure("blocklist", startBL)
-	if blHardBlock {
-		return &PipelineResult{Action: "block", Score: 100, BypassReason: "blocklist"}
-	}
-
-	// ── 1b. MANUAL BAN (phase-231a) ───────────────────────────────────────────
-	// An operator ban (`ban:{ip}` in Redis, written by the management API /
-	// `ja4p block`) is a hard block evaluated here — before the dial is fetched —
-	// so it takes effect immediately, even in monitor mode (dial=0), exactly like
-	// the static blocklist above. Canonical key `ban:{ip}` (REDIS_SCHEMA).
-	// Fail-open: Exists() returns false on any Redis error, so an outage never
-	// starts blocking legitimate traffic.
-	if p.redis != nil && conn.ClientIP != "" {
-		if p.redis.Exists(ctx, "ban:"+conn.ClientIP) {
-			return &PipelineResult{Action: "block", Score: 100, BypassReason: "manual_ban"}
-		}
-	}
+	// ── 1b. BLOCKLIST + MANUAL BAN (phase-231a / JA4PROXY-2026-0094) ─────────
+	// Both hard blocks were evaluated here in earlier revisions. Phase 520
+	// (JA4PROXY-2026-0094) moved them into Process(), synchronously, before
+	// the async enqueue — a saturated workChan meant this function, and these
+	// checks, were never reached at all, so a banned/blocklisted IP was
+	// forwarded. Process() has already run the blocklist manager's single Check
+	// call and short-circuited on a hard block (so reaching this point means
+	// it was not a hard block), and (b) checked "ban:{ip}" and short-circuited
+	// on a hit. We reuse the cached blocklist signals rather than invoking the
+	// blocklist manager's check a second time, which would reintroduce the
+	// JA4PROXY-2026-0037 TOCTOU (two calls straddling a PubSub feed reload
+	// disagreeing on the same connection).
+	blSigs := conn.blocklistSignals
 
 	// ── 2. BYPASS CHECKS (Whitelists, etc.) ──────────────────────────────────────────────────
 	if bypass, reason := p.checkBypasses(conn); bypass {
@@ -1056,6 +1082,19 @@ func uint16s(in []int) []uint16 {
 
 func (p *Pipeline) measure(name string, start time.Time) {
 	metrics.SignalLatencySeconds.WithLabelValues(name).Observe(time.Since(start).Seconds())
+}
+
+// cacheResult stores a synchronous hard-block decision under the composite
+// per-client cache key (JA4PROXY-2026-0094, phase-520), mirroring what
+// runAsyncScoringLoop does for decisions computed on the async path. Without
+// this, the manual-ban and blocklist checks that Process now performs
+// synchronously would never populate the decision cache, and every
+// subsequent connection from the same already-banned/blocklisted client
+// would re-pay the Redis/trie lookup instead of getting a cache hit.
+func (p *Pipeline) cacheResult(conn *ConnectionContext, result *PipelineResult) {
+	if conn.JA4 != "" {
+		p.cache.Set(decisionCacheKey(conn.ClientIP, conn.JA4), result)
+	}
 }
 
 func (p *Pipeline) auditDecision(ctx context.Context, ip string, currentScore int) {
