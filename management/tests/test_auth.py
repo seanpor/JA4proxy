@@ -264,7 +264,7 @@ async def test_expired_cookie_valid_bearer_succeeds(fake_redis) -> None:
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",
-        cookies={"token": _create_access_token("admin")},
+        cookies={"token": _create_access_token("admin", role="admin")},
     ) as admin_client:
         created = await _create_token(admin_client, name="fallthrough-bearer")
         valid_bearer = created["token"]

@@ -92,7 +92,7 @@ async def _bearer_client(
     app = create_app()
     await _redis_module.init_redis(override_client=fake_redis)
 
-    admin_cookie = {"token": _create_access_token("admin")}
+    admin_cookie = {"token": _create_access_token("admin", role="admin")}
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",

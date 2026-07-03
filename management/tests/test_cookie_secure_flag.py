@@ -84,7 +84,9 @@ def test_regression_JA4PROXY_2026_0024_login_endpoint_emits_secure_cookie(
 ) -> None:
     """End-to-end: POST /auth/login in production must emit Secure on cookie."""
     monkeypatch.setenv("ENVIRONMENT", "production")
-    monkeypatch.setenv("MANAGEMENT_JWT_SECRET", "unit-test-production-secret")
+    # JA4PROXY-2026-0096: must be >= 32 chars or create_app()'s secret-strength
+    # guard rejects it before this test's actual assertion runs.
+    monkeypatch.setenv("MANAGEMENT_JWT_SECRET", "unit-test-production-secret-32chars")
     monkeypatch.setenv("MANAGEMENT_ADMIN_USER", "admin")
     monkeypatch.setenv("MANAGEMENT_ADMIN_PASSWORD", "testpassword")
     monkeypatch.delenv("MANAGEMENT_TEST_MODE", raising=False)

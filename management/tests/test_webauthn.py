@@ -161,7 +161,7 @@ async def admin_client(
 ) -> AsyncGenerator[AsyncClient, None]:
     app = create_app()
     await _redis_module.init_redis(override_client=fake_redis)
-    cookie = {"token": _create_access_token("admin")}
+    cookie = {"token": _create_access_token("admin", role="admin")}
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",
@@ -611,7 +611,7 @@ async def test_webauthn_auth_complete_wrong_user_credential_returns_403(
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",
-        cookies={"token": _create_access_token("admin")},
+        cookies={"token": _create_access_token("admin", role="admin")},
     ) as client:
         r = await client.post(
             "/auth/mfa/webauthn/auth/complete",
@@ -730,7 +730,7 @@ async def test_webauthn_delete_credential_wrong_user_returns_403(
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",
-        cookies={"token": _create_access_token("admin")},
+        cookies={"token": _create_access_token("admin", role="admin")},
     ) as client:
         r = await client.delete(f"/auth/mfa/webauthn/credentials/{_FAKE_CRED_ID_B64}")
     await _redis_module.close_redis()

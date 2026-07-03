@@ -3030,18 +3030,23 @@ findings:
   lane: python-management
   discovered: '2026-07-02'
   due: '2026-08-31'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
+  regression_test: management/tests/test_role_defaults_failclosed.py::test_bearer_token_no_role_field_denied_operator_route
   closed_commit: ''
   cvss_v3_1:
     score: 4.2
     vector: CVSS:3.1/AV:N/AC:H/PR:L/UI:N/S:U/C:L/I:L/A:N
-  notes: "Fix (junior): default every role fallback to Role.auditor (least privilege), not operator/admin;\
-    \ make _create_access_token require an explicit role (no default) or default to auditor; reject (treat\
-    \ as invalid) a token whose expires_at is unparseable instead of accepting it. Add tests mirroring\
-    \ the 0034 cookie tests for the bearer + rotate paths. NOT YET FIXED \u2014 documented for implementation."
+  notes: "Fixed (phase-522): every role fallback in auth.py get_bearer_user now defaults to Role.auditor\
+    \ (both the missing-field and the invalid-value branches); _create_access_token's role parameter is\
+    \ now required (no default) \u2014 the one caller that relied on the old admin default (the local-login\
+    \ handler) now passes role=\"admin\" explicitly, and OIDC/SAML already did. routes/tokens.py's rotate\
+    \ handler defaults a role-less old token to auditor instead of operator. A malformed expires_at now\
+    \ rejects the token (continue) instead of silently treating it as non-expiring. Rippled through ~40\
+    \ test call sites across management/tests/ that relied on the implicit admin default \u2014 all updated to\
+    \ pass role= explicitly. New management/tests/test_role_defaults_failclosed.py covers all four sub-bugs\
+    \ plus the required-argument change; verified to fail on revert."
 - id: JA4PROXY-2026-0096
   title: Quickstart docker-compose ships a known-value MANAGEMENT_JWT_SECRET / admin password with no
     guard rejecting the committed default
@@ -3066,16 +3071,20 @@ findings:
   lane: infrastructure
   discovered: '2026-07-02'
   due: '2026-08-31'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
+  regression_test: management/tests/test_secret_boot_guard.py::test_quickstart_default_secret_rejected_outside_dev
   closed_commit: ''
   cvss_v3_1:
     score: 7.1
     vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N
-  notes: "Fix (junior): at management startup, refuse to run (RuntimeError) when the JWT secret env var\
-    \ is unset, equals the committed quickstart default literal, or is shorter than ~32 chars, UNLESS\
-    \ ENVIRONMENT is an explicit dev/test value (tie into the JA4PROXY-2026-0093 fail-closed helper).\
-    \ Same for the default admin password. Keep the quickstart working by gating the relaxation on ENVIRONMENT=dev.\
-    \ NOT YET FIXED \u2014 documented for implementation."
+  notes: "Fixed (phase-522): management.api.main._enforce_strong_secrets(), called from create_app()\
+    \ right after the existing JA4PROXY-2026-0093 startup guard, refuses to boot when MANAGEMENT_JWT_SECRET\
+    \ is unset, equals the committed quickstart literal ja4proxy-quickstart-secret-change-me, or is shorter\
+    \ than 32 characters \u2014 or when MANAGEMENT_ADMIN_PASSWORD is still changeme with no\
+    \ MANAGEMENT_ADMIN_PASSWORD_HASH configured \u2014 unless ENVIRONMENT is an explicit dev/test value (reuses\
+    \ is_explicit_nonproduction() from the 0093 fix, so the quickstart's ENVIRONMENT=dev keeps booting).\
+    \ New management/tests/test_secret_boot_guard.py covers unset/default/short secret and default password,\
+    \ plus that a strong secret and the dev-environment quickstart both still boot; verified to fail on\
+    \ revert."
