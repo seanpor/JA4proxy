@@ -88,6 +88,12 @@ services:
       redis:
         condition: service_healthy
     environment:
+      # JA4PROXY-2026-0096 (phase-522): management.api.main._enforce_strong_secrets()
+      # refuses to boot on the committed MANAGEMENT_JWT_SECRET/MANAGEMENT_ADMIN_PASSWORD
+      # defaults below unless ENVIRONMENT is an explicit dev/test value — this quickstart
+      # keeps working by defaulting to "development" (still overridable for prod-style use
+      # of this file, matching deploy/docker/docker-compose.poc.yml's existing pattern).
+      - ENVIRONMENT=${ENVIRONMENT:-development}
       - REDIS_URL=redis://:${REDIS_PASSWORD:-changeme}@redis:6379/0
       - MANAGEMENT_JWT_SECRET=${MANAGEMENT_JWT_SECRET:-ja4proxy-quickstart-secret-change-me}
       - MANAGEMENT_ADMIN_USER=${MANAGEMENT_ADMIN_USER:-admin}
