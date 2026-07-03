@@ -8,12 +8,15 @@ supply-chain, misconfigured deploy) got an authentication bypass.
 
 The hardening:
 
-* auth.is_test_mode() returns False whenever ENVIRONMENT=production, so the
-  JWT secret fallback and the OIDC signature bypass become unreachable in
-  prod even if MANAGEMENT_TEST_MODE=1 is set.
-* management.api.main.create_app raises RuntimeError at boot when both
-  ENVIRONMENT=production and MANAGEMENT_TEST_MODE=1 are set, so the
-  misconfiguration fails loudly rather than silently running insecure.
+* auth.is_test_mode() returns False whenever ENVIRONMENT is not an explicit
+  dev/test value (JA4PROXY-2026-0093, phase-521: unset/unrecognised
+  ENVIRONMENT — e.g. a DMZ deployment — counts as production), so the JWT
+  secret fallback and the OIDC signature bypass become unreachable even if
+  MANAGEMENT_TEST_MODE=1 is set.
+* management.api.main.create_app raises RuntimeError at boot when
+  MANAGEMENT_TEST_MODE=1 is set and ENVIRONMENT is not an explicit dev/test
+  value, so the misconfiguration fails loudly rather than silently running
+  insecure.
 
 These tests lock that behaviour in.
 """
@@ -50,11 +53,34 @@ def test_regression_JA4PROXY_2026_0023_is_test_mode_on_outside_production(
     from management.api.auth import is_test_mode
 
     monkeypatch.setenv("MANAGEMENT_TEST_MODE", "1")
-    for env_val in ("", "dev", "development", "staging", "test"):
+    for env_val in ("dev", "development", "test", "testing", "local", "ci"):
         monkeypatch.setenv("ENVIRONMENT", env_val)
         assert is_test_mode() is True, (
             f"is_test_mode must honour MANAGEMENT_TEST_MODE=1 when "
             f"ENVIRONMENT={env_val!r}"
+        )
+
+
+def test_regression_JA4PROXY_2026_0093_is_test_mode_off_for_unset_or_unrecognised_environment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """JA4PROXY-2026-0093: unset/unrecognised ENVIRONMENT is production.
+
+    Before the fix, "" (unset) and "staging" were treated as "not
+    production," so MANAGEMENT_TEST_MODE=1 activated the hardcoded-JWT-secret
+    and OIDC-signature-skip escape hatches. JA4proxy is a DMZ appliance where
+    ENVIRONMENT being unset or set to something other than an explicit
+    dev/test value is entirely plausible, so these must now be treated as
+    production and the escape hatches must NOT activate.
+    """
+    from management.api.auth import is_test_mode
+
+    monkeypatch.setenv("MANAGEMENT_TEST_MODE", "1")
+    for env_val in ("", "staging", "dmz", "qa", "prodction"):
+        monkeypatch.setenv("ENVIRONMENT", env_val)
+        assert is_test_mode() is False, (
+            f"is_test_mode must be False when ENVIRONMENT={env_val!r} — "
+            "unrecognised/unset values must fail closed as production"
         )
 
 
@@ -117,10 +143,25 @@ def test_regression_JA4PROXY_2026_0023_create_app_allows_non_prod_test_mode(
 ) -> None:
     from management.api.main import _enforce_no_test_mode_in_production
 
-    for env_val in ("", "dev", "staging"):
+    for env_val in ("dev", "test"):
         monkeypatch.setenv("ENVIRONMENT", env_val)
         monkeypatch.setenv("MANAGEMENT_TEST_MODE", "1")
         _enforce_no_test_mode_in_production()  # must not raise
+
+
+def test_regression_JA4PROXY_2026_0093_create_app_refuses_test_mode_for_unset_or_unrecognised(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """JA4PROXY-2026-0093: the startup guard must also fire for unset or
+    unrecognised ENVIRONMENT, not just ENVIRONMENT=production — that is
+    exactly the DMZ-appliance misconfiguration this finding closes."""
+    from management.api.main import _enforce_no_test_mode_in_production
+
+    for env_val in ("", "staging", "dmz"):
+        monkeypatch.setenv("ENVIRONMENT", env_val)
+        monkeypatch.setenv("MANAGEMENT_TEST_MODE", "1")
+        with pytest.raises(RuntimeError, match="mutually exclusive"):
+            _enforce_no_test_mode_in_production()
 
 
 def test_regression_JA4PROXY_2026_0023_create_app_allows_prod_without_test_mode(
