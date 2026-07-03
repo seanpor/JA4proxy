@@ -3702,22 +3702,28 @@ phases:
       re-confirmed clean (fuzzed to convergence, zero crashers)."
   521:
     name: "Aggressive Bug Hunt — Infrastructure & Management API (Red-Team Pass)"
-    status: IN_PROGRESS
+    status: COMPLETE
     action_plan: docs/phases/PHASE_521.md
     dependencies: []
     size: MEDIUM
     summary: "Adversarial pass over the non-proxy surface (management API auth/OIDC/SAML/
-      WebAuthn/TOTP/CSRF/DSAR, analytics, tarpit, Redis control plane, compose wiring).
-      Documents a junior-implementable finding JA4PROXY-2026-0093 (HIGH, OPEN): _is_production()
-      (3 copies) returns True only for ENVIRONMENT in {production,prod}, so every test-mode
-      escape hatch and its startup guard fail open for unset/'dmz'/'staging' — a DMZ appliance
-      with a stray MANAGEMENT_TEST_MODE=1 serves a PUBLIC hardcoded JWT signing secret and
-      skips OIDC signature checks (admin-token forgery); same fail-open affects CSRF disable and
-      SAML strict-off. Fix spec: consolidate to one fail-CLOSED helper (explicit dev/test
-      allowlist; unset/unknown => production) + stricter startup guard. Includes repro, fix,
-      acceptance test, an honest NOT-fully-audited backlog (IDOR/authorization, Redis-outage
-      auth fail-open, callback origin/audience binding, compose/inter-container, analytics/
-      tarpit) and a critical review. NOT YET IMPLEMENTED — documented for a junior engineer."
+      WebAuthn/TOTP/CSRF/DSAR, analytics, tarpit, Redis control plane, compose wiring), then
+      fixed the one finding it produced: JA4PROXY-2026-0093 (HIGH, FIXED) — _is_production()
+      (3 copies, plus a 4th inline copy in csrf.py) returned True only for ENVIRONMENT in
+      {production,prod}, so every test-mode escape hatch and its startup guard failed open for
+      unset/'dmz'/'staging'. Fix: a shared management/api/environment.py
+      (is_explicit_nonproduction() / is_production()) replaces all four copies; only an explicit
+      dev/test allowlist (dev/development/test/testing/local/ci) now enables the hardcoded-JWT-
+      secret, CSRF-disable, and SAML-strict-off hatches, and the startup guard fires for
+      unset/unknown ENVIRONMENT too. _get_secret_key() adds a second, independent
+      is_explicit_nonproduction() check. management/tests/conftest.py now sets ENVIRONMENT=test
+      explicitly; test_test_mode_hardening.py and test_cookie_secure_flag.py were updated for the
+      new fail-closed semantics ('' and 'staging' are now production-equivalent); new
+      management/tests/test_environment_failclosed.py covers the phase's acceptance criteria and
+      is verified to fail on revert. OIDC's signature-bypass was already removed in Phase 122 H-5.
+      The NOT-fully-audited backlog (IDOR/authorization, Redis-outage auth fail-open, callback
+      origin/audience binding, compose/inter-container, analytics/tarpit) was picked up by
+      Phase 522."
   522:
     name: "Aggressive Bug Hunt — Management Auth, Access Control & Wiring (Pass 2)"
     status: IN_PROGRESS

@@ -38,6 +38,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 
+from .environment import is_explicit_nonproduction, is_production
 from .models import LoginRequest, Role
 from .redis_client import get_redis
 
@@ -68,12 +69,6 @@ _pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # ── Helper functions ──────────────────────────────────────────────────────────
 
 
-def _is_production() -> bool:
-    """True if ENVIRONMENT is set to a production-equivalent value."""
-    env = os.environ.get("ENVIRONMENT", "").strip().lower()
-    return env in {"production", "prod"}
-
-
 def _should_set_secure_cookie(request: Request) -> bool:
     """Return True if the JWT cookie must carry the Secure attribute.
 
@@ -88,7 +83,7 @@ def _should_set_secure_cookie(request: Request) -> bool:
     """
     if request.url.scheme == "https":
         return True
-    if _is_production():
+    if is_production():
         return True
     return False
 
@@ -120,17 +115,21 @@ def safe_relative_redirect(target: str | None, default: str = "/") -> str:
 
 
 def is_test_mode() -> bool:
-    """Return True iff MANAGEMENT_TEST_MODE is on AND we are not in production.
+    """Return True iff MANAGEMENT_TEST_MODE is on AND ENVIRONMENT is an
+    explicit, known dev/test value.
 
     JA4PROXY-2026-0023 — the MANAGEMENT_TEST_MODE flag enables authentication
     bypasses (JWT secret default, OIDC signature skip). To prevent an attacker
     who can set env vars from silently disabling authentication, test mode
-    MUST be ignored whenever ENVIRONMENT=production. The complementary
-    startup guard in management.api.main.create_app raises RuntimeError if
-    both flags are set simultaneously so operators cannot deploy a
-    misconfigured container.
+    is gated on :func:`environment.is_explicit_nonproduction` rather than
+    "not production": unset/unrecognised ENVIRONMENT (JA4PROXY-2026-0093 —
+    e.g. a DMZ deployment with ENVIRONMENT unset or "dmz") is production, so
+    the flag is ignored there too, not just for ENVIRONMENT=production. The
+    complementary startup guard in management.api.main.create_app raises
+    RuntimeError if both flags are set simultaneously so operators cannot
+    deploy a misconfigured container.
     """
-    if _is_production():
+    if not is_explicit_nonproduction():
         return False
     return os.environ.get("MANAGEMENT_TEST_MODE") == "1"
 
@@ -139,13 +138,18 @@ def _get_secret_key() -> str:
     """Return the JWT signing secret from environment.
 
     Raises:
-        RuntimeError: If the secret is not configured and we are not in test mode.
+        RuntimeError: If the secret is not configured and we are not in an
+            explicit dev/test environment with test mode active.
     """
     secret = os.environ.get("MANAGEMENT_JWT_SECRET")
     if not secret:
-        # JA4PROXY-2026-0023: only allow the test-only default when test mode
-        # is active AND we are definitely not in production.
-        if is_test_mode():
+        # JA4PROXY-2026-0023 / JA4PROXY-2026-0093: the hardcoded fallback
+        # requires BOTH is_test_mode() (which itself already requires
+        # is_explicit_nonproduction()) AND a direct is_explicit_nonproduction()
+        # check here — a second, independent guard so this branch can never
+        # serve the public hardcoded secret outside an explicit dev/test
+        # environment even if is_test_mode()'s gate were ever weakened.
+        if is_test_mode() and is_explicit_nonproduction():
             return "test-secret-do-not-use-in-production"
         raise RuntimeError(
             "MANAGEMENT_JWT_SECRET environment variable is required but not set. "
