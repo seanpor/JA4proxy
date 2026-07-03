@@ -3732,4 +3732,25 @@ phases:
       is a startup guard tied to the 0093 fail-closed env helper. Honest NOT-fully-audited
       backlog -> Phase 523: OIDC aud/iss binding, WebAuthn origin, analytics input validation,
       tarpit bounds, inter-container pubsub HMAC. NOT YET IMPLEMENTED — documented for a junior."
+  524:
+    name: "Documentation Consistency Audit + SecOps Form-Abuse Use Case"
+    status: IN_PROGRESS
+    action_plan: docs/phases/PHASE_524.md
+    dependencies: []
+    size: MEDIUM
+    summary: "Junior-implementable audit of the user-facing docs for self-consistency and
+      code-consistency, plus the requested 'SecOps engineer whose forms are filled by bots'
+      use case. Findings (docs, not security-register): D1 (MAJOR) — README + CLAUDE.md claim
+      real-browser (h2/h1 ALPN) traffic can never be blocked ('architectural guarantee'), but
+      the shipped default is alpn_browser_bypass: false (JA4PROXY-2026-0004, because a bot can
+      spoof ALPN=h2), so browser-looking traffic IS scored by default; reframe the safety model
+      around monitor-mode + fail-open + JA4 whitelist. D2 (MAJOR) — PERFORMANCE_BENCHMARK.md and
+      README quote ~210 conn/s and 'single Python asyncio event loop' bottleneck, but the Python
+      proxy was deleted (Go rewrite); relabel historical + re-measure via make bench-all. D3
+      (MINOR) — inconsistent default-credential and localhost-vs-127.0.0.1 guidance across
+      POC_QUICKSTART/EMERGENCY_DEPLOY/README. D4 — write the form-abuse use case honestly
+      (catches non-browser + ALPN-spoofing bots out of the box; real-browser-driven bots share a
+      genuine JA4 and need rate-limit/beaconing/ASN/AbuseIPDB signals, not JA4 alone; not a
+      CAPTCHA). Includes exact file/line fixes, verify greps, PDF rebuild, and a critical
+      self-review. NOT YET IMPLEMENTED — documented for a junior engineer."
 
