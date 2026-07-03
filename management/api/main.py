@@ -39,7 +39,7 @@ from fastapi.templating import Jinja2Templates
 from ..tasks.dial_revert import run_dial_revert_poller
 from . import redis_client
 from .auth import router as auth_router
-from .environment import is_production
+from .environment import is_explicit_nonproduction, is_production
 from .middleware.csrf import CSRFMiddleware
 from .routes import (
     attack,  # phase-247
@@ -168,6 +168,62 @@ def _enforce_no_test_mode_in_production() -> None:
         )
 
 
+# JA4PROXY-2026-0096 — the quickstart docker-compose.yml ships this literal as
+# the default MANAGEMENT_JWT_SECRET so `docker compose up` works out of the
+# box. It is committed and public in this repository, so a deployment that
+# never overrides it signs admin JWTs with a known key.
+_QUICKSTART_JWT_SECRET = "ja4proxy-quickstart-secret-change-me"
+_MIN_JWT_SECRET_LENGTH = 32
+
+
+def _enforce_strong_secrets() -> None:
+    """Refuse to boot on the committed quickstart secret / default password.
+
+    JA4PROXY-2026-0096 — ``docker-compose.yml`` (the quickstart file an
+    operator under incident pressure copies) defaults
+    ``MANAGEMENT_JWT_SECRET`` to a literal that is public in this repo, and
+    ``MANAGEMENT_ADMIN_PASSWORD`` to ``changeme``. Nothing previously
+    refused to boot on those values, so a deployment that forgets to
+    override them signs admin JWTs with a known key / accepts a known
+    password. This compounds JA4PROXY-2026-0093's fail-open-by-default
+    theme, so it reuses the same fail-closed rule: the guard is skipped
+    only when ENVIRONMENT is an explicit dev/test value (the quickstart
+    itself sets ``ENVIRONMENT=dev``, so `make start` / CI still boot).
+    """
+    if is_explicit_nonproduction():
+        return
+
+    secret = os.environ.get("MANAGEMENT_JWT_SECRET", "")
+    if not secret:
+        raise RuntimeError(
+            "refusing to start: MANAGEMENT_JWT_SECRET is not set. Set it to a "
+            "cryptographically random string (e.g. openssl rand -hex 32)."
+        )
+    if secret == _QUICKSTART_JWT_SECRET:
+        raise RuntimeError(
+            "refusing to start: MANAGEMENT_JWT_SECRET is still the committed "
+            "quickstart default, which is public in this repository. Set it "
+            "to a cryptographically random string (e.g. openssl rand -hex 32)."
+        )
+    if len(secret) < _MIN_JWT_SECRET_LENGTH:
+        raise RuntimeError(
+            f"refusing to start: MANAGEMENT_JWT_SECRET is shorter than "
+            f"{_MIN_JWT_SECRET_LENGTH} characters. Set it to a cryptographically "
+            f"random string (e.g. openssl rand -hex 32)."
+        )
+
+    if (
+        not os.environ.get("MANAGEMENT_ADMIN_PASSWORD_HASH")
+        and os.environ.get("MANAGEMENT_ADMIN_PASSWORD") == "changeme"
+    ):
+        raise RuntimeError(
+            "refusing to start: MANAGEMENT_ADMIN_PASSWORD is still the "
+            "quickstart default 'changeme'. Set MANAGEMENT_ADMIN_PASSWORD_HASH "
+            "to a bcrypt hash (preferred) or MANAGEMENT_ADMIN_PASSWORD to a "
+            "strong, unique password."
+        )
+
+
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application.
 
@@ -175,6 +231,7 @@ def create_app() -> FastAPI:
         Configured FastAPI instance.
     """
     _enforce_no_test_mode_in_production()
+    _enforce_strong_secrets()
 
     # Phase 122 C-1: disable OpenAPI docs in production to prevent
     # unauthenticated API surface reconnaissance.

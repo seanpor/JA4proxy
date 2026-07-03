@@ -191,7 +191,9 @@ async def rotate_token(
         mapping={
             "id": new_id,
             "name": old_fields.get("name", ""),
-            "role": old_fields.get("role", "operator"),
+            # JA4PROXY-2026-0095 — a role-less/corrupt old token record must
+            # rotate into the least-privileged role (auditor), not operator.
+            "role": old_fields.get("role", "auditor"),
             "hash": new_hash,
             "created_at": now_iso,
             "expires_at": expires_at_str,

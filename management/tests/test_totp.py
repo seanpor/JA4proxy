@@ -83,7 +83,7 @@ async def admin_client(
     """Authenticated AsyncClient with admin cookie JWT."""
     app = create_app()
     await _redis_module.init_redis(override_client=fake_redis)
-    cookie = {"token": _create_access_token("admin")}
+    cookie = {"token": _create_access_token("admin", role="admin")}
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",
@@ -157,7 +157,7 @@ async def test_totp_setup_stores_encrypted_secret(
     r = await admin_client.get("/auth/mfa/totp/setup")
     assert r.status_code == 200
 
-    # The admin user ID is "admin" (from _create_access_token("admin"))
+    # The admin user ID is "admin" (from _create_access_token("admin", role="admin"))
     stored = await fake_redis.get("mgmt:totp:admin")
     assert stored is not None, "Expected mgmt:totp:admin to be set in Redis"
 
@@ -462,7 +462,7 @@ async def test_totp_setup_fails_without_encryption_key(
     try:
         app = create_app()
         await _redis_module.init_redis(override_client=fake_redis)
-        cookie = {"token": _create_access_token("admin")}
+        cookie = {"token": _create_access_token("admin", role="admin")}
         async with AsyncClient(
             transport=ASGITransport(app=app),
             base_url="http://test",
@@ -502,7 +502,7 @@ async def test_admin_without_mfa_cannot_change_dial(
     # Enroll TOTP (setup) but do NOT call verify
     app = create_app()
     await _redis_module.init_redis(override_client=fake_redis)
-    jwt_token = _create_access_token("admin")
+    jwt_token = _create_access_token("admin", role="admin")
     cookie = {"token": jwt_token}
 
     async with AsyncClient(
@@ -530,7 +530,7 @@ async def test_admin_after_mfa_can_change_dial(
     """Admin who completes TOTP verify can then access write endpoints."""
     app = create_app()
     await _redis_module.init_redis(override_client=fake_redis)
-    jwt_token = _create_access_token("admin")
+    jwt_token = _create_access_token("admin", role="admin")
     cookie = {"token": jwt_token}
 
     async with AsyncClient(
@@ -570,7 +570,7 @@ async def test_bearer_token_user_not_subject_to_mfa_gate(
     await _redis_module.init_redis(override_client=fake_redis)
 
     # Create an admin bearer token
-    admin_cookie = {"token": _create_access_token("admin")}
+    admin_cookie = {"token": _create_access_token("admin", role="admin")}
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",

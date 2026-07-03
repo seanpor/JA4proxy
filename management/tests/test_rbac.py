@@ -113,7 +113,7 @@ async def _bearer_client(
     app = create_app()
     await _redis_module.init_redis(override_client=fake_redis)
 
-    admin_cookie = {"token": _create_access_token("admin")}
+    admin_cookie = {"token": _create_access_token("admin", role="admin")}
 
     # Use the admin cookie client only to seed the bearer token
     async with AsyncClient(
@@ -1031,7 +1031,7 @@ async def test_role_preserved_across_token_rotation(
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",
-        cookies={"token": _create_access_token("admin")},
+        cookies={"token": _create_access_token("admin", role="admin")},
     ) as admin_client:
         # Create an auditor token
         create_r = await admin_client.post(
@@ -1091,7 +1091,7 @@ async def test_role_downgrade_in_redis_enforced_immediately(
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",
-        cookies={"token": _create_access_token("admin")},
+        cookies={"token": _create_access_token("admin", role="admin")},
     ) as admin_client:
         create_r = await admin_client.post(
             "/api/v1/tokens",
@@ -1164,7 +1164,7 @@ async def test_expired_bearer_token_returns_401_not_403(
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",
-        cookies={"token": _create_access_token("admin")},
+        cookies={"token": _create_access_token("admin", role="admin")},
     ) as admin_client:
         create_r = await admin_client.post(
             "/api/v1/tokens",

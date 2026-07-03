@@ -417,7 +417,7 @@ async def test_deleted_token_bearer_auth_returns_401(fake_redis) -> None:
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",
-        cookies={"token": _create_access_token("admin")},
+        cookies={"token": _create_access_token("admin", role="admin")},
     ) as admin_client:
         created = await _create_token(admin_client, name="revoke-bearer-check")
         plaintext = created["token"]
@@ -507,7 +507,7 @@ async def test_rotate_token_new_token_usable_immediately(fake_redis) -> None:
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",
-        cookies={"token": _create_access_token("admin")},
+        cookies={"token": _create_access_token("admin", role="admin")},
     ) as admin_client:
         created = await _create_token(admin_client, name="rotation-immediate")
         rotate_resp = await admin_client.post(f"/api/v1/tokens/{created['id']}/rotate")
@@ -553,7 +553,7 @@ async def test_bearer_valid_token_grants_access(fake_redis) -> None:
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",
-        cookies={"token": _create_access_token("admin")},
+        cookies={"token": _create_access_token("admin", role="admin")},
     ) as admin_client:
         created = await _create_token(admin_client, name="bearer-valid")
         plaintext = created["token"]
@@ -686,7 +686,7 @@ async def test_bearer_any_role_can_access_dial(fake_redis) -> None:
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",
-        cookies={"token": _create_access_token("admin")},
+        cookies={"token": _create_access_token("admin", role="admin")},
     ) as admin_client:
         created = await _create_token(
             admin_client, name="auditor-dial-check", role="auditor"
@@ -879,7 +879,7 @@ async def test_last_used_at_updated_on_bearer_auth(fake_redis) -> None:
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",
-        cookies={"token": _create_access_token("admin")},
+        cookies={"token": _create_access_token("admin", role="admin")},
     ) as admin_client:
         created = await _create_token(admin_client, name="last-used-check")
         plaintext = created["token"]
@@ -933,7 +933,7 @@ async def test_rotate_token_old_token_works_during_grace_period(fake_redis) -> N
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",
-        cookies={"token": _create_access_token("admin")},
+        cookies={"token": _create_access_token("admin", role="admin")},
     ) as admin_client:
         created = await _create_token(admin_client, name="grace-period-auth")
         old_plaintext = created["token"]
@@ -981,7 +981,7 @@ async def test_two_tokens_authenticate_independently(fake_redis) -> None:
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",
-        cookies={"token": _create_access_token("admin")},
+        cookies={"token": _create_access_token("admin", role="admin")},
     ) as admin_client:
         token_a = await _create_token(admin_client, name="token-a", role="auditor")
         token_b = await _create_token(admin_client, name="token-b", role="operator")
@@ -1014,7 +1014,7 @@ async def test_two_tokens_authenticate_independently(fake_redis) -> None:
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",
-        cookies={"token": _create_access_token("admin")},
+        cookies={"token": _create_access_token("admin", role="admin")},
     ) as admin_client:
         await admin_client.delete(f"/api/v1/tokens/{token_a['id']}")
 

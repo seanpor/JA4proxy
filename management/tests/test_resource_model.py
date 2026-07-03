@@ -81,7 +81,7 @@ async def _make_app_with_redis(
     """
     app = create_app()
     await _redis_module.init_redis(override_client=fake_redis)
-    admin_cookie = {"token": _create_access_token("admin")}
+    admin_cookie = {"token": _create_access_token("admin", role="admin")}
     return app, admin_cookie
 
 
@@ -115,7 +115,7 @@ async def _bearer_client(
     app = create_app()
     await _redis_module.init_redis(override_client=fake_redis)
 
-    admin_cookie = {"token": _create_access_token("admin")}
+    admin_cookie = {"token": _create_access_token("admin", role="admin")}
 
     async with AsyncClient(
         transport=ASGITransport(app=app),
@@ -832,7 +832,7 @@ async def test_migration_runs_on_startup_for_existing_entries(
     app = create_app()
     await _redis_module.init_redis(override_client=fake_redis)
 
-    admin_cookie = {"token": _create_access_token("admin")}
+    admin_cookie = {"token": _create_access_token("admin", role="admin")}
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",
@@ -891,7 +891,7 @@ async def test_migration_is_idempotent(
     # First startup — performs migration
     app1 = create_app()
     await _redis_module.init_redis(override_client=fake_redis)
-    admin_cookie = {"token": _create_access_token("admin")}
+    admin_cookie = {"token": _create_access_token("admin", role="admin")}
     async with AsyncClient(
         transport=ASGITransport(app=app1),
         base_url="http://test",
@@ -956,7 +956,7 @@ async def test_migration_preserves_proxy_set(
 
     app = create_app()
     await _redis_module.init_redis(override_client=fake_redis)
-    admin_cookie = {"token": _create_access_token("admin")}
+    admin_cookie = {"token": _create_access_token("admin", role="admin")}
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",
@@ -988,7 +988,7 @@ async def test_migration_generates_stable_uuid(
     # First migration run
     app1 = create_app()
     await _redis_module.init_redis(override_client=fake_redis)
-    admin_cookie = {"token": _create_access_token("admin")}
+    admin_cookie = {"token": _create_access_token("admin", role="admin")}
     async with AsyncClient(
         transport=ASGITransport(app=app1),
         base_url="http://test",
@@ -1163,7 +1163,7 @@ async def test_old_list_routes_still_return_200(
     app = _create_app()
     await _redis_module_inner.init_redis(override_client=fake_redis)
 
-    admin_cookie = {"token": _cat("admin")}
+    admin_cookie = {"token": _cat("admin", role="admin")}
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",
