@@ -70,15 +70,18 @@ KNOWN_ACTION_SHAS: dict[str, dict[str, str]] = {
         "v5.2.0": "3041bf56c941b39c61721a86cd11f3bb1338122a",
         "v5.6.0": "40f1582b2485089dde7abd97c1529aa768e1baff",
         "v6.4.0": "4a3601121dd01d1626a1e23e37211e3254c1c06c",
+        "v6.5.0": "924ae3a1cded613372ab5595356fb5720e22ba16",  # phase-307 (PR #304)
     },
     "actions/setup-python": {
         "v5.0.0": "0a5c61591373683505ea898e09a3ea4f39ef2b9c",
         "v6.2.0": "a309ff8b426b58ec0e2a45f0f869d46889d02405",
+        "v6.3.0": "ece7cb06caefa5fff74198d8649806c4678c61a1",  # phase-307 (PR #304)
     },
     "trufflesecurity/trufflehog": {
         "v3.88.2": "a94d152bf65bebf5baa486d3d4dfee520af2ceed",
         "v3.94.3": "47e7b7cd74f578e1e3145d48f669f22fd1330ca6",
         "v3.95.5": "d411fff7b8879a62509f3fa98c07f247ac089a51",  # phase-307 (PR #105)
+        "v3.95.6": "30d5bb91af1a771378349dbbb0c82129392acf70",  # phase-307 (PR #304)
     },
     "returntocorp/semgrep-action": {
         "v1": "713efdd345f3035192eaa63f56867b88e63e4e5d",
