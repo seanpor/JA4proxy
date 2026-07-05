@@ -13,8 +13,9 @@ known gaps are at POC stage, and how to harden it for production.
 
 \newthought{The security model of \ja} rests on three guarantees: it never decrypts
 traffic (cryptographic transparency), it fails open when uncertain (false positive
-minimisation), and it enforces a configurable hard floor below which browser traffic
-can never be blocked (ALPN structural bypass).
+minimisation), and it defaults to monitor mode (dial=0) so nothing is ever blocked
+until the operator explicitly enforces. Browser protection comes from these defaults,
+not from an unconditional ALPN bypass.
 
 \section{The Bypass System — Security Model}
 \index{bypass!security model}
@@ -95,13 +96,14 @@ does requires understanding the cost model:
 These mechanisms exist specifically to prevent false positives:
 
 \begin{description}
-  \item[ALPN structural bypass] h2/h1 ALPN connections can never be blocked, regardless
-    of score or dial setting. This is not a configurable threshold — it is structural.
-    Even with dial=100 and all signals firing, a connection presenting h2 ALPN is allowed.
-    Only if the operator explicitly disables this bypass does the structural protection
-    lift.\sidenote{Browser traffic presenting h2 or h1 ALPN could theoretically score
-    highly if, for example, the IP is on Spamhaus DROP and the browser is behind a
-    compromised ISP. The bypass ensures this never causes a false positive.}
+  \item[ALPN browser bypass] An optional (disabled-by-default) bypass that allows h2/h1
+    ALPN connections without scoring. It is \emph{disabled by default} because bots can
+    trivially set ALPN values to impersonate browsers. When disabled, browser-looking
+    traffic is scored like any other connection. Real browser protection comes from
+    monitor mode (dial=0), fail-open defaults, and whitelisting known-good JA4
+    fingerprints, not from an unconditional ALPN bypass.\sidenote{If the operator
+    enables the bypass, they accept the risk that bots can use ALPN spoofing to bypass
+    scoring.}
 
   \item[ALLOW cached 30min, BLOCK cached 30s] The local LRU cache intentionally uses
     asymmetric TTLs. An IP allowed 29 minutes ago gets another 30-minute free pass.

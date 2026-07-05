@@ -131,13 +131,13 @@ decision without consulting the scorer.
   \caption{Fast-path bypass conditions and their defaults}
 \end{table}
 
-The browser ALPN bypass deserves special mention. Any connection advertising \code{h2}
-or \code{h1} (standard browser ALPN values) is allowed immediately, regardless of
-any other rule. This is an architectural guarantee against false positives — legitimate
-browser traffic can never be blocked by \ja, regardless of configuration.\sidenote{This
-guarantee exists because the cost of blocking a real user is always higher than the cost
-of letting through a bot that happens to advertise browser ALPN values. The proxy is
-designed around this asymmetry.}
+The browser ALPN bypass is optional and \emph{off by default}. Any connection can
+advertise \code{h2} or \code{h1} ALPN values — a bot can trivially set them — so
+when the bypass is disabled (the default), browser-\emph{looking} traffic is scored
+like any other connection. Real browser protection comes from the dial starting at
+0 (monitor mode, nothing blocked), fail-open defaults, and the JA4 whitelist for
+trusted fingerprints. If you want to enable the ALPN bypass, you can configure it,
+but you should understand that bots can then use it to impersonate a real browser.
 
 \subsection{Stage 2: Signal Collection and Scoring}
 

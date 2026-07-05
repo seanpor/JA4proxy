@@ -31,10 +31,16 @@ your traffic and never touches your TLS keys.
    connection but blocks nothing. You see exactly what *would* be blocked
    before you turn on enforcement. Go at your own pace.
 
-2. **Real browsers can't be blocked.** Modern browsers identify themselves
-   during the connection handshake in a way bots can't fake. These connections
-   bypass all scoring — they cannot be blocked by any rule, threshold, or
-   misconfiguration. This is an architectural guarantee, not a heuristic.
+2. **Safe by default, and you control the pace.** On first deploy the dial is
+   at 0 (monitor mode) — every connection is scored but **nothing is blocked**,
+   so you can see what *would* happen before enforcing. You can also whitelist
+   the JA4 fingerprints of the browsers you care about so they bypass scoring
+   entirely. Note: the automatic "any h2/h1 connection is a browser" bypass is
+   **off by default** — because a bot can trivially set `ALPN=h2` to impersonate
+   a browser (`JA4PROXY-2026-0004`) — so browser-*looking* traffic is scored,
+   not waved through. If you want the old unconditional browser bypass, enable
+   `security_policy.alpn_browser_bypass` (and understand that bots can then use
+   it).
 
 3. **Fail open, always.** If anything goes wrong — a lookup service is slow,
    Redis is down, a signal module crashes — the proxy lets the connection

@@ -113,7 +113,7 @@ TCP accept
     ├── IPv4/IPv6 normalisation
     │
     ├── [BYPASS CHECKS — never reach scorer]
-    │     ├── h2 / h1 ALPN?           → ALLOW immediately
+    │     ├── h2 / h1 ALPN?           → ALLOW immediately   (only if alpn_browser_bypass enabled; OFF by default)
     │     ├── JA4 in whitelist?       → ALLOW immediately
     │     ├── mTLS client cert valid? → ALLOW immediately
     │     ├── JA4 in blacklist?       → BLOCK immediately (RST)
@@ -148,7 +148,12 @@ Practical rules:
 - ALLOW decisions cached with long TTLs. BLOCK decisions with short TTLs.
 - When Redis says "block" but local cache says "allow": **local cache wins**.
 - When an external service is unreachable: **fail open**, log the failure.
-- `h2`/`h1` ALPN browser traffic bypasses everything — it can never be blocked.
+- `h2`/`h1` ALPN browser bypass is **configurable and off by default**
+  (`JA4PROXY-2026-0004`): ALPN is attacker-controlled, so a bot can set
+  `ALPN=h2`. When the bypass is *enabled*, h2/h1 traffic is allowed without
+  scoring; when disabled (default), it is scored like any other connection.
+  FP-safety comes from monitor-mode (dial=0) + fail-open + the JA4 whitelist,
+  not from an unconditional ALPN bypass.
 - Default dial is 0 (monitor only). The proxy never blocks on first deploy.
 
 ---
