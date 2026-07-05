@@ -24,7 +24,7 @@ semgrep>=1.100.0
 fakeredis>=2.21,<3          # in-process Redis fake for integration tests (P19-G6)
 croniter>=2.0,<3            # cron expression parser for BackupScheduler (P19-G1)
 pytest>=9.0.3          # CVE-2025-71176 fix (fixed in 9.0.3; 9.0.4 never released)
-pytest-asyncio>=1.0,<2     # 1.x is compatible with pytest 8/9
+pytest-asyncio>=1.4.0,<2     # 1.x is compatible with pytest 8/9
 pytest-cov==4.1.0
 pytest-mock==3.15.1
 pytest-xdist==3.8.0
