@@ -1,3 +1,10 @@
+<!--
+title: Use Case — Stopping Form-Abuse Bots
+audience: operator, secops
+last_reviewed: 2026-07-06
+phase: 524
+-->
+
 # Use Case: Stopping Form-Abuse Bots
 
 > Your signup / login / contact form is being hammered by automated submissions. You need to cut the bot traffic without blocking real customers, today.
