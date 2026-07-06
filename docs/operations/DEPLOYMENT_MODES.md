@@ -28,7 +28,7 @@ proxy:
 
 ```bash
 # Verify
-curl -kv https://localhost:8443/
+curl -kv https://127.0.0.1:8443/
 ```
 
 Client IP is taken from the TCP connection. This is the simplest mode and the
@@ -64,7 +64,7 @@ proxy:
 
 ```bash
 # Verify (connect to HAProxy, not the proxy directly)
-curl -kv https://localhost:443/
+curl -kv https://127.0.0.1:443/
 ```
 
 ---
@@ -99,7 +99,7 @@ proxy:
 
 ```bash
 # Verify
-curl -kv https://localhost:443/
+curl -kv https://127.0.0.1:443/
 ```
 
 > **Note:** This requires the `ngx_stream_core_module` (included in most nginx

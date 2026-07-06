@@ -122,6 +122,7 @@ depends on your setup:
 | You are a… | Start here |
 |------------|------------|
 | **Website owner** under attack | [Emergency Deploy](#emergency-deploy) above, then [Incident Response](docs/operations/INCIDENT_RESPONSE.md) |
+| **Stopping form-abuse bots** (urgent on-call scenario) | [Form-Abuse Use Case](docs/operations/USE_CASE_FORM_ABUSE.md) — step-by-step playbook for the `./ja4-admin.sh` emergency CLI |
 | **Website owner / CISO** evaluating fit | [`docs/product/WHY_JA4PROXY.md`](docs/product/WHY_JA4PROXY.md) — plain-language business case |
 | **Security architect** designing integration | [`docs/security/ARCHITECTURE.md`](docs/security/ARCHITECTURE.md) |
 | **Operator** running it day-to-day | [`docs/operations/OPERATIONS_GUIDE.md`](docs/operations/OPERATIONS_GUIDE.md) |

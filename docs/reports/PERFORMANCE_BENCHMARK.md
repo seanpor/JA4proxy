@@ -1,6 +1,12 @@
 # JA4proxy Performance Benchmark Results
 
-**Date:** February 2026  
+> ⚠ **HISTORICAL ARCHIVE:** These figures are from the retired Python prototype proxy
+> (removed in the Go rewrite, Phase 15). The **production proxy is Go** (`cmd/ja4pd`),
+> and its throughput is materially higher and single-thread-bound no longer. The
+> numbers and analysis below describe an implementation that no longer ships. For
+> current performance characteristics, see the Go proxy benchmarks.
+
+**Date:** February 2026 (Python proxy, archived)  
 **Platform:** Docker containers on a single host (Linux)  
 **Proxy:** Single Python asyncio process  
 **Load Balancer:** HAProxy 2.8 (TCP mode, TLS passthrough, PROXY protocol v2)
@@ -129,7 +135,24 @@ Then update `deploy/haproxy/haproxy.cfg` to add the additional proxy backends.
 5. **Redis Sentinel or Cluster** for high availability if deploying >10 proxy instances
 6. **Consider HAProxy JA4 plugin** ([O-X-L/haproxy-ja4-fingerprint](https://github.com/O-X-L/haproxy-ja4-fingerprint)) for fingerprint extraction at the load balancer layer, enabling HAProxy-level routing decisions
 
-## How to Reproduce
+## Follow-Up: Go Proxy Re-Measurement
+
+**Phase 524 Note:** This document describes the retired Python prototype. The production
+Go proxy (`cmd/ja4pd`, Phase 15) has materially different performance characteristics:
+- **Single-thread bottleneck removed** — Go's concurrency model handles parallelism natively
+- **Expected higher throughput** — preliminary profiling suggests 2-5× the Python single-proxy ceiling
+- **Scaling dynamics differ** — Redis becomes the bottleneck sooner relative to proxy capacity
+
+A full re-measurement of the Go proxy using `make bench-all` should be performed
+as a follow-up task. This will establish:
+- Accurate Go proxy throughput ceiling
+- Scaling curves for Go (1, 2, 4, 8 proxy instances)
+- Redis bottleneck point for the new architecture
+- Updated recommendations for production deployments
+
+See [Phase 524](../phases/PHASE_524.md) for context on this archive note.
+
+## How to Reproduce (Python Proxy — Archive)
 
 ```bash
 # Start the stack
