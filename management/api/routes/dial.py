@@ -25,7 +25,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from ..audit_utils import write_audit
 from ..auth import _client_ip, require_mfa_verified, require_role
-from ..models import DialUpdateRequest, DialValue, EmergencyDialRequest, EMERGENCY_PRESETS, Role
+from ..models import EMERGENCY_PRESETS, DialUpdateRequest, DialValue, EmergencyDialRequest, Role
 from ..redis_client import get_redis
 
 logger = logging.getLogger(__name__)

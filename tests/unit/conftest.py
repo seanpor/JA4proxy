@@ -12,6 +12,7 @@ async def _management_api_redis():
     try:
         import fakeredis
         import fakeredis.aioredis
+
         from management.api import redis_client as _rc
 
         server = fakeredis.FakeServer()

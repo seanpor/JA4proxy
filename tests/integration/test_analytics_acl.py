@@ -7,6 +7,7 @@ To run:
   INTEGRATION_REDIS_URL=redis://analytics:<pwd>@localhost:6379/0 pytest tests/integration/test_analytics_acl.py -v
 """
 import os
+
 import pytest
 import redis as redis_sync
 
