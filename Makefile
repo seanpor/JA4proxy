@@ -428,13 +428,20 @@ lint-static: tools-image bandit-image
 	@# phase-311: resilient wrapper — retries transient PyPI/OSV outages and
 	@# soft-passes (with a CI warning) if the service is unreachable, but still
 	@# fails on a real vulnerability. Stops upstream-outage flakes reddening the gate.
+	@# phase-800: PYSEC-2026-2132 (click 8.1.8) and PYSEC-2026-1805 (protobuf 4.25.9)
+	@# acknowledged — both are walled off by semgrep: it pins click~=8.1.8 (fix is 8.3.3),
+	@# and reaching protobuf 5.29.6 needs semgrep>=1.137, whose hard mcp==1.23.3 pin would
+	@# reintroduce CVE-2025-66416 (our mcp>=1.28.0 pin). Dev/CI tooling deps only. Remove
+	@# both ignores when semgrep ships OTEL>=1.37 with mcp>=1.28 (see requirements.txt note).
 	@$(TOOLS_RUN) bash scripts/pip-audit-resilient.sh -r requirements.txt \
 	  --ignore-vuln CVE-2025-50181 \
 	  --ignore-vuln CVE-2025-66418 \
 	  --ignore-vuln CVE-2025-66471 \
 	  --ignore-vuln CVE-2026-21441 \
 	  --ignore-vuln CVE-2026-4539 \
-	  && echo "  ✓ pip-audit passed (urllib3 CVEs + pygments ReDoS acknowledged — transitive deps, no fix available)"
+	  --ignore-vuln PYSEC-2026-2132 \
+	  --ignore-vuln PYSEC-2026-1805 \
+	  && echo "  ✓ pip-audit passed (urllib3/pygments/click/protobuf CVEs acknowledged — transitive deps, no safe resolution available)"
 	@echo ""
 	@echo "✓ All static analysis gates passed"
 
