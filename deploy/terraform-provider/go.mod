@@ -1,6 +1,6 @@
 module github.com/seanpor/terraform-provider-ja4proxy
 
-go 1.26.4
+go 1.26.5
 
 require (
 	github.com/hashicorp/terraform-plugin-framework v1.16.1

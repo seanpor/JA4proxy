@@ -72,6 +72,21 @@ metadata queries; both open CVEs turned out to be **walled off by semgrep**:
 - 3 `F821 httpx` errors in `tests/unit/management/conftest.py` fixed with a
   `TYPE_CHECKING` import (annotations were already string-quoted).
 
+## CI cycle after PR #323 (2026-07-18)
+
+First CI run failed 3 checks; all diagnosed from logs and fixed in one loop cycle:
+
+- **govulncheck**: GO-2026-5856 (crypto/tls ECH privacy leak, reachable from ja4pd
+  serve/cluster-sync/feed-downloader) and **Security Scan**: stdlib CVE-2026-39822
+  (os.Root symlink following, HIGH) in the ja4proxy + mockbackend images — both fixed in
+  Go 1.26.5. Bumped `go.mod` ×2, six ci.yml `go-version` pins, and the four
+  digest-pinned `golang:1.26.5-alpine` builders (digest `0178a641fbb4…`).
+- **Security Scan**: CVE-2026-0994 (protobuf 4.25.9 DoS) in `ja4proxy-test` — the
+  CI-only tooling image; semgrep-walled like PYSEC-2026-1805. Time-windowed
+  `.trivyignore` entry, `exp:2026-08-01`, re-review condition documented.
+- **pip-audit job**: has its own flag list in ci.yml (separate from the Makefile gate);
+  added the same two PYSEC ignores there.
+
 ## Residuals / follow-ups
 
 - click + protobuf CVE acknowledgements above (upstream-blocked; revisit on semgrep

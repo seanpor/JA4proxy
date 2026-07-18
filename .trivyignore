@@ -520,3 +520,11 @@ CVE-2026-42502 exp:2026-07-14
 CVE-2026-42508 exp:2026-07-14
 CVE-2026-46595 exp:2026-07-14
 CVE-2026-46597 exp:2026-07-14
+
+# protobuf 4.25.9 DoS (python: recursive parsing) in ja4proxy-test — the CI-only,
+# profile-gated tooling image (never deployed; skipped by 'make build'). No fix
+# available: protobuf 5.29.6 needs semgrep>=1.137, whose mcp==1.23.3 pin would
+# reintroduce CVE-2025-66416 (see phase-800 note in requirements.txt). protobuf
+# there is only exercised by semgrep/OTEL tooling on trusted repo content.
+# Re-review at expiry: check for a semgrep release with OTEL>=1.37 AND mcp>=1.28.
+CVE-2026-0994 exp:2026-08-01
