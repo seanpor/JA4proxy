@@ -15,7 +15,7 @@
 fastapi==0.110.0
 uvicorn[standard]==0.27.0
 redis[asyncio]==5.0.0
-python-jose[cryptography]==3.4.0   # phase-304: was 3.3.0 — critical alg-confusion CVE (jose unmaintained; PyJWT migration tracked as follow-up)
+python-jose[cryptography]==3.5.0   # phase-304: was 3.3.0 — critical alg-confusion CVE (jose unmaintained; PyJWT migration tracked as follow-up)
 passlib[bcrypt]==1.7.4
 jinja2==3.1.6
 python-multipart==0.0.32
