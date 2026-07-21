@@ -1,63 +1,13 @@
 ---
-# JA4proxy Policy-as-Code — GitLab CI pipeline template
+# DEPRECATED (phase-802, 2026-07-21): this template moved to
+# deploy/integrations/gitlab-ci/ja4proxy-policy.yml, alongside the other
+# customer-facing SIEM/SOAR/policy integration templates under deploy/integrations/.
+# This is a redirect for pipelines that still `include: local:` the old path —
+# it is not maintained here and will be removed in a future release.
 #
-# Include this file in your project's .gitlab-ci.yml:
-#
+# Action required: update your .gitlab-ci.yml to include the new path directly:
 #   include:
-#     - local: '.gitlab-ci/ja4proxy-policy.yml'
-#
-# Pipeline stages: validate → apply
-#
-# Required CI/CD variables (Settings → CI/CD → Variables):
-#   JA4PROXY_URL             — Management API base URL
-#   JA4PROXY_OPERATOR_TOKEN  — API bearer token with operator role (masked)
-#
-# The apply job runs only on the default branch (typically `main`).
-#
-# Phase 83 migration note:
-#   Replace `python3 scripts/ja4proxy-policy.py …` with `ja4proxy-cli policy …`
-#   and update the `before_script` packages accordingly.  No other changes needed.
+#     - local: 'deploy/integrations/gitlab-ci/ja4proxy-policy.yml'
 
-stages:
-  - validate
-  - apply
-
-variables:
-  POLICY_FILE: "ja4proxy-policy.yaml"
-
-.policy_base:
-  image: python:3.11-slim
-  rules:
-    - changes:
-        - "**/${POLICY_FILE}"
-        - "${POLICY_FILE}"
-
-validate-policy:
-  extends: .policy_base
-  stage: validate
-  script:
-    - pip install --quiet pyyaml cerberus
-    - python3 scripts/ja4proxy-policy.py validate --file "${POLICY_FILE}"
-  artifacts:
-    when: on_failure
-    expire_in: 1 week
-    reports:
-      dotenv: policy_validation.env
-
-apply-policy:
-  extends: .policy_base
-  stage: apply
-  rules:
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-      changes:
-        - "**/${POLICY_FILE}"
-        - "${POLICY_FILE}"
-  environment:
-    name: production
-  script:
-    - pip install --quiet pyyaml cerberus aiohttp
-    - |
-      python3 scripts/ja4proxy-policy.py apply \
-        --file "${POLICY_FILE}" \
-        --url "${JA4PROXY_URL}" \
-        --token "${JA4PROXY_OPERATOR_TOKEN}"
+include:
+  - local: 'deploy/integrations/gitlab-ci/ja4proxy-policy.yml'
