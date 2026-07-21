@@ -28,7 +28,7 @@ bcrypt==5.0.0              # phase-79: bearer token hashing
 pyotp==2.9.0               # phase-79: TOTP MFA
 qrcode[pil]==7.4.2         # phase-79: TOTP setup QR codes
 cryptography==48.0.1       # phase-79: Fernet encryption for TOTP secrets (phase-304: was 45.0.0, subgroup CVE; major bump held back from auto-merge)
-webauthn==2.0.0            # phase-79: WebAuthn/FIDO2 hardware key MFA
+webauthn==3.0.0            # phase-79: WebAuthn/FIDO2 hardware key MFA
 python3-saml==1.16.0       # phase-79: SAML 2.0 SSO (requires xmlsec1 system package)
 authlib==1.7.2             # phase-79: OIDC / OAuth 2.0 (PKCE, token validation)
 pyyaml==6.0.1              # phase-100: proxy.yml SSO role mapping (Gap 6)

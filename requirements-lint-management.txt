@@ -7,7 +7,7 @@
 python-jose[cryptography]
 passlib[bcrypt]
 bcrypt>=5.0.0
-webauthn>=2.0
+webauthn>=3.0.0
 python3-saml>=1.16
 authlib>=1.0
 pyotp>=2.9
