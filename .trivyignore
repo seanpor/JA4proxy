@@ -25,58 +25,40 @@
 # =============================================================================
 
 
-# CVE-2023-24538 / CVE-2023-24540 / CVE-2024-24790 / CVE-2025-68121: Go stdlib CVEs in gosu
-# (gosu binary bundled inside redis:7.4.0-alpine, compiled with Go 1.18.2).
-# Why no fix: No newer redis:7.4.0-alpine image tag with an updated gosu binary exists.
-# Why not exploitable: gosu is a simple setuid+exec wrapper — it does not process HTML
-# templates (html/template), parse network addresses (net/netip), nor perform TLS
-# session resumption (crypto/tls) in our deployment. The vulnerable code paths in
-# Go's statically-linked stdlib are never reached by gosu's runtime.
-CVE-2023-24538 exp:2026-07-13
-CVE-2023-24540 exp:2026-07-13
-CVE-2024-24790 exp:2026-07-13
-CVE-2025-68121 exp:2026-07-13
-
-# CVE-2026-31789: OpenSSL heap buffer overflow on 32-bit systems.
-# Why no fix: No newer redis:7.4.0-alpine image tag with patched OpenSSL exists.
-# Why not exploitable: The vulnerability only affects 32-bit systems. Our deployment
-# is on x86_64 (64-bit) hardware. The vulnerable code path is never reachable.
-CVE-2026-31789 exp:2026-07-13
-
 # CVE-2026-42504: MIME header DoS in Go stdlib.
-# Why no fix: Affects prometheus v3.12.0 and redis_exporter v1.84.0; no newer tags exist that are compiled on Go 1.26.4+.
-# Why not exploitable: Neither Prometheus nor redis_exporter parses untrusted MIME headers from external sources in our deployment.
-CVE-2026-42504 exp:2026-07-13
-
-# CVE-2026-32280: crypto/tls DoS in Go stdlib.
-# Why no fix: Affects node-exporter v1.11.1; no newer release exists.
-# Why not exploitable: node-exporter is bound only to loopback (127.0.0.1) and is not exposed to untrusted network traffic.
-CVE-2026-32280 exp:2026-07-13
+# Why no fix: Affects grafana:13.0.2-ubuntu, loki:3.7.2, and promtail:3.6.11 (all
+# already on newest stable tag) as a transitive Go-stdlib dependency; no newer
+# image tags exist with the fix (Go 1.25.11/1.26.4).
+# Why not exploitable: None of Grafana/Loki/Promtail parses untrusted MIME
+# headers from external sources in our deployment.
+CVE-2026-42504 exp:2026-08-04
 
 # CVE-2026-45447: Heap Use-After-Free in OpenSSL PKCS7_verify().
 # Why no fix: Affects grafana v13.0.2-ubuntu and promtail v3.6.11 (EOL); no newer image tags exist that clear this vulnerability.
 # Why not exploitable: PKCS7 verification is not used or triggered in our Grafana/Promtail configuration.
-CVE-2026-45447 exp:2026-07-13
+CVE-2026-45447 exp:2026-08-04
 
 # CVE-2026-21728: DoS in Grafana Tempo query parser.
 # Why no fix: Affects grafana v13.0.2-ubuntu; no newer release exists.
 # Why not exploitable: We do not deploy or configure Tempo as a query source for Grafana.
-CVE-2026-21728 exp:2026-07-13
+CVE-2026-21728 exp:2026-08-04
 
 # CVE-2026-33811: net package DoS in Go stdlib.
-# Why no fix: Affects grafana v13.0.2-ubuntu; no newer release exists.
-# Why not exploitable: Grafana's network exposure is limited to authenticated admin users on port 3000 over local host mapping.
-CVE-2026-33811 exp:2026-07-13
+# Why no fix: Affects grafana:13.0.2-ubuntu, loki:3.7.2, and promtail:3.6.11
+# (all newest stable); no newer release exists with the Go 1.25.10/1.26.3 fix.
+# Why not exploitable: Grafana's network exposure is limited to authenticated
+# admin users on port 3000 over local host mapping; Loki/Promtail are internal-only.
+CVE-2026-33811 exp:2026-08-04
 
 # CVE-2026-41602: Integer overflow in Apache Thrift.
 # Why no fix: Affects loki v3.7.2; no newer release exists.
 # Why not exploitable: Loki is not exposed to the public internet and we do not ingest Thrift-based logs.
-CVE-2026-41602 exp:2026-07-13
+CVE-2026-41602 exp:2026-08-04
 
 # CVE-2026-34040: Moby authorization bypass.
 # Why no fix: Affects promtail v3.6.11 (EOL); no newer release exists.
 # Why not exploitable: Promtail does not manage Docker daemon authorization or sockets directly in our deployment.
-CVE-2026-34040 exp:2026-07-13
+CVE-2026-34040 exp:2026-08-04
 
 # CVE-2026-43185: ksmbd signedness bug in kernel.
 # Why no fix: Affects linux-libc-dev package inside Debian slim base image; no patch available yet.
@@ -133,67 +115,52 @@ CVE-2026-7598 exp:2026-07-13
 # Why not exploitable: Perl compression utilities are not executed in our traffic generator.
 CVE-2026-48962 exp:2026-07-13
 
-# CVE-2026-32281: DoS in Go crypto/x509.
-# Why no fix: Affects node-exporter v1.11.1; no newer release exists.
-# Why not exploitable: node-exporter is bound to loopback and does not process external certs.
-CVE-2026-32281 exp:2026-07-13
-
 # CVE-2026-28377: Info disclosure in Tempo.
 # Why no fix: Affects grafana v13.0.2-ubuntu; no newer release exists.
 # Why not exploitable: Tempo integration is not deployed or used in our configuration.
-CVE-2026-28377 exp:2026-07-13
+CVE-2026-28377 exp:2026-08-04
 
 # CVE-2026-33814: HTTP/2 SETTINGS frame DoS in Go.
-# Why no fix: Affects grafana v13.0.2-ubuntu; no newer release exists.
-# Why not exploitable: Grafana is only exposed on loopback to authorized administrators.
-CVE-2026-33814 exp:2026-07-13
+# Why no fix: Affects grafana:13.0.2-ubuntu, loki:3.7.2, and promtail:3.6.11
+# (all newest stable); no newer release exists.
+# Why not exploitable: All three are only exposed on internal/loopback networks
+# to authorized administrators, never to untrusted clients.
+CVE-2026-33814 exp:2026-08-04
 
-# CVE-2026-42151: Info disclosure in prometheus dependency.
-# Why no fix: Affects loki v3.7.2; no newer release exists.
-# Why not exploitable: Loki is not exposed to the public internet and does not query external Prometheus instances.
-CVE-2026-42151 exp:2026-07-13
+# CVE-2026-42151: Info disclosure in prometheus client library.
+# Why no fix: Affects grafana:13.0.2-ubuntu, loki:3.7.2, and promtail:3.6.11
+# (all newest stable); no newer release exists.
+# Why not exploitable: None of these query external/untrusted Prometheus instances in our deployment.
+CVE-2026-42151 exp:2026-08-04
 
 # CVE-2026-41567: Container archive execution in Docker.
 # Why no fix: Affects promtail v3.6.11 (EOL); no newer release exists.
 # Why not exploitable: Promtail has no access to the Docker API socket in our production deployment.
-CVE-2026-41567 exp:2026-07-13
+CVE-2026-41567 exp:2026-08-04
 
-# CVE-2026-32283: crypto/tls DoS in Go stdlib.
-# Why no fix: Upstream component is compiled with a vulnerable Go version, and no newer release is available.
-# Why not exploitable: The component is not exposed to untrusted network inputs from the public internet.
-CVE-2026-32283 exp:2026-07-13
-# CVE-2026-33810: crypto/x509 DNS constraint validation bypass in Go stdlib.
-# Why no fix: Upstream component is compiled with a vulnerable Go version, and no newer release is available.
-# Why not exploitable: The component is not exposed to untrusted network inputs from the public internet.
-CVE-2026-33810 exp:2026-07-13
 # CVE-2026-39820: ParseAddress net/mail DoS in Go stdlib.
-# Why no fix: Upstream component is compiled with a vulnerable Go version, and no newer release is available.
-# Why not exploitable: The component is not exposed to untrusted network inputs from the public internet.
-CVE-2026-39820 exp:2026-07-13
-# CVE-2026-39823: net/http/cgi URL parsing in Go stdlib.
-# Why no fix: Upstream component is compiled with a vulnerable Go version, and no newer release is available.
-# Why not exploitable: The component is not exposed to untrusted network inputs from the public internet.
-CVE-2026-39823 exp:2026-07-13
-# CVE-2026-39825: ReverseProxy query parameter forwarding in Go stdlib.
-# Why no fix: Upstream component is compiled with a vulnerable Go version, and no newer release is available.
-# Why not exploitable: The component is not exposed to untrusted network inputs from the public internet.
-CVE-2026-39825 exp:2026-07-13
-# CVE-2026-39836: Go toolset ol8 security update issue.
-# Why no fix: Upstream component is compiled with a vulnerable Go version, and no newer release is available.
-# Why not exploitable: The component is not exposed to untrusted network inputs from the public internet.
-CVE-2026-39836 exp:2026-07-13
+# Why no fix: Affects grafana:13.0.2-ubuntu, loki:3.7.2, and promtail:3.6.11
+# (all newest stable); no newer release is available.
+# Why not exploitable: None of these parse untrusted email addresses in our deployment.
+CVE-2026-39820 exp:2026-08-04
+# CVE-2026-39836: Go toolset security update issue.
+# Why no fix: Affects grafana:13.0.2-ubuntu, loki:3.7.2, and promtail:3.6.11
+# (all newest stable); no newer release is available.
+# Why not exploitable: Not reachable via any network-facing code path in our deployment.
+CVE-2026-39836 exp:2026-08-04
 # CVE-2026-42499: net/textproto consumePhrase DoS in Go stdlib.
-# Why no fix: Upstream component is compiled with a vulnerable Go version, and no newer release is available.
-# Why not exploitable: The component is not exposed to untrusted network inputs from the public internet.
-CVE-2026-42499 exp:2026-07-13
+# Why no fix: Affects grafana:13.0.2-ubuntu, loki:3.7.2, and promtail:3.6.11
+# (all newest stable); no newer release is available.
+# Why not exploitable: None of these expose a textproto-based service to untrusted input in our deployment.
+CVE-2026-42499 exp:2026-08-04
 # CVE-2026-42154: Prometheus remote read DoS in Loki/Promtail.
 # Why no fix: Affects Loki and Promtail; no newer releases exist.
 # Why not exploitable: Loki and Promtail do not query untrusted remote read endpoints in our deployment.
-CVE-2026-42154 exp:2026-07-13
+CVE-2026-42154 exp:2026-08-04
 # CVE-2026-42306: Race condition in docker cp.
 # Why no fix: Affects Promtail; no newer release exists.
 # Why not exploitable: Promtail does not copy files to/from the host via docker cp.
-CVE-2026-42306 exp:2026-07-13
+CVE-2026-42306 exp:2026-08-04
 # CVE-2026-9538: Archive::Tar memory exhaustion in perl-base.
 # Why no fix: Affects perl-base in Debian slim base image; no fix available (fix_deferred).
 # Why not exploitable: Perl is not executed, and no Archive::Tar extraction is performed inside test/trafficgen containers.
@@ -354,172 +321,57 @@ CVE-2026-46330 exp:2026-07-13
 # dependencies. Fix tracked upstream.
 GHSA-6v7p-g79w-8964 exp:2026-07-22
 
-# CVE-2026-56123: Heap-based buffer overflow in socat (1.8.0.0–1.8.1.1) in haproxy:2.8.24-alpine.
-# Why no fix: haproxy:2.8.24-alpine bundles socat 1.8.1.1-r0; no newer haproxy:2.8.24-alpine
-# image tag exists with the patched socat 1.8.1.2-r0. Fix requires upgrading the haproxy
-# image tag (tracked separately — upgrade to haproxy:2.8.25-alpine or later).
-# Why not exploitable: socat in this image is used only for haproxy admin socket operations
-# on a Unix domain socket (/var/run/haproxy.sock). It is not exposed to external network
-# input from untrusted clients and is not reachable by the internet-facing attack surface.
-CVE-2026-56123 exp:2026-07-11
-
-# CVE-2024-12797: libssl/libcrypto OpenSSL NULL dereference in redis:7.4.0-alpine.
-# Why no fix: Fix requires OpenSSL 3.3.3-r0; no newer redis:7.4.0-alpine image tag exists
-# with that version of libcrypto3/libssl3.
-# Why not exploitable: Redis in our deployment is not configured for client-certificate
-# TLS (mTLS), which is the only code path that triggers the NULL dereference in the
-# custom certificate-verification callback.
-CVE-2024-12797 exp:2026-07-13
-
-# CVE-2022-27664: Go net/http server DoS in gosu binary inside redis:7.4.0-alpine.
-# Why no fix: gosu is compiled with Go 1.18.2; no newer redis:7.4.0-alpine image with a
-# rebuilt gosu exists. This CVE has been present since 2022 with no upstream fix for the
-# bundled binary.
-# Why not exploitable: gosu is a one-shot setuid+exec wrapper; it does not run an HTTP
-# server, does not listen on any port, and is never called from the network. The vulnerable
-# net/http code path is statically linked but completely unreachable at runtime.
-CVE-2022-27664 exp:2026-07-13
-
-# CVE-2026-39827: golang.org/x/crypto before 0.52.0 — SSH keep-alive DoS.
-# Why no fix: Affects prometheus:v3.12.0, alertmanager:v0.33.0, node-exporter:v1.11.1,
-# grafana:13.0.2-ubuntu, loki:3.7.2, and promtail:3.6.11 as a transitive dep compiled
-# into each binary. No updated image tags exist for any of these at the required version.
-# Why not exploitable: None of these components act as an SSH client or server in our
-# deployment. The vulnerable golang.org/x/crypto/ssh code path is statically linked but
-# never reachable during normal operation.
-CVE-2026-39827 exp:2026-07-13
-
-# CVE-2026-27145: Go stdlib crypto/x509 certificate parsing DoS in grafana:13.0.2-ubuntu.
-# Why no fix: Fix requires Go 1.25.11 or 1.26.4; grafana:13.0.2-ubuntu is compiled with
-# an older Go version and no newer 13.0.2 image tag exists.
-# Why not exploitable: Grafana in our deployment only processes certificates from our own
-# PKI (not from untrusted external sources), so maliciously crafted certificates cannot
+# CVE-2026-27145: Go stdlib crypto/x509 certificate parsing DoS.
+# Why no fix: Affects grafana:13.0.2-ubuntu, loki:3.7.2, and promtail:3.6.11
+# (all newest stable); fix requires Go 1.25.11/1.26.4.
+# Why not exploitable: These only process certificates from our own PKI (not
+# untrusted external sources), so maliciously crafted certificates cannot
 # reach the vulnerable parsing code.
-CVE-2026-27145 exp:2026-07-13
+CVE-2026-27145 exp:2026-08-04
 
 # CVE-2026-39828: golang.org/x/crypto/ssh before 0.52.0 — SSH connection reuse vulnerability.
-# Why no fix: Affects prometheus:v3.12.0, alertmanager:v0.33.0, node-exporter:v1.11.1,
-# grafana:13.0.2-ubuntu, loki:3.7.2, and promtail:3.6.11 as a transitive dep compiled
-# into each binary. No updated image tags that bundle x/crypto ≥ 0.52.0 exist yet.
+# Why no fix: Affects alertmanager:v0.33.1, grafana:13.0.2-ubuntu, loki:3.7.2,
+# and promtail:3.6.11 (all already on newest stable tag) as a transitive dep
+# compiled into each binary. No updated tag bundling x/crypto >= 0.52.0 exists yet.
 # Why not exploitable: None of these components act as an SSH client or server in our
 # deployment. The vulnerable golang.org/x/crypto/ssh code path is statically linked but
 # never reachable during normal operation.
-CVE-2026-39828 exp:2026-07-14
+CVE-2026-39828 exp:2026-08-04
 
 # CVE-2026-39829: golang.org/x/crypto/ssh before 0.52.0 — second SSH DoS CVE (sibling of -39828).
-# Why no fix: Same affected images as CVE-2026-39828: prometheus:v3.12.0, alertmanager:v0.33.0,
-# node-exporter:v1.11.1, grafana:13.0.2-ubuntu, loki:3.7.2, promtail:3.6.11. No updated image
-# tags that bundle x/crypto ≥ 0.52.0 exist yet.
+# Why no fix: Same affected images as CVE-2026-39828: alertmanager:v0.33.1,
+# grafana:13.0.2-ubuntu, loki:3.7.2, promtail:3.6.11. No updated tags exist yet.
 # Why not exploitable: None of these components use golang.org/x/crypto/ssh in our deployment.
-CVE-2026-39829 exp:2026-07-14
-
-# CVE-2025-15467: OpenSSL libcrypto3 RCE/DoS in redis:7.4.0-alpine (libcrypto3 3.3.2-r0).
-# Fix available in 3.3.6-r0 but requires a rebuild of the redis:7.4.0-alpine image by
-# the Redis Docker maintainers — no updated tag with the patched Alpine exists yet.
-# Why not exploitable: Redis is bound to 127.0.0.1 (loopback only) inside the Docker network
-# in our deployment; it is never reachable from external clients. The TLS code path is also
-# not enabled in our Redis configuration.
-CVE-2025-15467 exp:2026-07-14
-
-# CVE-2022-28131: Go stdlib encoding/xml stack exhaustion in gosu inside redis:7.4.0-alpine.
-# Why no fix: gosu is compiled with Go 1.18.2 and bundled in the redis image. No newer
-# redis:7.4.0-alpine tag with a rebuilt gosu exists. CVE has been present since 2022.
-# Why not exploitable: gosu is a one-shot setuid+exec wrapper that never parses XML; the
-# vulnerable encoding/xml code path is statically linked but completely unreachable at runtime.
-CVE-2022-28131 exp:2026-07-14
+CVE-2026-39829 exp:2026-08-04
 
 # CVE-2026-39830: golang.org/x/crypto/ssh before 0.52.0 — third SSH DoS CVE (sibling of -39828/-39829).
-# Why no fix: Same affected images as -39828/-39829. No updated image tags exist yet.
+# Why no fix: Same affected images as -39828/-39829. No updated tags exist yet.
 # Why not exploitable: None of these components use golang.org/x/crypto/ssh in our deployment.
-CVE-2026-39830 exp:2026-07-14
+CVE-2026-39830 exp:2026-08-04
 
-# CVE-2025-69421: OpenSSL libcrypto3 PKCS#12 DoS in redis:7.4.0-alpine (libcrypto3 3.3.2-r0).
-# Fix in 3.3.6-r0 requires a rebuild of redis:7.4.0-alpine by Docker Redis maintainers.
-# Why not exploitable: Redis is loopback-only in our deployment; the PKCS#12 parsing code
-# path is never reached by any client-supplied input in our configuration.
-CVE-2025-69421 exp:2026-07-14
-
-# CVE-2022-2879: Go stdlib archive/tar memory exhaustion in gosu inside redis:7.4.0-alpine.
-# Why no fix: gosu is compiled with Go 1.18.2; no newer redis:7.4.0-alpine tag exists.
-# Why not exploitable: gosu never processes tar archives; it is a setuid+exec wrapper only.
-CVE-2022-2879 exp:2026-07-14
-
-# CVE-2026-39832: golang.org/x/crypto/ssh/agent before 0.52.0 — fourth in the CVE-2026-3983x batch.
-# Affects same images as -39828/-39829/-39830. No updated image tags exist yet.
+# CVE-2026-39832: golang.org/x/crypto/ssh/agent before 0.52.0 — sibling of the CVE-2026-3983x batch.
+# Affects same images as -39828/-39829/-39830. No updated tags exist yet.
 # Why not exploitable: None of these components use golang.org/x/crypto/ssh in our deployment.
-CVE-2026-39832 exp:2026-07-14
+CVE-2026-39832 exp:2026-08-04
 
-# CVE-2026-28387: OpenSSL libcrypto3 arbitrary code execution in redis:7.4.0-alpine (3.3.2-r0).
-# Fix in 3.3.7-r0 requires a rebuilt redis:7.4.0-alpine by Docker Redis maintainers.
-# Why not exploitable: Redis is loopback-only in our deployment; no untrusted input reaches
-# the vulnerable OpenSSL code path.
-CVE-2026-28387 exp:2026-07-14
-
-# CVE-2022-2880: Go stdlib net/http/httputil hop-by-hop forwarding in gosu inside redis:7.4.0-alpine.
-# Why no fix: gosu is compiled with Go 1.18.2; no newer redis:7.4.0-alpine tag exists.
-# Why not exploitable: gosu is a one-shot setuid+exec wrapper that never acts as an HTTP proxy;
-# the httputil.ReverseProxy code path is statically linked but never invoked.
-CVE-2022-2880 exp:2026-07-14
-
-# ── Redis gosu Go 1.18.2 stdlib CVE batch ───────────────────────────────────
-# gosu inside redis:7.4.0-alpine is compiled with Go 1.18.2. All these CVEs
-# are in Go stdlib code paths that are statically linked into the gosu binary
-# but NEVER reachable at runtime: gosu is a one-shot setuid+exec wrapper that
-# does not serve HTTP, parse XML/tar/zip, perform DNS lookups, or process any
-# network input. No newer redis:7.4.0-alpine tag with a rebuilt gosu exists.
-CVE-2022-29804 exp:2026-07-14
-CVE-2022-30580 exp:2026-07-14
-CVE-2022-30630 exp:2026-07-14
-CVE-2022-30631 exp:2026-07-14
-CVE-2022-30632 exp:2026-07-14
-CVE-2022-30633 exp:2026-07-14
-CVE-2022-30634 exp:2026-07-14
-CVE-2022-30635 exp:2026-07-14
-CVE-2022-32189 exp:2026-07-14
-CVE-2022-41715 exp:2026-07-14
-CVE-2022-41716 exp:2026-07-14
-CVE-2022-41720 exp:2026-07-14
-CVE-2022-41722 exp:2026-07-14
-CVE-2022-41723 exp:2026-07-14
-CVE-2022-41724 exp:2026-07-14
-CVE-2022-41725 exp:2026-07-14
-CVE-2023-24534 exp:2026-07-14
-CVE-2023-24536 exp:2026-07-14
-CVE-2023-24537 exp:2026-07-14
-CVE-2023-24539 exp:2026-07-14
-CVE-2023-29400 exp:2026-07-14
-CVE-2023-29403 exp:2026-07-14
-CVE-2023-39325 exp:2026-07-14
-CVE-2023-44487 exp:2026-07-14
-CVE-2023-45283 exp:2026-07-14
-CVE-2023-45287 exp:2026-07-14
-CVE-2023-45288 exp:2026-07-14
-CVE-2024-34156 exp:2026-07-14
-CVE-2025-26519 exp:2026-07-14
-CVE-2025-61726 exp:2026-07-14
-CVE-2025-61729 exp:2026-07-14
-CVE-2026-22184 exp:2026-07-14
-CVE-2026-25679 exp:2026-07-14
-CVE-2026-28388 exp:2026-07-14
-CVE-2026-28389 exp:2026-07-14
-CVE-2026-28390 exp:2026-07-14
-CVE-2026-40200 exp:2026-07-14
-
-# ── Prometheus / node-exporter / Grafana golang.org/x/crypto CVE batch ──────
-# These CVEs affect golang.org/x/crypto and related packages compiled into
-# prom/prometheus:v3.12.0, prom/node-exporter:v1.11.1, and related images.
-# Fix requires rebuilding against updated dependency versions; no newer image
-# tags with the fixes exist yet. None of these images act as SSH clients or
-# servers in our deployment, so the affected code paths are unreachable.
-CVE-2026-25680 exp:2026-07-14
-CVE-2026-25681 exp:2026-07-14
-CVE-2026-27136 exp:2026-07-14
-CVE-2026-39821 exp:2026-07-14
-CVE-2026-39835 exp:2026-07-14
-CVE-2026-42502 exp:2026-07-14
-CVE-2026-42508 exp:2026-07-14
-CVE-2026-46595 exp:2026-07-14
-CVE-2026-46597 exp:2026-07-14
+# ── Alertmanager / Grafana / Loki / Promtail golang.org/x/crypto + x/net + stdlib CVE batch ──
+# These CVEs affect golang.org/x/crypto, golang.org/x/net, and Go stdlib
+# transitively compiled into alertmanager:v0.33.1, grafana:13.0.2-ubuntu,
+# loki:3.7.2, and promtail:3.6.11 — each already on its newest published
+# stable tag (verified 2026-07-21 by pulling and re-scanning; no newer
+# release clears these). Fix requires an upstream rebuild against updated
+# dependency versions; no such rebuild has shipped yet. None of these act as
+# SSH clients/servers or process untrusted network input that would reach
+# the vulnerable code paths in our deployment.
+CVE-2026-25681 exp:2026-08-04
+CVE-2026-27136 exp:2026-08-04
+CVE-2026-39821 exp:2026-08-04
+CVE-2026-39822 exp:2026-08-04
+CVE-2026-39831 exp:2026-08-04
+CVE-2026-39835 exp:2026-08-04
+CVE-2026-42508 exp:2026-08-04
+CVE-2026-46595 exp:2026-08-04
+CVE-2026-46597 exp:2026-08-04
 
 # protobuf 4.25.9 DoS (python: recursive parsing) in ja4proxy-test — the CI-only,
 # profile-gated tooling image (never deployed; skipped by 'make build'). No fix
