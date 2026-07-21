@@ -1,1 +1,0 @@
-- **Under Attack Live Dashboard (Phase 247)**: adds `/under-attack` page with real-time top-attacker table (polled every 5s via HTMX), one-click 1h/24h IP ban buttons, and Attack Mode API (`POST/DELETE/GET /api/v1/attack-mode`) that raises the dial to 75 with a 4-hour auto-revert. See `docs/phases/PHASE_247.md`.
