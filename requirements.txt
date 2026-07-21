@@ -14,7 +14,7 @@ sse-starlette>=1.6.5
 
 # Security dependencies
 pytricia==1.3.0
-geoip2==4.7.0
+geoip2==5.2.0
 hypothesis==6.155.7
 pip-audit>=2.7.0       # replaces safety (safety 3.x requires auth)
 bandit==1.7.5
