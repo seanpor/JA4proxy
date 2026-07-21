@@ -14,7 +14,7 @@
 #   what ships (production/tests run on 3.14 via Dockerfile.tools). All bandit
 #   1.7–1.8 releases crash on 3.14 and pass on 3.11, so this is a Python-version
 #   fix, not a bandit-version one.
-FROM python:3.11-slim
+FROM python:3.14-slim
 
 RUN useradd -r -u 1001 -s /bin/false bandit
 
