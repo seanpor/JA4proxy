@@ -3769,3 +3769,22 @@ phases:
       CAPTCHA). Includes exact file/line fixes, verify greps, PDF rebuild, and a critical
       self-review. NOT YET IMPLEMENTED — documented for a junior engineer."
 
+
+  800:
+    name: "Code Health Loop — Gate-Runner, Fixing Skill & Honest Reporting"
+    status: IN_PROGRESS
+    action_plan: docs/phases/PHASE_800.md
+    skill_script: scripts/phase-800-code-health.sh
+    dependencies: []
+    size: LARGE
+    summary: "Reworked 2026-07-18 after critical review + live verification showed the original
+      auto-fix script fabricated fix counts, swept unreviewed files into commits (git add -A,
+      once straight onto main in testing), and exited 0 on every path. New architecture
+      separates detect/fix/commit: scripts/phase-800-code-health.sh is a deterministic
+      gate-runner + reporter (full tier = make lint/scan/test, --fast tier for iteration;
+      exit 0=CLEAN 1=RESIDUAL 2=STUCK 64=REFUSED; refuses main and dirty all-gates runs;
+      report ≤33 lines × ≤170 chars enforced; logs in .local/code-health/). Fixing is done
+      with judgment via the /code-health skill (.claude/skills/code-health/SKILL.md), which
+      re-runs the failed gate to verify every fix and commits explicitly named files only.
+      COMPLETE requires one audited run with an accurate report — residuals ticketed;
+      all-green is the goal, not the bar. Evidence and decisions: PHASE_800_notes.md."
