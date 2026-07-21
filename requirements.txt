@@ -6,7 +6,7 @@ asyncio-throttle==1.0.2
 aiodns==4.0.0
 cryptography>=48.0.1  # phase-304: was >=45.0.0 — subgroup-attack CVE fixed in 46.0.5
 prometheus-client==0.25.0
-pyyaml==6.0.1
+pyyaml==6.0.3
 redis==5.0.1
 fastapi>=0.115.0  # Management API + /health/deep endpoint tests
 scapy>=2.6.3
