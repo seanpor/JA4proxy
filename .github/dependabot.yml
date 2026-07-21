@@ -6,6 +6,13 @@
 # the full CI pipeline before merge, so CVE introductions are caught at PR
 # time by the dependency-review job in ci.yml and weekly by the Monday 06:00
 # scheduled run.
+#
+# Phase 800: "docker" entries below bump pinned FROM digests/tags. This is not
+# just version hygiene — a base-image bump invalidates every downstream Docker
+# build-cache layer, which is what forces the apk/apt "patch OS packages" RUN
+# steps to actually re-execute. Without it, those layers can sit unexecuted for
+# months (observed: ja4proxy-management's apt layer was 8 months stale) even
+# though the Dockerfile looks like it proactively patches on every build.
 version: 2
 updates:
   - package-ecosystem: "github-actions"
@@ -33,6 +40,38 @@ updates:
 
   - package-ecosystem: "gomod"
     directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+
+  - package-ecosystem: "docker"
+    directory: "/deploy/docker"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+
+  - package-ecosystem: "docker"
+    directory: "/src/analytics"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+
+  - package-ecosystem: "docker"
+    directory: "/src/tarpit"
     schedule:
       interval: "monthly"
     open-pull-requests-limit: 5

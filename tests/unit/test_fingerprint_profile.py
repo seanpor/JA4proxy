@@ -6,7 +6,7 @@ import json
 from unittest.mock import AsyncMock
 
 import pytest
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 
 try:
     from management.api.auth import _create_access_token

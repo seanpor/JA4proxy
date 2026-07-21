@@ -1,10 +1,13 @@
 """Shared fixtures for management unit tests."""
 
-from typing import AsyncGenerator
+from typing import TYPE_CHECKING, AsyncGenerator
 
 import fakeredis.aioredis
 import pytest
 import pytest_asyncio
+
+if TYPE_CHECKING:
+    import httpx
 
 
 def _import_management_modules():
