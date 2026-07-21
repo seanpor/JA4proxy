@@ -354,8 +354,8 @@ jobs:
               'Nothing in the repo changed to trigger this — it usually means a',
               'previously-passing gate (lint, scan, or a dependency audit) has',
               'regressed against a newly-published CVE or an upstream change.',
-              'See docs/phases/PHASE_800.md and PHASE_800_notes.md for the last',
-              'time this class of drift was triaged.',
+              'See docs/phases/PHASE_800.md and docs/phases/PHASE_800_notes.md for',
+              'the last time this class of drift was triaged.',
             ].join('\n');
             const label = 'scheduled-ci-failure';
             const { data: issues } = await github.rest.issues.listForRepo({
