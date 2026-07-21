@@ -166,6 +166,10 @@ KNOWN_ACTION_SHAS: dict[str, dict[str, str]] = {
         "v4": "ea165f8d65b6e75b540449e92b4886f43607fa02",  # scorecard.yml
         "v7.0.1": "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
     },
+    # phase-800 — scheduled-run failure notifier (ci.yml)
+    "actions/github-script": {
+        "v7.1.0": "f28e40c7f34bde8b3046d885e986cb6290c5673b",
+    },
 }
 
 

@@ -3,9 +3,24 @@ title: Third-Party Image HIGH-CVE Waiver Register
 audience: Security, Operators, DevOps
 last_reviewed: 2026-06-13
 phase: 314
+superseded: true
+superseded_by: PHASE_317
 -->
 
 # Third-Party Image HIGH-CVE Waiver Register
+
+> **SUPERSEDED (Phase 800, 2026-07-21).** This register documents the
+> *differentiated* gate Phase 314 adopted as an interim measure — third-party
+> images gate on CRITICAL only, HIGH is advisory-tracked here. [[PHASE_317]]
+> (completed 2026-06-14) deliberately **re-enabled HIGH-gating** for
+> third-party images too (see its acceptance criteria and manifest summary);
+> `scan-images` has gated on **HIGH+CRITICAL** since then. The mechanism this
+> register describes is no longer how third-party CVEs are tracked — that is
+> now `.trivyignore` (dated, 14-day-max entries, same as first-party). Kept
+> for historical context only; do **not** use this register to decide whether
+> a HIGH finding blocks `make scan` — it currently does.
+>
+> Original (now-historical) purpose text follows.
 
 > **Purpose.** Honest, enumerated tracking of the **HIGH**-severity CVEs that
 > remain in the pinned third-party container images because **no newer fixed
