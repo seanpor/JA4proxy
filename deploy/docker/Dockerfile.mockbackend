@@ -6,7 +6,7 @@ COPY internal/test/nullbackend/main.go .
 RUN go mod init nullbackend && go mod tidy
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /nullbackend main.go
 
-FROM alpine:3.19.3@sha256:95c16745f100f44cf9a0939fd3f357905f845f8b6fa7d0cde0e88c9764060185
+FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
 # Non-root user (JA4PROXY DS-0002: containers must not run as root). It binds a
 # non-privileged port (8443) so it works under cap_drop=ALL in compose.
 RUN apk upgrade --no-cache && apk add --no-cache ca-certificates curl && \
