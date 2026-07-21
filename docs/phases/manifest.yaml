@@ -3811,3 +3811,27 @@ phases:
       upstream won't-fix; needs the phase-304-tracked PyJWT migration, not a base change)
       and management-image.yml's persistent GHA build cache (same class of staleness risk
       phase-800 already fixed for local builds; worth its own small follow-up)."
+  802:
+    name: "Root Clutter Follow-Up: Stray Phase Notes, Dead Files — and a Critical No on Dotfile Relocation"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_802.md
+    dependencies:
+    - 205
+    size: SMALL
+    summary: "PROPOSED — no code until approved. Follow-up to Phase 205 (repo root cleanup),
+      answering a direct question: should stray PHASE_*.md notes move to docs/phases/, and
+      can linter dotfiles go into a Dots/.config folder? Notes: yes, move (6 files, matches
+      the convention 14 other phases already follow, verified zero functional references).
+      Dotfiles: critically reviewed and recommended AGAINST — GitHub already hides dotfiles
+      from its default view (Phase 205's own accounting excludes them from the visible-root
+      count the whole cleanup was justified by), Phase 205 itself drew a .config/ folder in
+      its proposal diagram but never actually executed that sub-task, and grepping every
+      tool's real Makefile invocation found 3 (bandit, checkmake, semgrep's ignore-file)
+      rely on implicit cwd auto-discovery with no config-path override — moving them risks
+      a silently-narrower scan with no error, the same failure class Phase 800 spent this
+      session chasing in Docker's build cache. Also found and scoped: dc_head.yml (orphaned,
+      delete), .gitlab-ci/ja4proxy-policy.yml (mis-filed as a hidden CI dotdir — it's a
+      customer-facing GitLab policy-as-code template, belongs under deploy/), and a stray
+      superseded management/tailwind/ Tailwind-v3 pipeline (verified: base.html loads
+      vendor/tailwind.css, produced by the root tailwind.config.js + Tailwind-v4 build
+      VENDOR.md documents; management/tailwind/'s own output path doesn't exist on disk)."
