@@ -2,7 +2,7 @@ name: ja4proxy
 
 services:
   haproxy:
-    image: haproxy:2.8.24-alpine
+    image: haproxy:2.8.26-alpine
     ports:
       - "${AGENT_BIND_IP:-127.0.0.1}:${HOST_PORT_INGRESS:-443}:443"
       - "${AGENT_BIND_IP:-127.0.0.1}:${HOST_PORT_STATS:-8404}:8404"
@@ -99,17 +99,17 @@ services:
         max-file: "3"
 
   redis:
-    image: redis:7.4.0-alpine@sha256:4d852a36b132e0e0a5ea6552a8a1eb3d1544a496f8a846170669be2d02c77d24
+    image: redis:7.4.9-alpine@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99
     # No host port exposure — internal to ja4proxy-data only.
     # Tests use `docker exec` + redis-cli for state manipulation.
     restart: unless-stopped
-    # Official redis:7.4.0-alpine passes extra flags as command args to redis-server
+    # Official redis:7.4.9-alpine passes extra flags as command args to redis-server
     # JA4PROXY-2026-0042: --unixsocketperm 770 (not 777). The socket lives
     # on a named Docker volume that is NOT mounted by any non-redis service
     # in this compose file, so tightening to 770 removes the world-writable
     # bit without breaking functionality. (If a future service mounts the
     # redis-sock volume, it MUST also add `group_add: ["999"]` — the redis
-    # user's GID inside redis:7.4.0-alpine — or it will not be able to
+    # user's GID inside redis:7.4.9-alpine — or it will not be able to
     # connect.)
     command:
       - redis-server

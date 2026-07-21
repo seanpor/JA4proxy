@@ -1305,8 +1305,9 @@ async def attack_table_partial(
     Registered under both /attack-top (Phase 250 template) and /attack-table
     (Phase 247 compatibility). Uses Phase 250's ECS event field format.
     """
-    from .attack import top_attackers  # local import to avoid circular dep
     import json as _json
+
+    from .attack import top_attackers  # local import to avoid circular dep
 
     templates = _get_templates()
     result = await top_attackers(redis=redis, _user=current_user)
@@ -1331,8 +1332,9 @@ async def attack_fingerprint_table_partial(
 
     Delegates to the JSON endpoint in attack.py and renders the result as HTML.
     """
-    from .attack import top_fingerprints  # local import to avoid circular dep
     import json as _json
+
+    from .attack import top_fingerprints  # local import to avoid circular dep
 
     templates = _get_templates()
     result = await top_fingerprints(attack_mode=attack_mode, _user=current_user, redis=redis)

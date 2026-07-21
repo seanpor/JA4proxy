@@ -6,7 +6,6 @@ import time
 import pytest
 from httpx import AsyncClient
 
-
 # ── detect_botnet_signal unit tests ──────────────────────────────────────────
 
 def test_botnet_signal_imports():
