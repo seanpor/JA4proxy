@@ -1,7 +1,0 @@
-- feat(phase-234): added RBAC role-gated navigation to management UI (`_extract_user_and_role` helper + Jinja2 guards in base.html)
-- feat(phase-234): added Threat Posture row with top 10 IPs, top 10 JA4 fingerprints, and action distribution bar (30s HTMX poll)
-- feat(phase-234): added Infrastructure row showing Redis memory, analytics/tarpit/proxy status, evictions count (30s HTMX poll)
-- feat(phase-234): added Triage Queue table with Block/Watchlist/Dismiss actions for grey-zone IPs (60s HTMX poll)
-- feat(phase-234): added `/api/v1/triage/dismiss/{ip}` endpoint with 4h TTL dismiss
-- deps(phase-234): added `aiohttp==3.9.5` for Prometheus HTTP API queries
-- note(phase-234): Go proxy heartbeat producer deferred to Phase 239; infra row shows "Unknown" until then
