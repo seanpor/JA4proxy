@@ -24,7 +24,6 @@
 #   docs/runbooks/security_scan_exceptions.md
 # =============================================================================
 
-
 # CVE-2026-42504: MIME header DoS in Go stdlib.
 # Why no fix: Affects grafana:13.0.2-ubuntu, loki:3.7.2, and promtail:3.6.11 (all
 # already on newest stable tag) as a transitive Go-stdlib dependency; no newer
@@ -60,11 +59,6 @@ CVE-2026-41602 exp:2026-08-04
 # Why not exploitable: Promtail does not manage Docker daemon authorization or sockets directly in our deployment.
 CVE-2026-34040 exp:2026-08-04
 
-# CVE-2026-43185: ksmbd signedness bug in kernel.
-# Why no fix: Affects linux-libc-dev package inside Debian slim base image; no patch available yet.
-# Why not exploitable: ksmbd (kernel SMB server) is not run or used in the test container environment.
-CVE-2026-43185 exp:2026-07-13
-
 # CVE-2026-42496: Path traversal in Perl Archive::Tar.
 # Why no fix: Affects perl-base package inside Debian slim base image; no fix available (fix_deferred).
 # Why not exploitable: Perl is not executed, and no Archive::Tar extraction is performed inside test or trafficgen containers.
@@ -75,40 +69,15 @@ CVE-2026-42496 exp:2026-07-13
 # Why not exploitable: Same as above.
 CVE-2026-42497 exp:2026-07-13
 
-# CVE-2026-5773: Wrong file transfer in libcurl due to incorrect SMB handling.
-# Why no fix: Affects curl/libcurl in Debian base image; no patch available yet.
-# Why not exploitable: curl is only used for local health checks, not for fetching remote SMB URLs.
-CVE-2026-5773 exp:2026-07-13
-
 # CVE-2025-69720: Buffer overflow in ncurses.
 # Why no fix: Affects libncursesw6 in Debian base image; no patch available yet.
 # Why not exploitable: ncurses is not used inside the traffic generator container (no terminal UI).
 CVE-2025-69720 exp:2026-07-13
 
-# CVE-2026-0994: Denial of service in Python protobuf.
-# Why no fix: Transitive dependency of moto/gcs in test runner; pip resolver cannot handle direct upgrade due to depth limit.
-# Why not exploitable: The test runner is short-lived and only executed in secure development/CI environments.
-CVE-2026-0994 exp:2026-07-11
-
 # CVE-2026-8376: Heap buffer overflow in Perl (through 5.43.10).
 # Why no fix: Affects perl-base in Debian base image; no patch available yet.
 # Why not exploitable: Perl is not executed in our test/trafficgen runtime stack.
 CVE-2026-8376 exp:2026-07-13
-
-# CVE-2026-48959: IO::Uncompress::Unzip path traversal/unzip vulnerability.
-# Why no fix: Affects perl-base in Debian base image; no patch available yet.
-# Why not exploitable: Unzip utilities are not executed in our runtime.
-CVE-2026-48959 exp:2026-07-13
-
-# CVE-2026-6276: Information disclosure in curl (cookie leak).
-# Why no fix: Affects curl in Debian base image; no patch available yet.
-# Why not exploitable: curl is only used for local loopback health checks.
-CVE-2026-6276 exp:2026-07-13
-
-# CVE-2026-7598: Integer overflow in libssh2.
-# Why no fix: Affects libssh2-1t64 in Debian base image; no patch available yet.
-# Why not exploitable: libssh2 is not used or exposed in our test container environment.
-CVE-2026-7598 exp:2026-07-13
 
 # CVE-2026-48962: Arbitrary code execution in perl-IO-Compress.
 # Why no fix: Affects perl-base in Debian base image; no patch available yet.
@@ -165,154 +134,6 @@ CVE-2026-42306 exp:2026-08-04
 # Why no fix: Affects perl-base in Debian slim base image; no fix available (fix_deferred).
 # Why not exploitable: Perl is not executed, and no Archive::Tar extraction is performed inside test/trafficgen containers.
 CVE-2026-9538 exp:2026-07-13
-# CVE-2013-7445: linux-libc-dev kernel header issue.
-# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
-# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
-CVE-2013-7445 exp:2026-07-13
-# CVE-2019-19449: linux-libc-dev kernel header issue.
-# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
-# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
-CVE-2019-19449 exp:2026-07-13
-# CVE-2019-19814: linux-libc-dev kernel header issue.
-# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
-# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
-CVE-2019-19814 exp:2026-07-13
-# CVE-2021-3847: linux-libc-dev kernel header issue.
-# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
-# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
-CVE-2021-3847 exp:2026-07-13
-# CVE-2021-3864: linux-libc-dev kernel header issue.
-# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
-# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
-CVE-2021-3864 exp:2026-07-13
-# CVE-2024-21803: linux-libc-dev kernel header issue.
-# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
-# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
-CVE-2024-21803 exp:2026-07-13
-# CVE-2024-58015: linux-libc-dev kernel header issue.
-# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
-# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
-CVE-2024-58015 exp:2026-07-13
-# CVE-2024-58093: linux-libc-dev kernel header issue.
-# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
-# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
-CVE-2024-58093 exp:2026-07-13
-# CVE-2025-22104: linux-libc-dev kernel header issue.
-# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
-# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
-CVE-2025-22104 exp:2026-07-13
-# CVE-2025-38137: linux-libc-dev kernel header issue.
-# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
-# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
-CVE-2025-38137 exp:2026-07-13
-# CVE-2025-38187: linux-libc-dev kernel header issue.
-# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
-# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
-CVE-2025-38187 exp:2026-07-13
-# CVE-2025-38204: linux-libc-dev kernel header issue.
-# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
-# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
-CVE-2025-38204 exp:2026-07-13
-# CVE-2025-38206: linux-libc-dev kernel header issue.
-# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
-# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
-CVE-2025-38206 exp:2026-07-13
-# CVE-2025-38421: linux-libc-dev kernel header issue.
-# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
-# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
-CVE-2025-38421 exp:2026-07-13
-# CVE-2025-38636: linux-libc-dev kernel header issue.
-# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
-# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
-CVE-2025-38636 exp:2026-07-13
-# CVE-2025-39859: linux-libc-dev kernel header issue.
-# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
-# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
-CVE-2025-39859 exp:2026-07-13
-# CVE-2025-39862: linux-libc-dev kernel header issue.
-# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
-# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
-CVE-2025-39862 exp:2026-07-13
-# CVE-2025-39958: linux-libc-dev kernel header issue.
-# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
-# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
-CVE-2025-39958 exp:2026-07-13
-# CVE-2026-23102: linux-libc-dev kernel header issue.
-# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
-# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
-CVE-2026-23102 exp:2026-07-13
-# CVE-2026-23208: linux-libc-dev kernel header issue.
-# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
-# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
-CVE-2026-23208 exp:2026-07-13
-# CVE-2026-23327: linux-libc-dev kernel header issue.
-# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
-# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
-CVE-2026-23327 exp:2026-07-13
-# CVE-2026-31493: linux-libc-dev kernel header issue.
-# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
-# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
-CVE-2026-31493 exp:2026-07-13
-# CVE-2026-31536: linux-libc-dev kernel header issue.
-# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
-# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
-CVE-2026-31536 exp:2026-07-13
-# CVE-2026-31568: linux-libc-dev kernel header issue.
-# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
-# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
-CVE-2026-31568 exp:2026-07-13
-# CVE-2026-31663: linux-libc-dev kernel header issue.
-# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
-# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
-CVE-2026-31663 exp:2026-07-13
-# CVE-2026-31688: linux-libc-dev kernel header issue.
-# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
-# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
-CVE-2026-31688 exp:2026-07-13
-# CVE-2026-43198: linux-libc-dev kernel header issue.
-# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
-# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
-CVE-2026-43198 exp:2026-07-13
-# CVE-2026-45932: linux-libc-dev kernel header issue.
-# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
-# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
-CVE-2026-45932 exp:2026-07-13
-# CVE-2026-46054: linux-libc-dev kernel header issue.
-# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
-# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
-CVE-2026-46054 exp:2026-07-13
-# CVE-2026-46117: linux-libc-dev kernel header issue.
-# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
-# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
-CVE-2026-46117 exp:2026-07-13
-# CVE-2026-46181: linux-libc-dev kernel header issue.
-# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
-# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
-CVE-2026-46181 exp:2026-07-13
-# CVE-2026-46203: linux-libc-dev kernel header issue.
-# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
-# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
-CVE-2026-46203 exp:2026-07-13
-# CVE-2026-46244: linux-libc-dev kernel header issue.
-# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
-# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
-CVE-2026-46244 exp:2026-07-13
-# CVE-2026-46316: linux-libc-dev kernel header issue.
-# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
-# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
-CVE-2026-46316 exp:2026-07-13
-# CVE-2026-46319: linux-libc-dev kernel header issue.
-# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
-# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
-CVE-2026-46319 exp:2026-07-13
-# CVE-2026-46323: linux-libc-dev kernel header issue.
-# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
-# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
-CVE-2026-46323 exp:2026-07-13
-# CVE-2026-46330: linux-libc-dev kernel header issue.
-# Why no fix: Kernel header vulnerability in linux-libc-dev in Debian slim base image; no patch available yet.
-# Why not exploitable: The test container runs in user space without direct access to host kernel interfaces, mounting filesystems, or hardware devices.
-CVE-2026-46330 exp:2026-07-13
 
 # GHSA-6v7p-g79w-8964: msgpack out-of-bounds read/crash in test container.
 # Why not exploitable: The test container (ja4proxy-test) runs msgpack only for
