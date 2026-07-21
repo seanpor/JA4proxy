@@ -551,12 +551,12 @@ TRIVY_CACHE ?= $(HOME)/.cache/trivy
 
 # Covers images deployed in deploy/docker/docker-compose.prod.yml + deploy/docker/docker-compose.monitoring.yml.
 # Keep versions here in sync with those compose files.
-TRIVY_IMAGES := haproxy:2.8.24-alpine \
-	redis:7.4.0-alpine \
-	oliver006/redis_exporter:v1.86.0 \
-	prom/prometheus:v3.12.0 \
-	prom/alertmanager:v0.33.0 \
-	prom/node-exporter:v1.11.1 \
+TRIVY_IMAGES := haproxy:2.8.26-alpine \
+	redis:7.4.9-alpine \
+	oliver006/redis_exporter:v1.87.0 \
+	prom/prometheus:v3.13.1 \
+	prom/alertmanager:v0.33.1 \
+	prom/node-exporter:v1.12.1 \
 	grafana/grafana:13.0.2-ubuntu \
 	grafana/loki:3.7.2 \
 	grafana/promtail:3.6.11

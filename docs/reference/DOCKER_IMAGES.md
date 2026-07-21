@@ -15,16 +15,16 @@ This document serves as the canonical registry of every Docker image used in the
 |-------|----------------|---------|---------------|-------|
 | `python:3.14-slim` | `3.14.0-slim` | `deploy/docker/Dockerfile.management` | 2026-06-14 | Debian base for the FastAPI management service (no-fix distro CVEs are .trivyignore-waived; these are out of the first-party HIGH gate) |
 | `python:3.14.6-alpine3.24` | `3.14.6-alpine3.24@sha256:003970a2` | `src/analytics/Dockerfile`, `src/tarpit/Dockerfile`, `deploy/docker/Dockerfile.test`, `deploy/docker/Dockerfile.trafficgen` | 2026-06-14 | **Phase 317** hardened, digest-pinned, perl-free alpine base. `test`/`trafficgen` were re-based off Debian `python:3.14-slim`; all four scan **0 HIGH/CRITICAL** |
-| `redis:7.4.0-alpine` | `7.4.0-alpine@sha256:4d852a36b132e0e0a5ea6552a8a1eb3d1544a496f8a846170669be2d02c77d24` | `deploy/docker/docker-compose.prod.yml`, `deploy/docker/docker-compose.poc.yml` | 2026-06-15 | Lightweight official Redis (replaced redis-stack) |
-| `haproxy:2.8-alpine` | `2.8.24-alpine` | `deploy/docker/docker-compose.prod.yml`, `deploy/docker/docker-compose.poc.yml` | 2026-06-13 | Edge proxy/Load balancer |
+| `redis:7.4.9-alpine` | `7.4.9-alpine@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99` | `deploy/docker/docker-compose.prod.yml`, `deploy/docker/docker-compose.poc.yml` | 2026-07-21 | Lightweight official Redis (replaced redis-stack). Bumped from frozen `7.4.0-alpine` (Phase 800: that exact tag stopped receiving rebuilds ~2024; `7.4.9` is the current same-line patch) |
+| `haproxy:2.8-alpine` | `2.8.26-alpine` | `deploy/docker/docker-compose.prod.yml`, `deploy/docker/docker-compose.poc.yml` | 2026-07-21 | Edge proxy/Load balancer |
 | `haproxy:2.6` | `2.6.15` | `deploy/docker/docker-compose.scale.yml` | 2026-06-13 | Legacy scaling tests |
 | `redis:7-alpine` | `7.2.4-alpine` | `deploy/docker/docker-compose.test.yml` | 2026-06-13 | Lightweight Redis for tests |
 | `mcr.microsoft.com/playwright:v1.40.0-jammy` | `v1.40.0-jammy` | `deploy/docker/docker-compose.test.yml` | 2026-06-13 | E2E testing environment |
-| `prom/prometheus` | `v3.12.0` | `deploy/docker/docker-compose.prod.yml`, `deploy/docker/docker-compose.monitoring.yml` | 2026-06-13 | Time-series metrics |
-| `prom/alertmanager` | `v0.33.0` | `deploy/docker/docker-compose.monitoring.yml` | 2026-06-13 | Alerting gateway |
+| `prom/prometheus` | `v3.13.1` | `deploy/docker/docker-compose.prod.yml`, `deploy/docker/docker-compose.monitoring.yml` | 2026-07-21 | Time-series metrics |
+| `prom/alertmanager` | `v0.33.1` | `deploy/docker/docker-compose.monitoring.yml` | 2026-07-21 | Alerting gateway. Newest stable tag; still carries HIGH findings (x/crypto, os.Root) awaiting upstream rebuild — see `.trivyignore` |
 | `grafana/grafana` | `13.0.2-ubuntu` | `deploy/docker/docker-compose.prod.yml`, `deploy/docker/docker-compose.monitoring.yml` | 2026-06-13 | Visualisation dashboard |
-| `prom/node-exporter` | `v1.11.1` | `deploy/docker/docker-compose.monitoring.yml` | 2026-06-13 | Host metrics collector |
-| `oliver006/redis_exporter` | `v1.84.0` | `deploy/docker/docker-compose.prod.yml`, `deploy/docker/docker-compose.monitoring.yml` | 2026-06-13 | Redis metrics collector |
+| `prom/node-exporter` | `v1.12.1` | `deploy/docker/docker-compose.monitoring.yml` | 2026-07-21 | Host metrics collector |
+| `oliver006/redis_exporter` | `v1.87.0` | `deploy/docker/docker-compose.prod.yml`, `deploy/docker/docker-compose.monitoring.yml` | 2026-07-21 | Redis metrics collector |
 | `grafana/loki` | `3.7.2` | `deploy/docker/docker-compose.prod.yml`, `deploy/docker/docker-compose.monitoring.yml` | 2026-06-13 | Log aggregation system |
 | `grafana/promtail` | `3.6.11` | `deploy/docker/docker-compose.prod.yml`, `deploy/docker/docker-compose.monitoring.yml` | 2026-06-13 | Log shipment agent |
 

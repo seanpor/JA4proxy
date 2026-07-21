@@ -24,7 +24,7 @@
 
 services:
   haproxy:
-    image: haproxy:2.8.24-alpine
+    image: haproxy:2.8.26-alpine
     ports:
       - "443:443"
       - "80:80"
@@ -73,7 +73,7 @@ services:
       - BACKEND_HOST=${BACKEND_HOST:?Set BACKEND_HOST to your upstream server IP/hostname}
       - BACKEND_PORT=${BACKEND_PORT:-443}
       - REDIS_UNIX_SOCKET_PATH=/var/run/redis/redis.sock
-    # JA4PROXY-2026-0042: GID 999 matches the redis user inside redis:7.4.0-alpine
+    # JA4PROXY-2026-0042: GID 999 matches the redis user inside redis:7.4.9-alpine
     # (see deploy/helm/ja4proxy/templates/redis.yaml and
     # deploy/ansible/roles/redis-secure/tasks/main.yml, which both pin 999 for
     # the same reason). Required for this service to connect to the unix
@@ -110,12 +110,12 @@ services:
           memory: 128M
 
   redis:
-    image: redis:7.4.0-alpine@sha256:4d852a36b132e0e0a5ea6552a8a1eb3d1544a496f8a846170669be2d02c77d24
-    # Official redis:7.4.0-alpine passes extra flags as command args to redis-server
+    image: redis:7.4.9-alpine@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99
+    # Official redis:7.4.9-alpine passes extra flags as command args to redis-server
     # JA4PROXY-2026-0042: --unixsocketperm 770 (not 777). The proxy service
     # mounts redis-sock to connect via unix socket; for that to keep working
     # after tightening to 770, the proxy service is given `group_add:
-    # ["999"]` (redis's GID inside redis:7.4.0-alpine). If a future service
+    # ["999"]` (redis's GID inside redis:7.4.9-alpine). If a future service
     # mounts redis-sock, it MUST add the same group_add or it will not be
     # able to open the socket.
     command:
@@ -240,7 +240,7 @@ services:
   # ── Monitoring ────────────────────────────────────────────────────────────
 
   redis-exporter:
-    image: oliver006/redis_exporter:v1.86.0
+    image: oliver006/redis_exporter:v1.87.0
     environment:
       - REDIS_ADDR=redis:6379
       - REDIS_PASSWORD_FILE=/run/secrets/redis_password
@@ -261,7 +261,7 @@ services:
           cpus: '0.5'
 
   prometheus:
-    image: prom/prometheus:v3.12.0
+    image: prom/prometheus:v3.13.1
     ports:
       # 0046: loopback-or-private only (never 0.0.0.0) — Prometheus UI for
       # debugging. Was published on 0.0.0.0:9091. Matches the grafana binding.
