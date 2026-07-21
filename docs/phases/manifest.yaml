@@ -3832,4 +3832,6 @@ phases:
       session chasing in Docker's build cache. Also found and scoped: dc_head.yml (orphaned,
       delete), .gitlab-ci/ja4proxy-policy.yml (mis-filed as a hidden CI dotdir — it's a
       customer-facing GitLab policy-as-code template, belongs under deploy/), and a stray
-      duplicate root tailwind.config.js superseded by management/tailwind/tailwind.config.js."
+      superseded management/tailwind/ Tailwind-v3 pipeline (verified: base.html loads
+      vendor/tailwind.css, produced by the root tailwind.config.js + Tailwind-v4 build
+      VENDOR.md documents; management/tailwind/'s own output path doesn't exist on disk)."

@@ -126,7 +126,7 @@ optional version of that if wanted.
 |---|---|---|
 | `dc_head.yml` | Yes | Orphaned — grepped every script/Makefile/compose file, zero references. Last touched by a Phase-233 commit and an old "propose Phase 160" commit; looks like a stray `docker compose config` dump someone left at root. Confirmed while bumping image versions this session (its `haproxy`/`redis` pins were separately kept in sync only because it happened to be touched then, not because anything reads it). |
 | `.gitlab-ci/ja4proxy-policy.yml` | Yes | **Not this repo's CI config** — it's a distributable GitLab CI *template* for JA4proxy customers to `include:` in their own pipelines (policy-as-code, same category as `deploy/integrations/`). Phase 205 moved `integrations/` → `deploy/integrations/` for exactly this reason but didn't catch this one — it's mis-filed as a hidden CI dotdir, not mis-scoped as "maybe dead" (205's own note said "audit whether still in use" — it's in active use, just misplaced). |
-| Root `tailwind.config.js` | Yes | Stray duplicate of `management/tailwind/tailwind.config.js`, which is the live one (its own header comment explains it "replaces the 407KB Play/runtime build" the root config represents). Different color values, different content globs — confirmed genuinely different files, not a symlink. Referenced only from two `docs/phases/complete/` docs (historical) and `management/static/VENDOR.md` (needs a read before deleting, in case that reference is load-bearing docs rather than historical). |
+Root `tailwind.config.js` **vs.** `management/tailwind/tailwind.config.js` | Yes (both) | **Corrected after reading `VENDOR.md` and the actual template** — root config is the live one, not the stray. `management/templates/base.html` loads `/static/vendor/tailwind.css`; that file only exists at `management/static/vendor/tailwind.css`, produced by the pipeline `VENDOR.md` documents (Tailwind v4 CLI + the **root** `tailwind.config.js`). `management/tailwind/tailwind.config.js`'s own header targets Tailwind v3 and writes to `management/static/tailwind.css` (no `vendor/`) — that path **doesn't exist on disk**, meaning that pipeline's documented output was never produced by what's actually deployed. `git log` confirms the ordering: root `tailwind.config.js` and `VENDOR.md` were both last touched by PR #155 ("vendor frontend assets and compile static CSS", 2026-06-14); `management/tailwind/` was last touched by the earlier PR #121 ("UI redesign", 2026-06-11) and never touched again — it's the superseded one. **D5 below is corrected accordingly: delete `management/tailwind/`, not the root config.** |
 | `monitoring/`, `security/__pycache__/` at root | **No** (untracked, root-owned) | Local machine cruft, not a repo problem — `monitoring/` is a stray leftover from an unrelated Docker run (already called out in a `Makefile` comment as confusing `lint-yaml` locally); `security/` is an empty dir + `__pycache__` left over after Phase 205's `security/validation.py` move actually succeeded. Out of scope for this phase — it's this machine's disk, not the repository. |
 | `requirements*.txt` × 3 at root | Yes | Phase 205 already explicitly evaluated and **dropped** this (its own X8: "cosmetic win did not justify atomic rewrites across Dockerfiles/CI/Makefile/Dependabot"). Not reopening it here — citing it so nobody re-proposes it a third time without checking history first. |
 
@@ -138,7 +138,7 @@ optional version of that if wanted.
 | D2 | **Do not** create a `Dots/`/`.config/` folder for linter dotfiles. | §2 — the stated rationale doesn't apply to hidden files, Phase 205 already tried and dropped it, and three tools (`bandit`, `checkmake`, `semgrep`'s ignore-file) have no safe relocation path without risking silent scan-scope regressions in invocations this repo doesn't control. |
 | D3 | Move `.gitlab-ci/ja4proxy-policy.yml` → `deploy/integrations/gitlab-ci/` (or `deploy/gitlab-ci/`). | It's a product/customer deliverable, not this repo's CI config — belongs with `deploy/integrations/`, not disguised as a dotdir. |
 | D4 | Delete `dc_head.yml`. | Confirmed orphaned; deleting (not moving) since there's no live consumer to relocate it for. |
-| D5 | Delete the root `tailwind.config.js`, after confirming `management/static/VENDOR.md`'s reference is historical, not a build-time dependency. | Confirmed superseded by `management/tailwind/tailwind.config.js`; keeping a stale duplicate risks someone editing the dead copy and wondering why nothing changes. |
+| D5 | Delete `management/tailwind/` (the whole directory, not just its config). Keep the root `tailwind.config.js` — it's the live one `VENDOR.md`'s documented build actually uses. | §3 correction: initial research had this backwards. `management/tailwind/tailwind.config.js` targets Tailwind v3 and writes to a CSS path (`management/static/tailwind.css`) that doesn't exist on disk — its pipeline was superseded by PR #155's root-config + `vendor/tailwind.css` build, which is what `base.html` actually loads. Keeping a stale, never-produces-output copy around risks someone editing it and wondering why nothing changes. |
 | D6 | Leave `.hadolint.yaml` in place, untouched, this phase. | It's dead either way (§2d) — deleting it is a separate, smaller decision than this phase's scope; don't bundle it in just because it was noticed here. |
 
 ## Implementation plan
@@ -146,7 +146,7 @@ optional version of that if wanted.
 1. `git mv PHASE_316{a,b,c,d,e}_notes.md docs/phases/complete/`
 2. `git mv PHASE_800_notes.md docs/phases/`
 3. Update the two prose references (`docs/phases/PHASE_800.md`, `.github/workflows/ci.yml`'s `notify-scheduled-failure` issue body) to the new paths.
-4. Read `management/static/VENDOR.md` in full to confirm its `tailwind.config.js` mention is historical, not instructional; if clear, `git rm tailwind.config.js`.
+4. Confirm no template or build script references `management/tailwind/` (re-grep at implementation time — none found as of this doc), then `git rm -r management/tailwind/`. Keep the root `tailwind.config.js`.
 5. `git mv .gitlab-ci/ja4proxy-policy.yml deploy/integrations/gitlab-ci/ja4proxy-policy.yml`; update its own internal `include: local:` example path in the file's header comment. **Do not** edit the references found in `docs/reports/05_deployment_supply_chain_review.md`, `docs/phases/complete/PHASE_205_review.md`, or `docs/phases/complete/PHASE_82.md` — all three are dated, point-in-time historical records of a past state, not live documentation; retroactively editing them to reflect a 2026-07-21+ move would misrepresent what those reviews actually found at the time. Re-grep for `.gitlab-ci` at implementation time to confirm no *live* doc (e.g. a current deployment guide) references the old path.
 6. `git rm dc_head.yml`.
 7. `make lint-docs` / `make lint-md` (whichever link-check target exists) to confirm no dangling references from steps 3–6.
@@ -154,7 +154,7 @@ optional version of that if wanted.
 
 ## Test plan
 
-- `grep -rln` for every old path (six notes filenames, `.gitlab-ci`, `dc_head.yml`, root `tailwind.config.js`) across the repo post-move → zero hits outside this phase's own commit.
+- `grep -rln` for every old path (six notes filenames, `.gitlab-ci`, `dc_head.yml`, `management/tailwind/`) across the repo post-move → zero hits outside this phase's own commit.
 - `make lint-docs` (or equivalent link-checker) passes.
 - `make test` and `make lint` unaffected (none of these files are inputs to either — the entire point of D2 is that the *tooling-input* dotfiles are the ones being left alone).
 
@@ -162,7 +162,7 @@ optional version of that if wanted.
 
 - [ ] Six phase-notes files relocated; both prose references updated.
 - [ ] `.gitlab-ci/` content moved under `deploy/`; all doc references updated; no repo-root dotdir masquerading as a customer deliverable.
-- [ ] `dc_head.yml` and (pending VENDOR.md check) the stray root `tailwind.config.js` removed.
+- [ ] `dc_head.yml` and `management/tailwind/` (the superseded Tailwind v3 pipeline, not the live root config) removed.
 - [ ] No new `Dots/`/`.config/` directory created — D2 stands as a documented "no," not silence.
 - [ ] `.hadolint.yaml`'s dead status is noted but left untouched (D6).
 - [ ] Full CI green; no dangling links.
