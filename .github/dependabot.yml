@@ -46,6 +46,22 @@ updates:
     cooldown:
       default-days: 7
 
+  # Phase 800: restores tracking for deploy/terraform-provider/go.mod — a
+  # separate Go module the root "gomod" entry above (directory: "/") does not
+  # reach. This entry existed once (it's what opened PR #322, bumping
+  # golang.org/x/crypto) but was removed from this file at some point without
+  # anyone noticing; Dependabot then refused to rebase that PR ("the
+  # dependabot.yml entry that created this PR has been deleted"), leaving it
+  # permanently stuck. Don't remove this without checking there's no open PR
+  # from it first.
+  - package-ecosystem: "gomod"
+    directory: "/deploy/terraform-provider"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
