@@ -561,11 +561,15 @@ TRIVY_IMAGES := haproxy:2.8.26-alpine \
 	grafana/loki:3.7.2 \
 	grafana/promtail:3.6.11
 
-# Manifest consistency check — run before committing a phase close-out.
-# Verifies: TODO.md + PROJECT_STATUS.md in sync with manifest.yaml,
-#           every COMPLETE phase has a CHANGELOG entry,
-#           every manifest phase appears in CLAUDE.md's phase table.
-check-manifest:
+# Manifest consistency check. Verifies: TODO.md + PROJECT_STATUS.md generate
+# cleanly from manifest.yaml; every COMPLETE phase has a CHANGELOG entry (or
+# is in the frozen HISTORICAL_CHANGELOG_GAPS baseline — see the script).
+# Phase 800: wired into lint-docs-all (below) so this is a real, CI-enforced
+# gate, not an easy-to-forget manual step before a phase close-out. It had
+# drifted to 544 permanent failures (240 CHANGELOG + a since-retired,
+# CLAUDE.md-contradicting 304-failure TABLE check) before nobody running it
+# regularly let that happen — see the script's own docstring.
+check-manifest: ## Verify manifest.yaml / TODO.md / CHANGELOG.md stay consistent
 	@$(PYTHON) scripts/check_manifest.py
 
 scan-images:
@@ -1409,7 +1413,7 @@ link-check: ## Alias for the internal-link checker (test-doc-links)
 lint-phases: tools-image ## Validate phase docs (frontmatter, numbering, manifest sync)
 	@$(TOOLS_RUN) python3 scripts/lint-phases.py
 
-lint-docs-all: lint-docs lint-phases link-check lint-markdown lint-spelling ## Run all documentation quality checks
+lint-docs-all: lint-docs lint-phases check-manifest link-check lint-markdown lint-spelling ## Run all documentation quality checks
 	@echo "✓ lint-docs-all complete"
 
 lint-semgrep: ## Run Semgrep SAST using the project ruleset (containerised)

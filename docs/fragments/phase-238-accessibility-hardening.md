@@ -1,1 +1,0 @@
-- **Accessibility Hardening & Docs (Phase 238)**: Triple-enforced status indicators (shape+color+text), focus rings on nav, ARIA live regions, CSS light mode, Grafana self-signed HTTPS, cAdvisor threat model, HAProxy TCP mode CI test, Mermaid network architecture diagram. See `docs/phases/PHASE_238.md`.

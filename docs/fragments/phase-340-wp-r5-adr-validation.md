@@ -1,1 +1,0 @@
-- ADR status validation (WP-R5): added ADR-204, ADR-205, ADR-206 to INDEX.md; updated Last Reviewed dates for all six post-Phase-309 ADRs; added Data Lifecycle & Resilience and TAP Sensor Architecture decision categories.

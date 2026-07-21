@@ -1,1 +1,0 @@
-- **Operational Polish (Phase 237)**: Dial revert scheduling, snapshot export, CIDR ban expansion, TLS health check, manual attribution, and revert cancel. See `docs/phases/PHASE_237.md`.
