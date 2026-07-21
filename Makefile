@@ -635,9 +635,20 @@ scan-first-party:
 	@mkdir -p "$(TRIVY_CACHE)"
 	@echo "=== Trivy: first-party image CVE scan (HIGH + CRITICAL) ==="
 	@echo "    Phase 317: fails on HIGH or CRITICAL. .trivyignore holds dated exceptions."
+	@echo "    Phase 800: a cached apk/apt layer can sit for weeks and silently hide a"
+	@echo "    since-fixed OS CVE (observed: ja4proxy-test carried a 5-week-stale c-ares"
+	@echo "    layer that a plain 'make build' never re-executed). CI runners are always"
+	@echo "    cache-free, so this only bites local runs — rebuild --no-cache here to match."
+	@if [ -z "$$CI" ]; then \
+		echo "    Rebuilding all first-party images with --no-cache (local run)..."; \
+		DOCKER_BUILDKIT=1 docker build --no-cache -q -f deploy/docker/Dockerfile.go-proxy -t ja4proxy:2.0.0 . >/dev/null; \
+		DOCKER_BUILDKIT=1 docker build --no-cache -q -f src/analytics/Dockerfile -t ja4proxy-analytics:1.0.0 . >/dev/null; \
+		DOCKER_BUILDKIT=1 docker build --no-cache -q -f src/tarpit/Dockerfile -t ja4proxy-tarpit:1.0.0 src/tarpit >/dev/null; \
+		DOCKER_BUILDKIT=1 docker build --no-cache -q -f deploy/docker/Dockerfile.mockbackend -t ja4proxy-mockbackend:1.0.0 . >/dev/null; \
+	fi
 	@echo "    Building the profile-gated CI-only test/trafficgen images (skipped by 'make build')..."
-	@DOCKER_BUILDKIT=1 docker build -q -f deploy/docker/Dockerfile.test -t ja4proxy-test:1.0.0 . >/dev/null
-	@DOCKER_BUILDKIT=1 docker build -q -f deploy/docker/Dockerfile.trafficgen -t ja4proxy-trafficgen:1.0.0 . >/dev/null
+	@DOCKER_BUILDKIT=1 docker build --no-cache -q -f deploy/docker/Dockerfile.test -t ja4proxy-test:1.0.0 . >/dev/null
+	@DOCKER_BUILDKIT=1 docker build --no-cache -q -f deploy/docker/Dockerfile.trafficgen -t ja4proxy-trafficgen:1.0.0 . >/dev/null
 	@echo ""
 	@fail=0; \
 	for img in ja4proxy:2.0.0 ja4proxy-analytics:1.0.0 ja4proxy-tarpit:1.0.0 ja4proxy-mockbackend:1.0.0 ja4proxy-test:1.0.0 ja4proxy-trafficgen:1.0.0; do \
