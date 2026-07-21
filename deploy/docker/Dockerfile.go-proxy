@@ -33,7 +33,7 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w -extldflags '-static' -X github.com/seanpor/ja4proxy/internal/config.Version=${VERSION} -X github.com/seanpor/ja4proxy/internal/config.GitCommit=${GIT_COMMIT} -X github.com/seanpor/ja4proxy/internal/config.BuildDate=${BUILD_DATE}" -trimpath -o /ja4pd ./cmd/ja4pd
 
 # ── Runtime stage ─────────────────────────────────────────────────────────────
-FROM alpine:3.19.3@sha256:95c16745f100f44cf9a0939fd3f357905f845f8b6fa7d0cde0e88c9764060185
+FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
 
 # OCI image labels for registry discoverability and provenance.
 LABEL org.opencontainers.image.source="https://github.com/seanpor/JA4proxy" \
