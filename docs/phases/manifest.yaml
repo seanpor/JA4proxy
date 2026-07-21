@@ -3813,7 +3813,7 @@ phases:
       phase-800 already fixed for local builds; worth its own small follow-up)."
   802:
     name: "Root Clutter Follow-Up: Stray Phase Notes, Dead Files — and a Critical No on Dotfile Relocation"
-    status: PROPOSED
+    status: COMPLETE
     action_plan: docs/phases/PHASE_802.md
     dependencies:
     - 205
@@ -3835,3 +3835,56 @@ phases:
       superseded management/tailwind/ Tailwind-v3 pipeline (verified: base.html loads
       vendor/tailwind.css, produced by the root tailwind.config.js + Tailwind-v4 build
       VENDOR.md documents; management/tailwind/'s own output path doesn't exist on disk)."
+  502:
+    name: "Phase 15 Gap Closure — Browser Fixtures and Container Smoke Test"
+    status: COMPLETE
+    action_plan: docs/phases/PHASE_502.md
+    dependencies:
+    - 15
+    size: SMALL
+    summary: "Closed the two remaining open items from the Phase 15 post-implementation
+      review (gaps 2 and 3 were already closed on branch fix-phase-15-gaps). Gap 1:
+      added deterministic synthetic ClientHello fixtures mimicking real Chrome 120+/
+      Firefox 122+ patterns (GREASE, compress_certificate, post_handshake_auth,
+      multi-ALPN) to tests/fixtures/clienthello/, generated via a checked-in generator
+      (internal/tls/gen_browser_fixtures_test.go) so the fixtures are reproducible, not
+      hand-crafted. REQ-015-08: added container-config assertions (no Docker daemon
+      required) verifying management/analytics wire to the Go proxy (ja4pd), not any
+      deleted Python proxy service. Found unregistered during a phase-800 code-health
+      session (2026-07-21) — the doc and its deliverables existed and had shipped
+      (verified: fixture files + known_ja4.json entries + test assertions all present)
+      but the phase was never added to this manifest."
+  334:
+    name: "316* Phase Series Audit & Review — Go TAP/SPAN Sensor Code Review"
+    status: COMPLETE
+    action_plan: docs/phases/PHASE_334.md
+    dependencies:
+    - 316a
+    - 316b
+    - 316c
+    - 316d
+    - 316e
+    size: LARGE
+    summary: "COMPLETE as a REVIEW — no code changes, by design (explicitly out of
+      scope per the doc's own header: 'review only, no code, no file moves, no
+      close-outs'). A structured code/security review of the entire Go TAP/SPAN
+      passive sensor series (316a-316e) against its ADRs, tests, and manifest
+      entries. Found unregistered during a phase-800 code-health session
+      (2026-07-21) — written 2026-06-19, sat for a month with real, serious findings
+      never surfaced or actioned. 40+ findings across correctness/security (F-series),
+      reliability/operations (R-series), TLS parsing (T-series), concurrency (G-series),
+      observability (O-series), privacy/GDPR (P-series), and cross-component data
+      integrity (D-series). Highlights: F-022/CRITICAL — zero panic recovery, a single
+      crafted packet permanently hangs the sensor (packet-of-death DoS, passes
+      liveness checks while dead); F-002/CRITICAL — capability drop + seccomp never
+      wired, binary runs with full CAP_NET_RAW throughout its lifetime; R-001/CRITICAL
+      — SIGTERM ignored while blocked in a live packet read (no poll timeout), hard
+      SIGKILL required; O-001/O-002/O-003/HIGH — no Makefile target builds the
+      sensor at all, and the shipped Alertmanager rules + Grafana dashboard reference
+      metric names that don't exist or are never assigned (8 of 11 dashboard panels
+      show 'No data', 5 of 7 alerts can never fire); P-001/P-003/MEDIUM — zero
+      privacy/GDPR documentation project-wide despite the sensor capturing raw
+      ClientHello bytes (incl. SNI) and writing IP-keyed Redis records with no
+      erasure mechanism. NONE of the 40+ recommended fixes have been implemented.
+      This needs a dedicated remediation phase, prioritized by severity — flagged to
+      the maintainer, not actioned here."
