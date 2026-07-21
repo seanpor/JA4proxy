@@ -317,6 +317,70 @@ jobs:
             fi
           fi
 
+  # Phase 800: the weekly scheduled run (line 36) is the trip-wire for CVEs
+  # newly disclosed against already-merged dependencies — but a scheduled
+  # workflow failure doesn't page anyone by default, and nothing else in this
+  # repo watches it. Observed cost: it failed silently for two consecutive
+  # Mondays (2026-07-13, 2026-07-20) before anyone noticed. This job opens (or
+  # comments on) a tracking issue when that happens, so "found by scheduled CI"
+  # doesn't quietly become "found three weeks later by someone else."
+  # continue-on-error keeps it OUT of the required-check set enforced by
+  # test_branch_protection_contexts_match_ci_job_names — a notifier must never
+  # itself block a merge.
+  notify-scheduled-failure:
+    name: Notify on scheduled-run failure
+    continue-on-error: true
+    if: always() && github.event_name == 'schedule'
+    needs: [meta, lint, build, race, scan, test, secrets-scan, sast, dependency-audit-python, dependency-audit-go, traceability]
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Open or update a tracking issue if any job failed
+        if: contains(needs.*.result, 'failure')
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b  # v7.1.0
+        with:
+          script: |
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const failed = Object.entries(${{ toJson(needs) }})
+              .filter(([, job]) => job.result === 'failure')
+              .map(([id]) => id);
+            const body = [
+              'The weekly scheduled CI run (Monday 06:00 UTC) failed.',
+              '',
+              `Run: ${runUrl}`,
+              `Failed jobs: ${failed.join(', ')}`,
+              '',
+              'Nothing in the repo changed to trigger this — it usually means a',
+              'previously-passing gate (lint, scan, or a dependency audit) has',
+              'regressed against a newly-published CVE or an upstream change.',
+              'See docs/phases/PHASE_800.md and PHASE_800_notes.md for the last',
+              'time this class of drift was triaged.',
+            ].join('\n');
+            const label = 'scheduled-ci-failure';
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: label,
+            });
+            if (issues.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issues[0].number,
+                body: `Still failing as of this run.\n\n${body}`,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: 'Scheduled CI run failed',
+                body,
+                labels: [label],
+              });
+            }
+
   # Phase 64a — Docker Compose lifecycle smoke test.
   # Non-blocking by default (continue-on-error). After a stability window the
   # team may set smoke_required: true in the repository variables to promote
