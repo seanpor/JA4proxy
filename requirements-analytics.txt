@@ -13,7 +13,7 @@ aiohttp>=3.10.11
 prometheus-client==0.25.0
 
 # Config + validation
-pyyaml==6.0.1
+pyyaml==6.0.3
 jsonschema==4.26.0
 
 # Numerical analysis (baseline stats, distribution comparison)

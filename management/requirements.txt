@@ -31,5 +31,5 @@ cryptography==48.0.1       # phase-79: Fernet encryption for TOTP secrets (phase
 webauthn==2.0.0            # phase-79: WebAuthn/FIDO2 hardware key MFA
 python3-saml==1.16.0       # phase-79: SAML 2.0 SSO (requires xmlsec1 system package)
 authlib==1.7.2             # phase-79: OIDC / OAuth 2.0 (PKCE, token validation)
-pyyaml==6.0.1              # phase-100: proxy.yml SSO role mapping (Gap 6)
+pyyaml==6.0.3              # phase-100: proxy.yml SSO role mapping (Gap 6)
 aiohttp==3.14.1          # phase-234: Prometheus HTTP API query for infra row (phase-316-hotfix: was 3.9.5 — no cp314 wheel; broke `make scan` image build on the python:3.14 base)
