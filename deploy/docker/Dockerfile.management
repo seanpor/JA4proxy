@@ -1,32 +1,45 @@
-FROM python:3.14.0-slim@sha256:0aecac02dc3d4c5dbb024b753af084cafe41f5416e02193f1ce345d671ec966e
+FROM python:3.14.6-alpine3.24@sha256:26730869004e2b9c4b9ad09cab8625e81d256d1ce97e72df5520e806b1709f92
+LABEL dockerfile.location="module" \
+      dockerfile.module="management" \
+      dockerfile.build-context="root"
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
+ENV PIP_DISABLE_PIP_VERSION_CHECK=on
+ENV PIP_DEFAULT_TIMEOUT=100
+
+# Alpine base (phase-801, mirrors Phase 229/317's re-base of analytics/tarpit/
+# test/trafficgen): no Debian perl-base, so the no-fix perl/ncurses/curl CVEs
+# that required .trivyignore exceptions on the old python:3.14-slim base don't
+# apply here. Patch remaining OS packages to clear known CVEs.
+RUN apk upgrade --no-cache
 
 WORKDIR /app
 
-# Install deps first for layer caching
+# Install Python deps. build-base/libffi-dev/openssl-dev/libxml2-dev/
+# libxmlsec1-dev/xmlsec-dev/pkgconfig are needed only to compile native wheels
+# on musl (cryptography, lxml, xmlsec for python3-saml) — installed as a
+# virtual package and removed afterward so the runtime image carries no
+# compilers or dev headers.
 COPY management/requirements.txt .
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    --mount=type=cache,target=/root/.cache/pip,sharing=locked \
-    rm -f /etc/apt/apt.conf.d/docker-clean && \
-    apt-get update && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y && apt-get install -y --no-install-recommends \
-        curl libyaml-dev && \
-    pip install --upgrade pip setuptools wheel Cython && \
-    PYAML_FORCE_PURE=true pip install -r requirements.txt && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked \
+    apk add --no-cache --virtual .build-deps \
+        build-base libffi-dev openssl-dev libxml2-dev xmlsec-dev pkgconfig && \
+    pip install --upgrade pip setuptools wheel && \
+    pip install -r requirements.txt && \
+    apk del .build-deps
 
 # Copy management service
 COPY management/ ./management/
 
-# Non-root user
-RUN useradd -r -u 1001 -s /bin/false management
+# Non-root user (Alpine: addgroup/adduser, not useradd)
+RUN addgroup -S -g 1001 management && adduser -S -u 1001 -G management -s /sbin/nologin management
 USER management
 
 EXPOSE 8090
 
-ENV PYTHONUNBUFFERED=1
-ENV PYTHONPATH=/app
-
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8090/health || exit 1
+    CMD python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:8090/api/v1/health')" || exit 1
 
 CMD ["uvicorn", "management.api.main:app", "--host", "0.0.0.0", "--port", "8090", "--workers", "1"]

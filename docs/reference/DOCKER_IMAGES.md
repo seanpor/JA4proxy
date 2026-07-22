@@ -13,8 +13,7 @@ This document serves as the canonical registry of every Docker image used in the
 
 | Image | Pinned Version | Used in | Last Reviewed | Notes |
 |-------|----------------|---------|---------------|-------|
-| `python:3.14-slim` | `3.14.0-slim` | `deploy/docker/Dockerfile.management` | 2026-06-14 | Debian base for the FastAPI management service (no-fix distro CVEs are .trivyignore-waived; these are out of the first-party HIGH gate) |
-| `python:3.14.6-alpine3.24` | `3.14.6-alpine3.24@sha256:003970a2` | `src/analytics/Dockerfile`, `src/tarpit/Dockerfile`, `deploy/docker/Dockerfile.test`, `deploy/docker/Dockerfile.trafficgen` | 2026-06-14 | **Phase 317** hardened, digest-pinned, perl-free alpine base. `test`/`trafficgen` were re-based off Debian `python:3.14-slim`; all four scan **0 HIGH/CRITICAL** |
+| `python:3.14.6-alpine3.24` | `3.14.6-alpine3.24@sha256:26730869004e2b9c4b9ad09cab8625e81d256d1ce97e72df5520e806b1709f92` | `src/analytics/Dockerfile`, `src/tarpit/Dockerfile`, `deploy/docker/Dockerfile.test`, `deploy/docker/Dockerfile.trafficgen`, `deploy/docker/Dockerfile.management` | 2026-07-22 | **Phase 317** hardened, digest-pinned, perl-free alpine base; **Phase 801** added `management` (was Debian `python:3.14-slim`, 41 HIGH/CRITICAL findings, 36 no-fix OS packages). All five scan **0 HIGH/CRITICAL** (`management` carries one dated `.trivyignore` residual, `CVE-2024-23342`/ecdsa, upstream won't-fix) |
 | `redis:7.4.9-alpine` | `7.4.9-alpine@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99` | `deploy/docker/docker-compose.prod.yml`, `deploy/docker/docker-compose.poc.yml` | 2026-07-21 | Lightweight official Redis (replaced redis-stack). Bumped from frozen `7.4.0-alpine` (Phase 800: that exact tag stopped receiving rebuilds ~2024; `7.4.9` is the current same-line patch) |
 | `haproxy:2.8-alpine` | `2.8.26-alpine` | `deploy/docker/docker-compose.prod.yml`, `deploy/docker/docker-compose.poc.yml` | 2026-07-21 | Edge proxy/Load balancer |
 | `haproxy:2.6` | `2.6.15` | `deploy/docker/docker-compose.scale.yml` | 2026-06-13 | Legacy scaling tests |
@@ -36,6 +35,7 @@ This document serves as the canonical registry of every Docker image used in the
 | `ja4proxy-analytics` | `latest` | `src/analytics/Dockerfile` | Signal analysis service |
 | `ja4proxy-tarpit` | `latest` | `src/tarpit/Dockerfile` | Connection slowing service |
 | `ja4proxy-mockbackend` | `latest` | `deploy/docker/Dockerfile.mockbackend` | Mock upstream for testing |
+| `ja4proxy-management` | `1.0.0` | `deploy/docker/Dockerfile.management` | FastAPI Management API |
 | `ja4proxy-test` | `latest` | `deploy/docker/Dockerfile.test` | Test runner environment |
 | `ja4proxy-trafficgen` | `latest` | `deploy/docker/Dockerfile.trafficgen` | Traffic generator for benchmarks |
 

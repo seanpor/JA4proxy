@@ -3790,27 +3790,34 @@ phases:
       all-green is the goal, not the bar. Evidence and decisions: PHASE_800_notes.md."
   801:
     name: "ja4proxy-management Base Hardening (Debian -> low-CVE base)"
-    status: PROPOSED
+    status: IN_PROGRESS
     action_plan: docs/phases/PHASE_801.md
     dependencies:
     - 317
     size: MEDIUM
-    summary: "PROPOSED — no code until approved. Picks up what Phase 317 explicitly deferred:
-      ja4proxy-management (FastAPI Management API) stayed on Debian python:3.14-slim,
-      'waiver-tracked' in name only — never actually scanned by anything. A phase-800
-      code-health session (2026-07-21) ran the first fresh scan since Phase 317 and found
-      41 HIGH/CRITICAL findings, 36 of them no-fix Debian OS packages (3x CRITICAL
-      perl-base) fixable only by the same Debian->alpine base swap Phase 317 already did
-      for analytics/tarpit/test/trafficgen. Plan: re-base Dockerfile.management to
-      python:3.14.6-alpine3.24, fix musl/wheel fallout for cryptography/bcrypt/lxml/xmlsec/
-      python3-saml/webauthn/pyOpenSSL, add a SAML signature-tampering adversarial test
-      (none exists today — the real risk here is silent auth breakage, not a loud build
-      failure), re-scan, then add to scan-first-party's FIRST_PARTY_IMAGES. ja4proxy-admin
-      (Phase 317 mentioned it alongside management) is confirmed already decommissioned
-      (Phase 232d/232e) — nothing to do there. Out of scope: CVE-2024-23342 (ecdsa,
-      upstream won't-fix; needs the phase-304-tracked PyJWT migration, not a base change)
-      and management-image.yml's persistent GHA build cache (same class of staleness risk
-      phase-800 already fixed for local builds; worth its own small follow-up)."
+    summary: "IN_PROGRESS — split into small sequential stages per user direction.
+      Stage 1 (2026-07-22, complete): re-based Dockerfile.management to
+      python:3.14.6-alpine3.24 (same base Phase 317 used for analytics/tarpit/test/
+      trafficgen). All native deps (cryptography, xmlsec/python3-saml, lxml, bcrypt)
+      resolved via prebuilt musllinux wheels, no source build needed. Verified with a
+      full HTTP-level smoke test (health, CSRF, password login exercising bcrypt+JWT,
+      authenticated request, SAML metadata route) against the live built image, not
+      just 'it builds'. Fixed a pre-existing bug found along the way: the Dockerfile's
+      own HEALTHCHECK pointed at /health, which doesn't exist (only /api/v1/health
+      does) — docker-compose.poc.yml's own healthcheck override was masking it. Scans
+      0 HIGH/CRITICAL (one dated .trivyignore residual, CVE-2024-23342/ecdsa, upstream
+      won't-fix, tracked for the phase-304 PyJWT migration). Added to scan-first-party's
+      FIRST_PARTY_IMAGES — now actually gated. ja4proxy-admin confirmed already
+      decommissioned (Phase 232d/232e) — nothing to do there.
+      Stage 2 (not started): the mandatory SAML signature-tampering adversarial test.
+      Deliberately sequenced AFTER Phases 806/807/808 land — those close a gap found
+      while scoping this phase (management/tests/, 760 tests including the real SAML/
+      WebAuthn/OIDC/RBAC/pentest-regression coverage, is entirely excluded from make
+      test) so stage 2's safety net is real, CI-verified coverage rather than the thin
+      43-test tests/unit/management/ floor.
+      Out of scope: management-image.yml's persistent GHA build cache (same class of
+      staleness risk phase-800 already fixed for local builds; worth its own small
+      follow-up)."
   802:
     name: "Root Clutter Follow-Up: Stray Phase Notes, Dead Files — and a Critical No on Dotfile Relocation"
     status: COMPLETE
