@@ -25,6 +25,7 @@ This document outlines the testing methodology and quality gates for JA4proxy.
 | Category | Location | Purpose |
 |----------|----------|---------|
 | **Unit** | `tests/unit/` | Isolation tests for functions and classes. |
+| **Management (unit)** | `management/tests/` | The Management API's own, much larger test suite (SAML/WebAuthn/TOTP/OIDC/RBAC, DSAR/compliance, attack views, pentest-regression). Historically separate from `tests/unit/management/` (which stays small and focused) — both run in `make test`/`make test-unit` as of Phase 808; see that phase for why it was silently excluded from CI until then. |
 | **Integration** | `tests/integration/` | Multi-module tests with a real Redis instance. |
 | **Chaos** | `tests/chaos/` | Verifies resilience when Redis or APIs are slow/down. |
 | **Adversarial** | `tests/adversarial/` | Fuzzing and evasion attempt testing. |
