@@ -3999,14 +3999,30 @@ phases:
       top_attackers(). management/tests/: 35 -> 0 failures (749 passed, 3 skipped)."
   808:
     name: "management/tests/ — wire into CI, stop the silent gap recurring"
-    status: PROPOSED
+    status: COMPLETE
     action_plan: docs/phases/PHASE_808.md
     dependencies:
     - 807
     size: SMALL
-    summary: "PROPOSED — no code until approved. Once Phase 807 leaves
-      management/tests/ fully green, add it to pyproject.toml testpaths (or an
-      explicit make test step) so the 760 tests — including the real
-      SAML/WebAuthn/TOTP/OIDC/RBAC/pentest-regression coverage — actually run in
-      CI going forward, plus a guardrail test so a future refactor can't silently
-      re-exclude it the way testpaths=[\"tests\"] already did once."
+    summary: "COMPLETE (2026-07-22). management/tests/ now runs in both make test
+      and make test-unit (own explicit pytest step, -n auto --dist=loadfile,
+      matching the tests/unit/ pattern — kept separate rather than merged into one
+      invocation, since 4 filenames collide between the two directories:
+      test_attack_fingerprints.py, test_attack_mode.py, test_datacenter_policy.py,
+      test_offense.py). Also added to pyproject.toml testpaths for bare `pytest`/IDE
+      runs. Found and fixed a real import-path bug while wiring this in: bare
+      pytest (not `python -m pytest`) failed with ModuleNotFoundError: No module
+      named 'management' when invoked from the tools-image — management/tests/ has
+      __init__.py but management/ itself doesn't (implicit namespace package), so
+      pytest's rootdir walk-up stopped one level too early and inserted
+      management/ instead of the repo root into sys.path. Fixed with
+      pythonpath = [\".\"] rather than touching application packaging. Two new
+      guardrail tests in tests/unit/test_makefile_targets.py: one asserts the
+      Makefile's test: target body still contains the management/tests/ invocation
+      (verified it actually catches the regression — simulated removing the line,
+      confirmed the check goes red), one asserts the directory still has >=30
+      test_*.py files (catches accidental deletion/rename). Documented the split
+      between management/tests/ and tests/unit/management/ in
+      docs/developer/TESTING_STRATEGY.md's Test Categories table (previously
+      undocumented). management/tests/: 749 passed, 3 skipped, 0 failed, now
+      running in every CI pass. Closes the 806/807/808 CI-gap cleanup."

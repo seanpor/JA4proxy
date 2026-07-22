@@ -363,6 +363,8 @@ test: tools-image cli-build ## Phase 146 — Run the full test suite
 	@GOROOT=$(GOROOT) go test -v -coverprofile=coverage.txt -covermode=atomic ./...
 	@echo "=== Running Python Unit Tests (containerized: $(TOOLS_IMG)) ==="
 	@$(TOOLS_RUN) pytest tests/unit/ -n auto --dist=loadfile --timeout=60 --tb=short
+	@echo "=== Running management/tests/ (phase-808 — was silently excluded, see manifest) ==="
+	@$(TOOLS_RUN) pytest management/tests/ -n auto --dist=loadfile --timeout=60 --tb=short
 	@echo "=== Running Integration Smoke Tests (containerized) ==="
 	@$(TOOLS_RUN) pytest tests/integration/ -k "not docker_stack" -x -q --timeout=60
 	@echo "=== Running CI/workflow guardrail tests (containerized) ==="
@@ -373,6 +375,7 @@ test: tools-image cli-build ## Phase 146 — Run the full test suite
 # Run unit tests only (containerized — pinned Python 3.14, no host venv)
 test-unit: tools-image
 	@$(TOOLS_RUN) pytest tests/unit/ -n $(WORKERS) --dist=loadfile --timeout=60 --tb=short $(ARGS)
+	@$(TOOLS_RUN) pytest management/tests/ -n $(WORKERS) --dist=loadfile --timeout=60 --tb=short $(ARGS)
 
 # Run chaos/resilience tests only (containerized)
 test-chaos: tools-image
