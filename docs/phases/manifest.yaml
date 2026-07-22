@@ -3939,3 +3939,43 @@ phases:
       GitHub Release asset (outbound-only pull from the monitoring host), not a
       bot-authored commit to main. Out of scope: per-PR blocking perf gates, OTEL
       trace export (no trace backend exists in this stack)."
+  806:
+    name: "management/tests/ — remove dead-module test references"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_806.md
+    size: SMALL
+    summary: "PROPOSED — no code until approved. Found while scoping Phase 801:
+      management/tests/ (760 tests) is entirely excluded from make test
+      (pyproject.toml testpaths=[\"tests\"] never sees it). Of its 35 current
+      failures, 8 (test_phase_122_security_review.py) reference modules already
+      deleted (src.tap.enforcement_bridge, src.security.health, proxy.py) — this
+      phase removes/ports those before Phase 807 tackles the rest."
+  807:
+    name: "management/tests/ — fix schema-drifted test fixtures"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_807.md
+    dependencies:
+    - 806
+    size: SMALL
+    summary: "PROPOSED — no code until approved. The remaining 27 of 35
+      management/tests/ failures are test-fixture drift, not app regressions:
+      several files seed the retired ja4proxy:events flat-schema stream key while
+      management/api/routes/connections.py now reads events:connection with
+      ECS-dotted JSON (the Go proxy's actual event format); test_attack.py expects
+      current_status/block_count fields the route no longer returns; one
+      XADD-id-collision test bug in test_attack_fingerprints.py. Fixes fixtures to
+      match current schema, verifies which side is correct for the attack.py
+      fields rather than silencing the assertion."
+  808:
+    name: "management/tests/ — wire into CI, stop the silent gap recurring"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_808.md
+    dependencies:
+    - 807
+    size: SMALL
+    summary: "PROPOSED — no code until approved. Once Phase 807 leaves
+      management/tests/ fully green, add it to pyproject.toml testpaths (or an
+      explicit make test step) so the 760 tests — including the real
+      SAML/WebAuthn/TOTP/OIDC/RBAC/pentest-regression coverage — actually run in
+      CI going forward, plus a guardrail test so a future refactor can't silently
+      re-exclude it the way testpaths=[\"tests\"] already did once."
