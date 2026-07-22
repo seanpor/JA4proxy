@@ -3917,3 +3917,25 @@ phases:
       test — same unguarded-duplicate class as this session's sliding_window.lua
       finding). Key decision: Waves 1-2 ship as one reviewable unit; Waves 3-4 may
       be separate follow-up PRs rather than one 40-finding change."
+  805:
+    name: "Nightly Performance/Load Regression Detection, wired into Prometheus + Grafana"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_805.md
+    size: MEDIUM
+    summary: "PROPOSED — no code until approved. Found while investigating an unrelated
+      CVE-waiver question in the same phase-800 session (2026-07-22): make bench-all
+      (perf-test, load-test, go-perf, MTTR) is real, working tooling, but nothing in
+      .github/workflows/*.yml ever runs it — a PR that regresses hot-path latency or
+      throughput passes CI cleanly today. Plan: a nightly (not per-PR) GitHub Actions
+      job runs the existing ja4p test benchmark, gates on the already-documented-but-
+      unenforced 20% regression threshold in docs/reports/benchmark_baseline.txt, and
+      publishes results into the observability stack already in production (Prometheus
+      + Grafana + Alertmanager via docker-compose.monitoring.yml) using node-exporter's
+      textfile collector — not Prometheus remote_write or a Pushgateway, both
+      considered and rejected (would mean exposing a new inbound ingest endpoint on
+      infra built around minimizing exactly that). Reuses the ja4proxy_loadtest_*
+      metric family OBSERVABILITY_STANDARDS.md already reserves but that today is only
+      ever emitted ephemerally. Transport for the CI->monitoring-host hop is a rolling
+      GitHub Release asset (outbound-only pull from the monitoring host), not a
+      bot-authored commit to main. Out of scope: per-PR blocking perf gates, OTEL
+      trace export (no trace backend exists in this stack)."
