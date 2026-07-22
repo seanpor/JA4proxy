@@ -43,8 +43,12 @@ from management.api.auth import _create_access_token  # noqa: E402
 from management.api.main import create_app  # noqa: E402
 
 # ── Stream / Redis constants ──────────────────────────────────────────────────
+#
+# The Go proxy writes ECS-dotted JSON under a single "event" field — see
+# management/api/routes/connections.py's _parse_entry(). Matches the pattern
+# already correct in management/tests/test_attack.py.
 
-_STREAM_KEY = "ja4proxy:events"
+_STREAM_KEY = "events:connection"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -116,21 +120,28 @@ async def _xadd_event(
     redis: fakeredis.aioredis.FakeRedis,
     ip: str = "1.2.3.4",
     ja4: str = "t13d_default",
-    risk_score: str = "42",
+    risk_score: int = 42,
     action_taken: str = "allow",
-    dial_setting: str = "0",
     timestamp: str = "2026-04-07T10:00:00Z",
 ) -> str:
-    """Add one connection event to the stream; return the entry ID."""
+    """Add one connection event to the stream; return the entry ID.
+
+    Writes the ECS-dotted JSON-in-"event" format the Go proxy actually
+    produces (management/api/routes/connections.py's _parse_entry()), not
+    the flat-field legacy shape.
+    """
     return await redis.xadd(
         _STREAM_KEY,
         {
-            "ip": ip,
-            "ja4": ja4,
-            "risk_score": risk_score,
-            "action_taken": action_taken,
-            "dial_setting": dial_setting,
-            "timestamp": timestamp,
+            "event": json.dumps(
+                {
+                    "@timestamp": timestamp,
+                    "source.ip": ip,
+                    "ja4proxy.fingerprint.ja4": ja4,
+                    "event.risk_score": risk_score,
+                    "event.action": action_taken,
+                }
+            )
         },
     )
 

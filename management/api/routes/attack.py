@@ -14,7 +14,7 @@ import json
 import logging
 import time
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from ipaddress import ip_address
 from typing import Optional
 
@@ -103,6 +103,7 @@ async def top_attackers(
     ip_counts: dict[str, int] = defaultdict(int)
     ip_actions: dict[str, str] = {}
     ip_ja4: dict[str, str] = {}
+    ip_block_counts: dict[str, int] = defaultdict(int)
 
     for ev in events:
         ip = ev.get("source.ip", "")
@@ -112,6 +113,8 @@ async def top_attackers(
         action = ev.get("event.action", "")
         ja4 = ev.get("ja4proxy.fingerprint.ja4", "")
         ip_counts[ip] += 1
+        if action in ("block", "ban", "tarpit"):
+            ip_block_counts[ip] += 1
         if score > ip_scores.get(ip, -1):
             ip_scores[ip] = score
             ip_actions[ip] = action
@@ -119,6 +122,21 @@ async def top_attackers(
                 ip_ja4[ip] = ja4
 
     top = sorted(ip_scores.items(), key=lambda x: x[1], reverse=True)[:20]
+
+    # Batch ban-status lookup (bounded to top 20 — polled every 5s by the
+    # Under Attack dashboard, so keep this cheap).
+    ban_expires: dict[str, Optional[str]] = {}
+    try:
+        for ip, _score in top:
+            ttl = await redis.ttl(f"ban:{ip}")
+            if ttl and ttl > 0:
+                ban_expires[ip] = (
+                    datetime.now(timezone.utc) + timedelta(seconds=ttl)
+                ).isoformat()
+            elif ttl == -1:
+                ban_expires[ip] = None  # permanent ban, no expiry
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("attack | event=ban_status_lookup_error | error=%s", exc)
 
     return JSONResponse({
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -128,8 +146,11 @@ async def top_attackers(
                 "ip": ip,
                 "max_score": round(score, 1),
                 "connection_count": ip_counts.get(ip, 0),
+                "block_count": ip_block_counts.get(ip, 0),
                 "last_action": ip_actions.get(ip, ""),
                 "ja4": ip_ja4.get(ip, ""),
+                "current_status": "banned" if ip in ban_expires else "active",
+                "ban_expires": ban_expires.get(ip),
             }
             for ip, score in top
         ],
