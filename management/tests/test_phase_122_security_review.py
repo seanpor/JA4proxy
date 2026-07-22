@@ -18,16 +18,11 @@ M-5: Health server defaults to 127.0.0.1
 
 from __future__ import annotations
 
-import hashlib
-import hmac
-import json
 import os
-import re
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from httpx import ASGITransport, AsyncClient
 
 # ── C-1: OpenAPI docs disabled in production ─────────────────────────────────
 
@@ -178,21 +173,11 @@ class TestRateLimiterFailsClosed:
 
 
 # ── H-3: No f-string logging in proxy.py ─────────────────────────────────────
-
-
-class TestNoFStringLogging:
-    """proxy.py must not contain f-string logging calls (Phase 18 standard)."""
-
-    def test_no_fstring_logging_in_proxy(self):
-        proxy_path = Path(__file__).resolve().parents[2] / "proxy.py"
-        content = proxy_path.read_text()
-        pattern = re.compile(r'self\.logger\.\w+\(f["\']')
-        matches = pattern.findall(content)
-        assert len(matches) == 0, (
-            f"Found {len(matches)} f-string logging calls in proxy.py. "
-            "Use lazy %s formatting per AGENTS.md Phase 18."
-        )
-
+#
+# REMOVED (phase-806): proxy.py (the Python proxy) was deleted when the Go
+# rewrite (Phase 15) became the sole production proxy. The f-string-logging
+# anti-pattern this guarded against is Python-specific and has no Go
+# equivalent to port a test to — Go's log/slog doesn't have this failure mode.
 
 # ── H-5: OIDC test-mode bypass removed ───────────────────────────────────────
 
@@ -292,91 +277,26 @@ class TestLoginPageNoExternalCDN:
 
 
 # ── M-4: TAP enforcement bridge HMAC verification ───────────────────────────
-
-
-class TestEnforcementBridgeHMAC:
-    """Enforcement bridge must verify HMAC on pub/sub messages."""
-
-    def _make_bridge(self, hmac_secret: str = "test-hmac-secret"):
-        from src.tap.enforcement_bridge import EnforcementBridge
-
-        config = {
-            "security": {"pubsub_hmac_secret": hmac_secret},
-            "tap_enforcement": {},
-        }
-        mock_redis = MagicMock()
-        return EnforcementBridge(config, mock_redis)
-
-    def _sign_message(self, secret: str, msg_type: str, value: str) -> str:
-        data = f"{msg_type}:{value}".encode("utf-8")
-        sig = hmac.new(secret.encode("utf-8"), data, hashlib.sha256).hexdigest()
-        envelope = {"type": msg_type, "value": value, "signature": sig}
-        return json.dumps(envelope)
-
-    def test_valid_hmac_accepted(self):
-        bridge = self._make_bridge("my-secret")
-        value = json.dumps({"ip": "1.2.3.4", "ttl": 3600, "reason": "test"})
-        signed = self._sign_message("my-secret", "ja4proxy:bans", value)
-        envelope = json.loads(signed)
-        assert bridge._verify_hmac(envelope) is True
-
-    def test_invalid_hmac_rejected(self):
-        bridge = self._make_bridge("my-secret")
-        envelope = {
-            "type": "ja4proxy:bans",
-            "value": '{"ip": "1.2.3.4"}',
-            "signature": "deadbeef" * 8,
-        }
-        assert bridge._verify_hmac(envelope) is False
-
-    def test_missing_signature_rejected(self):
-        bridge = self._make_bridge("my-secret")
-        envelope = {"type": "ja4proxy:bans", "value": '{"ip": "1.2.3.4"}'}
-        assert bridge._verify_hmac(envelope) is False
-
-    def test_no_hmac_configured_accepts_all(self):
-        bridge = self._make_bridge("")
-        envelope = {"ip": "1.2.3.4", "ttl": 3600}
-        assert bridge._verify_hmac(envelope) is True
-
-    @pytest.mark.asyncio
-    async def test_handle_message_drops_unsigned_when_hmac_configured(self):
-        bridge = self._make_bridge("my-secret")
-        bridge._on_ban = AsyncMock()
-
-        msg = {"data": json.dumps({"ip": "1.2.3.4", "ttl": 3600, "reason": "test"})}
-        await bridge._handle_message(msg)
-
-        bridge._on_ban.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_handle_message_processes_signed_message(self):
-        bridge = self._make_bridge("my-secret")
-        bridge._on_ban = AsyncMock()
-
-        value = json.dumps({"ip": "1.2.3.4", "ttl": 3600, "reason": "test"})
-        signed = self._sign_message("my-secret", "ja4proxy:bans", value)
-        msg = {"data": signed}
-        await bridge._handle_message(msg)
-
-        bridge._on_ban.assert_called_once_with("1.2.3.4", 3600, "test")
-
+#
+# REMOVED (phase-806): src/tap/enforcement_bridge.py (Python TAP mode, Phase
+# 20) was deleted when Phase 316 replaced it with the Go TAP sensor
+# (cmd/ja4-tap, internal/tap/). This is NOT a like-for-like port: grep across
+# internal/tap/*.go and cmd/ja4-tap/main.go finds zero pub/sub subscription
+# anywhere — the Go sensor only ever writes findings/bans to Redis, it never
+# consumes externally-published ban commands the way EnforcementBridge did
+# (subscribe to ja4proxy:bans, HMAC-verify, fan out to iptables/BGP/webhook).
+# That capability appears to be a genuine gap, not a rename — flagged for
+# tracking (see docs/phases/PHASE_803.md or a new finding), not something
+# phase-806 resolves. There is no Go code to write a replacement test against.
 
 # ── M-5: Health server defaults to 127.0.0.1 ────────────────────────────────
-
-
-class TestHealthServerBindDefault:
-    """Health server must default to 127.0.0.1, not 0.0.0.0."""
-
-    def test_health_server_default_host(self):
-        from unittest.mock import MagicMock
-
-        from src.security.health import HealthMonitor, HealthServer
-
-        monitor = HealthMonitor(redis_client=MagicMock(), config={})
-        server = HealthServer(monitor=monitor)
-        assert server.host == "127.0.0.1"
-
+#
+# REMOVED (phase-806): src/security/health.py (Python) was deleted; the Go
+# TAP sensor's equivalent (cmd/ja4-tap/main.go, -metrics-addr flag) has no
+# hardcoded default at all — the server doesn't start unless an address is
+# explicitly supplied (empty = disabled), which is arguably a stronger
+# secure-by-default posture than the old hardcoded "127.0.0.1" fallback.
+# No default-binding logic exists to write an equivalent test against.
 
 # ── H-1: CORS wildcard rejected in production ────────────────────────────────
 
