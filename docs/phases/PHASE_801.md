@@ -1,14 +1,20 @@
 ---
 phase: 801
 title: ja4proxy-management Base Hardening (Debian -> low-CVE base)
-status: PROPOSED
+status: IN_PROGRESS
 created: 2026-07-21
 audience: [developer]
 ---
 
 # ja4proxy-management Base Hardening
 
-> **STATUS: PROPOSED — plan for review. No code until approved.**
+> **STATUS: IN_PROGRESS.** Stage 1 (Alpine rebase, steps 1-2-4-5-6-7 below)
+> is complete — see `docs/phases/manifest.yaml` for the full writeup. Stage 2
+> (step 3, the SAML adversarial test) is deliberately deferred until
+> [[PHASE_806]]/[[PHASE_807]]/[[PHASE_808]] land a real, CI-verified safety
+> net for `management/tests/` — found unregistered-from-CI while scoping this
+> phase, and too load-bearing for this phase's own D2 risk assessment to skip.
+>
 > Picks up the piece [[PHASE_317]] explicitly deferred: `ja4proxy-management`
 > and `ja4proxy-admin` stayed on Debian `python:3.14-slim`, "their no-fix
 > distro CVEs waiver-tracked" — never actually wired into a waiver register,

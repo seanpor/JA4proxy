@@ -178,3 +178,18 @@ CVE-2026-0994 exp:2026-07-29
 # input in our deployment — they're monitoring/logging tools sitting behind
 # the proxy, reachable only from trusted internal callers.
 GHSA-hrxh-6v49-42gf exp:2026-07-29
+
+# CVE-2024-23342: python-ecdsa vulnerable to the Minerva timing side-channel
+# attack (no fixed version — upstream ecdsa has no patch; the maintainer's
+# stance is "constant-time signing is out of scope for this library").
+# Why no fix: pulled in transitively by python-jose (management/requirements.txt)
+# for JWT signing. The real remediation is migrating off python-jose to PyJWT
+# (already tracked from phase-304 as a separate, larger auth-library change).
+# Why not exploitable here: Minerva requires an attacker able to measure
+# nanosecond-scale signing-time variance over many repeated signature
+# operations against the same key — JA4proxy's JWT signing is HS256
+# (HMAC, not ECDSA) by default; ecdsa is present only as python-jose's
+# transitive dependency graph, not on the actual signing path used today.
+# Phase 801 (ja4proxy-management Alpine rebase): the only residual finding
+# after re-basing off python:3.14.6-alpine3.24 — expected per that phase's plan.
+CVE-2024-23342 exp:2026-07-29
