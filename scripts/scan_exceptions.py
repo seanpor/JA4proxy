@@ -17,7 +17,7 @@ from datetime import date, datetime
 from pathlib import Path
 
 IGNORE = Path(__file__).resolve().parents[1] / ".trivyignore"
-ENTRY = re.compile(r"^(CVE-\d{4}-\d+)(?:\s+exp:(\d{4}-\d{2}-\d{2}))?\s*$")
+ENTRY = re.compile(r"^(CVE-\d{4}-\d+|GHSA-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4})(?:\s+exp:(\d{4}-\d{2}-\d{2}))?\s*$")
 
 
 def parse(text: str):
@@ -73,7 +73,7 @@ def main(argv: list[str]) -> int:
     if violations:
         print(
             f"\n✗ {violations} exception(s) EXPIRED or missing exp: date. "
-            "Re-justify (extend exp:, max +14d) or remove (prefer a real fix)."
+            "Re-justify (extend exp:, max +7d) or remove (prefer a real fix)."
         )
         return 1
     print(f"\n✓ {len(entries)} exception(s), all within their time window.")

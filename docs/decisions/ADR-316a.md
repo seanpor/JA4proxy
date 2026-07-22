@@ -81,4 +81,4 @@ community fork is `github.com/gopacket/gopacket`.
 ## References
 
 - ADR-020 — AF_PACKET vs pcap/Scapy/PF_RING/DPDK (Phase-20, capture primitive).
-- `docs/phases/PHASE_316a.md` §3, §5.
+- `docs/phases/complete/PHASE_316a.md` §3, §5.

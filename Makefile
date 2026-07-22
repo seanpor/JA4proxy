@@ -1585,7 +1585,7 @@ loadtest: go-build cli-build ## Lane-isolated good/bad load test -> watch Grafan
 # Run the full required-check set locally before opening a PR. This is the
 # shift-left half of the CI trial: heavy checks (lint, scan) run here on the
 # author's machine so the PR path can stay fast. All three must be green before
-# you push a branch and open a PR. See docs/phases/PHASE_332.md.
+# you push a branch and open a PR. See docs/phases/complete/PHASE_332.md.
 check: go-build cli-build compose-validate test ## Fast gate: compile + env validate + tests (~3 min, no image builds or CVE scans)
 	@echo "✓ check passed — matches CI required checks"
 

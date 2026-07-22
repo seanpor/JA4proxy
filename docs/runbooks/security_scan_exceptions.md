@@ -38,8 +38,8 @@ again — forcing a re-review.
 
 | Action | How |
 |--------|-----|
-| **Add** | Confirm there is genuinely no fix (`make scan` shows `fix_deferred`/`affected`). Append a `#` block stating *why no fix* and *why not exploitable here*, then `CVE-XXXX-NNNNN exp:<today+14d>`. |
-| **Edit / extend** | Change the `exp:` date and update the justification comment to say why it still applies. **Max window: 14 days** — keep exceptions short-lived. |
+| **Add** | Confirm there is genuinely no fix (`make scan` shows `fix_deferred`/`affected`). Append a `#` block stating *why no fix* and *why not exploitable here*, then `CVE-XXXX-NNNNN exp:<today+7d>`. |
+| **Edit / extend** | Change the `exp:` date and update the justification comment to say why it still applies. **Max window: 7 days** — keep exceptions short-lived. |
 | **Delete** | When a fix lands, remove the comment block + CVE line and let `apt/apk upgrade` clear it; or remove once the risk is otherwise resolved. |
 
 Always run `make scan-exceptions` after editing, and `make scan` to confirm the
@@ -48,7 +48,7 @@ gate is satisfied.
 ## Rules
 
 1. **No blanket ignores** — one entry per CVE, each individually justified.
-2. **Every entry needs an `exp:` date** (max +14 days) and a justification comment.
+2. **Every entry needs an `exp:` date** (max +7 days) and a justification comment.
 3. **Fixable ⇒ patch, don't ignore** — only no-fix CVEs belong here.
 4. Prefer a **real fix** (base-image change, e.g. Phase 229) over repeatedly
    extending an exception.
