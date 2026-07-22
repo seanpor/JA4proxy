@@ -112,7 +112,7 @@ on. Edit `manifest.yaml`; run `make sync` to preview locally.
 > rebase-on-base-advance loop was the main merge-race driver. You only need to
 > rebase if your PR genuinely conflicts. *(A GitHub merge queue would automate
 > even that, but merge queue requires an **organization-owned** repo and this one
-> is personal-account-owned, so it is unavailable — see `docs/phases/PHASE_332.md`.)*
+> is personal-account-owned, so it is unavailable — see `docs/phases/complete/PHASE_332.md`.)*
 >
 > **Required checks (the merge gate).** The full required set is Meta-Validation,
 > Full Lint, Full Test, Security Scan, Secrets scan, SAST, the Python/Go

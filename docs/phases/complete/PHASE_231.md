@@ -625,7 +625,7 @@ Phase 232 — Security Foundations & Quick Wins
 ├── Add Content-Security-Policy header
 ├── Implement situation summary bar
 └── Implement proxy-down banner
-    Document: docs/phases/PHASE_232.md
+    Document: docs/phases/complete/PHASE_232.md
 
 Phase 233 — Observability Foundations
 ├── Add Prometheus scrape targets (tarpit:9099, analytics:8080)

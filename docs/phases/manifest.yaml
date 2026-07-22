@@ -224,7 +224,7 @@ phases:
   109:
     name: PROXY Protocol Hardening & Scrubbing
     status: DEFERRED
-    action_plan: docs/phases/cancelled/PHASE_109.md
+    action_plan: docs/phases/PHASE_109.md
     dependencies:
     - 108
     size: MEDIUM
@@ -233,7 +233,7 @@ phases:
   110:
     name: Management API Security Hardening
     status: DEFERRED
-    action_plan: docs/phases/cancelled/PHASE_110.md
+    action_plan: docs/phases/PHASE_110.md
     dependencies:
     - 108
     size: MEDIUM
@@ -243,7 +243,7 @@ phases:
   111:
     name: Security Logic & Tarpit Hardening
     status: DEFERRED
-    action_plan: docs/phases/cancelled/PHASE_111.md
+    action_plan: docs/phases/PHASE_111.md
     dependencies:
     - 108
     size: SMALL
@@ -252,7 +252,7 @@ phases:
   112:
     name: Session & Data Integrity Hardening
     status: DEFERRED
-    action_plan: docs/phases/cancelled/PHASE_112.md
+    action_plan: docs/phases/PHASE_112.md
     dependencies:
     - 108
     size: MEDIUM
@@ -262,7 +262,7 @@ phases:
   113:
     name: Proxy Stability & Audit Instrumentation
     status: DEFERRED
-    action_plan: docs/phases/cancelled/PHASE_113.md
+    action_plan: docs/phases/PHASE_113.md
     dependencies:
     - 108
     size: SMALL
@@ -272,7 +272,7 @@ phases:
   114:
     name: Supply Chain & Infrastructure Hygiene
     status: DEFERRED
-    action_plan: docs/phases/cancelled/PHASE_114.md
+    action_plan: docs/phases/PHASE_114.md
     dependencies:
     - 108
     size: SMALL
@@ -282,7 +282,7 @@ phases:
   115:
     name: Web & Rendering Security
     status: DEFERRED
-    action_plan: docs/phases/cancelled/PHASE_115.md
+    action_plan: docs/phases/PHASE_115.md
     dependencies:
     - 108
     size: SMALL
@@ -291,7 +291,7 @@ phases:
   116:
     name: Protocol Parser Hardening
     status: DEFERRED
-    action_plan: docs/phases/cancelled/PHASE_116.md
+    action_plan: docs/phases/PHASE_116.md
     dependencies:
     - 108
     size: SMALL
@@ -301,7 +301,7 @@ phases:
   117:
     name: DMZ Network Hardening & Anti-Smuggling
     status: DEFERRED
-    action_plan: docs/phases/cancelled/PHASE_117.md
+    action_plan: docs/phases/PHASE_117.md
     dependencies:
     - 108
     size: MEDIUM
@@ -331,7 +331,7 @@ phases:
   120:
     name: 'Independent Red Team Findings: Design Flaws, Infrastructure & Logic Bugs (RETIRED)'
     status: DEFERRED
-    action_plan: docs/phases/cancelled/PHASE_120.md
+    action_plan: docs/phases/PHASE_120.md
     dependencies:
     - 108
     size: LARGE
@@ -2652,7 +2652,7 @@ phases:
     name: Go TAP / SPAN Passive Sensor (index)
     status: COMPLETE
     completed: '2026-06-25'
-    action_plan: docs/phases/PHASE_316.md
+    action_plan: docs/phases/complete/PHASE_316.md
     size: LARGE
     summary: "Complete. Split into 316a–316e sub-phases, all COMPLETE. Standalone cmd/ja4-tap\
       \ binary with AF_PACKET capture, TCP reassembly, OS-mismatch fingerprinting, passive\
@@ -2661,7 +2661,7 @@ phases:
     name: "Go TAP Core — Capture & TCP Reassembly"
     status: COMPLETE
     completed: '2026-06-25'
-    action_plan: docs/phases/PHASE_316a.md
+    action_plan: docs/phases/complete/PHASE_316a.md
     dependencies:
     - 231b
     size: LARGE
@@ -2672,7 +2672,7 @@ phases:
   316b:
     name: Go TAP OS-Mismatch Signal (MVP)
     status: COMPLETE
-    action_plan: docs/phases/PHASE_316b.md
+    action_plan: docs/phases/complete/PHASE_316b.md
     dependencies:
     - 316a
     size: MEDIUM
@@ -2688,7 +2688,7 @@ phases:
   316c:
     name: Go TAP Passive JA4T + Advisory Blocklist Signal
     status: COMPLETE
-    action_plan: docs/phases/PHASE_316c.md
+    action_plan: docs/phases/complete/PHASE_316c.md
     dependencies:
     - 316a
     - 316b
@@ -2707,7 +2707,7 @@ phases:
   316d:
     name: Go TAP Out-of-Band Enforcement Bridge
     status: COMPLETE
-    action_plan: docs/phases/PHASE_316d.md
+    action_plan: docs/phases/complete/PHASE_316d.md
     dependencies:
     - 316a
     - 316b
@@ -2726,7 +2726,7 @@ phases:
   316e:
     name: Go TAP Intelligence Exporters (EDL-pull MVP)
     status: COMPLETE
-    action_plan: docs/phases/PHASE_316e.md
+    action_plan: docs/phases/complete/PHASE_316e.md
     dependencies:
     - 316a
     - 316d
@@ -2814,7 +2814,7 @@ phases:
     name: Security Foundations & Quick Wins (Index)
     status: COMPLETE
     completed: '2026-06-25'
-    action_plan: docs/phases/PHASE_232.md
+    action_plan: docs/phases/complete/PHASE_232.md
     dependencies:
     - 231
     size: SMALL
@@ -2844,7 +2844,7 @@ phases:
   232c:
     name: Container Networking & Port Hardening
     status: COMPLETE
-    action_plan: docs/phases/PHASE_232c.md
+    action_plan: docs/phases/complete/PHASE_232c.md
     dependencies:
     - 232a
     size: SMALL
@@ -2854,7 +2854,7 @@ phases:
   232d:
     name: Admin-API Decommissioning
     status: COMPLETE
-    action_plan: docs/phases/PHASE_232d.md
+    action_plan: docs/phases/complete/PHASE_232d.md
     dependencies:
     - 232a
     size: SMALL
@@ -2973,7 +2973,7 @@ phases:
     name: Merge-Race Reduction & CI Shift-Left
     status: COMPLETE
     completed: 2026-06-15
-    action_plan: docs/phases/PHASE_332.md
+    action_plan: docs/phases/complete/PHASE_332.md
     dependencies: []
     size: SMALL
     summary: "Removed the recurring merge-conflict churn parallel phase PRs hit. Untracked the auto-generated TODO.md/PROJECT_STATUS.md\
@@ -2987,7 +2987,7 @@ phases:
     name: "Bootstrap Finish — Go Wizard Migration & 231b Close-Out"
     status: COMPLETE
     completed: '2026-06-25'
-    action_plan: docs/phases/PHASE_333.md
+    action_plan: docs/phases/complete/PHASE_333.md
     dependencies:
     - 231b
     summary: "Complete. bootstrap.sh calls ja4p init (Go-native wizard), Python wizard
@@ -3033,7 +3033,7 @@ phases:
     name: "Close Remaining OPEN Findings"
     status: COMPLETE
     completed: '2026-06-26'
-    action_plan: docs/phases/PHASE_341.md
+    action_plan: docs/phases/complete/PHASE_341.md
     dependencies: []
     size: SMALL
     summary: "Closed 4 remaining OPEN findings: F-0060 (TAP reassembly buffer logging — added Debug log lines
@@ -3056,7 +3056,7 @@ phases:
     name: Full Codebase Bug Hunt — Multi-Strand Security Audit
     status: COMPLETE
     completed: '2026-06-24'
-    action_plan: docs/phases/PHASE_500.md
+    action_plan: docs/phases/complete/PHASE_500.md
     dependencies:
     - 400
     size: XLARGE
@@ -3073,7 +3073,7 @@ phases:
     name: 'Codebase Bug Hunt — Pass 2 (IEEE 1044 Classification)'
     status: COMPLETE
     completed: '2026-06-25'
-    action_plan: docs/phases/PHASE_501.md
+    action_plan: docs/phases/complete/PHASE_501.md
     dependencies:
     - 500
     size: XLARGE
@@ -3199,7 +3199,7 @@ phases:
     name: "Datacenter ASN One-Click Block"
     status: COMPLETE
     completed: '2026-06-26'
-    action_plan: docs/phases/PHASE_249.md
+    action_plan: docs/phases/complete/PHASE_249.md
     dependencies:
     - 247
     - 248
@@ -3212,7 +3212,7 @@ phases:
     name: "Botnet Fingerprint Detection & One-Click Block"
     status: COMPLETE
     completed: '2026-06-26'
-    action_plan: docs/phases/PHASE_250.md
+    action_plan: docs/phases/complete/PHASE_250.md
     dependencies:
     - 247
     - 248
@@ -3225,7 +3225,7 @@ phases:
     name: Seccomp Hardening for TAP Sensor
     status: COMPLETE
     completed: '2026-06-25'
-    action_plan: docs/phases/PHASE_244.md
+    action_plan: docs/phases/complete/PHASE_244.md
     dependencies:
     - 336
     size: MEDIUM
@@ -3235,7 +3235,7 @@ phases:
   246:
     name: "Discovery, Onboarding & First-5-Minutes Experience"
     status: COMPLETE
-    action_plan: docs/phases/PHASE_246.md
+    action_plan: docs/phases/complete/PHASE_246.md
     dependencies:
     - 245
     size: MEDIUM
@@ -3246,7 +3246,7 @@ phases:
     name: "GitHub Repo Description & Topics"
     status: COMPLETE
     completed: '2026-06-25'
-    action_plan: docs/phases/PHASE_246.md
+    action_plan: docs/phases/complete/PHASE_246.md
     dependencies: []
     size: SMALL
     summary: "Update GitHub repo description to lead with problem (bot protection),
@@ -3255,7 +3255,7 @@ phases:
     name: "README Rewrite for Humans"
     status: COMPLETE
     completed: '2026-06-25'
-    action_plan: docs/phases/PHASE_246.md
+    action_plan: docs/phases/complete/PHASE_246.md
     dependencies: []
     size: MEDIUM
     summary: "Restructure README: lead with problem, plain-English how-it-works,
@@ -3265,7 +3265,7 @@ phases:
     name: "Management UI in Minimal Docker Compose"
     status: COMPLETE
     completed: '2026-06-25'
-    action_plan: docs/phases/PHASE_246.md
+    action_plan: docs/phases/complete/PHASE_246.md
     dependencies: []
     size: SMALL
     summary: "Add management dashboard service to docker-compose.yml with safe defaults.
@@ -3274,7 +3274,7 @@ phases:
     name: "First-5-Minutes Onboarding Guide"
     status: COMPLETE
     completed: '2026-06-25'
-    action_plan: docs/phases/PHASE_246.md
+    action_plan: docs/phases/complete/PHASE_246.md
     dependencies:
     - 246.2
     size: SMALL
@@ -3284,7 +3284,7 @@ phases:
     name: "Integration Quick-Reference Cards"
     status: COMPLETE
     completed: '2026-06-25'
-    action_plan: docs/phases/PHASE_246.md
+    action_plan: docs/phases/complete/PHASE_246.md
     dependencies:
     - 246.2
     size: MEDIUM
@@ -3293,7 +3293,7 @@ phases:
   247:
     name: "Under-Attack Live Dashboard"
     status: COMPLETE
-    action_plan: docs/phases/PHASE_247.md
+    action_plan: docs/phases/complete/PHASE_247.md
     dependencies:
     - 246
     size: MEDIUM
@@ -3305,7 +3305,7 @@ phases:
   247.1:
     name: "Attack Mode API"
     status: COMPLETE
-    action_plan: docs/phases/PHASE_247.md
+    action_plan: docs/phases/complete/PHASE_247.md
     dependencies: []
     size: SMALL
     summary: "POST /api/v1/attack-mode raises dial to 75 via existing emergency dial
@@ -3314,7 +3314,7 @@ phases:
   247.2:
     name: "Attacker Table API"
     status: COMPLETE
-    action_plan: docs/phases/PHASE_247.md
+    action_plan: docs/phases/complete/PHASE_247.md
     dependencies: []
     size: MEDIUM
     summary: "GET /api/v1/attack/top aggregates recent events stream, returns top
@@ -3323,7 +3323,7 @@ phases:
   247.3:
     name: "Under-Attack Page (HTML)"
     status: COMPLETE
-    action_plan: docs/phases/PHASE_247.md
+    action_plan: docs/phases/complete/PHASE_247.md
     dependencies:
     - 247.1
     - 247.2
@@ -3333,7 +3333,7 @@ phases:
   247.4:
     name: "Sidebar Navigation Link"
     status: COMPLETE
-    action_plan: docs/phases/PHASE_247.md
+    action_plan: docs/phases/complete/PHASE_247.md
     dependencies:
     - 247.3
     size: SMALL
@@ -3341,7 +3341,7 @@ phases:
   247.5:
     name: "Tests"
     status: COMPLETE
-    action_plan: docs/phases/PHASE_247.md
+    action_plan: docs/phases/complete/PHASE_247.md
     dependencies:
     - 247.1
     - 247.2
@@ -3424,7 +3424,7 @@ phases:
   249:
     name: "Datacenter ASN One-Click Block"
     status: COMPLETE
-    action_plan: docs/phases/PHASE_249.md
+    action_plan: docs/phases/complete/PHASE_249.md
     dependencies:
     - 247
     size: MEDIUM
@@ -3435,7 +3435,7 @@ phases:
   249.1:
     name: "Config Schema & Go Loader"
     status: COMPLETE
-    action_plan: docs/phases/PHASE_249.md
+    action_plan: docs/phases/complete/PHASE_249.md
     dependencies: []
     size: SMALL
     summary: "datacenter_policy section in config/proxy.yml: action (score|tarpit|block),
@@ -3443,7 +3443,7 @@ phases:
   249.2:
     name: "Pipeline Enforcement (Go)"
     status: COMPLETE
-    action_plan: docs/phases/PHASE_249.md
+    action_plan: docs/phases/complete/PHASE_249.md
     dependencies:
     - 249.1
     size: MEDIUM
@@ -3453,7 +3453,7 @@ phases:
   249.3:
     name: "Management API"
     status: COMPLETE
-    action_plan: docs/phases/PHASE_249.md
+    action_plan: docs/phases/complete/PHASE_249.md
     dependencies:
     - 249.1
     size: MEDIUM
@@ -3463,7 +3463,7 @@ phases:
   249.4:
     name: "Settings Page UI"
     status: COMPLETE
-    action_plan: docs/phases/PHASE_249.md
+    action_plan: docs/phases/complete/PHASE_249.md
     dependencies:
     - 249.3
     size: MEDIUM
@@ -3473,7 +3473,7 @@ phases:
   249.5:
     name: "Attack Mode Integration"
     status: COMPLETE
-    action_plan: docs/phases/PHASE_249.md
+    action_plan: docs/phases/complete/PHASE_249.md
     dependencies:
     - 247.1
     - 249.3
@@ -3484,7 +3484,7 @@ phases:
   249.6:
     name: "Tests"
     status: COMPLETE
-    action_plan: docs/phases/PHASE_249.md
+    action_plan: docs/phases/complete/PHASE_249.md
     dependencies:
     - 249.1
     - 249.2
@@ -3498,7 +3498,7 @@ phases:
   250:
     name: "Botnet Fingerprint Detection & One-Click Block"
     status: COMPLETE
-    action_plan: docs/phases/PHASE_250.md
+    action_plan: docs/phases/complete/PHASE_250.md
     dependencies:
     - 247
     size: MEDIUM
@@ -3511,7 +3511,7 @@ phases:
   250.1:
     name: "Expand and Version Known-Browser Corpus"
     status: COMPLETE
-    action_plan: docs/phases/PHASE_250.md
+    action_plan: docs/phases/complete/PHASE_250.md
     dependencies: []
     size: SMALL
     summary: "Expand fixtures/ti_feeds/ja4_fp_corpus.txt to 15+ browser fingerprints
@@ -3520,7 +3520,7 @@ phases:
   250.2:
     name: "Attack Fingerprint Aggregation API"
     status: COMPLETE
-    action_plan: docs/phases/PHASE_250.md
+    action_plan: docs/phases/complete/PHASE_250.md
     dependencies:
     - 250.1
     size: MEDIUM
@@ -3531,7 +3531,7 @@ phases:
   250.3:
     name: "Fingerprint Tab on Under Attack Page"
     status: COMPLETE
-    action_plan: docs/phases/PHASE_250.md
+    action_plan: docs/phases/complete/PHASE_250.md
     dependencies:
     - 247.3
     - 250.2
@@ -3542,7 +3542,7 @@ phases:
   250.4:
     name: "Block Safety Gate"
     status: COMPLETE
-    action_plan: docs/phases/PHASE_250.md
+    action_plan: docs/phases/complete/PHASE_250.md
     dependencies:
     - 250.2
     - 250.3
@@ -3554,7 +3554,7 @@ phases:
   250.5:
     name: "Attack Mode Integration"
     status: COMPLETE
-    action_plan: docs/phases/PHASE_250.md
+    action_plan: docs/phases/complete/PHASE_250.md
     dependencies:
     - 247.1
     - 250.2
@@ -3565,7 +3565,7 @@ phases:
   250.6:
     name: "Tests"
     status: COMPLETE
-    action_plan: docs/phases/PHASE_250.md
+    action_plan: docs/phases/complete/PHASE_250.md
     dependencies:
     - 250.1
     - 250.2
@@ -3579,7 +3579,7 @@ phases:
   511:
     name: "SecOps Emergency Dashboard Access"
     status: COMPLETE
-    action_plan: docs/phases/PHASE_511.md
+    action_plan: docs/phases/complete/PHASE_511.md
     dependencies: []
     size: MEDIUM
     summary: "Closed the gap where operators in the field could not access the management
@@ -3595,7 +3595,7 @@ phases:
   512:
     name: "PDF Documentation Sync (Phase 511)"
     status: COMPLETE
-    action_plan: docs/phases/PHASE_512.md
+    action_plan: docs/phases/complete/PHASE_512.md
     dependencies:
     - 511
     size: SMALL
@@ -3647,7 +3647,7 @@ phases:
   518:
     name: "Race-Detector CI Gate + cmd/ja4pd Test-Race Fixes"
     status: COMPLETE
-    action_plan: docs/phases/PHASE_518.md
+    action_plan: docs/phases/complete/PHASE_518.md
     dependencies:
     - 515
     size: SMALL
@@ -3681,7 +3681,7 @@ phases:
   520:
     name: "Aggressive Bug Hunt — Go Proxy (Red-Team Pass)"
     status: COMPLETE
-    action_plan: docs/phases/PHASE_520.md
+    action_plan: docs/phases/complete/PHASE_520.md
     dependencies: []
     size: MEDIUM
     summary: "Adversarial second pass over the remotely-reachable Go proxy, then fixed the one
@@ -3703,7 +3703,7 @@ phases:
   521:
     name: "Aggressive Bug Hunt — Infrastructure & Management API (Red-Team Pass)"
     status: COMPLETE
-    action_plan: docs/phases/PHASE_521.md
+    action_plan: docs/phases/complete/PHASE_521.md
     dependencies: []
     size: MEDIUM
     summary: "Adversarial pass over the non-proxy surface (management API auth/OIDC/SAML/
@@ -3727,7 +3727,7 @@ phases:
   522:
     name: "Aggressive Bug Hunt — Management Auth, Access Control & Wiring (Pass 2)"
     status: COMPLETE
-    action_plan: docs/phases/PHASE_522.md
+    action_plan: docs/phases/complete/PHASE_522.md
     dependencies:
     - 521
     size: MEDIUM
@@ -3814,7 +3814,7 @@ phases:
   802:
     name: "Root Clutter Follow-Up: Stray Phase Notes, Dead Files — and a Critical No on Dotfile Relocation"
     status: COMPLETE
-    action_plan: docs/phases/PHASE_802.md
+    action_plan: docs/phases/complete/PHASE_802.md
     dependencies:
     - 205
     size: SMALL
@@ -3838,7 +3838,7 @@ phases:
   502:
     name: "Phase 15 Gap Closure — Browser Fixtures and Container Smoke Test"
     status: COMPLETE
-    action_plan: docs/phases/PHASE_502.md
+    action_plan: docs/phases/complete/PHASE_502.md
     dependencies:
     - 15
     size: SMALL
@@ -3857,7 +3857,7 @@ phases:
   334:
     name: "316* Phase Series Audit & Review — Go TAP/SPAN Sensor Code Review"
     status: COMPLETE
-    action_plan: docs/phases/PHASE_334.md
+    action_plan: docs/phases/complete/PHASE_334.md
     dependencies:
     - 316a
     - 316b

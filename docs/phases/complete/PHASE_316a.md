@@ -218,7 +218,7 @@ Add to `internal/metrics` **and** `OBSERVABILITY_STANDARDS.md §1d`:
 |------|--------|
 | `docs/decisions/ADR-316a.md` | New file — capture library assessment and selection |
 | `docs/decisions/INDEX.md` | Add ADR-316a entry (matches existing per-phase ADR convention, e.g. ADR-203a) |
-| `docs/phases/manifest.yaml`, `docs/phases/PHASE_316.md` | Correct the "`ja4pd sensor` subcommand" wording to the decided standalone `cmd/ja4-tap/` binary (§3b) |
+| `docs/phases/manifest.yaml`, `docs/phases/complete/PHASE_316.md` | Correct the "`ja4pd sensor` subcommand" wording to the decided standalone `cmd/ja4-tap/` binary (§3b) |
 | `go.mod` / `go.sum` | Add `github.com/gopacket/gopacket` (must pass `govulncheck` gate) |
 | `internal/metrics/metrics.go` | Register TAP metrics |
 | `docs/reference/OBSERVABILITY_STANDARDS.md` | Add TAP metrics definitions |

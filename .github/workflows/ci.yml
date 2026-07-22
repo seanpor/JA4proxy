@@ -25,7 +25,7 @@ on:
   # Phase 332: the GitHub merge queue dispatches `merge_group` events. Every
   # REQUIRED status check must report on this event or the queue stalls forever.
   # merge_group is currently dormant (no merge queue — personal-account-owned
-  # repos can't enable one, see docs/phases/PHASE_332.md) so this never fires in
+  # repos can't enable one, see docs/phases/complete/PHASE_332.md) so this never fires in
   # practice today. `smoke-docker` stays non-required/skipped-on-merge_group
   # (continue-on-error). Full Lint and Security Scan were a time-boxed Phase 332
   # trial as non-required (2026-06-15 to 2026-06-29); the trial expired without
