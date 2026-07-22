@@ -224,7 +224,7 @@ phases:
   109:
     name: PROXY Protocol Hardening & Scrubbing
     status: DEFERRED
-    action_plan: docs/phases/cancelled/PHASE_109.md
+    action_plan: docs/phases/PHASE_109.md
     dependencies:
     - 108
     size: MEDIUM
@@ -233,7 +233,7 @@ phases:
   110:
     name: Management API Security Hardening
     status: DEFERRED
-    action_plan: docs/phases/cancelled/PHASE_110.md
+    action_plan: docs/phases/PHASE_110.md
     dependencies:
     - 108
     size: MEDIUM
@@ -243,7 +243,7 @@ phases:
   111:
     name: Security Logic & Tarpit Hardening
     status: DEFERRED
-    action_plan: docs/phases/cancelled/PHASE_111.md
+    action_plan: docs/phases/PHASE_111.md
     dependencies:
     - 108
     size: SMALL
@@ -252,7 +252,7 @@ phases:
   112:
     name: Session & Data Integrity Hardening
     status: DEFERRED
-    action_plan: docs/phases/cancelled/PHASE_112.md
+    action_plan: docs/phases/PHASE_112.md
     dependencies:
     - 108
     size: MEDIUM
@@ -262,7 +262,7 @@ phases:
   113:
     name: Proxy Stability & Audit Instrumentation
     status: DEFERRED
-    action_plan: docs/phases/cancelled/PHASE_113.md
+    action_plan: docs/phases/PHASE_113.md
     dependencies:
     - 108
     size: SMALL
@@ -272,7 +272,7 @@ phases:
   114:
     name: Supply Chain & Infrastructure Hygiene
     status: DEFERRED
-    action_plan: docs/phases/cancelled/PHASE_114.md
+    action_plan: docs/phases/PHASE_114.md
     dependencies:
     - 108
     size: SMALL
@@ -282,7 +282,7 @@ phases:
   115:
     name: Web & Rendering Security
     status: DEFERRED
-    action_plan: docs/phases/cancelled/PHASE_115.md
+    action_plan: docs/phases/PHASE_115.md
     dependencies:
     - 108
     size: SMALL
@@ -291,7 +291,7 @@ phases:
   116:
     name: Protocol Parser Hardening
     status: DEFERRED
-    action_plan: docs/phases/cancelled/PHASE_116.md
+    action_plan: docs/phases/PHASE_116.md
     dependencies:
     - 108
     size: SMALL
@@ -301,7 +301,7 @@ phases:
   117:
     name: DMZ Network Hardening & Anti-Smuggling
     status: DEFERRED
-    action_plan: docs/phases/cancelled/PHASE_117.md
+    action_plan: docs/phases/PHASE_117.md
     dependencies:
     - 108
     size: MEDIUM
@@ -331,7 +331,7 @@ phases:
   120:
     name: 'Independent Red Team Findings: Design Flaws, Infrastructure & Logic Bugs (RETIRED)'
     status: DEFERRED
-    action_plan: docs/phases/cancelled/PHASE_120.md
+    action_plan: docs/phases/PHASE_120.md
     dependencies:
     - 108
     size: LARGE
