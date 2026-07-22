@@ -3888,3 +3888,32 @@ phases:
       erasure mechanism. NONE of the 40+ recommended fixes have been implemented.
       This needs a dedicated remediation phase, prioritized by severity — flagged to
       the maintainer, not actioned here."
+  803:
+    name: "Go TAP/SPAN Sensor Remediation — Fix Phase 334's Findings"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_803.md
+    dependencies:
+    - 334
+    size: LARGE
+    summary: "PROPOSED — no code until approved. Executes the fixes Phase 334 (316*
+      series code review) recommended but explicitly did not implement (that phase was
+      review-only by design). Groups 40+ findings into four priority waves: Wave 1
+      (CRITICAL, blocks production deployment) — add panic recovery (a single crafted
+      packet currently hangs the sensor forever, undetected by liveness checks), wire
+      capability drop + a Go-appropriate seccomp profile (binary currently runs with
+      full CAP_NET_RAW), add a poll timeout so SIGTERM is noticed on an idle sensor
+      (currently requires SIGKILL). Wave 2 (HIGH) — panic-free busyloop backoff, wire
+      up the never-registered Prometheus metrics + a /health endpoint, add the missing
+      Makefile build target (the sensor currently can't be built via make build at
+      all), fix 5 of 7 Alertmanager rules and 8 of 11 Grafana panels that reference
+      metrics which don't exist or are never assigned. Wave 3 (MEDIUM) — Redis
+      credential/TLS hardening, concurrency-safety fixes, ban-provenance tagging (a
+      sensor ban can silently overwrite and shorten an operator's ban), a negative-
+      cache-poisoning fix, and the project's first privacy/GDPR documentation (zero
+      exists project-wide despite the sensor capturing raw ClientHello bytes incl.
+      SNI and writing IP-keyed Redis records with no erasure mechanism). Wave 4
+      (LOW/INFO) — batched cleanup (sync.Pool, kernel BPF filter, the never-
+      implemented watchdog, duplicate canonicalIP/key-prefix constants with no sync
+      test — same unguarded-duplicate class as this session's sliding_window.lua
+      finding). Key decision: Waves 1-2 ship as one reviewable unit; Waves 3-4 may
+      be separate follow-up PRs rather than one 40-finding change."
