@@ -54,16 +54,25 @@ def _ts(year: int, month: int, day: int) -> str:
     return datetime(year, month, day, 12, 0, 0, tzinfo=timezone.utc).isoformat()
 
 
-async def _seed_event(redis, ip: str, ts: str, action: str = "blocked") -> str:
-    """Add one event to the stream. Returns the stream entry ID."""
+async def _seed_event(redis, ip: str, ts: str, action: str = "block") -> str:
+    """Add one event to the stream. Returns the stream entry ID.
+
+    Writes the ECS-dotted JSON-in-"event" format the Go proxy actually
+    produces (management/api/routes/connections.py's _parse_entry()), not
+    the flat-field legacy shape.
+    """
     entry_id = await redis.xadd(
-        "ja4proxy:events",
+        "events:connection",
         {
-            "ip": ip,
-            "action_taken": action,
-            "timestamp": ts,
-            "ja4": "t13abc",
-            "risk_score": "50",
+            "event": json.dumps(
+                {
+                    "@timestamp": ts,
+                    "source.ip": ip,
+                    "ja4proxy.fingerprint.ja4": "t13abc",
+                    "event.risk_score": 50,
+                    "event.action": action,
+                }
+            )
         },
     )
     return entry_id

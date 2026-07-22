@@ -92,10 +92,16 @@ def _make_event(ja4: str, ip: str, score: float, action: str = "flag", ja4t: str
 
 
 async def _seed_events(fake_redis, events: list) -> None:
-    """Write mock events into the fake Redis event stream."""
+    """Write mock events into the fake Redis event stream.
+
+    Redis Stream IDs must be strictly increasing across XADD calls on the
+    same stream — assign ascending ids (now_ms + i*100), not descending
+    ones, or the second call fails with "ID ... equal or smaller than the
+    target stream top item".
+    """
     now_ms = int(time.time() * 1000)
     for i, ev in enumerate(events):
-        entry_id = f"{now_ms - i * 100}-0"
+        entry_id = f"{now_ms + i * 100}-0"
         await fake_redis.xadd("events:connection", {"event": json.dumps(ev)}, id=entry_id)
 
 

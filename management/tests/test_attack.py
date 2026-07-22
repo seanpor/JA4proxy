@@ -66,8 +66,17 @@ async def test_top_attackers_aggregates_by_ip(
 
 @pytest.mark.asyncio
 async def test_old_events_excluded(authenticated_client: AsyncClient, fake_redis) -> None:
-    """Events with timestamps outside the 300s window are not included."""
-    await fake_redis.xadd("events:connection", {"event": _make_old_event("10.0.0.99")})
+    """Events with timestamps outside the 300s window are not included.
+
+    _read_attack_window filters by the Redis STREAM ENTRY ID's embedded
+    millisecond timestamp (XREVRANGE min=<ms>-0), not by the event JSON's
+    own "@timestamp" field — so simulating an old event requires an
+    explicit old entry id, not just an old "@timestamp" payload value.
+    """
+    old_ms = int((time.time() - 3600) * 1000)  # 1 hour ago, well outside 300s
+    await fake_redis.xadd(
+        "events:connection", {"event": _make_old_event("10.0.0.99")}, id=f"{old_ms}-0"
+    )
 
     r = await authenticated_client.get("/api/v1/attack/top")
     assert r.status_code == 200

@@ -19,6 +19,7 @@ Quality bar
 
 from __future__ import annotations
 
+import json
 import os
 import unittest.mock
 from datetime import datetime, timezone
@@ -115,13 +116,17 @@ async def test_dsar_single_xrange_call_per_request(auditor_client):
     now = datetime.now(timezone.utc)
     for i in range(5):
         await redis.xadd(
-            "ja4proxy:events",
+            "events:connection",
             {
-                "ip": "10.0.0.1",
-                "timestamp": now.isoformat(),
-                "action_taken": "allow",
-                "ja4": f"JA4NORMAL{i}",
-                "risk_score": "10",
+                "event": json.dumps(
+                    {
+                        "@timestamp": now.isoformat(),
+                        "source.ip": "10.0.0.1",
+                        "ja4proxy.fingerprint.ja4": f"JA4NORMAL{i}",
+                        "event.risk_score": 10,
+                        "event.action": "allow",
+                    }
+                )
             },
         )
 
@@ -331,13 +336,17 @@ async def test_dsar_xrange_metric_wired(auditor_client):
     now = datetime.now(timezone.utc).isoformat()
     for i in range(7):
         await redis.xadd(
-            "ja4proxy:events",
+            "events:connection",
             {
-                "ip": "10.0.0.7",
-                "timestamp": now,
-                "action_taken": "allow",
-                "ja4": f"JA4METRIC{i}",
-                "risk_score": "5",
+                "event": json.dumps(
+                    {
+                        "@timestamp": now,
+                        "source.ip": "10.0.0.7",
+                        "ja4proxy.fingerprint.ja4": f"JA4METRIC{i}",
+                        "event.risk_score": 5,
+                        "event.action": "allow",
+                    }
+                )
             },
         )
 
@@ -480,13 +489,17 @@ async def test_101a_acceptance_all(auditor_client):
         mapping={"entry": "10.0.0.0/24", "added_by": "admin", "reason": "test"},
     )
     await redis.xadd(
-        "ja4proxy:events",
+        "events:connection",
         {
-            "ip": "10.0.0.5",
-            "timestamp": "2026-01-01T00:00:00Z",
-            "action_taken": "allow",
-            "ja4": "JA4test",
-            "risk_score": "5",
+            "event": json.dumps(
+                {
+                    "@timestamp": "2026-01-01T00:00:00Z",
+                    "source.ip": "10.0.0.5",
+                    "ja4proxy.fingerprint.ja4": "JA4test",
+                    "event.risk_score": 5,
+                    "event.action": "allow",
+                }
+            )
         },
     )
 
