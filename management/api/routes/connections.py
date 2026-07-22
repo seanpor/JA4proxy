@@ -68,11 +68,15 @@ def _parse_entry(fields: Dict[str, Any]) -> Dict[str, Any]:
         parsed = raw
     else:
         parsed = {}
+    signals = parsed.get("ja4proxy.signals", [])
+    if not isinstance(signals, list):
+        signals = []
     return {
         "ip": parsed.get("source.ip", ""),
         "ja4": parsed.get("ja4proxy.fingerprint.ja4", ""),
         "risk_score": parsed.get("event.risk_score"),
         "action_taken": parsed.get("event.action", ""),
+        "signals": signals,
         "timestamp": parsed.get("@timestamp", ""),
     }
 
@@ -217,19 +221,20 @@ async def get_fingerprint_detail(
     total = 0
 
     for _entry_id, fields in raw:
-        if fields.get("ja4") != ja4:
+        entry = _parse_entry(fields)
+        if entry["ja4"] != ja4:
             continue
 
         total += 1
-        ip_val = fields.get("ip", "")
+        ip_val = entry["ip"]
         if ip_val:
             unique_ips.add(ip_val)
 
-        action_val = fields.get("action_taken", "")
+        action_val = entry["action_taken"]
         if action_val:
             actions[action_val] = actions.get(action_val, 0) + 1
 
-        ts = fields.get("timestamp", "")
+        ts = entry["timestamp"]
         if ts and (last_seen is None or ts > last_seen):
             last_seen = ts
 
@@ -265,9 +270,10 @@ async def get_fingerprint_history(
 
     events: List[Dict[str, Any]] = []
     for _entry_id, fields in raw:
-        if fields.get("ja4") != ja4:
+        entry = _parse_entry(fields)
+        if entry["ja4"] != ja4:
             continue
-        events.append(_parse_entry(fields))
+        events.append(entry)
 
     # Sort by timestamp field (ISO 8601 strings compare correctly lexicographically)
     events.sort(key=lambda e: e.get("timestamp", ""))

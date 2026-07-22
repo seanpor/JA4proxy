@@ -3966,20 +3966,37 @@ phases:
       35 -> 27, exactly as predicted. Sets up Phase 807."
   807:
     name: "management/tests/ — fix schema-drifted test fixtures"
-    status: PROPOSED
+    status: COMPLETE
     action_plan: docs/phases/PHASE_807.md
     dependencies:
     - 806
     size: SMALL
-    summary: "PROPOSED — no code until approved. The remaining 27 of 35
-      management/tests/ failures are test-fixture drift, not app regressions:
-      several files seed the retired ja4proxy:events flat-schema stream key while
-      management/api/routes/connections.py now reads events:connection with
-      ECS-dotted JSON (the Go proxy's actual event format); test_attack.py expects
-      current_status/block_count fields the route no longer returns; one
-      XADD-id-collision test bug in test_attack_fingerprints.py. Fixes fixtures to
-      match current schema, verifies which side is correct for the attack.py
-      fields rather than silencing the assertion."
+    summary: "COMPLETE (2026-07-22). Fixed all 27 remaining management/tests/
+      failures. Most were genuine test-fixture drift (5 files seeding the retired
+      ja4proxy:events flat-schema key instead of events:connection's ECS-dotted
+      JSON; one XADD-id-collision test bug in test_attack_fingerprints.py using
+      descending ids, which Redis Streams reject). But investigating
+      test_new_endpoints.py's two fingerprint-route failures surfaced a real
+      application bug, not test drift: get_fingerprint_detail/get_fingerprint_history
+      in connections.py read raw flat fields (fields.get('ja4')) directly instead of
+      unwrapping the ECS-dotted event JSON via _parse_entry() the way get_connections
+      does — meaning these two routes have likely never matched a single event
+      against real Go-proxy traffic. Same bug class found and fixed in THREE
+      GDPR-relevant compliance.py functions: _dsar_connection_history and
+      _dsar_fingerprint_associations (the actual DSAR Article-15 export — was
+      silently returning empty connection history for every subject access
+      request) and _aggregate_from_stream/_build_category_counts (executive
+      compliance report — also compared action_taken against the wrong string
+      'blocked' instead of the real 'block' value, and read a nonexistent
+      top-level 'signals' field instead of the ECS-dotted 'ja4proxy.signals').
+      _parse_entry() extended to also extract 'signals' so all these share one
+      parser. Separately, test_attack.py's current_status/ban_expires/block_count
+      expectations were investigated and confirmed as a real missing feature, not
+      stale test intent: management/templates/partials/attack_table.html already
+      references a.current_status and a.ban_expires — the 'Under Attack' dashboard's
+      ban-status column has been silently non-functional in production. Implemented
+      ban-status lookup (ban:{ip} TTL) and block/ban/tarpit action tallying in
+      top_attackers(). management/tests/: 35 -> 0 failures (749 passed, 3 skipped)."
   808:
     name: "management/tests/ — wire into CI, stop the silent gap recurring"
     status: PROPOSED

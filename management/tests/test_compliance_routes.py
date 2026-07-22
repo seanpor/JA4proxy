@@ -627,26 +627,34 @@ async def test_report_ignores_events_with_mismatched_tz_format(auditor_client_re
     client, redis = auditor_client_redis
     # Event 1: Z suffix, clearly inside the window
     await redis.xadd(
-        "ja4proxy:events",
+        "events:connection",
         {
-            "timestamp": "2026-02-10T10:00:00Z",
-            "action_taken": "blocked",
-            "ip": "1.1.1.1",
-            "ja4": "t13d1516",
-            "risk_score": "95",
-            "signals": json.dumps(["spamhaus_drop"]),
+            "event": json.dumps(
+                {
+                    "@timestamp": "2026-02-10T10:00:00Z",
+                    "event.action": "block",
+                    "source.ip": "1.1.1.1",
+                    "ja4proxy.fingerprint.ja4": "t13d1516",
+                    "event.risk_score": 95,
+                    "ja4proxy.signals": ["spamhaus_drop"],
+                }
+            )
         },
     )
     # Event 2: +00:00 offset, also inside the window
     await redis.xadd(
-        "ja4proxy:events",
+        "events:connection",
         {
-            "timestamp": "2026-02-20T12:00:00+00:00",
-            "action_taken": "blocked",
-            "ip": "2.2.2.2",
-            "ja4": "t13d1516",
-            "risk_score": "95",
-            "signals": json.dumps(["tor_exit"]),
+            "event": json.dumps(
+                {
+                    "@timestamp": "2026-02-20T12:00:00+00:00",
+                    "event.action": "block",
+                    "source.ip": "2.2.2.2",
+                    "ja4proxy.fingerprint.ja4": "t13d1516",
+                    "event.risk_score": 95,
+                    "ja4proxy.signals": ["tor_exit"],
+                }
+            )
         },
     )
 

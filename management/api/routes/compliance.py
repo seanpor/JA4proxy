@@ -43,6 +43,7 @@ from ..audit_utils import write_audit
 from ..auth import _client_ip, require_role
 from ..models import Role
 from ..redis_client import get_redis
+from .connections import _parse_entry
 
 logger = logging.getLogger(__name__)
 
@@ -418,19 +419,20 @@ async def dsar_export(
         async for batch in _iter_dsar_stream_batches(redis):
             xrange_len += len(batch)
             for _, fields in batch:
-                if fields.get("ip") != ip:
+                entry_parsed = _parse_entry(fields)
+                if entry_parsed["ip"] != ip:
                     continue
                 connection_history.append(
                     {
-                        "timestamp": fields.get("timestamp", ""),
-                        "action": fields.get("action_taken", ""),
-                        "ja4": fields.get("ja4", ""),
-                        "risk_score": fields.get("risk_score", ""),
+                        "timestamp": entry_parsed["timestamp"],
+                        "action": entry_parsed["action_taken"],
+                        "ja4": entry_parsed["ja4"],
+                        "risk_score": entry_parsed["risk_score"],
                     }
                 )
-                ja4 = fields.get("ja4", "")
+                ja4 = entry_parsed["ja4"]
                 if ja4:
-                    ts = fields.get("timestamp", "")
+                    ts = entry_parsed["timestamp"]
                     if ja4 not in fp_seen:
                         fp_seen[ja4] = {"ja4": ja4, "first_seen": ts, "last_seen": ts}
                     else:
@@ -798,25 +800,27 @@ async def _dsar_connection_history(
     if stream_data is not None:
         return [
             {
-                "timestamp": f.get("timestamp", ""),
-                "action": f.get("action_taken", ""),
-                "ja4": f.get("ja4", ""),
-                "risk_score": f.get("risk_score", ""),
+                "timestamp": entry["timestamp"],
+                "action": entry["action_taken"],
+                "ja4": entry["ja4"],
+                "risk_score": entry["risk_score"],
             }
             for _, f in stream_data
-            if f.get("ip") == ip
+            for entry in [_parse_entry(f)]
+            if entry["ip"] == ip
         ]
     out: list[dict] = []
     try:
         async for batch in _iter_dsar_stream_batches(redis):
             for _, f in batch:
-                if f.get("ip") == ip:
+                entry = _parse_entry(f)
+                if entry["ip"] == ip:
                     out.append(
                         {
-                            "timestamp": f.get("timestamp", ""),
-                            "action": f.get("action_taken", ""),
-                            "ja4": f.get("ja4", ""),
-                            "risk_score": f.get("risk_score", ""),
+                            "timestamp": entry["timestamp"],
+                            "action": entry["action_taken"],
+                            "ja4": entry["ja4"],
+                            "risk_score": entry["risk_score"],
                         }
                     )
     except Exception:
@@ -916,12 +920,13 @@ async def _dsar_fingerprint_associations(
     seen: dict[str, dict] = {}
 
     def fold(fields: dict) -> None:
-        if fields.get("ip") != ip:
+        entry = _parse_entry(fields)
+        if entry["ip"] != ip:
             return
-        ja4 = fields.get("ja4", "")
+        ja4 = entry["ja4"]
         if not ja4:
             return
-        ts = fields.get("timestamp", "")
+        ts = entry["timestamp"]
         if ja4 not in seen:
             seen[ja4] = {"ja4": ja4, "first_seen": ts, "last_seen": ts}
         else:
@@ -1073,10 +1078,11 @@ async def _aggregate_from_stream(
     total = 0
     blocked = 0
     for _, fields in raw:
-        if not _ts_in_window(fields.get("timestamp", ""), from_dt, to_dt):
+        entry = _parse_entry(fields)
+        if not _ts_in_window(entry["timestamp"], from_dt, to_dt):
             continue
         total += 1
-        if fields.get("action_taken") == "blocked":
+        if entry["action_taken"] == "block":
             blocked += 1
     return total, blocked
 
@@ -1111,16 +1117,12 @@ async def _build_category_counts(
     clf = _get_classifier()
     counts: dict[str, int] = {}
     for _, fields in raw:
-        if not _ts_in_window(fields.get("timestamp", ""), from_dt, to_dt):
+        entry = _parse_entry(fields)
+        if not _ts_in_window(entry["timestamp"], from_dt, to_dt):
             continue
-        if fields.get("action_taken") != "blocked":
+        if entry["action_taken"] != "block":
             continue
-        signals_raw = fields.get("signals", "[]")
-        try:
-            signals = json.loads(signals_raw)
-        except Exception:
-            signals = []
-        cat = clf.classify(signals)
+        cat = clf.classify(entry["signals"])
         counts[cat] = counts.get(cat, 0) + 1
 
     return sorted(counts.items(), key=lambda x: -x[1])
