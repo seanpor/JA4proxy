@@ -3948,15 +3948,22 @@ phases:
       trace export (no trace backend exists in this stack)."
   806:
     name: "management/tests/ — remove dead-module test references"
-    status: PROPOSED
+    status: COMPLETE
     action_plan: docs/phases/PHASE_806.md
     size: SMALL
-    summary: "PROPOSED — no code until approved. Found while scoping Phase 801:
-      management/tests/ (760 tests) is entirely excluded from make test
-      (pyproject.toml testpaths=[\"tests\"] never sees it). Of its 35 current
-      failures, 8 (test_phase_122_security_review.py) reference modules already
-      deleted (src.tap.enforcement_bridge, src.security.health, proxy.py) — this
-      phase removes/ports those before Phase 807 tackles the rest."
+    summary: "COMPLETE (2026-07-22). Removed 8 tests in test_phase_122_security_review.py
+      referencing modules deleted since Phase 15/316 (proxy.py, src.tap.enforcement_bridge,
+      src.security.health). Not straightforward 1:1 ports: grep across internal/tap/*.go
+      and cmd/ja4-tap/main.go found zero pub/sub subscription anywhere — the Go TAP
+      sensor only ever writes to Redis, it never consumes externally-published,
+      HMAC-verified ban commands the way EnforcementBridge did. That looks like a
+      genuine capability gap, not a rename — flagged in the test file's replacement
+      comment for tracking (candidate for PHASE_803 or a new finding), not resolved
+      here. The health-server-bind-default test also had no Go equivalent to port to:
+      cmd/ja4-tap's -metrics-addr flag has no hardcoded default at all (disabled unless
+      explicitly set), arguably a stronger secure-by-default posture than the old
+      Python code's hardcoded 127.0.0.1 fallback. management/tests/ failure count:
+      35 -> 27, exactly as predicted. Sets up Phase 807."
   807:
     name: "management/tests/ — fix schema-drifted test fixtures"
     status: PROPOSED
