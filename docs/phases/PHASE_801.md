@@ -1,17 +1,17 @@
 ---
 phase: 801
 title: ja4proxy-management Base Hardening (Debian -> low-CVE base)
-status: IN_PROGRESS
+status: COMPLETE
 created: 2026-07-21
 audience: [developer]
 ---
 
 # ja4proxy-management Base Hardening
 
-> **STATUS: IN_PROGRESS.** Stage 1 (Alpine rebase, steps 1-2-4-5-6-7 below)
-> is complete — see `docs/phases/manifest.yaml` for the full writeup. Stage 2
-> (step 3, the SAML adversarial test) is deliberately deferred until
-> [[PHASE_806]]/[[PHASE_807]]/[[PHASE_808]] land a real, CI-verified safety
+> **STATUS: COMPLETE.** Both stages done — see `docs/phases/manifest.yaml` for
+> the full writeup. Stage 1 (Alpine rebase) landed first; Stage 2 (the SAML
+> adversarial test, D2) was deliberately sequenced after
+> [[PHASE_806]]/[[PHASE_807]]/[[PHASE_808]] landed a real, CI-verified safety
 > net for `management/tests/` — found unregistered-from-CI while scoping this
 > phase, and too load-bearing for this phase's own D2 risk assessment to skip.
 >
@@ -88,13 +88,13 @@ not a bolt-on to an unrelated CVE-hygiene session.
 
 ## Acceptance criteria
 
-- [ ] `ja4proxy-management` scans 0 HIGH/CRITICAL, or carries only dated/justified `.trivyignore` residuals (expect `CVE-2024-23342`/ecdsa to remain here — that one is explicitly out of scope, see below).
-- [ ] `ja4proxy-management` is in `scan-first-party`'s `FIRST_PARTY_IMAGES`; `make scan` exits 0.
-- [ ] A SAML signature-tampering test exists and fails correctly (rejects the tampered assertion) on the re-based image.
-- [ ] `tests/unit/management/` still passes in full.
-- [ ] `docs/reference/DOCKER_IMAGES.md` lists `ja4proxy-management` with its new base.
-- [ ] `ja4proxy-admin` status resolved (either also re-based, or confirmed dead and noted here).
-- [ ] Full CI green.
+- [x] `ja4proxy-management` scans 0 HIGH/CRITICAL, or carries only dated/justified `.trivyignore` residuals (expect `CVE-2024-23342`/ecdsa to remain here — that one is explicitly out of scope, see below).
+- [x] `ja4proxy-management` is in `scan-first-party`'s `FIRST_PARTY_IMAGES`; `make scan` exits 0.
+- [x] A SAML signature-tampering test exists and fails correctly (rejects the tampered assertion) on the re-based image.
+- [x] `tests/unit/management/` still passes in full.
+- [x] `docs/reference/DOCKER_IMAGES.md` lists `ja4proxy-management` with its new base.
+- [x] `ja4proxy-admin` status resolved (either also re-based, or confirmed dead and noted here).
+- [x] Full CI green.
 
 ## Out of scope
 

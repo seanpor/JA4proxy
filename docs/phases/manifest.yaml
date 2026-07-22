@@ -3790,31 +3790,45 @@ phases:
       all-green is the goal, not the bar. Evidence and decisions: PHASE_800_notes.md."
   801:
     name: "ja4proxy-management Base Hardening (Debian -> low-CVE base)"
-    status: IN_PROGRESS
+    status: COMPLETE
     action_plan: docs/phases/PHASE_801.md
     dependencies:
     - 317
     size: MEDIUM
-    summary: "IN_PROGRESS — split into small sequential stages per user direction.
-      Stage 1 (2026-07-22, complete): re-based Dockerfile.management to
-      python:3.14.6-alpine3.24 (same base Phase 317 used for analytics/tarpit/test/
-      trafficgen). All native deps (cryptography, xmlsec/python3-saml, lxml, bcrypt)
-      resolved via prebuilt musllinux wheels, no source build needed. Verified with a
-      full HTTP-level smoke test (health, CSRF, password login exercising bcrypt+JWT,
-      authenticated request, SAML metadata route) against the live built image, not
-      just 'it builds'. Fixed a pre-existing bug found along the way: the Dockerfile's
-      own HEALTHCHECK pointed at /health, which doesn't exist (only /api/v1/health
-      does) — docker-compose.poc.yml's own healthcheck override was masking it. Scans
-      0 HIGH/CRITICAL (one dated .trivyignore residual, CVE-2024-23342/ecdsa, upstream
-      won't-fix, tracked for the phase-304 PyJWT migration). Added to scan-first-party's
-      FIRST_PARTY_IMAGES — now actually gated. ja4proxy-admin confirmed already
-      decommissioned (Phase 232d/232e) — nothing to do there.
-      Stage 2 (not started): the mandatory SAML signature-tampering adversarial test.
-      Deliberately sequenced AFTER Phases 806/807/808 land — those close a gap found
-      while scoping this phase (management/tests/, 760 tests including the real SAML/
-      WebAuthn/OIDC/RBAC/pentest-regression coverage, is entirely excluded from make
-      test) so stage 2's safety net is real, CI-verified coverage rather than the thin
-      43-test tests/unit/management/ floor.
+    summary: "COMPLETE (2026-07-22). Split into small sequential stages per user
+      direction. Stage 1: re-based Dockerfile.management to python:3.14.6-alpine3.24
+      (same base Phase 317 used for analytics/tarpit/test/trafficgen). All native deps
+      (cryptography, xmlsec/python3-saml, lxml, bcrypt) resolved via prebuilt
+      musllinux wheels, no source build needed. Verified with a full HTTP-level smoke
+      test (health, CSRF, password login exercising bcrypt+JWT, authenticated
+      request, SAML metadata route) against the live built image, not just 'it
+      builds'. Fixed a pre-existing bug found along the way: the Dockerfile's own
+      HEALTHCHECK pointed at /health, which doesn't exist (only /api/v1/health does)
+      — docker-compose.poc.yml's own healthcheck override was masking it. Scans 0
+      HIGH/CRITICAL (one dated .trivyignore residual, CVE-2024-23342/ecdsa, upstream
+      won't-fix, tracked for the phase-304 PyJWT migration). Added to
+      scan-first-party's FIRST_PARTY_IMAGES — now actually gated. ja4proxy-admin
+      confirmed already decommissioned (Phase 232d/232e) — nothing to do there.
+      Stage 2 (D2, the acceptance-critical piece): added
+      management/tests/test_saml_signature_verification.py — a real, non-mocked
+      SAML assertion signature test (existing test_saml.py mocks OneLogin_Saml2_Auth
+      entirely, never exercising xmlsec). Self-signs a minimal spec-valid SAML 2.0
+      assertion with a freshly-generated RSA key/cert via `cryptography` +
+      OneLogin_Saml2_Utils.add_sign, then three cases: (1) validly-signed assertion
+      accepted — positive control, proves the happy path and that tampering-rejection
+      isn't trivially 'everything fails'; (2) same assertion tampered post-signature
+      (NameID changed without re-signing) rejected 401 — the actual acceptance-
+      critical proof; (3) assertion signed by an untrusted key rejected 401 — proves
+      cert-pinning, not just signature presence. Verified passing both via the
+      tools-image (CI-equivalent) and directly inside the built Alpine
+      ja4proxy-management image itself (ad hoc: pip-installed test-only deps on top
+      of the production image) — all three security-critical assertions passed in
+      both environments; a Redis-client teardown AttributeError seen only in the
+      ad hoc Alpine verification traced to an unrelated fakeredis==2.36.2/
+      redis==5.0.0 pin incompatibility in the ad hoc harness itself (tools-image's
+      own pinned versions don't hit it, and production never uses fakeredis at all)
+      — noted, not a blocker, out of scope here.
+      management/tests/: 751 passed, 4 skipped, 0 failed with the new file included.
       Out of scope: management-image.yml's persistent GHA build cache (same class of
       staleness risk phase-800 already fixed for local builds; worth its own small
       follow-up)."
