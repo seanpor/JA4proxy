@@ -198,7 +198,7 @@ Every downstream phase (316b–316e) depends on it and its `HandshakeEvent` type
 The PROPOSED status is a bureaucratic mismatch: the code is live and shipping.
 
 **Evidence:**
-- `docs/phases/PHASE_316a.md` header: `STATUS: PROPOSED — plan for review. No code until approved.`
+- `docs/phases/complete/PHASE_316a.md` header: `STATUS: PROPOSED — plan for review. No code until approved.`
 - All files listed in its "Files to Modify" table exist except `watchdog.go`, `config/proxy.yml` `tap:` section, and `internal/metrics/metrics.go` (correctly not there since TAP has its own registry).
 - 316b revision note (line 8–13) explicitly states Step 0 extends the 316a capture path to include TCP/IP-stack features.
 
@@ -313,7 +313,7 @@ nil pointer in the decode/reassembly path from a malformed packet), the entire
 capture silently stops.
 
 **Evidence:**
-- `docs/phases/PHASE_316a.md` Files-to-Modify table row for `internal/tap/watchdog.go`.
+- `docs/phases/complete/PHASE_316a.md` Files-to-Modify table row for `internal/tap/watchdog.go`.
 - `ls internal/tap/watchdog.go` fails.
 - No restart/panic-recovery logic found in `cmd/ja4-tap/main.go`.
 
