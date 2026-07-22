@@ -46,3 +46,40 @@ def test_basic_perf_test_script_exists():
     """scripts/basic_perf_test.sh must exist for the perf-test-basic Makefile target."""
     script = Path(__file__).parent.parent.parent / "scripts" / "basic_perf_test.sh"
     assert script.exists(), f"scripts/basic_perf_test.sh not found at {script}"
+
+
+def test_management_tests_wired_into_test_target():
+    """`make test` must actually invoke management/tests/ (phase-808).
+
+    management/tests/ (760+ tests, including the real SAML/WebAuthn/TOTP/
+    OIDC/RBAC/pentest-regression coverage) was silently excluded from CI for
+    an unknown period — pyproject.toml's `testpaths` never pointed at it and
+    nothing else ran it either. Guard against that recurring silently: if a
+    future Makefile refactor drops this line, this test fails loud instead
+    of the suite just quietly not running again.
+    """
+    content = MAKEFILE_PATH.read_text()
+    test_target_match = re.search(
+        r"^test:.*?(?=^\S[^\n]*:|\Z)", content, re.MULTILINE | re.DOTALL
+    )
+    assert test_target_match is not None, "Could not locate the 'test:' target body in Makefile"
+    body = test_target_match.group(0)
+    assert "management/tests" in body, (
+        "Makefile's 'test:' target no longer invokes management/tests/ — "
+        "this reintroduces the silent CI-exclusion gap phase-808 closed."
+    )
+
+
+def test_management_tests_directory_has_substantial_coverage():
+    """management/tests/ must still contain a real, substantial test suite.
+
+    A sanity floor (not an exact count) so a future accidental mass-deletion
+    or rename of this directory is caught here rather than by CI quietly
+    collecting zero tests from an empty/renamed path.
+    """
+    mgmt_tests_dir = Path(__file__).parent.parent.parent / "management" / "tests"
+    test_files = list(mgmt_tests_dir.glob("test_*.py"))
+    assert len(test_files) >= 30, (
+        f"management/tests/ only has {len(test_files)} test_*.py files — "
+        "expected 30+. Did the directory get renamed or pruned?"
+    )

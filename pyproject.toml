@@ -1,7 +1,13 @@
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
-testpaths = ["tests"]
+testpaths = ["tests", "management/tests"]
+# management/tests/ has __init__.py but management/ itself doesn't (implicit
+# namespace package) — pytest's default rootdir walk-up stops at management/
+# instead of reaching the repo root, breaking `from management.api import ...`
+# under bare `pytest` (phase-808). pythonpath sidesteps that without touching
+# application packaging.
+pythonpath = ["."]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
