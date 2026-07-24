@@ -117,7 +117,7 @@ redis-cli keys 'proxy:heartbeat:*'
 redis-cli del "$(redis-cli keys 'proxy:heartbeat:*' | head -1)"
 
 # Verify the situation bar shows data by calling the endpoint directly
-curl -s http://localhost:8090/api/v1/partials/situation -H 'Cookie: session=<token>'
+curl -s http://127.0.0.1:8090/api/v1/partials/situation -H 'Cookie: session=<token>'
 ```
 
 ---
@@ -162,7 +162,7 @@ For a quick "smoke test" of a running system, use these commands:
 ### 1. Test the "Allow" Path
 Verify the proxy correctly forwards legitimate traffic.
 ```bash
-curl -kv https://localhost:443/
+curl -kv https://127.0.0.1:443/
 ```
 *Expected: 200 OK from the backend.*
 
@@ -176,7 +176,7 @@ Use the CLI to see how the proxy would score a specific IP without sending real 
 ### 3. Test a "Block" Event
 Force a security violation by using an old TLS version.
 ```bash
-curl -k --tls-max 1.1 https://localhost:443/
+curl -k --tls-max 1.1 https://127.0.0.1:443/
 ```
 *Expected: Connection dropped or sent to Tarpit (if Dial > 0).*
 
@@ -187,9 +187,9 @@ curl -k --tls-max 1.1 https://localhost:443/
 | Asset | Location | Description |
 | :--- | :--- | :--- |
 | **Proxy Logs** | `make logs` | Real-time structured JSON logs (decisions, errors). |
-| **Metrics** | [localhost:9090/metrics](http://localhost:9090/metrics) | Raw Prometheus metrics from the Go proxy. |
-| **Grafana** | [localhost:3000](http://localhost:3000) | Visual dashboards (Security, Performance, Health). |
-| **Redis** | [localhost:8001](http://localhost:8001) | Redis Insight UI to inspect lists, dial state, and events. |
+| **Metrics** | [localhost:9090/metrics](http://127.0.0.1:9090/metrics) | Raw Prometheus metrics from the Go proxy. |
+| **Grafana** | [localhost:3000](http://127.0.0.1:3000) | Visual dashboards (Security, Performance, Health). |
+| **Redis** | [localhost:8001](http://127.0.0.1:8001) | Redis Insight UI to inspect lists, dial state, and events. |
 | **Health API** | `curl localhost:9090/health/deep` | JSON status of the proxy, Redis, and Security pipeline. |
 
 ## 📚 Reference Links

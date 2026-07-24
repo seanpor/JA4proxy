@@ -66,17 +66,16 @@ showing exactly what *would* have been blocked and why, so the
 decision to start blocking is made on data, not trust. Rollout is a
 knob you turn from 0 to 100 at your own pace.
 
-There is a structural escape hatch for real browser traffic. Modern
-browsers negotiate the next-generation HTTP protocols (HTTP/2 and
-HTTP/1.1) during the connection handshake — a step the proxy can
-see and that automated tools cannot fake without doing the work of
-a real browser. Connections that present this signal **bypass
-scoring entirely**: they cannot be blocked by any rule, threshold,
-or misconfiguration. This is an architectural guarantee, not a
-heuristic, and it is what lets you set aggressive thresholds for
-known-bad signatures without worrying about catching real users in
-the net. (Operators call this the "ALPN browser bypass"; you do not
-need to remember the term.)
+Real browser protection comes from **monitor mode by default**
+(`dial=0`): the proxy scores every connection but blocks nothing,
+so you see what *would* happen before enforcement. You can also
+whitelist the JA4 fingerprints of specific browser versions so they
+bypass scoring entirely. The proxy also supports an optional ALPN
+browser bypass (where h2/h1 connections skip scoring), but this is
+**off by default** because bots can trivially set `ALPN=h2` to
+impersonate a browser — so by default, browser-*looking* traffic is
+scored like everything else. The real safety model is monitor-mode +
+fail-open + fail-safe defaults, not an unconditional ALPN escape hatch.
 
 When external services the proxy talks to (reputation feeds, DNS,
 geolocation) are slow or unavailable, the proxy does not fall back

@@ -55,7 +55,7 @@ docker compose -f deploy/docker/docker-compose.poc.yml logs proxy | grep BLACKLI
 ./scripts/ja4-admin.sh block-ja4 t13d190900_9dc949149365_97f8aa674fd9
 
 # Check Grafana for the fingerprint_name label to get a human-readable name before blocking
-# http://localhost:3000 → JA4proxy Security Overview → Top Blocked JA4 Fingerprints
+# http://127.0.0.1:3000 → JA4proxy Security Overview → Top Blocked JA4 Fingerprints
 ```
 
 ### Step 3 — Verify it's working
@@ -252,7 +252,7 @@ This is the key advantage of JA4 fingerprinting over IP blocking — one command
 docker compose -f deploy/docker/docker-compose.poc.yml logs proxy | grep bypass_disabled
 
 # Check metrics for blocked weak cipher count
-curl -s http://localhost:9090/metrics | grep ja4proxy_weak_cipher_total
+curl -s http://127.0.0.1:9090/metrics | grep ja4proxy_weak_cipher_total
 ```
 
 **If a legitimate client is being blocked:**
@@ -322,7 +322,7 @@ Send SIGHUP after config change: `kill -HUP $(pgrep -f ja4pd)`
 docker compose -f deploy/docker/docker-compose.poc.yml logs proxy | grep "<affected-ip>" | grep blocklist
 
 # Check blocklist feed freshness
-curl -s http://localhost:9090/metrics | grep ja4proxy_blocklist_entries
+curl -s http://127.0.0.1:9090/metrics | grep ja4proxy_blocklist_entries
 ```
 
 **Immediate relief:**
@@ -513,13 +513,13 @@ python3 -m src.cli.backup_cli backup --destination /app/backups
 
 ```bash
 # Last successful backup timestamp
-curl -s http://localhost:9090/metrics | grep ja4proxy_backup_last_success_timestamp
+curl -s http://127.0.0.1:9090/metrics | grep ja4proxy_backup_last_success_timestamp
 
 # Total backup operations
-curl -s http://localhost:9090/metrics | grep ja4proxy_backup_operations_total
+curl -s http://127.0.0.1:9090/metrics | grep ja4proxy_backup_operations_total
 
 # Is a backup currently running?
-curl -s http://localhost:9090/metrics | grep ja4proxy_backup_currently_running
+curl -s http://127.0.0.1:9090/metrics | grep ja4proxy_backup_currently_running
 ```
 
 ### Known Limitations
