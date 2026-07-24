@@ -31,7 +31,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w -extldflags '-static' -X g
 
 # ── Runtime stage ─────────────────────────────────────────────────────────────
 # checkov:skip=CKV_DOCKER_2: CLI tool is short-lived and doesn't run a service
-FROM gcr.io/distroless/static-debian12@sha256:d093aa3e30dbadd3efe1310db061a14da60299baff8450a17fe0ccc514a16639
+FROM gcr.io/distroless/static-debian12@sha256:a9fcaedd4c9b59e12dd65d954f0b5044f19b0647a8a3712e77205df9e7b102cd
 
 COPY --from=builder /build/ja4p /usr/local/bin/ja4p
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
