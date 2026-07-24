@@ -718,7 +718,8 @@ PROM_RULES := /monitoring/prometheus/alerts.yml \
 	/monitoring/prometheus/recording_rules.yml \
 	/monitoring/alertmanager/rules/proxy.rules.yml \
 	/monitoring/alertmanager/rules/redis.rules.yml \
-	/monitoring/alertmanager/rules/security.rules.yml
+	/monitoring/alertmanager/rules/security.rules.yml \
+	/monitoring/alertmanager/rules/tap.yml
 lint-prom:
 	@echo "=== promtool check rules: Prometheus alert + recording rules ==="
 	@docker run --rm --entrypoint promtool \
@@ -781,6 +782,7 @@ lint-lua:
 # Validate JSON files: Grafana dashboards and API spec.
 JSON_FILES := deploy/monitoring/grafana/dashboards/ja4proxy-overview.json \
 	deploy/monitoring/grafana/dashboards/analytics.json \
+	deploy/monitoring/grafana/dashboards/tap_sensor.json \
 	docs/api/openapi.json
 lint-json:
 	@echo "=== JSON syntax validation ==="

@@ -2,6 +2,7 @@ package tap
 
 import (
 	"context"
+	"errors"
 	"time"
 )
 
@@ -111,7 +112,13 @@ func (e *Enforcer) Consider(ctx context.Context, clientIP, ja4t string) {
 	// and the monitor-first surface. The value carries provenance.
 	if err := e.redis.Set(ctx, banIntentKeyPrefix+ip, "ja4t="+ja4t, e.cfg.IntentTTL); err != nil {
 		// Redis is unhealthy; do not attempt the (more dangerous) ban write.
-		EnforcementActionsTotal.WithLabelValues(enfError).Inc()
+		// A circuit-breaker skip (R-002) is a deliberate non-attempt, not an
+		// observed failure -- count it as skipped, not error.
+		if errors.Is(err, ErrRedisCircuitOpen) {
+			EnforcementActionsTotal.WithLabelValues(enfSkipped).Inc()
+		} else {
+			EnforcementActionsTotal.WithLabelValues(enfError).Inc()
+		}
 		return
 	}
 
@@ -124,7 +131,11 @@ func (e *Enforcer) Consider(ctx context.Context, clientIP, ja4t string) {
 	// connection from this IP. Value carries provenance so the ban is
 	// attributable (and redactable — see internal/logging/redactor.go).
 	if err := e.redis.Set(ctx, banKeyPrefix+ip, "tap_enforce:ja4t="+ja4t, e.cfg.BanTTL); err != nil {
-		EnforcementActionsTotal.WithLabelValues(enfError).Inc()
+		if errors.Is(err, ErrRedisCircuitOpen) {
+			EnforcementActionsTotal.WithLabelValues(enfSkipped).Inc()
+		} else {
+			EnforcementActionsTotal.WithLabelValues(enfError).Inc()
+		}
 		return
 	}
 	EnforcementActionsTotal.WithLabelValues(enfBanned).Inc()

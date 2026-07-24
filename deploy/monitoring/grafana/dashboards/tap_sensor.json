@@ -10,7 +10,7 @@
   "tags": ["ja4", "tap", "passive", "capture"],
   "timezone": "browser",
   "schemaVersion": 38,
-  "version": 1,
+  "version": 2,
   "refresh": "10s",
   "time": {"from": "now-1h", "to": "now"},
   "timepicker": {
@@ -49,7 +49,7 @@
         {
           "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
           "expr": "rate(ja4proxy_tap_packets_received_total[1m])",
-          "legendFormat": "received ({{ interface }})"
+          "legendFormat": "received"
         }
       ]
     },
@@ -78,7 +78,7 @@
         {
           "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
           "expr": "rate(ja4proxy_tap_packets_dropped_total[1m])",
-          "legendFormat": "dropped ({{ interface }}, {{ reason }})"
+          "legendFormat": "dropped ({{ reason }})"
         }
       ]
     },
@@ -113,7 +113,7 @@
         {
           "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
           "expr": "ja4proxy_tap_ring_buffer_fill_ratio",
-          "legendFormat": "{{ interface }}",
+          "legendFormat": "fill ratio",
           "instant": true
         }
       ]
@@ -128,8 +128,9 @@
     {
       "id": 6,
       "title": "Active Streams",
+      "description": "PHASE_803 O-003: was ja4proxy_tap_streams_active (wrong word order); the real gauge is ja4proxy_tap_active_streams.",
       "type": "stat",
-      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 10},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 10},
       "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
       "fieldConfig": {
         "defaults": {
@@ -154,7 +155,7 @@
       "targets": [
         {
           "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
-          "expr": "ja4proxy_tap_streams_active",
+          "expr": "ja4proxy_tap_active_streams",
           "legendFormat": "Active streams",
           "instant": true
         }
@@ -162,14 +163,15 @@
     },
     {
       "id": 7,
-      "title": "Stream Evictions / s",
+      "title": "Worker Restarts / 5m",
+      "description": "PHASE_803 O-003: new panel. ja4proxy_tap_worker_restarts_total already existed and backs the TapWorkerCrashLoop alert, but was never visualised anywhere on this dashboard.",
       "type": "timeseries",
-      "gridPos": {"h": 8, "w": 16, "x": 8, "y": 10},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 10},
       "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
       "fieldConfig": {
         "defaults": {
           "color": {"mode": "palette-classic"},
-          "unit": "ops",
+          "unit": "short",
           "min": 0,
           "custom": {
             "lineWidth": 2,
@@ -184,8 +186,8 @@
       "targets": [
         {
           "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
-          "expr": "rate(ja4proxy_tap_stream_evictions_total[1m])",
-          "legendFormat": "evicted ({{ reason }})"
+          "expr": "increase(ja4proxy_tap_worker_restarts_total[5m])",
+          "legendFormat": "watchdog restarts"
         }
       ]
     },
@@ -198,9 +200,10 @@
     },
     {
       "id": 9,
-      "title": "Fingerprints Extracted / s — by Type",
+      "title": "Handshakes Extracted / s — by Kind",
+      "description": "PHASE_803 O-003: was rate(ja4proxy_tap_fingerprints_extracted_total[1m]) with legend {{ type }} -- that metric never existed. Remapped to the real ja4proxy_tap_handshakes_extracted_total{kind}; panel renamed to match the metric's own name/Help text.",
       "type": "timeseries",
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 19},
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 19},
       "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
       "fieldConfig": {
         "defaults": {
@@ -220,21 +223,29 @@
       "targets": [
         {
           "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
-          "expr": "rate(ja4proxy_tap_fingerprints_extracted_total[1m])",
-          "legendFormat": "{{ type }}"
+          "expr": "rate(ja4proxy_tap_handshakes_extracted_total[1m])",
+          "legendFormat": "{{ kind }}"
         }
       ]
     },
     {
       "id": 10,
-      "title": "Fingerprint Processing Latency (p99)",
+      "title": "Enforcement & Redis Health",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 27}
+    },
+    {
+      "id": 11,
+      "title": "Enforcement Actions / s",
+      "description": "PHASE_803 O-003: was rate(ja4proxy_tap_pipeline_actions_total[1m]) with legend {{ action }} -- this sensor has no 'pipeline scoring' concept (that belongs to the inline proxy's risk scorer, a different binary). Remapped to the real ja4proxy_tap_enforcement_actions_total{result} (skipped|watchlist|banned|error); panel and row renamed to match.",
       "type": "timeseries",
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 19},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 28},
       "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
       "fieldConfig": {
         "defaults": {
           "color": {"mode": "palette-classic"},
-          "unit": "s",
+          "unit": "ops",
           "min": 0,
           "custom": {
             "lineWidth": 2,
@@ -249,47 +260,15 @@
       "targets": [
         {
           "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
-          "expr": "histogram_quantile(0.99, rate(ja4proxy_tap_fingerprint_processing_seconds_bucket[5m]))",
-          "legendFormat": "p99 {{ type }}"
+          "expr": "rate(ja4proxy_tap_enforcement_actions_total[1m])",
+          "legendFormat": "{{ result }}"
         }
       ]
-    },
-    {
-      "id": 11,
-      "title": "Pipeline",
-      "type": "row",
-      "collapsed": false,
-      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 27}
     },
     {
       "id": 12,
-      "title": "Score Distribution",
-      "type": "histogram",
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 28},
-      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
-      "fieldConfig": {
-        "defaults": {
-          "color": {"mode": "palette-classic"},
-          "unit": "short"
-        }
-      },
-      "options": {
-        "bucketSize": "auto",
-        "fillOpacity": 80,
-        "gradientMode": "none",
-        "tooltip": {"mode": "single"}
-      },
-      "targets": [
-        {
-          "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
-          "expr": "rate(ja4proxy_tap_pipeline_score_distribution_bucket[5m])",
-          "legendFormat": "score bucket {{ le }}"
-        }
-      ]
-    },
-    {
-      "id": 13,
-      "title": "Pipeline Actions / s",
+      "title": "Redis Circuit Breaker",
+      "description": "PHASE_803 R-002: new panel for the circuit breaker this phase added (internal/tap/circuit_breaker.go). A healthy deployment stays flat at 0 on both series.",
       "type": "timeseries",
       "gridPos": {"h": 8, "w": 12, "x": 12, "y": 28},
       "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
@@ -311,73 +290,13 @@
       "targets": [
         {
           "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
-          "expr": "rate(ja4proxy_tap_pipeline_actions_total[1m])",
-          "legendFormat": "{{ action }}"
-        }
-      ]
-    },
-    {
-      "id": 14,
-      "title": "Export & Enforcement",
-      "type": "row",
-      "collapsed": false,
-      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 36}
-    },
-    {
-      "id": 15,
-      "title": "Export Events / s — by Exporter",
-      "type": "timeseries",
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 37},
-      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
-      "fieldConfig": {
-        "defaults": {
-          "color": {"mode": "palette-classic"},
-          "unit": "ops",
-          "min": 0,
-          "custom": {
-            "lineWidth": 2,
-            "fillOpacity": 10
-          }
-        }
-      },
-      "options": {
-        "tooltip": {"mode": "multi"},
-        "legend": {"displayMode": "list", "placement": "bottom"}
-      },
-      "targets": [
+          "expr": "increase(ja4proxy_tap_redis_circuit_breaker_opened_total[5m])",
+          "legendFormat": "opened"
+        },
         {
           "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
-          "expr": "rate(ja4proxy_tap_export_events_total[1m])",
-          "legendFormat": "{{ exporter }} / {{ event_type }}"
-        }
-      ]
-    },
-    {
-      "id": 16,
-      "title": "Enforcement Action Latency (p95)",
-      "type": "timeseries",
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 37},
-      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
-      "fieldConfig": {
-        "defaults": {
-          "color": {"mode": "palette-classic"},
-          "unit": "s",
-          "min": 0,
-          "custom": {
-            "lineWidth": 2,
-            "fillOpacity": 10
-          }
-        }
-      },
-      "options": {
-        "tooltip": {"mode": "multi"},
-        "legend": {"displayMode": "list", "placement": "bottom"}
-      },
-      "targets": [
-        {
-          "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
-          "expr": "histogram_quantile(0.95, rate(ja4proxy_tap_enforcement_latency_seconds_bucket[5m]))",
-          "legendFormat": "p95 {{ backend }}"
+          "expr": "rate(ja4proxy_tap_redis_circuit_breaker_skips_total[1m])",
+          "legendFormat": "writes skipped/s"
         }
       ]
     }
