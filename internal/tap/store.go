@@ -2,6 +2,7 @@ package tap
 
 import (
 	"context"
+	"errors"
 	"net/netip"
 	"time"
 
@@ -57,7 +58,13 @@ func (s *Store) WriteOSClass(ctx context.Context, clientIP string, class fingerp
 		return
 	}
 	if err := s.redis.Set(ctx, "fp:os:ip:"+ip, class.String(), osClassTTL); err != nil {
-		FingerprintsWrittenTotal.WithLabelValues(fpError).Inc()
+		// A circuit-breaker skip (R-002) is a deliberate non-attempt, not an
+		// observed failure -- count it as skipped, not error.
+		if errors.Is(err, ErrRedisCircuitOpen) {
+			FingerprintsWrittenTotal.WithLabelValues(fpSkippedUnknown).Inc()
+		} else {
+			FingerprintsWrittenTotal.WithLabelValues(fpError).Inc()
+		}
 		return
 	}
 	FingerprintsWrittenTotal.WithLabelValues(fpWritten).Inc()
@@ -84,7 +91,11 @@ func (s *Store) WriteJA4T(ctx context.Context, clientIP, ja4t string) {
 		return
 	}
 	if err := s.redis.Set(ctx, "fp:ja4t:ip:"+ip, ja4t, ja4tTTL); err != nil {
-		JA4TWrittenTotal.WithLabelValues(fpError).Inc()
+		if errors.Is(err, ErrRedisCircuitOpen) {
+			JA4TWrittenTotal.WithLabelValues(fpSkippedUnknown).Inc()
+		} else {
+			JA4TWrittenTotal.WithLabelValues(fpError).Inc()
+		}
 		return
 	}
 	JA4TWrittenTotal.WithLabelValues(fpWritten).Inc()

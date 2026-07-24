@@ -208,6 +208,9 @@ The PROPOSED status is a bureaucratic mismatch: the code is live and shipping.
 
 ### F-002 — [CRITICAL] Protected capability drop + seccomp not wired (binary runs with full CAP_NET_RAW)
 
+> **RESOLVED** (commit 5d1bd3f2, 2026-06-28, PR #279 "Phase 316a closeout"): `DropCapabilities()`/`LoadSeccomp()` implemented in `internal/tap/hardening.go`/`seccomp_linux.go` and wired into `cmd/ja4-tap/main.go`. Verified during Phase 803 scoping (2026-07-24) that this landed *after* this finding was written but was never linked back here -- noting it now so the finding isn't mistaken for still-open.
+>
+
 **Phase:** 316a
 
 **Description:**
@@ -499,6 +502,9 @@ deployment.
 
 ### F-014 — [HIGH] Busyloop on persistent read error (no backoff, 100% CPU burn)
 
+> **RESOLVED** (Phase 803, 2026-07-24): `internal/tap/sensor.go`'s `Run` now distinguishes the benign `ErrPollTimeout` sentinel (translated from `afpacket.ErrTimeout` in `capture_linux.go`) from a genuine read error. Genuine errors get exponential backoff (capped 1s) and a consecutive-error threshold (20) past which `Run` returns an error -- the caller's `Watchdog` restarts with a fresh source. See `TestSensorPollTimeoutDoesNotBackoffOrFail`, `TestSensorGenuineErrorBacksOffAndFailsPastThreshold`, `TestSensorBackoffRespectsContextCancellation`.
+>
+
 **Phase:** 316a
 
 **Severity:** High — operational DoS on transient failures
@@ -727,6 +733,9 @@ the `HandshakeEvent` nor any Redis write contains the payload content.
 
 ### F-022 — [CRITICAL] No panic recovery — a single crafted packet can permanently hang the sensor
 
+> **RESOLVED** (commit 5d1bd3f2, 2026-06-28, PR #279 "Phase 316a closeout"): `internal/tap/panic.go`'s `Recover()` wraps the sensor goroutine (invoked from `internal/tap/watchdog.go`'s `Watchdog.Run`), logs the panic stack, and signals the `done` channel without double-closing `s.events`. The `Watchdog` also restarts on any non-nil `Run` error with rapid-crash-loop protection (5 restarts / 60s). Verified during Phase 803 scoping (2026-07-24) that this landed *after* this finding was written but was never linked back here.
+>
+
 **Phase:** 316a
 
 **Severity:** CRITICAL — denial of service via packet-of-death
@@ -774,6 +783,9 @@ privileges required — just the ability to send packets visible to the SPAN por
 ---
 
 ### F-023 — [HIGH] Zero observability: metrics never registered, no HTTP/health endpoint
+
+> **RESOLVED** (date of landing not tied to a specific reviewed commit; confirmed live during Phase 803 scoping, 2026-07-24): `cmd/ja4-tap/main.go` calls `prometheus.MustRegister(tap.Collectors()...)` at startup and `startMetricsServer` serves `/metrics` (`promhttp.Handler()`) and `/health` on `--metrics-addr`. Verified end-to-end: built the binary, ran it against a synthetic pcap with `--metrics-addr`, and confirmed real `ja4proxy_tap_*` series over HTTP.
+>
 
 **Phase:** 316a (operations)
 
@@ -954,6 +966,9 @@ Reject out-of-range values with a clear error.
 
 ### R-001 — [CRITICAL] Shutdown hang: `ReadPacketData` blocks outside the context-select, SIGTERM skipped on silent interface
 
+> **RESOLVED** (commit 5d1bd3f2, 2026-06-28, PR #279 "Phase 316a closeout", and prior related work): `internal/tap/capture_linux.go`'s `NewLiveSource` sets `afpacket.OptPollTimeout(100 * time.Millisecond)`, so `ctx.Done()` is rechecked at least every 100ms even on an idle interface. Verified during Phase 803 scoping (2026-07-24) that this landed *after* this finding was written but was never linked back here.
+>
+
 **Phase:** 316a
 
 **Severity:** CRITICAL — process cannot be cleanly shut down when the SPAN port is idle
@@ -1000,6 +1015,9 @@ even under normal traffic patterns.
 ---
 
 ### R-002 — [HIGH] Sequential 100ms deadline per event ⇒ throughput collapse under Redis degradation
+
+> **RESOLVED** (Phase 803, 2026-07-24): added `internal/tap/circuit_breaker.go`'s `RedisCircuitBreaker`, shared by `Store` and `Enforcer` -- after 5 consecutive Redis errors it skips real writes for a 10s cooldown (`ErrRedisCircuitOpen`, counted as `fpSkippedUnknown`/`enfSkipped`, not `fpError`/`enfError`). Also split the previously-shared single `storeWriteTimeout` context in `cmd/ja4-tap/main.go`'s drive loop into three independent per-operation deadlines (`withTimeout` helper) so a slow first write no longer starves the two that follow it. New metrics: `ja4proxy_tap_redis_circuit_breaker_opened_total`, `ja4proxy_tap_redis_circuit_breaker_skips_total`.
+>
 
 **Phase:** 316a (operations)
 
@@ -1048,6 +1066,9 @@ running but produces zero useful output.
 ---
 
 ### R-004 — [HIGH] Event buffer size hard-coded at 1024 with no tunable flag
+
+> **RESOLVED** (Phase 803, 2026-07-24): added `--event-buffer` flag to `cmd/ja4-tap` (default 1024, matching the prior hardcoded value), threaded through to `tap.NewSensor`. Rejects values `< 1` before reaching `make(chan, n)`, which panics on a negative size.
+>
 
 **Phase:** 316a
 
@@ -1645,6 +1666,9 @@ The binary uses no Go runtime configuration:
 
 ### O-001 — [HIGH] No Makefile target to build `cmd/ja4-tap`
 
+> **RESOLVED** (date of landing not tied to a specific reviewed commit; confirmed during Phase 803 scoping, 2026-07-24): `Makefile`'s `tap-build` target builds `bin/ja4-tap` from `./cmd/ja4-tap`.
+>
+
 **Phase:** 316a (packaging)
 
 **Severity:** HIGH — deploy pipeline doesn't produce the sensor binary
@@ -1672,6 +1696,9 @@ Add it to the `build` target chain and create a `Dockerfile.ja4-tap` for contain
 ---
 
 ### O-002 — [HIGH] Alert rules reference non-existent or dead metrics
+
+> **RESOLVED** (Phase 803, 2026-07-24): fixed `deploy/monitoring/alertmanager/rules/tap.yml` against the real, currently-emitted metric names (verified live, not just pattern-matched against this finding's tables, per PHASE_803 D4) -- `ja4proxy_tap_enforcement_errors_total` -> `ja4proxy_tap_enforcement_actions_total{result="error"}`, `ja4proxy_tap_streams_active` -> `ja4proxy_tap_active_streams`, removed `TapExportBackendError` (no export subsystem exists in the Go sensor), fixed annotations referencing labels that don't exist (`worker_id`, `interface`, `backend`), added `TapRedisCircuitBreakerOpen` for the new R-002 metric. Also added `tap.yml` to the Makefile's `lint-prom`/`PROM_RULES` list -- it had never been in there, which is *why* these had gone unnoticed since Phase 316a.
+>
 
 **Phase:** 316a (monitoring)
 
@@ -1706,6 +1733,9 @@ Fix each alert rule to reference the correct metric name, or remove rules for su
 ---
 
 ### O-003 — [HIGH] Grafana dashboard references non-existent metrics
+
+> **RESOLVED** (Phase 803, 2026-07-24): fixed `deploy/monitoring/grafana/dashboards/tap_sensor.json`. Of 11 data panels, 8 referenced metrics that never existed (a scoring/pipeline concept, latency histograms, an export subsystem -- none implemented in the Go sensor). Removed the panels with no real backing metric, remapped "Active Streams" (word-order typo) and "Fingerprints/Pipeline Actions" (renamed to the real `ja4proxy_tap_handshakes_extracted_total`/`ja4proxy_tap_enforcement_actions_total`), and added two new panels: Worker Restarts (an existing, correct, but previously never-visualised metric) and the new R-002 Redis Circuit Breaker metrics. Verified every remaining expr against a live `/metrics` scrape, not just the tables in this finding. Also added `tap_sensor.json` to the Makefile's `lint-json`/`JSON_FILES` list -- the same never-validated gap as O-002.
+>
 
 **Phase:** 316a (monitoring)
 

@@ -6,7 +6,7 @@ groups:
         for: 1m
         labels: {severity: critical}
         annotations:
-          summary: "TAP packet drop rate critical ({{ $value | humanize }}/s)"
+          summary: "TAP packet drop rate critical ({{ $value | humanize }}/s, reason={{ $labels.reason }})"
           description: "Packets are being dropped faster than the pipeline can consume them. Check ring-buffer size and worker count."
           runbook: "docs/runbooks/tap_packet_drops.md"
           runbook_url: "https://github.com/seanpor/JA4proxy/blob/main/docs/runbooks/tap_mode.md"
@@ -16,8 +16,8 @@ groups:
         for: 0m
         labels: {severity: critical}
         annotations:
-          summary: "TAP worker {{ $labels.worker_id }} is crash-looping"
-          description: "A TAP worker has restarted more than twice in 5 minutes. Check logs for the root cause."
+          summary: "TAP sensor is crash-looping ({{ $value | humanize }} restarts in 5m)"
+          description: "The sensor's watchdog has restarted it more than twice in 5 minutes. Check logs for the panic/error root cause -- ja4proxy_tap_worker_restarts_total has no per-worker label (single-process sensor), so this fires process-wide."
           runbook: "docs/runbooks/tap_worker_crash.md"
           runbook_url: "https://github.com/seanpor/JA4proxy/blob/main/docs/runbooks/tap_mode.md"
 
@@ -26,47 +26,67 @@ groups:
         for: 2m
         labels: {severity: warning}
         annotations:
-          summary: "TAP ring buffer nearly full on {{ $labels.interface }} ({{ $value | humanizePercentage }})"
-          description: "Ring buffer fill ratio has been above 90 % for 2 minutes. Packet drops are imminent."
+          summary: "TAP ring buffer nearly full ({{ $value | humanizePercentage }})"
+          description: "Live AF_PACKET ring buffer fill ratio has been above 90% for 2 minutes. Packet drops are imminent."
           runbook: "docs/runbooks/tap_ring_buffer.md"
           runbook_url: "https://github.com/seanpor/JA4proxy/blob/main/docs/runbooks/tap_mode.md"
 
+      # PHASE_803 O-002: was rate(ja4proxy_tap_enforcement_errors_total[5m]) --
+      # that metric never existed. metrics.go's own comment: "The result=error
+      # label supersedes the outline's separate ja4proxy_tap_enforcement_
+      # errors_total -- one counter, one taxonomy." Also dropped {{
+      # $labels.backend }} -- EnforcementActionsTotal has no such label, only
+      # "result".
       - alert: TapEnforcementBackendError
-        expr: rate(ja4proxy_tap_enforcement_errors_total[5m]) > 10
+        expr: rate(ja4proxy_tap_enforcement_actions_total{result="error"}[5m]) > 10
         for: 1m
         labels: {severity: warning}
         annotations:
-          summary: "TAP enforcement backend {{ $labels.backend }} error rate high ({{ $value | humanize }}/s)"
-          description: "Enforcement actions are failing. Bans may not be applied."
+          summary: "TAP enforcement error rate high ({{ $value | humanize }}/s)"
+          description: "Enforcement writes (fp:ban_intent / ban:{ip}) are failing -- unparsable client IPs or Redis write failures. Bans may not be applied. Check TapRedisCircuitBreakerOpen first: a sustained Redis outage will drive this too, but shows as skipped writes there, not errors here."
           runbook: "docs/runbooks/tap_enforcement.md"
           runbook_url: "https://github.com/seanpor/JA4proxy/blob/main/docs/runbooks/tap_mode.md"
 
-      - alert: TapExportBackendError
-        expr: rate(ja4proxy_tap_export_errors_total[5m]) > 10
-        for: 1m
-        labels: {severity: warning}
-        annotations:
-          summary: "TAP export backend {{ $labels.exporter }} error rate high ({{ $value | humanize }}/s)"
-          description: "Intelligence export is failing. Downstream consumers may be missing events."
-          runbook: "docs/runbooks/tap_export.md"
-          runbook_url: "https://github.com/seanpor/JA4proxy/blob/main/docs/runbooks/tap_mode.md"
+      # PHASE_803 O-002: TapExportBackendError removed. ja4proxy_tap_export_
+      # errors_total never existed -- there is no export/intelligence-feed
+      # subsystem in the Go sensor (cmd/ja4-tap, internal/tap/); that was a
+      # Phase 20 Python TAP mode feature (src/tap/export/), not carried
+      # forward. Re-add only if/when the Go sensor grows an export path with
+      # its own real metric.
 
       - alert: TapNoPacketsReceived
         expr: rate(ja4proxy_tap_packets_received_total[5m]) == 0
         for: 5m
         labels: {severity: warning}
         annotations:
-          summary: "TAP sensor on {{ $labels.interface }} is receiving no packets"
+          summary: "TAP sensor is receiving no packets"
           description: "No packets have been received for 5 minutes. The capture interface may be down or misconfigured."
           runbook: "docs/runbooks/tap_no_packets.md"
           runbook_url: "https://github.com/seanpor/JA4proxy/blob/main/docs/runbooks/tap_mode.md"
 
+      # PHASE_803 O-002: was ja4proxy_tap_streams_active -- wrong word order.
+      # metrics.go's own doc comment: "note the noun-last
+      # ja4proxy_tap_active_streams gauge, per OBSERVABILITY_STANDARDS."
       - alert: TapStreamsAtCapacity
-        expr: ja4proxy_tap_streams_active > 900000
+        expr: ja4proxy_tap_active_streams > 900000
         for: 2m
         labels: {severity: warning}
         annotations:
           summary: "TAP active stream table near capacity ({{ $value | humanize }} streams)"
-          description: "The active stream count has exceeded 900 000. Older streams will be evicted, which may cause fingerprint misses."
+          description: "The active stream count has exceeded 900,000. Older streams will be evicted, which may cause fingerprint misses."
           runbook: "docs/runbooks/tap_stream_capacity.md"
+          runbook_url: "https://github.com/seanpor/JA4proxy/blob/main/docs/runbooks/tap_mode.md"
+
+      # PHASE_803 R-002: new alert for the Redis circuit breaker this phase
+      # added (internal/tap/circuit_breaker.go). A healthy deployment never
+      # trips it -- any trip means Store/Enforcer writes are being skipped,
+      # not just slow.
+      - alert: TapRedisCircuitBreakerOpen
+        expr: increase(ja4proxy_tap_redis_circuit_breaker_opened_total[10m]) > 0
+        for: 0m
+        labels: {severity: warning}
+        annotations:
+          summary: "TAP Redis circuit breaker has tripped open"
+          description: "Consecutive Redis write failures tripped the shared Store/Enforcer circuit breaker -- fingerprint and enforcement writes are being skipped (fail-open) until Redis recovers. Check Redis health; the sensor itself keeps capturing normally."
+          runbook: "docs/runbooks/tap_enforcement.md"
           runbook_url: "https://github.com/seanpor/JA4proxy/blob/main/docs/runbooks/tap_mode.md"
