@@ -156,10 +156,13 @@ Set via env vars `MANAGEMENT_ADMIN_USER` and `MANAGEMENT_ADMIN_PASSWORD` in `.en
 | Connections live | Every TLS handshake — fingerprint, source IP, score, action. |
 | Countries | Useful for blanket country blocking if the attack is geographically concentrated. |
 
-**The safety guarantee:** Fingerprints with `h2` or `h1` ALPN are real browsers
-(Chrome, Firefox, Safari) — they are bypassed before scoring and can never be blocked
-by JA4proxy. If you accidentally blacklist a fingerprint that a browser uses, the
-browser traffic is unaffected. This is worth saying out loud on the incident call.
+**Browser protection:** The dial defaults to 0 (monitor mode), so nothing is ever
+blocked on first deploy — you can see what *would* be blocked before enforcing.
+If you want to whitelist specific JA4 fingerprints so they bypass scoring entirely,
+you can. The optional "ALPN h2/h1 bypass" (where any h2/h1 connection skips scoring)
+is **off by default** because a bot can spoof `ALPN=h2` — so by default,
+browser-*looking* traffic is scored like everything else. Real browsers are protected
+by monitor-mode defaults, not unconditional escapes. This is worth saying on the incident call.
 
 ---
 

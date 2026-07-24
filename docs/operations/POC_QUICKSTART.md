@@ -68,9 +68,11 @@ Blocked requests by action type:
 
 ## 3. Watch the Dashboard
 
-Open **http://localhost:3000** (admin / password printed by `./start-all.sh` or in `.env`).
+### Grafana (Metrics & Visualizations)
 
-Navigate to **JA4proxy Security Overview**. Key panels:
+Open **http://127.0.0.1:3000** — this is **Grafana**, not the management UI.
+- Credentials: `admin` / password printed by `./start-all.sh` or in `.env` (`GF_SECURITY_ADMIN_PASSWORD`)
+- Dashboard: **JA4proxy Security Overview**. Key panels:
 
 | Panel | What to look for |
 |-------|-----------------|
@@ -78,6 +80,12 @@ Navigate to **JA4proxy Security Overview**. Key panels:
 | Fingerprint names | Human-readable: Chrome, Sliver C2, CobaltStrike — not raw hashes |
 | Action distribution | Tarpitted (slow drain) + banned (persistent) + blacklisted (instant RST) |
 | Security events | Real-time log of decisions |
+
+### Management UI (Security Control Center)
+
+Open **https://127.0.0.1:8444** (HTTP: **http://127.0.0.1:8090**) — this is the **JA4proxy Management UI**, used to change blocking policy and manage IP bans.
+- Credentials: `admin` / `changeme` (default); see `MANAGEMENT_ADMIN_PASSWORD` in `.env`
+- **⚠ Important:** Change the default password in production (see [Phase 522 finding JA4PROXY-2026-0096](../../docs/security/findings.yaml))
 
 ## 4. What to Expect
 
@@ -101,21 +109,21 @@ This resets all transient security state so consecutive test runs start clean wi
 
 | Service | URL |
 |---------|-----|
-| HAProxy (LB) | `https://localhost:443` |
-| HAProxy Stats | `http://localhost:8404/stats` |
-| JA4proxy | `http://localhost:8080` |
-| Proxy Metrics | `http://localhost:9090/metrics` |
-| Backend (HTTPS) | `https://localhost:8443` |
-| Tarpit | `http://localhost:8888` |
-| Prometheus | `http://localhost:9091` |
-| Grafana | `http://localhost:3000` |
-| Alertmanager | `http://localhost:9093` |
+| HAProxy (LB) | `https://127.0.0.1:443` |
+| HAProxy Stats | `http://127.0.0.1:8404/stats` |
+| JA4proxy | `http://127.0.0.1:8080` |
+| Proxy Metrics | `http://127.0.0.1:9090/metrics` |
+| Backend (HTTPS) | `https://127.0.0.1:8443` |
+| Tarpit | `http://127.0.0.1:8888` |
+| Prometheus | `http://127.0.0.1:9091` |
+| Grafana | `http://127.0.0.1:3000` |
+| Alertmanager | `http://127.0.0.1:9093` |
 
 ## Verify Legitimate Traffic Passes
 
 ```bash
 # Direct backend connection (bypasses proxy)
-curl -sk https://localhost:8443/api/health
+curl -sk https://127.0.0.1:8443/api/health
 
 # Check proxy logs for ALLOWED decisions
 docker compose -f deploy/docker/docker-compose.poc.yml logs proxy | grep ALLOWED | tail -5
