@@ -58,6 +58,19 @@ var (
 		Name: "ja4proxy_tap_enforcement_armed",
 		Help: "1 when the sensor is armed to write enforceable ban:{ip} keys (active blocking); 0 when advisory-only (default).",
 	})
+	// RedisCircuitBreakerOpenedTotal counts how many times the shared
+	// Store/Enforcer circuit breaker tripped open after consecutive Redis
+	// write failures (R-002). A healthy deployment stays at 0.
+	RedisCircuitBreakerOpenedTotal = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "ja4proxy_tap_redis_circuit_breaker_opened_total",
+		Help: "Times the Redis circuit breaker tripped open after consecutive write failures.",
+	})
+	// RedisCircuitBreakerSkipsTotal counts writes skipped because the
+	// breaker was open, rather than attempted and failed.
+	RedisCircuitBreakerSkipsTotal = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "ja4proxy_tap_redis_circuit_breaker_skips_total",
+		Help: "Writes skipped (not attempted) because the Redis circuit breaker was open.",
+	})
 )
 
 // results for EnforcementActionsTotal (Phase 316d).
@@ -88,6 +101,8 @@ func Collectors() []prometheus.Collector {
 		JA4TWrittenTotal,
 		EnforcementActionsTotal,
 		EnforcementArmed,
+		RedisCircuitBreakerOpenedTotal,
+		RedisCircuitBreakerSkipsTotal,
 	}
 }
 

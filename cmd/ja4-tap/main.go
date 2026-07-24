@@ -45,6 +45,16 @@ func (a redisAdapter) Set(ctx context.Context, key, value string, ttl time.Durat
 // capture path). On timeout the write is dropped and counted — fail-open.
 const storeWriteTimeout = 100 * time.Millisecond
 
+// withTimeout runs fn with its own fresh storeWriteTimeout-bounded context.
+// R-002: each per-event write gets its own full budget rather than three
+// operations sharing a single deadline, where a slow first call could leave
+// the following two almost none of their allotted time.
+func withTimeout(fn func(context.Context)) {
+	ctx, cancel := context.WithTimeout(context.Background(), storeWriteTimeout)
+	defer cancel()
+	fn(ctx)
+}
+
 func main() {
 	var (
 		pcapFile    = flag.String("pcap-file", "", "offline .pcap file to replay (no privileges required)")
@@ -59,6 +69,7 @@ func main() {
 		intentTTL   = flag.Duration("intent-ttl", time.Hour, "TTL for an advisory fp:ban_intent:ip watchlist entry")
 		metricsAddr = flag.String("metrics-addr", "", "HTTP address for Prometheus metrics and /health (empty = disabled)")
 		seccompPath = flag.String("seccomp-profile", "/etc/ja4proxy/seccomp_tap.json", "path to seccomp JSON profile (empty = embedded default)")
+		eventBuffer = flag.Int("event-buffer", 1024, "size of the handshake-event channel between capture and the Redis-writing goroutine; when full, events are dropped (fail-open, counted as packets_dropped{reason=event_overflow}) rather than blocking capture. Larger absorbs longer Redis stalls at the cost of more memory and staler events once it drains (R-004)")
 	)
 	flag.Parse()
 
@@ -79,7 +90,7 @@ func main() {
 		BanTTL:        *banTTL,
 		IntentTTL:     *intentTTL,
 	}
-	if err := run(*pcapFile, *iface, *frameSize, bpfProg, *quiet, *redisURL, enfCfg, *seccompPath, log); err != nil {
+	if err := run(*pcapFile, *iface, *frameSize, bpfProg, *quiet, *redisURL, enfCfg, *seccompPath, *eventBuffer, log); err != nil {
 		log.WithError(err).Error("ja4-tap exited with error")
 		os.Exit(1)
 	}
@@ -97,9 +108,12 @@ func parseBlocklist(csv string) map[string]bool {
 	return out
 }
 
-func run(pcapFile, iface string, frameSize int, bpfProg []bpf.RawInstruction, quiet bool, redisURL string, enfCfg tap.EnforcerConfig, seccompPath string, log *logrus.Logger) error {
+func run(pcapFile, iface string, frameSize int, bpfProg []bpf.RawInstruction, quiet bool, redisURL string, enfCfg tap.EnforcerConfig, seccompPath string, eventBuffer int, log *logrus.Logger) error {
 	if (pcapFile == "") == (iface == "") {
 		return fmt.Errorf("exactly one of --pcap-file or --interface must be set")
+	}
+	if eventBuffer < 1 {
+		return fmt.Errorf("--event-buffer must be >= 1 (got %d); make(chan, n) panics on a negative size and 0 blocks every emit", eventBuffer)
 	}
 
 	store, enforcer, err := buildBackends(redisURL, enfCfg, log)
@@ -141,7 +155,7 @@ func run(pcapFile, iface string, frameSize int, bpfProg []bpf.RawInstruction, qu
 		log.WithError(err).Warn("failed to load seccomp profile; proceeding without seccomp")
 	}
 
-	return drive(ctx, lt, src, closeFn, store, enforcer, quiet, log)
+	return drive(ctx, lt, src, closeFn, store, enforcer, quiet, eventBuffer, log)
 }
 
 // warnEnforcementPosture emits the startup WARN + records the posture the same
@@ -169,7 +183,11 @@ func warnEnforcementPosture(redisURL string, cfg tap.EnforcerConfig, log *logrus
 // buildBackends returns the Store and Enforcer backed by one Redis client when
 // redisURL is set, or no-op backends (offline classify-and-log) when it is
 // empty. The Enforcer shares the same client — the ban:{ip} write is gated by
-// the server-side ACL, not the adapter, so one connection serves both.
+// the server-side ACL, not the adapter, so one connection serves both. Both
+// also share one RedisCircuitBreaker (R-002): after a run of consecutive
+// failures it stops attempting real writes for a cooldown, so a Redis outage
+// degrades to fast no-op skips instead of every write paying out its own
+// timeout and collapsing drain throughput.
 func buildBackends(redisURL string, enfCfg tap.EnforcerConfig, log *logrus.Logger) (*tap.Store, *tap.Enforcer, error) {
 	if redisURL == "" {
 		log.Info("no --redis-url: classifying OS but not writing fp:os:ip (offline/dry-run mode)")
@@ -181,10 +199,11 @@ func buildBackends(redisURL string, enfCfg tap.EnforcerConfig, log *logrus.Logge
 	}
 	log.WithField("addr", opt.Addr).Info("writing passive fingerprints to Redis (fp:os:ip, fp:ja4t:ip)")
 	adapter := redisAdapter{rdb: redis.NewClient(opt)}
-	return tap.NewStore(adapter), tap.NewEnforcer(enfCfg, adapter), nil
+	breaker := tap.NewRedisCircuitBreaker(adapter)
+	return tap.NewStore(breaker), tap.NewEnforcer(enfCfg, breaker), nil
 }
 
-func drive(ctx context.Context, lt layers.LinkType, source tap.PacketSource, closeFn func() error, store *tap.Store, enforcer *tap.Enforcer, quiet bool, log *logrus.Logger) error {
+func drive(ctx context.Context, lt layers.LinkType, source tap.PacketSource, closeFn func() error, store *tap.Store, enforcer *tap.Enforcer, quiet bool, eventBuffer int, log *logrus.Logger) error {
 	defer func() { _ = closeFn() }()
 
 	wd := tap.NewWatchdog(log)
@@ -192,7 +211,7 @@ func drive(ctx context.Context, lt layers.LinkType, source tap.PacketSource, clo
 		func() (tap.PacketSource, func(), error) {
 			return source, func() {}, nil
 		},
-		func() *tap.Sensor { return tap.NewSensor(lt, 1024) },
+		func() *tap.Sensor { return tap.NewSensor(lt, eventBuffer) },
 		func(s *tap.Sensor) {
 			var count int
 			for ev := range s.Events() {
@@ -200,11 +219,13 @@ func drive(ctx context.Context, lt layers.LinkType, source tap.PacketSource, clo
 				class := tap.Classify(ev.Stack)
 				ja4t := tap.ComputeJA4T(ev.Stack)
 
-				wctx, cancel := context.WithTimeout(context.Background(), storeWriteTimeout)
-				store.WriteOSClass(wctx, ev.ClientIP, class)
-				store.WriteJA4T(wctx, ev.ClientIP, ja4t)
-				enforcer.Consider(wctx, ev.ClientIP, ja4t)
-				cancel()
+				// R-002: each write gets its OWN storeWriteTimeout budget rather
+				// than three operations sharing a single deadline -- previously
+				// a slow first write starved the two that followed it of
+				// almost their entire allotted time.
+				withTimeout(func(c context.Context) { store.WriteOSClass(c, ev.ClientIP, class) })
+				withTimeout(func(c context.Context) { store.WriteJA4T(c, ev.ClientIP, ja4t) })
+				withTimeout(func(c context.Context) { enforcer.Consider(c, ev.ClientIP, ja4t) })
 
 				if !quiet {
 					sh := "none"

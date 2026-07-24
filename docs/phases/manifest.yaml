@@ -3911,33 +3911,63 @@ phases:
       the maintainer, not actioned here."
   803:
     name: "Go TAP/SPAN Sensor Remediation — Fix Phase 334's Findings"
-    status: PROPOSED
+    status: COMPLETE
     action_plan: docs/phases/PHASE_803.md
     dependencies:
     - 334
     size: LARGE
-    summary: "PROPOSED — no code until approved. Executes the fixes Phase 334 (316*
-      series code review) recommended but explicitly did not implement (that phase was
-      review-only by design). Groups 40+ findings into four priority waves: Wave 1
-      (CRITICAL, blocks production deployment) — add panic recovery (a single crafted
-      packet currently hangs the sensor forever, undetected by liveness checks), wire
-      capability drop + a Go-appropriate seccomp profile (binary currently runs with
-      full CAP_NET_RAW), add a poll timeout so SIGTERM is noticed on an idle sensor
-      (currently requires SIGKILL). Wave 2 (HIGH) — panic-free busyloop backoff, wire
-      up the never-registered Prometheus metrics + a /health endpoint, add the missing
-      Makefile build target (the sensor currently can't be built via make build at
-      all), fix 5 of 7 Alertmanager rules and 8 of 11 Grafana panels that reference
-      metrics which don't exist or are never assigned. Wave 3 (MEDIUM) — Redis
-      credential/TLS hardening, concurrency-safety fixes, ban-provenance tagging (a
-      sensor ban can silently overwrite and shorten an operator's ban), a negative-
-      cache-poisoning fix, and the project's first privacy/GDPR documentation (zero
-      exists project-wide despite the sensor capturing raw ClientHello bytes incl.
-      SNI and writing IP-keyed Redis records with no erasure mechanism). Wave 4
-      (LOW/INFO) — batched cleanup (sync.Pool, kernel BPF filter, the never-
-      implemented watchdog, duplicate canonicalIP/key-prefix constants with no sync
-      test — same unguarded-duplicate class as this session's sliding_window.lua
-      finding). Key decision: Waves 1-2 ship as one reviewable unit; Waves 3-4 may
-      be separate follow-up PRs rather than one 40-finding change."
+    summary: "COMPLETE (2026-07-24). Waves 1-2 (CRITICAL + HIGH) done; Waves 3-4
+      (MEDIUM/LOW) split off to PHASE_809 per this phase's own plan rather than
+      silently dropped. Verified against live code per the plan's D4 decision, not
+      by trusting Phase 334's dates: Wave 1 in full (F-022 panic recovery, F-002
+      capability drop + seccomp, R-001 poll timeout) plus two Wave 2 items (F-023
+      metrics/health endpoint, O-001 Makefile build target) turned out to already be
+      done via an untracked prior commit (5d1bd3f2, PR #279, merged 2026-06-28) that
+      postdated Phase 334's review but was never cross-referenced back — closed that
+      gap by annotating all 10 relevant findings in PHASE_334.md with resolution
+      references (audit trail preserved, nothing deleted). Genuinely implemented in
+      this phase: F-014 busyloop backoff (ErrPollTimeout sentinel distinguishes
+      benign idle-poll from genuine read errors; exponential backoff capped at 1s,
+      Watchdog-restart past a 20-consecutive-error threshold), R-004 --event-buffer
+      flag (rejects <1 before the make(chan,n) panic), R-002 Redis circuit breaker
+      (shared by Store/Enforcer, 5-failure threshold / 10s cooldown, independent
+      per-write deadlines replacing one shared context), O-002 Alertmanager rule
+      fixes (5 of 7 referenced dead metrics/labels) + a new circuit-breaker alert,
+      O-003 Grafana dashboard fixes (8 of 11 panels referenced metrics that never
+      existed) + 2 new panels. Root-caused why O-002/O-003 shipped broken and went
+      unnoticed: deploy/monitoring/alertmanager/rules/tap.yml was never in the
+      Makefile's lint-prom/PROM_RULES list and tap_sensor.json was never in
+      lint-json/JSON_FILES — both added, closing the validation gap. All new/changed
+      Go code has unit tests (circuit_breaker_test.go, sensor_test.go additions,
+      main_test.go — first test file for cmd/ja4-tap); rules and dashboard verified
+      with promtool check rules and a live D4 /metrics scrape against a synthetic
+      200k-packet pcap, not just pattern-matched against Phase 334's tables."
+  809:
+    name: "Go TAP/SPAN Sensor Remediation Waves 3-4 — Phase 334's Remaining Findings"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_809.md
+    dependencies:
+    - 803
+    size: LARGE
+    summary: "PROPOSED — no code until approved. Picks up where PHASE_803 (Waves
+      1-2) left off, per that phase's own plan: 'Waves 3-4 may be separate
+      follow-up PRs rather than one 40-finding change.' Wave 3 (MEDIUM) — Redis
+      credential/TLS hardening (F-017/F-018), concurrency-safety fixes (F-016,
+      G-001), ban-provenance tagging so a sensor ban can no longer silently
+      overwrite and shorten an operator-issued ban (D-001), a negative-cache-
+      poisoning fix (D-002), operability gaps (R-005/R-007/R-008/R-009/R-010),
+      deployment/infra findings (O-004/O-005/O-006), reassembler correctness
+      (T-001), and the project's first privacy/GDPR documentation — zero exists
+      project-wide today despite the sensor capturing raw ClientHello bytes
+      (including SNI) and writing IP-keyed Redis records with no erasure mechanism
+      (P-001/P-002/P-003, new docs/PRIVACY.md). Wave 4 (LOW/INFORMATIONAL) — batch
+      cleanup, ~20 findings (sync.Pool reuse, kernel BPF filter refinement, duplicate
+      canonicalIP/key-prefix constants with no sync test — same unguarded-duplicate
+      class as the sliding_window.lua finding from an earlier phase). Verify every
+      finding against current code before fixing it, the way PHASE_803 did — Phase
+      334 is now over three months old relative to a fast-moving Go sensor and at
+      least 3 of its Wave 1-2 findings had already been silently fixed by the time
+      803 started."
   805:
     name: "Nightly Performance/Load Regression Detection, wired into Prometheus + Grafana"
     status: PROPOSED

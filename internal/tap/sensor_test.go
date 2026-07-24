@@ -3,6 +3,7 @@ package tap
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"net"
 	"testing"
@@ -267,5 +268,128 @@ func TestSensorCapExceededEmitsNothing(t *testing.T) {
 	after := testutil.ToFloat64(PacketsDroppedTotal.WithLabelValues(dropCapExceeded))
 	if after <= before {
 		t.Errorf("expected cap_exceeded drop metric to increase (%v -> %v)", before, after)
+	}
+}
+
+// errSource returns err from every ReadPacketData call. Used to simulate
+// both benign poll timeouts and genuine persistent read errors (F-014).
+type errSource struct {
+	err   error
+	reads int
+}
+
+func (e *errSource) ReadPacketData() ([]byte, gopacket.CaptureInfo, error) {
+	e.reads++
+	return nil, gopacket.CaptureInfo{}, e.err
+}
+
+// TestSensorPollTimeoutDoesNotBackoffOrFail verifies a source that only ever
+// returns the benign ErrPollTimeout sentinel (F-014) never backs off and
+// never hits the consecutive-error threshold -- Run must loop tightly,
+// re-checking ctx.Done() every iteration, exactly as it did before this
+// error was distinguished from a genuine one. A real interface polled with
+// no traffic returns this every ~100ms (R-001's OptPollTimeout) forever.
+func TestSensorPollTimeoutDoesNotBackoffOrFail(t *testing.T) {
+	src := &errSource{err: ErrPollTimeout}
+	s := NewSensor(layers.LinkTypeEthernet, 8)
+	done := make(chan struct{})
+	go func() {
+		for range s.Events() {
+		}
+		close(done)
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	start := time.Now()
+	err := s.Run(ctx, src)
+	elapsed := time.Since(start)
+	<-done
+
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected context.DeadlineExceeded, got %v", err)
+	}
+	// No backoff means many iterations in 50ms -- a single 10ms backoff step
+	// alone would cap this well below what a tight loop achieves.
+	if src.reads < 100 {
+		t.Errorf("expected a tight loop (>=100 reads in %v with no backoff), got %d reads", elapsed, src.reads)
+	}
+}
+
+// TestSensorGenuineErrorBacksOffAndFailsPastThreshold verifies a source that
+// returns a persistent, non-timeout error is backed off (not busylooped, per
+// F-014) and that Run gives up with a non-nil error once
+// maxConsecutiveReadErrors is reached, rather than looping forever. The
+// caller's Watchdog restarts the sensor with a fresh source on this error.
+func TestSensorGenuineErrorBacksOffAndFailsPastThreshold(t *testing.T) {
+	origBase, origCap, origMax := readErrorBackoffBase, readErrorBackoffCap, maxConsecutiveReadErrors
+	readErrorBackoffBase = time.Millisecond
+	readErrorBackoffCap = 5 * time.Millisecond
+	maxConsecutiveReadErrors = 3
+	t.Cleanup(func() {
+		readErrorBackoffBase, readErrorBackoffCap, maxConsecutiveReadErrors = origBase, origCap, origMax
+	})
+
+	wantErr := errors.New("simulated persistent read error")
+	src := &errSource{err: wantErr}
+	s := NewSensor(layers.LinkTypeEthernet, 8)
+	done := make(chan struct{})
+	go func() {
+		for range s.Events() {
+		}
+		close(done)
+	}()
+
+	err := s.Run(context.Background(), src)
+	<-done
+
+	if err == nil {
+		t.Fatal("expected Run to return a non-nil error past the consecutive-error threshold")
+	}
+	if !errors.Is(err, wantErr) {
+		t.Errorf("expected the returned error to wrap the underlying read error, got %v", err)
+	}
+	if src.reads != maxConsecutiveReadErrors {
+		t.Errorf("expected exactly %d reads (one per attempt before giving up), got %d", maxConsecutiveReadErrors, src.reads)
+	}
+}
+
+// TestSensorBackoffRespectsContextCancellation verifies a SIGTERM-equivalent
+// context cancellation during a backoff sleep returns promptly rather than
+// waiting out the full backoff duration -- reintroducing R-001's shutdown-hang
+// class of bug inside the new backoff path would defeat its own fix.
+func TestSensorBackoffRespectsContextCancellation(t *testing.T) {
+	origBase, origCap := readErrorBackoffBase, readErrorBackoffCap
+	readErrorBackoffBase = 5 * time.Second // deliberately long
+	readErrorBackoffCap = 5 * time.Second
+	t.Cleanup(func() {
+		readErrorBackoffBase, readErrorBackoffCap = origBase, origCap
+	})
+
+	src := &errSource{err: errors.New("simulated persistent read error")}
+	s := NewSensor(layers.LinkTypeEthernet, 8)
+	done := make(chan struct{})
+	go func() {
+		for range s.Events() {
+		}
+		close(done)
+	}()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		time.Sleep(20 * time.Millisecond)
+		cancel()
+	}()
+
+	start := time.Now()
+	err := s.Run(ctx, src)
+	elapsed := time.Since(start)
+	<-done
+
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context.Canceled, got %v", err)
+	}
+	if elapsed > time.Second {
+		t.Fatalf("Run took %v to return after cancellation during a 5s backoff -- shutdown-hang regression (R-001)", elapsed)
 	}
 }
