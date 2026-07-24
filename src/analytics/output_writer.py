@@ -132,7 +132,10 @@ async def write_finding(
 
     try:
         pipe = redis.pipeline()
-        pipe.hset(key, mapping=mapping)
+        # redis-py 8's stub types hset's mapping as invariant in its key/value
+        # unions (Mapping[FieldT, EncodableT], not covariant) -- a concrete
+        # dict[str, str] is structurally fine at runtime but mypy rejects it.
+        pipe.hset(key, mapping=mapping)  # type: ignore[arg-type]
         pipe.expire(key, ttl)
         pipe.zadd(_FINDINGS_INDEX, {finding_id: now_epoch})
         pipe.zremrangebyrank(_FINDINGS_INDEX, 0, -1001)
