@@ -553,16 +553,17 @@ lint-shell:
 TRIVY_CACHE ?= $(HOME)/.cache/trivy
 
 # Covers images deployed in deploy/docker/docker-compose.prod.yml + deploy/docker/docker-compose.monitoring.yml.
-# Keep versions here in sync with those compose files.
-TRIVY_IMAGES := haproxy:2.8.26-alpine \
-	redis:7.4.9-alpine \
-	oliver006/redis_exporter:v1.87.0 \
-	prom/prometheus:v3.13.1 \
-	prom/alertmanager:v0.33.1 \
-	prom/node-exporter:v1.12.1 \
-	grafana/grafana:13.0.2-ubuntu \
-	grafana/loki:3.7.2 \
-	grafana/promtail:3.6.11
+# Phase 810: derived from those compose files via
+# scripts/check_image_versions.py --list-third-party instead of hand-copied
+# here — a hand-maintained duplicate is exactly how this list went stale
+# (one image's tag) and silently incomplete (three images added to
+# docker-compose.monitoring.yml over time were never added here, so they went
+# unscanned indefinitely). The compose files are now the only place a
+# third-party image version is written down. Lazily-expanded (`=`, not `:=`)
+# so the script only runs when a recipe references $(TRIVY_IMAGES), not on
+# every `make` invocation. See scan-images below for the failure-mode guard
+# (an empty or error'd list must not silently scan zero images).
+TRIVY_IMAGES = $(shell $(PYTHON) scripts/check_image_versions.py --list-third-party)
 
 # Manifest consistency check. Verifies: TODO.md + PROJECT_STATUS.md generate
 # cleanly from manifest.yaml; every COMPLETE phase has a CHANGELOG entry (or
@@ -580,8 +581,14 @@ scan-images:
 	@echo "=== Trivy: third-party image CVE scan (HIGH + CRITICAL) ==="
 	@echo "    Fails on HIGH or CRITICAL. CVEs in .trivyignore are documented exceptions."
 	@echo ""
-	@fail=0; \
-	for img in $(TRIVY_IMAGES); do \
+	@images="$$($(PYTHON) scripts/check_image_versions.py --list-third-party)" || { \
+		echo "✗ Could not derive the third-party image list from the compose"; \
+		echo "  files (version drift between them?) — fix that before scanning."; \
+		exit 1; \
+	}; \
+	[ -n "$$images" ] || { echo "✗ scripts/check_image_versions.py --list-third-party returned no images — check compose file paths"; exit 1; }; \
+	fail=0; \
+	for img in $$images; do \
 		echo "  Scanning $$img ..."; \
 		result=$$(docker run --rm -v "$(PWD):/scan:ro" -v "$(TRIVY_CACHE):/root/.cache/trivy" aquasec/trivy:0.71.0 image \
 			--severity HIGH,CRITICAL --exit-code 0 \

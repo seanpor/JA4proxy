@@ -74,7 +74,7 @@ services:
       retries: 3
 
   grafana:
-    image: grafana/grafana:13.0.2-ubuntu
+    image: grafana/grafana:13.0.4-ubuntu
     container_name: ja4proxy-grafana
     ports:
       # JA4PROXY-2026-0045: bind to loopback only — consistent with the
@@ -206,7 +206,7 @@ services:
   # images, read env vars outside the discovery scope, or exec into
   # other containers.
   docker-socket-proxy:
-    image: tecnativa/docker-socket-proxy:0.3.0
+    image: tecnativa/docker-socket-proxy:v0.5.0
     container_name: ja4proxy-docker-socket-proxy
     environment:
       CONTAINERS: 1
@@ -260,7 +260,7 @@ services:
           cpus: '0.5'
 
   cadvisor:
-    image: gcr.io/cadvisor/cadvisor:v0.47.2
+    image: gcr.io/cadvisor/cadvisor:v0.52.1
     container_name: ja4proxy-cadvisor
     # JA4PROXY-2026-0016 — cAdvisor previously ran with privileged: true, full
     # r/w /var/run mount, and /dev/kmsg access. A compromise of the cAdvisor

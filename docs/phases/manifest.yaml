@@ -4072,23 +4072,34 @@ phases:
       running in every CI pass. Closes the 806/807/808 CI-gap cleanup."
   810:
     name: "Security-scan gate CVE fix + Dependabot Actions-bump review"
-    status: IN_PROGRESS
+    status: COMPLETE
     action_plan: docs/phases/PHASE_810.md
     dependencies: []
-    size: SMALL
-    summary: "IN_PROGRESS. Fixes issue #364 (scheduled make scan failure): a
-      newly-indexed CRITICAL CVE (GHSA-r277-6w6q-xmqw, kin-openapi auth
-      bypass) in grafana/grafana:13.0.2-ubuntu with no fixed upstream tag
+    size: MEDIUM
+    summary: "COMPLETE (2026-07-27). Fixed issue #364 (scheduled make scan
+      failure): a newly-indexed CRITICAL CVE (GHSA-r277-6w6q-xmqw, kin-openapi
+      auth bypass) in grafana/grafana:13.0.2-ubuntu with no fixed upstream tag
       available (confirmed 13.0.4-ubuntu, the latest published tag, still
-      vendors the vulnerable kin-openapi). Adds a dated .trivyignore
-      exception and separately bumps the Grafana image tag to 13.0.4-ubuntu
-      (verified zero new CVEs, 18 fewer findings on the image itself, though
-      none of those 18 can be removed from .trivyignore since they also
-      affect loki/promtail/alertmanager, untouched here). Also reviews and
-      lands PR #347 (Dependabot's grouped GitHub Actions bump, blocked
-      because its own Security Scan check hits the same CVE) after
-      confirming its two breaking changes (actions/checkout v7 fork-PR
-      checkout block, actions/github-script v9 require()/getOctokit changes)
-      don't affect this repo's workflows. Issue #292 (git history rewrite to
-      purge the ja4-tap blob) is explicitly deferred, not silently dropped —
-      see PHASE_810.md Out of scope."
+      vendors the vulnerable kin-openapi) — added a dated .trivyignore
+      exception and bumped Grafana to 13.0.4-ubuntu (18 fewer findings, zero
+      new). Scope grew (user-approved) once fixing this properly meant asking
+      why TRIVY_IMAGES (the Makefile's third-party scan list) had drifted at
+      all: deriving it from the compose files (scripts/check_image_versions.py
+      --list-third-party, new, with a hard error on cross-file version drift)
+      surfaced that three images added to docker-compose.monitoring.yml over
+      time — tecnativa/docker-socket-proxy, gcr.io/cadvisor/cadvisor,
+      prom/haproxy-exporter — had never been added to the hand-maintained scan
+      list and so had never been scanned at all, carrying 113 real HIGH/CRITICAL
+      findings between them. Bumped docker-socket-proxy 0.3.0->v0.5.0 (clean)
+      and cadvisor v0.47.2->v0.52.1 (57->41 findings); added 37 new dated
+      .trivyignore entries plus per-image exploitability reasoning for what's
+      left, including all of prom/haproxy-exporter:v0.15.0 (confirmed
+      abandoned upstream since 2023-02-15, no newer tag exists — replacing it
+      with HAProxy 2.8's built-in Prometheus exporter is tracked as a
+      follow-up phase, not done here). Also reviewed and landed PR #347
+      (Dependabot's grouped GitHub Actions bump, blocked because its own
+      Security Scan check hit the same CVE) after confirming its two breaking
+      changes (actions/checkout v7 fork-PR checkout block, actions/github-script
+      v9 require()/getOctokit changes) don't affect this repo's workflows.
+      Issue #292 (git history rewrite to purge the ja4-tap blob) is explicitly
+      deferred, not silently dropped — see PHASE_810.md Out of scope."
