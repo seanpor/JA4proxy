@@ -51,11 +51,13 @@ KNOWN_ACTION_SHAS: dict[str, dict[str, str]] = {
         "v4.2.2": "11bd71901bbe5b1630ceea73d27597364c9af683",
         "v6.0.2": "de0fac2e4500dabe0009e67214ff5f5447ce83dd",
         "v6.0.3": "df4cb1c069e1874edd31b4311f1884172cec0e10",  # phase-307 (PR #105)
+        "v7.0.0": "9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0",  # PR #347
     },
     # phase-227: Trivy DB cache in the scan job (ci.yml)
     "actions/cache": {
         "v4.2.3": "5a3ec84eff668545956fd18022155c47e93e2684",
         "v5.0.5": "27d5ce7f107fe9357f9df03efb73ab90386fccae",  # phase-307 (PR #105)
+        "v6.1.0": "55cc8345863c7cc4c66a329aec7e433d2d1c52a9",  # PR #347
     },
     # scorecard.yml (OpenSSF Scorecard workflow) — verified via git ls-remote
     "ossf/scorecard-action": {
@@ -70,15 +72,18 @@ KNOWN_ACTION_SHAS: dict[str, dict[str, str]] = {
         "v5.2.0": "3041bf56c941b39c61721a86cd11f3bb1338122a",
         "v5.6.0": "40f1582b2485089dde7abd97c1529aa768e1baff",
         "v6.4.0": "4a3601121dd01d1626a1e23e37211e3254c1c06c",
+        "v6.5.0": "924ae3a1cded613372ab5595356fb5720e22ba16",  # PR #347
     },
     "actions/setup-python": {
         "v5.0.0": "0a5c61591373683505ea898e09a3ea4f39ef2b9c",
         "v6.2.0": "a309ff8b426b58ec0e2a45f0f869d46889d02405",
+        "v6.3.0": "ece7cb06caefa5fff74198d8649806c4678c61a1",  # PR #347
     },
     "trufflesecurity/trufflehog": {
         "v3.88.2": "a94d152bf65bebf5baa486d3d4dfee520af2ceed",
         "v3.94.3": "47e7b7cd74f578e1e3145d48f669f22fd1330ca6",
         "v3.95.5": "d411fff7b8879a62509f3fa98c07f247ac089a51",  # phase-307 (PR #105)
+        "v3.95.9": "27b0417c16317ca9a472a9a8092acce143b49c55",  # PR #347
     },
     "returntocorp/semgrep-action": {
         "v1": "713efdd345f3035192eaa63f56867b88e63e4e5d",
@@ -91,6 +96,7 @@ KNOWN_ACTION_SHAS: dict[str, dict[str, str]] = {
     # phase-107w.3: lychee link-check workflow (docs-link-check.yml)
     "lycheeverse/lychee-action": {
         "v2.8.0": "8646ba30535128ac92d33dfc9133794bfdd9b411",
+        "v2.9.0": "e7477775783ea5526144ba13e8db5eec57747ce8",  # PR #347
     },
     # phase-64: smoke-k8s CI job
     "azure/setup-helm": {
@@ -108,31 +114,37 @@ KNOWN_ACTION_SHAS: dict[str, dict[str, str]] = {
         "v6.3.0": "9c156ee8a17a598857849441385a2041ef570552",
         "v7.0.0": "ec59f474b9834571250b370d4735c50f8e2d1e29",
         "v7.2.2": "5daf1e915a5f0af01ddbcd89a43b8061ff4f1a89",  # phase-307 (PR #105)
+        "v7.2.3": "f06c13b6b1a9625abc9e6e439d9c05a8f2190e94",  # PR #347
     },
     "docker/setup-qemu-action": {
         "v3.2.0": "49b3bc8e6bdd4a60e6116a5414239cba5943d3cf",
         "v4.0.0": "ce360397dd3f832beb865e1373c09c0e9f86d70a",
         "v4.1.0": "06116385d9baf250c9f4dcb4858b16962ea869c3",  # phase-307 (PR #105)
+        "v4.2.0": "96fe6ef7f33517b61c61be40b68a1882f3264fb8",  # PR #347
     },
     "docker/setup-buildx-action": {
         "v3.8.0": "6524bf65af31da8d45b59e8c27de4bd072b392f5",
         "v4.0.0": "4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd",
         "v4.1.0": "d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5",  # phase-307 (PR #105)
+        "v4.2.0": "bb05f3f5519dd87d3ba754cc423b652a5edd6d2c",  # PR #347
     },
     "docker/login-action": {
         "v3.3.0": "9780b0c442fbb1117ed29e0efdff1e18412f7567",
         "v4.1.0": "4907a6ddec9925e35a0a9e82d7399ccc52663121",
         "v4.2.0": "650006c6eb7dba73a995cc03b0b2d7f5ca915bee",  # phase-307 (PR #105)
+        "v4.4.0": "af1e73f918a031802d376d3c8bbc3fe56130a9b0",  # PR #347
     },
     "docker/metadata-action": {
         "v5.6.1": "369eb591f429131d6889c46b94e711f089e6ca96",
         "v6.0.0": "030e881283bb7a6894de51c315a6bfe6a94e05cf",
         "v6.1.0": "80c7e94dd9b9319bd5eb7a0e0fe9291e23a2a2e9",  # phase-307 (PR #105)
+        "v6.2.0": "dc802804100637a589fabce1cb79ff13a1411302",  # PR #347
     },
     "docker/build-push-action": {
         "v6.13.0": "ca877d9245402d1537745e0e356eab47c3520991",
         "v7.1.0": "bcafcacb16a39f128d818304e6c9c0c18556b85f",
         "v7.2.0": "f9f3042f7e2789586610d6e8b85c8f03e5195baf",  # phase-307 (PR #105)
+        "v7.3.0": "53b7df96c91f9c12dcc8a07bcb9ccacbed38856a",  # PR #347
     },
     # phase-202d — Go proxy image CI workflow (go-proxy-image.yml)
     "sigstore/cosign-installer": {
@@ -169,6 +181,7 @@ KNOWN_ACTION_SHAS: dict[str, dict[str, str]] = {
     # phase-800 — scheduled-run failure notifier (ci.yml)
     "actions/github-script": {
         "v7.1.0": "f28e40c7f34bde8b3046d885e986cb6290c5673b",
+        "v9.0.0": "3a2844b7e9c422d3c10d287c895573f7108da1b3",  # PR #347
     },
 }
 
