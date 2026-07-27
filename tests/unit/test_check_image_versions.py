@@ -23,6 +23,7 @@ from check_image_versions import (
     ImageRef,
     _extract_images,
     check,
+    third_party_image_refs,
 )
 
 
@@ -286,6 +287,117 @@ class TestFirstPartyExemption:
 
         errors_with_exemption, _ = check([p], first_party=frozenset({"myapp"}))
         assert errors_with_exemption == []
+
+
+class TestThirdPartyImageRefs:
+    """
+    Phase 810: TRIVY_IMAGES (make scan-images' CVE-gating list) is now
+    derived from the compose files via this function instead of a
+    hand-maintained Makefile variable — that hand-maintained copy is exactly
+    how one image's tag went stale and three images added to
+    docker-compose.monitoring.yml were never added to the scan list at all,
+    so they went unscanned indefinitely.
+    """
+
+    def test_excludes_first_party_images(self, tmp_path):
+        p = _write_compose(
+            tmp_path,
+            "prod.yml",
+            """
+            services:
+              proxy:
+                image: ja4proxy:latest
+              redis:
+                image: redis:7.4.9-alpine
+        """,
+        )
+        refs = third_party_image_refs([p])
+        assert refs == ["redis:7.4.9-alpine"]
+
+    def test_dedupes_across_files_same_version(self, tmp_path):
+        prod = _write_compose(
+            tmp_path,
+            "prod.yml",
+            """
+            services:
+              prometheus:
+                image: prom/prometheus:v2.48.0
+        """,
+        )
+        monitoring = _write_compose(
+            tmp_path,
+            "monitoring.yml",
+            """
+            services:
+              prometheus:
+                image: prom/prometheus:v2.48.0
+        """,
+        )
+        refs = third_party_image_refs([prod, monitoring])
+        assert refs == ["prom/prometheus:v2.48.0"]
+
+    def test_sorted_output(self, tmp_path):
+        p = _write_compose(
+            tmp_path,
+            "prod.yml",
+            """
+            services:
+              b:
+                image: zeta:1.0
+              a:
+                image: alpha:1.0
+        """,
+        )
+        assert third_party_image_refs([p]) == ["alpha:1.0", "zeta:1.0"]
+
+    def test_missing_compose_file_ignored(self, tmp_path):
+        p = _write_compose(
+            tmp_path,
+            "prod.yml",
+            """
+            services:
+              redis:
+                image: redis:7.4.9-alpine
+        """,
+        )
+        missing = tmp_path / "missing.yml"
+        refs = third_party_image_refs([p, missing])
+        assert refs == ["redis:7.4.9-alpine"]
+
+    def test_version_drift_raises(self, tmp_path):
+        prod = _write_compose(
+            tmp_path,
+            "prod.yml",
+            """
+            services:
+              grafana:
+                image: grafana/grafana:13.0.2-ubuntu
+        """,
+        )
+        monitoring = _write_compose(
+            tmp_path,
+            "monitoring.yml",
+            """
+            services:
+              grafana:
+                image: grafana/grafana:13.0.4-ubuntu
+        """,
+        )
+        with pytest.raises(ValueError, match="version drift"):
+            third_party_image_refs([prod, monitoring])
+
+    def test_custom_first_party_set_respected(self, tmp_path):
+        p = _write_compose(
+            tmp_path,
+            "prod.yml",
+            """
+            services:
+              svc:
+                image: myapp:1.0
+        """,
+        )
+        assert third_party_image_refs([p], first_party=frozenset({"myapp"})) == []
+        assert third_party_image_refs([p], first_party=frozenset()) == ["myapp:1.0"]
 
 
 class TestCleanBaseline:

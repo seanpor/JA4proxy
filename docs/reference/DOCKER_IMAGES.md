@@ -21,7 +21,7 @@ This document serves as the canonical registry of every Docker image used in the
 | `mcr.microsoft.com/playwright:v1.40.0-jammy` | `v1.40.0-jammy` | `deploy/docker/docker-compose.test.yml` | 2026-06-13 | E2E testing environment |
 | `prom/prometheus` | `v3.13.1` | `deploy/docker/docker-compose.prod.yml`, `deploy/docker/docker-compose.monitoring.yml` | 2026-07-21 | Time-series metrics |
 | `prom/alertmanager` | `v0.33.1` | `deploy/docker/docker-compose.monitoring.yml` | 2026-07-21 | Alerting gateway. Newest stable tag; still carries HIGH findings (x/crypto, os.Root) awaiting upstream rebuild — see `.trivyignore` |
-| `grafana/grafana` | `13.0.2-ubuntu` | `deploy/docker/docker-compose.prod.yml`, `deploy/docker/docker-compose.monitoring.yml` | 2026-06-13 | Visualisation dashboard |
+| `grafana/grafana` | `13.0.4-ubuntu` | `deploy/docker/docker-compose.prod.yml`, `deploy/docker/docker-compose.monitoring.yml` | 2026-07-27 | Visualisation dashboard. **Phase 810** bumped from `13.0.2-ubuntu` (18 fewer HIGH/CRITICAL findings, zero new; latest published tag — still carries a dated `.trivyignore` residual set, see that file) |
 | `prom/node-exporter` | `v1.12.1` | `deploy/docker/docker-compose.monitoring.yml` | 2026-07-21 | Host metrics collector |
 | `oliver006/redis_exporter` | `v1.87.0` | `deploy/docker/docker-compose.prod.yml`, `deploy/docker/docker-compose.monitoring.yml` | 2026-07-21 | Redis metrics collector |
 | `grafana/loki` | `3.7.2` | `deploy/docker/docker-compose.prod.yml`, `deploy/docker/docker-compose.monitoring.yml` | 2026-06-13 | Log aggregation system |
