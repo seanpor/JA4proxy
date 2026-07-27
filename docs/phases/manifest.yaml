@@ -4073,7 +4073,7 @@ phases:
   810:
     name: "Security-scan gate CVE fix + Dependabot Actions-bump review"
     status: COMPLETE
-    action_plan: docs/phases/PHASE_810.md
+    action_plan: docs/phases/complete/PHASE_810.md
     dependencies: []
     size: MEDIUM
     summary: "COMPLETE (2026-07-27). Fixed issue #364 (scheduled make scan
