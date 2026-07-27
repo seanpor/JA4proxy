@@ -4070,3 +4070,25 @@ phases:
       docs/developer/TESTING_STRATEGY.md's Test Categories table (previously
       undocumented). management/tests/: 749 passed, 3 skipped, 0 failed, now
       running in every CI pass. Closes the 806/807/808 CI-gap cleanup."
+  810:
+    name: "Security-scan gate CVE fix + Dependabot Actions-bump review"
+    status: IN_PROGRESS
+    action_plan: docs/phases/PHASE_810.md
+    dependencies: []
+    size: SMALL
+    summary: "IN_PROGRESS. Fixes issue #364 (scheduled make scan failure): a
+      newly-indexed CRITICAL CVE (GHSA-r277-6w6q-xmqw, kin-openapi auth
+      bypass) in grafana/grafana:13.0.2-ubuntu with no fixed upstream tag
+      available (confirmed 13.0.4-ubuntu, the latest published tag, still
+      vendors the vulnerable kin-openapi). Adds a dated .trivyignore
+      exception and separately bumps the Grafana image tag to 13.0.4-ubuntu
+      (verified zero new CVEs, 18 fewer findings on the image itself, though
+      none of those 18 can be removed from .trivyignore since they also
+      affect loki/promtail/alertmanager, untouched here). Also reviews and
+      lands PR #347 (Dependabot's grouped GitHub Actions bump, blocked
+      because its own Security Scan check hits the same CVE) after
+      confirming its two breaking changes (actions/checkout v7 fork-PR
+      checkout block, actions/github-script v9 require()/getOctokit changes)
+      don't affect this repo's workflows. Issue #292 (git history rewrite to
+      purge the ja4-tap blob) is explicitly deferred, not silently dropped —
+      see PHASE_810.md Out of scope."
