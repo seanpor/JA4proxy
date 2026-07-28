@@ -286,7 +286,7 @@ class TestLoginPageNoExternalCDN:
 # consumes externally-published ban commands the way EnforcementBridge did
 # (subscribe to ja4proxy:bans, HMAC-verify, fan out to iptables/BGP/webhook).
 # That capability appears to be a genuine gap, not a rename — flagged for
-# tracking (see docs/phases/PHASE_803.md or a new finding), not something
+# tracking (see docs/phases/complete/PHASE_803.md or a new finding), not something
 # phase-806 resolves. There is no Go code to write a replacement test against.
 
 # ── M-5: Health server defaults to 127.0.0.1 ────────────────────────────────

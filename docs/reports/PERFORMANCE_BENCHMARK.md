@@ -150,7 +150,7 @@ as a follow-up task. This will establish:
 - Redis bottleneck point for the new architecture
 - Updated recommendations for production deployments
 
-See [Phase 524](../phases/PHASE_524.md) for context on this archive note.
+See [Phase 524](../phases/complete/PHASE_524.md) for context on this archive note.
 
 ## How to Reproduce (Python Proxy — Archive)
 
