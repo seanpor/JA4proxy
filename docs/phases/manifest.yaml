@@ -3750,7 +3750,7 @@ phases:
   524:
     name: "Documentation Consistency Audit + SecOps Form-Abuse Use Case"
     status: COMPLETE
-    action_plan: docs/phases/PHASE_524.md
+    action_plan: docs/phases/complete/PHASE_524.md
     dependencies: []
     size: MEDIUM
     summary: "Junior-implementable audit of the user-facing docs for self-consistency and
@@ -3791,7 +3791,7 @@ phases:
   801:
     name: "ja4proxy-management Base Hardening (Debian -> low-CVE base)"
     status: COMPLETE
-    action_plan: docs/phases/PHASE_801.md
+    action_plan: docs/phases/complete/PHASE_801.md
     dependencies:
     - 317
     size: MEDIUM
@@ -3912,7 +3912,7 @@ phases:
   803:
     name: "Go TAP/SPAN Sensor Remediation — Fix Phase 334's Findings"
     status: COMPLETE
-    action_plan: docs/phases/PHASE_803.md
+    action_plan: docs/phases/complete/PHASE_803.md
     dependencies:
     - 334
     size: LARGE
@@ -3993,7 +3993,7 @@ phases:
   806:
     name: "management/tests/ — remove dead-module test references"
     status: COMPLETE
-    action_plan: docs/phases/PHASE_806.md
+    action_plan: docs/phases/complete/PHASE_806.md
     size: SMALL
     summary: "COMPLETE (2026-07-22). Removed 8 tests in test_phase_122_security_review.py
       referencing modules deleted since Phase 15/316 (proxy.py, src.tap.enforcement_bridge,
@@ -4011,7 +4011,7 @@ phases:
   807:
     name: "management/tests/ — fix schema-drifted test fixtures"
     status: COMPLETE
-    action_plan: docs/phases/PHASE_807.md
+    action_plan: docs/phases/complete/PHASE_807.md
     dependencies:
     - 806
     size: SMALL
@@ -4044,7 +4044,7 @@ phases:
   808:
     name: "management/tests/ — wire into CI, stop the silent gap recurring"
     status: COMPLETE
-    action_plan: docs/phases/PHASE_808.md
+    action_plan: docs/phases/complete/PHASE_808.md
     dependencies:
     - 807
     size: SMALL
