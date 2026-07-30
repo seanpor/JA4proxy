@@ -16,6 +16,17 @@ services:
       - ../monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ../monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
       - ../monitoring/prometheus/recording_rules.yml:/etc/prometheus/recording_rules.yml:ro
+      # Phase 805: both of these were referenced by prometheus.yml's rule_files
+      # (or documented in OBSERVABILITY_STANDARDS.md as "the" alert rule
+      # location) but never actually mounted -- `promtool check config`
+      # against the real mount set confirmed Prometheus fails to start
+      # without the slo_recording_rules.yml line below. The alertmanager/rules
+      # directory mount makes all 10 existing per-component rule files (plus
+      # this phase's new performance.rules.yml) actually load for the first
+      # time; previously they were promtool-syntax-validated but never
+      # evaluated by a running Prometheus.
+      - ../monitoring/prometheus/slo_recording_rules.yml:/etc/prometheus/slo_recording_rules.yml:ro
+      - ../monitoring/alertmanager/rules:/etc/prometheus/alertmanager-rules:ro
       - prometheus-data:/prometheus
     restart: unless-stopped
     networks:
@@ -130,11 +141,20 @@ services:
       - '--path.sysfs=/host/sys'
       - '--path.rootfs=/host'
       - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+      # Phase 805: reads the .prom file scripts/export_ci_benchmark_textfile.sh
+      # writes on the host via a systemd timer (D5 — kept a host-level cron,
+      # not a container, so no container needs write access to this path).
+      - '--collector.textfile.directory=/textfile'
     # Not exposed to host — only accessible from monitoring network
     volumes:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
       - /:/host:ro
+      # Read-only here; scripts/export_ci_benchmark_textfile.sh writes this
+      # path from the host, outside any container (the puller's own
+      # `mkdir -p` creates it on first run if absent). See
+      # docs/runbooks/nightly_benchmark_regression.md for install steps.
+      - /var/lib/node_exporter/textfile_collector:/textfile:ro
     restart: unless-stopped
     networks:
       - ja4proxy-monitoring
@@ -172,7 +192,7 @@ services:
           cpus: '0.5'
 
   loki:
-    image: grafana/loki:3.7.2
+    image: grafana/loki:3.7.4
     container_name: ja4proxy-loki
     # Not exposed to host — only accessible from monitoring network
     volumes:

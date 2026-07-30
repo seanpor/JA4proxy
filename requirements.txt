@@ -63,3 +63,5 @@ mcp>=1.28.0  # CVE-2025-66416 — transitive dep of semgrep; pinned to force saf
 # Remove the two --ignore-vuln flags in the Makefile lint-static target when semgrep ships a release
 # with OTEL>=1.37 AND mcp>=1.28 (then pin protobuf>=5.29.6 here).
 
+msgpack>=1.2.1  # GHSA-6v7p-g79w-8964 (HIGH) — transitive dep of locust 2.17.0; pinned to force safe resolution
+

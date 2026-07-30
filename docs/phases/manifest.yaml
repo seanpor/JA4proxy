@@ -3970,26 +3970,37 @@ phases:
       803 started."
   805:
     name: "Nightly Performance/Load Regression Detection, wired into Prometheus + Grafana"
-    status: PROPOSED
+    status: COMPLETE
     action_plan: docs/phases/PHASE_805.md
+    dependencies: []
     size: MEDIUM
-    summary: "PROPOSED — no code until approved. Found while investigating an unrelated
-      CVE-waiver question in the same phase-800 session (2026-07-22): make bench-all
-      (perf-test, load-test, go-perf, MTTR) is real, working tooling, but nothing in
-      .github/workflows/*.yml ever runs it — a PR that regresses hot-path latency or
-      throughput passes CI cleanly today. Plan: a nightly (not per-PR) GitHub Actions
-      job runs the existing ja4p test benchmark, gates on the already-documented-but-
-      unenforced 20% regression threshold in docs/reports/benchmark_baseline.txt, and
-      publishes results into the observability stack already in production (Prometheus
-      + Grafana + Alertmanager via docker-compose.monitoring.yml) using node-exporter's
-      textfile collector — not Prometheus remote_write or a Pushgateway, both
-      considered and rejected (would mean exposing a new inbound ingest endpoint on
-      infra built around minimizing exactly that). Reuses the ja4proxy_loadtest_*
-      metric family OBSERVABILITY_STANDARDS.md already reserves but that today is only
-      ever emitted ephemerally. Transport for the CI->monitoring-host hop is a rolling
-      GitHub Release asset (outbound-only pull from the monitoring host), not a
-      bot-authored commit to main. Out of scope: per-PR blocking perf gates, OTEL
-      trace export (no trace backend exists in this stack)."
+    summary: "COMPLETE (2026-07-30). New .github/workflows/nightly-benchmark.yml runs
+      ja4p test benchmark nightly, gates via new scripts/nightly_benchmark_gate.py
+      (20% threshold) against a fresh docs/reports/nightly_benchmark_baseline.json,
+      publishes to a rolling GitHub Release asset, pulled into the self-hosted
+      Prometheus/Grafana stack by a new host-side systemd-timer puller
+      (scripts/export_ci_benchmark_textfile.sh) via node-exporter's textfile
+      collector -- not remote_write/Pushgateway, both rejected to avoid any inbound
+      path from GitHub Actions to the monitoring host (ADR-207). New Grafana
+      dashboard ci_benchmark_trend.json; two new Alertmanager rules
+      (JA4ProxyNightlyBenchmarkStale, JA4ProxyNightlyBenchmarkRegression).
+      Two significant corrections found verifying the plan against current code
+      (PHASE_805.md's 'Design correction' section): (1) the originally-planned
+      baseline source, docs/reports/benchmark_baseline.txt, was an orphaned Phase-16
+      artifact for deleted Python-proxy modules -- replaced with a baseline JSON
+      seeded from docs/performance/benchmarks.md's already-published bridge-macro
+      measurement. (2) promtool check config against the real Prometheus mount set
+      uncovered that NONE of the 10 files under deploy/monitoring/alertmanager/rules/
+      were ever actually mounted into Prometheus (nor was slo_recording_rules.yml,
+      despite being referenced in rule_files: -- Prometheus would not even start
+      against the committed config). Both wiring gaps fixed; every existing alert
+      rule in that directory is now genuinely evaluated for the first time, not just
+      promtool-syntax-validated. Also closed matching validation gaps: Makefile's
+      lint-prom/PROM_RULES and tests/unit/test_alert_rules.py's RULE_FILES now cover
+      every rule file (the test switched to a directory glob); lint-json/JSON_FILES
+      switched to a glob over deploy/monitoring/grafana/dashboards/*.json, picking up
+      two more previously-unregistered dashboards. New ADR-207 documents the
+      transport decision and the wiring-gap discovery."
   806:
     name: "management/tests/ — remove dead-module test references"
     status: COMPLETE

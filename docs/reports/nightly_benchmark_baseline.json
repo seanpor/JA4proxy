@@ -1,0 +1,33 @@
+{
+  "_comment": "Phase 805 nightly-benchmark regression baseline. Seeded from docs/performance/benchmarks.md's already-published, git-SHA-tagged 'end-to-end bridge macro (docker-proxy)' historical row -- the same code path the nightly workflow measures (bench-macro's bridge port, not bench-hostnative's host-networking path). Update this file only when a deliberate, reviewed capacity change lands (e.g. a real perf improvement) -- not automatically. See docs/runbooks/nightly_benchmark_regression.md for the update procedure.",
+  "source": {
+    "date": "2026-06-10",
+    "git_sha": "76504c83",
+    "method": "make bench-macro (bridge port via docker-proxy, ja4p test benchmark --duration 30)",
+    "doc": "docs/performance/benchmarks.md#end-to-end-throughput-host-native-macro-benchmark"
+  },
+  "gated_metrics": {
+    "throughput_cps": {
+      "baseline": 600.0,
+      "direction": "higher_is_better",
+      "comment": "Regression = throughput drops more than --gate percent below this value."
+    },
+    "p95_latency_ms": {
+      "baseline": 290.0,
+      "direction": "lower_is_better",
+      "comment": "Regression = p95 latency rises more than --gate percent above this value."
+    }
+  },
+  "tracked_not_gated_metrics": {
+    "p99_latency_ms": {
+      "comment": "No historical baseline published yet -- trended in Grafana, not gated, until enough nightly runs accumulate real p99 history."
+    },
+    "avg_latency_ms": {
+      "comment": "Informational only."
+    }
+  },
+  "error_rate_gate": {
+    "max_error_rate_percent": 1.0,
+    "comment": "Every published historical row measured 0 errors. Tolerate a small flake margin (1%) rather than gating on strictly zero, to avoid a single transient connection reset failing the whole nightly run."
+  }
+}

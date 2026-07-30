@@ -20,6 +20,13 @@ rule_files:
   - '/etc/prometheus/alerts.yml'
   - '/etc/prometheus/recording_rules.yml'
   - '/etc/prometheus/slo_recording_rules.yml'  # phase-63
+  # Phase 805: deploy/monitoring/alertmanager/rules/*.yml (proxy, redis,
+  # security, backup, tap, ebpf_attack, management_ui, slo_alerts, ti_feed,
+  # tls_alerts, and this phase's new performance.rules.yml) were documented
+  # and promtool-syntax-validated but never actually loaded by this file --
+  # no rule_files entry and no docker-compose volume mount pointed at them.
+  # See deploy/docker/docker-compose.monitoring.yml's matching comment.
+  - '/etc/prometheus/alertmanager-rules/*.yml'
 
 # Scrape configurations
 scrape_configs:

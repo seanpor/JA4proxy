@@ -8,6 +8,7 @@ apiVersion: 1
 #   - ja4proxy-overview.json          (SecOps audience)
 #   - tap_sensor.json
 #   - 04_capacity.json                (Capacity / platform audience — Phase 86i)
+#   - ci_benchmark_trend.json         (CI/synthetic perf trend — Phase 805)
 
 providers:
   - name: 'Default'

@@ -11,9 +11,23 @@ that promtool would enforce:
 
 Files validated:
   - deploy/monitoring/prometheus/alerts.yml
-  - deploy/monitoring/alertmanager/rules/proxy.rules.yml
-  - deploy/monitoring/alertmanager/rules/redis.rules.yml
-  - deploy/monitoring/alertmanager/rules/security.rules.yml
+  - every deploy/monitoring/alertmanager/rules/*.yml file
+
+(deploy/monitoring/prometheus/recording_rules.yml and slo_recording_rules.yml
+are deliberately excluded: they hold `record:`/`expr:` recording rules, not
+`alert:`/`labels:`/`annotations:` alerting rules, so this file's alert-shape
+assertions don't apply. Both are still promtool-syntax-validated by
+`make lint-prom`.)
+
+Phase 805: this list used to cover only 5 of the (then) 10 files under
+deploy/monitoring/alertmanager/rules/ — the other 5 (tap.yml, ebpf_attack.yml,
+management_ui_rules.yml, slo_alerts.yml, ti_feed.yml, tls_alerts.yml) had
+never been structurally validated here. Registering all of them together
+with this phase's new performance.rules.yml, same as the matching fix to
+Makefile's lint-prom/PROM_RULES and (more seriously) the discovery that
+Prometheus itself never actually loaded any of them at all — see
+docs/phases/PHASE_805.md's design-correction notes and
+deploy/docker/docker-compose.monitoring.yml's Phase-805 comment.
 """
 
 import re
@@ -30,11 +44,7 @@ REPO_ROOT = Path(__file__).parent.parent.parent
 
 RULE_FILES = [
     REPO_ROOT / "deploy/monitoring/prometheus/alerts.yml",
-    REPO_ROOT / "deploy/monitoring/alertmanager/rules/proxy.rules.yml",
-    REPO_ROOT / "deploy/monitoring/alertmanager/rules/redis.rules.yml",
-    REPO_ROOT / "deploy/monitoring/alertmanager/rules/security.rules.yml",
-    REPO_ROOT / "deploy/monitoring/alertmanager/rules/backup.rules.yml",
-]
+] + sorted((REPO_ROOT / "deploy/monitoring/alertmanager/rules").glob("*.yml"))
 
 # Regex: a bare ja4_ metric (old prefix) — must not appear in any expr field.
 # We allow ja4proxy_ (the correct prefix) and ja4: (recording rule names).

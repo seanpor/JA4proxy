@@ -25,22 +25,22 @@
 # =============================================================================
 
 # CVE-2026-42504: MIME header DoS in Go stdlib.
-# Why no fix: Affects grafana:13.0.4-ubuntu, loki:3.7.2, and promtail:3.6.11 (all
+# Why no fix: Affects grafana:13.0.4-ubuntu and promtail:3.6.11 (both
 # already on newest stable tag) as a transitive Go-stdlib dependency; no newer
 # image tags exist with the fix (Go 1.25.11/1.26.4).
 # Why not exploitable: None of Grafana/Loki/Promtail parses untrusted MIME
 # headers from external sources in our deployment.
-CVE-2026-42504 exp:2026-07-29
+CVE-2026-42504 exp:2026-08-06
 
 # CVE-2026-45447: Heap Use-After-Free in OpenSSL PKCS7_verify().
 # Why no fix: Affects grafana v13.0.4-ubuntu and promtail v3.6.11 (EOL); no newer image tags exist that clear this vulnerability.
 # Why not exploitable: PKCS7 verification is not used or triggered in our Grafana/Promtail configuration.
-CVE-2026-45447 exp:2026-07-29
+CVE-2026-45447 exp:2026-08-06
 
 # CVE-2026-21728: DoS in Grafana Tempo query parser.
 # Why no fix: Affects grafana v13.0.4-ubuntu; no newer release exists.
 # Why not exploitable: We do not deploy or configure Tempo as a query source for Grafana.
-CVE-2026-21728 exp:2026-07-29
+CVE-2026-21728 exp:2026-08-06
 
 # GHSA-r277-6w6q-xmqw: kin-openapi ValidationHandler.Load() silently substitutes
 # a no-op auth function when none is configured, letting requests bypass any
@@ -59,16 +59,11 @@ CVE-2026-21728 exp:2026-07-29
 GHSA-r277-6w6q-xmqw exp:2026-08-03
 
 # CVE-2026-33811: net package DoS in Go stdlib.
-# Why no fix: Affects grafana:13.0.4-ubuntu, loki:3.7.2, and promtail:3.6.11
-# (all newest stable); no newer release exists with the Go 1.25.10/1.26.3 fix.
+# Why no fix: Affects grafana:13.0.4-ubuntu and promtail:3.6.11
+# (both newest stable); no newer release exists with the Go 1.25.10/1.26.3 fix.
 # Why not exploitable: Grafana's network exposure is limited to authenticated
 # admin users on port 3000 over local host mapping; Loki/Promtail are internal-only.
-CVE-2026-33811 exp:2026-07-29
-
-# CVE-2026-41602: Integer overflow in Apache Thrift.
-# Why no fix: Affects loki v3.7.2; no newer release exists.
-# Why not exploitable: Loki is not exposed to the public internet and we do not ingest Thrift-based logs.
-CVE-2026-41602 exp:2026-07-29
+CVE-2026-33811 exp:2026-08-06
 
 # CVE-2026-34040: Moby authorization bypass.
 # Why no fix: Affects promtail v3.6.11 (EOL) and gcr.io/cadvisor/cadvisor:v0.52.1
@@ -84,20 +79,20 @@ CVE-2026-34040 exp:2026-08-03
 # CVE-2026-28377: Info disclosure in Tempo.
 # Why no fix: Affects grafana v13.0.4-ubuntu; no newer release exists.
 # Why not exploitable: Tempo integration is not deployed or used in our configuration.
-CVE-2026-28377 exp:2026-07-29
+CVE-2026-28377 exp:2026-08-06
 
 # CVE-2026-33814: HTTP/2 SETTINGS frame DoS in Go.
-# Why no fix: Affects grafana:13.0.4-ubuntu, loki:3.7.2, and promtail:3.6.11
-# (all newest stable); no newer release exists.
+# Why no fix: Affects grafana:13.0.4-ubuntu and promtail:3.6.11
+# (both newest stable); no newer release exists.
 # Why not exploitable: All three are only exposed on internal/loopback networks
 # to authorized administrators, never to untrusted clients.
-CVE-2026-33814 exp:2026-07-29
+CVE-2026-33814 exp:2026-08-06
 
 # CVE-2026-42151: Info disclosure in prometheus client library.
-# Why no fix: Affects grafana:13.0.4-ubuntu, loki:3.7.2, and promtail:3.6.11
-# (all newest stable); no newer release exists.
+# Why no fix: Affects grafana:13.0.4-ubuntu and promtail:3.6.11
+# (both newest stable); no newer release exists.
 # Why not exploitable: None of these query external/untrusted Prometheus instances in our deployment.
-CVE-2026-42151 exp:2026-07-29
+CVE-2026-42151 exp:2026-08-06
 
 # CVE-2026-41567: Container archive execution in Docker.
 # Why no fix: Affects promtail v3.6.11 (EOL) and gcr.io/cadvisor/cadvisor:v0.52.1
@@ -109,24 +104,25 @@ CVE-2026-42151 exp:2026-07-29
 CVE-2026-41567 exp:2026-08-03
 
 # CVE-2026-39820: ParseAddress net/mail DoS in Go stdlib.
-# Why no fix: Affects grafana:13.0.4-ubuntu, loki:3.7.2, and promtail:3.6.11
-# (all newest stable); no newer release is available.
+# Why no fix: Affects grafana:13.0.4-ubuntu and promtail:3.6.11
+# (both newest stable); no newer release is available.
 # Why not exploitable: None of these parse untrusted email addresses in our deployment.
-CVE-2026-39820 exp:2026-07-29
+CVE-2026-39820 exp:2026-08-06
 # CVE-2026-39836: Go toolset security update issue.
-# Why no fix: Affects grafana:13.0.4-ubuntu, loki:3.7.2, and promtail:3.6.11
-# (all newest stable); no newer release is available.
+# Why no fix: Affects grafana:13.0.4-ubuntu and promtail:3.6.11
+# (both newest stable); no newer release is available.
 # Why not exploitable: Not reachable via any network-facing code path in our deployment.
-CVE-2026-39836 exp:2026-07-29
+CVE-2026-39836 exp:2026-08-06
 # CVE-2026-42499: net/textproto consumePhrase DoS in Go stdlib.
-# Why no fix: Affects grafana:13.0.4-ubuntu, loki:3.7.2, and promtail:3.6.11
-# (all newest stable); no newer release is available.
+# Why no fix: Affects grafana:13.0.4-ubuntu and promtail:3.6.11
+# (both newest stable); no newer release is available.
 # Why not exploitable: None of these expose a textproto-based service to untrusted input in our deployment.
-CVE-2026-42499 exp:2026-07-29
+CVE-2026-42499 exp:2026-08-06
 # CVE-2026-42154: Prometheus remote read DoS in Loki/Promtail.
-# Why no fix: Affects Loki and Promtail; no newer releases exist.
-# Why not exploitable: Loki and Promtail do not query untrusted remote read endpoints in our deployment.
-CVE-2026-42154 exp:2026-07-29
+# Why no fix: Affected Loki and Promtail; loki bumped 3.7.2 -> 3.7.4 (2026-07-30) clears it there.
+# Still affects Promtail:3.6.11 (no newer release exists).
+# Why not exploitable: Promtail does not query untrusted remote read endpoints in our deployment.
+CVE-2026-42154 exp:2026-08-06
 # CVE-2026-42306: Race condition in docker cp.
 # Why no fix: Affects Promtail and gcr.io/cadvisor/cadvisor:v0.52.1 (Phase 810,
 # bumped from v0.47.2); no newer release of either clears it.
@@ -136,64 +132,121 @@ CVE-2026-42154 exp:2026-07-29
 CVE-2026-42306 exp:2026-08-03
 
 # CVE-2026-27145: Go stdlib crypto/x509 certificate parsing DoS.
-# Why no fix: Affects grafana:13.0.4-ubuntu, loki:3.7.2, and promtail:3.6.11
-# (all newest stable); fix requires Go 1.25.11/1.26.4.
+# Why no fix: Affects grafana:13.0.4-ubuntu and promtail:3.6.11
+# (both newest stable); fix requires Go 1.25.11/1.26.4.
 # Why not exploitable: These only process certificates from our own PKI (not
 # untrusted external sources), so maliciously crafted certificates cannot
 # reach the vulnerable parsing code.
-CVE-2026-27145 exp:2026-07-29
+CVE-2026-27145 exp:2026-08-06
 
 # CVE-2026-39828: golang.org/x/crypto/ssh before 0.52.0 — SSH connection reuse vulnerability.
-# Why no fix: Affects alertmanager:v0.33.1, grafana:13.0.4-ubuntu, loki:3.7.2,
+# Why no fix: Affects alertmanager:v0.33.1, grafana:13.0.4-ubuntu,
 # and promtail:3.6.11 (all already on newest stable tag) as a transitive dep
 # compiled into each binary. No updated tag bundling x/crypto >= 0.52.0 exists yet.
 # Why not exploitable: None of these components act as an SSH client or server in our
 # deployment. The vulnerable golang.org/x/crypto/ssh code path is statically linked but
 # never reachable during normal operation.
-CVE-2026-39828 exp:2026-07-29
+CVE-2026-39828 exp:2026-08-06
 
 # CVE-2026-39829: golang.org/x/crypto/ssh before 0.52.0 — second SSH DoS CVE (sibling of -39828).
 # Why no fix: Same affected images as CVE-2026-39828: alertmanager:v0.33.1,
-# grafana:13.0.4-ubuntu, loki:3.7.2, promtail:3.6.11. No updated tags exist yet.
+# grafana:13.0.4-ubuntu, promtail:3.6.11. No updated tags exist yet.
 # Why not exploitable: None of these components use golang.org/x/crypto/ssh in our deployment.
-CVE-2026-39829 exp:2026-07-29
+CVE-2026-39829 exp:2026-08-06
 
 # CVE-2026-39830: golang.org/x/crypto/ssh before 0.52.0 — third SSH DoS CVE (sibling of -39828/-39829).
 # Why no fix: Same affected images as -39828/-39829. No updated tags exist yet.
 # Why not exploitable: None of these components use golang.org/x/crypto/ssh in our deployment.
-CVE-2026-39830 exp:2026-07-29
+CVE-2026-39830 exp:2026-08-06
 
 # CVE-2026-39832: golang.org/x/crypto/ssh/agent before 0.52.0 — sibling of the CVE-2026-3983x batch.
 # Affects same images as -39828/-39829/-39830. No updated tags exist yet.
 # Why not exploitable: None of these components use golang.org/x/crypto/ssh in our deployment.
-CVE-2026-39832 exp:2026-07-29
+CVE-2026-39832 exp:2026-08-06
 
 # ── Alertmanager / Grafana / Loki / Promtail golang.org/x/crypto + x/net + stdlib CVE batch ──
 # These CVEs affect golang.org/x/crypto, golang.org/x/net, and Go stdlib
 # transitively compiled into alertmanager:v0.33.1, grafana:13.0.4-ubuntu,
-# loki:3.7.2, and promtail:3.6.11 — each already on its newest published
-# stable tag (verified 2026-07-21 by pulling and re-scanning; no newer
-# release clears these). Fix requires an upstream rebuild against updated
+# and promtail:3.6.11 (loki:3.7.2 was affected too; bumped to 3.7.4 on
+# 2026-07-30, which clears all of these there) — each already on its newest
+# published stable tag as of the 2026-07-30 renewal (re-verified against a
+# fresh Trivy scan of the current pinned tags; no newer release clears these). Fix requires an upstream rebuild against updated
 # dependency versions; no such rebuild has shipped yet. None of these act as
 # SSH clients/servers or process untrusted network input that would reach
 # the vulnerable code paths in our deployment.
-CVE-2026-25681 exp:2026-07-29
-CVE-2026-27136 exp:2026-07-29
-CVE-2026-39821 exp:2026-07-29
-CVE-2026-39822 exp:2026-07-29
-CVE-2026-39831 exp:2026-07-29
-CVE-2026-39835 exp:2026-07-29
-CVE-2026-42508 exp:2026-07-29
-CVE-2026-46595 exp:2026-07-29
-CVE-2026-46597 exp:2026-07-29
+CVE-2026-25681 exp:2026-08-06
+CVE-2026-27136 exp:2026-08-06
+CVE-2026-39821 exp:2026-08-06
+CVE-2026-39822 exp:2026-08-06
+CVE-2026-39831 exp:2026-08-06
+CVE-2026-39835 exp:2026-08-06
+CVE-2026-42508 exp:2026-08-06
+CVE-2026-46595 exp:2026-08-06
+CVE-2026-46597 exp:2026-08-06
+
+# CVE-2026-56852: golang.org/x/text norm.Iter can enter an infinite loop on
+# certain malformed input during Unicode normalization.
+# Why no fix: newly disclosed; found during the 2026-07-30 re-verification
+# scan that also bumped loki 3.7.2 -> 3.7.4. Present in all four Go-based
+# monitoring images (alertmanager:v0.33.1, grafana:13.0.4-ubuntu,
+# loki:3.7.4, promtail:3.6.11) via a shared golang.org/x/text v0.38.0
+# transitive dependency; fix ships in 0.39.0 but no image has picked it up
+# yet (confirmed against the newest published tag of each).
+# Why not exploitable: norm.Iter (Unicode normalization) is not invoked on
+# any attacker-controlled input path in our deployment — none of these four
+# services expose an endpoint that normalizes untrusted text; they consume
+# metrics/logs (already-structured data) or serve their own admin UI/API to
+# authenticated internal users only.
+CVE-2026-56852 exp:2026-08-06
 
 # protobuf 4.25.9 DoS (python: recursive parsing) in ja4proxy-test — the CI-only,
 # profile-gated tooling image (never deployed; skipped by 'make build'). No fix
 # available: protobuf 5.29.6 needs semgrep>=1.137, whose mcp==1.23.3 pin would
 # reintroduce CVE-2025-66416 (see phase-800 note in requirements.txt). protobuf
 # there is only exercised by semgrep/OTEL tooling on trusted repo content.
-# Re-review at expiry: check for a semgrep release with OTEL>=1.37 AND mcp>=1.28.
-CVE-2026-0994 exp:2026-07-29
+# Re-checked 2026-07-30 at semgrep 1.172.0 (latest on PyPI, well past the
+# OTEL>=1.37 condition): opentelemetry-api/-sdk are now ~=1.37.0 as hoped, but
+# semgrep still hard-pins mcp==1.23.3 — the actual blocker is unchanged.
+# Re-review at next expiry: check again for a semgrep release with mcp>=1.28.
+CVE-2026-0994 exp:2026-08-06
+
+# GHSA-6v7p-g79w-8964: msgpack for Python — out-of-bounds read/crash on
+# malformed input (fixed in 1.2.1).
+# Why no fix: NOT a top-level application dependency in any first-party image
+# (verified: a from-scratch `pip install -r requirements-analytics.txt`
+# resolves cleanly with no msgpack at all). The real source, found by
+# inspecting the image filesystem: Python 3.14.6-alpine3.24's OWN
+# `ensurepip` bootstrap wheel, /usr/local/lib/python3.14/ensurepip/_bundled/
+# pip-26.1.2-py3-none-any.whl — frozen inside the base image at build time,
+# vendoring its own old pip/_vendor/msgpack, entirely independent of the
+# "live" pip 26.2 the Dockerfile installs via `pip install --upgrade pip`
+# (confirmed 26.2 is the latest pip release on PyPI, 2026-07-30). Only a new
+# Python patch release with an updated bundled wheel can fix this — nothing
+# in our Dockerfiles or requirements files touches ensurepip's frozen
+# artifact. requirements.txt/requirements-analytics.txt each additionally
+# pin msgpack>=1.2.1 as a top-level floor for the (unrelated) cases where
+# something really does depend on it directly (e.g. locust in
+# ja4proxy-test) — that pin is real and already effective; this waiver
+# covers only the frozen ensurepip wheel's internal copy.
+# Why not exploitable: ensurepip's bundled wheel exists solely so
+# `python -m ensurepip` can bootstrap pip on a system that lacks it — every
+# first-party image already has a live pip installed via the Dockerfile, so
+# this bootstrap path is never invoked. No application code or runtime
+# code path in any of these images touches this frozen artifact.
+GHSA-6v7p-g79w-8964 exp:2026-08-06
+
+# CVE-2025-47273: setuptools — path traversal in PackageIndex (fixed in
+# 78.1.1). Same root cause as GHSA-6v7p-g79w-8964 immediately above: found by
+# inspecting the image filesystem, not a top-level dependency anywhere
+# (`pip show setuptools` finds nothing; no setuptools directory exists
+# outside the wheel). Python 3.14.6-alpine3.24's frozen `ensurepip` bootstrap
+# wheel (pip-26.1.2-py3-none-any.whl) vendors pip/_vendor/pkg_resources —
+# conventionally versioned/reported as part of setuptools — at a version
+# Trivy resolves to 70.3.0. Same fix path (a new Python base image with an
+# updated bundled wheel) and same non-exploitability reasoning: ensurepip's
+# bootstrap path is never invoked since a live pip is always already
+# installed.
+CVE-2025-47273 exp:2026-08-06
 
 # GHSA-hrxh-6v49-42gf: gRPC-Go xDS RBAC and HTTP/2 Vulnerabilities (fixed in
 # grpc-go v1.82.1). Newly disclosed/indexed; as of this review no upstream
@@ -327,4 +380,8 @@ CVE-2026-33186 exp:2026-08-03
 # transitive dependency graph, not on the actual signing path used today.
 # Phase 801 (ja4proxy-management Alpine rebase): the only residual finding
 # after re-basing off python:3.14.6-alpine3.24 — expected per that phase's plan.
-CVE-2024-23342 exp:2026-07-29
+# Renewed 2026-07-30 (previous exp:2026-08-06 lapsed): re-checked upstream
+# python-ecdsa — still no patched release, maintainer position unchanged.
+# python-jose -> PyJWT migration (phase-304) still not started; nothing new
+# to re-justify beyond re-confirming both facts above still hold.
+CVE-2024-23342 exp:2026-08-06

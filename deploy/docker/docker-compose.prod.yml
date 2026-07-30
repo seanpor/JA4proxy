@@ -329,7 +329,7 @@ services:
           memory: 128M
 
   loki:
-    image: grafana/loki:3.7.2
+    image: grafana/loki:3.7.4
     # No host ports (0046): Grafana queries loki:3100 and Promtail pushes over
     # the network. Was published on 0.0.0.0:3100.
     volumes:
