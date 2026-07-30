@@ -270,15 +270,33 @@ ja4proxy_ti_feed_seed_file_entries_total{feed_id,outcome} counter   Seed-file fi
 #### Load Testing (`ja4proxy_loadtest_*`)
 
 Emitted by the load-test tooling (`ja4p test benchmark` / the load harness), not
-by the proxy or analytics service. Present only while a benchmark is running.
+by the proxy or analytics service. Present only while a benchmark is running —
+**except** on the self-hosted monitoring host, where these become
+long-lived: Phase 805's nightly benchmark job publishes `ja4p test
+benchmark --output json` results to a GitHub Release asset, and
+`scripts/export_ci_benchmark_textfile.sh` (a systemd-timer puller on the
+monitoring host — GitHub Actions has no inbound path to that host) converts
+them to a node-exporter textfile, refreshed roughly hourly.
 
 ```
 ja4proxy_loadtest_connections_attempted_total       counter   Connections the load test attempted to open
 ja4proxy_loadtest_connections_completed_total        counter   Connections that completed successfully
 ja4proxy_loadtest_errors_total                       counter   Connection errors during the load test
-ja4proxy_loadtest_latency_seconds                    histogram Per-connection latency distribution
 ja4proxy_loadtest_throughput_cps                     gauge     Achieved throughput (connections per second)
+ja4proxy_loadtest_p50_latency_ms                     gauge     p50 connection latency (Phase 805)
+ja4proxy_loadtest_p95_latency_ms                     gauge     p95 connection latency (Phase 805)
+ja4proxy_loadtest_p99_latency_ms                     gauge     p99 connection latency, tracked not gated (Phase 805)
+ja4proxy_loadtest_baseline_throughput_cps            gauge     Regression-gate baseline throughput (Phase 805)
+ja4proxy_loadtest_baseline_p95_latency_ms            gauge     Regression-gate baseline p95 latency (Phase 805)
+ja4proxy_loadtest_last_ci_run_timestamp_seconds      gauge     Unix timestamp of the last nightly benchmark textfile refresh (Phase 805)
 ```
+
+`ja4proxy_loadtest_latency_seconds` (histogram) was reserved here originally
+but is **not** what Phase 805 emits: `ja4p test benchmark`'s JSON output is
+pre-aggregated (p50/p95/p99/avg, not per-connection samples), so there are no
+bucket boundaries to emit a true histogram from. The gauges above are the
+honest representation of the data that actually exists; a future exporter
+with per-connection sample access could still add a real histogram.
 
 ## §2. Structured Log Schema
 
@@ -515,11 +533,48 @@ Row 4: **Config and Reload**
 - Config reload errors (should be 0)
 - Dial change history (step chart — last 24h)
 
+### 3e. Dashboard — Nightly CI Benchmark Trend (Phase 805)
+
+**File:** `deploy/monitoring/grafana/dashboards/ci_benchmark_trend.json`
+**Audience:** Platform/SRE team watching for performance regressions.
+**Refresh:** 1 hour (matches the puller's cadence — the underlying data
+only changes once nightly plus hourly re-pulls of the same value).
+
+Deliberately separate from `04_capacity.json`: that dashboard is live
+production capacity data; this one is synthetic CI benchmark data against
+the bridge-port path. Different axes (conn/s and ms against a fixed
+regression baseline, not live traffic volume), different audience, would
+be confusing to conflate on one board.
+
+Row 1: **Status**
+- Time since last run (stat, backs `JA4ProxyNightlyBenchmarkStale`)
+- Latest throughput vs baseline (stat, ratio, backs `JA4ProxyNightlyBenchmarkRegression`)
+- Latest p95 latency vs baseline (stat, ratio, same alert)
+- Latest error count (stat)
+
+Row 2: **Trend**
+- Throughput over time (measured vs baseline)
+- Latency percentiles over time (p50/p95/p99 vs the p95 baseline; p99 has
+  no baseline yet — see the metric registry note above)
+- Errors over time
+
 ---
 
 ## §4. Alertmanager Rules
 
-Alert rules are organized into multiple files in `deploy/monitoring/alertmanager/rules/`:
+Alert rules are organized into multiple files in `deploy/monitoring/alertmanager/rules/`.
+
+> **Phase 805 wiring fix:** every file in this directory was promtool-syntax-
+> validated (`make lint-prom`) and structurally tested
+> (`tests/unit/test_alert_rules.py`), but until this phase **none of them
+> were actually mounted into the Prometheus container** —
+> `deploy/monitoring/prometheus/prometheus.yml`'s `rule_files:` never
+> referenced this directory, and `deploy/docker/docker-compose.monitoring.yml`
+> never bind-mounted it. Verified empirically with `promtool check config`
+> against the real mount set (see `docs/phases/PHASE_805.md`'s design
+> section) — Prometheus would not even start, since the same gap also left
+> `slo_recording_rules.yml` unmounted despite being listed in `rule_files:`.
+> Both are now mounted; every rule below is live for the first time.
 
 | File | Covers |
 |------|--------|
@@ -528,6 +583,12 @@ Alert rules are organized into multiple files in `deploy/monitoring/alertmanager
 | `deploy/monitoring/alertmanager/rules/security.rules.yml` | High score rate, bypass disabled, blacklist size anomalies |
 | `deploy/monitoring/alertmanager/rules/backup.rules.yml` | Backup failures, retention violations |
 | `deploy/monitoring/alertmanager/rules/management_ui_rules.yml` | Management UI availability and errors (deferred until Phase 13) |
+| `deploy/monitoring/alertmanager/rules/tap.yml` | Go TAP/SPAN sensor: capture drops, ring buffer, worker restarts, Redis circuit breaker (Phase 803) |
+| `deploy/monitoring/alertmanager/rules/ebpf_attack.yml` | eBPF-based attack detection |
+| `deploy/monitoring/alertmanager/rules/slo_alerts.yml` | SLO burn-rate alerts (Phase 63) |
+| `deploy/monitoring/alertmanager/rules/ti_feed.yml` | Threat-intel feed poll failures, staleness |
+| `deploy/monitoring/alertmanager/rules/tls_alerts.yml` | TLS certificate expiry, handshake failure rate |
+| `deploy/monitoring/alertmanager/rules/performance.rules.yml` | Nightly benchmark staleness and regression (Phase 805) |
 
 ```yaml
 groups:

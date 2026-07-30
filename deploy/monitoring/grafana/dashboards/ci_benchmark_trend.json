@@ -1,0 +1,279 @@
+{
+  "__inputs": [],
+  "__requires": [
+    {"type": "grafana", "id": "grafana", "name": "Grafana", "version": "9.0.0"},
+    {"type": "datasource", "id": "prometheus", "name": "Prometheus", "version": "1.0.0"}
+  ],
+  "id": null,
+  "uid": "ja4proxy-ci-benchmark-trend",
+  "title": "JA4 Proxy - Nightly CI Benchmark Trend",
+  "description": "Phase 805: synthetic nightly perf/load regression tracking (ja4p test benchmark via the GitHub Actions nightly-benchmark workflow), pulled into Prometheus via node-exporter's textfile collector. Deliberately separate from 04_capacity.json, which is live production capacity -- different axes, different audience.",
+  "tags": ["ja4", "performance", "ci", "benchmark"],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "1h",
+  "time": {"from": "now-30d", "to": "now"},
+  "timepicker": {
+    "refresh_intervals": ["1h", "6h", "12h", "1d"]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Status",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0}
+    },
+    {
+      "id": 2,
+      "title": "Time Since Last Run",
+      "description": "PHASE_805: backs the JA4ProxyNightlyBenchmarkStale alert (fires past 36h).",
+      "type": "stat",
+      "gridPos": {"h": 6, "w": 6, "x": 0, "y": 1},
+      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 86400},
+              {"color": "red", "value": 129600}
+            ]
+          },
+          "unit": "s"
+        }
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+          "expr": "time() - ja4proxy_loadtest_last_ci_run_timestamp_seconds",
+          "legendFormat": "age",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Latest Throughput vs Baseline",
+      "type": "stat",
+      "gridPos": {"h": 6, "w": 6, "x": 6, "y": 1},
+      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "steps": [
+              {"color": "red", "value": null},
+              {"color": "yellow", "value": 0.8},
+              {"color": "green", "value": 1.0}
+            ]
+          },
+          "unit": "percentunit"
+        }
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+          "expr": "ja4proxy_loadtest_throughput_cps / ja4proxy_loadtest_baseline_throughput_cps",
+          "legendFormat": "throughput vs baseline",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Latest p95 Latency vs Baseline",
+      "type": "stat",
+      "gridPos": {"h": 6, "w": 6, "x": 12, "y": 1},
+      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 1.0},
+              {"color": "red", "value": 1.2}
+            ]
+          },
+          "unit": "percentunit"
+        }
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+          "expr": "ja4proxy_loadtest_p95_latency_ms / ja4proxy_loadtest_baseline_p95_latency_ms",
+          "legendFormat": "p95 vs baseline",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Latest Error Count",
+      "type": "stat",
+      "gridPos": {"h": 6, "w": 6, "x": 18, "y": 1},
+      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "red", "value": 1}
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+          "expr": "ja4proxy_loadtest_errors_total",
+          "legendFormat": "errors",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Trend",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 7}
+    },
+    {
+      "id": 7,
+      "title": "Throughput Over Time",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "unit": "cps",
+          "min": 0,
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 5
+          }
+        }
+      },
+      "options": {
+        "tooltip": {"mode": "multi"},
+        "legend": {"displayMode": "list", "placement": "bottom"}
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+          "expr": "ja4proxy_loadtest_throughput_cps",
+          "legendFormat": "measured"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+          "expr": "ja4proxy_loadtest_baseline_throughput_cps",
+          "legendFormat": "baseline"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Latency Percentiles Over Time",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "unit": "ms",
+          "min": 0,
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 5
+          }
+        }
+      },
+      "options": {
+        "tooltip": {"mode": "multi"},
+        "legend": {"displayMode": "list", "placement": "bottom"}
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+          "expr": "ja4proxy_loadtest_p50_latency_ms",
+          "legendFormat": "p50"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+          "expr": "ja4proxy_loadtest_p95_latency_ms",
+          "legendFormat": "p95"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+          "expr": "ja4proxy_loadtest_p99_latency_ms",
+          "legendFormat": "p99 (tracked, not gated)"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+          "expr": "ja4proxy_loadtest_baseline_p95_latency_ms",
+          "legendFormat": "p95 baseline"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Errors Over Time",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 16},
+      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        }
+      },
+      "options": {
+        "tooltip": {"mode": "multi"},
+        "legend": {"displayMode": "list", "placement": "bottom"}
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+          "expr": "ja4proxy_loadtest_errors_total",
+          "legendFormat": "errors"
+        }
+      ]
+    }
+  ]
+}

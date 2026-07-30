@@ -38,6 +38,7 @@
 | [ADR-105a](ADR-105a-pdf-ci-placement.md) | PDF build workflow placement (dedicated `docs-pdf.yml`, not `ci.yml`) | Accepted | 105 | 2026-04-25 |
 | [ADR-105b](ADR-105b-link-checker.md) | Link-check tool selection (retain `markdown-link-check`) | Accepted | 105 | 2026-04-25 |
 | [ADR-107a](ADR-107a-slsa-level-3.md) | SLSA Level 3 via `slsa-github-generator` reusable workflow | Superseded by ADR-202a | 107 | 2026-04-26 |
+| [ADR-207](ADR-207.md) | Nightly benchmark regression detection: textfile collector, not remote_write or Pushgateway | Accepted | 805 | 2026-07-30 |
 
 ## Planned ADRs (To Be Written)
 

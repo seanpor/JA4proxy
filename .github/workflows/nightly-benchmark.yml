@@ -1,0 +1,162 @@
+---
+# Phase 805 — nightly performance/load regression detection.
+#
+# `make bench-macro` (ja4p test benchmark against the Go proxy's bridge
+# port) is real, working tooling, but nothing ran it on a schedule before
+# this workflow — a PR that regressed hot-path latency or throughput passed
+# CI cleanly. This runs it nightly, gates the result against
+# docs/reports/nightly_benchmark_baseline.json (see docs/phases/PHASE_805.md
+# for why that file, not the orphaned docs/reports/benchmark_baseline.txt,
+# is the source of truth), and publishes the raw result as a rolling GitHub
+# Release asset. A separate, self-hosted puller
+# (scripts/export_ci_benchmark_textfile.sh, run by a systemd timer on the
+# monitoring host) pulls that asset into Prometheus via node-exporter's
+# textfile collector — see the design section of PHASE_805.md for why that
+# indirection exists (no inbound network path from GitHub Actions to the
+# self-hosted monitoring stack).
+#
+# All third-party actions are SHA-pinned; see .github/workflows/ci.yml's
+# header comment for the pinning procedure. This workflow adds no new
+# third-party action beyond what ci.yml already pins.
+
+name: Nightly Benchmark
+
+on:
+  schedule:
+    - cron: "17 3 * * *"  # 03:17 UTC daily — off-peak, offset from ci.yml's Monday 06:00 weekly sweep
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    name: Nightly Benchmark
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # gh release upload
+      issues: write    # perf-regression tracking issue
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16  # v6.5.0
+        with:
+          go-version: "1.26.5"
+
+      - name: Build ja4p CLI (host-side load generator)
+        run: make cli-build
+
+      - name: Bring up the PoC stack (proxy runs in Docker; auto-generates .env)
+        run: ./scripts/start-poc.sh
+
+      - name: Run nightly benchmark
+        run: |
+          set -e
+          PORT=$(grep '^HOST_PORT_DIRECT=' .env | cut -d= -f2); PORT=${PORT:-8081}
+          echo "Benchmarking 127.0.0.1:$PORT ..."
+          ./bin/ja4p test benchmark --host "127.0.0.1:$PORT" --duration 30 --output json > result.json
+          cat result.json
+
+      - name: Run regression gate
+        id: gate
+        run: |
+          set +e
+          python3 scripts/nightly_benchmark_gate.py \
+            --result result.json \
+            --baseline docs/reports/nightly_benchmark_baseline.json \
+            --gate 20 > gate_report.txt 2>&1
+          exit_code=$?
+          cat gate_report.txt
+          if [ "$exit_code" -ne 0 ]; then
+            echo "regressed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "regressed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Enrich result.json with baseline + provenance for the puller
+        run: |
+          set -e
+          python3 -c "
+          import json, os
+          with open('result.json') as f:
+              result = json.load(f)
+          with open('docs/reports/nightly_benchmark_baseline.json') as f:
+              baseline = json.load(f)
+          result['baseline_throughput_cps'] = baseline['gated_metrics']['throughput_cps']['baseline']
+          result['baseline_p95_latency_ms'] = baseline['gated_metrics']['p95_latency_ms']['baseline']
+          result['git_sha'] = os.environ['GITHUB_SHA']
+          result['ci_run_id'] = os.environ['GITHUB_RUN_ID']
+          with open('result.json', 'w') as f:
+              json.dump(result, f, indent=2)
+          "
+          cat result.json
+
+      - name: Publish result to the rolling GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          TAG=nightly-benchmark-latest
+          if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release upload "$TAG" result.json --repo "${{ github.repository }}" --clobber
+          else
+            gh release create "$TAG" result.json \
+              --repo "${{ github.repository }}" \
+              --title "Nightly Benchmark (rolling)" \
+              --notes "Rolling nightly ja4p test benchmark result, overwritten every run. Pulled by the monitoring host's systemd timer — see docs/runbooks/nightly_benchmark_regression.md. Not a versioned release."
+          fi
+
+      - name: Open or update perf-regression tracking issue
+        if: steps.gate.outputs.regressed == 'true'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3  # v9.0.0
+        with:
+          script: |
+            const fs = require('fs');
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const report = fs.readFileSync('gate_report.txt', 'utf8');
+            const label = 'perf-regression';
+            const body = [
+              'The nightly benchmark regression gate failed.',
+              '',
+              `Run: ${runUrl}`,
+              '',
+              '```',
+              report.trim(),
+              '```',
+              '',
+              'See docs/runbooks/nightly_benchmark_regression.md for triage steps.',
+              'If this is a real, deliberate performance change (not a regression),',
+              'update docs/reports/nightly_benchmark_baseline.json per that runbook.',
+            ].join('\n');
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: label,
+            });
+            if (issues.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issues[0].number,
+                body: `Still regressed as of this run.\n\n${body}`,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: 'Nightly benchmark regression detected',
+                body,
+                labels: [label],
+              });
+            }
+
+      - name: Tear down the PoC stack
+        if: always()
+        run: docker compose -f deploy/docker/docker-compose.poc.yml --env-file .env down -v --remove-orphans
+
+      - name: Fail the job if a regression was detected
+        if: steps.gate.outputs.regressed == 'true'
+        run: |
+          echo "::error::Nightly benchmark regressed against docs/reports/nightly_benchmark_baseline.json — see gate_report.txt above and the perf-regression issue."
+          exit 1

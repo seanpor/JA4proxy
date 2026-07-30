@@ -1,0 +1,23 @@
+groups:
+  - name: ja4proxy_nightly_benchmark
+    rules:
+      - alert: JA4ProxyNightlyBenchmarkStale
+        expr: time() - ja4proxy_loadtest_last_ci_run_timestamp_seconds > 36 * 3600
+        for: 0m
+        labels: {severity: warning}
+        annotations:
+          summary: "Nightly benchmark data is stale ({{ $value | humanizeDuration }} old)"
+          description: "No fresh nightly benchmark result has been pulled in over 36 hours. Either the GitHub Actions nightly-benchmark workflow stopped running, or the monitoring host's systemd puller timer (scripts/export_ci_benchmark_textfile.sh) stopped fetching."
+          runbook_url: "https://github.com/seanpor/JA4proxy/blob/main/docs/runbooks/nightly_benchmark_regression.md"
+
+      - alert: JA4ProxyNightlyBenchmarkRegression
+        expr: >
+          ja4proxy_loadtest_throughput_cps < ja4proxy_loadtest_baseline_throughput_cps * 0.8
+          or
+          ja4proxy_loadtest_p95_latency_ms > ja4proxy_loadtest_baseline_p95_latency_ms * 1.2
+        for: 0m
+        labels: {severity: warning}
+        annotations:
+          summary: "Nightly benchmark regressed more than 20% against baseline"
+          description: "throughput={{ $labels.__name__ }} current vs baseline, or p95 latency, moved past the 20% regression gate. See docs/reports/nightly_benchmark_baseline.json for the current baseline and docs/runbooks/nightly_benchmark_regression.md for triage."
+          runbook_url: "https://github.com/seanpor/JA4proxy/blob/main/docs/runbooks/nightly_benchmark_regression.md"

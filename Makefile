@@ -723,10 +723,18 @@ lint-yaml:
 # Uses the prometheus container so promtool version matches the deployed version.
 PROM_RULES := /monitoring/prometheus/alerts.yml \
 	/monitoring/prometheus/recording_rules.yml \
+	/monitoring/prometheus/slo_recording_rules.yml \
 	/monitoring/alertmanager/rules/proxy.rules.yml \
 	/monitoring/alertmanager/rules/redis.rules.yml \
 	/monitoring/alertmanager/rules/security.rules.yml \
-	/monitoring/alertmanager/rules/tap.yml
+	/monitoring/alertmanager/rules/backup.rules.yml \
+	/monitoring/alertmanager/rules/ebpf_attack.yml \
+	/monitoring/alertmanager/rules/management_ui_rules.yml \
+	/monitoring/alertmanager/rules/slo_alerts.yml \
+	/monitoring/alertmanager/rules/ti_feed.yml \
+	/monitoring/alertmanager/rules/tls_alerts.yml \
+	/monitoring/alertmanager/rules/tap.yml \
+	/monitoring/alertmanager/rules/performance.rules.yml
 lint-prom:
 	@echo "=== promtool check rules: Prometheus alert + recording rules ==="
 	@docker run --rm --entrypoint promtool \
@@ -787,9 +795,12 @@ lint-lua:
 		&& echo "✓ Lua lint passed"
 
 # Validate JSON files: Grafana dashboards and API spec.
-JSON_FILES := deploy/monitoring/grafana/dashboards/ja4proxy-overview.json \
-	deploy/monitoring/grafana/dashboards/analytics.json \
-	deploy/monitoring/grafana/dashboards/tap_sensor.json \
+# Phase 805: switched the dashboard portion to a glob (was a hand-maintained
+# list missing 04_capacity.json and ja4proxy-infrastructure.json — neither
+# had ever been JSON-lint-checked here) so a new dashboard file can't
+# silently skip this gate again the way tap_sensor.json and this phase's
+# ci_benchmark_trend.json would have.
+JSON_FILES := $(wildcard deploy/monitoring/grafana/dashboards/*.json) \
 	docs/api/openapi.json
 lint-json:
 	@echo "=== JSON syntax validation ==="
