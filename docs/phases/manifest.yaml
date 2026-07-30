@@ -4114,3 +4114,17 @@ phases:
       v9 require()/getOctokit changes) don't affect this repo's workflows.
       Issue #292 (git history rewrite to purge the ja4-tap blob) is explicitly
       deferred, not silently dropped — see PHASE_810.md Out of scope."
+  811:
+    name: "Git history rewrite — purge ja4-tap binary + coverage.txt (closes #292)"
+    status: IN_PROGRESS
+    action_plan: docs/phases/PHASE_811.md
+    dependencies: []
+    size: SMALL
+    summary: "PROPOSED (2026-07-30). Plan to rewrite git history with
+      git-filter-repo to drop the 25 MB ja4-tap binary (1 revision) and all
+      historical coverage.txt revisions (8, ~1.9 MiB) confirmed via
+      git cat-file --batch-check against the full object set. Requires a
+      force-push to main under the AGENTS.md branch-protection emergency
+      procedure since filter-repo changes every downstream commit hash — not
+      a normal PR merge. Awaiting phase-doc review before any destructive
+      step."
