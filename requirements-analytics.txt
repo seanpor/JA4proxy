@@ -18,3 +18,8 @@ jsonschema==4.26.0
 
 # Numerical analysis (baseline stats, distribution comparison)
 numpy>=1.24
+
+msgpack>=1.2.1  # GHSA-6v7p-g79w-8964 (HIGH) — not a direct dep; local rebuild (Python 3.14,
+# matching the image) resolved cleanly with no msgpack at all, so this pin is defensive
+# insurance against a transient PyPI resolution picking it up as some package's optional/
+# transitive extra, not a confirmed fix for a reproduced local finding.

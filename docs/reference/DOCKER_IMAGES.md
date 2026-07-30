@@ -24,7 +24,7 @@ This document serves as the canonical registry of every Docker image used in the
 | `grafana/grafana` | `13.0.4-ubuntu` | `deploy/docker/docker-compose.prod.yml`, `deploy/docker/docker-compose.monitoring.yml` | 2026-07-27 | Visualisation dashboard. **Phase 810** bumped from `13.0.2-ubuntu` (18 fewer HIGH/CRITICAL findings, zero new; latest published tag — still carries a dated `.trivyignore` residual set, see that file) |
 | `prom/node-exporter` | `v1.12.1` | `deploy/docker/docker-compose.monitoring.yml` | 2026-07-21 | Host metrics collector |
 | `oliver006/redis_exporter` | `v1.87.0` | `deploy/docker/docker-compose.prod.yml`, `deploy/docker/docker-compose.monitoring.yml` | 2026-07-21 | Redis metrics collector |
-| `grafana/loki` | `3.7.2` | `deploy/docker/docker-compose.prod.yml`, `deploy/docker/docker-compose.monitoring.yml` | 2026-06-13 | Log aggregation system |
+| `grafana/loki` | `3.7.4` | `deploy/docker/docker-compose.prod.yml`, `deploy/docker/docker-compose.monitoring.yml` | 2026-07-30 | Log aggregation system. Bumped from `3.7.2` (2 patch releases) after an expired `.trivyignore` batch forced re-verification — cleared 23 of 25 waived HIGH/CRITICAL findings, zero new (one pre-existing `golang.org/x/text` DoS now shared across all four Go-based monitoring images, see `.trivyignore`) |
 | `grafana/promtail` | `3.6.11` | `deploy/docker/docker-compose.prod.yml`, `deploy/docker/docker-compose.monitoring.yml` | 2026-06-13 | Log shipment agent |
 
 ## First-Party Images

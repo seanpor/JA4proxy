@@ -192,7 +192,7 @@ services:
           cpus: '0.5'
 
   loki:
-    image: grafana/loki:3.7.2
+    image: grafana/loki:3.7.4
     container_name: ja4proxy-loki
     # Not exposed to host — only accessible from monitoring network
     volumes:
