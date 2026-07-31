@@ -241,6 +241,15 @@ sensor into production. This should be its own follow-up phase, not deferred aga
 
 ### F-003 — [MAJOR] No `sync.Pool` usage despite plan requirement
 
+> **DEFERRED** (PHASE_809, 2026-07-31): not attempted this phase. A `sync.Pool`
+> for reassembly buffers needs careful lifecycle review given this same
+> phase's G-001 finding (a slice shared past its owner's lifetime is exactly
+> the aliasing bug class a pool reintroduces if a buffer is returned to the
+> pool while a downstream reader — the event channel consumer — might still
+> hold a reference). Worth a focused follow-up phase with its own plan and
+> race-tested proof the pooled buffer is never read after being returned,
+> not an opportunistic Wave 4 addition.
+
 **Phase:** 316a
 
 **Description:**
@@ -1216,6 +1225,15 @@ This means:
 
 ### R-006 — [LOW] No connection-scoped histograms for capacity planning
 
+> **DEFERRED** (PHASE_809, 2026-07-31): not attempted this phase. Four new
+> histograms across three different call sites (reassembler, Redis writer,
+> per-connection state machine) is a real instrumentation project, not an
+> opportunistic addition — each needs its own bucket-boundary review against
+> real traffic to be useful rather than noise. This phase did add several
+> new gauges/counters where a single well-scoped metric fit naturally
+> (heap_alloc_bytes, ring_buffer_fill_ratio, worker_restarts, excluded_ip_events);
+> R-006's histograms are a larger, separate piece of work.
+
 **Phase:** 316a (observability)
 
 **Severity:** LOW — capacity planning is guesswork
@@ -1519,6 +1537,16 @@ degradation mode. However, it is undocumented.
 
 ### R-014 — [LOW] No rate-limiting or sampling for the SPAN path
 
+> **DEFERRED** (PHASE_809, 2026-07-31): not attempted this phase. `--max-pps`/
+> `--sample-rate` are new operator-facing features with real design
+> decisions (what does "sampled" mean for a signal that depends on seeing
+> the SYN specifically — sampling SYNs vs. sampling connections vs.
+> sampling packets all have different, non-obvious correctness implications
+> for the OS/JA4T fingerprints), not a cleanup item. Existing overload
+> behavior (event-channel overflow, counted and dropped, fail-open) is
+> already the documented degradation mode; this is additive capacity-control
+> work for a follow-up phase, not a Wave 4 fix.
+
 **Phase:** 316a (operations)
 
 **Severity:** LOW — SPAN flood causes 100% event loss
@@ -1635,6 +1663,17 @@ if ver < 0x0300 || ver > 0x0303 {
 
 ### T-003 — [LOW] `extractFirstHandshake` re-parses full buffer from beginning on every append (O(n²))
 
+> **DEFERRED** (PHASE_809, 2026-07-31): not attempted this phase. Fixing
+> this properly means giving `tlsStream` persistent parse-cursor state
+> across calls (the finding's own suggested approach: return a "skip and
+> keep waiting" result and remember how far the previous call got) rather
+> than re-deriving everything from `buf` each time — a real refactor of the
+> reassembler's incremental-parsing model, not a local fix, and this phase
+> already restructured `extractFirstHandshake` twice (T-001, F-008) without
+> touching this. Bounded by `maxHandshakeBytes`/`maxBufferedPagesPerConn`
+> (F-026), so not a practical DoS — safe to defer to a phase that can give
+> the cursor-state redesign its own review.
+
 **Phase:** 316a (performance)
 
 **Severity:** LOW — algorithmic waste bounded by max buffer size; not exploitable
@@ -1726,6 +1765,12 @@ This adds one allocation per connection (negligible) and eliminates the latent r
 ---
 
 ### G-002 — [LOW] `assemblerCtx` heap-escape per packet (GC pressure on high-PPS paths)
+
+> **DEFERRED** (PHASE_809, 2026-07-31): not attempted this phase, same
+> reasoning as F-003 — pooling `assemblerCtx` needs the same reuse-after-
+> emit lifecycle review G-001 (this phase) flagged for shared buffers in
+> general. Batch with F-003 in a follow-up phase rather than pooling one and
+> not the other.
 
 **Phase:** 316a (performance)
 
