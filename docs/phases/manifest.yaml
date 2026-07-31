@@ -3909,7 +3909,7 @@ phases:
       200k-packet pcap, not just pattern-matched against Phase 334's tables."
   809:
     name: "Go TAP/SPAN Sensor Remediation Waves 3-4 — Phase 334's Remaining Findings"
-    status: PROPOSED
+    status: IN_PROGRESS
     action_plan: docs/phases/PHASE_809.md
     dependencies:
     - 803
@@ -3922,7 +3922,9 @@ phases:
       overwrite and shorten an operator-issued ban (D-001), a negative-cache-
       poisoning fix (D-002), operability gaps (R-005/R-007/R-008/R-009/R-010),
       deployment/infra findings (O-004/O-005/O-006), reassembler correctness
-      (T-001), and the project's first privacy/GDPR documentation — zero exists
+      (T-001), watchdog/startup-verification gaps found missing from the
+      original wave split during 809 planning review (F-005, F-015), and the
+      project's first privacy/GDPR documentation — zero exists
       project-wide today despite the sensor capturing raw ClientHello bytes
       (including SNI) and writing IP-keyed Redis records with no erasure mechanism
       (P-001/P-002/P-003, new docs/PRIVACY.md). Wave 4 (LOW/INFORMATIONAL) — batch

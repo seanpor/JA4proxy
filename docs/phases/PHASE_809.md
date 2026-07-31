@@ -47,6 +47,14 @@ doc is self-contained — see PHASE_334.md for full evidence/line numbers):
   `sync.RWMutex` (latent panic risk once any writer exists); deep-copy
   `StackFeatures.OptionOrder` at emit time to match the handshake-bytes
   pattern already used elsewhere.
+- **Resilience/startup verification** (F-005, F-015): `internal/tap/watchdog.go`
+  appears to already exist (other PHASE_334 `RESOLVED` notes reference
+  `Watchdog.Run`), but F-005 itself was never confirmed or annotated — verify
+  it's real supervision (restart + rapid-crash-loop protection) and close the
+  loop in `PHASE_334.md`, implementing it here if it turns out to be missing
+  after all; add a startup check that the capture interface exists and is up
+  (`net.InterfaceByName`) per F-015 (its frame-size-clamp half is already
+  covered by Wave 4's F-027).
 - **Operability** (R-005, R-007, R-008, R-009, R-010): periodic heartbeat log
   (not gated by `--quiet`); `SIGHUP`/`SIGUSR1` handlers; `--log-format json` +
   `--log-level`; config file / env var support; `GOMEMLIMIT` guidance.

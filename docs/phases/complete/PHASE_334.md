@@ -2019,7 +2019,11 @@ This is not a practical risk (all data is in the same process address space, and
 - `cmd/ja4-tap/main.go:169–172`: event is consumed, fingerprints are written, ClientHello bytes are not persisted
 
 **Recommendation:**
-Document in `docs/PRIVACY.md` that full TLS ClientHello messages (including SNI) are held in memory for the duration of the event queue (bounded by the 1024-slot channel) and are never persisted to secondary storage. — [MEDIUM] Sensor-written bans mislabeled as "manual_ban" and overwrite admin bans
+Document in `docs/PRIVACY.md` that full TLS ClientHello messages (including SNI) are held in memory for the duration of the event queue (bounded by the 1024-slot channel) and are never persisted to secondary storage.
+
+---
+
+### D-001 — [MEDIUM] Sensor-written bans mislabeled as "manual_ban" and overwrite admin bans
 
 **Phase:** 316d (sensor enforcement), 231a (proxy pipeline)
 
