@@ -60,6 +60,13 @@ type TapConsumerConfig struct {
 	// staleness. Fail-open preserved: stale lookups degrade to "missing signal"
 	// rather than a wrong decision.
 	MaxAge time.Duration
+	// NegativeCacheTTL bounds how long a Redis miss/error/timeout ("") is
+	// cached before the next lookup retries Redis (D-002). Kept much shorter
+	// than CacheTTL: a positive result is worth caching for a while, but a
+	// miss racing the TAP sensor's own write (SYN observed a few ms before
+	// the proxy's accept()) should not silently suppress the signal for the
+	// full positive-result TTL once the sensor's write actually lands.
+	NegativeCacheTTL time.Duration
 }
 
 // redisGetter is the narrow Redis interface the TapConsumer depends on.
@@ -121,10 +128,19 @@ func (t *TapConsumer) GetSignal(ctx context.Context, clientIP, ja4 string) *Risk
 	observed, hit := t.cachedLookup(canonIP)
 	if !hit {
 		observed = t.redisLookup(ctx, canonIP)
-		// Cache the outcome (even empty string) to short-circuit repeat calls.
+		// Cache the outcome to short-circuit repeat calls, but a miss/error
+		// gets a much shorter TTL than a positive result (D-002): a Redis GET
+		// racing the TAP sensor's own write must not suppress the signal for
+		// a full CacheTTL once the sensor's write actually lands.
 		ttl := t.cfg.CacheTTL
 		if ttl <= 0 {
 			ttl = 60 * time.Second
+		}
+		if observed == "" {
+			ttl = t.cfg.NegativeCacheTTL
+			if ttl <= 0 {
+				ttl = 5 * time.Second
+			}
 		}
 		t.cache.Set(cacheKey(canonIP), observed, ttl)
 	}

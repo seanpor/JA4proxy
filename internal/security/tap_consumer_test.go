@@ -245,6 +245,51 @@ func TestTapConsumer_LocalCache_ShortCircuitsSecondLookup(t *testing.T) {
 	}
 }
 
+// TestTapConsumer_NegativeCacheExpiresIndependently guards D-002: a Redis
+// miss must be cached for NegativeCacheTTL, not the much longer CacheTTL — a
+// GET racing the TAP sensor's own write must not suppress the signal for a
+// full CacheTTL once the sensor's write actually lands.
+func TestTapConsumer_NegativeCacheExpiresIndependently(t *testing.T) {
+	claimed := callJA4OSClass(t, chromeWindowsJA4)
+	if claimed == "" {
+		t.Skip("starter ja4OSClass table does not map chromeWindowsJA4")
+	}
+	observed := "linux"
+	if claimed == observed {
+		observed = "macos"
+	}
+
+	rc := &fakeRedis{values: map[string]string{}} // key not yet written — simulates the race
+	cfg := newTapConfig()
+	cfg.CacheTTL = time.Hour                     // deliberately long: a positive hit should stick
+	cfg.NegativeCacheTTL = 10 * time.Millisecond // deliberately short: a miss should expire fast
+	tc := NewTapConsumer(cfg, rc, nil)
+
+	ctx := context.Background()
+	if got := tc.GetSignal(ctx, "5.6.7.8", chromeWindowsJA4); got != nil {
+		t.Fatalf("first lookup (miss) must return nil; got %+v", got)
+	}
+	if got := rc.calls(); got != 1 {
+		t.Fatalf("expected 1 Redis call after the initial miss, got %d", got)
+	}
+
+	// The sensor's write "lands" here — a bare CacheTTL-only implementation
+	// would still serve the stale negative result for up to an hour.
+	rc.mu.Lock()
+	rc.values["fp:os:ip:5.6.7.8"] = observed
+	rc.mu.Unlock()
+
+	time.Sleep(30 * time.Millisecond) // past NegativeCacheTTL, well under CacheTTL
+
+	sig := tc.GetSignal(ctx, "5.6.7.8", chromeWindowsJA4)
+	if sig == nil {
+		t.Fatal("after NegativeCacheTTL elapses, the now-written key must be picked up and emit a signal; got nil (negative-cache-poisoning regression)")
+	}
+	if got := rc.calls(); got != 2 {
+		t.Errorf("expected a second Redis call once the negative cache entry expired; got %d calls", got)
+	}
+}
+
 func TestTapConsumer_Concurrent_RaceFree(t *testing.T) {
 	// Run under `go test -race`. Many goroutines hit the same IP; no data races.
 	claimed := callJA4OSClass(t, chromeWindowsJA4)

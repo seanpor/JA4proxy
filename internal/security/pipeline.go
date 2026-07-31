@@ -224,18 +224,20 @@ type PipelineConfig struct {
 	JA4XBlacklistScore  int
 
 	// Phase 203a — TAP-consumed JA4T OS mismatch signal.
-	TapConsumerEnabled      bool
-	TapConsumerScore        int
-	TapConsumerRedisTimeout int // milliseconds
-	TapConsumerCacheTTL     int // seconds
-	TapConsumerMaxAge       int // seconds
+	TapConsumerEnabled          bool
+	TapConsumerScore            int
+	TapConsumerRedisTimeout     int // milliseconds
+	TapConsumerCacheTTL         int // seconds
+	TapConsumerMaxAge           int // seconds
+	TapConsumerNegativeCacheTTL int // seconds (phase-809, D-002)
 
 	// Phase 316c — TAP-consumed JA4T blocklist signal.
-	JA4TConsumerEnabled      bool
-	JA4TConsumerScore        int
-	JA4TConsumerRedisTimeout int      // milliseconds
-	JA4TConsumerCacheTTL     int      // seconds
-	JA4TBlocklist            []string // JA4T fingerprints that raise the signal
+	JA4TConsumerEnabled          bool
+	JA4TConsumerScore            int
+	JA4TConsumerRedisTimeout     int      // milliseconds
+	JA4TConsumerCacheTTL         int      // seconds
+	JA4TConsumerNegativeCacheTTL int      // seconds (phase-809, D-002)
+	JA4TBlocklist                []string // JA4T fingerprints that raise the signal
 
 	// Phase 248 — Auto-escalating IP defense.
 	AutoEscalate config.AutoEscalateConfig
@@ -357,11 +359,12 @@ func (g redisReaderGetter) Get(ctx context.Context, key string) (string, error) 
 // buildTapConsumerConfig builds a TapConsumerConfig from the pipeline config.
 func buildTapConsumerConfig(cfg *PipelineConfig) *TapConsumerConfig {
 	return &TapConsumerConfig{
-		Enabled:      cfg.TapConsumerEnabled,
-		SignalScore:  cfg.TapConsumerScore,
-		RedisTimeout: durationMillis(cfg.TapConsumerRedisTimeout, 50),
-		CacheTTL:     durationSeconds(cfg.TapConsumerCacheTTL, 60),
-		MaxAge:       durationSeconds(cfg.TapConsumerMaxAge, 300),
+		Enabled:          cfg.TapConsumerEnabled,
+		SignalScore:      cfg.TapConsumerScore,
+		RedisTimeout:     durationMillis(cfg.TapConsumerRedisTimeout, 50),
+		CacheTTL:         durationSeconds(cfg.TapConsumerCacheTTL, 60),
+		MaxAge:           durationSeconds(cfg.TapConsumerMaxAge, 300),
+		NegativeCacheTTL: durationSeconds(cfg.TapConsumerNegativeCacheTTL, 5),
 	}
 }
 
@@ -375,11 +378,12 @@ func buildJA4TConsumerConfig(cfg *PipelineConfig) *JA4TConsumerConfig {
 		}
 	}
 	return &JA4TConsumerConfig{
-		Enabled:      cfg.JA4TConsumerEnabled,
-		SignalScore:  cfg.JA4TConsumerScore,
-		RedisTimeout: durationMillis(cfg.JA4TConsumerRedisTimeout, 50),
-		CacheTTL:     durationSeconds(cfg.JA4TConsumerCacheTTL, 60),
-		Blocklist:    blocklist,
+		Enabled:          cfg.JA4TConsumerEnabled,
+		SignalScore:      cfg.JA4TConsumerScore,
+		RedisTimeout:     durationMillis(cfg.JA4TConsumerRedisTimeout, 50),
+		CacheTTL:         durationSeconds(cfg.JA4TConsumerCacheTTL, 60),
+		NegativeCacheTTL: durationSeconds(cfg.JA4TConsumerNegativeCacheTTL, 5),
+		Blocklist:        blocklist,
 	}
 }
 

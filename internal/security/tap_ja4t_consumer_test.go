@@ -127,6 +127,41 @@ func TestJA4TConsumer_CachesLookup(t *testing.T) {
 	}
 }
 
+// TestJA4TConsumer_NegativeCacheExpiresIndependently mirrors
+// TestTapConsumer_NegativeCacheExpiresIndependently for the JA4T consumer
+// (D-002): a miss must expire out of the cache on NegativeCacheTTL, not the
+// much longer CacheTTL, so a write that lands just after a racing miss is
+// picked up quickly rather than staying invisible for the full positive TTL.
+func TestJA4TConsumer_NegativeCacheExpiresIndependently(t *testing.T) {
+	r := &fakeRedis{values: map[string]string{}} // key not yet written
+	cfg := ja4tConfig()
+	cfg.CacheTTL = time.Hour
+	cfg.NegativeCacheTTL = 10 * time.Millisecond
+	c := NewJA4TConsumer(cfg, r, nil)
+
+	ctx := context.Background()
+	if sig := c.GetSignal(ctx, "203.0.113.9"); sig != nil {
+		t.Fatalf("first lookup (miss) must return nil; got %+v", sig)
+	}
+	if r.getCalls != 1 {
+		t.Fatalf("expected 1 Redis call after the initial miss, got %d", r.getCalls)
+	}
+
+	r.mu.Lock()
+	r.values["fp:ja4t:ip:203.0.113.9"] = blocklistedJA4T
+	r.mu.Unlock()
+
+	time.Sleep(30 * time.Millisecond)
+
+	sig := c.GetSignal(ctx, "203.0.113.9")
+	if sig == nil {
+		t.Fatal("after NegativeCacheTTL elapses, the now-written blocklisted JA4T must fire; got nil (negative-cache-poisoning regression)")
+	}
+	if r.getCalls != 2 {
+		t.Errorf("expected a second Redis call once the negative cache entry expired; got %d calls", r.getCalls)
+	}
+}
+
 func TestJA4TConsumer_NilSafe(t *testing.T) {
 	var c *JA4TConsumer
 	if sig := c.GetSignal(context.Background(), "203.0.113.9"); sig != nil {
