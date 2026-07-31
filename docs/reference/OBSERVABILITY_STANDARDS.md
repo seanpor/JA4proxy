@@ -571,7 +571,7 @@ Alert rules are organized into multiple files in `deploy/monitoring/alertmanager
 > `deploy/monitoring/prometheus/prometheus.yml`'s `rule_files:` never
 > referenced this directory, and `deploy/docker/docker-compose.monitoring.yml`
 > never bind-mounted it. Verified empirically with `promtool check config`
-> against the real mount set (see `docs/phases/PHASE_805.md`'s design
+> against the real mount set (see `docs/phases/complete/PHASE_805.md`'s design
 > section) — Prometheus would not even start, since the same gap also left
 > `slo_recording_rules.yml` unmounted despite being listed in `rule_files:`.
 > Both are now mounted; every rule below is live for the first time.
