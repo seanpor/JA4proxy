@@ -19,7 +19,9 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -32,6 +34,14 @@ import (
 
 	"github.com/seanpor/ja4proxy/internal/tap"
 )
+
+// heartbeatInterval bounds how often the sensor logs a liveness/progress
+// line (R-005). Not gated by --quiet: quiet mode suppresses per-handshake
+// noise, but an operator watching a log stream must still be able to tell
+// "alive and idle" from "hung" without disabling quiet mode in production.
+// A package-level var, not a const, so a test can shrink it rather than
+// waiting 5 real minutes for a heartbeat.
+var heartbeatInterval = 5 * time.Minute
 
 // redisAdapter adapts a go-redis client to the tap package's narrow
 // Set+Get surface. A least-privilege deployment grants the tap user write
@@ -101,10 +111,15 @@ func main() {
 		metricsAddr   = flag.String("metrics-addr", "", "HTTP address for Prometheus metrics and /health (empty = disabled)")
 		seccompPath   = flag.String("seccomp-profile", "/etc/ja4proxy/seccomp_tap.json", "path to seccomp JSON profile (empty = embedded default)")
 		eventBuffer   = flag.Int("event-buffer", 1024, "size of the handshake-event channel between capture and the Redis-writing goroutine; when full, events are dropped (fail-open, counted as packets_dropped{reason=event_overflow}) rather than blocking capture. Larger absorbs longer Redis stalls at the cost of more memory and staler events once it drains (R-004)")
+		logFormat     = flag.String("log-format", "text", "log output format: text (default) or json — use json in production with centralized log aggregation (R-008)")
+		logLevel      = flag.String("log-level", "info", "log verbosity: debug, info (default), warn, or error (R-008)")
 	)
 	flag.Parse()
 
 	log := logrus.New()
+	if err := configureLogger(log, *logFormat, *logLevel); err != nil {
+		log.WithError(err).Fatal("invalid --log-format/--log-level")
+	}
 	prometheus.MustRegister(tap.Collectors()...)
 	startMetricsServer(log, *metricsAddr)
 	bpfFilter, err := tap.ParsePortList(*bpfPorts)
@@ -115,9 +130,22 @@ func main() {
 	if err != nil {
 		log.WithError(err).Fatal("failed to compile BPF filter")
 	}
+
+	// R-009: env vars fall back for the two settings most likely to be
+	// managed by config-management tooling rather than a literal CLI flag —
+	// the flag wins whenever explicitly set (non-empty).
+	effectiveRedisURL := *redisURL
+	if effectiveRedisURL == "" {
+		effectiveRedisURL = os.Getenv("REDIS_URL")
+	}
+	effectiveJA4TBlocklist := *ja4tBlock
+	if effectiveJA4TBlocklist == "" {
+		effectiveJA4TBlocklist = os.Getenv("JA4T_BLOCKLIST")
+	}
+
 	enfCfg := tap.EnforcerConfig{
 		Armed:         *enforce,
-		JA4TBlocklist: parseBlocklist(*ja4tBlock),
+		JA4TBlocklist: parseBlocklist(effectiveJA4TBlocklist),
 		BanTTL:        *banTTL,
 		IntentTTL:     *intentTTL,
 	}
@@ -127,7 +155,7 @@ func main() {
 		frameSize:     *frameSize,
 		bpfProg:       bpfProg,
 		quiet:         *quiet,
-		redisURL:      *redisURL,
+		redisURL:      effectiveRedisURL,
 		redisPassword: *redisPassword,
 		redisTLS:      *redisTLS,
 		enfCfg:        enfCfg,
@@ -138,6 +166,26 @@ func main() {
 		log.WithError(err).Error("ja4-tap exited with error")
 		os.Exit(1)
 	}
+}
+
+// configureLogger applies --log-format and --log-level (R-008). Unknown
+// values are rejected rather than silently falling back, so a typo surfaces
+// at startup instead of quietly running at the wrong verbosity.
+func configureLogger(log *logrus.Logger, format, level string) error {
+	switch format {
+	case "text":
+		log.SetFormatter(&logrus.TextFormatter{FullTimestamp: true})
+	case "json":
+		log.SetFormatter(&logrus.JSONFormatter{})
+	default:
+		return fmt.Errorf("--log-format must be text or json, got %q", format)
+	}
+	lvl, err := logrus.ParseLevel(level)
+	if err != nil {
+		return fmt.Errorf("--log-level: %w", err)
+	}
+	log.SetLevel(lvl)
+	return nil
 }
 
 // parseBlocklist splits a comma-separated flag into a set, trimming whitespace
@@ -169,6 +217,16 @@ func run(cfg runConfig, log *logrus.Logger) error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
+	// R-007: SIGHUP and SIGUSR1 don't cancel ctx (that's SIGINT/SIGTERM's
+	// job above) — they trigger operational actions on an otherwise-running
+	// sensor, so they're handled on their own channel that runs for the
+	// life of the process.
+	var eventCount atomic.Int64
+	opSignals := make(chan os.Signal, 1)
+	signal.Notify(opSignals, syscall.SIGHUP, syscall.SIGUSR1)
+	defer signal.Stop(opSignals)
+	go handleOperationalSignals(ctx, opSignals, enforcer, &eventCount, log)
+
 	var (
 		src     tap.PacketSource
 		lt      layers.LinkType
@@ -199,7 +257,36 @@ func run(cfg runConfig, log *logrus.Logger) error {
 		log.WithError(err).Warn("failed to load seccomp profile; proceeding without seccomp")
 	}
 
-	return drive(ctx, lt, src, closeFn, store, enforcer, cfg.quiet, cfg.eventBuffer, log)
+	return drive(ctx, lt, src, closeFn, store, enforcer, cfg.quiet, cfg.eventBuffer, &eventCount, log)
+}
+
+// handleOperationalSignals runs for the life of the process, reacting to
+// SIGHUP (reload the JA4T blocklist from the JA4T_BLOCKLIST env var — R-009's
+// hot-reload path, built on Enforcer.SetBlocklist's mutex from F-016) and
+// SIGUSR1 (dump goroutine stacks and the current handshake count to stderr —
+// R-007's debug-without-a-restart hook) until ctx is done.
+func handleOperationalSignals(ctx context.Context, sigs <-chan os.Signal, enforcer *tap.Enforcer, eventCount *atomic.Int64, log *logrus.Logger) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case sig, ok := <-sigs:
+			if !ok {
+				return
+			}
+			switch sig {
+			case syscall.SIGHUP:
+				bl := parseBlocklist(os.Getenv("JA4T_BLOCKLIST"))
+				enforcer.SetBlocklist(bl)
+				log.WithField("blocklist_size", len(bl)).Info("SIGHUP: reloaded JA4T blocklist from JA4T_BLOCKLIST")
+			case syscall.SIGUSR1:
+				buf := make([]byte, 1<<20)
+				n := runtime.Stack(buf, true)
+				log.WithField("handshakes_total", eventCount.Load()).Info("SIGUSR1: dumping goroutine stacks to stderr")
+				fmt.Fprintln(os.Stderr, string(buf[:n]))
+			}
+		}
+	}
 }
 
 // warnEnforcementPosture emits the startup WARN + records the posture the same
@@ -276,7 +363,7 @@ func buildBackends(cfg runConfig, log *logrus.Logger) (*tap.Store, *tap.Enforcer
 	return tap.NewStore(breaker), tap.NewEnforcer(cfg.enfCfg, breaker), nil
 }
 
-func drive(ctx context.Context, lt layers.LinkType, source tap.PacketSource, closeFn func() error, store *tap.Store, enforcer *tap.Enforcer, quiet bool, eventBuffer int, log *logrus.Logger) error {
+func drive(ctx context.Context, lt layers.LinkType, source tap.PacketSource, closeFn func() error, store *tap.Store, enforcer *tap.Enforcer, quiet bool, eventBuffer int, eventCount *atomic.Int64, log *logrus.Logger) error {
 	defer func() { _ = closeFn() }()
 
 	wd := tap.NewWatchdog(log)
@@ -286,40 +373,60 @@ func drive(ctx context.Context, lt layers.LinkType, source tap.PacketSource, clo
 		},
 		func() *tap.Sensor { return tap.NewSensor(lt, eventBuffer) },
 		func(s *tap.Sensor) {
-			var count int
-			for ev := range s.Events() {
-				count++
-				class := tap.Classify(ev.Stack)
-				ja4t := tap.ComputeJA4T(ev.Stack)
-
-				// R-002: each write gets its OWN storeWriteTimeout budget rather
-				// than three operations sharing a single deadline -- previously
-				// a slow first write starved the two that followed it of
-				// almost their entire allotted time.
-				withTimeout(func(c context.Context) { store.WriteOSClass(c, ev.ClientIP, class) })
-				withTimeout(func(c context.Context) { store.WriteJA4T(c, ev.ClientIP, ja4t) })
-				withTimeout(func(c context.Context) { enforcer.Consider(c, ev.ClientIP, ja4t) })
-
-				if !quiet {
-					sh := "none"
-					if ev.HasServerHello() {
-						sh = fmt.Sprintf("%d bytes", len(ev.ServerHello))
-					}
-					ja4tField := ja4t
-					if ja4tField == "" {
-						ja4tField = "none"
-					}
+			// R-005: a heartbeat, not gated by --quiet, so a hung sensor (zero
+			// heartbeats) is distinguishable from an idle one (heartbeats with
+			// handshakes_total unchanged) on a log stream that has nothing else
+			// to show in production.
+			heartbeat := time.NewTicker(heartbeatInterval)
+			defer heartbeat.Stop()
+			events := s.Events()
+			for {
+				select {
+				case <-heartbeat.C:
+					var mem runtime.MemStats
+					runtime.ReadMemStats(&mem) // R-010: visibility into actual heap pressure
 					log.WithFields(logrus.Fields{
-						"client":       fmt.Sprintf("%s:%d", ev.ClientIP, ev.ClientPort),
-						"server":       fmt.Sprintf("%s:%d", ev.ServerIP, ev.ServerPort),
-						"client_hello": fmt.Sprintf("%d bytes", len(ev.ClientHello)),
-						"server_hello": sh,
-						"os_class":     class.String(),
-						"ja4t":         ja4tField,
-					}).Info("handshake")
+						"handshakes_total": eventCount.Load(),
+						"heap_alloc_bytes": mem.HeapAlloc,
+						"goroutines":       runtime.NumGoroutine(),
+					}).Info("heartbeat: sensor alive")
+				case ev, ok := <-events:
+					if !ok {
+						log.WithField("handshakes", eventCount.Load()).Info("capture finished")
+						return
+					}
+					eventCount.Add(1)
+					class := tap.Classify(ev.Stack)
+					ja4t := tap.ComputeJA4T(ev.Stack)
+
+					// R-002: each write gets its OWN storeWriteTimeout budget rather
+					// than three operations sharing a single deadline -- previously
+					// a slow first write starved the two that followed it of
+					// almost their entire allotted time.
+					withTimeout(func(c context.Context) { store.WriteOSClass(c, ev.ClientIP, class) })
+					withTimeout(func(c context.Context) { store.WriteJA4T(c, ev.ClientIP, ja4t) })
+					withTimeout(func(c context.Context) { enforcer.Consider(c, ev.ClientIP, ja4t) })
+
+					if !quiet {
+						sh := "none"
+						if ev.HasServerHello() {
+							sh = fmt.Sprintf("%d bytes", len(ev.ServerHello))
+						}
+						ja4tField := ja4t
+						if ja4tField == "" {
+							ja4tField = "none"
+						}
+						log.WithFields(logrus.Fields{
+							"client":       fmt.Sprintf("%s:%d", ev.ClientIP, ev.ClientPort),
+							"server":       fmt.Sprintf("%s:%d", ev.ServerIP, ev.ServerPort),
+							"client_hello": fmt.Sprintf("%d bytes", len(ev.ClientHello)),
+							"server_hello": sh,
+							"os_class":     class.String(),
+							"ja4t":         ja4tField,
+						}).Info("handshake")
+					}
 				}
 			}
-			log.WithField("handshakes", count).Info("capture finished")
 		},
 	)
 }

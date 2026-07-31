@@ -110,6 +110,37 @@ curl http://localhost:9099/tap/status
 
 ---
 
+## Go sensor (`cmd/ja4-tap`) operations (phase-809)
+
+The rest of this runbook predates the Go `cmd/ja4-tap` binary and describes
+the Phase 20 Python TAP node's process/config model (`tap:` config section,
+worker processes, ring buffer) — see F-009/F-010/F-011 in
+`docs/phases/complete/PHASE_334.md` for the tracked doc-drift cleanup. This
+subsection covers operational controls specific to the Go binary added in
+Phase 809:
+
+- **Liveness:** the sensor logs a `heartbeat` line every 5 minutes
+  (`handshakes_total`, `heap_alloc_bytes`, `goroutines`), independent of
+  `--quiet` — a hung sensor produces zero heartbeats, an idle one keeps
+  producing them with an unchanging `handshakes_total`.
+- **Structured logs:** `--log-format json` for log aggregation, `--log-level`
+  (`debug`/`info`/`warn`/`error`).
+- **Signals:** `SIGHUP` re-reads `JA4T_BLOCKLIST` from the environment and
+  hot-swaps the enforcement blocklist without a restart (an unset/empty
+  `JA4T_BLOCKLIST` at reload time clears it — fail-open, since an empty
+  blocklist means enforcement can never fire). `SIGUSR1` dumps all goroutine
+  stacks plus the current handshake count to stderr, for debugging a
+  suspected hang without restarting.
+- **Memory:** the sensor does not itself impose a heap ceiling beyond the
+  bounded reassembly page cache (`internal/tap/sensor.go`'s
+  `maxBufferedPagesTotal`, ~8MB) and each stream's ~20KB buffer footprint
+  (R-010). Set the standard Go runtime `GOMEMLIMIT` environment variable
+  (e.g. 80% of the container's memory limit) so the Go GC becomes more
+  aggressive under pressure instead of relying on the OOM killer; watch the
+  heartbeat's `heap_alloc_bytes` field for early warning.
+
+---
+
 ## Monitoring
 
 ### Key Prometheus Metrics
