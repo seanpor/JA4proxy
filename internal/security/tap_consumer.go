@@ -2,13 +2,13 @@
 //
 // Architectural background (see docs/decisions/ADR-203a.md): the inline Go
 // proxy cannot compute JA4T from an accept()'d socket because the kernel has
-// already completed the TCP handshake by then. The Phase 20 TAP node, which
-// sees raw SYN packets via AF_PACKET, is the correct producer of JA4T-
-// derived OS classification. The TAP node writes `fp:os:ip:{ip}` strings to
-// Redis; this consumer reads them on the hot path and emits a
-// `tap_os_mismatch` RiskSignal when the OS class implied by the JA4 TLS
-// fingerprint disagrees with the OS class observed in the client's TCP
-// stack.
+// already completed the TCP handshake by then. The standalone Go TAP sensor
+// (cmd/ja4-tap, Phase 316a/b), which sees raw SYN packets via AF_PACKET, is
+// the correct producer of JA4T-derived OS classification. The sensor writes
+// `fp:os:ip:{ip}` strings to Redis; this consumer reads them on the hot path
+// and emits a `tap_os_mismatch` RiskSignal when the OS class implied by the
+// JA4 TLS fingerprint disagrees with the OS class observed in the client's
+// TCP stack.
 //
 // All calls fail open: disabled config, missing Redis key, Redis error,
 // Redis timeout — all return nil so legitimate traffic is never blocked
@@ -63,7 +63,7 @@ type redisGetter interface {
 	Get(ctx context.Context, key string) (string, error)
 }
 
-// TapConsumer reads Phase-20 TAP fingerprints from Redis and emits a signal
+// TapConsumer reads Go TAP sensor fingerprints from Redis and emits a signal
 // when the observed OS disagrees with the one implied by the JA4 fingerprint.
 type TapConsumer struct {
 	cfg   *TapConsumerConfig

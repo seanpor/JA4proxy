@@ -325,7 +325,9 @@ python3 -m pytest tests/tap/fp_corpus/test_fingerprint_fp_rate.py -v
 ## Security Notes
 
 - TAP sensor drops `CAP_NET_RAW` after the AF_PACKET socket is opened.
-- A seccomp profile (`config/seccomp_tap.json`) restricts syscalls post-drop.
+- A seccomp profile (`config/seccomp_tap_go.json` for the Go sensor;
+  `config/seccomp_tap.json` is the retired Phase 20 Python profile) restricts
+  syscalls post-drop.
 - The EDL HTTP server requires an API key (`tap_export.edl.api_key`).
 - Webhook posts are HMAC-SHA256 signed (`X-JA4Proxy-Signature: sha256=...`).
 - BGP announces validate prefix length: IPv4 ≥ /24, IPv6 ≥ /48.

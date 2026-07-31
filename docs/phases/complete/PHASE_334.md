@@ -403,6 +403,11 @@ parser should handle this robustly: it should skip non-handshake records when
 
 ### F-009 — [MINOR] Stale doc comment references Phase 20 Python TAP in `tap_consumer.go`
 
+> **RESOLVED** (PHASE_809, 2026-07-31): updated `internal/security/tap_consumer.go`'s
+> package doc, `TapConsumer` doc, and `canonicalIP` doc (the last one already
+> fixed incidentally by F-019's dedup) to reference the Go TAP sensor
+> (`cmd/ja4-tap`, Phase 316a/b) instead of the deleted Phase 20 Python node.
+
 **Phase:** 316b
 
 **Description:**
@@ -424,6 +429,17 @@ Phase 20 / Python.
 
 ### F-010 — [INFORMATIONAL] Config seccomp file is for Phase 20 Python, not Go sensor
 
+> **RESOLVED (option 1 — removed)** (PHASE_809, 2026-07-31): confirmed
+> `src/tap/security.py` (the file `config/seccomp_tap.json`'s own comment
+> named as its manager) no longer exists, and nothing in current code,
+> deploy manifests, or tests references `config/seccomp_tap.json` by path —
+> only its Go-sensor sibling `config/seccomp_tap_go.json` is live (already
+> used by `cmd/ja4-tap` and the new `Dockerfile.ja4-tap`, O-005). Deleted the
+> stale file rather than rewriting it, and fixed the two live docs
+> (`docs/runbooks/tap_mode.md`, `docs/compliance/iso27017-mapping.md`) that
+> still pointed at it; left `docs/decisions/ADR-020.md`'s reference alone —
+> ADRs are historical decision records, not living docs.
+
 **Phase:** 316a
 
 **Description:**
@@ -442,6 +458,16 @@ seccomp requirements when seccomp is actually wired into `cmd/ja4-tap`.
 ---
 
 ### F-011 — [INFORMATIONAL] OBSERVABILITY_STANDARDS.md lists both Phase 20 and Phase 316 TAP metrics
+
+> **RESOLVED** (PHASE_809, 2026-07-31): re-headed the section from "TAP mode
+> (Phase 20)" to "Inline proxy TAP consumers (Phase 203a/316c)" with an inline
+> note explaining the metric *names* predate the Go rewrite but the metrics
+> themselves are this package's Go code today, not a Phase 20 Python process
+> (deleted) — kept the names (not worth a breaking rename), fixed the
+> attribution. Also added the Wave 3/4 metrics introduced in this same phase
+> (`ja4proxy_tap_worker_restarts_total`, `ja4proxy_tap_ring_buffer_fill_ratio`,
+> `ja4proxy_tap_excluded_ip_events_total`, the circuit-breaker pair, and
+> `read_error` in the drop-reason list) that this doc hadn't caught up to yet.
 
 **Phase:** 316b, 316c, 316d (cross-cutting)
 

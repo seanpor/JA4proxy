@@ -75,7 +75,7 @@ counts above reflect every CLD control listed in the table below.
 | CLD ID | Name | Applicability | Evidence | Gap |
 |--------|------|---------------|----------|-----|
 | CLD.9.5.1 | Segregation in virtual computing environments | Customer responsibility | The CSP (or hypervisor operator) provides VM/container isolation. JA4proxy runs as a single-tenant process per deployment and does not host multiple tenants in one process. | None on the product side. Deployer-guidance: do not co-tenant JA4proxy instances belonging to different customers in the same Linux namespace; use one container per tenant. |
-| CLD.9.5.2 | Virtual machine hardening | Customer responsibility | The customer hardens the VM/container host. The product ships with a seccomp profile ([`config/seccomp_tap.json`](../../config/seccomp_tap.json)) and capability-drop guidance for the TAP component (see [`docs/runbooks/go_proxy_operations.md`](../runbooks/go_proxy_operations.md)). | None on the product side. Deployer-guidance: apply CIS-Benchmark-style hardening to the host OS and container runtime; enable seccomp. |
+| CLD.9.5.2 | Virtual machine hardening | Customer responsibility | The customer hardens the VM/container host. The product ships with a seccomp profile for the Go TAP sensor ([`config/seccomp_tap_go.json`](../../config/seccomp_tap_go.json); the retired Phase 20 Python profile, `config/seccomp_tap.json`, was removed in Phase 809) and capability-drop guidance for the TAP component (see [`docs/runbooks/go_proxy_operations.md`](../runbooks/go_proxy_operations.md)). | None on the product side. Deployer-guidance: apply CIS-Benchmark-style hardening to the host OS and container runtime; enable seccomp. |
 
 ### CLD.12 — Operations security for cloud computing
 
