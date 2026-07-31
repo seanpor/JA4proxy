@@ -466,7 +466,8 @@ lint-coverage:
 HADOLINT_IGNORE := --ignore DL3008 --ignore DL3013 --ignore DL3015 --ignore DL3018 --ignore DL3059
 HADOLINT_DOCKERFILES := deploy/docker/Dockerfile.management \
 	deploy/docker/Dockerfile.mockbackend deploy/docker/Dockerfile.test \
-	deploy/docker/Dockerfile.trafficgen deploy/docker/Dockerfile.go-proxy src/analytics/Dockerfile src/tarpit/Dockerfile \
+	deploy/docker/Dockerfile.trafficgen deploy/docker/Dockerfile.go-proxy deploy/docker/Dockerfile.ja4-tap \
+	src/analytics/Dockerfile src/tarpit/Dockerfile \
 	tests/docker/Dockerfile.recorder \
 	tests/docker/Dockerfile.test-runner tests/docker/Dockerfile.tls-backend
 
@@ -493,7 +494,8 @@ lint-docker:
 		HAPROXY_STATS_USER=lint-placeholder HAPROXY_STATS_PASSWORD=lint-placeholder \
 		docker compose -f deploy/docker/docker-compose.monitoring.yml config --quiet \
 		&& echo "  deploy/docker/docker-compose.monitoring.yml               OK"
-	@BACKEND_HOST=lint-placeholder ANALYTICS_REDIS_PASSWORD=lint-placeholder docker compose -f deploy/docker/docker-compose.prod.yml config --quiet \
+	@BACKEND_HOST=lint-placeholder ANALYTICS_REDIS_PASSWORD=lint-placeholder TAP_INTERFACE=lint-placeholder \
+		docker compose -f deploy/docker/docker-compose.prod.yml config --quiet \
 		&& echo "  deploy/docker/docker-compose.prod.yml                     OK"
 	@BACKEND_HOST=lint-placeholder REDIS_PASSWORD=lint-placeholder ANALYTICS_REDIS_PASSWORD=lint-placeholder \
 		MANAGEMENT_JWT_SECRET=lint-placeholder MANAGEMENT_ADMIN_USER=lint-placeholder MANAGEMENT_ADMIN_PASSWORD=lint-placeholder \
