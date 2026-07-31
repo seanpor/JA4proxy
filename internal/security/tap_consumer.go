@@ -18,7 +18,6 @@ package security
 import (
 	"context"
 	"fmt"
-	"net/netip"
 	"time"
 
 	"github.com/seanpor/ja4proxy/internal/cache"
@@ -28,23 +27,12 @@ import (
 )
 
 // canonicalIP returns the canonical string form of an IP address matching
-// what the Phase-20 TAP node writes (via Python's socket.inet_ntop).
-// Strips zone IDs, brackets, and leading zeros; lowercases hex octets.
-// Returns "" for unparsable input (caller treats as fail-open).
+// what the TAP sensor writes. F-019: this used to duplicate
+// internal/fingerprint.CanonicalIP's logic verbatim (identical to the writer
+// side in internal/tap/store.go) — now delegates to the single shared
+// implementation both packages already depend on for the OSClass vocabulary.
 func canonicalIP(ip string) string {
-	// Strip IPv6 brackets if the caller accidentally left them on.
-	if len(ip) >= 2 && ip[0] == '[' && ip[len(ip)-1] == ']' {
-		ip = ip[1 : len(ip)-1]
-	}
-	addr, err := netip.ParseAddr(ip)
-	if err != nil {
-		return ""
-	}
-	// Drop zone IDs (e.g. "fe80::1%eth0") — TAP never sees them.
-	if addr.Zone() != "" {
-		addr = addr.WithZone("")
-	}
-	return addr.String()
+	return fingerprint.CanonicalIP(ip)
 }
 
 // TapConsumerConfig configures the TAP-derived OS-mismatch signal consumer.
@@ -190,7 +178,7 @@ func (t *TapConsumer) redisLookup(parent context.Context, clientIP string) strin
 	ctx, cancel := context.WithTimeout(parent, timeout)
 	defer cancel()
 
-	val, err := t.redis.Get(ctx, "fp:os:ip:"+clientIP)
+	val, err := t.redis.Get(ctx, fingerprint.KeyPrefixOSClass+clientIP)
 	if err != nil {
 		metrics.TapLookupsTotal.WithLabelValues("error").Inc()
 		t.log.WithError(err).WithField("client_ip", clientIP).Debug("tap_consumer: Redis GET failed; failing open")

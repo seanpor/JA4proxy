@@ -3,7 +3,6 @@ package tap
 import (
 	"context"
 	"errors"
-	"net/netip"
 	"time"
 
 	"github.com/seanpor/ja4proxy/internal/fingerprint"
@@ -57,7 +56,7 @@ func (s *Store) WriteOSClass(ctx context.Context, clientIP string, class fingerp
 		FingerprintsWrittenTotal.WithLabelValues(fpSkippedUnknown).Inc()
 		return
 	}
-	if err := s.redis.Set(ctx, "fp:os:ip:"+ip, class.String(), osClassTTL); err != nil {
+	if err := s.redis.Set(ctx, fingerprint.KeyPrefixOSClass+ip, class.String(), osClassTTL); err != nil {
 		// A circuit-breaker skip (R-002) is a deliberate non-attempt, not an
 		// observed failure -- count it as skipped, not error.
 		if errors.Is(err, ErrRedisCircuitOpen) {
@@ -90,7 +89,7 @@ func (s *Store) WriteJA4T(ctx context.Context, clientIP, ja4t string) {
 		JA4TWrittenTotal.WithLabelValues(fpSkippedUnknown).Inc()
 		return
 	}
-	if err := s.redis.Set(ctx, "fp:ja4t:ip:"+ip, ja4t, ja4tTTL); err != nil {
+	if err := s.redis.Set(ctx, fingerprint.KeyPrefixJA4T+ip, ja4t, ja4tTTL); err != nil {
 		if errors.Is(err, ErrRedisCircuitOpen) {
 			JA4TWrittenTotal.WithLabelValues(fpSkippedUnknown).Inc()
 		} else {
@@ -102,18 +101,9 @@ func (s *Store) WriteJA4T(ctx context.Context, clientIP, ja4t string) {
 }
 
 // canonicalIP returns the canonical string form of an IP, matching what the
-// inline consumer (internal/security) computes: brackets and zone IDs stripped,
-// lowercase, leading zeros removed. Returns "" for unparsable input.
+// inline consumer (internal/security) computes. F-019: this used to
+// duplicate internal/fingerprint.CanonicalIP's logic verbatim; now delegates
+// to the single shared implementation both packages already depend on.
 func canonicalIP(ip string) string {
-	if len(ip) >= 2 && ip[0] == '[' && ip[len(ip)-1] == ']' {
-		ip = ip[1 : len(ip)-1]
-	}
-	addr, err := netip.ParseAddr(ip)
-	if err != nil {
-		return ""
-	}
-	if addr.Zone() != "" {
-		addr = addr.WithZone("")
-	}
-	return addr.String()
+	return fingerprint.CanonicalIP(ip)
 }

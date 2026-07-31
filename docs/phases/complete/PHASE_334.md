@@ -658,6 +658,14 @@ and why cleartext Redis is a risk.
 
 ### F-019 — [LOW] Duplicate `canonicalIP` in writer and consumer (silent drift risk)
 
+> **RESOLVED** (PHASE_809, 2026-07-31): added `internal/fingerprint.CanonicalIP`
+> (both packages already imported `internal/fingerprint` for the shared
+> `OSClass` vocabulary, so this added zero new dependencies) and made both
+> `internal/tap/store.go`'s and `internal/security/tap_consumer.go`'s
+> `canonicalIP` delegate to it rather than duplicating the logic. Kept the
+> unexported wrapper functions in place (not a full call-site rewrite) to
+> minimize diff — one implementation now backs both.
+
 **Phase:** 316b (cross-cutting)
 
 **Severity:** Low — maintenance risk; the OS-mismatch signal silently breaks if
@@ -2193,6 +2201,13 @@ Or use a shorter negative cache TTL (e.g., 5s) for empty results vs. positive ca
 
 ### D-003 — [LOW] Redis key prefixes hard-coded in 4 places (writer + reader × 2 key types)
 
+> **RESOLVED** (PHASE_809, 2026-07-31): added `KeyPrefixOSClass`,
+> `KeyPrefixJA4T`, `KeyPrefixBanIntent` to `internal/fingerprint` (same file
+> as F-019's `CanonicalIP` fix) and updated all 4 writer/reader call sites
+> (`internal/tap/store.go`, `internal/security/tap_consumer.go`,
+> `internal/security/tap_ja4t_consumer.go`) to use them instead of separate
+> string literals.
+
 **Phase:** 316b (store), 316c/e (consumers)
 
 **Severity:** LOW — maintenance risk; silent signal breakage if only one side is updated
@@ -2228,6 +2243,12 @@ const (
 ---
 
 ### D-004 — [INFO] `fp:ban_intent:ip` key is undocumented in REDIS_SCHEMA.md
+
+> **STALE, already resolved by the time PHASE_809 checked** (2026-07-31):
+> `docs/reference/REDIS_SCHEMA.md` already documents `fp:ban_intent:ip:{ip}`
+> in full (type, TTL, value format, writer, "read by humans/dashboards
+> only"). Landed at some point after this finding was written and before
+> 809 — no code or doc change needed here.
 
 **Phase:** 316d (enforcement)
 

@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/seanpor/ja4proxy/internal/cache"
+	"github.com/seanpor/ja4proxy/internal/fingerprint"
 	"github.com/seanpor/ja4proxy/internal/metrics"
 	"github.com/sirupsen/logrus"
 )
@@ -148,7 +149,7 @@ func (c *JA4TConsumer) redisLookup(parent context.Context, clientIP string) stri
 	ctx, cancel := context.WithTimeout(parent, timeout)
 	defer cancel()
 
-	val, err := c.redis.Get(ctx, "fp:ja4t:ip:"+clientIP)
+	val, err := c.redis.Get(ctx, fingerprint.KeyPrefixJA4T+clientIP)
 	if err != nil {
 		metrics.TapJA4TLookupsTotal.WithLabelValues("error").Inc()
 		c.log.WithError(err).WithField("client_ip", clientIP).Debug("tap_ja4t_consumer: Redis GET failed; failing open")
