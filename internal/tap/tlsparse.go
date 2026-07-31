@@ -24,14 +24,22 @@ type handshakeResult struct {
 
 // extractFirstHandshake walks the TLS record layer in buf, concatenating the
 // payloads of consecutive handshake (type 22) records, and returns the first
-// complete handshake message. A handshake message may be fragmented across
-// several TLS records, so payloads are defragmented before length-checking.
+// complete handshake message of type want. A handshake message may be
+// fragmented across several TLS records, so payloads are defragmented before
+// length-checking.
+//
+// Complete handshake messages of a type other than want (e.g. a TLS 1.3
+// HelloRetryRequest or a TLS 1.2 HelloRequest arriving before the real
+// ServerHello — T-001) are skipped rather than treated as the terminal
+// message for this direction: the caller only cares about ClientHello in the
+// client direction and ServerHello in the server direction, so anything else
+// on the wire must not stop the scan.
 //
 // It never panics on malformed input: every offset and length is bounds-checked
 // against buf. When the data so far is a valid-but-incomplete handshake it
 // returns complete=false (wait for more bytes); when the first record is plainly
 // not a handshake it returns fatal=true (give up on this direction).
-func extractFirstHandshake(buf []byte) handshakeResult {
+func extractFirstHandshake(buf []byte, want byte) handshakeResult {
 	var hs []byte // defragmented handshake-record payload
 	i := 0
 	for i+tlsRecordHeaderLen <= len(buf) {
@@ -57,32 +65,34 @@ func extractFirstHandshake(buf []byte) handshakeResult {
 		}
 		hs = append(hs, buf[i+tlsRecordHeaderLen:recEnd]...)
 		i = recEnd
-
-		if r, done := firstHandshakeMessage(hs); done {
-			return r
-		}
 	}
 
-	if r, done := firstHandshakeMessage(hs); done {
+	if r, done := firstMatchingHandshakeMessage(hs, want); done {
 		return r
 	}
 	return handshakeResult{}
 }
 
-// firstHandshakeMessage returns the first complete handshake message in the
-// defragmented handshake payload, if present.
-func firstHandshakeMessage(hs []byte) (handshakeResult, bool) {
-	if len(hs) < handshakeHeaderLen {
-		return handshakeResult{}, false
+// firstMatchingHandshakeMessage scans the defragmented handshake payload for
+// the first complete message whose type equals want, skipping over any
+// complete-but-non-matching messages that precede it (T-001) rather than
+// stopping at the first complete message of any type.
+func firstMatchingHandshakeMessage(hs []byte, want byte) (handshakeResult, bool) {
+	off := 0
+	for len(hs)-off >= handshakeHeaderLen {
+		msgLen := int(hs[off+1])<<16 | int(hs[off+2])<<8 | int(hs[off+3])
+		total := handshakeHeaderLen + msgLen
+		if len(hs)-off < total {
+			return handshakeResult{}, false // incomplete — wait for more bytes
+		}
+		if hs[off] == want {
+			return handshakeResult{
+				msgType:  hs[off],
+				message:  hs[off : off+total],
+				complete: true,
+			}, true
+		}
+		off += total // not our type (e.g. HelloRetryRequest/HelloRequest) — skip it
 	}
-	msgLen := int(hs[1])<<16 | int(hs[2])<<8 | int(hs[3])
-	total := handshakeHeaderLen + msgLen
-	if len(hs) < total {
-		return handshakeResult{}, false
-	}
-	return handshakeResult{
-		msgType:  hs[0],
-		message:  hs[:total],
-		complete: true,
-	}, true
+	return handshakeResult{}, false
 }

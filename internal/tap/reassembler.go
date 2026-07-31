@@ -181,24 +181,26 @@ func (s *tlsStream) appendDir(buf *[]byte, done *bool, hello *[]byte, data []byt
 	}
 	*buf = append(*buf, data...)
 
-	res := extractFirstHandshake(*buf)
+	want := byte(handshakeClientHello)
+	kind := "clienthello"
+	if !isClient {
+		want = handshakeServerHello
+		kind = "serverhello"
+	}
+
+	res := extractFirstHandshake(*buf, want)
 	switch {
 	case res.fatal:
 		*done = true
 	case res.complete:
+		// extractFirstHandshake only ever returns complete=true for msgType
+		// == want (T-001) — a HelloRetryRequest/HelloRequest ahead of the
+		// real message is skipped internally, not surfaced here.
 		*done = true
-		want := byte(handshakeClientHello)
-		kind := "clienthello"
-		if !isClient {
-			want = handshakeServerHello
-			kind = "serverhello"
-		}
-		if res.msgType == want {
-			msg := make([]byte, len(res.message))
-			copy(msg, res.message)
-			*hello = msg
-			HandshakesExtractedTotal.WithLabelValues(kind).Inc()
-		}
+		msg := make([]byte, len(res.message))
+		copy(msg, res.message)
+		*hello = msg
+		HandshakesExtractedTotal.WithLabelValues(kind).Inc()
 		s.maybeEmit(false)
 	case len(*buf) >= maxHandshakeBytes:
 		*done = true
