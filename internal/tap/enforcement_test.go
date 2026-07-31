@@ -12,9 +12,12 @@ import (
 // recordingSetter captures every Set call (the armed path issues two: the
 // watchlist write then the ban write), unlike fakeSetter which keeps only the
 // last. failOn, when non-empty, makes the matching key's write return an error.
+// existing simulates keys already present in Redis (e.g. an operator's own
+// ban:{ip}) for D-001's overwrite-protection check.
 type recordingSetter struct {
-	calls  []setCall
-	failOn string
+	calls    []setCall
+	failOn   string
+	existing map[string]string
 }
 
 type setCall struct {
@@ -28,6 +31,10 @@ func (r *recordingSetter) Set(_ context.Context, key, value string, ttl time.Dur
 	}
 	r.calls = append(r.calls, setCall{key, value, ttl})
 	return nil
+}
+
+func (r *recordingSetter) Get(_ context.Context, key string) (string, error) {
+	return r.existing[key], nil
 }
 
 func enfCounter(result string) float64 {
@@ -92,6 +99,45 @@ func TestEnforcer_ArmedWritesIntentThenBan(t *testing.T) {
 	}
 	if got := enfCounter(enfBanned); got != before+1 {
 		t.Errorf("banned counter %v -> %v; want +1", before, got)
+	}
+}
+
+// TestEnforcer_DoesNotOverwriteExistingOperatorBan guards D-001: when
+// ban:{ip} already holds a value that is NOT the sensor's own provenance
+// prefix (i.e. an operator wrote it via the management API), the Enforcer
+// must not overwrite it with its own shorter-TTL ban.
+func TestEnforcer_DoesNotOverwriteExistingOperatorBan(t *testing.T) {
+	before := enfCounter(enfOperatorOverride)
+	rs := &recordingSetter{existing: map[string]string{"ban:203.0.113.9": "operator ban: abuse report #4821"}}
+	cfg, rs := armedCfg(rs)
+	NewEnforcer(cfg, rs).Consider(context.Background(), "203.0.113.9", blocklistedJA4T)
+
+	if len(rs.calls) != 1 {
+		t.Fatalf("expected only the watchlist write (no ban overwrite); got %d writes: %+v", len(rs.calls), rs.calls)
+	}
+	if rs.calls[0].key != "fp:ban_intent:ip:203.0.113.9" {
+		t.Errorf("the one write should be the watchlist; got key %q", rs.calls[0].key)
+	}
+	if got := enfCounter(enfOperatorOverride); got != before+1 {
+		t.Errorf("operator_override counter %v -> %v; want +1", before, got)
+	}
+}
+
+// TestEnforcer_RefreshesItsOwnPriorBan guards the flip side of D-001: an
+// existing ban:{ip} that already carries the sensor's own provenance prefix
+// (a prior sensor-written ban, not yet expired) is fine to overwrite/refresh
+// — it is not an operator ban, so the override-protection must not block it.
+func TestEnforcer_RefreshesItsOwnPriorBan(t *testing.T) {
+	before := enfCounter(enfBanned)
+	rs := &recordingSetter{existing: map[string]string{"ban:203.0.113.9": "tap_enforce:ja4t=" + blocklistedJA4T}}
+	cfg, rs := armedCfg(rs)
+	NewEnforcer(cfg, rs).Consider(context.Background(), "203.0.113.9", blocklistedJA4T)
+
+	if len(rs.calls) != 2 {
+		t.Fatalf("expected watchlist + ban refresh; got %d writes: %+v", len(rs.calls), rs.calls)
+	}
+	if got := enfCounter(enfBanned); got != before+1 {
+		t.Errorf("banned counter %v -> %v; want +1 (refresh should still count as banned)", before, got)
 	}
 }
 

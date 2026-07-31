@@ -122,14 +122,27 @@ phase: 54
 | `fp:ja4_to_ja4s:{ja4}` | Hash | 7d | TAP `FingerprintStore` | JA4 → JA4S co-occurrence map. |
 | `fp:ban_intent:ip:{ip}` | String (provenance) | 1h (configurable) | Go TAP sensor `tap.Enforcer` (Phase 316d) | Advisory watchlist entry written whenever a client's observed JA4T is on the sensor's enforcement blocklist. **Value:** provenance string `ja4t={fingerprint}`. **Always** written on a match (even when armed), never enforced — it is the monitor-first surface and audit trail for sensor enforcement. Lives under `fp:*` so the sensor's least-privilege ACL already covers it. IP canonical, v4 and v6. **Read by:** humans / dashboards only (no inline consumer — intentional). |
 
-> **`ban:{ip}` may also be written by the TAP sensor (Phase 316d).** When the
-> sensor is *armed* (`--enforce` **and** a widened Redis ACL `~ban:*`), a
-> blocklisted client also gets a short-TTL `ban:{ip}` (value
-> `tap_enforce:ja4t={fingerprint}`, default 5m) — the **same** canonical
-> operator-ban key the inline proxy already hard-blocks on (see the Phase 231a
-> row). The inline proxy enforces it on the client's *next* connection; it
-> ignores the value, which exists purely for provenance/redaction. Off by
-> default: the unarmed sensor writes only `fp:ban_intent:ip`.
+> **`ban:{ip}` may also be written by the TAP sensor (Phase 316d; provenance
+> read/overwrite-protection added Phase 809, D-001).** When the sensor is
+> *armed* (`--enforce` **and** a widened Redis ACL `~ban:*`), a blocklisted
+> client also gets a short-TTL `ban:{ip}` (value `tap_enforce:ja4t={fingerprint}`,
+> default 5m) — the **same** canonical operator-ban key the inline proxy
+> already hard-blocks on (see the Phase 231a row). Off by default: the
+> unarmed sensor writes only `fp:ban_intent:ip`.
+>
+> Before writing, the sensor's `Enforcer` reads the existing `ban:{ip}` value:
+> if it is non-empty and does **not** start with `tap_enforce:`, it is treated
+> as an operator ban and is **not** overwritten (an operator ban is typically
+> much longer-lived than the sensor's 5m default, so an unconditional
+> overwrite would silently shorten it). If the check itself fails (Redis
+> error or circuit-breaker open), the sensor also skips the write rather than
+> risk clobbering a ban it can't verify.
+>
+> The inline proxy's ban check (`internal/security/pipeline.go`) reads the
+> value too: a `tap_enforce:` prefix sets `BypassReason: "tap_enforce_ban"`;
+> anything else sets `BypassReason: "manual_ban"` — so the audit trail
+> attributes the block to sensor enforcement vs. an operator action instead
+> of reporting every `ban:{ip}` hit identically.
 
 ---
 

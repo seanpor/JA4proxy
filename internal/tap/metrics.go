@@ -50,7 +50,7 @@ var (
 	// ja4proxy_tap_enforcement_errors_total — one counter, one taxonomy.
 	EnforcementActionsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "ja4proxy_tap_enforcement_actions_total",
-		Help: "TAP out-of-band enforcement decisions, by result (skipped|watchlist|banned|error). watchlist = advisory fp:ban_intent recorded (default); banned = enforceable ban:{ip} written (armed only); skipped = no blocklist match / empty blocklist / no JA4T / no backend; error = unparsable IP or Redis write failed (fail-open).",
+		Help: "TAP out-of-band enforcement decisions, by result (skipped|watchlist|banned|operator_override|error). watchlist = advisory fp:ban_intent recorded (default); banned = enforceable ban:{ip} written (armed only); operator_override = an operator-owned ban:{ip} already existed, so the sensor did not overwrite it (D-001); skipped = no blocklist match / empty blocklist / no JA4T / no backend; error = unparsable IP or Redis write failed (fail-open).",
 	}, []string{"result"})
 	// EnforcementArmed mirrors the high-risk-bypass arming convention: 1 when
 	// the sensor will write enforceable ban:{ip} keys, 0 when advisory-only.
@@ -75,10 +75,11 @@ var (
 
 // results for EnforcementActionsTotal (Phase 316d).
 const (
-	enfSkipped   = "skipped"   // no blocklist match / empty blocklist / no JA4T / nil backend
-	enfWatchlist = "watchlist" // advisory ban intent recorded; nothing blocks (default)
-	enfBanned    = "banned"    // ban:{ip} written; inline proxy enforces on next connection (armed)
-	enfError     = "error"     // unparsable IP or Redis write failed; dropped fail-open
+	enfSkipped          = "skipped"           // no blocklist match / empty blocklist / no JA4T / nil backend
+	enfWatchlist        = "watchlist"         // advisory ban intent recorded; nothing blocks (default)
+	enfBanned           = "banned"            // ban:{ip} written; inline proxy enforces on next connection (armed)
+	enfOperatorOverride = "operator_override" // an operator ban already existed; sensor did not overwrite it (D-001)
+	enfError            = "error"             // unparsable IP or Redis write failed; dropped fail-open
 )
 
 // results for FingerprintsWrittenTotal (Phase 316b).

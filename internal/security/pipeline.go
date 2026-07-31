@@ -62,6 +62,14 @@ const (
 	auditJobBuf     = 256
 )
 
+// tapEnforcedBanValuePrefix marks a ban:{ip} value written by the standalone
+// TAP sensor's Enforcer (internal/tap/enforcement.go: banKeyPrefix+ip,
+// "tap_enforce:ja4t="+ja4t) rather than an operator via the management API
+// (phase-809, D-001). The two packages don't share an import (the sensor is
+// a separate binary), so this prefix is duplicated by contract, not by
+// reference — keep both sides in sync if it ever changes.
+const tapEnforcedBanValuePrefix = "tap_enforce:"
+
 type Pipeline struct {
 	cfg            *PipelineConfig
 	cache          *DecisionCache
@@ -486,10 +494,21 @@ func (p *Pipeline) Process(ctx context.Context, conn *ConnectionContext) *Pipeli
 	// connection that clears these two checks still gets "allow" below when
 	// the queue is full — only these two explicit-block decisions become
 	// unconditional.
-	if p.redis != nil && conn.ClientIP != "" && p.redis.Exists(ctx, "ban:"+conn.ClientIP) {
-		result := &PipelineResult{Action: "block", Score: 100, BypassReason: "manual_ban"}
-		p.cacheResult(conn, result)
-		return result
+	if p.redis != nil && conn.ClientIP != "" {
+		// D-001: distinguish a sensor-enforced ban (tap.Enforcer writes
+		// "tap_enforce:ja4t=..." — internal/tap/enforcement.go) from an
+		// operator ban, instead of reporting every ban:{ip} hit as
+		// "manual_ban" regardless of who wrote it. Existence alone (the
+		// prior Exists() check) cannot tell them apart.
+		if banVal := p.redis.GetString(ctx, "ban:"+conn.ClientIP); banVal != "" {
+			reason := "manual_ban"
+			if strings.HasPrefix(banVal, tapEnforcedBanValuePrefix) {
+				reason = "tap_enforce_ban"
+			}
+			result := &PipelineResult{Action: "block", Score: 100, BypassReason: reason}
+			p.cacheResult(conn, result)
+			return result
+		}
 	}
 
 	// Blocklist check (hard block). JA4PROXY-2026-0037: Check() must be called

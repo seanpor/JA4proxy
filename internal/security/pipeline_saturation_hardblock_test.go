@@ -35,7 +35,7 @@ func fillWorkChan(p *Pipeline) {
 func TestPipeline_ManualBanEnforcedUnderSaturation(t *testing.T) {
 	p := newTestPipeline(0) // monitor dial
 	p.Sync = false          // newTestPipeline defaults to Sync=true; force the async path
-	p.redis = &banRedis{banned: map[string]bool{"ban:9.9.9.9": true}}
+	p.redis = &banRedis{banned: map[string]string{"ban:9.9.9.9": "operator ban: abuse"}}
 	fillWorkChan(p)
 
 	res := p.Process(context.Background(), &ConnectionContext{

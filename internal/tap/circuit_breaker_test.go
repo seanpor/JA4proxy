@@ -30,6 +30,8 @@ func (c *countingSetter) Set(context.Context, string, string, time.Duration) err
 	return c.errs[i]
 }
 
+func (c *countingSetter) Get(context.Context, string) (string, error) { return "", nil }
+
 func TestRedisCircuitBreaker_PassesThroughOnSuccess(t *testing.T) {
 	inner := &countingSetter{}
 	cb := NewRedisCircuitBreaker(inner)

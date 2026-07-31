@@ -13,6 +13,7 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"flag"
 	"fmt"
 	"net/http"
@@ -32,13 +33,23 @@ import (
 	"github.com/seanpor/ja4proxy/internal/tap"
 )
 
-// redisAdapter adapts a go-redis client to tap.redisSetter (Set returning an
-// error). It is the only Redis surface the sensor needs: a least-privilege
-// deployment grants the tap user write access to fp:* and nothing else.
+// redisAdapter adapts a go-redis client to the tap package's narrow
+// Set+Get surface. A least-privilege deployment grants the tap user write
+// access to fp:* and (when armed) ban:*; the Get is used only by the
+// Enforcer's pre-write existing-ban check (D-001) and needs read access to
+// ban:* as well — see the ja4tap Redis ACL user in config/redis_acl.conf.
 type redisAdapter struct{ rdb *redis.Client }
 
 func (a redisAdapter) Set(ctx context.Context, key, value string, ttl time.Duration) error {
 	return a.rdb.Set(ctx, key, value, ttl).Err()
+}
+
+func (a redisAdapter) Get(ctx context.Context, key string) (string, error) {
+	val, err := a.rdb.Get(ctx, key).Result()
+	if errors.Is(err, redis.Nil) {
+		return "", nil
+	}
+	return val, err
 }
 
 // storeWriteTimeout bounds each fire-and-forget fingerprint write so a slow or
