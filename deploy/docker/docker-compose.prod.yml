@@ -377,6 +377,68 @@ services:
           memory: 128M
           cpus: '0.25'
 
+  # phase-809 (O-005): standalone Go TAP/SPAN sensor (cmd/ja4-tap). Disabled
+  # by default (`profiles: [tap]`) since it's an optional add-on most
+  # deployments don't run, and because live SPAN/mirror-port capture doesn't
+  # fit this file's bridge-network model cleanly (see the network note
+  # below) -- enable explicitly with `docker compose --profile tap up`.
+  #
+  # Prerequisite: `deploy/secrets/ja4tap_redis_password.txt` and a `ja4tap`
+  # user in config/redis_acl.conf (see that file's phase-809 entry) --
+  # least-privilege by default: only fp:* writes, ban:* only once armed.
+  #
+  # Network: AF_PACKET live capture needs to see the SPAN interface, which a
+  # normal bridge network namespace does not expose. This service defaults
+  # to `network_mode: host` for that reason -- the tradeoff is it can no
+  # longer resolve `redis` by the compose DNS name, so REDIS_URL below points
+  # at `host.docker.internal` (mapped to the host's real IP via extra_hosts)
+  # instead; the redis service must publish its port to the host for this to
+  # work (it does not, by default, in this file -- add a
+  # `ports: ["127.0.0.1:6379:6379"]` mapping to redis, or run ja4-tap outside
+  # Docker entirely per docs/runbooks/tap_mode.md, which is the simpler
+  # option for most deployments since the sensor already needs no privileged
+  # Docker features beyond CAP_NET_RAW).
+  #
+  # --redis-password only accepts a literal value (F-017 keeps it off the
+  # command line via REDIS_PASSWORD, not a --*-file flag), so the entrypoint
+  # is a shell one-liner that reads the Docker secret file into that env var
+  # before exec'ing the binary.
+  ja4-tap:
+    profiles: ["tap"]
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.ja4-tap
+    image: ja4proxy-tap:1.0.0
+    network_mode: host
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      - REDIS_URL=redis://host.docker.internal:6379/0
+      - TAP_INTERFACE=${TAP_INTERFACE:?Set TAP_INTERFACE to the SPAN/mirror port interface}
+    secrets:
+      - ja4tap_redis_password
+    entrypoint:
+      - /bin/sh
+      - -c
+      - 'export REDIS_PASSWORD="$$(cat /run/secrets/ja4tap_redis_password)"; exec /usr/local/bin/ja4-tap --interface="$$TAP_INTERFACE" --metrics-addr=:9110 --quiet'
+    restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:noexec,nosuid,nodev,size=50m
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_RAW
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '1.0'
+        reservations:
+          memory: 64M
+
 volumes:
   redis-data:
   prometheus-data:
@@ -401,3 +463,5 @@ secrets:
     file: ../secrets/grafana_password.txt
   abuseipdb_api_key:
     file: ../secrets/abuseipdb_api_key.txt
+  ja4tap_redis_password:
+    file: ../secrets/ja4tap_redis_password.txt

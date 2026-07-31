@@ -1776,6 +1776,12 @@ Add a separate `tap_sensor.json` in the Grafana provisioning directory (if one d
 
 ### O-004 — [MEDIUM] No Prometheus scrape target for TAP sensor metrics
 
+> **RESOLVED** (PHASE_809, 2026-07-31): added a `ja4proxy-tap` scrape job to
+> `deploy/monitoring/prometheus/prometheus.yml` targeting `ja4-tap:9110`
+> (`--metrics-addr` default in the new compose service). F-023's
+> prerequisite (metrics registered + HTTP server) was already resolved by
+> PHASE_803 — verified live during 809 scoping.
+
 **Phase:** 316a (monitoring)
 
 **Severity:** MEDIUM — even after F-023 is fixed, metrics have no scrape target
@@ -1806,6 +1812,20 @@ Both steps are hard, require manual intervention, and are undocumented.
 ---
 
 ### O-005 — [MEDIUM] No docker-compose service, no systemd unit, no deployment infra
+
+> **RESOLVED (Docker path only)** (PHASE_809, 2026-07-31): added
+> `deploy/docker/Dockerfile.ja4-tap` (multi-stage, built and smoke-tested
+> during 809 — binary runs, flags parse, `/health` responds, pcap-file mode
+> works end to end) and a `ja4-tap` service in `docker-compose.prod.yml`
+> behind a `tap` compose profile, with `cap_drop: [ALL]`/`cap_add: [NET_RAW]`,
+> resource limits, and a `HEALTHCHECK`. No systemd unit was added — the
+> Docker path covers the same "managed, auto-restarting, resource-limited"
+> goal, and `scripts/deploy.sh`'s systemd generation is out of this phase's
+> file-ownership scope. Documented the real network tension this surfaced:
+> live SPAN capture needs `network_mode: host` (to see the physical
+> interface), which breaks the compose bridge network's DNS resolution of
+> `redis` — the service's comments document the tradeoff and the
+> `host.docker.internal` workaround rather than pretending it doesn't exist.
 
 **Phase:** 316a (operations)
 
@@ -1842,6 +1862,14 @@ Create a `Dockerfile.ja4-tap` (multi-stage Go build, scratch or distroless runti
 ---
 
 ### O-006 — [LOW] No Redis ACL user for TAP sensor in `config/redis_acl.conf`
+
+> **RESOLVED** (PHASE_809, 2026-07-31): added a `ja4tap` user to
+> `config/redis_acl.conf` with the base `~fp:* +set +expire` grant, plus a
+> commented widened-ACL example (`~fp:* ~ban:* +set +expire +get` — the
+> `+get` addition reflects D-001's new pre-write existing-ban check, not
+> present when this finding was written). Also added `JA4TAP_REDIS_PASSWORD`
+> to `internal/wizard/env.go`'s tracked secret-env-key list for consistency
+> with `ANALYTICS_REDIS_PASSWORD`.
 
 **Phase:** 316a (operations)
 

@@ -146,6 +146,17 @@ Phase 809:
   (e.g. 80% of the container's memory limit) so the Go GC becomes more
   aggressive under pressure instead of relying on the OOM killer; watch the
   heartbeat's `heap_alloc_bytes` field for early warning.
+- **Deployment infra (O-004/O-005/O-006):** `deploy/docker/Dockerfile.ja4-tap`
+  builds the sensor image (multi-stage, distroless-style Alpine runtime,
+  `HEALTHCHECK` against `/health`). `deploy/docker/docker-compose.prod.yml`'s
+  `ja4-tap` service (behind the `tap` compose profile — `docker compose
+  --profile tap up`) runs it with `cap_drop: [ALL]` / `cap_add: [NET_RAW]`
+  and resource limits; read that service's comments before enabling it —
+  live SPAN capture needs `network_mode: host`, which changes how the
+  sensor reaches Redis (see the comment block above the service). Prometheus
+  scrapes it via the `ja4proxy-tap` job in
+  `deploy/monitoring/prometheus/prometheus.yml`. The `ja4tap` Redis ACL user
+  lives in `config/redis_acl.conf`.
 
 ---
 
@@ -382,7 +393,9 @@ ja4-tap --interface eth1 --redis-url redis://redis:6379/0
 
 The sensor only ever **writes** `fp:*` keys. Grant the tap binary's Redis user
 write access to `fp:*` and nothing else — it needs no read of policy, ban, or
-session keys. Example ACL:
+session keys. This is now the canonical `ja4tap` user in `config/redis_acl.conf`
+(phase-809, O-006) — do not maintain a second copy here; the file is the
+source of truth. Example, matching that file:
 
 ```
 ACL SETUSER ja4tap on >SECRET ~fp:* +set +expire
@@ -485,10 +498,14 @@ ja4-tap --interface eth1 --redis-url redis://redis:6379/0 \
         --ja4t-blocklist "65535_2-1-3-1-1-8-4_1460_7" --enforce --ban-ttl 5m
 ```
 
-Widened ACL for an **armed** sensor (only when you have reviewed the watchlist):
+Widened ACL for an **armed** sensor (only when you have reviewed the watchlist).
+D-001 added a pre-write existing-ban check (`Enforcer.Consider` GETs
+`ban:{ip}` before writing it, to avoid overwriting an operator ban), so `+get`
+is required in the widened grant too — see the commented example in
+`config/redis_acl.conf`:
 
 ```
-ACL SETUSER ja4tap on >SECRET ~fp:* ~ban:* +set +expire
+ACL SETUSER ja4tap on >SECRET ~fp:* ~ban:* +set +expire +get
 ```
 
 ### Safety invariants (non-negotiable)
