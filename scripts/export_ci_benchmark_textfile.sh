@@ -4,7 +4,7 @@
 # Runs ONLY on the self-hosted monitoring host, via a systemd timer (see
 # docs/runbooks/nightly_benchmark_regression.md for install steps). GitHub
 # Actions has no inbound network path to the monitoring host (see
-# docs/phases/PHASE_805.md's design section for why remote_write/Pushgateway
+# docs/phases/complete/PHASE_805.md's design section for why remote_write/Pushgateway
 # were rejected), so this pulls instead: outbound-only HTTPS GET of the
 # public "nightly-benchmark-latest" GitHub Release asset, converted to
 # Prometheus text exposition format for node-exporter's textfile collector.

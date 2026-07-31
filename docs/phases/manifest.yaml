@@ -3188,7 +3188,7 @@ phases:
     name: "Auto-Escalating IP Defense"
     status: COMPLETE
     completed: '2026-06-26'
-    action_plan: docs/phases/PHASE_248.md
+    action_plan: docs/phases/complete/PHASE_248.md
     dependencies:
     - 247
     size: MEDIUM
@@ -3349,21 +3349,10 @@ phases:
     size: MEDIUM
     summary: "Unit and integration tests for attack mode API, attacker table API, and
       page render. Extends test_pages.py with /under-attack smoke test."
-  248:
-    name: "Auto-Escalating IP Defense"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_248.md
-    dependencies:
-    - 247
-    size: MEDIUM
-    summary: "Persistent offense counter per IP in Redis. IPs that ignore tarpit are
-      automatically blocked; IPs that ignore block are automatically banned. Off by
-      default, opt-in via auto_escalate config section. Attack Mode also activates
-      auto-escalation for its duration."
   248.1:
     name: "Config Schema"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_248.md
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_248.md
     dependencies: []
     size: SMALL
     summary: "auto_escalate section in config/proxy.yml with enabled flag, offense
@@ -3371,8 +3360,8 @@ phases:
       offense_ttl_hours, shared_ip_cidr_threshold. Loaded into AutoEscalateConfig struct."
   248.2:
     name: "Offense Counter (Go)"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_248.md
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_248.md
     dependencies:
     - 248.1
     size: MEDIUM
@@ -3381,8 +3370,8 @@ phases:
       fail open on Redis errors."
   248.3:
     name: "Pipeline Integration (Go)"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_248.md
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_248.md
     dependencies:
     - 248.2
     size: MEDIUM
@@ -3391,8 +3380,8 @@ phases:
       ban escalation. Prometheus counter + ECS log line."
   248.4:
     name: "Management UI: IP Offense Display"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_248.md
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_248.md
     dependencies:
     - 248.2
     size: SMALL
@@ -3400,8 +3389,8 @@ phases:
       IP detail view and attack table. Admin-only reset button with audit log."
   248.5:
     name: "Attack Mode Integration"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_248.md
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_248.md
     dependencies:
     - 247.1
     - 248.1
@@ -3410,8 +3399,8 @@ phases:
       Go proxy reads this on config reload to temporarily enable auto-escalation."
   248.6:
     name: "Tests"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_248.md
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_248.md
     dependencies:
     - 248.1
     - 248.2
@@ -3421,17 +3410,6 @@ phases:
     size: MEDIUM
     summary: "Go unit tests for offense counter and pipeline escalation. Python unit
       tests for offense API. Chaos test: Redis down, offense counter fails open."
-  249:
-    name: "Datacenter ASN One-Click Block"
-    status: COMPLETE
-    action_plan: docs/phases/complete/PHASE_249.md
-    dependencies:
-    - 247
-    size: MEDIUM
-    summary: "Policy toggle for all datacenter-origin traffic: score (default) | tarpit
-      | block. Uses existing asn_datacenter_list.yml (847 ASNs). Hot-reloadable via
-      Redis pub/sub. Default exceptions for Cloudflare, Fastly, Akamai. Per-ASN
-      exception management in UI. Attack Mode also switches to tarpit automatically."
   249.1:
     name: "Config Schema & Go Loader"
     status: COMPLETE
@@ -3495,19 +3473,6 @@ phases:
     summary: "Go pipeline tests for all three actions, exception handling, h2/h1 bypass.
       Python API tests for GET/PUT validation and config:reload publish. Page smoke
       test. Container config test."
-  250:
-    name: "Botnet Fingerprint Detection & One-Click Block"
-    status: COMPLETE
-    action_plan: docs/phases/complete/PHASE_250.md
-    dependencies:
-    - 247
-    size: MEDIUM
-    summary: "Fingerprint-centric attack view for residential botnets where IP banning
-      is ineffective. Groups attack traffic by JA4 fingerprint, shows unique IP count
-      per fingerprint, labels known browsers vs bot tools, flags botnet patterns (N
-      unique IPs + high avg score + not a browser). One-click block stops entire
-      botnet in one action. Safety gate prevents blocking Chrome/Firefox/Safari.
-      JA4T TCP correlation shown when TAP data available."
   250.1:
     name: "Expand and Version Known-Browser Corpus"
     status: COMPLETE
@@ -3662,11 +3627,11 @@ phases:
       changed; whole-suite go test -race ./... green across repeated runs."
   519:
     name: "Remote-Exploitability Bug Hunt (Go Proxy Hot Path)"
-    status: IN_PROGRESS
-    action_plan: docs/phases/PHASE_519.md
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_519.md
     dependencies: []
     size: MEDIUM
-    summary: "Focused security bug hunt over the remotely-reachable Go proxy surface
+    summary: "COMPLETE. Focused security bug hunt over the remotely-reachable Go proxy surface
       (accept loop, ClientHello parser, reassembly, PROXY v1/v2 parser, JA4/JA4X) for
       crashes/RCE/memory-safety/data-integrity. All Go fuzz targets ran to convergence with
       zero crashers (ClientHello parser 10.7M execs, fragmentation, PROXY v1/v2, smuggling).
@@ -3971,7 +3936,7 @@ phases:
   805:
     name: "Nightly Performance/Load Regression Detection, wired into Prometheus + Grafana"
     status: COMPLETE
-    action_plan: docs/phases/PHASE_805.md
+    action_plan: docs/phases/complete/PHASE_805.md
     dependencies: []
     size: MEDIUM
     summary: "COMPLETE (2026-07-30). New .github/workflows/nightly-benchmark.yml runs

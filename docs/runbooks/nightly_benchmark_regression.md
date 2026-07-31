@@ -11,7 +11,7 @@ phase: 805
 WARNING for both alerts. A perf regression is not a live customer-impact
 page — it's a "look at this before it becomes one" (see `CLAUDE.md`'s
 asymmetry principle, applied to alert severity in decision D6 of
-`docs/phases/PHASE_805.md`).
+`docs/phases/complete/PHASE_805.md`).
 
 ## What is happening
 
@@ -45,7 +45,7 @@ GitHub Actions (nightly, 03:17 UTC)     Self-hosted monitoring host
 
 GitHub Actions has **no inbound network path** to the self-hosted
 monitoring host — that's why this is a pull (curl on a timer), not a push.
-See `docs/phases/PHASE_805.md`'s design section for the full reasoning
+See `docs/phases/complete/PHASE_805.md`'s design section for the full reasoning
 (remote_write and Pushgateway were both considered and rejected).
 
 ## Impact
@@ -70,7 +70,7 @@ See `docs/phases/PHASE_805.md`'s design section for the full reasoning
    failing run's commit SHA (embedded in the published `result.json` as
    `git_sha`, and in the issue body via the run URL).
 4. Rule out CI flakiness first: Docker-in-Actions network variance is a
-   known source of noise (see "Risks" in `docs/phases/PHASE_805.md`). Check
+   known source of noise (see "Risks" in `docs/phases/complete/PHASE_805.md`). Check
    whether the *previous* night was also regressed. A single bad night with
    a clean night before and after is more likely noise than a real
    regression; consecutive bad nights are not.
@@ -128,7 +128,7 @@ Check each link in the chain in order — the first broken one is your answer:
    with the new measured numbers, a comment explaining why, and get it
    reviewed — this file is a deliberate gate, not auto-updated, precisely so
    a regression can't silently raise its own bar (see D4 in
-   `docs/phases/PHASE_805.md`).
+   `docs/phases/complete/PHASE_805.md`).
 
 **Stale data:**
 - Actions job broken → fix the workflow (check `.github/workflows/nightly-benchmark.yml`,

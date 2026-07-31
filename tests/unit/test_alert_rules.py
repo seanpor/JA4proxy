@@ -26,7 +26,7 @@ never been structurally validated here. Registering all of them together
 with this phase's new performance.rules.yml, same as the matching fix to
 Makefile's lint-prom/PROM_RULES and (more seriously) the discovery that
 Prometheus itself never actually loaded any of them at all — see
-docs/phases/PHASE_805.md's design-correction notes and
+docs/phases/complete/PHASE_805.md's design-correction notes and
 deploy/docker/docker-compose.monitoring.yml's Phase-805 comment.
 """
 

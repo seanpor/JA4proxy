@@ -1,8 +1,9 @@
 ---
 phase: 805
 title: Nightly Performance/Load Regression Detection, wired into Prometheus + Grafana
-status: PROPOSED
+status: COMPLETE
 created: 2026-07-22
+completed: 2026-07-30
 audience: [developer, operations]
 ---
 

@@ -16,7 +16,7 @@ tracked_not_gated_metrics comment — no historical baseline exists yet).
 This is a sibling script to scripts/benchmark_comparison.py, not an
 extension of it: that script's whole design is a Go-vs-Python dual-proxy
 comparison, and the Python proxy it would compare against no longer exists.
-See docs/phases/PHASE_805.md's "Design correction" section for the full
+See docs/phases/complete/PHASE_805.md's "Design correction" section for the full
 reasoning.
 
 Exit 0 = clean run (or informational-only skip).
