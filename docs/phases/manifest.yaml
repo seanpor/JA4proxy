@@ -4114,3 +4114,29 @@ phases:
       v9 require()/getOctokit changes) don't affect this repo's workflows.
       Issue #292 (git history rewrite to purge the ja4-tap blob) is explicitly
       deferred, not silently dropped — see PHASE_810.md Out of scope."
+  811:
+    name: "Git history rewrite — purge ja4-tap binary + coverage.txt (closes #292)"
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_811.md
+    dependencies: []
+    size: SMALL
+    summary: "LANDED on main (2026-07-30). Rewrote git history with
+      git-filter-repo to drop the 25 MB ja4-tap binary, all 8 historical
+      coverage.txt revisions, and remapped 3 legacy personal author/committer
+      emails (seanpor@acm.org, seoriord@tcd.ie, sean@porreca.io -> the GitHub
+      noreply address) after GitHub's GH007 leak-prevention flagged them on
+      the ~2,400 commits filter-repo necessarily re-hashes. Landing needed
+      three independent GitHub protection layers disabled simultaneously,
+      not just the AGENTS.md-documented enforce_admins: a separate
+      repository ruleset (id 17259177) and classic branch protection's
+      allow_force_pushes flag, which enforce_admins does not exempt admins
+      from — none of this was visible from local git state, only discovered
+      by attempting the push. v2.0.0 tag also force-pushed (its hash changed
+      too, despite predating ja4-tap, because an earlier coverage.txt
+      revision is its ancestor). Verified via a fresh independent clone
+      (not the local rewrite artifact) that main is fully clean. All
+      protections restored to their exact original state immediately after,
+      confirmed via API read-back. Step 5 branch reconciliation in progress:
+      93 branches confirmed dead via merged-PR lookup being deleted
+      (user-approved); 14 branches with real unmerged commits deliberately
+      left untouched (user-approved) pending owner review."
