@@ -15,6 +15,7 @@ import (
 
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/sirupsen/logrus"
 
 	"github.com/seanpor/ja4proxy/internal/tap"
@@ -278,4 +279,42 @@ type idleSource struct{}
 func (s *idleSource) ReadPacketData() ([]byte, gopacket.CaptureInfo, error) {
 	time.Sleep(2 * time.Millisecond)
 	return nil, gopacket.CaptureInfo{}, tap.ErrPollTimeout
+}
+
+// statsIdleSource is an idleSource that also implements tap.StatsSource, so
+// the heartbeat's ring-buffer-fill-ratio sampling (R-011) has something to
+// type-assert against.
+type statsIdleSource struct {
+	idleSource
+	packets, drops uint64
+}
+
+func (s *statsIdleSource) RingBufferStats() (packets, drops uint64, ok bool) {
+	return s.packets, s.drops, true
+}
+
+// TestDrive_HeartbeatSamplesRingBufferStats guards R-011: when the active
+// PacketSource implements StatsSource, the heartbeat must sample it and set
+// RingBufferFillRatio to the observed drop ratio.
+func TestDrive_HeartbeatSamplesRingBufferStats(t *testing.T) {
+	orig := heartbeatInterval
+	heartbeatInterval = 20 * time.Millisecond
+	defer func() { heartbeatInterval = orig }()
+
+	log := logrus.New()
+	log.SetOutput(io.Discard)
+
+	store := tap.NewStore(nil)
+	enf := tap.NewEnforcer(tap.EnforcerConfig{}, nil)
+	src := &statsIdleSource{packets: 90, drops: 10} // 10% drop ratio
+
+	ctx, cancel := context.WithTimeout(context.Background(), 150*time.Millisecond)
+	defer cancel()
+
+	var count atomic.Int64
+	_ = drive(ctx, 0, src, func() error { return nil }, store, enf, true, 16, nil, &count, log)
+
+	if got := testutil.ToFloat64(tap.RingBufferFillRatio); got != 0.1 {
+		t.Errorf("RingBufferFillRatio = %v, want 0.1 (10 drops / 100 total)", got)
+	}
 }

@@ -31,6 +31,22 @@ func (t *tpacketSource) ReadPacketData() ([]byte, gopacket.CaptureInfo, error) {
 	return data, ci, err
 }
 
+// RingBufferStats implements the optional statsSource interface (R-011):
+// packets/drops as reported by the kernel's AF_PACKET socket statistics.
+// The TPACKETv3 counters are used when available (SocketStatsV3), falling
+// back to the TPACKETv2 counters otherwise. ok=false only on a genuine
+// syscall error reading the stats, not on zero traffic.
+func (t *tpacketSource) RingBufferStats() (packets, drops uint64, ok bool) {
+	ss, ssv3, err := t.tp.SocketStats()
+	if err != nil {
+		return 0, 0, false
+	}
+	if p := ssv3.Packets(); p > 0 {
+		return uint64(p), uint64(ssv3.Drops()), true
+	}
+	return uint64(ss.Packets()), uint64(ss.Drops()), true
+}
+
 // NewLiveSource opens an AF_PACKET (TPACKETv3) capture handle on iface in
 // promiscuous mode, optionally applying a kernel BPF filter (compiled from
 // bpfFilter) to discard non-TLS traffic before every userspace read.

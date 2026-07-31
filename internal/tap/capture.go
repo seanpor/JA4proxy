@@ -9,6 +9,18 @@ import (
 	"github.com/gopacket/gopacket/pcapgo"
 )
 
+// StatsSource is an optional capability a PacketSource may implement to
+// report kernel-level packet/drop counts (R-011). Only the live AF_PACKET
+// source (capture_linux.go's tpacketSource) implements it today — offline
+// .pcap replay has no kernel ring buffer to report on, so callers must type-
+// assert rather than assume every PacketSource satisfies this.
+type StatsSource interface {
+	// RingBufferStats returns cumulative packets seen and packets dropped by
+	// the kernel before userspace read them. ok=false means the stats could
+	// not be read (a transient syscall error), not that traffic is zero.
+	RingBufferStats() (packets, drops uint64, ok bool)
+}
+
 // checkInterfaceUp verifies iface exists and is administratively up before
 // capture starts (F-015). NewTPacket's own error handling covers the
 // nonexistent/no-CAP_NET_RAW cases, but an interface that exists yet is

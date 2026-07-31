@@ -8,6 +8,7 @@ import (
 
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/sirupsen/logrus"
 )
 
@@ -109,6 +110,47 @@ func TestWatchdog_Run_SrcFactoryError(t *testing.T) {
 	err := w.Run(context.Background(), src, sensorFact, func(_ *Sensor) {})
 	if err != sentinel {
 		t.Errorf("Run should return srcFactory error %v, got %v", sentinel, err)
+	}
+}
+
+// TestWatchdog_Run_IncrementsRestartMetric guards R-011: WorkerRestartsTotal
+// was registered but never incremented anywhere. Feeds the watchdog a source
+// that crashes twice (genuine read errors) before a clean EOF, and checks
+// the counter goes up by exactly 2 -- once per restart, not per crash-loop
+// giveup and not on the final clean exit.
+func TestWatchdog_Run_IncrementsRestartMetric(t *testing.T) {
+	origMax := maxConsecutiveReadErrors
+	maxConsecutiveReadErrors = 1
+	t.Cleanup(func() { maxConsecutiveReadErrors = origMax })
+
+	before := testutil.ToFloat64(WorkerRestartsTotal)
+
+	log := logrus.New()
+	log.SetLevel(logrus.PanicLevel)
+	w := NewWatchdog(log)
+
+	calls := 0
+	src := func() (PacketSource, func(), error) {
+		calls++
+		if calls <= 2 {
+			return &errSource{err: io.ErrClosedPipe}, func() {}, nil
+		}
+		return eofSource{}, func() {}, nil
+	}
+	sensorFact := func() *Sensor { return NewSensor(layers.LinkTypeEthernet, 1) }
+
+	err := w.Run(context.Background(), src, sensorFact, func(s *Sensor) {
+		for range s.Events() {
+		}
+	})
+	if err != nil {
+		t.Fatalf("expected a clean nil return after the third (EOF) attempt, got %v", err)
+	}
+	if calls != 3 {
+		t.Fatalf("expected exactly 3 srcFactory calls (2 crashes + 1 clean), got %d", calls)
+	}
+	if got := testutil.ToFloat64(WorkerRestartsTotal); got != before+2 {
+		t.Errorf("WorkerRestartsTotal %v -> %v; want +2 (one per restart)", before, got)
 	}
 }
 

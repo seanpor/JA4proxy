@@ -330,6 +330,8 @@ func TestSensorGenuineErrorBacksOffAndFailsPastThreshold(t *testing.T) {
 		readErrorBackoffBase, readErrorBackoffCap, maxConsecutiveReadErrors = origBase, origCap, origMax
 	})
 
+	before := testutil.ToFloat64(PacketsDroppedTotal.WithLabelValues(dropReadError))
+
 	wantErr := errors.New("simulated persistent read error")
 	src := &errSource{err: wantErr}
 	s := NewSensor(layers.LinkTypeEthernet, 8)
@@ -351,6 +353,11 @@ func TestSensorGenuineErrorBacksOffAndFailsPastThreshold(t *testing.T) {
 	}
 	if src.reads != maxConsecutiveReadErrors {
 		t.Errorf("expected exactly %d reads (one per attempt before giving up), got %d", maxConsecutiveReadErrors, src.reads)
+	}
+	// F-020: each genuine read error must be observable via a metric, not
+	// just via the eventual returned error.
+	if got := testutil.ToFloat64(PacketsDroppedTotal.WithLabelValues(dropReadError)); got != before+float64(maxConsecutiveReadErrors) {
+		t.Errorf("dropReadError counter %v -> %v; want +%d", before, got, maxConsecutiveReadErrors)
 	}
 }
 

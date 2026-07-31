@@ -29,9 +29,16 @@ var (
 		Name: "ja4proxy_tap_handshakes_extracted_total",
 		Help: "TLS handshake messages extracted, by kind (clienthello|serverhello|connection).",
 	}, []string{"kind"})
+	// RingBufferFillRatio (R-011, implemented phase-809): cumulative kernel
+	// drop ratio drops/(packets+drops) from AF_PACKET SocketStats, sampled
+	// on the heartbeat interval by cmd/ja4-tap's drive() when the active
+	// PacketSource implements StatsSource (live capture only -- stays 0 for
+	// offline .pcap replay, which has no kernel ring buffer). Named for the
+	// alert/dashboard that already reference it (Phase 803), not literally a
+	// live occupancy percentage -- the kernel doesn't expose that.
 	RingBufferFillRatio = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "ja4proxy_tap_ring_buffer_fill_ratio",
-		Help: "Live AF_PACKET ring buffer fill ratio (0-1); shedding rule input.",
+		Help: "Cumulative AF_PACKET kernel drop ratio (drops/(packets+drops)); live capture only, 0 for offline .pcap replay.",
 	})
 	WorkerRestartsTotal = prometheus.NewCounter(prometheus.CounterOpts{
 		Name: "ja4proxy_tap_worker_restarts_total",
@@ -117,8 +124,10 @@ func Collectors() []prometheus.Collector {
 
 // drop reasons for PacketsDroppedTotal.
 const (
-	dropDecode      = "decode"       // packet failed Ethernet/IP/TCP decode
-	dropNonTCP      = "non_tcp"      // decoded but no TCP layer
-	dropCapExceeded = "cap_exceeded" // stream exceeded the per-direction handshake cap
-	dropGap         = "gap"          // missing bytes before the handshake; cannot parse
+	dropDecode        = "decode"         // packet failed Ethernet/IP/TCP decode
+	dropNonTCP        = "non_tcp"        // decoded but no TCP layer
+	dropCapExceeded   = "cap_exceeded"   // stream exceeded the per-direction handshake cap
+	dropGap           = "gap"            // missing bytes before the handshake; cannot parse
+	dropEventOverflow = "event_overflow" // handshake-event channel full; event dropped (F-007)
+	dropReadError     = "read_error"     // genuine (non-timeout) PacketSource read error (F-020)
 )

@@ -399,11 +399,24 @@ func drive(ctx context.Context, lt layers.LinkType, source tap.PacketSource, clo
 				case <-heartbeat.C:
 					var mem runtime.MemStats
 					runtime.ReadMemStats(&mem) // R-010: visibility into actual heap pressure
-					log.WithFields(logrus.Fields{
+					fields := logrus.Fields{
 						"handshakes_total": eventCount.Load(),
 						"heap_alloc_bytes": mem.HeapAlloc,
 						"goroutines":       runtime.NumGoroutine(),
-					}).Info("heartbeat: sensor alive")
+					}
+					// R-011: only live AF_PACKET capture implements StatsSource;
+					// offline .pcap replay has no kernel ring buffer to report on.
+					if ss, ok := source.(tap.StatsSource); ok {
+						if packets, drops, statOK := ss.RingBufferStats(); statOK {
+							ratio := 0.0
+							if total := packets + drops; total > 0 {
+								ratio = float64(drops) / float64(total)
+							}
+							tap.RingBufferFillRatio.Set(ratio)
+							fields["ring_buffer_drop_ratio"] = ratio
+						}
+					}
+					log.WithFields(fields).Info("heartbeat: sensor alive")
 				case ev, ok := <-events:
 					if !ok {
 						log.WithField("handshakes", eventCount.Load()).Info("capture finished")

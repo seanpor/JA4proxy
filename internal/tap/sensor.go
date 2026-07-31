@@ -86,7 +86,7 @@ func (s *Sensor) deliver(e HandshakeEvent) {
 	case s.events <- e:
 	default:
 		// Downstream is slower than capture — drop rather than stall the sensor.
-		PacketsDroppedTotal.WithLabelValues("event_overflow").Inc()
+		PacketsDroppedTotal.WithLabelValues(dropEventOverflow).Inc()
 	}
 }
 
@@ -147,6 +147,7 @@ func (s *Sensor) Run(ctx context.Context, src PacketSource) error {
 			// Watchdog restarts the sensor with a fresh source on a non-nil
 			// Run error, composing with its existing crash-loop protection.
 			consecutiveErrors++
+			PacketsDroppedTotal.WithLabelValues(dropReadError).Inc()
 			if consecutiveErrors >= maxConsecutiveReadErrors {
 				s.Flush()
 				return fmt.Errorf("tap: %d consecutive read errors, last: %w", consecutiveErrors, err)
