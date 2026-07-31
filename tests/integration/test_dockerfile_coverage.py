@@ -173,7 +173,15 @@ def test_standalone_compose_files_validate():
         ("deploy/docker/docker-compose.test.yml", {}),
         (
             "deploy/docker/docker-compose.prod.yml",
-            {"BACKEND_HOST": "lint", "ANALYTICS_REDIS_PASSWORD": "test"},
+            {
+                "BACKEND_HOST": "lint",
+                "ANALYTICS_REDIS_PASSWORD": "test",
+                # phase-809: the ja4-tap service's --interface is required
+                # even though the service itself is behind the `tap` compose
+                # profile -- `docker compose config` interpolates every
+                # service's variables regardless of profile.
+                "TAP_INTERFACE": "lint",
+            },
         ),
     ]
     for compose_file, env in test_cases:
