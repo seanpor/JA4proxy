@@ -1871,6 +1871,24 @@ Add a `ja4tap` user section to `config/redis_acl.conf` with the base ACL (fp:*) 
 
 ### P-001 — [MEDIUM] Zero privacy/GDPR documentation in the entire project
 
+> **STALE PREMISE, RESOLVED** (PHASE_809 scoping, 2026-07-31): this finding's
+> "zero mentions of privacy/gdpr" premise no longer holds — `docs/compliance/
+> GDPR_COMPLIANCE.md` (Phase 21) and `docs/runbooks/gdpr_erasure.md` (Phase 91)
+> already exist and predate this finding's write-up. Per D2, verified their
+> content against the actual TAP sensor code rather than assuming they were
+> accurate: found and fixed two real gaps during 809 — (1) `GDPR_COMPLIANCE.md`
+> was missing the TAP sensor's `fp:os:ip`/`fp:ja4t:ip`/`fp:ban_intent:ip` keys
+> from its storage-location and retention tables, and its §2.1 "30d" JA4T
+> retention figure conflated the inline proxy's general signal caching with
+> the TAP sensor's actual hard-coded 24h TTL (`internal/tap/store.go`) — now
+> corrected with a note distinguishing the two. (2) No mechanism existed to
+> stop the TAP sensor from re-writing a just-erased IP's keys on its next
+> observed handshake — added `--exclude-ips`/`EXCLUDE_IPS` (P-003's own
+> recommendation #1), SIGHUP-reloadable, and documented in both compliance
+> docs and `docs/runbooks/tap_mode.md`. No new `docs/PRIVACY.md` was created —
+> that would have fragmented an already-comprehensive doc rather than fixed
+> its gaps.
+
 **Phase:** Cross-cutting
 
 **Severity:** MEDIUM — compliance risk; no defensible privacy posture
@@ -1910,6 +1928,19 @@ Add a `docs/PRIVACY.md` documenting:
 
 ### P-002 — [MEDIUM] IP addresses embedded in Redis key names — enumerable PII corpus
 
+> **RESOLVED (documentation)** (PHASE_809, 2026-07-31): the recommendation's
+> option 1 (hash/HMAC the IP in the key suffix) was rejected — it would break
+> every consumer that reads these keys by IP (`internal/security/
+> tap_consumer.go`, `tap_ja4t_consumer.go`, the management API's ban/session
+> lookups) for a namespace-ACL limitation Redis itself doesn't fully solve
+> either way. Went with option 2 instead: documented the enumeration risk
+> explicitly in `docs/compliance/GDPR_COMPLIANCE.md` §5.2b, with concrete ACL
+> guidance (least-privilege grants, treat any `~fp:*`/`~ban:*` read access as
+> PII-bearing regardless of the value shape). Option 3 (SCAN/KEYS audit
+> logging) is noted as a recommended defense-in-depth measure but not
+> implemented — no existing hook point for Redis command-level audit logging
+> in this codebase; would need its own phase if pursued.
+
 **Phase:** 316b (store), 316d (enforcement)
 
 **Severity:** MEDIUM — any Redis read access reveals the full tracked-client corpus
@@ -1934,6 +1965,23 @@ The IP address is personal data under GDPR Article 4(1) (CJEU ruling C-582/14). 
 ---
 
 ### P-003 — [MEDIUM] No GDPR Right to Erasure process
+
+> **STALE PREMISE, PARTIALLY RESOLVED** (PHASE_809, 2026-07-31): the
+> "no documented mechanism" premise was already false — `scripts/gdpr_delete.py`
+> (Phase 91) already deletes all four TAP-sensor key types listed in this
+> finding's Evidence section, with an audit trail
+> (`management:gdpr_erasure_log`) and a `docs/runbooks/gdpr_erasure.md`
+> runbook. What was genuinely missing, and is now fixed, is recommendation
+> #1: the sensor had no way to stop re-writing a just-erased IP's keys on its
+> next observed handshake. Added `--exclude-ips`/`EXCLUDE_IPS`
+> (`internal/tap/exclude.go`'s `ExcludeList`, CIDR-aware, SIGHUP-reloadable
+> via the same mutex-guarded pattern as F-016's blocklist reload) — wired into
+> `cmd/ja4-tap`'s per-event loop so an excluded IP gets zero writes to any of
+> `fp:os:ip`/`fp:ja4t:ip`/`fp:ban_intent:ip`/`ban:{ip}`. Documented in
+> `docs/compliance/GDPR_COMPLIANCE.md` §5.3 and `docs/runbooks/
+> gdpr_erasure.md`/`tap_mode.md`. Recommendation #2 (runbook section) was
+> already satisfied by the existing `gdpr_erasure.md`; recommendation #3
+> (document the re-write risk) is the new note added to both docs.
 
 **Phase:** 316b (operations)
 

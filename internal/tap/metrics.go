@@ -71,6 +71,13 @@ var (
 		Name: "ja4proxy_tap_redis_circuit_breaker_skips_total",
 		Help: "Writes skipped (not attempted) because the Redis circuit breaker was open.",
 	})
+	// ExcludedIPEventsTotal counts handshake events for a client IP matching
+	// --exclude-ips: no fp:os:ip, fp:ja4t:ip, fp:ban_intent:ip, or ban:{ip}
+	// write is attempted for these (phase-809, P-003).
+	ExcludedIPEventsTotal = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "ja4proxy_tap_excluded_ip_events_total",
+		Help: "Handshake events for a client IP matching --exclude-ips; no fingerprint or enforcement write was attempted for these.",
+	})
 )
 
 // results for EnforcementActionsTotal (Phase 316d).
@@ -104,6 +111,7 @@ func Collectors() []prometheus.Collector {
 		EnforcementArmed,
 		RedisCircuitBreakerOpenedTotal,
 		RedisCircuitBreakerSkipsTotal,
+		ExcludedIPEventsTotal,
 	}
 }
 

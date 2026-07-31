@@ -125,12 +125,20 @@ Phase 809:
   producing them with an unchanging `handshakes_total`.
 - **Structured logs:** `--log-format json` for log aggregation, `--log-level`
   (`debug`/`info`/`warn`/`error`).
-- **Signals:** `SIGHUP` re-reads `JA4T_BLOCKLIST` from the environment and
-  hot-swaps the enforcement blocklist without a restart (an unset/empty
-  `JA4T_BLOCKLIST` at reload time clears it — fail-open, since an empty
-  blocklist means enforcement can never fire). `SIGUSR1` dumps all goroutine
-  stacks plus the current handshake count to stderr, for debugging a
-  suspected hang without restarting.
+- **Signals:** `SIGHUP` re-reads both `JA4T_BLOCKLIST` and `EXCLUDE_IPS` from
+  the environment and hot-swaps the enforcement blocklist and exclusion list
+  without a restart (an unset/empty `JA4T_BLOCKLIST` at reload time clears
+  the blocklist — fail-open, since an empty blocklist means enforcement can
+  never fire). `SIGUSR1` dumps all goroutine stacks plus the current
+  handshake count to stderr, for debugging a suspected hang without
+  restarting.
+- **Privacy (GDPR erasure durability):** `--exclude-ips` (or the `EXCLUDE_IPS`
+  env var) takes a comma-separated list of IPs/CIDRs the sensor must never
+  write fingerprint or enforcement data for. Deleting an IP's existing Redis
+  keys (see `docs/compliance/GDPR_COMPLIANCE.md` §5.3 / `docs/runbooks/
+  gdpr_erasure.md`) is not durable on its own — the sensor would simply
+  re-write the same keys on that IP's next observed handshake. Add the IP
+  here (or `SIGHUP` after updating `EXCLUDE_IPS`) to make an erasure stick.
 - **Memory:** the sensor does not itself impose a heap ceiling beyond the
   bounded reassembly page cache (`internal/tap/sensor.go`'s
   `maxBufferedPagesTotal`, ~8MB) and each stream's ~20KB buffer footprint

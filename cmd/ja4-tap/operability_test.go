@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"net"
 	"os"
 	"strings"
 	"sync"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"github.com/gopacket/gopacket"
+	"github.com/gopacket/gopacket/layers"
 	"github.com/sirupsen/logrus"
 
 	"github.com/seanpor/ja4proxy/internal/tap"
@@ -103,9 +105,11 @@ func TestHandleOperationalSignals_SIGHUPReloadsBlocklist(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	sigs := make(chan os.Signal, 1)
 	var count atomic.Int64
+	var excludePtr atomic.Pointer[tap.ExcludeList]
+	excludePtr.Store(tap.NewExcludeList(""))
 	done := make(chan struct{})
 	go func() {
-		handleOperationalSignals(ctx, sigs, enf, &count, log)
+		handleOperationalSignals(ctx, sigs, enf, &excludePtr, &count, log)
 		close(done)
 	}()
 
@@ -148,11 +152,121 @@ func TestDrive_HeartbeatLogsWithoutQuiet(t *testing.T) {
 	defer cancel()
 
 	var count atomic.Int64
-	_ = drive(ctx, 0, src, func() error { return nil }, store, enf, true /* quiet */, 16, &count, log)
+	_ = drive(ctx, 0, src, func() error { return nil }, store, enf, true /* quiet */, 16, nil, &count, log)
 
 	if !strings.Contains(buf.String(), "heartbeat") {
 		t.Error("expected at least one heartbeat log line even in quiet mode with no traffic; got none")
 	}
+}
+
+// --- minimal synthetic single-connection TLS handshake, for the
+// --exclude-ips wiring test below. Trimmed to the client direction only
+// (SYN + ClientHello + FIN) since maybeEmit force-emits on FIN once a
+// ClientHello is captured, without needing a ServerHello. ---
+
+func tlsRecord(payload []byte) []byte {
+	r := make([]byte, 5+len(payload))
+	r[0] = 22 // handshake content type
+	r[1], r[2] = 0x03, 0x01
+	r[3] = byte(len(payload) >> 8)
+	r[4] = byte(len(payload))
+	copy(r[5:], payload)
+	return r
+}
+
+func clientHelloMessage(bodyLen int) []byte {
+	body := bytes.Repeat([]byte{0xAB}, bodyLen)
+	m := make([]byte, 4+len(body))
+	m[0] = 1 // ClientHello
+	m[1] = byte(len(body) >> 16)
+	m[2] = byte(len(body) >> 8)
+	m[3] = byte(len(body))
+	copy(m[4:], body)
+	return m
+}
+
+// seg serialises one client->server TCP segment for a fixed synthetic flow
+// (10.0.0.1:51000 -> 10.0.0.2:443).
+func seg(t *testing.T, seq uint32, syn, fin bool, payload []byte) []byte {
+	t.Helper()
+	eth := layers.Ethernet{
+		SrcMAC:       net.HardwareAddr{0x02, 0, 0, 0, 0, 0x01},
+		DstMAC:       net.HardwareAddr{0x02, 0, 0, 0, 0, 0x02},
+		EthernetType: layers.EthernetTypeIPv4,
+	}
+	ip := &layers.IPv4{Version: 4, TTL: 64, Protocol: layers.IPProtocolTCP,
+		SrcIP: net.ParseIP("10.0.0.1"), DstIP: net.ParseIP("10.0.0.2")}
+	tcp := layers.TCP{SYN: syn, ACK: !syn, FIN: fin, Seq: seq, Window: 65535,
+		SrcPort: 51000, DstPort: 443}
+	_ = tcp.SetNetworkLayerForChecksum(ip)
+
+	buf := gopacket.NewSerializeBuffer()
+	opts := gopacket.SerializeOptions{FixLengths: true, ComputeChecksums: true}
+	if err := gopacket.SerializeLayers(buf, opts, &eth, ip, &tcp, gopacket.Payload(payload)); err != nil {
+		t.Fatalf("serialize: %v", err)
+	}
+	out := make([]byte, len(buf.Bytes()))
+	copy(out, buf.Bytes())
+	return out
+}
+
+// memSource replays a fixed list of frames as a tap.PacketSource, then EOFs.
+type memSource struct {
+	frames [][]byte
+	i      int
+}
+
+func (m *memSource) ReadPacketData() ([]byte, gopacket.CaptureInfo, error) {
+	if m.i >= len(m.frames) {
+		return nil, gopacket.CaptureInfo{}, io.EOF
+	}
+	f := m.frames[m.i]
+	m.i++
+	return f, gopacket.CaptureInfo{Timestamp: time.Unix(1_700_000_000, 0), CaptureLength: len(f), Length: len(f)}, nil
+}
+
+// TestDrive_ExcludedIPSkipsAllWrites guards P-003: a client IP on
+// --exclude-ips must produce zero Store/Enforcer Redis writes, even though
+// its handshake is fully captured and would otherwise be written.
+func TestDrive_ExcludedIPSkipsAllWrites(t *testing.T) {
+	const cISN = 1000
+	ch := clientHelloMessage(48)
+	chRec := tlsRecord(ch)
+	frames := [][]byte{
+		seg(t, cISN, true, false, nil),                      // SYN
+		seg(t, cISN+1, false, false, chRec),                 // ClientHello
+		seg(t, cISN+1+uint32(len(chRec)), false, true, nil), // FIN forces emit
+	}
+
+	run := func(exclude *tap.ExcludeList) *fakeRedisSetGetter {
+		rs := &fakeRedisSetGetter{}
+		store := tap.NewStore(rs)
+		enf := tap.NewEnforcer(tap.EnforcerConfig{}, rs)
+		log := logrus.New()
+		log.SetOutput(io.Discard)
+		var count atomic.Int64
+		var excludePtr atomic.Pointer[tap.ExcludeList]
+		excludePtr.Store(exclude)
+		src := &memSource{frames: frames}
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		_ = drive(ctx, layers.LinkTypeEthernet, src, func() error { return nil }, store, enf, true, 16, &excludePtr, &count, log)
+		return rs
+	}
+
+	t.Run("not excluded writes fp:os:ip", func(t *testing.T) {
+		rs := run(tap.NewExcludeList(""))
+		if rs.callCount() == 0 {
+			t.Fatal("expected at least one Redis write for a non-excluded client; got 0")
+		}
+	})
+
+	t.Run("excluded IP writes nothing", func(t *testing.T) {
+		rs := run(tap.NewExcludeList("10.0.0.1"))
+		if got := rs.callCount(); got != 0 {
+			t.Errorf("expected 0 Redis writes for an excluded client; got %d", got)
+		}
+	})
 }
 
 // idleSource mimics an idle live interface: every read returns

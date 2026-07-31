@@ -92,6 +92,7 @@ type runConfig struct {
 	enfCfg          tap.EnforcerConfig
 	seccompPath     string
 	eventBuffer     int
+	excludeIPs      *atomic.Pointer[tap.ExcludeList] // P-003: IPs/CIDRs to never persist fingerprint/enforcement data for; hot-swappable on SIGHUP
 }
 
 func main() {
@@ -113,6 +114,7 @@ func main() {
 		eventBuffer   = flag.Int("event-buffer", 1024, "size of the handshake-event channel between capture and the Redis-writing goroutine; when full, events are dropped (fail-open, counted as packets_dropped{reason=event_overflow}) rather than blocking capture. Larger absorbs longer Redis stalls at the cost of more memory and staler events once it drains (R-004)")
 		logFormat     = flag.String("log-format", "text", "log output format: text (default) or json — use json in production with centralized log aggregation (R-008)")
 		logLevel      = flag.String("log-level", "info", "log verbosity: debug, info (default), warn, or error (R-008)")
+		excludeIPs    = flag.String("exclude-ips", "", "comma-separated IPs/CIDRs to never write fingerprint or enforcement data for (e.g. \"203.0.113.5,198.51.100.0/24\") — prevents the sensor from re-writing a client's Redis keys after a GDPR erasure request (P-003; falls back to EXCLUDE_IPS env var)")
 	)
 	flag.Parse()
 
@@ -142,6 +144,12 @@ func main() {
 	if effectiveJA4TBlocklist == "" {
 		effectiveJA4TBlocklist = os.Getenv("JA4T_BLOCKLIST")
 	}
+	effectiveExcludeIPs := *excludeIPs
+	if effectiveExcludeIPs == "" {
+		effectiveExcludeIPs = os.Getenv("EXCLUDE_IPS")
+	}
+	var excludeIPsPtr atomic.Pointer[tap.ExcludeList]
+	excludeIPsPtr.Store(tap.NewExcludeList(effectiveExcludeIPs))
 
 	enfCfg := tap.EnforcerConfig{
 		Armed:         *enforce,
@@ -161,6 +169,7 @@ func main() {
 		enfCfg:        enfCfg,
 		seccompPath:   *seccompPath,
 		eventBuffer:   *eventBuffer,
+		excludeIPs:    &excludeIPsPtr,
 	}
 	if err := run(cfg, log); err != nil {
 		log.WithError(err).Error("ja4-tap exited with error")
@@ -225,7 +234,7 @@ func run(cfg runConfig, log *logrus.Logger) error {
 	opSignals := make(chan os.Signal, 1)
 	signal.Notify(opSignals, syscall.SIGHUP, syscall.SIGUSR1)
 	defer signal.Stop(opSignals)
-	go handleOperationalSignals(ctx, opSignals, enforcer, &eventCount, log)
+	go handleOperationalSignals(ctx, opSignals, enforcer, cfg.excludeIPs, &eventCount, log)
 
 	var (
 		src     tap.PacketSource
@@ -257,7 +266,7 @@ func run(cfg runConfig, log *logrus.Logger) error {
 		log.WithError(err).Warn("failed to load seccomp profile; proceeding without seccomp")
 	}
 
-	return drive(ctx, lt, src, closeFn, store, enforcer, cfg.quiet, cfg.eventBuffer, &eventCount, log)
+	return drive(ctx, lt, src, closeFn, store, enforcer, cfg.quiet, cfg.eventBuffer, cfg.excludeIPs, &eventCount, log)
 }
 
 // handleOperationalSignals runs for the life of the process, reacting to
@@ -265,7 +274,7 @@ func run(cfg runConfig, log *logrus.Logger) error {
 // hot-reload path, built on Enforcer.SetBlocklist's mutex from F-016) and
 // SIGUSR1 (dump goroutine stacks and the current handshake count to stderr —
 // R-007's debug-without-a-restart hook) until ctx is done.
-func handleOperationalSignals(ctx context.Context, sigs <-chan os.Signal, enforcer *tap.Enforcer, eventCount *atomic.Int64, log *logrus.Logger) {
+func handleOperationalSignals(ctx context.Context, sigs <-chan os.Signal, enforcer *tap.Enforcer, excludeIPs *atomic.Pointer[tap.ExcludeList], eventCount *atomic.Int64, log *logrus.Logger) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -278,7 +287,12 @@ func handleOperationalSignals(ctx context.Context, sigs <-chan os.Signal, enforc
 			case syscall.SIGHUP:
 				bl := parseBlocklist(os.Getenv("JA4T_BLOCKLIST"))
 				enforcer.SetBlocklist(bl)
-				log.WithField("blocklist_size", len(bl)).Info("SIGHUP: reloaded JA4T blocklist from JA4T_BLOCKLIST")
+				excl := os.Getenv("EXCLUDE_IPS")
+				excludeIPs.Store(tap.NewExcludeList(excl))
+				log.WithFields(logrus.Fields{
+					"blocklist_size":  len(bl),
+					"exclude_ips_set": excl != "",
+				}).Info("SIGHUP: reloaded JA4T blocklist from JA4T_BLOCKLIST and exclude list from EXCLUDE_IPS")
 			case syscall.SIGUSR1:
 				buf := make([]byte, 1<<20)
 				n := runtime.Stack(buf, true)
@@ -363,7 +377,7 @@ func buildBackends(cfg runConfig, log *logrus.Logger) (*tap.Store, *tap.Enforcer
 	return tap.NewStore(breaker), tap.NewEnforcer(cfg.enfCfg, breaker), nil
 }
 
-func drive(ctx context.Context, lt layers.LinkType, source tap.PacketSource, closeFn func() error, store *tap.Store, enforcer *tap.Enforcer, quiet bool, eventBuffer int, eventCount *atomic.Int64, log *logrus.Logger) error {
+func drive(ctx context.Context, lt layers.LinkType, source tap.PacketSource, closeFn func() error, store *tap.Store, enforcer *tap.Enforcer, quiet bool, eventBuffer int, excludeIPs *atomic.Pointer[tap.ExcludeList], eventCount *atomic.Int64, log *logrus.Logger) error {
 	defer func() { _ = closeFn() }()
 
 	wd := tap.NewWatchdog(log)
@@ -396,6 +410,22 @@ func drive(ctx context.Context, lt layers.LinkType, source tap.PacketSource, clo
 						return
 					}
 					eventCount.Add(1)
+
+					// P-003: an excluded client gets none of the sensor's writes —
+					// this is what makes a GDPR erasure request durable, since
+					// otherwise the sensor would simply re-write the same keys on
+					// this client's next observed handshake. Loaded fresh each
+					// event since SIGHUP can hot-swap it (see
+					// handleOperationalSignals).
+					var excl *tap.ExcludeList
+					if excludeIPs != nil {
+						excl = excludeIPs.Load()
+					}
+					if excl.Contains(ev.ClientIP) {
+						tap.ExcludedIPEventsTotal.Inc()
+						continue
+					}
+
 					class := tap.Classify(ev.Stack)
 					ja4t := tap.ComputeJA4T(ev.Stack)
 

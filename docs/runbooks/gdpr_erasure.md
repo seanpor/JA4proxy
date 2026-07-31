@@ -34,11 +34,24 @@ python3 scripts/gdpr_delete.py --ip 1.2.3.4 --report
 | Key category | Example | Action |
 |---|---|---|
 | Exact match IP keys | `ban:1.2.3.4`, `session:1.2.3.4`, `return_visitor:1.2.3.4`, `dns:fcrdns:1.2.3.4`, `audit:last_score:1.2.3.4` | Deleted |
+| TAP sensor keys (phase-316b/c/d) | `fp:os:ip:1.2.3.4`, `fp:ja4t:ip:1.2.3.4`, `fp:ban_intent:ip:1.2.3.4`, `fp:ip:1.2.3.4` | Deleted |
 | Wildcard IP keys | `beacon:1.2.3.4:*` | Scanned and deleted |
 | ZSET members | `behavioral:burst:example.com` (member `1.2.3.4:ts`) | ZREM |
 | HyperLogLog sketches | `hll:cidr48:1.2.3.0/24` | NOT deleted (see limitations) |
 
 ## Known Limitations
+
+### The standalone TAP sensor will re-write its keys unless excluded
+
+Deleting `fp:os:ip:{ip}` / `fp:ja4t:ip:{ip}` / `fp:ban_intent:ip:{ip}` only
+removes the *current* record. The Go TAP sensor (`cmd/ja4-tap`) observes
+traffic continuously and will re-write these keys the next time it sees
+that IP's SYN/handshake — unlike the inline proxy's other IP-keyed writes,
+which only reappear on that client's next real connection (expected
+behavior, not a gap). To make an erasure durable against the TAP sensor
+specifically, add the IP/CIDR to `--exclude-ips` / the `EXCLUDE_IPS` env
+var and send the sensor `SIGHUP` (no restart needed) — see
+`docs/runbooks/tap_mode.md`'s Go-sensor operations section.
 
 ### HyperLogLog CIDR sketches cannot be individually erased
 
