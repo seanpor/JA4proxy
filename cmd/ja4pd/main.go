@@ -1746,19 +1746,21 @@ func buildPipelineConfig(cfg *config.Config) *security.PipelineConfig {
 		JA4XEnabled:        cfg.Fingerprinting.JA4X.Enabled,
 		JA4XBlacklistScore: cfg.Fingerprinting.JA4X.BlacklistScore,
 		// Phase 203a — TAP-consumed JA4T OS mismatch.
-		TapConsumerEnabled:      cfg.TapConsumer.Enabled,
-		TapConsumerScore:        cfg.TapConsumer.SignalScore,
-		TapConsumerRedisTimeout: cfg.TapConsumer.RedisTimeoutMs,
-		TapConsumerCacheTTL:     cfg.TapConsumer.CacheTTLSeconds,
-		TapConsumerMaxAge:       cfg.TapConsumer.MaxAgeSeconds,
+		TapConsumerEnabled:          cfg.TapConsumer.Enabled,
+		TapConsumerScore:            cfg.TapConsumer.SignalScore,
+		TapConsumerRedisTimeout:     cfg.TapConsumer.RedisTimeoutMs,
+		TapConsumerCacheTTL:         cfg.TapConsumer.CacheTTLSeconds,
+		TapConsumerMaxAge:           cfg.TapConsumer.MaxAgeSeconds,
+		TapConsumerNegativeCacheTTL: cfg.TapConsumer.NegativeCacheTTLSeconds,
 		// Phase 316c — TAP-consumed JA4T blocklist.
-		JA4TConsumerEnabled:      cfg.JA4TConsumer.Enabled,
-		JA4TConsumerScore:        cfg.JA4TConsumer.SignalScore,
-		JA4TConsumerRedisTimeout: cfg.JA4TConsumer.RedisTimeoutMs,
-		JA4TConsumerCacheTTL:     cfg.JA4TConsumer.CacheTTLSeconds,
-		JA4TBlocklist:            cfg.JA4TConsumer.Blocklist,
-		AutoEscalate:             cfg.AutoEscalate,     // phase-248
-		DatacenterPolicy:         cfg.DatacenterPolicy, // phase-249
+		JA4TConsumerEnabled:          cfg.JA4TConsumer.Enabled,
+		JA4TConsumerScore:            cfg.JA4TConsumer.SignalScore,
+		JA4TConsumerRedisTimeout:     cfg.JA4TConsumer.RedisTimeoutMs,
+		JA4TConsumerCacheTTL:         cfg.JA4TConsumer.CacheTTLSeconds,
+		JA4TConsumerNegativeCacheTTL: cfg.JA4TConsumer.NegativeCacheTTLSeconds,
+		JA4TBlocklist:                cfg.JA4TConsumer.Blocklist,
+		AutoEscalate:                 cfg.AutoEscalate,     // phase-248
+		DatacenterPolicy:             cfg.DatacenterPolicy, // phase-249
 		// phase-515 — decision cache (ADR-003): per-client key + asymmetric TTLs.
 		DecisionCacheAllowTTLSeconds: cfg.DecisionCache.AllowTTLSeconds,
 		DecisionCacheBlockTTLSeconds: cfg.DecisionCache.BlockTTLSeconds,

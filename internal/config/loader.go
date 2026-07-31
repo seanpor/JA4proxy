@@ -426,22 +426,24 @@ type DatacenterPolicyConfig struct {
 // TapConsumerConfigYAML configures the phase-203a TAP JA4T OS-mismatch consumer.
 // Default: disabled. Requires Phase 20 TAP node to be deployed.
 type TapConsumerConfigYAML struct {
-	Enabled         bool `yaml:"enabled"`
-	SignalScore     int  `yaml:"signal_score"`
-	RedisTimeoutMs  int  `yaml:"redis_timeout_ms"`
-	CacheTTLSeconds int  `yaml:"cache_ttl_seconds"`
-	MaxAgeSeconds   int  `yaml:"max_age_seconds"`
+	Enabled                 bool `yaml:"enabled"`
+	SignalScore             int  `yaml:"signal_score"`
+	RedisTimeoutMs          int  `yaml:"redis_timeout_ms"`
+	CacheTTLSeconds         int  `yaml:"cache_ttl_seconds"`
+	MaxAgeSeconds           int  `yaml:"max_age_seconds"`
+	NegativeCacheTTLSeconds int  `yaml:"negative_cache_ttl_seconds"` // phase-809, D-002
 }
 
 // JA4TConsumerConfigYAML configures the phase-316c TAP JA4T blocklist consumer.
 // Default: disabled with an empty blocklist (silent). Requires the Go TAP sensor
 // (Phase 316a/c) to be deployed writing fp:ja4t:ip:{ip}.
 type JA4TConsumerConfigYAML struct {
-	Enabled         bool     `yaml:"enabled"`
-	SignalScore     int      `yaml:"signal_score"`
-	RedisTimeoutMs  int      `yaml:"redis_timeout_ms"`
-	CacheTTLSeconds int      `yaml:"cache_ttl_seconds"`
-	Blocklist       []string `yaml:"blocklist"`
+	Enabled                 bool     `yaml:"enabled"`
+	SignalScore             int      `yaml:"signal_score"`
+	RedisTimeoutMs          int      `yaml:"redis_timeout_ms"`
+	CacheTTLSeconds         int      `yaml:"cache_ttl_seconds"`
+	NegativeCacheTTLSeconds int      `yaml:"negative_cache_ttl_seconds"` // phase-809, D-002
+	Blocklist               []string `yaml:"blocklist"`
 }
 
 // MonitoringConfig holds multi-DC observability settings.

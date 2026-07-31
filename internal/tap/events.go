@@ -53,9 +53,13 @@ type HandshakeEvent struct {
 	ClientPort uint16
 	ServerPort uint16
 
-	// ClientHello is always set on an emitted event. ServerHello may be nil if
-	// the server side was not observed (e.g. one-directional mirror, or the
-	// connection reset before the ServerHello).
+	// ClientHello is always set on an emitted event. It includes the SNI
+	// (server_name) extension in full — the sensor never parses or extracts
+	// it. In-memory only (P-004): never written to Redis, logged (only its
+	// byte length is), or persisted to disk. Extracting SNI from this field
+	// would require explicit additional code the sensor does not currently
+	// have. ServerHello may be nil if the server side was not observed (e.g.
+	// one-directional mirror, or the connection reset before the ServerHello).
 	ClientHello []byte
 	ServerHello []byte
 

@@ -636,12 +636,17 @@ tap_consumer:                 # phase-203a
   redis_timeout_ms: 50        # short to keep hot path fast; fail open on timeout
   cache_ttl_seconds: 60       # LocalCache TTL for per-IP lookup result
   max_age_seconds: 300        # ignore TAP fingerprints older than this
+  negative_cache_ttl_seconds: 5  # phase-809 (D-002): TTL for a Redis miss/error/timeout result,
+                                  # kept much shorter than cache_ttl_seconds so a lookup racing the
+                                  # TAP sensor's own write doesn't suppress the signal for a full
+                                  # cache_ttl_seconds once the sensor's write actually lands
 
 ja4t_consumer:                # phase-316c — advisory JA4T blocklist signal
   enabled: false              # default OFF — requires the Go TAP sensor (cmd/ja4-tap) writing fp:ja4t:ip
   signal_score: 30            # score added to RiskScorer when the observed JA4T is blocklisted
   redis_timeout_ms: 50        # short to keep hot path fast; fail open on timeout
   cache_ttl_seconds: 60       # LocalCache TTL for per-IP JA4T lookup result
+  negative_cache_ttl_seconds: 5  # phase-809 (D-002): same rationale as tap_consumer above
   blocklist: []               # JA4T fingerprints to flag, e.g. ["65535_2-1-3-1-1-8-4_1460_7"];
                               # empty (default) = silent, never fires (cannot produce a false positive)
 

@@ -62,6 +62,7 @@ func (w *Watchdog) Run(
 		}
 
 		// Crash — decide whether to restart.
+		WorkerRestartsTotal.Inc() // R-011: was registered but never incremented
 		now := time.Now()
 		restarts = append(restarts, now)
 

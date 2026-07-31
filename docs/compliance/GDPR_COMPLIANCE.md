@@ -71,9 +71,19 @@ graph TD
 |------------------|------------|---------------------|------------|
 | **Redis keys** (`ban:{ip}`) | IP addresses | TTL (configurable) | ✅ TLS to Redis |
 | **Redis keys** (`return_visitor:{ip}`) | IP addresses, JA4 | TTL (configurable) | ✅ TLS to Redis |
+| **Redis keys** (`fp:os:ip:{ip}`, `fp:ja4t:ip:{ip}`) | IP addresses, OS class / JA4T fingerprint | TTL 24h (`internal/tap/store.go`) | `--redis-tls` (off by default; see F-018) |
+| **Redis keys** (`fp:ban_intent:ip:{ip}`) | IP addresses, JA4T | TTL 1h (`internal/tap/enforcement.go`) | `--redis-tls` (off by default; see F-018) |
 | **Redis streams** (`ja4proxy:events`) | IP addresses, JA4, timestamps | Stream trimming (MAXLEN ~100000) | ✅ TLS to Redis |
 | **Access logs** | IP addresses, JA4, timestamps | Log rotation (30d) | ✅ File system |
 | **Prometheus metrics** | Aggregated counts (no IPs) | Volatile (no retention) | ✅ HTTPS |
+
+> **TAP sensor (`cmd/ja4-tap`) Redis connection is cleartext by default.**
+> Unlike the inline proxy's Redis client, the standalone TAP sensor only
+> enables TLS to Redis when the operator passes `--redis-tls` or a
+> `rediss://` URL — see `F-018` in `docs/phases/complete/PHASE_334.md` and
+> the Redis-security row below. Verify `--redis-tls` is set (or the URL uses
+> `rediss://`) before treating the "✅ TLS to Redis" encryption claims above
+> as covering TAP-sensor traffic.
 
 ---
 
@@ -169,12 +179,24 @@ JA4proxy processes personal data (IP addresses) based on **legitimate interest**
 
 | Redis Key Pattern | Data Stored | Default TTL | Config Key | Rationale |
 |-------------------|-------------|-------------|------------|-----------|
-| `ban:{ip}` | Blocked IP addresses | 5 minutes (TAP) / operator-specified (API) | `tap.ban_ttl` | Short-term enforcement; revisit on next connection |
+| `ban:{ip}` | Blocked IP addresses | 5 minutes (`--ban-ttl` default, TAP sensor `internal/tap/enforcement.go`) / operator-specified up to 30d (management API) | `--ban-ttl` (TAP) / `duration_hours` (API) | Short-term enforcement; revisit on next connection |
 | `return_visitor:{ip}` | Return visitor classification | Configurable | `tcp_analyzer.return_visitor_ttl` | Return visitor detection window |
 | `ratelimit:ip:{ip}` | Rate limit counters | 60 seconds | `rate_limiter.window_seconds` | Sliding window duration |
 | `beacon:{ip}:{ja4}` | Beaconing timestamps | 1 hour | `beaconing.window_seconds` | Detection window |
 | `abuseipdb:{ip}` | AbuseIPDB cache | 4 hours (14400s) | `abuseipdb.cache_ttl_seconds` | API quota preservation |
 | `ja4proxy:events` | Connection events | MAXLEN ~100000 (count-based) | `proxy.stream_max_len` | Replay and analysis window |
+| `fp:os:ip:{ip}` | Passive OS classification (TAP sensor) | 24 hours, hard-coded (`internal/tap/store.go` `osClassTTL`) | Not currently configurable | Bounds staleness of passive OS classification |
+| `fp:ja4t:ip:{ip}` | Passive JA4T TCP fingerprint (TAP sensor) | 24 hours, hard-coded (`internal/tap/store.go` `ja4tTTL`) | Not currently configurable | Same rationale as `fp:os:ip:{ip}` |
+| `fp:ban_intent:ip:{ip}` | Advisory TAP enforcement watchlist entry | 1 hour default (`internal/tap/enforcement.go` `defaultIntentTTL`) | `--intent-ttl` | Monitor-first audit trail, not itself an enforcement action |
+
+> **Note (phase-809 accuracy pass):** the §2.1 table above lists "JA4 / JA4T
+> Fingerprint" retention as "Configurable (default: 30d)" — that figure
+> describes the *inline proxy's* general signal caching, not the standalone
+> TAP sensor. The TAP sensor's `fp:os:ip:{ip}` / `fp:ja4t:ip:{ip}` /
+> `fp:ban_intent:ip:{ip}` keys use the fixed 24h / 24h / 1h TTLs in the rows
+> above, verified directly against `internal/tap/store.go` and
+> `internal/tap/enforcement.go` — do not average or reconcile the two
+> figures, they cover different components.
 
 ### 5.2. Automatic Expiration Mechanisms
 
@@ -199,6 +221,28 @@ XTRIM ja4proxy:events MAXLEN ~ 100000
 # Managed by container logging driver or external log rotation
 # No config/logging.yml — rotation is infrastructure-level
 ```
+
+### 5.2b. IP-in-Key-Name Enumeration Risk (P-002)
+
+The Redis key **names** themselves — not just the values — embed the client
+IP: `fp:os:ip:1.2.3.4`, `fp:ja4t:ip:1.2.3.4`, `ban:1.2.3.4`,
+`fp:ban_intent:ip:1.2.3.4`, `return_visitor:1.2.3.4`, and others. An IP
+address is personal data under GDPR Article 4(1) (CJEU C-582/14), so this
+means **any principal with Redis read access sufficient to run
+`SCAN`/`KEYS` against these prefixes can enumerate the full set of tracked
+client IPs** — even a principal whose ACL is scoped to a value they'd
+otherwise consider low-sensitivity (an OS class string, a JA4T fingerprint).
+Redis does not support per-key-name ACL patterns for a dynamic IP suffix,
+so `~fp:*` is a namespace grant, not a per-record one.
+
+Mitigations in place / recommended:
+- Restrict Redis ACL grants to the minimum required commands per principal
+  (see the `ja4tap` ACL user in `config/redis_acl.conf`) — a write-only ACL
+  for the sensor does not need `SCAN`/`KEYS` at all.
+- Treat any credential with `~fp:*` or `~ban:*` read access as PII-bearing
+  access for audit purposes, regardless of what the *values* look like.
+- Consider rate-limiting or audit-logging `SCAN`/`KEYS` at the Redis server
+  level for defense in depth.
 
 ### 5.3. Data Subject Erasure Procedures
 
@@ -227,6 +271,21 @@ The script handles all key patterns including:
 - `fp:os:ip:{ip}`, `fp:ja4t:ip:{ip}`, `fp:ban_intent:ip:{ip}`, `fp:ip:{ip}`
 - Beacon suspect removal from `beacon:suspects`
 - Stream entries expire via MAXLEN trimming (no manual purge needed)
+
+**Preventing re-write after erasure (TAP sensor only, P-003):** deleting
+these keys is not durable by itself for the standalone TAP sensor
+(`cmd/ja4-tap`) — since it observes traffic continuously, it will simply
+re-write `fp:os:ip:{ip}` / `fp:ja4t:ip:{ip}` / `fp:ban_intent:ip:{ip}` the
+next time it sees that IP's SYN or handshake. To make an erasure durable,
+also add the IP (or its CIDR) to the sensor's `--exclude-ips` flag / the
+`EXCLUDE_IPS` environment variable, then send `SIGHUP` to reload it live
+(no restart required — see `docs/runbooks/tap_mode.md`'s Go-sensor
+operations section). The inline proxy's other IP-keyed writes
+(`return_visitor:{ip}`, `ratelimit:ip:{ip}`, etc.) are event-driven rather
+than continuous background observation, so the same "will it come back"
+concern does not apply to them in the same way — deletion is sufficient
+until the client's next real connection re-establishes them, which is the
+expected, documented behavior for an active client.
 
 ---
 

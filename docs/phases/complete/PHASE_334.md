@@ -241,6 +241,15 @@ sensor into production. This should be its own follow-up phase, not deferred aga
 
 ### F-003 — [MAJOR] No `sync.Pool` usage despite plan requirement
 
+> **DEFERRED** (PHASE_809, 2026-07-31): not attempted this phase. A `sync.Pool`
+> for reassembly buffers needs careful lifecycle review given this same
+> phase's G-001 finding (a slice shared past its owner's lifetime is exactly
+> the aliasing bug class a pool reintroduces if a buffer is returned to the
+> pool while a downstream reader — the event channel consumer — might still
+> hold a reference). Worth a focused follow-up phase with its own plan and
+> race-tested proof the pooled buffer is never read after being returned,
+> not an opportunistic Wave 4 addition.
+
 **Phase:** 316a
 
 **Description:**
@@ -307,6 +316,8 @@ with capability drop.
 
 **Phase:** 316a
 
+> **RESOLVED** (landing not tied to a specific reviewed commit; confirmed during PHASE_809 scoping, 2026-07-31): `internal/tap/watchdog.go`'s `Watchdog.Run` wraps the sensor goroutine, restarts it on any non-nil error via a fresh `srcFactory`/`sensorFactory` pair, and gives up after 5 restarts within a 60s window (rapid-crash-loop protection) rather than looping forever. Wired in at `cmd/ja4-tap/main.go:209` (`tap.NewWatchdog(log)`). This is the same mechanism F-022's and R-001/R-002's `RESOLVED` notes already referenced by name without linking back here — closing that gap now.
+
 **Description:**
 The 316a plan Files-to-Modify table lists `internal/tap/watchdog.go` as a new file,
 described in implementation plan step 8 as "per-worker restart with rapid-crash
@@ -363,6 +374,13 @@ block in `metrics.go`.
 
 ### F-008 — [MINOR] TLS parser stalls on non-handshake record interleaved in fragmented handshake
 
+> **RESOLVED** (PHASE_809, 2026-07-31): `extractFirstHandshake` now skips
+> past an interleaved non-handshake record (advancing `i` and continuing the
+> scan) instead of `break`ing without advancing — the old code left the same
+> record at the same offset on every subsequent call, permanently stalling
+> the direction. New round-trip test replays a ClientHello fragmented around
+> an interleaved ChangeCipherSpec record and confirms it still reassembles.
+
 **Phase:** 316a
 
 **Description:**
@@ -394,6 +412,11 @@ parser should handle this robustly: it should skip non-handshake records when
 
 ### F-009 — [MINOR] Stale doc comment references Phase 20 Python TAP in `tap_consumer.go`
 
+> **RESOLVED** (PHASE_809, 2026-07-31): updated `internal/security/tap_consumer.go`'s
+> package doc, `TapConsumer` doc, and `canonicalIP` doc (the last one already
+> fixed incidentally by F-019's dedup) to reference the Go TAP sensor
+> (`cmd/ja4-tap`, Phase 316a/b) instead of the deleted Phase 20 Python node.
+
 **Phase:** 316b
 
 **Description:**
@@ -415,6 +438,17 @@ Phase 20 / Python.
 
 ### F-010 — [INFORMATIONAL] Config seccomp file is for Phase 20 Python, not Go sensor
 
+> **RESOLVED (option 1 — removed)** (PHASE_809, 2026-07-31): confirmed
+> `src/tap/security.py` (the file `config/seccomp_tap.json`'s own comment
+> named as its manager) no longer exists, and nothing in current code,
+> deploy manifests, or tests references `config/seccomp_tap.json` by path —
+> only its Go-sensor sibling `config/seccomp_tap_go.json` is live (already
+> used by `cmd/ja4-tap` and the new `Dockerfile.ja4-tap`, O-005). Deleted the
+> stale file rather than rewriting it, and fixed the two live docs
+> (`docs/runbooks/tap_mode.md`, `docs/compliance/iso27017-mapping.md`) that
+> still pointed at it; left `docs/decisions/ADR-020.md`'s reference alone —
+> ADRs are historical decision records, not living docs.
+
 **Phase:** 316a
 
 **Description:**
@@ -433,6 +467,16 @@ seccomp requirements when seccomp is actually wired into `cmd/ja4-tap`.
 ---
 
 ### F-011 — [INFORMATIONAL] OBSERVABILITY_STANDARDS.md lists both Phase 20 and Phase 316 TAP metrics
+
+> **RESOLVED** (PHASE_809, 2026-07-31): re-headed the section from "TAP mode
+> (Phase 20)" to "Inline proxy TAP consumers (Phase 203a/316c)" with an inline
+> note explaining the metric *names* predate the Go rewrite but the metrics
+> themselves are this package's Go code today, not a Phase 20 Python process
+> (deleted) — kept the names (not worth a breaking rename), fixed the
+> attribution. Also added the Wave 3/4 metrics introduced in this same phase
+> (`ja4proxy_tap_worker_restarts_total`, `ja4proxy_tap_ring_buffer_fill_ratio`,
+> `ja4proxy_tap_excluded_ip_events_total`, the circuit-breaker pair, and
+> `read_error` in the drop-reason list) that this doc hadn't caught up to yet.
 
 **Phase:** 316b, 316c, 316d (cross-cutting)
 
@@ -656,6 +700,14 @@ and why cleartext Redis is a risk.
 
 ### F-019 — [LOW] Duplicate `canonicalIP` in writer and consumer (silent drift risk)
 
+> **RESOLVED** (PHASE_809, 2026-07-31): added `internal/fingerprint.CanonicalIP`
+> (both packages already imported `internal/fingerprint` for the shared
+> `OSClass` vocabulary, so this added zero new dependencies) and made both
+> `internal/tap/store.go`'s and `internal/security/tap_consumer.go`'s
+> `canonicalIP` delegate to it rather than duplicating the logic. Kept the
+> unexported wrapper functions in place (not a full call-site rewrite) to
+> minimize diff — one implementation now backs both.
+
 **Phase:** 316b (cross-cutting)
 
 **Severity:** Low — maintenance risk; the OS-mismatch signal silently breaks if
@@ -707,6 +759,16 @@ increment on the error path before `continue`.
 ---
 
 ### F-021 — [LOW] No payload-privacy test (sensor behaviour guarantee untested)
+
+> **RESOLVED** (PHASE_809, 2026-07-31): added
+> `TestSensor_PayloadPrivacy_NoApplicationDataRetained`, which sends a
+> complete handshake followed by distinctive post-handshake application-data
+> payload on both directions and asserts the emitted `HandshakeEvent`'s
+> `ClientHello`/`ServerHello` contain exactly the handshake bytes — nothing
+> from the trailing payload. Passes today because `appendDir`'s `if *done {
+> return }` guard already stops buffering once a direction completes; this
+> test makes that guarantee a regression-tested fact instead of an implicit
+> side effect.
 
 **Phase:** 316a (testing)
 
@@ -836,6 +898,14 @@ fingerprints go unrecorded, and the OS-mismatch signal goes silent.
 
 ### F-024 — [MEDIUM] No supervisor / restart-on-failure for a security sensor
 
+> **RESOLVED** (all 3 recommendations, across earlier PHASE_809 work
+> verified at Wave 4 scoping, 2026-07-31): (1) the watchdog exists
+> (`internal/tap/watchdog.go`, confirmed under F-005); (2) systemd/Docker
+> deployment with `HEALTHCHECK` against `/health` exists
+> (`deploy/docker/Dockerfile.ja4-tap` + `docker-compose.prod.yml`'s `tap`
+> profile, O-005); (3) SIGUSR1 dumps goroutine stacks (R-007). No further
+> action needed.
+
 **Phase:** 316a (operations)
 
 **Severity:** MEDIUM — single point of failure, no self-healing
@@ -868,6 +938,18 @@ and hoping the crash reproduces.
 ---
 
 ### F-025 — [MEDIUM] gopacket v1.6.1 dependency — no CVE audit in repo for this dep
+
+> **STALE, already resolved by the time PHASE_809 checked** (2026-07-31): all
+> 3 of the finding's recommendations already exist project-wide and cover
+> gopacket automatically since it's a normal `go.mod` dependency, not a
+> special case needing its own process: `govulncheck` runs on every PR/push
+> and weekly (`.github/workflows/ci.yml`), findings are tracked in
+> `docs/security/CVE_EXCEPTIONS.md`/`FINDINGS_REGISTER.md`, and
+> `govulncheck ./...` run live during 809 scoping found zero vulnerabilities
+> reachable from the tap sensor's code paths (now on gopacket v1.7.0, not
+> v1.6.1 as this finding was written against). Item 4 (fuzz-testing
+> `ProcessPacket`) remains genuinely undone — not attempted in this phase,
+> tracked as a real gap, not stale.
 
 **Phase:** 316a (supply chain)
 
@@ -909,6 +991,13 @@ tree.
 
 ### F-026 — [LOW] gopacket `Fetch()` allocates attacker-controlled buffer size
 
+> **RESOLVED (documentation)** (PHASE_809, 2026-07-31): documented
+> `maxBufferedPagesPerConn`'s security-control role directly on the const
+> block (not just this finding) and added
+> `TestMaxBufferedPagesPerConnStaysLow`, which fails if the constant is
+> raised above a reviewed ceiling without deliberately updating the test —
+> the recommendation's "explicit assertion or test" verbatim.
+
 **Phase:** 316a
 
 **Severity:** LOW — bounded by `MaxBufferedPagesPerConnection`
@@ -939,6 +1028,12 @@ this default is not accidentally raised.
 ---
 
 ### F-027 — [LOW] No input validation on `--frame-size` (integer underflow/overflow)
+
+> **RESOLVED** (PHASE_809, 2026-07-31): `run()` in `cmd/ja4-tap/main.go` now
+> rejects `--frame-size` outside `{0} ∪ [2048, 1<<20]` before it ever reaches
+> `afpacket.OptFrameSize`'s int→uint32 cast. Tests cover both the rejected
+> range (negative, too-small, too-large) and that 0/in-range values still
+> pass through to the actual capture-open step.
 
 **Phase:** 316a
 
@@ -1129,6 +1224,15 @@ This means:
 ---
 
 ### R-006 — [LOW] No connection-scoped histograms for capacity planning
+
+> **DEFERRED** (PHASE_809, 2026-07-31): not attempted this phase. Four new
+> histograms across three different call sites (reassembler, Redis writer,
+> per-connection state machine) is a real instrumentation project, not an
+> opportunistic addition — each needs its own bucket-boundary review against
+> real traffic to be useful rather than noise. This phase did add several
+> new gauges/counters where a single well-scoped metric fit naturally
+> (heap_alloc_bytes, ring_buffer_fill_ratio, worker_restarts, excluded_ip_events);
+> R-006's histograms are a larger, separate piece of work.
 
 **Phase:** 316a (observability)
 
@@ -1342,6 +1446,16 @@ actually measure ring buffer fill.
 
 ### R-012 — [LOW] No upstream dependency health check on startup
 
+> **RESOLVED** (PHASE_809, 2026-07-31): `buildBackends` now `Ping()`s Redis
+> with a 5s timeout right after constructing the client, logging
+> `"Redis connection verified"` on success or a clear warning on failure —
+> deliberately **warn-only, not fatal** (the recommendation said "return an
+> error if ping fails", but that would contradict the project's fail-open
+> posture for external services: a transient Redis outage at startup must
+> not prevent the sensor from at least passively classifying and logging
+> traffic). Tests cover both the success and failure paths via miniredis /
+> an unreachable address.
+
 **Phase:** 316a (operations)
 
 **Severity:** LOW — misconfigured Redis discovered on first event, not at startup
@@ -1374,6 +1488,18 @@ events being counted) but no fingerprints are persisted.
 ---
 
 ### R-013 — [LOW] Event channel lost on SIGKILL: no drain-to-file
+
+> **PARTIALLY RESOLVED** (PHASE_809, 2026-07-31): item 2 (document the
+> `stop_grace_period` requirement) done in `docs/runbooks/tap_mode.md`'s
+> Go-sensor section (`1s + idleFlushInterval` ≈ 31s for zero-loss graceful
+> shutdown). Items 1 (log remaining channel depth at shutdown start) and 3
+> (optional flush-to-file mode) deliberately deferred: item 1 would need
+> `drive()`'s select loop to distinguish "channel closed because ctx was
+> cancelled" from "channel closed because the pcap file ended" to log
+> something meaningful, which isn't free; item 3 is a real feature, not a
+> cleanup item, and the sensor's fail-open design (a lost event just delays
+> classification by one TTL window) makes its value marginal relative to the
+> effort. Left as explicitly open follow-up work, not silently dropped.
 
 **Phase:** 316a (operations)
 
@@ -1410,6 +1536,16 @@ degradation mode. However, it is undocumented.
 ---
 
 ### R-014 — [LOW] No rate-limiting or sampling for the SPAN path
+
+> **DEFERRED** (PHASE_809, 2026-07-31): not attempted this phase. `--max-pps`/
+> `--sample-rate` are new operator-facing features with real design
+> decisions (what does "sampled" mean for a signal that depends on seeing
+> the SYN specifically — sampling SYNs vs. sampling connections vs.
+> sampling packets all have different, non-obvious correctness implications
+> for the OS/JA4T fingerprints), not a cleanup item. Existing overload
+> behavior (event-channel overflow, counted and dropped, fail-open) is
+> already the documented degradation mode; this is additive capacity-control
+> work for a follow-up phase, not a Wave 4 fix.
 
 **Phase:** 316a (operations)
 
@@ -1492,6 +1628,12 @@ Note: the fix is not trivial because `res.complete` is inside the `switch` in `a
 
 ### T-002 — [LOW] No protocol version validation in TLS record header
 
+> **RESOLVED** (PHASE_809, 2026-07-31): `extractFirstHandshake` now validates
+> each handshake record's `legacy_record_version` field against
+> `[0x0300, 0x0303]` (TLS 1.3 records still use 0x0303 here per RFC 8446 §5.1,
+> so this range is valid across every TLS version) and returns `fatal` for
+> anything outside it. Tests cover all 4 valid versions and 4 invalid ones.
+
 **Phase:** 316a (tlsparse)
 
 **Severity:** LOW — theoretical false positive; near-zero probability in practice
@@ -1520,6 +1662,17 @@ if ver < 0x0300 || ver > 0x0303 {
 ---
 
 ### T-003 — [LOW] `extractFirstHandshake` re-parses full buffer from beginning on every append (O(n²))
+
+> **DEFERRED** (PHASE_809, 2026-07-31): not attempted this phase. Fixing
+> this properly means giving `tlsStream` persistent parse-cursor state
+> across calls (the finding's own suggested approach: return a "skip and
+> keep waiting" result and remember how far the previous call got) rather
+> than re-deriving everything from `buf` each time — a real refactor of the
+> reassembler's incremental-parsing model, not a local fix, and this phase
+> already restructured `extractFirstHandshake` twice (T-001, F-008) without
+> touching this. Bounded by `maxHandshakeBytes`/`maxBufferedPagesPerConn`
+> (F-026), so not a practical DoS — safe to defer to a phase that can give
+> the cursor-state redesign its own review.
 
 **Phase:** 316a (performance)
 
@@ -1613,6 +1766,12 @@ This adds one allocation per connection (negligible) and eliminates the latent r
 
 ### G-002 — [LOW] `assemblerCtx` heap-escape per packet (GC pressure on high-PPS paths)
 
+> **DEFERRED** (PHASE_809, 2026-07-31): not attempted this phase, same
+> reasoning as F-003 — pooling `assemblerCtx` needs the same reuse-after-
+> emit lifecycle review G-001 (this phase) flagged for shared buffers in
+> general. Batch with F-003 in a follow-up phase rather than pooling one and
+> not the other.
+
 **Phase:** 316a (performance)
 
 **Severity:** LOW — minor GC overhead on the decode path
@@ -1638,6 +1797,16 @@ The `decoder` is carefully designed for zero-alloc decode (`DecodingLayerParser`
 ---
 
 ### G-003 — [INFO] No Go runtime configuration for resource isolation
+
+> **PARTIALLY RESOLVED** (PHASE_809, 2026-07-31): item 2 (GOMEMLIMIT
+> guidance) done in `docs/runbooks/tap_mode.md`'s Go-sensor section (R-010).
+> Item 3 (heap visibility) done: `ja4proxy_tap_heap_alloc_bytes` gauge,
+> sampled on the heartbeat interval alongside the existing log field. Item 1
+> (GOMAXPROCS via `go.uber.org/automaxprocs`) deliberately deferred — it's
+> the only item of the three that requires adding a new third-party
+> dependency, which has broader blast radius (go.sum, license/SBOM scanning)
+> than this phase's other in-repo-only fixes; a follow-up phase can evaluate
+> it deliberately rather than as an opportunistic Wave 4 addition.
 
 **Phase:** 316a (operations)
 
@@ -1774,6 +1943,12 @@ Add a separate `tap_sensor.json` in the Grafana provisioning directory (if one d
 
 ### O-004 — [MEDIUM] No Prometheus scrape target for TAP sensor metrics
 
+> **RESOLVED** (PHASE_809, 2026-07-31): added a `ja4proxy-tap` scrape job to
+> `deploy/monitoring/prometheus/prometheus.yml` targeting `ja4-tap:9110`
+> (`--metrics-addr` default in the new compose service). F-023's
+> prerequisite (metrics registered + HTTP server) was already resolved by
+> PHASE_803 — verified live during 809 scoping.
+
 **Phase:** 316a (monitoring)
 
 **Severity:** MEDIUM — even after F-023 is fixed, metrics have no scrape target
@@ -1804,6 +1979,20 @@ Both steps are hard, require manual intervention, and are undocumented.
 ---
 
 ### O-005 — [MEDIUM] No docker-compose service, no systemd unit, no deployment infra
+
+> **RESOLVED (Docker path only)** (PHASE_809, 2026-07-31): added
+> `deploy/docker/Dockerfile.ja4-tap` (multi-stage, built and smoke-tested
+> during 809 — binary runs, flags parse, `/health` responds, pcap-file mode
+> works end to end) and a `ja4-tap` service in `docker-compose.prod.yml`
+> behind a `tap` compose profile, with `cap_drop: [ALL]`/`cap_add: [NET_RAW]`,
+> resource limits, and a `HEALTHCHECK`. No systemd unit was added — the
+> Docker path covers the same "managed, auto-restarting, resource-limited"
+> goal, and `scripts/deploy.sh`'s systemd generation is out of this phase's
+> file-ownership scope. Documented the real network tension this surfaced:
+> live SPAN capture needs `network_mode: host` (to see the physical
+> interface), which breaks the compose bridge network's DNS resolution of
+> `redis` — the service's comments document the tradeoff and the
+> `host.docker.internal` workaround rather than pretending it doesn't exist.
 
 **Phase:** 316a (operations)
 
@@ -1841,6 +2030,14 @@ Create a `Dockerfile.ja4-tap` (multi-stage Go build, scratch or distroless runti
 
 ### O-006 — [LOW] No Redis ACL user for TAP sensor in `config/redis_acl.conf`
 
+> **RESOLVED** (PHASE_809, 2026-07-31): added a `ja4tap` user to
+> `config/redis_acl.conf` with the base `~fp:* +set +expire` grant, plus a
+> commented widened-ACL example (`~fp:* ~ban:* +set +expire +get` — the
+> `+get` addition reflects D-001's new pre-write existing-ban check, not
+> present when this finding was written). Also added `JA4TAP_REDIS_PASSWORD`
+> to `internal/wizard/env.go`'s tracked secret-env-key list for consistency
+> with `ANALYTICS_REDIS_PASSWORD`.
+
 **Phase:** 316a (operations)
 
 **Severity:** LOW — documented in runbook but not in canonical config
@@ -1868,6 +2065,24 @@ Add a `ja4tap` user section to `config/redis_acl.conf` with the base ACL (fp:*) 
 ---
 
 ### P-001 — [MEDIUM] Zero privacy/GDPR documentation in the entire project
+
+> **STALE PREMISE, RESOLVED** (PHASE_809 scoping, 2026-07-31): this finding's
+> "zero mentions of privacy/gdpr" premise no longer holds — `docs/compliance/
+> GDPR_COMPLIANCE.md` (Phase 21) and `docs/runbooks/gdpr_erasure.md` (Phase 91)
+> already exist and predate this finding's write-up. Per D2, verified their
+> content against the actual TAP sensor code rather than assuming they were
+> accurate: found and fixed two real gaps during 809 — (1) `GDPR_COMPLIANCE.md`
+> was missing the TAP sensor's `fp:os:ip`/`fp:ja4t:ip`/`fp:ban_intent:ip` keys
+> from its storage-location and retention tables, and its §2.1 "30d" JA4T
+> retention figure conflated the inline proxy's general signal caching with
+> the TAP sensor's actual hard-coded 24h TTL (`internal/tap/store.go`) — now
+> corrected with a note distinguishing the two. (2) No mechanism existed to
+> stop the TAP sensor from re-writing a just-erased IP's keys on its next
+> observed handshake — added `--exclude-ips`/`EXCLUDE_IPS` (P-003's own
+> recommendation #1), SIGHUP-reloadable, and documented in both compliance
+> docs and `docs/runbooks/tap_mode.md`. No new `docs/PRIVACY.md` was created —
+> that would have fragmented an already-comprehensive doc rather than fixed
+> its gaps.
 
 **Phase:** Cross-cutting
 
@@ -1908,6 +2123,19 @@ Add a `docs/PRIVACY.md` documenting:
 
 ### P-002 — [MEDIUM] IP addresses embedded in Redis key names — enumerable PII corpus
 
+> **RESOLVED (documentation)** (PHASE_809, 2026-07-31): the recommendation's
+> option 1 (hash/HMAC the IP in the key suffix) was rejected — it would break
+> every consumer that reads these keys by IP (`internal/security/
+> tap_consumer.go`, `tap_ja4t_consumer.go`, the management API's ban/session
+> lookups) for a namespace-ACL limitation Redis itself doesn't fully solve
+> either way. Went with option 2 instead: documented the enumeration risk
+> explicitly in `docs/compliance/GDPR_COMPLIANCE.md` §5.2b, with concrete ACL
+> guidance (least-privilege grants, treat any `~fp:*`/`~ban:*` read access as
+> PII-bearing regardless of the value shape). Option 3 (SCAN/KEYS audit
+> logging) is noted as a recommended defense-in-depth measure but not
+> implemented — no existing hook point for Redis command-level audit logging
+> in this codebase; would need its own phase if pursued.
+
 **Phase:** 316b (store), 316d (enforcement)
 
 **Severity:** MEDIUM — any Redis read access reveals the full tracked-client corpus
@@ -1932,6 +2160,23 @@ The IP address is personal data under GDPR Article 4(1) (CJEU ruling C-582/14). 
 ---
 
 ### P-003 — [MEDIUM] No GDPR Right to Erasure process
+
+> **STALE PREMISE, PARTIALLY RESOLVED** (PHASE_809, 2026-07-31): the
+> "no documented mechanism" premise was already false — `scripts/gdpr_delete.py`
+> (Phase 91) already deletes all four TAP-sensor key types listed in this
+> finding's Evidence section, with an audit trail
+> (`management:gdpr_erasure_log`) and a `docs/runbooks/gdpr_erasure.md`
+> runbook. What was genuinely missing, and is now fixed, is recommendation
+> #1: the sensor had no way to stop re-writing a just-erased IP's keys on its
+> next observed handshake. Added `--exclude-ips`/`EXCLUDE_IPS`
+> (`internal/tap/exclude.go`'s `ExcludeList`, CIDR-aware, SIGHUP-reloadable
+> via the same mutex-guarded pattern as F-016's blocklist reload) — wired into
+> `cmd/ja4-tap`'s per-event loop so an excluded IP gets zero writes to any of
+> `fp:os:ip`/`fp:ja4t:ip`/`fp:ban_intent:ip`/`ban:{ip}`. Documented in
+> `docs/compliance/GDPR_COMPLIANCE.md` §5.3 and `docs/runbooks/
+> gdpr_erasure.md`/`tap_mode.md`. Recommendation #2 (runbook section) was
+> already satisfied by the existing `gdpr_erasure.md`; recommendation #3
+> (document the re-write risk) is the new note added to both docs.
 
 **Phase:** 316b (operations)
 
@@ -1971,6 +2216,12 @@ The automatic TTL expiry (24h) provides a weak form of erasure — data naturall
 
 ### P-004 — [LOW] SNI/hostname present in captured ClientHello bytes — undocumented privacy risk
 
+> **RESOLVED** (PHASE_809, 2026-07-31): `HandshakeEvent.ClientHello`'s doc
+> comment now states the field is in-memory only, never written to Redis/
+> logged (beyond byte length)/persisted, and that SNI extraction would
+> require explicit additional code the sensor doesn't have — matching this
+> finding's recommendation almost verbatim.
+
 **Phase:** 316a (events)
 
 **Severity:** LOW — in-memory only, never persisted; but undocumented
@@ -2002,6 +2253,12 @@ Add a doc comment to `HandshakeEvent.ClientHello` stating:
 
 ### P-005 — [INFO] Full ClientHello retained in memory until event consumed (no early truncation)
 
+> **RESOLVED (documentation)** (PHASE_809, 2026-07-31): covered by the same
+> P-004 doc-comment fix (in-memory-only, bounded by the event channel size)
+> plus `docs/compliance/GDPR_COMPLIANCE.md`'s P-001/002/003 accuracy pass,
+> which documents the TAP sensor's actual data flow and retention. No
+> separate `docs/PRIVACY.md` was created (see P-001's annotation).
+
 **Phase:** 316a (privacy-by-design)
 
 **Severity:** INFORMATIONAL — acceptable for current architecture; worth documenting for capacity-planning
@@ -2019,7 +2276,11 @@ This is not a practical risk (all data is in the same process address space, and
 - `cmd/ja4-tap/main.go:169–172`: event is consumed, fingerprints are written, ClientHello bytes are not persisted
 
 **Recommendation:**
-Document in `docs/PRIVACY.md` that full TLS ClientHello messages (including SNI) are held in memory for the duration of the event queue (bounded by the 1024-slot channel) and are never persisted to secondary storage. — [MEDIUM] Sensor-written bans mislabeled as "manual_ban" and overwrite admin bans
+Document in `docs/PRIVACY.md` that full TLS ClientHello messages (including SNI) are held in memory for the duration of the event queue (bounded by the 1024-slot channel) and are never persisted to secondary storage.
+
+---
+
+### D-001 — [MEDIUM] Sensor-written bans mislabeled as "manual_ban" and overwrite admin bans
 
 **Phase:** 316d (sensor enforcement), 231a (proxy pipeline)
 
@@ -2111,6 +2372,13 @@ Or use a shorter negative cache TTL (e.g., 5s) for empty results vs. positive ca
 
 ### D-003 — [LOW] Redis key prefixes hard-coded in 4 places (writer + reader × 2 key types)
 
+> **RESOLVED** (PHASE_809, 2026-07-31): added `KeyPrefixOSClass`,
+> `KeyPrefixJA4T`, `KeyPrefixBanIntent` to `internal/fingerprint` (same file
+> as F-019's `CanonicalIP` fix) and updated all 4 writer/reader call sites
+> (`internal/tap/store.go`, `internal/security/tap_consumer.go`,
+> `internal/security/tap_ja4t_consumer.go`) to use them instead of separate
+> string literals.
+
 **Phase:** 316b (store), 316c/e (consumers)
 
 **Severity:** LOW — maintenance risk; silent signal breakage if only one side is updated
@@ -2146,6 +2414,12 @@ const (
 ---
 
 ### D-004 — [INFO] `fp:ban_intent:ip` key is undocumented in REDIS_SCHEMA.md
+
+> **STALE, already resolved by the time PHASE_809 checked** (2026-07-31):
+> `docs/reference/REDIS_SCHEMA.md` already documents `fp:ban_intent:ip:{ip}`
+> in full (type, TTL, value format, writer, "read by humans/dashboards
+> only"). Landed at some point after this finding was written and before
+> 809 — no code or doc change needed here.
 
 **Phase:** 316d (enforcement)
 

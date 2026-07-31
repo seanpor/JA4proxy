@@ -3,6 +3,8 @@ package tap
 import (
 	"context"
 	"errors"
+	"strings"
+	"sync"
 	"time"
 )
 
@@ -18,6 +20,12 @@ const (
 	// the ONLY enforcing action the sensor takes, and only when armed — which
 	// also requires the operator to widen the sensor's ACL to ~ban:*.
 	banKeyPrefix = "ban:"
+	// tapEnforcedBanValuePrefix marks a ban:{ip} value this sensor wrote, so a
+	// re-check (D-001, or internal/security/pipeline.go on the read side) can
+	// distinguish it from an operator ban without a separate key namespace.
+	// internal/security/pipeline.go duplicates this exact string by contract
+	// (the two packages don't share an import) — keep both sides in sync.
+	tapEnforcedBanValuePrefix = "tap_enforce:"
 
 	// defaultBanTTL bounds a sensor-written ban:{ip}. Short by the core
 	// asymmetry: a blocked real user is the expensive error, so an enforced ban
@@ -52,20 +60,36 @@ type EnforcerConfig struct {
 	IntentTTL time.Duration
 }
 
+// redisSetterGetter extends redisSetter with a Get, letting the Enforcer
+// check for an existing ban before writing its own (D-001) without every
+// other tap writer (Store) having to satisfy a wider interface.
+type redisSetterGetter interface {
+	redisSetter
+	Get(ctx context.Context, key string) (string, error)
+}
+
 // Enforcer turns a blocklisted passive observation into an out-of-band ban
 // intent. It writes through the same narrow redisSetter the Store uses, is
 // fire-and-forget, and is fail-open in every branch: a Redis error is counted
 // and dropped, never propagated and never escalated into a block.
 type Enforcer struct {
 	cfg   EnforcerConfig
-	redis redisSetter
+	redis redisSetterGetter
+
+	// blocklistMu guards blocklist (F-016). JA4TBlocklist is only ever set
+	// once today (parseBlocklist at startup), but Wave 3's config-reload
+	// support (R-009) makes a live-updated blocklist a near-term reality, and
+	// a bare map read racing a reload's write is a runtime panic
+	// (`concurrent map read and map write`), not a benign data race.
+	blocklistMu sync.RWMutex
+	blocklist   map[string]bool
 }
 
 // NewEnforcer builds an Enforcer over the given setter (nil for offline replay,
 // in which case Consider counts but writes nothing). It normalises zero TTLs to
 // their defaults and publishes the armed gauge so a scrape always reflects the
 // running posture.
-func NewEnforcer(cfg EnforcerConfig, r redisSetter) *Enforcer {
+func NewEnforcer(cfg EnforcerConfig, r redisSetterGetter) *Enforcer {
 	if cfg.BanTTL <= 0 {
 		cfg.BanTTL = defaultBanTTL
 	}
@@ -77,7 +101,18 @@ func NewEnforcer(cfg EnforcerConfig, r redisSetter) *Enforcer {
 	} else {
 		EnforcementArmed.Set(0)
 	}
-	return &Enforcer{cfg: cfg, redis: r}
+	return &Enforcer{cfg: cfg, redis: r, blocklist: cfg.JA4TBlocklist}
+}
+
+// SetBlocklist atomically replaces the enforcement blocklist. Safe to call
+// concurrently with Consider (e.g. from a config-reload handler) — see F-016.
+func (e *Enforcer) SetBlocklist(bl map[string]bool) {
+	if e == nil {
+		return
+	}
+	e.blocklistMu.Lock()
+	e.blocklist = bl
+	e.blocklistMu.Unlock()
 }
 
 // Consider evaluates one observed connection. When the client's JA4T is on the
@@ -92,7 +127,11 @@ func (e *Enforcer) Consider(ctx context.Context, clientIP, ja4t string) {
 	}
 	// Cheapest rejections first — and the empty-blocklist short-circuit is what
 	// makes the default configuration provably incapable of producing a ban.
-	if len(e.cfg.JA4TBlocklist) == 0 || ja4t == "" || !e.cfg.JA4TBlocklist[ja4t] {
+	e.blocklistMu.RLock()
+	blocked := ja4t != "" && e.blocklist[ja4t]
+	empty := len(e.blocklist) == 0
+	e.blocklistMu.RUnlock()
+	if empty || ja4t == "" || !blocked {
 		EnforcementActionsTotal.WithLabelValues(enfSkipped).Inc()
 		return
 	}
@@ -127,10 +166,30 @@ func (e *Enforcer) Consider(ctx context.Context, clientIP, ja4t string) {
 		return
 	}
 
+	// D-001: don't clobber an operator's own ban:{ip}. An operator ban is
+	// typically much longer-lived (hours to days) than the sensor's own
+	// defaultBanTTL (5min); overwriting it here would silently shorten it
+	// the moment this same client's next SYN arrives. If Redis can't be
+	// queried (error or circuit open), fail safe by skipping the sensor's
+	// write rather than risking an overwrite we can't rule out.
+	existing, err := e.redis.Get(ctx, banKeyPrefix+ip)
+	if err != nil {
+		if errors.Is(err, ErrRedisCircuitOpen) {
+			EnforcementActionsTotal.WithLabelValues(enfSkipped).Inc()
+		} else {
+			EnforcementActionsTotal.WithLabelValues(enfError).Inc()
+		}
+		return
+	}
+	if existing != "" && !strings.HasPrefix(existing, tapEnforcedBanValuePrefix) {
+		EnforcementActionsTotal.WithLabelValues(enfOperatorOverride).Inc()
+		return
+	}
+
 	// Armed: escalate to an enforceable ban the inline proxy reads on the next
 	// connection from this IP. Value carries provenance so the ban is
 	// attributable (and redactable — see internal/logging/redactor.go).
-	if err := e.redis.Set(ctx, banKeyPrefix+ip, "tap_enforce:ja4t="+ja4t, e.cfg.BanTTL); err != nil {
+	if err := e.redis.Set(ctx, banKeyPrefix+ip, tapEnforcedBanValuePrefix+"ja4t="+ja4t, e.cfg.BanTTL); err != nil {
 		if errors.Is(err, ErrRedisCircuitOpen) {
 			EnforcementActionsTotal.WithLabelValues(enfSkipped).Inc()
 		} else {

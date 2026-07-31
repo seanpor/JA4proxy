@@ -110,6 +110,66 @@ curl http://localhost:9099/tap/status
 
 ---
 
+## Go sensor (`cmd/ja4-tap`) operations (phase-809)
+
+The rest of this runbook predates the Go `cmd/ja4-tap` binary and describes
+the Phase 20 Python TAP node's process/config model (`tap:` config section,
+worker processes, ring buffer) — see F-009/F-010/F-011 in
+`docs/phases/complete/PHASE_334.md` for the tracked doc-drift cleanup. This
+subsection covers operational controls specific to the Go binary added in
+Phase 809:
+
+- **Liveness:** the sensor logs a `heartbeat` line every 5 minutes
+  (`handshakes_total`, `heap_alloc_bytes`, `goroutines`), independent of
+  `--quiet` — a hung sensor produces zero heartbeats, an idle one keeps
+  producing them with an unchanging `handshakes_total`.
+- **Structured logs:** `--log-format json` for log aggregation, `--log-level`
+  (`debug`/`info`/`warn`/`error`).
+- **Signals:** `SIGHUP` re-reads both `JA4T_BLOCKLIST` and `EXCLUDE_IPS` from
+  the environment and hot-swaps the enforcement blocklist and exclusion list
+  without a restart (an unset/empty `JA4T_BLOCKLIST` at reload time clears
+  the blocklist — fail-open, since an empty blocklist means enforcement can
+  never fire). `SIGUSR1` dumps all goroutine stacks plus the current
+  handshake count to stderr, for debugging a suspected hang without
+  restarting.
+- **Privacy (GDPR erasure durability):** `--exclude-ips` (or the `EXCLUDE_IPS`
+  env var) takes a comma-separated list of IPs/CIDRs the sensor must never
+  write fingerprint or enforcement data for. Deleting an IP's existing Redis
+  keys (see `docs/compliance/GDPR_COMPLIANCE.md` §5.3 / `docs/runbooks/
+  gdpr_erasure.md`) is not durable on its own — the sensor would simply
+  re-write the same keys on that IP's next observed handshake. Add the IP
+  here (or `SIGHUP` after updating `EXCLUDE_IPS`) to make an erasure stick.
+- **Memory:** the sensor does not itself impose a heap ceiling beyond the
+  bounded reassembly page cache (`internal/tap/sensor.go`'s
+  `maxBufferedPagesTotal`, ~8MB) and each stream's ~20KB buffer footprint
+  (R-010). Set the standard Go runtime `GOMEMLIMIT` environment variable
+  (e.g. 80% of the container's memory limit) so the Go GC becomes more
+  aggressive under pressure instead of relying on the OOM killer; watch the
+  heartbeat's `heap_alloc_bytes` field for early warning.
+- **Deployment infra (O-004/O-005/O-006):** `deploy/docker/Dockerfile.ja4-tap`
+  builds the sensor image (multi-stage, distroless-style Alpine runtime,
+  `HEALTHCHECK` against `/health`). `deploy/docker/docker-compose.prod.yml`'s
+  `ja4-tap` service (behind the `tap` compose profile — `docker compose
+  --profile tap up`) runs it with `cap_drop: [ALL]` / `cap_add: [NET_RAW]`
+  and resource limits; read that service's comments before enabling it —
+  live SPAN capture needs `network_mode: host`, which changes how the
+  sensor reaches Redis (see the comment block above the service). Prometheus
+  scrapes it via the `ja4proxy-tap` job in
+  `deploy/monitoring/prometheus/prometheus.yml`. The `ja4tap` Redis ACL user
+  lives in `config/redis_acl.conf`.
+- **Shutdown grace period (R-013):** on `SIGTERM`, the sensor stops
+  capturing, flushes in-flight reassembly state (`Sensor.Flush`), and drains
+  the remaining buffered events before exiting -- give it at least
+  `1s + idleFlushInterval` (`internal/tap/sensor.go`, currently 30s, so
+  ~31s total) as the container/orchestrator's `stop_grace_period` for
+  zero-loss shutdown. A `SIGKILL` (grace period exceeded, OOM killer) drops
+  whatever is still buffered with no audit trail -- acceptable under the
+  sensor's fail-open design (a lost event just means one client goes
+  unclassified for one fingerprint-TTL window), but worth knowing about
+  when tuning orchestrator timeouts.
+
+---
+
 ## Monitoring
 
 ### Key Prometheus Metrics
@@ -275,7 +335,9 @@ python3 -m pytest tests/tap/fp_corpus/test_fingerprint_fp_rate.py -v
 ## Security Notes
 
 - TAP sensor drops `CAP_NET_RAW` after the AF_PACKET socket is opened.
-- A seccomp profile (`config/seccomp_tap.json`) restricts syscalls post-drop.
+- A seccomp profile (`config/seccomp_tap_go.json` for the Go sensor;
+  `config/seccomp_tap.json` is the retired Phase 20 Python profile) restricts
+  syscalls post-drop.
 - The EDL HTTP server requires an API key (`tap_export.edl.api_key`).
 - Webhook posts are HMAC-SHA256 signed (`X-JA4Proxy-Signature: sha256=...`).
 - BGP announces validate prefix length: IPv4 ≥ /24, IPv6 ≥ /48.
@@ -343,7 +405,9 @@ ja4-tap --interface eth1 --redis-url redis://redis:6379/0
 
 The sensor only ever **writes** `fp:*` keys. Grant the tap binary's Redis user
 write access to `fp:*` and nothing else — it needs no read of policy, ban, or
-session keys. Example ACL:
+session keys. This is now the canonical `ja4tap` user in `config/redis_acl.conf`
+(phase-809, O-006) — do not maintain a second copy here; the file is the
+source of truth. Example, matching that file:
 
 ```
 ACL SETUSER ja4tap on >SECRET ~fp:* +set +expire
@@ -446,10 +510,14 @@ ja4-tap --interface eth1 --redis-url redis://redis:6379/0 \
         --ja4t-blocklist "65535_2-1-3-1-1-8-4_1460_7" --enforce --ban-ttl 5m
 ```
 
-Widened ACL for an **armed** sensor (only when you have reviewed the watchlist):
+Widened ACL for an **armed** sensor (only when you have reviewed the watchlist).
+D-001 added a pre-write existing-ban check (`Enforcer.Consider` GETs
+`ban:{ip}` before writing it, to avoid overwriting an operator ban), so `+get`
+is required in the widened grant too — see the commented example in
+`config/redis_acl.conf`:
 
 ```
-ACL SETUSER ja4tap on >SECRET ~fp:* ~ban:* +set +expire
+ACL SETUSER ja4tap on >SECRET ~fp:* ~ban:* +set +expire +get
 ```
 
 ### Safety invariants (non-negotiable)

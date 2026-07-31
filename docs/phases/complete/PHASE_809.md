@@ -21,10 +21,20 @@ audience: [developer]
 
 Finish what PHASE_803 didn't: MEDIUM-priority security/privacy hardening
 (Wave 3) and LOW/INFORMATIONAL cleanup (Wave 4) in the Go TAP/SPAN sensor
-(`cmd/ja4-tap`, `internal/tap/`). The headline item is `docs/PRIVACY.md` —
-this project has **zero privacy documentation** despite the sensor capturing
-raw ClientHello bytes (including SNI) and writing IP-keyed Redis records with
-no erasure mechanism.
+(`cmd/ja4-tap`, `internal/tap/`).
+
+> **Correction during execution (D2 in action):** this doc originally
+> planned a new `docs/PRIVACY.md`, on the premise (P-001) that the project
+> had zero privacy documentation. That premise was false —
+> `docs/compliance/GDPR_COMPLIANCE.md` (Phase 21) and `docs/runbooks/
+> gdpr_erasure.md` (Phase 91) already exist and already cover the TAP sensor's
+> Redis keys. Verifying against the real code (per this doc's own D2) found
+> two genuine gaps instead: the compliance doc's retention tables were
+> missing/inaccurate for the TAP-sensor-specific keys, and no `--exclude-ips`
+> mechanism existed to make a GDPR erasure durable against the sensor's
+> continuous re-observation. Both are fixed; no new privacy doc was created.
+> See the `docs/phases/complete/PHASE_334.md` P-001/P-002/P-003 annotations
+> for the full account.
 
 ## Why this phase exists
 
@@ -47,6 +57,14 @@ doc is self-contained — see PHASE_334.md for full evidence/line numbers):
   `sync.RWMutex` (latent panic risk once any writer exists); deep-copy
   `StackFeatures.OptionOrder` at emit time to match the handshake-bytes
   pattern already used elsewhere.
+- **Resilience/startup verification** (F-005, F-015): `internal/tap/watchdog.go`
+  appears to already exist (other PHASE_334 `RESOLVED` notes reference
+  `Watchdog.Run`), but F-005 itself was never confirmed or annotated — verify
+  it's real supervision (restart + rapid-crash-loop protection) and close the
+  loop in `PHASE_334.md`, implementing it here if it turns out to be missing
+  after all; add a startup check that the capture interface exists and is up
+  (`net.InterfaceByName`) per F-015 (its frame-size-clamp half is already
+  covered by Wave 4's F-027).
 - **Operability** (R-005, R-007, R-008, R-009, R-010): periodic heartbeat log
   (not gated by `--quiet`); `SIGHUP`/`SIGUSR1` handlers; `--log-format json` +
   `--log-level`; config file / env var support; `GOMEMLIMIT` guidance.
@@ -58,12 +76,15 @@ doc is self-contained — see PHASE_334.md for full evidence/line numbers):
   found" the same as "cached empty" — a transient Redis miss poisons the
   signal for a full 60s TTL. Use a sentinel for negative caching, or a much
   shorter negative-cache TTL.
-- **Privacy/GDPR** (P-001, P-002, P-003): write `docs/PRIVACY.md` (what's
-  captured, what's persisted, retention periods, what is explicitly *not*
-  persisted); document that `fp:*`/`ban:*` key names contain IPs (PII) so any
-  `~fp:*` Redis ACL grantee can enumerate the tracked-client corpus; add an
-  `--exclude-ips` mechanism and a documented manual-erasure runbook section
-  for GDPR Article 17 requests.
+- **Privacy/GDPR** (P-001, P-002, P-003 — see the correction note above):
+  fix `docs/compliance/GDPR_COMPLIANCE.md`'s retention tables to include and
+  correctly source the TAP-sensor-specific keys (`fp:os:ip`, `fp:ja4t:ip`,
+  `fp:ban_intent:ip`); add an explicit enumeration-risk note (`fp:*`/`ban:*`
+  key names contain IPs, so any `~fp:*` Redis ACL grantee can enumerate the
+  tracked-client corpus); add an `--exclude-ips`/`EXCLUDE_IPS` mechanism
+  (SIGHUP-reloadable) and document it in the existing erasure runbook so a
+  GDPR Article 17 request stays durable against the sensor's continuous
+  re-observation.
 - **Deployment infra** (O-004, O-005, O-006): Prometheus scrape target for
   the sensor; a real `Dockerfile.ja4-tap` + compose service + resource limits
   + `HEALTHCHECK`; a `ja4tap` Redis ACL user in `config/redis_acl.conf` (the
@@ -108,7 +129,7 @@ any further Redis-security work here, not something to redesign).
 
 | # | Decision | Why |
 |---|---|---|
-| D1 | **`docs/PRIVACY.md` accuracy is load-bearing, not boilerplate.** Get it reviewed against the actual Redis key set (`docs/reference/REDIS_SCHEMA.md`) before treating it as done. | This is the project's first privacy documentation ever; a wrong or incomplete doc is worse than none because it creates false confidence. |
+| D1 | **Privacy documentation accuracy is load-bearing, not boilerplate — but "accurate" turned out to mean fixing the existing `docs/compliance/GDPR_COMPLIANCE.md`, not writing a new file.** Verified it against the actual Redis key set (`docs/reference/REDIS_SCHEMA.md`, `internal/tap/`) before treating anything as done. | A wrong or incomplete privacy doc is worse than none because it creates false confidence — and a second, competing privacy doc alongside an existing enterprise one would itself become a source of drift. |
 | D2 | **Verify every Wave 3/4 finding against current code before fixing it**, the same discipline PHASE_803 applied via its own D4. | PHASE_803 found 3 Wave 1-2 findings had already been silently fixed since PHASE_334 was written; Wave 3/4 findings are equally likely to have drifted given they're lower priority and further from recent attention. |
 | D3 | **Wave 3 and Wave 4 may land as separate PRs**, matching PHASE_803's own Wave 1-2 split. | Wave 3 has real security/privacy weight (GDPR docs, Redis auth) and deserves independent review; Wave 4 is opportunistic cleanup that shouldn't gate it. |
 
@@ -117,9 +138,11 @@ any further Redis-security work here, not something to redesign).
 1. **Re-verify scope**: for each Wave 3/4 finding, grep/read the current
    `internal/tap/`/`cmd/ja4-tap/` code before assuming PHASE_334's description
    still applies — do not port findings mechanically.
-2. **Wave 3**, grouped by theme as listed above. `docs/PRIVACY.md` is a new
-   document; write it against the real Redis key set in
-   `docs/reference/REDIS_SCHEMA.md`, not from memory.
+2. **Wave 3**, grouped by theme as listed above. For the privacy/GDPR theme,
+   check `docs/compliance/GDPR_COMPLIANCE.md` and `docs/runbooks/
+   gdpr_erasure.md` for existing coverage before writing anything new — verify
+   and correct against the real Redis key set in `docs/reference/
+   REDIS_SCHEMA.md`, not from memory.
 3. **Wave 4**, batched opportunistically — do not let it block Wave 3.
 4. **Close-out**: annotate the remaining PHASE_334.md findings with resolution
    references (same non-destructive pattern PHASE_803 used); mark this
@@ -132,15 +155,19 @@ any further Redis-security work here, not something to redesign).
   describes observable behavior (e.g. ban-provenance overwrite, cache
   negative-caching TTL, reassembler `HelloRetryRequest` handling).
 - `make test` (existing `internal/tap` suite) stays green throughout.
-- `docs/PRIVACY.md` reviewed against `docs/reference/REDIS_SCHEMA.md` for
-  completeness (every IP-keyed or otherwise-PII-bearing key pattern named).
+- `docs/compliance/GDPR_COMPLIANCE.md` reviewed against
+  `docs/reference/REDIS_SCHEMA.md` for completeness (every IP-keyed or
+  otherwise-PII-bearing key pattern named, correct TTL sourced from code).
+- `--exclude-ips` has a unit test proving an excluded IP produces zero
+  Store/Enforcer writes, and a SIGHUP-reload test.
 
 ## Acceptance criteria
 
 - [ ] Wave 3 items complete or explicitly re-scoped with reasoning if a
       finding turns out to no longer apply.
-- [ ] `docs/PRIVACY.md` exists, reviewed, and accurate against the real Redis
-      schema.
+- [ ] `docs/compliance/GDPR_COMPLIANCE.md` corrected and accurate against the
+      real Redis schema for the TAP sensor's keys; `--exclude-ips` implemented
+      and documented.
 - [ ] Wave 4 cleanup complete, or explicitly deferred with a reason.
 - [ ] `docs/phases/complete/PHASE_334.md` findings updated with fix
       references (audit trail preserved, not deleted).
@@ -157,6 +184,6 @@ any further Redis-security work here, not something to redesign).
 - **Finding staleness.** Some Wave 3/4 findings may already be fixed or may
   no longer apply given how much the sensor changed under PHASE_803 — verify
   before implementing, per D2.
-- **`docs/PRIVACY.md` scope creep or inaccuracy.** Keep it factual and scoped
-  to what the TAP sensor actually does today; don't turn it into aspirational
-  policy.
+- **Privacy-doc scope creep or inaccuracy.** Keep additions to
+  `docs/compliance/GDPR_COMPLIANCE.md` factual and scoped to what the TAP
+  sensor actually does today; don't turn it into aspirational policy.

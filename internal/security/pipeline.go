@@ -62,6 +62,14 @@ const (
 	auditJobBuf     = 256
 )
 
+// tapEnforcedBanValuePrefix marks a ban:{ip} value written by the standalone
+// TAP sensor's Enforcer (internal/tap/enforcement.go: banKeyPrefix+ip,
+// "tap_enforce:ja4t="+ja4t) rather than an operator via the management API
+// (phase-809, D-001). The two packages don't share an import (the sensor is
+// a separate binary), so this prefix is duplicated by contract, not by
+// reference — keep both sides in sync if it ever changes.
+const tapEnforcedBanValuePrefix = "tap_enforce:"
+
 type Pipeline struct {
 	cfg            *PipelineConfig
 	cache          *DecisionCache
@@ -224,18 +232,20 @@ type PipelineConfig struct {
 	JA4XBlacklistScore  int
 
 	// Phase 203a — TAP-consumed JA4T OS mismatch signal.
-	TapConsumerEnabled      bool
-	TapConsumerScore        int
-	TapConsumerRedisTimeout int // milliseconds
-	TapConsumerCacheTTL     int // seconds
-	TapConsumerMaxAge       int // seconds
+	TapConsumerEnabled          bool
+	TapConsumerScore            int
+	TapConsumerRedisTimeout     int // milliseconds
+	TapConsumerCacheTTL         int // seconds
+	TapConsumerMaxAge           int // seconds
+	TapConsumerNegativeCacheTTL int // seconds (phase-809, D-002)
 
 	// Phase 316c — TAP-consumed JA4T blocklist signal.
-	JA4TConsumerEnabled      bool
-	JA4TConsumerScore        int
-	JA4TConsumerRedisTimeout int      // milliseconds
-	JA4TConsumerCacheTTL     int      // seconds
-	JA4TBlocklist            []string // JA4T fingerprints that raise the signal
+	JA4TConsumerEnabled          bool
+	JA4TConsumerScore            int
+	JA4TConsumerRedisTimeout     int      // milliseconds
+	JA4TConsumerCacheTTL         int      // seconds
+	JA4TConsumerNegativeCacheTTL int      // seconds (phase-809, D-002)
+	JA4TBlocklist                []string // JA4T fingerprints that raise the signal
 
 	// Phase 248 — Auto-escalating IP defense.
 	AutoEscalate config.AutoEscalateConfig
@@ -357,11 +367,12 @@ func (g redisReaderGetter) Get(ctx context.Context, key string) (string, error) 
 // buildTapConsumerConfig builds a TapConsumerConfig from the pipeline config.
 func buildTapConsumerConfig(cfg *PipelineConfig) *TapConsumerConfig {
 	return &TapConsumerConfig{
-		Enabled:      cfg.TapConsumerEnabled,
-		SignalScore:  cfg.TapConsumerScore,
-		RedisTimeout: durationMillis(cfg.TapConsumerRedisTimeout, 50),
-		CacheTTL:     durationSeconds(cfg.TapConsumerCacheTTL, 60),
-		MaxAge:       durationSeconds(cfg.TapConsumerMaxAge, 300),
+		Enabled:          cfg.TapConsumerEnabled,
+		SignalScore:      cfg.TapConsumerScore,
+		RedisTimeout:     durationMillis(cfg.TapConsumerRedisTimeout, 50),
+		CacheTTL:         durationSeconds(cfg.TapConsumerCacheTTL, 60),
+		MaxAge:           durationSeconds(cfg.TapConsumerMaxAge, 300),
+		NegativeCacheTTL: durationSeconds(cfg.TapConsumerNegativeCacheTTL, 5),
 	}
 }
 
@@ -375,11 +386,12 @@ func buildJA4TConsumerConfig(cfg *PipelineConfig) *JA4TConsumerConfig {
 		}
 	}
 	return &JA4TConsumerConfig{
-		Enabled:      cfg.JA4TConsumerEnabled,
-		SignalScore:  cfg.JA4TConsumerScore,
-		RedisTimeout: durationMillis(cfg.JA4TConsumerRedisTimeout, 50),
-		CacheTTL:     durationSeconds(cfg.JA4TConsumerCacheTTL, 60),
-		Blocklist:    blocklist,
+		Enabled:          cfg.JA4TConsumerEnabled,
+		SignalScore:      cfg.JA4TConsumerScore,
+		RedisTimeout:     durationMillis(cfg.JA4TConsumerRedisTimeout, 50),
+		CacheTTL:         durationSeconds(cfg.JA4TConsumerCacheTTL, 60),
+		NegativeCacheTTL: durationSeconds(cfg.JA4TConsumerNegativeCacheTTL, 5),
+		Blocklist:        blocklist,
 	}
 }
 
@@ -482,10 +494,21 @@ func (p *Pipeline) Process(ctx context.Context, conn *ConnectionContext) *Pipeli
 	// connection that clears these two checks still gets "allow" below when
 	// the queue is full — only these two explicit-block decisions become
 	// unconditional.
-	if p.redis != nil && conn.ClientIP != "" && p.redis.Exists(ctx, "ban:"+conn.ClientIP) {
-		result := &PipelineResult{Action: "block", Score: 100, BypassReason: "manual_ban"}
-		p.cacheResult(conn, result)
-		return result
+	if p.redis != nil && conn.ClientIP != "" {
+		// D-001: distinguish a sensor-enforced ban (tap.Enforcer writes
+		// "tap_enforce:ja4t=..." — internal/tap/enforcement.go) from an
+		// operator ban, instead of reporting every ban:{ip} hit as
+		// "manual_ban" regardless of who wrote it. Existence alone (the
+		// prior Exists() check) cannot tell them apart.
+		if banVal := p.redis.GetString(ctx, "ban:"+conn.ClientIP); banVal != "" {
+			reason := "manual_ban"
+			if strings.HasPrefix(banVal, tapEnforcedBanValuePrefix) {
+				reason = "tap_enforce_ban"
+			}
+			result := &PipelineResult{Action: "block", Score: 100, BypassReason: reason}
+			p.cacheResult(conn, result)
+			return result
+		}
 	}
 
 	// Blocklist check (hard block). JA4PROXY-2026-0037: Check() must be called

@@ -1,0 +1,68 @@
+# Dockerfile.ja4-tap — multi-stage build for the standalone Go TAP/SPAN sensor
+# (cmd/ja4-tap, PHASE_316a). Separate image from Dockerfile.go-proxy: the
+# sensor needs CAP_NET_RAW for live packet capture, which the inline proxy
+# must never carry (PHASE_316a §3b) — keeping them as different images makes
+# that separation enforceable at the container level, not just by convention.
+#
+# Build:
+#   docker build -f deploy/docker/Dockerfile.ja4-tap -t ja4proxy-tap .
+#
+# Run (offline .pcap replay — no privileges required):
+#   docker run --rm -v "$PWD/capture.pcap:/data/capture.pcap:ro" \
+#     ja4proxy-tap --pcap-file /data/capture.pcap
+#
+# Run (live capture — needs CAP_NET_RAW and visibility of the capture
+# interface, so typically --network host or a macvlan bound to the SPAN
+# port's NIC; see docs/runbooks/tap_mode.md):
+#   docker run --rm --network host --cap-drop ALL --cap-add NET_RAW \
+#     -e REDIS_PASSWORD=secret \
+#     ja4proxy-tap --interface eth1 --redis-url redis://127.0.0.1:6379/0
+
+# ── Build stage ───────────────────────────────────────────────────────────────
+FROM golang:1.26.5-alpine@sha256:0178a641fbb4858c5f1b48e34bdaabe0350a330a1b1149aabd498d0699ff5fb2 AS builder
+ARG VERSION=unknown
+ARG GIT_COMMIT=unknown
+ARG BUILD_DATE=unknown
+
+RUN apk add --no-cache ca-certificates git
+
+WORKDIR /build
+
+COPY go.mod go.sum ./
+RUN --mount=type=cache,target=/go/pkg/mod,sharing=locked \
+    go mod download
+
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w -extldflags '-static' -X github.com/seanpor/ja4proxy/internal/config.Version=${VERSION} -X github.com/seanpor/ja4proxy/internal/config.GitCommit=${GIT_COMMIT} -X github.com/seanpor/ja4proxy/internal/config.BuildDate=${BUILD_DATE}" -trimpath -o /ja4-tap ./cmd/ja4-tap
+
+# ── Runtime stage ─────────────────────────────────────────────────────────────
+FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
+
+LABEL org.opencontainers.image.source="https://github.com/seanpor/JA4proxy" \
+      org.opencontainers.image.title="ja4proxy-tap" \
+      org.opencontainers.image.description="Passive TAP/SPAN TLS fingerprinting sensor" \
+      org.opencontainers.image.licenses="Apache-2.0"
+
+# Non-root by default (matches Dockerfile.go-proxy's ADR-202c convention).
+# Live capture still needs CAP_NET_RAW granted at the container level
+# (cap_add: NET_RAW) even running as this UID -- Linux file capabilities are
+# independent of UID, and DropCapabilities() in internal/tap/hardening.go
+# drops everything else immediately after opening the capture socket.
+RUN apk upgrade --no-cache && apk add --no-cache curl && \
+    addgroup -g 1000 -S ja4tap && adduser -u 1000 -S -G ja4tap ja4tap
+
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=builder /ja4-tap /usr/local/bin/ja4-tap
+COPY config/seccomp_tap_go.json /etc/ja4proxy/seccomp_tap.json
+
+USER 1000:1000
+WORKDIR /app
+
+# Prometheus /metrics + /health, when --metrics-addr is set (see
+# docker-compose.prod.yml's ja4-tap service for the default).
+EXPOSE 9110
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:9110/health || exit 1
+
+ENTRYPOINT ["/usr/local/bin/ja4-tap"]

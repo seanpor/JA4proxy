@@ -2,13 +2,13 @@
 //
 // Architectural background (see docs/decisions/ADR-203a.md): the inline Go
 // proxy cannot compute JA4T from an accept()'d socket because the kernel has
-// already completed the TCP handshake by then. The Phase 20 TAP node, which
-// sees raw SYN packets via AF_PACKET, is the correct producer of JA4T-
-// derived OS classification. The TAP node writes `fp:os:ip:{ip}` strings to
-// Redis; this consumer reads them on the hot path and emits a
-// `tap_os_mismatch` RiskSignal when the OS class implied by the JA4 TLS
-// fingerprint disagrees with the OS class observed in the client's TCP
-// stack.
+// already completed the TCP handshake by then. The standalone Go TAP sensor
+// (cmd/ja4-tap, Phase 316a/b), which sees raw SYN packets via AF_PACKET, is
+// the correct producer of JA4T-derived OS classification. The sensor writes
+// `fp:os:ip:{ip}` strings to Redis; this consumer reads them on the hot path
+// and emits a `tap_os_mismatch` RiskSignal when the OS class implied by the
+// JA4 TLS fingerprint disagrees with the OS class observed in the client's
+// TCP stack.
 //
 // All calls fail open: disabled config, missing Redis key, Redis error,
 // Redis timeout — all return nil so legitimate traffic is never blocked
@@ -18,7 +18,6 @@ package security
 import (
 	"context"
 	"fmt"
-	"net/netip"
 	"time"
 
 	"github.com/seanpor/ja4proxy/internal/cache"
@@ -28,23 +27,12 @@ import (
 )
 
 // canonicalIP returns the canonical string form of an IP address matching
-// what the Phase-20 TAP node writes (via Python's socket.inet_ntop).
-// Strips zone IDs, brackets, and leading zeros; lowercases hex octets.
-// Returns "" for unparsable input (caller treats as fail-open).
+// what the TAP sensor writes. F-019: this used to duplicate
+// internal/fingerprint.CanonicalIP's logic verbatim (identical to the writer
+// side in internal/tap/store.go) — now delegates to the single shared
+// implementation both packages already depend on for the OSClass vocabulary.
 func canonicalIP(ip string) string {
-	// Strip IPv6 brackets if the caller accidentally left them on.
-	if len(ip) >= 2 && ip[0] == '[' && ip[len(ip)-1] == ']' {
-		ip = ip[1 : len(ip)-1]
-	}
-	addr, err := netip.ParseAddr(ip)
-	if err != nil {
-		return ""
-	}
-	// Drop zone IDs (e.g. "fe80::1%eth0") — TAP never sees them.
-	if addr.Zone() != "" {
-		addr = addr.WithZone("")
-	}
-	return addr.String()
+	return fingerprint.CanonicalIP(ip)
 }
 
 // TapConsumerConfig configures the TAP-derived OS-mismatch signal consumer.
@@ -60,6 +48,13 @@ type TapConsumerConfig struct {
 	// staleness. Fail-open preserved: stale lookups degrade to "missing signal"
 	// rather than a wrong decision.
 	MaxAge time.Duration
+	// NegativeCacheTTL bounds how long a Redis miss/error/timeout ("") is
+	// cached before the next lookup retries Redis (D-002). Kept much shorter
+	// than CacheTTL: a positive result is worth caching for a while, but a
+	// miss racing the TAP sensor's own write (SYN observed a few ms before
+	// the proxy's accept()) should not silently suppress the signal for the
+	// full positive-result TTL once the sensor's write actually lands.
+	NegativeCacheTTL time.Duration
 }
 
 // redisGetter is the narrow Redis interface the TapConsumer depends on.
@@ -68,7 +63,7 @@ type redisGetter interface {
 	Get(ctx context.Context, key string) (string, error)
 }
 
-// TapConsumer reads Phase-20 TAP fingerprints from Redis and emits a signal
+// TapConsumer reads Go TAP sensor fingerprints from Redis and emits a signal
 // when the observed OS disagrees with the one implied by the JA4 fingerprint.
 type TapConsumer struct {
 	cfg   *TapConsumerConfig
@@ -121,10 +116,19 @@ func (t *TapConsumer) GetSignal(ctx context.Context, clientIP, ja4 string) *Risk
 	observed, hit := t.cachedLookup(canonIP)
 	if !hit {
 		observed = t.redisLookup(ctx, canonIP)
-		// Cache the outcome (even empty string) to short-circuit repeat calls.
+		// Cache the outcome to short-circuit repeat calls, but a miss/error
+		// gets a much shorter TTL than a positive result (D-002): a Redis GET
+		// racing the TAP sensor's own write must not suppress the signal for
+		// a full CacheTTL once the sensor's write actually lands.
 		ttl := t.cfg.CacheTTL
 		if ttl <= 0 {
 			ttl = 60 * time.Second
+		}
+		if observed == "" {
+			ttl = t.cfg.NegativeCacheTTL
+			if ttl <= 0 {
+				ttl = 5 * time.Second
+			}
 		}
 		t.cache.Set(cacheKey(canonIP), observed, ttl)
 	}
@@ -174,7 +178,7 @@ func (t *TapConsumer) redisLookup(parent context.Context, clientIP string) strin
 	ctx, cancel := context.WithTimeout(parent, timeout)
 	defer cancel()
 
-	val, err := t.redis.Get(ctx, "fp:os:ip:"+clientIP)
+	val, err := t.redis.Get(ctx, fingerprint.KeyPrefixOSClass+clientIP)
 	if err != nil {
 		metrics.TapLookupsTotal.WithLabelValues("error").Inc()
 		t.log.WithError(err).WithField("client_ip", clientIP).Debug("tap_consumer: Redis GET failed; failing open")

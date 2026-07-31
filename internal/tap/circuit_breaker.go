@@ -42,7 +42,7 @@ var (
 // breaker reflects Redis's real health rather than tracking per-caller
 // state that could disagree with itself.
 type RedisCircuitBreaker struct {
-	inner redisSetter
+	inner redisSetterGetter
 
 	mu                  sync.Mutex
 	consecutiveFailures int
@@ -52,7 +52,7 @@ type RedisCircuitBreaker struct {
 // NewRedisCircuitBreaker wraps inner. inner must be non-nil -- callers with
 // no Redis backend (offline replay) should pass nil directly to NewStore/
 // NewEnforcer instead of wrapping a nil setter.
-func NewRedisCircuitBreaker(inner redisSetter) *RedisCircuitBreaker {
+func NewRedisCircuitBreaker(inner redisSetterGetter) *RedisCircuitBreaker {
 	return &RedisCircuitBreaker{inner: inner}
 }
 
@@ -68,7 +68,32 @@ func (cb *RedisCircuitBreaker) Set(ctx context.Context, key, value string, ttl t
 	cb.mu.Unlock()
 
 	err := cb.inner.Set(ctx, key, value, ttl)
+	cb.recordOutcome(err)
+	return err
+}
 
+// Get implements redisSetterGetter, sharing the same breaker state as Set —
+// a Redis outage skips reads exactly like it skips writes, so D-001's
+// existing-ban check degrades to "assume no existing ban is verifiable" and
+// the Enforcer fails safe by skipping its own write (see Enforcer.Consider)
+// rather than blocking on a Redis that Set calls have already given up on.
+func (cb *RedisCircuitBreaker) Get(ctx context.Context, key string) (string, error) {
+	cb.mu.Lock()
+	if time.Now().Before(cb.openUntil) {
+		cb.mu.Unlock()
+		RedisCircuitBreakerSkipsTotal.Inc()
+		return "", ErrRedisCircuitOpen
+	}
+	cb.mu.Unlock()
+
+	val, err := cb.inner.Get(ctx, key)
+	cb.recordOutcome(err)
+	return val, err
+}
+
+// recordOutcome updates the consecutive-failure counter shared by Set and Get
+// and trips the breaker open after circuitBreakerFailureThreshold in a row.
+func (cb *RedisCircuitBreaker) recordOutcome(err error) {
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
 	if err != nil {
@@ -80,5 +105,4 @@ func (cb *RedisCircuitBreaker) Set(ctx context.Context, key, value string, ttl t
 	} else {
 		cb.consecutiveFailures = 0
 	}
-	return err
 }

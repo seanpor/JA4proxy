@@ -3909,30 +3909,34 @@ phases:
       200k-packet pcap, not just pattern-matched against Phase 334's tables."
   809:
     name: "Go TAP/SPAN Sensor Remediation Waves 3-4 — Phase 334's Remaining Findings"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_809.md
+    status: COMPLETE
+    completed: '2026-07-31'
+    action_plan: docs/phases/complete/PHASE_809.md
     dependencies:
     - 803
     size: LARGE
-    summary: "PROPOSED — no code until approved. Picks up where PHASE_803 (Waves
-      1-2) left off, per that phase's own plan: 'Waves 3-4 may be separate
-      follow-up PRs rather than one 40-finding change.' Wave 3 (MEDIUM) — Redis
-      credential/TLS hardening (F-017/F-018), concurrency-safety fixes (F-016,
-      G-001), ban-provenance tagging so a sensor ban can no longer silently
-      overwrite and shorten an operator-issued ban (D-001), a negative-cache-
-      poisoning fix (D-002), operability gaps (R-005/R-007/R-008/R-009/R-010),
-      deployment/infra findings (O-004/O-005/O-006), reassembler correctness
-      (T-001), and the project's first privacy/GDPR documentation — zero exists
-      project-wide today despite the sensor capturing raw ClientHello bytes
-      (including SNI) and writing IP-keyed Redis records with no erasure mechanism
-      (P-001/P-002/P-003, new docs/PRIVACY.md). Wave 4 (LOW/INFORMATIONAL) — batch
-      cleanup, ~20 findings (sync.Pool reuse, kernel BPF filter refinement, duplicate
-      canonicalIP/key-prefix constants with no sync test — same unguarded-duplicate
-      class as the sliding_window.lua finding from an earlier phase). Verify every
-      finding against current code before fixing it, the way PHASE_803 did — Phase
-      334 is now over three months old relative to a fast-moving Go sensor and at
-      least 3 of its Wave 1-2 findings had already been silently fixed by the time
-      803 started."
+    summary: "COMPLETE (2026-07-31). Closed out PHASE_334's remaining MEDIUM/LOW/
+      INFORMATIONAL findings after PHASE_803's Wave 1-2. D2 verification found
+      P-001's 'zero privacy documentation' premise false before writing code —
+      docs/compliance/GDPR_COMPLIANCE.md and docs/runbooks/gdpr_erasure.md
+      already existed and covered the TAP sensor; fixed the real gaps in those
+      docs instead of a competing docs/PRIVACY.md. F-004/F-006 were already
+      implemented. Wave 3 (all done): Redis credential/TLS hardening
+      (F-017/F-018), JA4T-blocklist + OptionOrder race guards (F-016/G-001),
+      ban-provenance tagging + overwrite protection (D-001), negative-cache-
+      poisoning fix (D-002), --exclude-ips/EXCLUDE_IPS for durable GDPR erasure
+      (P-003), HelloRetryRequest/HelloRequest reassembler fix (T-001), heartbeat/
+      SIGHUP/SIGUSR1/structured-logging/startup-Redis-ping operability
+      (R-005/007/008/009/010/012), Dockerfile.ja4-tap + compose service +
+      Prometheus scrape + Redis ACL user (O-004/005/006). Wave 4: TLS
+      record-version validation + interleaved-non-handshake-record fix
+      (T-002/F-008), --frame-size bounds check (F-027), two dead metrics wired
+      up for real (R-011), canonicalIP/key-prefix dedup into internal/fingerprint
+      (F-019/D-003), 5 stale Phase-20 doc references fixed incl. deleting
+      config/seccomp_tap.json (F-009/010/011), payload-privacy regression test
+      (F-021), doc-comment fixes (T-004/005). F-003/G-002 (sync.Pool),
+      R-006 (histograms), R-014 (rate-limiting), T-003 (O(n^2) re-parse)
+      explicitly deferred to a follow-up phase with reasoning, not dropped."
   805:
     name: "Nightly Performance/Load Regression Detection, wired into Prometheus + Grafana"
     status: COMPLETE

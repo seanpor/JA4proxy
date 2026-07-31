@@ -1,11 +1,42 @@
 package tap
 
 import (
+	"fmt"
+	"net"
 	"os"
 
 	"github.com/gopacket/gopacket/layers"
 	"github.com/gopacket/gopacket/pcapgo"
 )
+
+// StatsSource is an optional capability a PacketSource may implement to
+// report kernel-level packet/drop counts (R-011). Only the live AF_PACKET
+// source (capture_linux.go's tpacketSource) implements it today — offline
+// .pcap replay has no kernel ring buffer to report on, so callers must type-
+// assert rather than assume every PacketSource satisfies this.
+type StatsSource interface {
+	// RingBufferStats returns cumulative packets seen and packets dropped by
+	// the kernel before userspace read them. ok=false means the stats could
+	// not be read (a transient syscall error), not that traffic is zero.
+	RingBufferStats() (packets, drops uint64, ok bool)
+}
+
+// checkInterfaceUp verifies iface exists and is administratively up before
+// capture starts (F-015). NewTPacket's own error handling covers the
+// nonexistent/no-CAP_NET_RAW cases, but an interface that exists yet is
+// administratively down (e.g. a misconfigured span port) fails silently
+// otherwise -- capture opens fine, no error is ever returned, and no
+// packets ever arrive.
+func checkInterfaceUp(iface string) error {
+	ifi, err := net.InterfaceByName(iface)
+	if err != nil {
+		return fmt.Errorf("interface %q: %w", iface, err)
+	}
+	if ifi.Flags&net.FlagUp == 0 {
+		return fmt.Errorf("interface %q exists but is administratively down", iface)
+	}
+	return nil
+}
 
 // OpenPcapFile opens a classic .pcap file for offline replay (PHASE_316a §3
 // --pcap-file mode). It is pure-Go (pcapgo) — no libpcap, no cgo, no raw-socket

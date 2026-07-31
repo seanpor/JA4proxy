@@ -179,24 +179,35 @@ ja4proxy_tarpit_concurrent                           gauge     Current tarpit co
 ja4proxy_tarpit_overflow_total{action}               counter   Tarpit overflows by action
 ```
 
-#### TAP mode (Phase 20)
+#### Inline proxy TAP consumers (Phase 203a/316c) — `internal/security`, main proxy registry
 ```
-ja4proxy_tap_lookups_total{result}                   counter   Phase-20 TAP fingerprint lookup results
-ja4proxy_tap_signal_total{action}                    counter   TAP-derived OS mismatch signals emitted
+ja4proxy_tap_lookups_total{result}                   counter   fp:os:ip lookup results (203a): hit_match|hit_mismatch|miss|error
+ja4proxy_tap_signal_total{action}                    counter   TAP-derived OS mismatch signals emitted (203a)
 ja4proxy_tap_ja4t_lookups_total{result}              counter   Passive JA4T fp:ja4t:ip lookups (316c): hit_blocklisted|hit_clean|miss|error
 ja4proxy_tap_ja4t_signal_total{action}               counter   TAP-derived JA4T blocklist signals emitted (316c)
 ```
+<!-- phase-809 (F-011): this section used to be headed "TAP mode (Phase 20)"
+     -- the `ja4proxy_tap_lookups_total`/`ja4proxy_tap_signal_total` names
+     predate the Go rewrite, but the metrics themselves are emitted by this
+     package's Go code today, not by any Phase 20 Python process (deleted).
+     Kept the metric names (a breaking rename isn't worth it for a label),
+     fixed the misleading header/phase attribution. -->
 
 #### Go TAP sensor (Phase 316) — standalone binary `cmd/ja4-tap`, own registry
 ```
 ja4proxy_tap_packets_received_total                  counter   Packets read from the capture source
-ja4proxy_tap_packets_dropped_total{reason}           counter   Packets/bytes dropped: decode|non_tcp|cap_exceeded|gap|event_overflow
+ja4proxy_tap_packets_dropped_total{reason}           counter   Packets/bytes dropped: decode|non_tcp|cap_exceeded|gap|event_overflow|read_error
 ja4proxy_tap_active_streams                          gauge     TCP connections currently tracked by the reassembler
 ja4proxy_tap_handshakes_extracted_total{kind}        counter   TLS handshakes extracted: clienthello|serverhello|connection
 ja4proxy_tap_fingerprints_written_total{result}      counter   Passive OS classes (316b): written|skipped_unknown|error
 ja4proxy_tap_ja4t_written_total{result}              counter   Passive JA4T fingerprints (316c): written|skipped_unknown|error
-ja4proxy_tap_enforcement_actions_total{result}       counter   Out-of-band enforcement (316d): skipped|watchlist|banned|error
+ja4proxy_tap_enforcement_actions_total{result}       counter   Out-of-band enforcement (316d): skipped|watchlist|banned|operator_override|error
 ja4proxy_tap_enforcement_armed                       gauge     1 when armed to write enforceable ban:{ip} keys (316d); 0 = advisory-only (default)
+ja4proxy_tap_worker_restarts_total                   counter   Watchdog-triggered sensor restarts (phase-809, R-011)
+ja4proxy_tap_ring_buffer_fill_ratio                  gauge     Cumulative AF_PACKET kernel drop ratio; live capture only (phase-809, R-011)
+ja4proxy_tap_excluded_ip_events_total                counter   Handshake events for a client IP matching --exclude-ips (phase-809, P-003)
+ja4proxy_tap_redis_circuit_breaker_opened_total      counter   Times the Redis circuit breaker tripped open (R-002)
+ja4proxy_tap_redis_circuit_breaker_skips_total       counter   Writes/reads skipped because the circuit breaker was open (R-002)
 ```
 
 #### Redis & config

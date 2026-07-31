@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/seanpor/ja4proxy/internal/cache"
+	"github.com/seanpor/ja4proxy/internal/fingerprint"
 	"github.com/seanpor/ja4proxy/internal/metrics"
 	"github.com/sirupsen/logrus"
 )
@@ -37,6 +38,10 @@ type JA4TConsumerConfig struct {
 	// Blocklist is the set of JA4T strings that should raise the signal. Empty
 	// (the default) means the consumer is effectively inert: it never emits.
 	Blocklist map[string]bool
+	// NegativeCacheTTL bounds how long a Redis miss/error/timeout ("") is
+	// cached before the next lookup retries Redis (D-002) — see
+	// TapConsumerConfig.NegativeCacheTTL for the full rationale.
+	NegativeCacheTTL time.Duration
 }
 
 // JA4TConsumer reads passive JA4T fingerprints (fp:ja4t:ip:{ip}) from Redis and
@@ -85,9 +90,18 @@ func (c *JA4TConsumer) GetSignal(ctx context.Context, clientIP string) *RiskSign
 	observed, hit := c.cachedLookup(canonIP)
 	if !hit {
 		observed = c.redisLookup(ctx, canonIP)
+		// D-002: a miss/error gets a much shorter TTL than a positive result
+		// so a Redis GET racing the TAP sensor's own write doesn't suppress
+		// the signal for a full CacheTTL once the write actually lands.
 		ttl := c.cfg.CacheTTL
 		if ttl <= 0 {
 			ttl = 60 * time.Second
+		}
+		if observed == "" {
+			ttl = c.cfg.NegativeCacheTTL
+			if ttl <= 0 {
+				ttl = 5 * time.Second
+			}
 		}
 		c.cache.Set(ja4tCacheKey(canonIP), observed, ttl)
 	}
@@ -135,7 +149,7 @@ func (c *JA4TConsumer) redisLookup(parent context.Context, clientIP string) stri
 	ctx, cancel := context.WithTimeout(parent, timeout)
 	defer cancel()
 
-	val, err := c.redis.Get(ctx, "fp:ja4t:ip:"+clientIP)
+	val, err := c.redis.Get(ctx, fingerprint.KeyPrefixJA4T+clientIP)
 	if err != nil {
 		metrics.TapJA4TLookupsTotal.WithLabelValues("error").Inc()
 		c.log.WithError(err).WithField("client_ip", clientIP).Debug("tap_ja4t_consumer: Redis GET failed; failing open")

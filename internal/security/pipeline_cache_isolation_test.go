@@ -14,7 +14,12 @@ type isoBanRedis struct {
 	bannedKey string
 }
 
-func (b *isoBanRedis) Exists(_ context.Context, key string) bool { return key == b.bannedKey }
+func (b *isoBanRedis) GetString(_ context.Context, key string) string {
+	if key == b.bannedKey {
+		return "operator ban: abuse"
+	}
+	return ""
+}
 
 // waitForCache polls the decision cache until key is present or the deadline
 // elapses. The production pipeline scores asynchronously, so the caching side

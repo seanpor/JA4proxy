@@ -16,6 +16,16 @@ var logger = logrus.New()
 // maxHandshakeBytes cap each stream enforces itself. A page is ~1900 bytes;
 // 4096 pages ≈ 8 MB, ample for handshake-only buffering and a hard stop against
 // a SPAN-port flood turning the sensor into an OOM.
+//
+// maxBufferedPagesPerConn is a security control, not a tuning knob (F-026):
+// gopacket's reassembly.Assembler.MaxBufferedPagesPerConnection defaults much
+// higher, and reassembler.go's maybeEmit path calls sg.Fetch(length) with
+// length taken directly from gopacket's own accounting of buffered bytes for
+// that connection — i.e. an attacker-influenced allocation size bounded only
+// by this constant. Raising it (e.g. to accommodate a larger handshake)
+// directly raises the per-connection Fetch allocation ceiling; see
+// TestMaxBufferedPagesPerConnStaysLow, which pins the current value so a
+// change here doesn't pass silently.
 const (
 	maxBufferedPagesTotal   = 4096
 	maxBufferedPagesPerConn = 8
@@ -181,24 +191,26 @@ func (s *tlsStream) appendDir(buf *[]byte, done *bool, hello *[]byte, data []byt
 	}
 	*buf = append(*buf, data...)
 
-	res := extractFirstHandshake(*buf)
+	want := byte(handshakeClientHello)
+	kind := "clienthello"
+	if !isClient {
+		want = handshakeServerHello
+		kind = "serverhello"
+	}
+
+	res := extractFirstHandshake(*buf, want)
 	switch {
 	case res.fatal:
 		*done = true
 	case res.complete:
+		// extractFirstHandshake only ever returns complete=true for msgType
+		// == want (T-001) — a HelloRetryRequest/HelloRequest ahead of the
+		// real message is skipped internally, not surfaced here.
 		*done = true
-		want := byte(handshakeClientHello)
-		kind := "clienthello"
-		if !isClient {
-			want = handshakeServerHello
-			kind = "serverhello"
-		}
-		if res.msgType == want {
-			msg := make([]byte, len(res.message))
-			copy(msg, res.message)
-			*hello = msg
-			HandshakesExtractedTotal.WithLabelValues(kind).Inc()
-		}
+		msg := make([]byte, len(res.message))
+		copy(msg, res.message)
+		*hello = msg
+		HandshakesExtractedTotal.WithLabelValues(kind).Inc()
 		s.maybeEmit(false)
 	case len(*buf) >= maxHandshakeBytes:
 		*done = true
@@ -220,6 +232,15 @@ func (s *tlsStream) maybeEmit(force bool) {
 	}
 	s.emitted = true
 	HandshakesExtractedTotal.WithLabelValues("connection").Inc()
+
+	// Deep-copy OptionOrder so the emitted event shares no backing array with
+	// s.stack (G-001) — consistent with the ClientHello/ServerHello deep-copy
+	// pattern above; s.emitted guards against a live race today, but a shared
+	// slice header is a latent one waiting for a future reader/writer of
+	// s.stack after emit.
+	stack := s.stack
+	stack.OptionOrder = append([]layers.TCPOptionKind(nil), s.stack.OptionOrder...)
+
 	s.emit(HandshakeEvent{
 		ClientIP:    s.clientIP,
 		ServerIP:    s.serverIP,
@@ -228,6 +249,6 @@ func (s *tlsStream) maybeEmit(force bool) {
 		ClientHello: s.clientHello,
 		ServerHello: s.serverHello,
 		FirstSeen:   s.firstSeen,
-		Stack:       s.stack,
+		Stack:       stack,
 	})
 }

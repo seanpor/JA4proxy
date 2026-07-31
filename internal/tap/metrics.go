@@ -29,9 +29,16 @@ var (
 		Name: "ja4proxy_tap_handshakes_extracted_total",
 		Help: "TLS handshake messages extracted, by kind (clienthello|serverhello|connection).",
 	}, []string{"kind"})
+	// RingBufferFillRatio (R-011, implemented phase-809): cumulative kernel
+	// drop ratio drops/(packets+drops) from AF_PACKET SocketStats, sampled
+	// on the heartbeat interval by cmd/ja4-tap's drive() when the active
+	// PacketSource implements StatsSource (live capture only -- stays 0 for
+	// offline .pcap replay, which has no kernel ring buffer). Named for the
+	// alert/dashboard that already reference it (Phase 803), not literally a
+	// live occupancy percentage -- the kernel doesn't expose that.
 	RingBufferFillRatio = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "ja4proxy_tap_ring_buffer_fill_ratio",
-		Help: "Live AF_PACKET ring buffer fill ratio (0-1); shedding rule input.",
+		Help: "Cumulative AF_PACKET kernel drop ratio (drops/(packets+drops)); live capture only, 0 for offline .pcap replay.",
 	})
 	WorkerRestartsTotal = prometheus.NewCounter(prometheus.CounterOpts{
 		Name: "ja4proxy_tap_worker_restarts_total",
@@ -50,7 +57,7 @@ var (
 	// ja4proxy_tap_enforcement_errors_total — one counter, one taxonomy.
 	EnforcementActionsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "ja4proxy_tap_enforcement_actions_total",
-		Help: "TAP out-of-band enforcement decisions, by result (skipped|watchlist|banned|error). watchlist = advisory fp:ban_intent recorded (default); banned = enforceable ban:{ip} written (armed only); skipped = no blocklist match / empty blocklist / no JA4T / no backend; error = unparsable IP or Redis write failed (fail-open).",
+		Help: "TAP out-of-band enforcement decisions, by result (skipped|watchlist|banned|operator_override|error). watchlist = advisory fp:ban_intent recorded (default); banned = enforceable ban:{ip} written (armed only); operator_override = an operator-owned ban:{ip} already existed, so the sensor did not overwrite it (D-001); skipped = no blocklist match / empty blocklist / no JA4T / no backend; error = unparsable IP or Redis write failed (fail-open).",
 	}, []string{"result"})
 	// EnforcementArmed mirrors the high-risk-bypass arming convention: 1 when
 	// the sensor will write enforceable ban:{ip} keys, 0 when advisory-only.
@@ -71,14 +78,30 @@ var (
 		Name: "ja4proxy_tap_redis_circuit_breaker_skips_total",
 		Help: "Writes skipped (not attempted) because the Redis circuit breaker was open.",
 	})
+	// ExcludedIPEventsTotal counts handshake events for a client IP matching
+	// --exclude-ips: no fp:os:ip, fp:ja4t:ip, fp:ban_intent:ip, or ban:{ip}
+	// write is attempted for these (phase-809, P-003).
+	ExcludedIPEventsTotal = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "ja4proxy_tap_excluded_ip_events_total",
+		Help: "Handshake events for a client IP matching --exclude-ips; no fingerprint or enforcement write was attempted for these.",
+	})
+	// HeapAllocBytes (G-003 item 3): sampled on the heartbeat interval
+	// alongside the existing log field of the same data, so the same
+	// heap-pressure visibility G-003/R-010 asked for is also queryable/
+	// alertable in Prometheus, not just grep-able in logs.
+	HeapAllocBytes = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "ja4proxy_tap_heap_alloc_bytes",
+		Help: "Go heap bytes in use, sampled on the heartbeat interval (runtime.MemStats.HeapAlloc).",
+	})
 )
 
 // results for EnforcementActionsTotal (Phase 316d).
 const (
-	enfSkipped   = "skipped"   // no blocklist match / empty blocklist / no JA4T / nil backend
-	enfWatchlist = "watchlist" // advisory ban intent recorded; nothing blocks (default)
-	enfBanned    = "banned"    // ban:{ip} written; inline proxy enforces on next connection (armed)
-	enfError     = "error"     // unparsable IP or Redis write failed; dropped fail-open
+	enfSkipped          = "skipped"           // no blocklist match / empty blocklist / no JA4T / nil backend
+	enfWatchlist        = "watchlist"         // advisory ban intent recorded; nothing blocks (default)
+	enfBanned           = "banned"            // ban:{ip} written; inline proxy enforces on next connection (armed)
+	enfOperatorOverride = "operator_override" // an operator ban already existed; sensor did not overwrite it (D-001)
+	enfError            = "error"             // unparsable IP or Redis write failed; dropped fail-open
 )
 
 // results for FingerprintsWrittenTotal (Phase 316b).
@@ -103,13 +126,17 @@ func Collectors() []prometheus.Collector {
 		EnforcementArmed,
 		RedisCircuitBreakerOpenedTotal,
 		RedisCircuitBreakerSkipsTotal,
+		ExcludedIPEventsTotal,
+		HeapAllocBytes,
 	}
 }
 
 // drop reasons for PacketsDroppedTotal.
 const (
-	dropDecode      = "decode"       // packet failed Ethernet/IP/TCP decode
-	dropNonTCP      = "non_tcp"      // decoded but no TCP layer
-	dropCapExceeded = "cap_exceeded" // stream exceeded the per-direction handshake cap
-	dropGap         = "gap"          // missing bytes before the handshake; cannot parse
+	dropDecode        = "decode"         // packet failed Ethernet/IP/TCP decode
+	dropNonTCP        = "non_tcp"        // decoded but no TCP layer
+	dropCapExceeded   = "cap_exceeded"   // stream exceeded the per-direction handshake cap
+	dropGap           = "gap"            // missing bytes before the handshake; cannot parse
+	dropEventOverflow = "event_overflow" // handshake-event channel full; event dropped (F-007)
+	dropReadError     = "read_error"     // genuine (non-timeout) PacketSource read error (F-020)
 )

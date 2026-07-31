@@ -114,6 +114,20 @@ scrape_configs:
           service: haproxy
           role: load-balancer
 
+  # phase-809 (O-004): standalone Go TAP/SPAN sensor (cmd/ja4-tap), --metrics-addr
+  # :9110. Optional service (docker-compose.prod.yml's `tap` profile) --
+  # network_mode: host there means this target is the host's real address, not
+  # a compose DNS name; adjust the target below to match your deployment
+  # (e.g. the SPAN-capture host's IP, or host.docker.internal from within the
+  # monitoring network).
+  - job_name: 'ja4proxy-tap'
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['ja4-tap:9110']
+        labels:
+          service: ja4-tap
+          role: tap-sensor
+
 # Storage configuration is set via command-line flags in docker-compose.yml
 # retention.time and retention.size are passed as startup arguments
 

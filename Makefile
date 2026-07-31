@@ -466,7 +466,8 @@ lint-coverage:
 HADOLINT_IGNORE := --ignore DL3008 --ignore DL3013 --ignore DL3015 --ignore DL3018 --ignore DL3059
 HADOLINT_DOCKERFILES := deploy/docker/Dockerfile.management \
 	deploy/docker/Dockerfile.mockbackend deploy/docker/Dockerfile.test \
-	deploy/docker/Dockerfile.trafficgen deploy/docker/Dockerfile.go-proxy src/analytics/Dockerfile src/tarpit/Dockerfile \
+	deploy/docker/Dockerfile.trafficgen deploy/docker/Dockerfile.go-proxy deploy/docker/Dockerfile.ja4-tap \
+	src/analytics/Dockerfile src/tarpit/Dockerfile \
 	tests/docker/Dockerfile.recorder \
 	tests/docker/Dockerfile.test-runner tests/docker/Dockerfile.tls-backend
 
@@ -493,7 +494,8 @@ lint-docker:
 		HAPROXY_STATS_USER=lint-placeholder HAPROXY_STATS_PASSWORD=lint-placeholder \
 		docker compose -f deploy/docker/docker-compose.monitoring.yml config --quiet \
 		&& echo "  deploy/docker/docker-compose.monitoring.yml               OK"
-	@BACKEND_HOST=lint-placeholder ANALYTICS_REDIS_PASSWORD=lint-placeholder docker compose -f deploy/docker/docker-compose.prod.yml config --quiet \
+	@BACKEND_HOST=lint-placeholder ANALYTICS_REDIS_PASSWORD=lint-placeholder TAP_INTERFACE=lint-placeholder \
+		docker compose -f deploy/docker/docker-compose.prod.yml config --quiet \
 		&& echo "  deploy/docker/docker-compose.prod.yml                     OK"
 	@BACKEND_HOST=lint-placeholder REDIS_PASSWORD=lint-placeholder ANALYTICS_REDIS_PASSWORD=lint-placeholder \
 		MANAGEMENT_JWT_SECRET=lint-placeholder MANAGEMENT_ADMIN_USER=lint-placeholder MANAGEMENT_ADMIN_PASSWORD=lint-placeholder \
@@ -621,6 +623,7 @@ scan-dockerfiles:
 	for f in deploy/docker/Dockerfile.go-proxy deploy/docker/Dockerfile.management \
 		 deploy/docker/Dockerfile.mockbackend deploy/docker/Dockerfile.test \
 		 deploy/docker/Dockerfile.trafficgen deploy/docker/Dockerfile.cli \
+		 deploy/docker/Dockerfile.ja4-tap \
 		; do \
 		if [ -f "$$f" ]; then \
 			echo ""; \
@@ -664,9 +667,11 @@ scan-first-party:
 	@echo "    Building the profile-gated CI-only test/trafficgen images (skipped by 'make build')..."
 	@DOCKER_BUILDKIT=1 docker build --no-cache -q -f deploy/docker/Dockerfile.test -t ja4proxy-test:1.0.0 . >/dev/null
 	@DOCKER_BUILDKIT=1 docker build --no-cache -q -f deploy/docker/Dockerfile.trafficgen -t ja4proxy-trafficgen:1.0.0 . >/dev/null
+	@echo "    Building ja4proxy-tap (deploy/docker/docker-compose.prod.yml's 'tap' profile, skipped by 'make build')..."
+	@DOCKER_BUILDKIT=1 docker build --no-cache -q -f deploy/docker/Dockerfile.ja4-tap -t ja4proxy-tap:1.0.0 . >/dev/null
 	@echo ""
 	@fail=0; \
-	for img in ja4proxy:2.0.0 ja4proxy-analytics:1.0.0 ja4proxy-tarpit:1.0.0 ja4proxy-mockbackend:1.0.0 ja4proxy-management:1.0.0 ja4proxy-test:1.0.0 ja4proxy-trafficgen:1.0.0; do \
+	for img in ja4proxy:2.0.0 ja4proxy-analytics:1.0.0 ja4proxy-tarpit:1.0.0 ja4proxy-mockbackend:1.0.0 ja4proxy-management:1.0.0 ja4proxy-test:1.0.0 ja4proxy-trafficgen:1.0.0 ja4proxy-tap:1.0.0; do \
 		echo "  Scanning $$img ..."; \
 		result=$$(docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
 			-v "$(PWD):/scan:ro" \
@@ -686,7 +691,7 @@ scan-first-party:
 
 # Phase 228: human-readable rollup of the image CVE scans. Reporting only —
 # `make scan` remains the authoritative gate. First-party rows require `make build`.
-FIRST_PARTY_IMAGES := ja4proxy:2.0.0 ja4proxy-analytics:1.0.0 ja4proxy-tarpit:1.0.0 ja4proxy-mockbackend:1.0.0 ja4proxy-management:1.0.0 ja4proxy-test:1.0.0 ja4proxy-trafficgen:1.0.0
+FIRST_PARTY_IMAGES := ja4proxy:2.0.0 ja4proxy-analytics:1.0.0 ja4proxy-tarpit:1.0.0 ja4proxy-mockbackend:1.0.0 ja4proxy-management:1.0.0 ja4proxy-test:1.0.0 ja4proxy-trafficgen:1.0.0 ja4proxy-tap:1.0.0
 scan-summary: ## Phase 228 — compact CRIT/HIGH/MED rollup of all scans (images + misconfig + gosec; reporting only)
 	@mkdir -p "$(TRIVY_CACHE)"
 	@$(PYTHON) scripts/scan_summary.py $(TRIVY_IMAGES) $(FIRST_PARTY_IMAGES)
