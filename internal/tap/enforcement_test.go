@@ -221,3 +221,24 @@ func TestNewEnforcer_DefaultsZeroTTLs(t *testing.T) {
 		t.Errorf("zero IntentTTL should default to %v; got %v", defaultIntentTTL, rs.calls[0].ttl)
 	}
 }
+
+// TestEnforcer_ConcurrentBlocklistReloadIsRaceFree exercises F-016: a
+// SetBlocklist call (simulating a config-reload handler) racing Consider's
+// hot-path reads must never trigger Go's "concurrent map read and map write"
+// panic. Run with -race to actually catch a regression.
+func TestEnforcer_ConcurrentBlocklistReloadIsRaceFree(t *testing.T) {
+	e := NewEnforcer(EnforcerConfig{Armed: false, JA4TBlocklist: map[string]bool{blocklistedJA4T: true}}, &recordingSetter{})
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for i := 0; i < 200; i++ {
+			e.SetBlocklist(map[string]bool{blocklistedJA4T: true})
+		}
+	}()
+
+	for i := 0; i < 200; i++ {
+		e.Consider(context.Background(), "203.0.113.9", blocklistedJA4T)
+	}
+	<-done
+}

@@ -307,6 +307,8 @@ with capability drop.
 
 **Phase:** 316a
 
+> **RESOLVED** (landing not tied to a specific reviewed commit; confirmed during PHASE_809 scoping, 2026-07-31): `internal/tap/watchdog.go`'s `Watchdog.Run` wraps the sensor goroutine, restarts it on any non-nil error via a fresh `srcFactory`/`sensorFactory` pair, and gives up after 5 restarts within a 60s window (rapid-crash-loop protection) rather than looping forever. Wired in at `cmd/ja4-tap/main.go:209` (`tap.NewWatchdog(log)`). This is the same mechanism F-022's and R-001/R-002's `RESOLVED` notes already referenced by name without linking back here — closing that gap now.
+
 **Description:**
 The 316a plan Files-to-Modify table lists `internal/tap/watchdog.go` as a new file,
 described in implementation plan step 8 as "per-worker restart with rapid-crash

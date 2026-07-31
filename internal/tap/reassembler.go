@@ -220,6 +220,15 @@ func (s *tlsStream) maybeEmit(force bool) {
 	}
 	s.emitted = true
 	HandshakesExtractedTotal.WithLabelValues("connection").Inc()
+
+	// Deep-copy OptionOrder so the emitted event shares no backing array with
+	// s.stack (G-001) — consistent with the ClientHello/ServerHello deep-copy
+	// pattern above; s.emitted guards against a live race today, but a shared
+	// slice header is a latent one waiting for a future reader/writer of
+	// s.stack after emit.
+	stack := s.stack
+	stack.OptionOrder = append([]layers.TCPOptionKind(nil), s.stack.OptionOrder...)
+
 	s.emit(HandshakeEvent{
 		ClientIP:    s.clientIP,
 		ServerIP:    s.serverIP,
@@ -228,6 +237,6 @@ func (s *tlsStream) maybeEmit(force bool) {
 		ClientHello: s.clientHello,
 		ServerHello: s.serverHello,
 		FirstSeen:   s.firstSeen,
-		Stack:       s.stack,
+		Stack:       stack,
 	})
 }

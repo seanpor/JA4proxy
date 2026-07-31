@@ -3,6 +3,7 @@ package tap
 import (
 	"context"
 	"errors"
+	"sync"
 	"time"
 )
 
@@ -59,6 +60,14 @@ type EnforcerConfig struct {
 type Enforcer struct {
 	cfg   EnforcerConfig
 	redis redisSetter
+
+	// blocklistMu guards blocklist (F-016). JA4TBlocklist is only ever set
+	// once today (parseBlocklist at startup), but Wave 3's config-reload
+	// support (R-009) makes a live-updated blocklist a near-term reality, and
+	// a bare map read racing a reload's write is a runtime panic
+	// (`concurrent map read and map write`), not a benign data race.
+	blocklistMu sync.RWMutex
+	blocklist   map[string]bool
 }
 
 // NewEnforcer builds an Enforcer over the given setter (nil for offline replay,
@@ -77,7 +86,18 @@ func NewEnforcer(cfg EnforcerConfig, r redisSetter) *Enforcer {
 	} else {
 		EnforcementArmed.Set(0)
 	}
-	return &Enforcer{cfg: cfg, redis: r}
+	return &Enforcer{cfg: cfg, redis: r, blocklist: cfg.JA4TBlocklist}
+}
+
+// SetBlocklist atomically replaces the enforcement blocklist. Safe to call
+// concurrently with Consider (e.g. from a config-reload handler) — see F-016.
+func (e *Enforcer) SetBlocklist(bl map[string]bool) {
+	if e == nil {
+		return
+	}
+	e.blocklistMu.Lock()
+	e.blocklist = bl
+	e.blocklistMu.Unlock()
 }
 
 // Consider evaluates one observed connection. When the client's JA4T is on the
@@ -92,7 +112,11 @@ func (e *Enforcer) Consider(ctx context.Context, clientIP, ja4t string) {
 	}
 	// Cheapest rejections first — and the empty-blocklist short-circuit is what
 	// makes the default configuration provably incapable of producing a ban.
-	if len(e.cfg.JA4TBlocklist) == 0 || ja4t == "" || !e.cfg.JA4TBlocklist[ja4t] {
+	e.blocklistMu.RLock()
+	blocked := ja4t != "" && e.blocklist[ja4t]
+	empty := len(e.blocklist) == 0
+	e.blocklistMu.RUnlock()
+	if empty || ja4t == "" || !blocked {
 		EnforcementActionsTotal.WithLabelValues(enfSkipped).Inc()
 		return
 	}

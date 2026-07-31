@@ -39,6 +39,9 @@ func (t *tpacketSource) ReadPacketData() ([]byte, gopacket.CaptureInfo, error) {
 // ProcessPacket instead.  Privilege dropping and seccomp are handled by the
 // caller (DropCapabilities / LoadSeccomp).
 func NewLiveSource(iface string, frameSize int, bpfFilter []bpf.RawInstruction) (src PacketSource, linkType layers.LinkType, closeFn func(), err error) {
+	if err := checkInterfaceUp(iface); err != nil {
+		return nil, 0, nil, err
+	}
 	opts := []any{afpacket.OptInterface(iface), afpacket.OptPollTimeout(100 * time.Millisecond)}
 	if frameSize > 0 {
 		opts = append(opts, afpacket.OptFrameSize(frameSize))
