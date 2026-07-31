@@ -19,7 +19,8 @@ func TestRunRejectsInvalidEventBuffer(t *testing.T) {
 	log.SetOutput(io.Discard)
 
 	for _, buf := range []int{0, -1, -1024} {
-		err := run("nonexistent.pcap", "", 0, nil, true, "", tap.EnforcerConfig{}, "", buf, log)
+		cfg := runConfig{pcapFile: "nonexistent.pcap", quiet: true, enfCfg: tap.EnforcerConfig{}, eventBuffer: buf}
+		err := run(cfg, log)
 		if err == nil {
 			t.Errorf("event-buffer=%d: expected an error, got nil", buf)
 			continue

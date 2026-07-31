@@ -12,6 +12,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"flag"
 	"fmt"
 	"net/http"
@@ -55,21 +56,40 @@ func withTimeout(fn func(context.Context)) {
 	fn(ctx)
 }
 
+// runConfig bundles run's parameters. Introduced alongside F-017/F-018 (Redis
+// credential/TLS hardening) since PHASE_809's later operability work
+// (R-005/R-007/R-008/R-009) adds several more flags to this same path — a
+// struct absorbs that growth without another positional-parameter rewrite.
+type runConfig struct {
+	pcapFile, iface string
+	frameSize       int
+	bpfProg         []bpf.RawInstruction
+	quiet           bool
+	redisURL        string
+	redisPassword   string // F-017: overrides any password embedded in redisURL
+	redisTLS        bool   // F-018: force TLS regardless of redisURL's scheme
+	enfCfg          tap.EnforcerConfig
+	seccompPath     string
+	eventBuffer     int
+}
+
 func main() {
 	var (
-		pcapFile    = flag.String("pcap-file", "", "offline .pcap file to replay (no privileges required)")
-		iface       = flag.String("interface", "", "live capture interface (Linux AF_PACKET; needs CAP_NET_RAW)")
-		frameSize   = flag.Int("frame-size", 0, "AF_PACKET frame size (0 = library default)")
-		bpfPorts    = flag.String("bpf-ports", "443,8443", "comma-separated TCP dst ports for the kernel BPF filter (empty = no kernel filter, userspace only)")
-		quiet       = flag.Bool("quiet", false, "suppress per-handshake output; print only the final summary")
-		redisURL    = flag.String("redis-url", "", "Redis URL to write passive fingerprints to fp:os:ip and fp:ja4t:ip (empty = classify-and-log only, no writes)")
-		enforce     = flag.Bool("enforce", false, "ARM active blocking: write enforceable ban:{ip} keys for blocklisted clients (off = advisory fp:ban_intent watchlist only; arming also needs a widened Redis ACL ~ban:*)")
-		ja4tBlock   = flag.String("ja4t-blocklist", "", "comma-separated JA4T fingerprints that trigger an out-of-band ban intent (empty = enforcement can never fire)")
-		banTTL      = flag.Duration("ban-ttl", 5*time.Minute, "TTL for a sensor-written ban:{ip} (kept short by the fail-open asymmetry)")
-		intentTTL   = flag.Duration("intent-ttl", time.Hour, "TTL for an advisory fp:ban_intent:ip watchlist entry")
-		metricsAddr = flag.String("metrics-addr", "", "HTTP address for Prometheus metrics and /health (empty = disabled)")
-		seccompPath = flag.String("seccomp-profile", "/etc/ja4proxy/seccomp_tap.json", "path to seccomp JSON profile (empty = embedded default)")
-		eventBuffer = flag.Int("event-buffer", 1024, "size of the handshake-event channel between capture and the Redis-writing goroutine; when full, events are dropped (fail-open, counted as packets_dropped{reason=event_overflow}) rather than blocking capture. Larger absorbs longer Redis stalls at the cost of more memory and staler events once it drains (R-004)")
+		pcapFile      = flag.String("pcap-file", "", "offline .pcap file to replay (no privileges required)")
+		iface         = flag.String("interface", "", "live capture interface (Linux AF_PACKET; needs CAP_NET_RAW)")
+		frameSize     = flag.Int("frame-size", 0, "AF_PACKET frame size (0 = library default)")
+		bpfPorts      = flag.String("bpf-ports", "443,8443", "comma-separated TCP dst ports for the kernel BPF filter (empty = no kernel filter, userspace only)")
+		quiet         = flag.Bool("quiet", false, "suppress per-handshake output; print only the final summary")
+		redisURL      = flag.String("redis-url", "", "Redis URL to write passive fingerprints to fp:os:ip and fp:ja4t:ip (empty = classify-and-log only, no writes)")
+		redisPassword = flag.String("redis-password", "", "Redis password, overrides any password embedded in --redis-url (empty = fall back to REDIS_PASSWORD env var, then any password in --redis-url). Keeps credentials off the command line / ps aux (F-017)")
+		redisTLS      = flag.Bool("redis-tls", false, "force TLS to the Redis connection regardless of --redis-url's scheme (min TLS 1.2). Use when the operator cannot express rediss:// (F-018)")
+		enforce       = flag.Bool("enforce", false, "ARM active blocking: write enforceable ban:{ip} keys for blocklisted clients (off = advisory fp:ban_intent watchlist only; arming also needs a widened Redis ACL ~ban:*)")
+		ja4tBlock     = flag.String("ja4t-blocklist", "", "comma-separated JA4T fingerprints that trigger an out-of-band ban intent (empty = enforcement can never fire)")
+		banTTL        = flag.Duration("ban-ttl", 5*time.Minute, "TTL for a sensor-written ban:{ip} (kept short by the fail-open asymmetry)")
+		intentTTL     = flag.Duration("intent-ttl", time.Hour, "TTL for an advisory fp:ban_intent:ip watchlist entry")
+		metricsAddr   = flag.String("metrics-addr", "", "HTTP address for Prometheus metrics and /health (empty = disabled)")
+		seccompPath   = flag.String("seccomp-profile", "/etc/ja4proxy/seccomp_tap.json", "path to seccomp JSON profile (empty = embedded default)")
+		eventBuffer   = flag.Int("event-buffer", 1024, "size of the handshake-event channel between capture and the Redis-writing goroutine; when full, events are dropped (fail-open, counted as packets_dropped{reason=event_overflow}) rather than blocking capture. Larger absorbs longer Redis stalls at the cost of more memory and staler events once it drains (R-004)")
 	)
 	flag.Parse()
 
@@ -90,7 +110,20 @@ func main() {
 		BanTTL:        *banTTL,
 		IntentTTL:     *intentTTL,
 	}
-	if err := run(*pcapFile, *iface, *frameSize, bpfProg, *quiet, *redisURL, enfCfg, *seccompPath, *eventBuffer, log); err != nil {
+	cfg := runConfig{
+		pcapFile:      *pcapFile,
+		iface:         *iface,
+		frameSize:     *frameSize,
+		bpfProg:       bpfProg,
+		quiet:         *quiet,
+		redisURL:      *redisURL,
+		redisPassword: *redisPassword,
+		redisTLS:      *redisTLS,
+		enfCfg:        enfCfg,
+		seccompPath:   *seccompPath,
+		eventBuffer:   *eventBuffer,
+	}
+	if err := run(cfg, log); err != nil {
 		log.WithError(err).Error("ja4-tap exited with error")
 		os.Exit(1)
 	}
@@ -108,19 +141,19 @@ func parseBlocklist(csv string) map[string]bool {
 	return out
 }
 
-func run(pcapFile, iface string, frameSize int, bpfProg []bpf.RawInstruction, quiet bool, redisURL string, enfCfg tap.EnforcerConfig, seccompPath string, eventBuffer int, log *logrus.Logger) error {
-	if (pcapFile == "") == (iface == "") {
+func run(cfg runConfig, log *logrus.Logger) error {
+	if (cfg.pcapFile == "") == (cfg.iface == "") {
 		return fmt.Errorf("exactly one of --pcap-file or --interface must be set")
 	}
-	if eventBuffer < 1 {
-		return fmt.Errorf("--event-buffer must be >= 1 (got %d); make(chan, n) panics on a negative size and 0 blocks every emit", eventBuffer)
+	if cfg.eventBuffer < 1 {
+		return fmt.Errorf("--event-buffer must be >= 1 (got %d); make(chan, n) panics on a negative size and 0 blocks every emit", cfg.eventBuffer)
 	}
 
-	store, enforcer, err := buildBackends(redisURL, enfCfg, log)
+	store, enforcer, err := buildBackends(cfg, log)
 	if err != nil {
 		return err
 	}
-	warnEnforcementPosture(redisURL, enfCfg, log)
+	warnEnforcementPosture(cfg.redisURL, cfg.enfCfg, log)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -130,15 +163,15 @@ func run(pcapFile, iface string, frameSize int, bpfProg []bpf.RawInstruction, qu
 		lt      layers.LinkType
 		closeFn func() error
 	)
-	if pcapFile != "" {
-		src, lt, closeFn, err = tap.OpenPcapFile(pcapFile)
+	if cfg.pcapFile != "" {
+		src, lt, closeFn, err = tap.OpenPcapFile(cfg.pcapFile)
 		if err != nil {
 			return fmt.Errorf("open pcap: %w", err)
 		}
 	} else {
-		rawSrc, rawLT, rawClose, err := tap.NewLiveSource(iface, frameSize, bpfProg)
+		rawSrc, rawLT, rawClose, err := tap.NewLiveSource(cfg.iface, cfg.frameSize, cfg.bpfProg)
 		if err != nil {
-			return fmt.Errorf("open live interface %q: %w", iface, err)
+			return fmt.Errorf("open live interface %q: %w", cfg.iface, err)
 		}
 		src = rawSrc
 		lt = rawLT
@@ -151,11 +184,11 @@ func run(pcapFile, iface string, frameSize int, bpfProg []bpf.RawInstruction, qu
 	if err := tap.DropCapabilities(); err != nil {
 		log.WithError(err).Warn("failed to drop capabilities; proceeding with current UID/GID")
 	}
-	if err := tap.LoadSeccomp(seccompPath); err != nil {
+	if err := tap.LoadSeccomp(cfg.seccompPath); err != nil {
 		log.WithError(err).Warn("failed to load seccomp profile; proceeding without seccomp")
 	}
 
-	return drive(ctx, lt, src, closeFn, store, enforcer, quiet, eventBuffer, log)
+	return drive(ctx, lt, src, closeFn, store, enforcer, cfg.quiet, cfg.eventBuffer, log)
 }
 
 // warnEnforcementPosture emits the startup WARN + records the posture the same
@@ -188,19 +221,48 @@ func warnEnforcementPosture(redisURL string, cfg tap.EnforcerConfig, log *logrus
 // failures it stops attempting real writes for a cooldown, so a Redis outage
 // degrades to fast no-op skips instead of every write paying out its own
 // timeout and collapsing drain throughput.
-func buildBackends(redisURL string, enfCfg tap.EnforcerConfig, log *logrus.Logger) (*tap.Store, *tap.Enforcer, error) {
-	if redisURL == "" {
-		log.Info("no --redis-url: classifying OS but not writing fp:os:ip (offline/dry-run mode)")
-		return tap.NewStore(nil), tap.NewEnforcer(enfCfg, nil), nil
-	}
-	opt, err := redis.ParseURL(redisURL)
+// buildRedisOptions parses --redis-url and applies F-017 (password off the
+// command line) / F-018 (forced TLS) on top of it. Split out from
+// buildBackends so both can be unit-tested without dialing real Redis.
+func buildRedisOptions(cfg runConfig) (*redis.Options, error) {
+	opt, err := redis.ParseURL(cfg.redisURL)
 	if err != nil {
-		return nil, nil, fmt.Errorf("parse --redis-url: %w", err)
+		return nil, fmt.Errorf("parse --redis-url: %w", err)
 	}
-	log.WithField("addr", opt.Addr).Info("writing passive fingerprints to Redis (fp:os:ip, fp:ja4t:ip)")
+
+	// F-017: keep the password off the command line. --redis-password wins,
+	// then REDIS_PASSWORD, then whatever ParseURL already extracted from the
+	// URL itself (so an existing rediss://:pw@host deployment keeps working).
+	switch {
+	case cfg.redisPassword != "":
+		opt.Password = cfg.redisPassword
+	case os.Getenv("REDIS_PASSWORD") != "":
+		opt.Password = os.Getenv("REDIS_PASSWORD")
+	}
+
+	// F-018: --redis-tls forces TLS even when the operator passed redis://
+	// (ParseURL only sets TLSConfig for the rediss:// scheme).
+	if cfg.redisTLS && opt.TLSConfig == nil {
+		opt.TLSConfig = &tls.Config{MinVersion: tls.VersionTLS12}
+	}
+	return opt, nil
+}
+
+func buildBackends(cfg runConfig, log *logrus.Logger) (*tap.Store, *tap.Enforcer, error) {
+	if cfg.redisURL == "" {
+		log.Info("no --redis-url: classifying OS but not writing fp:os:ip (offline/dry-run mode)")
+		return tap.NewStore(nil), tap.NewEnforcer(cfg.enfCfg, nil), nil
+	}
+	opt, err := buildRedisOptions(cfg)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	log.WithFields(logrus.Fields{"addr": opt.Addr, "tls": opt.TLSConfig != nil}).
+		Info("writing passive fingerprints to Redis (fp:os:ip, fp:ja4t:ip)")
 	adapter := redisAdapter{rdb: redis.NewClient(opt)}
 	breaker := tap.NewRedisCircuitBreaker(adapter)
-	return tap.NewStore(breaker), tap.NewEnforcer(enfCfg, breaker), nil
+	return tap.NewStore(breaker), tap.NewEnforcer(cfg.enfCfg, breaker), nil
 }
 
 func drive(ctx context.Context, lt layers.LinkType, source tap.PacketSource, closeFn func() error, store *tap.Store, enforcer *tap.Enforcer, quiet bool, eventBuffer int, log *logrus.Logger) error {
