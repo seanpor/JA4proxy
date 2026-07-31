@@ -751,6 +751,16 @@ increment on the error path before `continue`.
 
 ### F-021 — [LOW] No payload-privacy test (sensor behaviour guarantee untested)
 
+> **RESOLVED** (PHASE_809, 2026-07-31): added
+> `TestSensor_PayloadPrivacy_NoApplicationDataRetained`, which sends a
+> complete handshake followed by distinctive post-handshake application-data
+> payload on both directions and asserts the emitted `HandshakeEvent`'s
+> `ClientHello`/`ServerHello` contain exactly the handshake bytes — nothing
+> from the trailing payload. Passes today because `appendDir`'s `if *done {
+> return }` guard already stops buffering once a direction completes; this
+> test makes that guarantee a regression-tested fact instead of an implicit
+> side effect.
+
 **Phase:** 316a (testing)
 
 **Severity:** Low — quality gap
