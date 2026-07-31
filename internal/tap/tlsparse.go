@@ -11,6 +11,14 @@ const (
 	handshakeHeaderLen  = 4       // type(1) + length(3)
 	maxTLSRecordPayload = 1 << 14 // 16384 — RFC 8446 max TLSPlaintext fragment
 	maxHandshakeBytes   = 16384   // per-direction reassembly cap (PHASE_316a §5)
+
+	// minTLSRecordVersion/maxTLSRecordVersion bound the TLS record layer's
+	// legacy_record_version field (T-002). Even TLS 1.3 records carry 0x0303
+	// here for middlebox compatibility -- RFC 8446 §5.1 -- so this range
+	// (SSLv3 through the TLS-1.3-compatible ceiling) is valid across every
+	// TLS version, not just up to 1.2.
+	minTLSRecordVersion = 0x0300
+	maxTLSRecordVersion = 0x0303
 )
 
 // handshakeResult reports the outcome of scanning a reassembled byte stream for
@@ -44,7 +52,6 @@ func extractFirstHandshake(buf []byte, want byte) handshakeResult {
 	i := 0
 	for i+tlsRecordHeaderLen <= len(buf) {
 		contentType := buf[i]
-		recLen := int(buf[i+3])<<8 | int(buf[i+4])
 
 		if contentType != tlsContentHandshake {
 			// The very first TLS record of a client/server stream must be a
@@ -53,8 +60,36 @@ func extractFirstHandshake(buf []byte, want byte) handshakeResult {
 			if len(hs) == 0 {
 				return handshakeResult{fatal: true}
 			}
-			break
+			// F-008: a non-handshake record interleaved *after* accumulation
+			// has started (e.g. a TLS 1.2 ChangeCipherSpec between ClientHello
+			// fragments) must be skipped, not treated as a stop condition --
+			// breaking here without advancing i left the same record at the
+			// same offset on the next call, permanently stalling this
+			// direction the moment any fragmentation interleaved a
+			// non-handshake record. recLen/recEnd bounds-checking below is
+			// shared with the handshake-record path since both need it to
+			// safely skip past a record's payload.
+			recLen := int(buf[i+3])<<8 | int(buf[i+4])
+			if recLen == 0 || recLen > maxTLSRecordPayload {
+				break // malformed length; wait for more data rather than force fatal on legitimate accumulated hs
+			}
+			recEnd := i + tlsRecordHeaderLen + recLen
+			if recEnd > len(buf) {
+				break // truncated — wait for more bytes
+			}
+			i = recEnd
+			continue
 		}
+		// T-002: a non-TLS protocol on the SPAN port that happens to start
+		// with byte 0x16 (tlsContentHandshake) and has plausible-looking
+		// length bytes would otherwise be misidentified as a TLS handshake.
+		// The legacy_record_version field is far more constrained than the
+		// content-type byte alone, so checking it eliminates that class of
+		// false positive at near-zero cost (one comparison per record).
+		if ver := uint16(buf[i+1])<<8 | uint16(buf[i+2]); ver < minTLSRecordVersion || ver > maxTLSRecordVersion {
+			return handshakeResult{fatal: true}
+		}
+		recLen := int(buf[i+3])<<8 | int(buf[i+4])
 		if recLen == 0 || recLen > maxTLSRecordPayload {
 			return handshakeResult{fatal: true}
 		}

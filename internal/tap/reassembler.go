@@ -16,6 +16,16 @@ var logger = logrus.New()
 // maxHandshakeBytes cap each stream enforces itself. A page is ~1900 bytes;
 // 4096 pages ≈ 8 MB, ample for handshake-only buffering and a hard stop against
 // a SPAN-port flood turning the sensor into an OOM.
+//
+// maxBufferedPagesPerConn is a security control, not a tuning knob (F-026):
+// gopacket's reassembly.Assembler.MaxBufferedPagesPerConnection defaults much
+// higher, and reassembler.go's maybeEmit path calls sg.Fetch(length) with
+// length taken directly from gopacket's own accounting of buffered bytes for
+// that connection — i.e. an attacker-influenced allocation size bounded only
+// by this constant. Raising it (e.g. to accommodate a larger handshake)
+// directly raises the per-connection Fetch allocation ceiling; see
+// TestMaxBufferedPagesPerConnStaysLow, which pins the current value so a
+// change here doesn't pass silently.
 const (
 	maxBufferedPagesTotal   = 4096
 	maxBufferedPagesPerConn = 8

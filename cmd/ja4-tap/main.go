@@ -216,6 +216,15 @@ func run(cfg runConfig, log *logrus.Logger) error {
 	if cfg.eventBuffer < 1 {
 		return fmt.Errorf("--event-buffer must be >= 1 (got %d); make(chan, n) panics on a negative size and 0 blocks every emit", cfg.eventBuffer)
 	}
+	// F-027: 0 means "library default" (afpacket.OptFrameSize is simply not
+	// applied); any other value is cast to uint32 by the afpacket library, so
+	// a negative flag value underflows into a huge allocation request instead
+	// of erroring. minFrameSize/maxFrameSize bound the accepted range to sane
+	// AF_PACKET frame sizes (full Ethernet frame + TPACKET header, up to 1MiB).
+	const minFrameSize, maxFrameSize = 2048, 1 << 20
+	if cfg.frameSize != 0 && (cfg.frameSize < minFrameSize || cfg.frameSize > maxFrameSize) {
+		return fmt.Errorf("--frame-size must be 0 (library default) or between %d and %d (got %d)", minFrameSize, maxFrameSize, cfg.frameSize)
+	}
 
 	store, enforcer, err := buildBackends(cfg, log)
 	if err != nil {

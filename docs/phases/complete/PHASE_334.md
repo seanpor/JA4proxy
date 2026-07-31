@@ -365,6 +365,13 @@ block in `metrics.go`.
 
 ### F-008 — [MINOR] TLS parser stalls on non-handshake record interleaved in fragmented handshake
 
+> **RESOLVED** (PHASE_809, 2026-07-31): `extractFirstHandshake` now skips
+> past an interleaved non-handshake record (advancing `i` and continuing the
+> scan) instead of `break`ing without advancing — the old code left the same
+> record at the same offset on every subsequent call, permanently stalling
+> the direction. New round-trip test replays a ClientHello fragmented around
+> an interleaved ChangeCipherSpec record and confirms it still reassembles.
+
 **Phase:** 316a
 
 **Description:**
@@ -879,6 +886,18 @@ and hoping the crash reproduces.
 
 ### F-025 — [MEDIUM] gopacket v1.6.1 dependency — no CVE audit in repo for this dep
 
+> **STALE, already resolved by the time PHASE_809 checked** (2026-07-31): all
+> 3 of the finding's recommendations already exist project-wide and cover
+> gopacket automatically since it's a normal `go.mod` dependency, not a
+> special case needing its own process: `govulncheck` runs on every PR/push
+> and weekly (`.github/workflows/ci.yml`), findings are tracked in
+> `docs/security/CVE_EXCEPTIONS.md`/`FINDINGS_REGISTER.md`, and
+> `govulncheck ./...` run live during 809 scoping found zero vulnerabilities
+> reachable from the tap sensor's code paths (now on gopacket v1.7.0, not
+> v1.6.1 as this finding was written against). Item 4 (fuzz-testing
+> `ProcessPacket`) remains genuinely undone — not attempted in this phase,
+> tracked as a real gap, not stale.
+
 **Phase:** 316a (supply chain)
 
 **Severity:** MEDIUM — unknown vulnerability surface in a network-facing parser
@@ -919,6 +938,13 @@ tree.
 
 ### F-026 — [LOW] gopacket `Fetch()` allocates attacker-controlled buffer size
 
+> **RESOLVED (documentation)** (PHASE_809, 2026-07-31): documented
+> `maxBufferedPagesPerConn`'s security-control role directly on the const
+> block (not just this finding) and added
+> `TestMaxBufferedPagesPerConnStaysLow`, which fails if the constant is
+> raised above a reviewed ceiling without deliberately updating the test —
+> the recommendation's "explicit assertion or test" verbatim.
+
 **Phase:** 316a
 
 **Severity:** LOW — bounded by `MaxBufferedPagesPerConnection`
@@ -949,6 +975,12 @@ this default is not accidentally raised.
 ---
 
 ### F-027 — [LOW] No input validation on `--frame-size` (integer underflow/overflow)
+
+> **RESOLVED** (PHASE_809, 2026-07-31): `run()` in `cmd/ja4-tap/main.go` now
+> rejects `--frame-size` outside `{0} ∪ [2048, 1<<20]` before it ever reaches
+> `afpacket.OptFrameSize`'s int→uint32 cast. Tests cover both the rejected
+> range (negative, too-small, too-large) and that 0/in-range values still
+> pass through to the actual capture-open step.
 
 **Phase:** 316a
 
@@ -1501,6 +1533,12 @@ Note: the fix is not trivial because `res.complete` is inside the `switch` in `a
 ---
 
 ### T-002 — [LOW] No protocol version validation in TLS record header
+
+> **RESOLVED** (PHASE_809, 2026-07-31): `extractFirstHandshake` now validates
+> each handshake record's `legacy_record_version` field against
+> `[0x0300, 0x0303]` (TLS 1.3 records still use 0x0303 here per RFC 8446 §5.1,
+> so this range is valid across every TLS version) and returns `fatal` for
+> anything outside it. Tests cover all 4 valid versions and 4 invalid ones.
 
 **Phase:** 316a (tlsparse)
 

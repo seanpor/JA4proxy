@@ -96,6 +96,61 @@ func TestExtractFirstHandshake(t *testing.T) {
 	})
 }
 
+// TestExtractFirstHandshake_SkipsInterleavedNonHandshakeRecord guards F-008:
+// a non-handshake record (e.g. a TLS 1.2 ChangeCipherSpec, content type 20)
+// interleaved between two fragments of a ClientHello must be skipped, not
+// treated as a stop condition -- the old `break` (without advancing i) left
+// the same record at the same offset on every subsequent call, permanently
+// stalling this direction.
+func TestExtractFirstHandshake_SkipsInterleavedNonHandshakeRecord(t *testing.T) {
+	const tlsContentChangeCipherSpec = 20
+	ch := clientHelloMessage(40)
+	half := len(ch) / 2
+
+	var buf []byte
+	buf = append(buf, tlsRecord(tlsContentHandshake, ch[:half])...)
+	buf = append(buf, tlsRecord(tlsContentChangeCipherSpec, []byte{0x01})...)
+	buf = append(buf, tlsRecord(tlsContentHandshake, ch[half:])...)
+
+	res := extractFirstHandshake(buf, handshakeClientHello)
+	if !res.complete || res.fatal {
+		t.Fatalf("expected complete non-fatal past the interleaved ChangeCipherSpec, got %+v", res)
+	}
+	if !bytes.Equal(res.message, ch) {
+		t.Error("defragmented ClientHello does not match original — interleaved record corrupted reassembly")
+	}
+}
+
+// TestExtractFirstHandshake_RecordVersionValidation guards T-002: a
+// non-TLS protocol that happens to start with byte 0x16 (tlsContentHandshake)
+// and has plausible length bytes must not be misidentified as a TLS
+// handshake if its declared record version is outside the valid range.
+func TestExtractFirstHandshake_RecordVersionValidation(t *testing.T) {
+	ch := clientHelloMessage(40)
+
+	t.Run("valid versions accepted", func(t *testing.T) {
+		for _, v := range [][2]byte{{0x03, 0x00}, {0x03, 0x01}, {0x03, 0x02}, {0x03, 0x03}} {
+			rec := tlsRecord(tlsContentHandshake, ch)
+			rec[1], rec[2] = v[0], v[1]
+			res := extractFirstHandshake(rec, handshakeClientHello)
+			if !res.complete || res.fatal {
+				t.Errorf("version %02x%02x: expected complete non-fatal, got %+v", v[0], v[1], res)
+			}
+		}
+	})
+
+	t.Run("invalid version is fatal", func(t *testing.T) {
+		for _, v := range [][2]byte{{0x02, 0xFF}, {0x04, 0x00}, {0x00, 0x00}, {0xFF, 0xFF}} {
+			rec := tlsRecord(tlsContentHandshake, ch)
+			rec[1], rec[2] = v[0], v[1]
+			res := extractFirstHandshake(rec, handshakeClientHello)
+			if !res.fatal {
+				t.Errorf("version %02x%02x: expected fatal, got %+v", v[0], v[1], res)
+			}
+		}
+	})
+}
+
 // TestExtractFirstHandshake_SkipsNonMatchingType guards T-001: a complete
 // handshake message of a type other than what the caller wants (e.g. a TLS
 // 1.3 HelloRetryRequest, type 6, or a TLS 1.2 HelloRequest, type 0, ahead of
