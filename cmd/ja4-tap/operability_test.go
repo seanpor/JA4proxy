@@ -158,6 +158,11 @@ func TestDrive_HeartbeatLogsWithoutQuiet(t *testing.T) {
 	if !strings.Contains(buf.String(), "heartbeat") {
 		t.Error("expected at least one heartbeat log line even in quiet mode with no traffic; got none")
 	}
+	// G-003 item 3: heap usage must also be a queryable/alertable Prometheus
+	// gauge, not just a log field.
+	if got := testutil.ToFloat64(tap.HeapAllocBytes); got <= 0 {
+		t.Errorf("HeapAllocBytes = %v, want > 0 after at least one heartbeat", got)
+	}
 }
 
 // --- minimal synthetic single-connection TLS handshake, for the

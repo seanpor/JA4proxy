@@ -157,6 +157,16 @@ Phase 809:
   scrapes it via the `ja4proxy-tap` job in
   `deploy/monitoring/prometheus/prometheus.yml`. The `ja4tap` Redis ACL user
   lives in `config/redis_acl.conf`.
+- **Shutdown grace period (R-013):** on `SIGTERM`, the sensor stops
+  capturing, flushes in-flight reassembly state (`Sensor.Flush`), and drains
+  the remaining buffered events before exiting -- give it at least
+  `1s + idleFlushInterval` (`internal/tap/sensor.go`, currently 30s, so
+  ~31s total) as the container/orchestrator's `stop_grace_period` for
+  zero-loss shutdown. A `SIGKILL` (grace period exceeded, OOM killer) drops
+  whatever is still buffered with no audit trail -- acceptable under the
+  sensor's fail-open design (a lost event just means one client goes
+  unclassified for one fingerprint-TTL window), but worth knowing about
+  when tuning orchestrator timeouts.
 
 ---
 

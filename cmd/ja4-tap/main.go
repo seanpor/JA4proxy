@@ -379,9 +379,29 @@ func buildBackends(cfg runConfig, log *logrus.Logger) (*tap.Store, *tap.Enforcer
 		return nil, nil, err
 	}
 
+	rdb := redis.NewClient(opt)
+
+	// R-012: without this, a misconfigured Redis URL (wrong host/port/
+	// password, or rediss:// needed but redis:// given) is only discovered
+	// on the first write failure, and even then only visible via the
+	// fingerprints_written_total{result="error"} metric -- the sensor looks
+	// healthy (running, decoding packets, counting events) while silently
+	// persisting nothing. A startup Ping surfaces that immediately in the
+	// log. Warn-only, not fatal: per the project's fail-open posture, a
+	// transient Redis outage at startup must not prevent the sensor from at
+	// least passively classifying and logging traffic.
+	pingCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := rdb.Ping(pingCtx).Err(); err != nil {
+		log.WithError(err).WithField("addr", opt.Addr).
+			Warn("Redis ping failed at startup; continuing fail-open (writes will be counted as errors until Redis is reachable)")
+	} else {
+		log.WithFields(logrus.Fields{"addr": opt.Addr, "db": opt.DB}).Info("Redis connection verified")
+	}
+
 	log.WithFields(logrus.Fields{"addr": opt.Addr, "tls": opt.TLSConfig != nil}).
 		Info("writing passive fingerprints to Redis (fp:os:ip, fp:ja4t:ip)")
-	adapter := redisAdapter{rdb: redis.NewClient(opt)}
+	adapter := redisAdapter{rdb: rdb}
 	breaker := tap.NewRedisCircuitBreaker(adapter)
 	return tap.NewStore(breaker), tap.NewEnforcer(cfg.enfCfg, breaker), nil
 }
@@ -408,6 +428,7 @@ func drive(ctx context.Context, lt layers.LinkType, source tap.PacketSource, clo
 				case <-heartbeat.C:
 					var mem runtime.MemStats
 					runtime.ReadMemStats(&mem) // R-010: visibility into actual heap pressure
+					tap.HeapAllocBytes.Set(float64(mem.HeapAlloc)) // G-003 item 3
 					fields := logrus.Fields{
 						"handshakes_total": eventCount.Load(),
 						"heap_alloc_bytes": mem.HeapAlloc,

@@ -85,6 +85,14 @@ var (
 		Name: "ja4proxy_tap_excluded_ip_events_total",
 		Help: "Handshake events for a client IP matching --exclude-ips; no fingerprint or enforcement write was attempted for these.",
 	})
+	// HeapAllocBytes (G-003 item 3): sampled on the heartbeat interval
+	// alongside the existing log field of the same data, so the same
+	// heap-pressure visibility G-003/R-010 asked for is also queryable/
+	// alertable in Prometheus, not just grep-able in logs.
+	HeapAllocBytes = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "ja4proxy_tap_heap_alloc_bytes",
+		Help: "Go heap bytes in use, sampled on the heartbeat interval (runtime.MemStats.HeapAlloc).",
+	})
 )
 
 // results for EnforcementActionsTotal (Phase 316d).
@@ -119,6 +127,7 @@ func Collectors() []prometheus.Collector {
 		RedisCircuitBreakerOpenedTotal,
 		RedisCircuitBreakerSkipsTotal,
 		ExcludedIPEventsTotal,
+		HeapAllocBytes,
 	}
 }
 

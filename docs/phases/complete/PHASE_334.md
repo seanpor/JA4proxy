@@ -879,6 +879,14 @@ fingerprints go unrecorded, and the OS-mismatch signal goes silent.
 
 ### F-024 — [MEDIUM] No supervisor / restart-on-failure for a security sensor
 
+> **RESOLVED** (all 3 recommendations, across earlier PHASE_809 work
+> verified at Wave 4 scoping, 2026-07-31): (1) the watchdog exists
+> (`internal/tap/watchdog.go`, confirmed under F-005); (2) systemd/Docker
+> deployment with `HEALTHCHECK` against `/health` exists
+> (`deploy/docker/Dockerfile.ja4-tap` + `docker-compose.prod.yml`'s `tap`
+> profile, O-005); (3) SIGUSR1 dumps goroutine stacks (R-007). No further
+> action needed.
+
 **Phase:** 316a (operations)
 
 **Severity:** MEDIUM — single point of failure, no self-healing
@@ -1410,6 +1418,16 @@ actually measure ring buffer fill.
 
 ### R-012 — [LOW] No upstream dependency health check on startup
 
+> **RESOLVED** (PHASE_809, 2026-07-31): `buildBackends` now `Ping()`s Redis
+> with a 5s timeout right after constructing the client, logging
+> `"Redis connection verified"` on success or a clear warning on failure —
+> deliberately **warn-only, not fatal** (the recommendation said "return an
+> error if ping fails", but that would contradict the project's fail-open
+> posture for external services: a transient Redis outage at startup must
+> not prevent the sensor from at least passively classifying and logging
+> traffic). Tests cover both the success and failure paths via miniredis /
+> an unreachable address.
+
 **Phase:** 316a (operations)
 
 **Severity:** LOW — misconfigured Redis discovered on first event, not at startup
@@ -1442,6 +1460,18 @@ events being counted) but no fingerprints are persisted.
 ---
 
 ### R-013 — [LOW] Event channel lost on SIGKILL: no drain-to-file
+
+> **PARTIALLY RESOLVED** (PHASE_809, 2026-07-31): item 2 (document the
+> `stop_grace_period` requirement) done in `docs/runbooks/tap_mode.md`'s
+> Go-sensor section (`1s + idleFlushInterval` ≈ 31s for zero-loss graceful
+> shutdown). Items 1 (log remaining channel depth at shutdown start) and 3
+> (optional flush-to-file mode) deliberately deferred: item 1 would need
+> `drive()`'s select loop to distinguish "channel closed because ctx was
+> cancelled" from "channel closed because the pcap file ended" to log
+> something meaningful, which isn't free; item 3 is a real feature, not a
+> cleanup item, and the sensor's fail-open design (a lost event just delays
+> classification by one TTL window) makes its value marginal relative to the
+> effort. Left as explicitly open follow-up work, not silently dropped.
 
 **Phase:** 316a (operations)
 
@@ -1712,6 +1742,16 @@ The `decoder` is carefully designed for zero-alloc decode (`DecodingLayerParser`
 ---
 
 ### G-003 — [INFO] No Go runtime configuration for resource isolation
+
+> **PARTIALLY RESOLVED** (PHASE_809, 2026-07-31): item 2 (GOMEMLIMIT
+> guidance) done in `docs/runbooks/tap_mode.md`'s Go-sensor section (R-010).
+> Item 3 (heap visibility) done: `ja4proxy_tap_heap_alloc_bytes` gauge,
+> sampled on the heartbeat interval alongside the existing log field. Item 1
+> (GOMAXPROCS via `go.uber.org/automaxprocs`) deliberately deferred — it's
+> the only item of the three that requires adding a new third-party
+> dependency, which has broader blast radius (go.sum, license/SBOM scanning)
+> than this phase's other in-repo-only fixes; a follow-up phase can evaluate
+> it deliberately rather than as an opportunistic Wave 4 addition.
 
 **Phase:** 316a (operations)
 
@@ -2121,6 +2161,12 @@ The automatic TTL expiry (24h) provides a weak form of erasure — data naturall
 
 ### P-004 — [LOW] SNI/hostname present in captured ClientHello bytes — undocumented privacy risk
 
+> **RESOLVED** (PHASE_809, 2026-07-31): `HandshakeEvent.ClientHello`'s doc
+> comment now states the field is in-memory only, never written to Redis/
+> logged (beyond byte length)/persisted, and that SNI extraction would
+> require explicit additional code the sensor doesn't have — matching this
+> finding's recommendation almost verbatim.
+
 **Phase:** 316a (events)
 
 **Severity:** LOW — in-memory only, never persisted; but undocumented
@@ -2151,6 +2197,12 @@ Add a doc comment to `HandshakeEvent.ClientHello` stating:
 ---
 
 ### P-005 — [INFO] Full ClientHello retained in memory until event consumed (no early truncation)
+
+> **RESOLVED (documentation)** (PHASE_809, 2026-07-31): covered by the same
+> P-004 doc-comment fix (in-memory-only, bounded by the event channel size)
+> plus `docs/compliance/GDPR_COMPLIANCE.md`'s P-001/002/003 accuracy pass,
+> which documents the TAP sensor's actual data flow and retention. No
+> separate `docs/PRIVACY.md` was created (see P-001's annotation).
 
 **Phase:** 316a (privacy-by-design)
 

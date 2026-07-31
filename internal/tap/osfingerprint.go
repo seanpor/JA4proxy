@@ -27,6 +27,19 @@ import (
 //     therefore classify Darwin stacks as OSUnknown and never emit macos/ios from
 //     the passive path. (The JA4 side still distinguishes them; the consumer only
 //     fires when both sides are concrete, so Darwin → Unknown → no signal.)
+//   - ChromeOS and Android both use the Linux TCP stack (same TTL 64 +
+//     SYN option order as desktop Linux) and are passively indistinguishable
+//     from it, so they classify as OSLinux too (T-005). This is the same
+//     asymmetry as Darwin above, but resolved the other way: unlike
+//     macOS/iOS, there is no separate "chromeos"/"android" OSClass to
+//     conflate with, and the browser fingerprint on these platforms (Chrome)
+//     doesn't claim a specific desktop OS the way Safari implies macOS/iOS —
+//     so a ChromeOS/Android user classifying as OSLinux is *correct*, not a
+//     conflation. The residual risk this doc calls out for T-005: if the JA4
+//     side is ever extended to claim a browser-implied OS other than "linux"
+//     for Chrome-on-ChromeOS/Android traffic, that would produce a false
+//     tap_os_mismatch for these users — worth checking before extending the
+//     JA4 OS-claim table, not a reason to change the passive side today.
 func Classify(f StackFeatures) fingerprint.OSClass {
 	if !f.HasSYN {
 		return fingerprint.OSUnknown
@@ -77,6 +90,19 @@ var (
 // inferInitialTTL rounds an observed (post-hop) TTL up to the nearest common
 // initial value. Internet paths are well under 64 hops, so the mapping is
 // unambiguous in practice. Returns 0 (unknown) for a zero or out-of-range TTL.
+// inferInitialTTL maps an observed TTL to the initial TTL a sender likely
+// started with, by rounding up to the nearest common OS default (64, 128,
+// 255). This is inherently a boundary heuristic, not an exact inverse (T-004):
+// observed 128 could mean initial 128 (0 hops) or initial 255 (127 hops), and
+// observed 64 could mean initial 64 (0 hops) or initial 255 (191 hops) --
+// there's no way to recover hop count from a single observed TTL. In
+// practice this ambiguity has no exploitation path: no mainstream OS uses
+// initial TTL 255 for ordinary client traffic, and no real internet path is
+// anywhere near 127 hops (typical paths are well under 40) -- so the
+// boundary cases this function can't disambiguate don't occur with genuine
+// traffic. Classify's own conservative design (concrete class only on an
+// exact stack-signature match, Unknown otherwise) is the actual safety net,
+// not this function.
 func inferInitialTTL(ttl uint8) int {
 	switch {
 	case ttl == 0:
