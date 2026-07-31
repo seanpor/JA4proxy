@@ -99,11 +99,31 @@ on. Edit `manifest.yaml`; run `make sync` to preview locally.
 - **Strict Branch Naming:** Format: `phase-<number>-<brief-description>` (e.g., `phase-131-tls-fuzzing`). Use hyphens throughout — never `phase_131`.
 - **Atomic Commits:** One commit per phase or logical sub-task. Use `type(scope): brief description`.
 
-> ### ⚠ Branch protection is ENFORCED on `main`
+> ### ⚠ Branch protection is ENFORCED on `main` — THREE independent layers
 >
-> `main` is branch-protected with **`enforce_admins: on`**, so the rule binds
-> *everyone*, admins included. A direct `git push origin main` is rejected and
-> there is no admin direct-merge shortcut.
+> `main` is protected by **three separate GitHub mechanisms that must all be
+> satisfied** — disabling one is not enough for anything that needs to
+> bypass protection (a force-push, a direct push). This was learned the hard
+> way during Phase 811's git-history-rewrite force-push, which needed all
+> three down *simultaneously* before it would go through:
+>
+> 1. **Classic branch protection, `enforce_admins: on`.** Binds *everyone*,
+>    admins included, to required reviews and required status checks. A
+>    direct `git push origin main` is rejected and there is no admin
+>    direct-merge shortcut.
+> 2. **Classic branch protection, `allow_force_pushes: false`.** This is a
+>    **separate setting from `enforce_admins`** — disabling `enforce_admins`
+>    does **not** exempt admins from it. There is no dedicated REST
+>    sub-resource for this field either (unlike `enforce_admins`); changing
+>    it requires a full `PUT .../branches/main/protection` call carrying
+>    every other existing setting unchanged, or the call silently resets
+>    them to defaults.
+> 3. **A repository ruleset** (`main branch protection ruleset`, id
+>    `17259177`, target `~DEFAULT_BRANCH`), independent of both classic
+>    settings above. Its rules are `deletion` and `non_fast_forward`, with
+>    `bypass_actors: []` — nothing bypasses it by default. Rulesets are a
+>    newer GitHub feature layered on top of classic branch protection, not a
+>    replacement for it; this repo has both.
 >
 > **Merging (Phase 332).** Land work with
 > `gh pr merge --auto --squash --delete-branch`; it merges once the required
@@ -127,14 +147,44 @@ on. Edit `manifest.yaml`; run `make sync` to preview locally.
 > current branch.
 >
 > **Emergency override** (use only when `main` is broken and a fix cannot wait
-> for normal CI): temporarily lift admin enforcement, land the fix, then
-> re-enable it immediately in the same sitting:
+> for normal CI, or for a planned operation that genuinely needs a direct push —
+> e.g. a git history rewrite, where the change has no meaningful PR diff to
+> review): disable **all three layers above simultaneously**, land the fix,
+> then restore all three immediately in the same sitting. Never leave any of
+> them disabled, and never disable only one and assume that's sufficient.
+>
 > ```bash
-> gh api -X DELETE repos/seanpor/JA4proxy/branches/main/protection/enforce_admins
-> # land the emergency fix
-> gh api -X PATCH  repos/seanpor/JA4proxy/branches/main/protection/enforce_admins
+> # 1. Fetch current classic-protection config and build a one-off payload
+> #    from it (see below) — don't hand-write one from memory, a dropped
+> #    field silently resets a setting you didn't mean to touch.
+> gh api repos/seanpor/JA4proxy/branches/main/protection > /tmp/current_protection.json
+>
+> # 2. Disable all three, together:
+> gh api -X PUT repos/seanpor/JA4proxy/branches/main/protection \
+>   --input protection_unlock.json   # built from step 1's output, with
+>                                     # allow_force_pushes=true, enforce_admins=false,
+>                                     # everything else unchanged
+> gh api -X PUT repos/seanpor/JA4proxy/rulesets/17259177 -f enforcement=disabled
+>
+> # 3. Land the fix / force-push immediately.
+>
+> # 4. Restore all three, immediately, same sitting:
+> gh api -X PUT repos/seanpor/JA4proxy/branches/main/protection \
+>   --input protection_restore.json  # same payload, allow_force_pushes=false,
+>                                     # enforce_admins=true
+> gh api -X PUT repos/seanpor/JA4proxy/rulesets/17259177 -f enforcement=active
 > ```
-> Never leave enforcement disabled. Prefer re-running a flaky check over bypassing it.
+>
+> Note: `enforce_admins`'s dedicated sub-resource endpoint uses `POST` to
+> re-enable it (`gh api -X POST repos/seanpor/JA4proxy/branches/main/protection/enforce_admins`)
+> — not `PATCH`, which 404s.
+>
+> Confirm the restore actually took by reading each setting back via the API
+> (`gh api .../protection --jq '{allow_force_pushes: .allow_force_pushes.enabled,
+> enforce_admins: .enforce_admins.enabled}'` and
+> `gh api .../rulesets/17259177 --jq .enforcement`), not just by having
+> issued the restore command. See `docs/phases/complete/PHASE_811.md`
+> "Landing attempt" for the full incident this section is based on.
 
 ---
 
