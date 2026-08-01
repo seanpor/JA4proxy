@@ -5,7 +5,7 @@ urllib3>=2.7.0  # CVE-2025-50181/66418/66471/CVE-2026-21441 — fixed in 2.5/2.6
 asyncio-throttle==1.0.2
 aiodns==4.0.4
 cryptography>=48.0.1  # phase-304: was >=45.0.0 — subgroup-attack CVE fixed in 46.0.5
-prometheus-client==0.25.0
+prometheus-client==0.26.0
 pyyaml==6.0.3
 redis==8.0.1
 fastapi>=0.115.0  # Management API + /health/deep endpoint tests
