@@ -23,6 +23,7 @@ jobs:
   regenerate-metrics:
     permissions:
       contents: write
+      pull-requests: write
     name: Regenerate process metrics
     runs-on: ubuntu-latest
     steps:
@@ -42,7 +43,12 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python scripts/process_metrics.py
 
-      - name: Commit and push if changed
+      # main is branch-protected (12 required status checks, no direct push
+      # even for admins/bots) -- a direct `git push` here always fails with
+      # GH006. Open a PR and let it auto-merge once checks pass instead.
+      - name: Open PR if changed
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -50,6 +56,12 @@ jobs:
             echo "No changes"
             exit 0
           fi
+          branch="chore/process-metrics-$(date +%Y-%m)"
+          git checkout -b "$branch"
           git add docs/engineering-method/retrospectives/latest-metrics.md
           git commit -m "chore: regenerate process metrics ($(date +%Y-%m))"
-          git push
+          git push -u origin "$branch"
+          gh pr create --title "chore: regenerate process metrics ($(date +%Y-%m))" \
+            --body "Automated monthly regeneration of docs/engineering-method/retrospectives/latest-metrics.md via scripts/process_metrics.py." \
+            --base main --head "$branch"
+          gh pr merge --auto --squash --delete-branch "$branch"
