@@ -52,6 +52,7 @@ KNOWN_ACTION_SHAS: dict[str, dict[str, str]] = {
         "v6.0.2": "de0fac2e4500dabe0009e67214ff5f5447ce83dd",
         "v6.0.3": "df4cb1c069e1874edd31b4311f1884172cec0e10",  # phase-307 (PR #105)
         "v7.0.0": "9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0",  # PR #347
+        "v7.0.1": "3d3c42e5aac5ba805825da76410c181273ba90b1",  # PR #379
     },
     # phase-227: Trivy DB cache in the scan job (ci.yml)
     "actions/cache": {
@@ -63,6 +64,7 @@ KNOWN_ACTION_SHAS: dict[str, dict[str, str]] = {
     "ossf/scorecard-action": {
         "v2.3.1": "0864cf19026789058feabb7e87baa5f140aac736",
         "v2.4.3": "4eaacf0543bb3f2c246792bd56e8cdeffafb205a",  # phase-307 (PR #105)
+        "v2.4.4": "2d1146689b8cda280b9bc96326124645441f03bc",  # PR #379 — annotated tag; this is the dereferenced commit SHA (`git ls-remote ... refs/tags/v2.4.4^{}`), not the tag object SHA
     },
     "github/codeql-action/upload-sarif": {
         "v3.35.4": "7fd177fa680c9881b53cdab4d346d32574c9f7f4",
@@ -73,17 +75,20 @@ KNOWN_ACTION_SHAS: dict[str, dict[str, str]] = {
         "v5.6.0": "40f1582b2485089dde7abd97c1529aa768e1baff",
         "v6.4.0": "4a3601121dd01d1626a1e23e37211e3254c1c06c",
         "v6.5.0": "924ae3a1cded613372ab5595356fb5720e22ba16",  # PR #347
+        "v7.0.0": "b7ad1dad31e06c5925ef5d2fc7ad053ef454303e",  # PR #379
     },
     "actions/setup-python": {
         "v5.0.0": "0a5c61591373683505ea898e09a3ea4f39ef2b9c",
         "v6.2.0": "a309ff8b426b58ec0e2a45f0f869d46889d02405",
         "v6.3.0": "ece7cb06caefa5fff74198d8649806c4678c61a1",  # PR #347
+        "v7.0.0": "5fda3b95a4ea91299a34e894583c3862153e4b97",  # PR #379
     },
     "trufflesecurity/trufflehog": {
         "v3.88.2": "a94d152bf65bebf5baa486d3d4dfee520af2ceed",
         "v3.94.3": "47e7b7cd74f578e1e3145d48f669f22fd1330ca6",
         "v3.95.5": "d411fff7b8879a62509f3fa98c07f247ac089a51",  # phase-307 (PR #105)
         "v3.95.9": "27b0417c16317ca9a472a9a8092acce143b49c55",  # PR #347
+        "v3.96.0": "6f3c981e7b77f235fd2702dd74af25fc4b72bf11",  # PR #379
     },
     "returntocorp/semgrep-action": {
         "v1": "713efdd345f3035192eaa63f56867b88e63e4e5d",
@@ -133,6 +138,7 @@ KNOWN_ACTION_SHAS: dict[str, dict[str, str]] = {
         "v4.1.0": "4907a6ddec9925e35a0a9e82d7399ccc52663121",
         "v4.2.0": "650006c6eb7dba73a995cc03b0b2d7f5ca915bee",  # phase-307 (PR #105)
         "v4.4.0": "af1e73f918a031802d376d3c8bbc3fe56130a9b0",  # PR #347
+        "v4.5.1": "abd2ef45e78c5afb21d64d4ca52ee8550d9572c7",  # PR #379
     },
     "docker/metadata-action": {
         "v5.6.1": "369eb591f429131d6889c46b94e711f089e6ca96",
