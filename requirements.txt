@@ -47,7 +47,7 @@ cerberus==1.3.8
 
 boto3>=1.35              # phase-57b: S3 cloud backup adapter (>=1.35 for urllib3 2.x compat)
 moto[s3]>=5.0            # phase-57b: S3 mock for tests
-google-cloud-storage>=3.0  # phase-57c: GCS backup adapter (optional). phase-800: floor raised from 2.0 — old api-core pulled protobuf<5 and blew pip resolution depth
+google-cloud-storage>=3.13.0  # phase-57c: GCS backup adapter (optional). phase-800: floor raised from 2.0 — old api-core pulled protobuf<5 and blew pip resolution depth
 
 tomli>=2.0; python_version < "3.11"  # phase-92: TOML validation fallback for Python 3.10
 
