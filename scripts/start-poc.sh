@@ -69,6 +69,20 @@ bash "$(dirname "$0")/lane-env.sh"
 # Source .env for use in this script
 set -a; source .env; set +a
 
+# docker-compose.poc.yml's redis service takes its password via a Docker
+# Compose file secret (`secrets: redis_password: file: ../secrets/
+# redis_password.txt`), not the REDIS_PASSWORD env var directly -- a second,
+# separate prerequisite from .env that this script's auto-generation above
+# didn't create, breaking every from-scratch run (e.g. the nightly benchmark
+# workflow) with "bind source path does not exist". Keep it in sync with
+# whatever REDIS_PASSWORD .env has (freshly generated above, or pre-existing).
+mkdir -p deploy/secrets
+if [ ! -f deploy/secrets/redis_password.txt ]; then
+    printf '%s' "${REDIS_PASSWORD}" > deploy/secrets/redis_password.txt
+    chmod 600 deploy/secrets/redis_password.txt
+    echo -e "${GREEN}  ✓ deploy/secrets/redis_password.txt created (chmod 600)${NC}"
+fi
+
 # Pre-flight (JA4PROXY-2026-0045): refuse to publish monitoring/management on a
 # public interface. Loopback (default, via SSH tunnel) or private IP only.
 python3 "$(dirname "$0")/check_bind_address.py" || exit 1
