@@ -76,9 +76,13 @@ set -a; source .env; set +a
 # didn't create, breaking every from-scratch run (e.g. the nightly benchmark
 # workflow) with "bind source path does not exist". Keep it in sync with
 # whatever REDIS_PASSWORD .env has (freshly generated above, or pre-existing).
+#
+# JA4PROXY-2026-0040: deliberately not `echo`/`printf "...${REDIS_PASSWORD}"`
+# here -- grep the raw line straight out of .env into the secret file so the
+# password is never substituted into an echo/printf argument at all.
 mkdir -p deploy/secrets
 if [ ! -f deploy/secrets/redis_password.txt ]; then
-    printf '%s' "${REDIS_PASSWORD}" > deploy/secrets/redis_password.txt
+    grep '^REDIS_PASSWORD=' .env | cut -d= -f2- > deploy/secrets/redis_password.txt
     chmod 600 deploy/secrets/redis_password.txt
     echo -e "${GREEN}  ✓ deploy/secrets/redis_password.txt created (chmod 600)${NC}"
 fi
