@@ -139,6 +139,7 @@ KNOWN_ACTION_SHAS: dict[str, dict[str, str]] = {
         "v4.2.0": "650006c6eb7dba73a995cc03b0b2d7f5ca915bee",  # phase-307 (PR #105)
         "v4.4.0": "af1e73f918a031802d376d3c8bbc3fe56130a9b0",  # PR #347
         "v4.5.1": "abd2ef45e78c5afb21d64d4ca52ee8550d9572c7",  # PR #379
+        "v4.5.2": "371161bbe7024a29a25c5e19bfcbc0804fe9ad2c",  # PR #390
     },
     "docker/metadata-action": {
         "v5.6.1": "369eb591f429131d6889c46b94e711f089e6ca96",
