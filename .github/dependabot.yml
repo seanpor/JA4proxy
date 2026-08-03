@@ -37,6 +37,14 @@ updates:
     open-pull-requests-limit: 5
     cooldown:
       default-days: 7
+    # PR #374: pip-audit>=2.8.0 pulls in mcp/semgrep/tomli versions that
+    # conflict with the pins held for the CVE-2025-66416 mitigation, so every
+    # bump in this range fails CI and can never auto-merge -- it just sits
+    # open, re-nagging on every rebase/recheck. Ignored until that upstream
+    # conflict resolves; revisit manually (see PR #374 discussion).
+    ignore:
+      - dependency-name: "pip-audit"
+        versions: [">=2.8.0"]
 
   - package-ecosystem: "gomod"
     directory: "/"
