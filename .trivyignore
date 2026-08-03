@@ -45,9 +45,10 @@ CVE-2026-21728 exp:2026-08-06
 # GHSA-r277-6w6q-xmqw: kin-openapi ValidationHandler.Load() silently substitutes
 # a no-op auth function when none is configured, letting requests bypass any
 # security requirement declared in an OpenAPI spec (CVSS 9.1).
-# Why no fix: Affects grafana:13.0.4-ubuntu — verified 2026-07-27 that the latest
-# published Grafana tag (bumped from 13.0.2-ubuntu in this same phase) still
-# vendors the vulnerable kin-openapi v0.133.0; fix ships in 0.144.0 but no
+# Why no fix: Affects grafana:13.0.4-ubuntu — re-verified 2026-08-03, including
+# checking the newer 13.1.1-ubuntu tag directly (still vendors kin-openapi
+# v0.140.0, below the fixed 0.144.0, and introduces a larger set of other HIGH
+# CVEs — not worth switching to for this alone); fix ships in 0.144.0 but no
 # Grafana release has picked it up yet.
 # Why not exploitable: exploitation requires an application to run kin-openapi's
 # ValidationHandler as HTTP middleware over an endpoint with no AuthenticationFunc
@@ -56,7 +57,7 @@ CVE-2026-21728 exp:2026-08-06
 # deployment Grafana is reachable only by authenticated administrators on an
 # internal/loopback network, never directly by untrusted external clients — same
 # exposure posture as every other Grafana finding in this file.
-GHSA-r277-6w6q-xmqw exp:2026-08-03
+GHSA-r277-6w6q-xmqw exp:2026-08-10
 
 # CVE-2026-33811: net package DoS in Go stdlib.
 # Why no fix: Affects grafana:13.0.4-ubuntu and promtail:3.6.11
@@ -66,15 +67,16 @@ GHSA-r277-6w6q-xmqw exp:2026-08-03
 CVE-2026-33811 exp:2026-08-06
 
 # CVE-2026-34040: Moby authorization bypass.
-# Why no fix: Affects promtail v3.6.11 (EOL) and gcr.io/cadvisor/cadvisor:v0.52.1
-# (Phase 810, bumped from v0.47.2 — still carries this transitively via
-# github.com/docker/docker); no newer release of either clears it.
+# Why no fix: Affects promtail v3.6.11 (EOL, no newer tag exists at all) and
+# gcr.io/cadvisor/cadvisor:v0.52.1 — re-verified 2026-08-03, checked the newer
+# v0.55.1 tag directly, which still carries this (plus a much larger CVE set
+# overall, not an improvement).
 # Why not exploitable: Promtail does not manage Docker daemon authorization or
 # sockets directly in our deployment. cAdvisor is a read-only client of the
 # Docker API (container list/inspect/stats only, mounts /var/run read-only) —
 # it never runs a Docker daemon or authorization-plugin-gated API of its own,
 # so a bypass in that server-side logic isn't triggered by cAdvisor's own code.
-CVE-2026-34040 exp:2026-08-03
+CVE-2026-34040 exp:2026-08-10
 
 # CVE-2026-28377: Info disclosure in Tempo.
 # Why no fix: Affects grafana v13.0.4-ubuntu; no newer release exists.
@@ -95,13 +97,14 @@ CVE-2026-33814 exp:2026-08-06
 CVE-2026-42151 exp:2026-08-06
 
 # CVE-2026-41567: Container archive execution in Docker.
-# Why no fix: Affects promtail v3.6.11 (EOL) and gcr.io/cadvisor/cadvisor:v0.52.1
-# (Phase 810, bumped from v0.47.2); no newer release of either clears it.
+# Why no fix: Affects promtail v3.6.11 (EOL, no newer tag exists at all) and
+# gcr.io/cadvisor/cadvisor:v0.52.1 — re-verified 2026-08-03, checked v0.55.1,
+# which still carries this plus a much larger CVE set overall.
 # Why not exploitable: Promtail has no access to the Docker API socket in our
 # production deployment. cAdvisor's Docker socket mount is read-only and it
 # only ever calls read-only stats/inspect endpoints — it never calls the
 # archive/copy endpoints (ContainerArchive / CopyToContainer) this CVE affects.
-CVE-2026-41567 exp:2026-08-03
+CVE-2026-41567 exp:2026-08-10
 
 # CVE-2026-39820: ParseAddress net/mail DoS in Go stdlib.
 # Why no fix: Affects grafana:13.0.4-ubuntu and promtail:3.6.11
@@ -124,12 +127,13 @@ CVE-2026-42499 exp:2026-08-06
 # Why not exploitable: Promtail does not query untrusted remote read endpoints in our deployment.
 CVE-2026-42154 exp:2026-08-06
 # CVE-2026-42306: Race condition in docker cp.
-# Why no fix: Affects Promtail and gcr.io/cadvisor/cadvisor:v0.52.1 (Phase 810,
-# bumped from v0.47.2); no newer release of either clears it.
+# Why no fix: Affects Promtail (EOL, no newer tag exists) and
+# gcr.io/cadvisor/cadvisor:v0.52.1 — re-verified 2026-08-03, checked v0.55.1,
+# which still carries this plus a much larger CVE set overall.
 # Why not exploitable: Neither Promtail nor cAdvisor invokes docker cp / the
 # archive-extraction code path this race affects — cAdvisor only calls
 # read-only stats/inspect endpoints over its read-only Docker socket mount.
-CVE-2026-42306 exp:2026-08-03
+CVE-2026-42306 exp:2026-08-10
 
 # CVE-2026-27145: Go stdlib crypto/x509 certificate parsing DoS.
 # Why no fix: Affects grafana:13.0.4-ubuntu and promtail:3.6.11
@@ -249,18 +253,20 @@ GHSA-6v7p-g79w-8964 exp:2026-08-06
 CVE-2025-47273 exp:2026-08-06
 
 # GHSA-hrxh-6v49-42gf: gRPC-Go xDS RBAC and HTTP/2 Vulnerabilities (fixed in
-# grpc-go v1.82.1). Newly disclosed/indexed; as of this review no upstream
-# release of prometheus (v3.13.1, latest), alertmanager (v0.33.1, latest),
-# grafana (13.0.4-ubuntu, latest — verified still on v1.80.0), loki (3.7.4,
-# latest — verified still on v1.81.1), promtail (v3.6.11, latest), or
-# gcr.io/cadvisor/cadvisor (v0.52.1, latest — Phase 810; still on v1.67.0) has
-# picked up the fix yet.
+# grpc-go v1.82.1). Re-verified 2026-08-03: prometheus was bumped to v3.13.2
+# in this same review, which picks up the fix (scanned clean, 0 findings) —
+# removed from the affected list below. Still no upstream release of
+# alertmanager (v0.33.1, latest), grafana (13.0.4-ubuntu, latest — checked
+# 13.1.1-ubuntu too, still vulnerable plus a larger CVE set, not worth
+# switching), loki (3.7.4, latest), promtail (v3.6.11, latest — EOL project),
+# or gcr.io/cadvisor/cadvisor (v0.52.1 — checked v0.55.1, carries far more
+# HIGH/CRITICAL CVEs, not an improvement) has picked up the fix.
 # Why not exploitable here: the vulnerable code paths are gRPC's xDS RBAC
 # filter and an HTTP/2 handling flaw used by Envoy-style xDS control planes.
-# None of these six images run as xDS servers or accept untrusted gRPC/xDS
+# None of these five images run as xDS servers or accept untrusted gRPC/xDS
 # input in our deployment — they're monitoring/logging tools sitting behind
 # the proxy, reachable only from trusted internal callers.
-GHSA-hrxh-6v49-42gf exp:2026-08-03
+GHSA-hrxh-6v49-42gf exp:2026-08-10
 
 # ── gcr.io/cadvisor/cadvisor + prom/haproxy-exporter — Phase 810 ──
 # Phase 810 wired these two images (plus tecnativa/docker-socket-proxy) into
@@ -288,84 +294,93 @@ GHSA-hrxh-6v49-42gf exp:2026-08-03
 # or terminates TLS from an untrusted peer. haproxy-exporter only scrapes
 # HAProxy's own local stats page over plain HTTP inside the internal
 # network — no untrusted input reaches these code paths in either.
-CVE-2022-41722 exp:2026-08-03
-CVE-2022-41723 exp:2026-08-03
-CVE-2022-41724 exp:2026-08-03
-CVE-2022-41725 exp:2026-08-03
-CVE-2023-24534 exp:2026-08-03
-CVE-2023-24536 exp:2026-08-03
-CVE-2023-24537 exp:2026-08-03
-CVE-2023-24538 exp:2026-08-03
-CVE-2023-24539 exp:2026-08-03
-CVE-2023-24540 exp:2026-08-03
-CVE-2023-29400 exp:2026-08-03
-CVE-2023-29403 exp:2026-08-03
-CVE-2023-39325 exp:2026-08-03
-CVE-2023-45283 exp:2026-08-03
-CVE-2023-45287 exp:2026-08-03
-CVE-2023-45288 exp:2026-08-03
-CVE-2024-24790 exp:2026-08-03
-CVE-2024-34156 exp:2026-08-03
-CVE-2024-45337 exp:2026-08-03
-CVE-2024-45338 exp:2026-08-03
-CVE-2025-22868 exp:2026-08-03
-CVE-2025-22869 exp:2026-08-03
-CVE-2025-22874 exp:2026-08-03
-CVE-2025-47913 exp:2026-08-03
-CVE-2025-61726 exp:2026-08-03
-CVE-2025-61729 exp:2026-08-03
-CVE-2025-68121 exp:2026-08-03
-CVE-2026-25679 exp:2026-08-03
-CVE-2026-32280 exp:2026-08-03
-CVE-2026-32281 exp:2026-08-03
-CVE-2026-32283 exp:2026-08-03
+# Re-verified 2026-08-03 (only the entries actually re-triggered by this
+# scan run got their exp: date bumped; the rest of the batch below is inert
+# until it recurs): cadvisor v0.55.1 and haproxy-exporter's abandoned
+# v0.15.0 (still the newest tag published, 2023-02-15) offer no improvement.
+CVE-2022-41722 exp:2026-08-10
+CVE-2022-41723 exp:2026-08-10
+CVE-2022-41724 exp:2026-08-10
+CVE-2022-41725 exp:2026-08-10
+CVE-2023-24534 exp:2026-08-10
+CVE-2023-24536 exp:2026-08-10
+CVE-2023-24537 exp:2026-08-10
+CVE-2023-24538 exp:2026-08-10
+CVE-2023-24539 exp:2026-08-10
+CVE-2023-24540 exp:2026-08-10
+CVE-2023-29400 exp:2026-08-10
+CVE-2023-29403 exp:2026-08-10
+CVE-2023-39325 exp:2026-08-10
+CVE-2023-45283 exp:2026-08-10
+CVE-2023-45287 exp:2026-08-10
+CVE-2023-45288 exp:2026-08-10
+CVE-2024-24790 exp:2026-08-10
+CVE-2024-34156 exp:2026-08-10
+CVE-2024-45337 exp:2026-08-10
+CVE-2024-45338 exp:2026-08-10
+CVE-2025-22868 exp:2026-08-10
+CVE-2025-22869 exp:2026-08-10
+CVE-2025-22874 exp:2026-08-10
+CVE-2025-47913 exp:2026-08-10
+CVE-2025-61726 exp:2026-08-10
+CVE-2025-61729 exp:2026-08-10
+CVE-2025-68121 exp:2026-08-10
+CVE-2026-25679 exp:2026-08-10
+CVE-2026-32280 exp:2026-08-10
+CVE-2026-32281 exp:2026-08-10
+CVE-2026-32283 exp:2026-08-10
 
 # CVE-2025-31115: xz-libs heap-use-after-free in the threaded .xz decoder.
 # Why no fix: gcr.io/cadvisor/cadvisor:v0.52.1 ships Alpine xz-libs 5.4.3-r0;
 # a fixed 5.4.3-r1 package exists upstream but cadvisor's maintainers haven't
-# rebuilt the image against it yet (no newer cadvisor tag exists).
+# rebuilt the image against it yet. Re-verified 2026-08-03: newer tags
+# (v0.54.1, v0.55.1) exist but carry a much larger overall CVE set, not an
+# improvement.
 # Why not exploitable: cadvisor never invokes xz/liblzma decompression — it
 # reads cgroup/procfs stats and the Docker API, no compressed-archive
 # handling on any path reachable in our deployment.
-CVE-2025-31115 exp:2026-08-03
+CVE-2025-31115 exp:2026-08-10
 
 # CVE-2024-41110: moby "Authz zero length regression" (CRITICAL) — a
 # specially crafted API request with a spoofed Content-Length can bypass an
 # authorization plugin gating the Docker daemon's API.
 # Why no fix: transitively compiled into gcr.io/cadvisor/cadvisor:v0.52.1's
-# github.com/docker/docker dependency; no newer cadvisor tag exists.
+# github.com/docker/docker dependency. Re-verified 2026-08-03: v0.55.1 still
+# carries this, plus a much larger CVE set overall — not an improvement.
 # Why not exploitable: this bug lives in the Docker daemon's own
 # authorization-plugin request handling. cAdvisor is a client of the Docker
 # API, not a daemon serving one — it never accepts inbound Docker API
 # requests that an authz plugin would need to gate.
-CVE-2024-41110 exp:2026-08-03
+CVE-2024-41110 exp:2026-08-10
 
 # CVE-2025-31133 / CVE-2025-52565 / CVE-2025-52881: runc container-escape
 # vulnerabilities (masked-path mount races, /dev/console mount races, and
 # arbitrary procfs write-gadgets via opencontainers/selinux).
 # Why no fix: gcr.io/cadvisor/cadvisor:v0.52.1 imports github.com/opencontainers/runc
-# as a Go library dependency (container/OCI state helpers); no newer cadvisor
-# tag exists.
+# as a Go library dependency (container/OCI state helpers) — re-verified
+# 2026-08-03, checked v0.55.1, which still carries this plus a much larger
+# CVE set overall.
 # Why not exploitable: these CVEs require runc's own container-creation code
 # path to execute — the mount-namespace setup and masked-path/device
 # handling that happens when a container is actually started. cAdvisor never
 # creates or starts containers (it has no engine/runtime role); it only
 # reads existing container stats via the Docker API and /sys, /proc. The
 # vulnerable runc code is statically linked but never invoked.
-CVE-2025-31133 exp:2026-08-03
-CVE-2025-52565 exp:2026-08-03
-CVE-2025-52881 exp:2026-08-03
+CVE-2025-31133 exp:2026-08-10
+CVE-2025-52565 exp:2026-08-10
+CVE-2025-52881 exp:2026-08-10
 
 # CVE-2026-33186: gRPC-Go authorization bypass due to improper HTTP/2 path
 # validation (CRITICAL) — distinct from GHSA-hrxh-6v49-42gf above.
 # Why no fix: gcr.io/cadvisor/cadvisor:v0.52.1's google.golang.org/grpc
-# dependency (v1.67.0); no newer cadvisor tag exists.
+# dependency (v1.67.0). Re-verified 2026-08-03: v0.55.1 still carries this,
+# plus a much larger CVE set overall — not an improvement.
 # Why not exploitable: this affects gRPC servers using gRPC's authorization
 # API to gate access by HTTP/2 :path. cAdvisor doesn't run a gRPC server —
 # it exposes an HTTP Prometheus metrics endpoint on the internal Docker
 # network only (no host port mapping), and this dependency is not on any
 # code path cAdvisor's own binary exercises.
-CVE-2026-33186 exp:2026-08-03
+CVE-2026-33186 exp:2026-08-10
 
 # CVE-2024-23342: python-ecdsa vulnerable to the Minerva timing side-channel
 # attack (no fixed version — upstream ecdsa has no patch; the maintainer's
