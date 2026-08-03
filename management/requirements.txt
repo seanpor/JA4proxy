@@ -12,7 +12,7 @@
 # Bumping a version? Change the '==' line, rebuild, run the management
 # test suite, and open a separate PR. Do NOT revert to '=='.
 
-fastapi==0.139.2         # phase-800: was 0.110.0 — starlette<1.0.0 cap in older fastapi blocked the fix for CVE-2024-47874/CVE-2026-48818/CVE-2026-54283 (starlette); 0.139.2 is the first release that lifts the starlette upper bound
+fastapi==0.140.0         # phase-800: was 0.110.0 — starlette<1.0.0 cap in older fastapi blocked the fix for CVE-2024-47874/CVE-2026-48818/CVE-2026-54283 (starlette); 0.139.2 is the first release that lifts the starlette upper bound
 uvicorn[standard]==0.27.0
 redis[asyncio]==8.0.1
 python-jose[cryptography]==3.5.0   # phase-304: was 3.3.0 — critical alg-confusion CVE (jose unmaintained; PyJWT migration tracked as follow-up)
