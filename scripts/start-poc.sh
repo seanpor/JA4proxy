@@ -69,6 +69,17 @@ bash "$(dirname "$0")/lane-env.sh"
 # Source .env for use in this script
 set -a; source .env; set +a
 
+# docker-compose.poc.yml's proxy service pins `cpuset: "${AGENT_CPU_SET:-0-15}"`,
+# a default written for the phase-310 multi-agent workstation (16 real cores,
+# see scripts/agent-env.sh). On a host with fewer cores -- e.g. GitHub Actions'
+# 4-core ubuntu-latest runners -- that default requests CPUs that don't exist,
+# failing with "Requested CPUs are not available". Only fill it in when unset;
+# agent-env.sh pins it explicitly for named multi-agent lanes and must win.
+if [ -z "${AGENT_CPU_SET:-}" ]; then
+    AGENT_CPU_SET="0-$(($(nproc) - 1))"
+    export AGENT_CPU_SET
+fi
+
 # docker-compose.poc.yml's redis service takes its password via a Docker
 # Compose file secret (`secrets: redis_password: file: ../secrets/
 # redis_password.txt`), not the REDIS_PASSWORD env var directly -- a second,
