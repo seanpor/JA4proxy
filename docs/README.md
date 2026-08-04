@@ -36,6 +36,7 @@ subsystems live in the subdirectories at the end.
 - [DMZ Readiness](security/DMZ_READINESS.md) — DMZ posture and production-hardening checklist.
 - [MITRE ATT&CK Mapping](security/ATTACK_MAPPING.md) — **authoritative** signal → technique mapping (CI-gated).
 - [SecOps Triage & Remediation Playbooks](security/OPERATIONS_MAPPING.md) — what to do when an alert fires.
+- [Penetration Testing Programme](security/pentest/PROGRAMME.md) — the repeatable pentest method: passes, roles, finding template, verification, fix-audit, cadence.
 - [SIEM Integration](security/SIEM_INTEGRATION.md) — ECS-based SIEM ingestion recipes.
 - [Audit Trail](security/AUDIT_TRAIL.md) — what is logged, where, and retention (audit source of truth).
 - [Change Management](security/CHANGE_MANAGEMENT.md) — config change propose/review/apply/revert + evidence.
@@ -72,6 +73,7 @@ subsystems live in the subdirectories at the end.
 - [Scripts](reference/SCRIPTS.md) — reference for `scripts/`.
 - [Docker Images](reference/DOCKER_IMAGES.md) — canonical registry of all images and pins.
 - [Service Targets](reference/SERVICE_TARGETS.md) — SLA / SLO / SLI commitments.
+- [Maintenance Calendar](reference/MAINTENANCE_CALENDAR.md) — every recurring obligation (automated and human), and what breaks if it is skipped.
 - [Traceability](reference/TRACEABILITY.md) — requirements → code matrix *(auto-generated; do not edit)*.
 - [Project Status](reference/PROJECT_STATUS.md) — roadmap and status *(auto-generated; do not edit)*.
 

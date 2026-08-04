@@ -4154,3 +4154,388 @@ phases:
       (.trivyignore proactive renewal) redesigned to compute new exp:
       dates from today (not the old expiry) and to hook into the existing
       notify-scheduled-failure pattern."
+  523:
+    name: "Phase 522 Residual Security Backlog (SUBSUMED by 814)"
+    status: CLOSED
+    action_plan: docs/phases/PHASE_814.md
+    dependencies: []
+    size: SMALL
+    summary: "Never written as its own phase. Was to carry Phase 522's honest
+      'not fully audited' backlog: OIDC ID-token aud/iss binding, WebAuthn
+      origin/rpId binding, analytics stream consumer input validation, tarpit
+      resource bounds, and inter-container pub/sub HMAC enforcement. All five
+      items are absorbed into the Phase 814 penetration-testing programme —
+      814d (OIDC, WebAuthn), 814h (tarpit bounds), 814i (analytics input
+      validation, pub/sub HMAC) — where they get the full find/fix/audit
+      treatment rather than a standalone pass. Closed as superseded so the
+      references in PHASE_521.md and PHASE_522.md resolve instead of dangling."
+  814:
+    name: "Full-Spectrum Penetration Testing Programme (umbrella)"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_814.md
+    dependencies: []
+    size: XLARGE
+    summary: "PROPOSED, owner-approved 2026-08-04. Converts ad-hoc pentest
+      campaigns into a durable programme: written rules of engagement with a
+      de-escalation ladder for untested blast radius, an isolated egress-free
+      test range, a generated + drift-checked attack-surface inventory,
+      methodology mapped to PTES/NIST 800-115/OWASP WSTG+ASVS/API Top 10/CI-CD
+      Top 10/ATT&CK/CIS/SLSA, and a three-pass find-fix-audit model. Motivated
+      by the last full campaign being 2026-04-16 (stale against the Python-proxy
+      deletion, Phase 500, the Go TAP sensor, 515/516, 520/521, 813, and the
+      net-new Phase 812 pull_request_target CI surface) and by roughly a third
+      of the shipped surface never having been adversarially tested at all.
+      Three owner-mandated properties: every finding is written as a
+      junior-implementable fix specification with the complete ripple file list
+      (section 8); every fix ships a verification script with a mandatory
+      two-state proof, fails pre-fix and passes post-fix, machine-checked
+      against the fix commit's parent (section 9); every fix then goes through
+      an independent third pass by neither the tester nor the implementer, which
+      re-runs the ORIGINAL attack and hunts for regressions the fix introduced
+      and for the same or adjacent bugs nearby (section 10). Broken into 19
+      ordered sub-phases 814a-814s across four stages: foundation, assessment,
+      remediation, assurance. Two additions after review: 814c re-verifies the
+      92 findings sitting at FIXED that have never been independently VERIFIED
+      (no regression test has ever been shown to fail on revert), run BEFORE
+      new-bug hunting; and 814g tests the agent instruction surface, since this
+      repo is built by an autonomous agent fleet with commit access that reads
+      CLAUDE.md/AGENTS.md/phase docs every session. The durable method lives in
+      docs/security/pentest/PROGRAMME.md so it outlives this phase doc; the
+      recurring timetable lives in docs/reference/MAINTENANCE_CALENDAR.md.
+      Absorbs Phase 523."
+  814a:
+    name: "Pentest: charter, RoE, test range, finding/verification harness"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_814.md
+    dependencies: [814]
+    size: MEDIUM
+    summary: "Stage 0, blocks everything. Instantiates the RoE from
+      PROGRAMME.md; builds `make pentest-range` (isolated stack on an
+      internal:true network with verified zero egress, attacker tooling pinned
+      and scanned, provenance block printed at start-up); and lands the harness
+      every later sub-phase depends on — fix-spec template,
+      scripts/check_finding_spec.py, docs/security/pentest/verify/ layout,
+      make verify-finding, scripts/verify_revert.sh. Also adds a found_against
+      provenance field to the register schema and WIRES make verify-findings
+      INTO CI: it exists as a Makefile target but no workflow runs it, so the
+      register's integrity rules (regression_test required once >= FIXED) are
+      enforced only when someone remembers."
+  814b:
+    name: "Pentest: recon, attack-surface baseline, threat-model reconciliation"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_814.md
+    dependencies: [814a]
+    size: MEDIUM
+    summary: "Stage 0. scripts/surface_inventory.py + generated
+      docs/security/ATTACK_SURFACE.md + a CI drift gate: sockets per container
+      (compose AND rendered Helm), every FastAPI route with its auth dependency
+      and required role, Redis keys written vs REDIS_SCHEMA.md, outbound
+      destinations, workflow triggers/permissions/secrets, env vars vs
+      template.env, published artefacts, and the agent instruction surface
+      (which files agents read, who can write to them). Reconciles
+      docs/security/threat-model.md so tests derive from a current model."
+  814c:
+    name: "Pentest: retrospective closure sweep — re-verify what we believe is fixed"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_814.md
+    dependencies: [814a]
+    size: MEDIUM
+    summary: "Stage 0, runs BEFORE new-bug hunting. The register holds 92
+      findings at FIXED, 0 at VERIFIED, 0 at CLOSED — the machinery to go
+      further has always existed (CLOSURE_VERIFICATION.md, promote-verified,
+      REMEDIATION_WAVES.md defining wave completion as >= VERIFIED), so by the
+      project's own definition no remediation wave has ever completed. All 92
+      carry a regression_test path but none has ever been shown to FAIL ON
+      REVERT, which is the whole difference between a regression test and a
+      decoration. Runs scripts/verify_revert.sh over all 14 CRITICAL, all 20
+      HIGH and a sample of MEDIUM/LOW, prioritising findings whose component
+      changed since the fix. Three useful outcomes: fails on revert (genuine,
+      promote toward VERIFIED); passes on both (decoration — register a finding
+      and re-attack the original); won't run (bit-rotted, same treatment). Any
+      original PoC that reproduces on main today is a LIVE vulnerability
+      believed fixed and goes straight to wave 1."
+  814d:
+    name: "Pentest: decision-logic and false-positive weaponisation"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_814.md
+    dependencies: [814b]
+    size: LARGE
+    summary: "Stage 1, highest-value sub-phase, no true precedent in prior
+      campaigns. Hunts the product's crown-jewel attack: inducing false
+      positives at scale (rubric clause C-4). Shared-state poisoning (HLL /24
+      and /48, beaconing sorted sets, return-visitor hashes, conn counters),
+      ban expansion against CGNAT/VPN egress, threat-intel feed poisoning, any
+      automated path that can blocklist a common browser JA4; decision-cache
+      abuse under the 515/516 clientIP|JA4 key (cross-client inheritance, cheap
+      ALLOW eviction, sticky BLOCK, local-cache-wins under reload/eviction/Redis
+      flap); scorer manipulation and threshold-boundary behaviour; fail-open
+      inversion (kill DNS/AbuseIPDB/RDAP/Redis/feeds and observe the DECISION,
+      not the log — any fail-closed path is C-4); measured browser FP exposure
+      at dial=100 against the Tranco corpus; and whether dial=0 is genuinely
+      non-blocking on every path including bypass BLOCKs, the 0094 hard-block
+      path and ban expiry."
+  814e:
+    name: "Pentest: Management API and UI (WSTG / ASVS L2 / API Top 10)"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_814.md
+    dependencies: [814b]
+    size: LARGE
+    summary: "Stage 1, highest likely finding yield. Generated every-route x
+      every-principal matrix (auditor/analyst/operator/admin/unauth/expired/
+      revoked/malformed/wrong-audience) across all 28 route modules — BOLA/BFLA
+      done properly. Absorbs Phase 523 items 1-2: OIDC ID-token aud/iss binding
+      (is a validly-signed token minted for a different client accepted?) and
+      WebAuthn origin/rpId binding with single-use challenges. Plus TOTP replay,
+      SAML assertion tampering and signature wrapping with REAL signature tests
+      (the Phase 801 lesson), session/bearer rotation and revocation, CSRF on
+      every mutating route, SSRF (webhooks/threat_intel/edl/OIDC discovery incl.
+      DNS rebinding), injection (template/log/header/path traversal/command),
+      the attack.py + attack_mode.py + offense.py active-response surface (can
+      an attacker AIM it at a third party?), business-logic escalation via
+      snapshot restore / config import / canonical-list edit, policy_audit
+      forgeability, XSS in every attacker-controlled rendered field, CSP, and
+      vendored JS CVEs."
+  814f:
+    name: "Pentest: supply chain and CI/CD (fork-based, de-escalation ladder)"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_814.md
+    dependencies: [814b]
+    size: LARGE
+    summary: "Stage 1, largest never-tested surface — and it grew in Phase 812.
+      Fork-only under the de-escalation ladder (L0 static review first, stop at
+      the lowest level that answers the question, owner checkpoints after L1 and
+      before L3, one-click Actions kill switch, ambiguity resolves to stop).
+      Primary target: pin-table-autofix.yml, a pull_request_target job with
+      contents: write that pushes to a PR branch — can PR content (workflow
+      files, pin table, branch name, commit message) influence it, can the
+      dependabot[bot] actor check be spoofed, does the git-worktree read path
+      ever EXECUTE anything from the PR (hooks, .gitattributes filters,
+      .gitmodules), can the push be aimed elsewhere. Plus ${{ }} script
+      injection across all 15 workflows, GITHUB_TOKEN permission audit,
+      actions/cache poisoning, auto-merge scope, action-pin integrity, SLSA
+      provenance verification against a DELIBERATELY TAMPERED artefact, SBOM
+      completeness, image signing, dependency confusion, and the release path."
+  814g:
+    name: "Pentest: agent instruction surface (prompt injection into the dev pipeline)"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_814.md
+    dependencies: [814b]
+    size: MEDIUM
+    summary: "Stage 1, novel and specific to how this project is built. The repo
+      is developed by an autonomous multi-agent fleet WITH COMMIT ACCESS,
+      alongside a pull_request_target workflow holding contents: write. Agents
+      are instructed to read CLAUDE.md, AGENTS.md, docs/phases/* and the findings
+      register every session, and encounter PR titles, issue bodies, commit
+      messages and code comments while working — making those an injection
+      surface. Where 814f asks whether a PR can influence the SCRIPT, this asks
+      whether a PR can influence the AGENT. Questions: can a PR editing
+      AGENTS.md/CLAUDE.md/a phase doc change a later agent session's behaviour,
+      and would review catch it; can instructions planted in a file an agent is
+      likely to read (test fixture, doc, code comment, findings.yaml notes
+      field) redirect it toward exfiltrating a secret, weakening a check or
+      approving its own work; does any agent-invoked automation consume
+      untrusted text as INSTRUCTION rather than DATA; what credentials and
+      permissions does an agent session actually hold; and would any audit trail
+      show a hostile instruction afterwards. Maps to OWASP LLM01. Deliverable
+      is a written agent trust-boundary model plus least-privilege and
+      instruction-file provenance recommendations."
+  814h:
+    name: "Pentest: TLS/JA4 parser and protocol fuzzing"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_814.md
+    dependencies: [814b]
+    size: LARGE
+    summary: "Stage 1. Record fragmentation across TCP segments and TLS records,
+      malformed extension lengths, duplicate extensions, GREASE, ECH, SNI edge
+      cases (empty/IDN/NUL/over-long/mixed-case), zero-RTT and resumption,
+      reassembly-cap envelope, and the unsafe.String zero-copy in
+      internal/tls/parser.go (F-400-01 accepted risk — prove or disprove). Key
+      cross-feed to 814d: JA4 canonicalisation collisions, i.e. can two different
+      clients be made to share a fingerprint so that blocking one blocks the
+      other — an FP weapon. Extends the existing Go fuzz targets with
+      structure-aware corpora and differential testing against a reference TLS
+      library."
+  814i:
+    name: "Pentest: network and DMZ edge"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_814.md
+    dependencies: [814b]
+    size: MEDIUM
+    summary: "Stage 1. Re-tests from scratch against Go what the 2026-04-16
+      campaign found in the Python era (PROXY smuggling L1-018, fragmentation
+      bypass L1-019). Direct-to-ja4pd reachability bypassing HAProxy; PROXY
+      header spoofing/doubling/smuggling with an internal dst; XFF vs PROXY
+      precedence; trusted-CIDR correctness for IPv6, IPv4-mapped-IPv6 and
+      zone-scoped addresses; DMZ scanning via the backend; RST/timeout oracles
+      distinguishing blocked from backend-down; and whether ANY path reaches the
+      backend without a scoring decision."
+  814j:
+    name: "Pentest: resource exhaustion and availability"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_814.md
+    dependencies: [814b]
+    size: MEDIUM
+    summary: "Stage 1, Green band only. Absorbs Phase 523 item 4 (tarpit resource
+      bounds). Connection-slot and goroutine exhaustion attacked AROUND the
+      existing regression tests; accept-loop semaphore; workChan saturation and
+      its 0094 hard-block interaction; tarpit slots and per-IP caps; slowloris
+      pre-handshake holds vs read timeouts; reassembly buffer memory under many
+      partial handshakes; Redis backpressure and XADD with a dead consumer;
+      unbounded growth in any Redis structure; log-volume amplification; and
+      Prometheus metrics cardinality explosion via attacker-controlled label
+      values. Records resource curves, not just pass/fail."
+  814k:
+    name: "Pentest: data layer — Redis, analytics stream, backup/restore"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_814.md
+    dependencies: [814b]
+    size: MEDIUM
+    summary: "Stage 1. Absorbs Phase 523 items 3 and 5. Post-813 Redis auth
+      enforced for every client (proxy, management, analytics, TAP, exporters,
+      CLI); per-client least-privilege ACLs or is everyone effectively admin;
+      Redis TLS actually negotiated AND verified; whether a co-located container
+      can forge control-plane pub/sub (dial change, list edit) — is
+      pubsub_hmac_secret required rather than optional (cross-ref 0080; 0074
+      still OPEN logs the signed payload); Redis key-name injection via
+      attacker-controlled data (SNI containing ':' or a newline) colliding
+      namespaces; analytics stream consumer field size-bounding and type-checking;
+      backup encryption, integrity and restore against a tampered archive
+      (in-archive path traversal, resource bomb, injected keys); and whether GDPR
+      purge/DSAR really removes data everywhere it lives, stream/HLL/backups
+      included."
+  814l:
+    name: "Pentest: cryptography and secrets"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_814.md
+    dependencies: [814b]
+    size: MEDIUM
+    summary: "Stage 1. JWT algorithm confusion, none, key confusion, kid
+      traversal, expiry handling (verify the 0095 malformed-expiry fix), clock
+      skew, secret strength and the 0096 boot guard (verify it cannot be bypassed
+      by any ENVIRONMENT value); constant-time HMAC comparison everywhere
+      (webhook, pub/sub, EDL), replay windows, nonce reuse; management-listener
+      and Redis TLS cipher/version lockdown, plus re-verifying the claim that the
+      proxy path is pure passthrough with no TLS config of its own; CSPRNG
+      sourcing for every token/challenge/nonce; secret exposure via logs, metrics
+      labels, error pages, crash dumps or the audit list; rotation story per
+      secret; and the systemic committed-default sweep across ALL compose/env
+      templates that Phase 522's self-audit flagged and never finished."
+  814m:
+    name: "Pentest: container, host, orchestration, and assume-breach"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_814.md
+    dependencies: [814b]
+    size: MEDIUM
+    summary: "Stage 1. CIS Docker Benchmark across all 8 compose files (they
+      drift — Phase 810 proved images had gone unscanned for months);
+      per-container capability audit focused on the privileged TAP sensor
+      (cap_drop ALL + explicit adds, seccomp profile actually loaded rather than
+      still the F-400-02 / JA4PROXY-2026-0081 placeholder from issue #244,
+      no-new-privileges, read-only rootfs); docker-socket-proxy allowlist
+      tightness (a loose allowlist is root-equivalent escape); Helm defaults
+      against the CIS Kubernetes Benchmark; host port exposure across every
+      compose file (Phase 303 fixed this once — verify it stayed fixed). Adds an
+      EXPLICIT assume-breach exercise (PTES post-exploitation, never done here):
+      start with a shell in each container in turn and measure how far you get —
+      which services answer, which credentials are readable, what one compromised
+      sidecar actually reaches. Segmentation must be PROVEN, not assumed from the
+      compose file."
+  814n:
+    name: "Pentest: IaC, deployment and downstream-consumer egress"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_814.md
+    dependencies: [814b]
+    size: MEDIUM
+    summary: "Stage 1, persona P8 — the sub-phase that protects our users' OTHER
+      systems from us, never previously done. checkov/tfsec-class review of
+      deploy/terraform* and the in-repo provider; Ansible secret handling, become,
+      remote-fetch trust; HAProxy and Caddy TLS/header/PROXY-emission/stats-page
+      review; and downstream injection — every field JA4proxy emits (SNI, JA4,
+      country, ASN, reason strings) tested against each output format under
+      deploy/integrations/ (Splunk TA, Splunk SOAR, QRadar, Sentinel, XSOAR,
+      ServiceNow, Elastic — CEF/LEEF/JSON/CSV delimiter, newline, quote and CSV
+      formula injection), plus Loki/Promtail log injection, the EDL endpoint's
+      output format, and webhook egress SSRF and receiver spoofing."
+  814o:
+    name: "Pentest: purple team — detection and response validation"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_814.md
+    dependencies: [814d, 814e, 814f, 814g, 814h, 814i, 814j, 814k, 814l, 814m, 814n]
+    size: MEDIUM
+    summary: "Stage 1 closer. Treats every attack executed in 814d-814n as a
+      detection test: did the proxy score it, did a metric move, did an alert
+      fire, did the runbook exist and work. Produces a TTP coverage matrix
+      against docs/security/ATTACK_MAPPING.md that validates or DOWNGRADES each
+      confidence label with evidence (that mapping is currently self-assessed
+      and labelled DRAFT), files detection gaps as detection findings tracked
+      separately from vulnerabilities, measures MTTR for one simulated incident
+      via the existing make measure-mttr harness, and corrects the runbooks."
+  814p:
+    name: "Pentest: remediation wave 1-2 (CRITICAL + HIGH)"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_814.md
+    dependencies: [814a]
+    size: LARGE
+    summary: "Stage 2, wave-triggered not stage-gated — starts the moment 814c or
+      814d produces its first CRITICAL, without waiting for assessment to finish.
+      Executes the fix specifications from PROGRAMME.md section 9. Each fix ships
+      its verification script proven failing pre-fix and passing post-fix, and
+      stays within its hot-path benchmark budget where applicable. Explicitly
+      designed to be executable by an implementer who did NOT find the bug — that
+      is the test of whether the spec was written properly. Every fix then enters
+      814r."
+  814q:
+    name: "Pentest: remediation wave 3-4 (MEDIUM + LOW)"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_814.md
+    dependencies: [814a]
+    size: MEDIUM
+    summary: "Stage 2. Same discipline as 814p at lower priority. Also resolves
+      the two currently-OPEN register findings — JA4PROXY-2026-0074 (LOW, pub/sub
+      debug log includes the full HMAC-signed payload) and JA4PROXY-2026-0089
+      (MEDIUM, hot config reload orphans async enrichment workers) — each either
+      fixed or formally accepted per PROGRAMME.md section 12: EXCEPTIONS.md entry,
+      named owner sign-off, expiry date, and a re-review row on the maintenance
+      calendar. An accepted risk is never recorded as FIXED."
+  814r:
+    name: "Pentest: independent fix-audit and adjacent-bug hunt (pass 3)"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_814.md
+    dependencies: [814p]
+    size: LARGE
+    summary: "Stage 3, the owner-mandated third pass, run per remediation wave
+      rather than once at the end. Auditor is neither the tester nor the
+      implementer, and for agent runs means a fresh session with no inherited
+      context — an agent reviewing its own fix will rationalise it. Four questions
+      answered in writing for every fix: Q1 is it actually fixed (re-run the
+      ORIGINAL attack from the spec, not the fixer's test, then vary it one step);
+      Q2 did the fix break something (adversarial diff review for new error paths,
+      nil derefs, lock ordering, hot-path allocation with the benchmark actually
+      run, changed TTL/timeout/defaults, and above all any new FAIL-CLOSED
+      behaviour, which is a candidate C-4 regression); Q3 is the same bug elsewhere
+      (systemic grep for the class not the instance, recording the actual command
+      AND its output, cross-language); Q4 is there a bug beside it (callers,
+      callees, sibling branches, same lifecycle stage elsewhere). Q3/Q4 findings
+      get their own canonical IDs and re-enter at Stage 2. Hard limit of two
+      re-audit iterations per finding, then owner escalation and a formal
+      accept-or-redesign decision."
+  814s:
+    name: "Pentest: report, register closure, KPIs, cadence and method retrospective"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_814.md
+    dependencies: [814o, 814r]
+    size: MEDIUM
+    summary: "Stage 3 close-out. Publishes docs/reports/<date>_PENTEST_CAMPAIGN.md
+      in the established format plus a COVERAGE APPENDIX recording what was
+      tested, what was attempted and could not be achieved (that is the assurance
+      evidence and it is valuable), and what was not reached. Regenerates
+      REMEDIATION_WAVES.md, follows CLOSURE_VERIFICATION.md, records the KPIs as
+      the next cycle's baseline (including audit escape rate and adjacent-bug
+      yield), confirms external vulnerability reports route into the same
+      three-pass lifecycle (INTAKE_RUNBOOK.md -> PROGRAMME.md 5.6), hands the
+      cadence to docs/reference/MAINTENANCE_CALENDAR.md, and resolves the empty
+      tests/security/ and README-only tests/fuzz/ directories either way — an
+      empty security test directory implies coverage that does not exist. Ends
+      with a retrospective on the METHOD itself (what did the process miss, what
+      cost more than it was worth, what was done informally that should be
+      written down), amending PROGRAMME.md and its change log."
