@@ -1,0 +1,107 @@
+---
+# Phase 812 (812-D) — Auto-nudge stale Dependabot PRs on main-branch changes.
+#
+# When a main-branch fix changes CI's pass/fail state (e.g. PR #389), every
+# open Dependabot PR whose CI ran before that fix keeps failing on the stale
+# snapshot until someone notices and nudges it. On 2026-08-03 this was all 7
+# open PRs, discovered only because someone asked "why are there still 7
+# open PRs?"
+#
+# Dedup rule (scripts/dependabot_pr_refresh.py): a PR gets refreshed at most
+# ONCE per head SHA, tracked via a `nudged:<short-sha>` label. A PR failing
+# for a REAL, non-stale reason does NOT get repeatedly refreshed on every
+# subsequent unrelated main push -- that's the spam risk this rule exists to
+# avoid.
+#
+# Mechanism: close + reopen the PR, not an `@dependabot rebase` comment.
+# Directly observed `@dependabot rebase` sit inert for 8+ minutes on PR #390
+# in the same session this phase's investigation started, while close+reopen
+# triggered an immediate fresh CI run.
+#
+# continue-on-error on the whole job: a notifier/nudger must never itself
+# become a required, blockable check (same rule already documented for
+# ci.yml's notify-scheduled-failure).
+#
+# Third-party actions are SHA-pinned per the convention in
+# .github/workflows/release-cli.yml.
+
+name: Dependabot PR Refresh
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Report what would be refreshed without acting"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  refresh:
+    name: Refresh stale Dependabot PRs
+    continue-on-error: true
+    permissions:
+      pull-requests: write
+      issues: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: "3.14"
+
+      - name: Refresh each open Dependabot PR that's stale-failing
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          prs=$(gh pr list --author "app/dependabot" --state open --json number,headRefOid,labels)
+          echo "$prs" | python3 -c "import json,sys; print(len(json.load(sys.stdin)))" | \
+            xargs -I{} echo "Found {} open Dependabot PR(s)"
+
+          echo "$prs" | python3 -c '
+          import json, sys
+          for pr in json.load(sys.stdin):
+              print(pr["number"], pr["headRefOid"][:7], ",".join(l["name"] for l in pr["labels"]))
+          ' | while read -r number head_sha labels; do
+            echo "--- PR #$number (head $head_sha) ---"
+
+            # A required check still "pending" isn't the same as "failing" --
+            # only refresh PRs with a genuine failure, not ones mid-run.
+            conclusion=$(gh pr checks "$number" --json state -q '
+              if any(.[] | .state == "FAILURE") then "failing"
+              elif any(.[] | .state == "PENDING") then "pending"
+              else "passing" end
+            ' 2>/dev/null || echo "pending")
+            if [ "$conclusion" = "pending" ]; then
+              echo "SKIP still running"
+              continue
+            fi
+            checks_passing="false"
+            [ "$conclusion" = "passing" ] && checks_passing="true"
+
+            decision=$(python3 scripts/dependabot_pr_refresh.py \
+              --head-sha "$head_sha" --checks-passing "$checks_passing" --labels "$labels")
+            echo "$decision"
+
+            action=$(echo "$decision" | awk '{print $1}')
+            [ "$action" = "REFRESH" ] || continue
+            [ "$DRY_RUN" = "true" ] && { echo "(dry-run, not acting)"; continue; }
+
+            remove_label=$(echo "$decision" | awk '{print $2}')
+            add_label=$(echo "$decision" | awk '{print $3}')
+
+            gh label create "$add_label" --color BFD4F2 --force >/dev/null 2>&1 || true
+            [ "$remove_label" != "-" ] && gh pr edit "$number" --remove-label "$remove_label" >/dev/null 2>&1 || true
+            gh pr edit "$number" --add-label "$add_label"
+
+            gh pr close "$number"
+            gh pr reopen "$number"
+            echo "Refreshed PR #$number"
+          done

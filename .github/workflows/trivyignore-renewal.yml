@@ -1,0 +1,143 @@
+---
+# Phase 812 (812-B) — Proactive .trivyignore renewal.
+#
+# .trivyignore exceptions (Phase 226 policy, max 7-day window) were being
+# renewed reactively, whenever someone happened to touch the file, so they
+# clustered on one calendar day and caused a same-day cliff: Security Scan
+# went red on main AND on every open PR simultaneously, for reasons
+# unrelated to any of those PRs' actual diffs (observed directly: 42
+# entries expired on the same day this phase's investigation started).
+#
+# This runs mid-week (Wednesday, away from the Monday CI sweep and any
+# weekend on-call gap), 5 days before the earliest expiry, and opens a PR
+# renewing anything in that window to today+7d (never old_exp+7d -- see
+# scripts/renew_trivyignore.py's docstring for why that distinction
+# matters). It does NOT decide whether a newer upstream image tag actually
+# clears a CVE -- that judgment call stays with whoever reviews the PR,
+# same as every manual renewal to date. Does not auto-merge.
+#
+# Third-party actions are SHA-pinned per the convention in
+# .github/workflows/release-cli.yml.
+
+name: Trivyignore Renewal
+
+on:
+  schedule:
+    - cron: '0 5 * * 3'  # 05:00 UTC every Wednesday
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Report what would be renewed without opening a PR"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  renew:
+    name: Renew soon-to-expire .trivyignore exceptions
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: "3.14"
+
+      - name: List what's expiring soon (dry-run preview, always runs)
+        run: python3 scripts/scan_exceptions.py --within-days 5 || true
+
+      - name: Renew entries expiring within 5 days
+        id: renew
+        run: |
+          python3 scripts/renew_trivyignore.py --within-days 5 | tee renewal_summary.txt
+          if git diff --quiet .trivyignore; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open PR if changed
+        if: steps.renew.outputs.changed == 'true' && github.event.inputs.dry_run != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          branch="chore/trivyignore-renewal-$(date +%Y-%m-%d)"
+          git checkout -b "$branch"
+          git add .trivyignore
+          git commit -m "chore: renew soon-to-expire .trivyignore exceptions ($(date +%Y-%m-%d))"
+          git push -u origin "$branch"
+          {
+            echo "Automated proactive renewal (Phase 812, 812-B) — 5 days before the"
+            echo "earliest expiry in .trivyignore, not a same-day fire drill."
+            echo ""
+            echo '```'
+            cat renewal_summary.txt
+            echo '```'
+            echo ""
+            echo "**Does not auto-merge.** A human must still verify whether a newer"
+            echo "upstream image tag actually clears each CVE above before merging —"
+            echo "this workflow only renews the time window, it does not check for a"
+            echo "real fix. See docs/runbooks/security_scan_exceptions.md."
+          } > pr_body.txt
+          # This workflow deliberately does NOT auto-merge (unlike
+          # process-metrics.yml) -- CVE-exception judgment calls stay
+          # human-reviewed, per Phase 226's own "NO blanket ignores" rule.
+          gh pr create --title "chore: renew soon-to-expire .trivyignore exceptions ($(date +%Y-%m-%d))" \
+            --body-file pr_body.txt --base main --head "$branch"
+
+      # Phase 812: a broken renewal workflow must not become a fifth silent
+      # failure mode alongside the four this phase set out to fix. Same
+      # tracking-issue pattern as ci.yml's notify-scheduled-failure, since
+      # this workflow can't share that job directly (separate workflow file).
+      - name: Open or update a tracking issue on failure
+        if: failure()
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3  # v9.0.0
+        with:
+          script: |
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = [
+              'The scheduled .trivyignore renewal workflow (Wednesdays 05:00 UTC) failed.',
+              '',
+              `Run: ${runUrl}`,
+              '',
+              'This does not itself mean Security Scan is broken -- check',
+              '`scripts/scan_exceptions.py` separately -- but it does mean the',
+              'proactive-renewal safety net (Phase 812, 812-B) is not running,',
+              'so the next cliff will be a same-day reactive fire drill again.',
+              'Common causes: a script bug in scripts/renew_trivyignore.py, or',
+              'Docker Hub/GCR rate limiting an upstream tag check done manually',
+              'during PR review.',
+            ].join('\n');
+            const label = 'scheduled-ci-failure';
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: label,
+            });
+            if (issues.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issues[0].number,
+                body: `Still failing as of this run.\n\n${body}`,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: 'Trivyignore Renewal workflow failed',
+                body,
+                labels: [label],
+              });
+            }

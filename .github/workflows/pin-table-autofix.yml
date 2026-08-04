@@ -1,0 +1,88 @@
+---
+# Phase 812 (812-C) — Verified SHA autofix for GitHub Actions pins,
+# scoped to Dependabot Actions-group PRs.
+#
+# tests/test_workflow_pinning.py's KNOWN_ACTION_SHAS table is hand-maintained.
+# Every Actions-group Dependabot bump fails that gate until a human adds an
+# entry, verified via `git ls-remote` -- hit twice in one session (PR #379,
+# PR #390).
+#
+# SECURITY DESIGN (read before changing this file):
+#   GitHub runs `pull_request`-triggered workflows from Dependabot with a
+#   READ-ONLY GITHUB_TOKEN regardless of this workflow's own `permissions:`
+#   block -- deliberate hardening, since Dependabot PRs are semi-trusted.
+#   That means a `pull_request` trigger here could never push a fixup commit.
+#   `pull_request_target` runs with the BASE repo's permissions instead, but
+#   its checkout defaults to the BASE ref (main), not the PR's -- this
+#   workflow depends on that: it must NEVER check out or execute code FROM
+#   the PR branch. The only thing read from the PR is plain file content
+#   (via a worktree of the PR's head ref, added AFTER the base-ref checkout,
+#   read as data by scripts/pin_table_autofix.py -- itself always the
+#   TRUSTED base-ref copy, never something from the PR). scripts/
+#   pin_table_autofix.py verifies every new SHA against a live `git
+#   ls-remote` before ever writing anything, and makes NO changes at all if
+#   any single entry fails to verify (all-or-nothing).
+#
+# Third-party actions are SHA-pinned per the convention in
+# .github/workflows/release-cli.yml.
+
+name: Pin Table Autofix
+
+on:
+  pull_request_target:
+    types: [opened, synchronize]
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  autofix:
+    name: Verify and autofix KNOWN_ACTION_SHAS
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      # Default ref for pull_request_target is the BASE branch (main) -- this
+      # step never checks out the PR's own commits. Do not add `ref:` here.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: "3.14"
+
+      - name: Fetch the PR's head branch as a worktree (data only, never executed)
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin "$HEAD_REF"
+          git worktree add /tmp/pr-branch "origin/$HEAD_REF"
+
+      - name: Verify and autofix
+        id: autofix
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          python3 scripts/pin_table_autofix.py \
+            --workflow-dir /tmp/pr-branch/.github/workflows \
+            --test-file /tmp/pr-branch/tests/test_workflow_pinning.py \
+            --note "phase-812-autofix (PR #${PR_NUMBER})"
+
+      - name: Push the fix onto the PR branch if it changed
+        if: success()
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          cd /tmp/pr-branch
+          if git diff --quiet tests/test_workflow_pinning.py; then
+            echo "No changes needed (already verified or nothing new)."
+            exit 0
+          fi
+          git add tests/test_workflow_pinning.py
+          git commit -m "test: autofix KNOWN_ACTION_SHAS (verified via git ls-remote)"
+          git push origin "HEAD:refs/heads/${HEAD_REF}"

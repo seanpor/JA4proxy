@@ -400,3 +400,87 @@ jobs:
           # value so the proxy starts in monitor mode without a real backend.
           [ -f .env ] || echo "REDIS_PASSWORD=smoketest" >> .env
           bash scripts/smoke/test_docker_compose.sh
+
+  # Phase 812 (812-A): scripts/start-poc.sh + docker-compose.poc.yml is only
+  # ever exercised end-to-end by nightly-benchmark.yml, on a schedule, after
+  # the fact -- three sequential bootstrap bugs (missing .env vars, missing
+  # deploy/secrets/redis_password.txt, AGENT_CPU_SET assuming 16 cores) and a
+  # fourth, deeper Redis ACL auth bug (Phase 813) were each only discovered
+  # overnight, one at a time. smoke-docker above doesn't catch any of them --
+  # it's continue-on-error and tests a different file (root docker-compose.yml).
+  # This is a REQUIRED check (not continue-on-error) covering the real path.
+  poc-cold-start-changes:
+    name: Detect PoC cold-start path changes
+    # Plumbing job, not a gate in its own right -- continue-on-error keeps it
+    # OUT of the required-check set (test_branch_protection_contexts_match_ci_job_names),
+    # matching the same reasoning already documented for notify-scheduled-failure
+    # below: a helper must never itself become a required, blockable check.
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    if: github.event_name != 'merge_group'
+    outputs:
+      relevant: ${{ steps.filter.outputs.relevant }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36  # v3.0.2
+        id: filter
+        with:
+          filters: |
+            relevant:
+              - 'scripts/start-poc.sh'
+              - 'scripts/lane-env.sh'
+              - 'scripts/generate-backend-cert.sh'
+              - 'deploy/docker/docker-compose.poc.yml'
+              - 'deploy/docker/Dockerfile.*'
+              - 'config/redis_acl.conf.template'
+              - 'deploy/docker/redis-entrypoint.sh'
+
+  poc-cold-start:
+    name: Cold-start smoke test (start-poc.sh)
+    needs: poc-cold-start-changes
+    # Path-filtered per job (not a workflow-level `paths:` filter, which
+    # would stop the whole workflow from triggering on unrelated PRs and
+    # leave this required check permanently unreported -- see
+    # tests/test_workflow_pinning.py's
+    # test_branch_protection_contexts_match_ci_job_names). Always runs on
+    # push/schedule (weekly sweep, and the merge to main itself) regardless
+    # of the path filter, as a second line of defense.
+    if: >
+      github.event_name != 'merge_group' &&
+      (needs.poc-cold-start-changes.outputs.relevant == 'true' ||
+       github.event_name == 'push' || github.event_name == 'schedule')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: Assert a clean checkout (no stale .env/secrets)
+        run: |
+          # A future change to actions/checkout's defaults (or a cache step
+          # added later in this job) must not silently reintroduce the exact
+          # state the three Phase-809 bugs were masked by. Fail loudly if
+          # either already exists before start-poc.sh runs.
+          if [ -f .env ] || [ -d deploy/secrets ]; then
+            echo "::error::Expected a clean checkout with no .env or deploy/secrets/ -- found one. This job exists to prove start-poc.sh bootstraps from nothing; a pre-existing .env/secrets would hide a regression."
+            exit 1
+          fi
+      - name: Run start-poc.sh
+        run: ./scripts/start-poc.sh
+      - name: Verify the proxy's own /health reports Redis OK
+        run: |
+          set -a; source .env; set +a
+          P_FLAG=""
+          [ -n "${COMPOSE_PROJECT_NAME:-}" ] && P_FLAG="-p $COMPOSE_PROJECT_NAME"
+          # start-poc.sh's own "Checking Proxy..." loop already proved /health
+          # is reachable; this asserts its Redis-backed content specifically,
+          # so a future regression that leaves the endpoint reachable but
+          # Redis silently unauthenticated (Phase 813's exact failure mode)
+          # still fails this job.
+          health=$(docker compose $P_FLAG -f deploy/docker/docker-compose.poc.yml --env-file .env exec -T proxy curl -sf http://localhost:9090/health)
+          echo "$health"
+          echo "$health" | grep -q '"redis":"ok"'
+      - name: Tear down
+        if: always()
+        run: |
+          set -a; source .env 2>/dev/null; set +a
+          P_FLAG=""
+          [ -n "${COMPOSE_PROJECT_NAME:-}" ] && P_FLAG="-p $COMPOSE_PROJECT_NAME"
+          docker compose $P_FLAG -f deploy/docker/docker-compose.poc.yml --env-file .env down -v --remove-orphans || true

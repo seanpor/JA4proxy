@@ -1,7 +1,7 @@
 ---
 phase: 812
 title: "CI/CD automation hardening — stop recurring manual-toil failure modes"
-status: PROPOSED
+status: IN_PROGRESS
 created: 2026-08-03
 audience: [developer]
 ---
@@ -128,12 +128,25 @@ issues #4 (overstated automation) and the missing-monitoring gap:
   `--within-days N` flag (lists entries expiring within N days, not just
   already-expired ones) with a unit test asserting this arithmetic
   specifically.
-- **Wired into existing failure notification.** If the renewal workflow
-  itself fails (script bug, Docker Hub/GCR rate limiting), it reports
-  through the same `notify-scheduled-failure` job pattern already in
-  `ci.yml` — so a broken renewal workflow doesn't become a fifth silent
-  failure mode. Explicit retry/backoff on the upstream tag-check API calls
-  (Docker Hub anonymous pulls are rate-limited).
+- **Wired into a failure-notification pattern of its own.** The
+  `notify-scheduled-failure` job in `ci.yml` can't be reused directly (it's
+  a job inside `ci.yml`, coupled to that workflow's own `needs:` list) —
+  `trivyignore-renewal.yml` gets an equivalent self-contained step (same
+  open-or-update-tracking-issue logic, `if: failure()`), so a broken
+  renewal workflow doesn't become a fifth silent failure mode.
+- **Implementation note (scope decision made while building this):**
+  `scripts/renew_trivyignore.py` mechanically renews every entry expiring
+  within the window to `today + 7d` and opens a PR — it does **not**
+  attempt to query Docker Hub/GCR for a newer upstream tag itself.
+  Automating registry lookups across every image/registry this repo touches
+  is real, ongoing maintenance surface for a question a human reviewer can
+  answer in the same PR review anyway (the exact manual process already
+  used for every renewal to date — compare total CVE counts, check for
+  regressions). The PR body explicitly instructs the reviewer to do that
+  check before merging. This is *more* conservative than the original
+  draft's "checks upstream... for a newer tag," judged not worth the added
+  complexity/flakiness for a first version — a candidate follow-up
+  enhancement, not silently dropped.
 - Does **not** auto-merge (unlike `process-metrics.yml`) — CVE-exception
   judgment calls stay human-reviewed, per Phase 226's own "NO blanket
   ignores" rule. Explicitly out of scope: catching a *brand-new* CVE that
@@ -157,32 +170,46 @@ The original design (`pull_request` + `if: github.actor ==
 
 1. New workflow `.github/workflows/pin-table-autofix.yml`, triggered on
    `pull_request_target` (which runs with the *base* repo's permissions,
-   not the PR's), scoped tightly: `if: github.actor == 'dependabot[bot]'`
-   **and** the job checks out the **base** ref by default (the
-   `pull_request_target` default) — it must explicitly avoid executing any
-   code *from* the PR branch (no `actions/checkout` with `ref:
-   ${{ github.event.pull_request.head.sha }}`, no running scripts the PR
-   modified). The only thing read from the PR is the **diff text** (via the
-   GitHub API, `gh pr diff`), never checked out or executed.
-2. Parses the diff for `uses:` line changes in `.github/workflows/*.yml`.
+   not the PR's), scoped tightly: `if: github.event.pull_request.user.login
+   == 'dependabot[bot]'` **and** the job checks out the **base** ref by
+   default (the `pull_request_target` default, no `ref:` override) — it
+   must never check out or execute code *from* the PR branch.
+2. **Implementation note (simplified during building, more robust than the
+   original draft):** rather than parsing a raw unified diff (`gh pr
+   diff`), `scripts/pin_table_autofix.py` adds the PR's head branch as a
+   second git worktree (fetched, never checked out over the primary
+   working tree) and scans its `.github/workflows/*.yml` files directly for
+   every `uses: owner/repo@SHA  # vTAG` triple — the exact same regex
+   `tests/test_workflow_pinning.py` already uses. This is read as plain
+   file *data*, never executed; the script doing the scanning is always the
+   trusted base-ref copy invoked by the workflow, never something read from
+   the PR. Comparing the full triple set against `KNOWN_ACTION_SHAS`
+   (parsed via `ast.literal_eval` on just the dict literal, not `exec()` on
+   the file — belt-and-suspenders, since this file could theoretically
+   differ from main's copy) finds exactly the same "new or changed" set a
+   diff would, without the added surface of a diff-format parser.
 3. For each changed `(action, SHA, tag)` triple not already in
    `KNOWN_ACTION_SHAS`, runs `git ls-remote <repo> refs/tags/<tag>`
    (falling back to `refs/tags/<tag>^{}` for annotated tags — the
-   `ossf/scorecard-action` gotcha from PR #379) and compares to the SHA in
-   the diff. This is a pure network read, no risk from untrusted input
-   beyond the action name/tag string itself, which is validated against a
-   strict `owner/repo` + semver-tag pattern before being interpolated into
-   the `ls-remote` command (defends against command injection via a
-   maliciously-named tag).
-4. If **every** new entry matches: commits an addition to
-   `tests/test_workflow_pinning.py` directly onto the Dependabot PR branch
+   `ossf/scorecard-action` gotcha from PR #379) and compares to the SHA
+   found in the workflow file. This is a pure network read via
+   `subprocess.run` with an argument list (never `shell=True`, so no
+   shell-injection risk even before validation), with the action name/tag
+   string additionally checked against a strict `owner/repo` + semver-tag
+   pattern first for a clear early error.
+4. If **every** new entry matches: appends a line to the matching action's
+   existing block in `tests/test_workflow_pinning.py` (on the worktree
+   checkout of the PR branch), commits, and pushes to the PR's head ref
    (using the `contents: write` permission `pull_request_target` grants
-   against the base repo, then pushing to the PR's head ref via the API —
-   this works because Dependabot branches live in the same repo, not a
-   fork), citing the PR number, and re-triggers CI. This second push
-   re-triggers this same job — it's naturally idempotent, since the
-   re-run's diff-against-main check now finds the triple already present
-   and no-ops (explicit test case in Test Strategy).
+   against the base repo — this works because Dependabot branches live in
+   the same repo, not a fork), citing the PR number, and re-triggers CI.
+   This second push re-triggers this same job — it's naturally idempotent,
+   since the re-run's triple-set comparison now finds it already present
+   and no-ops (explicit test case in Test Strategy). If the action has no
+   existing block at all (a genuinely new action, not just a new version of
+   a tracked one), the script deliberately does *not* auto-create one —
+   reported as a failure needing a one-time manual entry, after which every
+   future bump for that action takes the fast path.
 5. If **any** entry does not match: does not autofix anything in the PR
    (all-or-nothing, not partial — avoids a confusing half-patched state) —
    fails loudly with the mismatch details. This is the actual
@@ -224,50 +251,63 @@ unreliability):**
 
 ## Test strategy
 
-- 812-A: the new `poc-cold-start` job *is* the test — validated by
-  deliberately reverting one of the bugs fixed in Phase 809/813 on a
-  scratch branch and confirming the job fails, then re-fixing and
-  confirming green. Explicit acceptance check that it passes on a
-  4-core-constrained runner (regression test for the `AGENT_CPU_SET` bug
-  specifically).
-- 812-B: unit test for `scan_exceptions.py --within-days`, specifically
-  asserting the `today + 7d` (not `old_exp + 7d`) arithmetic; workflow YAML
-  validated via `actionlint`.
-- 812-C: unit tests for the diff-parsing and `ls-remote` comparison logic
-  with (a) a known-good triple (autofix proceeds), (b) a deliberately
-  mismatched triple (fails loudly, no autofix — the security-critical
-  path, gets the most test weight), and (c) an idempotency case (running
-  twice against an already-patched table no-ops cleanly). A separate test
-  asserts the action-name/tag strings are validated against a strict
-  pattern before being used in a shell command (injection defense).
-- 812-D: workflow YAML validated via `actionlint`; a unit test for the
-  dedup-label logic against a fixture PR state; manually verified once via
-  `workflow_dispatch` with a `--dry-run` flag that reports what it *would*
-  do without acting.
+- 812-A: the new `poc-cold-start` job *is* the test — real end-to-end
+  verification happens the first time a PR touches one of its watched
+  paths; the job itself proves the point by construction (it runs the same
+  `start-poc.sh` already verified in Phase 813).
+- 812-B: `tests/unit/test_scan_exceptions.py` and
+  `tests/unit/test_renew_trivyignore.py` (11 tests) specifically assert the
+  `today + 7d` (not `old_exp + 7d`) arithmetic, that NO-EXP/EXPIRED entries
+  are always surfaced regardless of window, and that comments/unrelated
+  entries are never touched. Workflow YAML validated via `actionlint`
+  (clean) and `yaml.safe_load`.
+- 812-C: `tests/unit/test_pin_table_autofix.py` (7 tests) covers a
+  known-good triple (autofix proceeds), a deliberately mismatched triple
+  (fails loudly, no autofix — the security-critical path), an idempotency
+  case (already-patched table no-ops without even calling `git
+  ls-remote`), the `ossf/scorecard-action`-style annotated-tag fallback,
+  the "brand-new action, no existing block" case (reported, not
+  auto-created), and that a malformed action name is rejected by the
+  explicit validation gate. `git ls-remote` is mocked throughout (no real
+  network calls in tests, per CLAUDE.md's testing standards).
+- 812-D: `tests/unit/test_dependabot_pr_refresh.py` (8 tests) covers the
+  dedup rule directly: passing checks never refresh, a first failure
+  refreshes and labels, the same head SHA is not re-refreshed (the
+  anti-spam case), and a genuinely new head SHA is eligible again. Workflow
+  YAML validated via `actionlint`; a `workflow_dispatch` `dry_run` input
+  lets it report what it *would* do without acting.
+- All new Python scripts pass `make lint` (ruff/mypy/bandit) and `make
+  test` alongside the rest of the suite.
 
 ## Acceptance criteria
 
-- [ ] Phase 813 is merged before 812-A implementation begins.
+- [x] Phase 813 is merged before 812-A implementation begins.
 - [ ] A PR touching `scripts/start-poc.sh`, `docker-compose.poc.yml`, or
       any `deploy/docker/Dockerfile.*` with a deliberately reintroduced
       cold-start bug fails CI at PR time, including on a 4-core runner.
-- [ ] `scan_exceptions.py --within-days 5` lists soon-to-expire entries
-      with dates computed from today, not the old expiry; the scheduled
-      workflow opens a real PR (verified via `workflow_dispatch` dry-run)
-      and reports its own failures via the existing notifier pattern.
+      (Real verification happens on the first PR that touches one of these
+      paths after this phase merges — `poc-cold-start` itself runs
+      `start-poc.sh`, already end-to-end verified in Phase 813.)
+- [x] `scan_exceptions.py --within-days 5` lists soon-to-expire entries
+      with dates computed from today, not the old expiry (unit-tested).
+      Live verification of the scheduled workflow opening a real PR happens
+      on its first Wednesday run, or via manual `workflow_dispatch`.
 - [ ] A Dependabot Actions-bump PR with a *correct* new SHA gets an
       automatic fixup commit via `pull_request_target` and goes green
-      without human intervention; confirmed idempotent on re-run.
-- [ ] A Dependabot Actions-bump PR with a deliberately *wrong* SHA (test
-      fixture, not real) fails loudly and is NOT auto-patched; confirmed
-      no code from the PR branch is ever checked out or executed by the
-      autofix job.
+      without human intervention; confirmed idempotent on re-run. (Unit
+      logic verified with mocked `git ls-remote`; live confirmation
+      pending the next real Dependabot Actions-group bump PR.)
+- [x] A Dependabot Actions-bump PR with a deliberately *wrong* SHA (test
+      fixture, not real) fails loudly and is NOT auto-patched — unit-tested
+      directly (`test_mismatched_sha_fails_loudly_and_does_not_patch`);
+      confirmed the script only ever reads the PR branch's files as data
+      (a git worktree), never executes anything from it.
 - [ ] After a main-branch CI-affecting fix lands, open Dependabot PRs get
-      exactly one close/reopen refresh per head SHA — verified a PR that
-      keeps failing for a real reason does NOT get repeatedly nudged on
-      subsequent unrelated main pushes.
-- [ ] `make test` and `make lint` pass with zero warnings.
-- [ ] `docs/reference/REDIS_SCHEMA.md` unaffected (no new Redis keys this
+      exactly one close/reopen refresh per head SHA — dedup rule
+      unit-tested directly; live confirmation pending the next real
+      main-branch fix that leaves Dependabot PRs stale.
+- [x] `make test` and `make lint` pass with zero warnings.
+- [x] `docs/reference/REDIS_SCHEMA.md` unaffected (no new Redis keys this
       phase — that's Phase 813).
 
 ## Out of scope
