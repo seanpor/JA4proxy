@@ -41,6 +41,10 @@ SHA_AND_TAG_RE = re.compile(
 # To verify a row by hand:
 #     git ls-remote https://github.com/<owner>/<repo> refs/tags/<tag>
 KNOWN_ACTION_SHAS: dict[str, dict[str, str]] = {
+    # phase-812: path-filtered poc-cold-start job in ci.yml
+    "dorny/paths-filter": {
+        "v3.0.2": "de90cc6fb38fc0963ad72b210f1f284cd68cea36",
+    },
     # phase-302: Dependabot auto-merge workflow
     "dependabot/fetch-metadata": {
         "v2.3.0": "d7267f607e9d3fb96fc2fbe83e0af444713e90b7",

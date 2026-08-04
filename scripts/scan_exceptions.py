@@ -8,6 +8,16 @@ non-zero so they cannot be quietly forgotten.
 
 Dependency-free (stdlib only), like the other Makefile guards.
 Optional `--today YYYY-MM-DD` for deterministic testing.
+
+Phase 812 (812-B): `--within-days N` filters the listing to entries expiring
+within N days from today (inclusive; already-expired entries, negative days,
+are always included too) instead of every entry. Used by
+.github/workflows/trivyignore-renewal.yml to find exceptions worth renewing
+*before* they expire, rather than reacting the same day a same-batch cliff
+takes out Security Scan on every open PR. Renewal dates computed from this
+listing must always be `today + 7d`, never `old_exp + 7d` -- see that
+workflow and PHASE_812.md for why (repeated mechanical renewal must not let
+the Phase 226 7-day maximum silently drift longer).
 """
 from __future__ import annotations
 
@@ -42,6 +52,9 @@ def main(argv: list[str]) -> int:
     today = date.today()
     if "--today" in argv:
         today = datetime.strptime(argv[argv.index("--today") + 1], "%Y-%m-%d").date()
+    within_days: int | None = None
+    if "--within-days" in argv:
+        within_days = int(argv[argv.index("--within-days") + 1])
     if not IGNORE.exists():
         print("No .trivyignore file — no scan exceptions.")
         return 0
@@ -53,20 +66,29 @@ def main(argv: list[str]) -> int:
     print(f"{'CVE':<18} {'EXPIRES':<12} {'DAYS':>5}  {'STATUS':<8} JUSTIFICATION")
     print("-" * 78)
     violations = 0
+    shown = 0
     for cve, exp, just in entries:
         if not exp:
-            status, days = "NO-EXP", "  -"
-            violations += 1
+            status, days, d = "NO-EXP", "  -", None
         else:
             d = (datetime.strptime(exp, "%Y-%m-%d").date() - today).days
             days = str(d)
             if d < 0:
                 status = "EXPIRED"
-                violations += 1
             elif d <= 3:
                 status = "SOON"
             else:
                 status = "ok"
+
+        # --within-days N: only show entries expiring within N days from
+        # today (always includes NO-EXP/EXPIRED, since those need action
+        # regardless of the window asked for).
+        if within_days is not None and d is not None and d > within_days:
+            continue
+
+        if status in ("NO-EXP", "EXPIRED"):
+            violations += 1
+        shown += 1
         print(f"{cve:<18} {exp or '(none)':<12} {days:>5}  {status:<8} {just[:90]}")
 
     print("-" * 78)
@@ -76,6 +98,9 @@ def main(argv: list[str]) -> int:
             "Re-justify (extend exp:, max +7d) or remove (prefer a real fix)."
         )
         return 1
+    if within_days is not None:
+        print(f"\n✓ {shown} exception(s) expiring within {within_days} day(s).")
+        return 0
     print(f"\n✓ {len(entries)} exception(s), all within their time window.")
     return 0
 
