@@ -22,8 +22,13 @@
 #   ~analytics:* (the proxy's own fire-and-forget XADD analytics publish,
 #   per CLAUDE.md's Redis Streams decision) and +eval/+evalsha (the
 #   sliding-window rate limiter's Lua script, per
-#   docs/reference/REDIS_SCHEMA.md's Sorted Set + Lua entry).
-user proxy on >${REDIS_PASSWORD} ~ratelimit:* ~ban:* ~beacon:* ~dns:* ~abuseipdb:* ~rdap:* ~ja4:* ~config:* ~analytics:* +get +set +del +expire +ttl +zadd +zrange +zrangebyscore +zremrangebyscore +zcard +zincrby +sadd +srem +sismember +smembers +hset +hget +hincrby +hgetall +pfadd +pfcount +xadd +evalsha +eval
+#   docs/reference/REDIS_SCHEMA.md's Sorted Set + Lua entry). +ping added
+#   after direct testing showed +@read/+@write do NOT imply PING in
+#   Redis's ACL category system (PING is categorized @fast @connection) --
+#   without it, scripts/start-poc.sh's own Redis healthcheck
+#   (`redis-cli --user proxy ... ping`) would authenticate successfully
+#   and still report failure.
+user proxy on >${REDIS_PASSWORD} ~ratelimit:* ~ban:* ~beacon:* ~dns:* ~abuseipdb:* ~rdap:* ~ja4:* ~config:* ~analytics:* +get +set +del +expire +ttl +zadd +zrange +zrangebyscore +zremrangebyscore +zcard +zincrby +sadd +srem +sismember +smembers +hset +hget +hincrby +hgetall +pfadd +pfcount +xadd +evalsha +eval +ping
 
 # user exporter — used by oliver006/redis_exporter ONLY.
 #   Phase 813: previously authenticated with no username at all (defaults
@@ -31,13 +36,16 @@ user proxy on >${REDIS_PASSWORD} ~ratelimit:* ~ban:* ~beacon:* ~dns:* ~abuseipdb
 #   REDIS_PASSWORD_FILE — silently broken in the same way as the proxy.
 #   Needs read-only visibility plus a couple of introspection commands to
 #   produce its metrics (memory/keyspace/replication stats, client count),
-#   nothing else.
-user exporter on >${EXPORTER_REDIS_PASSWORD} ~* +@read +config|get +client|list -@admin
+#   nothing else. +ping: see the proxy user's comment above -- +@read does
+#   not imply it, and redis_exporter's own health/connectivity probing
+#   needs it.
+user exporter on >${EXPORTER_REDIS_PASSWORD} ~* +@read +config|get +client|list +ping -@admin
 
 # user management — used by the management console.
 #   ~* = may access any key (it needs to read config:*, ja4:*, ban:*, etc.)
-#   This is intentionally broad; the management console is trusted.
-user management on >${MANAGEMENT_REDIS_PASSWORD} ~* +@read +@write -@admin
+#   This is intentionally broad; the management console is trusted. +ping:
+#   see the proxy user's comment above -- +@read/+@write do not imply it.
+user management on >${MANAGEMENT_REDIS_PASSWORD} ~* +@read +@write +ping -@admin
 
 # user analytics — used by the analytics container ONLY.
 #   ~analytics:* = analytics container may ONLY read/write keys beginning with
