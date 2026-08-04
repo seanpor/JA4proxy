@@ -12,6 +12,17 @@
 # default user; all real authentication goes through the named ACL users
 # this script renders.
 #
+# Also strips every `#`-comment line during rendering. Verified directly:
+# Redis's --aclfile parser does NOT support comments at all (unlike
+# redis.conf) -- a single leading `# comment` line is enough to fail the
+# whole file with "Aborting Redis startup because of ACL errors: ... should
+# start with user keyword", the exact symptom that made this look like a
+# rendering bug before this was isolated with a minimal repro. Blank lines
+# ARE tolerated (verified) and are left alone. The template keeps its rich
+# documentation comments for humans reading config/redis_acl.conf.template
+# directly; only the rendered /tmp copy redis-server actually reads is
+# comment-stripped.
+#
 # Deliberately dependency-free (no envsubst/gettext -- not present in
 # redis:7.4.9-alpine) and deliberately does not use eval/sh -c on secret
 # content, to avoid any secret value being interpreted as shell syntax.
@@ -60,7 +71,9 @@ render_var() {
     mv "${RENDERED}.next" "$RENDERED"
 }
 
-cp "$TEMPLATE" "$RENDERED"
+# Strip comment lines (anything whose first non-whitespace character is
+# '#') while copying the template into place -- see the header note above.
+grep -v '^[[:space:]]*#' "$TEMPLATE" > "$RENDERED"
 render_var REDIS_PASSWORD /run/secrets/redis_password
 render_var MANAGEMENT_REDIS_PASSWORD /run/secrets/management_redis_password
 render_var ANALYTICS_REDIS_PASSWORD /run/secrets/analytics_redis_password
