@@ -156,7 +156,7 @@ Phase 809:
   sensor reaches Redis (see the comment block above the service). Prometheus
   scrapes it via the `ja4proxy-tap` job in
   `deploy/monitoring/prometheus/prometheus.yml`. The `ja4tap` Redis ACL user
-  lives in `config/redis_acl.conf`.
+  lives in `config/redis_acl.conf.template`.
 - **Shutdown grace period (R-013):** on `SIGTERM`, the sensor stops
   capturing, flushes in-flight reassembly state (`Sensor.Flush`), and drains
   the remaining buffered events before exiting -- give it at least
@@ -405,7 +405,7 @@ ja4-tap --interface eth1 --redis-url redis://redis:6379/0
 
 The sensor only ever **writes** `fp:*` keys. Grant the tap binary's Redis user
 write access to `fp:*` and nothing else — it needs no read of policy, ban, or
-session keys. This is now the canonical `ja4tap` user in `config/redis_acl.conf`
+session keys. This is now the canonical `ja4tap` user in `config/redis_acl.conf.template`
 (phase-809, O-006) — do not maintain a second copy here; the file is the
 source of truth. Example, matching that file:
 
@@ -514,7 +514,7 @@ Widened ACL for an **armed** sensor (only when you have reviewed the watchlist).
 D-001 added a pre-write existing-ban check (`Enforcer.Consider` GETs
 `ban:{ip}` before writing it, to avoid overwriting an operator ban), so `+get`
 is required in the widened grant too — see the commented example in
-`config/redis_acl.conf`:
+`config/redis_acl.conf.template`:
 
 ```
 ACL SETUSER ja4tap on >SECRET ~fp:* ~ban:* +set +expire +get

@@ -467,7 +467,7 @@ services:
   # below) -- enable explicitly with `docker compose --profile tap up`.
   #
   # Prerequisite: `deploy/secrets/ja4tap_redis_password.txt` and a `ja4tap`
-  # user in config/redis_acl.conf (see that file's phase-809 entry) --
+  # user in config/redis_acl.conf.template (see that file's phase-809 entry) --
   # least-privilege by default: only fp:* writes, ban:* only once armed.
   #
   # Network: AF_PACKET live capture needs to see the SPAN interface, which a

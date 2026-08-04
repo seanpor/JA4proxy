@@ -4130,22 +4130,3 @@ phases:
       a new 'proxy' ACL user, corrected secrets wiring in both compose
       files, and start-poc.sh additions. Blocks Phase 812's 812-A
       (cold-start smoke test can't pass until Redis auth actually works)."
-  812:
-    name: "CI/CD automation hardening — stop recurring manual-toil failure modes"
-    status: IN_PROGRESS
-    action_plan: docs/phases/PHASE_812.md
-    dependencies: [813]
-    size: MEDIUM
-    summary: "PROPOSED, revised after critical review. Four independent
-      fixes for recurring CI failure modes hit repeatedly during Phase 809
-      aftermath cleanup (2026-08-03/04). 812-A (PR-time cold-start smoke
-      test) now explicitly depends on Phase 813 landing first. 812-C (live
-      SHA verification for Dependabot Actions bumps) redesigned around
-      pull_request_target after confirming Dependabot-triggered
-      pull_request workflows get a read-only GITHUB_TOKEN by default.
-      812-D (auto-nudge stale Dependabot PRs) redesigned with per-head-SHA
-      dedup and close/reopen as the primary mechanism, not the
-      empirically-unreliable @dependabot rebase comment. 812-B
-      (.trivyignore proactive renewal) redesigned to compute new exp:
-      dates from today (not the old expiry) and to hook into the existing
-      notify-scheduled-failure pattern."

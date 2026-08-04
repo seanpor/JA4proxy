@@ -64,17 +64,77 @@ test against a real container, not just "the compose file looks right."
    includes `redis_password` — not `analytics_redis_password` or
    `ja4tap_redis_password` — so even with (2) fixed, the redis *container*
    itself doesn't have those secret files available to read from. Separately,
-   `analytics` and `redis-exporter` services both list `secrets: [redis_password]`
-   despite not needing the proxy's own password (analytics gets its actual
-   working credential via a normal compose-level `${ANALYTICS_REDIS_PASSWORD}`
-   interpolation in its `REDIS_URL`, which **does** work correctly — compose-level
-   `${VAR}` interpolation in the YAML itself is a different, working mechanism
-   from a file bind-mounted into a container, which is the actual point of
-   confusion that caused this whole chain of bugs). `promtail` lists
-   `secrets: [ja4tap_redis_password]`, which it has no legitimate use for.
-   These look like copy-paste artifacts from earlier phases, not
-   functional bugs on their own, but are cleaned up here for correctness
-   and to stop the pattern from being copied again.
+   `analytics` lists `secrets: [redis_password]` despite not needing the
+   proxy's own password — it gets its actual working credential via a normal
+   compose-level `${ANALYTICS_REDIS_PASSWORD}` interpolation in its
+   `REDIS_URL`, which **does** work correctly (compose-level `${VAR}`
+   interpolation in the YAML itself is a different, working mechanism from a
+   file bind-mounted into a container, which is the actual point of confusion
+   that caused this whole chain of bugs) — that stray secret mount is an
+   unused copy-paste artifact, removed. (Corrected during implementation: an
+   earlier draft of this investigation also flagged `promtail` and
+   `redis-exporter` here; re-checked and both were wrong. `promtail` never
+   had a stray secret at all — a mis-scoped grep matched into the next
+   service block (`ja4-tap`), which legitimately owns
+   `ja4tap_redis_password`. `redis-exporter`'s `secrets: [redis_password]`
+   wasn't stray either — it's a real, if broken, Redis client: it
+   authenticates with no username at all via `REDIS_PASSWORD_FILE`, which
+   defaults to the disabled `default` user, the same root cause as the
+   proxy's own bug. Fixed with its own `exporter` ACL user rather than
+   removed.)
+
+## Additional findings during implementation (not in the original investigation)
+
+Four more bugs surfaced only once the fix above was actually run against a
+real container — each verified with a minimal, deterministic repro before
+being fixed, the same discipline as the original investigation:
+
+6. **Docker Compose's `secrets:` long-form `uid`/`gid`/`mode` fields are
+   swarm-only.** First attempt at fixing (7) below used them; Compose logged
+   `secrets uid, gid and mode are not supported, they will be ignored` and
+   silently fell back to a raw bind-mount. Reverted to short-form `secrets:`
+   everywhere and fixed the real problem with `cap_add: [DAC_OVERRIDE]`
+   instead (see (7)).
+7. **Every service reading a Docker secret alongside `cap_drop: [ALL]` was
+   unable to read it.** `deploy/secrets/*.txt` are chmod 600 on the host,
+   owned by whichever user ran `start-poc.sh` (policy:
+   `deploy/secrets/README.md`, "Files MUST be 600" — not weakened to fix
+   this). `docker compose` (non-swarm) bind-mounts secret files with the
+   host file's permissions verbatim, and `cap_drop: [ALL]` removes
+   `CAP_DAC_OVERRIDE` — so a container process can't read a secret it
+   doesn't own, root or not. Affected every hardened service consuming a
+   secret: `redis` (new), `proxy`, `redis-exporter`, `grafana`, `ja4-tap`
+   (all pre-existing — `ja4-tap`'s own secret read only ever "worked" by
+   coincidental UID alignment between its fixed container UID 1000 and the
+   common first-non-root-user UID on Debian/Ubuntu hosts and GitHub Actions
+   runners, not a real guarantee). Fixed by adding `cap_add: [DAC_OVERRIDE]`
+   to each (alongside `NET_BIND_SERVICE` on `proxy` and `NET_RAW` on
+   `ja4-tap`, both pre-existing).
+8. **Redis's `--aclfile` parser does not support `#` comments at all**
+   (unlike `redis.conf`). Isolated with a two-line repro: a comment-free ACL
+   file loaded fine; adding one leading `# comment` line broke it with the
+   exact "should start with user keyword" error seen throughout this
+   investigation. Blank lines are tolerated. Fixed in
+   `redis-entrypoint.sh` by stripping comment lines (`grep -v
+   '^[[:space:]]*#'`) when rendering — `config/redis_acl.conf.template`
+   keeps its full documentation for humans; only the rendered `/tmp` copy
+   redis-server reads is stripped.
+9. **`+@read`/`+@write` do not imply `+ping`** in Redis's ACL category
+   system (`PING` is categorized `@fast @connection`). `proxy`,
+   `management`, and `exporter` all authenticated successfully but got
+   `NOPERM` on `ping` — including `start-poc.sh`'s own healthcheck, which
+   would have reported failure despite auth genuinely working.
+   `analytics`'s pre-existing grant already had `+ping` explicitly; mirrored
+   that for the three affected users.
+10. **`docker-compose.prod.yml`'s `proxy` service never bridged
+    `/run/secrets/redis_password` into the `REDIS_PASSWORD` env var**
+    `config/proxy.yml`'s `password: "${REDIS_PASSWORD}"` needs. No `_FILE`
+    convention exists in the Go binary (`cmd/ja4pd`) or Dockerfile
+    entrypoint. `REDIS_PASSWORD` would have resolved to empty, and every
+    Redis operation would have failed AUTH — in prod specifically; POC's
+    proxy service was already correct (sets `REDIS_PASSWORD` as a plain
+    env var directly, no Docker secret involved). Fixed with the same
+    shell-wrapper entrypoint pattern `ja4-tap` already used.
 
 ## Root cause, in one sentence
 
@@ -207,20 +267,34 @@ not authorization policy.
 
 ## Acceptance criteria
 
-- [ ] `./scripts/start-poc.sh` succeeds end-to-end from a clean checkout
-      (no `.env`, no `deploy/secrets/`) on a 4-core runner, with the proxy
-      actually reachable and its Redis-backed features (rate limiting,
-      blocklist) functioning, not just "container is up."
-- [ ] All four ACL users authenticate correctly against a real container;
-      `default` remains rejected.
-- [ ] `docker-compose.prod.yml` changes reviewed for an operator upgrading
-      an existing prod deployment (this changes what secret files are
-      required — document the migration step, don't silently break
-      existing deployments that only have `redis_password.txt` today).
-- [ ] `make test` and `make lint` pass with zero warnings.
-- [ ] `docs/reference/REDIS_SCHEMA.md` and
-      `docs/runbooks/` updated to reflect the corrected auth chain.
-- [ ] CHANGELOG fragment added noting this as a production-impacting fix.
+- [x] `./scripts/start-poc.sh` succeeds end-to-end from a clean checkout
+      (no `.env`, no `deploy/secrets/`) — verified in a scratch git
+      worktree. `Checking Redis... ✓`, `Checking Backend... ✓`,
+      `Checking Proxy... ✓`, and the proxy's own `/health` endpoint reports
+      `{"redis":"ok","status":"ok"}` — the actual root-cause failure this
+      phase exists to fix. Not yet independently re-verified against a real
+      4-core-constrained CI runner (812-A, blocked on this phase, will make
+      that a standing regression check going forward).
+- [x] All five ACL users (`proxy`, `management`, `analytics`, `ja4tap`,
+      `exporter`) authenticate correctly against a real container and can
+      perform their intended operations (verified `ping` for all five, plus
+      a real `ja4tap` `SET ... EX`); `analytics`'s least-privilege scoping
+      confirmed (`NOPERM` on a key outside `analytics:*`); `default` remains
+      rejected (`NOAUTH`).
+- [x] `docker-compose.prod.yml` changes reviewed for an operator upgrading
+      an existing prod deployment — header comment documents all five
+      required secret files and an explicit migration note (existing
+      deployments must generate the four new files before restarting
+      redis, or it refuses to start).
+- [x] `make test` and `make lint` pass with zero warnings (verified locally
+      after adding `EXPORTER_REDIS_PASSWORD` to `lint-docker`'s
+      `docker-compose.monitoring.yml` placeholder set, which my own change
+      made a new requirement of).
+- [x] `docs/reference/REDIS_SCHEMA.md` and `docs/runbooks/tap_mode.md`
+      updated to reflect the corrected auth chain and the
+      `redis_acl.conf` → `redis_acl.conf.template` rename.
+- [x] CHANGELOG fragment added noting this as a production-impacting fix
+      (`docs/fragments/phase-813-redis-acl-auth-fix.md`).
 
 ## Out of scope
 
