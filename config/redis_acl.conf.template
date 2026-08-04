@@ -1,0 +1,76 @@
+# Redis ACL file for JA4proxy
+# Phase 236: Analytics Trust Boundary
+# Phase 813: this file is a TEMPLATE -- Redis ACL files do not support
+# shell-style ${VAR} substitution, so it is never mounted directly. See
+# deploy/docker/redis-entrypoint.sh, which renders it (substituting each
+# ${..._REDIS_PASSWORD} below from the matching /run/secrets/* file) to
+# /tmp/redis_acl.conf before redis-server reads it. Naming this file with
+# the raw, un-rendered placeholders is deliberate: it makes the original
+# bug (a static bind-mount of this exact file, which Redis would then read
+# completely literally) structurally impossible to reintroduce by
+# accident -- there is no path in either compose file for a literal
+# "redis_acl.conf" to exist again.
+#
+# user proxy — used by the Go proxy itself (cmd/ja4pd).
+#   JA4PROXY-2026-0052 / JA4PROXY-2026-0043: config/proxy.yml's
+#   redis.acl_users block already named this user (proxy_user: "proxy")
+#   and scripts/redis-acl-setup.sh already defined this exact grant for a
+#   live-ACL-update deployment path — acl_users.enabled was simply never
+#   flipped to true, so the proxy silently authenticated as the disabled
+#   "default" user instead (Phase 813's root-cause finding). Mirrors
+#   scripts/redis-acl-setup.sh's permission set exactly, including
+#   ~analytics:* (the proxy's own fire-and-forget XADD analytics publish,
+#   per CLAUDE.md's Redis Streams decision) and +eval/+evalsha (the
+#   sliding-window rate limiter's Lua script, per
+#   docs/reference/REDIS_SCHEMA.md's Sorted Set + Lua entry). +ping added
+#   after direct testing showed +@read/+@write do NOT imply PING in
+#   Redis's ACL category system (PING is categorized @fast @connection) --
+#   without it, scripts/start-poc.sh's own Redis healthcheck
+#   (`redis-cli --user proxy ... ping`) would authenticate successfully
+#   and still report failure.
+user proxy on >${REDIS_PASSWORD} ~ratelimit:* ~ban:* ~beacon:* ~dns:* ~abuseipdb:* ~rdap:* ~ja4:* ~config:* ~analytics:* +get +set +del +expire +ttl +zadd +zrange +zrangebyscore +zremrangebyscore +zcard +zincrby +sadd +srem +sismember +smembers +hset +hget +hincrby +hgetall +pfadd +pfcount +xadd +evalsha +eval +ping
+
+# user exporter — used by oliver006/redis_exporter ONLY.
+#   Phase 813: previously authenticated with no username at all (defaults
+#   to "default", which is disabled below) via REDIS_PASSWORD/
+#   REDIS_PASSWORD_FILE — silently broken in the same way as the proxy.
+#   Needs read-only visibility plus a couple of introspection commands to
+#   produce its metrics (memory/keyspace/replication stats, client count),
+#   nothing else. +ping: see the proxy user's comment above -- +@read does
+#   not imply it, and redis_exporter's own health/connectivity probing
+#   needs it.
+user exporter on >${EXPORTER_REDIS_PASSWORD} ~* +@read +config|get +client|list +ping -@admin
+
+# user management — used by the management console.
+#   ~* = may access any key (it needs to read config:*, ja4:*, ban:*, etc.)
+#   This is intentionally broad; the management console is trusted. +ping:
+#   see the proxy user's comment above -- +@read/+@write do not imply it.
+user management on >${MANAGEMENT_REDIS_PASSWORD} ~* +@read +@write +ping -@admin
+
+# user analytics — used by the analytics container ONLY.
+#   ~analytics:* = analytics container may ONLY read/write keys beginning with
+#   "analytics:". It cannot touch config:dial, ja4:blocklist, ban:*, etc.
+#   If the analytics container is compromised, the attacker cannot manipulate
+#   the blocklist or dial setting.
+user analytics on >${ANALYTICS_REDIS_PASSWORD} resetkeys ~analytics:* +@read +@write +ping -@admin
+
+# user ja4tap — used by the standalone Go TAP/SPAN sensor (cmd/ja4-tap) ONLY.
+#   phase-809 (O-006): documented in docs/runbooks/tap_mode.md but missing
+#   from this canonical file — a sensor deployed straight from this file had
+#   no permissions and every write failed.
+#   ~fp:* +set +expire = base grant. The sensor only ever SETs fp:os:ip:{ip},
+#   fp:ja4t:ip:{ip}, and fp:ban_intent:ip:{ip}, all with a TTL (EXPIRE is
+#   implicit in SET ... EX, but some clients issue it separately) — no other
+#   command is ever needed for the default (unarmed) advisory-only posture.
+#   Widen to ~ban:* only when arming enforcement (--enforce); see D-001's
+#   Enforcer.Consider, which also GETs ban:{ip} before writing it (to avoid
+#   overwriting an operator ban), so +get is required alongside +set once armed:
+#     ACL SETUSER ja4tap on >${JA4TAP_REDIS_PASSWORD} ~fp:* ~ban:* +set +expire +get
+#   Deliberately NOT granted: +scan, +keys — the sensor never needs to
+#   enumerate keys, and per P-002, ~fp:*/~ban:* read access is itself
+#   PII-bearing (IPs are embedded in the key names).
+user ja4tap on >${JA4TAP_REDIS_PASSWORD} ~fp:* +set +expire
+
+# user default — disable the unauthenticated default user.
+#   Any client that does not authenticate gets no permissions at all.
+user default off nopass ~* -@all

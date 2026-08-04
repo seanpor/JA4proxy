@@ -4109,3 +4109,24 @@ phases:
       93 branches confirmed dead via merged-PR lookup being deleted
       (user-approved); 14 branches with real unmerged commits deliberately
       left untouched (user-approved) pending owner review."
+  813:
+    name: "Redis ACL authentication fix (production-impacting)"
+    status: IN_PROGRESS
+    action_plan: docs/phases/PHASE_813.md
+    dependencies: []
+    size: MEDIUM
+    summary: "PROPOSED. Discovered while investigating a Nightly Benchmark
+      failure (2026-08-04): docker-compose.poc.yml and
+      docker-compose.prod.yml's redis service passes the invalid
+      --requirepass-file directive (Redis crash-loops immediately);
+      config/redis_acl.conf is bind-mounted read-only with unrendered
+      ${VAR} placeholders (Redis ACL files don't support shell
+      substitution); scripts/start-poc.sh never generates
+      MANAGEMENT_REDIS_PASSWORD or JA4TAP_REDIS_PASSWORD; and the Go proxy
+      itself authenticates as the deliberately-disabled default user
+      (config/proxy.yml username: \"\") instead of a named ACL user. This
+      is production-impacting, not test-only -- both compose files share
+      the bug. Fixes: a rendering entrypoint script for the ACL template,
+      a new 'proxy' ACL user, corrected secrets wiring in both compose
+      files, and start-poc.sh additions. Blocks Phase 812's 812-A
+      (cold-start smoke test can't pass until Redis auth actually works)."

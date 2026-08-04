@@ -21,6 +21,27 @@ phase: 54
 - JA4 fingerprints are the full opaque string from the TLS parser.
 - `none` TTL = no expiry (key persists until explicitly deleted).
 
+## Authentication (Phase 813)
+
+Every key pattern below is gated behind Redis ACL, not the historical
+single shared password. `config/redis_acl.conf.template` (rendered at
+container start by `deploy/docker/redis-entrypoint.sh`) is the source of
+truth for which named user may touch which key prefix:
+
+| ACL user | Key access | Used by |
+|----------|-----------|---------|
+| `proxy` | `ratelimit:*`, `ban:*`, `beacon:*`, `dns:*`, `abuseipdb:*`, `rdap:*`, `ja4:*`, `config:*`, `analytics:*` | The Go proxy (`cmd/ja4pd`) — everything on this page not otherwise listed |
+| `management` | `*` (broad, trusted) | Management console |
+| `analytics` | `analytics:*` only | Analytics container (Python) |
+| `ja4tap` | `fp:*` (widens to `ban:*` when armed) | Standalone TAP/SPAN sensor (`cmd/ja4-tap`) |
+| `exporter` | `*` (read-only + introspection) | `oliver006/redis_exporter` metrics scraper |
+| `default` | none (`off`) | Disabled entirely — any unauthenticated client is refused |
+
+The unauthenticated `default` user being disabled is the reason every
+consumer above needs its own real credential; see Phase 813's plan doc
+(`docs/phases/complete/PHASE_813.md` once archived) for the investigation
+that found several of these credentials were never actually wired up.
+
 ---
 
 ## Phase 0 — Infrastructure

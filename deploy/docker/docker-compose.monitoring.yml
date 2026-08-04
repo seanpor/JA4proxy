@@ -174,7 +174,11 @@ services:
     container_name: ja4proxy-redis-exporter
     environment:
       - REDIS_ADDR=redis:6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+      # Phase 813: previously authenticated with no username (defaults to
+      # the disabled "default" user) using REDIS_PASSWORD (the proxy's own
+      # credential). Uses its own named ACL user now.
+      - REDIS_USER=exporter
+      - REDIS_PASSWORD=${EXPORTER_REDIS_PASSWORD:?EXPORTER_REDIS_PASSWORD is required}
     # Not exposed to host — only accessible from monitoring network
     restart: unless-stopped
     networks:

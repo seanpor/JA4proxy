@@ -1,11 +1,22 @@
 # JA4proxy Proof-of-Compose stack.
 #
-# Prerequisites (must be created before first deploy):
-#   deploy/secrets/redis_password.txt — strong random password (min 32 chars)
+# Prerequisites (must be created before first deploy — scripts/start-poc.sh
+# does all of this automatically; the manual steps below are for reference
+# / non-start-poc.sh deployments):
+#   deploy/secrets/redis_password.txt             — proxy's Redis ACL user password
+#   deploy/secrets/management_redis_password.txt  — management console's Redis ACL user password
+#   deploy/secrets/analytics_redis_password.txt   — analytics container's Redis ACL user password
+#   deploy/secrets/ja4tap_redis_password.txt      — ja4-tap sensor's Redis ACL user password
+#   deploy/secrets/exporter_redis_password.txt    — redis_exporter's Redis ACL user password
+#   (each: strong random password, min 32 chars, distinct per user — see
+#   config/redis_acl.conf.template and JA4PROXY-2026-0043)
 #
 # Quick start:
 #   mkdir -p deploy/secrets
-#   openssl rand -base64 48 > deploy/secrets/redis_password.txt
+#   for f in redis_password management_redis_password analytics_redis_password \
+#            ja4tap_redis_password exporter_redis_password; do
+#     openssl rand -base64 48 > "deploy/secrets/${f}.txt"
+#   done
 #   chmod 600 deploy/secrets/*.txt
 #   cp template.env .env  # edit as needed
 #   docker compose up -d
@@ -124,12 +135,15 @@ services:
     # redis-sock volume, it MUST also add `group_add: ["999"]` — the redis
     # user's GID inside redis:7.4.9-alpine — or it will not be able to
     # connect.)
+    # Phase 813: --requirepass-file is not a real Redis directive (it
+    # crash-loops the container with a FATAL CONFIG FILE ERROR) and the ACL
+    # file needs its ${..._REDIS_PASSWORD} placeholders rendered before
+    # Redis can read it (Redis ACL files don't support shell substitution,
+    # and this file was previously bind-mounted verbatim). The custom
+    # entrypoint below does both: renders the template, then execs
+    # redis-server with only the non-auth flags from `command:`.
+    entrypoint: ["/usr/local/bin/redis-entrypoint.sh"]
     command:
-      - redis-server
-      - --requirepass-file
-      - /run/secrets/redis_password
-      - --aclfile
-      - /etc/redis/redis_acl.conf
       - --maxmemory
       - 256mb
       - --maxmemory-policy
@@ -149,14 +163,19 @@ services:
     volumes:
       - redis-data:/data
       - redis-sock:/var/run/redis
-      - ../../config/redis_acl.conf:/etc/redis/redis_acl.conf:ro
+      - ../../config/redis_acl.conf.template:/etc/redis/redis_acl.conf.template:ro
+      - ./redis-entrypoint.sh:/usr/local/bin/redis-entrypoint.sh:ro
     secrets:
       - redis_password
+      - management_redis_password
+      - analytics_redis_password
+      - ja4tap_redis_password
+      - exporter_redis_password
     # JA4PROXY-2026-0079: Hardening controls below are mandatory for Redis.
     # Do NOT weaken or remove without explicit security review (issue #238).
     #   1. Pinned image with digest (immutable, not mutable tag)
     #   2. no-new-privileges — prevent setuid escalation
-    #   3. cap_drop: ALL — drop all Linux capabilities
+    #   3. cap_drop: ALL — drop all Linux capabilities, cap_add only what's needed
     #   4. read_only: true — prevent filesystem writes
     #   5. No apparmor:unconfined — use default or custom profile
     security_opt:
@@ -167,6 +186,19 @@ services:
       - /var/run:noexec,nosuid,nodev,size=10m
     cap_drop:
       - ALL
+    # Phase 813: deploy/secrets/*.txt are chmod 600 on the host per
+    # deploy/secrets/README.md's documented policy ("Files MUST be 600") --
+    # preserved, not loosened. docker compose (non-swarm) bind-mounts
+    # `secrets:` files with the HOST file's permissions verbatim; the
+    # long-form `uid`/`gid`/`mode` fields exist in the Compose spec but are
+    # swarm-only -- this Compose version logs "not supported, they will be
+    # ignored" and silently falls back to the raw bind-mount (verified
+    # directly). redis-entrypoint.sh (running as root, since it replaces
+    # the image's own root->redis privilege-drop entrypoint) therefore
+    # needs CAP_DAC_OVERRIDE specifically to read a secret file it doesn't
+    # own -- every other capability stays dropped.
+    cap_add:
+      - DAC_OVERRIDE
     deploy:
       resources:
         limits:
@@ -436,6 +468,14 @@ volumes:
 secrets:
   redis_password:
     file: ../secrets/redis_password.txt
+  management_redis_password:
+    file: ../secrets/management_redis_password.txt
+  analytics_redis_password:
+    file: ../secrets/analytics_redis_password.txt
+  ja4tap_redis_password:
+    file: ../secrets/ja4tap_redis_password.txt
+  exporter_redis_password:
+    file: ../secrets/exporter_redis_password.txt
 
 networks:
   ja4proxy-dmz:

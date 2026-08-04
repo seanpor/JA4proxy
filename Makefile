@@ -492,6 +492,7 @@ lint-docker:
 		&& echo "  deploy/docker/docker-compose.test.yml                     OK"
 	@REDIS_PASSWORD=lint-placeholder GRAFANA_PASSWORD=lint-placeholder \
 		HAPROXY_STATS_USER=lint-placeholder HAPROXY_STATS_PASSWORD=lint-placeholder \
+		EXPORTER_REDIS_PASSWORD=lint-placeholder \
 		docker compose -f deploy/docker/docker-compose.monitoring.yml config --quiet \
 		&& echo "  deploy/docker/docker-compose.monitoring.yml               OK"
 	@BACKEND_HOST=lint-placeholder ANALYTICS_REDIS_PASSWORD=lint-placeholder TAP_INTERFACE=lint-placeholder \

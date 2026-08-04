@@ -237,7 +237,7 @@ so `~fp:*` is a namespace grant, not a per-record one.
 
 Mitigations in place / recommended:
 - Restrict Redis ACL grants to the minimum required commands per principal
-  (see the `ja4tap` ACL user in `config/redis_acl.conf`) — a write-only ACL
+  (see the `ja4tap` ACL user in `config/redis_acl.conf.template`) — a write-only ACL
   for the sensor does not need `SCAN`/`KEYS` at all.
 - Treat any credential with `~fp:*` or `~ban:*` read access as PII-bearing
   access for audit purposes, regardless of what the *values* look like.

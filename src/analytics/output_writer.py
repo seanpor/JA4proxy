@@ -104,7 +104,7 @@ async def write_finding(
 
     Returns the finding UUID if successful, None if the write failed.
     All writes go to analytics:* namespace — the ACL restricts this container
-    to that namespace only (see config/redis_acl.conf, Phase 236).
+    to that namespace only (see config/redis_acl.conf.template, Phase 236).
     """
     tier = _tier_from_confidence(confidence)
     finding_id = str(uuid.uuid4())
