@@ -105,9 +105,20 @@ services:
     # socket now that --unixsocketperm is 770 on the redis side.
     group_add:
       - "999"
+    # Phase 813: long-form secrets syntax -- see the matching comment on
+    # the redis service. This container runs as USER 1000:1000
+    # (deploy/docker/Dockerfile.go-proxy) with cap_drop: [ALL] below, so it
+    # needs its secrets rendered owned by uid 1000, not whatever uid
+    # created the host file.
     secrets:
-      - redis_password
-      - abuseipdb_api_key
+      - source: redis_password
+        uid: "1000"
+        gid: "1000"
+        mode: 0400
+      - source: abuseipdb_api_key
+        uid: "1000"
+        gid: "1000"
+        mode: 0400
     networks:
       - ja4proxy-backend
     restart: unless-stopped
@@ -166,12 +177,35 @@ services:
       - /var/run/redis/redis.sock
       - --unixsocketperm
       - "770"
+    # Phase 813: long-form secrets syntax with explicit uid/gid/mode -- see
+    # the matching comment in docker-compose.poc.yml. Short-form
+    # `secrets:` bind-mounts the host file's own permissions verbatim,
+    # which combined with this service's `cap_drop: [ALL]` (removes
+    # CAP_DAC_OVERRIDE) means even root inside the container cannot read a
+    # host-owned, chmod 600 secret file. This renders each secret at mode
+    # 0400 owned by root (uid 0) inside the container instead, matching the
+    # entrypoint script's runtime user.
     secrets:
-      - redis_password
-      - management_redis_password
-      - analytics_redis_password
-      - ja4tap_redis_password
-      - exporter_redis_password
+      - source: redis_password
+        uid: "0"
+        gid: "0"
+        mode: 0400
+      - source: management_redis_password
+        uid: "0"
+        gid: "0"
+        mode: 0400
+      - source: analytics_redis_password
+        uid: "0"
+        gid: "0"
+        mode: 0400
+      - source: ja4tap_redis_password
+        uid: "0"
+        gid: "0"
+        mode: 0400
+      - source: exporter_redis_password
+        uid: "0"
+        gid: "0"
+        mode: 0400
     networks:
       - ja4proxy-backend
     volumes:
@@ -288,8 +322,15 @@ services:
       # its own named ACL user, not redis_password (the proxy's).
       - REDIS_USER=exporter
       - REDIS_PASSWORD_FILE=/run/secrets/exporter_redis_password
+    # Phase 813: long-form secrets syntax -- see the matching comment on
+    # the redis service. oliver006/redis_exporter:v1.87.0 runs as uid
+    # 59000 (fixed, verified via `docker inspect ... .Config.User`) with
+    # cap_drop: [ALL] below.
     secrets:
-      - exporter_redis_password
+      - source: exporter_redis_password
+        uid: "59000"
+        gid: "59000"
+        mode: 0400
     networks:
       - ja4proxy-backend
     restart: unless-stopped
@@ -355,8 +396,14 @@ services:
       - GF_SERVER_ROOT_URL=%(protocol)s://%(domain)s/grafana/
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_AUTH_ANONYMOUS_ENABLED=false
+    # Phase 813: long-form secrets syntax -- see the matching comment on
+    # the redis service. grafana/grafana runs as uid 472 (verified via
+    # `docker inspect ... .Config.User`) with cap_drop: [ALL] below.
     secrets:
-      - grafana_password
+      - source: grafana_password
+        uid: "472"
+        gid: "472"
+        mode: 0400
     networks:
       - ja4proxy-monitoring
     restart: unless-stopped
@@ -459,8 +506,19 @@ services:
     environment:
       - REDIS_URL=redis://host.docker.internal:6379/0
       - TAP_INTERFACE=${TAP_INTERFACE:?Set TAP_INTERFACE to the SPAN/mirror port interface}
+    # Phase 813: long-form secrets syntax -- see the matching comment on
+    # the redis service. This container runs as USER 1000:1000
+    # (deploy/docker/Dockerfile.ja4-tap) with cap_drop: [ALL] below. Before
+    # this, whether the entrypoint's `cat /run/secrets/ja4tap_redis_password`
+    # actually worked depended on the host user that created the secret
+    # file happening to also be uid 1000 -- true on most Debian/Ubuntu
+    # hosts' first non-root user (and GitHub Actions runners), but not
+    # guaranteed, and not the actual mechanism providing the guarantee.
     secrets:
-      - ja4tap_redis_password
+      - source: ja4tap_redis_password
+        uid: "1000"
+        gid: "1000"
+        mode: 0400
     entrypoint:
       - /bin/sh
       - -c

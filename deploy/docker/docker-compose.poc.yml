@@ -165,12 +165,37 @@ services:
       - redis-sock:/var/run/redis
       - ../../config/redis_acl.conf.template:/etc/redis/redis_acl.conf.template:ro
       - ./redis-entrypoint.sh:/usr/local/bin/redis-entrypoint.sh:ro
+    # Phase 813: long-form secrets syntax with explicit uid/gid/mode.
+    # deploy/secrets/*.txt are chmod 600 on the host, owned by whatever host
+    # user ran start-poc.sh -- short-form `secrets:` bind-mounts the host
+    # file's permissions verbatim, and this service's `cap_drop: [ALL]`
+    # below removes CAP_DAC_OVERRIDE, so even root inside the container
+    # cannot read a file it doesn't own (verified: bare bind-mount produced
+    # "Permission denied" on every secret, redis-entrypoint.sh crash-looped).
+    # The long form makes Compose render each secret at mode 0400, owned by
+    # root (uid 0) -- matching the entrypoint script's runtime user -- inside
+    # the container, independent of the host file's actual ownership.
     secrets:
-      - redis_password
-      - management_redis_password
-      - analytics_redis_password
-      - ja4tap_redis_password
-      - exporter_redis_password
+      - source: redis_password
+        uid: "0"
+        gid: "0"
+        mode: 0400
+      - source: management_redis_password
+        uid: "0"
+        gid: "0"
+        mode: 0400
+      - source: analytics_redis_password
+        uid: "0"
+        gid: "0"
+        mode: 0400
+      - source: ja4tap_redis_password
+        uid: "0"
+        gid: "0"
+        mode: 0400
+      - source: exporter_redis_password
+        uid: "0"
+        gid: "0"
+        mode: 0400
     # JA4PROXY-2026-0079: Hardening controls below are mandatory for Redis.
     # Do NOT weaken or remove without explicit security review (issue #238).
     #   1. Pinned image with digest (immutable, not mutable tag)
