@@ -4141,16 +4141,16 @@ phases:
     action_plan: docs/phases/PHASE_812.md
     dependencies: [813]
     size: MEDIUM
-    summary: "PROPOSED. Four independent fixes for recurring CI failure
-      modes hit repeatedly during Phase 809 aftermath cleanup (2026-08-03):
-      (A) PR-time cold-start smoke test for scripts/start-poc.sh +
-      docker-compose.poc.yml, the exact path that had three sequential
-      latent bugs only caught overnight by Nightly Benchmark; (B) a
-      scheduled .trivyignore renewal workflow so exceptions stop expiring
-      in a same-day batch that blocks unrelated PRs; (C) a narrow,
-      Dependabot-scoped autofix for tests/test_workflow_pinning.py's
-      KNOWN_ACTION_SHAS table, verified live via git ls-remote before ever
-      patching, so a routine Actions-version bump stops requiring a manual
-      table edit; (D) a push-to-main workflow that auto-nudges stale open
-      Dependabot PRs to rebase, replacing the manual @dependabot rebase
-      comment used 7 times in one session today."
+    summary: "PROPOSED, revised after critical review. Four independent
+      fixes for recurring CI failure modes hit repeatedly during Phase 809
+      aftermath cleanup (2026-08-03/04). 812-A (PR-time cold-start smoke
+      test) now explicitly depends on Phase 813 landing first. 812-C (live
+      SHA verification for Dependabot Actions bumps) redesigned around
+      pull_request_target after confirming Dependabot-triggered
+      pull_request workflows get a read-only GITHUB_TOKEN by default.
+      812-D (auto-nudge stale Dependabot PRs) redesigned with per-head-SHA
+      dedup and close/reopen as the primary mechanism, not the
+      empirically-unreliable @dependabot rebase comment. 812-B
+      (.trivyignore proactive renewal) redesigned to compute new exp:
+      dates from today (not the old expiry) and to hook into the existing
+      notify-scheduled-failure pattern."
