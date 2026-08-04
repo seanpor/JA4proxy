@@ -458,8 +458,14 @@ jobs:
           # added later in this job) must not silently reintroduce the exact
           # state the three Phase-809 bugs were masked by. Fail loudly if
           # either already exists before start-poc.sh runs.
-          if [ -f .env ] || [ -d deploy/secrets ]; then
-            echo "::error::Expected a clean checkout with no .env or deploy/secrets/ -- found one. This job exists to prove start-poc.sh bootstraps from nothing; a pre-existing .env/secrets would hide a regression."
+          #
+          # deploy/secrets/ itself is expected to exist and be non-empty on
+          # every checkout -- .gitkeep and README.md are tracked (this
+          # actually broke the job's first-ever live run: `[ -d
+          # deploy/secrets ]` alone is always true). Check for the *.txt
+          # secret files start-poc.sh generates instead.
+          if [ -f .env ] || ls deploy/secrets/*.txt >/dev/null 2>&1; then
+            echo "::error::Expected a clean checkout with no .env or deploy/secrets/*.txt -- found one. This job exists to prove start-poc.sh bootstraps from nothing; pre-existing state would hide a regression."
             exit 1
           fi
       - name: Run start-poc.sh
