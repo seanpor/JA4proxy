@@ -11,12 +11,25 @@
 #   - Container image signing: CI/CD concern; ops runbook
 #
 # Prerequisites (must be created before first deploy):
-#   deploy/secrets/redis_password.txt   — strong random password (min 32 chars)
-#   deploy/secrets/grafana_password.txt — Grafana admin password
-#   deploy/secrets/abuseipdb_api_key.txt — AbuseIPDB API key (or empty file to disable)
+#   deploy/secrets/redis_password.txt             — proxy's Redis ACL user password
+#   deploy/secrets/management_redis_password.txt  — management console's Redis ACL user password
+#   deploy/secrets/analytics_redis_password.txt   — analytics container's Redis ACL user password
+#   deploy/secrets/ja4tap_redis_password.txt      — ja4-tap sensor's Redis ACL user password
+#   deploy/secrets/exporter_redis_password.txt    — redis_exporter's Redis ACL user password
+#   deploy/secrets/grafana_password.txt           — Grafana admin password
+#   deploy/secrets/abuseipdb_api_key.txt          — AbuseIPDB API key (or empty file to disable)
+#   (Phase 813: the five *_redis_password.txt files replace what was
+#   previously just redis_password.txt — an existing deployment upgrading
+#   past Phase 813 must generate the four new files before restarting the
+#   redis service, or it will fail to render its ACL file and refuse to
+#   start. Each password must be distinct per user — see
+#   config/redis_acl.conf.template and JA4PROXY-2026-0043.)
 #
 # Quick start:
-#   openssl rand -base64 48 > deploy/secrets/redis_password.txt
+#   for f in redis_password management_redis_password analytics_redis_password \
+#            ja4tap_redis_password exporter_redis_password; do
+#     openssl rand -base64 48 > "deploy/secrets/${f}.txt"
+#   done
 #   openssl rand -base64 32 > deploy/secrets/grafana_password.txt
 #   echo "your-api-key" > deploy/secrets/abuseipdb_api_key.txt
 #   chmod 600 deploy/secrets/*.txt
@@ -73,6 +86,18 @@ services:
       - BACKEND_HOST=${BACKEND_HOST:?Set BACKEND_HOST to your upstream server IP/hostname}
       - BACKEND_PORT=${BACKEND_PORT:-443}
       - REDIS_UNIX_SOCKET_PATH=/var/run/redis/redis.sock
+    # Phase 813: config/proxy.yml's redis.password reads "${REDIS_PASSWORD}"
+    # (an env var this container's own process must see), but this service
+    # only ever had `secrets: [redis_password]` -- a file at
+    # /run/secrets/redis_password -- with nothing bridging the file's
+    # content into that env var. ja4pd has no built-in _FILE-suffix
+    # convention, so REDIS_PASSWORD silently resolved to empty and every
+    # Redis operation would have failed AUTH. Same bridging pattern already
+    # used below for ja4-tap.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - 'export REDIS_PASSWORD="$$(cat /run/secrets/redis_password)"; exec /usr/local/bin/ja4pd'
     # JA4PROXY-2026-0042: GID 999 matches the redis user inside redis:7.4.9-alpine
     # (see deploy/helm/ja4proxy/templates/redis.yaml and
     # deploy/ansible/roles/redis-secure/tasks/main.yml, which both pin 999 for
@@ -118,12 +143,15 @@ services:
     # ["999"]` (redis's GID inside redis:7.4.9-alpine). If a future service
     # mounts redis-sock, it MUST add the same group_add or it will not be
     # able to open the socket.
+    # Phase 813: --requirepass-file is not a real Redis directive (it
+    # crash-loops the container with a FATAL CONFIG FILE ERROR) and the ACL
+    # file needs its ${..._REDIS_PASSWORD} placeholders rendered before
+    # Redis can read it (Redis ACL files don't support shell substitution,
+    # and this file was previously bind-mounted verbatim). The custom
+    # entrypoint below does both: renders the template, then execs
+    # redis-server with only the non-auth flags from `command:`.
+    entrypoint: ["/usr/local/bin/redis-entrypoint.sh"]
     command:
-      - redis-server
-      - --requirepass-file
-      - /run/secrets/redis_password
-      - --aclfile
-      - /etc/redis/redis_acl.conf
       - --maxmemory
       - 512mb
       - --maxmemory-policy
@@ -140,12 +168,17 @@ services:
       - "770"
     secrets:
       - redis_password
+      - management_redis_password
+      - analytics_redis_password
+      - ja4tap_redis_password
+      - exporter_redis_password
     networks:
       - ja4proxy-backend
     volumes:
       - redis-data:/data
       - redis-sock:/var/run/redis
-      - ../../config/redis_acl.conf:/etc/redis/redis_acl.conf:ro
+      - ../../config/redis_acl.conf.template:/etc/redis/redis_acl.conf.template:ro
+      - ./redis-entrypoint.sh:/usr/local/bin/redis-entrypoint.sh:ro
     restart: unless-stopped
     read_only: true
     security_opt:
@@ -179,8 +212,13 @@ services:
       - WAIT_FOR_REDIS=true
       - PYTHONUNBUFFERED=1
       - PYTHONDONTWRITEBYTECODE=1
-    secrets:
-      - redis_password
+    # Phase 813: no `secrets:` here -- this service authenticates to Redis
+    # via the ANALYTICS_REDIS_PASSWORD-interpolated REDIS_URL above (a
+    # compose-level ${VAR} substitution, resolved on the host at `docker
+    # compose up` time), not a mounted Docker secret file. The
+    # `secrets: [redis_password]` this service carried before Phase 813 was
+    # unused -- this service was never the proxy and had no use for its
+    # credential.
     volumes:
       - ../../config:/app/config:ro
     healthcheck:
@@ -243,9 +281,15 @@ services:
     image: oliver006/redis_exporter:v1.87.0
     environment:
       - REDIS_ADDR=redis:6379
-      - REDIS_PASSWORD_FILE=/run/secrets/redis_password
+      # Phase 813: previously authenticated with no username at all, which
+      # defaults to Redis's "default" user -- disabled by
+      # config/redis_acl.conf.template, so this silently failed to connect
+      # (same root cause as the proxy's own pre-813 misconfiguration). Uses
+      # its own named ACL user, not redis_password (the proxy's).
+      - REDIS_USER=exporter
+      - REDIS_PASSWORD_FILE=/run/secrets/exporter_redis_password
     secrets:
-      - redis_password
+      - exporter_redis_password
     networks:
       - ja4proxy-backend
     restart: unless-stopped
@@ -457,11 +501,15 @@ networks:
 secrets:
   redis_password:
     file: ../secrets/redis_password.txt
+  management_redis_password:
+    file: ../secrets/management_redis_password.txt
   analytics_redis_password:
     file: ../secrets/analytics_redis_password.txt
+  ja4tap_redis_password:
+    file: ../secrets/ja4tap_redis_password.txt
+  exporter_redis_password:
+    file: ../secrets/exporter_redis_password.txt
   grafana_password:
     file: ../secrets/grafana_password.txt
   abuseipdb_api_key:
     file: ../secrets/abuseipdb_api_key.txt
-  ja4tap_redis_password:
-    file: ../secrets/ja4tap_redis_password.txt

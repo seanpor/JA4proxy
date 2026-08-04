@@ -54,7 +54,11 @@ redis:
   # SECURITY: Password MUST be set via environment variable REDIS_PASSWORD
   # Never commit actual passwords to version control
   password: "${REDIS_PASSWORD}"
-  username: ""   # phase-201a: Redis 6+ ACL username (leave "" for default user)
+  # phase-201a: legacy fallback username, only consulted when acl_users.enabled
+  # is false below (see internal/config.ResolveRedisUsername). Left "" (default
+  # user) intentionally -- acl_users.proxy_user is the value that actually
+  # applies now.
+  username: ""
   timeout: "${REDIS_TIMEOUT:-5}"
   # Enable TLS for Redis connections in production
   ssl: false
@@ -65,12 +69,20 @@ redis:
   pubsub_hmac_secret: "${REDIS_SIGNING_KEY}"
   acl_users:
     # Per-service ACL users. Requires Redis 6+ with ACL support.
-    # Create these users in Redis with:
-    #   ACL SETUSER proxy on >$REDIS_PASSWORD ~ratelimit:* ~ban:* ~beacon:* ~dns:* ~abuseipdb:* ~rdap:* ~ja4:* ~config:* +GET +SET +DEL +EXPIRE +TTL +ZADD +ZRANGE +ZRANGEBYSCORE +ZREMRANGEBYSCORE +ZCARD +ZINCRBY +SADD +SREM +SISMEMBER +SMEMBERS +HSET +HGET +HINCRBY +HGETALL +PFADD +PFCOUNT +XADD
+    # config/redis_acl.conf.template (rendered by
+    # deploy/docker/redis-entrypoint.sh, Phase 813) defines these users for
+    # docker-compose.poc.yml / docker-compose.prod.yml deployments:
+    #   ACL SETUSER proxy on >$REDIS_PASSWORD ~ratelimit:* ~ban:* ~beacon:* ~dns:* ~abuseipdb:* ~rdap:* ~ja4:* ~config:* ~analytics:* +GET +SET +DEL +EXPIRE +TTL +ZADD +ZRANGE +ZRANGEBYSCORE +ZREMRANGEBYSCORE +ZCARD +ZINCRBY +SADD +SREM +SISMEMBER +SMEMBERS +HSET +HGET +HINCRBY +HGETALL +PFADD +PFCOUNT +XADD +EVALSHA +EVAL
     #   ACL SETUSER analytics on >$REDIS_PASSWORD ~ja4proxy:events +XADD +XREAD +XREADGROUP
     #   ACL SETUSER admin on >$REDIS_PASSWORD ~* +@all
-    # Run scripts/redis-acl-setup.sh to apply these users automatically.
-    enabled: false  # Default off — requires Redis ACL setup
+    # For a manually-managed (non-compose) Redis instance, run
+    # scripts/redis-acl-setup.sh to apply the equivalent users live instead.
+    # JA4PROXY-2026-0052: enabling this without a real Redis ACL setup on
+    # the other end means the proxy fails ALL Redis operations (fail-closed,
+    # not fail-open, on the auth handshake itself) -- this must only be
+    # true when the Redis instance actually has these users configured.
+    enabled: true  # Phase 813: was false -- the proxy silently authenticated
+                   # as the disabled "default" user until this flipped.
     proxy_user: "proxy"
     analytics_user: "analytics"
 
