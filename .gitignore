@@ -191,3 +191,10 @@ secrets/
 # locally with `make sync`; the source of truth is manifest.yaml.
 docs/phases/TODO.md
 docs/reference/PROJECT_STATUS.md
+
+# ── Phase 814a: penetration-testing range ────────────────────────────────────
+# Throwaway fixture credentials, the generated range env file, and PoC/crash
+# evidence. Evidence is retained locally for 12 months and referenced from
+# findings by SHA-256 (PROGRAMME.md §7) — never committed: a crash corpus in a
+# public repo that ships a security product is a ready-made exploit kit.
+.pentest-range/

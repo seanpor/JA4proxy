@@ -42,6 +42,12 @@
 #   supersedes          list of canonical IDs this one subsumes (only on DUPLICATE)
 #   depends_on          list of canonical IDs that must be fixed first
 #   regression_test     pytest nodeid or go test path, required once status ≥ FIXED
+#   found_against       build the finding was found against (Phase 814a):
+#                       {git_sha, config_sha256?, image_digests?}. REQUIRED for
+#                       findings discovered on/after 2026-08-05. `make
+#                       pentest-range` prints the block to paste. Without it a
+#                       retest cannot distinguish "fixed" from "no longer
+#                       reproducible for an unrelated reason".
 #   closed_commit       git SHA of the merge that moved status to CLOSED
 #   github_issue        GitHub issue number (integer) — set automatically by `add`
 #   notes               free-text, optional

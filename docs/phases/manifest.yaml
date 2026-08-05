@@ -4205,7 +4205,7 @@ phases:
       Absorbs Phase 523."
   814a:
     name: "Pentest: charter, RoE, test range, finding/verification harness"
-    status: PROPOSED
+    status: IN_PROGRESS
     action_plan: docs/phases/PHASE_814.md
     dependencies: [814]
     size: MEDIUM
@@ -4221,11 +4221,11 @@ phases:
       register's integrity rules (regression_test required once >= FIXED) are
       enforced only when someone remembers."
   814b:
-    name: "Pentest: recon, attack-surface baseline, threat-model reconciliation"
+    name: "Pentest: recon, attack-surface baseline, durable-content lift"
     status: PROPOSED
     action_plan: docs/phases/PHASE_814.md
-    dependencies: [814a]
-    size: MEDIUM
+    dependencies: [814a, 815]
+    size: LARGE
     summary: "Stage 0. scripts/surface_inventory.py + generated
       docs/security/ATTACK_SURFACE.md + a CI drift gate: sockets per container
       (compose AND rendered Helm), every FastAPI route with its auth dependency
@@ -4233,7 +4233,27 @@ phases:
       destinations, workflow triggers/permissions/secrets, env vars vs
       template.env, published artefacts, and the agent instruction surface
       (which files agents read, who can write to them). Reconciles
-      docs/security/threat-model.md so tests derive from a current model."
+      docs/security/threat-model.md so tests derive from a current model.
+      RE-SPECCED 2026-08-05 after a pre-flight probe, MEDIUM -> LARGE, and now
+      depends on 815. The original spec did not say HOW to enumerate and the
+      obvious implementation is wrong: FastAPI 0.141.1 wraps included routers in
+      _IncludedRouter objects exposing no .routes, so naive app.routes iteration
+      yields 4 routes against a real surface of ~94 — it would have UNDERSTATED
+      the attack surface by ~95%, the dangerous direction. Settled approach:
+      create_app() then traverse _IncludedRouter.original_router.routes with
+      dependant inspection for auth/role (app.openapi() flattens but carries no
+      role data, so it is a cross-check only); fixture env required because the
+      0096 boot guard refuses import without MANAGEMENT_JWT_SECRET; Redis keys
+      enumerated EMPIRICALLY by SCANning the live range rather than grepping
+      f-strings across two languages. Coverage state (the Never column) is a
+      judgement, not derivable, so it lives in a hand-maintained
+      docs/security/attack-surface.yaml and the doc is generated from inventory
+      + that file — the gate fails when a new listener/route/workflow appears
+      without someone recording who tests it. Also folds in the durable-content
+      lift: PHASE_814.md sections 2/4/5 (threat model, methodology, the
+      19-workstream catalogue) move to docs/security/pentest/WORKSTREAMS.md,
+      because two pentest docs currently link INTO the phase doc and those links
+      break when 814 is archived to complete/."
   814c:
     name: "Pentest: retrospective closure sweep — re-verify what we believe is fixed"
     status: PROPOSED
@@ -4539,3 +4559,33 @@ phases:
       with a retrospective on the METHOD itself (what did the process miss, what
       cost more than it was worth, what was done informally that should be
       written down), amending PROGRAMME.md and its change log."
+  815:
+    name: "Generated reference docs — stop hand-maintaining three drifted lists"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_815.md
+    dependencies: []
+    size: MEDIUM
+    summary: "PROPOSED 2026-08-05, raised while adding make targets during
+      Phase 814a: rather than hand-add rows to three reference lists, they were
+      measured, and all three had already drifted. MAKEFILE_TARGETS.md documents
+      167 of 187 targets AND lists 36 that no longer exist (go-parity, go-start,
+      go-rollback etc, leftovers from the Phase 15 Go migration) — wrong in both
+      directions. SCRIPTS.md covers 45 of 119 scripts (63% missing).
+      DOCKER_IMAGES.md, described in docs/README.md as the canonical registry of
+      all images, omits 4 Dockerfiles INCLUDING Dockerfile.go-proxy, which builds
+      the production proxy. Nothing caught any of it because lint-meta's
+      documentation-sync check is one-directional: it verifies commands
+      mentioned in docs exist in the Makefile, not that Makefile targets are
+      documented. Same failure mode as Phase 810 (TRIVY_IMAGES drift hid 113
+      findings across 3 never-scanned images) and Phase 812 (KNOWN_ACTION_SHAS
+      hand-maintained table). Fix follows the pattern Phase 332 already
+      established for TODO.md/PROJECT_STATUS.md: derive each list from the
+      artefact it describes (Makefile ## help comments, script header blocks,
+      Dockerfiles + compose stanzas) via scripts/sync_reference_docs.py, with a
+      --check drift gate in CI and hand-written prose preserved between explicit
+      GENERATED markers. Recommends AGAINST gitignoring these three (unlike
+      TODO.md) since they are read on GitHub by newcomers who have not run make
+      sync. SEQUENCING: 815 runs BEFORE 814b — both need the same
+      derive-doc-from-reality + --check drift-gate machinery, and building it
+      twice would itself be a drift problem. 815 owns the generator; 814b
+      consumes it for ATTACK_SURFACE.md."

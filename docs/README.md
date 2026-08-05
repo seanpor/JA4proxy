@@ -37,6 +37,7 @@ subsystems live in the subdirectories at the end.
 - [MITRE ATT&CK Mapping](security/ATTACK_MAPPING.md) — **authoritative** signal → technique mapping (CI-gated).
 - [SecOps Triage & Remediation Playbooks](security/OPERATIONS_MAPPING.md) — what to do when an alert fires.
 - [Penetration Testing Programme](security/pentest/PROGRAMME.md) — the repeatable pentest method: passes, roles, finding template, verification, fix-audit, cadence.
+- [Penetration Testing Range](security/pentest/RANGE.md) — the isolated, zero-egress target stack: what it guarantees, how to work in it, `make pentest-range`.
 - [SIEM Integration](security/SIEM_INTEGRATION.md) — ECS-based SIEM ingestion recipes.
 - [Audit Trail](security/AUDIT_TRAIL.md) — what is logged, where, and retention (audit source of truth).
 - [Change Management](security/CHANGE_MANAGEMENT.md) — config change propose/review/apply/revert + evidence.
