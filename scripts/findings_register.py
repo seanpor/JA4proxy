@@ -55,6 +55,15 @@ VALID_LANES = ("go-proxy", "python-management", "infrastructure")
 SLA_DAYS = {"CRITICAL": 7, "HIGH": 30, "MEDIUM": 60, "LOW": 120}
 VERIFIED_TO_CLOSED_DAYS = 14
 
+# Phase 814a: findings discovered on or after this date must record the build
+# they were found against (`found_against`). Without it a retest cannot tell
+# "we fixed it" from "it no longer reproduces for an unrelated reason" — the
+# two look identical in a register. The 94 findings that predate the pentest
+# range are grandfathered rather than back-filled with guesses; this is a
+# frozen baseline, exactly like check_manifest.py's HISTORICAL_CHANGELOG_GAPS.
+# Never move this date forward to dodge the check.
+PROVENANCE_REQUIRED_FROM = date(2026, 8, 5)
+
 ID_RE = re.compile(r"^JA4PROXY-(\d{4})-(\d{4})$")
 CVSS_RE = re.compile(r"^CVSS:3\.1/AV:[NALP]/AC:[LH]/")
 
@@ -225,6 +234,27 @@ def cmd_validate(args: argparse.Namespace) -> int:
                 )
         except (ValueError, KeyError) as exc:
             errors.append(f"{where}: date parse failure: {exc}")
+
+        # Provenance: what build was this found against? (Phase 814a)
+        provenance = f.get("found_against")
+        if provenance is not None:
+            if not isinstance(provenance, dict):
+                errors.append(
+                    f"{where}.found_against: must be a mapping "
+                    "(git_sha, optional config_sha256 / image_digests)"
+                )
+            elif not provenance.get("git_sha"):
+                errors.append(f"{where}.found_against: git_sha is required")
+        else:
+            try:
+                if _parse_date(f["discovered"]) >= PROVENANCE_REQUIRED_FROM:
+                    errors.append(
+                        f"{where}: discovered on/after {PROVENANCE_REQUIRED_FROM} "
+                        "requires found_against (the build it was found against). "
+                        "`make pentest-range` prints the block to paste."
+                    )
+            except (ValueError, KeyError):
+                pass  # date problems are already reported above
 
         # DUPLICATE must set supersedes
         if f["status"] == "DUPLICATE":

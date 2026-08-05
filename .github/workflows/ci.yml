@@ -57,6 +57,13 @@ jobs:
         run: make doctor
       - name: make lint-meta
         run: make lint-meta
+      # Phase 814a: the findings register had integrity rules that nothing
+      # enforced — `make verify-findings` existed as a Makefile target but no
+      # workflow ran it, so "regression_test required once status >= FIXED",
+      # referential integrity, and the SLA-date arithmetic were only checked
+      # when somebody remembered. An integrity gate nobody runs is not a gate.
+      - name: make verify-findings
+        run: make verify-findings
       # Phase 332: TODO.md / PROJECT_STATUS.md are generated build artifacts, not
       # committed. Regenerate them here (this also gates that manifest.yaml
       # generates cleanly — sync-roadmap.py exits non-zero on a malformed

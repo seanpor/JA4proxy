@@ -23,9 +23,15 @@ made. Written for whoever picks this up next, including future-me.
 | `docs/security/pentest/RANGE.md` | Range documentation |
 | `Makefile` | `pentest-range`, `-down`, `-verify`, `pentest-shell` |
 
-**Still open in 814a:** the RoE document; wiring `make verify-findings` into
-CI; the `found_against` provenance field in the register schema; tests for
-`verify_revert.sh`; a compose-config test asserting the range stays isolated.
+Also delivered: `RULES_OF_ENGAGEMENT.md`; `make verify-findings` wired into
+CI's Meta-Validation job; the `found_against` provenance field (validated,
+date-gated); `tests/unit/test_pentest_range_config.py` and
+`tests/unit/test_findings_provenance.py`. 28 unit tests across the three new
+files.
+
+**Still open in 814a:** an end-to-end test for `verify_revert.sh` — it needs a
+scratch git repo with a planted bug, a fix commit and a test, which is worth
+doing properly rather than quickly.
 
 ## Decisions
 
@@ -97,6 +103,43 @@ treats as most expensive.
    so the build failed immediately. Now follows house convention — digest-pinned
    base plus `apk upgrade`, no per-package pins. Lesson: resolve versions from
    the actual base image, or do not pin.
+
+## Debugging notes worth keeping
+
+Three traps hit while writing the tests, each of which silently produced a
+*passing-looking* wrong answer:
+
+1. **`Register.load(path=REGISTER_PATH)` binds its default at definition
+   time.** Patching `fr.REGISTER_PATH` in a test therefore does nothing, and
+   every test validates the *real* register instead of the fixture. Four of
+   seven tests passed vacuously before this was spotted. Patch the loader, not
+   the constant.
+2. **`cmd_validate` writes errors to stderr and only its success line to
+   stdout.** Reading `capsys.readouterr().out` alone returns `""` for every
+   failing case — which is indistinguishable from "the rule did not fire".
+   Read both streams.
+3. **`contextlib.redirect_stdout` fights pytest's capture machinery.** Use the
+   `capsys` fixture instead; the hand-rolled version cost a debugging cycle.
+
+## Pre-existing repo bug found in passing
+
+**Test failure tracebacks are truncated inside Docker.**
+`tests/conftest.py`'s `pytest_sessionfinish` calls `os._exit(exitstatus)` when
+it detects `/.dockerenv`, which preempts pytest's failure reporting. A failing
+test under `tests/` prints `F` and then *nothing* — no traceback, no summary,
+even with `--tb=long -rA`.
+
+Confirmed directly on single-file runs (no xdist). `make test` runs
+`tests/integration/` without `-n auto`, so that path is affected; the
+xdist-parallel paths were not confirmed either way, because creating a
+deliberately-failing test in-tree to check was blocked.
+
+Workaround while debugging: `-e PYTEST_XDIST_WORKER=debug` makes the guard
+treat the process as a worker and skip the `os._exit`, restoring normal output.
+
+This is not a 814 finding (it is developer experience, not security) but it is
+worth a small phase of its own — debugging a red CI run without a traceback is
+exactly the kind of avoidable toil Phase 812 set out to remove.
 
 ## Findings for later workstreams
 
