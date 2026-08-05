@@ -298,22 +298,72 @@ Nineteen sub-phases in four stages. **Letters are the execution order.**
 verified-zero egress; `make verify-finding` runs end-to-end against a planted
 sample finding; `verify-findings` is a required check; RoE owner-accepted.
 
-#### 814b — Reconnaissance, attack-surface baseline, threat-model reconciliation
-**Size:** MEDIUM. **Depends on:** 814a.
+#### 814b — Reconnaissance, attack-surface baseline, and the durable-content lift
+**Size:** LARGE. **Depends on:** 814a **and 815**.
 
-Enumerate: listening sockets per container (compose *and* rendered Helm); every
-FastAPI route with its auth dependency and required role; Redis key patterns
-actually written vs `REDIS_SCHEMA.md`; outbound destinations reachable from
-code; workflow triggers/permissions/secrets; env vars vs `template.env`;
-published artefacts; **and the agent instruction surface** (which files agents
-are told to read, and who can write to them).
+> **Re-specced 2026-08-05 after a pre-flight probe.** The original spec was
+> MEDIUM and did not say *how* to enumerate. Probing showed the obvious
+> implementation silently under-reports the attack surface by ~95%, which is
+> the dangerous direction of wrong. Evidence and the five other issues are in
+> `PHASE_814a_notes.md`; the resolutions are below.
 
-**Deliverables:** `scripts/surface_inventory.py`; generated
-`docs/security/ATTACK_SURFACE.md`; a CI drift gate; and a reconciliation pass
-over `docs/security/threat-model.md` so tests derive from a current model.
+**Why it now depends on 815.** Both sub-phases build the same machinery:
+derive a document from reality, preserve hand-written prose between markers,
+diff on `--check` in CI. Building it twice would itself be a drift problem.
+815 owns the generator; 814b consumes it.
 
-**Done when:** the inventory generates cleanly and every row maps to a
-sub-phase or to explicitly recorded coverage debt.
+##### Enumeration, settled
+
+| Surface | How | Gotcha found in pre-flight |
+|---|---|---|
+| Management routes + auth/role | `create_app()` then traverse `_IncludedRouter.original_router.routes`, inspecting each route's `dependant` chain | **`app.routes` yields 4 routes; the real surface is ~94.** FastAPI 0.141.1 wraps included routers in `_IncludedRouter`, which exposes no `.routes`. `app.openapi()` flattens correctly (94 paths) but carries no auth/role data, so it is a cross-check, not the source |
+| Import prerequisites | Fixture env vars in the tools image | The app **refuses to import** without `MANAGEMENT_JWT_SECRET` (0096 boot guard). Enumeration must run in a non-production posture, because production sets `openapi_url=None` — state that posture in the generated doc, since it differs from the range's |
+| Listening sockets | compose files + `helm template` | `helm` confirmed available on host and in the tools image |
+| Redis keys | **Empirical, not static.** Exercise the range, then `SCAN` the live Redis and diff against `REDIS_SCHEMA.md` | Keys are composed via f-strings and `fmt.Sprintf` across Go and Python; static extraction is partial and quietly so. The range exists now — use it |
+| Outbound destinations | Static scan for URLs/hosts, cross-checked against the range's blocked-egress logs | — |
+| Workflow triggers/permissions/secrets | Parse `.github/workflows/*.yml` | — |
+| Env vars | Consumed-vs-`template.env` diff | — |
+| Agent instruction surface | Files agents are told to read, and who can write to them | Not derivable from code; enumerate from `CLAUDE.md`/`AGENTS.md` plus CODEOWNERS |
+
+##### Coverage state needs its own source of truth
+
+The most valuable column — "last adversarial pass / **Never**" — is a
+judgement, not a fact about the code. Regenerating would wipe it; hand-editing
+would fight the drift gate. So:
+
+- `docs/security/attack-surface.yaml` — hand-maintained, one entry per surface:
+  owning workstream, last pass, accepted coverage debt with a reason.
+- `docs/security/ATTACK_SURFACE.md` — **generated** from *inventory + that
+  file*, using 815's generator.
+- The drift gate fails when the inventory finds a surface absent from the YAML.
+  A new listener, route, or workflow therefore cannot appear without someone
+  consciously recording who tests it — which is the entire point.
+
+##### Durable-content lift (folded in here)
+
+`PHASE_814.md` currently holds content that outlives this cycle, and two
+documents in `docs/security/pentest/` link *into* it. When 814 closes and is
+archived to `docs/phases/complete/`, **both links break** — an archive step this
+project has missed before.
+
+814b already extracts §3 into `ATTACK_SURFACE.md`, so it does the rest of the
+lift in the same pass rather than reopening the document later:
+
+| Content | Moves to |
+|---|---|
+| §2 Threat model — assets, the FP inversion, personas P1–P10 | `docs/security/pentest/WORKSTREAMS.md` |
+| §4 Methodology mapping | `docs/security/pentest/WORKSTREAMS.md` |
+| §5 Workstream catalogue (the 19 definitions) | `docs/security/pentest/WORKSTREAMS.md` |
+| §3 Target inventory | `docs/security/ATTACK_SURFACE.md` (generated) |
+
+`PHASE_814.md` keeps only what is genuinely cycle-specific: goal, what changed
+since the last campaign, sequencing, acceptance criteria, risks, decisions. The
+pentest documents then reference `WORKSTREAMS.md`, never a phase doc.
+
+**Done when:** the inventory generates cleanly; every surface maps to a
+workstream or to recorded coverage debt in the YAML; the drift gate is green in
+CI; no document under `docs/security/` links to a phase document; and
+`docs/security/threat-model.md` is reconciled with what this cycle knows.
 
 #### 814c — Retrospective closure sweep (re-verify what we believe is fixed)
 **Size:** MEDIUM. **Depends on:** 814a. **Runs before new-bug hunting.**
@@ -636,7 +686,7 @@ should be written down. Amendments land in `PROGRAMME.md`'s change log.
 | Sub-phase | Stage | Size | Depends on |
 |---|---|---|---|
 | 814a Charter/RoE/range/harness | 0 | MEDIUM | — |
-| 814b Recon/inventory/threat model | 0 | MEDIUM | a |
+| 814b Recon/inventory + durable-content lift | 0 | **LARGE** | a, **815** |
 | 814c **Retrospective closure sweep** | 0 | MEDIUM | a |
 | 814d Decision-logic / FP weapon | 1 | **LARGE** | b |
 | 814e Management API/UI | 1 | **LARGE** | b |
@@ -655,7 +705,8 @@ should be written down. Amendments land in `PROGRAMME.md`'s change log.
 | 814r Fix-audit (pass 3) | 3 | LARGE | p / q, per wave |
 | 814s Report/closure/KPIs/retro | 3 | MEDIUM | all |
 
-**Minimum viable first cycle**, if time is bounded: **814a, 814b, 814c, 814d,
+**Minimum viable first cycle**, if time is bounded: **815** (prerequisite —
+owns the doc generator 814b consumes), then **814a, 814b, 814c, 814d,
 814e, 814f**, plus **814p / 814r / 814s** for whatever they find. Charter +
 inventory + re-verifying what we believe is already fixed + the crown-jewel FP
 attack + the richest app surface + the largest untested surface, with the full
