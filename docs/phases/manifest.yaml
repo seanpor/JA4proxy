@@ -4205,7 +4205,7 @@ phases:
       Absorbs Phase 523."
   814a:
     name: "Pentest: charter, RoE, test range, finding/verification harness"
-    status: PROPOSED
+    status: IN_PROGRESS
     action_plan: docs/phases/PHASE_814.md
     dependencies: [814]
     size: MEDIUM

@@ -1,0 +1,75 @@
+# JA4proxy pentest range — attacker workstation (Phase 814a).
+#
+# The tester's position inside the range. This is the ONE container in the
+# stack that is not hardened, because it plays the adversary.
+#
+# PROGRAMME.md §5.7: pentest tooling is unreviewed third-party code running
+# against our systems, so it is pinned and scanned like anything else we ship.
+#
+# Pinning strategy follows this repo's house convention (Dockerfile.go-proxy,
+# Dockerfile.mockbackend): base image pinned by DIGEST, then `apk upgrade` so
+# packages carry current security patches, and no per-package version pins.
+# That trades byte-for-byte build reproducibility for patch currency — the
+# right way round for a security product, and the range records the actual
+# image ID in its provenance block on every bring-up, so a finding still
+# identifies exactly what it was found against.
+#
+# (An earlier version of this file hard-pinned every apk version. It broke
+# immediately — the pins were written from memory rather than resolved from
+# the base image, and Alpine 3.22 ships redis 8.x, not 7.x. Resolved versions
+# would also silently rot as Alpine's repos move.)
+#
+# Deliberately NOT installed: anything that scans or attacks the internet at
+# large. The range has no egress (every network is `internal: true`), so such
+# tools would be useless here anyway — and their absence is one more barrier
+# between "testing our range" and "testing someone else's network".
+
+FROM alpine:3.22.2@sha256:4b7ce07002c69e8f3d704a9c5d6fd3053be500b7f1c69fc0d80990c2ad8dd412
+
+# Pinned toolchain. Grouped by what workstream needs them so the list does not
+# silently accrete.
+#   core            — shell ergonomics, evidence handling
+#   openssl         — TLS handshakes by hand (814h/814i)
+#   curl            — HTTP against the Management API (814e)
+#   bind-tools      — DNS behaviour, rebinding checks (814e SSRF)
+#   nmap/nmap-ncat  — port and service reachability, assume-breach (814m)
+#   tcpdump         — packet-level evidence capture
+#   redis           — redis-cli, for data-layer work (814k)
+#   python3/py3-pip — scripted attacks; scapy for packet crafting (814f/814h)
+RUN apk upgrade --no-cache && apk add --no-cache \
+        bash \
+        ca-certificates \
+        coreutils \
+        openssl \
+        curl \
+        bind-tools \
+        nmap \
+        nmap-ncat \
+        tcpdump \
+        redis \
+        python3 \
+        py3-pip \
+    && rm -rf /var/cache/apk/*
+
+# Python attack tooling, pinned. --break-system-packages is correct here:
+# this is a single-purpose throwaway container, not a managed system.
+RUN pip install --no-cache-dir --break-system-packages \
+        scapy==2.6.1 \
+        requests==2.32.5 \
+        cryptography==46.0.3
+
+WORKDIR /work
+
+# Evidence directory is bind-mounted from the host (gitignored, 12-month
+# retention per PROGRAMME.md §7). Create the mount point so an un-mounted run
+# still has somewhere to write rather than failing confusingly.
+RUN mkdir -p /evidence
+
+# Non-root by default. NET_RAW is granted by the compose file for packet
+# crafting; anything genuinely needing uid 0 can `exec -u root`, which is an
+# explicit, visible act rather than the default posture.
+RUN adduser -D -u 10001 attacker \
+    && chown attacker:attacker /work /evidence
+USER attacker
+
+CMD ["sleep", "infinity"]

@@ -1662,3 +1662,20 @@ traffic-off: ## Remove JA4proxy from the traffic path (instant rollback; needs s
 .PHONY: lint-toml lint-makefiles lint-go-mod test-lint-hierarchy
 .PHONY: lint-python lint-go lint-sast lint-infra lint-observability
 .PHONY: lint-supply-chain lint-docs-all lint-all lint-docs doc-health link-check
+
+# ── Phase 814a: penetration-testing range ────────────────────────────────────
+pentest-range: ## Bring up the isolated pentest range (zero egress, verified) and print provenance
+	@./scripts/start-pentest-range.sh
+
+pentest-range-down: ## Tear down the pentest range (evidence is kept)
+	@./scripts/start-pentest-range.sh --down
+
+pentest-range-verify: ## Re-run the range isolation assertions without rebuilding
+	@./scripts/start-pentest-range.sh --verify-only
+
+pentest-shell: ## Open a shell on the attacker workstation inside the range
+	@docker compose -p ja4range --env-file .pentest-range/range.env \
+		-f deploy/docker/docker-compose.poc.yml \
+		-f deploy/docker/docker-compose.pentest.yml exec attacker bash
+
+.PHONY: pentest-range pentest-range-down pentest-range-verify pentest-shell
