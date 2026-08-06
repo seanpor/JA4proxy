@@ -4589,6 +4589,34 @@ phases:
       derive-doc-from-reality + --check drift-gate machinery, and building it
       twice would itself be a drift problem. 815 owns the generator; 814b
       consumes it for ATTACK_SURFACE.md."
+  817:
+    name: "Analytics node crash-loop fix — src/utils missing from image (JA4PROXY-2026-0097)"
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_817.md
+    dependencies: []
+    size: SMALL
+    summary: "Remediation of JA4PROXY-2026-0097, found during the Phase 814
+      pentest cycle while bringing up the range. The analytics container
+      crash-looped on EVERY startup (RestartCount=152, exit 1) with
+      ModuleNotFoundError: No module named 'src.utils' — src/analytics/main.py
+      imports src.utils.logging_config but the Dockerfile COPYs only
+      src/analytics, so src/utils (which exists in-repo) never reaches the
+      image. Silent because no test exercised the analytics image's import
+      closure. MEDIUM (rubric M-4: analytics node, not the proxy path); GitHub
+      issue #398. Fix: add COPY src/utils to the Dockerfile (src/utils is
+      self-contained, verified). Regression test tests/unit/
+      test_analytics_image_imports.py is STATIC — parses every src.* import in
+      the analytics package and every COPY src/<sub> in the Dockerfile and
+      asserts the former is a subset of the latter, catching the whole class
+      with no Docker. Two-state proof recorded: fails pre-fix ('missing src
+      subtree(s): [utils]'), passes post-fix; container confirmed to start past
+      import on the range. Fixing it revealed a separate previously-masked
+      analytics->Redis NoPermissionError, traced to the range's own incomplete
+      Redis ACL provisioning (also explains an earlier management->Redis
+      AuthenticationError) — a range-quality issue tracked separately, NOT
+      introduced by this fix. A genuine downstream question (can the
+      analytics ~analytics:* ACL user read the proxy event stream it consumes?)
+      is deferred to workstream 814k, needs a working range Redis to answer."
   818:
     name: "CI health — clear the CVE-exception cliff + fix two recurring scheduled-workflow false failures"
     status: COMPLETE

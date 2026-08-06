@@ -33,6 +33,13 @@ RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked \
 
 # Copy application code
 COPY src/analytics /app/src/analytics
+# JA4PROXY-2026-0097: src/analytics/main.py imports `src.utils.logging_config`,
+# but only src/analytics was copied — so the container crash-looped on startup
+# with `ModuleNotFoundError: No module named 'src.utils'`. src/utils is
+# self-contained (no further src.* imports), so copying just this subtree is
+# sufficient. tests/unit/test_analytics_image_imports.py guards against any
+# future src.* import landing without its subtree being copied here.
+COPY src/utils /app/src/utils
 COPY config /app/config
 
 # Set up entry point
