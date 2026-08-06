@@ -54,7 +54,7 @@
 
 
 schema_version: 1
-last_allocated_id: 96
+last_allocated_id: 97
 findings:
 - id: JA4PROXY-2026-0001
   title: PROXY Protocol v2 Spoofing from Untrusted Source
@@ -2959,19 +2959,17 @@ findings:
   cvss_v3_1:
     score: 7.4
     vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N
-  notes: "Fixed (phase-521): consolidated the 3 duplicate _is_production() copies (auth.py, main.py,\
-    \ csrf.py) plus a 4th inline copy in csrf.py's _get_signing_key() into one shared module,\
-    \ management/api/environment.py. is_explicit_nonproduction() is True ONLY for an allowlisted\
-    \ dev/test ENVIRONMENT (dev/development/test/testing/local/ci); is_production() is its inverse,\
-    \ so unset/unknown/dmz/staging now fail CLOSED as production. Every test-mode escape hatch\
-    \ (hardcoded JWT secret, CSRF disable, SAML strict-off) and the startup guard now gate on the\
-    \ shared helper. _get_secret_key() adds a second, independent is_explicit_nonproduction() check\
-    \ before returning the hardcoded secret. management/tests/conftest.py now sets ENVIRONMENT=test\
-    \ explicitly (previously relied on it being unset). Updated test_test_mode_hardening.py and\
-    \ test_cookie_secure_flag.py to reflect that \"\" and \"staging\" are now production-equivalent,\
-    \ and added management/tests/test_environment_failclosed.py per the phase's acceptance criteria\
-    \ (verified to fail on revert). OIDC signature-verification bypass was already removed in Phase\
-    \ 122 H-5, so no code change was needed there."
+  notes: 'Fixed (phase-521): consolidated the 3 duplicate _is_production() copies (auth.py, main.py, csrf.py)
+    plus a 4th inline copy in csrf.py''s _get_signing_key() into one shared module, management/api/environment.py.
+    is_explicit_nonproduction() is True ONLY for an allowlisted dev/test ENVIRONMENT (dev/development/test/testing/local/ci);
+    is_production() is its inverse, so unset/unknown/dmz/staging now fail CLOSED as production. Every
+    test-mode escape hatch (hardcoded JWT secret, CSRF disable, SAML strict-off) and the startup guard
+    now gate on the shared helper. _get_secret_key() adds a second, independent is_explicit_nonproduction()
+    check before returning the hardcoded secret. management/tests/conftest.py now sets ENVIRONMENT=test
+    explicitly (previously relied on it being unset). Updated test_test_mode_hardening.py and test_cookie_secure_flag.py
+    to reflect that "" and "staging" are now production-equivalent, and added management/tests/test_environment_failclosed.py
+    per the phase''s acceptance criteria (verified to fail on revert). OIDC signature-verification bypass
+    was already removed in Phase 122 H-5, so no code change was needed there.'
 - id: JA4PROXY-2026-0094
   title: Manual ban (ban:{ip}) and Spamhaus blocklist bypassed when the async scoring queue (workChan)
     is saturated
@@ -3003,14 +3001,14 @@ findings:
   cvss_v3_1:
     score: 5.9
     vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:H/A:N
-  notes: "Fixed (phase-520): moved the ban:{ip} and blocklist (Spamhaus) hard-block checks into\
-    \ Pipeline.Process, synchronously, before the async enqueue \u2014 they now run on every connection\
-    \ regardless of workChan saturation. blocklists.Check() is still called exactly once per connection\
-    \ (now in Process; the result is stashed on ConnectionContext.blocklistSignals and reused by\
-    \ processInternal) to avoid reintroducing the JA4PROXY-2026-0037 TOCTOU. Non-hard-block traffic is\
-    \ unaffected \u2014 it still returns allow under saturation (fail-open for scoring preserved).\
-    \ Regression tests fill workChan to force the saturation path and assert both hard blocks still\
-    \ fire, plus a control asserting ordinary traffic still gets allow; verified to fail on revert."
+  notes: "Fixed (phase-520): moved the ban:{ip} and blocklist (Spamhaus) hard-block checks into Pipeline.Process,\
+    \ synchronously, before the async enqueue \u2014 they now run on every connection regardless of workChan\
+    \ saturation. blocklists.Check() is still called exactly once per connection (now in Process; the\
+    \ result is stashed on ConnectionContext.blocklistSignals and reused by processInternal) to avoid\
+    \ reintroducing the JA4PROXY-2026-0037 TOCTOU. Non-hard-block traffic is unaffected \u2014 it still\
+    \ returns allow under saturation (fail-open for scoring preserved). Regression tests fill workChan\
+    \ to force the saturation path and assert both hard blocks still fire, plus a control asserting ordinary\
+    \ traffic still gets allow; verified to fail on revert."
 - id: JA4PROXY-2026-0095
   title: Insecure role defaults in token issuance/validation contradict the JA4PROXY-2026-0034 least-privilege
     posture (bearer->operator, create->admin, rotate->operator)
@@ -3050,9 +3048,9 @@ findings:
     \ handler) now passes role=\"admin\" explicitly, and OIDC/SAML already did. routes/tokens.py's rotate\
     \ handler defaults a role-less old token to auditor instead of operator. A malformed expires_at now\
     \ rejects the token (continue) instead of silently treating it as non-expiring. Rippled through ~40\
-    \ test call sites across management/tests/ that relied on the implicit admin default \u2014 all updated to\
-    \ pass role= explicitly. New management/tests/test_role_defaults_failclosed.py covers all four sub-bugs\
-    \ plus the required-argument change; verified to fail on revert."
+    \ test call sites across management/tests/ that relied on the implicit admin default \u2014 all updated\
+    \ to pass role= explicitly. New management/tests/test_role_defaults_failclosed.py covers all four\
+    \ sub-bugs plus the required-argument change; verified to fail on revert."
 - id: JA4PROXY-2026-0096
   title: Quickstart docker-compose ships a known-value MANAGEMENT_JWT_SECRET / admin password with no
     guard rejecting the committed default
@@ -3085,12 +3083,47 @@ findings:
   cvss_v3_1:
     score: 7.1
     vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N
-  notes: "Fixed (phase-522): management.api.main._enforce_strong_secrets(), called from create_app()\
-    \ right after the existing JA4PROXY-2026-0093 startup guard, refuses to boot when MANAGEMENT_JWT_SECRET\
+  notes: "Fixed (phase-522): management.api.main._enforce_strong_secrets(), called from create_app() right\
+    \ after the existing JA4PROXY-2026-0093 startup guard, refuses to boot when MANAGEMENT_JWT_SECRET\
     \ is unset, equals the committed quickstart literal ja4proxy-quickstart-secret-change-me, or is shorter\
-    \ than 32 characters \u2014 or when MANAGEMENT_ADMIN_PASSWORD is still changeme with no\
-    \ MANAGEMENT_ADMIN_PASSWORD_HASH configured \u2014 unless ENVIRONMENT is an explicit dev/test value (reuses\
-    \ is_explicit_nonproduction() from the 0093 fix, so the quickstart's ENVIRONMENT=dev keeps booting).\
-    \ New management/tests/test_secret_boot_guard.py covers unset/default/short secret and default password,\
-    \ plus that a strong secret and the dev-environment quickstart both still boot; verified to fail on\
-    \ revert."
+    \ than 32 characters \u2014 or when MANAGEMENT_ADMIN_PASSWORD is still changeme with no MANAGEMENT_ADMIN_PASSWORD_HASH\
+    \ configured \u2014 unless ENVIRONMENT is an explicit dev/test value (reuses is_explicit_nonproduction()\
+    \ from the 0093 fix, so the quickstart's ENVIRONMENT=dev keeps booting). New management/tests/test_secret_boot_guard.py\
+    \ covers unset/default/short secret and default password, plus that a strong secret and the dev-environment\
+    \ quickstart both still boot; verified to fail on revert."
+- id: JA4PROXY-2026-0097
+  title: "Analytics node crash-loops on startup \u2014 src/utils omitted from image (ModuleNotFoundError)"
+  severity: MEDIUM
+  severity_rationale: "M-4 \u2014 affects the analytics node only, not the proxy path. Not attacker-triggered:\
+    \ a build defect (analytics Dockerfile never COPYs src/utils, which src/analytics/main.py imports)\
+    \ that leaves the analytics subsystem dead on arrival in every deployment. CVSS maps poorly to a non-attack\
+    \ availability bug; rubric M-4 is authoritative."
+  source_refs:
+  - report: PHASE_814a
+    id: 814a-01
+    discovered: '2026-08-05'
+  remediation_phases:
+  - '817'
+  owner: '@seanpor'
+  lane: infrastructure
+  discovered: '2026-08-05'
+  found_against:
+    git_sha: a7343e26f5090b3f273065b971d754b80e4a4b44
+    config_sha256: 266a8c650e072d3c
+    note: 'pentest range, production posture'
+  due: '2026-10-04'
+  status: FIXED
+  supersedes: []
+  depends_on: []
+  regression_test: tests/unit/test_analytics_image_imports.py::test_every_src_import_is_copied_into_the_analytics_image
+  closed_commit: ''
+  cvss_v3_1:
+    score: 3.3
+    vector: CVSS:3.1/AV:L/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L
+  notes: 'Found during Phase 814 pentest cycle while bringing up the range (RestartCount=152, exit 1).
+    Root cause: src/analytics/Dockerfile:35 COPYs only src/analytics; main.py:17 imports src.utils.logging_config;
+    src/utils exists in-repo but never reaches the image. No startup smoke test for the analytics image
+    existed to catch it. Fix + regression test in phase-817. Fixing it revealed a separate, previously-masked
+    downstream issue (analytics user NoPermissionError against Redis) that is NOT introduced by this fix
+    and is tracked separately as a range-provisioning / 814k data-layer item.'
+  github_issue: 398

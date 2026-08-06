@@ -100,20 +100,20 @@ get forgotten.
 
 <!-- BEGIN GENERATED: findings_register.py render -->
 
-## Register snapshot (2026-06-26)
+## Register snapshot (2026-08-05)
 
-**Total:** 84 canonical finding(s).
+**Total:** 95 canonical finding(s).
 
 | Severity | Count | Status | Count |
 |----------|-------|--------|-------|
-| CRITICAL | 14 | OPEN | 1 |
-| HIGH | 18 | IN_PROGRESS | 0 |
-| MEDIUM | 28 | FIXED | 83 |
-| LOW | 24 | VERIFIED | 0 |
+| CRITICAL | 14 | OPEN | 2 |
+| HIGH | 20 | IN_PROGRESS | 0 |
+| MEDIUM | 36 | FIXED | 93 |
+| LOW | 25 | VERIFIED | 0 |
 |  |  | CLOSED | 0 |
 |  |  | DUPLICATE | 0 |
 
-### SLA breaches (46)
+### SLA breaches (57)
 
 | ID | Severity | Due | Title |
 |----|----------|-----|-------|
@@ -163,6 +163,17 @@ get forgotten.
 | JA4PROXY-2026-0054 | MEDIUM | 2026-06-16 | Configuration Path Traversal Prevention |
 | JA4PROXY-2026-0055 | MEDIUM | 2026-06-16 | Integration TLS Verification Missing |
 | JA4PROXY-2026-0056 | CRITICAL | 2026-06-10 | No Panic Recovery in Connection Handler Goroutine |
+| JA4PROXY-2026-0057 | HIGH | 2026-07-03 | Unbounded Beaconing Goroutine per Connection |
+| JA4PROXY-2026-0058 | MEDIUM | 2026-08-02 | BlacklistBypass Flag Naming is Inverted |
+| JA4PROXY-2026-0059 | MEDIUM | 2026-08-02 | TLS Record Reassembly Allocates Per-Fragment Buffers |
+| JA4PROXY-2026-0063 | HIGH | 2026-07-22 | Reassembled TLS Handshake >16KB Bypasses JA4 Fingerprinting |
+| JA4PROXY-2026-0067 | HIGH | 2026-07-22 | Unbounded Fire-and-Forget Goroutines for Mesh Drift Audit |
+| JA4PROXY-2026-0068 | HIGH | 2026-07-22 | forward() Copy Goroutines Read Config Without Lock |
+| JA4PROXY-2026-0084 | CRITICAL | 2026-07-01 | Capability Drop Ordering Inverted (sensor unusable in live mode) |
+| JA4PROXY-2026-0085 | CRITICAL | 2026-07-01 | BPF Port Filter Jump Offset Wrong for Multi-Port Configurations (silent packet loss) |
+| JA4PROXY-2026-0086 | CRITICAL | 2026-07-01 | Double-close of events channel on sensor panic (process crash) |
+| JA4PROXY-2026-0087 | HIGH | 2026-08-01 | Decision cache keyed on shared JA4 leaks per-IP decisions across clients (no TTL) |
+| JA4PROXY-2026-0093 | HIGH | 2026-08-01 | Security escape-hatches (TEST_MODE hardcoded JWT secret, CSRF disable, SAML strict-off) fail open when ENVIRONMENT is not exactly 'production' |
 
 ### All findings
 
@@ -237,11 +248,11 @@ get forgotten.
 | JA4PROXY-2026-0068 | HIGH | FIXED | go-proxy | 2026-07-22 | forward() Copy Goroutines Read Config Without Lock |
 | JA4PROXY-2026-0069 | MEDIUM | FIXED | go-proxy | 2026-08-21 | processInternal Reads PipelineConfig Fields Outside Lock |
 | JA4PROXY-2026-0070 | MEDIUM | FIXED | go-proxy | 2026-08-23 | Integrity Key File Read Without Permission Check |
-| JA4PROXY-2026-0071 | MEDIUM | FIXED | go-proxy | 2026-08-21 | Ed25519 Private Key File Read Without Permission Check or Length Validation |
-| JA4PROXY-2026-0072 | LOW | FIXED | go-proxy | 2026-10-20 | RDAP and AbuseIPDB Response Bodies Not Size-Limited |
-| JA4PROXY-2026-0073 | LOW | FIXED | go-proxy | 2026-10-20 | Async Scoring Channel Drops Are Not Observable |
-| JA4PROXY-2026-0074 | LOW | OPEN | go-proxy | 2026-10-20 | PubSub Debug Log Includes Full HMAC-Signed Payload |
-| JA4PROXY-2026-0075 | LOW | FIXED | go-proxy | 2026-10-20 | Dial Signature Mismatch Log Includes Tampered Signature |
+| JA4PROXY-2026-0071 | MEDIUM | FIXED | go-proxy | 2026-08-23 | Ed25519 Private Key File Read Without Permission Check or Length Validation |
+| JA4PROXY-2026-0072 | LOW | FIXED | go-proxy | 2026-10-22 | RDAP and AbuseIPDB Response Bodies Not Size-Limited |
+| JA4PROXY-2026-0073 | LOW | FIXED | go-proxy | 2026-10-22 | Async Scoring Channel Drops Are Not Observable |
+| JA4PROXY-2026-0074 | LOW | OPEN | go-proxy | 2026-10-22 | PubSub Debug Log Includes Full HMAC-Signed Payload |
+| JA4PROXY-2026-0075 | LOW | FIXED | go-proxy | 2026-10-22 | Dial Signature Mismatch Log Includes Tampered Signature |
 | JA4PROXY-2026-0077 | LOW | FIXED | infrastructure | 2026-10-22 | Management Service Missing read_only and tmpfs in PoC Compose |
 | JA4PROXY-2026-0078 | LOW | FIXED | infrastructure | 2026-10-22 | Entrypoint Logs Full Command Arguments to Docker Logs |
 | JA4PROXY-2026-0079 | LOW | FIXED | infrastructure | 2026-10-22 | Redis Password Exposed on Command Line in PoC Compose |
@@ -252,5 +263,16 @@ get forgotten.
 | JA4PROXY-2026-0084 | CRITICAL | FIXED | go-proxy | 2026-07-01 | Capability Drop Ordering Inverted (sensor unusable in live mode) |
 | JA4PROXY-2026-0085 | CRITICAL | FIXED | go-proxy | 2026-07-01 | BPF Port Filter Jump Offset Wrong for Multi-Port Configurations (silent packet loss) |
 | JA4PROXY-2026-0086 | CRITICAL | FIXED | go-proxy | 2026-07-01 | Double-close of events channel on sensor panic (process crash) |
+| JA4PROXY-2026-0087 | HIGH | FIXED | go-proxy | 2026-08-01 | Decision cache keyed on shared JA4 leaks per-IP decisions across clients (no TTL) |
+| JA4PROXY-2026-0088 | MEDIUM | FIXED | go-proxy | 2026-08-31 | Data race: processInternal reads p.cfg and sub-analyzers unlocked while ReplaceConfig swaps them on hot reload |
+| JA4PROXY-2026-0089 | MEDIUM | OPEN | go-proxy | 2026-08-31 | Hot config reload orphans async enrichment workers (DNS/AbuseIPDB/RDAP/feed) — enrichment silently degrades after SIGHUP |
+| JA4PROXY-2026-0090 | MEDIUM | FIXED | go-proxy | 2026-08-31 | beaconing/audit workers started at construction with no stop path leak goroutines per Pipeline |
+| JA4PROXY-2026-0091 | LOW | FIXED | go-proxy | 2026-10-30 | BlocklistManager nil-Ranger could panic in Check() (ReplaceFeed nil); already guarded, read-side hardened |
+| JA4PROXY-2026-0092 | MEDIUM | FIXED | go-proxy | 2026-08-31 | connCtx SNI/ALPN alias the pooled read buffer and escape to async scorer (use-after-return, cross-connection bleed) |
+| JA4PROXY-2026-0093 | HIGH | FIXED | python-management | 2026-08-01 | Security escape-hatches (TEST_MODE hardcoded JWT secret, CSRF disable, SAML strict-off) fail open when ENVIRONMENT is not exactly 'production' |
+| JA4PROXY-2026-0094 | MEDIUM | FIXED | go-proxy | 2026-08-31 | Manual ban (ban:{ip}) and Spamhaus blocklist bypassed when the async scoring queue (workChan) is saturated |
+| JA4PROXY-2026-0095 | MEDIUM | FIXED | python-management | 2026-08-31 | Insecure role defaults in token issuance/validation contradict the JA4PROXY-2026-0034 least-privilege posture (bearer->operator, create->admin, rotate->operator) |
+| JA4PROXY-2026-0096 | MEDIUM | FIXED | infrastructure | 2026-08-31 | Quickstart docker-compose ships a known-value MANAGEMENT_JWT_SECRET / admin password with no guard rejecting the committed default |
+| JA4PROXY-2026-0097 | MEDIUM | FIXED | infrastructure | 2026-10-04 | Analytics node crash-loops on startup — src/utils omitted from image (ModuleNotFoundError) |
 
 <!-- END GENERATED -->
