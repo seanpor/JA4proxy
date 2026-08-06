@@ -64,36 +64,61 @@ jobs:
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Open PR if changed
+      # Phase 818 (#396): this step used to `gh pr create`, which fails with
+      # exit 1 because this repo has "Allow GitHub Actions to create and approve
+      # pull requests" DISABLED (a deliberate security default — it also gates
+      # self-approval). Every renewal therefore pushed a branch, failed to open
+      # the PR, filed a false-alarm issue, and left an orphan branch behind.
+      #
+      # Fix: push the branch (that always worked) and open an INFORMATIONAL
+      # tracking issue carrying a one-click compare link that pre-fills the PR.
+      # A human opens the PR — which preserves the "NO blanket ignores" human
+      # review this workflow deliberately requires — and the job never fails on
+      # a repo policy it cannot change. No repo-settings change, no self-approval
+      # surface.
+      - name: Push branch and request review if changed
         if: steps.renew.outputs.changed == 'true' && github.event.inputs.dry_run != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           branch="chore/trivyignore-renewal-$(date +%Y-%m-%d)"
           git checkout -b "$branch"
           git add .trivyignore
           git commit -m "chore: renew soon-to-expire .trivyignore exceptions ($(date +%Y-%m-%d))"
-          git push -u origin "$branch"
+          # --force-with-lease: a prior same-day run may have left this branch.
+          git push --force-with-lease -u origin "$branch"
+
+          compare_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/compare/main...${branch}?expand=1"
           {
-            echo "Automated proactive renewal (Phase 812, 812-B) — 5 days before the"
-            echo "earliest expiry in .trivyignore, not a same-day fire drill."
+            echo "The weekly .trivyignore renewal pushed branch \`${branch}\` with"
+            echo "the soon-to-expire exceptions renewed."
+            echo ""
+            echo "**Open the PR here (one click, pre-filled):** ${compare_url}"
+            echo ""
+            echo "A human must still verify whether a newer upstream image tag"
+            echo "actually clears each CVE before merging — this workflow only"
+            echo "renews the time window. See docs/runbooks/security_scan_exceptions.md."
             echo ""
             echo '```'
             cat renewal_summary.txt
             echo '```'
-            echo ""
-            echo "**Does not auto-merge.** A human must still verify whether a newer"
-            echo "upstream image tag actually clears each CVE above before merging —"
-            echo "this workflow only renews the time window, it does not check for a"
-            echo "real fix. See docs/runbooks/security_scan_exceptions.md."
-          } > pr_body.txt
-          # This workflow deliberately does NOT auto-merge (unlike
-          # process-metrics.yml) -- CVE-exception judgment calls stay
-          # human-reviewed, per Phase 226's own "NO blanket ignores" rule.
-          gh pr create --title "chore: renew soon-to-expire .trivyignore exceptions ($(date +%Y-%m-%d))" \
-            --body-file pr_body.txt --base main --head "$branch"
+          } > issue_body.txt
+
+          # Reuse a single rolling tracking issue rather than opening a new one
+          # each week. Never fails the job — a notifier must not be a blocker.
+          existing=$(gh issue list --label trivyignore-renewal --state open \
+            --json number --jq '.[0].number' 2>/dev/null || echo "")
+          title="Action needed: open the weekly .trivyignore renewal PR ($(date +%Y-%m-%d))"
+          if [ -n "$existing" ]; then
+            gh issue edit "$existing" --title "$title" --body-file issue_body.txt || true
+            gh issue comment "$existing" --body "Branch \`${branch}\` refreshed — ${compare_url}" || true
+          else
+            gh issue create --title "$title" --label trivyignore-renewal \
+              --body-file issue_body.txt || true
+          fi
 
       # Phase 812: a broken renewal workflow must not become a fifth silent
       # failure mode alongside the four this phase set out to fix. Same
