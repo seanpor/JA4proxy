@@ -106,8 +106,14 @@ jobs:
               --notes "Rolling nightly ja4p test benchmark result, overwritten every run. Pulled by the monitoring host's systemd timer — see docs/runbooks/nightly_benchmark_regression.md. Not a versioned release."
           fi
 
+      # Phase 818 (#395): paused. Filing a "regression" issue against a baseline
+      # that is known not to match the CI environment (host 600 cps vs runner
+      # ~96 cps) is false information — it opened a fresh perf-regression issue
+      # every night. The throughput/latency trend still lives in Grafana and the
+      # workflow log warning. Re-enable (drop `&& false`) once a CI-representative
+      # baseline exists — see docs/phases/complete/PHASE_818.md.
       - name: Open or update perf-regression tracking issue
-        if: steps.gate.outputs.regressed == 'true'
+        if: steps.gate.outputs.regressed == 'true' && false
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3  # v9.0.0
         with:
           script: |
@@ -155,8 +161,21 @@ jobs:
         if: always()
         run: docker compose -f deploy/docker/docker-compose.poc.yml --env-file .env down -v --remove-orphans
 
-      - name: Fail the job if a regression was detected
+      # Phase 818 (#395): this step used to `exit 1`, failing the scheduled job
+      # every single night. The cause is not a code regression: the baseline in
+      # nightly_benchmark_baseline.json was measured on a real HOST (600 cps,
+      # 290ms p95), but this workflow runs on shared GitHub-hosted runners that
+      # measure ~96 cps / ~17ms p95. The tell that it's an environment mismatch,
+      # not a slowdown: throughput is ~6x LOWER while latency is ~17x BETTER —
+      # physically impossible for a real regression.
+      #
+      # Until a CI-representative baseline exists (self-hosted runner, or a
+      # statistical baseline accumulated from CI runs — tracked as follow-up in
+      # docs/phases/complete/PHASE_818.md), the throughput/latency comparison is
+      # ADVISORY: it warns in the workflow log and trends in Grafana (the issue
+      # filing above is paused), but does NOT fail the job on runner-speed noise.
+      # Error-rate failures remain a real signal via the gate's own error_rate check.
+      - name: Report regression (advisory — does not fail on runner-speed noise)
         if: steps.gate.outputs.regressed == 'true'
         run: |
-          echo "::error::Nightly benchmark regressed against docs/reports/nightly_benchmark_baseline.json — see gate_report.txt above and the perf-regression issue."
-          exit 1
+          echo "::warning::Nightly benchmark flagged a throughput/latency deviation from the baseline. This is ADVISORY (host baseline vs CI-runner environment mismatch — see PHASE_818). Review the trend in Grafana; it does not fail the job."
