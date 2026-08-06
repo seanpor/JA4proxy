@@ -4589,3 +4589,43 @@ phases:
       derive-doc-from-reality + --check drift-gate machinery, and building it
       twice would itself be a drift problem. 815 owns the generator; 814b
       consumes it for ATTACK_SURFACE.md."
+  818:
+    name: "CI health — clear the CVE-exception cliff + fix two recurring scheduled-workflow false failures"
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_818.md
+    dependencies: []
+    size: MEDIUM
+    summary: "Found while PR #399 surfaced red CI whose failures were NOT in its
+      diff. Three connected pre-existing problems red-failing every PR and main:
+      (1) a 31-CVE .trivyignore exception cliff — 31 dated exceptions all
+      exp:2026-08-06, so make scan (required) went red everywhere at once; a
+      time-triggered expiry is un-catchable by a local pre-push gate. (2) #396
+      trivyignore-renewal workflow fails every real run: it pushes a branch then
+      gh pr create, which fails exit 1 because the repo has 'Allow GitHub Actions
+      to create and approve pull requests' disabled — so the cliff was never
+      defused, and each run left an orphan branch + false-alarm issue. (3) #395
+      nightly-benchmark fails every night: gate compares a HOST baseline (600 cps,
+      290ms p95) to CI-runner numbers (~96 cps, ~17ms p95) — throughput 6x lower
+      while latency 17x BETTER proves environment mismatch, not regression.
+      Fixes: CVE cliff INVESTIGATED for real fixes not blanket-renewed (per
+      maintainer instruction). Honest verified outcome: NONE of the 31 had an
+      available fix. GHSA-6v7p-g79w-8964 (msgpack) + CVE-2025-47273 (setuptools)
+      are pip's OWN vendored copies (pip/_vendor), unfixable by us even at
+      current pip 26.2.1 — an initial 'the python base bump clears these' claim
+      was WRONG, caught by reading the make scan log not its exit code; both stay
+      exceptioned (build surfaces them non-deterministically). The other 29
+      confirmed no better upstream tag (alertmanager/promtail latest, grafana
+      13.1.x + cadvisor v0.55.1 carry larger CVE sets, ecdsa no upstream patch).
+      All 31 renewed to today+7 (policy caps at 7d; the fixed weekly workflow is
+      the recurrence guard). A base-image bump was tried and REVERTED — it cleared
+      nothing (pip is upgraded at build time regardless of base patch) and tripped
+      a deliberate base-pin guard test; no image base changed. #396:
+      workflow no longer calls gh pr create — pushes the branch + opens a rolling
+      tracking issue with a one-click compare link, human opens the PR (preserves
+      required human review), never fails on the repo policy. #395: throughput/
+      latency gate made advisory (warns, trends in Grafana, does not fail the job
+      or file issues against a baseline known not to match CI) until a
+      CI-representative baseline exists (follow-up). Orphan branch deleted; #395/
+      #396 closed. Also closes the honest gap that #399 was pushed without
+      running full make scan/lint/test locally — these changes were verified with
+      full make scan locally before pushing."
