@@ -1180,9 +1180,14 @@ bench: ## Run all benchmarks (micro + macro)
 	@$(MAKE) bench-micro
 	@$(MAKE) bench-macro
 
+# The trailing `|| true` was removed in phase-800. It had been masking three
+# permanently-failing benchmarks in ./internal/tls (invalid ClientHello fixtures,
+# fixed in #408): the package exited 1 on every run and this target still
+# reported success. `go test` does not run benchmarks without -bench, so nothing
+# else in the suite could see it either.
 bench-micro: ## Run Go native micro-benchmarks
 	@echo "=== Go Proxy Micro-benchmarks ==="
-	@GOROOT=$(GOROOT) go test -bench=. -run=^$$ -benchmem ./cmd/ja4pd/ ./internal/tls/ || true
+	@GOROOT=$(GOROOT) go test -bench=. -run=^$$ -benchmem ./cmd/ja4pd/ ./internal/tls/
 
 bench-macro: ## Run end-to-end load test (requires: make start)
 	@echo "=== JA4proxy High-Speed Go Macro-benchmark ==="

@@ -92,6 +92,58 @@ func (r *BenchResult) Calculate() {
 	}
 }
 
+// FalsePositiveRate returns the percentage of good traffic that was blocked.
+// Returns 0 when no good traffic was sent — a rate computed from zero samples
+// is not evidence of correctness, so callers must check Status() as well.
+func (r *BenchResult) FalsePositiveRate() float64 {
+	if r.TotalGood == 0 {
+		return 0
+	}
+	return float64(r.GoodBlocked) / float64(r.TotalGood) * 100
+}
+
+// FalseNegativeRate returns the percentage of bad traffic that was allowed.
+// Returns 0 when no bad traffic was sent — see FalsePositiveRate.
+func (r *BenchResult) FalseNegativeRate() float64 {
+	if r.TotalBad == 0 {
+		return 0
+	}
+	return float64(r.BadAllowed) / float64(r.TotalBad) * 100
+}
+
+// Status reports whether the benchmark run should be considered a success,
+// returning a non-nil error describing the failure otherwise.
+//
+// This is the single verdict used by both the human-readable and JSON output
+// paths, and it is what RunBenchmark turns into a process exit code.
+//
+// Phase 800: this verdict used to exist only as a printed line. `ja4p test
+// benchmark` exited 0 regardless, so `make bench-macro` reported success after
+// making 0 connections and logging 2880 'connection refused' errors — while
+// also printing 0.00% false-positive and false-negative rates derived from zero
+// samples. A benchmark that reports clean metrics on no data is worse than one
+// that errors, because it looks like a passing result.
+//
+// Note the zero-connection check is unconditional. It previously required
+// Errors > 0, so a run that connected zero times AND recorded zero errors fell
+// through to the fp == 0 branch and printed PASSED.
+func (r *BenchResult) Status() error {
+	r.Calculate()
+
+	if r.TotalGood+r.TotalBad == 0 {
+		if r.LastError != "" {
+			return fmt.Errorf("no successful connections made (%d errors, last: %s)", r.Errors, r.LastError)
+		}
+		return fmt.Errorf("no successful connections made (%d errors)", r.Errors)
+	}
+
+	if fp := r.FalsePositiveRate(); fp > 0 {
+		return fmt.Errorf("false positives detected: %.2f%% of good traffic was blocked", fp)
+	}
+
+	return nil
+}
+
 func (r *BenchResult) Print() {
 	r.Calculate()
 	total := r.TotalGood + r.TotalBad
@@ -112,29 +164,28 @@ func (r *BenchResult) Print() {
 	fmt.Printf("Bad Traffic:       %d sent, %d allowed, %d blocked\n", r.TotalBad, r.BadAllowed, r.BadBlocked)
 	fmt.Printf("--------------------------------------------\n")
 
-	fp := 0.0
-	if r.TotalGood > 0 {
-		fp = float64(r.GoodBlocked) / float64(r.TotalGood) * 100
-	}
-	fn := 0.0
-	if r.TotalBad > 0 {
-		fn = float64(r.BadAllowed) / float64(r.TotalBad) * 100
-	}
-
-	fmt.Printf("False Positive:    %.2f%%\n", fp)
-	fmt.Printf("False Negative:    %.2f%%\n", fn)
-
-	if total == 0 && r.Errors > 0 {
-		fmt.Printf("Status:            FAILED \u274c (No successful connections made)\n")
-	} else if fp == 0 {
-		fmt.Printf("Status:            PASSED \u2705\n")
+	// Rates are meaningless when nothing was sent; Status() is what decides the
+	// verdict, so the printed rates are informational only.
+	if total == 0 {
+		fmt.Printf("False Positive:    n/a (no traffic completed)\n")
+		fmt.Printf("False Negative:    n/a (no traffic completed)\n")
 	} else {
-		fmt.Printf("Status:            FAILED \u274c (False positives detected)\n")
+		fmt.Printf("False Positive:    %.2f%%\n", r.FalsePositiveRate())
+		fmt.Printf("False Negative:    %.2f%%\n", r.FalseNegativeRate())
+	}
+
+	if err := r.Status(); err != nil {
+		fmt.Printf("Status:            FAILED \u274c (%v)\n", err)
+	} else {
+		fmt.Printf("Status:            PASSED \u2705\n")
 	}
 	fmt.Printf("============================================\n")
 }
 
-func RunBenchmark(args []string) {
+// RunBenchmark runs the load generator and returns a non-nil error if the run
+// failed, so the caller can exit non-zero. Phase 800: it previously returned
+// nothing, which is why a totally failed benchmark still exited 0.
+func RunBenchmark(args []string) error {
 	fs := flag.NewFlagSet("benchmark", flag.ExitOnError)
 	var (
 		host         string
@@ -219,6 +270,10 @@ func RunBenchmark(args []string) {
 	} else {
 		res.Print()
 	}
+
+	// Both output paths share one verdict, so `--output json` fails the same way
+	// the human-readable path does.
+	return res.Status()
 }
 
 func runProfile(ctx context.Context, host string, isGood bool, rate, workers int, res *BenchResult) error {
