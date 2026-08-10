@@ -141,9 +141,9 @@ def _ollama_chat(url: str, model: str, prompt: str, timeout: int) -> str:
         data=json.dumps(payload).encode(),
         headers={"Content-Type": "application/json"},
     )
+    # _bounded_chat_url constrains the URL to http(s) loopback, so no file://
+    # read or external phone-home is possible.
     # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
-    # URL is scheme+host constrained to http(s) loopback by _bounded_chat_url
-    # above, so no file:// read or external phone-home is possible.
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         data = json.loads(resp.read().decode())
     return data["message"]["content"]
