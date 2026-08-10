@@ -457,12 +457,12 @@ def status(ctx: click.Context) -> None:
     blacklist_count = r.scard("ja4:blacklist")
     suspect_count = r.zcard("beacon:suspects")
 
-    stream_len = r.xlen("ja4proxy:events") if r.exists("ja4proxy:events") else 0
+    stream_len = r.xlen("events:connection") if r.exists("events:connection") else 0
 
     # Stream consumer lag (first consumer group found)
     stream_lag: int | str = "n/a"
     try:
-        groups = r.xinfo_groups("ja4proxy:events")
+        groups = r.xinfo_groups("events:connection")
         if groups:
             stream_lag = int(groups[0].get("lag", 0))
     except Exception:

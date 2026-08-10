@@ -37,7 +37,7 @@ class StreamConsumer:
     def __init__(
         self,
         redis_url: str,
-        stream_key: str = "ja4proxy:events",
+        stream_key: str = "events:connection",
         consumer_group: str = "analytics",
         consumer_name: str = "analytics-1",
         hmac_secret: Optional[str] = None,

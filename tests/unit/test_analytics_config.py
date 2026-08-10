@@ -41,7 +41,7 @@ class TestLoadConfig:
         sensible defaults for stream keys, consumer group names, and batch sizes."""
         path = _write_config(tmp_path, "redis:\n  host: localhost\n")
         cfg = load_config(path)
-        assert cfg["stream"]["key"] == "ja4proxy:events"
+        assert cfg["stream"]["key"] == "events:connection"
         assert cfg["stream"]["consumer_group"] == "analytics"
         assert cfg["stream"]["batch_size"] == 100
         assert cfg["aggregation"]["window_seconds"] == 300

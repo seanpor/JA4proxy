@@ -69,7 +69,7 @@ def load_config(config_file: str) -> Dict[str, Any]:
     defaults = {
         "redis": {"host": "localhost", "port": 6379, "password": None},
         "stream": {
-            "key": "ja4proxy:events",
+            "key": "events:connection",
             "consumer_group": "analytics",
             "consumer_name": "analytics-1",
             "batch_size": 100,

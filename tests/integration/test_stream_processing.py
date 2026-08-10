@@ -284,7 +284,7 @@ class TestAnalyticsNodeHotReload:
         config_data = {
             "redis": {"host": "localhost", "port": 6379},
             "stream": {
-                "key": "ja4proxy:events",
+                "key": "events:connection",
                 "consumer_group": "analytics",
                 "consumer_name": "analytics-1",
                 "batch_size": 100,
@@ -317,7 +317,7 @@ class TestAnalyticsNodeHotReload:
         config_data = {
             "redis": {"host": "localhost", "port": 6379},
             "stream": {
-                "key": "ja4proxy:events",
+                "key": "events:connection",
                 "consumer_group": "analytics",
                 "consumer_name": "analytics-1",
                 "batch_size": 50,
@@ -352,7 +352,7 @@ class TestAnalyticsNodeHotReload:
         config_data = {
             "redis": {"host": "localhost", "port": 6379},
             "stream": {
-                "key": "ja4proxy:events",
+                "key": "events:connection",
                 "consumer_group": "analytics",
                 "consumer_name": "analytics-1",
                 "batch_size": 100,

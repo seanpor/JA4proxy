@@ -591,7 +591,7 @@ class TestConsumeEvents:
         async def _xreadgroup(*args, **kwargs):
             call_count[0] += 1
             if call_count[0] == 1:
-                return [(b"ja4proxy:events", [(msg_id, raw_event)])]
+                return [(b"events:connection", [(msg_id, raw_event)])]
             raise asyncio.CancelledError()
 
         c.redis.xreadgroup = _xreadgroup
@@ -626,7 +626,7 @@ class TestConsumeEvents:
         async def _xreadgroup(*args, **kwargs):
             call_count[0] += 1
             if call_count[0] == 1:
-                return [(b"ja4proxy:events", [(msg_id, raw_event)])]
+                return [(b"events:connection", [(msg_id, raw_event)])]
             raise asyncio.CancelledError()
 
         c.redis.xreadgroup = _xreadgroup
@@ -708,7 +708,7 @@ class TestConsumeEvents:
         async def _xreadgroup(*args, **kwargs):
             call_count[0] += 1
             if call_count[0] == 1:
-                return [(b"ja4proxy:events", [(msg_id, raw_event)])]
+                return [(b"events:connection", [(msg_id, raw_event)])]
             raise asyncio.CancelledError()
 
         c.redis.xreadgroup = _xreadgroup
@@ -893,7 +893,7 @@ class TestStreamConsumerCoverageGaps:
         async def _xreadgroup(*args, **kwargs):
             call_count[0] += 1
             if call_count[0] == 1:
-                return [(b"ja4proxy:events", [(bad_msg_id, raw_event)])]
+                return [(b"events:connection", [(bad_msg_id, raw_event)])]
             raise asyncio.CancelledError()
 
         c.redis.xreadgroup = _xreadgroup
@@ -925,7 +925,7 @@ class TestStreamConsumerCoverageGaps:
         async def _xreadgroup(*args, **kwargs):
             call_count[0] += 1
             if call_count[0] == 1:
-                return [(b"ja4proxy:events", [(msg_id, raw_event)])]
+                return [(b"events:connection", [(msg_id, raw_event)])]
             raise asyncio.CancelledError()
 
         c.redis.xreadgroup = _xreadgroup

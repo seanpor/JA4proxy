@@ -25,7 +25,7 @@ groups:
       # a size that suggests the purge is not keeping up.
       - alert: ConnectionStreamUnbounded
         expr: |
-          ja4proxy_stream_length{stream="ja4proxy:events"} > 1000000
+          ja4proxy_stream_length{stream="events:connection"} > 1000000
         for: 30m
         labels:
           severity: warning
@@ -33,7 +33,7 @@ groups:
         annotations:
           summary: "Connection event stream is very large (>1M entries)"
           description: |
-            ja4proxy:events has {{ $value }} entries. This may indicate the GDPR
+            events:connection has {{ $value }} entries. This may indicate the GDPR
             purge job is not running, or retention_days is set too high for the
             current connection volume. Check gdpr.retention_days in proxy.yml.
 

@@ -65,21 +65,21 @@ async def test_purge_stream_removes_old_events(redis_client):
 
     # Seed one old event and one recent event
     await redis_client.xadd(
-        "ja4proxy:events", {"ip": "1.2.3.4", "action_taken": "blocked"}, id=old_id
+        "events:connection", {"ip": "1.2.3.4", "action_taken": "blocked"}, id=old_id
     )
     await redis_client.xadd(
-        "ja4proxy:events", {"ip": "5.6.7.8", "action_taken": "allowed"}, id=recent_id
+        "events:connection", {"ip": "5.6.7.8", "action_taken": "allowed"}, id=recent_id
     )
 
-    assert await redis_client.xlen("ja4proxy:events") == 2
+    assert await redis_client.xlen("events:connection") == 2
 
     purge = GDPRPurge(redis_client, {"connection_log_retention_days": 90})
     summary = await purge.run()
 
-    assert await redis_client.xlen("ja4proxy:events") == 1
+    assert await redis_client.xlen("events:connection") == 1
     assert summary.connection_events_deleted == 1
     # Verify the remaining event is the recent one (ip 5.6.7.8)
-    remaining = await redis_client.xrange("ja4proxy:events")
+    remaining = await redis_client.xrange("events:connection")
     assert len(remaining) == 1
     assert remaining[0][1]["ip"] == "5.6.7.8"
 
@@ -89,15 +89,15 @@ async def test_purge_stream_preserves_recent_events(redis_client):
     """Events within the retention window are not touched."""
     recent_id = _recent_stream_id()
     await redis_client.xadd(
-        "ja4proxy:events", {"ip": "1.2.3.4", "action_taken": "blocked"}, id=recent_id
+        "events:connection", {"ip": "1.2.3.4", "action_taken": "blocked"}, id=recent_id
     )
 
-    before_count = await redis_client.xlen("ja4proxy:events")
+    before_count = await redis_client.xlen("events:connection")
 
     purge = GDPRPurge(redis_client, {"connection_log_retention_days": 90})
     summary = await purge.run()
 
-    assert await redis_client.xlen("ja4proxy:events") == before_count
+    assert await redis_client.xlen("events:connection") == before_count
     assert summary.connection_events_deleted == 0
 
 

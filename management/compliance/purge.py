@@ -14,7 +14,7 @@ an ``errors`` list.
 Redis keys touched
 ------------------
 Read/trim:
-    ja4proxy:events     (Stream)      connection event log
+    events:connection (Stream)      connection event log
     beacon:*:*          (SortedSet)   beaconing timestamps per IP+JA4
     rv:*                (Hash)        return-visitor records per IP
     reporting:monthly:* (Hash)        monthly aggregates for trend charts
@@ -48,7 +48,7 @@ def _subtract_months(dt: datetime, months: int) -> datetime:
 
 logger = logging.getLogger(__name__)
 
-_STREAM_KEY = "ja4proxy:events"
+_STREAM_KEY = "events:connection"
 _LAST_RUN_KEY = "gdpr:purge:last_run"
 _LAST_SUMMARY_KEY = "gdpr:purge:last_summary"
 _SUMMARY_TTL_SECONDS = 172_800  # 48 h
@@ -195,7 +195,7 @@ class GDPRPurge:
         return self._use_minid
 
     async def _purge_stream(self, cutoff_ms: int) -> int:
-        """Trim ja4proxy:events stream, removing entries older than cutoff_ms.
+        """Trim events:connection stream, removing entries older than cutoff_ms.
 
         Uses XTRIM with MINID on Redis 6.2+. Falls back to XRANGE+XDEL loop
         for older Redis versions.
