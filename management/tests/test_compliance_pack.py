@@ -51,7 +51,7 @@ _TS_OUT = "2025-12-01T10:00:00+00:00"
 async def _seed_minimal(redis):
     """Seed minimal Redis data: one blocked event + one audit entry."""
     await redis.xadd(
-        "ja4proxy:events",
+        "events:connection",
         {
             "ip": "1.2.3.4",
             "ja4": "t13abc",
@@ -122,7 +122,7 @@ async def test_block_event_log_contains_blocked_only(redis_client):
     """02_block_event_log.jsonl must only contain blocked events."""
     # Seed one blocked + one allowed event, both in window
     await redis_client.xadd(
-        "ja4proxy:events",
+        "events:connection",
         {
             "ip": "1.2.3.4",
             "action_taken": "blocked",
@@ -131,7 +131,7 @@ async def test_block_event_log_contains_blocked_only(redis_client):
         },
     )
     await redis_client.xadd(
-        "ja4proxy:events",
+        "events:connection",
         {
             "ip": "5.6.7.8",
             "action_taken": "allowed",
@@ -158,7 +158,7 @@ async def test_block_event_log_contains_blocked_only(redis_client):
 async def test_block_event_log_excludes_out_of_window_events(redis_client):
     """Events outside the from/to window must not appear in the log."""
     await redis_client.xadd(
-        "ja4proxy:events",
+        "events:connection",
         {
             "ip": "1.2.3.4",
             "action_taken": "blocked",
@@ -167,7 +167,7 @@ async def test_block_event_log_excludes_out_of_window_events(redis_client):
         },
     )
     await redis_client.xadd(
-        "ja4proxy:events",
+        "events:connection",
         {
             "ip": "9.9.9.9",
             "action_taken": "blocked",
@@ -193,7 +193,7 @@ async def test_block_event_log_excludes_out_of_window_events(redis_client):
 async def test_attack_classification_has_category_column(redis_client):
     """03_attack_classification.csv must have a 'category' column."""
     await redis_client.xadd(
-        "ja4proxy:events",
+        "events:connection",
         {
             "ip": "1.2.3.4",
             "action_taken": "blocked",
@@ -219,7 +219,7 @@ async def test_attack_classification_has_category_column(redis_client):
 async def test_attack_classification_no_allowed_events(redis_client):
     """Allowed events must not appear in the attack classification CSV."""
     await redis_client.xadd(
-        "ja4proxy:events",
+        "events:connection",
         {
             "ip": "1.1.1.1",
             "action_taken": "allowed",

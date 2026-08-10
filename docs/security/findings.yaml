@@ -54,7 +54,7 @@
 
 
 schema_version: 1
-last_allocated_id: 97
+last_allocated_id: 101
 findings:
 - id: JA4PROXY-2026-0001
   title: PROXY Protocol v2 Spoofing from Untrusted Source
@@ -3127,3 +3127,123 @@ findings:
     downstream issue (analytics user NoPermissionError against Redis) that is NOT introduced by this fix
     and is tracked separately as a range-provisioning / 814k data-layer item.'
   github_issue: 398
+- id: JA4PROXY-2026-0098
+  title: 'Redis ACL: analytics user cannot read the connection event stream it must consume (device-dead
+    in production posture)'
+  severity: HIGH
+  severity_rationale: 'H-2 device-dead: config/redis_acl.conf.template grants analytics only ~analytics:*;
+    src/analytics/stream_consumer.py:83 needs XREADGROUP on the events stream. Analytics node never starts
+    in production posture (NoPermissionError at xgroup_create).'
+  source_refs:
+  - report: PHASE_814k
+    id: 814k-A
+    discovered: '2026-08-09'
+  remediation_phases:
+  - 814k
+  owner: '@seanpor'
+  lane: infrastructure
+  discovered: '2026-08-09'
+  found_against:
+    git_sha: 48ef562196755491268408e2d30944a6d86f9b44
+    config_sha256: 266a8c650e072d3c
+    note: 'pentest range, production posture'
+  due: '2026-09-08'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  github_issue: 401
+  regression_test: tests/unit/test_redis_acl_coverage.py::test_analytics_acl_grants_stream_and_output_keys
+  closed_commit: ''
+  cvss_v3_1:
+    score: 6.5
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:N/A:H
+- id: JA4PROXY-2026-0099
+  title: "Redis ACL: proxy user under-scoped \u2014 rate limiting, audit trail, and event stream silently\
+    \ dead"
+  severity: HIGH
+  severity_rationale: "H-2 silent failure of two security controls: proxy ACL lacks +script|load (sliding_window.lua\
+    \ \u2014 rate limiting unavailable, repeatedly NOPERM), and ~proxy:*, ~concurrent:*, ~behavioral:*,\
+    \ ~audit:*, ~events:connection key patterns. Live proxy logs show NOPERM on all of these."
+  source_refs:
+  - report: PHASE_814k
+    id: 814k-B
+    discovered: '2026-08-09'
+  remediation_phases:
+  - 814k
+  owner: '@seanpor'
+  lane: go-proxy
+  discovered: '2026-08-09'
+  found_against:
+    git_sha: 48ef562196755491268408e2d30944a6d86f9b44
+    config_sha256: 266a8c650e072d3c
+    note: 'pentest range, production posture'
+  due: '2026-09-08'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  github_issue: 402
+  regression_test: tests/unit/test_redis_acl_coverage.py::test_proxy_acl_grants_every_command_the_go_proxy_uses
+  closed_commit: ''
+  cvss_v3_1:
+    score: 6.5
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:N/A:H
+- id: JA4PROXY-2026-0100
+  title: 'Stream-key drift: analytics consumes retired ja4proxy:events; Go proxy writes events:connection'
+  severity: MEDIUM
+  severity_rationale: "M-4: config/analytics.yaml + src/analytics/config.py default stream key is ja4proxy:events,\
+    \ retired by Phase 807; Go proxy writes events:connection (config/proxy.yml, main.go:1292). Even with\
+    \ the analytics ACL fixed, the node reads a stream nothing writes \u2014 analytics never receives\
+    \ events."
+  source_refs:
+  - report: PHASE_814k
+    id: 814k-C
+    discovered: '2026-08-09'
+  remediation_phases:
+  - 814k
+  owner: '@seanpor'
+  lane: infrastructure
+  discovered: '2026-08-09'
+  found_against:
+    git_sha: 48ef562196755491268408e2d30944a6d86f9b44
+    config_sha256: 266a8c650e072d3c
+    note: 'pentest range, production posture'
+  due: '2026-10-08'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  github_issue: 403
+  regression_test: tests/unit/test_redis_acl_coverage.py::test_all_stream_references_agree_on_events_connection
+  closed_commit: ''
+  cvss_v3_1:
+    score: 4.3
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:L/A:N
+- id: JA4PROXY-2026-0101
+  title: "GDPR purge targets the wrong stream \u2014 retention/erasure never applied to the stream holding\
+    \ connection PII"
+  severity: HIGH
+  severity_rationale: 'Regulatory (GDPR Art 5/25/32): management/compliance/purge.py:51 trims ja4proxy:events
+    (retired stream), while the actual PII-bearing stream is events:connection, which purge never touches.
+    GDPR retention and erasure are not enforced on the only stream that holds per-connection PII.'
+  source_refs:
+  - report: PHASE_814k
+    id: 814k-D
+    discovered: '2026-08-09'
+  remediation_phases:
+  - 814k
+  owner: '@seanpor'
+  lane: python-management
+  discovered: '2026-08-09'
+  found_against:
+    git_sha: 48ef562196755491268408e2d30944a6d86f9b44
+    config_sha256: 266a8c650e072d3c
+    note: 'pentest range, production posture'
+  due: '2026-09-08'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  github_issue: 404
+  regression_test: tests/unit/test_redis_acl_coverage.py::test_purge_stream_key_constant_is_events_connection
+  closed_commit: ''
+  cvss_v3_1:
+    score: 5.0
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:C/C:L/I:N/A:N

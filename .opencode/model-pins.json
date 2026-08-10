@@ -1,0 +1,17 @@
+{
+  "model": "opencode/deepseek-v4-flash-free",
+  "version": "deepseek-v4-flash-free-2026-08",
+  "note": "Fleet churn: never leave this unpinned. Every artifact is attributed to (model, version).",
+  "author": {
+    "model": "opencode/deepseek-v4-flash-free",
+    "family": "deepseek",
+    "version": "deepseek-v4-flash-free-2026-08",
+    "note": "The model that authors the changes under review. The quality gate REJECTS a reviewer whose family equals this (correlated verification)."
+  },
+  "reviewer": {
+    "model": "ollama/deepseek-r1:14b",
+    "family": "deepseek-r1",
+    "version": "deepseek-r1:14b",
+    "note": "The different-family reviewer used by `gates.py review`. Keep the family distinct from author.family."
+  }
+}

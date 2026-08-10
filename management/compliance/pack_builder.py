@@ -39,7 +39,7 @@ from .classifier import SignalClassifier
 AUDIT_LOG_CHUNK_SIZE = 10_000
 
 _AUDIT_KEY = "management:audit_log"
-_STREAM_KEY = "ja4proxy:events"
+_STREAM_KEY = "events:connection"
 _TOKEN_SAFE_FIELDS = frozenset(
     (
         "token_id",
@@ -162,7 +162,7 @@ class PciDssPackBuilder:
     async def _query_blocked_events(
         self, from_dt: datetime, to_dt: datetime
     ) -> list[dict[str, Any]]:
-        """Read all blocked events from ja4proxy:events stream in the window."""
+        """Read all blocked events from events:connection stream in the window."""
         try:
             raw = await self._redis.xrange(_STREAM_KEY)
         except Exception as exc:

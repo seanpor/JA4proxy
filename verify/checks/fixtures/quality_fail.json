@@ -1,0 +1,24 @@
+{
+  "status": "ok",
+  "reviewer": "ollama/deepseek-r1:14b",
+  "reviewer_family": "deepseek-r1",
+  "reviewer_version": "test-fixture",
+  "author": "anthropic/claude-sonnet-4-20250514",
+  "author_family": "anthropic",
+  "paths": ["llm-reframing/PRACTICAL-GUIDE.md"],
+  "dimensions": {
+    "soundness": 1,
+    "coverage": 2,
+    "consistency": 3,
+    "risk_awareness": 2,
+    "actionability": 2
+  },
+  "justifications": {
+    "soundness": "Claims not backed by the artifact.",
+    "coverage": "Major gaps in coverage.",
+    "consistency": "A couple of weak spots in the text.",
+    "risk_awareness": "Risks are not surfaced.",
+    "actionability": "Hard to act on."
+  },
+  "top_failure_modes": []
+}

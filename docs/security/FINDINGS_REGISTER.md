@@ -100,15 +100,15 @@ get forgotten.
 
 <!-- BEGIN GENERATED: findings_register.py render -->
 
-## Register snapshot (2026-08-05)
+## Register snapshot (2026-08-09)
 
-**Total:** 95 canonical finding(s).
+**Total:** 99 canonical finding(s).
 
 | Severity | Count | Status | Count |
 |----------|-------|--------|-------|
-| CRITICAL | 14 | OPEN | 2 |
-| HIGH | 20 | IN_PROGRESS | 0 |
-| MEDIUM | 36 | FIXED | 93 |
+| CRITICAL | 14 | OPEN | 6 |
+| HIGH | 23 | IN_PROGRESS | 0 |
+| MEDIUM | 37 | FIXED | 93 |
 | LOW | 25 | VERIFIED | 0 |
 |  |  | CLOSED | 0 |
 |  |  | DUPLICATE | 0 |
@@ -274,5 +274,9 @@ get forgotten.
 | JA4PROXY-2026-0095 | MEDIUM | FIXED | python-management | 2026-08-31 | Insecure role defaults in token issuance/validation contradict the JA4PROXY-2026-0034 least-privilege posture (bearer->operator, create->admin, rotate->operator) |
 | JA4PROXY-2026-0096 | MEDIUM | FIXED | infrastructure | 2026-08-31 | Quickstart docker-compose ships a known-value MANAGEMENT_JWT_SECRET / admin password with no guard rejecting the committed default |
 | JA4PROXY-2026-0097 | MEDIUM | FIXED | infrastructure | 2026-10-04 | Analytics node crash-loops on startup — src/utils omitted from image (ModuleNotFoundError) |
+| JA4PROXY-2026-0098 | HIGH | OPEN | infrastructure | 2026-09-08 | Redis ACL: analytics user cannot read the connection event stream it must consume (device-dead in production posture) |
+| JA4PROXY-2026-0099 | HIGH | OPEN | go-proxy | 2026-09-08 | Redis ACL: proxy user under-scoped — rate limiting, audit trail, and event stream silently dead |
+| JA4PROXY-2026-0100 | MEDIUM | OPEN | infrastructure | 2026-10-08 | Stream-key drift: analytics consumes retired ja4proxy:events; Go proxy writes events:connection |
+| JA4PROXY-2026-0101 | HIGH | OPEN | python-management | 2026-09-08 | GDPR purge targets the wrong stream — retention/erasure never applied to the stream holding connection PII |
 
 <!-- END GENERATED -->
