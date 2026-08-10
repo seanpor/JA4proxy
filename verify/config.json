@@ -1,0 +1,28 @@
+{
+  "battery_dir": "verify/golden_battery",
+  "ledger_path": "verify/ledger.jsonl",
+  "stamp_path": ".opencode/gates-passed.json",
+  "model_pins": ".opencode/model-pins.json",
+  "require_derivation_log": true,
+  "derivation_log_path": "DERIVATION.md",
+  "source_exts": [
+    ".py",
+    ".ts",
+    ".js",
+    ".go",
+    ".rs",
+    ".sh"
+  ],
+  "fixture_timeout_s": 120,
+  "quality": {
+    "artifacts_dir": "verify/reviews",
+    "max_age_hours": 48,
+    "min_avg": 3.0,
+    "min_dim": 2,
+    "min_justification_len": 40,
+    "calibration_min_n": 5,
+    "calibration_min_precision": 0.7,
+    "review_timeout_s": 300,
+    "ollama_url": "http://localhost:11434"
+  }
+}

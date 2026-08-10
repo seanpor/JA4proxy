@@ -1,0 +1,14 @@
+[
+  {
+    "name": "python_syntax_check",
+    "kind": "known_good",
+    "command": "python3 -m py_compile verify/golden_battery/sample_ok.py",
+    "expect_exit": 0
+  },
+  {
+    "name": "no_debug_eval_pattern",
+    "kind": "known_bad",
+    "command": "grep -rn 'debug_eval[ ]*(' verify/",
+    "expect_exit": 1
+  }
+]

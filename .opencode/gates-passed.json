@@ -1,0 +1,12 @@
+{
+  "ts": "2026-08-10T16:30:12+00:00",
+  "outcome": "PASS",
+  "fixtures_total": 8,
+  "skipped": 0,
+  "failures": [],
+  "git_head": "88985c40fe6bce2071de5486e19d85a96b529d32",
+  "model": "opencode/deepseek-v4-flash-free",
+  "model_version": "deepseek-v4-flash-free-2026-08",
+  "pre_commit": false,
+  "duration_s": 0.39
+}

@@ -1,0 +1,29 @@
+{
+  "status": "ok",
+  "reviewer": "ollama/deepseek-r1:14b",
+  "reviewer_family": "deepseek-r1",
+  "reviewer_version": "test-fixture",
+  "author": "anthropic/claude-sonnet-4-20250514",
+  "author_family": " Deepseek-R1 ",
+  "paths": [
+    "llm-reframing/PRACTICAL-GUIDE.md"
+  ],
+  "dimensions": {
+    "soundness": 4,
+    "coverage": 4,
+    "consistency": 5,
+    "risk_awareness": 4,
+    "actionability": 5
+  },
+  "justifications": {
+    "soundness": "Claims about the kit's behavior match the actual commands and paths in the repo; the fault-containment claims (plugin fails open, hook fails closed) are stated precisely and match the code.",
+    "coverage": "Covers install, fleet churn, morning-failure loop, economics, and escape hatches; the worked example in section 10 ties the whole pipeline to a concrete repository run.",
+    "consistency": "No contradictions found; the fail-closed/fail-open division of labour is stated in section 4 and respected consistently in sections 5 and 14.",
+    "risk_awareness": "Explicitly surfaces the two structural risks: a global plugin being mistaken for repo-local enforcement, and the deliberate escape hatch becoming a habit; both are called out as anti-patterns.",
+    "actionability": "Every section ends in concrete commands or a checklist; the install recipe in section 9 is a copy-paste sequence with a verification checklist."
+  },
+  "top_failure_modes": [
+    "A reader installs only the global plugin and skips the pre-commit hook, losing enforcement",
+    "CORRECTNESS_OVERRIDE and --no-verify used routinely, making the gates a ritual"
+  ]
+}

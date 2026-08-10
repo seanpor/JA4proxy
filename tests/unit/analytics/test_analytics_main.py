@@ -17,7 +17,7 @@ from src.analytics.main import AnalyticsNode
 MINIMAL_CONFIG = {
     "redis": {"host": "127.0.0.1", "port": 6379, "password": None},
     "stream": {
-        "key": "ja4proxy:events",
+        "key": "events:connection",
         "consumer_group": "analytics-test",
         "consumer_name": "analytics-test-1",
         "batch_size": 10,

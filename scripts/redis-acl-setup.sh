@@ -9,7 +9,8 @@
 #
 # Creates two ACL users with DISTINCT passwords (JA4PROXY-2026-0043):
 #   proxy     — allowed to read/write all proxy operational keys (ratelimit, ban, beacon, etc.)
-#   analytics — read/write access to the ja4proxy:events stream only
+#   analytics — read/write access to the connection event stream (events:connection),
+#               its own analytics:* output keys, and ti_feed:* state keys only
 #
 # REDIS_PASSWORD is the credential the script uses to authenticate as the
 # default user (which must already be able to run ACL SETUSER). It is
@@ -65,11 +66,17 @@ fi
 
 echo "Configuring Redis ACL users on ${HOST}:${PORT} ..."
 
-# proxy user — least-privilege: only the key patterns and commands the proxy needs
+# proxy user — least-privilege: only the key patterns and commands the proxy needs.
+# Phase 814k (JA4PROXY-2026-0099): mirrors config/redis_acl.conf.template
+# exactly. The additions below were previously missing, which made rate
+# limiting (no +SCRIPT|LOAD → EVALSHA fails), the heartbeat, concurrency
+# counters, audit trail, the connection event stream, and pub/sub config
+# hot-reload ALL silently dead in production posture.
 redis-cli -h "$HOST" -p "$PORT" -a "$ADMIN_PASS" ACL SETUSER proxy on \
   ">$PROXY_PASS" \
   "~ratelimit:*" \
   "~ban:*" \
+  "~ban_cidr:*" \
   "~beacon:*" \
   "~dns:*" \
   "~abuseipdb:*" \
@@ -77,21 +84,47 @@ redis-cli -h "$HOST" -p "$PORT" -a "$ADMIN_PASS" ACL SETUSER proxy on \
   "~ja4:*" \
   "~config:*" \
   "~analytics:*" \
-  "+GET" "+SET" "+DEL" "+EXPIRE" "+TTL" \
+  "~proxy:*" \
+  "~session:*" \
+  "~lifespan:*" \
+  "~concurrent:*" \
+  "~behavioral:burst:*" \
+  "~audit:*" \
+  "~offense:*" \
+  "~return_visitor:*" \
+  "~fp:*" \
+  "~geoip:*" \
+  "~events:connection" \
+  "~webhooks:dlq" \
+  "~ja4proxy:dc:*:sync:*" \
+  "+GET" "+SET" "+DEL" "+EXPIRE" "+TTL" "+EXISTS" "+INCR" "+SCAN" \
   "+ZADD" "+ZRANGE" "+ZRANGEBYSCORE" "+ZREMRANGEBYSCORE" "+ZCARD" "+ZINCRBY" \
   "+SADD" "+SREM" "+SISMEMBER" "+SMEMBERS" \
   "+HSET" "+HGET" "+HINCRBY" "+HGETALL" \
   "+PFADD" "+PFCOUNT" \
-  "+XADD" \
-  "+EVALSHA" "+EVAL"
+  "+XADD" "+XREAD" "+XGROUP" "+XREADGROUP" "+XACK" \
+  "+EVALSHA" "+EVAL" "+SCRIPT|LOAD" \
+  "+PING" "+SUBSCRIBE" \
+  "&config:*" "&ja4:*" "&geoip:*"
 
 echo "  proxy user configured"
 
-# analytics user — read/write the event stream only
+# analytics user — read the connection event stream + write its own output.
+# Phase 814k (JA4PROXY-2026-0098): the original grant was "~ja4proxy:events
+# +XADD +XREAD +XREADGROUP +XACK" — both wrong stream key AND wrong keys.
+# The Go proxy writes events:connection, and the node also needs ~analytics:*
+# and ~ti_feed:* to persist its own outputs + threat-intel feed state.
 redis-cli -h "$HOST" -p "$PORT" -a "$ADMIN_PASS" ACL SETUSER analytics on \
   ">$ANALYTICS_PASS" \
-  "~ja4proxy:events" \
-  "+XADD" "+XREAD" "+XREADGROUP" "+XACK"
+  "resetkeys" \
+  "~analytics:*" \
+  "~events:connection" \
+  "~ti_feed:*" \
+  "+GET" "+SET" "+HSET" "+HGET" "+HGETALL" "+HDEL" "+DEL" "+EXPIRE" "+INCR" \
+  "+SADD" "+SREM" "+SMEMBERS" \
+  "+ZADD" "+ZCARD" "+ZREMRANGEBYRANK" \
+  "+XADD" "+XREVRANGE" "+XREAD" "+XGROUP" "+XREADGROUP" "+XACK" "+PFADD" \
+  "+PING" "+MULTI" "+EXEC" "+DISCARD" "-@ADMIN"
 
 echo "  analytics user configured"
 

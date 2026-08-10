@@ -1,0 +1,44 @@
+[
+  {
+    "name": "quality_validate_pass",
+    "description": "A well-scored, well-justified, independent review artifact passes the harness",
+    "command": "python3 verify/checks/check_quality.py validate verify/checks/fixtures/quality_pass.json",
+    "expect_exit": 0,
+    "known_good": true
+  },
+  {
+    "name": "quality_validate_fail",
+    "description": "A poorly-scored or thin-justified review artifact is rejected by the harness",
+    "command": "python3 verify/checks/check_quality.py validate verify/checks/fixtures/quality_fail.json",
+    "expect_exit": 1,
+    "known_good": true
+  },
+  {
+    "name": "quality_review_required",
+    "description": "A genuine, fresh, independent review artifact must exist before gates pass (G3 presence, fail closed)",
+    "command": "python3 verify/checks/check_quality.py validate --required verify/reviews",
+    "expect_exit": 0,
+    "known_good": true
+  },
+  {
+    "name": "quality_validate_nofamily",
+    "description": "A review artifact missing author/reviewer family is REJECTED (independence cannot be established, fail closed)",
+    "command": "python3 verify/checks/check_quality.py validate verify/checks/fixtures/quality_nofamily.json",
+    "expect_exit": 1,
+    "known_good": true
+  },
+  {
+    "name": "quality_validate_family_spoof",
+    "description": "A review artifact whose families differ only by case/padding is REJECTED (normalized to equal = correlated)",
+    "command": "python3 verify/checks/check_quality.py validate verify/checks/fixtures/quality_family_spoof.json",
+    "expect_exit": 1,
+    "known_good": true
+  },
+  {
+    "name": "quality_validate_family_homoglyph",
+    "description": "A review artifact whose families are Unicode homoglyphs of the same name (fullwidth) is REJECTED (NFKC collapses to equal = correlated)",
+    "command": "python3 verify/checks/check_quality.py validate verify/checks/fixtures/quality_family_homoglyph.json",
+    "expect_exit": 1,
+    "known_good": true
+  }
+]
