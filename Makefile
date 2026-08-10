@@ -535,6 +535,13 @@ BANDIT_RUN = docker run --rm -v $(PWD):/src -w /src $(BANDIT_IMG)
 
 SEMGREP_IMG := semgrep/semgrep:1.166.0
 
+# checkmake publishes no semantic version tags — only `latest` and per-commit
+# tags, all from 2022-02-18. Pinned to the newest immutable commit tag rather
+# than `latest` (digest sha256:eb6919b20b22d1701a976856e4a224627df0a74b118246101fb6cf5c2e03049f).
+# The image's ENTRYPOINT is `./checkmake /Makefile`, which ignores our args, so
+# the recipe overrides it with --entrypoint /checkmake.
+CHECKMAKE_IMG := mrtazz/checkmake:2c59d1f0939900ca3a4208fb9b9300de90ecee8a
+
 # Lint shell scripts with shellcheck (error-level only; warnings are advisory).
 # SC2154 suppressed: variables sourced from .env are referenced but not assigned in-script.
 SHELL_SCRIPTS := $(shell find . -name "*.sh" -not -path "./.git/*" -not -path "./node_modules/*" -not -path "./.claude/*" | sort)
@@ -727,9 +734,13 @@ check-image-versions:
 # `monitoring/` directory left over on this host from an unrelated Docker run
 # — never present in git, so CI always hit this (phase-514).
 YAML_DIRS := config deploy/monitoring
-lint-yaml:
+# Containerised in phase-800: this used to call a bare host `yamllint` with no
+# `command -v` guard — the only linter in the repo not running from a pinned
+# image. It hard-failed anywhere yamllint was absent, and silently used whatever
+# version the host happened to have otherwise. Now pinned in Dockerfile.tools.
+lint-yaml: tools-image
 	@echo "=== yamllint: config and monitoring YAML ==="
-	@yamllint -c .yamllint.yaml $(YAML_DIRS) && echo "✓ YAML lint passed"
+	@$(TOOLS_RUN) yamllint -c .yamllint.yaml $(YAML_DIRS) && echo "✓ YAML lint passed"
 
 # Validate Prometheus alert and recording rule files with promtool.
 # Uses the prometheus container so promtool version matches the deployed version.
@@ -1408,14 +1419,18 @@ lint-toml: ## Validate TOML files (pyproject.toml, .gitleaks.toml) using tomllib
 # is still reported; passing --config suppresses it. Without --config this repo's
 # Makefile yields 13 spurious maxbodylength violations; with it, 0. The
 # docs/phases/complete/PHASE_802.md row claiming cwd auto-discovery was wrong.
-lint-makefiles: ## Lint Makefile for common issues (checkmake; advisory)
+#
+# Containerised in phase-800. It previously ran a bare host `checkmake` behind a
+# `command -v` guard, and nothing in this repo ever installed it — no CI step, no
+# tools image — so the guard always took the else branch and this step silently
+# checked nothing, everywhere, for its whole existence. Now it always runs.
+# checkmake's exit code is the violation count (0 = clean), so no output parsing
+# is needed; the recipe simply fails on non-zero.
+lint-makefiles: ## Lint Makefile for common issues (checkmake)
 	@echo "=== Makefile lint ==="
-	@if command -v checkmake >/dev/null 2>&1; then \
-		checkmake --config=.checkmake.ini Makefile; \
-		echo "  ✓ checkmake passed"; \
-	else \
-		echo "  - checkmake not installed; skipped (advisory step)"; \
-	fi
+	@docker run --rm -v "$(PWD):/src:ro" -w /src --entrypoint /checkmake \
+		$(CHECKMAKE_IMG) --config=.checkmake.ini Makefile
+	@echo "  ✓ checkmake passed"
 
 lint-go-mod: ## Verify go.mod and go.sum are consistent (go mod verify)
 	@echo "=== go mod verify ==="
