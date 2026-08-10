@@ -155,7 +155,10 @@ a .env with a random Redis password, and prints next steps.`,
 		Short:              "Run built-in Go load generator",
 		DisableFlagParsing: true,
 		Run: func(cmd *cobra.Command, args []string) {
-			bench.RunBenchmark(args)
+			if err := bench.RunBenchmark(args); err != nil {
+				fmt.Fprintf(os.Stderr, "Benchmark failed: %v\n", err)
+				os.Exit(1)
+			}
 		},
 	})
 	rootCmd.AddCommand(testCmd)
