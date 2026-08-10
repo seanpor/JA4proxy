@@ -12,22 +12,25 @@ package tls
 
 import (
 	"bytes"
-	"crypto/rand"
+	"slices"
 	"testing"
 )
 
 // BenchmarkClientHelloParse benchmarks TLS ClientHello parsing at scale.
 func BenchmarkClientHelloParse(b *testing.B) {
-	hello, err := generateTestClientHello()
-	if err != nil {
-		b.Fatal(err)
+	hello := generateTestClientHello()
+
+	// Fail fast with a clear message if the fixture itself is malformed, rather
+	// than reporting a misleading parse cost from a buffer the parser rejects
+	// on its first length check.
+	if _, err := ParseClientHello(hello); err != nil {
+		b.Fatalf("benchmark fixture is not a valid ClientHello: %v", err)
 	}
 
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		_, err = ParseClientHello(hello)
-		if err != nil {
+		if _, err := ParseClientHello(hello); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -35,14 +38,9 @@ func BenchmarkClientHelloParse(b *testing.B) {
 
 // BenchmarkJA4Compute benchmarks JA4 fingerprint computation.
 func BenchmarkJA4Compute(b *testing.B) {
-	hello, err := generateTestClientHello()
+	info, err := ParseClientHello(generateTestClientHello())
 	if err != nil {
-		b.Fatal(err)
-	}
-
-	info, err := ParseClientHello(hello)
-	if err != nil {
-		b.Fatal(err)
+		b.Fatalf("benchmark fixture is not a valid ClientHello: %v", err)
 	}
 
 	b.ResetTimer()
@@ -52,14 +50,22 @@ func BenchmarkJA4Compute(b *testing.B) {
 	}
 }
 
-// BenchmarkClientHelloParseAdversarial benchmarks parsing adversarial inputs.
+// BenchmarkClientHelloParseAdversarial benchmarks the parser's *rejection* path
+// on malformed and hostile input.
+//
+// These inputs are expected to be rejected — that is the code path under
+// measurement. The benchmark therefore discards the error rather than asserting
+// on it. (It previously called b.Fatal on any error except the empty case,
+// which asserted that truncated and non-TLS buffers must parse *successfully*;
+// that is backwards, and it fired on every run.) A panic or hang still fails
+// the benchmark, which is the property actually worth guarding here.
 func BenchmarkClientHelloParseAdversarial(b *testing.B) {
 	adversarialCases := []struct {
 		name string
 		data []byte
 	}{
-		{"truncated", ClientHelloWithTruncation(4)},
-		{"GREASE-heavy", ClientHelloWithManyGreaseValues()},
+		{"truncated", clientHelloWithTruncation(4)},
+		{"GREASE-heavy", clientHelloWithManyGreaseValues()},
 		{"empty", []byte{}},
 		{"non-tls", []byte("HTTP/1.1\r\n")},
 	}
@@ -68,73 +74,153 @@ func BenchmarkClientHelloParseAdversarial(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		for _, tc := range adversarialCases {
-			_, err := ParseClientHello(tc.data)
-			if err != nil && !bytes.Equal(tc.data, []byte{}) {
-				b.Fatalf("%s: %v\n", tc.name, err)
-			}
+			//nolint:errcheck // rejection is the measured path; see doc comment
+			_, _ = ParseClientHello(tc.data)
 		}
 	}
 }
 
-// generateTestClientHello constructs a minimal-but-realistic ClientHello buffer for benchmarking.
-func generateTestClientHello() (data []byte, _ error) {
-	// Version: TLS 1.3
-	data = append(data, 0x16, 0x03, 0x03)
+// TestBenchmarkFixturesAreValid guards the fixtures the benchmarks above depend on.
+//
+// This test exists because `go test` does not run benchmarks without -bench, so
+// a rotted benchmark fixture is invisible to `make test`. That is precisely how
+// BenchmarkClientHelloParse, BenchmarkJA4Compute and
+// BenchmarkClientHelloParseAdversarial came to fail on every run for an extended
+// period without anyone noticing — and `make bench-micro` ends in `|| true`, so
+// the benchmark run could not report it either.
+//
+// Keep this a Test, not a Benchmark: it must run in the default suite.
+func TestBenchmarkFixturesAreValid(t *testing.T) {
+	t.Run("generateTestClientHello parses", func(t *testing.T) {
+		info, err := ParseClientHello(generateTestClientHello())
+		if err != nil {
+			t.Fatalf("benchmark fixture does not parse: %v", err)
+		}
+		if info.SNI != "example.com" {
+			t.Errorf("SNI: got %q, want %q", info.SNI, "example.com")
+		}
+		if len(info.CipherSuites) != 8 {
+			t.Errorf("CipherSuites: got %d, want 8", len(info.CipherSuites))
+		}
+	})
 
-	// Random (32 bytes — pseudo-random for testing)
-	random := make([]byte, 32)
-	if _, err := rand.Read(random); err != nil {
-		return nil, err
-	}
-	data = append(data, random...)
+	t.Run("GREASE-heavy fixture parses and carries every GREASE value", func(t *testing.T) {
+		info, err := ParseClientHello(clientHelloWithManyGreaseValues())
+		if err != nil {
+			t.Fatalf("GREASE fixture does not parse: %v", err)
+		}
+		// It is a stress case for the extension loop, so it must actually reach
+		// that loop rather than being rejected at the record layer.
+		want := len(benchGreaseValues())
+		var got int
+		for _, ext := range info.Extensions {
+			if isGREASE(ext) {
+				got++
+			}
+		}
+		if got != want {
+			t.Errorf("GREASE extensions parsed: got %d, want %d", got, want)
+		}
+	})
 
-	// Session ticket length (0)
-	data = append(data, 0x00)
+	t.Run("fixtures are deterministic", func(t *testing.T) {
+		// Benchmarks must compare like with like between runs.
+		if !bytes.Equal(generateTestClientHello(), generateTestClientHello()) {
+			t.Error("generateTestClientHello is not deterministic")
+		}
+		if !bytes.Equal(clientHelloWithManyGreaseValues(), clientHelloWithManyGreaseValues()) {
+			t.Error("clientHelloWithManyGreaseValues is not deterministic")
+		}
+	})
 
-	// Cipher suites list (fake)
-	data = append(data, byte(1), 0xf8, 0xf7)
-
-	// Compression methods (1 byte: null)
-	data = append(data, byte(0))
-
-	// Extensions length (3 bytes)
-	data = append(data, 0x00, 0x00, 0xdc)
-
-	// Extension: Ellipse Curve Point Formats
-	data = append(data, 0x00, 0x13, byte(4), 0x01, 0x00, 0x23, 0x00, 0x05, 0x00, 0x05)
-
-	// Extension: Elliptic Curve Parameters
-	data = append(data, 0x00, 0x17, byte(4), 0x02, 0x00, 0x1e, 0xc0, 0x2b, 0xcb, 0xb5, 0xa4, 0xf9, 0x8d)
-
-	// Extension: Named Groups
-	data = append(data, 0x00, 0x12, byte(3), 0x00, 0x1d, 0xe6, 0x50, 0xad)
-
-	// Extension: Signature Algorithms
-	data = append(data, 0x00, 0x0d, byte(4), 0x00, 0x0d, 0x00, 0x04, 0x00, 0x17, 0x00, 0x0a, 0xf2, 0xff)
-
-	return data, nil
+	t.Run("adversarial inputs are rejected without panicking", func(t *testing.T) {
+		for _, data := range [][]byte{
+			clientHelloWithTruncation(4),
+			{},
+			[]byte("HTTP/1.1\r\n"),
+		} {
+			if _, err := ParseClientHello(data); err == nil {
+				t.Errorf("expected rejection for %q, got nil error", data)
+			}
+		}
+	})
 }
 
-// ClientHelloWithTruncation returns a ClientHello truncated to N bytes (fails parse gracefully).
-func ClientHelloWithTruncation(n int) []byte {
-	base, _ := generateTestClientHello()
+// benchGreaseValues flattens the production greaseValues set (ja4.go) into a
+// deterministic slice.
+//
+// Derived from that map rather than duplicated, so the benchmark fixture can
+// never drift from the set the parser actually treats as GREASE. Sorted because
+// Go randomises map iteration order and a benchmark fixture must be
+// byte-identical between runs.
+func benchGreaseValues() []uint16 {
+	out := make([]uint16, 0, len(greaseValues))
+	for v := range greaseValues {
+		out = append(out, v)
+	}
+	slices.Sort(out)
+	return out
+}
+
+// generateTestClientHello constructs a valid, browser-like ClientHello for
+// benchmarking.
+//
+// It delegates to buildClientHelloBytes (ja4_test.go) — the same builder the
+// package's parser tests use — rather than hand-assembling bytes. The previous
+// hand-rolled version was not a well-formed ClientHello: it omitted the 2-byte
+// record length and the 4-byte handshake header entirely, so the parser read
+// two bytes of the random field as the record length. That yielded "TLS record
+// too large" or "truncated ClientHello" depending on the random draw, and
+// BenchmarkClientHelloParse and BenchmarkJA4Compute failed on every run.
+//
+// The fixture is deterministic (buildClientHelloBytes uses a zero random field).
+// Benchmarks want reproducibility, and the parser does not branch on the
+// contents of the random field.
+func generateTestClientHello() []byte {
+	ciphers := []uint16{0x0a0a, 0x1301, 0x1302, 0x1303, 0xc02b, 0xc02f, 0xc02c, 0xc030}
+	exts := []extensionSpec{
+		{extType: 0x0000, data: buildSNIExt("example.com")},
+		{extType: 0x002b, data: buildSupportedVersionsExt([]uint16{0x0304, 0x0303})},
+		{extType: 0x0010, data: buildALPNExt([]string{"h2", "http/1.1"})},
+		{extType: 0x000b, data: []byte{0x01, 0x00}},                         // ec_point_formats: uncompressed
+		{extType: 0x000a, data: []byte{0x00, 0x04, 0x00, 0x1d, 0x00, 0x17}}, // supported_groups
+	}
+	return buildClientHelloBytes(0x0303, ciphers, exts)
+}
+
+// clientHelloWithTruncation returns a valid ClientHello cut to n bytes, so the
+// parser hits its length checks rather than a structural error.
+func clientHelloWithTruncation(n int) []byte {
+	base := generateTestClientHello()
 	if len(base) < n {
 		return base
 	}
 	return base[:n]
 }
 
-// ClientHelloWithManyGreaseValues returns a ClientHello with maximum GREASE values (stress test parser).
-func ClientHelloWithManyGreaseValues() []byte {
-	data, _ := generateTestClientHello()
+// clientHelloWithManyGreaseValues returns a structurally valid ClientHello
+// carrying every GREASE code point in both the cipher-suite list and the
+// extension list, to stress the parser's extension loop.
+//
+// The previous version appended raw bytes past the end of a complete record,
+// producing a buffer that was neither valid nor a meaningful GREASE stress
+// case — the parser rejected it at the record layer without ever reaching the
+// extension loop it was written to exercise.
+func clientHelloWithManyGreaseValues() []byte {
+	grease := benchGreaseValues()
 
-	greaseExt := []byte{0x00, 0x01, byte(5), 0x17, 0x2b, 0x00, 0x1c, 0x98, 0x31, 0x2a, 0x85, 0x9f, 0xf3, 0x86, 0xe3}
+	ciphers := make([]uint16, 0, len(grease)+3)
+	ciphers = append(ciphers, grease...)
+	ciphers = append(ciphers, 0x1301, 0x1302, 0x1303)
 
-	for len(data) < 4096 {
-		data = append(data, 0x00, 0xd7)
-		data = append(data, byte(len(greaseExt)))
-		data = append(data, greaseExt...)
+	exts := []extensionSpec{
+		{extType: 0x0000, data: buildSNIExt("grease.example.com")},
+		{extType: 0x002b, data: buildSupportedVersionsExt([]uint16{0x0304, 0x0303})},
+		{extType: 0x0010, data: buildALPNExt([]string{"h2"})},
+	}
+	for _, g := range grease {
+		exts = append(exts, extensionSpec{extType: g, data: []byte{}})
 	}
 
-	return data
+	return buildClientHelloBytes(0x0303, ciphers, exts)
 }
