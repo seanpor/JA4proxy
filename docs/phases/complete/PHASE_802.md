@@ -91,9 +91,35 @@ The results split cleanly into two groups:
 
 | Dotfile | Invocation | What breaks |
 |---|---|---|
-| `.bandit` | `bandit -r src/analytics/ -ll --skip B104` (no `-c`) | Container's `-w /src` = repo root; bandit finds `.bandit` only because it's *there*. Move it and bandit silently stops applying whatever `.bandit` restricts — no error, just a quieter scan. |
+| ~~`.bandit`~~ | ~~`bandit -r src/analytics/ -ll --skip B104` (no `-c`)~~ | ~~Container's `-w /src` = repo root; bandit finds `.bandit` only because it's *there*. Move it and bandit silently stops applying whatever `.bandit` restricts — no error, just a quieter scan.~~ **Incorrect — see correction below.** |
 | `.checkmake.ini` | `checkmake Makefile` (no `--config`) | Same failure mode — silent fallback to checkmake defaults. |
 | `.semgrepignore` | Not passed anywhere; semgrep reads it from cwd by `.gitignore`-style convention | A semgrep run (CI's `lint-semgrep`, or any dev running `semgrep` locally) silently stops excluding whatever `.semgrepignore` excludes. |
+
+> **Correction, 2026-08-10 (Phase 800): the `.bandit` row above was wrong, and
+> the file has been deleted.**
+>
+> Bandit never read `.bandit`. It was a *Python script* (`def get_skips():
+> return "B103,B404,..."`), not the INI format bandit's `--ini` expects, and
+> nothing in the repo imported or passed it. Bandit auto-discovers no such file
+> here: every run logged `profile include tests: None / profile exclude tests:
+> None` with the file sitting in cwd.
+>
+> Verified directly — a probe file using `hashlib.md5` (B324) and `yaml.load`
+> (B506), both listed in `.bandit`'s skip string, was scanned in a cwd
+> containing `.bandit` and again without it. **Byte-identical output both
+> times; both issues reported either way.** The file restricted nothing, so
+> there was no "quieter scan" to protect against.
+>
+> It was also internally incoherent: of its 17 IDs, `B410`/`B417` no longer
+> exist in bandit 1.8 and `B905`/`B906` are ruff / flake8-bugbear codes, not
+> bandit ones. The real risk was latent — had anyone ever "fixed" it into a
+> working config, it would have silently disabled `hardcoded_password_string`
+> (B105), `hardcoded_sql_expressions` (B608), `yaml_load` (B506),
+> `hashlib_insecure_functions` (B324), `tarfile_unsafe_members` (B202) and
+> `set_bad_file_permissions` (B103).
+>
+> The `.checkmake.ini` and `.semgrepignore` rows were not re-tested and still
+> stand; this correction applies only to `.bandit`.
 
 The second group is the actual argument against a blanket move: for these
 three, "add a flag" isn't available — semgrep and checkmake don't take one
