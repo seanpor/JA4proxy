@@ -85,7 +85,7 @@ services:
       retries: 3
 
   grafana:
-    image: grafana/grafana:13.0.4-ubuntu
+    image: grafana/grafana:13.0.6-ubuntu
     container_name: ja4proxy-grafana
     ports:
       # JA4PROXY-2026-0045: bind to loopback only — consistent with the
@@ -196,7 +196,7 @@ services:
           cpus: '0.5'
 
   loki:
-    image: grafana/loki:3.7.4
+    image: grafana/loki:3.7.6
     container_name: ja4proxy-loki
     # Not exposed to host — only accessible from monitoring network
     volumes:

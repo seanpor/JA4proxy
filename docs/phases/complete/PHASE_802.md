@@ -91,9 +91,59 @@ The results split cleanly into two groups:
 
 | Dotfile | Invocation | What breaks |
 |---|---|---|
-| `.bandit` | `bandit -r src/analytics/ -ll --skip B104` (no `-c`) | Container's `-w /src` = repo root; bandit finds `.bandit` only because it's *there*. Move it and bandit silently stops applying whatever `.bandit` restricts — no error, just a quieter scan. |
+| ~~`.bandit`~~ | ~~`bandit -r src/analytics/ -ll --skip B104` (no `-c`)~~ | ~~Container's `-w /src` = repo root; bandit finds `.bandit` only because it's *there*. Move it and bandit silently stops applying whatever `.bandit` restricts — no error, just a quieter scan.~~ **Incorrect — see correction below.** |
 | `.checkmake.ini` | `checkmake Makefile` (no `--config`) | Same failure mode — silent fallback to checkmake defaults. |
 | `.semgrepignore` | Not passed anywhere; semgrep reads it from cwd by `.gitignore`-style convention | A semgrep run (CI's `lint-semgrep`, or any dev running `semgrep` locally) silently stops excluding whatever `.semgrepignore` excludes. |
+
+> **Correction, 2026-08-10 (Phase 800): the `.bandit` row above was wrong, and
+> the file has been deleted.**
+>
+> Bandit never read `.bandit`. It was a *Python script* (`def get_skips():
+> return "B103,B404,..."`), not the INI format bandit's `--ini` expects, and
+> nothing in the repo imported or passed it. Bandit auto-discovers no such file
+> here: every run logged `profile include tests: None / profile exclude tests:
+> None` with the file sitting in cwd.
+>
+> Verified directly — a probe file using `hashlib.md5` (B324) and `yaml.load`
+> (B506), both listed in `.bandit`'s skip string, was scanned in a cwd
+> containing `.bandit` and again without it. **Byte-identical output both
+> times; both issues reported either way.** The file restricted nothing, so
+> there was no "quieter scan" to protect against.
+>
+> It was also internally incoherent: of its 17 IDs, `B410`/`B417` no longer
+> exist in bandit 1.8 and `B905`/`B906` are ruff / flake8-bugbear codes, not
+> bandit ones. The real risk was latent — had anyone ever "fixed" it into a
+> working config, it would have silently disabled `hardcoded_password_string`
+> (B105), `hardcoded_sql_expressions` (B608), `yaml_load` (B506),
+> `hashlib_insecure_functions` (B324), `tarfile_unsafe_members` (B202) and
+> `set_bad_file_permissions` (B103).
+>
+> **The other two rows were subsequently tested the same way. They do not both
+> hold:**
+>
+> - **`.semgrepignore` — claim CONFIRMED.** Semgrep does auto-read it from cwd.
+>   A probe tree with `ignored/**` in `.semgrepignore` reported only
+>   `kept/bad.py` with the file present, and both `kept/bad.py` and
+>   `ignored/bad.py` without it. This row stands as written: moving
+>   `.semgrepignore` would silently widen the scan.
+>
+> - **`.checkmake.ini` — claim FALSE, but for the opposite reason to `.bandit`.**
+>   checkmake does *not* auto-discover it from cwd. Proven three ways on a probe
+>   Makefile with a 7-line recipe body: file in cwd, no flag → `maxbodylength`
+>   still reported; file absent → identical output; `--config=.checkmake.ini`
+>   passed explicitly → suppressed. So the file is **valid and load-bearing —
+>   it is simply never passed**. On this repo's real Makefile, `checkmake
+>   Makefile` yields **13** `maxbodylength` violations, and
+>   `checkmake --config=.checkmake.ini Makefile` yields **0**.
+>
+>   Unlike `.bandit`, the fix here is to *pass* the file, not delete it:
+>   `lint-makefiles` now invokes `checkmake --config=.checkmake.ini Makefile`.
+>
+>   Separately worth knowing: `lint-makefiles` is reached via `lint-infra` →
+>   `lint`, but its `command -v checkmake` guard means it silently does nothing
+>   unless checkmake happens to be installed — and nothing in this repo installs
+>   it (no CI step, no tools image, unlike hadolint/shellcheck/trivy/semgrep,
+>   which are all containerised). The step is currently a no-op everywhere.
 
 The second group is the actual argument against a blanket move: for these
 three, "add a flag" isn't available — semgrep and checkmake don't take one

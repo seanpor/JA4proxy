@@ -3,8 +3,19 @@
 #
 # Rules ignored with rationale — these are consciously accepted trade-offs,
 # not oversights. Revisit if moving to a fully reproducible build pipeline.
+#
+# ⚠ The top-level key MUST be `ignored:` (not `ignore:`). hadolint silently
+#   accepts an unknown key and applies NO suppressions — verified against
+#   hadolint v2.14.0 on 2026-08-10 (Phase 800): with `ignore:` the DL3013 and
+#   DL3018 warnings in Dockerfile.management were still reported; with
+#   `ignored:` they were suppressed. This file used `ignore:` from its creation
+#   until 2026-08-10, during which it suppressed nothing — it was also never
+#   mounted into the hadolint container, so it could not be read at all. The
+#   live suppressions were duplicated as `--ignore` CLI flags in the Makefile.
+#   `make lint-docker` now mounts the repo and passes `--config .hadolint.yaml`,
+#   making this file the single source of truth.
 
-ignore:
+ignored:
   # DL3008 / DL3018 — Pin apt-get / apk package versions
   # These Dockerfiles use package managers for build-time tooling only.
   # Application dependencies are pinned in requirements.txt (Python) or

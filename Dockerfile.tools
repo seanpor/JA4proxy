@@ -127,7 +127,12 @@ RUN pip install --no-cache-dir \
       mypy==1.* \
       pip-audit==2.* \
       pymarkdownlnt==0.9.* \
-      codespell==2.*
+      codespell==2.* \
+      yamllint==1.35.*
+# yamllint (phase-800): `lint-yaml` used to call a bare host `yamllint` with no
+# `command -v` guard, so it hard-failed on any machine that happened not to have
+# it and silently used whatever version the host had otherwise. It is the last
+# Python linter that was not pinned here.
 # NOTE: bandit is intentionally NOT installed here. It runs on Python 3.11 from
 # Dockerfile.bandit — its B502/B604/B607 plugins use ast.Num (removed in 3.12),
 # so on this 3.14 image bandit silently skips whole files. See Dockerfile.bandit.

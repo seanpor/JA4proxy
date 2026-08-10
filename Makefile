@@ -463,7 +463,13 @@ lint-coverage:
 # Lint Dockerfiles (hadolint) and validate docker-compose files (docker compose config).
 # Ignored rules are consciously accepted — see .hadolint.yaml for rationale.
 # deploy/docker/docker-compose.test.yml is the full Go test environment.
-HADOLINT_IGNORE := --ignore DL3008 --ignore DL3013 --ignore DL3015 --ignore DL3018 --ignore DL3059
+# Ignored rules live in .hadolint.yaml (with per-rule rationale), NOT in flags
+# here. Phase 800: they used to be duplicated as `--ignore` flags because the
+# container had no volume mount, so .hadolint.yaml could never be read — and the
+# file additionally used the wrong top-level key (`ignore:` instead of
+# `ignored:`), which hadolint accepts silently while applying nothing. Both are
+# fixed; the mount + --config below makes .hadolint.yaml the single source of
+# truth. Do not reintroduce --ignore flags: they would drift from the file.
 HADOLINT_DOCKERFILES := deploy/docker/Dockerfile.management \
 	deploy/docker/Dockerfile.mockbackend deploy/docker/Dockerfile.test \
 	deploy/docker/Dockerfile.trafficgen deploy/docker/Dockerfile.go-proxy deploy/docker/Dockerfile.ja4-tap \
@@ -479,7 +485,7 @@ lint-docker:
 	@docker pull -q hadolint/hadolint:v2.14.0 >/dev/null 2>&1 || true
 	@for f in $(HADOLINT_DOCKERFILES); do \
 		printf "  %-50s" "$$f"; \
-		result=$$(docker run --rm -i hadolint/hadolint:v2.14.0 hadolint $(HADOLINT_IGNORE) --no-color - < "$$f" 2>&1); \
+		result=$$(docker run --rm -i -v "$(PWD):/src:ro" -w /src hadolint/hadolint:v2.14.0 hadolint --config .hadolint.yaml --no-color - < "$$f" 2>&1); \
 		if [ -n "$$result" ]; then echo "FAIL"; echo "$$result"; exit 1; fi; \
 		echo "OK"; \
 	done
@@ -528,6 +534,13 @@ bandit-image:
 BANDIT_RUN = docker run --rm -v $(PWD):/src -w /src $(BANDIT_IMG)
 
 SEMGREP_IMG := semgrep/semgrep:1.166.0
+
+# checkmake publishes no semantic version tags — only `latest` and per-commit
+# tags, all from 2022-02-18. Pinned to the newest immutable commit tag rather
+# than `latest` (digest sha256:eb6919b20b22d1701a976856e4a224627df0a74b118246101fb6cf5c2e03049f).
+# The image's ENTRYPOINT is `./checkmake /Makefile`, which ignores our args, so
+# the recipe overrides it with --entrypoint /checkmake.
+CHECKMAKE_IMG := mrtazz/checkmake:2c59d1f0939900ca3a4208fb9b9300de90ecee8a
 
 # Lint shell scripts with shellcheck (error-level only; warnings are advisory).
 # SC2154 suppressed: variables sourced from .env are referenced but not assigned in-script.
@@ -721,9 +734,13 @@ check-image-versions:
 # `monitoring/` directory left over on this host from an unrelated Docker run
 # — never present in git, so CI always hit this (phase-514).
 YAML_DIRS := config deploy/monitoring
-lint-yaml:
+# Containerised in phase-800: this used to call a bare host `yamllint` with no
+# `command -v` guard — the only linter in the repo not running from a pinned
+# image. It hard-failed anywhere yamllint was absent, and silently used whatever
+# version the host happened to have otherwise. Now pinned in Dockerfile.tools.
+lint-yaml: tools-image
 	@echo "=== yamllint: config and monitoring YAML ==="
-	@yamllint -c .yamllint.yaml $(YAML_DIRS) && echo "✓ YAML lint passed"
+	@$(TOOLS_RUN) yamllint -c .yamllint.yaml $(YAML_DIRS) && echo "✓ YAML lint passed"
 
 # Validate Prometheus alert and recording rule files with promtool.
 # Uses the prometheus container so promtool version matches the deployed version.
@@ -1397,14 +1414,23 @@ lint-toml: ## Validate TOML files (pyproject.toml, .gitleaks.toml) using tomllib
 	@python3 scripts/lint_toml.py
 	@echo "  ✓ TOML lint passed"
 
-lint-makefiles: ## Lint Makefile for common issues (checkmake; advisory)
+# checkmake does NOT auto-discover .checkmake.ini from the working directory —
+# verified 2026-08-10 (Phase 800): with the file in cwd and no flag, maxbodylength
+# is still reported; passing --config suppresses it. Without --config this repo's
+# Makefile yields 13 spurious maxbodylength violations; with it, 0. The
+# docs/phases/complete/PHASE_802.md row claiming cwd auto-discovery was wrong.
+#
+# Containerised in phase-800. It previously ran a bare host `checkmake` behind a
+# `command -v` guard, and nothing in this repo ever installed it — no CI step, no
+# tools image — so the guard always took the else branch and this step silently
+# checked nothing, everywhere, for its whole existence. Now it always runs.
+# checkmake's exit code is the violation count (0 = clean), so no output parsing
+# is needed; the recipe simply fails on non-zero.
+lint-makefiles: ## Lint Makefile for common issues (checkmake)
 	@echo "=== Makefile lint ==="
-	@if command -v checkmake >/dev/null 2>&1; then \
-		checkmake Makefile; \
-		echo "  ✓ checkmake passed"; \
-	else \
-		true; \
-	fi
+	@docker run --rm -v "$(PWD):/src:ro" -w /src --entrypoint /checkmake \
+		$(CHECKMAKE_IMG) --config=.checkmake.ini Makefile
+	@echo "  ✓ checkmake passed"
 
 lint-go-mod: ## Verify go.mod and go.sum are consistent (go mod verify)
 	@echo "=== go mod verify ==="
