@@ -72,8 +72,8 @@ redis:
     # config/redis_acl.conf.template (rendered by
     # deploy/docker/redis-entrypoint.sh, Phase 813) defines these users for
     # docker-compose.poc.yml / docker-compose.prod.yml deployments:
-    #   ACL SETUSER proxy on >$REDIS_PASSWORD ~ratelimit:* ~ban:* ~beacon:* ~dns:* ~abuseipdb:* ~rdap:* ~ja4:* ~config:* ~analytics:* +GET +SET +DEL +EXPIRE +TTL +ZADD +ZRANGE +ZRANGEBYSCORE +ZREMRANGEBYSCORE +ZCARD +ZINCRBY +SADD +SREM +SISMEMBER +SMEMBERS +HSET +HGET +HINCRBY +HGETALL +PFADD +PFCOUNT +XADD +EVALSHA +EVAL
-    #   ACL SETUSER analytics on >$REDIS_PASSWORD ~ja4proxy:events +XADD +XREAD +XREADGROUP
+    #   ACL SETUSER proxy on >$REDIS_PASSWORD ~ratelimit:* ~ban:* ~ban_cidr:* ~beacon:* ~dns:* ~abuseipdb:* ~rdap:* ~ja4:* ~config:* ~analytics:* ~proxy:* ~session:* ~lifespan:* ~concurrent:* ~behavioral:burst:* ~audit:* ~offense:* ~return_visitor:* ~fp:* ~geoip:* ~events:connection ~webhooks:dlq ~ja4proxy:dc:*:sync:* +GET +SET +DEL +EXPIRE +TTL +EXISTS +INCR +SCAN +ZADD +ZRANGE +ZRANGEBYSCORE +ZREMRANGEBYSCORE +ZCARD +ZINCRBY +SADD +SREM +SISMEMBER +SMEMBERS +HSET +HGET +HINCRBY +HGETALL +PFADD +PFCOUNT +XADD +XREAD +XGROUP +XREADGROUP +XACK +EVALSHA +EVAL +SCRIPT|LOAD +PING +SUBSCRIBE &config:* &ja4:* &geoip:*
+    #   ACL SETUSER analytics on >$REDIS_PASSWORD ~analytics:* ~events:connection ~ti_feed:* +GET +SET +HSET +HGET +HGETALL +HDEL +DEL +EXPIRE +INCR +SADD +SREM +SMEMBERS +ZADD +ZCARD +ZREMRANGEBYRANK +XADD +XREVRANGE +XREAD +XGROUP +XREADGROUP +XACK +PFADD +PING +MULTI +EXEC +DISCARD -@ADMIN
     #   ACL SETUSER admin on >$REDIS_PASSWORD ~* +@all
     # For a manually-managed (non-compose) Redis instance, run
     # scripts/redis-acl-setup.sh to apply the equivalent users live instead.

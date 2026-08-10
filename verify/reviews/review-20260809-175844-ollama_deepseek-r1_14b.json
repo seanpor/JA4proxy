@@ -1,0 +1,17 @@
+{
+  "status": "unavailable",
+  "reviewer": "ollama/deepseek-r1:14b",
+  "reviewer_family": "deepseek-r1",
+  "author_family": "deepseek",
+  "paths": [
+    "config/redis_acl.conf.template",
+    "scripts/redis-acl-setup.sh",
+    "config/analytics.yaml",
+    "src/analytics/config.py",
+    "src/analytics/stream_consumer.py",
+    "management/compliance/purge.py",
+    "management/compliance/pack_builder.py",
+    "tests/unit/test_redis_acl_coverage.py"
+  ],
+  "error": "HTTP Error 400: Bad Request"
+}

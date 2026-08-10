@@ -4406,9 +4406,9 @@ phases:
       values. Records resource curves, not just pass/fail."
   814k:
     name: "Pentest: data layer — Redis, analytics stream, backup/restore"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_814.md
-    dependencies: [814b]
+    status: IN_PROGRESS
+    action_plan: docs/phases/PHASE_814k.md
+    dependencies: [814a]
     size: MEDIUM
     summary: "Stage 1. Absorbs Phase 523 items 3 and 5. Post-813 Redis auth
       enforced for every client (proxy, management, analytics, TAP, exporters,

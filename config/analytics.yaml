@@ -8,8 +8,12 @@ redis:
   # password: your-redis-password  # Uncomment and set if Redis requires authentication
 
 # Stream configuration
+# Phase 814k (JA4PROXY-2026-0100): the Go proxy writes events:connection
+# (config/proxy.yml webhooks.stream_key / cmd/ja4pd/main.go), not the
+# retired ja4proxy:events. Analytics must consume the stream the proxy
+# actually writes.
 stream:
-  key: ja4proxy:events
+  key: events:connection
   consumer_group: analytics
   consumer_name: analytics-1
   batch_size: 100

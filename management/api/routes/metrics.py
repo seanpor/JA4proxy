@@ -5,7 +5,7 @@ GET /api/v1/metrics/summary  — snapshot of key operational metrics
 Returns:
     dial (int): current dial setting
     active_bans (int): count of active ban:* keys
-    events_stream_length (int): total entries in ja4proxy:events stream
+    events_stream_length (int): total entries in events:connection stream
     timestamp (str): ISO 8601 UTC timestamp of the snapshot
 """
 
