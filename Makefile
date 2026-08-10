@@ -1397,13 +1397,18 @@ lint-toml: ## Validate TOML files (pyproject.toml, .gitleaks.toml) using tomllib
 	@python3 scripts/lint_toml.py
 	@echo "  ✓ TOML lint passed"
 
+# checkmake does NOT auto-discover .checkmake.ini from the working directory —
+# verified 2026-08-10 (Phase 800): with the file in cwd and no flag, maxbodylength
+# is still reported; passing --config suppresses it. Without --config this repo's
+# Makefile yields 13 spurious maxbodylength violations; with it, 0. The
+# docs/phases/complete/PHASE_802.md row claiming cwd auto-discovery was wrong.
 lint-makefiles: ## Lint Makefile for common issues (checkmake; advisory)
 	@echo "=== Makefile lint ==="
 	@if command -v checkmake >/dev/null 2>&1; then \
-		checkmake Makefile; \
+		checkmake --config=.checkmake.ini Makefile; \
 		echo "  ✓ checkmake passed"; \
 	else \
-		true; \
+		echo "  - checkmake not installed; skipped (advisory step)"; \
 	fi
 
 lint-go-mod: ## Verify go.mod and go.sum are consistent (go mod verify)

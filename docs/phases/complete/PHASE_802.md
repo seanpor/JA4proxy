@@ -118,8 +118,32 @@ The results split cleanly into two groups:
 > `hashlib_insecure_functions` (B324), `tarfile_unsafe_members` (B202) and
 > `set_bad_file_permissions` (B103).
 >
-> The `.checkmake.ini` and `.semgrepignore` rows were not re-tested and still
-> stand; this correction applies only to `.bandit`.
+> **The other two rows were subsequently tested the same way. They do not both
+> hold:**
+>
+> - **`.semgrepignore` — claim CONFIRMED.** Semgrep does auto-read it from cwd.
+>   A probe tree with `ignored/**` in `.semgrepignore` reported only
+>   `kept/bad.py` with the file present, and both `kept/bad.py` and
+>   `ignored/bad.py` without it. This row stands as written: moving
+>   `.semgrepignore` would silently widen the scan.
+>
+> - **`.checkmake.ini` — claim FALSE, but for the opposite reason to `.bandit`.**
+>   checkmake does *not* auto-discover it from cwd. Proven three ways on a probe
+>   Makefile with a 7-line recipe body: file in cwd, no flag → `maxbodylength`
+>   still reported; file absent → identical output; `--config=.checkmake.ini`
+>   passed explicitly → suppressed. So the file is **valid and load-bearing —
+>   it is simply never passed**. On this repo's real Makefile, `checkmake
+>   Makefile` yields **13** `maxbodylength` violations, and
+>   `checkmake --config=.checkmake.ini Makefile` yields **0**.
+>
+>   Unlike `.bandit`, the fix here is to *pass* the file, not delete it:
+>   `lint-makefiles` now invokes `checkmake --config=.checkmake.ini Makefile`.
+>
+>   Separately worth knowing: `lint-makefiles` is reached via `lint-infra` →
+>   `lint`, but its `command -v checkmake` guard means it silently does nothing
+>   unless checkmake happens to be installed — and nothing in this repo installs
+>   it (no CI step, no tools image, unlike hadolint/shellcheck/trivy/semgrep,
+>   which are all containerised). The step is currently a no-op everywhere.
 
 The second group is the actual argument against a blanket move: for these
 three, "add a flag" isn't available — semgrep and checkmake don't take one
