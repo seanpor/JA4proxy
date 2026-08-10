@@ -8,13 +8,22 @@
 # unrelated to any of those PRs' actual diffs (observed directly: 42
 # entries expired on the same day this phase's investigation started).
 #
-# This runs mid-week (Wednesday, away from the Monday CI sweep and any
-# weekend on-call gap), 5 days before the earliest expiry, and opens a PR
-# renewing anything in that window to today+7d (never old_exp+7d -- see
-# scripts/renew_trivyignore.py's docstring for why that distinction
-# matters). It does NOT decide whether a newer upstream image tag actually
-# clears a CVE -- that judgment call stays with whoever reviews the PR,
-# same as every manual renewal to date. Does not auto-merge.
+# This runs DAILY and opens a PR renewing anything expiring within 5 days to
+# today+7d (never old_exp+7d -- see scripts/renew_trivyignore.py's docstring
+# for why that distinction matters). It does NOT decide whether a newer
+# upstream image tag actually clears a CVE -- that judgment call stays with
+# whoever reviews the PR, same as every manual renewal to date. Does not
+# auto-merge.
+#
+# WHY DAILY, not the original weekly Wednesday (fixed 2026-08-10, Phase 800):
+#   Trivy suppresses a finding only while `today < exp`, so an entry renewed to
+#   today+7 is ALREADY EXPIRED on day 7 -- which, on a weekly cadence, is the
+#   exact morning this job was scheduled to run. Every week there was therefore
+#   a guaranteed red window from 00:00 until this job's 05:00 PR landed, and a
+#   permanently red gate if any single run failed or its PR sat unreviewed.
+#   The 7-day maximum window is Phase 226 security policy and is NOT changed
+#   here; running daily keeps that cap while giving renewal 5 days of slack to
+#   land, so a lapse needs 5 consecutive failures rather than one.
 #
 # Third-party actions are SHA-pinned per the convention in
 # .github/workflows/release-cli.yml.
@@ -23,7 +32,7 @@ name: Trivyignore Renewal
 
 on:
   schedule:
-    - cron: '0 5 * * 3'  # 05:00 UTC every Wednesday
+    - cron: '0 5 * * *'  # 05:00 UTC daily — see "WHY DAILY" above
   workflow_dispatch:
     inputs:
       dry_run:

@@ -117,10 +117,17 @@ issues #4 (overstated automation) and the missing-monitoring gap:
   CVE-judgment work — a human still decides "is a newer tag actually
   better" the same way it was done today (compare total CVE counts, check
   for regressions). What it *does* fix is the timing: renewal happens
-  **5 days before** the earliest expiry (`cron: '0 5 * * 3'`, Wednesday —
-  chosen so it lands mid-week, away from both the Monday CI sweep and any
-  weekend on-call gap), so there's slack to actually review it instead of
-  a same-day fire drill that blocks unrelated PRs.
+  **5 days before** the earliest expiry (`cron: '0 5 * * *'`, daily), so
+  there's slack to actually review it instead of a same-day fire drill that
+  blocks unrelated PRs.
+
+  > **Amended 2026-08-10 (Phase 800):** this was originally a weekly
+  > Wednesday cron. That could not work: trivy suppresses only while
+  > `today < exp`, so an entry renewed to `today+7` is already expired on
+  > day 7 — the exact morning the weekly job was due to run. The result was
+  > a guaranteed red window every Wednesday 00:00–05:00 UTC, and a
+  > permanently red gate whenever a run failed. Now daily; the Phase 226
+  > 7-day maximum window is unchanged.
 - **Correct date arithmetic.** New `exp:` dates are computed as
   `today + 7 days`, never `old_exp + 7 days` — prevents windows silently
   drifting longer than the policy's stated maximum through repeated

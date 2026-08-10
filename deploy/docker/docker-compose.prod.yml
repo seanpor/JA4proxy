@@ -368,7 +368,7 @@ services:
           cpus: '1.0'
 
   grafana:
-    image: grafana/grafana:13.0.4-ubuntu
+    image: grafana/grafana:13.0.6-ubuntu
     ports:
       # JA4PROXY-2026-0045: bind to loopback — the comment claims
       # "internal only" but the previous form "3001:3000" published
@@ -399,7 +399,7 @@ services:
     # secrets with those exact host permissions -- long-form uid/gid/mode
     # is swarm-only and silently ignored (verified directly). grafana/grafana
     # runs as fixed uid 472 (verified via `docker inspect
-    # grafana/grafana:13.0.4-ubuntu --format '{{.Config.User}}'`), which
+    # grafana/grafana:13.0.6-ubuntu --format '{{.Config.User}}'`), which
     # won't match whatever host user generated the secret file.
     cap_add:
       - DAC_OVERRIDE
@@ -412,7 +412,7 @@ services:
           memory: 128M
 
   loki:
-    image: grafana/loki:3.7.4
+    image: grafana/loki:3.7.6
     # No host ports (0046): Grafana queries loki:3100 and Promtail pushes over
     # the network. Was published on 0.0.0.0:3100.
     volumes:
