@@ -463,7 +463,13 @@ lint-coverage:
 # Lint Dockerfiles (hadolint) and validate docker-compose files (docker compose config).
 # Ignored rules are consciously accepted — see .hadolint.yaml for rationale.
 # deploy/docker/docker-compose.test.yml is the full Go test environment.
-HADOLINT_IGNORE := --ignore DL3008 --ignore DL3013 --ignore DL3015 --ignore DL3018 --ignore DL3059
+# Ignored rules live in .hadolint.yaml (with per-rule rationale), NOT in flags
+# here. Phase 800: they used to be duplicated as `--ignore` flags because the
+# container had no volume mount, so .hadolint.yaml could never be read — and the
+# file additionally used the wrong top-level key (`ignore:` instead of
+# `ignored:`), which hadolint accepts silently while applying nothing. Both are
+# fixed; the mount + --config below makes .hadolint.yaml the single source of
+# truth. Do not reintroduce --ignore flags: they would drift from the file.
 HADOLINT_DOCKERFILES := deploy/docker/Dockerfile.management \
 	deploy/docker/Dockerfile.mockbackend deploy/docker/Dockerfile.test \
 	deploy/docker/Dockerfile.trafficgen deploy/docker/Dockerfile.go-proxy deploy/docker/Dockerfile.ja4-tap \
@@ -479,7 +485,7 @@ lint-docker:
 	@docker pull -q hadolint/hadolint:v2.14.0 >/dev/null 2>&1 || true
 	@for f in $(HADOLINT_DOCKERFILES); do \
 		printf "  %-50s" "$$f"; \
-		result=$$(docker run --rm -i hadolint/hadolint:v2.14.0 hadolint $(HADOLINT_IGNORE) --no-color - < "$$f" 2>&1); \
+		result=$$(docker run --rm -i -v "$(PWD):/src:ro" -w /src hadolint/hadolint:v2.14.0 hadolint --config .hadolint.yaml --no-color - < "$$f" 2>&1); \
 		if [ -n "$$result" ]; then echo "FAIL"; echo "$$result"; exit 1; fi; \
 		echo "OK"; \
 	done
