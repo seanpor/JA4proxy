@@ -110,3 +110,55 @@ CVE-2026-00001 exp:2099-01-01
     assert rc == 0
     assert "CVE-2026-00001" in out
     assert "all within their time window" in out
+
+
+# ── expiry boundary: must match Trivy's semantics exactly ────────────────────
+#
+# Trivy suppresses a finding only while `today < exp`. An entry whose exp: IS
+# today is ALREADY expired — trivy reports it and `make scan` fails.
+# Verified empirically against aquasec/trivy:0.71.0 on 2026-08-10:
+#     exp:2026-08-09 (yesterday) -> reported
+#     exp:2026-08-10 (today)     -> reported      <-- the boundary
+#     exp:2026-08-11 (tomorrow)  -> suppressed
+#
+# This script previously treated d == 0 as still-valid, so it exited 0 and
+# printed "all within their time window" while `make scan` was red. That is how
+# the 2026-08-10 cliff (~40 entries) reached a release run with no warning.
+
+
+def test_entry_expiring_today_is_expired_not_soon(tmp_path, monkeypatch, capsys):
+    """exp: == today must report EXPIRED and exit non-zero — trivy already fails it."""
+    ignore = _write_ignore(
+        tmp_path,
+        """\
+# expires today -- trivy stops ignoring this at 00:00
+CVE-2026-00002 exp:2026-08-10
+""",
+    )
+    monkeypatch.setattr(scan_exceptions, "IGNORE", ignore)
+    rc = scan_exceptions.main(["--today", "2026-08-10"])
+    out = capsys.readouterr().out
+
+    assert "EXPIRED" in out, "an entry expiring today must be flagged EXPIRED"
+    assert "SOON" not in out, "d == 0 must not be reported as merely SOON"
+    assert rc != 0, (
+        "exit code must be non-zero so CI fails on the same day trivy does; "
+        "exiting 0 here is what let the expiry cliff pass unnoticed"
+    )
+
+
+def test_entry_expiring_tomorrow_is_still_valid(tmp_path, monkeypatch, capsys):
+    """exp: == today+1 is the last still-suppressed day — must not be EXPIRED."""
+    ignore = _write_ignore(
+        tmp_path,
+        """\
+# expires tomorrow -- trivy still ignores this today
+CVE-2026-00003 exp:2026-08-11
+""",
+    )
+    monkeypatch.setattr(scan_exceptions, "IGNORE", ignore)
+    rc = scan_exceptions.main(["--today", "2026-08-10"])
+    out = capsys.readouterr().out
+
+    assert "EXPIRED" not in out
+    assert rc == 0

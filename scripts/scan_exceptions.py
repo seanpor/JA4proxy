@@ -73,7 +73,14 @@ def main(argv: list[str]) -> int:
         else:
             d = (datetime.strptime(exp, "%Y-%m-%d").date() - today).days
             days = str(d)
-            if d < 0:
+            # Trivy ignores a finding only while `today < exp`, so an entry
+            # whose exp: IS today (d == 0) is ALREADY expired — trivy reports
+            # it and `make scan` fails. Verified against aquasec/trivy:0.71.0:
+            # exp:today -> reported, exp:tomorrow -> suppressed.
+            # Treating d == 0 as still-valid (the pre-2026-08-10 behaviour) made
+            # this script exit 0 while `make scan` was red, which is how the
+            # 2026-08-10 expiry cliff reached a release run unannounced.
+            if d <= 0:
                 status = "EXPIRED"
             elif d <= 3:
                 status = "SOON"
