@@ -191,6 +191,21 @@ var (
 	SyncClockDriftSeconds = prometheus.NewGauge(
 		prometheus.GaugeOpts{Name: "ja4proxy_sync_clock_drift_seconds", Help: "NTP clock drift in seconds"},
 	)
+	// SyncClockMonitorAvailable is 1 when NTP drift can actually be read
+	// (chronyc or ntpstat present and working), 0 otherwise.
+	//
+	// F-400-04 (issue #245): when neither binary is available,
+	// ja4proxy_sync_clock_drift_seconds is simply never Set. A never-set gauge
+	// is indistinguishable from "drift is currently 0" on a dashboard, so
+	// clock-skew monitoring could be silently disabled in production with the
+	// drift panel showing a reassuring flat zero. Alert on this gauge being 0
+	// rather than trusting the drift value on its own.
+	SyncClockMonitorAvailable = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "ja4proxy_sync_clock_monitor_available",
+			Help: "1 if the NTP drift monitor can read drift (chronyc/ntpstat present), 0 if unavailable",
+		},
+	)
 	SyncPeerSkewSeconds = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{Name: "ja4proxy_sync_peer_skew_seconds", Help: "Clock skew relative to peer DC"},
 		[]string{"peer"},
@@ -443,6 +458,7 @@ func Register() {
 		DNSEnrichmentTotal, DNSPTRErrorsTotal, DNSPTRClassificationTotal,
 		DNSResolverErrorsTotal, DNSEnrichmentQueueDropsTotal,
 		SNISignalTotal, SNIDGAScore, TCPSignalTotal, SyncClockDriftSeconds,
+		SyncClockMonitorAvailable,
 		SyncPeerSkewSeconds, SyncWANConnected, SyncReplicationLagSeconds,
 		SyncEventsProcessedTotal, SyncErrorsTotal,
 		// phase-63

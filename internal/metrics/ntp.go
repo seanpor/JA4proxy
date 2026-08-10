@@ -27,10 +27,12 @@ func StartNTPMonitor(ctx context.Context, intervalSeconds int, log *logrus.Logge
 	// Initial check — log which binary is available (or neither)
 	drift, err := getNTPDrift()
 	if err != nil {
+		SyncClockMonitorAvailable.Set(0)
 		ntpWarnOnce.Do(func() {
 			log.WithError(err).Warn("metrics: NTP drift monitoring unavailable — neither chronyc nor ntpstat found")
 		})
 	} else {
+		SyncClockMonitorAvailable.Set(1)
 		SyncClockDriftSeconds.Set(drift)
 		log.WithField("drift", drift).Debug("metrics: NTP drift monitor initialised")
 	}
@@ -48,11 +50,16 @@ func StartNTPMonitor(ctx context.Context, intervalSeconds int, log *logrus.Logge
 func checkNTP(log *logrus.Logger) {
 	drift, err := getNTPDrift()
 	if err != nil {
+		// Re-set on every failure, not just the first: the monitor can go
+		// unavailable mid-run (chronyd stopped, binary removed by an image
+		// update), and the log warning is once-only by design.
+		SyncClockMonitorAvailable.Set(0)
 		ntpWarnOnce.Do(func() {
 			log.WithError(err).Warn("metrics: NTP drift monitoring unavailable — neither chronyc nor ntpstat found")
 		})
 		return
 	}
+	SyncClockMonitorAvailable.Set(1)
 	SyncClockDriftSeconds.Set(drift)
 }
 

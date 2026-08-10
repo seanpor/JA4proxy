@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/sirupsen/logrus"
 )
 
@@ -96,6 +97,34 @@ func TestCheckNTP_DoesNotPanic(t *testing.T) {
 	log.SetLevel(logrus.ErrorLevel)
 	// Should not panic even if chronyc/ntpstat aren't available
 	checkNTP(log)
+}
+
+// TestCheckNTP_SetsAvailabilityGauge verifies the F-400-04 (#245) availability
+// gauge tracks whether drift can actually be read.
+//
+// Without this gauge, ja4proxy_sync_clock_drift_seconds is simply never Set when
+// neither chronyc nor ntpstat is present — and a never-set gauge is
+// indistinguishable from "drift is currently 0" on a dashboard. Clock-skew
+// monitoring could therefore be silently disabled in production while the drift
+// panel showed a reassuring flat zero.
+//
+// Asserted relative to the environment rather than to a fixed value, so this
+// holds both in CI (no NTP tooling) and on a host that has chronyd running.
+func TestCheckNTP_SetsAvailabilityGauge(t *testing.T) {
+	log := logrus.New()
+	log.SetLevel(logrus.ErrorLevel)
+
+	_, driftErr := getNTPDrift()
+	checkNTP(log)
+
+	want := 1.0
+	if driftErr != nil {
+		want = 0.0
+	}
+
+	if got := testutil.ToFloat64(SyncClockMonitorAvailable); got != want {
+		t.Errorf("SyncClockMonitorAvailable = %v, want %v (getNTPDrift err: %v)", got, want, driftErr)
+	}
 }
 
 // TestGetNTPDrift_ReturnsErrorWhenToolsMissing verifies getNTPDrift returns

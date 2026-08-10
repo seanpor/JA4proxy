@@ -235,6 +235,7 @@ ja4proxy_sync_wan_connected{peer}                    gauge     WAN connection st
 ja4proxy_sync_replication_lag_seconds{stream}        gauge     Cross-DC state replication lag
 ja4proxy_sync_peer_skew_seconds{peer}                gauge     Clock skew relative to peer DC
 ja4proxy_sync_clock_drift_seconds                    gauge     NTP clock drift in seconds
+ja4proxy_sync_clock_monitor_available                gauge     1 if NTP drift is readable (chronyc/ntpstat present), 0 if unavailable
 ja4proxy_sync_events_processed_total{op,dc}          counter   Total sync events applied locally
 ja4proxy_sync_errors_total{type}                     counter   Total sync failures
 ja4proxy_signal_drift_total{source,type}             counter   Total detected scoring drift events between nodes or sources
