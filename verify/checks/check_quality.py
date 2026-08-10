@@ -35,6 +35,7 @@ import json
 import os
 import sys
 import unicodedata
+import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import Any
@@ -106,6 +107,23 @@ def _load_pins(root: Path) -> dict[str, Any]:
         return {}
 
 
+def _bounded_chat_url(url: str) -> str:
+    """Validate the Ollama base URL before it reaches urllib.
+
+    The URL comes from verify/config.json — a repo-controlled file, but a
+    tampered copy must not be able to make the gate's urllib call read files
+    (file:// scheme) or phone an arbitrary host. Only http(s) to a loopback
+    host is acceptable.
+    """
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise ValueError(f"ollama_url must be http(s), got {parsed.scheme!r}")
+    host = parsed.hostname or ""
+    if not (host in ("localhost", "127.0.0.1", "::1") or host.endswith(".localhost")):
+        raise ValueError(f"ollama_url must point at loopback, got {host!r}")
+    return url
+
+
 def _ollama_chat(url: str, model: str, prompt: str, timeout: int) -> str:
     # Pins use opencode's provider-prefixed form (ollama/name:tag); the raw
     # Ollama API wants the bare model name. Normalize at the API boundary
@@ -119,10 +137,13 @@ def _ollama_chat(url: str, model: str, prompt: str, timeout: int) -> str:
         "options": {"temperature": 0.2, "num_ctx": 16384},
     }
     req = urllib.request.Request(
-        url + "/api/chat",
+        _bounded_chat_url(url) + "/api/chat",
         data=json.dumps(payload).encode(),
         headers={"Content-Type": "application/json"},
     )
+    # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
+    # URL is scheme+host constrained to http(s) loopback by _bounded_chat_url
+    # above, so no file:// read or external phone-home is possible.
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         data = json.loads(resp.read().decode())
     return data["message"]["content"]
@@ -204,7 +225,6 @@ def _load_calibration(root: Path) -> dict[str, Any]:
 
 def _validate_artifact(root: Path, path: Path, q: dict[str, Any],
                        pins: dict[str, Any]) -> tuple[int, list[str]]:
-    errs: list[str] = []
     try:
         art = json.loads(path.read_text())
     except Exception as exc:
