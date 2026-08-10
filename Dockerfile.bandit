@@ -14,7 +14,16 @@
 #   what ships (production/tests run on 3.14 via Dockerfile.tools). All bandit
 #   1.7–1.8 releases crash on 3.14 and pass on 3.11, so this is a Python-version
 #   fix, not a bandit-version one.
-FROM python:3.14-slim
+#
+# ⚠ DO NOT BUMP THIS TAG. It is a deliberate pin, not staleness.
+#   PR #340 ("build(deps): bump python from 3.11-slim to 3.14-slim") auto-bumped
+#   it past this very comment and silently reintroduced the regression: on 3.14
+#   the extension loader drops 6 plugins (B104-B108) and every file under
+#   src/analytics raised "module 'ast' has no attribute 'Num'" — while bandit
+#   still exited 0, so the gate stayed green with near-zero real coverage.
+#   `tests/test_bandit_toolchain.py` now fails loudly if this is bumped again.
+#   Unblocks removal: a bandit release whose plugins no longer touch `ast.Num`.
+FROM python:3.11-slim
 
 RUN useradd -r -u 1001 -s /bin/false bandit
 
