@@ -1,4 +1,4 @@
-.PHONY: all bench-all build bump-build check ci-verify clean cli-build compose-validate doc-health doctor go-build help help-dev help-legacy help-lint help-ops help-scan init install-hooks ja4p-validate link-check lint lint-ansible lint-docs lint-phases lint-semgrep logs management-down management-logs management-shell management-up rebuild reload remote-bot sbom scan scan-exceptions scorecard-local setup-build start start-poc status stop sync test test-component-suites test-ip test-race test-ratio traffic-off traffic-on tunnel verify-all preflight
+.PHONY: all bench-all build bump-build check ci-verify clean cli-build compose-validate doc-health doctor go-build help help-dev help-legacy help-lint help-ops help-scan init install-hooks ja4p-validate link-check lint lint-ansible lint-docs lint-phases lint-semgrep logs management-down management-logs management-shell management-up rebuild reload remote-bot sbom scan scan-exceptions scorecard-local setup-build start start-poc status stop sync test test-component-suites test-ip test-race test-ratio traffic-off traffic-on tunnel verify-all preflight poc-secrets
 PYTHON ?= $(shell command -v python || command -v python3 || echo python)
 GO ?= $(shell command -v go || echo go)
 
@@ -1006,9 +1006,21 @@ unblock-ip:
 	@./scripts/ja4-admin.sh unblock-ip $(IP)
 
 # Run performance tests
-perf-test:
+# poc-secrets (phase-800): docker-compose.poc.yml bind-mounts five secret files
+# that nothing in the repo created. On a machine that had not been hand-primed,
+# every target raising the PoC stack died with a bare Docker error —
+# "bind source path does not exist: .../analytics_redis_password.txt" — which is
+# what aborted `make bench-all` before test-go-perf, load-test and measure-mttr
+# ever ran. Names are derived from the compose file, so adding a secret there
+# cannot silently break this again. Existing files are never overwritten.
+poc-secrets: ## Generate any missing deploy/secrets/*.txt the PoC stack needs
+	@echo "=== PoC secrets ==="
+	@scripts/ensure-poc-secrets.sh
+
+perf-test: poc-secrets
 	@echo "Starting performance tests..."
 	@echo "Note: This requires services to be running (make deploy-poc)"
+	@[ -f .env ] || { echo "✗ .env not found — run 'make start-poc' once to generate it (it must not be created ad hoc here: start-poc.sh owns the full required key set)"; exit 1; }
 	docker compose -f deploy/docker/docker-compose.poc.yml --env-file .env run --rm test locust -f /app/performance/locust_tests.py --host http://proxy:8080 --users 100 --spawn-rate 10 --run-time 5m --headless
 
 # ── Configuration ─────────────────────────────────────────────────────────────

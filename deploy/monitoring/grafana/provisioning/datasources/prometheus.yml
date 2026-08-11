@@ -1,4 +1,17 @@
 # Grafana Datasource Provisioning
+#
+# phase-800: `url:` uses compose SERVICE names, not container names.
+# docker-compose.monitoring.yml previously pinned container_name: (e.g.
+# ja4proxy-prometheus-monitoring), which made those names globally unique per
+# host and so prevented a second dev lane's monitoring stack from starting at
+# all. Those pins are gone; containers are now named per COMPOSE_PROJECT_NAME
+# (ja4proxy-lane<N>-<service>-1) like the poc/prod stacks already were.
+#
+# Service names resolve on the compose network regardless of lane, so this file
+# stays lane-independent and needs no templating.
+#
+# NOTE: `uid:` values below are Grafana datasource identifiers referenced by
+# dashboard JSON — they are NOT hostnames. Do not rename them to match services.
 apiVersion: 1
 
 datasources:
@@ -6,7 +19,7 @@ datasources:
     uid: PBFA97CFB590B2093
     type: prometheus
     access: proxy
-    url: http://ja4proxy-prometheus-monitoring:9090
+    url: http://prometheus:9090
     isDefault: true
     editable: false
     jsonData:
@@ -15,10 +28,10 @@ datasources:
       exemplarTraceIdDestinations: []
 
   - name: Loki
-    uid: ja4proxy-loki
+    uid: ja4proxy-loki  # datasource UID referenced by dashboards — not a hostname
     type: loki
     access: proxy
-    url: http://ja4proxy-loki:3100
+    url: http://loki:3100
     editable: false
     jsonData:
       maxLines: 1000

@@ -17,17 +17,21 @@ scrape_configs:
       - host: tcp://docker-socket-proxy:2375
         refresh_interval: 5s
         filters:
+          # Docker's `name` filter is a SUBSTRING match, so this single value
+          # already matched every container below it — and, importantly, keeps
+          # matching once names are lane-prefixed
+          # (ja4proxy-lane23-backend-1, ja4proxy-lane23-grafana-1, ...).
+          #
+          # phase-800: the per-service values that used to be listed here were
+          # already dead. The poc/prod stacks have never set container_name:, so
+          # their containers were ja4proxy-lane<N>-<svc>-1 and none of
+          # "ja4proxy-backend" / "ja4proxy-redis" / "ja4proxy-tarpit" ever
+          # matched anything; only this prefix did any work. The monitoring
+          # stack's container_name: pins have now been removed too (they blocked
+          # a second lane from starting), so those entries would be dead as well.
           - name: name
             values:
               - ja4proxy
-              - ja4proxy-backend
-              - ja4proxy-redis
-              - ja4proxy-haproxy
-              - ja4proxy-tarpit
-              - ja4proxy-trafficgen
-              - ja4proxy-prometheus-monitoring
-              - ja4proxy-grafana
-              - ja4proxy-alertmanager
     relabel_configs:
       # Use container name as the primary label
       - source_labels: ['__meta_docker_container_name']
