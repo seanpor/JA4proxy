@@ -234,7 +234,17 @@ jobs:
           # full-history scan is what the config actually says it is.
           base: ${{ github.event_name == 'schedule' && '' || github.event_name == 'workflow_dispatch' && '' || github.event.pull_request.base.sha || github.event.before }}
           head: ${{ github.event_name == 'schedule' && '' || github.event_name == 'workflow_dispatch' && '' || github.event.pull_request.head.sha || github.sha }}
-          extra_args: --only-verified
+          # --exclude-detectors=Lob (phase-800, issue #405): Lob API *test* keys
+          # begin with "test_", so TruffleHog's Lob detector matches every pytest
+          # function name in the repo — and its verifier reports them as
+          # VERIFIED. Measured on tests/unit alone: 2670 verified "secrets",
+          # zero real. That is what exited 183 and failed every scheduled run;
+          # GitHub caps annotations at ~10, which hid the scale.
+          #
+          # Safe to exclude: this project has no Lob integration whatsoever
+          # (no lob.com, no LOB_KEY, no client library — verified by grep).
+          # Remove this exclusion if a Lob dependency is ever introduced.
+          extra_args: --only-verified --exclude-detectors=Lob
 
   sast:
     name: SAST (Semgrep)
