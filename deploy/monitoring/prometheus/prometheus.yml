@@ -45,9 +45,16 @@ scrape_configs:
   - job_name: 'ja4proxy'
     scrape_interval: 10s
     scrape_timeout: 5s
+    # JA4PROXY-2026-0008: the proxy refuses remote scraping without a Bearer
+    # token (loopback bind default). Prometheus reaches it over the shared dmz
+    # network by service name (`proxy`), authenticating with the token from
+    # deploy/secrets/metrics_token.txt (mounted read-only).
+    authorization:
+      type: Bearer
+      credentials_file: /etc/prometheus/metrics_token.txt
     static_configs:
       - targets:
-          - 'ja4proxy:9090'
+          - 'proxy:9090'
         labels:
           service: 'ja4proxy'
           role: 'proxy'
@@ -57,7 +64,11 @@ scrape_configs:
     scrape_interval: 15s
     static_configs:
       - targets:
-          - 'ja4proxy-redis-exporter:9121'
+          # phase-800: compose SERVICE name, not container name. The
+          # container_name: pins in docker-compose.monitoring.yml were removed
+          # so a second dev lane can run its own monitoring stack; container
+          # names are now lane-prefixed, but service names are stable.
+          - 'redis-exporter:9121'
         labels:
           service: 'redis'
           role: 'database'

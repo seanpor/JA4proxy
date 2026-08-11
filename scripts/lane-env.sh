@@ -26,6 +26,13 @@ declare -A BASE=(
   [HOST_PORT_GRAFANA]=3000     # Grafana UI
   [HOST_PORT_MANAGEMENT]=8090  # Management API
   [HOST_PORT_PROMETHEUS]=9091  # Prometheus UI
+  # phase-800: alertmanager was missing here while
+  # docker-compose.monitoring.yml published
+  # "${AGENT_BIND_IP}:${HOST_PORT_ALERTMANAGER:-9093}:9093". With no lane value
+  # set, every lane fell back to the same default 9093 and collided on the host
+  # — one of two reasons the monitoring stack could not run in two lanes at
+  # once (the other being hardcoded container_name: entries in that compose).
+  [HOST_PORT_ALERTMANAGER]=9093 # Alertmanager UI
 )
 MANAGED_KEYS=(JA4_LANE COMPOSE_PROJECT_NAME "${!BASE[@]}")
 

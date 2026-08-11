@@ -1,7 +1,6 @@
 services:
   prometheus:
     image: prom/prometheus:v3.13.2
-    container_name: ja4proxy-prometheus-monitoring
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
@@ -16,6 +15,9 @@ services:
       - ../monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ../monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
       - ../monitoring/prometheus/recording_rules.yml:/etc/prometheus/recording_rules.yml:ro
+      # JA4PROXY-2026-0008: proxy /metrics requires a Bearer token for remote
+      # scraping. File is bind-mounted ro so the token never lives in the image.
+      - ../secrets/metrics_token.txt:/etc/prometheus/metrics_token.txt:ro
       # Phase 805: both of these were referenced by prometheus.yml's rule_files
       # (or documented in OBSERVABILITY_STANDARDS.md as "the" alert rule
       # location) but never actually mounted -- `promtool check config`
@@ -53,7 +55,6 @@ services:
 
   alertmanager:
     image: prom/alertmanager:v0.33.1
-    container_name: ja4proxy-alertmanager
     command:
       - '--config.file=/etc/alertmanager/alertmanager.yml'
       - '--storage.path=/alertmanager'
@@ -86,7 +87,6 @@ services:
 
   grafana:
     image: grafana/grafana:13.0.6-ubuntu
-    container_name: ja4proxy-grafana
     ports:
       # JA4PROXY-2026-0045: bind to loopback only — consistent with the
       # Prometheus and Alertmanager services above. Dashboards should be
@@ -98,7 +98,13 @@ services:
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_SERVER_PROTOCOL=https
       - GF_SERVER_CERT_FILE=/etc/grafana/certs/grafana.crt
-      - GF_SERVER_KEY_FILE=/etc/grafana/certs/grafana.key
+      # phase-800: MUST be GF_SERVER_CERT_KEY, not GF_SERVER_KEY_FILE. Grafana's
+      # setting is [server] cert_key, so the env override is GF_SERVER_CERT_KEY.
+      # GF_SERVER_KEY_FILE matches no setting, so Grafana silently ignored it,
+      # left cert_key empty, and crash-looped with "cert_key cannot be empty
+      # when using HTTPS" (observed: 13 restarts). Verified against both
+      # 13.0.4-ubuntu and 13.0.6-ubuntu — this was never version-specific.
+      - GF_SERVER_CERT_KEY=/etc/grafana/certs/grafana.key
       - GF_SERVER_ROOT_URL=%(protocol)s://%(domain)s:%(http_port)s/
       - GF_INSTALL_PLUGINS=
       - GF_AUTH_ANONYMOUS_ENABLED=false
@@ -112,6 +118,7 @@ services:
       - grafana-data:/var/lib/grafana
       - ../monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
       - ../monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ./certs/grafana:/etc/grafana/certs:ro
     restart: unless-stopped
     networks:
       - ja4proxy-monitoring
@@ -128,14 +135,23 @@ services:
           memory: 512M
           cpus: '1.0'
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"]
+      # phase-800: curl, https, -k. This probe was unrunnable as written, in two
+      # independent ways:
+      #   1. grafana/grafana:*-ubuntu ships NO wget (verified: `command -v wget`
+      #      is empty, curl is at /usr/bin/curl). Docker reported the probe's
+      #      exit code as -1 — the command never ran.
+      #   2. It targeted http://, but GF_SERVER_PROTOCOL is https, so even with
+      #      a working client it could not have succeeded. -k because the cert
+      #      is self-signed.
+      # Verified after the fix: curl -sk https://localhost:3000/api/health
+      # returns 200 from inside the container.
+      test: ["CMD", "curl", "-fsk", "https://localhost:3000/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
 
   node-exporter:
     image: prom/node-exporter:v1.12.1
-    container_name: ja4proxy-node-exporter
     command:
       - '--path.procfs=/host/proc'
       - '--path.sysfs=/host/sys'
@@ -171,7 +187,6 @@ services:
 
   redis-exporter:
     image: oliver006/redis_exporter:v1.87.0
-    container_name: ja4proxy-redis-exporter
     environment:
       - REDIS_ADDR=redis:6379
       # Phase 813: previously authenticated with no username (defaults to
@@ -197,7 +212,6 @@ services:
 
   loki:
     image: grafana/loki:3.7.6
-    container_name: ja4proxy-loki
     # Not exposed to host — only accessible from monitoring network
     volumes:
       - ../monitoring/loki/loki-config.yml:/etc/loki/local-config.yaml:ro
@@ -231,7 +245,6 @@ services:
   # other containers.
   docker-socket-proxy:
     image: tecnativa/docker-socket-proxy:v0.5.0
-    container_name: ja4proxy-docker-socket-proxy
     environment:
       CONTAINERS: 1
       # Everything else stays 0 by default.
@@ -256,7 +269,6 @@ services:
 
   promtail:
     image: grafana/promtail:3.6.11
-    container_name: ja4proxy-promtail
     # JA4PROXY-2026-0017 — no more /var/run/docker.sock mount. Promtail
     # now reads container metadata from docker-socket-proxy over TCP
     # (see promtail-config.yml `host: tcp://docker-socket-proxy:2375`).
@@ -285,7 +297,6 @@ services:
 
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:v0.52.1
-    container_name: ja4proxy-cadvisor
     # JA4PROXY-2026-0016 — cAdvisor previously ran with privileged: true, full
     # r/w /var/run mount, and /dev/kmsg access. A compromise of the cAdvisor
     # container had a direct path to host root via the Docker socket under
@@ -325,7 +336,6 @@ services:
 
   haproxy-exporter:
     image: prom/haproxy-exporter:v0.15.0
-    container_name: ja4proxy-haproxy-exporter
     command:
       # Use HAProxy path-parameter CSV suffix (;csv) and include basic-auth credentials.
       # Operators MUST set HAPROXY_STATS_USER / HAPROXY_STATS_PASSWORD in .env;
