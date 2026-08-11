@@ -52,6 +52,7 @@ subsystems live in the subdirectories at the end.
 - [Scaling Guide](operations/SCALING_GUIDE.md) — scaling out behind a load balancer.
 - [Upgrade Path](operations/UPGRADE_PATH.md) — upgrade and compatibility guidance.
 - [FAQ](operations/FAQ.md) — common operational questions.
+- [Trusted HTTPS for Local/LAN Services](operations/LOCAL_HTTPS_LAN.md) — private-CA (mkcert) setup for browser-trusted HTTPS to personal Docker services, incl. phone/Chromebook/laptop trust.
 
 ## 🧑‍💻 Developers & contributors
 
