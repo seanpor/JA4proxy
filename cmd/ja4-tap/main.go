@@ -91,30 +91,32 @@ type runConfig struct {
 	redisTLS        bool   // F-018: force TLS regardless of redisURL's scheme
 	enfCfg          tap.EnforcerConfig
 	seccompPath     string
+	seccompRequired bool // F-400-02: fail closed instead of running unconfined
 	eventBuffer     int
 	excludeIPs      *atomic.Pointer[tap.ExcludeList] // P-003: IPs/CIDRs to never persist fingerprint/enforcement data for; hot-swappable on SIGHUP
 }
 
 func main() {
 	var (
-		pcapFile      = flag.String("pcap-file", "", "offline .pcap file to replay (no privileges required)")
-		iface         = flag.String("interface", "", "live capture interface (Linux AF_PACKET; needs CAP_NET_RAW)")
-		frameSize     = flag.Int("frame-size", 0, "AF_PACKET frame size (0 = library default)")
-		bpfPorts      = flag.String("bpf-ports", "443,8443", "comma-separated TCP dst ports for the kernel BPF filter (empty = no kernel filter, userspace only)")
-		quiet         = flag.Bool("quiet", false, "suppress per-handshake output; print only the final summary")
-		redisURL      = flag.String("redis-url", "", "Redis URL to write passive fingerprints to fp:os:ip and fp:ja4t:ip (empty = classify-and-log only, no writes)")
-		redisPassword = flag.String("redis-password", "", "Redis password, overrides any password embedded in --redis-url (empty = fall back to REDIS_PASSWORD env var, then any password in --redis-url). Keeps credentials off the command line / ps aux (F-017)")
-		redisTLS      = flag.Bool("redis-tls", false, "force TLS to the Redis connection regardless of --redis-url's scheme (min TLS 1.2). Use when the operator cannot express rediss:// (F-018)")
-		enforce       = flag.Bool("enforce", false, "ARM active blocking: write enforceable ban:{ip} keys for blocklisted clients (off = advisory fp:ban_intent watchlist only; arming also needs a widened Redis ACL ~ban:*)")
-		ja4tBlock     = flag.String("ja4t-blocklist", "", "comma-separated JA4T fingerprints that trigger an out-of-band ban intent (empty = enforcement can never fire)")
-		banTTL        = flag.Duration("ban-ttl", 5*time.Minute, "TTL for a sensor-written ban:{ip} (kept short by the fail-open asymmetry)")
-		intentTTL     = flag.Duration("intent-ttl", time.Hour, "TTL for an advisory fp:ban_intent:ip watchlist entry")
-		metricsAddr   = flag.String("metrics-addr", "", "HTTP address for Prometheus metrics and /health (empty = disabled)")
-		seccompPath   = flag.String("seccomp-profile", "/etc/ja4proxy/seccomp_tap.json", "path to seccomp JSON profile (empty = embedded default)")
-		eventBuffer   = flag.Int("event-buffer", 1024, "size of the handshake-event channel between capture and the Redis-writing goroutine; when full, events are dropped (fail-open, counted as packets_dropped{reason=event_overflow}) rather than blocking capture. Larger absorbs longer Redis stalls at the cost of more memory and staler events once it drains (R-004)")
-		logFormat     = flag.String("log-format", "text", "log output format: text (default) or json — use json in production with centralized log aggregation (R-008)")
-		logLevel      = flag.String("log-level", "info", "log verbosity: debug, info (default), warn, or error (R-008)")
-		excludeIPs    = flag.String("exclude-ips", "", "comma-separated IPs/CIDRs to never write fingerprint or enforcement data for (e.g. \"203.0.113.5,198.51.100.0/24\") — prevents the sensor from re-writing a client's Redis keys after a GDPR erasure request (P-003; falls back to EXCLUDE_IPS env var)")
+		pcapFile        = flag.String("pcap-file", "", "offline .pcap file to replay (no privileges required)")
+		iface           = flag.String("interface", "", "live capture interface (Linux AF_PACKET; needs CAP_NET_RAW)")
+		frameSize       = flag.Int("frame-size", 0, "AF_PACKET frame size (0 = library default)")
+		bpfPorts        = flag.String("bpf-ports", "443,8443", "comma-separated TCP dst ports for the kernel BPF filter (empty = no kernel filter, userspace only)")
+		quiet           = flag.Bool("quiet", false, "suppress per-handshake output; print only the final summary")
+		redisURL        = flag.String("redis-url", "", "Redis URL to write passive fingerprints to fp:os:ip and fp:ja4t:ip (empty = classify-and-log only, no writes)")
+		redisPassword   = flag.String("redis-password", "", "Redis password, overrides any password embedded in --redis-url (empty = fall back to REDIS_PASSWORD env var, then any password in --redis-url). Keeps credentials off the command line / ps aux (F-017)")
+		redisTLS        = flag.Bool("redis-tls", false, "force TLS to the Redis connection regardless of --redis-url's scheme (min TLS 1.2). Use when the operator cannot express rediss:// (F-018)")
+		enforce         = flag.Bool("enforce", false, "ARM active blocking: write enforceable ban:{ip} keys for blocklisted clients (off = advisory fp:ban_intent watchlist only; arming also needs a widened Redis ACL ~ban:*)")
+		ja4tBlock       = flag.String("ja4t-blocklist", "", "comma-separated JA4T fingerprints that trigger an out-of-band ban intent (empty = enforcement can never fire)")
+		banTTL          = flag.Duration("ban-ttl", 5*time.Minute, "TTL for a sensor-written ban:{ip} (kept short by the fail-open asymmetry)")
+		intentTTL       = flag.Duration("intent-ttl", time.Hour, "TTL for an advisory fp:ban_intent:ip watchlist entry")
+		metricsAddr     = flag.String("metrics-addr", "", "HTTP address for Prometheus metrics and /health (empty = disabled)")
+		seccompPath     = flag.String("seccomp-profile", "/etc/ja4proxy/seccomp_tap.json", "path to seccomp JSON profile (empty = embedded default)")
+		seccompRequired = flag.Bool("seccomp-required", false, "exit non-zero if the seccomp profile cannot be loaded, instead of warning and running unconfined. Default false preserves fail-open. Set true where the sensor must never run without syscall filtering — note the filter is linux/amd64 only, so this will refuse to start on other architectures (F-400-02)")
+		eventBuffer     = flag.Int("event-buffer", 1024, "size of the handshake-event channel between capture and the Redis-writing goroutine; when full, events are dropped (fail-open, counted as packets_dropped{reason=event_overflow}) rather than blocking capture. Larger absorbs longer Redis stalls at the cost of more memory and staler events once it drains (R-004)")
+		logFormat       = flag.String("log-format", "text", "log output format: text (default) or json — use json in production with centralized log aggregation (R-008)")
+		logLevel        = flag.String("log-level", "info", "log verbosity: debug, info (default), warn, or error (R-008)")
+		excludeIPs      = flag.String("exclude-ips", "", "comma-separated IPs/CIDRs to never write fingerprint or enforcement data for (e.g. \"203.0.113.5,198.51.100.0/24\") — prevents the sensor from re-writing a client's Redis keys after a GDPR erasure request (P-003; falls back to EXCLUDE_IPS env var)")
 	)
 	flag.Parse()
 
@@ -158,18 +160,19 @@ func main() {
 		IntentTTL:     *intentTTL,
 	}
 	cfg := runConfig{
-		pcapFile:      *pcapFile,
-		iface:         *iface,
-		frameSize:     *frameSize,
-		bpfProg:       bpfProg,
-		quiet:         *quiet,
-		redisURL:      effectiveRedisURL,
-		redisPassword: *redisPassword,
-		redisTLS:      *redisTLS,
-		enfCfg:        enfCfg,
-		seccompPath:   *seccompPath,
-		eventBuffer:   *eventBuffer,
-		excludeIPs:    &excludeIPsPtr,
+		pcapFile:        *pcapFile,
+		iface:           *iface,
+		frameSize:       *frameSize,
+		bpfProg:         bpfProg,
+		quiet:           *quiet,
+		redisURL:        effectiveRedisURL,
+		redisPassword:   *redisPassword,
+		redisTLS:        *redisTLS,
+		enfCfg:          enfCfg,
+		seccompPath:     *seccompPath,
+		seccompRequired: *seccompRequired,
+		eventBuffer:     *eventBuffer,
+		excludeIPs:      &excludeIPsPtr,
 	}
 	if err := run(cfg, log); err != nil {
 		log.WithError(err).Error("ja4-tap exited with error")
@@ -272,7 +275,16 @@ func run(cfg runConfig, log *logrus.Logger) error {
 		log.WithError(err).Warn("failed to drop capabilities; proceeding with current UID/GID")
 	}
 	if err := tap.LoadSeccomp(cfg.seccompPath); err != nil {
-		log.WithError(err).Warn("failed to load seccomp profile; proceeding without seccomp")
+		// F-400-02 (#244): fail-open is the default so a sensor on an
+		// architecture without a filter (the BPF program is linux/amd64 only)
+		// still runs. That is a deliberate trade-off, not an oversight — but it
+		// means the hardening can be absent while the sensor looks healthy, so
+		// --seccomp-required lets a deployment opt into failing closed.
+		if cfg.seccompRequired {
+			log.WithError(err).Error("seccomp profile could not be loaded and --seccomp-required is set; refusing to run unconfined")
+			return err
+		}
+		log.WithError(err).Warn("failed to load seccomp profile; proceeding WITHOUT syscall filtering (set --seccomp-required to fail closed instead)")
 	}
 
 	return drive(ctx, lt, src, closeFn, store, enforcer, cfg.quiet, cfg.eventBuffer, cfg.excludeIPs, &eventCount, log)
@@ -427,7 +439,7 @@ func drive(ctx context.Context, lt layers.LinkType, source tap.PacketSource, clo
 				select {
 				case <-heartbeat.C:
 					var mem runtime.MemStats
-					runtime.ReadMemStats(&mem) // R-010: visibility into actual heap pressure
+					runtime.ReadMemStats(&mem)                     // R-010: visibility into actual heap pressure
 					tap.HeapAllocBytes.Set(float64(mem.HeapAlloc)) // G-003 item 3
 					fields := logrus.Fields{
 						"handshakes_total": eventCount.Load(),

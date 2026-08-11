@@ -34,6 +34,10 @@ on:
   merge_group:
   schedule:
     - cron: "0 6 * * 1"  # Mondays 06:00 UTC — weekly CVE sweep
+  # Phase 800: without this, a scheduled-run failure could only be reproduced by
+  # waiting up to a week for the next Monday. Issue #405 sat open precisely
+  # because its secrets-scan failure could not be re-triggered on demand.
+  workflow_dispatch:
 
 # Default token scope is intentionally minimal. Jobs that need more (e.g.
 # security-events: write for SARIF upload) override at the job level.
@@ -218,11 +222,18 @@ jobs:
           # phase-61 review-fix #2 (B3): on a `push` to main, base=default_branch
           # and head=HEAD resolve to the same commit, producing an empty diff —
           # TruffleHog scans nothing and the job silently passes. Branch by
-          # event type so PRs diff against the PR base, pushes diff against the
-          # previous tip (`github.event.before`), and the weekly schedule still
-          # works (both fall through to a full HEAD scan).
-          base: ${{ github.event.pull_request.base.sha || github.event.before }}
-          head: ${{ github.event.pull_request.head.sha || github.sha }}
+          # event type so PRs diff against the PR base and pushes diff against
+          # the previous tip (`github.event.before`).
+          #
+          # Phase 800 correction: the original comment claimed schedule "falls
+          # through to a full HEAD scan". It does not. `github.event.before` is
+          # only populated for `push`, so on `schedule` (and `workflow_dispatch`)
+          # base resolved to the empty string while head was set — an
+          # unintended, undocumented scan scope rather than the deliberate full
+          # scan the comment described. Both are now set explicitly to '' so the
+          # full-history scan is what the config actually says it is.
+          base: ${{ github.event_name == 'schedule' && '' || github.event_name == 'workflow_dispatch' && '' || github.event.pull_request.base.sha || github.event.before }}
+          head: ${{ github.event_name == 'schedule' && '' || github.event_name == 'workflow_dispatch' && '' || github.event.pull_request.head.sha || github.sha }}
           extra_args: --only-verified
 
   sast:
