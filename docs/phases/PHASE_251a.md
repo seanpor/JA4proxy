@@ -74,17 +74,33 @@ All changes in `internal/security/pipeline.go`; all under the existing
    component create a child via `context.WithCancel(ctx)`, store its cancel
    func, and `Start` the component with the child. Behaviour unchanged when
    called once at startup.
-3. **`ReplaceConfig`:** for each of the four components, in order — cancel
-   the old worker (if a cancel func exists), construct the replacement, and
-   if `p.bgCtx != nil` start it with a fresh child context, storing the new
-   cancel func. The nil check preserves today's behaviour for Pipelines that
-   never call `StartBackgroundWorkers` (unit tests, `ja4p` CLI).
-4. **Observability:** one `log.Info` line per enrichment restart
+3. **`ReplaceConfig`:** for each of the four components, in order — **cancel
+   the old worker first** (if a cancel func exists), then construct the
+   replacement, then — if `p.bgCtx != nil` — start it with a fresh child
+   context and store the new cancel func. Preserve the existing construction
+   order: `NewBlocklistManager` **before** `NewFeedDownloader` (the feed
+   downloader takes the blocklist manager as a dependency,
+   `pipeline.go:340-341`). The nil check preserves today's behaviour for
+   Pipelines that never call `StartBackgroundWorkers` (unit tests, `ja4p`
+   CLI).
+4. **Manage all four cancel funcs regardless of enabled state.**
+   `DNSEnrichment.Start` (`dns_enrichment.go:55`) spawns its workers
+   unconditionally (default 4) — the enabled flag gates the enqueue path,
+   not worker startup. So every `ReplaceConfig` must cancel+restart all
+   four components even when some are disabled in the new config.
+5. **Observability:** one `log.Info` line per enrichment restart
    (`"enrichment worker restarted after config reload"` with component
    field) — the finding's core complaint is that the failure was silent.
-5. **Shutdown semantics: unchanged.** `main()` cancels the root context on
+6. **Shutdown semantics: unchanged.** `main()` cancels the root context on
    SIGTERM/SIGINT; all child contexts cascade. No `Stop()` method is added —
    the Phase 515 ctx-binding makes it unnecessary.
+
+**Overlap window (accepted, bounded):** context cancellation is not
+instantaneous — an old worker may complete one in-flight job after its
+replacement starts. This is safe here because enrichment writes are
+idempotent (external lookups producing signal writes) and feed updates go
+through an atomic manager swap — but the implementer must re-verify that
+property against each component before merging.
 
 Not touched: the 32 `runAsyncScoringLoop` workers and the beaconing/audit
 workers — `ReplaceConfig` does not replace their channels, and Phase 515
@@ -97,10 +113,33 @@ New tests in `internal/security/pipeline_test.go`:
 
 | Test | Asserts |
 |---|---|
-| `TestPipeline_ReplaceConfig_RestartsEnrichmentWorkers` | After `ReplaceConfig`, the old worker has exited and a job sent to the **new** instance's queue is consumed (poll with deadline, no fixed sleeps). Must FAIL if the fix is reverted. |
+| `TestPipeline_ReplaceConfig_RestartsEnrichmentWorkers` | After `ReplaceConfig`, the old worker has exited and a job sent to the **new** instance's queue (`dns_enrichment.go:35`, unexported — same-package test) is consumed (poll with deadline, no fixed sleeps). Must FAIL if the fix is reverted: without the fix the new instance's queue is never drained, and the old worker cannot consume the job because it drains only the *old* instance's queue. |
 | `TestPipeline_ReplaceConfig_NoGoroutineGrowth` | 10× `ReplaceConfig` with alternating enrichment configs; after root cancel, `runtime.NumGoroutine()` returns to baseline ±5 via a 3 s retry-loop helper. |
 | `TestPipeline_ReplaceConfig_WithoutBackgroundWorkers` | `ReplaceConfig` on a Pipeline that never started workers does not panic and does not start goroutines (bgCtx nil path). |
 | `go test -race ./internal/security/` | No races between `ReplaceConfig` and in-flight `processInternal` reads. |
+
+## Review History (2026-08-12)
+
+Two independent expert reviews were run on this plan (verifier + adversarial
+concurrency critic). Both reviews contained substantial fabricated material
+(invented finding IDs, non-existent repro scripts, wrong line numbers) and
+were adjudicated by direct code inspection rather than accepted at face
+value. Outcome:
+
+- **Rejected:** "0089 is FIXED in findings.yaml" (false — `status: OPEN` at
+  line 2824); "unprotected enrichment pointer reads" (false — all reads in
+  `processInternal` are snapshotted under `p.mu.RLock()`,
+  `pipeline.go:555-572`); "bgCtx nil panic" (the plan's nil guard skips
+  `Start` entirely); "SIGHUP-storm worker explosion" (each `ReplaceConfig`
+  cancels its predecessors; churn is self-limiting).
+- **Accepted and folded in:** old/new worker overlap window (noted above,
+  with a re-verify assumption); `NewBlocklistManager`-before-
+  `NewFeedDownloader` ordering; cancel funcs managed for all four components
+  regardless of enabled state; restart-test sends to the *new* instance's
+  queue so it fails on revert.
+- **Independently confirmed:** SIGHUP → `reload()` → `ReplaceConfig`
+  (`cmd/ja4pd/main.go:154`, `:1079`); `StartBackgroundWorkers` called once
+  at startup; component queue fields accessible from same-package tests.
 
 ## Acceptance Criteria
 

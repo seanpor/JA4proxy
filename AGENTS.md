@@ -125,12 +125,27 @@ on. Edit `manifest.yaml`; run `make sync` to preview locally.
 >    newer GitHub feature layered on top of classic branch protection, not a
 >    replacement for it; this repo has both.
 >
-> **Merging (Phase 332).** Land work with
+> **Merging (Phase 332; corrected 2026-08-12).** Land work with
 > `gh pr merge --auto --squash --delete-branch`; it merges once the required
-> checks pass. `main` is **not** strict (require-branches-up-to-date is **off**),
-> so an independent PR no longer has to rebase every time `main` advances — that
-> rebase-on-base-advance loop was the main merge-race driver. You only need to
-> rebase if your PR genuinely conflicts. *(A GitHub merge queue would automate
+> checks pass. **`main` IS strict** — require-branches-up-to-date is **ON**
+> (verified via the API 2026-08-12: `required_status_checks.strict: true`;
+> an earlier version of this section claimed it was off — that was wrong or
+> has since changed). Consequence: every time `main` advances, open PRs go
+> `BEHIND` and auto-merge will **not** fire until the branch is updated.
+> On an active day this is a rebase treadmill — a PR can go stale inside its
+> own CI window. The fast recovery loop:
+>
+> ```bash
+> gh pr update-branch <N> --rebase   # server-side rebase onto main, no local checkout
+> gh pr checks <N> --watch --interval 60   # then auto-merge fires on green
+> ```
+>
+> Two gotchas learned the hard way: `gh pr checks --watch` can report the
+> *previous* head's green suite while the post-rebase suite is still
+> registering — always re-check `gh pr checks` output for `pending` before
+> assuming you're clear; and `mergeStateStatus: BEHIND` (not conflicts) is
+> the usual blocker. You only need a *local* rebase if the server-side
+> update reports a genuine conflict. *(A GitHub merge queue would automate
 > even that, but merge queue requires an **organization-owned** repo and this one
 > is personal-account-owned, so it is unavailable — see `docs/phases/complete/PHASE_332.md`.)*
 >
@@ -143,8 +158,9 @@ on. Edit `manifest.yaml`; run `make sync` to preview locally.
 > were **restored to required on 2026-07-01**. Run **`make preflight`**
 > (lint + scan + test) locally before opening any PR regardless — it's the same
 > gate CI now enforces, and catching a break locally is faster than waiting on
-> CI. Because `main` is non-strict, run `make preflight` against a reasonably
-> current branch.
+> CI. Because `main` is strict (branches must be up to date), run
+> `make preflight` against a reasonably current branch — and expect to
+> `gh pr update-branch --rebase` if `main` advances before your checks finish.
 >
 > **Emergency override** (use only when `main` is broken and a fix cannot wait
 > for normal CI, or for a planned operation that genuinely needs a direct push —
