@@ -84,6 +84,8 @@ services:
       - ENVIRONMENT=${ENVIRONMENT:-development}
       - JA4PROXY_TRACE=${JA4PROXY_TRACE:-false}
       - JA4PROXY_FORENSIC=${JA4PROXY_FORENSIC:-false}
+      - METRICS_BIND_HOST=${METRICS_BIND_HOST:-127.0.0.1}
+      - METRICS_AUTH_TOKEN=${METRICS_AUTH_TOKEN:-}
     networks:
       - ja4proxy-dmz
       - ja4proxy-data

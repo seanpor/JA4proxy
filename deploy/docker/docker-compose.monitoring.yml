@@ -229,11 +229,9 @@ services:
         limits:
           memory: 512M
           cpus: '1.0'
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3100/ready"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
+    # No healthcheck: the distroless loki image ships only /usr/bin/loki
+    # (no wget/curl/sh), so no in-container readiness probe can run. A broken
+    # healthcheck would leave the container permanently "unhealthy".
 
   # JA4PROXY-2026-0017 — tecnativa/docker-socket-proxy exposes a
   # whitelisted subset of the Docker API over TCP so promtail can do

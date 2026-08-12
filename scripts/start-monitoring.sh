@@ -32,12 +32,13 @@ echo -e "${GREEN}▶ Waiting for services to be ready...${NC}"
 sleep 15
 
 # Ensure Grafana admin password matches .env (handles pre-existing volume)
+GRAFANA_CT="ja4proxy-lane${JA4_LANE:-1}-grafana-1"
 if [ -n "${GRAFANA_PASSWORD}" ] && [ "${GRAFANA_PASSWORD}" != "admin" ]; then
-    docker exec ja4proxy-grafana grafana-cli admin reset-admin-password "${GRAFANA_PASSWORD}" > /dev/null 2>&1 || true
+    docker exec "${GRAFANA_CT}" grafana cli admin reset-admin-password "${GRAFANA_PASSWORD}" > /dev/null 2>&1 || true
 fi
 
 # Check Prometheus
-if curl -sf http://localhost:9091/-/healthy > /dev/null; then
+if curl -sf "http://localhost:${HOST_PORT_PROMETHEUS:-9091}/-/healthy" > /dev/null; then
     echo -e "${GREEN}✓ Prometheus is healthy${NC}"
 else
     echo -e "${YELLOW}⚠ Prometheus not responding yet...${NC}"
@@ -50,15 +51,16 @@ else
     echo -e "${YELLOW}⚠ Alertmanager not responding yet...${NC}"
 fi
 
-# Check Grafana
-if curl -sf http://localhost:3001/api/health > /dev/null; then
+# Check Grafana (HTTPS — self-signed cert, skip verification)
+if curl -skf "https://localhost:${HOST_PORT_GRAFANA:-3000}/api/health" > /dev/null; then
     echo -e "${GREEN}✓ Grafana is healthy${NC}"
 else
     echo -e "${YELLOW}⚠ Grafana not responding yet...${NC}"
 fi
 
-# Check Loki (via docker exec since it has no host port)
-if docker exec ja4proxy-loki wget -q --spider http://localhost:3100/ready 2>/dev/null; then
+# Check Loki (via the running Grafana container — it shares the monitoring
+# network and has curl; the distroless loki image ships no probe tooling)
+if docker exec "${GRAFANA_CT}" sh -c 'curl -sf http://loki:3100/ready > /dev/null' 2>/dev/null; then
     echo -e "${GREEN}✓ Loki is healthy${NC}"
 else
     echo -e "${YELLOW}⚠ Loki not responding yet...${NC}"
@@ -71,9 +73,9 @@ echo -e "${BLUE}========================================${NC}"
 echo ""
 echo "Access the services:"
 echo ""
-echo "  Prometheus:    http://localhost:9091"
+echo "  Prometheus:    http://localhost:${HOST_PORT_PROMETHEUS:-9091}"
 echo "  Alertmanager:  http://localhost:9093"
-echo "  Grafana:       http://localhost:3001"
+echo "  Grafana:       https://localhost:${HOST_PORT_GRAFANA:-3000}"
 # JA4PROXY-2026-0040: never echo the Grafana password. Operators can
 # retrieve it from the .env file (chmod 600) with:
 #     grep '^GRAFANA_PASSWORD=' .env
@@ -81,7 +83,7 @@ echo "                 (admin / [see .env])"
 echo ""
 echo "Next steps:"
 echo ""
-echo "  1. Open Grafana: open http://localhost:3001"
+echo "  1. Open Grafana: open https://localhost:${HOST_PORT_GRAFANA:-3000}"
 echo "  2. Dashboard is auto-imported: 'JA4 Proxy Security Dashboard'"
 echo "  3. Test alerts: ./scripts/test-ja4-blocking.sh"
 echo "  4. View alerts: open http://localhost:9093"

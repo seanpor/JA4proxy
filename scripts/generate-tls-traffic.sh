@@ -21,6 +21,9 @@ DURATION=${1:-60}
 GOOD_PERCENT=${2:-15}
 WORKERS=${3:-50}
 
+# Lane port map (managed by scripts/lane-env.sh); metrics + Grafana are lane-offset.
+[ -f .env ] && { set -a; source .env; set +a; }
+
 echo -e "${CYAN}╔════════════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${CYAN}║          JA4proxy TLS Traffic Generator                           ║${NC}"
 echo -e "${CYAN}╚════════════════════════════════════════════════════════════════════╝${NC}"
@@ -61,8 +64,8 @@ echo -e "  Target:          proxy:8080 (Docker network)"
 echo ""
 
 echo -e "${YELLOW}Monitor in real-time:${NC}"
-echo -e "  Grafana:     http://localhost:3001 (admin / see .env)"
-echo -e "  Prometheus:  http://localhost:9091"
+echo -e "  Grafana:     https://localhost:${HOST_PORT_GRAFANA:-3000} (admin / see .env)"
+echo -e "  Prometheus:  http://localhost:${HOST_PORT_PROMETHEUS:-9091}"
 echo -e "  Logs:        docker compose -f deploy/docker/docker-compose.poc.yml logs -f proxy"
 echo ""
 
@@ -88,9 +91,12 @@ echo ""
 echo -e "${BLUE}Quick Metrics Summary:${NC}"
 echo ""
 
-if curl -s http://localhost:9090/metrics > /tmp/ja4_metrics.txt 2>/dev/null; then
+# The proxy's /metrics endpoint requires a Bearer token when scraped
+# non-loopback and serves the ja4proxy_* metric family (JA4PROXY-2026-0008).
+METRICS_URL="http://localhost:${HOST_PORT_METRICS:-9090}/metrics"
+if curl -sf -H "Authorization: Bearer ${METRICS_AUTH_TOKEN:-}" "${METRICS_URL}" > /tmp/ja4_metrics.txt 2>/dev/null; then
     echo -e "${CYAN}Requests by fingerprint + action:${NC}"
-    grep "^ja4_requests_total" /tmp/ja4_metrics.txt | grep -v "#" \
+    grep "^ja4proxy_connections_total" /tmp/ja4_metrics.txt | grep -v "#" \
         | awk -F'"' '
             {
                 name=""; action=""
@@ -108,11 +114,11 @@ if curl -s http://localhost:9090/metrics > /tmp/ja4_metrics.txt 2>/dev/null; the
     echo ""
 
     # Sum all blocked counts into a single total (reason label varies per TTL)
-    total_blocked=$(grep "^ja4_blocked_requests_total" /tmp/ja4_metrics.txt | grep -v "#" \
+    total_blocked=$(grep "^ja4proxy_blocked_requests_total" /tmp/ja4_metrics.txt | grep -v "#" \
         | awk '{val=$NF; gsub(/^[^0-9.]+/,"",val); sum+=val} END{printf "%.0f", sum}')
     # Break down by attack_type label only
     echo -e "${CYAN}Blocked requests by action type:${NC}"
-    grep "^ja4_blocked_requests_total" /tmp/ja4_metrics.txt | grep -v "#" \
+    grep "^ja4proxy_blocked_requests_total" /tmp/ja4_metrics.txt | grep -v "#" \
         | awk -F'"' '
             {
                 atype=""
@@ -129,12 +135,12 @@ if curl -s http://localhost:9090/metrics > /tmp/ja4_metrics.txt 2>/dev/null; the
 
     rm -f /tmp/ja4_metrics.txt
 else
-    echo -e "${YELLOW}  Metrics endpoint not accessible${NC}"
+    echo -e "${YELLOW}  Metrics endpoint not accessible (${METRICS_URL})${NC}"
 fi
 
 echo ""
 echo -e "${YELLOW}Next Steps:${NC}"
-echo -e "  1. View metrics: ${CYAN}curl http://localhost:9090/metrics | grep ja4_${NC}"
-echo -e "  2. Grafana:      ${CYAN}http://localhost:3001${NC} (metrics + logs)"
+echo -e "  1. View metrics: ${CYAN}curl -s -H "Authorization: Bearer ${METRICS_AUTH_TOKEN:-}" ${METRICS_URL} | grep ja4proxy_${NC}"
+echo -e "  2. Grafana:      ${CYAN}https://localhost:${HOST_PORT_GRAFANA:-3000}${NC} (metrics + logs)"
 echo -e "  3. Run again:    ${CYAN}./scripts/generate-tls-traffic.sh <duration> <good%> <workers>${NC}"
 echo ""
