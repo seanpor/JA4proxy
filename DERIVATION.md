@@ -1,5 +1,41 @@
 # Derivation Log
 
+## Change — CI tools-image download resilience (branch `fix-test-entrypoint-shebang`)
+
+Add curl retry to the pinned-binary downloads in `Dockerfile.tools` so the
+CI gates (`make lint`, `make test`, `make lint-meta` — all tools-image
+prereqs) stop failing on transient GitHub-Actions-runner download flakiness.
+
+| # | Problem | Fix |
+|---|---|---|
+| 1 | PR 420's Meta-Validation / Full Lint / Full Test jobs failed twice at the tools-image build step: `curl -fsSL` from the GitHub release CDN exited 22 (HTTP error) then 56 (recv failure). URLs verified live (all HTTP 200), so the pins are valid — only connectivity flakes | Added `--retry 5 --retry-delay 2 --retry-all-errors` to all five pinned downloads (helm, promtool, docker CLI, docker-compose plugin, buildx plugin) |
+
+## Assumptions
+
+- The pinned versions + SHA256 checksums are unchanged; retry only re-attempts
+  the identical download, and the sha256 check still fails closed on a
+  corrupted/truncated fetch.
+- Transient GitHub-Actions connectivity flakiness is the failure mode (curl
+  exit 22 then 56 on different binaries across two runs); deterministic pin
+  failures would reproduce identically everywhere and would exit 22 every time
+  (here URL checks returned 200).
+- `curl --retry-all-errors` is supported on the Debian-slim curl in the base
+  image (curl 7.x+); local `docker build` of the modified image passed.
+
+## Checks run
+
+- Verified all 3 github.com release URLs return HTTP 200 from the local host.
+- `docker build -t ja4proxy-tools -f Dockerfile.tools .` → success, image
+  `e9668465...` produced (all 5 downloads executed with the new retry flags).
+- `make lint-meta` and `make lint` pass locally; the image builds on demand.
+
+## Model
+
+- Author: `opencode/deepseek-v4-flash-free` (family `deepseek`), version `deepseek-v4-flash-free-2026-08`.
+- Reviewer (quality gate): `ollama/deepseek-r1:14b` (family `deepseek-r1`).
+
+---
+
 ## Change — demo-stack fixes (branch `fix-bench-all-poc-secrets`)
 
 Fix the JA4proxy demo stack (POC + Prometheus/Grafana monitoring) so the

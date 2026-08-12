@@ -33,7 +33,7 @@ RUN apt-get update \
 # binary directly on PATH.
 ARG HELM_VERSION=3.17.3
 ARG HELM_SHA256=ee88b3c851ae6466a3de507f7be73fe94d54cbf2987cbaa3d1a3832ea331f2cd
-RUN curl -fsSL -o /tmp/helm.tar.gz "https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz" \
+RUN curl -fsSL --retry 5 --retry-delay 2 --retry-all-errors -o /tmp/helm.tar.gz "https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz" \
  && echo "${HELM_SHA256}  /tmp/helm.tar.gz" | sha256sum -c - \
  && tar -xzf /tmp/helm.tar.gz -C /tmp linux-amd64/helm \
  && mv /tmp/linux-amd64/helm /usr/local/bin/helm \
@@ -50,7 +50,7 @@ RUN curl -fsSL -o /tmp/helm.tar.gz "https://get.helm.sh/helm-v${HELM_VERSION}-li
 # fix in Makefile).
 ARG PROMETHEUS_VERSION=2.48.0
 ARG PROMETHEUS_SHA256=5871ca9e01ae35bb7ab7a129a845a7a80f0e1453f00f776ac564dd41ff4d754e
-RUN curl -fsSL -o /tmp/prom.tar.gz "https://github.com/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}/prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz" \
+RUN curl -fsSL --retry 5 --retry-delay 2 --retry-all-errors -o /tmp/prom.tar.gz "https://github.com/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}/prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz" \
  && echo "${PROMETHEUS_SHA256}  /tmp/prom.tar.gz" | sha256sum -c - \
  && tar -xzf /tmp/prom.tar.gz -C /tmp "prometheus-${PROMETHEUS_VERSION}.linux-amd64/promtool" \
  && mv "/tmp/prometheus-${PROMETHEUS_VERSION}.linux-amd64/promtool" /usr/local/bin/promtool \
@@ -68,7 +68,7 @@ RUN curl -fsSL -o /tmp/prom.tar.gz "https://github.com/prometheus/prometheus/rel
 # pinned here to catch any future substitution.
 ARG DOCKER_VERSION=29.6.1
 ARG DOCKER_SHA256=b0df4a43a98d7ecb708acbdb5a34a3416e13b6e39bcbbdf296f51f0f3442b29f
-RUN curl -fsSL -o /tmp/docker.tgz "https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKER_VERSION}.tgz" \
+RUN curl -fsSL --retry 5 --retry-delay 2 --retry-all-errors -o /tmp/docker.tgz "https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKER_VERSION}.tgz" \
  && echo "${DOCKER_SHA256}  /tmp/docker.tgz" | sha256sum -c - \
  && tar -xzf /tmp/docker.tgz -C /tmp docker/docker \
  && mv /tmp/docker/docker /usr/local/bin/docker \
@@ -82,7 +82,7 @@ RUN curl -fsSL -o /tmp/docker.tgz "https://download.docker.com/linux/static/stab
 ARG COMPOSE_VERSION=5.2.0
 ARG COMPOSE_SHA256=018f9612ecabc5f2d7aaa53d6f5f44453a87611e2d72c8ef84d7b1eca070e719
 RUN mkdir -p /usr/local/lib/docker/cli-plugins \
- && curl -fsSL -o /usr/local/lib/docker/cli-plugins/docker-compose "https://github.com/docker/compose/releases/download/v${COMPOSE_VERSION}/docker-compose-linux-x86_64" \
+ && curl -fsSL --retry 5 --retry-delay 2 --retry-all-errors -o /usr/local/lib/docker/cli-plugins/docker-compose "https://github.com/docker/compose/releases/download/v${COMPOSE_VERSION}/docker-compose-linux-x86_64" \
  && echo "${COMPOSE_SHA256}  /usr/local/lib/docker/cli-plugins/docker-compose" | sha256sum -c - \
  && chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
 
@@ -95,7 +95,7 @@ RUN mkdir -p /usr/local/lib/docker/cli-plugins \
 # component is missing or broken" otherwise).
 ARG BUILDX_VERSION=0.35.0
 ARG BUILDX_SHA256=d41ece72044243b4f58b343441ae37446d9c29a7d6b5e11c61847bbcf8f7dfda
-RUN curl -fsSL -o /usr/local/lib/docker/cli-plugins/docker-buildx "https://github.com/docker/buildx/releases/download/v${BUILDX_VERSION}/buildx-v${BUILDX_VERSION}.linux-amd64" \
+RUN curl -fsSL --retry 5 --retry-delay 2 --retry-all-errors -o /usr/local/lib/docker/cli-plugins/docker-buildx "https://github.com/docker/buildx/releases/download/v${BUILDX_VERSION}/buildx-v${BUILDX_VERSION}.linux-amd64" \
  && echo "${BUILDX_SHA256}  /usr/local/lib/docker/cli-plugins/docker-buildx" | sha256sum -c - \
  && chmod +x /usr/local/lib/docker/cli-plugins/docker-buildx
 
