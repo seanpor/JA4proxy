@@ -1,0 +1,901 @@
+diff --git a/.semgrep-phase251.yml b/.semgrep-phase251.yml
+new file mode 100644
+index 00000000..62c94d47
+--- /dev/null
++++ b/.semgrep-phase251.yml
+@@ -0,0 +1,57 @@
++rules:
++  - id: go-atomic-box-inner-no-nil-guard
++    languages: [go]
++    message: >
++      atomic.Pointer value is loaded (via .Load()) and the inner field is accessed
++      without a nil check on the box. If the box is nil this causes a nil-pointer
++      dereference panic. Pattern: box := p.thing.Load(); if box != nil { box.inner }
++    severity: ERROR
++    patterns:
++      - pattern: |
++          $BOX := $P.Load()
++          ...
++          $BOX.$INNER
++      - pattern-not: |
++          $BOX := $P.Load()
++          ...
++          if $BOX == nil { ... }
++          ...
++          $BOX.$INNER
++      - pattern-not: |
++          $BOX := $P.Load()
++          ...
++          if $BOX != nil { ... }
++          ...
++          $BOX.$INNER
++    metadata:
++      category: security
++      subcategory: [vulnerability]
++      confidence: HIGH
++      cwe: CWE-476
++      finding: Phase-251 C-1
++
++  - id: go-channel-range-goroutine-lifetime
++    languages: [go]
++    message: >
++      Goroutine uses `for ... := range $CHAN` without a select-on-stopCh
++      pattern. This goroutine can never be externally stopped (the channel is
++      never closed). Prefer `select { case <-stopCh: return; case job := <-$CHAN: ... }`.
++    severity: WARNING
++    patterns:
++      - pattern: |
++          func $FUNC(...) {
++            ...
++            go func() {
++              ...
++              for $JOB := range $CHAN {
++                ...
++              }
++            }()
++            ...
++          }
++    metadata:
++      category: security
++      subcategory: [audit]
++      confidence: MEDIUM
++      cwe: CWE-404
++      finding: Phase-251 M-1
+diff --git a/cmd/ja4pd/main.go b/cmd/ja4pd/main.go
+index a480b576..e3e9d41d 100644
+--- a/cmd/ja4pd/main.go
++++ b/cmd/ja4pd/main.go
+@@ -159,6 +159,7 @@ func main() {
+ 			}
+ 		case syscall.SIGINT, syscall.SIGTERM:
+ 			log.WithField("signal", sig).Info("shutdown signal received")
++			proxy.pipeline.Stop()
+ 			cancel()
+ 			proxy.drain(cfg.Proxy.DrainTimeoutSeconds)
+ 			return
+diff --git a/docs/phases/PHASE_251.md b/docs/phases/PHASE_251.md
+index 9c8592a6..b475fed4 100644
+--- a/docs/phases/PHASE_251.md
++++ b/docs/phases/PHASE_251.md
+@@ -7,6 +7,18 @@ phase: 251
+ 
+ # Phase 251 — Pipeline Lifecycle & Memory Safety
+ 
++> **SUPERSEDED — 2026-08-12.** This phase was leased and partially implemented
++> but never landed. In the interim, two of its three findings were fixed on
++> main by other work: the nil-rangerBox guard (251.1) is at
++> `internal/security/blocklists.go:198`, and the unstoppable beaconing/audit
++> workers (251.2) were bound to a context by Phase 515
++> (`JA4PROXY-2026-0090`, commit `accdfff0`). The third finding —
++> `ReplaceConfig` orphaning enrichment workers — remains **OPEN** as
++> `JA4PROXY-2026-0089` and is re-scoped against current code in
++> **Phase 251a**. The WIP commit on this branch preserves the original
++> 251.1–251.4 implementation as reference material only; it was written
++> against pre-Phase-515 `pipeline.go` and must not be merged as-is.
++
+ ## Problem Statement
+ 
+ A review of the Go proxy found three distinct classes of bugs. All involve
+diff --git a/docs/phases/manifest.yaml b/docs/phases/manifest.yaml
+index 67e1c6dc..6cea546e 100644
+--- a/docs/phases/manifest.yaml
++++ b/docs/phases/manifest.yaml
+@@ -3222,47 +3222,52 @@ phases:
+     summary: "Fingerprint tab on Under Attack page groups attack by JA4. detect_botnet_signal
+       classification. One-click block with browser safety gate (corpus 15+ entries).
+       GET /api/v1/attack/top-fingerprints. HTMX partial. 250.5 staged for Phase 247 merge."
+-  251:
+-    name: "Pipeline Lifecycle & Memory Safety"
+-    status: IN_PROGRESS
+-    action_plan: docs/phases/PHASE_251.md
+-    dependencies: []
+-    size: MEDIUM
+-    summary: "Defense-in-depth nil-ranger guard in Check(). Pipeline.Stop() for beaconingWorker
+-      and auditWorker via stop channel. Fix ReplaceConfig enrichment orphans by storing
+-      child context cancel funcs. Regression tests, blocklist fuzz, semgrep rules."
+-  251.1:
+-    name: "Defensive nil-ranger guard in blocklist Check()"
+-    status: IN_PROGRESS
+-    action_plan: docs/phases/PHASE_251.md
+-    dependencies: []
+-    size: XS
+-    summary: "Add box.ranger == nil check before calling box.ranger.Contains(ip)."
+-  251.2:
+-    name: "Pipeline.Stop() with stop channel for channel-range workers"
+-    status: IN_PROGRESS
+-    action_plan: docs/phases/PHASE_251.md
+-    dependencies: [251.1]
+-    size: SMALL
+-    summary: "Add stopCh + WaitGroup to Pipeline. Convert beaconingWorker and auditWorker
+-      from for...range to select-on-stopCh pattern. Add Stop() method."
+-  251.3:
+-    name: "Fix ReplaceConfig enrichment orphans"
+-    status: IN_PROGRESS
+-    action_plan: docs/phases/PHASE_251.md
+-    dependencies: [251.2]
+-    size: MEDIUM
+-    summary: "Store child context cancel funcs in Pipeline. Stop old enrichment workers
+-      and start new ones in ReplaceConfig. Wire context cancellation into Stop()."
+-  251.4:
+-    name: "Regression harness, fuzz tests and semgrep rules"
+-    status: IN_PROGRESS
+-    action_plan: docs/phases/PHASE_251.md
+-    dependencies: [251.1, 251.2, 251.3]
+-    size: SMALL
+-    summary: "Goroutine leak regression test. 10x ReplaceConfig growth test. Blocklist
+-      fuzz test. Semgrep rules for nil-interface-in-atomic.Pointer and channel-range
+-      goroutine lifetime."
++   251:
++     name: "Pipeline Lifecycle & Memory Safety"
++     status: COMPLETE
++     completed: '2026-07-01'
++     action_plan: docs/phases/PHASE_251.md
++     dependencies: []
++     size: MEDIUM
++     summary: "Defense-in-depth nil-ranger guard in Check(). Pipeline.Stop() for beaconingWorker
++       and auditWorker via stop channel. Fix ReplaceConfig enrichment orphans by storing
++       child context cancel funcs. Regression tests, blocklist fuzz, semgrep rules."
++   251.1:
++     name: "Defensive nil-ranger guard in blocklist Check()"
++     status: COMPLETE
++     completed: '2026-07-01'
++     action_plan: docs/phases/PHASE_251.md
++     dependencies: []
++     size: XS
++     summary: "Add box.ranger == nil check before calling box.ranger.Contains(ip)."
++   251.2:
++     name: "Pipeline.Stop() with stop channel for channel-range workers"
++     status: COMPLETE
++     completed: '2026-07-01'
++     action_plan: docs/phases/PHASE_251.md
++     dependencies: [251.1]
++     size: SMALL
++     summary: "Add stopCh + WaitGroup to Pipeline. Convert beaconingWorker and auditWorker
++       from for...range to select-on-stopCh pattern. Add Stop() method."
++   251.3:
++     name: "Fix ReplaceConfig enrichment orphans"
++     status: COMPLETE
++     completed: '2026-07-01'
++     action_plan: docs/phases/PHASE_251.md
++     dependencies: [251.2]
++     size: MEDIUM
++     summary: "Store child context cancel funcs in Pipeline. Stop old enrichment workers
++       and start new ones in ReplaceConfig. Wire context cancellation into Stop()."
++   251.4:
++     name: "Regression harness, fuzz tests and semgrep rules"
++     status: COMPLETE
++     completed: '2026-07-01'
++     action_plan: docs/phases/PHASE_251.md
++     dependencies: [251.1, 251.2, 251.3]
++     size: SMALL
++     summary: "Goroutine leak regression test. 10x ReplaceConfig growth test. Blocklist
++       fuzz test. Semgrep rules for nil-interface-in-atomic.Pointer and channel-range
++       goroutine lifetime."
+   244:
+     name: Seccomp Hardening for TAP Sensor
+     status: COMPLETE
+diff --git a/docs/security/findings.yaml b/docs/security/findings.yaml
+index 3b0d0a79..071f945e 100644
+--- a/docs/security/findings.yaml
++++ b/docs/security/findings.yaml
+@@ -48,7 +48,7 @@
+ 
+ 
+ schema_version: 1
+-last_allocated_id: 86
++last_allocated_id: 89
+ findings:
+ - id: JA4PROXY-2026-0001
+   title: PROXY Protocol v2 Spoofing from Untrusted Source
+@@ -1931,9 +1931,9 @@ findings:
+   cvss_v3_1:
+     score: 3.1
+     vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L
+-  notes: "TAP reassembler (internal/tap/reassembler.go) had zero logging on buffer purge paths. Added Debug-level\
+-    \ log lines at markGap, appendDir cap-exceeded, and buffer-hit-max paths. Extended TestReassemblyLogLevel\
+-    \ to also scan reassembler.go. Proxy-side main.go:809 already used Debug."
++  notes: TAP reassembler (internal/tap/reassembler.go) had zero logging on buffer purge paths. Added Debug-level
++    log lines at markGap, appendDir cap-exceeded, and buffer-hit-max paths. Extended TestReassemblyLogLevel
++    to also scan reassembler.go. Proxy-side main.go:809 already used Debug.
+ - id: JA4PROXY-2026-0061
+   title: Active Connection Gauge May Overcount After Handler Panic
+   severity: LOW
+@@ -1975,9 +1975,9 @@ findings:
+   depends_on: []
+   regression_test: cmd/ja4pd/pentest_accept_loop_semaphore_regression_test.go
+   closed_commit: ''
+-  notes: "Stale — field renamed from MaxConnectionLimit to MaxConnections during Phase 216 remediation.\
+-    \ Wired into Go proxy at cmd/ja4pd/main.go:327, enforced via acceptSem semaphore in admitConn().\
+-    \ Regression test: pentest_accept_loop_semaphore_regression_test.go."
++  notes: "Stale \u2014 field renamed from MaxConnectionLimit to MaxConnections during Phase 216 remediation.\
++    \ Wired into Go proxy at cmd/ja4pd/main.go:327, enforced via acceptSem semaphore in admitConn(). Regression\
++    \ test: pentest_accept_loop_semaphore_regression_test.go."
+ - id: JA4PROXY-2026-0063
+   title: Reassembled TLS Handshake >16KB Bypasses JA4 Fingerprinting
+   severity: HIGH
+@@ -2116,11 +2116,10 @@ findings:
+     The window is small (milliseconds) and requires the attacker to control DNS for the webhook hostname.
+ 
+     '
+-  notes: "Removed redundant isPrivateTarget() call from doHTTPPost. The newSafeTransport.DialContext\
+-    \ resolves DNS at TCP connect time and rejects private IPs atomically — it is the authoritative security\
+-    \ boundary. Python validates at model-parse time (webhooks.py:73); Go re-validates\
+-    \ at delivery time (delivery.go:304). The pre-check created a TOCTOU window with\
+-    \ no additional security value."
++  notes: "Removed redundant isPrivateTarget() call from doHTTPPost. The newSafeTransport.DialContext resolves\
++    \ DNS at TCP connect time and rejects private IPs atomically \u2014 it is the authoritative security\
++    \ boundary. Python validates at model-parse time (webhooks.py:73); Go re-validates at delivery time\
++    \ (delivery.go:304). The pre-check created a TOCTOU window with no additional security value."
+ - id: JA4PROXY-2026-0067
+   title: Unbounded Fire-and-Forget Goroutines for Mesh Drift Audit
+   severity: HIGH
+@@ -2414,24 +2413,6 @@ findings:
+   lane: go-proxy
+   discovered: '2026-06-24'
+   due: '2026-10-20'
+-  status: OPEN
+-  supersedes: []
+-  depends_on: []
+-  regression_test: ''
+-  closed_commit: ''
+-  cvss_v3_1:
+-    score: 2.6
+-    vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:N/A:N
+-  description: 'client.go:351-354 logs the tampered dial value and tampered HMAC signature at WARN level
+-    on signature mismatch. The "val" field is covered by the SensitiveFieldRedactor but the "sig" field
+-    is not.
+-
+-    '
+-  impact: 'An attacker with log access sees the tampered signature value. Since it is the wrong signature,
+-    it cannot directly reveal the integrity key.
+-
+-    '
+-  notes: Add "sig" to opaqueFields in redactor.go for defense-in-depth.
+   status: FIXED
+   supersedes: []
+   depends_on: []
+@@ -2538,18 +2519,18 @@ findings:
+   cvss_v3_1:
+     score: 3.3
+     vector: CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:L/I:N/A:N
+-  description: >
+-    deploy/docker/docker-compose.poc.yml:118 passes the Redis password as a
+-    CLI argument via --requirepass. This is visible in ps aux, /proc/PID/cmdline,
+-    and docker inspect. The production compose correctly uses --requirepass-file
+-    with Docker secrets.
+-  impact: >
+-    Any local user with access to ps or docker inspect can read the Redis
+-    password from the process list.
+-  notes: "Switched PoC compose from --requirepass (CLI arg) to --requirepass-file\
+-    \ /run/secrets/redis_password with Docker secrets, matching production compose\
+-    \ pattern. Added secrets section and prerequisites comment. deploy/secrets/redis_password.txt\
+-    \ must be created before first deploy."
++  description: 'deploy/docker/docker-compose.poc.yml:118 passes the Redis password as a CLI argument via
++    --requirepass. This is visible in ps aux, /proc/PID/cmdline, and docker inspect. The production compose
++    correctly uses --requirepass-file with Docker secrets.
++
++    '
++  impact: 'Any local user with access to ps or docker inspect can read the Redis password from the process
++    list.
++
++    '
++  notes: Switched PoC compose from --requirepass (CLI arg) to --requirepass-file /run/secrets/redis_password
++    with Docker secrets, matching production compose pattern. Added secrets section and prerequisites
++    comment. deploy/secrets/redis_password.txt must be created before first deploy.
+ - id: JA4PROXY-2026-0080
+   title: pubsub_hmac_secret Absent from Default Config
+   severity: LOW
+@@ -2575,22 +2556,23 @@ findings:
+   cvss_v3_1:
+     score: 3.7
+     vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:L/A:N
+-  description: >
+-    config/proxy.yml does not define redis.pubsub_hmac_secret. Without it,
+-    pub/sub messages are unsigned and the Go proxy accepts them. Any Redis
+-    client on the network can issue admin commands via pub/sub.
+-  impact: >
+-    An attacker with Redis access can forge pub/sub admin commands (config reload,
+-    dial changes, blacklist additions) without HMAC authentication.
+-  notes: 'Partially fixed: config now documents the secret (proxy.yml:62-65),
+-    Go proxy logs WARN when empty (pubsub.go:85), test_pubsub_signing.py added.
+-    Core behavior unchanged — unsigned messages still accepted when secret is empty.
+-    GitHub issue #220 closed via PR #234.'
++  description: 'config/proxy.yml does not define redis.pubsub_hmac_secret. Without it, pub/sub messages
++    are unsigned and the Go proxy accepts them. Any Redis client on the network can issue admin commands
++    via pub/sub.
++
++    '
++  impact: 'An attacker with Redis access can forge pub/sub admin commands (config reload, dial changes,
++    blacklist additions) without HMAC authentication.
++
++    '
++  notes: "Partially fixed: config now documents the secret (proxy.yml:62-65), Go proxy logs WARN when\
++    \ empty (pubsub.go:85), test_pubsub_signing.py added. Core behavior unchanged \u2014 unsigned messages\
++    \ still accepted when secret is empty. GitHub issue #220 closed via PR #234."
+ - id: JA4PROXY-2026-0081
+-  title: 'LoadSeccomp Is a Placeholder — TAP Sensor Runs With Full Syscall Access'
++  title: "LoadSeccomp Is a Placeholder \u2014 TAP Sensor Runs With Full Syscall Access"
+   severity: MEDIUM
+-  severity_rationale: 'M-2 (CWE-693). TAP container runs without seccomp restrictions.
+-    If compromised, attacker has unrestricted syscall access.'
++  severity_rationale: M-2 (CWE-693). TAP container runs without seccomp restrictions. If compromised,
++    attacker has unrestricted syscall access.
+   source_refs:
+   - report: PHASE_400
+     id: F-400-02
+@@ -2609,23 +2591,22 @@ findings:
+   cvss_v3_1:
+     score: 5.3
+     vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L
+-  description: >
+-    LoadSeccomp() in internal/tap/hardening.go:25-30 is called from
+-    cmd/ja4-tap/main.go:101 but only logs an intention and returns nil.
+-    No seccomp profile is loaded. The TAP sensor runs with full syscall
+-    access despite the intent to restrict it.
+-  impact: >
+-    If the TAP container is compromised, the attacker has unrestricted
+-    syscall access. DropCapabilities() drops root, limiting blast radius,
+-    but seccomp would provide defense-in-depth.
+-  notes: 'Fixed in PR #252 (0c0c2727): real in-process seccomp BPF filter
+-    with SECCOMP_RET_KILL_PROCESS for denied syscalls, dangerous-syscall
+-    denylist, and uint8 overflow fix for large allowlists.'
++  description: 'LoadSeccomp() in internal/tap/hardening.go:25-30 is called from cmd/ja4-tap/main.go:101
++    but only logs an intention and returns nil. No seccomp profile is loaded. The TAP sensor runs with
++    full syscall access despite the intent to restrict it.
++
++    '
++  impact: 'If the TAP container is compromised, the attacker has unrestricted syscall access. DropCapabilities()
++    drops root, limiting blast radius, but seccomp would provide defense-in-depth.
++
++    '
++  notes: 'Fixed in PR #252 (0c0c2727): real in-process seccomp BPF filter with SECCOMP_RET_KILL_PROCESS
++    for denied syscalls, dangerous-syscall denylist, and uint8 overflow fix for large allowlists.'
+ - id: JA4PROXY-2026-0082
+-  title: 'NTP Drift Monitor Silently Degrades When chronyc/ntpstat Missing'
++  title: NTP Drift Monitor Silently Degrades When chronyc/ntpstat Missing
+   severity: LOW
+-  severity_rationale: 'L-1 (CWE-755). Silent degradation of NTP monitoring
+-    could mask clock skew affecting Redis Stream ordering.'
++  severity_rationale: L-1 (CWE-755). Silent degradation of NTP monitoring could mask clock skew affecting
++    Redis Stream ordering.
+   source_refs:
+   - report: PHASE_400
+     id: F-400-04
+@@ -2644,20 +2625,21 @@ findings:
+   cvss_v3_1:
+     score: 3.1
+     vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L
+-  description: >
+-    checkNTP() in internal/metrics/ntp.go:37-43 logs at Debug level when
+-    neither chronyc nor ntpstat is available. SyncClockDriftSeconds is
+-    never set, and operators may not notice drift monitoring is disabled.
+-  impact: >
+-    NTP drift is used for multi-DC consistency. Silent degradation could
+-    mask clock skew that affects Redis Stream ordering.
+-  notes: 'Fixed: warn via sync.Once on first failure, log which binary
+-    is available at startup.'
++  description: 'checkNTP() in internal/metrics/ntp.go:37-43 logs at Debug level when neither chronyc nor
++    ntpstat is available. SyncClockDriftSeconds is never set, and operators may not notice drift monitoring
++    is disabled.
++
++    '
++  impact: 'NTP drift is used for multi-DC consistency. Silent degradation could mask clock skew that affects
++    Redis Stream ordering.
++
++    '
++  notes: 'Fixed: warn via sync.Once on first failure, log which binary is available at startup.'
+ - id: JA4PROXY-2026-0083
+-  title: 'CountKeys Uses O(N) KEYS Command in Health Endpoint'
++  title: CountKeys Uses O(N) KEYS Command in Health Endpoint
+   severity: LOW
+-  severity_rationale: 'L-1 (CWE-400). Redis KEYS is O(N) and blocks the
+-    server. Under extreme key counts, causes latency spikes.'
++  severity_rationale: L-1 (CWE-400). Redis KEYS is O(N) and blocks the server. Under extreme key counts,
++    causes latency spikes.
+   source_refs:
+   - report: PHASE_400
+     id: F-400-10
+@@ -2676,16 +2658,16 @@ findings:
+   cvss_v3_1:
+     score: 3.1
+     vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L
+-  description: >
+-    CountKeys in internal/redis/client.go:444-453 uses c.rdb.Keys(ctx,
+-    pattern).Result(), which is O(N) and blocks the Redis server. Called
+-    from cmd/ja4pd/main.go:1385 in the /health/deep endpoint.
+-  impact: >
+-    Under extreme key counts, this could cause Redis latency spikes.
+-    Usage is bounded (pattern is typically ban:*) but O(N) behavior is
+-    undesirable in production.
+-  notes: 'Fixed: replaced KEYS with SCAN iterator to avoid blocking
+-    Redis.'
++  description: 'CountKeys in internal/redis/client.go:444-453 uses c.rdb.Keys(ctx, pattern).Result(),
++    which is O(N) and blocks the Redis server. Called from cmd/ja4pd/main.go:1385 in the /health/deep
++    endpoint.
++
++    '
++  impact: 'Under extreme key counts, this could cause Redis latency spikes. Usage is bounded (pattern
++    is typically ban:*) but O(N) behavior is undesirable in production.
++
++    '
++  notes: 'Fixed: replaced KEYS with SCAN iterator to avoid blocking Redis.'
+ - id: JA4PROXY-2026-0084
+   title: Capability Drop Ordering Inverted (sensor unusable in live mode)
+   severity: CRITICAL
+@@ -2750,3 +2732,75 @@ findings:
+   closed_commit: ''
+   notes: 'Fixed in phase-316a-closeout: removed close(s.events) from Recover() in internal/tap/panic.go.
+     Run() defer in sensor.go is the sole owner of events channel close.'
++- id: JA4PROXY-2026-0087
++  title: Nil rangerBox in blocklist feed causes nil-pointer dereference panic on Check()
++  severity: HIGH
++  severity_rationale: 'H-2: nil-pointer dereference causes process crash. Attacker could cause panic by
++    triggering Check() with nil ranger. C-4 impact: process termination leads to proxy outage.'
++  source_refs:
++  - report: PHASE_251
++    id: 251-pentest-01
++    discovered: '2026-07-01'
++  remediation_phases: [251]
++  owner: '@seanpor'
++  lane: go-proxy
++  discovered: '2026-07-01'
++  due: '2026-07-31'
++  status: FIXED
++  supersedes: []
++  depends_on: []
++  regression_test: internal/security/blocklists_test.go::TestBlocklists_NilRangerBox_NoPanic
++  closed_commit: ''
++  cvss_v3_1:
++    score: 7.5
++    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H
++  notes: 'Nil-guard added in Check() at internal/security/blocklists.go:197. Returns empty result instead of panicking on nil rangerBox.'
++- id: JA4PROXY-2026-0088
++  title: ReplaceConfig creates new enrichment components without starting them (worker orphans)
++  severity: HIGH
++  severity_rationale: 'H-2: enrichment goroutines are orphaned on every SIGHUP reload, accumulating leaked
++    goroutines. A-3: repeated reloads exhaust goroutine quota, causing degradation.'
++  source_refs:
++  - report: PHASE_251
++    id: 251-pentest-02
++    discovered: '2026-07-01'
++  remediation_phases: [251]
++  owner: '@seanpor'
++  lane: go-proxy
++  discovered: '2026-07-01'
++  due: '2026-07-31'
++  status: FIXED
++  supersedes: []
++  depends_on: []
++  regression_test: internal/security/pipeline_test.go::TestPipeline_ReplaceConfig_EnrichmentLifecycle
++  closed_commit: ''
++  cvss_v3_1:
++    score: 5.3
++    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L
++  notes: 'ReplaceConfig now cancels old enrichment contexts (dnsCancel, abuseCancel, rdapCancel, feedCancel)
++    before creating new instances and starting them with fresh child contexts from bgCtx.'
++- id: JA4PROXY-2026-0089
++  title: "Beaconing and audit workers cannot be stopped \u2014 unbounded goroutine accumulation on SIGHUP"
++  severity: MEDIUM
++  severity_rationale: 'M-2: no direct exploit but cumulative goroutine leak causes eventual DoS. 2 leaked
++    goroutines per SIGHUP.'
++  source_refs:
++  - report: PHASE_251
++    id: 251-pentest-03
++    discovered: '2026-07-01'
++  remediation_phases: [251]
++  owner: '@seanpor'
++  lane: go-proxy
++  discovered: '2026-07-01'
++  due: '2026-08-30'
++  status: FIXED
++  supersedes: []
++  depends_on: []
++  regression_test: internal/security/pipeline_test.go::TestPipeline_Stop_NoLeaks
++  closed_commit: ''
++  cvss_v3_1:
++    score: 3.7
++    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L
++  notes: 'beaconingWorker and auditWorker rewritten to select-on-stopCh pattern. Pipeline.Stop()
++    closes stopCh (idempotent via sync.Once) and calls wg.Wait(). SIGTERM handler in main.go
++    calls pipeline.Stop() before cancel()/drain().'
+diff --git a/internal/security/blocklists.go b/internal/security/blocklists.go
+index 648b1f2d..b579fdc2 100644
+--- a/internal/security/blocklists.go
++++ b/internal/security/blocklists.go
+@@ -195,7 +195,7 @@ func (m *BlocklistManager) Check(ip net.IP) (signals []RiskSignal, hardBlock boo
+ 	}
+ 	for _, feed := range m.feeds {
+ 		box := feed.ranger.Load()
+-		if box == nil {
++		if box == nil || box.ranger == nil {
+ 			continue
+ 		}
+ 		contains, err := box.ranger.Contains(ip)
+diff --git a/internal/security/blocklists_test.go b/internal/security/blocklists_test.go
+index 97972fb5..51260e08 100644
+--- a/internal/security/blocklists_test.go
++++ b/internal/security/blocklists_test.go
+@@ -86,3 +86,51 @@ func TestBlocklists_IPv6_Match(t *testing.T) {
+ 		t.Fatalf("IPv6: expected 1 signal, got %d", len(sigs))
+ 	}
+ }
++
++func TestBlocklists_NilRangerBox_NoPanic(t *testing.T) {
++	m := NewBlocklistManager(&BlocklistConfig{
++		Feeds: []BlocklistFeedConfig{
++			{Name: "nil_feed", Enabled: true},
++		},
++	}, nil)
++
++	m.feeds[0].ranger.Store(&rangerBox{ranger: nil})
++
++	sigs, hardBlock := m.Check(net.ParseIP("1.2.3.4"))
++	if hardBlock {
++		t.Error("nil ranger feed: expected no hard block")
++	}
++	if len(sigs) != 0 {
++		t.Errorf("nil ranger feed: expected 0 signals, got %d", len(sigs))
++	}
++}
++
++func FuzzBlocklistCheck(f *testing.F) {
++	seeds := []string{
++		"1.2.3.4",
++		"10.0.0.1",
++		"192.168.1.1",
++		"2001:db8::1",
++		"invalid-ip",
++		"",
++	}
++	for _, s := range seeds {
++		f.Add(s)
++	}
++
++	f.Fuzz(func(t *testing.T, ipStr string) {
++		m := NewBlocklistManager(&BlocklistConfig{
++			Feeds: []BlocklistFeedConfig{
++				{Name: "feed1", Enabled: true, Score: 10},
++			},
++		}, nil)
++		m.feeds[0].ranger.Store(&rangerBox{})
++
++		ip := net.ParseIP(ipStr)
++		if ip == nil {
++			return
++		}
++
++		m.Check(ip)
++	})
++}
+diff --git a/internal/security/pipeline.go b/internal/security/pipeline.go
+index e5902d26..27f6ca8d 100644
+--- a/internal/security/pipeline.go
++++ b/internal/security/pipeline.go
+@@ -92,6 +92,19 @@ type Pipeline struct {
+ 	// Bounded audit worker — prevents unbounded goroutine growth on slow Redis
+ 	auditJobs chan auditJob
+ 
++	// phase-251: lifecycle management
++	stopCh   chan struct{}
++	stopOnce sync.Once
++	wg       sync.WaitGroup
++	bgCtx    context.Context // parent context for background workers; set once by StartBackgroundWorkers
++
++	// Enrichment worker context cancellation — set by StartBackgroundWorkers,
++	// read under p.mu in ReplaceConfig/Stop.
++	dnsCancel   context.CancelFunc
++	abuseCancel context.CancelFunc
++	rdapCancel  context.CancelFunc
++	feedCancel  context.CancelFunc
++
+ 	// JA4 lists (dynamic, synchronized with Redis)
+ 	Whitelist   map[string]bool
+ 	Blacklist   map[string]bool
+@@ -283,7 +296,10 @@ func NewPipeline(cfg *PipelineConfig, redis RedisReader, log *logrus.Logger) *Pi
+ 	}
+ 	p.beaconingJobs = make(chan beaconingJob, beaconingJobBuf)
+ 	p.auditJobs = make(chan auditJob, auditJobBuf)
++	p.stopCh = make(chan struct{})
++	p.wg.Add(1)
+ 	go p.beaconingWorker()
++	p.wg.Add(1)
+ 	go p.auditWorker()
+ 	return p
+ }
+@@ -304,12 +320,45 @@ func (p *Pipeline) ReplaceConfig(cfg *PipelineConfig) {
+ 	p.rateLimiter = NewRateLimiter(buildRateLimiterConfig(cfg), p.redis, p.log)
+ 	p.tcpAnalyzer = NewTCPAnalyzer(buildTCPAnalyzerConfig(cfg), p.redis, p.log)
+ 	p.asnClassifier = NewASNClassifier(buildASNClassifierConfig(cfg), p.log)
++	// phase-251: stop old enrichment workers before replacing them
++	if p.dnsCancel != nil {
++		p.dnsCancel()
++	}
++	if p.abuseCancel != nil {
++		p.abuseCancel()
++	}
++	if p.rdapCancel != nil {
++		p.rdapCancel()
++	}
++	if p.feedCancel != nil {
++		p.feedCancel()
++	}
++
+ 	p.dnsEnrichment = NewDNSEnrichment(buildDNSEnrichmentConfig(cfg), p.redis, p.log)
+ 	p.blocklists = NewBlocklistManager(buildBlocklistConfig(cfg), p.log)
+ 	p.feedDownloader = NewFeedDownloader(cfg.BlocklistFeeds, p.blocklists, p.log)
+ 	p.beaconing = NewBeaconingDetector(buildBeaconingConfig(cfg), p.redis, p.log)
+ 	p.abuseipdb = NewAbuseIPDB(buildAbuseIPDBConfig(cfg), p.redis, p.log)
+ 	p.rdap = NewRDAPEnricher(buildRDAPConfig(cfg), p.redis, p.log)
++
++	// phase-251: start new enrichment workers on fresh child contexts
++	if p.bgCtx != nil {
++		dnsCtx, dnsCancel := context.WithCancel(p.bgCtx)
++		p.dnsCancel = dnsCancel
++		p.dnsEnrichment.Start(dnsCtx)
++
++		abuseCtx, abuseCancel := context.WithCancel(p.bgCtx)
++		p.abuseCancel = abuseCancel
++		p.abuseipdb.Start(abuseCtx)
++
++		rdapCtx, rdapCancel := context.WithCancel(p.bgCtx)
++		p.rdapCancel = rdapCancel
++		p.rdap.Start(rdapCtx)
++
++		feedCtx, feedCancel := context.WithCancel(p.bgCtx)
++		p.feedCancel = feedCancel
++		p.feedDownloader.Start(feedCtx)
++	}
+ 	p.tapConsumer = NewTapConsumer(buildTapConsumerConfig(cfg), redisReaderGetter{p.redis}, p.log)
+ 	p.ja4tConsumer = NewJA4TConsumer(buildJA4TConsumerConfig(cfg), redisReaderGetter{p.redis}, p.log)
+ 	if cfg.AutoEscalate.Enabled {
+@@ -377,22 +426,65 @@ func durationSeconds(s, def int) time.Duration {
+ // beaconingWorker processes beaconing jobs from the bounded channel (F-002).
+ // Runs in a single goroutine — the channel buffer absorbs bursts and
+ // non-blocking sends prevent the pipeline from blocking on a saturated worker.
++// Terminates when stopCh is closed (via Stop()).
+ func (p *Pipeline) beaconingWorker() {
+-	for job := range p.beaconingJobs {
+-		p.beaconing.MaybeRecord(job.ctx, job.conn, job.action)
++	defer p.wg.Done()
++	for {
++		select {
++		case <-p.stopCh:
++			return
++		case job := <-p.beaconingJobs:
++			p.beaconing.MaybeRecord(job.ctx, job.conn, job.action)
++		}
+ 	}
+ }
+ 
+ // auditWorker processes mesh drift audit jobs from a bounded channel.
+ // Prevents unbounded goroutine growth when Redis is slow.
+-// The goroutine lifetime is tied to the process — the Pipeline is never
+-// shut down, so the channel is never closed. This is intentional: the
+-// process exits on SIGINT/SIGTERM, and adding a Stop() method would
+-// require plumbing shutdown through the entire call chain for no benefit.
++// Terminates when stopCh is closed (via Stop()).
+ func (p *Pipeline) auditWorker() {
+-	for job := range p.auditJobs {
+-		p.auditDecision(job.ctx, job.ip, job.currentScore)
++	defer p.wg.Done()
++	for {
++		select {
++		case <-p.stopCh:
++			return
++		case job := <-p.auditJobs:
++			p.auditDecision(job.ctx, job.ip, job.currentScore)
++		}
++	}
++}
++
++// Stop signals all worker goroutines to exit and waits for them to finish.
++// Closes the stop channel (idempotent via sync.Once) and cancels enrichment
++// worker contexts. Safe to call multiple times.
++// Does NOT cancel the async scoring workers (runAsyncScoringLoop) — those
++// continue until the parent context passed to StartBackgroundWorkers is
++// externally cancelled.
++func (p *Pipeline) Stop() {
++	p.stopOnce.Do(func() {
++		close(p.stopCh)
++	})
++
++	p.mu.Lock()
++	dnsCancel := p.dnsCancel
++	abuseCancel := p.abuseCancel
++	rdapCancel := p.rdapCancel
++	feedCancel := p.feedCancel
++	p.mu.Unlock()
++
++	if dnsCancel != nil {
++		dnsCancel()
++	}
++	if abuseCancel != nil {
++		abuseCancel()
++	}
++	if rdapCancel != nil {
++		rdapCancel()
++	}
++	if feedCancel != nil {
++		feedCancel()
+ 	}
++	p.wg.Wait()
+ }
+ 
+ // asyncScoringWorkers is the fixed fan-out of goroutines draining workChan.
+@@ -402,14 +494,29 @@ func (p *Pipeline) auditWorker() {
+ const asyncScoringWorkers = 32
+ 
+ // StartBackgroundWorkers starts all async background workers.
++// Stores ctx as the parent context for later use by ReplaceConfig.
++// Creates child contexts for each enrichment component so they can be
++// individually cancelled by Stop() or ReplaceConfig.
+ func (p *Pipeline) StartBackgroundWorkers(ctx context.Context) {
++	p.bgCtx = ctx
+ 	for i := 0; i < asyncScoringWorkers; i++ {
+ 		go p.runAsyncScoringLoop(ctx)
+ 	}
+-	p.dnsEnrichment.Start(ctx)
+-	p.abuseipdb.Start(ctx)
+-	p.rdap.Start(ctx)
+-	p.feedDownloader.Start(ctx) // phase-309 WP-6: periodic blocklist feed refresh
++	dnsCtx, dnsCancel := context.WithCancel(ctx)
++	p.dnsCancel = dnsCancel
++	p.dnsEnrichment.Start(dnsCtx)
++
++	abuseCtx, abuseCancel := context.WithCancel(ctx)
++	p.abuseCancel = abuseCancel
++	p.abuseipdb.Start(abuseCtx)
++
++	rdapCtx, rdapCancel := context.WithCancel(ctx)
++	p.rdapCancel = rdapCancel
++	p.rdap.Start(rdapCtx)
++
++	feedCtx, feedCancel := context.WithCancel(ctx)
++	p.feedCancel = feedCancel
++	p.feedDownloader.Start(feedCtx) // phase-309 WP-6: periodic blocklist feed refresh
+ }
+ 
+ // Process runs a connection through the full pipeline and returns the result.
+diff --git a/internal/security/pipeline_test.go b/internal/security/pipeline_test.go
+index 615d2046..c78eab8e 100644
+--- a/internal/security/pipeline_test.go
++++ b/internal/security/pipeline_test.go
+@@ -292,3 +292,118 @@ func TestPipeline_ConfigReadUnderLock(t *testing.T) {
+ 	wg.Wait()
+ 	// Run with -race flag to detect data races.
+ }
++
++func TestPipeline_Stop_NoLeaks(t *testing.T) {
++	baseline := runtime.NumGoroutine()
++	ctx, cancel := context.WithCancel(context.Background())
++	defer cancel()
++
++	p := newTestPipeline(0)
++	p.StartBackgroundWorkers(ctx)
++
++	const numJobs = 10
++	for i := 0; i < numJobs; i++ {
++		select {
++		case p.beaconingJobs <- beaconingJob{ctx: context.Background(), conn: &ConnectionContext{ClientIP: "1.2.3.4"}, action: "allow"}:
++		default:
++		}
++	}
++	// Stop internal workers first, then cancel parent context (matches SIGTERM order).
++	p.Stop()
++	cancel()
++
++	requireGoroutinesReturnToBaseline(t, baseline, 5*time.Second)
++}
++
++func requireGoroutinesReturnToBaseline(t *testing.T, baseline int, timeout time.Duration) {
++	t.Helper()
++	deadline := time.After(timeout)
++	for {
++		if runtime.NumGoroutine() <= baseline+1 {
++			return
++		}
++		select {
++		case <-deadline:
++			t.Fatalf("goroutines did not return to baseline: initial=%d, current=%d",
++				baseline, runtime.NumGoroutine())
++		default:
++			runtime.Gosched()
++		}
++	}
++}
++
++func TestPipeline_Stop_DoubleCall_NoPanic(t *testing.T) {
++	p := newTestPipeline(0)
++	ctx, cancel := context.WithCancel(context.Background())
++	defer cancel()
++	p.StartBackgroundWorkers(ctx)
++
++	p.Stop()
++	p.Stop()
++}
++
++func TestPipeline_ReplaceConfig_EnrichmentLifecycle(t *testing.T) {
++	ctx, cancel := context.WithCancel(context.Background())
++	defer cancel()
++
++	p := newTestPipeline(0)
++	p.StartBackgroundWorkers(ctx)
++
++	if p.dnsCancel == nil || p.abuseCancel == nil || p.rdapCancel == nil || p.feedCancel == nil {
++		t.Fatal("StartBackgroundWorkers should set all enrichment cancel funcs")
++	}
++
++	// Intercept cancel funcs with wrappers to verify they get called.
++	dnsCancelCalled := false
++	p.dnsCancel = func() { dnsCancelCalled = true }
++	abuseCancelCalled := false
++	p.abuseCancel = func() { abuseCancelCalled = true }
++	rdapCancelCalled := false
++	p.rdapCancel = func() { rdapCancelCalled = true }
++	feedCancelCalled := false
++	p.feedCancel = func() { feedCancelCalled = true }
++
++	p.ReplaceConfig(&PipelineConfig{})
++
++	if !dnsCancelCalled {
++		t.Error("old dnsCancel not called during ReplaceConfig")
++	}
++	if !abuseCancelCalled {
++		t.Error("old abuseCancel not called during ReplaceConfig")
++	}
++	if !rdapCancelCalled {
++		t.Error("old rdapCancel not called during ReplaceConfig")
++	}
++	if !feedCancelCalled {
++		t.Error("old feedCancel not called during ReplaceConfig")
++	}
++
++	// Verify new cancel funcs were set.
++	if p.dnsCancel == nil {
++		t.Error("dnsCancel should be set after ReplaceConfig")
++	}
++	if p.abuseCancel == nil {
++		t.Error("abuseCancel should be set after ReplaceConfig")
++	}
++	if p.rdapCancel == nil {
++		t.Error("rdapCancel should be set after ReplaceConfig")
++	}
++	if p.feedCancel == nil {
++		t.Error("feedCancel should be set after ReplaceConfig")
++	}
++}
++
++func TestPipeline_ReplaceConfig_BeforeStart_NoPanic(t *testing.T) {
++	p := newTestPipeline(0)
++	p.ReplaceConfig(&PipelineConfig{})
++}
++
++func TestPipeline_ReplaceConfig_AfterStop_NoPanic(t *testing.T) {
++	ctx, cancel := context.WithCancel(context.Background())
++	defer cancel()
++
++	p := newTestPipeline(0)
++	p.StartBackgroundWorkers(ctx)
++	p.Stop()
++	p.ReplaceConfig(&PipelineConfig{})
++}
