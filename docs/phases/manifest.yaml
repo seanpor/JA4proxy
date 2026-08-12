@@ -3221,6 +3221,25 @@ phases:
     summary: "Fingerprint tab on Under Attack page groups attack by JA4. detect_botnet_signal
       classification. One-click block with browser safety gate (corpus 15+ entries).
       GET /api/v1/attack/top-fingerprints. HTMX partial. 250.5 staged for Phase 247 merge."
+  251:
+    name: "Pipeline Lifecycle & Memory Safety (superseded)"
+    status: CLOSED
+    action_plan: docs/phases/complete/PHASE_251.md
+    summary: "Leased 2026-06, partially implemented, never landed. 251.1 (nil-rangerBox
+      guard) fixed at internal/security/blocklists.go:198; 251.2 (unstoppable
+      beaconing/audit workers) fixed by Phase 515 (JA4PROXY-2026-0090, accdfff0).
+      Remaining finding re-scoped as Phase 251a. WIP preserved as
+      docs/phases/complete/PHASE_251_WIP.patch (design reference only)."
+  251a:
+    name: "ReplaceConfig Enrichment Worker Restart (JA4PROXY-2026-0089)"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_251a.md
+    dependencies: []
+    size: SMALL
+    summary: "Fix hot config reload orphaning DNS/AbuseIPDB/RDAP/feed enrichment
+      workers: ReplaceConfig creates new instances but never starts them and never
+      stops the old. Child-context + cancel-func lifecycle owned by Pipeline.
+      The one OPEN finding inherited from Phase 251."
   244:
     name: Seccomp Hardening for TAP Sensor
     status: COMPLETE
