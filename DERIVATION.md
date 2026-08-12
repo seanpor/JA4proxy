@@ -1,6 +1,47 @@
-# Derivation Log — Phase 814k
+# Derivation Log
 
-## Change
+## Change — demo-stack fixes (branch `fix-bench-all-poc-secrets`)
+
+Fix the JA4proxy demo stack (POC + Prometheus/Grafana monitoring) so the
+full pipeline runs end-to-end in a live lane:
+
+| # | Problem | Fix |
+|---|---|---|
+| 1 | `start-all.sh` skip-check used the monitoring compose `ps` output, but both compose files share `COMPOSE_PROJECT_NAME` from `.env`, so the check saw the POC containers (Up) and skipped the monitoring stack | Gate on the actual running Grafana container name, lane-derived (`ja4proxy-lane${JA4_LANE}-grafana-1`), not project-scoped compose ps |
+| 2 | Proxy `/metrics` unreachable from Prometheus — proxy binds loopback by default (JA4PROXY-2026-0008) and requires a Bearer token on non-loopback binds | `METRICS_BIND_HOST=0.0.0.0` + `METRICS_AUTH_TOKEN` in `.env`, wired into `docker-compose.poc.yml` proxy env; `prometheus.yml` ja4proxy job targets `proxy:9090` with `authorization: credentials_file`; token mounted into Prometheus |
+| 3 | Scripts hardcoded stale ports/URLs and the old `ja4_*` metric names | `generate-tls-traffic.sh`, `start-all.sh`, `start-monitoring.sh` source `.env`, use `HOST_PORT_*` lane ports, use `ja4proxy_*` metric names, Bearer auth |
+| 4 | Grafana crash-looped: compose sets HTTPS cert paths but the cert volume mount was removed by an earlier commit | Restored `./certs/grafana:/etc/grafana/certs:ro`; `grafana.key` chmod 644 (container uid 472) |
+| 5 | Redis ACL users `exporter`/`ja4tap` had empty passwords (0-byte secret files), so redis-exporter and ja4tap auth failed | Filled `.env` + `deploy/secrets/*.txt`; redis restarted to re-render ACL |
+| 6 | `blocking` at `config:dial=100` never took effect: `config/integrity.key` was 0664, tripping the JA4PROXY-2026-0070 permission gate (client.go:328 → fail open, dial=0) | `chmod 600 config/integrity.key`; proxy then read dial=100 and enforced it |
+| 7 | Stale in-process decision cache (ADR-003, 30-min allow TTL) served dial=0-era "allow" decisions, bypassing the dial fetch | Restarted proxy to clear the cache (cache has no dial-change flush by design) |
+| 8 | `loki` permanently `(unhealthy)`: distroless image ships only `/usr/bin/loki` (no wget/curl/sh), so the `wget` healthcheck could never run | Removed the healthcheck from `docker-compose.monitoring.yml`; `start-monitoring.sh` probes loki via the Grafana container's curl instead |
+
+## Assumptions
+
+- All changes are operational/demo-stack only; no production Go code modified.
+- The `container_name:` fields in the monitoring compose were intentionally
+  removed (commit 8de0753d, multi-lane isolation), so lane-derived container
+  names are the correct gate target.
+- `config/integrity.key` must remain 0600 for JA4PROXY-2026-0070 to pass.
+- Metrics endpoint is plain HTTP (not TLS) — the Go proxy serves /metrics
+  over HTTP with Bearer auth; enterprise TLS config does not apply to it.
+
+## Checks run
+
+- Live verification: dial=100 read by proxy (`action=rate_limit` at score 35,
+  correct — block threshold is 70); Prometheus scrapes 214 `ja4proxy_*`
+  metrics; all 16 lane containers Up (healthy); `start-monitoring.sh` reports
+  Prometheus/Alertmanager/Grafana/Loki all healthy; `getent hosts backend`
+  resolves in proxy; traffic generator runs end-to-end through proxy → backend.
+
+## Model
+
+- Author: `opencode/deepseek-v4-flash-free` (family `deepseek`), version `deepseek-v4-flash-free-2026-08`.
+- Reviewer (quality gate): `ollama/deepseek-r1:14b` (family `deepseek-r1`).
+
+---
+
+## Change — Phase 814k
 
 Fix four data-layer defects on branch `phase-814k-redis-acl-data-layer`:
 

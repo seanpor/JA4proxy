@@ -15,6 +15,9 @@ echo "JA4proxy Complete Stack Startup"
 echo "========================================"
 echo
 
+# Load lane port map from .env (managed by scripts/lane-env.sh)
+[ -f .env ] && { set -a; source .env; set +a; }
+
 # Check if POC services are already running
 POC_RUNNING=false
 if docker compose -f deploy/docker/docker-compose.poc.yml ps --format '{{.Status}}' | grep -q "Up"; then
@@ -30,9 +33,14 @@ else
     sleep 5
 fi
 
-# Check if monitoring services are already running
+# Check if monitoring services are already running.
+# NB: docker compose ps for the monitoring file shares the COMPOSE_PROJECT_NAME
+# with the POC file, so it would report the POC containers (which ARE up) and
+# wrongly skip the monitoring stack. Gate on the actual lane-prefixed monitoring
+# container, not on the project-scoped ps output.
+GRAFANA_CT="ja4proxy-lane${JA4_LANE:-1}-grafana-1"
 MONITORING_RUNNING=false
-if docker compose -f deploy/docker/docker-compose.monitoring.yml ps --format '{{.Status}}' | grep -q "Up"; then
+if [ -n "$(docker ps --filter "name=^/${GRAFANA_CT}$" --filter 'status=running' --format '{{.Names}}')" ]; then
     echo -e "${YELLOW}▶ Monitoring services already running, skipping...${NC}"
     MONITORING_RUNNING=true
 else
@@ -48,22 +56,17 @@ echo -e "${GREEN}✓ Complete stack is running!${NC}"
 echo "========================================"
 echo
 echo "Services:"
-echo "  HAProxy (LB):  https://localhost:443 (TLS passthrough)"
-echo "  HAProxy Stats: http://localhost:8404/stats"
-echo "  Proxy:         http://localhost:8080"
-echo "  Backend:       https://localhost:8443"
-echo "  Tarpit:        http://localhost:8888"
-echo "  Metrics:       http://localhost:9090/metrics"
-echo "  Prometheus:    http://localhost:9091"
-echo "  Loki:          (Docker network only — no host port)"
-echo "  Alertmanager:  http://localhost:9093"
-echo "  Grafana:       http://localhost:3001"
-echo "                 (admin / see .env)"
-echo "  Management UI: http://localhost:8001"
-echo "                 (admin / UI_PASSWORD in .env)"
+echo "  Proxy (direct):  http://${AGENT_BIND_IP:-127.0.0.1}:${HOST_PORT_DIRECT:-8081}"
+echo "  Proxy /metrics:  http://${AGENT_BIND_IP:-127.0.0.1}:${HOST_PORT_METRICS:-9090}/metrics"
+echo "  Backend:         https://${BACKEND_HOST:-backend}:${BACKEND_PORT:-8443} (network-only)"
+echo "  Prometheus:      http://${AGENT_BIND_IP:-127.0.0.1}:${HOST_PORT_PROMETHEUS:-9091}"
+echo "  Alertmanager:    http://localhost:9093"
+echo "  Grafana:         https://${AGENT_BIND_IP:-127.0.0.1}:${HOST_PORT_GRAFANA:-3000}"
+echo "                   (admin / see .env)"
+echo "  Management API:  http://${AGENT_BIND_IP:-127.0.0.1}:${HOST_PORT_MANAGEMENT:-8090}"
 echo
 echo "Next steps:"
-echo "  1. Open Grafana: http://localhost:3001"
+echo "  1. Open Grafana: https://${AGENT_BIND_IP:-127.0.0.1}:${HOST_PORT_GRAFANA:-3000}"
 echo "  2. Generate traffic: ./scripts/generate-tls-traffic.sh 60 15 20"
 echo "  3. Watch the dashboard show blocked vs allowed traffic"
 echo
