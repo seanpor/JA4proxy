@@ -233,6 +233,18 @@ CVE-2026-42508 exp:2026-08-19
 CVE-2026-46595 exp:2026-08-19
 CVE-2026-46597 exp:2026-08-19
 
+# CVE-2026-46600: golang.org/x/net/dns/dnsmessage (x/net before 0.56.0).
+# Newly disclosed sibling of the -46595/-46597 batch above; surfaced by a
+# Trivy DB update on 2026-08-12 across the same four Go-based monitoring
+# images (cadvisor:v0.52.1, promtail:3.6.11, alertmanager:v0.33.1,
+# haproxy-exporter:v0.15.0). Why no fix: as documented for -46595/-46597,
+# these are pinned third-party tags that compile x/net transitively; fixing
+# requires an upstream rebuild, and no such rebuild has shipped yet. Why not
+# exploitable: dns/dnsmessage parses host-originated DNS records, which none
+# of these components reach in our deployment (they consume metrics/logs or
+# serve authenticated admin UIs only). Re-review at expiry for upstream fixes.
+CVE-2026-46600 exp:2026-08-19
+
 # CVE-2026-56852: golang.org/x/text norm.Iter can enter an infinite loop on
 # certain malformed input during Unicode normalization.
 # Why no fix: newly disclosed; found during the 2026-07-30 re-verification

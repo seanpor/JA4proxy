@@ -1,5 +1,52 @@
 # Derivation Log
 
+## Change — CVE-2026-46600 scan exception + tools-image download resilience (branch `fix-test-entrypoint-shebang`)
+
+Add a justified, dated `.trivyignore` exception for a newly-surfaced HIGH
+CVE and curl retry for the tools-image pinned-binary downloads, so PR 420's
+required CI gates stop failing on infra flakiness and a Trivy-DB update.
+
+| # | Problem | Fix |
+|---|---|---|
+| 1 | PR 420's Meta-Validation / Full Lint / Full Test jobs failed twice at the tools-image build step: `curl -fsSL` from the GitHub release CDN exited 22 (HTTP error) then 56 (recv failure). URLs verified live (all HTTP 200), so the pins are valid — only connectivity flakes | Added `--retry 5 --retry-delay 2 --retry-all-errors` to all five pinned downloads (helm, promtool, docker CLI, docker-compose plugin, buildx plugin) |
+| 2 | Security Scan gate began failing on CVE-2026-46600 (golang.org/x/net/dns/dnsmessage, fixed in x/net 0.56.0) across four third-party monitoring images (cadvisor:v0.52.1, promtail:3.6.11, alertmanager:v0.33.1, haproxy-exporter:v0.15.0) — surfaced by a Trivy DB update, not by any PR diff | Added a justified, dated `.trivyignore` entry (`exp:2026-08-19`), sibling of the existing -46595/-46597 x/net batch for the same images |
+
+## Assumptions
+
+- The pinned versions + SHA256 checksums are unchanged; retry only re-attempts
+  the identical download, and the sha256 check still fails closed on a
+  corrupted/truncated fetch.
+- Transient GitHub-Actions connectivity flakiness is the failure mode (curl
+  exit 22 then 56 on different binaries across two runs); deterministic pin
+  failures would reproduce identically everywhere and would exit 22 every time
+  (here URL checks returned 200).
+- `curl --retry-all-errors` is supported on the Debian-slim curl in the base
+  image (curl 7.x+); local `docker build` of the modified image passed.
+- CVE-2026-46600 has no available fix: no tag newer than the pinned ones
+  exists for any of the four images (verified v0.52.2 / v3.6.12 / v0.33.2 /
+  v0.15.1 all 404). Rationale matches the documented sibling -46595/-46597
+  exception batch; exception expires 2026-08-19 for re-review.
+- The vulnerable path (`dns/dnsmessage`) is not reachable in our deployment
+  (these services consume metrics/logs or serve authenticated admin UIs).
+
+## Checks run
+
+- Verified all 3 github.com release URLs return HTTP 200 from the local host.
+- `docker build -t ja4proxy-tools -f Dockerfile.tools .` → success, image
+  `e9668465...` produced (all 5 downloads executed with the new retry flags).
+- `make lint-meta` and `make lint` pass locally; the image builds on demand.
+- `make scan-exceptions` → 73 exceptions, all within window, CVE-2026-46600
+  registered with 7 days remaining.
+- Trivy re-scan of all four affected images with the exception in place → all
+  clean (HIGH/CRITICAL, `--exit-code 1`).
+
+## Model
+
+- Author: `opencode/deepseek-v4-flash-free` (family `deepseek`), version `deepseek-v4-flash-free-2026-08`.
+- Reviewer (quality gate): `ollama/deepseek-r1:14b` (family `deepseek-r1`).
+
+---
+
 ## Change — CI tools-image download resilience (branch `fix-test-entrypoint-shebang`)
 
 Add curl retry to the pinned-binary downloads in `Dockerfile.tools` so the
