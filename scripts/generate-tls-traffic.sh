@@ -75,6 +75,8 @@ echo ""
 # Run traffic generator in a container on the ja4proxy network
 docker compose -f deploy/docker/docker-compose.poc.yml run --rm \
     -e PYTHONUNBUFFERED=1 \
+    -e HOST_PORT_GRAFANA="${HOST_PORT_GRAFANA:-3001}" \
+    -e HOST_PORT_PROMETHEUS="${HOST_PORT_PROMETHEUS:-9091}" \
     trafficgen \
     --target-host proxy --target-port 8080 \
     --duration "${DURATION}" \
