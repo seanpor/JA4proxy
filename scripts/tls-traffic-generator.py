@@ -560,10 +560,10 @@ class TrafficGenerator:
 
             self.print_stats()
             print(
-                f"{Colors.OKCYAN}Tip:{Colors.ENDC} Check Grafana at http://localhost:3001"
+                f"{Colors.OKCYAN}Tip:{Colors.ENDC} Check Grafana at http://localhost:{os.environ.get('HOST_PORT_GRAFANA', '3001')}"
             )
             print(
-                f"{Colors.OKCYAN}Tip:{Colors.ENDC} Check Prometheus at http://localhost:9091"
+                f"{Colors.OKCYAN}Tip:{Colors.ENDC} Check Prometheus at http://localhost:{os.environ.get('HOST_PORT_PROMETHEUS', '9091')}"
             )
             print()
             return
@@ -608,10 +608,10 @@ class TrafficGenerator:
         self.print_stats()
 
         print(
-            f"{Colors.OKCYAN}Tip:{Colors.ENDC} Check Grafana at http://localhost:3001"
+            f"{Colors.OKCYAN}Tip:{Colors.ENDC} Check Grafana at http://localhost:{os.environ.get('HOST_PORT_GRAFANA', '3001')}"
         )
         print(
-            f"{Colors.OKCYAN}Tip:{Colors.ENDC} Check Prometheus at http://localhost:9091"
+            f"{Colors.OKCYAN}Tip:{Colors.ENDC} Check Prometheus at http://localhost:{os.environ.get('HOST_PORT_PROMETHEUS', '9091')}"
         )
         print()
 
