@@ -35,6 +35,7 @@ services:
       - ja4proxy-monitoring
       - poc_dmz_net
       - poc_mgmt_net
+      - poc_origin_net
     read_only: true
     tmpfs:
       - /tmp:noexec,nosuid,nodev,size=50m
@@ -387,3 +388,6 @@ networks:
   poc_mgmt_net:
     external: true
     name: ja4proxy-mgmt
+  poc_origin_net:
+    external: true
+    name: ja4proxy-origin
