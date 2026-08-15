@@ -66,15 +66,65 @@ if [ "${1:-}" = "--preview" ]; then
   exit 0
 fi
 
-port_free() { ! ss -ltn 2>/dev/null | awk '{print $4}' | grep -qE "[:.]$1\$"; }
+# Is host port $1 free?
+#
+# The original implementation was `! ss -ltn | ... | grep -q`. When `ss` is not
+# installed, that pipeline produces no output, grep matches nothing, and EVERY
+# port is reported free — so the lane probe silently degrades to "always pick
+# the first lane" with no error. `ss` is absent from the tools image, which is
+# how this surfaced. Fall back through netstat, then a direct connect probe
+# (bash /dev/tcp), which needs no external binary at all.
+#
+# The connect probe only detects listeners reachable on 127.0.0.1 — which is
+# exactly what we publish (AGENT_BIND_IP defaults to loopback, and a 0.0.0.0
+# listener accepts there too).
+port_free() {
+  local p=$1
+  if command -v ss >/dev/null 2>&1; then
+    ! ss -ltn 2>/dev/null | awk '{print $4}' | grep -qE "[:.]${p}\$"
+  elif command -v netstat >/dev/null 2>&1; then
+    ! netstat -ltn 2>/dev/null | awk '{print $4}' | grep -qE "[:.]${p}\$"
+  else
+    # A successful connect means something is listening.
+    ! (exec 3<>"/dev/tcp/127.0.0.1/${p}") 2>/dev/null
+  fi
+}
 lane_ports_free() { local L=$1 v; for v in "${!BASE[@]}"; do port_free $(( BASE[$v] + L*100 )) || return 1; done; }
+
+# Names of the ports in lane L that are already taken, "VAR=port" per line.
+lane_busy_ports() {
+  local L=$1 v p
+  for v in "${!BASE[@]}"; do
+    p=$(( BASE[$v] + L*100 ))
+    port_free "$p" || printf '%s=%d\n' "$v" "$p"
+  done
+}
 
 # --- determine the lane -------------------------------------------------------
 existing_lane=""
 [ -f "$ENV_FILE" ] && existing_lane=$(grep -E '^JA4_LANE=' "$ENV_FILE" | tail -1 | cut -d= -f2 || true)
 
 if [ -n "$existing_lane" ] && [ "${JA4_LANE_REASSIGN:-0}" != "1" ]; then
-  LANE="$existing_lane"                       # already pinned — stable, no probing
+  LANE="$existing_lane"                       # already pinned — stable, no reassignment
+  # Probing is what picks a lane; pinning deliberately skips it so the lane —
+  # and therefore COMPOSE_PROJECT_NAME and every named volume — stays stable
+  # across restarts. But a lane pinned while its ports were free can later
+  # collide: something else on the host claims one (observed: an unrelated
+  # container on :3000, which is lane 0's Grafana). Nothing then warned, and the
+  # first sign was `docker compose up` failing with EADDRINUSE.
+  #
+  # So: still CHECK, never reassign. Reassigning here would silently strand the
+  # existing lane's volumes and break a running stack.
+  busy="$(lane_busy_ports "$LANE")"
+  if [ -n "$busy" ]; then
+    {
+      echo "lane-env: WARNING — lane $LANE is pinned, but these host ports are already in use:"
+      echo "$busy" | sed 's/^/  /'
+      echo "  'docker compose up' will fail with EADDRINUSE on the above."
+      echo "  Free the port(s), or re-derive a lane with:  JA4_LANE_REASSIGN=1 scripts/lane-env.sh"
+      echo "  (re-deriving changes COMPOSE_PROJECT_NAME, so existing named volumes are left behind)"
+    } >&2
+  fi
 else
   root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
   start=$(( $(printf '%s' "$root" | cksum | cut -d' ' -f1) % LANE_COUNT ))
