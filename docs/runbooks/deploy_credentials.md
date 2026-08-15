@@ -48,11 +48,18 @@ compose command will exit non-zero with a clear error otherwise.
   scrape URL).
 - **Who sets it:** Operator. Must match the `stats auth` line in
   `deploy/haproxy/haproxy.cfg`.
-- **Failure mode if missing:** Exporter starts but every scrape returns 401;
-  HAProxy metrics disappear from Prometheus.
+- **Failure mode if missing:** HAProxy fails to start — `stats auth` uses `:?`
+  so a missing value is fatal by design (JA4PROXY-2026-0015).
+- **Scope (phase-820):** these credentials now protect **only** the human
+  `/stats` page. Prometheus scrapes `/metrics` on the same port via HAProxy's
+  built-in exporter, which is **not** behind `stats auth` — it is reachable only
+  on loopback and the internal monitoring network and exposes counters, not
+  secrets. The `prom/haproxy-exporter` sidecar that previously needed these
+  credentials has been removed, so they are no longer injected into a second
+  container.
 - **Rotation:** Rotate together with `HAPROXY_STATS_PASSWORD`. Update both env
   var and the `stats auth` line in `haproxy.cfg`, then
-  `docker compose restart haproxy haproxy-exporter`.
+  `docker compose restart haproxy`.
 
 ### 3. `HAPROXY_STATS_PASSWORD`
 
@@ -120,7 +127,7 @@ automatically reads it:
 ```
 # .env (NEVER commit — already covered by .gitignore)
 GRAFANA_PASSWORD=dev-only-change-me-before-prod
-HAPROXY_STATS_USER=haproxy-exporter
+HAPROXY_STATS_USER=haproxy-stats
 HAPROXY_STATS_PASSWORD=dev-stats-pw
 MANAGEMENT_JWT_SECRET=<paste output of python3 -c 'import secrets; print(secrets.token_urlsafe(48))'>
 MANAGEMENT_ADMIN_USER=admin

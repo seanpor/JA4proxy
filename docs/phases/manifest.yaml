@@ -4709,3 +4709,86 @@ phases:
       and would have restored the bug while looking like the fix. renew_trivyignore.py
       and the weekly renewal workflow now walk both files; left on the retired
       path the automation would have become a silent no-op."
+  820:
+    name: "Retire prom/haproxy-exporter for HAProxy's native Prometheus exporter"
+    status: COMPLETE
+    action_plan: docs/phases/PHASE_820.md
+    dependencies: []
+    size: SMALL
+    summary: "prom/haproxy-exporter was a CSV-to-Prometheus shim from before
+      HAProxy 2.0 shipped its own exporter. haproxy:2.8.26-alpine (already
+      pinned) is built with USE_PROMEX=1, so Prometheus scrapes haproxy:8404
+      directly. Upstream abandoned the sidecar — last release 2023-02-15 on Go
+      1.19.5 — and it carried 58 HIGH/CRITICAL CVEs requiring 20 of the repo's
+      73 .trivyignore exceptions (73 -> 53). Running both exporters side by side
+      revealed the monitoring built on it was ALREADY DEAD: nine selectors (five
+      alert rules, four dashboard panels) filtered on {proxy=\"ja4proxy\"}, but
+      proxy= is the NATIVE exporter's label — the sidecar emitted
+      frontend=/backend= and never a proxy label at all — and the value was
+      wrong regardless (the backend is ja4proxy_workers). HAProxyBackendDown
+      additionally now pins state=\"UP\": native promex emits
+      haproxy_server_status as a state machine, so an unconstrained == 0 matches
+      four always-zero states and pages continuously. Two panels used
+      rate(haproxy_frontend_connections_rate[1m]) — a metric native promex does
+      not emit, and a gauge under the sidecar, so rate() was invalid either way.
+      Adds tests/unit/test_metric_selector_validity.py, a REUSABLE selector
+      validator (Phase 821a extends it to ja4proxy_* rather than
+      reimplementing): it parses dashboard JSON into expr strings rather than
+      scanning raw text, because quotes are backslash-escaped in the file so a
+      raw-text regex sees empty labels and passes vacuously — fixing that
+      immediately surfaced four further dead selectors beyond the five found by
+      hand. Retires the follow-up deferred by Phases 810, 812 and 818."
+
+  821a:
+    name: "Console metrics foundation — Prometheus client, metric catalogue, one panel"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_821a.md
+    dependencies: []
+    size: MEDIUM
+    summary: "PROPOSED 2026-08-15. Makes the management console the single
+      operational face: Prometheus becomes a headless engine, the console its
+      only human face. Today the proxy exports 89 ja4proxy_* metrics and the
+      console shows five Redis-derived numbers; _PROMETHEUS_URL
+      (partials.py:690) is defined and never used, and aiohttp was added in
+      Phase 234 for exactly this job and never imported. Ships ONE panel, not
+      five, because expert review of the monolithic draft found five wrong
+      PromQL expressions and two wrong dependency choices. Security: closed
+      tile-ID catalogue, never client PromQL. Reliability: console fails
+      VISIBLY (three-state Ok/Empty/Unavailable) unlike the proxy's fail-open —
+      only ConnectionsTotal pre-initialises labels, so a healthy fresh proxy
+      returns empty vectors that must render 0, not 'broken'."
+
+  821b:
+    name: "Console panels — the remaining Prometheus tiles"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_821b.md
+    dependencies: [821a]
+    size: MEDIUM
+    summary: "PROPOSED 2026-08-15, rewritten after a second expert review that
+      found three tiles structurally dead or actively misleading:
+      ja4proxy_dial_changes_total is defined and registered but NEVER
+      incremented (permanent false 'no dial changes'); the panics tile used
+      increase(a)+increase(b), and + across an absent operand yields empty which
+      'or vector(0)' converts to a confident 0 during a panic storm; the browser
+      tile's corpus holds only 12 unique fingerprints and Decide() returns
+      'allow' at the default dial=0, so it would read '0% of browsers harmed'
+      from a measurement structurally unable to detect harm. Scope narrowed —
+      the connections.py unbounded-xrange fix (a compliance-facing paginated
+      endpoint) becomes its own security PR, RBAC becomes 821d, deployed
+      alert-rule fixes become 821e."
+
+  821c:
+    name: "Prometheus hardening (quarantined)"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_821c.md
+    dependencies: [820, 821a, 821b]
+    size: SMALL
+    summary: "PROPOSED 2026-08-15. Quarantined from 821 because expert review
+      found the original 'Prometheus not reachable from the host' criterion
+      would have broken Phase 820's own acceptance criteria (which verify alerts
+      via /api/v1/rules from a host-side script) plus ~10 callers across
+      scripts/ and the Makefile — for near-zero gain, since the port is already
+      loopback-only. This phase RECOMMENDS DECLINING that change and keeps only
+      the free win: dropping --web.enable-lifecycle from both compose files.
+      Nothing in the repo POSTs /-/reload, and the flag exposes unauthenticated
+      /-/quit on a Prometheus that sits on four networks including the DMZ."
