@@ -4792,3 +4792,13 @@ phases:
       the free win: dropping --web.enable-lifecycle from both compose files.
       Nothing in the repo POSTs /-/reload, and the flag exposes unauthenticated
       /-/quit on a Prometheus that sits on four networks including the DMZ."
+
+  816:
+    name: Demo environment — end-to-end management console showcase
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_816.md
+    dependencies: []
+    size: MEDIUM
+    summary: 'Single-command demo: fake backend + varied TLS traffic + management
+      console + Prometheus/Grafana, with live block/allow/dial control. Glues trafficgen
+      + management into the start path, seeds via API, adds end-to-end verify + runbook.'
