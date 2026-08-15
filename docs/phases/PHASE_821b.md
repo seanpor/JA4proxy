@@ -26,27 +26,99 @@ missed bot. **No console page or dashboard reflects that today.** This panel is
 the phase's moral centre — which is why the review's finding against it matters
 so much.
 
-### The headline tile is not computable from Prometheus — decide before building
+### The headline tile — DECIDED: option (b), the Redis event stream
 
-The withdrawn plan led with *"block rate against browser-shaped traffic"*.
-**No metric in `internal/` carries an ALPN, browser, or user-agent label** —
-verified across every `[]string{…}` label set. The only browser-adjacent series
-is `ja4proxy_bypass_total{rule="alpn_browser"}`, and that path requires
-`cfg.ALPNBrowserBypass`, which CLAUDE.md documents as **off by default**
-(JA4PROXY-2026-0004). With shipped defaults that series is permanently zero.
+The withdrawn plan led with *"block rate against browser-shaped traffic"* as a
+Prometheus tile. **No metric in `internal/` carries an ALPN, browser, or
+user-agent label** — verified across every `[]string{…}` label set. The only
+browser-adjacent series is `ja4proxy_bypass_total{rule="alpn_browser"}`, and
+that path requires `cfg.ALPNBrowserBypass`, which CLAUDE.md documents as **off
+by default** (JA4PROXY-2026-0004). With shipped defaults it is permanently zero.
 
-So the top tile of the panel carrying the project's core asymmetry was not
-computable. Two options, and this must be settled **before** implementation:
+**Decision (2026-08-15): build it from the `events:connection` Redis stream,
+cross-referenced against the JA4 corpus.** This is a second data source with its
+own failure modes, so it is specified here rather than improvised.
 
-| Option | Cost |
-|---|---|
-| **(a)** Drop the tile; build Panel 1 from what Prometheus can answer | cheap, honest, weaker |
-| **(b)** Classify from the Redis event stream using the JA4 corpus already in the console (`management/api/ja4_corpus.py`, imported at `partials.py:36` as `browser_label`) | a genuinely different data source — not a Prometheus tile at all; changes the panel's architecture |
+#### The data exists and carries both halves
 
-**Recommendation: (b), scoped as its own tile with its own data path.** The
-asymmetry deserves a real answer, and the corpus is already loaded in the
-console. But it is a second data source with its own caching and failure modes,
-so it must be planned, not improvised mid-phase.
+`cmd/ja4pd/main.go:689-703` writes an ECS event per connection containing the
+fingerprint **and** the decision in the same record:
+
+```go
+"event.action":             result.Action     // the decision
+"event.risk_score":         result.Score
+"ja4proxy.fingerprint.ja4": connCtx.JA4       // the fingerprint
+"ja4proxy.sni":             connCtx.SNI
+"source.ip":                connCtx.ClientIP
+```
+
+XADDed as a single field `event` holding the JSON string
+(`cmd/ja4pd/main.go:1310`). `management/api/ja4_corpus.py:52` already exposes
+`is_known_browser(ja4) -> bool`, backed by
+`fixtures/ti_feeds/ja4_fp_corpus.txt`, and `partials.py:38` already imports from
+that module.
+
+**The write is not gated on webhooks being enabled.** `webhooks.enabled` is
+`false` by default (`config/proxy.yml:884`), but `main.go:337` assigns
+`dispatcher: disp` unconditionally — only the *delivery loop* is gated
+(`main.go:148`). The `p.dispatcher != nil` guard at `main.go:688` is therefore
+satisfied in normal operation, so the stream is populated with stock config.
+This was verified specifically because the tile is worthless if it silently
+requires enabling webhooks.
+
+#### The tile
+
+Of recent events whose JA4 is a **positively identified browser**, the fraction
+whose `event.action` is punitive (`block`, `ban`, `tarpit`, `rate_limit`).
+
+That is the closest thing this system can compute to "am I hurting real users",
+and it has no home anywhere in the product today.
+
+#### Four honesty constraints — all mandatory
+
+**1. It is a lossy sample, and the loss is biased.** Stream writes are dropped
+by design when the bounded queue fills (`main.go:1261-1266`,
+`ja4proxy_stream_event_drops_total`). Drops correlate with load — so the sample
+degrades precisely when the number matters most. **The tile must render the
+drop rate beside it**, and must be labelled a sample, never a census.
+
+**2. The window is volume-bounded, not time-bounded.** `XAddErr` sets
+`MaxLen: 100000, Approx: true` (`internal/redis/client.go:596`). At high traffic
+that is minutes; at low traffic, days. A tile captioned "last 5 minutes" would
+be a lie. **Derive the actual span from the `@timestamp` of the oldest event
+read and display it** — "N events spanning 4m12s".
+
+**3. This is NOT a false-positive rate, and must not be labelled as one.**
+`is_known_browser()` returns false for any JA4 absent from the corpus — which
+includes both bots *and* real browsers the corpus does not know. The tile
+measures **actions against positively-identified browsers**, a lower bound.
+Calling it an FP rate would overclaim in exactly the way the first review
+caught elsewhere in this plan. `means`/`when_red` must say so plainly.
+
+**4. Bounded reads only — and there is an existing violation to fix.**
+`management/api/routes/connections.py:144,213,266` call
+`await redis.xrange(_STREAM_KEY)` **with no count bound**, against a stream
+capped at 100,000 entries. That is the identical pattern JA4PROXY-2026-0035
+fixed and pinned — but the pin at
+`management/tests/test_pentest_dsar_bounded_xrange_regression.py:81` covers
+`compliance.py` **only**, so the same class of unbounded read survives in
+`connections.py`. The new tile uses `xrevrange(count=N)` (N ≤ 5000, matching
+the bounded precedent at `connections.py:308,386`), and **this phase extends
+the regression pin to `connections.py` and fixes those three call sites.**
+
+#### Implementation notes
+
+Reuse the 821a cache layer and its three-state result — Redis unreachable →
+`Unavailable`; stream present but no browser-classified events → `Empty`
+rendering a real zero, not an error. Parse cost is bounded by N and paid once
+per TTL window, not once per viewer.
+
+**Follow-up worth noting, deliberately not done here:** the analytics node
+already consumes `events:connection`, so this rolling figure could be computed
+there and written to a Redis key, making the console read O(1) instead of
+O(N events) per window. That is the better long-term shape, but it crosses a
+service boundary and should move only once the number is proven correct in one
+place first.
 
 ### Tiles that are computable now
 
@@ -168,9 +240,23 @@ of one — in particular, test #1's label-name and label-value checking, which i
 what catches the `{reason=}` class of error.
 
 Additional: `histogram_quantile` expressions validated against actual bucket
-definitions; the Panel 1 browser-classification tile (if option (b)) gets its
-own fail-visibly and cache tests, since it uses a different data source;
-`test_pages.py` covers every new route.
+definitions; `test_pages.py` covers every new route.
+
+**Panel 1 browser tile — its own test set**, since it uses a different data
+source with different failure modes:
+
+1. **Bounded-read pin extended to `connections.py`** — assert no
+   `redis.xrange(_STREAM_KEY)` without a count bound anywhere in
+   `management/api/routes/`, not just `compliance.py`. This must fail against
+   today's `connections.py:144,213,266` before those are fixed, proving the
+   test works.
+2. **Classification correctness** — seeded events with corpus and non-corpus
+   JA4s produce the expected numerator and denominator.
+3. **Empty vs Unavailable** — a stream with zero browser events renders `0`;
+   Redis down renders "unavailable".
+4. **Window honesty** — the displayed span is derived from actual event
+   `@timestamp`s, not hardcoded.
+5. **Drop-rate companion is present** — the tile cannot render without it.
 
 ---
 
@@ -182,9 +268,12 @@ own fail-visibly and cache tests, since it uses a different data source;
 3. No tile references a metric, label name, or label value absent from
    `internal/` — enforced by test #1, not by review.
 4. Firing alerts appear; no rule `expr` is exposed.
-5. The two decisions above (Panel 1 headline; risk-score framing) are recorded
-   in the phase notes with the option chosen.
-6. `make lint`, `make test`, `make scan` clean.
+5. The Panel 1 browser tile renders with its drop-rate companion, its derived
+   window span, and wording that does not claim to be a false-positive rate.
+6. `connections.py`'s three unbounded `xrange` calls are fixed and the
+   regression pin covers `management/api/routes/`, not just `compliance.py`.
+7. The risk-score framing decision is recorded in the phase notes.
+8. `make lint`, `make test`, `make scan` clean.
 
 ---
 
