@@ -1,4 +1,38 @@
 # =============================================================================
+# Trivy scan exceptions — PINNED UPSTREAM IMAGES.  (policy: Phase 226 / 822)
+# Consumed by `make scan-images` ONLY.
+# =============================================================================
+#
+# SPLIT FROM `.trivyignore` IN PHASE 822 — see .trivyignore.first-party for the
+# full rationale. Short version: one shared ignorefile meant a waiver for a
+# monitoring sidecar silently covered the same CVE in our own proxy image.
+#
+# THE RULE HERE
+#   An entry is valid only when **no fix is reachable without replacing the
+#   image**. That is deliberately weaker than the first-party rule, and it is
+#   the honest criterion: these are third-party tags we cannot rebuild, so a
+#   fixed version existing upstream in Go or a Go module does NOT help us until
+#   the image publisher ships a new tag.
+#
+#   The old single file's header claimed "only when there is genuinely no fix
+#   available", which was never true of most entries here — 70 of 73 carried a
+#   non-empty FixedVersion. Stating the real rule makes the list defensible
+#   instead of quietly contradictory.
+#
+#   Before renewing, re-check for a newer upstream tag and compare raw CVE-ID
+#   sets — not release notes. Several "newer" tags are measured net regressions
+#   (cadvisor v0.54.1/v0.55.1, grafana 13.1.3); those findings are recorded
+#   inline below.
+#
+#   Every entry needs: a '#' block stating why no fix AND why not exploitable
+#   here, plus an inline `exp:YYYY-MM-DD` at most 7 days out.
+#
+#   Verify with `make scan-exceptions`. Guide:
+#   docs/runbooks/security_scan_exceptions.md
+# =============================================================================
+
+
+# =============================================================================
 # Trivy scan exceptions — JUSTIFIED, TIME-WINDOWED only.   (policy: Phase 226)
 # =============================================================================
 #
@@ -260,50 +294,6 @@ CVE-2026-46600 exp:2026-08-19
 # authenticated internal users only.
 CVE-2026-56852 exp:2026-08-19
 
-# protobuf 4.25.9 DoS (python: recursive parsing) in ja4proxy-test — the CI-only,
-# profile-gated tooling image (never deployed; skipped by 'make build'). No fix
-# available: protobuf 5.29.6 needs semgrep>=1.137, whose mcp==1.23.3 pin would
-# reintroduce CVE-2025-66416 (see phase-800 note in requirements.txt). protobuf
-# there is only exercised by semgrep/OTEL tooling on trusted repo content.
-# Re-checked 2026-07-30 at semgrep 1.172.0 (latest on PyPI, well past the
-# OTEL>=1.37 condition): opentelemetry-api/-sdk are now ~=1.37.0 as hoped, but
-# semgrep still hard-pins mcp==1.23.3 — the actual blocker is unchanged.
-# Re-review at next expiry: check again for a semgrep release with mcp>=1.28.
-CVE-2026-0994 exp:2026-08-19
-
-# GHSA-6v7p-g79w-8964: msgpack for Python out-of-bounds read/crash on malformed
-# input (fixed in 1.2.1). Present in every first-party Python image.
-# Why no fix (re-investigated 2026-08-06, Phase 818): this is NOT a dependency
-# we install — `pip show msgpack` finds nothing. It is pip's OWN vendored copy:
-# /usr/local/lib/python3.14/site-packages/pip/_vendor/msgpack (and a second
-# copy inside the ensurepip bundled wheel). Even the latest pip — 26.2.1, which
-# the images install via `pip install --upgrade pip` — still vendors msgpack
-# 1.1.2. The requirements-level `msgpack>=1.2.1` pins are real and effective for
-# any genuine top-level use, but they cannot touch pip's internal _vendor tree.
-# pip (26.2.1, the current release, installed via `pip install --upgrade pip`)
-# still vendors the old msgpack, so it is present in every image regardless of
-# the base Python patch level. Only a future pip that re-vendors msgpack >= 1.2.1
-# clears this. The sibling CVE-2025-47273/setuptools is the same pip-vendored
-# situation; both are exceptioned below.
-# Why not exploitable: pip's vendored msgpack is used only by pip's own
-# resolver/cache machinery at install time on trusted inputs; no application or
-# runtime code path in any image imports it, and pip is not run at runtime.
-GHSA-6v7p-g79w-8964 exp:2026-08-19
-
-# CVE-2025-47273: setuptools path traversal in PackageIndex (fixed in 78.1.1).
-# Same root cause as GHSA-6v7p-g79w-8964 above: NOT a dependency we install
-# (`pip show setuptools` finds the live one is current) — this is pip's own
-# vendored copy, pip/_vendor/pkg_resources, which Trivy reports as an old
-# setuptools (~70.3.0). Present in pip 26.2.1's _vendor tree and the ensurepip
-# bundled wheel. Re-investigated 2026-08-06 (Phase 818): the build is
-# non-deterministic about whether Trivy surfaces this or the sibling msgpack
-# CVE first, so both are exceptioned. Neither is fixable by us — only a future
-# pip release that re-vendors these clears them.
-# Why not exploitable: pip's vendored pkg_resources is used only by pip's own
-# install-time machinery on trusted inputs; no application or runtime code path
-# imports it, and pip is not run at runtime.
-CVE-2025-47273 exp:2026-08-19
-
 
 
 # GHSA-hrxh-6v49-42gf: gRPC-Go xDS RBAC and HTTP/2 Vulnerabilities (fixed in
@@ -435,22 +425,27 @@ CVE-2025-52881 exp:2026-08-19
 # network only (no host port mapping), and this dependency is not on any
 # code path cAdvisor's own binary exercises.
 CVE-2026-33186 exp:2026-08-19
-
-# CVE-2024-23342: python-ecdsa vulnerable to the Minerva timing side-channel
-# attack (no fixed version — upstream ecdsa has no patch; the maintainer's
-# stance is "constant-time signing is out of scope for this library").
-# Why no fix: pulled in transitively by python-jose (management/requirements.txt)
-# for JWT signing. The real remediation is migrating off python-jose to PyJWT
-# (already tracked from phase-304 as a separate, larger auth-library change).
-# Why not exploitable here: Minerva requires an attacker able to measure
-# nanosecond-scale signing-time variance over many repeated signature
-# operations against the same key — JA4proxy's JWT signing is HS256
-# (HMAC, not ECDSA) by default; ecdsa is present only as python-jose's
-# transitive dependency graph, not on the actual signing path used today.
-# Phase 801 (ja4proxy-management Alpine rebase): the only residual finding
-# after re-basing off python:3.14.6-alpine3.24 — expected per that phase's plan.
-# Renewed 2026-07-30 (previous exp:2026-08-13 lapsed): re-checked upstream
-# python-ecdsa — still no patched release, maintainer position unchanged.
-# python-jose -> PyJWT migration (phase-304) still not started; nothing new
-# to re-justify beyond re-confirming both facts above still hold.
-CVE-2024-23342 exp:2026-08-19
+# ── Go 1.26.5 stdlib batch, surfaced by a Trivy DB update on 2026-08-15 ──
+# Six stdlib CVEs (encoding/asn1 DoS and siblings), all present in
+# `stdlib v1.26.5` compiled into prom/node-exporter:v1.12.1,
+# prom/prometheus:v3.13.2, prom/alertmanager:v0.33.1 and
+# oliver006/redis_exporter:v1.87.0.
+# Why no fix HERE: all six are fixed in Go 1.26.6, but these are pinned
+# upstream tags we cannot rebuild — the fix only reaches us when each project
+# publishes an image built on 1.26.6. Checked 2026-08-15: no such tag exists
+# for any of the four.
+# ⚠ NOT waived for our own images. The identical CVEs were present in
+# ja4proxy:2.0.0 and Phase 822 FIXED them by bumping the builder to
+# golang:1.26.6-alpine; that image now scans clean with no ignorefile at all.
+# This is exactly the split this file exists to enforce — see the header.
+# Why not exploitable here: these are DoS/parsing bugs in asn1 and related
+# stdlib paths. All four components are internal-only scrape targets on the
+# monitoring network with no host port exposure; none parses attacker-supplied
+# ASN.1 or terminates TLS from an untrusted peer.
+# Re-review at expiry: check for upstream rebuilds on Go 1.26.6.
+CVE-2026-33818 exp:2026-08-22
+CVE-2026-56853 exp:2026-08-22
+CVE-2026-56858 exp:2026-08-22
+CVE-2026-56859 exp:2026-08-22
+CVE-2026-56860 exp:2026-08-22
+CVE-2026-56862 exp:2026-08-22

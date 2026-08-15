@@ -27,7 +27,17 @@ import sys
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-IGNORE = Path(__file__).resolve().parents[1] / ".trivyignore"
+_ROOT = Path(__file__).resolve().parents[1]
+
+# phase-822: `.trivyignore` was split into first-party / third-party scopes so a
+# waiver for an upstream sidecar cannot silently cover a finding in an image we
+# build. Renewal must walk BOTH files — pointing this at the retired single
+# path would have made the weekly job a silent no-op, which is precisely the
+# failure mode Phase 812 existed to fix.
+IGNORE_FILES = (
+    _ROOT / ".trivyignore.first-party",
+    _ROOT / ".trivyignore.third-party",
+)
 ENTRY_LINE = re.compile(
     r"^(?P<id>CVE-\d{4}-\d+|GHSA-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4})"
     r"\s+exp:(?P<exp>\d{4}-\d{2}-\d{2})\s*$"
@@ -64,18 +74,25 @@ def main(argv: list[str]) -> int:
     if "--within-days" in argv:
         within_days = int(argv[argv.index("--within-days") + 1])
 
-    if not IGNORE.exists():
-        print("No .trivyignore file — nothing to renew.")
+    present = [p for p in IGNORE_FILES if p.exists()]
+    if not present:
+        print("No .trivyignore.{first,third}-party file — nothing to renew.")
         return 0
 
-    text = IGNORE.read_text(encoding="utf-8")
-    new_text, renewed = renew(text, today, within_days)
+    renewed: list[str] = []
+    pending: list[tuple[Path, str]] = []
+    for path in present:
+        new_text, got = renew(path.read_text(encoding="utf-8"), today, within_days)
+        if got:
+            pending.append((path, new_text))
+            renewed.extend(got)
 
     if not renewed:
         print(f"No exceptions expiring within {within_days} day(s) — nothing to renew.")
         return 0
 
-    IGNORE.write_text(new_text, encoding="utf-8")
+    for path, new_text in pending:
+        path.write_text(new_text, encoding="utf-8")
     new_exp = (today + timedelta(days=7)).isoformat()
     print(f"Renewed {len(renewed)} exception(s) to exp:{new_exp}:")
     for cve in renewed:

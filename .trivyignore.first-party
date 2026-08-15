@@ -1,0 +1,94 @@
+# =============================================================================
+# Trivy scan exceptions — IMAGES WE BUILD.        (policy: Phase 226 / 822)
+# Consumed by `make scan-first-party` ONLY.
+# =============================================================================
+#
+# WHY THIS FILE IS SEPARATE (Phase 822)
+#   Until Phase 822 there was one `.trivyignore`, and the Makefile passed it to
+#   BOTH the third-party and first-party scans. Trivy's ignorefile has no
+#   per-image scoping, so every waiver granted to an abandoned monitoring
+#   sidecar ALSO suppressed the same finding in the proxy we ship.
+#
+#   That was not hypothetical: CVE-2026-39821 and CVE-2026-46600 were waived
+#   with justifications written entirely about Grafana, Promtail, Alertmanager
+#   and cAdvisor — "they consume metrics/logs or serve authenticated admin UIs
+#   only" — while both were live in ja4proxy:2.0.0, an internet-facing TLS
+#   proxy. Both were fixed by a one-line Go bump (1.26.5 -> 1.26.6), which is
+#   what Phase 822 did instead of renewing them.
+#
+# THE RULE HERE IS STRICTER THAN THE THIRD-PARTY FILE
+#   We control these images. If a fix exists ANYWHERE upstream — a base-image
+#   bump, a dependency bump, an apk/apt upgrade — it is not a waiver candidate.
+#   Do the fix. An entry belongs here only when no rebuild we can perform
+#   clears it (e.g. a library vendored inside pip itself).
+#
+#   Every entry still needs: a '#' block stating why no fix AND why not
+#   exploitable here, plus an inline `exp:YYYY-MM-DD` at most 7 days out.
+#
+#   Verify with `make scan-exceptions`. Guide:
+#   docs/runbooks/security_scan_exceptions.md
+# =============================================================================
+
+
+# protobuf 4.25.9 DoS (python: recursive parsing) in ja4proxy-test — the CI-only,
+# profile-gated tooling image (never deployed; skipped by 'make build'). No fix
+# available: protobuf 5.29.6 needs semgrep>=1.137, whose mcp==1.23.3 pin would
+# reintroduce CVE-2025-66416 (see phase-800 note in requirements.txt). protobuf
+# there is only exercised by semgrep/OTEL tooling on trusted repo content.
+# Re-checked 2026-07-30 at semgrep 1.172.0 (latest on PyPI, well past the
+# OTEL>=1.37 condition): opentelemetry-api/-sdk are now ~=1.37.0 as hoped, but
+# semgrep still hard-pins mcp==1.23.3 — the actual blocker is unchanged.
+# Re-review at next expiry: check again for a semgrep release with mcp>=1.28.
+CVE-2026-0994 exp:2026-08-19
+
+# GHSA-6v7p-g79w-8964: msgpack for Python out-of-bounds read/crash on malformed
+# input (fixed in 1.2.1). Present in every first-party Python image.
+# Why no fix (re-investigated 2026-08-06, Phase 818): this is NOT a dependency
+# we install — `pip show msgpack` finds nothing. It is pip's OWN vendored copy:
+# /usr/local/lib/python3.14/site-packages/pip/_vendor/msgpack (and a second
+# copy inside the ensurepip bundled wheel). Even the latest pip — 26.2.1, which
+# the images install via `pip install --upgrade pip` — still vendors msgpack
+# 1.1.2. The requirements-level `msgpack>=1.2.1` pins are real and effective for
+# any genuine top-level use, but they cannot touch pip's internal _vendor tree.
+# pip (26.2.1, the current release, installed via `pip install --upgrade pip`)
+# still vendors the old msgpack, so it is present in every image regardless of
+# the base Python patch level. Only a future pip that re-vendors msgpack >= 1.2.1
+# clears this. The sibling CVE-2025-47273/setuptools is the same pip-vendored
+# situation; both are exceptioned below.
+# Why not exploitable: pip's vendored msgpack is used only by pip's own
+# resolver/cache machinery at install time on trusted inputs; no application or
+# runtime code path in any image imports it, and pip is not run at runtime.
+GHSA-6v7p-g79w-8964 exp:2026-08-19
+
+# CVE-2025-47273: setuptools path traversal in PackageIndex (fixed in 78.1.1).
+# Same root cause as GHSA-6v7p-g79w-8964 above: NOT a dependency we install
+# (`pip show setuptools` finds the live one is current) — this is pip's own
+# vendored copy, pip/_vendor/pkg_resources, which Trivy reports as an old
+# setuptools (~70.3.0). Present in pip 26.2.1's _vendor tree and the ensurepip
+# bundled wheel. Re-investigated 2026-08-06 (Phase 818): the build is
+# non-deterministic about whether Trivy surfaces this or the sibling msgpack
+# CVE first, so both are exceptioned. Neither is fixable by us — only a future
+# pip release that re-vendors these clears them.
+# Why not exploitable: pip's vendored pkg_resources is used only by pip's own
+# install-time machinery on trusted inputs; no application or runtime code path
+# imports it, and pip is not run at runtime.
+CVE-2025-47273 exp:2026-08-19
+
+# CVE-2024-23342: python-ecdsa vulnerable to the Minerva timing side-channel
+# attack (no fixed version — upstream ecdsa has no patch; the maintainer's
+# stance is "constant-time signing is out of scope for this library").
+# Why no fix: pulled in transitively by python-jose (management/requirements.txt)
+# for JWT signing. The real remediation is migrating off python-jose to PyJWT
+# (already tracked from phase-304 as a separate, larger auth-library change).
+# Why not exploitable here: Minerva requires an attacker able to measure
+# nanosecond-scale signing-time variance over many repeated signature
+# operations against the same key — JA4proxy's JWT signing is HS256
+# (HMAC, not ECDSA) by default; ecdsa is present only as python-jose's
+# transitive dependency graph, not on the actual signing path used today.
+# Phase 801 (ja4proxy-management Alpine rebase): the only residual finding
+# after re-basing off python:3.14.6-alpine3.24 — expected per that phase's plan.
+# Renewed 2026-07-30 (previous exp:2026-08-13 lapsed): re-checked upstream
+# python-ecdsa — still no patched release, maintainer position unchanged.
+# python-jose -> PyJWT migration (phase-304) still not started; nothing new
+# to re-justify beyond re-confirming both facts above still hold.
+CVE-2024-23342 exp:2026-08-19

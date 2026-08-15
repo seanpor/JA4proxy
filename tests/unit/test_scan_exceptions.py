@@ -38,7 +38,7 @@ CVE-2099-00001 exp:2099-01-01
 CVE-2026-00002 exp:2026-08-09
 """,
     )
-    monkeypatch.setattr(scan_exceptions, "IGNORE", ignore)
+    monkeypatch.setattr(scan_exceptions, "IGNORE_FILES", (("third-party", ignore),))
     rc = scan_exceptions.main(["--today", "2026-08-04", "--within-days", "5"])
     out = capsys.readouterr().out
     assert rc == 0
@@ -57,7 +57,7 @@ CVE-2026-00001 exp:2020-01-01
 CVE-2026-00002
 """,
     )
-    monkeypatch.setattr(scan_exceptions, "IGNORE", ignore)
+    monkeypatch.setattr(scan_exceptions, "IGNORE_FILES", (("third-party", ignore),))
     rc = scan_exceptions.main(["--today", "2026-08-04", "--within-days", "1"])
     out = capsys.readouterr().out
     assert rc == 1  # violations still fail the gate even in listing mode
@@ -81,7 +81,7 @@ def test_within_days_date_arithmetic_is_today_relative(tmp_path, monkeypatch, ca
 CVE-2026-00003 exp:2026-08-09
 """,
     )
-    monkeypatch.setattr(scan_exceptions, "IGNORE", ignore)
+    monkeypatch.setattr(scan_exceptions, "IGNORE_FILES", (("third-party", ignore),))
 
     # 5 days from 2026-08-04 to 2026-08-09 inclusive -> included
     rc = scan_exceptions.main(["--today", "2026-08-04", "--within-days", "5"])
@@ -104,7 +104,7 @@ def test_without_within_days_preserves_existing_behavior(tmp_path, monkeypatch, 
 CVE-2026-00001 exp:2099-01-01
 """,
     )
-    monkeypatch.setattr(scan_exceptions, "IGNORE", ignore)
+    monkeypatch.setattr(scan_exceptions, "IGNORE_FILES", (("third-party", ignore),))
     rc = scan_exceptions.main(["--today", "2026-08-04"])
     out = capsys.readouterr().out
     assert rc == 0
@@ -135,7 +135,7 @@ def test_entry_expiring_today_is_expired_not_soon(tmp_path, monkeypatch, capsys)
 CVE-2026-00002 exp:2026-08-10
 """,
     )
-    monkeypatch.setattr(scan_exceptions, "IGNORE", ignore)
+    monkeypatch.setattr(scan_exceptions, "IGNORE_FILES", (("third-party", ignore),))
     rc = scan_exceptions.main(["--today", "2026-08-10"])
     out = capsys.readouterr().out
 
@@ -156,7 +156,7 @@ def test_entry_expiring_tomorrow_is_still_valid(tmp_path, monkeypatch, capsys):
 CVE-2026-00003 exp:2026-08-11
 """,
     )
-    monkeypatch.setattr(scan_exceptions, "IGNORE", ignore)
+    monkeypatch.setattr(scan_exceptions, "IGNORE_FILES", (("third-party", ignore),))
     rc = scan_exceptions.main(["--today", "2026-08-10"])
     out = capsys.readouterr().out
 

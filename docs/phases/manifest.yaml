@@ -4676,3 +4676,36 @@ phases:
       #396 closed. Also closes the honest gap that #399 was pushed without
       running full make scan/lint/test locally — these changes were verified with
       full make scan locally before pushing."
+
+  822:
+    name: "Go 1.26.6 bump + .trivyignore first-/third-party split"
+    status: COMPLETE
+    action_plan: docs/phases/PHASE_822.md
+    dependencies: []
+    size: SMALL
+    summary: "Two changes that stop the scan gate lying about our own product.
+      (1) Makefile passed the SAME --ignorefile to both scan-images
+      (third-party) and scan-first-party, and Trivy's ignorefile has no
+      per-image scoping — so every waiver granted to an abandoned monitoring
+      sidecar also suppressed the same finding in the proxy we ship. Observed:
+      CVE-2026-39821 and CVE-2026-46600 were waived with justifications written
+      entirely about Grafana/Promtail/Alertmanager/cAdvisor ('they consume
+      metrics/logs or serve authenticated admin UIs only') while both were live
+      in ja4proxy:2.0.0, an internet-facing TLS proxy. Split into
+      .trivyignore.first-party (4 entries) and .trivyignore.third-party (55),
+      with DIFFERENT rules: first-party forbids waiving anything a rebuild can
+      fix; third-party requires only that no fix be reachable without replacing
+      the image — the honest criterion the old header claimed but could not
+      enforce (70 of 73 entries carried a non-empty FixedVersion).
+      (2) Bumped Go 1.26.5 -> 1.26.6 across five digest-pinned builders, go.mod
+      and seven CI pins, clearing those two CVEs plus the six-CVE stdlib batch
+      (CVE-2026-33818/-56853/-56858/-56859/-56860/-56862) that a Trivy DB update
+      surfaced on 2026-08-15 and which had turned scan-images red on main.
+      ja4proxy:2.0.0 now scans clean with NO ignorefile at all. Guard tests
+      assert the two targets use different files, that no CVE appears in both,
+      and that the retired single .trivyignore has not reappeared — one test
+      specifically pins the mis-edit made during implementation, where a single
+      sed over both occurrences pointed scan-first-party at the third-party file
+      and would have restored the bug while looking like the fix. renew_trivyignore.py
+      and the weekly renewal workflow now walk both files; left on the retired
+      path the automation would have become a silent no-op."

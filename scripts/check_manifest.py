@@ -135,6 +135,24 @@ def check_changelog() -> list[str]:
 
     manifest = yaml.safe_load(MANIFEST_PATH.read_text())
     changelog = CHANGELOG_PATH.read_text().lower()
+
+    # phase-820: also accept an unassembled docs/fragments/ entry.
+    # CLAUDE.md forbids editing CHANGELOG.md directly — a phase writes a news
+    # fragment, and `make changelog-assemble` folds it in *at release, not
+    # per-phase* (Makefile:1517). Searching only CHANGELOG.md therefore made
+    # this gate unsatisfiable for any phase closed between releases: the
+    # failure message told you to write a fragment, then failed anyway when
+    # you did. Concatenating the fragments makes the check match both its own
+    # message and the documented process.
+    fragments_dir = MANIFEST_PATH.parents[1] / "fragments"
+    fragments = "\n".join(
+        p.read_text().lower() for p in sorted(fragments_dir.glob("*.md"))
+    )
+    # Fragment filenames encode the phase (docs/fragments/README.md), so match
+    # the names too — a fragment whose body says only "this phase" still counts.
+    fragment_names = "\n".join(p.name.lower() for p in sorted(fragments_dir.glob("*.md")))
+    searchable = "\n".join((changelog, fragments, fragment_names))
+
     failures = []
 
     for phase_id, data in manifest["phases"].items():
@@ -149,11 +167,12 @@ def check_changelog() -> list[str]:
         pattern = re.compile(
             rf"\bphase[-_ ]?{re.escape(phase_id_str)}(?![0-9])", re.IGNORECASE
         )
-        if not pattern.search(changelog):
+        if not pattern.search(searchable):
             failures.append(
                 f"Phase {phase_id} ({data['name']}) is COMPLETE in manifest.yaml "
-                f"but has no matching entry in CHANGELOG.md (and is not in "
-                f"HISTORICAL_CHANGELOG_GAPS) — write a docs/fragments/ entry"
+                f"but has no matching entry in CHANGELOG.md or docs/fragments/ "
+                f"(and is not in HISTORICAL_CHANGELOG_GAPS) — write a "
+                f"docs/fragments/phase-{phase_id}-*.md entry"
             )
 
     return failures

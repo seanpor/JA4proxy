@@ -26,7 +26,19 @@ import sys
 from datetime import date, datetime
 from pathlib import Path
 
-IGNORE = Path(__file__).resolve().parents[1] / ".trivyignore"
+_ROOT = Path(__file__).resolve().parents[1]
+
+# phase-822: `.trivyignore` was split so a waiver for a third-party sidecar can
+# never silently cover a finding in an image we build. Both files are reported
+# here, tagged, because a single combined count hid exactly that confusion.
+IGNORE_FILES = (
+    ("first-party", _ROOT / ".trivyignore.first-party"),
+    ("third-party", _ROOT / ".trivyignore.third-party"),
+)
+# Retained so a stale checkout with the old single file still reports rather
+# than silently claiming zero exceptions.
+LEGACY_IGNORE = _ROOT / ".trivyignore"
+
 ENTRY = re.compile(r"^(CVE-\d{4}-\d+|GHSA-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4})(?:\s+exp:(\d{4}-\d{2}-\d{2}))?\s*$")
 
 
@@ -55,19 +67,28 @@ def main(argv: list[str]) -> int:
     within_days: int | None = None
     if "--within-days" in argv:
         within_days = int(argv[argv.index("--within-days") + 1])
-    if not IGNORE.exists():
-        print("No .trivyignore file — no scan exceptions.")
-        return 0
-    entries = parse(IGNORE.read_text(encoding="utf-8"))
-    if not entries:
-        print("No scan exceptions defined in .trivyignore.")
+    sources = [(scope, p) for scope, p in IGNORE_FILES if p.exists()]
+    if not sources and LEGACY_IGNORE.exists():
+        sources = [("legacy", LEGACY_IGNORE)]
+    if not sources:
+        print("No .trivyignore.{first,third}-party file — no scan exceptions.")
         return 0
 
-    print(f"{'CVE':<18} {'EXPIRES':<12} {'DAYS':>5}  {'STATUS':<8} JUSTIFICATION")
-    print("-" * 78)
+    entries = []
+    per_scope: dict[str, int] = {}
+    for scope, path in sources:
+        found = parse(path.read_text(encoding="utf-8"))
+        per_scope[scope] = len(found)
+        entries.extend((cve, exp, just, scope) for cve, exp, just in found)
+    if not entries:
+        print("No scan exceptions defined.")
+        return 0
+
+    print(f"{'CVE':<18} {'SCOPE':<12} {'EXPIRES':<12} {'DAYS':>5}  {'STATUS':<8} JUSTIFICATION")
+    print("-" * 92)
     violations = 0
     shown = 0
-    for cve, exp, just in entries:
+    for cve, exp, just, scope in entries:
         if not exp:
             status, days, d = "NO-EXP", "  -", None
         else:
@@ -96,9 +117,10 @@ def main(argv: list[str]) -> int:
         if status in ("NO-EXP", "EXPIRED"):
             violations += 1
         shown += 1
-        print(f"{cve:<18} {exp or '(none)':<12} {days:>5}  {status:<8} {just[:90]}")
+        print(f"{cve:<18} {scope:<12} {exp or '(none)':<12} {days:>5}  {status:<8} {just[:78]}")
 
-    print("-" * 78)
+    print("-" * 92)
+    breakdown = ", ".join(f"{n} {scope}" for scope, n in sorted(per_scope.items()))
     if violations:
         print(
             f"\n✗ {violations} exception(s) EXPIRED or missing exp: date. "
@@ -108,7 +130,7 @@ def main(argv: list[str]) -> int:
     if within_days is not None:
         print(f"\n✓ {shown} exception(s) expiring within {within_days} day(s).")
         return 0
-    print(f"\n✓ {len(entries)} exception(s), all within their time window.")
+    print(f"\n✓ {len(entries)} exception(s) ({breakdown}), all within their time window.")
     return 0
 
 
