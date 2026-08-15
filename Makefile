@@ -609,7 +609,7 @@ scan-images:
 		result=$$(docker run --rm -v "$(PWD):/scan:ro" -v "$(TRIVY_CACHE):/root/.cache/trivy" aquasec/trivy:0.71.0 image \
 			--severity HIGH,CRITICAL --exit-code 0 \
 			--no-progress --scanners vuln \
-			--ignorefile /scan/.trivyignore \
+			--ignorefile /scan/.trivyignore.third-party \
 			--skip-version-check \
 			--format table "$$img" 2>&1); \
 		high=$$(echo "$$result" | grep -v "Total:" | grep -c "HIGH" || true); \
@@ -691,7 +691,7 @@ scan-first-party:
 			-v "$(PWD):/scan:ro" \
 			-v "$(TRIVY_CACHE):/root/.cache/trivy" \
 			aquasec/trivy:0.71.0 image --severity HIGH,CRITICAL --exit-code 0 \
-			--no-progress --scanners vuln --ignorefile /scan/.trivyignore \
+			--no-progress --scanners vuln --ignorefile /scan/.trivyignore.first-party \
 			--skip-version-check \
 			--format table "$$img" 2>&1 \
 			| grep -E "CRITICAL|HIGH|Total:" || true); \

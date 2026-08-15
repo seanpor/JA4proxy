@@ -77,7 +77,7 @@ def test_idempotent_when_nothing_in_window():
 def test_main_writes_file_and_reports_summary(tmp_path, monkeypatch, capsys):
     ignore = tmp_path / ".trivyignore"
     ignore.write_text("CVE-2026-00001 exp:2026-08-09\n", encoding="utf-8")
-    monkeypatch.setattr(renew_trivyignore, "IGNORE", ignore)
+    monkeypatch.setattr(renew_trivyignore, "IGNORE_FILES", (ignore,))
     rc = renew_trivyignore.main(["--today", "2026-08-04", "--within-days", "5"])
     out = capsys.readouterr().out
     assert rc == 0
@@ -90,7 +90,7 @@ def test_main_no_changes_when_nothing_in_window(tmp_path, monkeypatch, capsys):
     ignore = tmp_path / ".trivyignore"
     original = "CVE-2026-00001 exp:2099-01-01\n"
     ignore.write_text(original, encoding="utf-8")
-    monkeypatch.setattr(renew_trivyignore, "IGNORE", ignore)
+    monkeypatch.setattr(renew_trivyignore, "IGNORE_FILES", (ignore,))
     rc = renew_trivyignore.main(["--today", "2026-08-04", "--within-days", "5"])
     out = capsys.readouterr().out
     assert rc == 0

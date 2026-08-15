@@ -67,7 +67,7 @@ jobs:
         id: renew
         run: |
           python3 scripts/renew_trivyignore.py --within-days 5 | tee renewal_summary.txt
-          if git diff --quiet .trivyignore; then
+          if git diff --quiet .trivyignore.first-party .trivyignore.third-party; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
@@ -95,7 +95,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           branch="chore/trivyignore-renewal-$(date +%Y-%m-%d)"
           git checkout -b "$branch"
-          git add .trivyignore
+          git add .trivyignore.first-party .trivyignore.third-party
           git commit -m "chore: renew soon-to-expire .trivyignore exceptions ($(date +%Y-%m-%d))"
           # --force-with-lease: a prior same-day run may have left this branch.
           git push --force-with-lease -u origin "$branch"
