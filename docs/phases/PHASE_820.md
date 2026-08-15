@@ -185,6 +185,13 @@ list stays truthful. Leave every other entry untouched.
   `haproxy_*` selector in `alerts.yml` and both dashboards must use a `proxy`
   label value that matches a `backend`/`frontend` name actually declared in
   `config/haproxy.cfg`. This is what would have caught four dead alerts.
+
+  > **Build this as a reusable selector validator, not a `haproxy_`-specific
+  > one.** `PHASE_821a.md` regression test #1 is the same check generalised to
+  > `ja4proxy_*` metrics and the console's metric catalogue — it validates
+  > metric names, label names, **and** label values against their source of
+  > truth. Whichever phase lands first owns the shared implementation; the
+  > other consumes it. Two bespoke copies is the outcome to avoid.
 - **New unit test:** any `haproxy_server_status` selector must constrain `state=`.
 - **Integration** (`check_haproxy_promex.sh`, renamed): bring up the stack,
   assert the `haproxy` target is `up`, and assert a non-empty result for each

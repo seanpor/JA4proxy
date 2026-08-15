@@ -166,6 +166,29 @@ Do not ship the claim without the resolution to back it.
 
 ---
 
+### RBAC floor for posture-leaking tiles — the commitment 821a defers here
+
+821a establishes that `require_role(Role.auditor)` restricts nothing —
+`auditor` is `_ROLE_ORDER` 0 (`management/api/auth.py:512-517`) — and states
+plainly that all 821a tiles are visible to any authenticated user.
+
+**This phase is where that stops being acceptable**, because Panel 1 and
+Panel 2 introduce genuinely sensitive tiles: the **dial value**, **block
+rates**, **bypass composition**, and **whitelist hit rates** are attack-planning
+data. Someone who knows the dial is 0 knows nothing is being enforced.
+
+Tiles carrying decision posture take `require_role(Role.analyst)` (floor 1) —
+specifically: `ja4proxy_dial_current`, the by-action connection breakdown, the
+by-rule bypass breakdown, the whitelist hit rate, and the Panel 1 browser tile.
+Health and degradation tiles (Panels 3 and 4) stay at the authenticated
+baseline; an on-call auditor must be able to see that the system is unwell
+without being able to read its enforcement posture.
+
+A test asserts that every posture tile rejects an `auditor`-role token — the
+control is otherwise indistinguishable from the no-op it replaces.
+
+---
+
 ## Panel 2 — What is it deciding?
 
 | Tile | Note |

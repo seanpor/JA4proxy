@@ -120,13 +120,19 @@ it works only by falling back to the default at `partials.py:690`. This phase
 sets it explicitly and asserts it in `test_container_config.py`, per the
 CLAUDE.md web-service rule (that file parses only `REDIS_URL` today).
 
-### Caching — TTL = 10s, matching the scrape interval
+### Caching — TTL = 10s, bounded by the *fastest* scrape
 
-Prometheus scrapes at 10s (`prometheus.yml:46`); htmx polls at 30s
-(`templates/partials/infrastructure.html:9`). **TTL = 10s**, because a shorter
-TTL cannot produce fresher data than the scrape that feeds it, and a longer one
-adds console lag on top of scrape lag. Single-flight de-duplication so N
-concurrent viewers cost one query set.
+Scrape intervals are **not uniform**: 15s global default
+(`prometheus.yml:4`), 30s for one job (`:35`), and **10s for the proxy job**
+(`:46`) that feeds every Panel 4 tile. Phase 820's `haproxy` job is 15s.
+
+**TTL = 10s**, set to the fastest relevant scrape: a shorter TTL cannot produce
+fresher data than the scrape feeding it, and a longer one adds console lag on
+top of scrape lag. Tiles fed by slower jobs are inherently staler than their
+TTL suggests — which is why `fetched_at` is displayed rather than implied, and
+why a single global TTL is safe only in the conservative direction.
+
+Single-flight de-duplication so N concurrent viewers cost one query set.
 
 **Coupling to record:** single-flight is per-process and correct only because
 `Dockerfile.management:45` runs `--workers 1`. A future `--workers N` silently
