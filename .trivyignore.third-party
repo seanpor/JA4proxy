@@ -269,14 +269,25 @@ CVE-2026-46597 exp:2026-08-19
 
 # CVE-2026-46600: golang.org/x/net/dns/dnsmessage (x/net before 0.56.0).
 # Newly disclosed sibling of the -46595/-46597 batch above; surfaced by a
-# Trivy DB update on 2026-08-12 across the same four Go-based monitoring
-# images (cadvisor:v0.52.1, promtail:3.6.11, alertmanager:v0.33.1,
-# haproxy-exporter:v0.15.0). Why no fix: as documented for -46595/-46597,
-# these are pinned third-party tags that compile x/net transitively; fixing
-# requires an upstream rebuild, and no such rebuild has shipped yet. Why not
-# exploitable: dns/dnsmessage parses host-originated DNS records, which none
-# of these components reach in our deployment (they consume metrics/logs or
-# serve authenticated admin UIs only). Re-review at expiry for upstream fixes.
+# Trivy DB update on 2026-08-12.
+# phase-820 CORRECTION: the previous note claimed "the same four Go-based
+# monitoring images" and named haproxy-exporter (now deleted — see the Phase
+# 810/820 block below). A no-ignorefile scan of every pinned image on
+# 2026-08-14 shows the real affected set is wider: cadvisor:v0.52.1,
+# promtail:3.6.11, alertmanager:v0.33.1, grafana:13.0.6-ubuntu, loki:3.7.6,
+# prometheus:v3.13.2, node-exporter:v1.12.1, redis_exporter:v1.87.0 — AND
+# ja4proxy:2.0.0, our own proxy image.
+# Why no fix (third-party): pinned tags that compile x/net transitively;
+# fixing requires an upstream rebuild, and none has shipped.
+# ⚠ NOT TRUE OF ja4proxy:2.0.0 — that is a Go stdlib finding
+# (deploy/docker/Dockerfile.go-proxy pins golang:1.26.5-alpine) and Go 1.26.6
+# fixes it. This waiver must NOT be read as covering our own image; the bump
+# is tracked as its own phase, together with splitting .trivyignore into
+# first-party and third-party files so a sidecar waiver can never again
+# silently suppress a finding in the product.
+# Why not exploitable (third-party only): dns/dnsmessage parses
+# host-originated DNS records, which none of those components reach in our
+# deployment. Re-review at expiry.
 CVE-2026-46600 exp:2026-08-19
 
 # CVE-2026-56852: golang.org/x/text norm.Iter can enter an infinite loop on
@@ -312,56 +323,33 @@ CVE-2026-56852 exp:2026-08-19
 # the proxy, reachable only from trusted internal callers.
 GHSA-hrxh-6v49-42gf exp:2026-08-19
 
-# ── gcr.io/cadvisor/cadvisor + prom/haproxy-exporter — Phase 810 ──
-# Phase 810 wired these two images (plus tecnativa/docker-socket-proxy) into
-# the scan gate for the first time: TRIVY_IMAGES was a hand-maintained list
-# that had silently drifted from docker-compose.monitoring.yml and never
-# included them, so they went unscanned indefinitely. tecnativa's bump
-# (0.3.0 -> v0.5.0) scans completely clean, no waiver needed. cadvisor was
-# bumped v0.47.2 -> v0.52.1 (57 findings -> 41) and haproxy-exporter has no
-# newer tag to bump to — prom/haproxy-exporter:v0.15.0 (2023-02-15) is the
-# last version the upstream project ever published; it appears abandoned.
-# A proper fix for haproxy-exporter is replacing it with HAProxy 2.8's
-# built-in Prometheus exporter (removes the abandoned sidecar entirely) —
-# tracked as a follow-up phase, not done here. Neither image is exposed on
-# any host port (no `ports:` mapping in docker-compose.monitoring.yml) — both
-# are reachable only from Prometheus/other containers on the internal
-# `ja4proxy-monitoring` Docker network, never externally or from the host.
+# ── gcr.io/cadvisor/cadvisor — Phase 810, narrowed by Phase 820 ──
+# Phase 810 wired cadvisor (plus tecnativa/docker-socket-proxy and the
+# now-removed prom/haproxy-exporter) into the scan gate for the first time:
+# TRIVY_IMAGES was a hand-maintained list that had silently drifted from
+# docker-compose.monitoring.yml, so these went unscanned indefinitely.
+# tecnativa's bump (0.3.0 -> v0.5.0) scans clean, no waiver needed. cadvisor
+# was bumped v0.47.2 -> v0.52.1 (57 findings -> 41).
 #
-# The block below groups the Go stdlib / x/crypto / x/net / x/oauth2 DoS and
-# parsing-bug backlog shared by both images (cadvisor's Go 1.24.1/x-pkg
-# vintage and haproxy-exporter's much older abandoned Go 1.19.5/x-pkg
-# vintage) — all denial-of-service or memory-safety bugs in HTTP/TLS/HTML/URL
-# parsing paths, none of them RCE. Why not exploitable: cadvisor serves only
-# a Prometheus metrics scrape endpoint and reads /proc, /sys, and the
-# read-only Docker socket — it never parses untrusted HTML, arbitrary URLs,
-# or terminates TLS from an untrusted peer. haproxy-exporter only scrapes
-# HAProxy's own local stats page over plain HTTP inside the internal
-# network — no untrusted input reaches these code paths in either.
-# Re-verified 2026-08-03 (only the entries actually re-triggered by this
-# scan run got their exp: date bumped; the rest of the batch below is inert
-# until it recurs): cadvisor v0.55.1 and haproxy-exporter's abandoned
-# v0.15.0 (still the newest tag published, 2023-02-15) offer no improvement.
-CVE-2022-41722 exp:2026-08-19
-CVE-2022-41723 exp:2026-08-19
-CVE-2022-41724 exp:2026-08-19
-CVE-2022-41725 exp:2026-08-19
-CVE-2023-24534 exp:2026-08-19
-CVE-2023-24536 exp:2026-08-19
-CVE-2023-24537 exp:2026-08-19
-CVE-2023-24538 exp:2026-08-19
-CVE-2023-24539 exp:2026-08-19
-CVE-2023-24540 exp:2026-08-19
-CVE-2023-29400 exp:2026-08-19
-CVE-2023-29403 exp:2026-08-19
-CVE-2023-39325 exp:2026-08-19
-CVE-2023-45283 exp:2026-08-19
-CVE-2023-45287 exp:2026-08-19
-CVE-2023-45288 exp:2026-08-19
-CVE-2024-24790 exp:2026-08-19
-CVE-2024-34156 exp:2026-08-19
-CVE-2024-45337 exp:2026-08-19
-CVE-2024-45338 exp:2026-08-19
+# Phase 820 REMOVED prom/haproxy-exporter entirely — HAProxy 2.8 ships its own
+# Prometheus exporter (USE_PROMEX=1), so the abandoned sidecar (last release
+# 2023-02-15, Go 1.19.5) was deleted rather than waived. That retired 20
+# exceptions outright: every CVE-2022-* and CVE-2023-* entry this block
+# formerly carried, plus CVE-2024-24790/-34156/-45337/-45338.
+#
+# cadvisor is not exposed on any host port (no `ports:` mapping in
+# docker-compose.monitoring.yml) — it is reachable only from Prometheus and
+# other containers on the internal `ja4proxy-monitoring` Docker network.
+#
+# The block below is the Go stdlib / x/crypto / x/net / x/oauth2 DoS and
+# parsing-bug backlog from cadvisor's Go 1.24.1 / x-pkg vintage — all
+# denial-of-service or memory-safety bugs in HTTP/TLS/HTML/URL parsing paths,
+# none of them RCE. Why not exploitable: cadvisor serves only a Prometheus
+# metrics scrape endpoint and reads /proc, /sys, and the read-only Docker
+# socket — it never parses untrusted HTML or arbitrary URLs, and never
+# terminates TLS from an untrusted peer.
+# Re-verified 2026-08-03: cadvisor v0.54.1 (45 findings) and v0.55.1 (44) are
+# both WORSE than v0.52.1 (43) — each clears 9-10 CVEs but introduces 11.
 CVE-2025-22868 exp:2026-08-19
 CVE-2025-22869 exp:2026-08-19
 CVE-2025-22874 exp:2026-08-19

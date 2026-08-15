@@ -333,33 +333,13 @@ services:
         max-size: "100m"
         max-file: "3"
 
-  haproxy-exporter:
-    image: prom/haproxy-exporter:v0.15.0
-    command:
-      # Use HAProxy path-parameter CSV suffix (;csv) and include basic-auth credentials.
-      # Operators MUST set HAPROXY_STATS_USER / HAPROXY_STATS_PASSWORD in .env;
-      # phase-202 removed the admin/admin123 fallbacks.
-      - '--haproxy.scrape-uri=http://${HAPROXY_STATS_USER:?HAPROXY_STATS_USER is required}:${HAPROXY_STATS_PASSWORD:?HAPROXY_STATS_PASSWORD is required}@haproxy:8404/stats;csv'
-    restart: unless-stopped
-    networks:
-      - ja4proxy-monitoring
-      - poc_dmz_net
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
-    deploy:
-      resources:
-        limits:
-          memory: 64M
-          cpus: '0.2'
-        reservations:
-          memory: 32M
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "100m"
-        max-file: "3"
+  # phase-820: `haproxy-exporter` (prom/haproxy-exporter:v0.15.0) removed.
+  # It was a CSV-to-Prometheus translation shim from before HAProxy 2.0 shipped
+  # its own exporter. haproxy:2.8.26-alpine is built with USE_PROMEX=1, so
+  # Prometheus now scrapes haproxy:8404/metrics directly (see prometheus.yml).
+  # Upstream abandoned the sidecar — last release 2023-02-15, Go 1.19.5 — and it
+  # carried 58 HIGH/CRITICAL CVEs requiring 20 .trivyignore exceptions.
+  # Removing it also drops HAPROXY_STATS_USER/PASSWORD from a second container.
 
 volumes:
   prometheus-data:

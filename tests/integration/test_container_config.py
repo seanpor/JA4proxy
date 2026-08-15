@@ -87,8 +87,13 @@ def test_compose_poc_requires_management_secrets(var_name: str) -> None:
     "var_name",
     [
         "GRAFANA_PASSWORD",
-        "HAPROXY_STATS_USER",
-        "HAPROXY_STATS_PASSWORD",
+        # phase-820: HAPROXY_STATS_USER / HAPROXY_STATS_PASSWORD were checked
+        # here because prom/haproxy-exporter needed them to scrape HAProxy's
+        # CSV stats page. That sidecar is gone — HAProxy 2.8 serves its own
+        # /metrics — so the monitoring stack no longer consumes them at all.
+        # The credential-hygiene guarantee has NOT been dropped: it moved to
+        # test_haproxy_stats_credentials_are_required below, which checks the
+        # one place they are still used.
     ],
 )
 def test_compose_monitoring_requires_credentials(var_name: str) -> None:
@@ -113,6 +118,51 @@ def test_compose_monitoring_requires_credentials(var_name: str) -> None:
         f"{MONITORING_COMPOSE.name} that are not `${{VAR:?message}}` required-"
         f"syntax (suffixes={non_required!r}). A bare `${{VAR}}` silently "
         f"expands to empty — use `${{VAR:?required}}`."
+    )
+
+
+HAPROXY_CFG = REPO_ROOT / "config" / "haproxy.cfg"
+
+
+@pytest.mark.parametrize(
+    "var_name", ["HAPROXY_STATS_USER", "HAPROXY_STATS_PASSWORD"]
+)
+def test_haproxy_stats_credentials_are_required(var_name: str) -> None:
+    """HAProxy's /stats page must never ship with default or empty credentials.
+
+    phase-820: this check used to live against docker-compose.monitoring.yml,
+    because prom/haproxy-exporter consumed these to scrape the CSV stats page.
+    That sidecar is retired (HAProxy 2.8 serves its own /metrics), so the only
+    remaining consumer is HAProxy itself. Without moving the assertion, deleting
+    the sidecar would have silently dropped a JA4PROXY-2026-0015 guarantee — the
+    one that removed well-known `admin`/`admin123` defaults exposing backend
+    topology on :8404.
+
+    Note `/metrics` is deliberately NOT behind `stats auth`; it is bound to
+    loopback and the monitoring network and exposes counters, not secrets.
+    """
+    text = HAPROXY_CFG.read_text()
+
+    pattern = re.compile(r"\$\{" + re.escape(var_name) + r"(:[^}]*)?\}")
+    matches = pattern.findall(text)
+    assert matches, (
+        f"{var_name} is not referenced in {HAPROXY_CFG.name} — the stats page "
+        "would have no credentials at all."
+    )
+
+    bad_default = re.compile(r"\$\{" + re.escape(var_name) + r":-[^}]*\}")
+    bad = bad_default.findall(text)
+    assert not bad, (
+        f"{var_name} uses default-fallback syntax in {HAPROXY_CFG.name}: "
+        f"{bad!r}. Must use `${{VAR:?message}}` so HAProxy fails fast "
+        "(JA4PROXY-2026-0015)."
+    )
+
+    non_required = [m for m in matches if not m.startswith(":?")]
+    assert not non_required, (
+        f"{var_name} has {len(non_required)} reference(s) in "
+        f"{HAPROXY_CFG.name} that are not `${{VAR:?message}}` required-syntax "
+        f"(suffixes={non_required!r})."
     )
 
 

@@ -146,13 +146,51 @@ class TestPrometheusConfig:
             "job_name: 'cadvisor'" in content or 'job_name: "cadvisor"' in content
         ), "prometheus.yml missing cadvisor scrape job"
 
-    def test_haproxy_exporter_scrape_job_present(self):
-        """prometheus.yml must contain a haproxy scrape job."""
+    def test_haproxy_scrape_job_targets_native_promex(self):
+        """phase-820: the haproxy job must scrape HAProxy directly, not the sidecar.
+
+        prom/haproxy-exporter was retired in Phase 820; HAProxy 2.8 serves its
+        own /metrics via USE_PROMEX=1.
+        """
         prom_file = ROOT / "deploy/monitoring/prometheus/prometheus.yml"
         content = prom_file.read_text()
         assert (
             "job_name: 'haproxy'" in content or 'job_name: "haproxy"' in content
         ), "prometheus.yml missing haproxy scrape job"
+        assert "haproxy-exporter:9101" not in content, (
+            "prometheus.yml still targets the retired prom/haproxy-exporter "
+            "sidecar; it must scrape haproxy:8404 (phase-820)"
+        )
+        assert "haproxy:8404" in content, (
+            "prometheus.yml haproxy job must target haproxy:8404 (native promex)"
+        )
+
+    def test_haproxy_promex_enabled_in_haproxy_config(self):
+        """Both haproxy.cfg files must enable the native Prometheus exporter."""
+        for cfg in (
+            ROOT / "config/haproxy.cfg",
+            ROOT / "deploy/haproxy/haproxy.cfg",
+        ):
+            content = cfg.read_text()
+            assert "use-service prometheus-exporter" in content, (
+                f"{cfg} does not enable HAProxy's native Prometheus exporter; "
+                "the haproxy scrape job will 404 (phase-820)"
+            )
+
+    def test_haproxy_exporter_service_removed(self):
+        """The retired sidecar must not reappear as a service in any compose file.
+
+        Matches an ``image:`` directive rather than any mention of the name, so
+        the comment recording why it was removed does not trip the check.
+        """
+        import re
+
+        pattern = re.compile(r"^\s*image:\s*['\"]?prom/haproxy-exporter", re.M)
+        for compose in (ROOT / "deploy/docker").glob("docker-compose*.yml"):
+            assert not pattern.search(compose.read_text()), (
+                f"{compose.name} reintroduces prom/haproxy-exporter — abandoned "
+                "upstream since 2023-02-15, 58 HIGH/CRITICAL CVEs (phase-820)"
+            )
 
     def test_cadvisor_drops_blkio_metrics(self):
         """cAdvisor scrape config must drop high-cardinality blkio metrics."""

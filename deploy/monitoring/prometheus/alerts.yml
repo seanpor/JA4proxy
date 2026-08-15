@@ -478,8 +478,13 @@ groups:
     interval: 30s
     rules:
 
+      # phase-820: every rule in this group was DEAD before the native-promex
+      # migration. They filtered on `proxy=`, which is the native exporter's
+      # label — prom/haproxy-exporter only ever emitted `frontend=`/`backend=`,
+      # so none of these could match a series. The value was wrong too: the
+      # backend is `ja4proxy_workers` (config/haproxy.cfg), not `ja4proxy`.
       - alert: HAProxyBackendQueueing
-        expr: haproxy_backend_current_queue{proxy="ja4proxy"} > 0
+        expr: haproxy_backend_current_queue{proxy="ja4proxy_workers"} > 0
         for: 30s
         labels:
           severity: warning
@@ -494,9 +499,11 @@ groups:
           runbook_url: "docs/runbooks/infrastructure.md#haproxy-queue"
 
       - alert: HAProxySessionLimitApproaching
+        # Scoped to the ingress frontend: unscoped, this also matched the
+        # `stats` frontend, whose session limit is operationally irrelevant.
         expr: >
-          haproxy_frontend_current_sessions
-          / haproxy_frontend_limit_sessions * 100 > 80
+          haproxy_frontend_current_sessions{proxy="tls_in"}
+          / haproxy_frontend_limit_sessions{proxy="tls_in"} * 100 > 80
         for: 2m
         labels:
           severity: warning
@@ -509,8 +516,12 @@ groups:
             reached, new connections are rejected at the load balancer with a 503.
           runbook_url: "docs/runbooks/infrastructure.md#haproxy-sessions"
 
+      # `state="UP"` is REQUIRED. Native promex emits haproxy_server_status as a
+      # state machine — one series per state (UP/DOWN/MAINT/DRAIN/NOLB), value 1
+      # for the active state and 0 for the rest. Without the selector this
+      # matches the four inactive states permanently and pages forever.
       - alert: HAProxyBackendDown
-        expr: haproxy_server_status{proxy="ja4proxy"} == 0
+        expr: haproxy_server_status{proxy="ja4proxy_workers", state="UP"} == 0
         for: 1m
         labels:
           severity: critical
@@ -524,7 +535,7 @@ groups:
           runbook_url: "docs/runbooks/infrastructure.md#haproxy-backend-down"
 
       - alert: HAProxyConnectionErrorRate
-        expr: rate(haproxy_server_connection_errors_total{proxy="ja4proxy"}[2m]) > 1
+        expr: rate(haproxy_server_connection_errors_total{proxy="ja4proxy_workers"}[2m]) > 1
         for: 2m
         labels:
           severity: warning
@@ -636,8 +647,10 @@ groups:
             rate limiting immediately.
           runbook_url: "docs/runbooks/infrastructure.md#connection-rate-sustained"
 
+      # phase-820: fifth dead rule — same `proxy="ja4proxy"` fault as the
+      # ja4proxy_haproxy group, in a different group so it was missed twice.
       - alert: HAProxyQueueSignalsCapacityAttack
-        expr: haproxy_backend_current_queue{proxy="ja4proxy"} > 5
+        expr: haproxy_backend_current_queue{proxy="ja4proxy_workers"} > 5
         for: 1m
         labels:
           severity: warning

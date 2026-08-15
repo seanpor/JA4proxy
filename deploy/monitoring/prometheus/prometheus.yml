@@ -117,10 +117,15 @@ scrape_configs:
         regex: ''
         action: drop
 
+  # phase-820: HAProxy's built-in Prometheus exporter (USE_PROMEX=1) replaces
+  # the abandoned prom/haproxy-exporter sidecar. Metric names are broadly
+  # compatible; the label is `proxy=` (native) not `frontend=`/`backend=`
+  # (sidecar) — see alerts.yml for the selectors this changed.
   - job_name: 'haproxy'
     scrape_interval: 15s
+    metrics_path: /metrics
     static_configs:
-      - targets: ['haproxy-exporter:9101']
+      - targets: ['haproxy:8404']
         labels:
           service: haproxy
           role: load-balancer

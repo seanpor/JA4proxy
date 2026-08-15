@@ -1672,7 +1672,7 @@
             "type": "prometheus",
             "uid": "PBFA97CFB590B2093"
           },
-          "expr": "rate(haproxy_frontend_connections_rate[1m])",
+          "expr": "rate(haproxy_frontend_connections_total{proxy=\"tls_in\"}[1m])",
           "legendFormat": "Sessions/s",
           "refId": "A"
         }
@@ -1731,7 +1731,7 @@
             "type": "prometheus",
             "uid": "PBFA97CFB590B2093"
           },
-          "expr": "haproxy_backend_current_queue{proxy=\"ja4proxy\"}",
+          "expr": "haproxy_backend_current_queue{proxy=\"ja4proxy_workers\"}",
           "legendFormat": "Queue",
           "refId": "A"
         }
@@ -1853,7 +1853,7 @@
             "type": "prometheus",
             "uid": "PBFA97CFB590B2093"
           },
-          "expr": "haproxy_server_status{proxy=\"ja4proxy\"}",
+          "expr": "haproxy_server_status{proxy=\"ja4proxy_workers\",state=\"UP\"}",
           "legendFormat": "Backend Health",
           "refId": "A"
         }
@@ -1902,7 +1902,7 @@
             "type": "prometheus",
             "uid": "PBFA97CFB590B2093"
           },
-          "expr": "rate(haproxy_frontend_connections_rate[1m])",
+          "expr": "rate(haproxy_frontend_connections_total{proxy=\"tls_in\"}[1m])",
           "legendFormat": "Sessions/s",
           "refId": "A"
         },
@@ -1911,7 +1911,7 @@
             "type": "prometheus",
             "uid": "PBFA97CFB590B2093"
           },
-          "expr": "haproxy_backend_current_queue{proxy=\"ja4proxy\"}",
+          "expr": "haproxy_backend_current_queue{proxy=\"ja4proxy_workers\"}",
           "legendFormat": "Queue Depth",
           "refId": "B"
         }
@@ -2896,7 +2896,7 @@
             "type": "prometheus",
             "uid": "PBFA97CFB590B2093"
           },
-          "expr": "haproxy_backend_current_queue{proxy=\"ja4proxy\"}",
+          "expr": "haproxy_backend_current_queue{proxy=\"ja4proxy_workers\"}",
           "legendFormat": "HAProxy Queue",
           "refId": "B"
         }
