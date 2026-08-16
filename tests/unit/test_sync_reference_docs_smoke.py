@@ -47,6 +47,54 @@ def test_script_runs_and_reports_rather_than_crashing():
     assert "Traceback" not in combined, (
         f"generator crashed instead of reporting:\n{combined[-1500:]}"
     )
+    # "no traceback" alone is nearly unfalsifiable — SystemExit, argparse errors
+    # and a bare sys.exit(3) all satisfy it, so a script gutted to
+    # `import sys; sys.exit(3)` would pass. Pin the actual contract.
+    assert result.returncode in (0, 1), (
+        f"unexpected exit {result.returncode} from --check:\n{combined[-1500:]}"
+    )
+    assert "missing markers" in combined or "drift" in combined.lower(), (
+        "--check produced neither a marker complaint nor a drift report — it is "
+        f"not doing its job:\n{combined[-1500:]}"
+    )
+
+
+def test_check_never_writes():
+    """--check is a CI gate; it must not mutate the repo.
+
+    --migrate rewrites the Makefile in place, so an ordering slip between the
+    two modes would let a read-only check edit the build's front door. Verified
+    by running --check and diffing the working tree.
+    """
+    before = subprocess.run(["git", "status", "--porcelain"],
+                            capture_output=True, text=True, cwd=REPO).stdout
+    subprocess.run([sys.executable, str(SCRIPT), "--check"],
+                   capture_output=True, text=True, cwd=REPO, timeout=120)
+    after = subprocess.run(["git", "status", "--porcelain"],
+                           capture_output=True, text=True, cwd=REPO).stdout
+    assert before == after, f"--check modified the working tree:\n{after}"
+
+
+def test_check_and_migrate_are_mutually_exclusive():
+    """`--check --migrate` used to silently mutate the Makefile."""
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT), "--check", "--migrate"],
+        capture_output=True, text=True, cwd=REPO, timeout=60,
+    )
+    assert result.returncode != 0, "--check --migrate must be rejected"
+    assert "not allowed with" in (result.stdout + result.stderr)
+
+
+def test_migrate_requires_explicit_confirmation():
+    """--migrate without --yes must print a diff and write nothing."""
+    before = subprocess.run(["git", "status", "--porcelain"],
+                            capture_output=True, text=True, cwd=REPO).stdout
+    result = subprocess.run([sys.executable, str(SCRIPT), "--migrate"],
+                            capture_output=True, text=True, cwd=REPO, timeout=120)
+    after = subprocess.run(["git", "status", "--porcelain"],
+                           capture_output=True, text=True, cwd=REPO).stdout
+    assert before == after, f"--migrate wrote without --yes:\n{after}"
+    assert "Nothing written" in result.stdout
 
 
 def test_documented_modes_still_exist():

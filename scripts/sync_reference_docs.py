@@ -355,8 +355,11 @@ def build() -> dict[Path, str]:
 # ---------------------------------------------------------------------------
 
 
-def migrate() -> int:
+def migrate(dry_run: bool = False) -> int:
     """Lift descriptions that live only in the doc into the Makefile.
+
+    With ``dry_run`` it prints a unified diff and writes nothing — the default
+    from the CLI unless ``--yes`` is given, because this edits the Makefile.
 
     Without this, switching to generated docs would silently discard the
     hand-written descriptions for the ~88 targets that have a doc row but no
@@ -385,7 +388,19 @@ def migrate() -> int:
         lines[i] = f"{line.rstrip()}  ## {desc}\n"
         lifted += 1
 
-    MAKEFILE.write_text("".join(lines), encoding="utf-8")
+    new_text = "".join(lines)
+    if dry_run:
+        import difflib
+
+        diff = list(difflib.unified_diff(
+            makefile_text.splitlines(keepends=True), new_text.splitlines(keepends=True),
+            fromfile="Makefile", tofile="Makefile (after --migrate)",
+        ))
+        sys.stdout.writelines(diff)
+        print(f"\nmigrate --dry-run: would lift {lifted} description(s). Nothing written.")
+        return 0
+
+    MAKEFILE.write_text(new_text, encoding="utf-8")
     print(f"migrate: lifted {lifted} description(s) from the doc into the Makefile")
     print("  Review the diff — some doc descriptions may need rewording as help text.")
     return 0
@@ -398,11 +413,27 @@ def migrate() -> int:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Generate the reference lists.")
-    parser.add_argument("--check", action="store_true", help="fail on drift (CI gate)")
-    parser.add_argument("--migrate", action="store_true", help="one-time description lift")
+    # --check and --migrate are mutually exclusive. --migrate rewrites the
+    # Makefile IN PLACE, and it used to be handled first — so `--check
+    # --migrate` silently mutated the build's front door despite the caller
+    # asking for a read-only check. A CI gate that edits the Makefile is the
+    # worst possible failure mode for this script.
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--check", action="store_true", help="fail on drift (CI gate); never writes")
+    mode.add_argument("--migrate", action="store_true", help="one-time description lift INTO the Makefile")
+    parser.add_argument(
+        "--yes", action="store_true",
+        help="required by --migrate to actually write; without it, print a diff and exit",
+    )
     args = parser.parse_args(argv)
 
     if args.migrate:
+        if not args.yes:
+            print(
+                "--migrate rewrites the Makefile in place. Re-run with --yes to "
+                "apply. Showing what would change:\n"
+            )
+            return migrate(dry_run=True)
         return migrate()
 
     drifted = False
