@@ -27,12 +27,20 @@ Any test whose body is nothing but `pass` (or only a docstring) is detected
 at collection time and causes an immediate failure. Every test must contain
 real assertions or test logic.
 
-Docker vs local
----------------
-pytest_sessionfinish uses os._exit() only inside Docker containers (where
-normal asyncio teardown can hang the process indefinitely). On a local
-development machine pytest exits normally, which lets asyncio clean up
-pending tasks cleanly and produces no spurious warnings.
+Docker vs local (phase-823)
+---------------------------
+There used to be a pytest_sessionfinish hook that called os._exit() inside
+Docker to stop asyncio teardown hanging the container. It also terminated the
+process before pytest's terminal reporter had written the FAILURES section, so
+a failing test printed "F" and nothing else — no traceback, no assertion
+message. Since every Python test in this project runs in a container, that was
+every failure. The exit code stayed correct, so CI still went red, just
+uninformatively, which is why it survived so long.
+
+Phase 823 re-measured the hang it guarded against and could not reproduce it on
+the current pytest / pytest-asyncio / base image, in either xdist or serial
+mode, across tests/unit/ and management/tests/. The hook is therefore gone
+rather than reordered — the simplest fix was no code. See PHASE_823.md.
 """
 
 import os
@@ -330,26 +338,26 @@ def pytest_collection_modifyitems(items) -> None:
 # ── Shutdown ──────────────────────────────────────────────────────────────────
 
 
-@pytest.hookimpl(tryfirst=True)
-def pytest_sessionfinish(session, exitstatus) -> None:  # noqa: ARG001
-    """Use os._exit() only inside Docker to prevent container hangs.
-
-    On a local development machine, let pytest exit normally so that asyncio
-    can cancel pending tasks cleanly — this avoids the spurious
-    "Cancelled N pending asyncio tasks" messages that os._exit() causes.
-    """
-    import os
-
-    # Only the controller process may os._exit(); an xdist *worker* that
-    # os._exit()s is reported by the controller as "node down: Not properly
-    # terminated", which crashes parallel runs inside Docker. Workers carry the
-    # PYTEST_XDIST_WORKER env var — let them shut down normally so the controller
-    # collects their results.
-    if os.path.exists("/.dockerenv") and not os.environ.get("PYTEST_XDIST_WORKER"):
-        sys.stdout.flush()
-        sys.stderr.flush()
-        os._exit(int(exitstatus))
-    # Local (or xdist worker): normal exit — asyncio teardown runs cleanly
+# phase-823: the pytest_sessionfinish hook that lived here called os._exit()
+# inside Docker. os._exit() terminates immediately — before pytest's terminal
+# reporter writes the FAILURES section and short summary — so a failing test
+# printed "F" and nothing else. Every Python test here runs in a container, so
+# that was every failure, and the exit code stayed correct so CI went red
+# uninformatively rather than silently.
+#
+# The hook was not gratuitous: it guarded against asyncio teardown hanging the
+# container. Phase 823 re-measured that hang and could not reproduce it on the
+# current pytest / pytest-asyncio / base image — 1864 unit tests (xdist AND
+# serial) and 751 management tests all exited cleanly in seconds with the hook
+# removed. So it is deleted rather than reordered.
+#
+# Note `trylast=True` was tried first and does NOT fix the truncation: the
+# terminal reporter's own sessionfinish runs in the same phase, and ordering
+# alone does not guarantee it wins. Verified empirically — do not "restore" the
+# hook with trylast on the assumption that it is safe.
+#
+# tests/unit/test_pytest_reporting.py fails if any conftest reintroduces
+# os._exit() in a sessionfinish hook.
 
 
 # ── Terminal summary ──────────────────────────────────────────────────────────

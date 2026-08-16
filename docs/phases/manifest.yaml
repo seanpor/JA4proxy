@@ -4802,3 +4802,33 @@ phases:
     summary: 'Single-command demo: fake backend + varied TLS traffic + management
       console + Prometheus/Grafana, with live block/allow/dial control. Glues trafficgen
       + management into the start path, seeds via API, adds end-to-end verify + runbook.'
+
+  823:
+    name: "Test failures print no traceback inside Docker — conftest os._exit() preempted pytest reporting"
+    status: COMPLETE
+    action_plan: docs/phases/PHASE_823.md
+    dependencies: []
+    size: SMALL
+    summary: "Rescued from the handoff-to-deepseek branch, where it had been
+      written 2026-08-05 as Phase 816 and preserved outside manifest.yaml; a
+      different phase later took 816 (demo environment, #424), so this was
+      renumbered to 823. tests/conftest.py ended the session with
+      os._exit() inside Docker, which terminates before pytest's terminal
+      reporter writes the FAILURES section — so every failing test printed 'F'
+      and nothing else: no traceback, no assertion message. Every Python test
+      here runs in a container, so that was every failure. It hid because the
+      exit code stayed correct: CI went red, just uninformatively. The plan
+      demanded measuring rather than assuming, and that paid off twice: (a)
+      trylast=True, the plan's likely minimal fix, does NOT work — the terminal
+      reporter's own sessionfinish runs in the same phase and ordering alone
+      does not decide the winner; (b) the asyncio hang the hook guarded against
+      no longer reproduces on the current pytest/pytest-asyncio/base image —
+      1864 unit tests (xdist AND serial) and 751 management tests all exited
+      cleanly in seconds with it removed. So the hook is deleted, not
+      reordered. Adds tests/unit/test_pytest_reporting.py: real pytest
+      subprocesses asserting the assertion message appears in serial and xdist,
+      that a FAILURES/summary section is emitted, and an AST guard (verified to
+      fail on reintroduction) against os._exit returning. This bug cost two
+      debugging cycles during Phases 820/822, where a CI failure showed
+      'sss................F' with no traceback and was misattributed to log
+      buffering."
