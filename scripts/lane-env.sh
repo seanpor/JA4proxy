@@ -66,15 +66,98 @@ if [ "${1:-}" = "--preview" ]; then
   exit 0
 fi
 
-port_free() { ! ss -ltn 2>/dev/null | awk '{print $4}' | grep -qE "[:.]$1\$"; }
+# Which probe can we trust? Computed once.
+#   ss / netstat  — authoritative listing of this netns
+#   devtcp        — bash /dev/tcp connect; a SUCCESSFUL connect is proof the
+#                   port is busy, but a failure is NOT proof it is free (we may
+#                   be in a container with its own loopback — the tools image
+#                   has neither ss nor netstat and TOOLS_RUN has no
+#                   --network host, so it probes the CONTAINER's loopback).
+# We only ever act on a positive "busy", so an unreliable "free" costs nothing.
+if command -v ss >/dev/null 2>&1;        then PROBE=ss
+elif command -v netstat >/dev/null 2>&1; then PROBE=netstat
+else                                          PROBE=devtcp
+fi
+
+PROBE_BIND="${AGENT_BIND_IP:-127.0.0.1}"
+
+# Is host port $1 free?
+#
+# The original was `! ss -ltn | awk | grep -q`. Where ss is absent the pipeline
+# emits nothing, grep matches nothing, and EVERY port reads as free — the lane
+# probe silently degraded to "always pick the first lane".
+port_free() {
+  local p=$1
+  case "$PROBE" in
+    ss)      ! ss      -ltn 2>/dev/null | awk '{print $4}' | grep -qE "[:.]${p}\$" ;;
+    netstat) ! netstat -ltn 2>/dev/null | awk '{print $4}' | grep -qE "[:.]${p}\$" ;;
+    devtcp)
+      # `timeout` guards a DROP rule stalling on SYN retries (~127s otherwise).
+      if command -v timeout >/dev/null 2>&1; then
+        ! timeout 1 bash -c "exec 3<>/dev/tcp/${PROBE_BIND}/${p}" 2>/dev/null
+      else
+        ! (exec 3<>"/dev/tcp/${PROBE_BIND}/${p}") 2>/dev/null
+      fi
+      ;;
+  esac
+}
+
 lane_ports_free() { local L=$1 v; for v in "${!BASE[@]}"; do port_free $(( BASE[$v] + L*100 )) || return 1; done; }
+
+# Names of the ports in lane L that are already taken, "VAR=port" per line.
+lane_busy_ports() {
+  local L=$1 v p
+  for v in "${!BASE[@]}"; do
+    p=$(( BASE[$v] + L*100 ))
+    port_free "$p" || printf '%s=%d\n' "$v" "$p"
+  done
+}
+
+# Is this lane's own compose project running? If so, its published ports are
+# SUPPOSED to be held and a collision warning would be crying wolf.
+lane_stack_is_up() {
+  command -v docker >/dev/null 2>&1 || return 1
+  [ -n "$(docker compose -p "ja4proxy-lane${1}" ps -q 2>/dev/null)" ]
+}
 
 # --- determine the lane -------------------------------------------------------
 existing_lane=""
 [ -f "$ENV_FILE" ] && existing_lane=$(grep -E '^JA4_LANE=' "$ENV_FILE" | tail -1 | cut -d= -f2 || true)
 
 if [ -n "$existing_lane" ] && [ "${JA4_LANE_REASSIGN:-0}" != "1" ]; then
-  LANE="$existing_lane"                       # already pinned — stable, no probing
+  LANE="$existing_lane"                       # already pinned — stable, no reassignment
+  # Probing is what picks a lane; pinning deliberately skips it so the lane —
+  # and therefore COMPOSE_PROJECT_NAME and every named volume — stays stable
+  # across restarts. But a lane pinned while its ports were free can later
+  # collide when something else on the host claims one.
+  #
+  # So: still CHECK, never reassign. Reassigning would strand this lane's
+  # volumes and break a running stack.
+  #
+  # Two things must be true before warning, or this cries wolf on the most
+  # common path — start-poc.sh runs this before every `compose up`, and
+  # `make open` depends on it:
+  #   1. The busy ports must NOT be our own lane's containers. When this
+  #      lane's stack is up its published ports are supposed to be held.
+  #   2. The probe must be one that can actually see the host (see PROBE):
+  #      inside the tools image /dev/tcp sees only the container's loopback,
+  #      so a "busy" there would be about the wrong netns.
+  busy=""
+  if ! lane_stack_is_up "$LANE"; then
+    busy="$(lane_busy_ports "$LANE")"
+  fi
+  if [ -n "$busy" ]; then
+    {
+      echo "lane-env: WARNING — lane $LANE is pinned, but these host ports are already in use:"
+      echo "$busy" | sed 's/^/  /'
+      echo "  If those are another lane or an unrelated service, 'docker compose up'"
+      echo "  will fail with EADDRINUSE. If they are this lane's own containers,"
+      echo "  this is expected — the check could not reach the Docker socket to tell."
+      echo "  Free the port(s), or stop the conflicting service."
+      echo "  Re-deriving a lane (JA4_LANE_REASSIGN=1) changes COMPOSE_PROJECT_NAME"
+      echo "  and leaves this lane's named volumes behind — only do that deliberately."
+    } >&2
+  fi
 else
   root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
   start=$(( $(printf '%s' "$root" | cksum | cut -d' ' -f1) % LANE_COUNT ))
