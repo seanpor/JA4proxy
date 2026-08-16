@@ -41,11 +41,22 @@ renders **exactly the same** when every partial behind it is broken, because htm
 fetches them *after* page load. The dashboard could be entirely blank and those
 tests stay green.
 
-Fifteen `hx-get` URLs are referenced across the templates. Nothing asserts that
-they resolve to real routes. They currently all do — verified 2026-08-15 — but
-only because two of them are defined in `attack_mode.py` and `tls_health.py`
-rather than `partials.py`. A rename or a router refactor breaks a panel silently,
-and no test in the repo notices.
+Fifteen `hx-get` URLs are referenced across the templates. **Six already have
+route-resolution assertions** that a rename would break — `situation`
+(`test_situation_bar.py`), `infrastructure` (`test_infrastructure_partial.py`),
+`threat-posture`, `triage-queue`, `list-table` (`test_codeql_305_regression.py`)
+and `tls-health`. The gap is the **other nine**: `health-cards`, `dial`, `bans`,
+`audit`, `intelligence`, `intelligence-review`, `attack-top`,
+`attack-fingerprint-table`, `attack-mode-indicator`.
+
+*(An earlier draft of this document claimed nothing asserted any of them. That
+was wrong, and is corrected here — the six that are covered were covered
+incidentally, by tests written for other purposes, which is exactly why the
+coverage is patchy rather than systematic.)*
+
+All fifteen resolve today — verified 2026-08-15 — but two are defined in
+`attack_mode.py:212` and `tls_health.py:113` rather than `partials.py`, so a
+router refactor can blank a panel with nothing to catch it.
 
 That is the RED flag this phase is about.
 
@@ -186,13 +197,33 @@ traffic. Tiering:
 | Tier | What | When | Budget |
 |---|---|---|---|
 | **T1** | UI route + partial health (§next), no stack needed | **every PR** | seconds |
-| **T2** | J1, J2, J8 — the safety-critical three | **every PR** | ~5 min |
-| **T3** | J3–J7, J9 | nightly + pre-release | ~20 min |
+| **T2** | **J1, J2, J4, J8** — the safety-critical set | see caveat below | ~5 min |
+| **T3** | J3, J5, J6, J7, J9 | nightly + pre-release | ~20 min |
 | **T4** | J10 capacity | pre-release only | long |
 
 T2 is deliberately the *asymmetry* set: enforcement works (J1), first deploy
-harms nobody (J2), degradation fails open (J8). If only three journeys can run
-per PR, those are the three whose failure is most expensive.
+harms nobody (J2), a wrongly blocked real user can be freed (J4), degradation
+fails open (J8).
+
+**J4 belongs here, not in T3.** An earlier draft called T2 "the asymmetry set"
+while leaving J4 — unblocking a wrongly blocked real user — in the nightly tier.
+Under CLAUDE.md that is the most expensive failure in the catalogue, and it is
+also the *cheapest* to test: seed a ban, release it via the API, assert the
+release propagates within one interval. No traffic generator, no saturation.
+
+**Caveat on "every PR".** This repo's own full-stack job, `poc-cold-start`
+(`.github/workflows/ci.yml:473-490`), is deliberately **path-filtered off most
+PRs** because compose bring-up is expensive. J2 must assert *zero* blocks so it
+cannot reuse J1's stack (J1 raised the dial), and J8 destroys Redis — up to
+three bring-ups. So T2 should start as `continue-on-error` on PRs and required
+on push to `main`, or be path-filtered like `poc-cold-start`. Only **T1** is
+cheap enough to be unconditionally required.
+
+**This touches branch protection.** `tests/test_workflow_pinning.py:303` asserts
+the protection contexts equal ci.yml's non-`continue-on-error` job names plus
+externals — so any new required job must be added via
+`scripts/branch_protection.sh` in the same change, or that test fails. And one
+flaky required check stalls the whole merge queue.
 
 `make test-journeys` runs a tier; CI selects by trigger.
 
@@ -252,9 +283,23 @@ GET /api/v1/health/ui
 }
 ```
 
-Three states, mapped onto Phase 821a's model — **`EMPTY` must never count as
-RED**, or a quiet system reports itself broken and the flag gets ignored within a
-week.
+**Four** states, not three. An earlier draft collapsed Phase 821a's
+`Unavailable` (the data source did not answer) into `BROKEN`, which directly
+contradicted this phase's own acceptance criterion 6: J8 requires that with
+Redis stopped the console shows "unavailable" and **passes**. Under that mapping
+the same state would have been RED. That is the identical mistake 821a warns
+about for `EMPTY`, made one level up:
+
+| State | Meaning | RED? |
+|---|---|---|
+| `OK` | rendered with data | no |
+| `EMPTY` | rendered, legitimately no data in window | **no** |
+| `DEGRADED` | a dependency is down; the proxy is failing open by design | **no** — alert separately |
+| `BROKEN` | route missing, 5xx, non-HTML, or timeout | **yes** |
+
+`EMPTY` and `DEGRADED` must never count as RED, or a quiet system — or one
+correctly weathering a Redis outage — reports itself broken and the flag gets
+ignored within a week.
 
 This one mechanism serves three consumers:
 
@@ -264,11 +309,60 @@ This one mechanism serves three consumers:
   so the check an operator trusts and the check CI runs are the same code. A
   health endpoint that CI doesn't use is one nobody notices has rotted.
 
+### Mechanism, auth, and what must NOT be probed
+
+**Fetch in-process, not over the network.** The endpoint must not HTTP-request
+its own app: `Dockerfile.management:45` runs `--workers 1`, so a *synchronous*
+client inside an `async def` blocks the only event loop, the self-request can
+never be served, and the endpoint CI gates on hangs until timeout. Use
+`httpx.AsyncClient(transport=ASGITransport(app=request.app))` — the pattern
+`tests/unit/test_infrastructure_partial.py:44` already uses. It also avoids
+hardcoding host/port/scheme. The endpoint must exclude **itself** from the
+extracted URL set, or a template polling it recurses.
+
+**Authentication.** `/api/v1/health` is unauthenticated (it is the container
+HEALTHCHECK), but every partial requires `get_current_user`. Left open, this
+endpoint becomes an anonymous amplifier — one request fans out to 15
+authenticated, Redis-touching renders — and the sample body above leaks upstream
+error text. So: **require at least `auditor`**, return stable reason codes rather
+than upstream error strings, and expose the Prometheus gauge via the existing
+`/metrics` surface refreshed by a background task, **not** as a scrape-triggered
+fan-out.
+
+**Do not point the container HEALTHCHECK at it.** A RED console would restart the
+management container — the opposite of "the console fails visibly".
+
+**Never probe `hx-post` URLs.** Tier 1 must check `hx-post` targets for
+*existence* against `app.routes` (path + method) and fetch **only** `hx-get`.
+The hx-post set mutates state — `/api/v1/bans`, `/api/v1/lists/ja4/blacklist/…`,
+`/api/v1/triage/dismiss/…`, `/api/v1/intelligence/…`. Probing them would create
+bans and blacklist entries, and under `/api/v1/health/ui` it would do so on a
+live system on every operator refresh. Under the core asymmetry that is a
+false-positive generator wired into a health check.
+
 **Design caution:** the endpoint must not become self-fulfillingly green. If it
 only checks HTTP status it will report OK for a panel rendering "unavailable" —
 exactly the failure it exists to catch. It must apply the Tier-2 content check,
 and it must be tested by **deliberately breaking a panel** and asserting it goes
 RED. A health check never proven to fail is not a health check.
+
+### Extraction is not as self-maintaining as it looks
+
+Seven of the URLs contain Jinja rather than a literal path — `?window={{ window }}`,
+`?filter={{ key }}`, `attack-top{% if attack_mode_active %}?…{% endif %}` — so a
+raw regex yields strings that 422 rather than 200. And
+`management/templates/partials/threat_posture.html:228` assembles an `hx-get`
+**in JavaScript**, invisible to any static scan; today it happens to duplicate
+the static URL, so the extractor is lucky rather than correct. The
+implementation needs URL normalisation plus a per-route sample-value fixture,
+and must either scan `<script>` blocks and `management/static/*.js` or ban
+JS-assembled `hx-get` outright.
+
+### Check the reverse direction too
+
+Route → template, not just template → route. `/api/v1/partials/attack-table`
+(`partials.py:1297`) is registered and referenced by no template — a panel
+deleted from the UI whose route was left behind. Same extraction run backwards.
 
 ---
 
@@ -299,12 +393,24 @@ benchmark fix); the console panels themselves (Phase 821a/b).
 6. J8 passes with Redis stopped: traffic flows, console shows "unavailable"
    rather than stale values.
 7. `make test-journeys TIER=2` runs in under ~5 minutes.
-8. `make lint`, `make test`, `make scan` clean.
+8. Redis stopped yields `DEGRADED`, **not** RED (the J8/criterion-4 contradiction).
+9. Tier 1 fetches no `hx-post` URL — asserted by seeding a ban count and
+   checking it is unchanged after a full T1 run.
+10. The URL extractor is tested against a Jinja-expression URL and the
+    JS-assembled one at `threat_posture.html:228`.
+11. The reverse check flags `/api/v1/partials/attack-table` as route-without-template.
+12. A CHANGELOG fragment exists at `docs/fragments/phase-824-*.md`, and
+    `docs/reference/CUSTOMER_JOURNEYS.md` carries the required frontmatter.
+13. `make lint`, `make test`, `make scan` clean.
 
 ---
 
 ## Open questions for review
 
+0. **Should upgrade/rollback be J11?** The review flagged it as the most
+   frequent post-day-one operation — new proxy version without dropping traffic
+   — and the repo ships Helm charts and a release pipeline. I think yes; it is
+   omitted above only because it was not in the original ten.
 1. **Is `/api/v1/health/ui` the right home for the RED flag**, or should it be a
    CLI target (`make ui-health`) so it works without the console running? My view:
    endpoint first — it is what an operator and Prometheus can both consume — with

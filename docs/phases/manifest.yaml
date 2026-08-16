@@ -4837,7 +4837,7 @@ phases:
     name: "Customer journeys — catalogue, journey regression tests, and a RED flag for the UI"
     status: PROPOSED
     action_plan: docs/phases/PHASE_824.md
-    dependencies: []
+    dependencies: [816, 821a]
     size: LARGE
     summary: "PROPOSED 2026-08-15. The suite proves the parts work; it does not
       prove a person can get their job done. Catalogues ten customer journeys
@@ -4848,10 +4848,13 @@ phases:
       console is a shell plus htmx partials polled from /api/v1/partials/*, and
       test_pages.py asserts only that the shell renders — which it does
       identically when every partial behind it is broken, because htmx fetches
-      them after page load. 15 hx-get URLs are referenced across templates and
-      NOTHING asserts they resolve; they all do today only because two are
-      defined in attack_mode.py and tls_health.py rather than partials.py, so a
-      router refactor blanks a panel silently. Proposes three UI tiers (route
+      them after page load. Of 15 hx-get URLs referenced across templates, 6
+      already have route-resolution assertions (incidentally, from tests written
+      for other purposes) and 9 do not: health-cards, dial, bans, audit,
+      intelligence, intelligence-review, attack-top, attack-fingerprint-table,
+      attack-mode-indicator. All 15 resolve today, but two live in
+      attack_mode.py and tls_health.py rather than partials.py, so a router
+      refactor can blank a panel with nothing to catch it. Proposes three UI tiers (route
       resolution extracted FROM the templates so it is self-maintaining; content
       checks that a 200 is not rendering an error state; Playwright nightly) and
       a /api/v1/health/ui RED flag reusing Phase 821a's Ok/Empty/Unavailable
