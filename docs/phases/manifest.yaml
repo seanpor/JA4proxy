@@ -4832,3 +4832,34 @@ phases:
       debugging cycles during Phases 820/822, where a CI failure showed
       'sss................F' with no traceback and was misattributed to log
       buffering."
+
+  824:
+    name: "Customer journeys — catalogue, journey regression tests, and a RED flag for the UI"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_824.md
+    dependencies: [816, 821a]
+    size: LARGE
+    summary: "PROPOSED 2026-08-15. The suite proves the parts work; it does not
+      prove a person can get their job done. Catalogues ten customer journeys
+      (stop-the-bots, day-one deploy, demo, false-positive rescue, dial tuning,
+      retrospective, hot config change, degraded dependencies, audit/DSAR,
+      capacity) with the CLI path, the console path, and an explicit
+      'proves it worked' assertion for each. The UI gap is structural: the
+      console is a shell plus htmx partials polled from /api/v1/partials/*, and
+      test_pages.py asserts only that the shell renders — which it does
+      identically when every partial behind it is broken, because htmx fetches
+      them after page load. Of 15 hx-get URLs referenced across templates, 6
+      already have route-resolution assertions (incidentally, from tests written
+      for other purposes) and 9 do not: health-cards, dial, bans, audit,
+      intelligence, intelligence-review, attack-top, attack-fingerprint-table,
+      attack-mode-indicator. All 15 resolve today, but two live in
+      attack_mode.py and tls_health.py rather than partials.py, so a router
+      refactor can blank a panel with nothing to catch it. Proposes three UI tiers (route
+      resolution extracted FROM the templates so it is self-maintaining; content
+      checks that a 200 is not rendering an error state; Playwright nightly) and
+      a /api/v1/health/ui RED flag reusing Phase 821a's Ok/Empty/Unavailable
+      model — EMPTY must never read RED or a quiet system reports itself broken.
+      The same endpoint serves operator, Prometheus alert and CI assertion, and
+      must be proven to go RED by deliberately breaking a panel. Journey tiering
+      is explicit about cost: T2 (every PR) is J1/J2/J8 — enforcement works,
+      first deploy harms nobody, degradation fails open."
