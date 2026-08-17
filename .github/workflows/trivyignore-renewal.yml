@@ -97,6 +97,31 @@ jobs:
           git checkout -b "$branch"
           git add .trivyignore.first-party .trivyignore.third-party
           git commit -m "chore: renew soon-to-expire .trivyignore exceptions ($(date +%Y-%m-%d))"
+
+          # Rebase onto the CURRENT tip before pushing. The checkout above is of
+          # main as it stood when the job started; anything merged since would
+          # leave this branch behind, and a branch that is behind cannot
+          # auto-merge and shows as BEHIND/DIRTY needing manual intervention.
+          #
+          # NOTE ON A CLAIM THAT WAS MADE AND IS WRONG: a stale branch does NOT
+          # "revert" work merged after it. Git merges the branch's changes
+          # relative to the merge base, not a snapshot — verified by simulating
+          # the merge. The symptom that looked like a revert was `git diff main
+          # branch` (two-dot), which renders main's own progress as deletions.
+          # `git diff main...branch` (three-dot) is what a PR shows, and it
+          # showed only the ignorefile lines. So this rebase is about keeping
+          # the branch mergeable, not about preventing data loss.
+          #
+          # It cannot prevent a conflict that arises AFTER the push (if a later
+          # PR edits the same ignorefile, this branch still needs a rebase or a
+          # regeneration) — it only closes the window between checkout and push.
+          git fetch origin main
+          if ! git rebase origin/main; then
+            git rebase --abort || true
+            echo "::warning::renewal branch conflicts with current main; " \
+                 "regenerate it on the current tip instead of merging this one"
+          fi
+
           # --force-with-lease: a prior same-day run may have left this branch.
           git push --force-with-lease -u origin "$branch"
 
