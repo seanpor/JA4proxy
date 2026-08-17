@@ -4979,7 +4979,7 @@ phases:
       had no metric to alert on. Exceptions 59 -> 58 as predicted."
   826:
     name: "Connect the Intelligence pipeline end-to-end"
-    status: PLANNED
+    status: PROPOSED
     action_plan: docs/phases/PHASE_826.md
     dependencies: [824]
     size: MEDIUM

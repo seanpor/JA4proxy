@@ -1,6 +1,6 @@
 # Phase 826 — Connect the Intelligence pipeline end-to-end
 
-**Status:** PLANNED
+**Status:** PROPOSED
 **Depends on:** the socket_timeout fix in `90551b27` (layer 1, already landed)
 
 ## Why
