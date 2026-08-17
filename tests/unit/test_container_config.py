@@ -125,3 +125,47 @@ def test_every_required_compose_var_exists_in_template_env():
         + "\n\nAdd them to template.env — CI copies it verbatim, so a fresh "
         "clone cannot start without them."
     )
+
+
+def test_lint_docker_injects_every_required_var_it_validates():
+    """`make lint`'s compose validation must supply every `${VAR:?}` it hits.
+
+    WHY THIS EXISTS
+    ---------------
+    Sibling of the template.env guard above, and the second half of the same
+    2026-08-17 break. `lint-docker` runs `docker compose config` with an inline
+    list of `VAR=lint-placeholder` assignments per compose file, because the
+    `:?` syntax would otherwise refuse to validate without real secrets.
+
+    That list is a THIRD place a new required variable has to be registered
+    (compose file, template.env, here). Missing it fails only in CI: the Full
+    Lint job never creates a .env, whereas any developer running `make lint`
+    locally has a real .env that docker compose picks up automatically — so the
+    target passes for the author and fails for everyone else.
+    """
+    import re
+
+    makefile = (REPO_ROOT / "Makefile").read_text()
+    body = re.search(r"^lint-docker:.*?(?=^\w[\w-]*:)", makefile, re.M | re.S)
+    assert body, "lint-docker target not found in Makefile"
+    recipe = body.group(0)
+
+    injected = set(re.findall(r"([A-Z_][A-Z0-9_]*)=lint-placeholder", recipe))
+
+    missing: dict[str, set[str]] = {}
+    for line in recipe.splitlines():
+        for cf_name in re.findall(r"deploy/docker/(docker-compose[\w.]*\.yml)", line):
+            cf = REPO_ROOT / "deploy" / "docker" / cf_name
+            if not cf.is_file():
+                continue
+            for var in re.findall(r"\$\{([A-Z_][A-Z0-9_]*):\?", cf.read_text()):
+                if var not in injected:
+                    missing.setdefault(var, set()).add(cf_name)
+
+    assert not missing, (
+        "lint-docker validates compose file(s) requiring var(s) it does not "
+        "inject:\n  "
+        + "\n  ".join(f"{v} (needed by {', '.join(sorted(f))})" for v, f in sorted(missing.items()))
+        + "\n\nAdd `VAR=lint-placeholder` to the matching line in the Makefile's "
+        "lint-docker recipe, or CI's Full Lint job fails while local passes."
+    )
