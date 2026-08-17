@@ -1722,3 +1722,15 @@ pentest-shell: ## Open a shell on the attacker workstation inside the range
 		-f deploy/docker/docker-compose.pentest.yml exec attacker bash
 
 .PHONY: pentest-range pentest-range-down pentest-range-verify pentest-shell
+
+# Phase 824 — journey tests. Assert a PERSON can do the thing, not that a unit
+# returns a value. Require a running stack, so they are not part of `make test`.
+test-journeys: ## Phase 824 — run customer-journey checks against a live stack
+	@set -a; [ -f .env ] && . ./.env; set +a; \
+	fail=0; \
+	for j in tests/integration/journeys/check_*.sh; do \
+		[ -x "$$j" ] || continue; \
+		echo "── $$j"; "$$j" || fail=1; \
+	done; \
+	[ $$fail -eq 0 ] || { echo "✗ journey check(s) failed"; exit 1; }; \
+	echo "✓ all journey checks passed"
