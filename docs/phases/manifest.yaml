@@ -4608,6 +4608,79 @@ phases:
       derive-doc-from-reality + --check drift-gate machinery, and building it
       twice would itself be a drift problem. 815 owns the generator; 814b
       consumes it for ATTACK_SURFACE.md."
+  819a:
+    name: "Benchmark truthfulness — the throughput and false-positive numbers are both constants"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_819a.md
+    dependencies: []
+    size: MEDIUM
+    summary: "PROPOSED 2026-08-13, raised by rerunning make bench-all after the
+      entrypoint shebang fix (#416); revised after three independent expert
+      reviews. Two numbers this project publishes are constants, not
+      measurements. (1) Throughput: ja4bench.go runProfile is a rate-limited
+      closed loop (ratePerWorker = rate/workers, synchronous dial inside the
+      tick handler, Go tickers drop rather than coalesce), and neither
+      Makefile:1209 nor nightly-benchmark.yml:57 passes --workers or
+      --good-rate, so it offers 8 x (100/8) = 96 conn/s. Proof: the CI artefact
+      reports total_good 2873 against 8 workers x floor(30s/83.333ms) = 2880
+      predicted, and Little's Law gives 1.2 connections in flight out of 8
+      workers. An i9-9900K measures 95.73 and a GitHub runner 95.749 — agreeing
+      to 0.02% while their mean latencies differ 2x (6.26ms vs 12.498ms). Blind
+      zone is 13.3x on the i9, 6.7x in CI; it invalidates throughput only, the
+      latency figures are real measurements of an unloaded path. (2) False
+      positives: Record() returns early on err before the allowed/blocked
+      branch, and the only allowed=false call site passes an error, so
+      GoodBlocked is unreachable, FalsePositiveRate() is always 0.00%, and the
+      Status() FP gate Phase 800 added can never fire — while ja4bench_test.go
+      sets the field directly. Under CLAUDE.md's core asymmetry that is the
+      worse constant. Phase 818 saw the paradox and blamed shared CI runners;
+      its self-hosted-runner remedy would entrench the artefact, though the
+      idea becomes right once the harness saturates. Design: the gate is a
+      rate_limited boolean (achieved vs offered), NOT a plateau assertion — a
+      plateau cannot distinguish the proxy from docker-proxy or from the
+      generator itself. Saturating flags go in ja4bench.go defaults because the
+      nightly workflow inlines the binary and never calls make bench-macro.
+      Removes measure-mttr from bench-all on day one so verify-all stops
+      carrying docker-volume-rm authority. Adds bench-hostnative, the only
+      stage that measures the engine. Closes the Phase 524 D2 debt."
+  819b:
+    name: "Bench-all stage repair — bit-rot, lane-awareness, and safe MTTR isolation"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_819b.md
+    dependencies: [819a, 814a]
+    size: LARGE
+    summary: "PROPOSED 2026-08-13, the second half of the bench-all
+      restoration; 819a lands first. perf-test is dead four layers deep: locust
+      2.17.0 cannot import on Python 3.14 (PEP 649/749), AND the events it
+      fires at eight sites (request_success/request_failure) were removed in
+      locust 2.0, AND its ClientHello is structurally corrupt (pack_into '>I'
+      writes 4 bytes into the 3-byte handshake-length field; all extensions
+      emitted with length 0), AND it points plain HTTP at the TLS passthrough
+      port while driving 100 users at the live lane for 5 minutes — so the fix
+      is retirement, not a version bump, which also drops the msgpack pin and a
+      large CVE surface. test-go-perf defaults to port 18082 while lanes
+      publish HOST_PORT_DIRECT, so 4/4 tests skip and exit 0; its 4264 conn/s
+      is GIL-bound Python threads doing bare TCP connects and must not be
+      promoted; its Python-ratio test defaults PYTHON_PROXY_PORT to 8081, the
+      same as the compose HOST_PORT_DIRECT default, so after the port fix it
+      compares the Go proxy against itself and fails rather than skips.
+      load-test references four LOAD_TEST_* variables defined nowhere, and
+      fixing that alone would make it silently green: it records no throughput,
+      latency or error count, keeps only the last 2000 chars of stdout (which
+      truncates the throughput line on a 4-profile mix), and has no non-zero
+      exit for zero successful connections. measure-mttr expects a host
+      redis-cli (forbidden by container-strict execution); behind that sit an
+      invalid 'docker compose volume ls' (the plural 'volumes' exists and is
+      project-scoped), a redis service publishing no host port, an NDJSON parse
+      failure that makes scenario 2 stop docker-socket-proxy instead of the
+      proxy, no trap so an interrupt leaves config:dial=100 published, and —
+      critically — .env sets COMPOSE_PROJECT_NAME so bare 'docker compose'
+      targets the LIVE LANE with the root 4-service file, recreating its Redis
+      under an incompatible definition and breaking ACL auth fleet-wide. Also:
+      bench-micro never runs internal/security's benchmarks, two stages run
+      host Python 3.10 against AGENTS.md container-strict, and bench-all leaves
+      an untracked MTTR_BASELINE.md that trips Phase 800's dirty-tree refusal."
+
   817:
     name: "Analytics node crash-loop fix — src/utils missing from image (JA4PROXY-2026-0097)"
     status: COMPLETE
