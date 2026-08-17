@@ -324,6 +324,15 @@ def create_app() -> FastAPI:
     # ── Templates ─────────────────────────────────────────────────────────────
     if _TEMPLATES_DIR.exists():
         templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
+        # phase-826: the console had no link to Grafana at all, so the metrics
+        # and logs could only be reached by knowing a URL and a port. Exposed
+        # as a template global rather than passed per-route because the sidebar
+        # in base.html needs it on every page.
+        #
+        # Deployment-specific (the POC assigns ports per lane), so it comes from
+        # the environment. Empty means "not deployed with monitoring" and the
+        # link is hidden rather than rendered broken.
+        templates.env.globals["grafana_url"] = os.environ.get("GRAFANA_EXTERNAL_URL", "")
         pages.set_templates(templates)
         partials.set_templates(templates)
         tls_health_routes.set_templates(templates)

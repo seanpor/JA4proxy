@@ -505,7 +505,7 @@ lint-docker:
 		docker compose -f deploy/docker/docker-compose.prod.yml config --quiet \
 		&& echo "  deploy/docker/docker-compose.prod.yml                     OK"
 	@BACKEND_HOST=lint-placeholder REDIS_PASSWORD=lint-placeholder ANALYTICS_REDIS_PASSWORD=lint-placeholder \
-		MANAGEMENT_REDIS_PASSWORD=lint-placeholder \
+		MANAGEMENT_REDIS_PASSWORD=lint-placeholder ANALYTICS_HMAC_SECRET=lint-placeholder \
 		MANAGEMENT_JWT_SECRET=lint-placeholder MANAGEMENT_ADMIN_USER=lint-placeholder MANAGEMENT_ADMIN_PASSWORD=lint-placeholder \
 		docker compose -f deploy/docker/docker-compose.poc.yml -f deploy/docker/docker-compose.scale.yml config --quiet \
 		&& echo "  deploy/docker/docker-compose.scale.yml (overlay)          OK"
@@ -1735,3 +1735,17 @@ test-journeys: ## Phase 824 — run customer-journey checks against a live stack
 	done; \
 	[ $$fail -eq 0 ] || { echo "✗ journey check(s) failed"; exit 1; }; \
 	echo "✓ all journey checks passed"
+
+# ── phase-826: demo support ───────────────────────────────────────────────────
+# Pre-flight before showing the product to anyone. Checks the failures that
+# have actually happened and were invisible: analytics unable to read the
+# stream, events rejected on an HMAC mismatch, the proxy never loading its
+# blacklist, an empty Intelligence panel. See docs/DEMO_RUNBOOK.md.
+.PHONY: demo-check demo-bot
+demo-check:
+	@scripts/demo-check.sh
+
+# One deliberately non-browser TLS connection, for the "now something that
+# isn't a browser" step of the demo.
+demo-bot:
+	@scripts/demo-bot.sh

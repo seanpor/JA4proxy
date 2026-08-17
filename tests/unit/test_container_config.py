@@ -169,3 +169,37 @@ def test_lint_docker_injects_every_required_var_it_validates():
         + "\n\nAdd `VAR=lint-placeholder` to the matching line in the Makefile's "
         "lint-docker recipe, or CI's Full Lint job fails while local passes."
     )
+
+
+def test_start_poc_generates_every_required_env_var():
+    """`start-poc.sh` writes a fresh .env — it must cover every `${VAR:?}`.
+
+    WHY THIS EXISTS
+    ---------------
+    The third sibling of the same 2026-08-17 break, and the one that got
+    furthest: a required variable has to be registered in FIVE places (the
+    compose file, template.env, the Makefile's lint-docker recipe, the compose
+    validation test, and here). Adding ANALYTICS_HMAC_SECRET missed this one,
+    and the failure surfaced only in the cold-start CI job — because everyone
+    else already had a .env from before the variable existed.
+
+    That is the worst possible place to find it: a brand-new clone cannot start
+    the stack at all, while every existing checkout works fine.
+    """
+    import re
+
+    script = (REPO_ROOT / "scripts" / "start-poc.sh").read_text()
+    # Only the generated heredoc counts; a mention in a comment is not a value.
+    heredoc = re.search(r"cat > \.env << ?ENV_EOF\n(.*?)\nENV_EOF", script, re.S)
+    assert heredoc, "could not find the .env heredoc in start-poc.sh"
+    generated = set(re.findall(r"^([A-Z_][A-Z0-9_]*)=", heredoc.group(1), re.M))
+
+    poc = REPO_ROOT / "deploy" / "docker" / "docker-compose.poc.yml"
+    required = set(re.findall(r"\$\{([A-Z_][A-Z0-9_]*):\?", poc.read_text()))
+
+    missing = required - generated
+    assert not missing, (
+        "start-poc.sh generates a .env that is missing required var(s): "
+        f"{sorted(missing)}\n\nA fresh clone cannot start the stack — compose "
+        "fails on the :? requirement. Add them to the heredoc in start-poc.sh."
+    )

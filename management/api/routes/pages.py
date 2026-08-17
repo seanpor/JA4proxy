@@ -17,6 +17,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from ..auth import COOKIE_NAME, _decode_token, get_current_user
+from ..ja4_decode import decode as decode_ja4
 from ..redis_client import get_redis
 
 logger = logging.getLogger(__name__)
@@ -229,6 +230,11 @@ async def fingerprint_detail_page(
     """Render the forensics page for a JA4 fingerprint."""
     templates = _get_templates()
     user, role = _extract_user_and_role(current_user)
+    # phase-826: decode the fingerprint server-side. The first segment is a
+    # structured description of the ClientHello, not an opaque hash, and this
+    # page previously showed the raw string with nothing else — so a blocked
+    # connection could only ever be explained by a number. Rendered on the
+    # server so the explanation survives the profile fetch failing.
     return templates.TemplateResponse(
         request,
         "fingerprint.html",
@@ -236,5 +242,6 @@ async def fingerprint_detail_page(
             "user": user,
             "role": role,
             "ja4": ja4,
+            "decoded": decode_ja4(ja4),
         },
     )
