@@ -283,6 +283,13 @@ services:
       - --storage.path=/var/lib/alloy/data
       - --server.http.listen-addr=0.0.0.0:12345
       - /etc/alloy/config.alloy
+    # The image ships /var/lib/alloy/data as drwxrwx--- alloy:alloy (uid 473).
+    # The container's default user is root, but `cap_drop: ALL` strips
+    # DAC_OVERRIDE, so root cannot write into a directory it does not own —
+    # alloy crash-looped on `mkdir /var/lib/alloy/data/remotecfg: permission
+    # denied`. Running as the owning user fixes it WITHOUT weakening the
+    # capability drop, which adding DAC_OVERRIDE back would have done.
+    user: "473:473"
     depends_on:
       - loki
       - docker-socket-proxy
