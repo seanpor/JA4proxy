@@ -4753,7 +4753,7 @@ phases:
   822:
     name: "Go 1.26.6 bump + .trivyignore first-/third-party split"
     status: COMPLETE
-    action_plan: docs/phases/PHASE_822.md
+    action_plan: docs/phases/complete/PHASE_822.md
     dependencies: []
     size: SMALL
     summary: "Two changes that stop the scan gate lying about our own product.
@@ -4785,7 +4785,7 @@ phases:
   820:
     name: "Retire prom/haproxy-exporter for HAProxy's native Prometheus exporter"
     status: COMPLETE
-    action_plan: docs/phases/PHASE_820.md
+    action_plan: docs/phases/complete/PHASE_820.md
     dependencies: []
     size: SMALL
     summary: "prom/haproxy-exporter was a CSV-to-Prometheus shim from before
@@ -4879,7 +4879,7 @@ phases:
   823:
     name: "Test failures print no traceback inside Docker — conftest os._exit() preempted pytest reporting"
     status: COMPLETE
-    action_plan: docs/phases/PHASE_823.md
+    action_plan: docs/phases/complete/PHASE_823.md
     dependencies: []
     size: SMALL
     summary: "Rescued from the handoff-to-deepseek branch, where it had been
@@ -4936,3 +4936,44 @@ phases:
       must be proven to go RED by deliberately breaking a panel. Journey tiering
       is explicit about cost: T2 (every PR) is J1/J2/J8 — enforcement works,
       first deploy harms nobody, degradation fails open."
+
+  825:
+    name: "Migrate Promtail to Grafana Alloy (cAdvisor stays)"
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_825.md
+    dependencies: []
+    size: MEDIUM
+    summary: "PROPOSED 2026-08-16, rescoped 2026-08-17. Originally 'cut cAdvisor
+      and Promtail' justified as 59 -> ~30 exceptions; investigating the blast
+      radius changed both halves. cAdvisor STAYS: removing it would take four
+      alerts (ContainerOOMKilled, ContainerRestartLoop, ContainerMemoryHigh,
+      ContainerCPUThrottleHigh), two recording rules and the Container
+      Drill-Down row. ContainerOOMKilled decided it — an OOM-killed proxy fails
+      CLOSED for the connections it was serving, the expensive direction under
+      the core asymmetry, and nothing else reports it (node-exporter is
+      host-level; the console heartbeat answers 'up now', not 'was killed').
+      Promtail migrates rather than being removed: it is EOL and Alloy, its
+      supported successor, scans 6 vs 29 — and removal would have destroyed log
+      search, since no shipper means Loki has nothing to serve. CRITICALLY, the
+      saving is 59 -> 58, not 59 -> 30: promtail is the sole carrier of only 2
+      exceptions (27 of its 29 are shared with cAdvisor/Alertmanager, which
+      stay) and Alloy ADDS CVE-2026-71556. Approve this as 'replace an EOL
+      component', not 'reduce exceptions' — the churn lever is Grafana +
+      Alertmanager, blocked on 821a/b. Main risk is config translation (YAML ->
+      River), not the image swap: a silent error stops log delivery and an empty
+      Loki looks identical to a quiet system, so the acceptance test asserts a
+      marker line ARRIVES with labels intact, not that the container is Up.
+      DELIVERED — and the migration found exactly the failure it predicted:
+      prod's promtail mounted the SHARED promtail-config.yml whose
+      docker_sd_configs targets tcp://docker-socket-proxy:2375, a service that
+      exists only in docker-compose.monitoring.yml. In the prod stack that host
+      never resolved, so discovery returned nothing and PROD HAD BEEN SHIPPING
+      NO LOGS AT ALL, undetected. Hence two configs: config.alloy (docker SD via
+      socket-proxy, monitoring) and config.prod.alloy (file discovery over the
+      ../../logs mount prod actually provides). Also ported, not deleted, the
+      JA4PROXY-2026-0017 pentest regression test (CVSS 7.5, docker socket
+      exposure) -- deleting it would have retired a security guarantee as a side
+      effect of an image swap -- and updated its regression_test pointer in
+      docs/security/findings.yaml, which a provenance gate caught. Prometheus
+      now scrapes Alloy; promtail was never scraped, so a broken log pipeline
+      had no metric to alert on. Exceptions 59 -> 58 as predicted."

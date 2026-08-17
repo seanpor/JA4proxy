@@ -19,7 +19,7 @@ This module is deliberately written as a REUSABLE validator, not a
 haproxy-specific test. ``PHASE_821a.md`` regression test #1 is the same check
 generalised to ``ja4proxy_*`` metrics and the console metric catalogue; it
 consumes :func:`extract_label_selectors` rather than reimplementing it.
-See the note in ``docs/phases/PHASE_820.md`` §Test strategy.
+See the note in ``docs/phases/complete/PHASE_820.md`` §Test strategy.
 """
 
 from __future__ import annotations

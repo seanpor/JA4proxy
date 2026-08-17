@@ -130,6 +130,17 @@ scrape_configs:
           service: haproxy
           role: load-balancer
 
+  # phase-825: Alloy's own metrics (it replaced promtail, which was never
+  # scraped at all — so a broken log pipeline had no metric to alert on).
+  # alloy_build_info confirms it is alive; loki_write_* confirms delivery.
+  - job_name: 'alloy'
+    scrape_interval: 30s
+    static_configs:
+      - targets: ['alloy:12345']
+        labels:
+          service: alloy
+          role: log-shipper
+
   # phase-809 (O-004): standalone Go TAP/SPAN sensor (cmd/ja4-tap), --metrics-addr
   # :9110. Optional service (docker-compose.prod.yml's `tap` profile) --
   # network_mode: host there means this target is the host's real address, not

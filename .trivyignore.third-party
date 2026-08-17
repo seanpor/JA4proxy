@@ -111,11 +111,6 @@
 # headers from external sources in our deployment.
 CVE-2026-42504 exp:2026-08-23
 
-# CVE-2026-45447: Heap Use-After-Free in OpenSSL PKCS7_verify().
-# Why no fix: Affects grafana v13.0.4-ubuntu and promtail v3.6.11 (EOL); no newer image tags exist that clear this vulnerability.
-# Why not exploitable: PKCS7 verification is not used or triggered in our Grafana/Promtail configuration.
-CVE-2026-45447 exp:2026-08-23
-
 # CVE-2026-21728: DoS in Grafana Tempo query parser.
 # Why no fix: Affects grafana v13.0.4-ubuntu; no newer release exists.
 # Why not exploitable: We do not deploy or configure Tempo as a query source for Grafana.
@@ -200,11 +195,6 @@ CVE-2026-39836 exp:2026-08-23
 # (both newest stable); no newer release is available.
 # Why not exploitable: None of these expose a textproto-based service to untrusted input in our deployment.
 CVE-2026-42499 exp:2026-08-23
-# CVE-2026-42154: Prometheus remote read DoS in Loki/Promtail.
-# Why no fix: Affected Loki and Promtail; loki bumped 3.7.2 -> 3.7.4 (2026-07-30) clears it there.
-# Still affects Promtail:3.6.11 (no newer release exists).
-# Why not exploitable: Promtail does not query untrusted remote read endpoints in our deployment.
-CVE-2026-42154 exp:2026-08-23
 # CVE-2026-42306: Race condition in docker cp.
 # Why no fix: Affects Promtail (EOL, no newer tag exists) and
 # gcr.io/cadvisor/cadvisor:v0.52.1 — re-verified 2026-08-03, checked v0.55.1,
@@ -437,3 +427,19 @@ CVE-2026-56858 exp:2026-08-22
 CVE-2026-56859 exp:2026-08-22
 CVE-2026-56860 exp:2026-08-22
 CVE-2026-56862 exp:2026-08-22
+
+# CVE-2026-71556: Go stdlib finding in grafana/alloy v1.18.1.
+# phase-825 introduced Alloy as the supported replacement for the EOL
+# grafana/promtail (29 HIGH/CRITICAL -> 6). Five of Alloy's six are already
+# waived here for other images; this is the only new one.
+# Why no fix: alloy v1.18.1 is the newest published tag (checked 2026-08-17);
+# the fix requires an upstream rebuild on a newer Go toolchain and no such tag
+# exists. This is a pinned third-party image we cannot rebuild.
+# ⚠ Not applicable to our own images — they build on golang:1.26.6-alpine
+# (phase-822) and scan clean with no ignorefile.
+# Why not exploitable: Alloy is an internal-only log shipper on the monitoring
+# network with no host port published. It reads container logs and the proxy's
+# own log files and writes to Loki; it terminates no TLS from an untrusted peer
+# and parses no attacker-supplied input beyond log lines it forwards verbatim.
+# Re-review at expiry: check for an alloy tag built on Go 1.26.6+.
+CVE-2026-71556 exp:2026-08-24

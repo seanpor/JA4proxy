@@ -435,30 +435,37 @@ services:
           memory: 512M
           cpus: '0.5'
 
-  promtail:
-    image: grafana/promtail:3.6.11
+  # phase-825: was grafana/promtail:3.6.11 (EOL). NOTE this uses a DIFFERENT
+  # config from the monitoring stack. Prod has no docker-socket-proxy, so the
+  # old shared promtail config's docker_sd_configs could never resolve here and
+  # PROD WAS SHIPPING NO LOGS AT ALL — invisible, because an empty Loki looks
+  # identical to a quiet system. config.prod.alloy discovers by file over the
+  # ../../logs mount this service already had.
+  alloy:
+    image: grafana/alloy:v1.18.1@sha256:0f4434c92b3e6cdac38bb129b344e1790c246f7b6e2eaffcc16a5fa363240e33
     volumes:
-      - ../monitoring/loki/promtail-config.yml:/etc/promtail/config.yml:ro
+      - ../monitoring/alloy/config.prod.alloy:/etc/alloy/config.alloy:ro
       - ../../logs:/var/log/ja4proxy:ro
-      - /var/lib/docker/containers:/var/lib/docker/containers:ro
-    command: -config.file=/etc/promtail/config.yml
+      - alloy-data:/var/lib/alloy/data
+    command:
+      - run
+      - --storage.path=/var/lib/alloy/data
+      - --server.http.listen-addr=0.0.0.0:12345
+      - /etc/alloy/config.alloy
     depends_on:
       - loki
     networks:
       - ja4proxy-monitoring
     restart: unless-stopped
-    read_only: true
     security_opt:
       - no-new-privileges:true
-    tmpfs:
-      - /tmp:noexec,nosuid,nodev,size=50m
     cap_drop:
       - ALL
     deploy:
       resources:
         limits:
-          memory: 128M
-          cpus: '0.25'
+          memory: 256M
+          cpus: '0.5'
 
   # phase-809 (O-005): standalone Go TAP/SPAN sensor (cmd/ja4-tap). Disabled
   # by default (`profiles: [tap]`) since it's an optional add-on most
@@ -536,6 +543,8 @@ services:
           memory: 64M
 
 volumes:
+  alloy-data:
+    driver: local
   redis-data:
   prometheus-data:
   grafana-data:

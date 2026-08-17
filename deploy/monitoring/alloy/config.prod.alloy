@@ -1,0 +1,68 @@
+// config.prod.alloy — Grafana Alloy log pipeline for docker-compose.prod.yml
+//
+// SEPARATE FROM config.alloy BECAUSE PROD HAS NO DOCKER-SOCKET-PROXY.
+//
+// phase-825 found that prod's promtail mounted deploy/monitoring/loki/
+// promtail-config.yml, whose docker_sd_configs points at
+// `tcp://docker-socket-proxy:2375` — a service that exists only in
+// docker-compose.monitoring.yml. In the prod stack that host does not resolve,
+// so discovery returned nothing and PROD HAS BEEN SHIPPING NO LOGS AT ALL.
+//
+// Nothing surfaced it: an empty Loki is indistinguishable from a quiet system,
+// which is the exact failure mode this phase's acceptance test exists to catch.
+//
+// So prod discovers by FILE, over the paths docker-compose.prod.yml actually
+// mounts, rather than by Docker API.
+
+// ── Discovery: the proxy's own structured logs ───────────────────────────────
+// docker-compose.prod.yml mounts ../../logs -> /var/log/ja4proxy:ro
+local.file_match "ja4proxy" {
+	path_targets = [{
+		__path__ = "/var/log/ja4proxy/*.log",
+		job      = "ja4proxy",
+		service  = "proxy",
+	}]
+	sync_period = "10s"
+}
+
+loki.source.file "ja4proxy" {
+	targets    = local.file_match.ja4proxy.targets
+	forward_to = [loki.process.ja4proxy.receiver]
+}
+
+// ── Pipeline ─────────────────────────────────────────────────────────────────
+// Identical stages to config.alloy so the label contract is the same in both
+// stacks: dashboards and saved queries must not care which one produced a line.
+loki.process "ja4proxy" {
+	stage.regex {
+		expression = `(?P<timestamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}) - (?P<logger>\S+) - (?P<level>\w+) - (?P<message>.*)`
+	}
+
+	stage.labels {
+		values = {
+			level = "",
+		}
+	}
+
+	stage.match {
+		selector = "{service=\"proxy\"}"
+
+		stage.regex {
+			expression = "(?P<action>ALLOWED|BLOCKED|WHITELISTED|BLACKLISTED|TIMEOUT):"
+		}
+
+		stage.labels {
+			values = {
+				action = "",
+			}
+		}
+	}
+
+	forward_to = [loki.write.default.receiver]
+}
+
+loki.write "default" {
+	endpoint {
+		url = "http://loki:3100/loki/api/v1/push"
+	}
+}

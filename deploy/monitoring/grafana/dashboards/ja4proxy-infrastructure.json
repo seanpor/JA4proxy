@@ -552,7 +552,7 @@
     {
       "id": 109,
       "type": "stat",
-      "title": "promtail",
+      "title": "alloy",
       "gridPos": {
         "h": 4,
         "w": 2,
@@ -606,8 +606,8 @@
             "type": "prometheus",
             "uid": "PBFA97CFB590B2093"
           },
-          "expr": "ja4proxy:container_mem_pct{name=\"promtail\"}",
-          "legendFormat": "promtail",
+          "expr": "ja4proxy:container_mem_pct{name=\"alloy\"}",
+          "legendFormat": "alloy",
           "refId": "A"
         }
       ]

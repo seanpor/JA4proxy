@@ -1,0 +1,108 @@
+// config.alloy — Grafana Alloy log pipeline (phase-825)
+//
+// Translated from deploy/monitoring/loki/promtail-config.yml. Promtail is EOL
+// upstream; Alloy is its supported successor and scans 6 HIGH/CRITICAL against
+// promtail's 29.
+//
+// This is River, not YAML. The translation preserves the promtail behaviour
+// exactly, because a silent difference here stops log delivery and an EMPTY
+// LOKI LOOKS IDENTICAL TO A QUIET SYSTEM — nothing alerts on it. The arrival
+// test in tests/integration/infra-monitoring/check_alloy_log_delivery.sh is
+// what proves this file works; "the container is Up" proves nothing.
+//
+// Label contract preserved from promtail (dashboards and saved queries use it):
+//   container  — full container name, leading "/" stripped
+//   service    — the part after "ja4proxy-", or literally "proxy" for the
+//                bare "ja4proxy" container
+//   level      — parsed from the structured log line
+//   action     — ALLOWED|BLOCKED|WHITELISTED|BLACKLISTED|TIMEOUT, proxy only
+
+// ── Discovery ────────────────────────────────────────────────────────────────
+// JA4PROXY-2026-0017 — discovery goes via docker-socket-proxy, which whitelists
+// only the CONTAINERS endpoint. Alloy has no direct access to the Docker socket,
+// exactly as promtail did not.
+discovery.docker "ja4proxy" {
+	host             = "tcp://docker-socket-proxy:2375"
+	refresh_interval = "5s"
+
+	// Docker's `name` filter is a SUBSTRING match, so this single value matches
+	// every ja4proxy container and keeps matching once names are lane-prefixed
+	// (ja4proxy-lane23-backend-1, ...). See the phase-800 note in the promtail
+	// config for why the per-service values that used to be here were dead.
+	filter {
+		name   = "name"
+		values = ["ja4proxy"]
+	}
+}
+
+// ── Relabel ──────────────────────────────────────────────────────────────────
+discovery.relabel "ja4proxy" {
+	targets = discovery.docker.ja4proxy.targets
+
+	// Container name as the primary label.
+	rule {
+		source_labels = ["__meta_docker_container_name"]
+		regex         = "/(.*)"
+		target_label  = "container"
+	}
+
+	// Service role from the container name.
+	rule {
+		source_labels = ["__meta_docker_container_name"]
+		regex         = "/ja4proxy-(.*)"
+		target_label  = "service"
+	}
+
+	// The main proxy container is just "ja4proxy".
+	rule {
+		source_labels = ["__meta_docker_container_name"]
+		regex         = "/ja4proxy$"
+		target_label  = "service"
+		replacement   = "proxy"
+	}
+}
+
+// ── Source ───────────────────────────────────────────────────────────────────
+loki.source.docker "ja4proxy" {
+	host       = "tcp://docker-socket-proxy:2375"
+	targets    = discovery.relabel.ja4proxy.output
+	forward_to = [loki.process.ja4proxy.receiver]
+}
+
+// ── Pipeline ─────────────────────────────────────────────────────────────────
+loki.process "ja4proxy" {
+	// Parse the proxy's structured log lines.
+	stage.regex {
+		expression = `(?P<timestamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}) - (?P<logger>\S+) - (?P<level>\w+) - (?P<message>.*)`
+	}
+
+	stage.labels {
+		values = {
+			level = "",
+		}
+	}
+
+	// Tag security events on the proxy only.
+	stage.match {
+		selector = "{service=\"proxy\"}"
+
+		stage.regex {
+			expression = "(?P<action>ALLOWED|BLOCKED|WHITELISTED|BLACKLISTED|TIMEOUT):"
+		}
+
+		stage.labels {
+			values = {
+				action = "",
+			}
+		}
+	}
+
+	forward_to = [loki.write.default.receiver]
+}
+
+// ── Write ────────────────────────────────────────────────────────────────────
+loki.write "default" {
+	endpoint {
+		url = "http://loki:3100/loki/api/v1/push"
+	}
+}
