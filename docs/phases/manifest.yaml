@@ -4753,7 +4753,7 @@ phases:
   822:
     name: "Go 1.26.6 bump + .trivyignore first-/third-party split"
     status: COMPLETE
-    action_plan: docs/phases/PHASE_822.md
+    action_plan: docs/phases/complete/PHASE_822.md
     dependencies: []
     size: SMALL
     summary: "Two changes that stop the scan gate lying about our own product.
@@ -4785,7 +4785,7 @@ phases:
   820:
     name: "Retire prom/haproxy-exporter for HAProxy's native Prometheus exporter"
     status: COMPLETE
-    action_plan: docs/phases/PHASE_820.md
+    action_plan: docs/phases/complete/PHASE_820.md
     dependencies: []
     size: SMALL
     summary: "prom/haproxy-exporter was a CSV-to-Prometheus shim from before
@@ -4879,7 +4879,7 @@ phases:
   823:
     name: "Test failures print no traceback inside Docker — conftest os._exit() preempted pytest reporting"
     status: COMPLETE
-    action_plan: docs/phases/PHASE_823.md
+    action_plan: docs/phases/complete/PHASE_823.md
     dependencies: []
     size: SMALL
     summary: "Rescued from the handoff-to-deepseek branch, where it had been
