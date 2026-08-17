@@ -177,38 +177,73 @@ function dialWidget(initial) {
       this.chart.update('none');
     },
 
+    // The API caps a single change at +/-10 (JA4PROXY dial safety rail: stop an
+    // accidental jump straight to full enforcement). Previously this function
+    // refused outright when the delta exceeded 10 and told the operator to
+    // "use the presets to step gradually" -- but EVERY preset (0/25/50/75) is
+    // more than 10 apart, so from a standing start of 0 the slider AND all four
+    // presets silently did nothing. The request never left the browser.
+    //
+    // So do what that message promised: walk to the target in <=10 steps, with
+    // one confirmation. Each step is a normal PUT, so the server-side cap is
+    // untouched and every step is audited as a regular dial.changed event.
+    //
+    // Deliberately NOT routed through /api/v1/dial/emergency: that endpoint
+    // exists for genuine overrides, logs event=emergency_override and carries
+    // auto-revert semantics. Using it for routine preset clicks would
+    // misrepresent intent in the audit trail.
     async applyDial() {
-      var delta = Math.abs(this.pendingDial - this.currentDial);
-      if (delta > 10) {
-        this.showError('Change of ' + delta + ' exceeds the maximum of 10 per request. Use the presets to step gradually.');
-        return;
+      var target = this.pendingDial;
+      var start = this.currentDial;
+      if (target === start) return;
+
+      var steps = [];
+      var cur = start;
+      while (cur !== target) {
+        cur += (target > cur) ? Math.min(10, target - cur) : -Math.min(10, cur - target);
+        steps.push(cur);
       }
-      if (!confirm('Change dial from ' + this.currentDial + ' to ' + this.pendingDial + '?')) return;
+
+      var prompt = (steps.length === 1)
+        ? 'Change dial from ' + start + ' to ' + target + '?'
+        : 'Change dial from ' + start + ' to ' + target + '?\n\n'
+          + 'The API caps each change at 10, so this will be applied as '
+          + steps.length + ' steps (' + steps.join(' \u2192 ') + ').';
+      if (!confirm(prompt)) return;
 
       this.submitting = true;
       this.errorMsg = '';
       try {
-        var resp = await fetch('/api/v1/dial', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ value: this.pendingDial }),
-        });
+        for (var i = 0; i < steps.length; i++) {
+          var resp = await fetch('/api/v1/dial', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ value: steps[i] }),
+          });
 
-        if (resp.ok) {
+          if (!resp.ok) {
+            var errData = await resp.json().catch(() => ({ detail: 'Request failed' }));
+            // Stop at the last value the server actually accepted -- do NOT
+            // pretend the whole change landed.
+            this.showError(
+              (errData.detail || 'Failed to update dial')
+              + (i > 0 ? ' (stopped at ' + this.currentDial + ' after ' + i + ' of ' + steps.length + ' steps)' : '')
+            );
+            this.pendingDial = this.currentDial;
+            this.updatePending();
+            return;
+          }
+
           var data = await resp.json();
           this.currentDial = data.value;
           this.pendingDial = data.value;
-          // Update the chart to reflect the confirmed value
-          this.updatePending();
-        } else {
-          var errData = await resp.json().catch(() => ({ detail: 'Request failed' }));
-          this.showError(errData.detail || 'Failed to update dial');
-          this.pendingDial = this.currentDial; // revert slider
           this.updatePending();
         }
       } catch (err) {
         this.showError('Network error: ' + err.message);
+        this.pendingDial = this.currentDial;
+        this.updatePending();
       } finally {
         this.submitting = false;
       }
