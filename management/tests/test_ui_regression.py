@@ -229,15 +229,28 @@ class TestObservabilityLink:
     ):
         from management.api.routes import pages as pages_mod
 
+        configured = "https://grafana.example:3000"
         templates = pages_mod._get_templates()
         original = templates.env.globals.get("grafana_url", "")
-        templates.env.globals["grafana_url"] = "https://grafana.example:3000"
+        templates.env.globals["grafana_url"] = configured
         try:
             body = (await authenticated_client.get("/")).text
-            assert "https://grafana.example:3000" in body
+            # Extract the anchor and compare the href EXACTLY rather than
+            # asking whether the URL appears somewhere in the page. A substring
+            # check would pass on a link to
+            # https://grafana.example:3000.attacker.test, and CodeQL flags the
+            # pattern (py/incomplete-url-substring-sanitization) for that
+            # reason. Exact comparison is both safe and a stronger assertion.
+            anchors = re.findall(r'<a\s+href="([^"]+)"([^>]*)>', body)
+            hrefs = [h for h, _ in anchors]
+            assert configured in hrefs, (
+                f"sidebar has no link whose href is exactly {configured!r}; "
+                f"found: {hrefs}"
+            )
+            attrs = next(a for h, a in anchors if h == configured)
             # External app with its own session — must not steal the tab, and
             # must not leak the console URL via the referrer.
-            assert 'target="_blank"' in body
-            assert 'rel="noopener noreferrer"' in body
+            assert 'target="_blank"' in attrs
+            assert 'rel="noopener noreferrer"' in attrs
         finally:
             templates.env.globals["grafana_url"] = original
