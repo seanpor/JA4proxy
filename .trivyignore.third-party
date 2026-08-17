@@ -431,9 +431,9 @@ CVE-2026-33186 exp:2026-08-23
 # monitoring network with no host port exposure; none parses attacker-supplied
 # ASN.1 or terminates TLS from an untrusted peer.
 # Re-review at expiry: check for upstream rebuilds on Go 1.26.6.
-CVE-2026-33818 exp:2026-08-22
-CVE-2026-56853 exp:2026-08-22
-CVE-2026-56858 exp:2026-08-22
-CVE-2026-56859 exp:2026-08-22
-CVE-2026-56860 exp:2026-08-22
-CVE-2026-56862 exp:2026-08-22
+CVE-2026-33818 exp:2026-08-24
+CVE-2026-56853 exp:2026-08-24
+CVE-2026-56858 exp:2026-08-24
+CVE-2026-56859 exp:2026-08-24
+CVE-2026-56860 exp:2026-08-24
+CVE-2026-56862 exp:2026-08-24
