@@ -76,3 +76,52 @@ def test_management_service_read_only():
         "management service must have 'read_only: true' to prevent filesystem "
         "writes by a compromised process. Add 'tmpfs: [/tmp]' for ephemeral writes."
     )
+
+
+def test_every_required_compose_var_exists_in_template_env():
+    """Every `${VAR:?...}` in a compose file must be defined in template.env.
+
+    WHY THIS EXISTS
+    ---------------
+    Found 2026-08-17. Pointing the management service at the dedicated
+    `management` Redis ACL user introduced `${MANAGEMENT_REDIS_PASSWORD:?...}`
+    in docker-compose.poc.yml, but nothing added the variable to template.env.
+
+    The `:?` syntax is deliberate — it is how this repo forces a real secret
+    instead of a silent insecure default (JA4PROXY-2026-0076). The cost is that
+    adding one is a two-file change, and forgetting the second file is
+    invisible locally: a developer's own .env already has the value, so
+    `docker compose up` works fine for the person who made the change. It only
+    breaks for everyone else, and in CI, which copies template.env verbatim:
+
+        error while interpolating services.management.environment.[]:
+        required variable MANAGEMENT_REDIS_PASSWORD is missing a value
+
+    That is a red CI run for a fresh clone rather than a bug in the change
+    itself, so this test moves the failure to the commit that causes it.
+    """
+    import re
+
+    compose_files = sorted(
+        (REPO_ROOT / "deploy" / "docker").glob("docker-compose*.yml")
+    )
+    assert compose_files, "no compose files found"
+
+    template = REPO_ROOT / "template.env"
+    defined = {
+        m.group(1)
+        for m in re.finditer(r"^\s*([A-Z_][A-Z0-9_]*)\s*=", template.read_text(), re.M)
+    }
+
+    missing: dict[str, set[str]] = {}
+    for cf in compose_files:
+        for var in re.findall(r"\$\{([A-Z_][A-Z0-9_]*):\?", cf.read_text()):
+            if var not in defined:
+                missing.setdefault(var, set()).add(cf.name)
+
+    assert not missing, (
+        "compose requires env var(s) that template.env does not define:\n  "
+        + "\n  ".join(f"{v} (in {', '.join(sorted(f))})" for v, f in sorted(missing.items()))
+        + "\n\nAdd them to template.env — CI copies it verbatim, so a fresh "
+        "clone cannot start without them."
+    )
