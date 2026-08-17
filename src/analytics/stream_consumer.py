@@ -67,6 +67,11 @@ _SOCKET_TIMEOUT_S = 30.0
 _BLOCK_MARGIN_S = 5.0
 MAX_BLOCK_MS = int((_SOCKET_TIMEOUT_S - _BLOCK_MARGIN_S) * 1000)
 
+# How long a written finding suppresses an identical one (same type + subject).
+# Long enough that a persistently-offending fingerprint does not re-post every
+# detection cycle, short enough that it reappears if still offending an hour on.
+_FINDING_DEDUP_TTL_S = 3600
+
 
 class StreamConsumer:
     """Redis Stream consumer for analytics events."""
@@ -440,6 +445,70 @@ class StreamConsumer:
                     await self.redis.expire(
                         "analytics:ja4:candidates", 86400
                     )  # 24 hour TTL
+
+                    # phase-826: also surface these as findings. Campaigns and
+                    # slow scans were written through to analytics:finding:*,
+                    # but JA4 candidates only ever landed in the sorted set
+                    # above — which nothing in the console reads. The
+                    # Intelligence panel was therefore structurally unable to
+                    # show the one detector that does not require many unique
+                    # source IPs, and so had no chance of reporting anything on
+                    # a single-source deployment.
+                    for candidate in detection_results["ja4_candidates"]:
+                        # Detection runs on a timer and a persistent bad
+                        # fingerprint qualifies on EVERY cycle, so writing
+                        # unconditionally would bury the operator in identical
+                        # findings — the panel would look busy while saying one
+                        # thing. Claim a short-lived key per (type, subject);
+                        # whoever wins writes, the rest skip. The TTL means a
+                        # fingerprint that is still offending is re-surfaced
+                        # later rather than suppressed forever.
+                        dedup_key = f"analytics:finding:seen:ja4:{candidate['ja4']}"
+                        if not await self.redis.set(
+                            dedup_key, "1", ex=_FINDING_DEDUP_TTL_S, nx=True
+                        ):
+                            continue
+
+                        only_blocks = candidate.get("only_in_blocks", False)
+                        # Confidence tracks the evidence: a fingerprint seen
+                        # ONLY in blocked connections is a stronger signal than
+                        # one that is merely mostly-blocked, which could be a
+                        # shared stack (a library used by both a bot and a real
+                        # client). Kept under 0.95 — the campaign detector's
+                        # value — because a single JA4 is weaker evidence than
+                        # coordinated multi-IP activity.
+                        confidence = 0.90 if only_blocks else 0.75
+                        await write_finding(
+                            self.redis,
+                            confidence=confidence,
+                            type="ja4_intelligence",
+                            description=(
+                                f"JA4 {candidate['ja4']} blocked on "
+                                f"{candidate['blocked_seen']}/{candidate['total_seen']} "
+                                f"connections ({candidate['block_rate']:.0%})"
+                                + (
+                                    " and never allowed"
+                                    if only_blocks
+                                    else ""
+                                )
+                                + f", from {candidate.get('source_count', 0)} source IP(s)"
+                            ),
+                            evidence_count=candidate["total_seen"],
+                            model_version="analytics-1.0",
+                            model_trained_at="2026-01-01T00:00:00Z",
+                            # A fingerprint seen only in blocks is unlikely to
+                            # be a real browser; one that is also sometimes
+                            # allowed may be shared, so the FP estimate is
+                            # deliberately higher there.
+                            fp_rate_estimate=0.02 if only_blocks else 0.15,
+                            # Never "block" outright: acting on a fingerprint
+                            # affects every client that shares it, and the
+                            # asymmetry in CLAUDE.md makes a false positive far
+                            # more expensive than a missed bot. The operator
+                            # confirms from the evidence shown in the panel.
+                            suggested_action="investigate",
+                            subject_ja4=candidate["ja4"],
+                        )
 
             return detection_results
         except Exception as e:
