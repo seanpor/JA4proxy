@@ -604,19 +604,24 @@ def test_compose_poc_succeeds_with_all_env_vars() -> None:
     config` must succeed. Proves we haven't over-constrained the file so
     badly that legitimate operators can't use it."""
     env = _clean_env()
+    # Derive the requirements from the compose file rather than listing them.
+    #
+    # This dict was the SIXTH hand-maintained copy of "which env vars does poc
+    # compose need" (compose file, template.env, the Makefile lint-docker
+    # recipe, test_dockerfile_coverage.py, start-poc.sh, here). Every time one
+    # is added, whichever copies are missed fail somewhere different and
+    # confusingly — and this one fails as "compose is over-constrained", which
+    # points at the compose file rather than at the omission.
+    #
+    # Deriving keeps the test's actual purpose intact: it still proves that a
+    # fully-provisioned operator can render the file.
     env.update(
-        {
-            "MANAGEMENT_JWT_SECRET": "qa-placeholder-jwt-secret",
-            "MANAGEMENT_ADMIN_USER": "qa-admin",
-            "MANAGEMENT_ADMIN_PASSWORD": "qa-placeholder-admin-pw",
-            "REDIS_PASSWORD": "qa-placeholder-redis-pw",
-            "ANALYTICS_REDIS_PASSWORD": "qa-placeholder-analytics-redis-pw",
-            # Added when management was switched from the (disabled)
-            # `default` Redis user to its own ACL user.
-            "MANAGEMENT_REDIS_PASSWORD": "qa-placeholder-management-redis-pw",
-            "BACKEND_HOST": "qa-placeholder-backend",
-        }
+        dict.fromkeys(
+            re.findall(r"\$\{([A-Z_][A-Z0-9_]*):\?", POC_COMPOSE.read_text()),
+            "qa-placeholder",
+        )
     )
+    env["BACKEND_HOST"] = "qa-placeholder-backend"
     proc = subprocess.run(
         ["docker", "compose", "-f", str(POC_COMPOSE), "config", "--quiet"],
         capture_output=True,
