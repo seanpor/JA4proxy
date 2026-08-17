@@ -15,14 +15,14 @@ from prometheus_client import Counter, Gauge
 from .aggregation import AggregationManager, HyperLogLogManager
 from .authentication import HMACAuthenticator
 from .detection import CampaignDetector, JA4FingerprintIntelligence, SlowScanDetector
+from .ecs_envelope import is_ecs_envelope, verify_envelope_signature
+from .ecs_envelope import normalise as normalise_ecs
 from .event_schemas import EVENT_SCHEMA
 from .output_writer import (
     update_heartbeat,
     write_active_connections,
     write_finding,
 )
-from .ecs_envelope import is_ecs_envelope, verify_envelope_signature
-from .ecs_envelope import normalise as normalise_ecs
 from .validation import validate_event_comprehensive
 
 # Stream lag: seconds between the most recent event's Redis timestamp and now.

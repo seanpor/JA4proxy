@@ -434,6 +434,9 @@ services:
     ports:
       - "${AGENT_BIND_IP:-127.0.0.1}:${HOST_PORT_MANAGEMENT:-8090}:8090"
     environment:
+      # phase-826: sidebar link to Grafana. Empty/unset hides the link
+      # rather than rendering a dead one. Lane-aware in the POC.
+      - GRAFANA_EXTERNAL_URL=${GRAFANA_EXTERNAL_URL:-https://localhost:${HOST_PORT_GRAFANA:-3000}}
       - REDIS_URL=redis://management:${MANAGEMENT_REDIS_PASSWORD:?MANAGEMENT_REDIS_PASSWORD is required}@redis:6379/0
       - MANAGEMENT_JWT_SECRET=${MANAGEMENT_JWT_SECRET:?MANAGEMENT_JWT_SECRET is required}
       - MANAGEMENT_ADMIN_USER=${MANAGEMENT_ADMIN_USER:?MANAGEMENT_ADMIN_USER is required}

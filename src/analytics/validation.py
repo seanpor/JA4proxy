@@ -2,10 +2,10 @@
 # Phase 12a: Foundation
 
 import ipaddress
-
-from .ecs_envelope import VALID_ACTIONS
 import time
 from typing import Any, Dict
+
+from .ecs_envelope import VALID_ACTIONS
 
 
 async def validate_event_comprehensive(
