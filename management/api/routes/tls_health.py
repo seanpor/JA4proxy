@@ -47,6 +47,30 @@ def _get_templates() -> Jinja2Templates:
 def _read_cert(cert_path: str) -> Optional[dict]:
     """Read and parse the TLS certificate, return a dict with results or None on error."""
     if not os.path.exists(cert_path):
+        # "Not configured" is NOT an error. HAProxy is an optional component
+        # (docker-compose.poc.yml only starts it with WITH_HAPROXY=1), and the
+        # management container mounts no cert volume at all — so on a stock
+        # deployment this path can never exist. Rendering that as a red error
+        # meant the console showed a permanent failure for a component the
+        # operator deliberately did not deploy.
+        #
+        # Same distinction the console applies elsewhere: absent-by-design and
+        # broken must not look identical, or the red banner stops meaning
+        # anything.
+        configured = os.environ.get("HAPROXY_TLS_CERT_PATH") not in (None, "")
+        if not configured:
+            logger.debug("tls_health | event=cert_not_configured | path=%s", cert_path)
+            return {
+                "status": "not_configured",
+                "band": "grey",
+                "message": (
+                    "No TLS certificate configured. HAProxy is optional; set "
+                    "HAPROXY_TLS_CERT_PATH and mount the certificate to monitor expiry."
+                ),
+                "cert_path": cert_path,
+            }
+        # Explicitly configured but missing IS an error — someone expected a
+        # cert here and it is not there.
         logger.warning("tls_health | event=cert_not_found | path=%s", cert_path)
         return {
             "status": "error",
