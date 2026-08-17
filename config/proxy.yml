@@ -908,6 +908,13 @@ webhooks:
   stream_queue_capacity: 4096       # phase-118cc
   stream_workers: 4                 # phase-118cc
   stream_write_timeout_seconds: 2.0 # phase-118cc
+  # phase-826: HMAC-SHA256 secret for signing connection events written to
+  # stream_key. The analytics node verifies this before ingesting an event and,
+  # with its default hmac_required=true, discards anything unsigned — which is
+  # how the Intelligence panel stayed empty while the proxy looked healthy.
+  # Must match the analytics node's ANALYTICS_HMAC_SECRET. Empty disables
+  # signing and logs a startup WARN. Restart required (it is a credential).
+  stream_hmac_secret: "${ANALYTICS_HMAC_SECRET}"
   # Example endpoint:
   # endpoints:
   #   - id: splunk-hec

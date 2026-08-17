@@ -2,6 +2,8 @@
 # Phase 12a: Foundation
 
 import ipaddress
+
+from .ecs_envelope import VALID_ACTIONS
 import time
 from typing import Any, Dict
 
@@ -27,7 +29,8 @@ async def validate_event_comprehensive(
         raise ValueError("Score must be between 0 and 100")
 
     # 4. Action validation
-    valid_actions = ["allow", "block", "monitor", "tarpit"]
+    # phase-826: kept in step with event_schemas.EVENT_SCHEMA; see VALID_ACTIONS.
+    valid_actions = list(VALID_ACTIONS)
     if event_data["action"] not in valid_actions:
         raise ValueError(f"Invalid action: {event_data['action']}")
 

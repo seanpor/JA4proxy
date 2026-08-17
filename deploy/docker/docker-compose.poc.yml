@@ -79,6 +79,10 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+      # phase-826: signs connection events written to events:connection.
+      # The analytics node verifies with the same secret; unsigned events
+      # are rejected, which is what kept the Intelligence panel empty.
+      - ANALYTICS_HMAC_SECRET=${ANALYTICS_HMAC_SECRET:?ANALYTICS_HMAC_SECRET is required}
       - BACKEND_HOST=${BACKEND_HOST:-backend}
       - BACKEND_PORT=${BACKEND_PORT:-8443}  # mock backend runs non-root on 8443
       - ENVIRONMENT=${ENVIRONMENT:-development}
@@ -326,6 +330,9 @@ services:
       - redis
     environment:
       - REDIS_URL=redis://analytics:${ANALYTICS_REDIS_PASSWORD:?ANALYTICS_REDIS_PASSWORD is required}@redis:6379/0
+      # phase-826: shared with the proxy, which signs every connection event
+      # with it. A mismatch here silently discards 100% of events.
+      - ANALYTICS_HMAC_SECRET=${ANALYTICS_HMAC_SECRET:?ANALYTICS_HMAC_SECRET is required}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - WAIT_FOR_REDIS=true

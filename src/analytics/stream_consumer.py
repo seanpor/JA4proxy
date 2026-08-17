@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional
 import redis
 import redis.asyncio as aioredis
 from jsonschema import ValidationError, validate
-from prometheus_client import Gauge
+from prometheus_client import Counter, Gauge
 
 from .aggregation import AggregationManager, HyperLogLogManager
 from .authentication import HMACAuthenticator
@@ -21,6 +21,8 @@ from .output_writer import (
     write_active_connections,
     write_finding,
 )
+from .ecs_envelope import is_ecs_envelope, verify_envelope_signature
+from .ecs_envelope import normalise as normalise_ecs
 from .validation import validate_event_comprehensive
 
 # Stream lag: seconds between the most recent event's Redis timestamp and now.
@@ -28,6 +30,21 @@ from .validation import validate_event_comprehensive
 _STREAM_LAG = Gauge(
     "ja4proxy_analytics_stream_lag_seconds",
     "Seconds between the latest processed stream event and now",
+)
+
+# phase-826. The whole failure this phase exists to fix was invisible because
+# the consumer's only signal was a print() into a container log: it rejected
+# 7,749 consecutive events while every health check stayed green. Ingest is now
+# a first-class metric so "the pipeline is running but discarding everything"
+# is a state that can be alerted on rather than discovered by reading logs.
+_EVENTS_INGESTED = Counter(
+    "ja4proxy_analytics_events_ingested_total",
+    "Stream events successfully validated and processed",
+)
+_EVENTS_REJECTED = Counter(
+    "ja4proxy_analytics_events_rejected_total",
+    "Stream events discarded before processing",
+    ["reason"],
 )
 
 # A blocking XREADGROUP must be able to sit on the socket for LONGER than the
@@ -125,11 +142,21 @@ class StreamConsumer:
                 self.redis, self.monitoring_config
             )
 
-    async def validate_event(self, event_data: Dict[str, Any]) -> bool:
-        """Validate event against schema and business rules."""
+    async def validate_event(
+        self, event_data: Dict[str, Any], *, signature_verified: bool = False
+    ) -> bool:
+        """Validate event against schema and business rules.
+
+        ``signature_verified`` is set by the ECS path, where the HMAC has
+        already been checked against the RAW envelope bytes. Re-running
+        ``hmac_auth.verify`` on the normalised dict would recompute the digest
+        over a reconstructed object and always fail — the signature covers the
+        wire bytes, not the mapped fields. Replay protection is not lost: the
+        timestamp window is enforced by validate_event_comprehensive below.
+        """
         try:
             # 1. HMAC verification
-            if not self.hmac_auth.verify(event_data):
+            if not signature_verified and not self.hmac_auth.verify(event_data):
                 raise InvalidEventError("HMAC verification failed")
 
             # 2. JSON Schema validation
@@ -268,11 +295,31 @@ class StreamConsumer:
                         except (ValueError, AttributeError):
                             pass
 
+                        # phase-826: the proxy writes ONE field holding an ECS
+                        # JSON document, not the flat schema this consumer was
+                        # written against. Translate before validating, and
+                        # check the signature over the raw envelope bytes.
+                        signature_verified = False
+                        if is_ecs_envelope(data):
+                            if self.hmac_auth.required and not verify_envelope_signature(
+                                data, self.hmac_auth.secret
+                            ):
+                                _EVENTS_REJECTED.labels(reason="hmac").inc()
+                                raise InvalidEventError(
+                                    "HMAC verification failed (ECS envelope)"
+                                )
+                            signature_verified = True
+                            data = normalise_ecs(data)
+
                         # Validate event
-                        await self.validate_event(data)
+                        await self.validate_event(
+                            data, signature_verified=signature_verified
+                        )
 
                         # Process event
                         success = await self.process_event(event_id.decode(), data)
+                        if success:
+                            _EVENTS_INGESTED.inc()
 
                         if success:
                             # Acknowledge successful processing
@@ -280,6 +327,7 @@ class StreamConsumer:
 
                     except InvalidEventError as e:
                         # Log invalid event but don't crash
+                        _EVENTS_REJECTED.labels(reason="invalid").inc()
                         print(f"Invalid event {event_id.decode()}: {e}")
                         # Don't acknowledge - will be retried
 
