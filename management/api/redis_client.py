@@ -106,6 +106,17 @@ async def init_redis(override_client: Optional[Redis] = None) -> None:
             safe_url,
             type(exc).__name__,
         )
+        # ManagementUIRedisErrors alerts on this. It existed for months with
+        # nothing emitting it, so when the console's Redis credentials were
+        # wrong on 2026-08-17 -- every call failing with AuthenticationError,
+        # the login rate limiter failing closed, nobody able to log in -- the
+        # alert that describes exactly that could not fire.
+        try:
+            from .prometheus_metrics import REDIS_ERRORS
+
+            REDIS_ERRORS.labels("connect").inc()
+        except Exception:  # noqa: BLE001 — metrics must never mask the real error
+            pass
         raise
     logger.info("Redis connection pool initialised: %s", safe_url)
 

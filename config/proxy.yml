@@ -378,6 +378,20 @@ local_cache:
 # Disabling an ALLOW bypass routes those connections through the scorer.
 # Disabling a BLOCK bypass routes matches through the scorer instead.
 # The proxy emits a startup WARN for every high-risk bypass that is disabled.
+# ── Management console ────────────────────────────────────────────────────────
+management:
+  # Largest dial change allowed in a single API request.
+  #
+  # This is a guard against an accidental jump straight to full enforcement --
+  # under the core asymmetry, blocking real users is the expensive error. It was
+  # hardcoded at 10, which made every preset in the console unusable: Monitor 0,
+  # Low 25, Mid 50 and High 75 are all more than 10 from a standing start, so
+  # the Apply button stayed disabled and nothing could be changed at all.
+  #
+  # 100 disables the step limit entirely (any 0-100 move is one request).
+  # Lower it if you want the operator forced to move in increments.
+  max_dial_change: 100
+
 security_policy:
   # ── ALLOW BYPASSES ────────────────────────────────────────────────────
   alpn_browser_bypass:
