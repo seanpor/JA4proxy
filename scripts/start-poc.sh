@@ -142,7 +142,11 @@ docker network prune -f > /dev/null 2>&1 || true
 # phase-310: the default single-proxy lane does NOT run HAProxy (it is a load
 # balancer for *multiple* proxies; a single dev proxy is reached directly on
 # HOST_PORT_DIRECT). Opt in with WITH_HAPROXY=1 for the multi-proxy LB test.
-SERVICES="redis backend proxy tarpit analytics"
+# phase: management was missing here, so `make start` never brought up the
+# console — the thing the whole management UI exists for. It is defined in
+# docker-compose.poc.yml and published on ${HOST_PORT_MANAGEMENT}, but
+# nothing started it.
+SERVICES="redis backend proxy tarpit analytics management"
 [ "${WITH_HAPROXY:-0}" = "1" ] && SERVICES="$SERVICES haproxy"
 
 # Try to start services
