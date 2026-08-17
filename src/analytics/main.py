@@ -17,7 +17,7 @@ from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from src.utils.logging_config import setup_logging
 
 from .config import load_config
-from .stream_consumer import StreamConsumer
+from .stream_consumer import _SOCKET_TIMEOUT_S, StreamConsumer
 
 # phase-85: optional import — the analytics container can run without ti_feeds
 # (config flag off, missing aiohttp, etc.). Importing the runner module never
@@ -144,8 +144,15 @@ class AnalyticsNode:
             return
 
         try:
+            # socket_timeout must exceed the ti_feeds runner's xread(block=5000)
+            # — the library default of 5s ties the socket deadline to the block
+            # window and every poll raises TimeoutError. See
+            # stream_consumer._SOCKET_TIMEOUT_S for the full story.
             self._ti_async_redis = redis_async.from_url(
-                redis_url, decode_responses=True
+                redis_url,
+                decode_responses=True,
+                socket_timeout=_SOCKET_TIMEOUT_S,
+                health_check_interval=30,
             )
             mgmt_base_url = (
                 self.config.get("management_api", {}).get("base_url")

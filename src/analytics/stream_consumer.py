@@ -30,6 +30,26 @@ _STREAM_LAG = Gauge(
     "Seconds between the latest processed stream event and now",
 )
 
+# A blocking XREADGROUP must be able to sit on the socket for LONGER than the
+# server-side block window, or the client's read deadline fires first and every
+# single poll raises TimeoutError.
+#
+# redis-py 8.x's from_url() defaults socket_timeout to 5s. consume_events()
+# blocks for 5000ms. Identical values -> the socket deadline and the block
+# window expire together, the client always loses the race, and the consumer
+# raised "Timeout reading from redis:6379" on a 1s retry loop forever. It never
+# ingested a single event, so no detection ran, no findings were written, and
+# the console's Intelligence panel read "No high-confidence findings active"
+# permanently. Silent because the consumer caught, printed and retried.
+#
+# Fix has two halves so it cannot drift back:
+#   1. connect() pins an explicit socket timeout, not the library default.
+#   2. consume_events() clamps its block to stay inside that budget, so a
+#      hot-reloaded stream.timeout_ms can never exceed the socket deadline.
+_SOCKET_TIMEOUT_S = 30.0
+_BLOCK_MARGIN_S = 5.0
+MAX_BLOCK_MS = int((_SOCKET_TIMEOUT_S - _BLOCK_MARGIN_S) * 1000)
+
 
 class StreamConsumer:
     """Redis Stream consumer for analytics events."""
@@ -76,7 +96,13 @@ class StreamConsumer:
 
     async def connect(self):
         """Establish connection to Redis."""
-        self.redis = await aioredis.from_url(self.redis_url)
+        # socket_timeout must exceed the XREADGROUP block window — see
+        # _SOCKET_TIMEOUT_S. Never rely on the library default here.
+        self.redis = await aioredis.from_url(
+            self.redis_url,
+            socket_timeout=_SOCKET_TIMEOUT_S,
+            health_check_interval=30,
+        )
 
         # Create consumer group if it doesn't exist
         try:
@@ -203,7 +229,10 @@ class StreamConsumer:
                     self.consumer_name,
                     {self.stream_key: ">"},  # Read new events
                     count=batch_size,
-                    block=timeout_ms,
+                    # Clamped: a block >= the socket timeout makes every poll
+                    # raise TimeoutError. timeout_ms is hot-reloadable, so this
+                    # is enforced per call, not once at construction.
+                    block=min(timeout_ms, MAX_BLOCK_MS),
                 )
 
                 if not events:

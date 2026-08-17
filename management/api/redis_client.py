@@ -48,6 +48,11 @@ def _redact_redis_url(url: str) -> str:
     return f"{parts.scheme}://{user}:***@{host}{port}{path}"
 
 
+# Socket read deadline for this pool. MUST stay above the longest `block=` used
+# by any blocking read on it, with headroom — see the comment at the from_url()
+# call. Exported so the guard test can compare it against the call sites.
+BLOCKING_SOCKET_TIMEOUT_S = 30.0
+
 # Module-level pool — created by init_redis(), destroyed by close_redis()
 _redis_pool: Optional[aioredis.ConnectionPool] = None
 _redis_client: Optional[Redis] = None
@@ -93,6 +98,14 @@ async def init_redis(override_client: Optional[Redis] = None) -> None:
             url,
             decode_responses=True,
             max_connections=20,
+            # Must exceed every blocking read made on this pool — today that is
+            # routes/events.py's xread(block=_BLOCK_MS). redis-py 8.x defaults
+            # this to 5s; a block window >= the socket deadline makes the client
+            # lose the race and raise TimeoutError on EVERY poll, which is how
+            # the analytics consumer silently ingested nothing. Guarded by
+            # tests/unit/test_redis_blocking_timeouts.py.
+            socket_timeout=BLOCKING_SOCKET_TIMEOUT_S,
+            health_check_interval=30,
         )
         _redis_client = aioredis.Redis(connection_pool=_redis_pool)
     except Exception as exc:  # noqa: BLE001 — we always re-raise
@@ -106,6 +119,17 @@ async def init_redis(override_client: Optional[Redis] = None) -> None:
             safe_url,
             type(exc).__name__,
         )
+        # ManagementUIRedisErrors alerts on this. It existed for months with
+        # nothing emitting it, so when the console's Redis credentials were
+        # wrong on 2026-08-17 -- every call failing with AuthenticationError,
+        # the login rate limiter failing closed, nobody able to log in -- the
+        # alert that describes exactly that could not fire.
+        try:
+            from .prometheus_metrics import REDIS_ERRORS
+
+            REDIS_ERRORS.labels("connect").inc()
+        except Exception:  # noqa: BLE001 — metrics must never mask the real error
+            pass
         raise
     logger.info("Redis connection pool initialised: %s", safe_url)
 

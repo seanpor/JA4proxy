@@ -4977,3 +4977,32 @@ phases:
       docs/security/findings.yaml, which a provenance gate caught. Prometheus
       now scrapes Alloy; promtail was never scraped, so a broken log pipeline
       had no metric to alert on. Exceptions 59 -> 58 as predicted."
+  826:
+    name: "Connect the Intelligence pipeline end-to-end"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_826.md
+    dependencies: [824]
+    size: MEDIUM
+    summary: "PROPOSED 2026-08-17 after asking why the console's Intelligence
+      panel was always empty. The panel, its review page, the dismiss/mark-FP
+      controls and the finding writer are all built; three independent faults
+      sit in series between the proxy and the panel, so it had never shown a
+      single finding. Layer 1 (FIXED, 90551b27): the consumer could not read at
+      all — xreadgroup(block=5000) against a client whose socket_timeout
+      defaulted to 5s in redis-py 8.x, so the client deadline fired exactly when
+      the server was due to reply and every poll raised TimeoutError on a 1s
+      retry loop. Silent: container up, /health 200, PING and XGROUP CREATE both
+      fine; only the blocking read failed. Layer 2: proxy and consumer speak
+      different schemas — the proxy XADDs one field containing an ECS blob
+      (@timestamp/source.ip/event.risk_score/ja4proxy.fingerprint.ja4), the
+      consumer expects flat timestamp/src_ip/score/ja4 plus a proxy_id it never
+      receives, and its valid-action set omits flag, rate_limit and ban — the
+      only non-allow actions the stack currently produces. Layer 3: the consumer
+      requires an HMAC the Go proxy never applies (7,749 events rejected once
+      layer 1 was fixed). Recommends adapting the consumer to ECS rather than
+      changing the Go hot path, widening the action set, and deciding the HMAC
+      question deliberately (sign in the proxy vs rely on the Redis ACL that
+      already restricts XADD to the proxy user) rather than disabling it to make
+      a demo pass. Key lesson for the acceptance criteria: this failed loudly
+      into a log nobody read, so ingest-success and rejection counters must be
+      exported and a near-100% rejection rate must page."

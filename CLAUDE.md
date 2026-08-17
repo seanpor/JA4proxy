@@ -292,7 +292,10 @@ See `docs/developer/DOCUMENTATION_STANDARDS.md`. Summary:
 ja4proxy_{subsystem}_{metric_name}_{unit}
 ja4proxy_abuseipdb_lookups_total{result="hit|miss|error"}
 ja4proxy_risk_score_distribution        # histogram
-ja4proxy_dial_setting                   # gauge
+ja4proxy_dial_current                   # gauge (emitted name; the docs
+                                        # previously said dial_setting, which
+                                        # nothing emits — an alert written to
+                                        # match it could never fire)
 ```
 
 ### Redis Data Structure Quick Reference

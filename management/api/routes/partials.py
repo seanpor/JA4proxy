@@ -241,8 +241,21 @@ async def dial_partial(
             "user": current_user[0],
             "dial_value": dial_value,
             "revert_seconds_remaining": revert_seconds_remaining,
+            # The widget must step according to the SERVER's cap, not a
+            # hardcoded 10 — that mismatch is what disabled every preset.
+            "max_dial_change": _dial_max_change(),
         },
     )
+
+
+def _dial_max_change() -> int:
+    """Expose management.max_dial_change so the UI and API agree."""
+    try:
+        from ..routes.dial import _max_dial_change
+
+        return _max_dial_change()
+    except Exception:  # noqa: BLE001
+        return 100
 
 
 @router.get("/api/v1/partials/bans", response_class=HTMLResponse)

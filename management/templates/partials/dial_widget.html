@@ -28,10 +28,17 @@
     <span class="text-[10px] text-[#475569] font-medium">max ±10/request</span>
   </div>
 
+  <script>window.JA4_MAX_DIAL_CHANGE = {{ max_dial_change | default(100) }};</script>
   <div class="p-4 space-y-5">
 
     <!-- Chart.js doughnut gauge -->
-    <div class="relative flex items-center justify-center" style="height:150px;">
+    <!-- The canvas is square (180x180). Chart.js was configured
+         responsive:true + maintainAspectRatio:false, which makes it fill the
+         CONTAINER instead — a full-width parent stretched the gauge to
+         699x150, a squashed arc. Constraining the wrapper to a square box
+         keeps the doughnut circular at any viewport width. -->
+    <div class="relative flex items-center justify-center mx-auto"
+         style="height:180px; width:180px; max-width:100%;">
       <canvas id="dialChart" width="180" height="180" aria-label="Dial gauge showing value {{ dial }}"></canvas>
       <!-- Centre overlay -->
       <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none" style="padding-top:25px;">
@@ -73,7 +80,7 @@
                  @input="updatePending()"
                  class="flex-1 min-w-0 glass-input" />
           <button type="button"
-                  :disabled="submitting || pendingDial === currentDial || Math.abs(pendingDial - currentDial) > 10"
+                  :disabled="submitting || pendingDial === currentDial"
                   @click="applyDial()"
                   class="flex-shrink-0 inline-flex items-center justify-center px-4 py-2 rounded-lg text-xs font-semibold
                          bg-[#0ea5e9] hover:bg-[#38bdf8] disabled:opacity-40 disabled:cursor-not-allowed
@@ -86,7 +93,9 @@
         <p class="text-[10px] text-[#475569] mt-1 font-medium"
            x-show="pendingDial !== currentDial"
            x-text="'Change: ' + (pendingDial > currentDial ? '+' : '') + (pendingDial - currentDial)
-                   + (Math.abs(pendingDial - currentDial) > 10 ? ' (exceeds max ±10)' : '')">
+                   + (Math.abs(pendingDial - currentDial) > (window.JA4_MAX_DIAL_CHANGE || 100)
+                      ? ' — applied in ' + Math.ceil(Math.abs(pendingDial - currentDial) / (window.JA4_MAX_DIAL_CHANGE || 100)) + ' steps'
+                      : '')">
         </p>
 
         <!-- Range slider -->
@@ -172,9 +181,18 @@ function dialWidget(initial) {
       if (!this.chart) return;
       var val = Math.max(0, Math.min(100, this.pendingDial));
       var color = val === 0 ? '#10b981' : (val <= 49 ? '#f59e0b' : '#ef4444');
-      this.chart.data.datasets[0].data = [val, 100 - val];
-      this.chart.data.datasets[0].backgroundColor = [color, 'rgba(255, 255, 255, 0.08)'];
-      this.chart.update('none');
+      try {
+        this.chart.data.datasets[0].data = [val, 100 - val];
+        this.chart.data.datasets[0].backgroundColor = [color, 'rgba(255, 255, 255, 0.08)'];
+        this.chart.update('none');
+      } catch (e) {
+        // A gauge redraw must NEVER block applying the dial. Chart.js threw
+        // "can't access property fullSize, e is undefined" here, and because
+        // applyDial() calls this, the exception aborted the whole function
+        // before a single request was sent — the dial silently did nothing.
+        console.warn('dial gauge redraw failed (dial still applies):', e);
+        this.chart = null;
+      }
     },
 
     // The API caps a single change at +/-10 (JA4PROXY dial safety rail: stop an
@@ -197,17 +215,22 @@ function dialWidget(initial) {
       var start = this.currentDial;
       if (target === start) return;
 
+      // Step size comes from the server (management.max_dial_change in
+      // config/proxy.yml, default 100 = no stepping). Hardcoding 10 here is
+      // what made the presets unreachable.
+      var maxStep = (window.JA4_MAX_DIAL_CHANGE && window.JA4_MAX_DIAL_CHANGE > 0)
+        ? window.JA4_MAX_DIAL_CHANGE : 100;
       var steps = [];
       var cur = start;
       while (cur !== target) {
-        cur += (target > cur) ? Math.min(10, target - cur) : -Math.min(10, cur - target);
+        cur += (target > cur) ? Math.min(maxStep, target - cur) : -Math.min(maxStep, cur - target);
         steps.push(cur);
       }
 
       var prompt = (steps.length === 1)
         ? 'Change dial from ' + start + ' to ' + target + '?'
         : 'Change dial from ' + start + ' to ' + target + '?\n\n'
-          + 'The API caps each change at 10, so this will be applied as '
+          + 'The API caps each change at ' + maxStep + ', so this will be applied as '
           + steps.length + ' steps (' + steps.join(' \u2192 ') + ').';
       if (!confirm(prompt)) return;
 
@@ -215,9 +238,18 @@ function dialWidget(initial) {
       this.errorMsg = '';
       try {
         for (var i = 0; i < steps.length; i++) {
+          // CSRFMiddleware rejects mutating /api/ requests without the
+          // X-CSRF-Token header matching the csrf_token cookie. This fetch
+          // sent neither, so every dial change came back 403 with
+          // "csrf | event=missing_token" in the log -- which the UI surfaced
+          // only as "Failed to update dial".
+          var csrf = (document.cookie.match(/(?:^|;\s*)csrf_token=([^;]*)/) || [])[1] || '';
           var resp = await fetch('/api/v1/dial', {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRF-Token': decodeURIComponent(csrf),
+            },
             credentials: 'include',
             body: JSON.stringify({ value: steps[i] }),
           });
@@ -266,7 +298,10 @@ function dialWidget(initial) {
         options: {
           cutout: '80%',
           responsive: true,
-          maintainAspectRatio: false,
+          // Square. With maintainAspectRatio:false the gauge stretched to the
+          // container's box (observed 699x150 in Chrome).
+          maintainAspectRatio: true,
+          aspectRatio: 1,
           plugins: { legend: { display: false }, tooltip: { enabled: false } },
           animation: { duration: 400 }
         }
