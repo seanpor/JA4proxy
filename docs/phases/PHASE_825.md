@@ -1,77 +1,66 @@
 <!--
-title: Cut_cAdvisor_And_Promtail
+title: Migrate_Promtail_To_Alloy
 audience: operator
-last_reviewed: 2026-08-16
+last_reviewed: 2026-08-17
 phase: 825
 -->
 
-# Phase 825 — Cut cAdvisor and Promtail
+# Phase 825 — Migrate Promtail to Grafana Alloy (cAdvisor stays)
 
-> **Status:** PROPOSED (2026-08-16)
+> **Status:** PROPOSED (2026-08-16, rescoped 2026-08-17 after review)
 > **Size:** MEDIUM
-> **Dependencies:** none (deliberately independent of 821a/b)
+> **Dependencies:** none
 > **Branch:** `phase-825-cut-cadvisor-promtail`
 
 ---
 
-## Goal
+## Decision record — what changed and why
 
-Remove `gcr.io/cadvisor/cadvisor`, `tecnativa/docker-socket-proxy` and
-`grafana/promtail` from the monitoring stack, taking `.trivyignore` from
-**59 → ~30** exceptions and roughly halving the weekly renewal churn that has
-produced issues #417, #423 and #432.
+This phase was originally *"cut cAdvisor and Promtail"*, justified as taking
+`.trivyignore` from **59 → ~30**. Investigating the blast radius changed both
+halves of that.
 
-Chosen because **neither depends on the console work**. Grafana and Alertmanager
-can only go once Phase 821a/b gives the console something to replace them with;
-these two can go now.
+**cAdvisor stays.** Removing it would have taken four alerts with it —
+`ContainerOOMKilled`, `ContainerRestartLoop`, `ContainerMemoryHigh`,
+`ContainerCPUThrottleHigh` (`alerts.yml:407,424,441,458`) — plus two recording
+rules, the `Container Drill-Down` dashboard row and the Fleet Status memory
+tiles. `ContainerOOMKilled` is the decisive one: an OOM-killed proxy fails
+**closed** for the connections it was serving, the expensive direction under
+CLAUDE.md's core asymmetry, and nothing else in the stack reports it.
+node-exporter is host-level; the console heartbeat answers "up now", not "was
+killed and restarted". **Decision: keep cAdvisor and accept the renewal churn.**
+
+**Promtail migrates rather than being removed.** It is EOL upstream, and its
+supported successor Grafana Alloy scans at **6 HIGH/CRITICAL vs promtail's 29**.
+Migrating keeps log search, which removal would have destroyed (no shipper means
+Loki has nothing to serve).
 
 ---
 
-## ⚠ This is not free — read this before approving
+## ⚠ Be clear about the saving: this is 59 → 58
 
-Earlier framing in the exception analysis treated these as pure deletion. They
-are not. Both carry real observability, and it is better to say so plainly than
-to discover it after a merge.
+The original framing — that cutting these would roughly halve the weekly
+renewal churn — does not survive contact with the data.
 
-### What cAdvisor removal costs
-
-| Lost | Detail |
+| | |
 |---|---|
-| **4 alerts** | `ContainerOOMKilled`, `ContainerRestartLoop`, `ContainerMemoryHigh`, `ContainerCPUThrottleHigh` (`alerts.yml:407,424,441,458`) |
-| **2 recording rules** | `ja4proxy:container_mem_pct`, `ja4proxy:container_cpu_throttle_ratio` (`recording_rules.yml:129,135`) |
-| **1 dashboard row** | `Container Drill-Down [$container]` and its `$container` template variable — 28 `container_*` references in `ja4proxy-infrastructure.json` |
-| **Fleet Status panels** | per-container memory tiles built on the recording rules |
+| Promtail is the **sole carrier** of | **2** exceptions (`CVE-2026-45447`, `CVE-2026-42154`) |
+| Promtail *participates* in | 29 — but 27 are shared with cAdvisor and Alertmanager, which stay |
+| Alloy **adds** | **1** — `CVE-2026-71556`, not currently exceptioned |
+| **Net** | **59 → 58** |
 
-**`ContainerOOMKilled` is the one worth arguing about.** Losing OOM detection on
-a security proxy is a genuine downgrade: an OOM-killed proxy fails *closed* for
-the connections it was serving, which under CLAUDE.md's core asymmetry is the
-expensive direction. Nothing else in the stack reports it — `node-exporter` is
-host-level, and the console's heartbeat check (`partials.py`) answers "is it up
-*now*", not "was it killed and restarted".
+So this phase does **not** meaningfully reduce the trivy renewal churn. That
+churn is driven by cAdvisor's 43 participations, which the decision above
+deliberately keeps.
 
-**Mitigation, and the honest limit of it:** the proxy's own
-`ja4proxy_handler_panics_total` and the Redis heartbeat cover process death from
-the inside, and Docker's restart policy makes a restart loop visible in
-`docker ps`. Neither is an alert. So this phase **accepts a real reduction in
-alerting** in exchange for 17 exceptions and a 43-CVE image.
+It is still worth doing, on different grounds: promtail is EOL and unsupported,
+Alloy is its maintained replacement, and the image's own finding count drops
+from 29 to 6. But it should be approved as **"replace an EOL component"**, not
+as **"reduce exceptions"** — and nobody should expect issue #432's successors to
+get quieter as a result.
 
-If that trade is not acceptable, the alternative is to keep cAdvisor and accept
-the renewal churn — which is a legitimate answer. It should be a deliberate
-choice, not a side effect.
-
-### What Promtail removal costs
-
-Log shipping to Loki. With no shipper, **Loki has nothing to serve**, so log
-search in Grafana goes with it. `docker logs` and the JSON log files remain.
-
-Promtail is EOL upstream and its successor, Grafana Alloy, scans at **6 CVEs vs
-promtail's 29** — so "migrate to Alloy" is a real option that keeps log search.
-This phase takes the simpler path (remove) because the console work (821a/b) is
-where log surfacing should land, but **Alloy is the better answer if log search
-is wanted in the meantime.**
-
-Promtail is in **both** `docker-compose.monitoring.yml` and
-`docker-compose.prod.yml:438` — production loses log shipping too.
+The honest lever on churn remains Grafana + Alertmanager, both blocked on
+Phase 821a/b.
 
 ---
 
@@ -79,64 +68,67 @@ Promtail is in **both** `docker-compose.monitoring.yml` and
 
 | File | Change |
 |---|---|
-| `deploy/docker/docker-compose.monitoring.yml` | remove `cadvisor`, `docker-socket-proxy`, `promtail` |
-| `deploy/docker/docker-compose.prod.yml` | remove `promtail` |
-| `deploy/monitoring/prometheus/prometheus.yml` | remove the `cadvisor` scrape job |
-| `deploy/monitoring/prometheus/alerts.yml` | remove the 4 container alerts |
-| `deploy/monitoring/prometheus/recording_rules.yml` | remove the 2 container recording rules |
-| `deploy/monitoring/grafana/dashboards/ja4proxy-infrastructure.json` | remove the Container Drill-Down row, the `$container` variable, and container-metric panels |
-| `deploy/monitoring/loki/promtail-config.yml` | delete |
-| `tests/unit/test_infra_dashboard.py` | drop cadvisor/container assertions; **add** guards that they do not return |
-| `tests/integration/infra-monitoring/check_cadvisor_metrics.sh` | delete |
-| `.trivyignore.third-party` | remove entries with no remaining carrier |
+| `deploy/docker/docker-compose.monitoring.yml` | `grafana/promtail` → `grafana/alloy`, pinned by digest |
+| `deploy/docker/docker-compose.prod.yml:438` | same — promtail is in **prod too** |
+| `deploy/monitoring/loki/promtail-config.yml` | → `deploy/monitoring/alloy/config.alloy` (Alloy's River config, not YAML) |
+| `.trivyignore.third-party` | drop the 2 promtail-only entries; add `CVE-2026-71556` for Alloy |
+| `deploy/monitoring/grafana/dashboards/ja4proxy-infrastructure.json:555,609` | the `promtail` panel and its `ja4proxy:container_mem_pct{name="promtail"}` query |
+| `docs/runbooks/` | log-pipeline runbook updated for Alloy |
+| `tests/` | guard that promtail cannot return; assert the Alloy target is scraped |
 
-**Loki is kept** — it is only 2 CVEs, and deleting it would force a re-add when
-Alloy or the console lands. It will simply have no data until then, which the
-runbook must state so nobody debugs an empty Loki.
+**Unchanged:** cAdvisor, docker-socket-proxy, Loki, all four container alerts,
+both recording rules, the Container Drill-Down row.
 
 ---
 
-## Implementation notes
+## The real risk: config translation, not the image swap
 
-The `.trivyignore` prune must be driven by a **fresh no-ignorefile scan**, not
-by the previous analysis. That analysis was computed on 2026-08-14 and still
-counted `haproxy-exporter` — an image Phase 820 had already deleted — as a live
-carrier, which inflated the projected remainder from ~12 to 32. Re-scan, then
-delete only entries whose carrier set becomes empty.
+Promtail is configured in YAML; Alloy uses **River**. `promtail-config.yml`
+carries the scrape/relabel rules that decide which container logs reach Loki and
+how they are labelled — including 5 `container_*` references. A silent
+translation error means logs stop arriving, and **nothing currently alerts on
+that**: an empty Loki looks identical to a quiet system.
+
+This is the same failure shape as Phase 820's dead selectors and Phase 824's
+`EMPTY` vs `BROKEN` distinction, so it gets the same treatment:
+
+- Assert log *arrival* after migration — query Loki for a known line emitted by
+  a known container, not merely that the Alloy container is `Up`.
+- Assert the label set survives translation: a log line must still carry the
+  labels the dashboards and any saved queries use.
 
 ---
 
 ## Test strategy
 
-1. **Regression guards, not just deletions.** Removing an assertion leaves
-   nothing to stop the image returning. Add: no compose file may reference
-   `gcr.io/cadvisor/cadvisor`, `tecnativa/docker-socket-proxy` or
-   `grafana/promtail` in an `image:` directive.
-2. **No dangling metric references.** Assert no dashboard, alert or recording
-   rule references `container_*` or `ja4proxy:container_*` once the source is
-   gone — the Phase 820 lesson: a selector with no series never errors, it just
-   renders nothing forever.
-3. `promtool check rules` passes; every dashboard remains valid JSON; compose
-   files still validate.
-4. `make scan-images` green with the reduced exception set.
+1. **Arrival test** — emit a marker line from a known container, assert it is
+   queryable in Loki within N seconds with the expected labels. This is the
+   only test that proves the migration worked.
+2. **Guard** — no compose file may reference `grafana/promtail` in an `image:`
+   directive.
+3. **Scrape target** — Prometheus scrapes Alloy's own metrics endpoint.
+4. `promtool check rules`, dashboards valid JSON, compose validates.
+5. `make scan-images` green at 58.
 
 ---
 
 ## Acceptance criteria
 
-1. The three images appear in no compose file; guards prevent their return.
-2. No `container_*` selector survives anywhere in `deploy/monitoring/`.
-3. `.trivyignore.third-party` contains no entry whose only carriers were the
-   removed images — verified by a fresh scan, not by the stale analysis.
-4. Exception count drops to ~30; `make scan` green.
-5. The runbook records **what alerting was given up** and that Loki is
-   intentionally empty until a shipper returns.
+1. `grafana/promtail` appears in no compose file; a guard prevents its return.
+2. A marker log line reaches Loki through Alloy **with its labels intact** —
+   demonstrated, not assumed.
+3. Exception count is **58**, with `CVE-2026-71556` justified and dated and the
+   2 promtail-only entries removed.
+4. The runbook documents the Alloy config location and River format, and states
+   that an empty Loki after this change means the pipeline is broken, not quiet.
+5. cAdvisor, its four alerts and the Container Drill-Down row are untouched —
+   asserted, so the rescope cannot be silently undone.
 6. `make lint`, `make test`, `make scan` clean.
 
 ---
 
 ## Out of scope
 
-- Grafana and Alertmanager removal — blocked on Phase 821a/b.
-- Migrating Promtail → Alloy (the log-search-preserving alternative).
-- Replacing the lost OOM/restart alerting.
+- Removing cAdvisor — explicitly rejected above.
+- Grafana / Alertmanager removal — blocked on Phase 821a/b.
+- Surfacing logs in the console — that is 821b's territory.
