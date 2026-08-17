@@ -614,7 +614,7 @@ findings:
   status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: tests/unit/test_pentest_promtail_socket_proxy_regression.py::test_promtail_does_not_mount_docker_socket
+  regression_test: tests/unit/test_pentest_alloy_socket_proxy_regression.py::test_alloy_does_not_mount_docker_socket
   closed_commit: 2f7f6d7b0473789943cf080b9ed6c47f1be997ea
   description: Promtail mounts /var/run/docker.sock:ro (read-only). Even read-only, Docker API allows
     inspecting container env vars, leaking REDIS_PASSWORD, GRAFANA_PASSWORD, MANAGEMENT_JWT_SECRET.

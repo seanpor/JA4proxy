@@ -266,16 +266,23 @@ services:
           memory: 64M
           cpus: '0.2'
 
-  promtail:
-    image: grafana/promtail:3.6.11
-    # JA4PROXY-2026-0017 — no more /var/run/docker.sock mount. Promtail
-    # now reads container metadata from docker-socket-proxy over TCP
-    # (see promtail-config.yml `host: tcp://docker-socket-proxy:2375`).
+  # phase-825: was grafana/promtail:3.6.11 — EOL upstream, 29 HIGH/CRITICAL.
+  # Alloy is its supported successor and scans 6. config.alloy is a direct
+  # translation preserving the container/service/level/action label contract.
+  alloy:
+    image: grafana/alloy:v1.18.1@sha256:0f4434c92b3e6cdac38bb129b344e1790c246f7b6e2eaffcc16a5fa363240e33
+    # JA4PROXY-2026-0017 — no /var/run/docker.sock mount. Alloy reads container
+    # metadata from docker-socket-proxy over TCP, exactly as promtail did
+    # (see config.alloy `host = "tcp://docker-socket-proxy:2375"`).
     volumes:
-      - ../monitoring/loki/promtail-config.yml:/etc/promtail/config.yml:ro
+      - ../monitoring/alloy/config.alloy:/etc/alloy/config.alloy:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
-      - promtail-positions:/positions
-    command: -config.file=/etc/promtail/config.yml
+      - alloy-data:/var/lib/alloy/data
+    command:
+      - run
+      - --storage.path=/var/lib/alloy/data
+      - --server.http.listen-addr=0.0.0.0:12345
+      - /etc/alloy/config.alloy
     depends_on:
       - loki
       - docker-socket-proxy
@@ -350,7 +357,7 @@ volumes:
     driver: local
   loki-data:
     driver: local
-  promtail-positions:
+  alloy-data:
     driver: local
 
 networks:

@@ -4939,8 +4939,8 @@ phases:
 
   825:
     name: "Migrate Promtail to Grafana Alloy (cAdvisor stays)"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_825.md
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_825.md
     dependencies: []
     size: MEDIUM
     summary: "PROPOSED 2026-08-16, rescoped 2026-08-17. Originally 'cut cAdvisor
@@ -4962,4 +4962,18 @@ phases:
       Alertmanager, blocked on 821a/b. Main risk is config translation (YAML ->
       River), not the image swap: a silent error stops log delivery and an empty
       Loki looks identical to a quiet system, so the acceptance test asserts a
-      marker line ARRIVES with labels intact, not that the container is Up."
+      marker line ARRIVES with labels intact, not that the container is Up.
+      DELIVERED — and the migration found exactly the failure it predicted:
+      prod's promtail mounted the SHARED promtail-config.yml whose
+      docker_sd_configs targets tcp://docker-socket-proxy:2375, a service that
+      exists only in docker-compose.monitoring.yml. In the prod stack that host
+      never resolved, so discovery returned nothing and PROD HAD BEEN SHIPPING
+      NO LOGS AT ALL, undetected. Hence two configs: config.alloy (docker SD via
+      socket-proxy, monitoring) and config.prod.alloy (file discovery over the
+      ../../logs mount prod actually provides). Also ported, not deleted, the
+      JA4PROXY-2026-0017 pentest regression test (CVSS 7.5, docker socket
+      exposure) -- deleting it would have retired a security guarantee as a side
+      effect of an image swap -- and updated its regression_test pointer in
+      docs/security/findings.yaml, which a provenance gate caught. Prometheus
+      now scrapes Alloy; promtail was never scraped, so a broken log pipeline
+      had no metric to alert on. Exceptions 59 -> 58 as predicted."
