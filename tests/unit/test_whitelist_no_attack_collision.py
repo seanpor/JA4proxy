@@ -53,22 +53,19 @@ def csv_whitelist() -> set[str]:
 
 
 def yml_whitelist() -> set[str]:
-    """The `whitelist:` block in proxy.yml — the list loaded into Redis."""
-    text = PROXY_YML.read_text()
-    m = re.search(r"^\s*whitelist:\s*$", text, re.M)
-    if not m:
-        return set()
-    out = set()
-    for line in text[m.end():].splitlines():
-        if line.strip().startswith("#") or not line.strip():
-            continue
-        entry = re.match(r'^\s+-\s+"([^"]+)"', line)
-        if entry:
-            out.add(entry.group(1))
-            continue
-        if not line.startswith((" ", "\t")):
-            break
-    return out
+    """The `security.whitelist` list in proxy.yml — what loads into Redis.
+
+    Parsed with the YAML loader, not a regex. The first version of this scanned
+    forward from a `whitelist:` match and stopped at the first unindented line —
+    but `blacklist:` is also indented, so it read straight past the whitelist
+    and swallowed every blacklist entry. That went unnoticed while the two lists
+    were disjoint, then reported the whole blacklist as "whitelisted" the moment
+    real entries were added: a guard that fails loudly for the wrong reason is
+    barely better than one that never fires.
+    """
+    data = yaml.safe_load(PROXY_YML.read_text()) or {}
+    entries = (data.get("security") or {}).get("whitelist") or []
+    return {str(e).strip() for e in entries}
 
 
 def known_bad_ja4() -> set[str]:
@@ -122,4 +119,21 @@ def test_benchmark_whitelist_is_a_subset_of_the_operational_one():
 
 
 def test_fixture_is_not_vacuous():
-    assert yml_whitelist(), "parsed no whitelist from proxy.yml — regex broken"
+    assert yml_whitelist(), "parsed no whitelist from proxy.yml — parser broken"
+
+
+def test_the_parser_does_not_confuse_whitelist_with_blacklist():
+    """The exact failure the regex version had, pinned.
+
+    proxy.yml deliberately blacklists this repo's own attack-simulator
+    fingerprints. If the whitelist parser ever picks those up again, the two
+    collision tests above turn into noise that has to be argued with rather
+    than believed.
+    """
+    data = yaml.safe_load(PROXY_YML.read_text()) or {}
+    blacklist = {str(e).strip() for e in (data.get("security") or {}).get("blacklist") or []}
+    assert blacklist, "proxy.yml has no blacklist — fixture no longer exercises the risk"
+    overlap = yml_whitelist() & blacklist
+    assert not overlap, (
+        f"the whitelist parser returned blacklist entries: {sorted(overlap)}"
+    )

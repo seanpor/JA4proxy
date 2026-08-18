@@ -195,6 +195,30 @@ security:
     - "t13d191000_9dc949149365_e7c285222651"  # Evilginx Phishing / GoLang net
     - "t13d880900_fcb5b95cb75a_b0d3b4ac2a14"  # SoftEther VPN Client
 
+    # ── phase-827: fingerprints emitted by THIS REPO'S OWN attack simulators ──
+    #
+    # Observed by connecting with each profile and reading the JA4 off
+    # events:connection (2026-08-18) — not looked up, not guessed.
+    #
+    # READ THIS BEFORE COPYING THIS FILE TO PRODUCTION. A blacklist entry is a
+    # hard block: it never reaches the scorer and is unaffected by the dial,
+    # the exact mirror of the whitelist bypass that let Evilginx through all
+    # day. These six exist so `make demo-scan` and the traffic generator
+    # produce blocked traffic for the detectors to find. They describe the TLS
+    # stacks of OUR simulators, and a JA4 identifies a stack rather than a
+    # tool — the two "shared" entries below are local proof that unrelated
+    # software collides. If a real client ever shares one of these stacks it is
+    # blocked unconditionally, with no dial setting able to soften it.
+    #
+    # For a production deployment, review each against your own traffic first,
+    # or drop this block entirely: nothing outside the demo depends on it.
+    - "t13d101100_61a7ad8aa9b6_d41ae481755e"  # generator: Sliver_C2 AND Evilginx_Phishing (shared stack)
+    - "t12d030700_0f9cd282b7f5_e7e480e5a997"  # generator: CobaltStrike_Beacon AND Credential_Stuffer (shared stack)
+    - "t13d311100_e8f1e7e78f70_d41ae481755e"  # generator: Python_Requests_Bot
+    - "t12d020500_a5878986a7c9_847bbcdea70d"  # generator: Masscan_Scanner
+    - "t13d051100_c96ac5133cd7_8e6e362c5eac"  # scripts/demo-scan.py distributed scanner
+    - "t13d091100_f91f431d341e_8e6e362c5eac"  # scripts/demo-scan.py distributed scanner (variant)
+
   # Human-readable names for known JA4 fingerprints (used in metrics labels)
   fingerprint_labels:
     # Known good (browsers)

@@ -136,3 +136,15 @@ fingerprints:
     category: attack_simulation
     source: "scripts/tls-traffic-generator.py (observed 2026-08-18)"
     confidence: 100
+
+  - ja4: "t13d051100_c96ac5133cd7_8e6e362c5eac"
+    name: "Demo scanner — scripts/demo-scan.py (distributed source IPs)"
+    category: attack_simulation
+    source: "scripts/demo-scan.py (observed 2026-08-18)"
+    confidence: 100
+
+  - ja4: "t13d091100_f91f431d341e_8e6e362c5eac"
+    name: "Demo scanner — scripts/demo-scan.py (variant)"
+    category: attack_simulation
+    source: "scripts/demo-scan.py (observed 2026-08-18)"
+    confidence: 100
