@@ -1,4 +1,4 @@
-.PHONY: all bench-all build bump-build check ci-verify clean cli-build compose-validate doc-health doctor go-build help help-dev help-legacy help-lint help-ops help-scan init install-hooks ja4p-validate link-check lint lint-ansible lint-docs lint-phases lint-semgrep logs management-down management-logs management-shell management-up rebuild reload remote-bot sbom scan scan-exceptions scorecard-local setup-build start start-poc status stop sync test test-component-suites test-ip test-race test-ratio traffic-off traffic-on tunnel verify-all preflight poc-secrets
+.PHONY: all bench-all build bump-build check ci-verify clean cli-build compose-validate env-sync doc-health doctor go-build help help-dev help-legacy help-lint help-ops help-scan init install-hooks ja4p-validate link-check lint lint-ansible lint-docs lint-phases lint-semgrep logs management-down management-logs management-shell management-up rebuild reload remote-bot sbom scan scan-exceptions scorecard-local setup-build start start-poc status stop sync test test-component-suites test-ip test-race test-ratio traffic-off traffic-on tunnel verify-all preflight poc-secrets
 PYTHON ?= $(shell command -v python || command -v python3 || echo python)
 GO ?= $(shell command -v go || echo go)
 
@@ -339,6 +339,7 @@ agent-status:
 build: bump-build ## Build Go binaries + all Docker images (requires .env — run 'make init' first)
 	@mkdir -p bin
 	@$(MAKE) go-build cli-build
+	@$(MAKE) env-sync
 	@$(MAKE) compose-validate
 	@echo "Building Docker images (BuildKit enabled)..."
 	@DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 \
@@ -348,12 +349,23 @@ build: bump-build ## Build Go binaries + all Docker images (requires .env — ru
 # Validate compose files without building images (fast — no Docker daemon build step)
 # Catches missing required env vars before you waste time on a full 'make build'.
 # Safe to run without a running Docker daemon; used by CI as a merge gate.
+env-sync: ## Add any newly-required vars to an existing .env (idempotent, never overwrites)
+	$(eval _AGENT := $(shell cat .current-agent 2>/dev/null))
+	@ENVFILE=$$([ -n "$(_AGENT)" ] && echo ".env.$(_AGENT)" || echo ".env"); \
+	./scripts/env-sync.sh "$$ENVFILE"
+
 compose-validate: ## Validate docker-compose files and required env vars (fast, no image build)
 	@if [ ! -f .env ]; then \
 		echo "ERROR: .env not found. Run 'make init' to generate it."; \
 		exit 1; \
 	fi
-	@docker compose -f deploy/docker/docker-compose.poc.yml --env-file .env config > /dev/null
+	@docker compose -f deploy/docker/docker-compose.poc.yml --env-file .env config > /dev/null \
+		|| { echo ""; \
+		     echo "If the error above says a variable 'is missing a value', your .env"; \
+		     echo "predates it — start-poc.sh only generates a .env when none exists,"; \
+		     echo "so an existing checkout never picks up newly-required vars."; \
+		     echo "Fix:  make env-sync"; \
+		     exit 1; }
 	@echo "✓ compose config valid — all required env vars present"
 
 # Run all tests locally in parallel (fast — no Docker required)

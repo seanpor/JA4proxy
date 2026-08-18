@@ -180,11 +180,18 @@ def test_start_poc_generates_every_required_env_var():
     furthest: a required variable has to be registered in FIVE places (the
     compose file, template.env, the Makefile's lint-docker recipe, the compose
     validation test, and here). Adding ANALYTICS_HMAC_SECRET missed this one,
-    and the failure surfaced only in the cold-start CI job — because everyone
-    else already had a .env from before the variable existed.
+    and the failure surfaced first in the cold-start CI job — the only place
+    without a pre-existing .env.
 
-    That is the worst possible place to find it: a brand-new clone cannot start
-    the stack at all, while every existing checkout works fine.
+    NOTE: an earlier version of this docstring concluded from that symptom that
+    "a brand-new clone cannot start the stack at all, while every existing
+    checkout works fine". That is backwards, and the wrong half got the guard.
+    A fresh clone is fine — start-poc.sh generates a complete .env. It is every
+    EXISTING checkout that breaks, because that generator only runs when the
+    file is absent, so a `git pull` adds a required variable that nothing ever
+    writes into the .env already on disk. See
+    tests/unit/test_env_upgrade_path.py, which guards that path; this test
+    still guards the from-scratch one.
     """
     import re
 
