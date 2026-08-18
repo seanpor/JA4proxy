@@ -109,12 +109,12 @@
 # image tags exist with the fix (Go 1.25.11/1.26.4).
 # Why not exploitable: None of Grafana/Loki/Promtail parses untrusted MIME
 # headers from external sources in our deployment.
-CVE-2026-42504 exp:2026-08-23
+CVE-2026-42504 exp:2026-08-25
 
 # CVE-2026-21728: DoS in Grafana Tempo query parser.
 # Why no fix: Affects grafana v13.0.4-ubuntu; no newer release exists.
 # Why not exploitable: We do not deploy or configure Tempo as a query source for Grafana.
-CVE-2026-21728 exp:2026-08-23
+CVE-2026-21728 exp:2026-08-25
 
 # GHSA-r277-6w6q-xmqw: kin-openapi ValidationHandler.Load() silently substitutes
 # a no-op auth function when none is configured, letting requests bypass any
@@ -131,14 +131,14 @@ CVE-2026-21728 exp:2026-08-23
 # deployment Grafana is reachable only by authenticated administrators on an
 # internal/loopback network, never directly by untrusted external clients — same
 # exposure posture as every other Grafana finding in this file.
-GHSA-r277-6w6q-xmqw exp:2026-08-23
+GHSA-r277-6w6q-xmqw exp:2026-08-25
 
 # CVE-2026-33811: net package DoS in Go stdlib.
 # Why no fix: Affects grafana:13.0.4-ubuntu and promtail:3.6.11
 # (both newest stable); no newer release exists with the Go 1.25.10/1.26.3 fix.
 # Why not exploitable: Grafana's network exposure is limited to authenticated
 # admin users on port 3000 over local host mapping; Loki/Promtail are internal-only.
-CVE-2026-33811 exp:2026-08-23
+CVE-2026-33811 exp:2026-08-25
 
 # CVE-2026-34040: Moby authorization bypass.
 # Why no fix: Affects promtail v3.6.11 (EOL, no newer tag exists at all) and
@@ -150,25 +150,25 @@ CVE-2026-33811 exp:2026-08-23
 # Docker API (container list/inspect/stats only, mounts /var/run read-only) —
 # it never runs a Docker daemon or authorization-plugin-gated API of its own,
 # so a bypass in that server-side logic isn't triggered by cAdvisor's own code.
-CVE-2026-34040 exp:2026-08-23
+CVE-2026-34040 exp:2026-08-25
 
 # CVE-2026-28377: Info disclosure in Tempo.
 # Why no fix: Affects grafana v13.0.4-ubuntu; no newer release exists.
 # Why not exploitable: Tempo integration is not deployed or used in our configuration.
-CVE-2026-28377 exp:2026-08-23
+CVE-2026-28377 exp:2026-08-25
 
 # CVE-2026-33814: HTTP/2 SETTINGS frame DoS in Go.
 # Why no fix: Affects grafana:13.0.4-ubuntu and promtail:3.6.11
 # (both newest stable); no newer release exists.
 # Why not exploitable: All three are only exposed on internal/loopback networks
 # to authorized administrators, never to untrusted clients.
-CVE-2026-33814 exp:2026-08-23
+CVE-2026-33814 exp:2026-08-25
 
 # CVE-2026-42151: Info disclosure in prometheus client library.
 # Why no fix: Affects grafana:13.0.4-ubuntu and promtail:3.6.11
 # (both newest stable); no newer release exists.
 # Why not exploitable: None of these query external/untrusted Prometheus instances in our deployment.
-CVE-2026-42151 exp:2026-08-23
+CVE-2026-42151 exp:2026-08-25
 
 # CVE-2026-41567: Container archive execution in Docker.
 # Why no fix: Affects promtail v3.6.11 (EOL, no newer tag exists at all) and
@@ -178,23 +178,23 @@ CVE-2026-42151 exp:2026-08-23
 # production deployment. cAdvisor's Docker socket mount is read-only and it
 # only ever calls read-only stats/inspect endpoints — it never calls the
 # archive/copy endpoints (ContainerArchive / CopyToContainer) this CVE affects.
-CVE-2026-41567 exp:2026-08-23
+CVE-2026-41567 exp:2026-08-25
 
 # CVE-2026-39820: ParseAddress net/mail DoS in Go stdlib.
 # Why no fix: Affects grafana:13.0.4-ubuntu and promtail:3.6.11
 # (both newest stable); no newer release is available.
 # Why not exploitable: None of these parse untrusted email addresses in our deployment.
-CVE-2026-39820 exp:2026-08-23
+CVE-2026-39820 exp:2026-08-25
 # CVE-2026-39836: Go toolset security update issue.
 # Why no fix: Affects grafana:13.0.4-ubuntu and promtail:3.6.11
 # (both newest stable); no newer release is available.
 # Why not exploitable: Not reachable via any network-facing code path in our deployment.
-CVE-2026-39836 exp:2026-08-23
+CVE-2026-39836 exp:2026-08-25
 # CVE-2026-42499: net/textproto consumePhrase DoS in Go stdlib.
 # Why no fix: Affects grafana:13.0.4-ubuntu and promtail:3.6.11
 # (both newest stable); no newer release is available.
 # Why not exploitable: None of these expose a textproto-based service to untrusted input in our deployment.
-CVE-2026-42499 exp:2026-08-23
+CVE-2026-42499 exp:2026-08-25
 # CVE-2026-42306: Race condition in docker cp.
 # Why no fix: Affects Promtail (EOL, no newer tag exists) and
 # gcr.io/cadvisor/cadvisor:v0.52.1 — re-verified 2026-08-03, checked v0.55.1,
@@ -202,7 +202,7 @@ CVE-2026-42499 exp:2026-08-23
 # Why not exploitable: Neither Promtail nor cAdvisor invokes docker cp / the
 # archive-extraction code path this race affects — cAdvisor only calls
 # read-only stats/inspect endpoints over its read-only Docker socket mount.
-CVE-2026-42306 exp:2026-08-23
+CVE-2026-42306 exp:2026-08-25
 
 # CVE-2026-27145: Go stdlib crypto/x509 certificate parsing DoS.
 # Why no fix: Affects grafana:13.0.4-ubuntu and promtail:3.6.11
@@ -210,7 +210,7 @@ CVE-2026-42306 exp:2026-08-23
 # Why not exploitable: These only process certificates from our own PKI (not
 # untrusted external sources), so maliciously crafted certificates cannot
 # reach the vulnerable parsing code.
-CVE-2026-27145 exp:2026-08-23
+CVE-2026-27145 exp:2026-08-25
 
 # CVE-2026-39828: golang.org/x/crypto/ssh before 0.52.0 — SSH connection reuse vulnerability.
 # Why no fix: Affects alertmanager:v0.33.1, grafana:13.0.4-ubuntu,
@@ -219,23 +219,23 @@ CVE-2026-27145 exp:2026-08-23
 # Why not exploitable: None of these components act as an SSH client or server in our
 # deployment. The vulnerable golang.org/x/crypto/ssh code path is statically linked but
 # never reachable during normal operation.
-CVE-2026-39828 exp:2026-08-23
+CVE-2026-39828 exp:2026-08-25
 
 # CVE-2026-39829: golang.org/x/crypto/ssh before 0.52.0 — second SSH DoS CVE (sibling of -39828).
 # Why no fix: Same affected images as CVE-2026-39828: alertmanager:v0.33.1,
 # grafana:13.0.4-ubuntu, promtail:3.6.11. No updated tags exist yet.
 # Why not exploitable: None of these components use golang.org/x/crypto/ssh in our deployment.
-CVE-2026-39829 exp:2026-08-23
+CVE-2026-39829 exp:2026-08-25
 
 # CVE-2026-39830: golang.org/x/crypto/ssh before 0.52.0 — third SSH DoS CVE (sibling of -39828/-39829).
 # Why no fix: Same affected images as -39828/-39829. No updated tags exist yet.
 # Why not exploitable: None of these components use golang.org/x/crypto/ssh in our deployment.
-CVE-2026-39830 exp:2026-08-23
+CVE-2026-39830 exp:2026-08-25
 
 # CVE-2026-39832: golang.org/x/crypto/ssh/agent before 0.52.0 — sibling of the CVE-2026-3983x batch.
 # Affects same images as -39828/-39829/-39830. No updated tags exist yet.
 # Why not exploitable: None of these components use golang.org/x/crypto/ssh in our deployment.
-CVE-2026-39832 exp:2026-08-23
+CVE-2026-39832 exp:2026-08-25
 
 # ── Alertmanager / Grafana / Loki / Promtail golang.org/x/crypto + x/net + stdlib CVE batch ──
 # These CVEs affect golang.org/x/crypto, golang.org/x/net, and Go stdlib
@@ -247,15 +247,15 @@ CVE-2026-39832 exp:2026-08-23
 # dependency versions; no such rebuild has shipped yet. None of these act as
 # SSH clients/servers or process untrusted network input that would reach
 # the vulnerable code paths in our deployment.
-CVE-2026-25681 exp:2026-08-23
-CVE-2026-27136 exp:2026-08-23
-CVE-2026-39821 exp:2026-08-23
-CVE-2026-39822 exp:2026-08-23
-CVE-2026-39831 exp:2026-08-23
-CVE-2026-39835 exp:2026-08-23
-CVE-2026-42508 exp:2026-08-23
-CVE-2026-46595 exp:2026-08-23
-CVE-2026-46597 exp:2026-08-23
+CVE-2026-25681 exp:2026-08-25
+CVE-2026-27136 exp:2026-08-25
+CVE-2026-39821 exp:2026-08-25
+CVE-2026-39822 exp:2026-08-25
+CVE-2026-39831 exp:2026-08-25
+CVE-2026-39835 exp:2026-08-25
+CVE-2026-42508 exp:2026-08-25
+CVE-2026-46595 exp:2026-08-25
+CVE-2026-46597 exp:2026-08-25
 
 # CVE-2026-46600: golang.org/x/net/dns/dnsmessage (x/net before 0.56.0).
 # Newly disclosed sibling of the -46595/-46597 batch above; surfaced by a
@@ -278,7 +278,7 @@ CVE-2026-46597 exp:2026-08-23
 # Why not exploitable (third-party only): dns/dnsmessage parses
 # host-originated DNS records, which none of those components reach in our
 # deployment. Re-review at expiry.
-CVE-2026-46600 exp:2026-08-23
+CVE-2026-46600 exp:2026-08-25
 
 # CVE-2026-56852: golang.org/x/text norm.Iter can enter an infinite loop on
 # certain malformed input during Unicode normalization.
@@ -293,7 +293,7 @@ CVE-2026-46600 exp:2026-08-23
 # services expose an endpoint that normalizes untrusted text; they consume
 # metrics/logs (already-structured data) or serve their own admin UI/API to
 # authenticated internal users only.
-CVE-2026-56852 exp:2026-08-23
+CVE-2026-56852 exp:2026-08-25
 
 
 
@@ -311,7 +311,7 @@ CVE-2026-56852 exp:2026-08-23
 # None of these five images run as xDS servers or accept untrusted gRPC/xDS
 # input in our deployment — they're monitoring/logging tools sitting behind
 # the proxy, reachable only from trusted internal callers.
-GHSA-hrxh-6v49-42gf exp:2026-08-23
+GHSA-hrxh-6v49-42gf exp:2026-08-25
 
 # ── gcr.io/cadvisor/cadvisor — Phase 810, narrowed by Phase 820 ──
 # Phase 810 wired cadvisor (plus tecnativa/docker-socket-proxy and the
@@ -340,17 +340,17 @@ GHSA-hrxh-6v49-42gf exp:2026-08-23
 # terminates TLS from an untrusted peer.
 # Re-verified 2026-08-03: cadvisor v0.54.1 (45 findings) and v0.55.1 (44) are
 # both WORSE than v0.52.1 (43) — each clears 9-10 CVEs but introduces 11.
-CVE-2025-22868 exp:2026-08-23
-CVE-2025-22869 exp:2026-08-23
-CVE-2025-22874 exp:2026-08-23
-CVE-2025-47913 exp:2026-08-23
-CVE-2025-61726 exp:2026-08-23
-CVE-2025-61729 exp:2026-08-23
-CVE-2025-68121 exp:2026-08-23
-CVE-2026-25679 exp:2026-08-23
-CVE-2026-32280 exp:2026-08-23
-CVE-2026-32281 exp:2026-08-23
-CVE-2026-32283 exp:2026-08-23
+CVE-2025-22868 exp:2026-08-25
+CVE-2025-22869 exp:2026-08-25
+CVE-2025-22874 exp:2026-08-25
+CVE-2025-47913 exp:2026-08-25
+CVE-2025-61726 exp:2026-08-25
+CVE-2025-61729 exp:2026-08-25
+CVE-2025-68121 exp:2026-08-25
+CVE-2026-25679 exp:2026-08-25
+CVE-2026-32280 exp:2026-08-25
+CVE-2026-32281 exp:2026-08-25
+CVE-2026-32283 exp:2026-08-25
 
 # CVE-2025-31115: xz-libs heap-use-after-free in the threaded .xz decoder.
 # Why no fix: gcr.io/cadvisor/cadvisor:v0.52.1 ships Alpine xz-libs 5.4.3-r0;
@@ -361,7 +361,7 @@ CVE-2026-32283 exp:2026-08-23
 # Why not exploitable: cadvisor never invokes xz/liblzma decompression — it
 # reads cgroup/procfs stats and the Docker API, no compressed-archive
 # handling on any path reachable in our deployment.
-CVE-2025-31115 exp:2026-08-23
+CVE-2025-31115 exp:2026-08-25
 
 # CVE-2024-41110: moby "Authz zero length regression" (CRITICAL) — a
 # specially crafted API request with a spoofed Content-Length can bypass an
@@ -373,7 +373,7 @@ CVE-2025-31115 exp:2026-08-23
 # authorization-plugin request handling. cAdvisor is a client of the Docker
 # API, not a daemon serving one — it never accepts inbound Docker API
 # requests that an authz plugin would need to gate.
-CVE-2024-41110 exp:2026-08-23
+CVE-2024-41110 exp:2026-08-25
 
 # CVE-2025-31133 / CVE-2025-52565 / CVE-2025-52881: runc container-escape
 # vulnerabilities (masked-path mount races, /dev/console mount races, and
@@ -388,9 +388,9 @@ CVE-2024-41110 exp:2026-08-23
 # creates or starts containers (it has no engine/runtime role); it only
 # reads existing container stats via the Docker API and /sys, /proc. The
 # vulnerable runc code is statically linked but never invoked.
-CVE-2025-31133 exp:2026-08-23
-CVE-2025-52565 exp:2026-08-23
-CVE-2025-52881 exp:2026-08-23
+CVE-2025-31133 exp:2026-08-25
+CVE-2025-52565 exp:2026-08-25
+CVE-2025-52881 exp:2026-08-25
 
 # CVE-2026-33186: gRPC-Go authorization bypass due to improper HTTP/2 path
 # validation (CRITICAL) — distinct from GHSA-hrxh-6v49-42gf above.
@@ -402,7 +402,7 @@ CVE-2025-52881 exp:2026-08-23
 # it exposes an HTTP Prometheus metrics endpoint on the internal Docker
 # network only (no host port mapping), and this dependency is not on any
 # code path cAdvisor's own binary exercises.
-CVE-2026-33186 exp:2026-08-23
+CVE-2026-33186 exp:2026-08-25
 # ── Go 1.26.5 stdlib batch, surfaced by a Trivy DB update on 2026-08-15 ──
 # Six stdlib CVEs (encoding/asn1 DoS and siblings), all present in
 # `stdlib v1.26.5` compiled into prom/node-exporter:v1.12.1,
