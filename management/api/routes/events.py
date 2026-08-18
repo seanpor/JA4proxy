@@ -34,6 +34,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["events"])
 
 _STREAM_KEY = "events:connection"
+# How much history to paint before tailing. Enough to fill the visible table
+# (the client trims to 50 rows) without making the first byte slow.
+_BACKFILL_COUNT = 25
 _BLOCK_MS = 1000
 _HEARTBEAT_INTERVAL = 15
 
@@ -109,8 +112,40 @@ async def _event_generator(request: Request, redis):
     Each event is a JSON string of flat ECS-dotted keys. We parse it,
     extract the fields needed for the live feed table, and yield an
     enriched HTML row with clickable IP/JA4 links.
+
+    Starts by replaying the most recent ``_BACKFILL_COUNT`` events.
+
+    phase-828: it previously started at ``"$"`` -- "only what arrives after you
+    connect". On a stack with 54,000 events in the stream but no traffic in
+    flight, the operator opened the dashboard and saw five pulsing grey
+    placeholder bars and nothing else, indefinitely. The feed looked broken and
+    the history it was sitting on was unreachable. Live-only is the right
+    default for a tail; it is the wrong default for the first paint.
     """
     last_id = "$"
+
+    # Replay oldest-to-newest. The client swaps with hx-swap="afterbegin", so
+    # each row is prepended -- feeding them chronologically leaves the newest
+    # at the top, matching the order live events then arrive in.
+    try:
+        recent = await redis.xrevrange(_STREAM_KEY, "+", "-", count=_BACKFILL_COUNT)
+    except Exception as exc:  # noqa: BLE001 — backfill must never break the tail
+        logger.warning("events | event=backfill_failed | error=%s", exc)
+        recent = []
+
+    for msg_id, fields in reversed(recent or []):
+        raw = fields.get("event", "{}")
+        try:
+            parsed = json.loads(raw)
+        except (json.JSONDecodeError, TypeError):
+            parsed = {}
+        yield {"data": _build_row(parsed, msg_id), "id": msg_id}
+        last_id = msg_id
+
+    # Tell the client the first paint is done, so it can clear the placeholder
+    # rows and -- if the backfill was empty -- say so in words rather than
+    # leaving skeletons up forever.
+    yield {"event": "backfill-complete", "data": str(len(recent or []))}
 
     while True:
         if await request.is_disconnected():

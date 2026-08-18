@@ -342,8 +342,18 @@ aside nav a.sidebar-item-active {
     color: #0f172a !important;
     border-color: rgba(15, 23, 42, 0.15) !important;
   }
+  /* phase-828: this rule used to set border-color ONLY. The base
+     `.glass-input:focus` above declares `background: rgba(11,15,25,0.95)` --
+     a near-black -- and nothing here overrode it, so on a light-scheme OS
+     focusing any input turned its background black while `color: #0f172a`
+     (set just above) kept the text black. Black on black: the operator could
+     not read what they were typing. It hit every .glass-input in the app,
+     including the username and password fields on the login form.
+     Every property the base :focus rule sets must be restated here. */
   .glass-input:focus {
     border-color: var(--accent-sky) !important;
+    background: rgba(255, 255, 255, 1) !important;
+    color: #0f172a !important;
   }
 
   aside nav a.sidebar-item-active {

@@ -5006,3 +5006,27 @@ phases:
       a demo pass. Key lesson for the acceptance criteria: this failed loudly
       into a log nobody read, so ingest-success and rejection counters must be
       exported and a near-100% rejection rate must page."
+  828:
+    name: Tell John what we already know — operator decision support
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_828.md
+    dependencies:
+    - 826
+    size: LARGE
+    summary: "PROPOSED 2026-08-18 after an operator review of the console. The proxy
+      computes a full per-signal explanation (PipelineResult.Signals, each carrying
+      a human-readable Reason) plus dial counterfactuals, and emits neither —
+      cmd/ja4pd/main.go writes event.risk_score, a single integer. The live feed
+      renders 5 of the ~20 fields each event does carry, dropping
+      ja4proxy.bypass_reason (so blocked-by-list and blocked-by-score look
+      identical in the feed despite calling for opposite responses), country and
+      ASN organisation. No endpoint joins IP to fingerprint, so \"how many times
+      has this signature been seen at this IP\" — the question separating one
+      automated client from CGNAT carrying real subscribers — cannot be answered.
+      Empty geo renders as one word covering three different situations
+      (not-routable, lookup-failed, unallocated). Scope: 828a emit signals and
+      counterfactuals from Go under hard caps; 828b surface them in the feed and
+      detail pages; 828c add the (ip, ja4) cross-tab and a labelled shape verdict;
+      828d honest unknown states plus advisory read-only suggestions that state
+      their blast radius. 12 testable outcomes O1-O12 with named tests, each
+      mutation-checked. Non-goals: no new detectors, no auto-remediation."
