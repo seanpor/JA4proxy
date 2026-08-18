@@ -545,7 +545,12 @@ CHECKMAKE_IMG := mrtazz/checkmake:2c59d1f0939900ca3a4208fb9b9300de90ecee8a
 
 # Lint shell scripts with shellcheck (error-level only; warnings are advisory).
 # SC2154 suppressed: variables sourced from .env are referenced but not assigned in-script.
-SHELL_SCRIPTS := $(shell find . -name "*.sh" -not -path "./.git/*" -not -path "./node_modules/*" -not -path "./.claude/*" | sort)
+# `.local/` holds container-written caches (Trivy's fanal DB among them) owned
+# by root, which this find cannot traverse. It was printing a "Permission
+# denied" warning on EVERY make invocation — this variable is expanded at
+# parse time, so the noise appeared before any target ran and looked like a
+# failure of whatever target was asked for. Nothing there is a shell script.
+SHELL_SCRIPTS := $(shell find . -name "*.sh" -not -path "./.git/*" -not -path "./node_modules/*" -not -path "./.claude/*" -not -path "./.local/*" | sort)
 lint-shell:
 	@echo "=== shellcheck: shell scripts ==="
 	@fail=0; \
