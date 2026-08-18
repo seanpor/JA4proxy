@@ -8,6 +8,14 @@
     <span class="text-slate-100">{{ ja4 }}</span>
   </nav>
 
+  {# phase-827: surfaced, not swallowed. Blank counters previously meant either
+     "no traffic" or "the fetch failed" with no way to tell them apart. #}
+  <div x-show="loadError" x-cloak role="alert"
+       class="mb-4 rounded border border-red-700/50 bg-red-950/40 px-4 py-3 text-sm text-red-200">
+    <span class="font-semibold">Profile data unavailable.</span>
+    <span x-text="loadError"></span>
+  </div>
+
   <div class="flex items-center justify-between mb-6">
     <h1 class="text-2xl font-bold text-slate-100 font-mono">{{ ja4 }}</h1>
     <div class="flex gap-2">
@@ -145,7 +153,7 @@
 {% include "partials/confirm_modal.html" %}
 {% endblock %}
 
-{% block scripts %}
+{% block extra_scripts %}
 <script>
 function fingerprintPage() {
     return {
@@ -159,6 +167,11 @@ function fingerprintPage() {
             hourly_scores: [],
         },
         chart: null,
+        // phase-827: a failed profile fetch used to leave every binding on its
+        // zero default, so a 403 or a 500 looked exactly like a fingerprint
+        // with no traffic. Anyone reading the page would conclude the proxy had
+        // seen nothing, which is the opposite of what a fetch failure means.
+        loadError: '',
 
         async init() {
             await this.fetchProfile();
@@ -170,9 +183,15 @@ function fingerprintPage() {
                 const resp = await fetch('/api/v1/fingerprints/{{ ja4 }}/profile');
                 if (resp.ok) {
                     this.profile = await resp.json();
+                    this.loadError = '';
+                } else {
+                    this.loadError = resp.status === 403
+                        ? 'Your role cannot read connection data (analyst or above required).'
+                        : `Could not load this fingerprint's profile (HTTP ${resp.status}).`;
                 }
             } catch (e) {
                 console.error('Failed to load fingerprint profile:', e);
+                this.loadError = 'Could not reach the management API to load this profile.';
             }
         },
 
