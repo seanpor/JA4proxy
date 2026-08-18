@@ -92,6 +92,8 @@ class AnalyticsNode:
         loop.add_signal_handler(signal.SIGTERM, self._handle_shutdown)
         loop.add_signal_handler(signal.SIGHUP, self._handle_reload)
 
+        self._warn_on_placeholder_hmac_secret()
+
         await self.consumer.connect()
         logger.info("Connected to Redis stream")
 
@@ -122,6 +124,44 @@ class AnalyticsNode:
         await http_runner.cleanup()
         await self.consumer.close()
         logger.info("Analytics node shutdown complete")
+
+    def _warn_on_placeholder_hmac_secret(self) -> None:
+        """Shout at startup if the signing secret was never configured.
+
+        phase-827. The proxy signs every connection event and this node
+        verifies it; when the two values differ, every event is discarded and
+        nothing reports a problem. Both containers stay healthy, /health returns
+        200, the proxy keeps writing to the stream, and the console's
+        Intelligence panel is simply empty. That is how the condition survived
+        undetected — it was found by eye, not by monitoring.
+
+        The commonest cause is the one that actually happened: the variable was
+        plumbed into docker-compose but never read into this config, so the
+        built-in placeholder stayed in force. That case is detectable at
+        startup, before a single event is thrown away, so detect it here.
+
+        AnalyticsEventsRejectedHMAC covers the general mismatch (two different
+        real secrets), which cannot be seen without traffic.
+        """
+        security = self.config.get("security", {})
+        secret = security.get("hmac_secret", "")
+        if not security.get("hmac_required", True):
+            logger.warning(
+                "analytics | event=hmac_disabled | "
+                "signature verification is OFF — any writer to events:connection "
+                "is trusted"
+            )
+            return
+        if secret in ("", "default-secret-change-me"):
+            logger.error(
+                "analytics | event=hmac_secret_not_configured | "
+                "hmac_required=true but the secret is the built-in placeholder. "
+                "EVERY event from the proxy will fail verification and be "
+                "discarded; detectors will starve and the Intelligence panel "
+                "will stay empty while this service reports healthy. "
+                "Set ANALYTICS_HMAC_SECRET to the same value the proxy uses. "
+                "See docs/runbooks/analytics_ingest_silent_failure.md"
+            )
 
     # ── threat-intel feed runner (phase-85) ────────────────────────────────
 

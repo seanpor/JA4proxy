@@ -1,15 +1,34 @@
 #!/usr/bin/env bash
-# update-geoip.sh — Download the latest IP2Location LITE country database
+# update-geoip.sh — Download the geo databases JA4proxy needs
 #
-# The GeoIP database is used by JA4proxy to map IP addresses to countries for
-# country-based blocking. IP2Location publish updated databases monthly.
+# TWO databases, from two vendors, with different access rules:
 #
-# This script downloads the free LITE edition (DB1 — country only).
-# No registration or API key is required for the LITE version.
+#   1. IP2Location LITE DB1  — IP -> country. Anonymous download, no key.
+#   2. MaxMind GeoLite2-ASN  — IP -> ASN number + organisation name.
+#                              Requires a FREE MaxMind account and licence key.
+#
+# Until phase-827 this script fetched only (1), while config/proxy.yml had
+# `asn_classifier.enabled: true` pointing at a GeoLite2-ASN.mmdb that nothing
+# ever downloaded. The classifier therefore reported "DB absent" on every
+# lookup, which silently disabled THREE scoring signals (asn_datacenter +20,
+# asn_vpn +10, asn_unknown +5) and left the connection event with no ASN or
+# organisation at all — so the analytics node could not distinguish a consumer
+# ISP /24 from a hosting provider /24. Tor detection kept working (separate
+# list, checked before the DB lookup), which is probably why it went unnoticed.
+#
+# The proxy warns at startup when the ASN DB is missing. Before phase-827 that
+# warning told the operator to run this script, which did not fetch it.
 #
 # Usage:
-#   ./scripts/update-geoip.sh          # Download and install
-#   ./scripts/update-geoip.sh --check  # Check current database age only
+#   ./scripts/update-geoip.sh            # Update both (ASN needs the key below)
+#   ./scripts/update-geoip.sh --check    # Report the age of both, download nothing
+#
+# The ASN database needs a licence key, supplied either way:
+#   export MAXMIND_LICENSE_KEY=...       # free: https://www.maxmind.com/en/geolite2/signup
+#   (or put MAXMIND_LICENSE_KEY=... in .env — this script reads it)
+#
+# Without a key the country database still updates; the ASN step prints
+# instructions and the script exits non-zero so automation notices.
 #
 # After updating: restart the proxy to load the new database.
 #   make stop && make start
@@ -25,6 +44,16 @@ GEOIP_DIR="${GEOIP_DIR:-./geoip}"
 DB_FILE="${GEOIP_DIR}/IP2LOCATION-LITE-DB1.BIN"
 DOWNLOAD_URL="https://download.ip2location.com/lite/IP2LOCATION-LITE-DB1.BIN.ZIP"
 CHECK_ONLY=false
+
+# Must match config/proxy.yml -> security.asn_classifier.maxmind_db_path.
+ASN_DB_FILE="${ASN_DB_FILE:-./config/GeoLite2-ASN.mmdb}"
+ASN_EDITION="GeoLite2-ASN"
+
+# Convenience: most operators keep the key alongside the other secrets.
+if [ -z "${MAXMIND_LICENSE_KEY:-}" ] && [ -f .env ]; then
+    MAXMIND_LICENSE_KEY=$(grep -E '^MAXMIND_LICENSE_KEY=' .env 2>/dev/null | cut -d= -f2- || true)
+fi
+ASN_FAILED=false
 
 for arg in "$@"; do
     [ "$arg" = "--check" ] && CHECK_ONLY=true
@@ -60,9 +89,33 @@ else
     info "GeoIP country filtering is currently disabled"
 fi
 
+# ── ASN database status ────────────────────────────────────────────────────────
+echo ""
+echo "ASN Database — MaxMind ${ASN_EDITION}"
+echo "──────────────────────────────────────"
+if [ -f "$ASN_DB_FILE" ]; then
+    A_MOD=$(stat -c %Y "$ASN_DB_FILE" 2>/dev/null || stat -f %m "$ASN_DB_FILE" 2>/dev/null)
+    A_AGE=$(( ($(date +%s) - A_MOD) / 86400 ))
+    A_DATE=$(date -d "@${A_MOD}" '+%Y-%m-%d' 2>/dev/null || date -r "${A_MOD}" '+%Y-%m-%d' 2>/dev/null || echo unknown)
+    info "Current database:  ${ASN_DB_FILE}"
+    info "Last updated:      ${A_DATE}  (${A_AGE} days ago)"
+    if [ "$A_AGE" -gt 35 ]; then
+        warn "Over 35 days old — MaxMind publish weekly; update recommended"
+    else
+        ok "Database age is acceptable"
+    fi
+else
+    warn "No database found at ${ASN_DB_FILE}"
+    fail "ASN enrichment is DISABLED — this is not cosmetic:"
+    echo "     · asn_datacenter (+20), asn_vpn (+10), asn_unknown (+5) never fire"
+    echo "     · connection events carry no ASN or organisation, so findings"
+    echo "       cannot tell a consumer ISP /24 from a hosting provider /24"
+    echo "     · docs/reference/GOOD_TRAFFIC_PROFILE.md rule 5 is unenforceable"
+fi
+
 if [ "$CHECK_ONLY" = true ]; then
     echo ""
-    echo "Run without --check to download the latest version."
+    echo "Run without --check to download the latest versions."
     echo ""
     exit 0
 fi
@@ -128,6 +181,69 @@ fi
 cp "$NEW_DB" "$DB_FILE"
 ok "Installed: ${DB_FILE}"
 
+# ── ASN database (MaxMind GeoLite2-ASN) ────────────────────────────────────────
+echo ""
+echo "ASN Database — MaxMind ${ASN_EDITION}"
+echo "──────────────────────────────────────"
+
+if [ -z "${MAXMIND_LICENSE_KEY:-}" ]; then
+    fail "MAXMIND_LICENSE_KEY is not set — cannot download ${ASN_EDITION}."
+    echo ""
+    echo "  Unlike IP2Location LITE, MaxMind require a (free) account:"
+    echo "    1. Sign up:        https://www.maxmind.com/en/geolite2/signup"
+    echo "    2. Create a key:   Account -> Manage License Keys"
+    echo "    3. Then either:"
+    echo "         export MAXMIND_LICENSE_KEY=...   (this shell)"
+    echo "       or add to .env:"
+    echo "         MAXMIND_LICENSE_KEY=...          (picked up automatically)"
+    echo ""
+    echo "  Manual alternative — download ${ASN_EDITION} (mmdb format) and place at:"
+    echo "    ${ASN_DB_FILE}"
+    echo ""
+    echo "  Until then the proxy runs WITHOUT ASN enrichment. See"
+    echo "  docs/runbooks/geoip_databases.md for what that disables."
+    ASN_FAILED=true
+else
+    ASN_URL="https://download.maxmind.com/app/geoip_download?edition_id=${ASN_EDITION}&license_key=${MAXMIND_LICENSE_KEY}&suffix=tar.gz"
+    ASN_TGZ="${TMPDIR_WORK}/${ASN_EDITION}.tar.gz"
+
+    # The key is a credential: never echo ASN_URL.
+    info "Downloading ${ASN_EDITION} from MaxMind..."
+    if ! curl -fsSL --max-time 120 --retry 3 --retry-delay 5 -o "$ASN_TGZ" "$ASN_URL"; then
+        fail "Download failed. A 401 here almost always means the licence key is"
+        echo "     wrong or has been revoked — check Account -> Manage License Keys."
+        ASN_FAILED=true
+    else
+        ok "Downloaded: $(du -h "$ASN_TGZ" | cut -f1)"
+        tar -xzf "$ASN_TGZ" -C "$TMPDIR_WORK"
+        NEW_ASN=$(find "$TMPDIR_WORK" -name "${ASN_EDITION}.mmdb" | head -1)
+
+        if [ -z "$NEW_ASN" ]; then
+            fail "Archive did not contain ${ASN_EDITION}.mmdb"
+            ASN_FAILED=true
+        else
+            # An mmdb starts with a binary header, not text. A truncated download
+            # or an HTML error page installed under this name would leave the
+            # proxy reporting "DB absent" with a file sitting right there.
+            ASN_SIZE=$(stat -c %s "$NEW_ASN" 2>/dev/null || stat -f %z "$NEW_ASN" 2>/dev/null)
+            if [ "${ASN_SIZE:-0}" -lt 100000 ]; then
+                fail "Downloaded ${ASN_EDITION}.mmdb looks too small (${ASN_SIZE} bytes)"
+                ASN_FAILED=true
+            elif ! head -c 200 "$NEW_ASN" | grep -qa "MaxMind"; then
+                fail "File does not look like a MaxMind database — refusing to install"
+                ASN_FAILED=true
+            else
+                ok "Validated: ${ASN_SIZE} bytes"
+                mkdir -p "$(dirname "$ASN_DB_FILE")"
+                [ -f "$ASN_DB_FILE" ] && cp "$ASN_DB_FILE" "${ASN_DB_FILE}.prev" \
+                    && info "Previous database backed up to: ${ASN_DB_FILE}.prev"
+                cp "$NEW_ASN" "$ASN_DB_FILE"
+                ok "Installed: ${ASN_DB_FILE}"
+            fi
+        fi
+    fi
+fi
+
 # ── Done ───────────────────────────────────────────────────────────────────────
 NEW_DATE=$(date '+%Y-%m-%d')
 echo ""
@@ -145,3 +261,10 @@ echo ""
 echo "  Attribution: This product includes IP2Location LITE data"
 echo "  available from https://lite.ip2location.com, licensed CC-BY-SA 4.0."
 echo ""
+
+if [ "$ASN_FAILED" = true ]; then
+    echo ""
+    warn "Country database updated, but the ASN database was NOT installed."
+    warn "Exiting non-zero so scheduled runs surface this rather than logging success."
+    exit 1
+fi

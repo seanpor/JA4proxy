@@ -90,9 +90,18 @@ func NewASNClassifier(cfg *ASNClassifierConfig, log *logrus.Logger) *ASNClassifi
 				c.db = db
 			}
 		} else {
+			// The remedy matters here: this warning used to say "run: make
+			// update-geoip", which downloaded the IP2Location COUNTRY database
+			// and never GeoLite2-ASN — so an operator who followed it got no
+			// fix and no second warning. update-geoip.sh now fetches both, but
+			// needs a (free) MaxMind licence key, which is the part worth
+			// saying out loud.
 			log.WithField("path", cfg.DBPath).Warn(
-				"asn_classifier: GeoIP database not found — country blocking and ASN enrichment disabled. " +
-					"Download from https://dev.maxmind.com/geoip/geolite2-free-geolocation-data or run: make update-geoip")
+				"asn_classifier: GeoLite2-ASN database not found — ASN enrichment disabled. " +
+					"This silently zeroes the asn_datacenter/asn_vpn/asn_unknown signals and " +
+					"leaves connection events with no ASN or organisation. " +
+					"Fix: set MAXMIND_LICENSE_KEY (free: https://www.maxmind.com/en/geolite2/signup) " +
+					"then run 'make update-geoip'. See docs/runbooks/geoip_databases.md")
 		}
 	} else {
 		log.Warn(

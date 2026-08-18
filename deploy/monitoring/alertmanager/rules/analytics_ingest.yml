@@ -1,0 +1,61 @@
+# Phase 827 — analytics ingest alerts.
+#
+# WHY THIS FILE EXISTS
+# --------------------
+# The proxy signs every connection event with ANALYTICS_HMAC_SECRET and the
+# analytics node verifies it with the same value. When the two disagree, every
+# event is discarded and NOTHING reports a problem: the proxy keeps writing to
+# the stream, the consumer keeps reading and rejecting, both containers stay
+# healthy, /health returns 200, and the console's Intelligence panel is simply
+# empty. That state persisted for a long time and was found by eye, not by
+# monitoring.
+#
+# The failure is silent by construction, so the only fix is to watch the
+# rejection counter directly.
+groups:
+  - name: ja4proxy_analytics_ingest
+    rules:
+      - alert: AnalyticsEventsRejectedHMAC
+        # A correctly configured proxy signs every event correctly. Sustained
+        # HMAC rejection is therefore never "noise" — it is a misconfiguration,
+        # and the only question is which side.
+        expr: rate(ja4proxy_analytics_events_rejected_total{reason="hmac"}[5m]) > 0
+        for: 10m
+        labels: {severity: critical}
+        annotations:
+          summary: "Analytics is discarding events on HMAC verification"
+          description: |
+            The analytics node has rejected events for failed HMAC verification
+            continuously for 10 minutes. The proxy's
+            webhooks.stream_hmac_secret and the analytics node's
+            security.hmac_secret are not the same value — both are fed from
+            ANALYTICS_HMAC_SECRET, so one service is reading a different .env,
+            or one was restarted after a rotation and the other was not.
+
+            Nothing else will report this. Both containers stay healthy and the
+            proxy keeps writing; the events are simply thrown away, so every
+            detector starves and the Intelligence panel goes empty.
+          runbook: "docs/runbooks/analytics_ingest_silent_failure.md"
+          runbook_url: "https://github.com/seanpor/JA4proxy/blob/main/docs/runbooks/analytics_ingest_silent_failure.md"
+
+      - alert: AnalyticsIngestingNothing
+        # Catches the same class of failure by its effect rather than its
+        # cause: the stream has entries but none are being accepted. Covers
+        # rejection reasons that do not exist yet.
+        expr: |
+          rate(ja4proxy_analytics_events_ingested_total[15m]) == 0
+          and rate(ja4proxy_analytics_events_rejected_total[15m]) > 0
+        for: 15m
+        labels: {severity: critical}
+        annotations:
+          summary: "Analytics has accepted no events for 15m while rejecting some"
+          description: |
+            Every event reaching the analytics node in the last 15 minutes was
+            rejected. Detectors see no traffic at all, so no finding of any
+            kind can be produced regardless of what the proxy observes.
+
+            Check the `reason` label on
+            ja4proxy_analytics_events_rejected_total to distinguish a signing
+            mismatch from a schema mismatch.
+          runbook: "docs/runbooks/analytics_ingest_silent_failure.md"
+          runbook_url: "https://github.com/seanpor/JA4proxy/blob/main/docs/runbooks/analytics_ingest_silent_failure.md"
