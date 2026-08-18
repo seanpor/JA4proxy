@@ -21,10 +21,15 @@ cd "$(git rev-parse --show-toplevel 2>/dev/null || dirname "$(dirname "$(readlin
 [ -f .env ] && . ./.env
 
 MODE="${1:-slow-scan}"
+# `shift` with no positional arguments returns non-zero, and `set -e` then kills
+# the script before it prints anything — which is exactly what `make demo-scan`
+# with no arguments did: silence, exit 0-looking, no traffic. Guard the shift on
+# there being something to shift.
+[ $# -gt 0 ] && shift || true
 case "$MODE" in
-  slow-scan) shift; ARGS=(--ips 25 --requests-per-ip 2) ;;
+  slow-scan) ARGS=(--ips 25 --requests-per-ip 2) ;;
   # 45/256 = 0.176 density, above the 0.15 threshold with headroom.
-  campaign)  shift; ARGS=(--ips 45 --requests-per-ip 3) ;;
+  campaign)  ARGS=(--ips 45 --requests-per-ip 3) ;;
   *)         ARGS=() ;;
 esac
 ARGS+=("$@")
