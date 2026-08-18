@@ -24,9 +24,10 @@ exact shape that breaks it.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 import yaml
-from pathlib import Path
 
 from src.analytics.stream_consumer import StreamConsumer
 
