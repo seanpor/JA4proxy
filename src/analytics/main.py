@@ -83,6 +83,8 @@ class AnalyticsNode:
             aggregation_window=self.config["aggregation"]["window_seconds"],
             monitoring_enabled=monitoring_enabled,
             monitoring_config=monitoring_config,
+            # phase-827: detection thresholds, previously unreachable from config.
+            detection_config=self.config.get("detection", {}),
         )
 
         loop = asyncio.get_running_loop()
@@ -211,6 +213,10 @@ class AnalyticsNode:
             if self.consumer:
                 self.consumer.batch_size = new_config["stream"].get("batch_size", 100)
                 self.consumer.timeout_ms = new_config["stream"].get("timeout_ms", 5000)
+                # phase-827: detection thresholds are hot-reloadable too, so an
+                # operator can tune sensitivity without dropping the stream
+                # position or the accumulated detector state.
+                self.consumer.apply_detection_config(new_config.get("detection", {}))
             # phase-85: hand the new threat_intel block to the feed runner.
             # Schedule the async reload on the running loop because SIGHUP
             # callbacks run in the signal-handler context (sync).

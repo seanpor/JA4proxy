@@ -90,6 +90,7 @@ class StreamConsumer:
         ja4_intelligence: bool = True,
         monitoring_enabled: bool = True,
         monitoring_config: Optional[Dict[str, Any]] = None,
+        detection_config: Optional[Dict[str, Any]] = None,
     ):
         self.redis_url = redis_url
         self.stream_key = stream_key
@@ -105,16 +106,86 @@ class StreamConsumer:
         self.hll_manager = HyperLogLogManager()
 
         # Initialize detection modules
-        self.campaign_detector = CampaignDetector() if campaign_detection else None
-        self.slow_scan_detector = SlowScanDetector() if slow_scan_detection else None
+        #
+        # phase-827: thresholds come from config. They used to be the
+        # constructors' hardcoded defaults with nothing ever passing a value,
+        # so tuning meant editing source.
+        #
+        # Read with per-key fallbacks rather than trusting the config merge:
+        # load_config()'s default merge is only two levels deep, so an operator
+        # setting a single threshold (detection.campaign.min_unique_ips) would
+        # otherwise silently drop every sibling key in that block and fall back
+        # to the constructor defaults for them — the confusing half-applied
+        # case. Defaults here equal the historical values, so an absent config
+        # block changes nothing.
+        dcfg = detection_config or {}
+        self.detection_config = dcfg
+
+        def _cfg(section: str, key: str, default):
+            return (dcfg.get(section) or {}).get(key, default)
+
+        self.campaign_detector = (
+            CampaignDetector(
+                min_unique_ips=_cfg("campaign", "min_unique_ips", 10),
+                density_threshold=_cfg("campaign", "density_threshold", 0.15),
+                block_rate_threshold=_cfg("campaign", "block_rate_threshold", 0.70),
+                window_seconds=_cfg("campaign", "window_seconds", 300),
+            )
+            if campaign_detection
+            else None
+        )
+        self.slow_scan_detector = (
+            SlowScanDetector(
+                min_unique_ips=_cfg("slow_scan", "min_unique_ips", 20),
+                max_requests_per_ip=_cfg("slow_scan", "max_requests_per_ip", 3),
+                window_seconds=_cfg("slow_scan", "window_seconds", 300),
+            )
+            if slow_scan_detection
+            else None
+        )
         self.ja4_intelligence = (
-            JA4FingerprintIntelligence() if ja4_intelligence else None
+            JA4FingerprintIntelligence(
+                min_observations=_cfg("ja4_intelligence", "min_observations", 10),
+                block_rate_threshold=_cfg(
+                    "ja4_intelligence", "block_rate_threshold", 0.95
+                ),
+                window_seconds=_cfg("ja4_intelligence", "window_seconds", 3600),
+            )
+            if ja4_intelligence
+            else None
         )
 
         # Initialize monitoring system (Phase 12c)
         self.monitoring_enabled = monitoring_enabled
         self.monitoring_system = None
         self.monitoring_config = monitoring_config or {}
+
+    def apply_detection_config(self, detection_config: Optional[Dict[str, Any]]) -> None:
+        """Re-apply detection thresholds to the live detectors (SIGHUP).
+
+        phase-827. Mutates the existing detector instances rather than
+        rebuilding them: each one holds accumulated per-subnet and
+        per-fingerprint state, and replacing them would silently discard the
+        observation history a detection is built from. An operator lowering a
+        threshold expects the change to apply to what has already been seen,
+        not to reset the window.
+        """
+        dcfg = detection_config or {}
+        self.detection_config = dcfg
+
+        def _cfg(section: str, key: str, default):
+            return (dcfg.get(section) or {}).get(key, default)
+
+        if self.campaign_detector is not None:
+            self.campaign_detector.min_unique_ips = _cfg("campaign", "min_unique_ips", 10)
+            self.campaign_detector.density_threshold = _cfg("campaign", "density_threshold", 0.15)
+            self.campaign_detector.block_rate_threshold = _cfg("campaign", "block_rate_threshold", 0.70)
+        if self.slow_scan_detector is not None:
+            self.slow_scan_detector.min_unique_ips = _cfg("slow_scan", "min_unique_ips", 20)
+            self.slow_scan_detector.max_requests_per_ip = _cfg("slow_scan", "max_requests_per_ip", 3)
+        if self.ja4_intelligence is not None:
+            self.ja4_intelligence.min_observations = _cfg("ja4_intelligence", "min_observations", 10)
+            self.ja4_intelligence.block_rate_threshold = _cfg("ja4_intelligence", "block_rate_threshold", 0.95)
 
     async def connect(self):
         """Establish connection to Redis."""
@@ -380,6 +451,35 @@ class StreamConsumer:
 
         return results
 
+    async def _claim_finding(self, kind: str, subject: str) -> bool:
+        """True if this (kind, subject) has not been reported recently.
+
+        phase-827. Detection runs on a timer, and a subnet or fingerprint that
+        qualifies once generally qualifies on EVERY subsequent cycle — so
+        writing unconditionally produces a column of identical findings. The
+        panel looks busy while saying one thing, and the genuinely new finding
+        is pushed off the bottom by copies of the old one.
+
+        A short-lived Redis key claimed with NX is the whole mechanism: whoever
+        sets it writes the finding, everyone else skips. The TTL rather than a
+        permanent marker means a subject that is STILL offending resurfaces
+        later, instead of being silently suppressed forever after one report.
+
+        Fails OPEN: if Redis is unreachable we would rather show a duplicate
+        than drop a finding an operator needs to see.
+        """
+        try:
+            return bool(
+                await self.redis.set(
+                    f"analytics:finding:seen:{kind}:{subject}",
+                    "1",
+                    ex=_FINDING_DEDUP_TTL_S,
+                    nx=True,
+                )
+            )
+        except redis.RedisError:
+            return True
+
     async def run_detection_cycle(self):
         """Run a complete detection cycle and store results in Redis."""
         try:
@@ -402,12 +502,28 @@ class StreamConsumer:
                     )  # 1 hour TTL
 
                     # Phase 236: Write as structured finding
+                    if not await self._claim_finding("campaign", campaign.get("subnet", "")):
+                        continue
                     await write_finding(
                         self.redis,
                         confidence=0.95,
                         type="campaign",
-                        description=campaign.get("description", "Coordinated campaign detected"),
-                        evidence_count=campaign.get("ip_count", 0),
+                        # phase-827: the detectors emit no "description" key, so
+                        # this always fell through to the generic string and the
+                        # operator saw "Coordinated campaign detected" with no
+                        # evidence — nothing to judge, and nothing to
+                        # distinguish two findings from each other. Build the
+                        # sentence from the measurements that triggered it.
+                        description=campaign.get("description") or (
+                            f"{campaign.get('unique_ips', 0)} IPs active across "
+                            f"{campaign.get('subnet', 'a subnet')} "
+                            f"({campaign.get('density', 0):.0%} of it), "
+                            f"{campaign.get('block_rate', 0):.0%} of their "
+                            "connections blocked"
+                        ),
+                        evidence_count=campaign.get(
+                            "unique_ips", campaign.get("ip_count", 0)
+                        ),
                         model_version="analytics-1.0",
                         model_trained_at="2026-01-01T00:00:00Z",
                         fp_rate_estimate=0.05,
@@ -422,12 +538,22 @@ class StreamConsumer:
                         key, json.dumps(slow_scan), ex=1800
                     )  # 30 min TTL
 
+                    if not await self._claim_finding("slowscan", slow_scan.get("subnet", "")):
+                        continue
                     await write_finding(
                         self.redis,
                         confidence=0.85,
                         type="slowscan",
-                        description=slow_scan.get("description", "Slow scan pattern detected"),
-                        evidence_count=slow_scan.get("connection_count", 0),
+                        description=slow_scan.get("description") or (
+                            f"{slow_scan.get('unique_ips', 0)} IPs in "
+                            f"{slow_scan.get('subnet', 'a subnet')} made "
+                            f"{slow_scan.get('total_requests', 0)} connections "
+                            f"({slow_scan.get('avg_requests_per_ip', 0):.1f} each) "
+                            "— low volume per host, spread wide"
+                        ),
+                        evidence_count=slow_scan.get(
+                            "total_requests", slow_scan.get("connection_count", 0)
+                        ),
                         model_version="analytics-1.0",
                         model_trained_at="2026-01-01T00:00:00Z",
                         fp_rate_estimate=0.10,
@@ -455,18 +581,7 @@ class StreamConsumer:
                     # source IPs, and so had no chance of reporting anything on
                     # a single-source deployment.
                     for candidate in detection_results["ja4_candidates"]:
-                        # Detection runs on a timer and a persistent bad
-                        # fingerprint qualifies on EVERY cycle, so writing
-                        # unconditionally would bury the operator in identical
-                        # findings — the panel would look busy while saying one
-                        # thing. Claim a short-lived key per (type, subject);
-                        # whoever wins writes, the rest skip. The TTL means a
-                        # fingerprint that is still offending is re-surfaced
-                        # later rather than suppressed forever.
-                        dedup_key = f"analytics:finding:seen:ja4:{candidate['ja4']}"
-                        if not await self.redis.set(
-                            dedup_key, "1", ex=_FINDING_DEDUP_TTL_S, nx=True
-                        ):
+                        if not await self._claim_finding("ja4", candidate["ja4"]):
                             continue
 
                         only_blocks = candidate.get("only_in_blocks", False)

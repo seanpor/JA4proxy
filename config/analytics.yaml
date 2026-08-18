@@ -28,6 +28,34 @@ security:
 aggregation:
   window_seconds: 300  # 5 minutes
 
+# Detection thresholds (phase-827)
+#
+# These were hardcoded defaults on the detector constructors with nothing ever
+# passing a value, so tuning sensitivity meant editing Python. Every key below
+# is optional and hot-reloadable via SIGHUP; omitted keys keep the historical
+# default shown, so an absent block changes nothing.
+#
+# Sizing matters more than it looks. "campaign" requires density >= 0.15 of a
+# /24 — that is 39+ distinct IPs inside one 256-address block, which is the
+# right shape for a site fronting many client networks and far too coarse for a
+# single-tenant deployment. Lower it deliberately, and remember the asymmetry:
+# these thresholds gate FINDINGS shown to an operator, not blocking, so erring
+# toward more findings costs review time rather than blocked users.
+detection:
+  campaign:
+    min_unique_ips: 10        # Distinct source IPs in one subnet before considering it
+    density_threshold: 0.15   # Fraction of the subnet seen (0.15 of a /24 = 39 IPs)
+    block_rate_threshold: 0.70  # Share of that subnet's connections that were blocked
+    window_seconds: 300
+  slow_scan:
+    min_unique_ips: 20        # Many IPs...
+    max_requests_per_ip: 3    # ...each making only a few requests: the scan signature
+    window_seconds: 300
+  ja4_intelligence:
+    min_observations: 10      # Sightings of a fingerprint before judging its block rate
+    block_rate_threshold: 0.95
+    window_seconds: 3600
+
 # Monitoring configuration (Phase 12c)
 monitoring:
   enabled: true

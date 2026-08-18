@@ -85,6 +85,34 @@ def load_config(config_file: str) -> Dict[str, Any]:
             "hmac_required": True,
         },
         "aggregation": {"window_seconds": 300},
+        # phase-827: detection thresholds. These were hardcoded Python defaults
+        # on the detector constructors and nothing ever passed a value, so the
+        # only way to tune them was to edit source — in breach of the
+        # config-driven requirement every other feature here follows.
+        #
+        # They are not one-size-fits-all. "campaign" means density >= 0.15 of a
+        # /24, i.e. 39+ distinct IPs in one 256-address block: correct for a
+        # site fronting many networks, far too coarse for a single-tenant
+        # deployment. Defaults below are the historical hardcoded values, so
+        # behaviour is unchanged until an operator opts in.
+        "detection": {
+            "campaign": {
+                "min_unique_ips": 10,
+                "density_threshold": 0.15,
+                "block_rate_threshold": 0.70,
+                "window_seconds": 300,
+            },
+            "slow_scan": {
+                "min_unique_ips": 20,
+                "max_requests_per_ip": 3,
+                "window_seconds": 300,
+            },
+            "ja4_intelligence": {
+                "min_observations": 10,
+                "block_rate_threshold": 0.95,
+                "window_seconds": 3600,
+            },
+        },
     }
 
     # Merge defaults with loaded config
