@@ -5,7 +5,7 @@ import ipaddress
 import time
 from collections import defaultdict
 
-from .correlation import correlate
+from .correlation import CLIENT_IDENTITY_DIMENSIONS, correlate
 
 # Upper bound on retained events per bucket. Large enough that a shared
 # characteristic is unambiguous, small enough that a wide scan cannot grow
@@ -352,10 +352,24 @@ class SlowScanDetector:
         max_requests_per_ip: int = 3,
         min_unique_ips: int = 20,
         window_seconds: int = 300,
+        min_shared_share: float = 0.80,
     ):
         self.max_requests_per_ip = max_requests_per_ip
         self.min_unique_ips = min_unique_ips
         self.window_seconds = window_seconds
+        # Corroboration gate. The shape this detector looks for — many IPs in
+        # one subnet, a couple of requests each — is ALSO the shape of a busy
+        # five minutes on a CGNAT'd consumer ISP subnet, where 20 unrelated
+        # people each load a form once. Shape alone therefore cannot convict,
+        # and a finding here is not cosmetic: it writes
+        # analytics:slowscan:<subnet>, which the Go proxy reads back as +30 on
+        # the risk score of EVERY connection from that /24 for 30 minutes.
+        #
+        # So we additionally require the group to agree on some client-identity
+        # dimension. Set to 0 to disable the gate and detect on shape alone
+        # (pre-phase-827 behaviour) — only sensible where the proxy is not
+        # populating fingerprints at all.
+        self.min_shared_share = min_shared_share
         self.current_window = None
         self.subnet_data = defaultdict(
             lambda: {
@@ -445,10 +459,27 @@ class SlowScanDetector:
 
             # Check if slow scan criteria met
             if avg_requests_per_ip <= self.max_requests_per_ip:
+                corr = correlate(
+                    data.get("samples") or [],
+                    min_share=self.min_shared_share or 0.80,
+                )
+
+                # Require corroboration: something about the CLIENTS must be
+                # common to the group. ASN, country and SNI are excluded on
+                # purpose — within one subnet, all visiting one site, those are
+                # uniform for legitimate traffic too and would convict it.
+                if self.min_shared_share > 0:
+                    shared = [
+                        c
+                        for c in corr.characteristics
+                        if c.dimension in CLIENT_IDENTITY_DIMENSIONS
+                    ]
+                    if not shared:
+                        continue
+
                 # Calculate score (0-1 scale)
                 score = min(1.0, len(data["unique_ips"]) / 100)
 
-                corr = correlate(data.get("samples") or [])
                 slow_scan = {
                     "shared": corr.summary(),
                     "characteristics": [

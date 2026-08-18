@@ -162,7 +162,16 @@ class TestSlowScanDetector:
         subnet = "192.168.1.0/24"
         events = []
 
-        # Add 10 unique IPs, 2 requests each (avg = 2)
+        # Add 10 unique IPs, 2 requests each (avg = 2).
+        #
+        # phase-827: every event used to carry its own synthetic fingerprint
+        # (`test{i}_{j}` — 20 distinct JA4s across 10 hosts), which no real
+        # scanner produces; nothing randomises its TLS stack per request. That
+        # shape is in fact the signature of ten *different real people*, and
+        # the detector now correctly declines to flag it. A slow scan is one
+        # tool reused across many addresses, so the fixture shares one
+        # fingerprint. See docs/reference/GOOD_TRAFFIC_PROFILE.md §3.
+        scanner_ja4 = "t13d1520h3_slowscanner_abcdef123456"
         for i in range(1, 11):
             ip = f"192.168.1.{i}"
             for j in range(2):  # 2 requests per IP
@@ -170,7 +179,7 @@ class TestSlowScanDetector:
                     {
                         "timestamp": time.time(),
                         "src_ip": ip,
-                        "ja4": f"t13d1520h3_test{i}_{j}",
+                        "ja4": scanner_ja4,
                         "action": "block" if j == 0 else "allow",
                         "score": 85 if j == 0 else 15,
                         "proxy_id": "proxy-1",
@@ -470,14 +479,16 @@ class TestDetectionIntegration:
                 }
             )
 
-        # Slow scan: 10 IPs from another subnet, 2 requests each
+        # Slow scan: 10 IPs from another subnet, 2 requests each, all running
+        # the same tool — a per-event unique fingerprint would describe ten
+        # unrelated browsers, not a scan (see TestSlowScanDetector above).
         for i in range(1, 11):
             for j in range(2):
                 events.append(
                     {
                         "timestamp": time.time(),
                         "src_ip": f"10.0.0.{i}",
-                        "ja4": f"t13d1520h3_slowscan{i}_{j}",
+                        "ja4": "t13d1520h3_slowscanner_abcdef123456",
                         "action": "block" if j == 0 else "allow",
                         "score": 85 if j == 0 else 15,
                         "proxy_id": "proxy-1",

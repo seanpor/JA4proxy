@@ -106,6 +106,13 @@ def load_config(config_file: str) -> Dict[str, Any]:
                 "min_unique_ips": 20,
                 "max_requests_per_ip": 3,
                 "window_seconds": 300,
+                # Fraction of sampled connections that must agree on some
+                # client-identity dimension (JA4, JA4T, JA4X, user-agent)
+                # before a subnet is flagged. Without this, the detector
+                # convicts any CGNAT'd consumer ISP subnet having a busy five
+                # minutes — see docs/reference/GOOD_TRAFFIC_PROFILE.md §4.
+                # 0 disables the gate.
+                "min_shared_share": 0.80,
             },
             "ja4_intelligence": {
                 "min_observations": 10,

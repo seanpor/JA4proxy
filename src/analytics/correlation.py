@@ -60,6 +60,24 @@ DIMENSIONS: Dict[str, tuple[str, ...]] = {
 # would invite an operator to act on weak evidence.
 DEFAULT_MIN_SHARE = 0.80
 
+# Dimensions that identify the CLIENT, as opposed to the site or the network it
+# arrived over.
+#
+# This distinction decides whether a shared characteristic is evidence of
+# anything. Within a single /24 the ASN and country are uniform *by
+# construction*, and every visitor to one form shares its SNI, its ALPN and
+# very likely its TLS version — so "80% of these connections agree" is
+# meaningless in those dimensions and would convict any busy consumer subnet.
+#
+# The dimensions below are the ones that SHOULD vary between unrelated people:
+# different browsers, versions and operating systems produce different TLS and
+# TCP fingerprints. Twenty real users are twenty-ish clients; twenty scanner
+# IPs are one tool. Agreement here is therefore the discriminator, and it is
+# what a low-volume detection must corroborate against.
+#
+# See docs/reference/GOOD_TRAFFIC_PROFILE.md §3.
+CLIENT_IDENTITY_DIMENSIONS = ("ja4", "ja4t", "ja4x", "user_agent")
+
 
 @dataclass
 class Characteristic:

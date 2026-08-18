@@ -144,6 +144,7 @@ class StreamConsumer:
                 min_unique_ips=_cfg("slow_scan", "min_unique_ips", 20),
                 max_requests_per_ip=_cfg("slow_scan", "max_requests_per_ip", 3),
                 window_seconds=_cfg("slow_scan", "window_seconds", 300),
+                min_shared_share=_cfg("slow_scan", "min_shared_share", 0.80),
             )
             if slow_scan_detection
             else None
@@ -200,6 +201,7 @@ class StreamConsumer:
         if self.slow_scan_detector is not None:
             self.slow_scan_detector.min_unique_ips = _cfg("slow_scan", "min_unique_ips", 20)
             self.slow_scan_detector.max_requests_per_ip = _cfg("slow_scan", "max_requests_per_ip", 3)
+            self.slow_scan_detector.min_shared_share = _cfg("slow_scan", "min_shared_share", 0.80)
         if self.ja4_intelligence is not None:
             self.ja4_intelligence.min_observations = _cfg("ja4_intelligence", "min_observations", 10)
             self.ja4_intelligence.block_rate_threshold = _cfg("ja4_intelligence", "block_rate_threshold", 0.95)
