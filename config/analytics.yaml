@@ -55,6 +55,15 @@ detection:
     min_observations: 10      # Sightings of a fingerprint before judging its block rate
     block_rate_threshold: 0.95
     window_seconds: 3600
+  # phase-827. campaign and slow_scan both bucket by /24 BEFORE counting, so a
+  # scan spread across many networks puts one IP in each bucket and is detected
+  # as nothing — the evidence is partitioned before it is counted, which no
+  # threshold value can fix. This detector inverts the grouping: it buckets by
+  # client fingerprint and treats wide network spread as the signal.
+  distributed:
+    min_subnets: 10           # Distinct /24s (or /48s) one fingerprint appears in
+    min_observations: 20      # Sightings before spread is meaningful
+    window_seconds: 3600
 
 # Monitoring configuration (Phase 12c)
 monitoring:

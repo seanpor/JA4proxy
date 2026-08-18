@@ -14,7 +14,12 @@ from prometheus_client import Counter, Gauge
 
 from .aggregation import AggregationManager, HyperLogLogManager
 from .authentication import HMACAuthenticator
-from .detection import CampaignDetector, JA4FingerprintIntelligence, SlowScanDetector
+from .detection import (
+    CampaignDetector,
+    DistributedClientDetector,
+    JA4FingerprintIntelligence,
+    SlowScanDetector,
+)
 from .ecs_envelope import is_ecs_envelope, verify_envelope_signature
 from .ecs_envelope import normalise as normalise_ecs
 from .event_schemas import EVENT_SCHEMA
@@ -141,6 +146,18 @@ class StreamConsumer:
                 window_seconds=_cfg("slow_scan", "window_seconds", 300),
             )
             if slow_scan_detection
+            else None
+        )
+        # phase-827: catches one fingerprint operating across many separate
+        # networks — the case the subnet-bucketed detectors are blind to by
+        # construction.
+        self.distributed_detector = (
+            DistributedClientDetector(
+                min_subnets=_cfg("distributed", "min_subnets", 10),
+                min_observations=_cfg("distributed", "min_observations", 20),
+                window_seconds=_cfg("distributed", "window_seconds", 3600),
+            )
+            if ja4_intelligence
             else None
         )
         self.ja4_intelligence = (
@@ -271,6 +288,9 @@ class StreamConsumer:
 
             if self.ja4_intelligence:
                 self.ja4_intelligence.update_with_event(event_data)
+
+            if self.distributed_detector:
+                self.distributed_detector.update_with_event(event_data)
 
             # Update monitoring system (Phase 12c)
             if self.monitoring_enabled and self.monitoring_system:
@@ -439,6 +459,15 @@ class StreamConsumer:
         else:
             results["slow_scans"] = []
             results["slow_scan_count"] = 0
+
+        # Distributed-client results (phase-827)
+        if self.distributed_detector:
+            distributed = self.distributed_detector.detect_distributed()
+            results["distributed"] = distributed
+            results["distributed_count"] = len(distributed)
+        else:
+            results["distributed"] = []
+            results["distributed_count"] = 0
 
         # JA4 intelligence results
         if self.ja4_intelligence:
@@ -624,6 +653,43 @@ class StreamConsumer:
                             suggested_action="investigate",
                             subject_ja4=candidate["ja4"],
                         )
+
+                # phase-827: one fingerprint across many separate networks.
+                # Reported even when nothing was blocked — the value is
+                # catching a distributed client that is currently getting
+                # through untouched, which is exactly when it is invisible.
+                for dist in detection_results.get("distributed", []):
+                    if not await self._claim_finding("distributed", dist["ja4"]):
+                        continue
+                    geo = ""
+                    if dist.get("country_count"):
+                        geo = f", {dist['country_count']} countr" + (
+                            "y" if dist["country_count"] == 1 else "ies"
+                        )
+                    if dist.get("asn_count"):
+                        geo += f", {dist['asn_count']} ASN(s)"
+                    await write_finding(
+                        self.redis,
+                        # Below the campaign detector's 0.95: wide spread is
+                        # strong evidence of coordination, but a widely used
+                        # library would look the same, so this stays reviewable
+                        # rather than actionable-on-sight.
+                        confidence=0.88,
+                        type="distributed_client",
+                        description=(
+                            f"JA4 {dist['ja4']} seen from "
+                            f"{dist['subnet_count']} separate networks "
+                            f"({dist['unique_ips']} IPs{geo}) — "
+                            f"{dist['blocked_seen']}/{dist['total_seen']} blocked. "
+                            "Subnet-based detection cannot see this pattern."
+                        ),
+                        evidence_count=dist["total_seen"],
+                        model_version="analytics-1.0",
+                        model_trained_at="2026-01-01T00:00:00Z",
+                        fp_rate_estimate=0.12,
+                        suggested_action="investigate",
+                        subject_ja4=dist["ja4"],
+                    )
 
             return detection_results
         except Exception as e:
