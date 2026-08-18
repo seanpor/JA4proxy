@@ -227,14 +227,21 @@ else
             fail "Archive did not contain ${ASN_EDITION}.mmdb"
             ASN_FAILED=true
         else
-            # An mmdb starts with a binary header, not text. A truncated download
-            # or an HTML error page installed under this name would leave the
-            # proxy reporting "DB absent" with a file sitting right there.
+            # A truncated download, or an HTML error page saved under this
+            # name, would leave the proxy reporting "DB absent" with a file
+            # sitting right there — so validate the content, not just the size.
+            #
+            # The marker to look for is at the END of the file. The MaxMind DB
+            # format stores its metadata section last, introduced by
+            # \xab\xcd\xefMaxMind.com — in this 12 MB database it begins 214
+            # bytes from the end. A first attempt at this check grepped the
+            # first 200 bytes for "MaxMind" and rejected a perfectly good
+            # download.
             ASN_SIZE=$(stat -c %s "$NEW_ASN" 2>/dev/null || stat -f %z "$NEW_ASN" 2>/dev/null)
             if [ "${ASN_SIZE:-0}" -lt 100000 ]; then
                 fail "Downloaded ${ASN_EDITION}.mmdb looks too small (${ASN_SIZE} bytes)"
                 ASN_FAILED=true
-            elif ! head -c 200 "$NEW_ASN" | grep -qa "MaxMind"; then
+            elif ! tail -c 131072 "$NEW_ASN" | grep -qa "MaxMind.com"; then
                 fail "File does not look like a MaxMind database — refusing to install"
                 ASN_FAILED=true
             else
