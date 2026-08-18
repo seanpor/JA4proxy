@@ -1,4 +1,6 @@
 # JA4 proxy default benchmark whitelist
 # Aligned with scripts/benchmark.py Good traffic
 t13d1412h2_66f623bb91a0_d41ae481755e,Benchmark Generator (Good)
-t13d101100_61a7ad8aa9b6_d41ae481755e,Benchmark Generator (Alternative)
+# phase-827: removed t13d101100_61a7ad8aa9b6_d41ae481755e — it is the JA4 the
+# Sliver_C2 and Evilginx_Phishing generator profiles emit, so whitelisting it
+# bypassed the scorer for both. See config/proxy.yml for the full note.

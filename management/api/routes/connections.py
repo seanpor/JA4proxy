@@ -427,6 +427,9 @@ async def get_ip_profile(
     history: list[dict] = []
     hourly_buckets: dict[int, list[float]] = {}
     total_events = 0
+    geo_country = ""
+    geo_asn: str | int = ""
+    geo_asn_org = ""
 
     events, scanned_events, scan_truncated = await _scan_stream(redis)
     for _msg_id, fields in events:
@@ -453,6 +456,19 @@ async def get_ip_profile(
         ja4 = parsed.get("ja4proxy.fingerprint.ja4", "")
         if ja4:
             ja4_set.add(ja4)
+
+        # phase-827: provenance. The proxy resolves the ASN and country on every
+        # connection; before this the profile hardcoded "Unknown" for both, so
+        # the console could not answer the first question anyone asks in an
+        # incident — where is this coming from. Last non-empty value wins: an
+        # IP's country does not change between events, but individual events can
+        # carry blanks (private space, or a lookup that missed).
+        if parsed.get("client.geo.country_iso"):
+            geo_country = parsed["client.geo.country_iso"]
+        if parsed.get("client.as.number"):
+            geo_asn = parsed["client.as.number"]
+        if parsed.get("client.as.organization.name"):
+            geo_asn_org = parsed["client.as.organization.name"]
 
         action = parsed.get("event.action", "allow")
         score = parsed.get("event.risk_score", 0)
@@ -491,7 +507,11 @@ async def get_ip_profile(
         "unique_ja4": len(ja4_set),
         "fingerprints": sorted(ja4_set),
         "is_banned": bool(is_banned),
-        "geo": {"country": "Unknown", "asn": "Unknown"},
+        "geo": {
+            "country": geo_country or "Unknown",
+            "asn": f"AS{geo_asn}" if geo_asn else "Unknown",
+            "asn_org": geo_asn_org or "Unknown",
+        },
         "history": history[-50:],
         "hourly_scores": hourly_scores,
     }

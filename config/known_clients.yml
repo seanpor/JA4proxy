@@ -1,0 +1,57 @@
+# Phase 827 — benign client fingerprints, for naming in the console.
+#
+# Companion to known_bad_fingerprints.yml. Read by
+# management/api/ja4_identity.py so the console can say "Chrome_Windows profile"
+# instead of showing a bare t13d1312h2_3227a3a3f36e_d41ae481755e and a score.
+#
+# ── READ THIS BEFORE ADDING AN ENTRY ─────────────────────────────────────────
+#
+# A JA4 identifies a TLS STACK, not a piece of software and certainly not a
+# user. Anything built on a shared library presents that library's fingerprint.
+# This is not theoretical: on the POC stack the Sliver_C2 and
+# Evilginx_Phishing profiles emit the SAME JA4, as do CobaltStrike_Beacon and
+# Credential_Stuffer.
+#
+# So naming a fingerprint here makes it EXPLICABLE, never TRUSTED. Nothing in
+# this file allows, bypasses or scores anything — that is what the JA4 whitelist
+# does, and adding to the whitelist is a deliberate operator action with
+# different consequences (an ALLOW bypass skips the scorer entirely and ignores
+# the dial). Do not treat this file as a safe-list.
+#
+# ── PROVENANCE OF THESE ENTRIES ──────────────────────────────────────────────
+#
+# Every fingerprint below was OBSERVED, not looked up: each profile in
+# scripts/tls-traffic-generator.py was connected to the proxy and the resulting
+# JA4 read off events:connection (2026-08-18). They are labelled as generator
+# profiles because that is what they are — a simulation of Chrome's TLS
+# handshake, not Chrome. Real Chrome will differ, and differ again between
+# versions.
+#
+# For production, add the fingerprints of your OWN observed browser traffic, or
+# source them from https://ja4db.com/. Deliberately not seeded with guessed
+# real-browser values: a wrong "this is Chrome" label is worse than no label.
+
+fingerprints:
+  - ja4: "t13d1312h2_3227a3a3f36e_d41ae481755e"
+    name: "Traffic generator — Chrome_Windows profile"
+    category: browser_simulation
+    source: "scripts/tls-traffic-generator.py (observed 2026-08-18)"
+    confidence: 100
+
+  - ja4: "t13d1212h2_ed40b14a4398_d41ae481755e"
+    name: "Traffic generator — Firefox_MacOS profile"
+    category: browser_simulation
+    source: "scripts/tls-traffic-generator.py (observed 2026-08-18)"
+    confidence: 100
+
+  - ja4: "t13d2612h2_c9c4e3644960_d41ae481755e"
+    name: "Traffic generator — Safari_iOS profile"
+    category: browser_simulation
+    source: "scripts/tls-traffic-generator.py (observed 2026-08-18)"
+    confidence: 100
+
+  - ja4: "t13d1412h2_66f623bb91a0_d41ae481755e"
+    name: "Benchmark generator — good traffic"
+    category: benchmark
+    source: "data/ja4_whitelist.csv, scripts/benchmark.py"
+    confidence: 100

@@ -101,3 +101,38 @@ fingerprints:
     category: c2_framework
     source: "https://github.com/HavocFramework/Havoc"
     confidence: 87
+
+  # ── phase-827: the attack profiles shipped in this repo ────────────────────
+  # Observed by connecting with each profile in scripts/tls-traffic-generator.py
+  # and reading the JA4 off events:connection (2026-08-18). Present so the
+  # console can name the traffic its own demo generates, and so
+  # tests/unit/test_whitelist_no_attack_collision.py has a source of truth for
+  # what must never be whitelisted.
+  #
+  # The two shared fingerprints below are not a mistake. A JA4 describes a TLS
+  # stack, so two simulated tools built the same way are indistinguishable by
+  # it — the single most important caveat about fingerprint-based attribution,
+  # and worth having a concrete local example of.
+  - ja4: "t13d101100_61a7ad8aa9b6_d41ae481755e"
+    name: "Traffic generator — Sliver_C2 / Evilginx_Phishing profiles (shared stack)"
+    category: attack_simulation
+    source: "scripts/tls-traffic-generator.py (observed 2026-08-18)"
+    confidence: 100
+
+  - ja4: "t12d030700_0f9cd282b7f5_e7e480e5a997"
+    name: "Traffic generator — CobaltStrike_Beacon / Credential_Stuffer profiles (shared stack)"
+    category: attack_simulation
+    source: "scripts/tls-traffic-generator.py (observed 2026-08-18)"
+    confidence: 100
+
+  - ja4: "t13d311100_e8f1e7e78f70_d41ae481755e"
+    name: "Traffic generator — Python_Requests_Bot profile"
+    category: attack_simulation
+    source: "scripts/tls-traffic-generator.py (observed 2026-08-18)"
+    confidence: 100
+
+  - ja4: "t12d020500_a5878986a7c9_847bbcdea70d"
+    name: "Traffic generator — Masscan_Scanner profile"
+    category: attack_simulation
+    source: "scripts/tls-traffic-generator.py (observed 2026-08-18)"
+    confidence: 100
