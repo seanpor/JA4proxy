@@ -489,6 +489,28 @@ func (p *Pipeline) Process(ctx context.Context, conn *ConnectionContext) *Pipeli
 }
 
 func (p *Pipeline) process(ctx context.Context, conn *ConnectionContext) *PipelineResult {
+	// phase-827: resolve ASN provenance BEFORE anything can return.
+	//
+	// This has to happen here, not in processInternal, and before every early
+	// return — the cache hit, the hard blocks, and the async enqueue all skip
+	// processInternal entirely, and cmd/ja4pd marshals the ECS event as soon as
+	// Process() returns. Resolving it later means the event carries
+	// client.as.number 0 forever, which is exactly what production did while the
+	// unit tests passed (they set Pipeline.Sync, the one mode where the ordering
+	// happens to work).
+	//
+	// Cheap enough to be unconditional: a memory-mapped MaxMind read, no I/O, no
+	// lock contention beyond the config snapshot. Running it even for connections
+	// about to be hard-blocked is deliberate — provenance on a blocked connection
+	// is the case an operator most wants in the event.
+	p.mu.RLock()
+	asnClassifier := p.asnClassifier
+	p.mu.RUnlock()
+	if asnClassifier != nil && !conn.asnResolved {
+		conn.asnSignals, conn.ASN, conn.ASNOrg = asnClassifier.ClassifyAndLookup(conn.ClientIP)
+		conn.asnResolved = true
+	}
+
 	// Phase 515 (JA4PROXY-2026-0087): consult the cache under the composite
 	// per-client key so a decision for one client is never served to another
 	// client that merely shares its JA4 fingerprint.
@@ -738,12 +760,11 @@ func (p *Pipeline) processInternal(ctx context.Context, conn *ConnectionContext)
 
 	// ASN classification
 	startASN := time.Now()
-	// ClassifyAndLookup rather than Classify: the same traversal also yields
-	// the ASN and organisation, which the connection event carries downstream
-	// (phase-827). No extra DB read.
-	asnSignals, asnNum, asnOrg := asnClassifier.ClassifyAndLookup(conn.ClientIP)
-	signals = append(signals, asnSignals...)
-	conn.ASN, conn.ASNOrg = asnNum, asnOrg
+	// Signals were computed in process(), which also stamped conn.ASN/ASNOrg.
+	// Reused rather than recomputed: a second ClassifyAndLookup here would be a
+	// second DB read per connection, and — worse — could disagree with the one
+	// the event already carries if the classifier were reloaded in between.
+	signals = append(signals, conn.asnSignals...)
 	p.measure("asn", startASN)
 
 	// Datacenter policy enforcement (Phase 249) — runs immediately after ASN classification.

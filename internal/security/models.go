@@ -62,6 +62,17 @@ type ConnectionContext struct {
 	// the write in Process() happens-before the read in processInternal via
 	// either a direct call or the workChan send/receive.
 	blocklistSignals []RiskSignal
+
+	// asnSignals / asnResolved (phase-827): same pattern, same reason. The ASN
+	// lookup is hoisted out of processInternal and run synchronously in
+	// process(), because processInternal runs on a WORKER goroutine on the
+	// default async path — by the time it sets ConnectionContext.ASN, cmd/ja4pd
+	// has already marshalled the ECS event, so client.as.number was 0 on every
+	// event in production while every unit test (which sets Pipeline.Sync)
+	// passed. Stashed rather than recomputed so the hoist costs no extra DB
+	// read.
+	asnSignals  []RiskSignal
+	asnResolved bool
 }
 
 // PipelineResult is the outcome of processing one connection.

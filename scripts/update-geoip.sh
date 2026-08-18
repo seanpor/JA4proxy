@@ -54,6 +54,11 @@ CHECK_ONLY=false
 ASN_DB_FILE="${ASN_DB_FILE:-./config/GeoLite2-ASN.mmdb}"
 ASN_EDITION="GeoLite2-ASN"
 
+# Must match config/proxy.yml -> geoip.database_path.
+COUNTRY_DB_FILE="${COUNTRY_DB_FILE:-./config/GeoLite2-Country.mmdb}"
+COUNTRY_EDITION="GeoLite2-Country"
+COUNTRY_FAILED=false
+
 # Convenience: most operators keep the key alongside the other secrets.
 if [ -z "${MAXMIND_LICENSE_KEY:-}" ] && [ -f .env ]; then
     MAXMIND_LICENSE_KEY=$(grep -E '^MAXMIND_LICENSE_KEY=' .env 2>/dev/null | cut -d= -f2- || true)
@@ -210,6 +215,7 @@ if [ -z "${MAXMIND_LICENSE_KEY:-}" ]; then
     ASN_FAILED=true
 else
     ASN_URL="https://download.maxmind.com/app/geoip_download?edition_id=${ASN_EDITION}&license_key=${MAXMIND_LICENSE_KEY}&suffix=tar.gz"
+    # shellcheck disable=SC2034  # consumed by the Country block appended below
     ASN_TGZ="${TMPDIR_WORK}/${ASN_EDITION}.tar.gz"
 
     # The key is a credential: never echo ASN_URL.
@@ -273,6 +279,48 @@ echo ""
 echo "  Attribution: This product includes IP2Location LITE data"
 echo "  available from https://lite.ip2location.com, licensed CC-BY-SA 4.0."
 echo ""
+
+# ── Country database (MaxMind GeoLite2-Country) ────────────────────────────────
+# cmd/ja4pd opens the country DB with geoip2.Open(), MaxMind's reader. It was
+# pointed at IP2Location's .BIN, a different vendor's format, so country lookup
+# logged "invalid MaxMind DB file" and stayed disabled. Fetched here so the
+# format the code requires is the format that lands on disk.
+echo ""
+echo "Country Database — MaxMind ${COUNTRY_EDITION}"
+echo "──────────────────────────────────────"
+if [ -z "${MAXMIND_LICENSE_KEY:-}" ]; then
+    warn "MAXMIND_LICENSE_KEY not set — skipping ${COUNTRY_EDITION}."
+    COUNTRY_FAILED=true
+else
+    C_URL="https://download.maxmind.com/app/geoip_download?edition_id=${COUNTRY_EDITION}&license_key=${MAXMIND_LICENSE_KEY}&suffix=tar.gz"
+    C_TGZ="${TMPDIR_WORK}/${COUNTRY_EDITION}.tar.gz"
+    info "Downloading ${COUNTRY_EDITION} from MaxMind..."
+    if ! curl -fsSL --max-time 120 --retry 3 --retry-delay 5 -o "$C_TGZ" "$C_URL"; then
+        fail "Download failed (a 401 means the licence key is wrong or revoked)."
+        COUNTRY_FAILED=true
+    else
+        tar -xzf "$C_TGZ" -C "$TMPDIR_WORK"
+        NEW_C=$(find "$TMPDIR_WORK" -name "${COUNTRY_EDITION}.mmdb" | head -1)
+        C_SIZE=$(stat -c %s "$NEW_C" 2>/dev/null || stat -f %z "$NEW_C" 2>/dev/null || echo 0)
+        if [ -z "$NEW_C" ] || [ "${C_SIZE:-0}" -lt 100000 ]; then
+            fail "Archive did not contain a plausible ${COUNTRY_EDITION}.mmdb"
+            COUNTRY_FAILED=true
+        elif ! tail -c 131072 "$NEW_C" | grep -qa "MaxMind.com"; then
+            fail "File does not look like a MaxMind database — refusing to install"
+            COUNTRY_FAILED=true
+        else
+            ok "Validated: ${C_SIZE} bytes"
+            mkdir -p "$(dirname "$COUNTRY_DB_FILE")"
+            [ -f "$COUNTRY_DB_FILE" ] && cp "$COUNTRY_DB_FILE" "${COUNTRY_DB_FILE}.prev"
+            cp "$NEW_C" "$COUNTRY_DB_FILE"
+            ok "Installed: ${COUNTRY_DB_FILE}"
+        fi
+    fi
+fi
+
+if [ "$COUNTRY_FAILED" = true ]; then
+    ASN_FAILED=true
+fi
 
 if [ "$ASN_FAILED" = true ]; then
     echo ""

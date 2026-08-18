@@ -178,3 +178,85 @@ func TestPipeline_ProcessRecordsASNProvenanceOnContext(t *testing.T) {
 		t.Errorf("conn.ASNOrg = %q, want %q", conn.ASNOrg, "Vodafone Ireland")
 	}
 }
+
+// The bug the tests above missed, and why they missed it.
+//
+// TestPipeline_ProcessRecordsASNProvenanceOnContext sets Pipeline.Sync, which
+// runs processInternal inline. Production does NOT: Process() enqueues to
+// workChan and returns immediately, and cmd/ja4pd marshals the ECS event from
+// the ConnectionContext as soon as Process() returns. Setting conn.ASN inside
+// processInternal therefore happened on a worker goroutine AFTER the event had
+// already been written, so client.as.number was 0 on every event in production
+// while the whole suite passed.
+//
+// Found by reading a live event off events:connection, not by testing. These
+// pin the ordering so it cannot regress.
+
+func TestPipeline_ASNProvenanceIsSetOnTheAsyncPath(t *testing.T) {
+	p := NewPipeline(&PipelineConfig{
+		Whitelist: map[string]bool{},
+		Blacklist: map[string]bool{},
+	}, &mockRedis{dial: 100}, nil)
+	p.Sync = false // production default — the mode that was broken
+	p.asnClassifier = newTestASNClassifier(
+		defaultASNCfg(), residentialLookup(15502, "Vodafone Ireland"),
+	)
+
+	conn := &ConnectionContext{
+		ParsedIP: net.ParseIP("86.40.7.11"),
+		ClientIP: "86.40.7.11",
+		JA4:      "t13d1516h2_8daaf6152771_b0da82dd1658",
+	}
+	// No wait, no sleep: the value must be present the instant Process returns,
+	// because that is when the caller builds the event.
+	p.Process(context.Background(), conn)
+
+	if conn.ASN != 15502 || conn.ASNOrg != "Vodafone Ireland" {
+		t.Fatalf("got AS%d %q immediately after Process() on the async path; "+
+			"the ECS event is marshalled at exactly this moment, so anything "+
+			"resolved later never reaches it", conn.ASN, conn.ASNOrg)
+	}
+}
+
+// Provenance must survive the early returns too — each one skips
+// processInternal completely.
+func TestPipeline_ASNProvenanceSurvivesEarlyReturns(t *testing.T) {
+	cases := []struct {
+		name  string
+		setup func(*Pipeline, *ConnectionContext)
+	}{
+		{"hard_block_blacklisted_ja4", func(p *Pipeline, c *ConnectionContext) {
+			p.cfg.Blacklist = map[string]bool{c.JA4: true}
+			p.cfg.JA4BlockingEnabled = true
+		}},
+		{"manual_ban", func(p *Pipeline, c *ConnectionContext) {
+			p.redis = &mockRedis{dial: 100, data: map[string]string{
+				"ban:" + c.ClientIP: "manual",
+			}}
+		}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			p := NewPipeline(&PipelineConfig{
+				Whitelist: map[string]bool{},
+				Blacklist: map[string]bool{},
+			}, &mockRedis{dial: 100}, nil)
+			p.asnClassifier = newTestASNClassifier(
+				defaultASNCfg(), residentialLookup(16509, "Amazon"),
+			)
+			conn := &ConnectionContext{
+				ParsedIP: net.ParseIP("203.0.113.9"),
+				ClientIP: "203.0.113.9",
+				JA4:      "t13d091100_f91f431d341e_8e6e362c5eac",
+			}
+			tc.setup(p, conn)
+
+			p.Process(context.Background(), conn)
+
+			if conn.ASN != 16509 {
+				t.Errorf("ASN = %d, want 16509 — a blocked connection is the "+
+					"case an operator most wants provenance for", conn.ASN)
+			}
+		})
+	}
+}

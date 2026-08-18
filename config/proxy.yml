@@ -207,7 +207,13 @@ security:
 # GeoIP country filtering
 geoip:
   # Path to IP2Location LITE database (bundled in container)
-  database_path: "/app/geoip/IP2LOCATION-LITE-DB1.BIN"
+  # phase-827: was /app/geoip/IP2LOCATION-LITE-DB1.BIN. cmd/ja4pd opens this
+  # with geoip2.Open() — MaxMind's reader — which cannot parse IP2Location's
+  # format, so every start logged "invalid MaxMind DB file" and country lookup
+  # was disabled. Nothing else in the codebase reads the IP2Location file, so
+  # country enrichment had never worked. Points at a MaxMind country database,
+  # which the same reader understands; fetched by `make update-geoip`.
+  database_path: "/app/config/GeoLite2-Country.mmdb"
 
   # Country whitelist: only allow traffic from these countries
   # When enabled, ALL traffic from countries NOT in this list is blocked
