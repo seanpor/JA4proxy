@@ -1,23 +1,26 @@
 #!/usr/bin/env bash
 # update-geoip.sh — Download the geo databases JA4proxy needs
 #
-# TWO databases, from two vendors, with different access rules:
+# TWO MaxMind databases, both needing a free licence key:
 #
-#   1. IP2Location LITE DB1  — IP -> country. Anonymous download, no key.
-#   2. MaxMind GeoLite2-ASN  — IP -> ASN number + organisation name.
-#                              Requires a FREE MaxMind account and licence key.
+#   GeoLite2-ASN      — IP -> ASN number + organisation name
+#   GeoLite2-Country  — IP -> country
 #
-# Until phase-827 this script fetched only (1), while config/proxy.yml had
-# `asn_classifier.enabled: true` pointing at a GeoLite2-ASN.mmdb that nothing
-# ever downloaded. The classifier therefore reported "DB absent" on every
-# lookup, which silently disabled THREE scoring signals (asn_datacenter +20,
-# asn_vpn +10, asn_unknown +5) and left the connection event with no ASN or
-# organisation at all — so the analytics node could not distinguish a consumer
-# ISP /24 from a hosting provider /24. Tor detection kept working (separate
-# list, checked before the DB lookup), which is probably why it went unnoticed.
+# phase-827 history, worth keeping because both failures were silent:
 #
-# The proxy warns at startup when the ASN DB is missing. Before phase-827 that
-# warning told the operator to run this script, which did not fetch it.
+#   * config/proxy.yml had asn_classifier.enabled: true pointing at a
+#     GeoLite2-ASN.mmdb that nothing ever downloaded, so every lookup returned
+#     "DB absent". That disabled three scoring signals (asn_datacenter +20,
+#     asn_vpn +10, asn_unknown +5) and left connection events with no ASN or
+#     organisation, so findings could not distinguish a consumer ISP /24 from a
+#     hosting provider /24.
+#
+#   * The country database was IP2Location's .BIN, while cmd/ja4pd opens it with
+#     geoip2.Open() — MaxMind's reader, which cannot parse that vendor's format.
+#     Every start logged "invalid MaxMind DB file" and country lookup stayed
+#     disabled. Nothing else in the codebase read the file, so it was 2.9 MB of
+#     committed data consumed by nobody. Removed; the country database is now
+#     MaxMind's, which is the format the code actually requires.
 #
 # Usage:
 #   ./scripts/update-geoip.sh            # Update both (ASN needs the key below)
@@ -42,12 +45,6 @@ GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; CYAN='\033[0;36m'; NC
 
 # phase-827: was ./geoip, but docker-compose.poc.yml mounts ../../data/geoip
 # at /app/geoip and config/proxy.yml reads
-# /app/geoip/IP2LOCATION-LITE-DB1.BIN. The script therefore wrote the country
-# database to a directory nothing mounts — `make update-geoip` reported success
-# and country lookups stayed empty. Default now matches the mount.
-GEOIP_DIR="${GEOIP_DIR:-./data/geoip}"
-DB_FILE="${GEOIP_DIR}/IP2LOCATION-LITE-DB1.BIN"
-DOWNLOAD_URL="https://download.ip2location.com/lite/IP2LOCATION-LITE-DB1.BIN.ZIP"
 CHECK_ONLY=false
 
 # Must match config/proxy.yml -> security.asn_classifier.maxmind_db_path.
@@ -75,29 +72,6 @@ fail() { echo -e "${RED}✗${NC}  $*"; }
 info() { echo -e "${CYAN}·${NC}  $*"; }
 
 echo ""
-echo "GeoIP Database — IP2Location LITE DB1"
-echo "──────────────────────────────────────"
-echo ""
-
-# ── Check current database age ─────────────────────────────────────────────────
-if [ -f "$DB_FILE" ]; then
-    MOD_TIME=$(stat -c %Y "$DB_FILE" 2>/dev/null || stat -f %m "$DB_FILE" 2>/dev/null)
-    NOW=$(date +%s)
-    AGE_DAYS=$(( (NOW - MOD_TIME) / 86400 ))
-    DB_DATE=$(date -d "@${MOD_TIME}" '+%Y-%m-%d' 2>/dev/null || date -r "${MOD_TIME}" '+%Y-%m-%d' 2>/dev/null || echo "unknown")
-    info "Current database:  ${DB_FILE}"
-    info "Last updated:      ${DB_DATE}  (${AGE_DAYS} days ago)"
-    if [ "$AGE_DAYS" -gt 35 ]; then
-        warn "Database is over 35 days old — update recommended (IP2Location publishes monthly)"
-    elif [ "$AGE_DAYS" -gt 60 ]; then
-        fail "Database is over 60 days old — GeoIP accuracy will be degraded"
-    else
-        ok "Database age is acceptable"
-    fi
-else
-    warn "No database found at ${DB_FILE}"
-    info "GeoIP country filtering is currently disabled"
-fi
 
 # ── ASN database status ────────────────────────────────────────────────────────
 echo ""
@@ -130,66 +104,8 @@ if [ "$CHECK_ONLY" = true ]; then
     exit 0
 fi
 
-# ── Download ───────────────────────────────────────────────────────────────────
-echo ""
-info "Downloading from: ${DOWNLOAD_URL}"
-
 TMPDIR_WORK=$(mktemp -d)
 trap 'rm -rf "$TMPDIR_WORK"' EXIT
-
-ZIP_FILE="${TMPDIR_WORK}/IP2LOCATION-LITE-DB1.BIN.ZIP"
-
-if ! curl -fsSL --max-time 120 --retry 3 --retry-delay 5 \
-        -o "$ZIP_FILE" \
-        "$DOWNLOAD_URL"; then
-    fail "Download failed."
-    echo ""
-    echo "  If this keeps failing:"
-    echo "  1. Download manually from: https://lite.ip2location.com/"
-    echo "     (Free account may be required — select DB1, BIN format)"
-    echo "  2. Place the .BIN file at: ${DB_FILE}"
-    echo "  3. Restart the proxy:  make stop && make start"
-    exit 1
-fi
-
-ok "Downloaded: $(du -h "$ZIP_FILE" | cut -f1)"
-
-# ── Extract ────────────────────────────────────────────────────────────────────
-if ! command -v unzip > /dev/null 2>&1; then
-    fail "unzip is not installed. Install it with: sudo apt install unzip"
-    exit 1
-fi
-
-unzip -q -o "$ZIP_FILE" -d "$TMPDIR_WORK"
-NEW_DB=$(find "$TMPDIR_WORK" -name "IP2LOCATION-LITE-DB1.BIN" | head -1)
-
-if [ -z "$NEW_DB" ]; then
-    fail "Extracted archive does not contain IP2LOCATION-LITE-DB1.BIN"
-    echo "  Contents of archive:"
-    unzip -l "$ZIP_FILE" | tail -10
-    exit 1
-fi
-
-# ── Validate ───────────────────────────────────────────────────────────────────
-DB_SIZE=$(stat -c %s "$NEW_DB" 2>/dev/null || stat -f %z "$NEW_DB" 2>/dev/null)
-if [ "${DB_SIZE:-0}" -lt 1000000 ]; then
-    fail "Downloaded file looks too small (${DB_SIZE} bytes) — download may be incomplete"
-    exit 1
-fi
-ok "Validated: ${DB_SIZE} bytes"
-
-# ── Install ────────────────────────────────────────────────────────────────────
-mkdir -p "$GEOIP_DIR"
-
-# Keep a backup of the previous database
-if [ -f "$DB_FILE" ]; then
-    BACKUP="${DB_FILE}.prev"
-    cp "$DB_FILE" "$BACKUP"
-    info "Previous database backed up to: ${BACKUP}"
-fi
-
-cp "$NEW_DB" "$DB_FILE"
-ok "Installed: ${DB_FILE}"
 
 # ── ASN database (MaxMind GeoLite2-ASN) ────────────────────────────────────────
 echo ""
@@ -199,7 +115,7 @@ echo "────────────────────────�
 if [ -z "${MAXMIND_LICENSE_KEY:-}" ]; then
     fail "MAXMIND_LICENSE_KEY is not set — cannot download ${ASN_EDITION}."
     echo ""
-    echo "  Unlike IP2Location LITE, MaxMind require a (free) account:"
+    echo "  MaxMind require a (free) account:"
     echo "    1. Sign up:        https://www.maxmind.com/en/geolite2/signup"
     echo "    2. Create a key:   Account -> Manage License Keys"
     echo "    3. Then either:"

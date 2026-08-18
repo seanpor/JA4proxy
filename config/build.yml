@@ -14,7 +14,11 @@ build_opts:
 # Binary size targets
 size_goals:
   target_runtime_size_mb: 10     # Multi-stage build; base image + GeoLite2 DBs
-  analysis_db_path: "/app/geoip/GeoLite2-ASN.mmdb"   # Runtime path for MaxMind DB
+  # phase-827: /app/geoip no longer exists — the ASN database lives at
+  # /app/config/GeoLite2-ASN.mmdb (see security.asn_classifier.maxmind_db_path
+  # in proxy.yml, which is what the proxy actually reads). No code consumes this
+  # key; corrected rather than deleted so it does not mislead the next reader.
+  analysis_db_path: "/app/config/GeoLite2-ASN.mmdb"
   datacenter_list_config: "config/asn_datacenter_list.yml"
 
 # Verification targets (ensure compatibility with existing Python proxy)

@@ -73,7 +73,6 @@ services:
       - redis
     volumes:
       - ../../config:/app/config:ro
-      - ../../data/geoip:/app/geoip:ro
     environment:
       - CONFIG_PATH=/app/config/proxy.yml
       - REDIS_HOST=redis

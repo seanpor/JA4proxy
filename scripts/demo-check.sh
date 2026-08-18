@@ -13,6 +13,9 @@ cd "$(git rev-parse --show-toplevel 2>/dev/null || dirname "$(dirname "$(readlin
 PASS=0; FAIL=0
 ok()   { printf '  \033[0;32m✓\033[0m %s\n' "$1"; PASS=$((PASS+1)); }
 bad()  { printf '  \033[0;31m✗\033[0m %s\n' "$1"; printf '      %s\n' "${2:-}"; FAIL=$((FAIL+1)); }
+# Non-fatal: worth saying, but must not fail the pre-flight. A handful of
+# rejected events with traffic flowing is not a reason to abandon a demo.
+warn() { printf '  \033[1;33m!\033[0m %s\n' "$1"; printf '      %s\n' "${2:-}"; PASS=$((PASS+1)); }
 
 P="${COMPOSE_PROJECT_NAME:-ja4proxy-lane0}"
 PROXY=$(docker ps --format '{{.Names}}' | grep -E "^${P}-proxy-[0-9]+$"     | head -1)
@@ -40,13 +43,33 @@ ERRS=$(docker logs "$ANALYTICS" 2>&1 | grep -c "Stream consumer error" || true)
   || bad "analytics cannot read the event stream ($ERRS errors)" \
          "check socket_timeout vs the XREADGROUP block window"
 
-REJ=$(docker exec "$ANALYTICS" wget -qO- http://127.0.0.1:8080/metrics 2>/dev/null | awk '/^ja4proxy_analytics_events_rejected_total/{s+=$2} END{print s+0}')
-ING=$(docker exec "$ANALYTICS" wget -qO- http://127.0.0.1:8080/metrics 2>/dev/null | awk '/^ja4proxy_analytics_events_ingested_total /{print $2+0}')
+# One fetch, reused: two docker-exec scrapes could disagree, and the reason
+# label below has to come from the same sample as the count it explains.
+METRICS=$(docker exec "$ANALYTICS" wget -qO- http://127.0.0.1:8080/metrics 2>/dev/null || true)
+REJ=$(printf '%s\n' "$METRICS" | awk '/^ja4proxy_analytics_events_rejected_total\{/{s+=$2} END{print s+0}')
+ING=$(printf '%s\n' "$METRICS" | awk '/^ja4proxy_analytics_events_ingested_total /{print $2+0}')
 ING=${ING:-0}; REJ=${REJ:-0}
 if [ "${ING%.*}" -gt 0 ]; then ok "analytics has ingested events (${ING%.*})"
 else bad "analytics has ingested 0 events" "generate traffic, then re-run"; fi
 if [ "${REJ%.*}" -eq 0 ]; then ok "no events rejected"
-else bad "analytics is REJECTING events (${REJ%.*})" "usually an HMAC secret mismatch between proxy and analytics"; fi
+else
+  # Report the reason label rather than guessing. "usually an HMAC mismatch" was
+  # wrong the first time it fired in anger: the label said reason="invalid"
+  # (schema), and a real mismatch rejects 100% of events, not a handful. Sending
+  # someone to rotate secrets over three malformed events wastes the one thing
+  # they are short of during a demo.
+  REASONS=$(printf '%s' "$METRICS" | awk -F'reason="' '/^ja4proxy_analytics_events_rejected_total\{/ {split($2,a,"\""); printf "%s ", a[1]}')
+  if printf '%s' "$REASONS" | grep -q hmac; then
+    bad "analytics is REJECTING events (${REJ%.*}, reason: ${REASONS% })" \
+        "HMAC secret mismatch — see docs/runbooks/analytics_ingest_silent_failure.md"
+  elif [ "${ING%.*}" -gt 0 ]; then
+    warn "analytics rejected ${REJ%.*} event(s) (reason: ${REASONS% }) but is ingesting ${ING%.*}" \
+         "not a secret mismatch; usually connections that carried no ClientHello"
+  else
+    bad "analytics is REJECTING events (${REJ%.*}, reason: ${REASONS% })" \
+        "nothing is being ingested — see docs/runbooks/analytics_ingest_silent_failure.md"
+  fi
+fi
 
 # --- enforcement path ---------------------------------------------------------
 BL=$(docker logs "$PROXY" 2>&1 | grep -o 'blacklist=[0-9]*' | tail -1 | cut -d= -f2)
