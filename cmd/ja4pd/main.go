@@ -12,8 +12,11 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
 	"crypto/subtle"
 	"crypto/x509"
+	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
@@ -214,6 +217,13 @@ type proxy struct {
 	// goroutine. The connection itself continues to be handled — only the
 	// telemetry stream write is shed.
 	streamEventQueue chan []byte
+
+	// phase-826 — HMAC secret for signing stream events, and this instance's
+	// identifier. Both are fixed at construction: the secret is a credential
+	// (not hot-reloadable, like the Redis URL) and the node ID is derived from
+	// the hostname, which does not change while the process runs.
+	streamHMACSecret string
+	nodeID           string
 }
 
 // JA4PROXY-2026-0041: cfgPath must match the path main() loaded `cfg`
@@ -348,6 +358,22 @@ func newProxy(cfg *config.Config, cfgPath string, log *logrus.Logger) (*proxy, e
 		queueCap = 4096
 	}
 	prx.streamEventQueue = make(chan []byte, queueCap)
+
+	// phase-826 — analytics event signing. An unsigned event is rejected by
+	// the analytics node under its default hmac_required, so silently running
+	// without a secret means emitting telemetry that is guaranteed to be
+	// discarded. Warn loudly rather than let that look like "no traffic".
+	prx.streamHMACSecret = cfg.Webhooks.StreamHMACSecret
+	hostname, err := os.Hostname()
+	if err != nil {
+		hostname = ""
+	}
+	prx.nodeID = deriveNodeID(hostname)
+	if prx.streamHMACSecret == "" {
+		log.Warn("proxy: webhooks.stream_hmac_secret is empty — connection events " +
+			"are written unsigned and the analytics node will reject them unless " +
+			"it runs with hmac_required=false. Intelligence findings will be empty.")
+	}
 
 	// phase-94i2: load trusted CIDRs from NetBox in the background (fail-open, non-blocking).
 	go func() {
@@ -697,6 +723,11 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 			"network.transport":        "tcp",
 			"network.protocol":         "tls",
 			"service.name":             "ja4proxy",
+			// phase-826: the analytics node attributes findings per proxy
+			// instance, so a multi-node deployment can tell which node saw
+			// what. Previously absent, which made its proxy_id validation
+			// unsatisfiable.
+			"ja4proxy.node_id":         p.nodeID,
 			"ja4proxy.fingerprint.ja4": connCtx.JA4,
 			"ja4proxy.sni":             connCtx.SNI,
 			"ja4proxy.dial_setting":    result.Dial,
@@ -1255,6 +1286,51 @@ func (l *metricsRateLimiter) allow(remoteAddr string, now time.Time) bool {
 	return true
 }
 
+// signStreamEvent returns the hex HMAC-SHA256 of the raw event bytes, or ""
+// when no secret is configured (signing disabled).
+//
+// phase-826. The signature deliberately covers the exact bytes written to the
+// stream rather than a canonicalised re-encoding of the event object. The
+// verifier is Python; making the check depend on Go's and Python's JSON
+// encoders agreeing on key order, float formatting and unicode escaping would
+// be a standing source of silent, traffic-dependent verification failures.
+func signStreamEvent(secret string, event []byte) string {
+	if secret == "" {
+		return ""
+	}
+	m := hmac.New(sha256.New, []byte(secret))
+	m.Write(event)
+	return hex.EncodeToString(m.Sum(nil))
+}
+
+// deriveNodeID returns a stable per-instance identifier for stream events,
+// constrained to the analytics node's proxy_id schema (^[a-zA-Z0-9-]{1,32}$).
+//
+// phase-826. Hostname is the natural choice — under Docker and Kubernetes it
+// is the container/pod name — but it can contain dots and underscores and can
+// exceed 32 characters, any of which would fail the consumer's validation and
+// silently drop every event from that node. Non-conforming characters become
+// '-' and the result is truncated; an empty hostname falls back to a constant
+// so the field is never absent.
+func deriveNodeID(hostname string) string {
+	out := make([]rune, 0, 32)
+	for _, r := range hostname {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9':
+			out = append(out, r)
+		default:
+			out = append(out, '-')
+		}
+		if len(out) == 32 {
+			break
+		}
+	}
+	if len(out) == 0 {
+		return "ja4proxy"
+	}
+	return string(out)
+}
+
 // enqueueStreamEvent performs a non-blocking send onto the bounded XADD
 // queue. If the queue is full, the event is dropped and a Prometheus
 // counter is incremented. JA4PROXY-2026-0031.
@@ -1307,7 +1383,14 @@ func (p *proxy) streamEventWorker(ctx context.Context, streamKey string, timeout
 			}
 			metrics.StreamEventQueueDepth.Set(float64(len(p.streamEventQueue)))
 			writeCtx, cancel := context.WithTimeout(ctx, timeout)
-			err := p.redis.XAddErr(writeCtx, streamKey, map[string]interface{}{"event": string(event)})
+			values := map[string]interface{}{"event": string(event)}
+			// phase-826: sign the bytes we are about to send, not a re-encoded
+			// object — the verifier recomputes over the same raw string, so no
+			// cross-language JSON canonicalisation is involved.
+			if mac := signStreamEvent(p.streamHMACSecret, event); mac != "" {
+				values["hmac"] = mac
+			}
+			err := p.redis.XAddErr(writeCtx, streamKey, values)
 			cancel()
 			if err != nil {
 				if errors.Is(err, context.DeadlineExceeded) {

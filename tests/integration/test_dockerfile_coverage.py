@@ -9,6 +9,7 @@ These are regression tests written alongside the Phase 89 fixes.
 """
 
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -185,9 +186,24 @@ def test_standalone_compose_files_validate():
         ),
     ]
     for compose_file, env in test_cases:
+        # Derive the `${VAR:?}` requirements from the file rather than relying
+        # only on the hand-written dict above. Those dicts are one of four
+        # places a new required variable has to be registered (compose file,
+        # template.env, the Makefile's lint-docker recipe, here), and this copy
+        # was the last to be noticed each time — it fails only in CI, because a
+        # developer's own .env silently satisfies the variable locally.
+        # Auto-supplying them keeps this test about compose VALIDITY; whether a
+        # secret correctly uses `:?` rather than `:-` is asserted separately in
+        # tests/integration/test_container_config.py.
+        required = dict.fromkeys(
+            re.findall(
+                r"\$\{([A-Z_][A-Z0-9_]*):\?", (REPO_ROOT / compose_file).read_text()
+            ),
+            "lint-placeholder",
+        )
         result = subprocess.run(
             ["docker", "compose", "-f", compose_file, "config", "--quiet"],
-            env={**os.environ, **env},
+            env={**os.environ, **required, **env},
             capture_output=True,
             cwd=str(REPO_ROOT),
         )
