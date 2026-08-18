@@ -18,7 +18,7 @@ geoip2==5.3.0
 hypothesis==6.161.2
 pip-audit>=2.7.0       # replaces safety (safety 3.x requires auth)
 bandit==1.9.4
-semgrep>=1.100.0
+semgrep>=1.173.0
 
 # Testing dependencies
 fakeredis>=2.36.2,<3          # in-process Redis fake for integration tests (P19-G6)
@@ -39,7 +39,14 @@ isort==5.12.0
 pylint==3.0.2
 
 # Compliance and audit
-jsonschema==4.26.0
+# phase-827: was ==4.26.0. semgrep 1.173.0 requires jsonschema~=4.25.1, and
+# 4.26.0 made the two unresolvable. Matched to semgrep's range rather than
+# holding 4.26.0, because the only jsonschema API this repo uses is
+# `from jsonschema import ValidationError, validate` (src/analytics/
+# stream_consumer.py), which is unchanged across both. 4.25.1 carries no known
+# CVE (verified with pip-audit). If that changes, the fix is to raise semgrep
+# again, not to unpin this.
+jsonschema~=4.25.1
 cerberus==1.3.8
 # phase-56: Runtime seccomp profile transition (optional — fails open if absent)
 # Requires libseccomp-dev on the host: apt-get install libseccomp-dev
@@ -55,13 +62,27 @@ jsonpath-ng==1.6.1  # phase-85: REST generic TI feed client (src/analytics/ti_fe
 
 mcp>=1.28.0  # CVE-2025-66416 — transitive dep of semgrep; pinned to force safe resolution
 
-# NOTE (phase-800): two CVEs are acknowledged in the lint gate because semgrep walls them off:
-#   - click 8.1.8 (PYSEC-2026-2132): fix is 8.3.3, but semgrep (incl. latest 1.170.0) pins click~=8.1.8.
-#   - protobuf 4.25.9 (PYSEC-2026-1805): fix is 5.29.6, but reaching protobuf 5.x needs semgrep>=1.137
-#     (OTEL ~=1.37), and every semgrep>=1.137 hard-pins mcp==1.12.2/1.16.0/1.23.3 — which would undo the
-#     mcp>=1.28.0 pin above (CVE-2025-66416). Keeping the mcp protection; protobuf stays 4.25.9.
-# Remove the two --ignore-vuln flags in the Makefile lint-static target when semgrep ships a release
-# with OTEL>=1.37 AND mcp>=1.28 (then pin protobuf>=5.29.6 here).
+# RESOLVED (phase-827). The note that stood here described two CVEs semgrep
+# walled off, and named the exit condition precisely: "when semgrep ships a
+# release with OTEL>=1.37 AND mcp>=1.28". semgrep 1.173.0 does both, so the
+# deadlock is over and the acknowledgement has been withdrawn rather than
+# renewed:
+#
+#   - click PYSEC-2026-2132 — semgrep 1.170 pinned click~=8.1.8, below the 8.3.3
+#     fix. 1.173.0 wants click~=8.4.2, so the bump alone resolves it.
+#   - protobuf PYSEC-2026-1805 — reaching protobuf 5.x required OTEL ~=1.37,
+#     which previously forced semgrep>=1.137, every one of which hard-pinned
+#     mcp==1.12.2/1.16.0/1.23.3 and would have undone the mcp>=1.28.0 pin above
+#     (CVE-2025-66416). semgrep 1.173.0 pins mcp==1.29.0, which SATISFIES that
+#     floor — the two protections stopped being mutually exclusive.
+#     Chain: semgrep -> opentelemetry-exporter-otlp-proto-http ~=1.37 ->
+#     opentelemetry-proto 1.37 -> protobuf<7.0,>=5.0. The explicit floor below
+#     lifts that to the actual fix version.
+#
+# The matching --ignore-vuln flags have been removed from the Makefile's
+# lint-static target, so a regression here fails the gate instead of being
+# waived.
+protobuf>=5.29.6  # phase-827: PYSEC-2026-1805. Compatible with opentelemetry-proto's <7.0.
 
 msgpack>=1.2.1  # GHSA-6v7p-g79w-8964 (HIGH) — transitive dep of locust 2.17.0; pinned to force safe resolution
 

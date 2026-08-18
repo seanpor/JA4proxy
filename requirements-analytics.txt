@@ -14,7 +14,12 @@ prometheus-client==0.26.0
 
 # Config + validation
 pyyaml==6.0.3
-jsonschema==4.26.0
+# phase-827: kept in lockstep with requirements.txt, which had to move to
+# ~=4.25.1 so semgrep 1.173.0 (needed to clear the click and protobuf CVEs)
+# could resolve. The tools image installs all four requirements files into ONE
+# environment, so a divergence here is not a difference of opinion between two
+# services — it is an unresolvable conflict that fails the image build.
+jsonschema~=4.25.1
 
 # Numerical analysis (baseline stats, distribution comparison)
 numpy>=1.24
