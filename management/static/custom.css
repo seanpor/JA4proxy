@@ -366,3 +366,12 @@ aside nav a.sidebar-item-active {
     left: 0;
   }
 }
+
+/* phase-827: Alpine's x-cloak attribute needs a CSS rule to do anything — it
+   only hides an element until Alpine initialises and removes the attribute.
+   Nothing defined it, so every x-cloak element in the app (the confirm modal,
+   and the new profile-error banners) rendered visibly on load and then
+   disappeared. */
+[x-cloak] {
+  display: none !important;
+}
