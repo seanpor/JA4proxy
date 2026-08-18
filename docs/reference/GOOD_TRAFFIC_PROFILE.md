@@ -129,20 +129,45 @@ none.
 6. **Fingerprint diversity is the discriminator.** Prefer it over volume,
    timing, or geography whenever it is available.
 
-## 6. Known gap
+## 6. Provenance (closed)
 
-`ASNClassifier.Classify()` resolves the ASN number and organisation name for
-every connection and then **discards both**, keeping only a risk signal.
-`ConnContext` carries `Country` but no ASN. So:
+`ASNClassifier.Classify()` used to resolve the ASN number and organisation name
+for every connection and then **discard both**, keeping only a risk signal.
+`ConnectionContext` carried `Country` but no ASN, so the ECS event had no
+`client.as.number`, and `src/analytics/correlation.py` declared `asn` and
+`asn_org` dimensions that nothing could populate. Rule 5 was unenforceable: the
+detectors could not tell a consumer ISP /24 from a hosting provider /24 using
+data the hot path had already computed.
 
-- The ECS event emits `client.geo.country_iso` but no `client.as.number` or
-  `client.as.organization.name`.
-- `src/analytics/correlation.py` declares `asn` and `asn_org` dimensions that
-  **nothing can populate**.
-- Detectors therefore cannot distinguish a consumer ISP /24 from a hosting
-  provider /24 — the exact discriminator rule 5 asks for, already computed on
-  the hot path and thrown away.
+That is now plumbed end to end:
 
-Closing this means stashing `asn` / `asn_org` on `ConnContext` and emitting the
-two ECS fields. Until then, rule 6 (fingerprint diversity) is doing the work
-that provenance should share.
+- `ASNClassifier.ClassifyAndLookup()` returns the signals **and** the resolved
+  ASN/organisation from the same traversal — one DB read, not two. `Classify()`
+  remains as a wrapper so existing callers are untouched.
+- `ConnectionContext.ASN` / `.ASNOrg` carry it through the pipeline.
+- `cmd/ja4pd` emits `client.as.number` and `client.as.organization.name`.
+
+Three properties are asserted rather than assumed, because each is a silent
+failure if it regresses:
+
+1. **Provenance is recorded on the paths that produce no signal at all.** A
+   residential/mobile IP is the common case for legitimate traffic and yields
+   no risk signal — an implementation that only recorded ASN alongside a signal
+   would leave exactly the traffic we most need to identify unlabelled.
+2. **Absence stays distinguishable from a result.** Classifier disabled, DB
+   missing, lookup failed, IP unparseable → zero and empty string, never a
+   guess. A fabricated ASN is worse than none: it invites an operator to act on
+   provenance that was never observed.
+3. **The Tor path reports no ASN**, because it short-circuits before any DB
+   read. Asserted explicitly so that filling it in later is a deliberate
+   choice.
+
+Guarded by `internal/security/asn_provenance_test.go` and
+`TestAsnProvenanceReachesCorrelation` in the FP corpus (which pins the ECS key
+names on both sides — a rename in either language would otherwise empty the
+dimension with no test failing).
+
+**Still open:** nothing consumes provenance as a *gate* yet. `min_shared_share`
+corroborates on client identity only. Using "this /24 is a consumer ISP" to
+further protect it, and "this /24 is a hosting provider" to lower the bar,
+is the natural next step now that the data is available.

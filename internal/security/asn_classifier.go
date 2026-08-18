@@ -131,13 +131,35 @@ func NewASNClassifier(cfg *ASNClassifierConfig, log *logrus.Logger) *ASNClassifi
 // Classify returns risk signals for the given IP address.
 // Returns empty slice if DB absent or IP lookup fails (fail open).
 func (c *ASNClassifier) Classify(clientIP string) []RiskSignal {
+	signals, _, _ := c.ClassifyAndLookup(clientIP)
+	return signals
+}
+
+// ClassifyAndLookup returns the risk signals for clientIP along with the ASN
+// number and organisation name the lookup resolved, so the caller can record
+// the provenance of the connection rather than only its score.
+//
+// phase-827: the classifier resolved both values on every connection and then
+// discarded them, keeping only a signal. That left the analytics node unable to
+// tell a consumer ISP /24 from a hosting provider /24 — the single strongest
+// provenance discriminator available, already computed on the hot path and
+// thrown away. See docs/reference/GOOD_TRAFFIC_PROFILE.md §5-6.
+//
+// Returning them from the existing traversal rather than exposing a separate
+// lookup keeps this at one DB read per connection; Classify remains as a
+// wrapper so existing callers are unaffected.
+//
+// The ASN and org are returned WHENEVER the lookup succeeds, including on the
+// paths that produce no signal at all (residential/mobile — the common case for
+// legitimate traffic, and precisely the case worth being able to identify).
+func (c *ASNClassifier) ClassifyAndLookup(clientIP string) ([]RiskSignal, uint32, string) {
 	if !c.cfg.Enabled {
-		return nil
+		return nil, 0, ""
 	}
 
 	ip := net.ParseIP(clientIP)
 	if ip == nil {
-		return nil
+		return nil, 0, ""
 	}
 
 	// Check Tor exit list first
@@ -147,23 +169,28 @@ func (c *ASNClassifier) Classify(clientIP string) []RiskSignal {
 		if score == 0 {
 			score = 40
 		}
+		// Deliberately no ASN: the Tor list short-circuits before any DB read,
+		// so reporting an ASN here would be an invention.
 		return []RiskSignal{{
 			Name:   "asn_tor",
 			Score:  score,
 			Reason: "IP is a known Tor exit node",
 			Weight: 1.0,
-		}}
+		}}, 0, ""
 	}
 
 	asnNum, orgName, err := c.lookupFn(ip)
 	if err != nil {
 		c.log.WithError(err).WithField("ip", clientIP).Debug("asn_classifier: lookup failed")
-		return nil
+		return nil, 0, ""
 	}
 
 	if orgName == "" && asnNum == 0 {
-		return nil // DB absent
+		return nil, 0, "" // DB absent
 	}
+
+	//nolint:gosec // ASN numbers are IANA-defined 32-bit values; safe to narrow from uint
+	asn32 := uint32(asnNum)
 
 	if orgName == "" {
 		metrics.ASNClassificationTotal.WithLabelValues("unknown").Inc()
@@ -176,7 +203,7 @@ func (c *ASNClassifier) Classify(clientIP string) []RiskSignal {
 			Score:  score,
 			Reason: "ASN lookup returned empty org name",
 			Weight: 1.0,
-		}}
+		}}, asn32, orgName
 	}
 
 	lowerOrg := strings.ToLower(orgName)
@@ -193,7 +220,7 @@ func (c *ASNClassifier) Classify(clientIP string) []RiskSignal {
 			Score:  score,
 			Reason: "IP belongs to a known datacenter ASN",
 			Weight: 1.0,
-		}}
+		}}, asn32, orgName
 	}
 	for _, pat := range c.cfg.DatacenterOrgs {
 		if strings.Contains(lowerOrg, strings.ToLower(pat)) {
@@ -207,7 +234,7 @@ func (c *ASNClassifier) Classify(clientIP string) []RiskSignal {
 				Score:  score,
 				Reason: "IP org name matches datacenter pattern",
 				Weight: 1.0,
-			}}
+			}}, asn32, orgName
 		}
 	}
 
@@ -224,12 +251,12 @@ func (c *ASNClassifier) Classify(clientIP string) []RiskSignal {
 				Score:  score,
 				Reason: "IP org name matches VPN pattern",
 				Weight: 1.0,
-			}}
+			}}, asn32, orgName
 		}
 	}
 
 	metrics.ASNClassificationTotal.WithLabelValues("residential").Inc()
-	return nil // residential / mobile / unknown-benign
+	return nil, asn32, orgName // residential / mobile / unknown-benign
 }
 
 // IsDatacenter returns (true, asn) if clientIP belongs to a known datacenter ASN.

@@ -194,3 +194,71 @@ class TestCampaignDetectorStaysSafe:
             "legitimate traffic is allowed, so block_rate is 0 and the "
             "block-rate gate must keep this out"
         )
+
+
+class TestAsnProvenanceReachesCorrelation:
+    """§6 — the gap that made rule 5 (provenance) unenforceable.
+
+    `ASNClassifier.Classify()` resolved the ASN number and organisation on every
+    connection and discarded both, so `correlation.DIMENSIONS` declared `asn`
+    and `asn_org` that nothing could populate. The Go side now emits the two
+    standard ECS fields; these assert the Python side actually reads them, since
+    a rename on either side would silently reopen the gap with no test failing.
+    """
+
+    ECS_KEYS = {"asn": "client.as.number", "asn_org": "client.as.organization.name"}
+
+    def _ecs_event(self, ip: str, ja4: str, asn: int, org: str) -> dict:
+        """An event in the proxy's ECS wire form, not the flattened form."""
+        return {
+            "@timestamp": "2026-08-18T10:00:00Z",
+            "source.ip": ip,
+            "ja4proxy.fingerprint.ja4": ja4,
+            "client.geo.country_iso": "IE",
+            "client.as.number": asn,
+            "client.as.organization.name": org,
+            "event.action": "allow",
+        }
+
+    @pytest.mark.parametrize("dimension,ecs_key", ECS_KEYS.items())
+    def test_dimension_is_wired_to_the_ecs_field_the_proxy_emits(self, dimension, ecs_key):
+        from src.analytics.correlation import DIMENSIONS
+
+        assert ecs_key in DIMENSIONS[dimension], (
+            f"{dimension} no longer reads {ecs_key}; cmd/ja4pd/main.go emits "
+            "that exact key, so this dimension would go permanently empty"
+        )
+
+    def test_hosting_provider_group_is_identified_by_asn(self):
+        events = [
+            self._ecs_event(f"203.0.113.{i}", SCANNER_JA4, 16509, "Amazon.com, Inc.")
+            for i in range(10, 35)
+        ]
+        corr = correlate(events)
+        by_dim = {c.dimension: c for c in corr.characteristics}
+
+        assert "asn" in by_dim, "ASN did not correlate from the ECS envelope"
+        assert by_dim["asn"].value == "16509"
+        assert by_dim["asn_org"].value == "Amazon.com, Inc."
+
+    def test_consumer_isp_group_is_distinguishable_from_hosting(self):
+        """The whole point of rule 5: these two groups must not look alike."""
+        residential = [
+            self._ecs_event(
+                f"86.40.7.{i}", BROWSER_JA4S[i % len(BROWSER_JA4S)], 15502, "Vodafone Ireland"
+            )
+            for i in range(10, 35)
+        ]
+        hosting = [
+            self._ecs_event(f"203.0.113.{i}", SCANNER_JA4, 16509, "Amazon.com, Inc.")
+            for i in range(10, 35)
+        ]
+
+        res_org = correlate(residential).top("asn_org")
+        host_org = correlate(hosting).top("asn_org")
+        assert res_org is not None and host_org is not None
+        assert res_org.value != host_org.value, (
+            "consumer ISP and hosting provider must be distinguishable — this "
+            "is the discriminator that keeps a busy CGNAT subnet from being "
+            "treated like a scan"
+        )

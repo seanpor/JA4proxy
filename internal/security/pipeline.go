@@ -738,7 +738,12 @@ func (p *Pipeline) processInternal(ctx context.Context, conn *ConnectionContext)
 
 	// ASN classification
 	startASN := time.Now()
-	signals = append(signals, asnClassifier.Classify(conn.ClientIP)...)
+	// ClassifyAndLookup rather than Classify: the same traversal also yields
+	// the ASN and organisation, which the connection event carries downstream
+	// (phase-827). No extra DB read.
+	asnSignals, asnNum, asnOrg := asnClassifier.ClassifyAndLookup(conn.ClientIP)
+	signals = append(signals, asnSignals...)
+	conn.ASN, conn.ASNOrg = asnNum, asnOrg
 	p.measure("asn", startASN)
 
 	// Datacenter policy enforcement (Phase 249) — runs immediately after ASN classification.

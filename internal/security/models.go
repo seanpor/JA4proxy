@@ -27,15 +27,24 @@ type ConnectionContext struct {
 	ClientAddr netip.Addr
 	// ClientPort is the source TCP port. Zero when behind PROXY protocol
 	// or when the source address is not a *net.TCPAddr.
-	ClientPort           int
-	JA4                  string
-	JA4X                 string
-	ALPN                 string
-	HasValidClientCert   bool
-	ClientCertificate    []byte
-	SNI                  string
-	TLSVersion           int
-	Country              string
+	ClientPort         int
+	JA4                string
+	JA4X               string
+	ALPN               string
+	HasValidClientCert bool
+	ClientCertificate  []byte
+	SNI                string
+	TLSVersion         int
+	Country            string
+	// ASN / ASNOrg (phase-827): provenance of the client network. The ASN
+	// classifier already resolved both on every connection and discarded them,
+	// so the analytics node could not distinguish a consumer ISP /24 from a
+	// hosting provider /24 — the discriminator that separates a busy CGNAT
+	// subnet from a real scan. Zero / "" when the ASN DB is absent, the
+	// classifier is disabled, or the lookup failed: absence must stay
+	// distinguishable from a genuine result, never defaulted to a guess.
+	ASN                  uint32
+	ASNOrg               string
 	CipherList           []int
 	TCPJA4T              string
 	TCPWindowSize        int

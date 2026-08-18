@@ -34,6 +34,11 @@ def _redact_redis_url(url: str) -> str:
     ``urllib.parse.urlparse`` splits at the last ``@`` exactly like
     redis-py does internally, so the redacted form matches the host/port
     that the client will actually connect to.
+
+    Retained as the correct tool for anywhere a URL genuinely must be
+    displayed. The connection logs in this module no longer use it — they call
+    ``_redis_endpoint`` instead, which never carries the password at all rather
+    than carrying it and cleaning it.
     """
     try:
         parts = urlparse(url)
@@ -46,6 +51,38 @@ def _redact_redis_url(url: str) -> str:
     port = f":{parts.port}" if parts.port else ""
     path = parts.path or ""
     return f"{parts.scheme}://{user}:***@{host}{port}{path}"
+
+
+def _redis_endpoint(url: str) -> str:
+    """Return ``host:port`` for ``url`` — the only part of it a log ever needs.
+
+    CodeQL alert #100 (``py/clear-text-logging-sensitive-data``, high) fired on
+    the connection logs because ``REDIS_PASSWORD`` reaches them through
+    ``_build_redis_url`` -> ``_redact_redis_url`` -> ``logger``. The redaction
+    is correct, but taint analysis cannot verify a hand-rolled sanitiser, and
+    "the scanner is wrong" is a poor place to keep a secret: the guarantee then
+    rests on every future edit of that helper preserving a property no tool
+    checks.
+
+    This sidesteps the argument. The password is never carried to the logger in
+    the first place, because only ``hostname`` and ``port`` are read off the
+    parse result — two fields that structurally cannot hold credentials. The
+    log lines lost nothing: they existed to say WHICH Redis was reached or
+    missed, and that is exactly host and port.
+
+    Falls back to a sentinel rather than raising: ``urlparse().port`` raises
+    ValueError on a non-numeric port, and a diagnostic log line must never be
+    the thing that takes down startup.
+    """
+    try:
+        parts = urlparse(url)
+        host = parts.hostname or ""
+        port = parts.port
+    except ValueError:
+        return "<unparsable-redis-url>"
+    if not host:
+        return "<unparsable-redis-url>"
+    return f"{host}:{port}" if port else host
 
 
 # Socket read deadline for this pool. MUST stay above the longest `block=` used
@@ -92,7 +129,8 @@ async def init_redis(override_client: Optional[Redis] = None) -> None:
         return
 
     url = _build_redis_url()
-    safe_url = _redact_redis_url(url)
+    # Endpoint, not a redacted URL — see _redis_endpoint for why.
+    endpoint = _redis_endpoint(url)
     try:
         _redis_pool = aioredis.ConnectionPool.from_url(
             url,
@@ -110,13 +148,12 @@ async def init_redis(override_client: Optional[Redis] = None) -> None:
         _redis_client = aioredis.Redis(connection_pool=_redis_pool)
     except Exception as exc:  # noqa: BLE001 — we always re-raise
         # JA4PROXY-2026-0053: the exception text from ConnectionPool.from_url
-        # can echo the URL (including password) if the URL is malformed.
-        # Swallowing and logging the redacted form prevents the raw URL from
-        # landing in the traceback the caller prints; we still re-raise so
-        # startup fails loudly.
+        # can echo the URL (including password) if the URL is malformed. So we
+        # log the exception TYPE and the endpoint only — never str(exc), and
+        # never the URL — then re-raise so startup still fails loudly.
         logger.error(
             "Redis connection pool init failed for %s: %s",
-            safe_url,
+            endpoint,
             type(exc).__name__,
         )
         # ManagementUIRedisErrors alerts on this. It existed for months with
@@ -131,7 +168,7 @@ async def init_redis(override_client: Optional[Redis] = None) -> None:
         except Exception:  # noqa: BLE001 — metrics must never mask the real error
             pass
         raise
-    logger.info("Redis connection pool initialised: %s", safe_url)
+    logger.info("Redis connection pool initialised: %s", endpoint)
 
 
 async def close_redis() -> None:
