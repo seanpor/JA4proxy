@@ -44,6 +44,35 @@ def _get_templates() -> Jinja2Templates:
     return _templates
 
 
+# The card template renders band_color, band_shape, days_remaining, expires_at,
+# subject and message. Every non-success branch previously returned only
+# status/band/message/cert_path, so rendering raised and the endpoint 500'd —
+# the console polled it every few seconds and logged a 500 each time. The
+# "certificate not found" red banner an operator sees was in fact a crash.
+#
+# One shape for every outcome, so a new branch cannot reintroduce this.
+_BAND_COLOUR = {"green": "#10b981", "amber": "#f59e0b", "red": "#ef4444", "grey": "#64748b"}
+_BAND_SHAPE = {"green": "circle", "amber": "triangle", "red": "square", "grey": "circle"}
+
+
+def _card(status: str, band: str, message: str, cert_path: str, **extra) -> dict:
+    """Build a payload with every key the card template needs."""
+    card = {
+        "status": status,
+        "band": band,
+        "band_color": _BAND_COLOUR.get(band, _BAND_COLOUR["grey"]),
+        "band_shape": _BAND_SHAPE.get(band, "circle"),
+        "message": message,
+        "cert_path": cert_path,
+        "expires_at": None,
+        "days_remaining": None,
+        "subject": None,
+        "issuer": None,
+    }
+    card.update(extra)
+    return card
+
+
 def _read_cert(cert_path: str) -> Optional[dict]:
     """Read and parse the TLS certificate, return a dict with results or None on error."""
     if not os.path.exists(cert_path):
@@ -60,24 +89,17 @@ def _read_cert(cert_path: str) -> Optional[dict]:
         configured = os.environ.get("HAPROXY_TLS_CERT_PATH") not in (None, "")
         if not configured:
             logger.debug("tls_health | event=cert_not_configured | path=%s", cert_path)
-            return {
-                "status": "not_configured",
-                "band": "grey",
-                "message": (
-                    "No TLS certificate configured. HAProxy is optional; set "
-                    "HAPROXY_TLS_CERT_PATH and mount the certificate to monitor expiry."
-                ),
-                "cert_path": cert_path,
-            }
+            return _card(
+                "not_configured",
+                "grey",
+                "No TLS certificate configured. HAProxy is optional; set "
+                "HAPROXY_TLS_CERT_PATH and mount the certificate to monitor expiry.",
+                cert_path,
+            )
         # Explicitly configured but missing IS an error — someone expected a
         # cert here and it is not there.
         logger.warning("tls_health | event=cert_not_found | path=%s", cert_path)
-        return {
-            "status": "error",
-            "band": "red",
-            "message": f"Certificate file not found: {cert_path}",
-            "cert_path": cert_path,
-        }
+        return _card("error", "red", f"Certificate file not found: {cert_path}", cert_path)
 
     try:
         with open(cert_path, "rb") as f:
@@ -127,11 +149,11 @@ def _read_cert(cert_path: str) -> Optional[dict]:
     except Exception as exc:
         logger.warning("tls_health | event=cert_processing_error | path=%s | error=%s", cert_path, exc)
         # Generic client message; full exception is logged above (CodeQL py/stack-trace-exposure).
-        return {
-            "status": "error",
-            "band": "red",
-            "message": "Error computing certificate expiry (see proxy logs for detail)",
-        }
+        return _card(
+            "error", "red",
+            "Error computing certificate expiry (see proxy logs for detail)",
+            cert_path,
+        )
 
 
 @router.get("/api/v1/tls-health")
@@ -144,7 +166,7 @@ async def tls_health(
     cert_path = os.getenv("HAPROXY_TLS_CERT_PATH", _DEFAULT_CERT_PATH)
     result = _read_cert(cert_path)
     if result is None:
-        result = {"status": "error", "band": "red", "message": "Unknown error"}
+        result = _card("error", "red", "Unknown error", cert_path)
 
     if format == "html":
         templates = _get_templates()

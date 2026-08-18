@@ -912,6 +912,20 @@ type WebhooksConfig struct {
 	StreamQueueCapacity       int     `yaml:"stream_queue_capacity"`
 	StreamWorkers             int     `yaml:"stream_workers"`
 	StreamWriteTimeoutSeconds float64 `yaml:"stream_write_timeout_seconds"`
+
+	// phase-826 — HMAC-SHA256 secret for signing connection events written to
+	// StreamKey. The analytics node verifies this before ingesting an event;
+	// with hmac_required (its default) an unsigned event is rejected.
+	//
+	// The signature covers the raw serialised ECS JSON bytes exactly as they
+	// go on the wire — NOT a re-encoded object. Signing a reconstructed dict
+	// would make the check depend on Go and Python agreeing on key order,
+	// float formatting and unicode escaping, which they do not reliably do.
+	//
+	// Empty disables signing: events are still written, and the analytics node
+	// will reject them unless it also has hmac_required=false. The proxy warns
+	// at startup in that case rather than silently emitting unusable telemetry.
+	StreamHMACSecret string `yaml:"stream_hmac_secret"`
 }
 
 // ErrRedisAuthRequired is returned by ValidateRedisAuth when the configured

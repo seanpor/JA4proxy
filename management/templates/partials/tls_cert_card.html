@@ -16,9 +16,15 @@
       }.get(band, "?") %}
       <span class="text-xs {{ band_color }}">
         {{ band_shape }}
-        {{ subject.get("commonName", "Unknown") }} —
-        expires {{ expires_at[:10] }}
-        ({{ days_remaining }} days)
+        {# phase-826: `subject` is None whenever the certificate could not be
+           read — unreadable file, not configured, parse failure. Calling
+           .get() on it raised UndefinedError and turned the whole partial into
+           a 500, so a MISSING certificate crashed the panel that exists to
+           report a missing certificate. The card already carries a red band
+           and a message for that case; it just has no subject to name. #}
+        {{ (subject or {}).get("commonName", "Unknown") }} —
+        expires {{ (expires_at or "unknown")[:10] }}
+        ({{ days_remaining if days_remaining is not none else "?" }} days)
       </span>
       {% if band == "red" %}
       <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-[#dc2626] text-white animate-pulse">

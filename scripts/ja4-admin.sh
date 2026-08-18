@@ -59,11 +59,33 @@ die() { echo -e "${RED}✗ $*${NC}" >&2; exit 1; }
 load_redis_pass() {
     [ -f "$ENV_FILE" ] || die ".env not found — run ./scripts/start-poc.sh first."
     REDIS_PASS=$(grep '^REDIS_PASSWORD=' "$ENV_FILE" 2>/dev/null | cut -d= -f2)
+    REDIS_MGMT_PASS=$(grep '^MANAGEMENT_REDIS_PASSWORD=' "$ENV_FILE" 2>/dev/null | cut -d= -f2)
     [ -n "$REDIS_PASS" ] || die "No REDIS_PASSWORD in .env"
 }
 
 redis_cmd() {
-    $COMPOSE_CMD exec -T redis redis-cli -a "$REDIS_PASS" --no-auth-warning "$@" 2>/dev/null
+    # MUST pass --user. `redis-cli -a <pw>` authenticates as the `default` user,
+    # and config/redis_acl.conf.template has `user default off` — so every call
+    # returned "NOAUTH Authentication required." on STDOUT with exit 0. Callers
+    # doing `$(redis_cmd ...) || echo 0` never saw a failure, and the error text
+    # flowed into arithmetic: `dial 50` died with
+    #   line 771: NOAUTH Authentication required.: syntax error
+    #
+    # `management` is the ACL user with ~* +@read +@write, which is what an
+    # admin CLI needs.
+    $COMPOSE_CMD exec -T redis redis-cli \
+        --user management -a "$REDIS_MGMT_PASS" --no-auth-warning "$@" 2>/dev/null
+}
+
+# Numeric-or-die. redis_cmd returning an error string with exit 0 previously
+# reached `$(( ))` and produced a bash syntax error instead of a clear message.
+redis_int() {
+    local out
+    out=$(redis_cmd "$@")
+    case "$out" in
+        ''|*[!0-9-]*) echo "" ;;
+        *)            echo "$out" ;;
+    esac
 }
 
 redis_count() {
@@ -766,8 +788,15 @@ cmd_dial() {
     [ "$target" -ge 0 ] && [ "$target" -le 100 ] || die "Dial value must be 0-100. Got: $target"
 
     local current
-    current=$(redis_cmd GET "config:dial" 2>/dev/null || echo "0")
-    [ "$current" = "" ] && current="0"
+    current=$(redis_int GET "config:dial")
+    if [ -z "$current" ]; then
+        # Distinguish "not set yet" from "cannot talk to Redis" — silently
+        # treating an auth failure as dial=0 is how this hid.
+        if ! redis_cmd PING | grep -q PONG; then
+            die "Cannot reach Redis (check REDIS_MGMT_PASS / the management ACL user)."
+        fi
+        current="0"
+    fi
     local delta=$(( target - current ))
     [ "$delta" -lt 0 ] && delta=$(( -delta ))
 

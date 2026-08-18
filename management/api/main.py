@@ -278,9 +278,61 @@ def create_app() -> FastAPI:
     # phase-101 H8: CSRF double-submit + HMAC on /api/v1/* mutating routes
     app.add_middleware(CSRFMiddleware)
 
+    # ── Prometheus instrumentation ───────────────────────────────────────────
+    # management_ui_rules.yml has alerted on ja4proxy_mgmt_* for months with
+    # nothing emitting them. See management/api/prometheus_metrics.py.
+    import time as _time
+
+    from starlette.responses import Response as _Response
+
+    from . import prometheus_metrics as _m
+
+    @app.middleware("http")
+    async def _record_request_metrics(request, call_next):
+        start = _time.perf_counter()
+        try:
+            response = await call_next(request)
+        except Exception:
+            # An unhandled exception is a 5xx from the client's point of view;
+            # counting it only on the success path would hide the worst case.
+            path = _m.normalise_path(request.url.path)
+            _m.REQUESTS.labels(request.method, path, "5xx").inc()
+            raise
+        elapsed_ms = (_time.perf_counter() - start) * 1000.0
+        path = _m.normalise_path(request.url.path)
+        bucket = f"{response.status_code // 100}xx"
+        _m.REQUESTS.labels(request.method, path, bucket).inc()
+        _m.REQUEST_DURATION_MS.labels(request.method, path).observe(elapsed_ms)
+        if response.status_code in (401, 403):
+            _m.AUTH_FAILURES.labels("401" if response.status_code == 401 else "403").inc()
+        return response
+
+    @app.get("/metrics", include_in_schema=False)
+    async def _prometheus_metrics() -> _Response:
+        """Prometheus scrape endpoint.
+
+        Unauthenticated, matching every other exporter on the internal
+        monitoring network (analytics, node-exporter, redis-exporter). It
+        exposes counters and latencies only — no request bodies, no identities,
+        and paths are normalised so IDs never become label values.
+        """
+        from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+
+        return _Response(generate_latest(_m.REGISTRY), media_type=CONTENT_TYPE_LATEST)
+
+
     # ── Templates ─────────────────────────────────────────────────────────────
     if _TEMPLATES_DIR.exists():
         templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
+        # phase-826: the console had no link to Grafana at all, so the metrics
+        # and logs could only be reached by knowing a URL and a port. Exposed
+        # as a template global rather than passed per-route because the sidebar
+        # in base.html needs it on every page.
+        #
+        # Deployment-specific (the POC assigns ports per lane), so it comes from
+        # the environment. Empty means "not deployed with monitoring" and the
+        # link is hidden rather than rendered broken.
+        templates.env.globals["grafana_url"] = os.environ.get("GRAFANA_EXTERNAL_URL", "")
         pages.set_templates(templates)
         partials.set_templates(templates)
         tls_health_routes.set_templates(templates)

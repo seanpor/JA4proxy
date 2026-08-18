@@ -75,7 +75,15 @@ def load_config(config_file: str) -> Dict[str, Any]:
             "batch_size": 100,
             "timeout_ms": 5000,
         },
-        "security": {"hmac_secret": "default-secret-change-me", "hmac_required": True},
+        "security": {
+            # phase-826: overridden by ANALYTICS_HMAC_SECRET below. The proxy
+            # signs every connection event with the same secret; if these two
+            # differ, nothing crashes — 100% of events are silently discarded
+            # and the Intelligence panel stays empty while both services report
+            # healthy. That is exactly how this bug survived undetected.
+            "hmac_secret": "default-secret-change-me",
+            "hmac_required": True,
+        },
         "aggregation": {"window_seconds": 300},
     }
 
@@ -95,5 +103,12 @@ def load_config(config_file: str) -> Dict[str, Any]:
         config["redis"]["port"] = int(os.environ["REDIS_PORT"])
     if os.environ.get("REDIS_PASSWORD"):
         config["redis"]["password"] = os.environ["REDIS_PASSWORD"]
+    # phase-826: must match the proxy's webhooks.stream_hmac_secret, which is
+    # fed from the same ANALYTICS_HMAC_SECRET. Without this override the
+    # container's env var is inert and the built-in placeholder is used, so
+    # every signed event fails verification — which is precisely what happened
+    # when the variable was plumbed into docker-compose but not into here.
+    if os.environ.get("ANALYTICS_HMAC_SECRET"):
+        config["security"]["hmac_secret"] = os.environ["ANALYTICS_HMAC_SECRET"]
 
     return config
