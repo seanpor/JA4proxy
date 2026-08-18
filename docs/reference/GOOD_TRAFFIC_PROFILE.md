@@ -1,3 +1,10 @@
+<!--
+title: Good Traffic Profile
+audience: reference
+last_reviewed: 2026-08-18
+phase: 827
+-->
+
 # The Good Traffic Profile
 
 > **Purpose.** This project's governing asymmetry (`CLAUDE.md`) says a blocked
