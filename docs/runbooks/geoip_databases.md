@@ -44,13 +44,33 @@ correctly.
 
 ## The two databases
 
-| Database | Purpose | Access | Default path |
+| Database | Purpose | Access | Path |
 |---|---|---|---|
-| IP2Location LITE DB1 | IP → country | Anonymous, no key | `geoip/IP2LOCATION-LITE-DB1.BIN` |
-| MaxMind GeoLite2-ASN | IP → ASN + organisation | **Free account + licence key** | `config/GeoLite2-ASN.mmdb` |
+| IP2Location LITE DB1 | IP → country | Anonymous, no key | `data/geoip/IP2LOCATION-LITE-DB1.BIN` |
+| MaxMind GeoLite2-ASN | IP → ASN + organisation | **Free account** | `config/GeoLite2-ASN.mmdb` |
 
-Paths come from `config/proxy.yml`: `geoip.database_path` and
-`security.asn_classifier.maxmind_db_path`. If you move them, move both.
+Paths come from `config/proxy.yml` (`geoip.database_path`,
+`security.asn_classifier.maxmind_db_path`) and must match what
+`docker-compose.poc.yml` mounts: `../../data/geoip:/app/geoip:ro` and
+`../../config:/app/config:ro`. If you move either database, move the mount too.
+
+### Format: it must be `.mmdb`, not CSV
+
+MaxMind offer every GeoLite2 dataset in two formats. **Download "GeoIP2 Binary
+(.mmdb)", not "CSV".** The proxy memory-maps the binary format via
+`geoip2.Open()`; it has no CSV reader, and a directory full of CSVs produces
+exactly the same "DB absent" behaviour as having nothing at all. The CSVs are
+for loading into your own database — they are not a drop-in substitute.
+
+### Why one is committed and the other is not
+
+`data/geoip/IP2LOCATION-LITE-DB1.BIN` **is** in the repository. That is
+deliberate: IP2Location LITE is CC-BY-SA-4.0 and the licence text sits beside
+it, so redistribution is permitted.
+
+MaxMind's EULA does **not** permit redistribution, so `*.mmdb` is gitignored and
+every operator fetches their own. This is why the ASN database needs an account
+and the country one does not.
 
 ## Fix
 

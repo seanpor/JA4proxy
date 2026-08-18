@@ -198,3 +198,19 @@ docs/reference/PROJECT_STATUS.md
 # findings by SHA-256 (PROGRAMME.md §7) — never committed: a crash corpus in a
 # public repo that ships a security product is a ready-made exploit kit.
 .pentest-range/
+
+# GeoLite folder from MaxMind geoIP info
+GeoLite2/
+# phase-827: the MaxMind ASN database, wherever it is installed. Never commit it
+# — MaxMind's EULA does not permit redistribution, and it is a ~10 MB binary
+# that changes twice a week. Fetch it with `make update-geoip`.
+#
+# Note the asymmetry: data/geoip/IP2LOCATION-LITE-DB1.BIN IS committed, and
+# correctly so — IP2Location LITE is CC-BY-SA-4.0 (licence text sits beside it),
+# which permits redistribution. MaxMind's does not. So the rule is on the file
+# type, not the directory; ignoring data/geoip/ wholesale would fight the
+# tracked country database that legitimately lives there.
+*.mmdb
+*.mmdb.prev
+*.BIN.prev
+

@@ -40,7 +40,12 @@ set -euo pipefail
 
 GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; CYAN='\033[0;36m'; NC='\033[0m'
 
-GEOIP_DIR="${GEOIP_DIR:-./geoip}"
+# phase-827: was ./geoip, but docker-compose.poc.yml mounts ../../data/geoip
+# at /app/geoip and config/proxy.yml reads
+# /app/geoip/IP2LOCATION-LITE-DB1.BIN. The script therefore wrote the country
+# database to a directory nothing mounts — `make update-geoip` reported success
+# and country lookups stayed empty. Default now matches the mount.
+GEOIP_DIR="${GEOIP_DIR:-./data/geoip}"
 DB_FILE="${GEOIP_DIR}/IP2LOCATION-LITE-DB1.BIN"
 DOWNLOAD_URL="https://download.ip2location.com/lite/IP2LOCATION-LITE-DB1.BIN.ZIP"
 CHECK_ONLY=false
