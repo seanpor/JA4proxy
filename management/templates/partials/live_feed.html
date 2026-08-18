@@ -29,9 +29,14 @@
              x-data="liveFeed()"
              x-init="startMaxRows()"
              class="divide-y divide-[#1e293b]/40">
-        <!-- Initial placeholder rows while SSE connects -->
+        <!-- phase-828: placeholder rows shown ONLY until the stream's first
+             paint. They used to be permanent: the feed started at "$" (live
+             only), so with no traffic in flight these five pulsing bars were
+             the entire live feed, forever. They are now removed on the
+             backfill-complete event, which also carries the row count so an
+             empty stream can say so in words. -->
         {% for _ in range(5) %}
-        <tr class="animate-pulse">
+        <tr class="animate-pulse" data-skeleton>
           <td><div class="h-2.5 w-16 bg-[#1e293b]/55 rounded"></div></td>
           <td><div class="h-2.5 w-24 bg-[#1e293b]/55 rounded"></div></td>
           <td class="hidden sm:table-cell"><div class="h-2.5 w-40 bg-[#1e293b]/55 rounded"></div></td>
@@ -58,6 +63,40 @@
   var indicator = document.getElementById('sse-indicator');
   var status = document.getElementById('sse-status');
 
+  // phase-828: clear the placeholders once the server says the first paint is
+  // done, and replace them with a plain statement when there is genuinely
+  // nothing to show. Previously nothing ever removed them, so "no traffic yet"
+  // and "the feed is broken" looked identical -- and both looked broken.
+  function clearSkeletons(count) {
+    var tbody = document.getElementById('live-feed-body');
+    if (!tbody) return;
+    tbody.querySelectorAll('tr[data-skeleton]').forEach(function(el) { el.remove(); });
+    var existing = tbody.querySelector('tr[data-empty]');
+    if (existing) existing.remove();
+    if (tbody.querySelectorAll('tr').length === 0) {
+      var tr = document.createElement('tr');
+      tr.setAttribute('data-empty', '');
+      tr.innerHTML = '<td colspan="6" class="py-6 text-center text-xs text-[#64748b]">'
+        + 'No connections recorded yet. New connections appear here as they arrive.</td>';
+      tbody.appendChild(tr);
+    }
+  }
+
+  document.body.addEventListener('htmx:sseMessage', function(e) {
+    if (e.detail && e.detail.type === 'backfill-complete') {
+      clearSkeletons(parseInt(e.detail.data, 10) || 0);
+    }
+  });
+
+  // Belt and braces: if the named event never arrives (an old server, or a
+  // proxy that strips unknown event types), do not leave fake rows up.
+  document.addEventListener('htmx:sseOpen', function() {
+    setTimeout(function() {
+      var tbody = document.getElementById('live-feed-body');
+      if (tbody && tbody.querySelector('tr[data-skeleton]')) clearSkeletons(0);
+    }, 3000);
+  });
+
   document.addEventListener('htmx:sseOpen', function() {
     if (indicator) { indicator.className = 'w-1.5 h-1.5 rounded-full bg-[#10b981] shadow-[0_0_8px_rgba(16,185,129,0.6)] transition-all duration-350'; }
     if (status) { status.textContent = 'Live'; }
@@ -80,6 +119,8 @@ function liveFeed() {
       var observer = new MutationObserver(function() {
         var tbody = document.getElementById('live-feed-body');
         if (!tbody) return;
+        var empty = tbody.querySelector('tr[data-empty]');
+        if (empty && tbody.querySelectorAll('tr').length > 1) empty.remove();
         while (tbody.children.length > 50) {
           tbody.removeChild(tbody.lastElementChild);
         }
