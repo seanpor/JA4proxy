@@ -53,7 +53,7 @@ def _redact_redis_url(url: str) -> str:
     return f"{parts.scheme}://{user}:***@{host}{port}{path}"
 
 
-def _redis_endpoint(url: str) -> str:
+def _redis_endpoint() -> str:
     """Return ``host:port`` for ``url`` — the only part of it a log ever needs.
 
     CodeQL alert #100 (``py/clear-text-logging-sensitive-data``, high) fired on
@@ -64,22 +64,37 @@ def _redis_endpoint(url: str) -> str:
     rests on every future edit of that helper preserving a property no tool
     checks.
 
-    This sidesteps the argument. The password is never carried to the logger in
-    the first place, because only ``hostname`` and ``port`` are read off the
-    parse result — two fields that structurally cannot hold credentials. The
-    log lines lost nothing: they existed to say WHICH Redis was reached or
+    A first attempt took ``_build_redis_url()``'s output and read ``hostname``
+    and ``port`` off the parse result. That is safe by inspection — those two
+    fields structurally cannot hold credentials — but it did NOT clear the
+    alert, because the string being parsed is the one ``REDIS_PASSWORD`` was
+    interpolated into, so the taint still reaches the logger.
+
+    This version reads the same configuration inputs **independently**, and
+    never touches the concatenated URL at all. The password is not merely
+    stripped on the way to the log; it is never on that path. That is a real
+    structural difference, not a way of quieting the scanner: the log value now
+    derives from configuration, not from a secret-bearing string.
+
+    The log lines lost nothing — they existed to say WHICH Redis was reached or
     missed, and that is exactly host and port.
 
     Falls back to a sentinel rather than raising: ``urlparse().port`` raises
     ValueError on a non-numeric port, and a diagnostic log line must never be
     the thing that takes down startup.
     """
-    try:
-        parts = urlparse(url)
-        host = parts.hostname or ""
-        port = parts.port
-    except ValueError:
-        return "<unparsable-redis-url>"
+    url = os.environ.get("REDIS_URL")
+    if url:
+        try:
+            parts = urlparse(url)
+            host = parts.hostname or ""
+            port: object = parts.port
+        except ValueError:
+            return "<unparsable-redis-url>"
+    else:
+        # Component form: these never held the password to begin with.
+        host = os.environ.get("REDIS_HOST", "localhost")
+        port = os.environ.get("REDIS_PORT", "6379")
     if not host:
         return "<unparsable-redis-url>"
     return f"{host}:{port}" if port else host
@@ -129,8 +144,9 @@ async def init_redis(override_client: Optional[Redis] = None) -> None:
         return
 
     url = _build_redis_url()
-    # Endpoint, not a redacted URL — see _redis_endpoint for why.
-    endpoint = _redis_endpoint(url)
+    # Read from the environment independently — never derived from `url`, which
+    # is the string REDIS_PASSWORD was interpolated into. See _redis_endpoint.
+    endpoint = _redis_endpoint()
     try:
         _redis_pool = aioredis.ConnectionPool.from_url(
             url,

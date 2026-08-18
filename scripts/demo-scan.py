@@ -60,6 +60,17 @@ def connect_from(src: str, host: str, port: int, timeout: float) -> str:
     except ssl.SSLError:
         pass  # Older/newer OpenSSL may reject the exact list; shape still differs.
 
+    # Reject the unspecified address explicitly. This script exists to make each
+    # simulated scanner appear from its OWN source IP; binding 0.0.0.0 would
+    # silently defeat that (every connection would leave from the default route)
+    # AND listen on every interface. CodeQL flags the bind for the second
+    # reason; the first is why it would ruin the demo.
+    if src in ("", "0.0.0.0", "::"):  # nosec B104 — rejected, not bound
+        raise ValueError(
+            f"refusing to bind the unspecified address {src!r}: "
+            "each simulated source needs a specific IP"
+        )
+
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
         s.settimeout(timeout)
