@@ -78,28 +78,42 @@ async def test_put_dial_rejects_below_0(authenticated_client: AsyncClient) -> No
 
 
 @pytest.mark.asyncio
-async def test_put_dial_rejects_change_greater_than_10(
+async def test_put_dial_respects_the_configured_cap(
     authenticated_client: AsyncClient,
     fake_redis,
+    monkeypatch,
 ) -> None:
-    """PUT /api/v1/dial rejects a change of more than ±10 from current value."""
+    """The cap is configurable (management.max_dial_change), not hardcoded 10.
+
+    It WAS hardcoded at 10, which made every console preset unreachable:
+    Monitor 0, Low 25, Mid 50 and High 75 are all >10 from a standing start, so
+    the Apply button stayed disabled and the dial could not be moved at all.
+    Default is now 100 (no step limit); these tests pin that the configured
+    value is what gets enforced, whatever it is set to.
+    """
+    from management.api.routes import dial as dial_mod
+
+    monkeypatch.setattr(dial_mod, "_max_dial_change", lambda: 10)
     await fake_redis.set("config:dial", "50")
-    # Try to jump from 50 to 65 (change of +15)
     response = await authenticated_client.put("/api/v1/dial", json={"value": 65})
     assert response.status_code == 400
     assert "10" in response.json()["detail"]
 
 
 @pytest.mark.asyncio
-async def test_put_dial_rejects_decrease_greater_than_10(
+async def test_put_dial_allows_large_change_when_cap_is_high(
     authenticated_client: AsyncClient,
     fake_redis,
+    monkeypatch,
 ) -> None:
-    """PUT /api/v1/dial rejects a decrease of more than 10."""
-    await fake_redis.set("config:dial", "50")
-    # Try to drop from 50 to 35 (change of -15)
-    response = await authenticated_client.put("/api/v1/dial", json={"value": 35})
-    assert response.status_code == 400
+    """With the default cap of 100, a preset-sized jump must succeed."""
+    from management.api.routes import dial as dial_mod
+
+    monkeypatch.setattr(dial_mod, "_max_dial_change", lambda: 100)
+    await fake_redis.set("config:dial", "0")
+    response = await authenticated_client.put("/api/v1/dial", json={"value": 75})
+    assert response.status_code == 200, response.text
+    assert response.json()["value"] == 75
 
 
 @pytest.mark.asyncio

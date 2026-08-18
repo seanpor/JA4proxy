@@ -604,16 +604,24 @@ def test_compose_poc_succeeds_with_all_env_vars() -> None:
     config` must succeed. Proves we haven't over-constrained the file so
     badly that legitimate operators can't use it."""
     env = _clean_env()
+    # Derive the requirements from the compose file rather than listing them.
+    #
+    # This dict was the SIXTH hand-maintained copy of "which env vars does poc
+    # compose need" (compose file, template.env, the Makefile lint-docker
+    # recipe, test_dockerfile_coverage.py, start-poc.sh, here). Every time one
+    # is added, whichever copies are missed fail somewhere different and
+    # confusingly — and this one fails as "compose is over-constrained", which
+    # points at the compose file rather than at the omission.
+    #
+    # Deriving keeps the test's actual purpose intact: it still proves that a
+    # fully-provisioned operator can render the file.
     env.update(
-        {
-            "MANAGEMENT_JWT_SECRET": "qa-placeholder-jwt-secret",
-            "MANAGEMENT_ADMIN_USER": "qa-admin",
-            "MANAGEMENT_ADMIN_PASSWORD": "qa-placeholder-admin-pw",
-            "REDIS_PASSWORD": "qa-placeholder-redis-pw",
-            "ANALYTICS_REDIS_PASSWORD": "qa-placeholder-analytics-redis-pw",
-            "BACKEND_HOST": "qa-placeholder-backend",
-        }
+        dict.fromkeys(
+            re.findall(r"\$\{([A-Z_][A-Z0-9_]*):\?", POC_COMPOSE.read_text()),
+            "qa-placeholder",
+        )
     )
+    env["BACKEND_HOST"] = "qa-placeholder-backend"
     proc = subprocess.run(
         ["docker", "compose", "-f", str(POC_COMPOSE), "config", "--quiet"],
         capture_output=True,
@@ -747,4 +755,64 @@ def test_poc_haproxy_depends_on_go_proxy() -> None:
         f"haproxy depends_on does not include `proxy` (has: {sorted(deps)}); "
         "haproxy must route upstream traffic to the Go proxy service. "
         "REQ-015-08 / Phase 502."
+    )
+
+
+# ── Redis ACL user wiring ─────────────────────────────────────────────────────
+
+
+REDIS_ACL_TEMPLATE = REPO_ROOT / "config" / "redis_acl.conf.template"
+
+
+def test_default_redis_user_is_disabled() -> None:
+    """The premise of the check below: `default` must not be a usable account."""
+    acl = REDIS_ACL_TEMPLATE.read_text(encoding="utf-8")
+    assert re.search(r"^user default off\b", acl, re.M), (
+        "the `default` Redis user is no longer disabled — the per-service ACL "
+        "model this repo relies on assumes it is"
+    )
+
+
+@pytest.mark.parametrize(
+    "service, acl_user, password_var",
+    [
+        ("management", "management", "MANAGEMENT_REDIS_PASSWORD"),
+        ("analytics", "analytics", "ANALYTICS_REDIS_PASSWORD"),
+    ],
+)
+def test_service_connects_as_its_own_acl_user(
+    service: str, acl_user: str, password_var: str
+) -> None:
+    """Each service must authenticate as its OWN ACL user, not anonymously.
+
+    Regression: docker-compose.poc.yml gave management
+    ``redis://:${REDIS_PASSWORD}@redis:6379/0`` — no username. With ACLs that
+    authenticates as `default`, which is ``off``, so every Redis call failed
+    with ``AuthenticationError``. The visible symptom was the login page
+    reporting "Rate limiter unavailable — login temporarily disabled": the
+    limiter fails CLOSED, so a Redis outage locks everyone out of the console.
+
+    Analytics had it right all along, which is what made the omission easy to
+    miss — the two lines sit in the same file.
+    """
+    text = POC_COMPOSE.read_text(encoding="utf-8")
+    services = yaml.safe_load(text)["services"]
+    env = services[service].get("environment") or []
+    if isinstance(env, dict):
+        env = [f"{k}={v}" for k, v in env.items()]
+    urls = [e for e in env if e.startswith("REDIS_URL=")]
+    assert urls, f"{service} has no REDIS_URL"
+    url = urls[0]
+
+    assert f"redis://{acl_user}:" in url, (
+        f"{service} must connect as the '{acl_user}' ACL user; got {url!r}. "
+        "A URL with no username authenticates as `default`, which is disabled."
+    )
+    assert password_var in url, (
+        f"{service} must use {password_var}, not another service's password; "
+        f"got {url!r}"
+    )
+    assert f"{password_var}:?" in url, (
+        f"{service}'s REDIS_URL must use ${{{password_var}:?...}} required-"
+        f"syntax so a missing value fails fast; got {url!r}"
     )

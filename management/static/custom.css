@@ -3,7 +3,13 @@
  * Premium dark mode, glassmorphism, glowing states, and micro-animations.
  */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+/* Self-hosted (phase: console demo fixes). This was an @import from
+   fonts.googleapis.com, which Firefox's Enhanced Tracking Protection blocks by
+   DEFAULT while Chrome does not — so the whole UI fell back to a default font
+   in Firefox and looked broken, while looking fine in Chrome.
+   It also meant a security product made a third-party request on every page
+   load, and could not render correctly in the air-gapped pentest range. */
+@import url('/static/vendor/fonts/inter.css');
 
 :root {
   --bg-main: #0b0f19;

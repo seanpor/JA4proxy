@@ -505,6 +505,7 @@ lint-docker:
 		docker compose -f deploy/docker/docker-compose.prod.yml config --quiet \
 		&& echo "  deploy/docker/docker-compose.prod.yml                     OK"
 	@BACKEND_HOST=lint-placeholder REDIS_PASSWORD=lint-placeholder ANALYTICS_REDIS_PASSWORD=lint-placeholder \
+		MANAGEMENT_REDIS_PASSWORD=lint-placeholder ANALYTICS_HMAC_SECRET=lint-placeholder \
 		MANAGEMENT_JWT_SECRET=lint-placeholder MANAGEMENT_ADMIN_USER=lint-placeholder MANAGEMENT_ADMIN_PASSWORD=lint-placeholder \
 		docker compose -f deploy/docker/docker-compose.poc.yml -f deploy/docker/docker-compose.scale.yml config --quiet \
 		&& echo "  deploy/docker/docker-compose.scale.yml (overlay)          OK"
@@ -1722,3 +1723,29 @@ pentest-shell: ## Open a shell on the attacker workstation inside the range
 		-f deploy/docker/docker-compose.pentest.yml exec attacker bash
 
 .PHONY: pentest-range pentest-range-down pentest-range-verify pentest-shell
+
+# Phase 824 — journey tests. Assert a PERSON can do the thing, not that a unit
+# returns a value. Require a running stack, so they are not part of `make test`.
+test-journeys: ## Phase 824 — run customer-journey checks against a live stack
+	@set -a; [ -f .env ] && . ./.env; set +a; \
+	fail=0; \
+	for j in tests/integration/journeys/check_*.sh; do \
+		[ -x "$$j" ] || continue; \
+		echo "── $$j"; "$$j" || fail=1; \
+	done; \
+	[ $$fail -eq 0 ] || { echo "✗ journey check(s) failed"; exit 1; }; \
+	echo "✓ all journey checks passed"
+
+# ── phase-826: demo support ───────────────────────────────────────────────────
+# Pre-flight before showing the product to anyone. Checks the failures that
+# have actually happened and were invisible: analytics unable to read the
+# stream, events rejected on an HMAC mismatch, the proxy never loading its
+# blacklist, an empty Intelligence panel. See docs/DEMO_RUNBOOK.md.
+.PHONY: demo-check demo-bot
+demo-check:
+	@scripts/demo-check.sh
+
+# One deliberately non-browser TLS connection, for the "now something that
+# isn't a browser" step of the demo.
+demo-bot:
+	@scripts/demo-bot.sh

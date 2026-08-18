@@ -378,6 +378,20 @@ local_cache:
 # Disabling an ALLOW bypass routes those connections through the scorer.
 # Disabling a BLOCK bypass routes matches through the scorer instead.
 # The proxy emits a startup WARN for every high-risk bypass that is disabled.
+# ── Management console ────────────────────────────────────────────────────────
+management:
+  # Largest dial change allowed in a single API request.
+  #
+  # This is a guard against an accidental jump straight to full enforcement --
+  # under the core asymmetry, blocking real users is the expensive error. It was
+  # hardcoded at 10, which made every preset in the console unusable: Monitor 0,
+  # Low 25, Mid 50 and High 75 are all more than 10 from a standing start, so
+  # the Apply button stayed disabled and nothing could be changed at all.
+  #
+  # 100 disables the step limit entirely (any 0-100 move is one request).
+  # Lower it if you want the operator forced to move in increments.
+  max_dial_change: 100
+
 security_policy:
   # ── ALLOW BYPASSES ────────────────────────────────────────────────────
   alpn_browser_bypass:
@@ -894,6 +908,13 @@ webhooks:
   stream_queue_capacity: 4096       # phase-118cc
   stream_workers: 4                 # phase-118cc
   stream_write_timeout_seconds: 2.0 # phase-118cc
+  # phase-826: HMAC-SHA256 secret for signing connection events written to
+  # stream_key. The analytics node verifies this before ingesting an event and,
+  # with its default hmac_required=true, discards anything unsigned — which is
+  # how the Intelligence panel stayed empty while the proxy looked healthy.
+  # Must match the analytics node's ANALYTICS_HMAC_SECRET. Empty disables
+  # signing and logs a startup WARN. Restart required (it is a credential).
+  stream_hmac_secret: "${ANALYTICS_HMAC_SECRET}"
   # Example endpoint:
   # endpoints:
   #   - id: splunk-hec
