@@ -713,16 +713,16 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 	// degradation under load.
 	if p.dispatcher != nil {
 		ecsFields := map[string]interface{}{
-			"@timestamp":               time.Now().UTC().Format(time.RFC3339Nano),
-			"event.action":             result.Action,
-			"event.risk_score":         result.Score,
-			"source.ip":                connCtx.ClientIP,
-			"source.port":              connCtx.ClientPort,
-			"destination.ip":           backendHost,
-			"destination.port":         443,
-			"network.transport":        "tcp",
-			"network.protocol":         "tls",
-			"service.name":             "ja4proxy",
+			"@timestamp":        time.Now().UTC().Format(time.RFC3339Nano),
+			"event.action":      result.Action,
+			"event.risk_score":  result.Score,
+			"source.ip":         connCtx.ClientIP,
+			"source.port":       connCtx.ClientPort,
+			"destination.ip":    backendHost,
+			"destination.port":  443,
+			"network.transport": "tcp",
+			"network.protocol":  "tls",
+			"service.name":      "ja4proxy",
 			// phase-826: the analytics node attributes findings per proxy
 			// instance, so a multi-node deployment can tell which node saw
 			// what. Previously absent, which made its proxy_id validation
@@ -731,6 +731,26 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 			"ja4proxy.fingerprint.ja4": connCtx.JA4,
 			"ja4proxy.sni":             connCtx.SNI,
 			"ja4proxy.dial_setting":    result.Dial,
+			// phase-827: the analytics node correlates findings across
+			// dimensions — "45 IPs, one JA4" or "one JA4 across 12 countries"
+			// is what makes a finding actionable, and none of it could be
+			// computed because the event carried only IP, JA4 and SNI. These
+			// are all already resolved on the connection; emitting them costs
+			// nothing extra on the hot path.
+			//
+			// Empty values are still emitted rather than omitted, so the
+			// consumer can distinguish "not collected" from "collected and
+			// empty" (GeoIP absent vs. an IP with no country).
+			"ja4proxy.alpn":          connCtx.ALPN,
+			"ja4proxy.tls_version":   connCtx.TLSVersion,
+			"client.geo.country_iso": connCtx.Country,
+			// Standard ECS names — src/analytics/correlation.py already
+			// declared these two dimensions and nothing could populate them.
+			"client.as.number":            connCtx.ASN,
+			"client.as.organization.name": connCtx.ASNOrg,
+			"ja4proxy.fingerprint.ja4x":   connCtx.JA4X,
+			"ja4proxy.fingerprint.ja4t":   connCtx.TCPJA4T,
+			"ja4proxy.bypass_reason":      result.BypassReason,
 		}
 		if ecsJSON, err := json.Marshal(ecsFields); err == nil {
 			p.enqueueStreamEvent(ecsJSON)

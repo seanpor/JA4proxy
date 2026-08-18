@@ -30,7 +30,12 @@
 
 <div id="threat-posture"
      hx-get="/api/v1/partials/threat-posture?window={{ window }}"
-     hx-trigger="every 30s"
+     {# phase-827: "refresh" must be listed here or setThreatWindow()'s
+        htmx.trigger(container, 'refresh') fires an event with no listener —
+        the window buttons updated localStorage and the hx-get attribute and
+        then did nothing visible until the next 30s poll. The control looked
+        responsive (the active pill moved) while the data never changed. #}
+     hx-trigger="every 30s, refresh"
      hx-swap="outerHTML"
      class="space-y-4">
 

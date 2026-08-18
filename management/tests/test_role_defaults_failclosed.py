@@ -176,5 +176,11 @@ async def test_rotate_role_less_token_becomes_auditor(fake_redis) -> None:
 
 
 def test_create_access_token_requires_role() -> None:
+    # The missing argument is the point of the test: `role` must stay
+    # mandatory, so that a caller who forgets it fails loudly instead of
+    # silently minting a token with a default (and therefore unreviewed)
+    # privilege level. Both type-checker and linter are correct to flag the
+    # call — they are suppressed rather than appeased.
     with pytest.raises(TypeError):
+        # pylint: disable=no-value-for-parameter
         _create_access_token("someone")  # type: ignore[call-arg]

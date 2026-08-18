@@ -75,6 +75,12 @@ ENV_EOF
     echo -e "  Grafana password:    [generated — see .env]"
     echo -e "  Management admin:    admin / [generated — see .env]"
     echo ""
+else
+    # An .env that already exists never picks up newly-required variables —
+    # the block above only runs when the file is absent. That asymmetry is why
+    # a `git pull` could break an existing checkout while a fresh clone worked
+    # (ANALYTICS_HMAC_SECRET, phase-826). Top up in place; never overwrite.
+    ./scripts/env-sync.sh .env
 fi
 
 # phase-310: assign this worktree a collision-free lane (host ports + unique

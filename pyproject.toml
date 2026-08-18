@@ -129,3 +129,25 @@ ignore = [
 "tests/**" = ["F401", "F811", "F841", "E711", "E712", "E721"]
 # Admin CLI: allow broad exception handling
 "scripts/ja4proxy_admin.py" = ["E722"]
+
+# ── pylint configuration ─────────────────────────────────────────────────────
+# `make lint-pylint` runs errors-only over src/ and management/. Two classes of
+# false positive were drowning out real findings; both are silenced here rather
+# than at each call site so the reason is recorded once.
+[tool.pylint.main]
+# `management/` is a PEP 420 namespace package (no __init__.py) while
+# `management/api/` has one, so pylint sometimes anchors on `api` as the top
+# level and then reports `from ..tasks.dial_revert` as an import beyond it —
+# intermittently, depending on walk order. At runtime the module is always
+# imported as `management.api.main` and the import is fine. Pinning the source
+# root makes pylint resolve packages the same way the application does.
+source-roots = ["."]
+
+[tool.pylint.typecheck]
+# weasyprint is an OPTIONAL dependency — it is deliberately absent from
+# requirements.txt because it needs system libraries (pango, cairo, fontconfig)
+# that the lint and CI images do not carry. Every import of it in this repo sits
+# inside a try/except that degrades to HTML output, so `import-error` here
+# reports a supported configuration as a failure. Removing this entry is only
+# correct if weasyprint becomes a hard dependency.
+ignored-modules = ["weasyprint"]

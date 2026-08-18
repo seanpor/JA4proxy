@@ -48,6 +48,47 @@ router = APIRouter(tags=["connections"])
 
 # Go proxy stream — events:connection with JSON-in-event payload
 _STREAM_KEY = "events:connection"
+
+# phase-827: drill-downs page backwards through the stream rather than taking a
+# fixed slice of the newest entries.
+#
+# Both the fingerprint and IP profiles used xrevrange(count=5000), while the
+# tables linking to them aggregate the WHOLE stream via xrange. With 13,410
+# events buffered, a fingerprint could show "2,000+ connections" in the table
+# and open a drill-down reporting zero IPs, because all of its traffic sat
+# outside the newest 5,000. A detail view that contradicts the row you clicked
+# is worse than a slow one.
+#
+# The scan is bounded so a very large stream cannot make this unbounded, and
+# the response reports when the bound was hit instead of quietly under-counting.
+_PROFILE_SCAN_LIMIT = 100_000
+_PROFILE_SCAN_BATCH = 2_000
+
+
+async def _scan_stream(redis) -> tuple[list, int, bool]:
+    """Page backwards over the event stream. Returns (entries, scanned, truncated).
+
+    Callers apply their own time cutoff while iterating; this only bounds total
+    work. Kept in one place so the fingerprint and IP profiles cannot drift
+    apart again.
+    """
+    entries: list = []
+    cursor = "+"
+    scanned = 0
+    while scanned < _PROFILE_SCAN_LIMIT:
+        batch = await redis.xrevrange(
+            _STREAM_KEY, max=cursor, min="-", count=_PROFILE_SCAN_BATCH
+        )
+        if not batch:
+            return entries, scanned, False
+        entries.extend(batch)
+        scanned += len(batch)
+        if len(batch) < _PROFILE_SCAN_BATCH:
+            return entries, scanned, False
+        # xrevrange's max is inclusive, so step one id past the last we saw.
+        ms, _, seq = batch[-1][0].partition("-")
+        cursor = f"{ms}-{int(seq) - 1}" if seq and int(seq) > 0 else str(int(ms) - 1)
+    return entries, scanned, True
 _DEFAULT_LIMIT = 100
 _MAX_LIMIT = 10_000  # raised from 500 for compliance bulk exports
 
@@ -305,7 +346,7 @@ async def get_fingerprint_profile(
     hourly_buckets: dict[int, float] = {}
     total_events = 0
 
-    events = await redis.xrevrange(_STREAM_KEY, max="+", min="-", count=5000)
+    events, scanned_events, scan_truncated = await _scan_stream(redis)
     for _msg_id, fields in events:
         raw = fields.get("event", "{}")
         try:
@@ -349,6 +390,10 @@ async def get_fingerprint_profile(
 
     return {
         "ja4": ja4,
+        # Surfaced so the UI can say what the numbers are based on rather than
+        # presenting a truncated count as a complete one.
+        "scanned_events": scanned_events,
+        "truncated": scan_truncated,
         "total_events": total_events,
         "unique_ips": len(ips),
         "ips_sample": sorted(ips)[:20],
@@ -383,7 +428,7 @@ async def get_ip_profile(
     hourly_buckets: dict[int, list[float]] = {}
     total_events = 0
 
-    events = await redis.xrevrange(_STREAM_KEY, max="+", min="-", count=5000)
+    events, scanned_events, scan_truncated = await _scan_stream(redis)
     for _msg_id, fields in events:
         raw = fields.get("event", "{}")
         try:

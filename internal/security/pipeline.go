@@ -470,6 +470,25 @@ func (p *Pipeline) StartBackgroundWorkers(ctx context.Context) {
 // Process runs a connection through the full pipeline and returns the result.
 // It never panics; all module errors are caught and logged.
 func (p *Pipeline) Process(ctx context.Context, conn *ConnectionContext) *PipelineResult {
+	// phase-827: stamp the dial on whatever result comes back.
+	//
+	// PipelineResult is built at nine different return points and only the
+	// full-scoring one set Dial, so every early return — including all three
+	// hard-block paths — reported dial 0. That is the field the analytics event
+	// carries as ja4proxy.dial_setting, so telemetry showed "dial 0" for
+	// connections decided while the dial was 75, which reads as "the proxy is
+	// in monitor mode" when it is not.
+	//
+	// Stamped here rather than at each return site: nine call sites is nine
+	// chances to forget, and a tenth will be added eventually.
+	res := p.process(ctx, conn)
+	if res != nil && res.Dial == 0 && p.redis != nil {
+		res.Dial = p.redis.GetDial(ctx)
+	}
+	return res
+}
+
+func (p *Pipeline) process(ctx context.Context, conn *ConnectionContext) *PipelineResult {
 	// Phase 515 (JA4PROXY-2026-0087): consult the cache under the composite
 	// per-client key so a decision for one client is never served to another
 	// client that merely shares its JA4 fingerprint.
@@ -719,7 +738,12 @@ func (p *Pipeline) processInternal(ctx context.Context, conn *ConnectionContext)
 
 	// ASN classification
 	startASN := time.Now()
-	signals = append(signals, asnClassifier.Classify(conn.ClientIP)...)
+	// ClassifyAndLookup rather than Classify: the same traversal also yields
+	// the ASN and organisation, which the connection event carries downstream
+	// (phase-827). No extra DB read.
+	asnSignals, asnNum, asnOrg := asnClassifier.ClassifyAndLookup(conn.ClientIP)
+	signals = append(signals, asnSignals...)
+	conn.ASN, conn.ASNOrg = asnNum, asnOrg
 	p.measure("asn", startASN)
 
 	// Datacenter policy enforcement (Phase 249) — runs immediately after ASN classification.
