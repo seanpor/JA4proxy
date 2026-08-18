@@ -3,7 +3,13 @@
  * Premium dark mode, glassmorphism, glowing states, and micro-animations.
  */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+/* Self-hosted (phase: console demo fixes). This was an @import from
+   fonts.googleapis.com, which Firefox's Enhanced Tracking Protection blocks by
+   DEFAULT while Chrome does not — so the whole UI fell back to a default font
+   in Firefox and looked broken, while looking fine in Chrome.
+   It also meant a security product made a third-party request on every page
+   load, and could not render correctly in the air-gapped pentest range. */
+@import url('/static/vendor/fonts/inter.css');
 
 :root {
   --bg-main: #0b0f19;
@@ -38,9 +44,16 @@ body {
 html {
   scroll-behavior: smooth;
   -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 /* Custom scrollbar (dark theme) */
+/* Firefox ignores ::-webkit-scrollbar entirely and fell back to chunky light
+   OS scrollbars against this dark theme. These are the standard properties. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #1e293b var(--bg-main);
+}
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -173,6 +186,32 @@ input[type="range"]::-webkit-slider-thumb {
 input[type="range"]::-webkit-slider-thumb:hover {
   background: #38bdf8;
   transform: scale(1.1);
+}
+/* Firefox equivalents. Without these the dial — the product's primary control —
+   rendered as an unstyled grey OS slider on a dark glassmorphism panel. */
+input[type="range"]::-moz-range-track {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  border: none;
+}
+input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent-sky);
+  box-shadow: 0 0 8px rgba(14, 165, 233, 0.5);
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+input[type="range"]::-moz-range-thumb:hover {
+  background: #38bdf8;
+  transform: scale(1.1);
+}
+input[type="range"]:focus-visible::-moz-range-thumb {
+  outline: 2px solid var(--accent-sky);
+  outline-offset: 2px;
 }
 
 /* ── Badges ───────────────────────────────────────────────────── */

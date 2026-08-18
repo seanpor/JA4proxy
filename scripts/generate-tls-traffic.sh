@@ -142,7 +142,15 @@ fi
 
 echo ""
 echo -e "${YELLOW}Next Steps:${NC}"
-echo -e "  1. View metrics: ${CYAN}curl -s -H "Authorization: Bearer ${METRICS_AUTH_TOKEN:-}" ${METRICS_URL} | grep ja4proxy_${NC}"
+# The inner quotes must be ESCAPED: this whole string is already double-quoted,
+# so bare " characters closed and reopened the outer quoting instead of being
+# printed. The suggested command came out as
+#   curl -s -H Authorization: Bearer <token> <url>
+# which bash splits into separate args -- curl sees "-H Authorization:" (an
+# empty header, which DELETES the header) and the rest as URLs, so the request
+# went out unauthenticated and returned 401. Copy-pasting the tool's own
+# suggestion could never work.
+echo -e "  1. View metrics: ${CYAN}curl -s -H \"Authorization: Bearer ${METRICS_AUTH_TOKEN:-}\" ${METRICS_URL} | grep ja4proxy_${NC}"
 echo -e "  2. Grafana:      ${CYAN}https://localhost:${HOST_PORT_GRAFANA:-3000}${NC} (metrics + logs)"
 echo -e "  3. Run again:    ${CYAN}./scripts/generate-tls-traffic.sh <duration> <good%> <workers>${NC}"
 echo ""

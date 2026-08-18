@@ -3,6 +3,8 @@
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, mock_open, patch
 
+import os
+
 import pytest
 
 try:
@@ -69,12 +71,39 @@ async def test_cert_expiring_in_60_days_returns_green_band(admin_client):
 
 
 @pytest.mark.asyncio
-async def test_missing_cert_file_returns_error(admin_client):
-    with patch("os.path.exists", return_value=False):
+async def test_missing_cert_when_configured_returns_error(admin_client):
+    """Configured but absent IS an error — someone expected a cert here."""
+    with patch("os.path.exists", return_value=False), \
+         patch.dict("os.environ", {"HAPROXY_TLS_CERT_PATH": "/etc/haproxy/certs/server.pem"}):
         response = await admin_client.get("/api/v1/tls-health")
 
     assert response.status_code == 200
     assert response.json()["status"] == "error"
+
+
+@pytest.mark.asyncio
+async def test_missing_cert_when_unconfigured_is_not_an_error(admin_client):
+    """Absent-by-design must not render as a failure.
+
+    HAProxy is optional — docker-compose.poc.yml only starts it with
+    WITH_HAPROXY=1, and the management container mounts no cert volume — so on
+    a stock deployment the default path can never exist. This previously
+    rendered a permanent red "Certificate file not found" banner for a
+    component the operator had deliberately not deployed, which is how a
+    healthy console came to look broken.
+
+    Absent-by-design and broken must not look identical, or the red banner
+    stops meaning anything.
+    """
+    env = {k: v for k, v in os.environ.items() if k != "HAPROXY_TLS_CERT_PATH"}
+    with patch("os.path.exists", return_value=False), \
+         patch.dict("os.environ", env, clear=True):
+        response = await admin_client.get("/api/v1/tls-health")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "not_configured", body
+    assert body["band"] != "red", "an undeployed optional component must not show red"
 
 
 @pytest.mark.asyncio

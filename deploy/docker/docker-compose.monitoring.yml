@@ -246,6 +246,13 @@ services:
     image: tecnativa/docker-socket-proxy:v0.5.0
     environment:
       CONTAINERS: 1
+      # phase-825: Alloy's discovery.docker computes network labels, which
+      # requires the NETWORKS read endpoint. Promtail never did, so this was
+      # CONTAINERS-only under JA4PROXY-2026-0017. Widened deliberately:
+      # NETWORKS exposes topology (network names, subnets, attachments) and
+      # NOT the container env vars that were the actual finding. POST and
+      # DELETE remain 0, so this stays read-only.
+      NETWORKS: 1
       # Everything else stays 0 by default.
       POST: 0
       DELETE: 0

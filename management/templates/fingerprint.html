@@ -24,6 +24,65 @@
     </div>
   </div>
 
+  {# phase-826: the fingerprint's first segment is a structured description of
+     the ClientHello, not an opaque hash. Rendered server-side so the
+     explanation is present even if the profile fetch below fails. #}
+  <section class="mb-6 bg-[#0f172a] border border-[#334155] rounded-lg p-4"
+           aria-labelledby="ja4-decoded-heading" id="ja4-decoded">
+    <div class="flex items-baseline justify-between flex-wrap gap-2 mb-3">
+      <h2 id="ja4-decoded-heading" class="text-sm font-semibold text-[#f1f5f9]">
+        What this fingerprint says
+      </h2>
+      {% if decoded.valid and decoded.is_browser_like is not none %}
+        {% if decoded.is_browser_like %}
+        <span class="text-xs px-2 py-0.5 rounded bg-[#1e3a5f] text-[#7dd3fc] border border-[#0ea5e9]/30">
+          browser-shaped
+        </span>
+        {% else %}
+        <span class="text-xs px-2 py-0.5 rounded bg-[#4a1d1d] text-[#fca5a5] border border-[#dc2626]/30">
+          not browser-shaped
+        </span>
+        {% endif %}
+      {% endif %}
+    </div>
+
+    {% if not decoded.valid %}
+      <p class="text-sm text-[#94a3b8]">{{ decoded.error }}</p>
+    {% else %}
+      <p class="text-sm text-[#cbd5e1] mb-3">{{ decoded.summary }}</p>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <caption class="sr-only">Decoded components of JA4 fingerprint {{ ja4 }}</caption>
+          <thead>
+            <tr class="text-left text-xs uppercase tracking-wide text-[#64748b]">
+              <th scope="col" class="py-1 pr-4 font-medium">Component</th>
+              <th scope="col" class="py-1 pr-4 font-medium">Raw</th>
+              <th scope="col" class="py-1 pr-4 font-medium">Means</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for f in decoded.fields %}
+            <tr class="border-t border-[#1e293b] align-top">
+              <th scope="row" class="py-1.5 pr-4 font-medium text-[#94a3b8] whitespace-nowrap">{{ f.label }}</th>
+              <td class="py-1.5 pr-4 font-mono text-[#e2e8f0] whitespace-nowrap">{{ f.raw }}</td>
+              <td class="py-1.5 pr-4 text-[#cbd5e1]">
+                {{ f.value }}
+                {% if f.note %}<span class="block text-xs text-[#64748b] mt-0.5">{{ f.note }}</span>{% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <p class="text-xs text-[#64748b] mt-3">
+        The two hashes are truncated SHA-256 of the cipher list and of the
+        extensions plus signature algorithms. Identical hashes mean an identical
+        list in an identical order — which is what makes a fingerprint a
+        fingerprint.
+      </p>
+    {% endif %}
+  </section>
+
   <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
     <div class="bg-slate-800 rounded-lg p-4 border border-slate-700">
       <p class="text-xs text-slate-400 uppercase tracking-wider">Total Events (24h)</p>

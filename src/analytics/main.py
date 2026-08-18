@@ -17,7 +17,7 @@ from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from src.utils.logging_config import setup_logging
 
 from .config import load_config
-from .stream_consumer import StreamConsumer
+from .stream_consumer import _SOCKET_TIMEOUT_S, StreamConsumer
 
 # phase-85: optional import — the analytics container can run without ti_feeds
 # (config flag off, missing aiohttp, etc.). Importing the runner module never
@@ -144,8 +144,15 @@ class AnalyticsNode:
             return
 
         try:
+            # socket_timeout must exceed the ti_feeds runner's xread(block=5000)
+            # — the library default of 5s ties the socket deadline to the block
+            # window and every poll raises TimeoutError. See
+            # stream_consumer._SOCKET_TIMEOUT_S for the full story.
             self._ti_async_redis = redis_async.from_url(
-                redis_url, decode_responses=True
+                redis_url,
+                decode_responses=True,
+                socket_timeout=_SOCKET_TIMEOUT_S,
+                health_check_interval=30,
             )
             mgmt_base_url = (
                 self.config.get("management_api", {}).get("base_url")
@@ -252,10 +259,22 @@ class AnalyticsNode:
         return web.json_response({"status": "not ready"}, status=503)
 
     async def _handle_metrics(self, request: web.Request) -> web.Response:
-        registry = None
+        """Expose BOTH registries.
+
+        phase-826: this used to return the monitoring system's registry alone
+        whenever one existed, which silently hid every metric defined at module
+        scope on the default registry — including
+        ja4proxy_analytics_stream_lag_seconds, which had therefore never been
+        scrapeable despite being defined and set on the hot path.
+
+        That mattered: the consumer rejecting 100% of events was invisible
+        partly because its only counters lived in the registry this handler
+        dropped. Concatenating the exposition formats is safe — the two
+        registries hold disjoint metric names.
+        """
+        output = generate_latest()
         if self.consumer and self.consumer.monitoring_system:
-            registry = self.consumer.monitoring_system.registry
-        output = generate_latest(registry) if registry else generate_latest()
+            output += generate_latest(self.consumer.monitoring_system.registry)
         return web.Response(body=output, headers={"Content-Type": CONTENT_TYPE_LATEST})
 
     # ── Health check (also called by /health endpoint) ─────────────────────
