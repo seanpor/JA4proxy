@@ -54,14 +54,10 @@ KNOWN_DANGLING = frozenset({
     "ja4proxy_false_positive_rate",
     "ja4proxy_connection_duration_seconds_bucket",
     "ja4proxy_errors_total",
-    # management API — an entire rules file (management_ui_rules.yml) built on
-    # metrics the FastAPI app does not expose
-    "ja4proxy_mgmt_actions_total",
-    "ja4proxy_mgmt_auth_failures_total",
-    "ja4proxy_mgmt_redis_errors_total",
-    "ja4proxy_mgmt_request_duration_ms_bucket",
-    "ja4proxy_mgmt_requests_total",
-    "ja4proxy_mgmt_sse_subscribers_active",
+    # (The six ja4proxy_mgmt_* entries that were here are gone: the console
+    #  now exposes /metrics, Prometheus scrapes it, and ManagementUIRedisErrors
+    #  — the alert describing the outage that locked everyone out of the
+    #  console — can finally fire. The baseline shrinking is the point.)
     # proxy metrics referenced by dashboards but never implemented
     "ja4proxy_monitor_counterfactual_total",
     "ja4proxy_static_allowlist_hits_total",

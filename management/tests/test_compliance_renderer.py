@@ -195,10 +195,24 @@ def test_html_period_label_is_html_escaped():
     """A period_label containing Jinja2 syntax must be escaped, not evaluated."""
     # If auto-escape is broken, "{{ 7*7 }}" would become "49" in the output.
     hostile = "{{ 7*7 }}"
-    html = _default_renderer().render_html(_minimal_data(period_label=hostile))
+    # generated_at is pinned deliberately. render_html() stamps the report with
+    # datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%MZ"), and the "49"
+    # search below scans the WHOLE document — so for one minute in every sixty
+    # the clock itself put "49" in the output ("...T11:49Z") and this test
+    # failed while escaping was working perfectly. It is a real, reproducible
+    # ~1.7%-of-runs flake, not a security regression; PR #440's red CI was this
+    # test tripping at 11:49 UTC on an unrelated change. Pinning the timestamp
+    # removes the collision without weakening what is asserted.
+    data = _minimal_data(period_label=hostile, generated_at="2026-01-01T00:00Z")
+    html = _default_renderer().render_html(data)
+    # The payload must survive verbatim — proving it was rendered as text
+    # rather than evaluated. This is the positive half of the check, and it is
+    # what actually fails if auto-escape is ever turned off.
+    assert hostile in html, "period_label was not rendered as literal text"
+    # ...and its product must never appear.
     assert (
         "49" not in html
-    ), "Jinja2 template injection via period_label was NOT escaped"
+    ), "Jinja2 template injection via period_label was NOT evaluated to text"
 
 
 def test_html_xss_in_period_label_escaped():

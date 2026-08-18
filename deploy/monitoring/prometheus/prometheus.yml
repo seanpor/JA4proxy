@@ -130,6 +130,18 @@ scrape_configs:
           service: haproxy
           role: load-balancer
 
+  # The console's own metrics. management_ui_rules.yml has alerted on
+  # ja4proxy_mgmt_* for months, but nothing emitted them AND there was no
+  # scrape job -- so ten alerts fired on nothing, including the Redis-error
+  # alert for the outage that locked everyone out of the console.
+  - job_name: 'ja4proxy-management'
+    scrape_interval: 30s
+    static_configs:
+      - targets: ['management:8090']
+        labels:
+          service: management
+          role: console
+
   # phase-825: Alloy's own metrics (it replaced promtail, which was never
   # scraped at all — so a broken log pipeline had no metric to alert on).
   # alloy_build_info confirms it is alive; loki_write_* confirms delivery.

@@ -246,6 +246,13 @@ services:
     image: tecnativa/docker-socket-proxy:v0.5.0
     environment:
       CONTAINERS: 1
+      # phase-825: Alloy's discovery.docker computes network labels, which
+      # requires the NETWORKS read endpoint. Promtail never did, so this was
+      # CONTAINERS-only under JA4PROXY-2026-0017. Widened deliberately:
+      # NETWORKS exposes topology (network names, subnets, attachments) and
+      # NOT the container env vars that were the actual finding. POST and
+      # DELETE remain 0, so this stays read-only.
+      NETWORKS: 1
       # Everything else stays 0 by default.
       POST: 0
       DELETE: 0
@@ -283,6 +290,13 @@ services:
       - --storage.path=/var/lib/alloy/data
       - --server.http.listen-addr=0.0.0.0:12345
       - /etc/alloy/config.alloy
+    # The image ships /var/lib/alloy/data as drwxrwx--- alloy:alloy (uid 473).
+    # The container's default user is root, but `cap_drop: ALL` strips
+    # DAC_OVERRIDE, so root cannot write into a directory it does not own —
+    # alloy crash-looped on `mkdir /var/lib/alloy/data/remotecfg: permission
+    # denied`. Running as the owning user fixes it WITHOUT weakening the
+    # capability drop, which adding DAC_OVERRIDE back would have done.
+    user: "473:473"
     depends_on:
       - loki
       - docker-socket-proxy

@@ -33,7 +33,28 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["dial"])
 
 _DIAL_KEY = "config:dial"
-_MAX_DIAL_CHANGE = 10
+# Read from config/proxy.yml (management.max_dial_change) rather than
+# hardcoded. It was 10, which made every console preset unusable -- Monitor 0,
+# Low 25, Mid 50 and High 75 are all >10 from a standing start, so the Apply
+# button stayed disabled and the dial could not be moved at all.
+_MAX_DIAL_CHANGE_DEFAULT = 100
+
+
+def _max_dial_change() -> int:
+    """Largest single-request dial change, from config; falls back to the default.
+
+    Read per call rather than cached at import so a config reload takes effect
+    without restarting the console.
+    """
+    try:
+        from ..proxy_config import get_proxy_config
+
+        val = (get_proxy_config().get("management") or {}).get("max_dial_change")
+        if isinstance(val, int) and 1 <= val <= 100:
+            return val
+    except Exception:  # noqa: BLE001 — config problems must not break the dial
+        logger.warning("dial | event=max_change_config_unreadable | using default")
+    return _MAX_DIAL_CHANGE_DEFAULT
 
 
 async def _get_current_dial(redis) -> int:
@@ -83,11 +104,12 @@ async def update_dial(
     current = await _get_current_dial(redis)
     delta = abs(body.value - current)
 
-    if delta > _MAX_DIAL_CHANGE:
+    max_change = _max_dial_change()
+    if delta > max_change:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
-                f"Dial change of {delta} exceeds the maximum of {_MAX_DIAL_CHANGE} "
+                f"Dial change of {delta} exceeds the maximum of {max_change} "
                 f"per request. Current value: {current}, requested: {body.value}. "
                 f"Make multiple smaller changes."
             ),

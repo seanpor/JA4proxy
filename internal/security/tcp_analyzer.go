@@ -94,7 +94,18 @@ func (a *TCPAnalyzer) Analyze(ctx context.Context, conn *ConnectionContext) []Ri
 		concurrentKey := "concurrent:" + conn.ClientIP
 		concurrentStr := a.redis.GetString(ctx, concurrentKey)
 		concurrent, _ := strconv.Atoi(concurrentStr)
-		metrics.ActiveConnections.Set(float64(concurrent))
+		// NOTE: do NOT write metrics.ActiveConnections here.
+		//
+		// That gauge is the PROCESS-WIDE accept counter, maintained as a
+		// matched Inc/Dec pair in cmd/ja4pd/main.go:495-497. This code path
+		// holds `concurrent`, which is ONE CLIENT IP's concurrent-connection
+		// count from Redis. Setting the global gauge to a per-IP value
+		// clobbered it, and the accept path's subsequent Dec() calls then drove
+		// it NEGATIVE — observed at -19 after 5184 connections.
+		//
+		// A per-IP figure cannot be published as a gauge without an ip label,
+		// and CLAUDE.md forbids IP-labelled metrics (unbounded cardinality).
+		// The value is still used for the concurrency scoring below.
 
 		severe := a.cfg.ConcurrencySevere
 		high := a.cfg.ConcurrencyHigh

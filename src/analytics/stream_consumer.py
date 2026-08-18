@@ -10,11 +10,13 @@ from typing import Any, Dict, List, Optional
 import redis
 import redis.asyncio as aioredis
 from jsonschema import ValidationError, validate
-from prometheus_client import Gauge
+from prometheus_client import Counter, Gauge
 
 from .aggregation import AggregationManager, HyperLogLogManager
 from .authentication import HMACAuthenticator
 from .detection import CampaignDetector, JA4FingerprintIntelligence, SlowScanDetector
+from .ecs_envelope import is_ecs_envelope, verify_envelope_signature
+from .ecs_envelope import normalise as normalise_ecs
 from .event_schemas import EVENT_SCHEMA
 from .output_writer import (
     update_heartbeat,
@@ -29,6 +31,46 @@ _STREAM_LAG = Gauge(
     "ja4proxy_analytics_stream_lag_seconds",
     "Seconds between the latest processed stream event and now",
 )
+
+# phase-826. The whole failure this phase exists to fix was invisible because
+# the consumer's only signal was a print() into a container log: it rejected
+# 7,749 consecutive events while every health check stayed green. Ingest is now
+# a first-class metric so "the pipeline is running but discarding everything"
+# is a state that can be alerted on rather than discovered by reading logs.
+_EVENTS_INGESTED = Counter(
+    "ja4proxy_analytics_events_ingested_total",
+    "Stream events successfully validated and processed",
+)
+_EVENTS_REJECTED = Counter(
+    "ja4proxy_analytics_events_rejected_total",
+    "Stream events discarded before processing",
+    ["reason"],
+)
+
+# A blocking XREADGROUP must be able to sit on the socket for LONGER than the
+# server-side block window, or the client's read deadline fires first and every
+# single poll raises TimeoutError.
+#
+# redis-py 8.x's from_url() defaults socket_timeout to 5s. consume_events()
+# blocks for 5000ms. Identical values -> the socket deadline and the block
+# window expire together, the client always loses the race, and the consumer
+# raised "Timeout reading from redis:6379" on a 1s retry loop forever. It never
+# ingested a single event, so no detection ran, no findings were written, and
+# the console's Intelligence panel read "No high-confidence findings active"
+# permanently. Silent because the consumer caught, printed and retried.
+#
+# Fix has two halves so it cannot drift back:
+#   1. connect() pins an explicit socket timeout, not the library default.
+#   2. consume_events() clamps its block to stay inside that budget, so a
+#      hot-reloaded stream.timeout_ms can never exceed the socket deadline.
+_SOCKET_TIMEOUT_S = 30.0
+_BLOCK_MARGIN_S = 5.0
+MAX_BLOCK_MS = int((_SOCKET_TIMEOUT_S - _BLOCK_MARGIN_S) * 1000)
+
+# How long a written finding suppresses an identical one (same type + subject).
+# Long enough that a persistently-offending fingerprint does not re-post every
+# detection cycle, short enough that it reappears if still offending an hour on.
+_FINDING_DEDUP_TTL_S = 3600
 
 
 class StreamConsumer:
@@ -76,7 +118,13 @@ class StreamConsumer:
 
     async def connect(self):
         """Establish connection to Redis."""
-        self.redis = await aioredis.from_url(self.redis_url)
+        # socket_timeout must exceed the XREADGROUP block window — see
+        # _SOCKET_TIMEOUT_S. Never rely on the library default here.
+        self.redis = await aioredis.from_url(
+            self.redis_url,
+            socket_timeout=_SOCKET_TIMEOUT_S,
+            health_check_interval=30,
+        )
 
         # Create consumer group if it doesn't exist
         try:
@@ -99,11 +147,21 @@ class StreamConsumer:
                 self.redis, self.monitoring_config
             )
 
-    async def validate_event(self, event_data: Dict[str, Any]) -> bool:
-        """Validate event against schema and business rules."""
+    async def validate_event(
+        self, event_data: Dict[str, Any], *, signature_verified: bool = False
+    ) -> bool:
+        """Validate event against schema and business rules.
+
+        ``signature_verified`` is set by the ECS path, where the HMAC has
+        already been checked against the RAW envelope bytes. Re-running
+        ``hmac_auth.verify`` on the normalised dict would recompute the digest
+        over a reconstructed object and always fail — the signature covers the
+        wire bytes, not the mapped fields. Replay protection is not lost: the
+        timestamp window is enforced by validate_event_comprehensive below.
+        """
         try:
             # 1. HMAC verification
-            if not self.hmac_auth.verify(event_data):
+            if not signature_verified and not self.hmac_auth.verify(event_data):
                 raise InvalidEventError("HMAC verification failed")
 
             # 2. JSON Schema validation
@@ -203,7 +261,10 @@ class StreamConsumer:
                     self.consumer_name,
                     {self.stream_key: ">"},  # Read new events
                     count=batch_size,
-                    block=timeout_ms,
+                    # Clamped: a block >= the socket timeout makes every poll
+                    # raise TimeoutError. timeout_ms is hot-reloadable, so this
+                    # is enforced per call, not once at construction.
+                    block=min(timeout_ms, MAX_BLOCK_MS),
                 )
 
                 if not events:
@@ -239,11 +300,31 @@ class StreamConsumer:
                         except (ValueError, AttributeError):
                             pass
 
+                        # phase-826: the proxy writes ONE field holding an ECS
+                        # JSON document, not the flat schema this consumer was
+                        # written against. Translate before validating, and
+                        # check the signature over the raw envelope bytes.
+                        signature_verified = False
+                        if is_ecs_envelope(data):
+                            if self.hmac_auth.required and not verify_envelope_signature(
+                                data, self.hmac_auth.secret
+                            ):
+                                _EVENTS_REJECTED.labels(reason="hmac").inc()
+                                raise InvalidEventError(
+                                    "HMAC verification failed (ECS envelope)"
+                                )
+                            signature_verified = True
+                            data = normalise_ecs(data)
+
                         # Validate event
-                        await self.validate_event(data)
+                        await self.validate_event(
+                            data, signature_verified=signature_verified
+                        )
 
                         # Process event
                         success = await self.process_event(event_id.decode(), data)
+                        if success:
+                            _EVENTS_INGESTED.inc()
 
                         if success:
                             # Acknowledge successful processing
@@ -251,6 +332,7 @@ class StreamConsumer:
 
                     except InvalidEventError as e:
                         # Log invalid event but don't crash
+                        _EVENTS_REJECTED.labels(reason="invalid").inc()
                         print(f"Invalid event {event_id.decode()}: {e}")
                         # Don't acknowledge - will be retried
 
@@ -363,6 +445,70 @@ class StreamConsumer:
                     await self.redis.expire(
                         "analytics:ja4:candidates", 86400
                     )  # 24 hour TTL
+
+                    # phase-826: also surface these as findings. Campaigns and
+                    # slow scans were written through to analytics:finding:*,
+                    # but JA4 candidates only ever landed in the sorted set
+                    # above — which nothing in the console reads. The
+                    # Intelligence panel was therefore structurally unable to
+                    # show the one detector that does not require many unique
+                    # source IPs, and so had no chance of reporting anything on
+                    # a single-source deployment.
+                    for candidate in detection_results["ja4_candidates"]:
+                        # Detection runs on a timer and a persistent bad
+                        # fingerprint qualifies on EVERY cycle, so writing
+                        # unconditionally would bury the operator in identical
+                        # findings — the panel would look busy while saying one
+                        # thing. Claim a short-lived key per (type, subject);
+                        # whoever wins writes, the rest skip. The TTL means a
+                        # fingerprint that is still offending is re-surfaced
+                        # later rather than suppressed forever.
+                        dedup_key = f"analytics:finding:seen:ja4:{candidate['ja4']}"
+                        if not await self.redis.set(
+                            dedup_key, "1", ex=_FINDING_DEDUP_TTL_S, nx=True
+                        ):
+                            continue
+
+                        only_blocks = candidate.get("only_in_blocks", False)
+                        # Confidence tracks the evidence: a fingerprint seen
+                        # ONLY in blocked connections is a stronger signal than
+                        # one that is merely mostly-blocked, which could be a
+                        # shared stack (a library used by both a bot and a real
+                        # client). Kept under 0.95 — the campaign detector's
+                        # value — because a single JA4 is weaker evidence than
+                        # coordinated multi-IP activity.
+                        confidence = 0.90 if only_blocks else 0.75
+                        await write_finding(
+                            self.redis,
+                            confidence=confidence,
+                            type="ja4_intelligence",
+                            description=(
+                                f"JA4 {candidate['ja4']} blocked on "
+                                f"{candidate['blocked_seen']}/{candidate['total_seen']} "
+                                f"connections ({candidate['block_rate']:.0%})"
+                                + (
+                                    " and never allowed"
+                                    if only_blocks
+                                    else ""
+                                )
+                                + f", from {candidate.get('source_count', 0)} source IP(s)"
+                            ),
+                            evidence_count=candidate["total_seen"],
+                            model_version="analytics-1.0",
+                            model_trained_at="2026-01-01T00:00:00Z",
+                            # A fingerprint seen only in blocks is unlikely to
+                            # be a real browser; one that is also sometimes
+                            # allowed may be shared, so the FP estimate is
+                            # deliberately higher there.
+                            fp_rate_estimate=0.02 if only_blocks else 0.15,
+                            # Never "block" outright: acting on a fingerprint
+                            # affects every client that shares it, and the
+                            # asymmetry in CLAUDE.md makes a false positive far
+                            # more expensive than a missed bot. The operator
+                            # confirms from the evidence shown in the panel.
+                            suggested_action="investigate",
+                            subject_ja4=candidate["ja4"],
+                        )
 
             return detection_results
         except Exception as e:
