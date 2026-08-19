@@ -47,7 +47,15 @@
     </div>
     <div class="bg-slate-800 rounded-lg p-4 border border-slate-700">
       <p class="text-xs text-slate-400 uppercase tracking-wider">Country / ASN</p>
-      <p class="text-lg font-bold text-slate-100" x-text="profile.geo.country + ' / ' + profile.geo.asn">Unknown</p>
+      {# phase-828d: was hardcoded "Unknown / Unknown" for every address on the
+         internet. Now shows the resolved owner, or says WHICH kind of unknown
+         this is -- no owner exists, we failed to look, or nothing on record. #}
+      <p class="text-lg font-bold text-slate-100"
+         x-text="profile.geo.status === 'resolved'
+                 ? ((profile.geo.country || '??') + ' / ' + (profile.geo.asn_org || ('AS' + profile.geo.asn)))
+                 : profile.geo.status">Unknown</p>
+      <p class="text-[11px] text-slate-500 mt-1" x-show="profile.geo.explanation"
+         x-text="profile.geo.explanation"></p>
     </div>
   </div>
 
@@ -55,6 +63,79 @@
     <h2 class="text-sm font-semibold text-slate-300 mb-3">Risk Score Timeline (24h)</h2>
     <div class="relative" style="height: 200px;">
       <canvas x-ref="scoreChart"></canvas>
+    </div>
+  </div>
+
+
+  {# phase-828c: the (IP x JA4) join. "How many times has this signature been
+     seen at this address" is what separates one automated client from a CGNAT
+     egress carrying real subscribers -- and no endpoint could answer it, because
+     per-IP and per-JA4 totals were never joined. #}
+  <div class="bg-slate-800 rounded-lg p-4 border border-slate-700 mb-6">
+    <div class="flex items-baseline justify-between flex-wrap gap-2 mb-3">
+      <h2 class="text-sm font-semibold text-slate-300">What this address looks like</h2>
+      <span class="text-xs px-2 py-0.5 rounded border"
+            :class="{
+              'bg-amber-900/40 text-amber-300 border-amber-700/40': profile.shape.shape === 'single-client',
+              'bg-sky-900/40 text-sky-300 border-sky-700/40': profile.shape.shape === 'shared-egress',
+              'bg-slate-700/40 text-slate-300 border-slate-600/40': profile.shape.shape === 'mixed',
+            }"
+            x-text="profile.shape.shape"></span>
+    </div>
+    <p class="text-sm text-slate-300" x-text="profile.shape.explanation"></p>
+    <p class="text-xs text-slate-500 mt-1">
+      <span x-text="profile.shape.distinct_fingerprints"></span> distinct fingerprint(s),
+      <span x-text="profile.shape.total_events"></span> event(s);
+      the most common accounts for
+      <span x-text="Math.round((profile.shape.top_share || 0) * 100) + '%'"></span>.
+      This describes an observed distribution — it is not a recommendation.
+    </p>
+
+    <div x-show="profile.suggestion && profile.suggestion.suggestion"
+         class="mt-3 rounded border border-slate-600 bg-slate-900/50 px-3 py-2">
+      <p class="text-xs font-semibold text-slate-200">
+        Suggested next step:
+        <span :class="{
+                'text-red-300': profile.suggestion.suggestion === 'consider-ban',
+                'text-green-300': profile.suggestion.suggestion === 'do-not-ban',
+                'text-slate-300': ['watch','none'].includes(profile.suggestion.suggestion),
+              }" x-text="profile.suggestion.suggestion"></span>
+      </p>
+      <p class="text-xs text-slate-400 mt-1" x-text="profile.suggestion.rationale"></p>
+      <p class="text-xs text-slate-500 mt-1">
+        If you act and you are wrong: <span x-text="profile.suggestion.blast_radius"></span>
+      </p>
+    </div>
+
+    <div class="overflow-x-auto mt-4">
+      <table class="w-full text-sm">
+        <caption class="sr-only">Fingerprints seen at this address, with counts</caption>
+        <thead>
+          <tr class="text-left text-xs uppercase tracking-wide text-slate-500">
+            <th scope="col" class="py-1 pr-4 font-medium">Fingerprint</th>
+            <th scope="col" class="py-1 pr-4 font-medium text-right">Seen</th>
+            <th scope="col" class="py-1 pr-4 font-medium">Actions</th>
+            <th scope="col" class="py-1 font-medium">Last seen</th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-for="row in profile.fingerprint_breakdown" :key="row.ja4">
+            <tr class="border-t border-slate-700/50">
+              <td class="py-1.5 pr-4">
+                <a :href="'/fingerprint/' + row.ja4"
+                   class="text-blue-400 hover:underline font-mono text-xs" x-text="row.ja4"></a>
+              </td>
+              <td class="py-1.5 pr-4 text-right text-slate-200 font-semibold" x-text="row.count"></td>
+              <td class="py-1.5 pr-4 text-xs text-slate-400"
+                  x-text="Object.entries(row.actions).map(([a,n]) => a + ' ' + n).join(', ')"></td>
+              <td class="py-1.5 text-xs text-slate-500" x-text="row.last_seen"></td>
+            </tr>
+          </template>
+          <tr x-show="!profile.fingerprint_breakdown || profile.fingerprint_breakdown.length === 0">
+            <td colspan="4" class="py-3 text-xs text-slate-500">No fingerprints recorded.</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   </div>
 
@@ -123,7 +204,10 @@ function ipPage() {
             unique_ja4: 0,
             fingerprints: [],
             is_banned: false,
-            geo: {country: 'Unknown', asn: 'Unknown'},
+            geo: {status: '', country: '', asn: 0, asn_org: '', explanation: ''},
+            fingerprint_breakdown: [],
+            shape: {shape: '', distinct_fingerprints: 0, total_events: 0, top_share: 0, explanation: ''},
+            suggestion: {suggestion: '', rationale: '', blast_radius: ''},
             history: [],
             hourly_scores: [],
         },

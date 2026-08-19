@@ -7,7 +7,7 @@ phase: 828
 
 # Phase 828 — Tell John what we already know
 
-**Status:** PROPOSED
+**Status:** COMPLETE
 **Depends on:** 826 (Intelligence pipeline), 827 (ASN/geo provenance reaching the event)
 
 ## Who this is for
@@ -189,18 +189,21 @@ One change beyond "emit what already exists": counterfactuals were gated on
 `dial == 0`, so they were absent in every enforcing deployment — precisely where
 the question is asked. Gate removed; measured at 259ns/op, zero allocations.
 
-**Known limitation, carried into 828b.** `Pipeline.Process` is asynchronous in
-production (`Sync=false`): it enqueues to `workChan` and returns a stub
-`{Action: "allow", Score: 0}`, and the event is marshalled from that stub. The
-real scoring happens on a worker goroutine afterwards. So the **first**
-connection for a given `(IP, JA4)` pair emits an event with score 0 and no
-signals; every subsequent connection hits the decision cache and carries the
-full result. This is pre-existing behaviour, not introduced here — the same
-ordering trap that hid ASN provenance in phase 827 — but it caps what 828b can
-display and needs deciding before the console promises an explanation for
-every row.
+**Async gap closed.** `Pipeline.Process` is asynchronous in production
+(`Sync=false`): it enqueues to `workChan` and returns a stub
+`{Action: "allow", Score: 0, Deferred: true}`, so the telemetry event was
+written before the score existed. The proxy now emits a **second** event once
+the scoring worker finishes. Both carry `ja4proxy.connection_id`;
+`ja4proxy.event_phase` distinguishes `provisional` from `final`. The analytics
+node and both console endpoints skip provisional entries, so nothing
+double-counts and no unevaluated zero is averaged into a score.
 
-### 828b — Show it (Python/console)
+A provisional event is deliberately **not** retracted when the scoring queue
+saturates and the connection is dropped: the connection genuinely happened, and
+removing it from the record would hide exactly the traffic that caused the
+saturation.
+
+### 828b — Show it (Python/console) — **DONE**
 
 - Feed rows gain `bypass_reason`, country and ASN org as columns; SNI and ALPN
   behind a per-row expander.
@@ -209,7 +212,7 @@ every row.
 - A **"What if"** strip showing the counterfactual action at dial 25/50/75/100,
   with the current dial marked.
 
-### 828c — Answer the CGNAT question
+### 828c — Answer the CGNAT question — **DONE**
 
 - New `GET /api/v1/ip/{ip}/fingerprints` → per-`(ip, ja4)` counts, first seen,
   last seen, action breakdown.
@@ -222,7 +225,7 @@ every row.
 The verdict is a **description of observed distribution**, never a
 recommendation to block, and the UI must label it as such.
 
-### 828d — Honest unknowns and a suggested action
+### 828d — Honest unknowns and a suggested action — **DONE**
 
 - Replace `Unknown` with a resolution status: `not-routable` (RFC1918/CGNAT
   range), `lookup-failed` (DB absent — link the phase-827 runbook), or
@@ -344,3 +347,43 @@ Each has a test named in the next section.
 - [ ] A screenshot walkthrough of one blocked connection answering, in the UI
       alone: why it was blocked, who owns the IP, how often that fingerprint has
       been seen there, and what would happen at a different dial
+
+## Verification record (2026-08-19)
+
+All twelve outcomes have tests; every one was mutation-checked or carries a
+vacuity guard.
+
+| Outcome | Test | Evidence |
+|---|---|---|
+| O1 | `internal/security/event_payload_test.go` | signals + counterfactuals in the marshalled event |
+| O2 | `management/tests/test_event_insight.py` | reasons round-trip verbatim; ordered by absolute contribution |
+| O3 | `BenchmarkBuildSignalPayload`, `BenchmarkCounterfactuals` | 2.2µs/op signals; 259ns/op counterfactuals, 0 allocs |
+| O4 | `TestSignalPayloadIsBounded` | 5MB input → <8KB payload, 20 signals, 200-rune reasons |
+| O5 | `management/tests/test_feed_row_completeness.py` | blocked-by-list ≠ blocked-by-score; origin rendered; output escaped |
+| O6 | `test_crosstab_counts_pairs` | per-`(ip, ja4)` counts |
+| O7 | `test_cgnat_pattern_is_shared_egress` | 25 fingerprints × 3 → `shared-egress` |
+| O8 | `test_scanner_pattern_is_single_client` | 1 fingerprint × 400 → `single-client` |
+| O9 | `test_the_four_statuses_are_all_distinct` | four distinct statuses, vacuity-guarded |
+| O10 | `test_no_ban_suggestion_for_a_shared_egress` | CGNAT + 99% blocked still → `do-not-ban` |
+| O11 | `management/tests/test_profile_bounds_and_readonly.py` | no mutating route mentions suggestions; `suggest_action` is pure |
+| O12 | same file | scan bounded, truncation reported |
+
+Live on the stack at dial 75:
+
+```
+fingerprint profile → explanation_available: true
+  ja4_tls_mismatch  +35  JA4 prefix "t13" claims TLS 0x0304; negotiated 0x0303
+  counterfactuals: {25: allow, 50: allow, 75: allow, 100: rate_limit}
+
+ip profile 172.25.0.3 → shape: shared-egress (8 fingerprints, top share 0.31)
+  suggestion: do-not-ban
+  blast radius: 8 distinct TLS fingerprint(s) seen at this address
+  geo: not-routable — "Private, carrier-internal or reserved address"
+```
+
+One fresh connection produced `provisional` (score 0, no signals) then `final`
+(score 35, signals) sharing `connection_id e6228654b3ec-1`; analytics reported
+`ingested=1, skipped{provisional}=1`.
+
+Suites: 892 management tests + 8 analytics unit tests + 25 Go packages, `make
+lint` PASS.
