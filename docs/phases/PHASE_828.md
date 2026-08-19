@@ -153,7 +153,7 @@ unambiguous.
 
 ## Scope
 
-### 828a — Emit what the proxy already knows (Go)
+### 828a — Emit what the proxy already knows (Go) — **DONE**
 
 Add to the event written at `cmd/ja4pd/main.go:717`:
 
@@ -171,6 +171,34 @@ Constraints:
   malformed module must not be able to inflate every event unboundedly.
 - Bypassed connections carry `Signals: nil`; `bypass_reason` already explains
   those, and the schema must tolerate the empty case.
+
+**Landed.** `internal/security/event_payload.go` builds both payloads under
+hard caps; `cmd/ja4pd/main.go` emits `ja4proxy.signals` and
+`ja4proxy.counterfactuals`. Verified on the live stack at dial 75:
+
+```
+action: allow | score: 35 | dial: 75
+WHY THIS SCORE:
+  ja4_tls_mismatch    35  JA4 prefix "t13" claims TLS 0x0304; negotiated 0x0303
+WHAT IF THE DIAL MOVED:
+  dial  25 -> allow      dial  75 -> allow
+  dial  50 -> allow      dial 100 -> rate_limit
+```
+
+One change beyond "emit what already exists": counterfactuals were gated on
+`dial == 0`, so they were absent in every enforcing deployment — precisely where
+the question is asked. Gate removed; measured at 259ns/op, zero allocations.
+
+**Known limitation, carried into 828b.** `Pipeline.Process` is asynchronous in
+production (`Sync=false`): it enqueues to `workChan` and returns a stub
+`{Action: "allow", Score: 0}`, and the event is marshalled from that stub. The
+real scoring happens on a worker goroutine afterwards. So the **first**
+connection for a given `(IP, JA4)` pair emits an event with score 0 and no
+signals; every subsequent connection hits the decision cache and carries the
+full result. This is pre-existing behaviour, not introduced here — the same
+ordering trap that hid ASN provenance in phase 827 — but it caps what 828b can
+display and needs deciding before the console promises an explanation for
+every row.
 
 ### 828b — Show it (Python/console)
 
