@@ -5030,3 +5030,32 @@ phases:
       828d honest unknown states plus advisory read-only suggestions that state
       their blast radius. 12 testable outcomes O1-O12 with named tests, each
       mutation-checked. Non-goals: no new detectors, no auto-remediation."
+  829:
+    name: Get ahead of the CVE renewal treadmill
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_829.md
+    dependencies:
+    - 828
+    size: MEDIUM
+    summary: "PROPOSED 2026-08-19 after `make scan-images` was found FAILING on
+      grafana/alloy:v1.18.1 with two unwaived HIGHs (CVE-2026-56864/56865) that
+      entered the vulnerability database after the previous day's renewal review.
+      Nobody had changed that image; the ignorefile went stale underneath it and
+      nothing detected it. Root cause: the weekly workflow runs renew_trivyignore.py
+      (a date rewrite) and never invokes Trivy, so it structurally cannot see a CVE
+      that did not exist last week. Scope 829a make the workflow measure — scan with
+      no ignorefile and diff measured vs waived in BOTH directions, failing on gaps
+      and reporting dead entries (the only ones that can ever be deleted); 829b
+      generate the carrier claim so justifications stop rotting (18 of 56 named
+      images deleted from the deployment); 829c replace the standalone
+      gcr.io/cadvisor/cadvisor:v0.52.1 with the prometheus.exporter.cadvisor
+      component already compiled into the deployed grafana/alloy:v1.18.1 binary.
+      Measured: cadvisor carries 49 HIGH/CRITICAL and is the exclusive carrier of 24
+      entries; removing it takes the file 56 -> 21, and nothing else moves the number
+      at all. Note the ordering trap — Grafana 13.2.0 is entry-neutral today but
+      costs 13 entries once cadvisor is gone, because cadvisor masks its new HIGHs.
+      829c carries a real security trade (Alloy runs cap_drop ALL today; cadvisor
+      needs SYS_PTRACE + DAC_READ_SEARCH and host read mounts), so accepting cadvisor
+      as a documented permanent exception set is an explicit allowed outcome rather
+      than a failure. Precedent: phase-820 replaced the haproxy-exporter sidecar the
+      same way and required alert-selector migration. 12 outcomes O1-O12."
