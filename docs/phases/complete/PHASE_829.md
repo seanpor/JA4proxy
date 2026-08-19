@@ -7,7 +7,7 @@ phase: 829
 
 # Phase 829 — Get ahead of the CVE renewal treadmill
 
-**Status:** PROPOSED
+**Status:** COMPLETE
 **Depends on:** #459 (the 2026-08-19 bumps and waiver refresh, merged)
 **Closes:** #451 §3, and the recurrence behind #450
 
@@ -122,7 +122,7 @@ Metrics actually referenced, by count:
 
 ## Scope
 
-### 829a — Make the renewal workflow measure, not just re-date
+### 829a — Make the renewal workflow measure, not just re-date — **DONE**
 
 Highest value, smallest change, no security trade.
 
@@ -141,7 +141,7 @@ Highest value, smallest change, no security trade.
 
 A gap must fail the workflow loudly. A dead entry is informational.
 
-### 829b — Generate the carrier claim
+### 829b — Generate the carrier claim — **DONE**
 
 - New `scripts/refresh_trivyignore_justifications.py`: rewrite each entry's
   "carried by" line from scan data, leaving the human "why not exploitable here"
@@ -151,7 +151,7 @@ A gap must fail the workflow loudly. A dead entry is informational.
 - The file's dated history sections are **not** regenerated — they record what
   was true at the time and rewriting them would falsify the record.
 
-### 829c — Replace the standalone cadvisor with Alloy's built-in exporter
+### 829c — Replace the standalone cadvisor with Alloy's built-in exporter — **DONE**
 
 The −35 entries. Also the only part with a real downside.
 
@@ -258,3 +258,47 @@ entries weekly — is a legitimate outcome of this phase, not a failure of it.
 - [ ] If 829c is rejected on privilege grounds: that decision is recorded as an
       ADR, and the cadvisor entries are moved to a clearly-labelled permanent
       section so they stop consuming weekly review
+
+## Outcome (2026-08-19)
+
+**The ignorefile went 56 → 21 entries**, exactly the predicted number.
+`make scan-exceptions`: 25 total (4 first-party, 21 third-party), all in window.
+`check_trivyignore_drift`: no gaps, no dead entries.
+
+Measured during the parallel run, before anything was removed:
+
+| Check | Result |
+|---|---|
+| Metrics the rules reference | 14 — **all emitted** by Alloy's exporter (77 available) |
+| Label the alerts select on (`name`) | present, 10,746 series |
+| `container_label_*` referenced anywhere | **zero** — so `store_container_labels = false` |
+| Scrape payload | **9.3MB → 1.1MB** with those labels off |
+| Job label | unchanged (`cadvisor`), so no rule or dashboard needed migrating |
+
+Three bugs my own guards caught while building this, each recorded in the test
+that found it:
+
+1. **Idempotency (829b).** The generator's owned-line check peeked at the last
+   *kept* line, which is never the marker once the marker is skipped — so
+   continuation lines survived and a fresh claim stacked above them. The file
+   grew two lines per entry per run. That is the disease, not the cure.
+2. **A duplicate YAML key (829c).** A `cap_add` block was added near the top of
+   the `alloy` service, which already had one further down. PyYAML resolved it
+   to the last one and silently discarded `SYS_PTRACE` — the capability the
+   whole change depends on. Now guarded by
+   `test_compose_has_no_duplicate_keys_within_a_service`, mutation-checked.
+3. **A truncating regex (829a).** `CVE-[\d-]+` partially matched, so
+   `CVE-2020-DEAD` became the id `CVE-2020-` — registering a waiver for
+   something that does not exist while the real line went unrecognised.
+
+**`JA4PROXY-2026-0016` was migrated, not deleted.** That CVSS 8.0 finding
+(privileged cAdvisor) now asserts against `alloy`, resolved dynamically by
+"whichever service holds `SYS_PTRACE`". Deleting the regression test alongside
+the service would have retired the control at the exact moment its privileges
+were handed to the log shipper.
+
+### Still open for a human
+
+- **#451 §2 (Grafana 13.2.0)** must now be **re-measured**. It was
+  entry-neutral only while cadvisor masked its 13 new HIGHs; with cadvisor gone
+  it should cost ~13 entries. Do not take the pre-829c numbers.

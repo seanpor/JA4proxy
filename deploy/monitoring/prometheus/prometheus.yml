@@ -99,11 +99,23 @@ scrape_configs:
         labels:
           role: 'infrastructure'
 
+  # phase-829c: container metrics now come from Alloy's built-in
+  # prometheus.exporter.cadvisor, not the standalone
+  # gcr.io/cadvisor/cadvisor:v0.52.1 sidecar. That image carried 49
+  # HIGH/CRITICAL findings and was the exclusive carrier of 24 .trivyignore
+  # entries; Alloy already had cadvisor's code compiled in, so the stack was
+  # running it twice. See deploy/monitoring/alloy/config.alloy.
+  #
+  # The JOB NAME is deliberately unchanged. Phase-820 did an equivalent swap
+  # (haproxy-exporter -> HAProxy's native exporter) and the label change forced
+  # every selector to be migrated; keeping `job="cadvisor"` means every
+  # recording rule, alert and dashboard panel resolves untouched.
   - job_name: 'cadvisor'
     scrape_interval: 15s
     scrape_timeout: 10s
+    metrics_path: /api/v0/component/prometheus.exporter.cadvisor.containers/metrics
     static_configs:
-      - targets: ['cadvisor:8080']
+      - targets: ['alloy:12345']
         labels:
           service: cadvisor
           role: container-metrics

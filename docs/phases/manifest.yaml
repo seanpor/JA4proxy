@@ -5032,8 +5032,8 @@ phases:
       mutation-checked. Non-goals: no new detectors, no auto-remediation."
   829:
     name: Get ahead of the CVE renewal treadmill
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_829.md
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_829.md
     dependencies:
     - 828
     size: MEDIUM

@@ -281,10 +281,28 @@ services:
     # JA4PROXY-2026-0017 — no /var/run/docker.sock mount. Alloy reads container
     # metadata from docker-socket-proxy over TCP, exactly as promtail did
     # (see config.alloy `host = "tcp://docker-socket-proxy:2375"`).
+    # phase-829c — container metrics moved here from the standalone cadvisor
+    # sidecar (49 HIGH/CRITICAL, exclusive carrier of 24 .trivyignore entries;
+    # Alloy already had cadvisor's code compiled in). These are EXACTLY the
+    # capabilities and read-only mounts that container had, no more.
+    #
+    # This is a deliberate concentration of privilege, accepted knowingly:
+    # JA4PROXY-2026-0016 had already cut cadvisor back from `privileged: true`
+    # to these two capabilities, and JA4PROXY-2026-0017 removed Alloy's Docker
+    # socket. The socket does NOT come back — discovery still goes through
+    # docker-socket-proxy. Asserted by tests/unit/test_monitoring_privileges.py.
+    devices:
+      - /dev/kmsg:/dev/kmsg
     volumes:
       - ../monitoring/alloy/config.alloy:/etc/alloy/config.alloy:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - alloy-data:/var/lib/alloy/data
+      # cadvisor's read-only host mounts, moved verbatim.
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
     command:
       - run
       - --storage.path=/var/lib/alloy/data
@@ -308,6 +326,11 @@ services:
     cap_drop:
       - ALL
     cap_add:
+      # phase-829c: cadvisor's two capabilities, moved here with its metrics.
+      # DAC_READ_SEARCH was already present; SYS_PTRACE is what reading other
+      # containers' /proc requires. JA4PROXY-2026-0016 had already reduced
+      # cadvisor from `privileged: true` to exactly these two.
+      - SYS_PTRACE
       - DAC_READ_SEARCH
     deploy:
       resources:
@@ -315,44 +338,14 @@ services:
           memory: 256M
           cpus: '0.5'
 
-  cadvisor:
-    image: gcr.io/cadvisor/cadvisor:v0.52.1
-    # JA4PROXY-2026-0016 — cAdvisor previously ran with privileged: true, full
-    # r/w /var/run mount, and /dev/kmsg access. A compromise of the cAdvisor
-    # container had a direct path to host root via the Docker socket under
-    # /var/run. The minimum caps cAdvisor needs to read /proc + /sys cgroup
-    # data are SYS_PTRACE + DAC_READ_SEARCH; /var/run is now read-only so
-    # the Docker socket cannot be written to from inside the container.
-    cap_drop:
-      - ALL
-    cap_add:
-      - SYS_PTRACE
-      - DAC_READ_SEARCH
-    devices:
-      - /dev/kmsg:/dev/kmsg
-    volumes:
-      - /:/rootfs:ro
-      - /var/run:/var/run:ro
-      - /sys:/sys:ro
-      - /var/lib/docker:/var/lib/docker:ro
-      - /dev/disk/:/dev/disk:ro
-    restart: unless-stopped
-    networks:
-      - ja4proxy-monitoring
-    security_opt:
-      - no-new-privileges:true
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-          cpus: '0.5'
-        reservations:
-          memory: 64M
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "100m"
-        max-file: "3"
+  # phase-829c: `cadvisor` (gcr.io/cadvisor/cadvisor:v0.52.1) removed.
+  # Container metrics now come from Alloy's built-in
+  # prometheus.exporter.cadvisor — Alloy already had cadvisor's code compiled
+  # in, so the stack was running it twice. The sidecar carried 49 HIGH/CRITICAL
+  # findings and was the EXCLUSIVE carrier of 24 .trivyignore entries; it was
+  # the only change that shrank that file (56 -> 21). Upgrading was not an
+  # option: v0.55.1 is the newest tag and is a measured net regression.
+  # Prometheus keeps job="cadvisor", so no rule or dashboard needed migrating.
 
   # phase-820: `haproxy-exporter` (prom/haproxy-exporter:v0.15.0) removed.
   # It was a CSV-to-Prometheus translation shim from before HAProxy 2.0 shipped
