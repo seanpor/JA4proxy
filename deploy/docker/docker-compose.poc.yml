@@ -25,7 +25,7 @@ name: ja4proxy
 
 services:
   haproxy:
-    image: haproxy:2.8.26-alpine
+    image: haproxy:2.8.27-alpine
     ports:
       - "${AGENT_BIND_IP:-127.0.0.1}:${HOST_PORT_INGRESS:-443}:443"
       - "${AGENT_BIND_IP:-127.0.0.1}:${HOST_PORT_STATS:-8404}:8404"
