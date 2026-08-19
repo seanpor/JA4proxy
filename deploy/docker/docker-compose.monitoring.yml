@@ -87,7 +87,7 @@ services:
       retries: 3
 
   grafana:
-    image: grafana/grafana:13.0.6-ubuntu
+    image: grafana/grafana:13.1.4-ubuntu
     ports:
       # JA4PROXY-2026-0045: bind to loopback only — consistent with the
       # Prometheus and Alertmanager services above. Dashboards should be

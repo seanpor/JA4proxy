@@ -368,7 +368,7 @@ services:
           cpus: '1.0'
 
   grafana:
-    image: grafana/grafana:13.0.6-ubuntu
+    image: grafana/grafana:13.1.4-ubuntu
     ports:
       # JA4PROXY-2026-0045: bind to loopback — the comment claims
       # "internal only" but the previous form "3001:3000" published
