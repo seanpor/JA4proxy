@@ -28,6 +28,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -224,6 +225,8 @@ type proxy struct {
 	// the hostname, which does not change while the process runs.
 	streamHMACSecret string
 	nodeID           string
+	// connSeq backs nextConnectionID. Atomic: handleConn runs concurrently.
+	connSeq uint64
 }
 
 // JA4PROXY-2026-0041: cfgPath must match the path main() loaded `cfg`
@@ -369,6 +372,25 @@ func newProxy(cfg *config.Config, cfgPath string, log *logrus.Logger) (*proxy, e
 		hostname = ""
 	}
 	prx.nodeID = deriveNodeID(hostname)
+
+	// phase-828: publish the final event once the async worker has actually
+	// scored a connection.
+	//
+	// Without this, the score, the signals and the counterfactuals — the whole
+	// explanation of the decision — were computed on a worker goroutine after
+	// the telemetry event had already been written, and never left the process.
+	// The first connection from any (IP, JA4) pair was published as "score 0,
+	// no explanation"; only repeats, served from the decision cache, carried
+	// the real result.
+	//
+	// Set before StartBackgroundWorkers so the worker goroutines never observe
+	// it being assigned. backendHost is read from the config snapshot rather
+	// than captured, so a SIGHUP that changes the backend is reflected.
+	backendForEvents := cfg.Proxy.BackendHost
+	prx.pipeline.OnScored = func(c *security.ConnectionContext, r *security.PipelineResult) {
+		prx.emitConnectionEvent(c, r, backendForEvents, eventPhaseFinal)
+	}
+
 	if prx.streamHMACSecret == "" {
 		log.Warn("proxy: webhooks.stream_hmac_secret is empty — connection events " +
 			"are written unsigned and the analytics node will reject them unless " +
@@ -550,6 +572,9 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 		ClientIP:   ipStr,
 		ParsedIP:   ipNet,
 		ClientPort: remotePort(clientConn),
+		// phase-828: joins the provisional and final events for this
+		// connection. See eventPhase.
+		ConnectionID: p.nextConnectionID(),
 	}
 
 	// PROXY protocol: always strip the header (v1 or v2) so it is never
@@ -712,63 +737,16 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 	// was already decided — losing the telemetry event is the correct
 	// degradation under load.
 	if p.dispatcher != nil {
-		ecsFields := map[string]interface{}{
-			"@timestamp":        time.Now().UTC().Format(time.RFC3339Nano),
-			"event.action":      result.Action,
-			"event.risk_score":  result.Score,
-			"source.ip":         connCtx.ClientIP,
-			"source.port":       connCtx.ClientPort,
-			"destination.ip":    backendHost,
-			"destination.port":  443,
-			"network.transport": "tcp",
-			"network.protocol":  "tls",
-			"service.name":      "ja4proxy",
-			// phase-826: the analytics node attributes findings per proxy
-			// instance, so a multi-node deployment can tell which node saw
-			// what. Previously absent, which made its proxy_id validation
-			// unsatisfiable.
-			"ja4proxy.node_id":         p.nodeID,
-			"ja4proxy.fingerprint.ja4": connCtx.JA4,
-			"ja4proxy.sni":             connCtx.SNI,
-			"ja4proxy.dial_setting":    result.Dial,
-			// phase-827: the analytics node correlates findings across
-			// dimensions — "45 IPs, one JA4" or "one JA4 across 12 countries"
-			// is what makes a finding actionable, and none of it could be
-			// computed because the event carried only IP, JA4 and SNI. These
-			// are all already resolved on the connection; emitting them costs
-			// nothing extra on the hot path.
-			//
-			// Empty values are still emitted rather than omitted, so the
-			// consumer can distinguish "not collected" from "collected and
-			// empty" (GeoIP absent vs. an IP with no country).
-			"ja4proxy.alpn":          connCtx.ALPN,
-			"ja4proxy.tls_version":   connCtx.TLSVersion,
-			"client.geo.country_iso": connCtx.Country,
-			// Standard ECS names — src/analytics/correlation.py already
-			// declared these two dimensions and nothing could populate them.
-			"client.as.number":            connCtx.ASN,
-			"client.as.organization.name": connCtx.ASNOrg,
-			"ja4proxy.fingerprint.ja4x":   connCtx.JA4X,
-			"ja4proxy.fingerprint.ja4t":   connCtx.TCPJA4T,
-			"ja4proxy.bypass_reason":      result.BypassReason,
-			// phase-828a: the decision's own explanation. The pipeline already
-			// computes both of these — every contributing signal with the
-			// human-readable Reason the scoring module wrote, and the action
-			// this connection would have received at other dial settings — and
-			// neither had ever left the process. The console could show an
-			// operator "100" and nothing else, while the sentence explaining it
-			// was discarded microseconds after being written.
-			//
-			// Both are bounded (see internal/security/event_payload.go) so a
-			// misbehaving module cannot inflate every event on the stream.
-			// Both are nil for a bypassed connection, which never reaches the
-			// scorer — bypass_reason above explains those.
-			"ja4proxy.signals":         security.BuildSignalPayload(result.Signals),
-			"ja4proxy.counterfactuals": security.BuildCounterfactualPayload(result.Counterfactuals),
+		// phase-828: a result the async path has not scored yet is provisional
+		// — Pipeline.Process returns a stub {allow, 0} and queues the real
+		// work. The OnScored callback publishes the final event when the
+		// worker finishes. Everything else (sync mode, a bypass, a cache hit)
+		// is already complete here.
+		phase := eventPhaseFinal
+		if result.Deferred {
+			phase = eventPhaseProvisional
 		}
-		if ecsJSON, err := json.Marshal(ecsFields); err == nil {
-			p.enqueueStreamEvent(ecsJSON)
-		}
+		p.emitConnectionEvent(connCtx, result, backendHost, phase)
 	}
 
 	// Execute action
@@ -1363,6 +1341,121 @@ func deriveNodeID(hostname string) string {
 		return "ja4proxy"
 	}
 	return string(out)
+}
+
+// nextConnectionID returns an identifier unique to this proxy process, used to
+// correlate the provisional and final events for one connection.
+//
+// node ID + monotonic counter rather than a UUID: it is generated on every
+// connection, so it must cost nothing, and it needs to be unique across nodes
+// (the node ID handles that) rather than globally unguessable. It is telemetry
+// correlation, not a security token — it identifies a connection the operator
+// already has full visibility of.
+func (p *proxy) nextConnectionID() string {
+	n := atomic.AddUint64(&p.connSeq, 1)
+	return p.nodeID + "-" + strconv.FormatUint(n, 36)
+}
+
+// eventPhase distinguishes the two events one connection can produce.
+//
+// On the async scoring path the proxy answers the connection immediately and
+// scores it on a worker afterwards, so the telemetry event is written before
+// the score exists. Emitting only that event meant the FIRST connection from
+// any (IP, JA4) pair was published as "score 0, no signals" — the very
+// connection an operator is most likely to be examining. Emitting a second
+// event without marking it would instead double every count downstream.
+//
+// So both are marked, and both carry ja4proxy.connection_id so a consumer can
+// join or deduplicate them:
+//
+//	provisional — forwarded and answered; scoring still queued. No score.
+//	final       — the complete decision. Sync, bypassed, cached, or scored.
+//
+// A provisional event is never superseded when the scoring queue is saturated
+// and the connection is dropped: that is deliberate, because the connection
+// genuinely happened and losing it from the record would hide exactly the
+// traffic that caused the saturation.
+type eventPhase string
+
+const (
+	eventPhaseProvisional eventPhase = "provisional"
+	eventPhaseFinal       eventPhase = "final"
+)
+
+// emitConnectionEvent marshals one ECS connection event and enqueues it.
+//
+// Both call sites — the synchronous decision in handleConn and the OnScored
+// callback from the scoring worker — go through here, so the two events for one
+// connection cannot drift apart in shape.
+func (p *proxy) emitConnectionEvent(
+	connCtx *security.ConnectionContext,
+	result *security.PipelineResult,
+	backendHost string,
+	phase eventPhase,
+) {
+	if p.dispatcher == nil || connCtx == nil || result == nil {
+		return
+	}
+	ecsFields := map[string]interface{}{
+		"@timestamp":        time.Now().UTC().Format(time.RFC3339Nano),
+		"event.action":      result.Action,
+		"event.risk_score":  result.Score,
+		"source.ip":         connCtx.ClientIP,
+		"source.port":       connCtx.ClientPort,
+		"destination.ip":    backendHost,
+		"destination.port":  443,
+		"network.transport": "tcp",
+		"network.protocol":  "tls",
+		"service.name":      "ja4proxy",
+		// phase-826: the analytics node attributes findings per proxy
+		// instance, so a multi-node deployment can tell which node saw
+		// what. Previously absent, which made its proxy_id validation
+		// unsatisfiable.
+		"ja4proxy.node_id":         p.nodeID,
+		"ja4proxy.fingerprint.ja4": connCtx.JA4,
+		"ja4proxy.sni":             connCtx.SNI,
+		"ja4proxy.dial_setting":    result.Dial,
+		// phase-827: the analytics node correlates findings across
+		// dimensions — "45 IPs, one JA4" or "one JA4 across 12 countries"
+		// is what makes a finding actionable, and none of it could be
+		// computed because the event carried only IP, JA4 and SNI. These
+		// are all already resolved on the connection; emitting them costs
+		// nothing extra on the hot path.
+		//
+		// Empty values are still emitted rather than omitted, so the
+		// consumer can distinguish "not collected" from "collected and
+		// empty" (GeoIP absent vs. an IP with no country).
+		"ja4proxy.alpn":          connCtx.ALPN,
+		"ja4proxy.tls_version":   connCtx.TLSVersion,
+		"client.geo.country_iso": connCtx.Country,
+		// Standard ECS names — src/analytics/correlation.py already
+		// declared these two dimensions and nothing could populate them.
+		"client.as.number":            connCtx.ASN,
+		"client.as.organization.name": connCtx.ASNOrg,
+		"ja4proxy.fingerprint.ja4x":   connCtx.JA4X,
+		"ja4proxy.fingerprint.ja4t":   connCtx.TCPJA4T,
+		"ja4proxy.bypass_reason":      result.BypassReason,
+		// phase-828a: the decision's own explanation. The pipeline already
+		// computes both of these — every contributing signal with the
+		// human-readable Reason the scoring module wrote, and the action
+		// this connection would have received at other dial settings — and
+		// neither had ever left the process. The console could show an
+		// operator "100" and nothing else, while the sentence explaining it
+		// was discarded microseconds after being written.
+		//
+		// Both are bounded (see internal/security/event_payload.go) so a
+		// misbehaving module cannot inflate every event on the stream.
+		// Both are nil for a bypassed connection, which never reaches the
+		// scorer — bypass_reason above explains those.
+		"ja4proxy.signals":         security.BuildSignalPayload(result.Signals),
+		"ja4proxy.counterfactuals": security.BuildCounterfactualPayload(result.Counterfactuals),
+	}
+	ecsFields["ja4proxy.connection_id"] = connCtx.ConnectionID
+	ecsFields["ja4proxy.event_phase"] = string(phase)
+
+	if ecsJSON, err := json.Marshal(ecsFields); err == nil {
+		p.enqueueStreamEvent(ecsJSON)
+	}
 }
 
 // enqueueStreamEvent performs a non-blocking send onto the bounded XADD

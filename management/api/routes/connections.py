@@ -39,6 +39,14 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import JSONResponse
 
 from ..auth import require_role
+from ..event_insight import (
+    crosstab,
+    extract_explanation,
+    geo_status,
+    is_provisional,
+    shape_verdict,
+    suggest_action,
+)
 from ..models import Role
 from ..redis_client import get_redis
 
@@ -63,6 +71,9 @@ _STREAM_KEY = "events:connection"
 # the response reports when the bound was hit instead of quietly under-counting.
 _PROFILE_SCAN_LIMIT = 100_000
 _PROFILE_SCAN_BATCH = 2_000
+# Largest sequence number Redis will assign within one millisecond (uint64 max).
+# Used to build an unambiguous "everything in this millisecond" cursor.
+_MAX_STREAM_SEQ = 18446744073709551615
 
 
 async def _scan_stream(redis) -> tuple[list, int, bool]:
@@ -86,8 +97,24 @@ async def _scan_stream(redis) -> tuple[list, int, bool]:
         if len(batch) < _PROFILE_SCAN_BATCH:
             return entries, scanned, False
         # xrevrange's max is inclusive, so step one id past the last we saw.
+        #
+        # phase-828: this used to fall back to a BARE millisecond
+        # (`str(int(ms) - 1)`) when the last entry of a batch had sequence 0.
+        # A bare millisecond is ambiguous — real Redis documents the end of a
+        # range as defaulting to the maximum sequence, but fakeredis resolves
+        # it to `-0`. Under that reading every entry in the target millisecond
+        # with a sequence above 0 is skipped, so a stream busy enough to put
+        # several events in one millisecond silently under-counts: the profile
+        # pages report fewer connections than actually happened and say
+        # nothing about it.
+        #
+        # Always emit an explicit ms-seq cursor, which means the same thing to
+        # both. _MAX_STREAM_SEQ is the largest sequence Redis can assign.
         ms, _, seq = batch[-1][0].partition("-")
-        cursor = f"{ms}-{int(seq) - 1}" if seq and int(seq) > 0 else str(int(ms) - 1)
+        if seq and int(seq) > 0:
+            cursor = f"{ms}-{int(seq) - 1}"
+        else:
+            cursor = f"{int(ms) - 1}-{_MAX_STREAM_SEQ}"
     return entries, scanned, True
 _DEFAULT_LIMIT = 100
 _MAX_LIMIT = 10_000  # raised from 500 for compliance bulk exports
@@ -345,6 +372,7 @@ async def get_fingerprint_profile(
     action_counts: dict[str, int] = {}
     hourly_buckets: dict[int, float] = {}
     total_events = 0
+    explanation: dict | None = None
 
     events, scanned_events, scan_truncated = await _scan_stream(redis)
     for _msg_id, fields in events:
@@ -366,6 +394,17 @@ async def get_fingerprint_profile(
         evt_ja4 = parsed.get("ja4proxy.fingerprint.ja4", "")
         if evt_ja4 != ja4:
             continue
+
+        # phase-828: a provisional entry is the placeholder written before the
+        # async scorer ran. Counting it would double every total on this page
+        # and average an unevaluated 0 into the hourly score chart.
+        if is_provisional(parsed):
+            continue
+
+        # The stream is scanned newest-first, so the first explanation seen is
+        # the most recent one.
+        if explanation is None:
+            explanation = extract_explanation(parsed)
 
         total_events += 1
         src_ip = parsed.get("source.ip", "")
@@ -400,6 +439,12 @@ async def get_fingerprint_profile(
         "action_counts": action_counts,
         "is_banned": bool(is_banned),
         "is_allowlisted": bool(is_allowlisted),
+        # phase-828b: why the most recent connection with this fingerprint
+        # scored what it did. None when the events predate 828a or the
+        # connection bypassed the scorer -- the UI must say "not available"
+        # rather than imply no signals fired.
+        "explanation": explanation,
+        "explanation_available": explanation is not None,
         "hourly_scores": [
             {"timestamp": k, "max_score": v}
             for k, v in sorted(hourly_buckets.items())
@@ -427,6 +472,14 @@ async def get_ip_profile(
     history: list[dict] = []
     hourly_buckets: dict[int, list[float]] = {}
     total_events = 0
+    matched: list[dict] = []
+    geo_country = ""
+    geo_asn_org = ""
+    geo_asn: object = 0
+    # Evidence for geo_status: did ANY public address in the scanned window
+    # resolve? If none did, the database is absent rather than this one address
+    # being unallocated -- and those need different words and different actions.
+    any_geo_seen = False
 
     events, scanned_events, scan_truncated = await _scan_stream(redis)
     for _msg_id, fields in events:
@@ -435,6 +488,11 @@ async def get_ip_profile(
             parsed = json.loads(raw)
         except (json.JSONDecodeError, TypeError):
             continue
+
+        if parsed.get("client.geo.country_iso") or parsed.get(
+            "client.as.organization.name"
+        ):
+            any_geo_seen = True
 
         event_ts = parsed.get("@timestamp", "")
         if event_ts:
@@ -448,6 +506,24 @@ async def get_ip_profile(
         src_ip = parsed.get("source.ip", "")
         if src_ip != ip:
             continue
+
+        # phase-828: skip the pre-scoring placeholder, or every total on this
+        # page doubles and the score chart is dragged toward zero.
+        if is_provisional(parsed):
+            continue
+
+        matched.append(parsed)
+
+        # phase-828d: geo provenance, taken from the event rather than
+        # hardcoded. This endpoint returned {"country": "Unknown", "asn":
+        # "Unknown"} for every address on the internet while the proxy had
+        # already resolved both and put them in the event.
+        if not geo_country:
+            geo_country = parsed.get("client.geo.country_iso") or ""
+        if not geo_asn_org:
+            geo_asn_org = parsed.get("client.as.organization.name") or ""
+        if not geo_asn:
+            geo_asn = parsed.get("client.as.number") or 0
 
         total_events += 1
         ja4 = parsed.get("ja4proxy.fingerprint.ja4", "")
@@ -485,13 +561,46 @@ async def get_ip_profile(
 
     is_banned = await redis.exists(f"ban:{ip}")
 
+    # phase-828c: the (ip, ja4) join. "How many times has this signature been
+    # seen at this address" is the question that separates one automated client
+    # from a CGNAT egress carrying real subscribers, and no endpoint could
+    # answer it -- per-IP and per-JA4 totals existed separately and were never
+    # joined.
+    per_fingerprint = crosstab(matched)
+    shape = shape_verdict({k: v["count"] for k, v in per_fingerprint.items()})
+
+    action_counts: dict[str, int] = {}
+    for row in per_fingerprint.values():
+        for act, n in row["actions"].items():
+            action_counts[act] = action_counts.get(act, 0) + n
+
     return {
         "ip": ip,
         "total_events": total_events,
         "unique_ja4": len(ja4_set),
         "fingerprints": sorted(ja4_set),
         "is_banned": bool(is_banned),
-        "geo": {"country": "Unknown", "asn": "Unknown"},
+        "geo": geo_status(
+            ip,
+            country=geo_country,
+            asn=geo_asn,
+            asn_org=geo_asn_org,
+            db_appears_present=any_geo_seen,
+        ),
+        # phase-828c/d — descriptive, never a recommendation to block.
+        "fingerprint_breakdown": [
+            {"ja4": k, **v} for k, v in sorted(
+                per_fingerprint.items(), key=lambda kv: kv[1]["count"], reverse=True
+            )
+        ],
+        "shape": shape,
+        "suggestion": suggest_action(
+            shape=shape,
+            action_counts=action_counts,
+            is_banned=bool(is_banned),
+        ),
         "history": history[-50:],
         "hourly_scores": hourly_scores,
+        "scanned_events": scanned_events,
+        "truncated": scan_truncated,
     }

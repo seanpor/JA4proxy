@@ -5008,8 +5008,8 @@ phases:
       exported and a near-100% rejection rate must page."
   828:
     name: Tell John what we already know — operator decision support
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_828.md
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_828.md
     dependencies:
     - 826
     size: LARGE

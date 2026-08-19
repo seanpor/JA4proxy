@@ -17,6 +17,7 @@ Implementation notes
 """
 
 import asyncio
+import html
 import json
 import logging
 from datetime import datetime
@@ -56,6 +57,18 @@ def _build_row(parsed: dict, entry_id: str) -> str:
     ja4 = parsed.get("ja4proxy.fingerprint.ja4", "")
     action = parsed.get("event.action", "allow")
     score = parsed.get("event.risk_score", 0)
+
+    # phase-828b: the event carries ~20 fields and this row rendered five. The
+    # most costly omission was bypass_reason: a connection blocked by an
+    # explicit list entry and one blocked by its score looked IDENTICAL here
+    # ("block / 100"), despite calling for opposite responses -- "who added that
+    # list entry" versus "which signals fired". Country and ASN organisation
+    # were likewise already resolved on every event and thrown away, so the feed
+    # could not distinguish Vodafone Ireland from a host in another hemisphere.
+    bypass_reason = parsed.get("ja4proxy.bypass_reason") or ""
+    country = parsed.get("client.geo.country_iso") or ""
+    asn_org = parsed.get("client.as.organization.name") or ""
+    origin = " ".join(x for x in (country, asn_org) if x)
 
     if action in ("block", "ban"):
         action_class = "bg-red-900/50 text-red-300"
@@ -98,8 +111,18 @@ def _build_row(parsed: dict, entry_id: str) -> str:
         f"class=\"text-blue-400 hover:underline font-mono text-xs\">{ip}</a></td>"
         f"<td class=\"py-2 px-3 hidden sm:table-cell\"><a href=\"/fingerprint/{ja4}\" "
         f"class=\"text-blue-400 hover:underline font-mono text-xs truncate max-w-[200px] inline-block\">{ja4}</a></td>"
+        f"<td class=\"py-2 px-3 hidden lg:table-cell text-xs text-slate-400 truncate max-w-[180px]\" "
+        f"title=\"{html.escape(origin, quote=True)}\">{html.escape(origin) or '&mdash;'}</td>"
         f"<td class=\"py-2 px-3\">"
-        f"<span class=\"px-1.5 py-0.5 rounded text-xs font-medium {action_class}\">{action}</span></td>"
+        f"<span class=\"px-1.5 py-0.5 rounded text-xs font-medium {action_class}\">{action}</span>"
+        + (
+            f"<span class=\"block text-[10px] text-slate-500 font-mono\" "
+            f"title=\"Decided by an explicit rule, not by score\">"
+            f"{html.escape(bypass_reason)}</span>"
+            if bypass_reason
+            else ""
+        )
+        + "</td>"
         f"<td class=\"py-2 px-3 text-xs text-slate-300 text-right\">{score}</td>"
         f"<td class=\"py-2 px-3 text-right whitespace-nowrap\">{block_btn}</td>"
         f"</tr>"

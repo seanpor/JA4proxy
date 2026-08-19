@@ -20,7 +20,10 @@
           <th class="w-[120px]">Time (UTC)</th>
           <th>Client IP</th>
           <th class="hidden sm:table-cell">JA4 Fingerprint</th>
-          <th class="w-[90px]">Action</th>
+          {# phase-828b: who owns the address, and whether an explicit rule or
+             the scorer made the call. Both were already in every event. #}
+          <th class="hidden lg:table-cell w-[180px]">Origin</th>
+          <th class="w-[110px]">Action</th>
           <th class="text-right w-[70px]">Score</th>
           <th class="text-right w-[110px]"></th>
         </tr>
@@ -40,6 +43,7 @@
           <td><div class="h-2.5 w-16 bg-[#1e293b]/55 rounded"></div></td>
           <td><div class="h-2.5 w-24 bg-[#1e293b]/55 rounded"></div></td>
           <td class="hidden sm:table-cell"><div class="h-2.5 w-40 bg-[#1e293b]/55 rounded"></div></td>
+          <td class="hidden lg:table-cell"><div class="h-2.5 w-24 bg-[#1e293b]/55 rounded"></div></td>
           <td><div class="h-2.5 w-14 bg-[#1e293b]/55 rounded"></div></td>
           <td class="text-right"><div class="h-2.5 w-8 bg-[#1e293b]/55 rounded ml-auto"></div></td>
           <td></td>
@@ -76,7 +80,7 @@
     if (tbody.querySelectorAll('tr').length === 0) {
       var tr = document.createElement('tr');
       tr.setAttribute('data-empty', '');
-      tr.innerHTML = '<td colspan="6" class="py-6 text-center text-xs text-[#64748b]">'
+      tr.innerHTML = '<td colspan="7" class="py-6 text-center text-xs text-[#64748b]">'
         + 'No connections recorded yet. New connections appear here as they arrive.</td>';
       tbody.appendChild(tr);
     }
