@@ -119,21 +119,6 @@ CVE-2026-42504 exp:2026-08-23
 # Why not exploitable: We do not deploy or configure Tempo as a query source for Grafana.
 CVE-2026-21728 exp:2026-08-23
 
-# GHSA-r277-6w6q-xmqw: kin-openapi ValidationHandler.Load() silently substitutes
-# a no-op auth function when none is configured, letting requests bypass any
-# security requirement declared in an OpenAPI spec (CVSS 9.1).
-# Carriers (generated 2026-08-19): grafana/grafana:13.0.6-ubuntu.
-# Each is a pinned third-party image we cannot rebuild, so the fix
-# only reaches us when the publisher ships a new tag.
-# Why not exploitable: exploitation requires an application to run kin-openapi's
-# ValidationHandler as HTTP middleware over an endpoint with no AuthenticationFunc
-# configured. Grafana's own dashboard/API auth (session cookie / API key / OAuth)
-# gates requests ahead of any such internal validation layer, and in our
-# deployment Grafana is reachable only by authenticated administrators on an
-# internal/loopback network, never directly by untrusted external clients — same
-# exposure posture as every other Grafana finding in this file.
-GHSA-r277-6w6q-xmqw exp:2026-08-23
-
 
 # CVE-2026-34040: Moby authorization bypass.
 # Carriers (generated 2026-08-19):
@@ -154,13 +139,6 @@ CVE-2026-34040 exp:2026-08-23
 # Why not exploitable: Tempo integration is not deployed or used in our configuration.
 CVE-2026-28377 exp:2026-08-23
 
-
-# CVE-2026-42151: Info disclosure in prometheus client library.
-# Carriers (generated 2026-08-19): grafana/grafana:13.0.6-ubuntu.
-# Each is a pinned third-party image we cannot rebuild, so the fix
-# only reaches us when the publisher ships a new tag.
-# Why not exploitable: None of these query external/untrusted Prometheus instances in our deployment.
-CVE-2026-42151 exp:2026-08-23
 
 # CVE-2026-41567: Container archive execution in Docker.
 # Carriers (generated 2026-08-19):
