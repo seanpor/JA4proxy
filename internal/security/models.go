@@ -27,7 +27,17 @@ type ConnectionContext struct {
 	ClientAddr netip.Addr
 	// ClientPort is the source TCP port. Zero when behind PROXY protocol
 	// or when the source address is not a *net.TCPAddr.
-	ClientPort         int
+	ClientPort int
+	// ConnectionID (phase-828) correlates the two events one connection can
+	// produce. On the async scoring path the proxy emits a provisional event
+	// immediately (the connection is already forwarded) and a final one once
+	// the worker has scored it. Without a shared identity a consumer cannot
+	// tell "two connections" from "one connection, twice" — which would
+	// double every count in the analytics node.
+	//
+	// Set by the caller before Process; empty is tolerated (a connection with
+	// no ID simply cannot be correlated, which is the pre-828 behaviour).
+	ConnectionID       string
 	JA4                string
 	JA4X               string
 	ALPN               string
@@ -73,4 +83,11 @@ type PipelineResult struct {
 	Signals         []RiskSignal
 	Dial            int
 	Counterfactuals map[int]string
+	// Deferred (phase-828) marks the stub Process() returns when scoring has
+	// been queued rather than performed. Such a result carries Action "allow"
+	// and Score 0 because nothing has been evaluated yet — NOT because the
+	// connection was assessed as harmless. Telemetry must publish it as
+	// provisional; anything that treats it as a verdict is reading a
+	// placeholder as a finding.
+	Deferred bool
 }

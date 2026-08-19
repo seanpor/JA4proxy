@@ -94,6 +94,21 @@ type Pipeline struct {
 	ja4tConsumer   *JA4TConsumer   // phase-316c
 	offenseCounter *OffenseCounter // phase-248
 
+	// OnScored (phase-828) is invoked by the async scoring worker once a
+	// connection has been fully scored, with the result the caller never saw.
+	//
+	// Process() returns a stub {allow, 0} on the async path and the caller
+	// emits its telemetry event from that stub, so the score, the signals and
+	// the counterfactuals — everything that explains the decision — were
+	// computed after the event had already been written and were never
+	// published. The first connection from any (IP, JA4) pair therefore
+	// appeared in the console as "score 0, no explanation", which is precisely
+	// the connection an operator is most likely to be looking at.
+	//
+	// Must be set before Start(); it is read without a lock by the worker
+	// goroutines, exactly like Sync. nil disables the second event entirely.
+	OnScored func(conn *ConnectionContext, result *PipelineResult)
+
 	// Bounded beaconing worker (F-002)
 	beaconingJobs chan beaconingJob
 
@@ -558,7 +573,9 @@ func (p *Pipeline) process(ctx context.Context, conn *ConnectionContext) *Pipeli
 		// JA4PROXY-2026-0073: track workChan saturation for operational visibility.
 		metrics.WorkChanDroppedTotal.Inc()
 	}
-	return &PipelineResult{Action: "allow", Score: 0}
+	// Deferred: scoring is queued, not done. The zero score here is "not yet
+	// evaluated", not "evaluated as harmless" — see PipelineResult.Deferred.
+	return &PipelineResult{Action: "allow", Score: 0, Deferred: true}
 }
 
 func (p *Pipeline) processInternal(ctx context.Context, conn *ConnectionContext) *PipelineResult {
@@ -1186,6 +1203,7 @@ func (p *Pipeline) runAsyncScoringLoop(ctx context.Context) {
 				case conn := <-p.workChan:
 					result := p.processInternal(ctx, conn)
 					p.cache.Set(decisionCacheKey(conn.ClientIP, conn.JA4), result)
+					p.notifyScored(conn, result)
 				default:
 					return
 				}
@@ -1193,6 +1211,25 @@ func (p *Pipeline) runAsyncScoringLoop(ctx context.Context) {
 		case conn := <-p.workChan:
 			result := p.processInternal(ctx, conn)
 			p.cache.Set(decisionCacheKey(conn.ClientIP, conn.JA4), result)
+			p.notifyScored(conn, result)
 		}
 	}
+}
+
+// notifyScored publishes the completed score to the OnScored hook.
+//
+// Deliberately defensive: this runs on the scoring worker, and a panic in a
+// caller-supplied callback would take down the goroutine that scores every
+// subsequent connection. Telemetry must never be able to stop enforcement.
+func (p *Pipeline) notifyScored(conn *ConnectionContext, result *PipelineResult) {
+	cb := p.OnScored
+	if cb == nil || conn == nil || result == nil {
+		return
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			p.log.WithField("panic", r).Error("pipeline: OnScored callback panicked")
+		}
+	}()
+	cb(conn, result)
 }

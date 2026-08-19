@@ -52,6 +52,26 @@ _EVENTS_REJECTED = Counter(
     ["reason"],
 )
 
+# phase-828. A connection scored on the proxy's async path produces TWO stream
+# entries: a provisional one written the moment the connection is answered, and
+# a final one once the scoring worker finishes. They share
+# ja4proxy.connection_id.
+#
+# The consumer must count each connection once. Ingesting both would double
+# every per-IP and per-JA4 total AND average in a score of 0 that was never
+# evaluated — a provisional event's "allow / 0" means "not assessed yet", not
+# "assessed as harmless".
+#
+# Skipped, not rejected: nothing is wrong with these events. Rejections are an
+# error signal that alerts fire on (AnalyticsEventsRejectedHMAC), and folding a
+# routine, expected half of normal traffic into that counter would make the
+# alert useless.
+_EVENTS_SKIPPED = Counter(
+    "ja4proxy_analytics_events_skipped_total",
+    "Stream events deliberately not processed (not errors)",
+    ["reason"],
+)
+
 # A blocking XREADGROUP must be able to sit on the socket for LONGER than the
 # server-side block window, or the client's read deadline fires first and every
 # single poll raises TimeoutError.
@@ -408,6 +428,20 @@ class StreamConsumer:
                                 )
                             signature_verified = True
                             data = normalise_ecs(data)
+
+                        # phase-828: a provisional event is the placeholder the
+                        # proxy writes before its async worker has scored the
+                        # connection. Its score is 0 because nothing has been
+                        # evaluated, and a final event for the same
+                        # connection_id follows. Processing it would count the
+                        # connection twice and drag every score average toward
+                        # zero. Ack it so it is not redelivered forever.
+                        if data.get("ja4proxy.event_phase") == "provisional":
+                            _EVENTS_SKIPPED.labels(reason="provisional").inc()
+                            await self.redis.xack(
+                                stream, self.consumer_group, event_id
+                            )
+                            continue
 
                         # Validate event
                         await self.validate_event(
