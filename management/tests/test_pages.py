@@ -246,3 +246,45 @@ async def test_under_attack_page_unauthenticated(test_client: AsyncClient) -> No
     """GET /under-attack without auth must not return 5xx."""
     response = await test_client.get("/under-attack")
     assert response.status_code < 500
+
+
+def test_no_template_links_to_a_route_that_does_not_exist() -> None:
+    """Every internal href must resolve to a route the app declares.
+
+    The fingerprint and IP detail pages both linked their breadcrumb to
+    `/dashboard`, which has never existed — the dashboard is served at `/`.
+    Clicking "Dashboard" from a drill-down gave a 404 and nothing caught it,
+    because no test ever followed a link.
+
+    Routes are parsed from the decorators rather than from `create_app()`:
+    the app registers a different set depending on environment (this test
+    passed on a dev host and failed in the CI container, reporting even `/` as
+    missing), which would make the guard flaky in exactly the way that teaches
+    people to ignore it.
+    """
+    import re
+    from pathlib import Path
+
+    api_dir = Path(__file__).resolve().parents[1] / "api"
+    tpl_dir = Path(__file__).resolve().parents[1] / "templates"
+
+    decorator = re.compile(r'@router\.(?:get|post|put|delete)\(\s*[\'"]([^\'"]+)[\'"]')
+    routes = set()
+    for src in api_dir.rglob("*.py"):
+        routes |= set(decorator.findall(src.read_text(encoding="utf-8")))
+    assert len(routes) > 20, f"route parser found only {len(routes)}; regex broken?"
+
+    prefixes = {r.split("{")[0].rstrip("/") for r in routes if "{" in r}
+
+    broken = []
+    for tpl in tpl_dir.rglob("*.html"):
+        for href in re.findall(r'href="(/[^"#?{]*)"', tpl.read_text(encoding="utf-8")):
+            if href in routes or (href.rstrip("/") or "/") in routes:
+                continue
+            if href.startswith("/static/"):
+                continue
+            if any(p and href.startswith(p) for p in prefixes):
+                continue
+            broken.append(f"{tpl.name}: {href}")
+
+    assert not broken, f"templates link to non-existent routes: {sorted(set(broken))}"
