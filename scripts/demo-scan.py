@@ -55,6 +55,13 @@ def connect_from(src: str, host: str, port: int, timeout: float) -> str:
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
     ctx.check_hostname = False
     ctx.verify_mode = ssl.CERT_NONE
+    # PROTOCOL_TLS_CLIENT alone still permits TLS 1.0/1.1 (CodeQL
+    # py/insecure-protocol, alert #105). Nothing here needs them, and the floor
+    # does not change the fingerprint this script is built to produce: JA4
+    # encodes the HIGHEST offered version and hashes extension TYPES, neither of
+    # which a minimum-version floor touches. The tool-shape comes from the short
+    # cipher list and the absent ALPN below.
+    ctx.minimum_version = ssl.TLSVersion.TLSv1_2
     try:
         ctx.set_ciphers(TOOL_CIPHERS)
     except ssl.SSLError:

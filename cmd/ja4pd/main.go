@@ -751,6 +751,20 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 			"ja4proxy.fingerprint.ja4x":   connCtx.JA4X,
 			"ja4proxy.fingerprint.ja4t":   connCtx.TCPJA4T,
 			"ja4proxy.bypass_reason":      result.BypassReason,
+			// phase-828a: the decision's own explanation. The pipeline already
+			// computes both of these — every contributing signal with the
+			// human-readable Reason the scoring module wrote, and the action
+			// this connection would have received at other dial settings — and
+			// neither had ever left the process. The console could show an
+			// operator "100" and nothing else, while the sentence explaining it
+			// was discarded microseconds after being written.
+			//
+			// Both are bounded (see internal/security/event_payload.go) so a
+			// misbehaving module cannot inflate every event on the stream.
+			// Both are nil for a bypassed connection, which never reaches the
+			// scorer — bypass_reason above explains those.
+			"ja4proxy.signals":         security.BuildSignalPayload(result.Signals),
+			"ja4proxy.counterfactuals": security.BuildCounterfactualPayload(result.Counterfactuals),
 		}
 		if ecsJSON, err := json.Marshal(ecsFields); err == nil {
 			p.enqueueStreamEvent(ecsJSON)

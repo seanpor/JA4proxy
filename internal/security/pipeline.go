@@ -837,11 +837,19 @@ func (p *Pipeline) processInternal(ctx context.Context, conn *ConnectionContext)
 		// Worker saturated — drop rather than block the pipeline
 	}
 
-	// Build counterfactuals for monitor-mode logging
-	var counterfactuals map[int]string
-	if dial == 0 {
-		counterfactuals = decider.Counterfactuals(assessment.TotalScore, []int{25, 50, 75, 100})
-	}
+	// phase-828a: compute counterfactuals at every dial, not only at dial 0.
+	//
+	// These were previously gated on `dial == 0` ("for monitor-mode logging"),
+	// which produced them in exactly the deployment where they matter least — a
+	// preview of switching enforcement on — and never in an enforcing one,
+	// where the live questions are "what would I catch at 100" and, more
+	// importantly, "what would I stop blocking if I dropped to 50".
+	//
+	// The cost of removing the gate is four ActionDecider.Decide calls, each a
+	// threshold comparison over a fixed list, on a path that has already done
+	// the scoring. Benchmarked at 259ns/op with zero allocations — not
+	// measurable next to the signal collection above it.
+	counterfactuals := decider.Counterfactuals(assessment.TotalScore, []int{25, 50, 75, 100})
 
 	if p.log.IsLevelEnabled(logrus.DebugLevel) {
 		p.log.WithFields(logrus.Fields{
