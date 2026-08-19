@@ -104,26 +104,27 @@
 #   every week. Renewal now runs daily.
 
 # CVE-2026-42504: MIME header DoS in Go stdlib.
-# Why no fix: carried by cadvisor v0.52.1, grafana 13.0.6-ubuntu. Each is a pinned
-# third-party image on its newest published tag (registry re-checked
-# 2026-08-19), so no upstream rebuild carrying the fix exists yet.
+# Carriers (generated 2026-08-19):
+#   gcr.io/cadvisor/cadvisor:v0.52.1, grafana/grafana:13.0.6-ubuntu
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 # Why not exploitable: None of Grafana/Loki/Promtail parses untrusted MIME
 # headers from external sources in our deployment.
 CVE-2026-42504 exp:2026-08-23
 
 # CVE-2026-21728: DoS in Grafana Tempo query parser.
-# Why no fix: carried by grafana 13.0.6-ubuntu. Each is a pinned
-# third-party image on its newest published tag (registry re-checked
-# 2026-08-19), so no upstream rebuild carrying the fix exists yet.
+# Carriers (generated 2026-08-19): grafana/grafana:13.0.6-ubuntu.
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 # Why not exploitable: We do not deploy or configure Tempo as a query source for Grafana.
 CVE-2026-21728 exp:2026-08-23
 
 # GHSA-r277-6w6q-xmqw: kin-openapi ValidationHandler.Load() silently substitutes
 # a no-op auth function when none is configured, letting requests bypass any
 # security requirement declared in an OpenAPI spec (CVSS 9.1).
-# Why no fix: carried by grafana 13.0.6-ubuntu. Each is a pinned
-# third-party image on its newest published tag (registry re-checked
-# 2026-08-19), so no upstream rebuild carrying the fix exists yet.
+# Carriers (generated 2026-08-19): grafana/grafana:13.0.6-ubuntu.
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 # Why not exploitable: exploitation requires an application to run kin-openapi's
 # ValidationHandler as HTTP middleware over an endpoint with no AuthenticationFunc
 # configured. Grafana's own dashboard/API auth (session cookie / API key / OAuth)
@@ -134,17 +135,18 @@ CVE-2026-21728 exp:2026-08-23
 GHSA-r277-6w6q-xmqw exp:2026-08-23
 
 # CVE-2026-33811: net package DoS in Go stdlib.
-# Why no fix: carried by cadvisor v0.52.1. Each is a pinned
-# third-party image on its newest published tag (registry re-checked
-# 2026-08-19), so no upstream rebuild carrying the fix exists yet.
+# Carriers (generated 2026-08-19): gcr.io/cadvisor/cadvisor:v0.52.1.
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 # Why not exploitable: Grafana's network exposure is limited to authenticated
 # admin users on port 3000 over local host mapping; Loki/Promtail are internal-only.
 CVE-2026-33811 exp:2026-08-23
 
 # CVE-2026-34040: Moby authorization bypass.
-# Why no fix: carried by cadvisor v0.52.1, alloy v1.18.1. Each is a pinned
-# third-party image on its newest published tag (registry re-checked
-# 2026-08-19), so no upstream rebuild carrying the fix exists yet.
+# Carriers (generated 2026-08-19):
+#   gcr.io/cadvisor/cadvisor:v0.52.1, grafana/alloy:v1.18.1
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 # Why not exploitable: Promtail does not manage Docker daemon authorization or
 # sockets directly in our deployment. cAdvisor is a read-only client of the
 # Docker API (container list/inspect/stats only, mounts /var/run read-only) —
@@ -153,31 +155,32 @@ CVE-2026-33811 exp:2026-08-23
 CVE-2026-34040 exp:2026-08-23
 
 # CVE-2026-28377: Info disclosure in Tempo.
-# Why no fix: carried by grafana 13.0.6-ubuntu. Each is a pinned
-# third-party image on its newest published tag (registry re-checked
-# 2026-08-19), so no upstream rebuild carrying the fix exists yet.
+# Carriers (generated 2026-08-19): grafana/grafana:13.0.6-ubuntu.
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 # Why not exploitable: Tempo integration is not deployed or used in our configuration.
 CVE-2026-28377 exp:2026-08-23
 
 # CVE-2026-33814: HTTP/2 SETTINGS frame DoS in Go.
-# Why no fix: carried by cadvisor v0.52.1. Each is a pinned
-# third-party image on its newest published tag (registry re-checked
-# 2026-08-19), so no upstream rebuild carrying the fix exists yet.
+# Carriers (generated 2026-08-19): gcr.io/cadvisor/cadvisor:v0.52.1.
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 # Why not exploitable: All three are only exposed on internal/loopback networks
 # to authorized administrators, never to untrusted clients.
 CVE-2026-33814 exp:2026-08-23
 
 # CVE-2026-42151: Info disclosure in prometheus client library.
-# Why no fix: carried by grafana 13.0.6-ubuntu. Each is a pinned
-# third-party image on its newest published tag (registry re-checked
-# 2026-08-19), so no upstream rebuild carrying the fix exists yet.
+# Carriers (generated 2026-08-19): grafana/grafana:13.0.6-ubuntu.
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 # Why not exploitable: None of these query external/untrusted Prometheus instances in our deployment.
 CVE-2026-42151 exp:2026-08-23
 
 # CVE-2026-41567: Container archive execution in Docker.
-# Why no fix: carried by cadvisor v0.52.1, alloy v1.18.1. Each is a pinned
-# third-party image on its newest published tag (registry re-checked
-# 2026-08-19), so no upstream rebuild carrying the fix exists yet.
+# Carriers (generated 2026-08-19):
+#   gcr.io/cadvisor/cadvisor:v0.52.1, grafana/alloy:v1.18.1
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 # Why not exploitable: Promtail has no access to the Docker API socket in our
 # production deployment. cAdvisor's Docker socket mount is read-only and it
 # only ever calls read-only stats/inspect endpoints — it never calls the
@@ -185,64 +188,71 @@ CVE-2026-42151 exp:2026-08-23
 CVE-2026-41567 exp:2026-08-23
 
 # CVE-2026-39820: ParseAddress net/mail DoS in Go stdlib.
-# Why no fix: carried by cadvisor v0.52.1. Each is a pinned
-# third-party image on its newest published tag (registry re-checked
-# 2026-08-19), so no upstream rebuild carrying the fix exists yet.
+# Carriers (generated 2026-08-19): gcr.io/cadvisor/cadvisor:v0.52.1.
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 # Why not exploitable: None of these parse untrusted email addresses in our deployment.
 CVE-2026-39820 exp:2026-08-23
 # CVE-2026-39836: Go toolset security update issue.
-# Why no fix: carried by cadvisor v0.52.1. Each is a pinned
-# third-party image on its newest published tag (registry re-checked
-# 2026-08-19), so no upstream rebuild carrying the fix exists yet.
+# Carriers (generated 2026-08-19): gcr.io/cadvisor/cadvisor:v0.52.1.
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 # Why not exploitable: Not reachable via any network-facing code path in our deployment.
 CVE-2026-39836 exp:2026-08-23
 # CVE-2026-42499: net/textproto consumePhrase DoS in Go stdlib.
-# Why no fix: carried by cadvisor v0.52.1. Each is a pinned
-# third-party image on its newest published tag (registry re-checked
-# 2026-08-19), so no upstream rebuild carrying the fix exists yet.
+# Carriers (generated 2026-08-19): gcr.io/cadvisor/cadvisor:v0.52.1.
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 # Why not exploitable: None of these expose a textproto-based service to untrusted input in our deployment.
 CVE-2026-42499 exp:2026-08-23
 # CVE-2026-42306: Race condition in docker cp.
-# Why no fix: Affects Promtail (EOL, no newer tag exists) and
-# gcr.io/cadvisor/cadvisor:v0.52.1 — re-verified 2026-08-03, checked v0.55.1,
-# which still carries this plus a much larger CVE set overall.
+# Carriers (generated 2026-08-19):
+#   gcr.io/cadvisor/cadvisor:v0.52.1, grafana/alloy:v1.18.1
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 # Why not exploitable: Neither Promtail nor cAdvisor invokes docker cp / the
 # archive-extraction code path this race affects — cAdvisor only calls
 # read-only stats/inspect endpoints over its read-only Docker socket mount.
 CVE-2026-42306 exp:2026-08-23
 
 # CVE-2026-27145: Go stdlib crypto/x509 certificate parsing DoS.
-# Why no fix: carried by cadvisor v0.52.1, grafana 13.0.6-ubuntu. Each is a pinned
-# third-party image on its newest published tag (registry re-checked
-# 2026-08-19), so no upstream rebuild carrying the fix exists yet.
+# Carriers (generated 2026-08-19):
+#   gcr.io/cadvisor/cadvisor:v0.52.1, grafana/grafana:13.0.6-ubuntu
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 # Why not exploitable: These only process certificates from our own PKI (not
 # untrusted external sources), so maliciously crafted certificates cannot
 # reach the vulnerable parsing code.
 CVE-2026-27145 exp:2026-08-23
 
 # CVE-2026-39828: golang.org/x/crypto/ssh before 0.52.0 — SSH connection reuse vulnerability.
-# Why no fix: carried by cadvisor v0.52.1. Each is a pinned
-# third-party image on its newest published tag (registry re-checked
-# 2026-08-19), so no upstream rebuild carrying the fix exists yet.
+# Carriers (generated 2026-08-19): gcr.io/cadvisor/cadvisor:v0.52.1.
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 # Why not exploitable: None of these components act as an SSH client or server in our
 # deployment. The vulnerable golang.org/x/crypto/ssh code path is statically linked but
 # never reachable during normal operation.
 CVE-2026-39828 exp:2026-08-23
 
 # CVE-2026-39829: golang.org/x/crypto/ssh before 0.52.0 — second SSH DoS CVE (sibling of -39828).
-# Why no fix: carried by cadvisor v0.52.1. Each is a pinned
-# third-party image on its newest published tag (registry re-checked
-# 2026-08-19), so no upstream rebuild carrying the fix exists yet.
+# Carriers (generated 2026-08-19): gcr.io/cadvisor/cadvisor:v0.52.1.
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 # Why not exploitable: None of these components use golang.org/x/crypto/ssh in our deployment.
 CVE-2026-39829 exp:2026-08-23
 
 # CVE-2026-39830: golang.org/x/crypto/ssh before 0.52.0 — third SSH DoS CVE (sibling of -39828/-39829).
-# Why no fix: Same affected images as -39828/-39829. No updated tags exist yet.
+# Carriers (generated 2026-08-19): gcr.io/cadvisor/cadvisor:v0.52.1.
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 # Why not exploitable: None of these components use golang.org/x/crypto/ssh in our deployment.
 CVE-2026-39830 exp:2026-08-23
 
 # CVE-2026-39832: golang.org/x/crypto/ssh/agent before 0.52.0 — sibling of the CVE-2026-3983x batch.
 # Affects same images as -39828/-39829/-39830. No updated tags exist yet.
+# Carriers (generated 2026-08-19): gcr.io/cadvisor/cadvisor:v0.52.1.
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 # Why not exploitable: None of these components use golang.org/x/crypto/ssh in our deployment.
 CVE-2026-39832 exp:2026-08-23
 
@@ -253,23 +263,49 @@ CVE-2026-39832 exp:2026-08-23
 # phase-825; grafana is 13.0.6-ubuntu), and the alertmanager v0.34.0 bump in
 # this PR clears these there. A reviewer reading the old text was being told
 # the waiver covered images that are not in the deployment.
-# Why no fix: carried by cadvisor v0.52.1 ONLY. v0.55.1 is the newest published
-# tag and is a measured net regression (3C/46H -> 3C/47H; clears
-# CVE-2024-41110 but introduces CVE-2026-31789, also CRITICAL), so there is no
-# upstream tag to move to. See issue #451 §3 — cadvisor is the sole carrier of
-# 24 entries in this file and is the only change that would shrink it.
+# Carriers (generated 2026-08-19): gcr.io/cadvisor/cadvisor:v0.52.1.
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 # Why not exploitable: cadvisor is an internal-only metrics sidecar on the
 # monitoring network with no host port published. It acts as neither an SSH
 # client nor server and processes no untrusted network input that would reach
 # these code paths.
 CVE-2026-25681 exp:2026-08-23
+# Carriers (generated 2026-08-19): gcr.io/cadvisor/cadvisor:v0.52.1.
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 CVE-2026-27136 exp:2026-08-23
+# Carriers (generated 2026-08-19):
+#   gcr.io/cadvisor/cadvisor:v0.52.1, grafana/alloy:v1.18.1,
+#   grafana/grafana:13.0.6-ubuntu, grafana/loki:3.7.6,
+#   oliver006/redis_exporter:v1.87.0, prom/node-exporter:v1.12.1
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 CVE-2026-39821 exp:2026-08-23
+# Carriers (generated 2026-08-19):
+#   gcr.io/cadvisor/cadvisor:v0.52.1, grafana/grafana:13.0.6-ubuntu
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 CVE-2026-39822 exp:2026-08-23
+# Carriers (generated 2026-08-19): gcr.io/cadvisor/cadvisor:v0.52.1.
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 CVE-2026-39831 exp:2026-08-23
+# Carriers (generated 2026-08-19): gcr.io/cadvisor/cadvisor:v0.52.1.
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 CVE-2026-39835 exp:2026-08-23
+# Carriers (generated 2026-08-19): gcr.io/cadvisor/cadvisor:v0.52.1.
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 CVE-2026-42508 exp:2026-08-23
+# Carriers (generated 2026-08-19): gcr.io/cadvisor/cadvisor:v0.52.1.
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 CVE-2026-46595 exp:2026-08-23
+# Carriers (generated 2026-08-19): gcr.io/cadvisor/cadvisor:v0.52.1.
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 CVE-2026-46597 exp:2026-08-23
 
 # CVE-2026-46600: golang.org/x/net/dns/dnsmessage (x/net before 0.56.0).
@@ -286,6 +322,12 @@ CVE-2026-46597 exp:2026-08-23
 # by alloy, phase-825).
 # Why no fix (third-party): pinned tags that compile x/net transitively;
 # fixing requires an upstream rebuild, and none has shipped.
+# Carriers (generated 2026-08-19):
+#   gcr.io/cadvisor/cadvisor:v0.52.1, grafana/alloy:v1.18.1,
+#   grafana/grafana:13.0.6-ubuntu, grafana/loki:3.7.6,
+#   oliver006/redis_exporter:v1.87.0, prom/node-exporter:v1.12.1
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 # ⚠ NOT TRUE OF ja4proxy:2.0.0 — that is a Go stdlib finding
 # (deploy/docker/Dockerfile.go-proxy pins golang:1.26.5-alpine) and Go 1.26.6
 # fixes it. This waiver must NOT be read as covering our own image; the bump
@@ -299,9 +341,9 @@ CVE-2026-46600 exp:2026-08-23
 
 # CVE-2026-56852: golang.org/x/text norm.Iter can enter an infinite loop on
 # certain malformed input during Unicode normalization.
-# Why no fix: carried by cadvisor v0.52.1. Each is a pinned
-# third-party image on its newest published tag (registry re-checked
-# 2026-08-19), so no upstream rebuild carrying the fix exists yet.
+# Carriers (generated 2026-08-19): gcr.io/cadvisor/cadvisor:v0.52.1.
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 # Why not exploitable: norm.Iter (Unicode normalization) is not invoked on
 # any attacker-controlled input path in our deployment — none of these four
 # services expose an endpoint that normalizes untrusted text; they consume
@@ -318,8 +360,9 @@ CVE-2026-56852 exp:2026-08-23
 # the alertmanager v0.34.0 bump in this PR clears it there too, and grafana
 # 13.0.6-ubuntu, loki 3.7.6 and alloy v1.18.1 do not carry it. promtail is no
 # longer deployed (replaced by alloy, phase-825).
-# Why no fix: carried by cadvisor v0.52.1 ONLY. v0.55.1 is a measured net
-# regression (see the cadvisor note above), so no upstream tag clears it.
+# Carriers (generated 2026-08-19): gcr.io/cadvisor/cadvisor:v0.52.1.
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 # Why not exploitable here: the vulnerable code paths are gRPC's xDS RBAC
 # filter and an HTTP/2 handling flaw used by Envoy-style xDS control planes.
 # None of these five images run as xDS servers or accept untrusted gRPC/xDS
@@ -354,24 +397,55 @@ GHSA-hrxh-6v49-42gf exp:2026-08-23
 # terminates TLS from an untrusted peer.
 # Re-verified 2026-08-03: cadvisor v0.54.1 (45 findings) and v0.55.1 (44) are
 # both WORSE than v0.52.1 (43) — each clears 9-10 CVEs but introduces 11.
+# Carriers (generated 2026-08-19): gcr.io/cadvisor/cadvisor:v0.52.1.
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 CVE-2025-22868 exp:2026-08-23
+# Carriers (generated 2026-08-19): gcr.io/cadvisor/cadvisor:v0.52.1.
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 CVE-2025-22869 exp:2026-08-23
+# Carriers (generated 2026-08-19): gcr.io/cadvisor/cadvisor:v0.52.1.
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 CVE-2025-22874 exp:2026-08-23
+# Carriers (generated 2026-08-19): gcr.io/cadvisor/cadvisor:v0.52.1.
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 CVE-2025-47913 exp:2026-08-23
+# Carriers (generated 2026-08-19): gcr.io/cadvisor/cadvisor:v0.52.1.
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 CVE-2025-61726 exp:2026-08-23
+# Carriers (generated 2026-08-19): gcr.io/cadvisor/cadvisor:v0.52.1.
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 CVE-2025-61729 exp:2026-08-23
+# Carriers (generated 2026-08-19): gcr.io/cadvisor/cadvisor:v0.52.1.
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 CVE-2025-68121 exp:2026-08-23
+# Carriers (generated 2026-08-19): gcr.io/cadvisor/cadvisor:v0.52.1.
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 CVE-2026-25679 exp:2026-08-23
+# Carriers (generated 2026-08-19): gcr.io/cadvisor/cadvisor:v0.52.1.
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 CVE-2026-32280 exp:2026-08-23
+# Carriers (generated 2026-08-19): gcr.io/cadvisor/cadvisor:v0.52.1.
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 CVE-2026-32281 exp:2026-08-23
+# Carriers (generated 2026-08-19): gcr.io/cadvisor/cadvisor:v0.52.1.
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 CVE-2026-32283 exp:2026-08-23
 
 # CVE-2025-31115: xz-libs heap-use-after-free in the threaded .xz decoder.
-# Why no fix: gcr.io/cadvisor/cadvisor:v0.52.1 ships Alpine xz-libs 5.4.3-r0;
-# a fixed 5.4.3-r1 package exists upstream but cadvisor's maintainers haven't
-# rebuilt the image against it yet. Re-verified 2026-08-03: newer tags
-# (v0.54.1, v0.55.1) exist but carry a much larger overall CVE set, not an
-# improvement.
+# Carriers (generated 2026-08-19): gcr.io/cadvisor/cadvisor:v0.52.1.
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 # Why not exploitable: cadvisor never invokes xz/liblzma decompression — it
 # reads cgroup/procfs stats and the Docker API, no compressed-archive
 # handling on any path reachable in our deployment.
@@ -380,9 +454,9 @@ CVE-2025-31115 exp:2026-08-23
 # CVE-2024-41110: moby "Authz zero length regression" (CRITICAL) — a
 # specially crafted API request with a spoofed Content-Length can bypass an
 # authorization plugin gating the Docker daemon's API.
-# Why no fix: transitively compiled into gcr.io/cadvisor/cadvisor:v0.52.1's
-# github.com/docker/docker dependency. Re-verified 2026-08-03: v0.55.1 still
-# carries this, plus a much larger CVE set overall — not an improvement.
+# Carriers (generated 2026-08-19): gcr.io/cadvisor/cadvisor:v0.52.1.
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 # Why not exploitable: this bug lives in the Docker daemon's own
 # authorization-plugin request handling. cAdvisor is a client of the Docker
 # API, not a daemon serving one — it never accepts inbound Docker API
@@ -392,10 +466,9 @@ CVE-2024-41110 exp:2026-08-23
 # CVE-2025-31133 / CVE-2025-52565 / CVE-2025-52881: runc container-escape
 # vulnerabilities (masked-path mount races, /dev/console mount races, and
 # arbitrary procfs write-gadgets via opencontainers/selinux).
-# Why no fix: gcr.io/cadvisor/cadvisor:v0.52.1 imports github.com/opencontainers/runc
-# as a Go library dependency (container/OCI state helpers) — re-verified
-# 2026-08-03, checked v0.55.1, which still carries this plus a much larger
-# CVE set overall.
+# Carriers (generated 2026-08-19): gcr.io/cadvisor/cadvisor:v0.52.1.
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 # Why not exploitable: these CVEs require runc's own container-creation code
 # path to execute — the mount-namespace setup and masked-path/device
 # handling that happens when a container is actually started. cAdvisor never
@@ -403,14 +476,20 @@ CVE-2024-41110 exp:2026-08-23
 # reads existing container stats via the Docker API and /sys, /proc. The
 # vulnerable runc code is statically linked but never invoked.
 CVE-2025-31133 exp:2026-08-23
+# Carriers (generated 2026-08-19): gcr.io/cadvisor/cadvisor:v0.52.1.
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 CVE-2025-52565 exp:2026-08-23
+# Carriers (generated 2026-08-19): gcr.io/cadvisor/cadvisor:v0.52.1.
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 CVE-2025-52881 exp:2026-08-23
 
 # CVE-2026-33186: gRPC-Go authorization bypass due to improper HTTP/2 path
 # validation (CRITICAL) — distinct from GHSA-hrxh-6v49-42gf above.
-# Why no fix: gcr.io/cadvisor/cadvisor:v0.52.1's google.golang.org/grpc
-# dependency (v1.67.0). Re-verified 2026-08-03: v0.55.1 still carries this,
-# plus a much larger CVE set overall — not an improvement.
+# Carriers (generated 2026-08-19): gcr.io/cadvisor/cadvisor:v0.52.1.
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 # Why not exploitable: this affects gRPC servers using gRPC's authorization
 # API to gate access by HTTP/2 :path. cAdvisor doesn't run a gRPC server —
 # it exposes an HTTP Prometheus metrics endpoint on the internal Docker
@@ -429,6 +508,12 @@ CVE-2026-33186 exp:2026-08-23
 # upstream tags we cannot rebuild — the fix only reaches us when each project
 # publishes an image built on 1.26.6. Registry re-checked 2026-08-19: every one
 # of the six is already on its newest published tag.
+# Carriers (generated 2026-08-19):
+#   gcr.io/cadvisor/cadvisor:v0.52.1, grafana/alloy:v1.18.1,
+#   grafana/grafana:13.0.6-ubuntu, grafana/loki:3.7.6,
+#   oliver006/redis_exporter:v1.87.0, prom/node-exporter:v1.12.1
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 # ⚠ NOT waived for our own images. The identical CVEs were present in
 # ja4proxy:2.0.0 and Phase 822 FIXED them by bumping the builder to
 # golang:1.26.6-alpine; that image now scans clean with no ignorefile at all.
@@ -439,19 +524,49 @@ CVE-2026-33186 exp:2026-08-23
 # ASN.1 or terminates TLS from an untrusted peer.
 # Re-review at expiry: check for upstream rebuilds on Go 1.26.6.
 CVE-2026-33818 exp:2026-08-24
+# Carriers (generated 2026-08-19):
+#   gcr.io/cadvisor/cadvisor:v0.52.1, grafana/alloy:v1.18.1,
+#   grafana/grafana:13.0.6-ubuntu, grafana/loki:3.7.6,
+#   oliver006/redis_exporter:v1.87.0, prom/node-exporter:v1.12.1
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 CVE-2026-56853 exp:2026-08-24
+# Carriers (generated 2026-08-19):
+#   gcr.io/cadvisor/cadvisor:v0.52.1, grafana/alloy:v1.18.1,
+#   grafana/grafana:13.0.6-ubuntu, grafana/loki:3.7.6,
+#   oliver006/redis_exporter:v1.87.0, prom/node-exporter:v1.12.1
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 CVE-2026-56858 exp:2026-08-24
+# Carriers (generated 2026-08-19):
+#   gcr.io/cadvisor/cadvisor:v0.52.1, grafana/alloy:v1.18.1,
+#   grafana/grafana:13.0.6-ubuntu, grafana/loki:3.7.6,
+#   oliver006/redis_exporter:v1.87.0, prom/node-exporter:v1.12.1
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 CVE-2026-56859 exp:2026-08-24
+# Carriers (generated 2026-08-19):
+#   gcr.io/cadvisor/cadvisor:v0.52.1, grafana/alloy:v1.18.1,
+#   grafana/grafana:13.0.6-ubuntu, grafana/loki:3.7.6,
+#   oliver006/redis_exporter:v1.87.0, prom/node-exporter:v1.12.1
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 CVE-2026-56860 exp:2026-08-24
+# Carriers (generated 2026-08-19):
+#   gcr.io/cadvisor/cadvisor:v0.52.1, grafana/alloy:v1.18.1,
+#   grafana/grafana:13.0.6-ubuntu, grafana/loki:3.7.6,
+#   oliver006/redis_exporter:v1.87.0, prom/node-exporter:v1.12.1
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 CVE-2026-56862 exp:2026-08-24
 
 # CVE-2026-71556: Go stdlib finding in grafana/alloy v1.18.1.
 # phase-825 introduced Alloy as the supported replacement for the EOL
 # grafana/promtail (29 HIGH/CRITICAL -> 6). Five of Alloy's six are already
 # waived here for other images; this is the only new one.
-# Why no fix: alloy v1.18.1 is the newest published tag (checked 2026-08-17);
-# the fix requires an upstream rebuild on a newer Go toolchain and no such tag
-# exists. This is a pinned third-party image we cannot rebuild.
+# Carriers (generated 2026-08-19): grafana/alloy:v1.18.1.
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 # ⚠ Not applicable to our own images — they build on golang:1.26.6-alpine
 # (phase-822) and scan clean with no ignorefile.
 # Why not exploitable: Alloy is an internal-only log shipper on the monitoring
@@ -471,10 +586,10 @@ CVE-2026-71556 exp:2026-08-24
 # property that survives a database refresh, and this is the second time a
 # renewal review has been overtaken by one.
 #
-# Why no fix: fixed in golang.org/x/mod 0.40.0, but both are pinned third-party
-# images we cannot rebuild. alloy v1.18.1 and alertmanager v0.34.0 are each the
-# newest published tag (registry checked 2026-08-19), so no upstream rebuild
-# carrying the fix exists yet.
+# Carriers (generated 2026-08-19):
+#   grafana/alloy:v1.18.1, prom/alertmanager:v0.34.0
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 # ⚠ Not applicable to our own images: ja4proxy:2.0.0 scans clean with no
 # ignorefile at all (phase-822 golang:1.26.6-alpine builder).
 #
@@ -487,4 +602,8 @@ CVE-2026-71556 exp:2026-08-24
 # Re-review at expiry: check for alloy / alertmanager tags built against
 # golang.org/x/mod >= 0.40.0.
 CVE-2026-56864 exp:2026-08-26
+# Carriers (generated 2026-08-19):
+#   grafana/alloy:v1.18.1, prom/alertmanager:v0.34.0
+# Each is a pinned third-party image we cannot rebuild, so the fix
+# only reaches us when the publisher ships a new tag.
 CVE-2026-56865 exp:2026-08-26

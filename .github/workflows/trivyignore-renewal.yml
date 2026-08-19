@@ -97,6 +97,15 @@ jobs:
             --scan-dir /tmp/trivy-scans | tee drift_report.txt
           echo "exit_code=$?" >> "$GITHUB_OUTPUT"
 
+          # phase-829b: regenerate the machine-checkable half of each
+          # justification from the same scan data. 18 of 56 entries had claimed
+          # to cover images deleted from the deployment, which defeats the point
+          # of a JUSTIFIED exception. Only the carrier claim is generated; the
+          # "why not exploitable here" reasoning is a human judgement about our
+          # deployment and is never machine-written.
+          python3 scripts/refresh_trivyignore_justifications.py \
+            --scan-dir /tmp/trivy-scans || true
+
       - name: Renew entries expiring within 5 days
         id: renew
         run: |

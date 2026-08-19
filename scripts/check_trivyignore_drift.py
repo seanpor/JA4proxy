@@ -94,6 +94,15 @@ def findings_from_scan(path: Path) -> Dict[str, str]:
     return out
 
 
+def _artifact_name(path: Path) -> str:
+    """The image reference Trivy recorded, falling back to the filename."""
+    try:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return path.stem
+    return doc.get("ArtifactName") or path.stem
+
+
 def scan_dir_findings(scan_dir: Path) -> Tuple[Dict[str, str], Dict[str, List[str]]]:
     """Union the findings across every *.json report in `scan_dir`.
 
@@ -108,7 +117,11 @@ def scan_dir_findings(scan_dir: Path) -> Tuple[Dict[str, str], Dict[str, List[st
         raise ValueError(f"no Trivy JSON reports found in {scan_dir}")
 
     for report in reports:
-        image = report.stem
+        # Trivy records the full image reference it scanned. Use that rather
+        # than the filename: the caller flattens `/`, `:` and `@` to `_` to make
+        # a safe filename, and that mapping is not reversible — it produced
+        # carrier claims reading "gcr.io_cadvisor_cadvisor_v0.52.1".
+        image = _artifact_name(report)
         for cve, sev in findings_from_scan(report).items():
             if severity.get(cve) != "CRITICAL":
                 severity[cve] = sev
