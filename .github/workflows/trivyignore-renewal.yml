@@ -63,6 +63,49 @@ jobs:
       - name: List what's expiring soon (dry-run preview, always runs)
         run: python3 scripts/scan_exceptions.py --within-days 5 || true
 
+      # ── phase-829a: MEASURE, don't just re-date ──────────────────────────
+      #
+      # On 2026-08-19 `make scan-images` was FAILING on grafana/alloy:v1.18.1
+      # with two unwaived HIGHs. Nobody had changed that image -- the CVEs
+      # entered the vulnerability database after the previous day's renewal
+      # review, and the ignorefile went stale underneath a deployment that had
+      # not moved. Nothing detected it, because every step above this one only
+      # re-dates entries that are ALREADY WRITTEN DOWN. A date-only renewal
+      # structurally cannot see a CVE that did not exist last week.
+      #
+      # This scans every deployed third-party image with NO ignorefile and
+      # diffs measured findings against waived ones in both directions.
+      - name: Scan deployed images (no ignorefile) and diff against the waivers
+        id: drift
+        continue-on-error: true          # report in the PR body; see the gate below
+        run: |
+          set -uo pipefail
+          mkdir -p /tmp/trivy-scans
+          images="$(python3 scripts/check_image_versions.py --list-third-party)"
+          for img in $images; do
+            slug="$(printf '%s' "$img" | tr '/:@' '___')"
+            docker run --rm \
+              -v /var/run/docker.sock:/var/run/docker.sock \
+              -v /tmp/trivy-cache:/root/.cache/trivy \
+              aquasec/trivy:0.71.0 image \
+                --severity HIGH,CRITICAL --scanners vuln \
+                --format json --quiet --timeout 10m \
+                "$img" > "/tmp/trivy-scans/${slug}.json" || \
+              echo "::warning::scan failed for $img"
+          done
+          python3 scripts/check_trivyignore_drift.py \
+            --scan-dir /tmp/trivy-scans | tee drift_report.txt
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+
+          # phase-829b: regenerate the machine-checkable half of each
+          # justification from the same scan data. 18 of 56 entries had claimed
+          # to cover images deleted from the deployment, which defeats the point
+          # of a JUSTIFIED exception. Only the carrier claim is generated; the
+          # "why not exploitable here" reasoning is a human judgement about our
+          # deployment and is never machine-written.
+          python3 scripts/refresh_trivyignore_justifications.py \
+            --scan-dir /tmp/trivy-scans || true
+
       - name: Renew entries expiring within 5 days
         id: renew
         run: |
@@ -139,6 +182,22 @@ jobs:
             echo '```'
             cat renewal_summary.txt
             echo '```'
+            echo ""
+            # phase-829a: the measured state, so the reviewer is not asked to
+            # take a date-only rewrite on trust. GAPS break `make scan-images`
+            # and are the failure mode that went undetected on 2026-08-19; DEAD
+            # entries are the only ones that ever shrink this file.
+            if [ -s drift_report.txt ]; then
+              echo "### Measured against the deployed images (no ignorefile)"
+              echo ""
+              echo '```'
+              cat drift_report.txt
+              echo '```'
+            else
+              echo "> ⚠ The image scan step produced no report — the measured"
+              echo "> check did NOT run, so this renewal is date-only and could"
+              echo "> be hiding a new CVE. Do not merge on its word alone."
+            fi
           } > issue_body.txt
 
           # Reuse a single rolling tracking issue rather than opening a new one

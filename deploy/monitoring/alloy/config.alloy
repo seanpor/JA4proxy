@@ -106,3 +106,61 @@ loki.write "default" {
 		url = "http://loki:3100/loki/api/v1/push"
 	}
 }
+
+// ── Container metrics (phase-829c) ───────────────────────────────────────────
+// Replaces the standalone gcr.io/cadvisor/cadvisor:v0.52.1 sidecar.
+//
+// WHY: that image carries 49 HIGH/CRITICAL findings and is the EXCLUSIVE
+// carrier of 24 .trivyignore entries — measured 2026-08-19, it is the only
+// change that shrinks that file (56 entries -> 21). Upgrading does not help:
+// v0.55.1 is the newest published tag and is a net regression (clears
+// CVE-2024-41110, introduces CVE-2026-31789, both CRITICAL).
+//
+// This binary ALREADY CONTAINS cadvisor — github.com/google/cadvisor is linked
+// in and `prometheus.exporter.cadvisor` is a first-class component. The stack
+// was running cadvisor's code twice: once here, inside an image we deploy,
+// scan and scrape anyway, and once as a separate image nobody could rebuild.
+//
+// SECURITY NOTE, deliberately recorded. JA4PROXY-2026-0017 removed Alloy's
+// Docker socket, and JA4PROXY-2026-0016 cut cadvisor back from
+// `privileged: true` to SYS_PTRACE + DAC_READ_SEARCH. Folding the two together
+// gives the log shipper cadvisor's host visibility. That is a real
+// concentration of privilege, accepted knowingly in exchange for removing an
+// unrebuildable image with 49 findings — NOT an oversight. The compose file
+// grants only the capabilities and read-only mounts cadvisor itself had, and
+// tests/unit/test_monitoring_privileges.py asserts the Docker socket does not
+// come back.
+prometheus.exporter.cadvisor "containers" {
+	// Match the sidecar's collection surface. docker_only keeps this to
+	// container cgroups rather than every cgroup on the host, which is what the
+	// scrape job's `name=""` relabel drop was doing by hand.
+	docker_only = true
+
+	// The sidecar's metric_relabel_configs dropped these as high-cardinality and
+	// unused; disabling them at the source is cheaper than dropping them after
+	// transfer.
+	disabled_metrics = ["referenced_memory", "cpu_topology", "resctrl"]
+
+	// MEASURED 2026-08-19 during the parallel-run parity check: left at its
+	// default this exporter attaches ~28 `container_label_*` dimensions to
+	// EVERY series — every Docker Compose label, every OCI image annotation.
+	// Nothing in alerts.yml, recording_rules.yml or the dashboards references a
+	// single one of them (grep: zero hits); the rules select on `name` only.
+	//
+	// Carrying them would multiply Prometheus' series cardinality for data no
+	// query reads. `name`, `id` and `image` are core cadvisor labels and are
+	// unaffected by this setting.
+	store_container_labels = false
+
+	storage_duration = "5m"
+}
+
+// Prometheus SCRAPES this component's endpoint — it is not pushed. That keeps
+// the existing pull architecture (Prometheus has no remote-write receiver
+// enabled) and keeps the `cadvisor` job label, so every recording rule, alert
+// and dashboard panel resolves unchanged. Phase-820 changed a label during an
+// equivalent swap (haproxy-exporter `frontend=` -> native `proxy=`) and had to
+// migrate every selector; not repeating that if it can be avoided.
+//
+// Endpoint: /api/v0/component/prometheus.exporter.cadvisor.containers/metrics
+// on the Alloy HTTP server (:12345). See prometheus.yml's `cadvisor` job.
