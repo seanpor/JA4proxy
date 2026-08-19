@@ -280,3 +280,25 @@ def test_already_banned_suggests_nothing() -> None:
     shape = shape_verdict({"ja4-scan": 400})
     out = suggest_action(shape=shape, action_counts={"block": 400}, is_banned=True)
     assert out["suggestion"] == "none"
+
+
+def test_bypassed_connection_explains_itself_via_the_rule() -> None:
+    """A blacklisted fingerprint is the most likely thing an operator clicks.
+
+    It has no signals because the scorer never ran, and returning None for it
+    sent the page down its "no explanation recorded — the events predate the
+    proxy version that records one" path. That is wrong twice over: the events
+    are current, and the reason was in them the whole time.
+    """
+    out = extract_explanation(
+        {"ja4proxy.bypass_reason": "ja4_blacklist", "event.action": "block"}
+    )
+
+    assert out is not None, "a bypass reason IS an explanation"
+    assert out["bypass_reason"] == "ja4_blacklist"
+    assert out["signals"] == [], "no signals ran, and that is the honest answer"
+
+
+def test_no_bypass_and_no_signals_is_still_unavailable() -> None:
+    """The genuinely-empty case must stay distinguishable from a bypass."""
+    assert extract_explanation({"event.risk_score": 35, "ja4proxy.bypass_reason": ""}) is None

@@ -53,14 +53,27 @@ def is_provisional(parsed: Dict[str, Any]) -> bool:
 def extract_explanation(parsed: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Pull the signal breakdown and counterfactuals out of one event.
 
-    Returns None when the event carries no explanation — an event from a proxy
-    older than 828a, or a bypassed connection that never reached the scorer.
-    The caller must render that as "not available" rather than as "no signals
-    fired": those are different facts and only one of them is about the traffic.
+    Returns None only when the event carries no explanation at all — an event
+    from a proxy older than 828a. The caller must render that as "not available"
+    rather than as "no signals fired": those are different facts and only one of
+    them is about the traffic.
+
+    A **bypassed** connection does have an explanation, and it is not the signal
+    list: it is the bypass reason. The scorer never ran, so an empty signal list
+    is the correct and complete answer, and the rule that decided it is what the
+    operator needs to see.
     """
     signals = parsed.get("ja4proxy.signals")
     counterfactuals = parsed.get("ja4proxy.counterfactuals")
-    if not signals and not counterfactuals:
+    bypass = parsed.get("ja4proxy.bypass_reason") or ""
+
+    # A bypassed connection has no signals BECAUSE the scorer never ran, and
+    # the bypass reason is the complete explanation of what happened to it.
+    # Returning None here sent the page down its "no explanation recorded --
+    # events written before the proxy was upgraded" path, which is both wrong
+    # and unhelpful for the single most likely thing an operator clicks: a
+    # blacklisted fingerprint. The reason was in the event the whole time.
+    if not signals and not counterfactuals and not bypass:
         return None
 
     clean: List[Dict[str, Any]] = []
@@ -84,7 +97,7 @@ def extract_explanation(parsed: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     return {
         "signals": clean,
         "counterfactuals": counterfactuals or {},
-        "bypass_reason": parsed.get("ja4proxy.bypass_reason") or "",
+        "bypass_reason": bypass,
     }
 
 
