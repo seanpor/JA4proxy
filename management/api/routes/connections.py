@@ -71,6 +71,9 @@ _STREAM_KEY = "events:connection"
 # the response reports when the bound was hit instead of quietly under-counting.
 _PROFILE_SCAN_LIMIT = 100_000
 _PROFILE_SCAN_BATCH = 2_000
+# Largest sequence number Redis will assign within one millisecond (uint64 max).
+# Used to build an unambiguous "everything in this millisecond" cursor.
+_MAX_STREAM_SEQ = 18446744073709551615
 
 
 async def _scan_stream(redis) -> tuple[list, int, bool]:
@@ -94,8 +97,24 @@ async def _scan_stream(redis) -> tuple[list, int, bool]:
         if len(batch) < _PROFILE_SCAN_BATCH:
             return entries, scanned, False
         # xrevrange's max is inclusive, so step one id past the last we saw.
+        #
+        # phase-828: this used to fall back to a BARE millisecond
+        # (`str(int(ms) - 1)`) when the last entry of a batch had sequence 0.
+        # A bare millisecond is ambiguous — real Redis documents the end of a
+        # range as defaulting to the maximum sequence, but fakeredis resolves
+        # it to `-0`. Under that reading every entry in the target millisecond
+        # with a sequence above 0 is skipped, so a stream busy enough to put
+        # several events in one millisecond silently under-counts: the profile
+        # pages report fewer connections than actually happened and say
+        # nothing about it.
+        #
+        # Always emit an explicit ms-seq cursor, which means the same thing to
+        # both. _MAX_STREAM_SEQ is the largest sequence Redis can assign.
         ms, _, seq = batch[-1][0].partition("-")
-        cursor = f"{ms}-{int(seq) - 1}" if seq and int(seq) > 0 else str(int(ms) - 1)
+        if seq and int(seq) > 0:
+            cursor = f"{ms}-{int(seq) - 1}"
+        else:
+            cursor = f"{int(ms) - 1}-{_MAX_STREAM_SEQ}"
     return entries, scanned, True
 _DEFAULT_LIMIT = 100
 _MAX_LIMIT = 10_000  # raised from 500 for compliance bulk exports

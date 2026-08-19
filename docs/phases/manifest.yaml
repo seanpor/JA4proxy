@@ -5009,7 +5009,7 @@ phases:
   828:
     name: Tell John what we already know — operator decision support
     status: COMPLETE
-    action_plan: docs/phases/PHASE_828.md
+    action_plan: docs/phases/complete/PHASE_828.md
     dependencies:
     - 826
     size: LARGE
