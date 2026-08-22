@@ -39,7 +39,7 @@
 # OTEL>=1.37 condition): opentelemetry-api/-sdk are now ~=1.37.0 as hoped, but
 # semgrep still hard-pins mcp==1.23.3 — the actual blocker is unchanged.
 # Re-review at next expiry: check again for a semgrep release with mcp>=1.28.
-CVE-2026-0994 exp:2026-08-23
+CVE-2026-0994 exp:2026-08-29
 
 # GHSA-6v7p-g79w-8964: msgpack for Python out-of-bounds read/crash on malformed
 # input (fixed in 1.2.1). Present in every first-party Python image.
@@ -58,7 +58,7 @@ CVE-2026-0994 exp:2026-08-23
 # Why not exploitable: pip's vendored msgpack is used only by pip's own
 # resolver/cache machinery at install time on trusted inputs; no application or
 # runtime code path in any image imports it, and pip is not run at runtime.
-GHSA-6v7p-g79w-8964 exp:2026-08-23
+GHSA-6v7p-g79w-8964 exp:2026-08-29
 
 # CVE-2025-47273: setuptools path traversal in PackageIndex (fixed in 78.1.1).
 # Same root cause as GHSA-6v7p-g79w-8964 above: NOT a dependency we install
@@ -72,7 +72,7 @@ GHSA-6v7p-g79w-8964 exp:2026-08-23
 # Why not exploitable: pip's vendored pkg_resources is used only by pip's own
 # install-time machinery on trusted inputs; no application or runtime code path
 # imports it, and pip is not run at runtime.
-CVE-2025-47273 exp:2026-08-23
+CVE-2025-47273 exp:2026-08-29
 
 # CVE-2024-23342: python-ecdsa vulnerable to the Minerva timing side-channel
 # attack (no fixed version — upstream ecdsa has no patch; the maintainer's
@@ -91,4 +91,4 @@ CVE-2025-47273 exp:2026-08-23
 # python-ecdsa — still no patched release, maintainer position unchanged.
 # python-jose -> PyJWT migration (phase-304) still not started; nothing new
 # to re-justify beyond re-confirming both facts above still hold.
-CVE-2024-23342 exp:2026-08-23
+CVE-2024-23342 exp:2026-08-29
