@@ -4,7 +4,7 @@ go 1.26.6
 
 require (
 	github.com/alicebob/miniredis/v2 v2.37.0
-	github.com/gopacket/gopacket v1.7.0
+	github.com/gopacket/gopacket v1.7.1
 	github.com/olekukonko/tablewriter v1.1.4
 	github.com/oschwald/geoip2-golang v1.13.0
 	github.com/prometheus/client_golang v1.24.1
