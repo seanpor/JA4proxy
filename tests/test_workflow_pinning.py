@@ -43,6 +43,7 @@ SHA_AND_TAG_RE = re.compile(
 KNOWN_ACTION_SHAS: dict[str, dict[str, str]] = {
     # phase-812: path-filtered poc-cold-start job in ci.yml
     "dorny/paths-filter": {
+        "v4.0.3": "ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d",  # phase-812-autofix (PR #477)
         "v3.0.2": "de90cc6fb38fc0963ad72b210f1f284cd68cea36",
     },
     # phase-302: Dependabot auto-merge workflow
@@ -88,6 +89,7 @@ KNOWN_ACTION_SHAS: dict[str, dict[str, str]] = {
         "v7.0.0": "5fda3b95a4ea91299a34e894583c3862153e4b97",  # PR #379
     },
     "trufflesecurity/trufflehog": {
+        "v3.97.1": "20652fbbdefffcdaa493a5bf57ab2ac6b1db715b",  # phase-812-autofix (PR #477)
         "v3.88.2": "a94d152bf65bebf5baa486d3d4dfee520af2ceed",
         "v3.94.3": "47e7b7cd74f578e1e3145d48f669f22fd1330ca6",
         "v3.95.5": "d411fff7b8879a62509f3fa98c07f247ac089a51",  # phase-307 (PR #105)
@@ -132,12 +134,14 @@ KNOWN_ACTION_SHAS: dict[str, dict[str, str]] = {
         "v4.2.0": "96fe6ef7f33517b61c61be40b68a1882f3264fb8",  # PR #347
     },
     "docker/setup-buildx-action": {
+        "v4.3.0": "37fe631027851001ddb9b187196cc803df7f5f0e",  # phase-812-autofix (PR #477)
         "v3.8.0": "6524bf65af31da8d45b59e8c27de4bd072b392f5",
         "v4.0.0": "4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd",
         "v4.1.0": "d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5",  # phase-307 (PR #105)
         "v4.2.0": "bb05f3f5519dd87d3ba754cc423b652a5edd6d2c",  # PR #347
     },
     "docker/login-action": {
+        "v4.6.0": "dbcb813823bdd20940b903addbd779551569679f",  # phase-812-autofix (PR #477)
         "v3.3.0": "9780b0c442fbb1117ed29e0efdff1e18412f7567",
         "v4.1.0": "4907a6ddec9925e35a0a9e82d7399ccc52663121",
         "v4.2.0": "650006c6eb7dba73a995cc03b0b2d7f5ca915bee",  # phase-307 (PR #105)
