@@ -23,7 +23,7 @@
 #   still exited 0, so the gate stayed green with near-zero real coverage.
 #   `tests/test_bandit_toolchain.py` now fails loudly if this is bumped again.
 #   Unblocks removal: a bandit release whose plugins no longer touch `ast.Num`.
-FROM python:3.11-slim
+FROM python:3.14-slim
 
 RUN useradd -r -u 1001 -s /bin/false bandit
 
