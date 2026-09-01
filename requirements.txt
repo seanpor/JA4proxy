@@ -53,13 +53,13 @@ tomli>=2.0; python_version < "3.11"  # phase-92: TOML validation fallback for Py
 
 jsonpath-ng==1.6.1  # phase-85: REST generic TI feed client (src/analytics/ti_feeds/rest_generic.py)
 
-mcp>=1.28.0  # CVE-2025-66416 — transitive dep of semgrep; pinned to force safe resolution
+mcp>=2.1.0  # CVE-2025-66416 — transitive dep of semgrep; pinned to force safe resolution
 
 # NOTE (phase-800): two CVEs are acknowledged in the lint gate because semgrep walls them off:
 #   - click 8.1.8 (PYSEC-2026-2132): fix is 8.3.3, but semgrep (incl. latest 1.170.0) pins click~=8.1.8.
 #   - protobuf 4.25.9 (PYSEC-2026-1805): fix is 5.29.6, but reaching protobuf 5.x needs semgrep>=1.137
 #     (OTEL ~=1.37), and every semgrep>=1.137 hard-pins mcp==1.12.2/1.16.0/1.23.3 — which would undo the
-#     mcp>=1.28.0 pin above (CVE-2025-66416). Keeping the mcp protection; protobuf stays 4.25.9.
+#     mcp>=2.1.0 pin above (CVE-2025-66416). Keeping the mcp protection; protobuf stays 4.25.9.
 # Remove the two --ignore-vuln flags in the Makefile lint-static target when semgrep ships a release
 # with OTEL>=1.37 AND mcp>=1.28 (then pin protobuf>=5.29.6 here).
 
