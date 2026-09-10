@@ -328,3 +328,26 @@ CVE-2026-56864 exp:2026-09-17
 # Each is a pinned third-party image we cannot rebuild, so the fix
 # only reaches us when the publisher ships a new tag.
 CVE-2026-56865 exp:2026-09-17
+
+# CVE-2026-43871: Apache Thrift Denial of Service via infinite loop.
+# Carriers (2026-09-10): grafana/grafana:13.1.4-ubuntu. Pinned upstream image we cannot rebuild.
+# Why not exploitable: Thrift protocol endpoints are not used or exposed by JA4proxy Grafana.
+CVE-2026-43871 exp:2026-09-17
+
+# CVE-2026-56854: golang.org/x/crypto/ssh vulnerability in third-party Go services.
+# Carriers (2026-09-10): grafana, loki, redis_exporter, alertmanager, node-exporter, prometheus.
+# Pinned upstream images we cannot rebuild until publishers ship new releases.
+# Why not exploitable: None of these monitoring sidecars run SSH servers or parse untrusted SSH traffic.
+CVE-2026-56854 exp:2026-09-17
+
+# CVE-2026-84304: google.golang.org/grpc vulnerability in third-party monitoring services.
+# Carriers (2026-09-10): grafana, loki, alertmanager, prometheus.
+# Pinned upstream images we cannot rebuild until publishers ship new releases.
+# Why not exploitable: Internal monitoring network only, no untrusted gRPC exposure.
+CVE-2026-84304 exp:2026-09-17
+
+# CVE-2026-14456: OpenSSL DoS via unbounded memory (libcrypto3 in Alpine).
+# Carriers (2026-09-10): haproxy:2.8.27-alpine, tecnativa/docker-socket-proxy:v0.5.0.
+# Pinned upstream images we cannot rebuild until publishers ship new tags.
+# Why not exploitable: Socket proxy only communicates over local Unix socket; HAProxy handles trusted routing in dev/poc.
+CVE-2026-14456 exp:2026-09-17
