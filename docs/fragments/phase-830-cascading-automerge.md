@@ -1,0 +1,1 @@
+- **Dependabot Cascading Rebase (Phase 830)**: Added automated branch rebasing (`update-branch`) to `dependabot-pr-refresh.yml` when Dependabot PRs are `BEHIND` `main`, automatically cascading queue progression without human intervention under strict branch protection.
