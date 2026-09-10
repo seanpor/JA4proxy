@@ -5059,3 +5059,11 @@ phases:
       as a documented permanent exception set is an explicit allowed outcome rather
       than a failure. Precedent: phase-820 replaced the haproxy-exporter sidecar the
       same way and required alert-selector migration. 12 outcomes O1-O12."
+
+  830:
+    name: "Automated Cascading Rebase for Dependabot PRs"
+    status: IN_PROGRESS
+    action_plan: docs/phases/PHASE_830.md
+    dependencies: [812]
+    size: SMALL
+    summary: "Extend dependabot-pr-refresh to automatically cascade-rebase BEHIND Dependabot PRs onto main, eliminating the manual rebase treadmill while keeping strict branch protection."
