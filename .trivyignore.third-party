@@ -351,3 +351,8 @@ CVE-2026-84304 exp:2026-09-17
 # Pinned upstream images we cannot rebuild until publishers ship new tags.
 # Why not exploitable: Socket proxy only communicates over local Unix socket; HAProxy handles trusted routing in dev/poc.
 CVE-2026-14456 exp:2026-09-17
+# CVE-2026-84445: google.golang.org/grpc Denial of Service via xDS server crash.
+# Carriers (2026-09-10): grafana/alloy, grafana/grafana, grafana/loki, prom/alertmanager, prom/prometheus.
+# Pinned upstream third-party images we cannot rebuild until publishers ship new releases.
+# Why not exploitable: Internal monitoring network only, no untrusted xDS server configuration.
+CVE-2026-84445 exp:2026-09-17
