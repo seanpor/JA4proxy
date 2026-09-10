@@ -1,3 +1,5 @@
+//go:build !no_ja4plus
+
 package tls
 
 import (

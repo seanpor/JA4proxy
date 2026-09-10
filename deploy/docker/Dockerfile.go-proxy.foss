@@ -1,0 +1,53 @@
+# Dockerfile.go-proxy.foss — Pure FOSS / royalty-free build of JA4proxy Go binary.
+# Compiled with -tags no_ja4plus, removing all FoxIO License 1.1 / patent-pending JA4+ methods.
+# Licensed under MIT and BSD-3-Clause only.
+
+# ── Build stage ───────────────────────────────────────────────────────────────
+FROM golang:1.26.6-alpine@sha256:af8d6740070b8906d12eae1c3e3ea0957fb63f492051ea05e354c38ef9fe88df AS builder
+ARG VERSION=unknown
+ARG GIT_COMMIT=unknown
+ARG BUILD_DATE=unknown
+
+RUN apk add --no-cache ca-certificates git
+
+WORKDIR /build
+
+COPY go.mod go.sum ./
+RUN --mount=type=cache,target=/go/pkg/mod,sharing=locked \
+    go mod download
+
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -tags no_ja4plus -ldflags="-s -w -extldflags '-static' -X github.com/seanpor/ja4proxy/internal/config.Version=${VERSION} -X github.com/seanpor/ja4proxy/internal/config.GitCommit=${GIT_COMMIT} -X github.com/seanpor/ja4proxy/internal/config.BuildDate=${BUILD_DATE}" -trimpath -o /ja4pd ./cmd/ja4pd
+
+# ── Runtime stage ─────────────────────────────────────────────────────────────
+FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
+
+LABEL org.opencontainers.image.source="https://github.com/seanpor/JA4proxy" \
+      org.opencontainers.image.title="ja4proxy-foss" \
+      org.opencontainers.image.description="TLS-aware passthrough security proxy (Pure FOSS Edition)" \
+      org.opencontainers.image.licenses="MIT AND BSD-3-Clause"
+
+RUN apk upgrade --no-cache && apk add --no-cache curl && \
+    addgroup -g 1000 -S ja4proxy && adduser -u 1000 -S -G ja4proxy ja4proxy
+
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=builder /ja4pd /usr/local/bin/ja4pd
+
+COPY LICENSE NOTICE /usr/share/doc/ja4proxy/
+
+COPY config/proxy.yml /app/config/proxy.yml
+COPY internal/security/rules/ /app/internal/security/rules/
+
+RUN mkdir -p /app/certs /app/logs /app/data && \
+    chown -R ja4proxy:ja4proxy /app
+
+USER 1000:1000
+WORKDIR /app
+
+EXPOSE 8443 9090
+
+HEALTHCHECK --interval=5s --timeout=2s --start-period=3s --retries=3 \
+    CMD curl -f http://localhost:9090/healthz || exit 1
+
+ENTRYPOINT ["/usr/local/bin/ja4pd"]
+CMD ["-config", "/app/config/proxy.yml"]

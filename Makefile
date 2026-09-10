@@ -1567,6 +1567,11 @@ go-build: ## Build the Go proxy daemon into bin/ja4pd
 	$(GO) build $(LDFLAGS) -o bin/ja4pd ./cmd/ja4pd
 	@echo "✓ bin/ja4pd"
 
+go-build-foss: ## Build royalty-free Go proxy daemon into bin/ja4pd-foss (-tags no_ja4plus)
+	@mkdir -p bin
+	$(GO) build -tags no_ja4plus $(LDFLAGS) -o bin/ja4pd-foss ./cmd/ja4pd
+	@echo "✓ bin/ja4pd-foss (pure FOSS, no FoxIO JA4+ methods)"
+
 
 cli-build: ## Build the unified ja4p CLI tool
 	@mkdir -p bin

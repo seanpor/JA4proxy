@@ -1,0 +1,1 @@
+- **Commercial Royalty-Free Profile (Phase 600)**: Added `-tags no_ja4plus` compile-time build tag, `Dockerfile.go-proxy.foss`, `NOTICE`, `LICENSE.foxio`, and `docs/compliance/LICENSING.md` enabling 100% royalty-free commercial deployment without FoxIO JA4+ licensing fees.

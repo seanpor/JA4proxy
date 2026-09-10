@@ -200,10 +200,22 @@ func seg(t *testing.T, seq uint32, syn, fin bool, payload []byte) []byte {
 		DstMAC:       net.HardwareAddr{0x02, 0, 0, 0, 0, 0x02},
 		EthernetType: layers.EthernetTypeIPv4,
 	}
-	ip := &layers.IPv4{Version: 4, TTL: 64, Protocol: layers.IPProtocolTCP,
-		SrcIP: net.ParseIP("10.0.0.1"), DstIP: net.ParseIP("10.0.0.2")}
+	ip := &layers.IPv4{
+		Version: 4, TTL: 64, Protocol: layers.IPProtocolTCP,
+		SrcIP: net.ParseIP("10.0.0.1"), DstIP: net.ParseIP("10.0.0.2"),
+	}
+	var tcpOpts []layers.TCPOption
+	if syn {
+		tcpOpts = []layers.TCPOption{
+			{OptionType: layers.TCPOptionKindMSS, OptionLength: 4, OptionData: []byte{0x05, 0xb4}},
+			{OptionType: layers.TCPOptionKindSACKPermitted, OptionLength: 2},
+			{OptionType: layers.TCPOptionKindTimestamps, OptionLength: 10, OptionData: []byte{1, 2, 3, 4, 0, 0, 0, 0}},
+			{OptionType: layers.TCPOptionKindNop, OptionLength: 1},
+			{OptionType: layers.TCPOptionKindWindowScale, OptionLength: 3, OptionData: []byte{7}},
+		}
+	}
 	tcp := layers.TCP{SYN: syn, ACK: !syn, FIN: fin, Seq: seq, Window: 65535,
-		SrcPort: 51000, DstPort: 443}
+		SrcPort: 51000, DstPort: 443, Options: tcpOpts}
 	_ = tcp.SetNetworkLayerForChecksum(ip)
 
 	buf := gopacket.NewSerializeBuffer()

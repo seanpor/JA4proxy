@@ -1,3 +1,18 @@
+// SPDX-License-Identifier: LicenseRef-FoxIO-1.1
+//
+// Portions of this file implement JA4T, a JA4+ fingerprinting method.
+// Copyright (c) 2024, FoxIO, LLC. All rights reserved. Patent Pending.
+// JA4+ methods are licensed under the FoxIO License 1.1 (non-commercial
+// use only). See LICENSE.foxio at the repository root, or
+// https://github.com/FoxIO-LLC/ja4/blob/main/LICENSE
+//
+// The remainder of this file is (c) 2026 Sean O'Riordain, MIT License.
+//
+// Header style mirrors the convention used in the canonical FoxIO
+// repository (see rust/ja4/src/main.rs there).
+
+//go:build !no_ja4plus
+
 package tap
 
 import (

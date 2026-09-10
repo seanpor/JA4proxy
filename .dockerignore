@@ -1,3 +1,4 @@
+tmp/
 .git/
 deploy/secrets/
 # NOTE: do NOT ignore tests/ — deploy/docker/Dockerfile.test (used by `make test-docker`)
