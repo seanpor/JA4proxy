@@ -1,0 +1,1 @@
+- **PyJWT Migration & gRPC Bump (Phase 831)**: Migrated Management API auth stack from unmaintained `python-jose` to `PyJWT`, removing `python-ecdsa` and permanently eliminating `CVE-2024-23342` waiver from `.trivyignore.first-party`. Bumped `google.golang.org/grpc` to 1.83.1 in `deploy/terraform-provider`, closing Dependabot alerts #102, #103, and #104.

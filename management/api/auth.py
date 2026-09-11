@@ -33,9 +33,10 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional, Tuple
 
 import bcrypt as _bcrypt
+import jwt
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse, RedirectResponse
-from jose import JWTError, jwt
+from jwt.exceptions import PyJWTError
 from passlib.context import CryptContext
 
 from .environment import is_explicit_nonproduction, is_production
@@ -219,7 +220,7 @@ def _decode_token(token: str) -> dict:
     try:
         payload = jwt.decode(token, _get_secret_key(), algorithms=[ALGORITHM])
         return payload
-    except JWTError as exc:
+    except PyJWTError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",

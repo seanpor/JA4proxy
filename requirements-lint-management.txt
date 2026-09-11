@@ -4,7 +4,7 @@
 #
 # fastapi, redis, jinja2, httpx, uvicorn, and cryptography are already pinned
 # in requirements.txt / requirements-test.txt and are NOT repeated here.
-python-jose[cryptography]
+PyJWT[crypto]
 passlib[bcrypt]
 bcrypt>=5.0.0
 webauthn>=3.0.0

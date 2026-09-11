@@ -5067,3 +5067,11 @@ phases:
     dependencies: [812]
     size: SMALL
     summary: "Extend dependabot-pr-refresh to automatically cascade-rebase BEHIND Dependabot PRs onto main, eliminating the manual rebase treadmill while keeping strict branch protection."
+
+  831:
+    name: "Dependency Security Hardening: PyJWT Migration & Upstream gRPC Bump"
+    status: IN_PROGRESS
+    action_plan: docs/phases/PHASE_831.md
+    dependencies: [304]
+    size: SMALL
+    summary: "Migrate management API from python-jose to PyJWT (permanently deleting CVE-2024-23342 exception) and bump google.golang.org/grpc in terraform-provider to 1.83.1 (resolving Dependabot alerts #102, #103, #104)."
