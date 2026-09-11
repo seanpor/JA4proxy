@@ -3,7 +3,7 @@
 # Keep in sync with versions used by the proxy where packages overlap.
 
 # Redis (sync + async client; aioredis 2.x is a thin shim over redis.asyncio)
-redis==8.0.1
+redis==8.1.0
 aioredis==2.0.1
 
 # HTTP server for /health, /ready, /metrics endpoints
@@ -17,9 +17,9 @@ pyyaml==6.0.3
 jsonschema==4.26.0
 
 # Numerical analysis (baseline stats, distribution comparison)
-numpy>=1.24
+numpy>=2.5.2
 
-msgpack>=1.2.1  # GHSA-6v7p-g79w-8964 (HIGH) — not a direct dep; local rebuild (Python 3.14,
+msgpack>=1.2.2  # GHSA-6v7p-g79w-8964 (HIGH) — not a direct dep; local rebuild (Python 3.14,
 # matching the image) resolved cleanly with no msgpack at all, so this pin is defensive
 # insurance against a transient PyPI resolution picking it up as some package's optional/
 # transitive extra, not a confirmed fix for a reproduced local finding.

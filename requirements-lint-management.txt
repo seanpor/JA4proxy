@@ -9,6 +9,6 @@ passlib[bcrypt]
 bcrypt>=5.0.0
 webauthn>=3.0.0
 python3-saml>=1.16
-authlib>=1.0
-pyotp>=2.9
-qrcode[pil]>=7.0
+authlib>=1.8.0
+pyotp>=2.10.0
+qrcode[pil]>=8.2
