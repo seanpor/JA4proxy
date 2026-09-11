@@ -16,6 +16,9 @@ name: Dependabot PR Refresh
 on:
   push:
     branches: [main]
+  schedule:
+    # Phase 832: Daily off-peak sweep at 03:00 UTC to rebase BEHIND Dependabot PRs
+    - cron: '0 3 * * *'
   workflow_dispatch:
     inputs:
       dry_run:

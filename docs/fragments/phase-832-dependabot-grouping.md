@@ -1,0 +1,1 @@
+- **Dependabot Grouping & Backlog Reduction (Phase 832)**: Configured grouped dependency updates for `pip`, `gomod`, and `terraform-provider` ecosystems in `.github/dependabot.yml`, and added a daily off-peak sweep to `dependabot-pr-refresh.yml` to minimize PR volume and eliminate rebase churn under strict branch protection.

@@ -35,6 +35,12 @@ updates:
     schedule:
       interval: "monthly"
     open-pull-requests-limit: 5
+    groups:
+      python-dependencies:
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "pip-audit"
     cooldown:
       default-days: 7
     # PR #374: pip-audit>=2.8.0 pulls in mcp/semgrep/tomli versions that
@@ -51,6 +57,10 @@ updates:
     schedule:
       interval: "monthly"
     open-pull-requests-limit: 5
+    groups:
+      go-dependencies:
+        patterns:
+          - "*"
     cooldown:
       default-days: 7
 
@@ -67,6 +77,10 @@ updates:
     schedule:
       interval: "monthly"
     open-pull-requests-limit: 5
+    groups:
+      terraform-dependencies:
+        patterns:
+          - "*"
     cooldown:
       default-days: 7
 
