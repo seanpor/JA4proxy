@@ -5,6 +5,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -173,8 +174,7 @@ func hkdfExpandLabel(secret, label, context []byte, length int) []byte {
 	labelFull := append(prefix, label...)
 
 	hkdfLabel := make([]byte, 2+1+len(labelFull)+1+len(context))
-	hkdfLabel[0] = byte(length >> 8)
-	hkdfLabel[1] = byte(length)
+	binary.BigEndian.PutUint16(hkdfLabel[0:2], uint16(length))
 	hkdfLabel[2] = byte(len(labelFull))
 	copy(hkdfLabel[3:], labelFull)
 	off := 3 + len(labelFull)

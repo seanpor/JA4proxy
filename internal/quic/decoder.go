@@ -29,9 +29,6 @@ const (
 	HandshakeTTL = 30 * time.Second
 )
 
-// QUIC Initial Header Key Label for key derivation.
-const initialSecretLabel = "tls13 quic secret"
-
 // quicConnID is a fixed-size key for the active-connections map.
 type quicConnID [32]byte
 
@@ -116,10 +113,9 @@ func (d *Decoder) DecodeInitial(
 		return nil, nil // not an Initial packet
 	}
 
-	// --- Parse header fields ---
 	off := 1
 	version, n := readVarint(payload[off:])
-	if n <= 0 {
+	if n <= 0 || version > 0xffffffff {
 		return nil, fmt.Errorf("quic: invalid version varint at offset %d", off)
 	}
 	off += n
