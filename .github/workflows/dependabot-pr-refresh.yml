@@ -1,29 +1,15 @@
 ---
-# Phase 812 (812-D) — Auto-nudge stale Dependabot PRs on main-branch changes.
+# Phase 812 (812-D) & Phase 830 — Automated cascading rebase and refresh for Dependabot PRs on main-branch changes.
 #
-# When a main-branch fix changes CI's pass/fail state (e.g. PR #389), every
-# open Dependabot PR whose CI ran before that fix keeps failing on the stale
-# snapshot until someone notices and nudges it. On 2026-08-03 this was all 7
-# open PRs, discovered only because someone asked "why are there still 7
-# open PRs?"
-#
-# Dedup rule (scripts/dependabot_pr_refresh.py): a PR gets refreshed at most
-# ONCE per head SHA, tracked via a `nudged:<short-sha>` label. A PR failing
-# for a REAL, non-stale reason does NOT get repeatedly refreshed on every
-# subsequent unrelated main push -- that's the spam risk this rule exists to
-# avoid.
-#
-# Mechanism: close + reopen the PR, not an `@dependabot rebase` comment.
-# Directly observed `@dependabot rebase` sit inert for 8+ minutes on PR #390
-# in the same session this phase's investigation started, while close+reopen
-# triggered an immediate fresh CI run.
+# When a PR merges to main:
+# 1. Open Dependabot PRs in state 'BEHIND' are cascade-rebased via GitHub API (one per push,
+#    preventing thundering herds). Auto-merge squash-merges each upon green CI, which in
+#    turn triggers this workflow for the next PR.
+# 2. Conflicted PRs ('DIRTY') receive an @dependabot rebase comment.
+# 3. Failing PRs are refreshed via close/reopen (at most ONCE per head SHA via dedup label).
 #
 # continue-on-error on the whole job: a notifier/nudger must never itself
-# become a required, blockable check (same rule already documented for
-# ci.yml's notify-scheduled-failure).
-#
-# Third-party actions are SHA-pinned per the convention in
-# .github/workflows/release-cli.yml.
+# become a required, blockable check.
 
 name: Dependabot PR Refresh
 
@@ -42,9 +28,10 @@ permissions:
 
 jobs:
   refresh:
-    name: Refresh stale Dependabot PRs
+    name: Refresh and rebase stale Dependabot PRs
     continue-on-error: true
     permissions:
+      contents: write
       pull-requests: write
       issues: write
     runs-on: ubuntu-latest
@@ -55,7 +42,7 @@ jobs:
         with:
           python-version: "3.14"
 
-      - name: Refresh each open Dependabot PR that's stale-failing
+      - name: Process open Dependabot PRs (cascading rebase and stale refresh)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DRY_RUN: ${{ github.event.inputs.dry_run }}
@@ -65,6 +52,8 @@ jobs:
           echo "$prs" | python3 -c "import json,sys; print(len(json.load(sys.stdin)))" | \
             xargs -I{} echo "Found {} open Dependabot PR(s)"
 
+          updated_one_branch=false
+
           echo "$prs" | python3 -c '
           import json, sys
           for pr in json.load(sys.stdin):
@@ -72,36 +61,62 @@ jobs:
           ' | while read -r number head_sha labels; do
             echo "--- PR #$number (head $head_sha) ---"
 
-            # A required check still "pending" isn't the same as "failing" --
-            # only refresh PRs with a genuine failure, not ones mid-run.
+            # Query mergeable_state from GitHub REST API (behind, clean, dirty, blocked, unknown)
+            merge_state=$(gh api "repos/${{ github.repository }}/pulls/$number" --jq '.mergeable_state' 2>/dev/null || echo "unknown")
+
+            # A required check still "pending" isn'\''t the same as "failing" --
+            # don'\''t re-trigger PRs currently running CI
             conclusion=$(gh pr checks "$number" --json state -q '
               if any(.[] | .state == "FAILURE") then "failing"
               elif any(.[] | .state == "PENDING") then "pending"
               else "passing" end
             ' 2>/dev/null || echo "pending")
             if [ "$conclusion" = "pending" ]; then
-              echo "SKIP still running"
+              echo "SKIP still running (merge_state=$merge_state)"
               continue
             fi
             checks_passing="false"
             [ "$conclusion" = "passing" ] && checks_passing="true"
 
             decision=$(python3 scripts/dependabot_pr_refresh.py \
-              --head-sha "$head_sha" --checks-passing "$checks_passing" --labels "$labels")
-            echo "$decision"
+              --head-sha "$head_sha" --checks-passing "$checks_passing" --labels "$labels" --merge-state "$merge_state")
+            echo "$decision (merge_state=$merge_state)"
 
             action=$(echo "$decision" | awk '{print $1}')
-            [ "$action" = "REFRESH" ] || continue
-            [ "$DRY_RUN" = "true" ] && { echo "(dry-run, not acting)"; continue; }
 
-            remove_label=$(echo "$decision" | awk '{print $2}')
-            add_label=$(echo "$decision" | awk '{print $3}')
+            if [ "$action" = "UPDATE_BRANCH" ]; then
+              if [ "$updated_one_branch" = "true" ]; then
+                echo "Deferring UPDATE_BRANCH on #$number (already triggered rebase on previous PR this run)"
+                continue
+              fi
+              [ "$DRY_RUN" = "true" ] && { echo "(dry-run, not acting)"; continue; }
+              remove_label=$(echo "$decision" | awk '{print $2}')
+              [ "$remove_label" != "-" ] && gh pr edit "$number" --remove-label "$remove_label" >/dev/null 2>&1 || true
 
-            gh label create "$add_label" --color BFD4F2 --force >/dev/null 2>&1 || true
-            [ "$remove_label" != "-" ] && gh pr edit "$number" --remove-label "$remove_label" >/dev/null 2>&1 || true
-            gh pr edit "$number" --add-label "$add_label"
+              echo "Triggering server-side branch update for PR #$number..."
+              if gh api -X PUT "repos/${{ github.repository }}/pulls/$number/update-branch" >/dev/null 2>&1; then
+                echo "Successfully requested update-branch for PR #$number"
+                updated_one_branch=true
+              else
+                echo "Failed or rejected update-branch for PR #$number"
+              fi
 
-            gh pr close "$number"
-            gh pr reopen "$number"
-            echo "Refreshed PR #$number"
+            elif [ "$action" = "CONFLICT_REBASE" ]; then
+              [ "$DRY_RUN" = "true" ] && { echo "(dry-run, not acting)"; continue; }
+              gh pr comment "$number" --body "@dependabot rebase" || true
+              echo "Requested @dependabot rebase on conflicted PR #$number"
+
+            elif [ "$action" = "REFRESH" ]; then
+              [ "$DRY_RUN" = "true" ] && { echo "(dry-run, not acting)"; continue; }
+              remove_label=$(echo "$decision" | awk '{print $2}')
+              add_label=$(echo "$decision" | awk '{print $3}')
+
+              gh label create "$add_label" --color BFD4F2 --force >/dev/null 2>&1 || true
+              [ "$remove_label" != "-" ] && gh pr edit "$number" --remove-label "$remove_label" >/dev/null 2>&1 || true
+              gh pr edit "$number" --add-label "$add_label"
+
+              gh pr close "$number"
+              gh pr reopen "$number"
+              echo "Refreshed PR #$number"
+            fi
           done

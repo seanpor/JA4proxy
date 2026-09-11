@@ -1,22 +1,26 @@
 #!/usr/bin/env python3
-"""Decide whether a Dependabot PR needs a stale-CI refresh (Phase 812, 812-D).
+"""Decide whether a Dependabot PR needs a stale-CI refresh or cascading rebase (Phase 812, Phase 830).
 
 Pure decision logic, kept separate from the gh-CLI orchestration (listing
-PRs, checking status, applying labels, closing/reopening) that lives in
-.github/workflows/dependabot-pr-refresh.yml -- so the dedup rule itself is
-unit-testable without mocking the GitHub API.
+PRs, checking status, applying labels, closing/reopening, updating branch) that
+lives in .github/workflows/dependabot-pr-refresh.yml -- so the dedup rule itself
+is unit-testable without mocking the GitHub API.
 
-The rule: a PR gets refreshed (close/reopen) at most ONCE per head SHA. A
-`nudged:<short-sha>` label marks "already refreshed at this commit" -- if
-the PR's checks are still failing after a real new commit changes the head
-SHA, the label no longer matches and it gets refreshed again; if checks are
-failing for a REAL, non-stale reason, it does NOT get re-refreshed on every
-subsequent main push, which is the spam risk this rule specifically exists
-to avoid (see docs/phases/PHASE_812.md's 812-D section).
+The rules:
+1. If merge_state is "behind" (and checks are not currently failing):
+   Action: UPDATE_BRANCH (calls GitHub API to update/rebase branch onto main).
+2. If merge_state is "dirty" (merge conflicts):
+   Action: CONFLICT_REBASE (comments @dependabot rebase to regenerate against main).
+3. If checks are failing:
+   A PR gets refreshed (close/reopen) at most ONCE per head SHA. A
+   `nudged:<short-sha>` label marks "already refreshed at this commit".
+   Action: REFRESH <remove-label-or--> <add-label>.
+4. Otherwise:
+   Action: SKIP <reason>.
 
 CLI usage (one PR at a time, called from the workflow):
-    python3 dependabot_pr_refresh.py --head-sha <sha> --checks-passing <true|false> --labels <comma-separated>
-Prints one line: "REFRESH <remove-label-or-> <add-label>" or "SKIP <reason>".
+    python3 dependabot_pr_refresh.py --head-sha <sha> --checks-passing <true|false> --labels <comma-separated> [--merge-state <state>]
+Prints one line: "UPDATE_BRANCH", "CONFLICT_REBASE", "REFRESH <remove> <add>", or "SKIP <reason>".
 """
 from __future__ import annotations
 
@@ -26,26 +30,41 @@ import sys
 NUDGE_PREFIX = "nudged:"
 
 
-def decide(labels: list[str], head_sha_short: str, checks_passing: bool):
-    """Returns (should_refresh, label_to_remove_or_None, label_to_add_or_None).
+def decide(
+    labels: list[str],
+    head_sha_short: str,
+    checks_passing: bool,
+    merge_state: str = "clean",
+):
+    """Returns (action, label_to_remove_or_None, label_to_add_or_None, reason).
 
-    Removing the stale nudged:<old-sha> label (if any) before adding the new
-    one keeps exactly one nudged:* label on the PR at a time -- a second,
-    smaller reason to remove it: an accumulating pile of one-per-push labels
-    would be noise on a PR that fails for a long time.
+    Actions:
+    - ("REFRESH", remove_label, add_label, reason)
+    - ("UPDATE_BRANCH", remove_label, None, reason)
+    - ("CONFLICT_REBASE", None, None, reason)
+    - ("SKIP", remove_label_or_None, None, reason)
     """
     target_label = f"{NUDGE_PREFIX}{head_sha_short}"
     existing_nudge = next((label for label in labels if label.startswith(NUDGE_PREFIX)), None)
 
-    if checks_passing:
-        # Nothing to refresh. If a stale nudge label is hanging around from
-        # a previous failing commit, clean it up (cosmetic, not load-bearing).
-        return False, existing_nudge, None
+    # If merge conflict, dependabot needs to regenerate the PR
+    if merge_state == "dirty":
+        return "CONFLICT_REBASE", None, None, "merge conflict"
 
-    if existing_nudge == target_label:
-        return False, None, None  # already refreshed at this exact commit
+    # If checks are failing, apply anti-spam refresh logic
+    if not checks_passing:
+        if existing_nudge == target_label:
+            return "SKIP", None, None, "already refreshed at this head SHA"
+        return "REFRESH", existing_nudge, target_label, "checks failing"
 
-    return True, existing_nudge, target_label
+    # Checks are passing or clean: clean up any stale nudge label
+    stale_label = existing_nudge
+
+    # If branch is behind main, rebase/update it onto main so auto-merge can land it
+    if merge_state == "behind":
+        return "UPDATE_BRANCH", stale_label, None, "branch behind main"
+
+    return "SKIP", stale_label, None, "checks passing and branch up to date"
 
 
 def main(argv: list[str]) -> int:
@@ -53,17 +72,24 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--head-sha", required=True)
     ap.add_argument("--checks-passing", required=True, choices=["true", "false"])
     ap.add_argument("--labels", default="", help="comma-separated current labels")
+    ap.add_argument("--merge-state", default="clean", help="mergeable_state from GitHub API")
     args = ap.parse_args(argv)
 
     labels = [label for label in args.labels.split(",") if label]
-    should_refresh, remove_label, add_label = decide(
-        labels, args.head_sha, args.checks_passing == "true"
+    action, remove_label, add_label, reason = decide(
+        labels,
+        args.head_sha,
+        args.checks_passing == "true",
+        args.merge_state.lower(),
     )
 
-    if should_refresh:
+    if action == "REFRESH":
         print(f"REFRESH {remove_label or '-'} {add_label}")
+    elif action == "UPDATE_BRANCH":
+        print(f"UPDATE_BRANCH {remove_label or '-'}")
+    elif action == "CONFLICT_REBASE":
+        print("CONFLICT_REBASE")
     else:
-        reason = "checks passing" if args.checks_passing == "true" else "already refreshed at this head SHA"
         print(f"SKIP {reason}")
     return 0
 
