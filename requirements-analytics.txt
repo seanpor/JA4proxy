@@ -14,7 +14,7 @@ prometheus-client==0.26.0
 
 # Config + validation
 pyyaml==6.0.3
-jsonschema==4.26.0
+jsonschema==4.25.1
 
 # Numerical analysis (baseline stats, distribution comparison)
 numpy>=2.5.2
