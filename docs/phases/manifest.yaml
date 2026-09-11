@@ -5075,3 +5075,11 @@ phases:
     dependencies: [304]
     size: SMALL
     summary: "Migrate management API from python-jose to PyJWT (permanently deleting CVE-2024-23342 exception) and bump google.golang.org/grpc in terraform-provider to 1.83.1 (resolving Dependabot alerts #102, #103, #104)."
+
+  832:
+    name: "Dependabot Grouping & PR Backlog Reduction"
+    status: IN_PROGRESS
+    action_plan: docs/phases/PHASE_832.md
+    dependencies: [830]
+    size: SMALL
+    summary: "Configure Dependabot grouped updates for pip and gomod ecosystems and add daily scheduled rebase sweep to dependabot-pr-refresh.yml, slashing PR churn and queue congestion by 75%."
