@@ -14,9 +14,9 @@ import time
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
+import jwt
 import pytest
 from httpx import AsyncClient
-from jose import jwt
 
 
 @pytest.mark.asyncio
@@ -242,8 +242,8 @@ async def test_expired_cookie_valid_bearer_succeeds(fake_redis) -> None:
     """
     from datetime import datetime, timedelta, timezone
 
+    import jwt
     from httpx import ASGITransport
-    from jose import jwt
 
     from management.api import redis_client as _redis_module
     from management.api.auth import ALGORITHM, _create_access_token, _get_secret_key

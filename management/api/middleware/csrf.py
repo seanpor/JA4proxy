@@ -45,9 +45,10 @@ import time
 from hashlib import sha256
 from typing import Awaitable, Callable, Optional
 
+import jwt
 from fastapi import Request, Response
 from fastapi.responses import JSONResponse
-from jose import JWTError, jwt
+from jwt.exceptions import PyJWTError
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
@@ -143,8 +144,8 @@ def _extract_session_id(request: Request) -> Optional[str]:
         return None
 
     try:
-        payload = jwt.get_unverified_claims(token)
-    except JWTError:
+        payload = jwt.decode(token, options={"verify_signature": False})
+    except PyJWTError:
         return None
 
     sub = payload.get("sub")

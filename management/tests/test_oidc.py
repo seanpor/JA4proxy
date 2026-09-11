@@ -382,7 +382,7 @@ async def test_oidc_callback_role_embedded_in_jwt(
     fake_redis: fakeredis.aioredis.FakeRedis,
 ) -> None:
     """Callback JWT contains the role derived from OIDC groups claim."""
-    from jose import jwt as _jwt
+    import jwt as _jwt
 
     from management.api.routes.oidc import _clear_jwks_cache
 

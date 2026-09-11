@@ -312,7 +312,7 @@ async def test_saml_acs_role_embedded_in_token(
     fake_redis: fakeredis.aioredis.FakeRedis,
 ) -> None:
     """After ACS, the issued JWT embeds the correct role from group mapping."""
-    from jose import jwt as _jwt
+    import jwt as _jwt
 
     app = create_app()
     await _redis_module.init_redis(override_client=fake_redis)
@@ -661,7 +661,7 @@ async def test_saml_acs_idp_mfa_trust_sets_session_key(
     """
     import hashlib
 
-    from jose import jwt as _jwt
+    import jwt as _jwt
 
     app = create_app()
     await _redis_module.init_redis(override_client=fake_redis)
