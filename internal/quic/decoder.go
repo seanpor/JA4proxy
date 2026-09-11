@@ -155,10 +155,11 @@ func (d *Decoder) DecodeInitial(
 		return nil, fmt.Errorf("quic: invalid token length varint at offset %d", off)
 	}
 	off += n
-	if off+int(tokenLen) > len(payload) {
+	if tokenLen > uint64(len(payload)-off) { // #nosec G115 -- bounded check
 		return nil, errors.New("quic: truncated token")
 	}
-	off += int(tokenLen)
+	tLen := int(tokenLen) // #nosec G115 -- tokenLen bounded by len(payload)-off
+	off += tLen
 
 	// --- Length (varint) ---
 	pktLen, n := readVarint(payload[off:])
@@ -167,7 +168,7 @@ func (d *Decoder) DecodeInitial(
 	}
 	off += n
 
-	pktEnd := off + int(pktLen)
+	pktEnd := off + int(pktLen) // #nosec G115 -- bounded by following min check
 	if pktEnd > len(payload) {
 		pktEnd = len(payload) // truncate to available data
 	}

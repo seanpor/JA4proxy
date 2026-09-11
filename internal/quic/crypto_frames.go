@@ -65,12 +65,12 @@ func ParseCRYPTOFrames(payload []byte) ([]byte, error) {
 		off += n
 
 		// Bounds check
-		if cryptoLen > uint64(len(payload)-off) {
+		if cryptoLen > uint64(len(payload)-off) { // #nosec G115 -- bounded check
 			return nil, fmt.Errorf("quic: CRYPTO frame truncated: offset=%d length=%d available=%d",
 				off, cryptoLen, len(payload)-off)
 		}
 
-		cLen := int(cryptoLen)
+		cLen := int(cryptoLen) // #nosec G115 -- cryptoLen bounded by len(payload)-off
 		// Safety: cap total CRYPTO bytes
 		data := payload[off : off+cLen]
 		off += cLen
@@ -131,7 +131,7 @@ func WrapInTLSRecord(handshakeBytes []byte) []byte {
 	record[0] = 0x16 // ContentType: handshake
 	record[1] = 0x03 // LegacyRecordVersion: 0x0301
 	record[2] = 0x01
-	binary.BigEndian.PutUint16(record[3:5], uint16(len(handshakeBytes)))
+	binary.BigEndian.PutUint16(record[3:5], uint16(len(handshakeBytes))) // #nosec G115 -- handshakeBytes capped by MaxCryptoBytes
 	copy(record[5:], handshakeBytes)
 	return record
 }

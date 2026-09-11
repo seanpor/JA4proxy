@@ -160,10 +160,8 @@ func DeriveInitialKey(dcid, handshakeSecret []byte) (key, iv []byte, err error) 
 	return salt, iv, nil
 }
 
-// hkdfExpandLabel implements TLS 1.3 HKDF-Expand-Label (RFC 8446 §7.1).
-func hkdfExpandLabel(secret, label, context []byte, length int) []byte {
+func hkdfExpandLabel(secret, label, context []byte, length uint16) []byte {
 	// HkdfLabel = uint16(length) + LabelLen + Label + ContextLen + Context
-	// But HKDF-Expand-Label has a specific wire format:
 	// struct {
 	//   uint16 length = Hash.length;  // truncated to 'length'
 	//   opaque label<7..255> = "HKDF-Expand-Label: " + Label;
@@ -172,17 +170,20 @@ func hkdfExpandLabel(secret, label, context []byte, length int) []byte {
 
 	prefix := []byte("HKDF-Expand-Label:")
 	labelFull := append(prefix, label...)
+	if len(labelFull) > 255 || len(context) > 255 {
+		return nil
+	}
 
 	hkdfLabel := make([]byte, 2+1+len(labelFull)+1+len(context))
-	binary.BigEndian.PutUint16(hkdfLabel[0:2], uint16(length))
-	hkdfLabel[2] = byte(len(labelFull))
+	binary.BigEndian.PutUint16(hkdfLabel[0:2], length)
+	hkdfLabel[2] = byte(len(labelFull) & 0xff)
 	copy(hkdfLabel[3:], labelFull)
 	off := 3 + len(labelFull)
-	hkdfLabel[off] = byte(len(context))
+	hkdfLabel[off] = byte(len(context) & 0xff)
 	copy(hkdfLabel[off+1:], context)
 
 	// HKDF-Expand(PRK, info, L) using HMAC-SHA256
-	return hkdfExpand(secret, hkdfLabel, length)
+	return hkdfExpand(secret, hkdfLabel, int(length))
 }
 
 // hkdfExpand implements HKDF-Expand (RFC 5869 §2.2) with HMAC-SHA256.
