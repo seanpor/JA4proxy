@@ -5090,6 +5090,14 @@ phases:
     size: SMALL
     summary: "Configure Dependabot grouped updates for pip and gomod ecosystems and add daily scheduled rebase sweep to dependabot-pr-refresh.yml, slashing PR churn and queue congestion by 75%."
 
+  833:
+    name: "Eliminate First-Party CVE Scan Exceptions"
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_833.md
+    dependencies: [800]
+    size: SMALL
+    summary: "Eliminate all 3 first-party security scan exceptions (CVE-2026-0994, GHSA-6v7p-g79w-8964, CVE-2025-47273) by upgrading protobuf to 5.x and stripping pip from runtime images, achieving 0 first-party scan exceptions."
+
   600:
     name: "QUIC/JA4Q Passive Sensing"
     status: IN_PROGRESS

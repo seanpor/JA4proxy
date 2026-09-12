@@ -29,6 +29,8 @@ RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked \
     apk add --no-cache --virtual .build-deps build-base openssl-dev && \
     pip install --upgrade pip && \
     pip install -r requirements-analytics.txt && \
+    pip uninstall -y pip && \
+    rm -rf /usr/local/lib/python3.14/ensurepip /usr/local/lib/python3.14/site-packages/pip* /usr/local/bin/pip* && \
     apk del .build-deps
 
 # Copy application code

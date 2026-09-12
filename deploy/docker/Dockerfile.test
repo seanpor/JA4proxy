@@ -43,7 +43,9 @@ RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked \
 # Copy test dependencies
 COPY requirements-test.txt .
 RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked \
-    pip install -r requirements-test.txt
+    pip install -r requirements-test.txt && \
+    pip uninstall -y pip setuptools wheel && \
+    rm -rf /usr/local/lib/python3.14/ensurepip /usr/local/lib/python3.14/site-packages/pip* /usr/local/lib/python3.14/site-packages/setuptools* /usr/local/lib/python3.14/site-packages/wheel* /usr/local/bin/pip*
 
 # Copy application and test files (proxy.py was archived in Phase 128)
 COPY tests/ tests/
