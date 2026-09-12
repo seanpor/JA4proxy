@@ -28,6 +28,8 @@ RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked \
         build-base libffi-dev openssl-dev libxml2-dev xmlsec-dev pkgconfig && \
     pip install --upgrade pip setuptools wheel && \
     pip install -r requirements.txt && \
+    pip uninstall -y pip setuptools wheel && \
+    rm -rf /usr/local/lib/python3.14/ensurepip /usr/local/lib/python3.14/site-packages/pip* /usr/local/lib/python3.14/site-packages/setuptools* /usr/local/lib/python3.14/site-packages/wheel* /usr/local/bin/pip* && \
     apk del .build-deps
 
 # Copy management service
