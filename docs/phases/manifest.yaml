@@ -5085,7 +5085,7 @@ phases:
   832:
     name: "Dependabot Grouping & PR Backlog Reduction"
     status: COMPLETE
-    action_plan: docs/phases/PHASE_832.md
+    action_plan: docs/phases/complete/PHASE_832.md
     dependencies: [830]
     size: SMALL
     summary: "Configure Dependabot grouped updates for pip and gomod ecosystems and add daily scheduled rebase sweep to dependabot-pr-refresh.yml, slashing PR churn and queue congestion by 75%."
