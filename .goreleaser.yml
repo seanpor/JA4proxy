@@ -33,6 +33,8 @@ archives:
         format: zip
     files:
       - LICENSE
+      - NOTICE
+      - LICENSE.foxio
       - README.md
 
 checksum:

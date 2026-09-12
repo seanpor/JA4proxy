@@ -58,6 +58,7 @@ epics:
   - 400
   - 500
   - 501
+  - 601
 - name: 'Epic: Analytics & Intelligence'
   description: Cross-instance behavior analysis and threat intelligence.
   phases:
@@ -75,10 +76,12 @@ epics:
   - 59
   - 500
   - 501
+  - 602
 - name: 'Epic: Next-Gen Passive Capture'
   description: Out-of-band monitoring and enforcement.
   phases:
   - 20
+  - 600
 - name: 'Epic: User Interface & Experience'
   description: Management dashboards and documentation quality.
   phases:
@@ -106,6 +109,7 @@ epics:
   - 248
   - 249
   - 250
+  - 604
 - name: 'Epic: Operational Excellence & Lifecycle Management'
   description: Zero-downtime upgrades, robust health monitoring, and deployment orchestration.
   phases:
@@ -130,6 +134,7 @@ epics:
   - 331
   - 500
   - 501
+  - 603
 - name: 'Epic: Quality Assurance & Test Maturity'
   description: Comprehensive testing, adversarial coverage, and performance validation.
   phases:
@@ -149,10 +154,12 @@ epics:
   - 115
   - 116
   - 117
+  - 605
 - name: 'Epic: Regulatory & Supply-Chain Conformance'
   description: Alignment with international standards and regulatory frameworks.
   phases:
   - 107
+  - 601
 phases:
   103:
     name: Manifest Gap Cleanup
@@ -5059,7 +5066,6 @@ phases:
       as a documented permanent exception set is an explicit allowed outcome rather
       than a failure. Precedent: phase-820 replaced the haproxy-exporter sidecar the
       same way and required alert-selector migration. 12 outcomes O1-O12."
-
   830:
     name: "Automated Cascading Rebase for Dependabot PRs"
     status: IN_PROGRESS
@@ -5078,8 +5084,61 @@ phases:
 
   832:
     name: "Dependabot Grouping & PR Backlog Reduction"
-    status: IN_PROGRESS
-    action_plan: docs/phases/PHASE_832.md
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_832.md
     dependencies: [830]
     size: SMALL
     summary: "Configure Dependabot grouped updates for pip and gomod ecosystems and add daily scheduled rebase sweep to dependabot-pr-refresh.yml, slashing PR churn and queue congestion by 75%."
+
+  600:
+    name: "QUIC/JA4Q Passive Sensing"
+    status: IN_PROGRESS
+    action_plan: docs/phases/PHASE_600.md
+    dependencies:
+    - 316
+    size: LARGE
+    summary: "Implement UDP-based QUIC-Initial decoder in cmd/ja4-tap to support JA4Q fingerprinting. Closes the HTTP/3 blind spot in passive monitoring."
+  601:
+    name: "SLSA Level 3 Release Pipeline"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_601.md
+    dependencies:
+    - 107
+    - 202
+    size: LARGE
+    summary: "Achieve SLSA L3 build provenance for Go binary and Docker images by integrating slsa-framework/slsa-github-generator."
+  602:
+    name: "Shadow Mode & Policy Analytics"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_602.md
+    dependencies:
+    - 79
+    - 100
+    size: LARGE
+    summary: "Enable Shadow Mode for policy testing without enforcement and implement simulation API and analytics dashboard."
+  603:
+    name: "Hermetic Tooling & make doctor Accuracy"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_603.md
+    dependencies:
+    - 225
+    - 313
+    size: MEDIUM
+    summary: "Containerize remaining 5 host-only linters and align CI/Makefile to use pinned Docker tools exclusively."
+  604:
+    name: "Documentation Information Architecture"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_604.md
+    dependencies:
+    - 309
+    size: MEDIUM
+    summary: "Formalize IA mapping between repo structure and documentation hierarchy; complete remaining operator runbooks."
+  605:
+    name: "Go Test Parity (Adversarial Coverage)"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_605.md
+    dependencies:
+    - 15
+    - 62
+    size: LARGE
+    summary: "Port Python adversarial tests to Go and expand fuzzing corpus to ensure behavioral parity for edge cases."

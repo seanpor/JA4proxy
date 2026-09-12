@@ -18,6 +18,10 @@ const osClassTTL = 24 * time.Hour
 // staleness, and a client's TCP stack signature is as stable as its OS class.
 const ja4tTTL = 24 * time.Hour
 
+// ja4qTTL bounds how long an observed JA4Q lives in Redis. 24h matches the
+// convention used by ja4tTTL and osClassTTL.
+const ja4qTTL = 24 * time.Hour
+
 // redisSetter is the narrow write interface the Store needs. It returns an error
 // so the Store can count failures; the live go-redis client is adapted to it in
 // cmd/ja4-tap.
@@ -98,6 +102,30 @@ func (s *Store) WriteJA4T(ctx context.Context, clientIP, ja4t string) {
 		return
 	}
 	JA4TWrittenTotal.WithLabelValues(fpWritten).Inc()
+}
+
+// WriteJA4Q persists the observed JA4Q QUIC fingerprint for clientIP to
+// fp:ja4q:ip:{ip}, unless ja4q is empty, in which case it writes nothing.
+// Fire-and-forget and fail-open, like WriteOSClass and WriteJA4T.
+func (s *Store) WriteJA4Q(ctx context.Context, clientIP, ja4q string) {
+	if ja4q == "" {
+		JA4QWrittenTotal.WithLabelValues(fpSkippedUnknown).Inc()
+		return
+	}
+	ip := canonicalIP(clientIP)
+	if ip == "" {
+		JA4QWrittenTotal.WithLabelValues(fpError).Inc()
+		return
+	}
+	if s == nil || s.redis == nil {
+		JA4QWrittenTotal.WithLabelValues(fpSkippedUnknown).Inc()
+		return
+	}
+	if err := s.redis.Set(ctx, "fp:ja4q:ip:"+ip, ja4q, ja4qTTL); err != nil {
+		JA4QWrittenTotal.WithLabelValues(fpError).Inc()
+		return
+	}
+	JA4QWrittenTotal.WithLabelValues(fpWritten).Inc()
 }
 
 // canonicalIP returns the canonical string form of an IP, matching what the

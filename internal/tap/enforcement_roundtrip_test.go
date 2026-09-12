@@ -1,3 +1,5 @@
+//go:build !no_ja4plus
+
 package tap_test
 
 // Closed-loop test for the out-of-band enforcement bridge (PHASE_316d): the TAP

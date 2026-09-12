@@ -41,7 +41,7 @@ FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6ee
 LABEL org.opencontainers.image.source="https://github.com/seanpor/JA4proxy" \
       org.opencontainers.image.title="ja4proxy-tap" \
       org.opencontainers.image.description="Passive TAP/SPAN TLS fingerprinting sensor" \
-      org.opencontainers.image.licenses="Apache-2.0"
+      org.opencontainers.image.licenses="MIT AND LicenseRef-FoxIO-1.1"
 
 # Non-root by default (matches Dockerfile.go-proxy's ADR-202c convention).
 # Live capture still needs CAP_NET_RAW granted at the container level
@@ -53,6 +53,7 @@ RUN apk upgrade --no-cache && apk add --no-cache curl && \
 
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /ja4-tap /usr/local/bin/ja4-tap
+COPY LICENSE NOTICE LICENSE.foxio /usr/share/doc/ja4proxy/
 COPY config/seccomp_tap_go.json /etc/ja4proxy/seccomp_tap.json
 
 USER 1000:1000

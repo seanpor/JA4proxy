@@ -1,3 +1,5 @@
+//go:build !no_ja4plus
+
 package tap_test
 
 // Closed-loop test for the JA4T blocklist signal (PHASE_316c): the TAP sensor

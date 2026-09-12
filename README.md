@@ -195,3 +195,26 @@ and CLI tooling.
 - **OpenSSF Scorecard**: Continuous auditing on the `main` branch
 - **SLSA Level 3**: Hardened build provenance
 - **Control Plane Integrity**: Tamper-proof, signed enforcement updates via Redis
+
+## Licensing
+
+JA4proxy is an independent open-source project. Original code is (c) 2026
+Sean O'Riordain, released under the [MIT License](LICENSE).
+
+This product implements the following network fingerprinting methods:
+
+- **JA4** (TLS client fingerprinting), (c) FoxIO, LLC — published under the
+  BSD 3-Clause License. Implemented here from the public specification.
+- **JA4X**, **JA4T**, and **JA4Q**, (c) FoxIO, LLC — JA4+ methods, **patent pending**,
+  licensed under the [FoxIO License 1.1](LICENSE.foxio). That license
+  permits personal, academic, and internal business (non-commercial) use.
+  **Commercial use — including providing JA4proxy as a hosted or managed
+  service — requires a separate OEM license from FoxIO, LLC.**
+
+See [NOTICE](NOTICE) for full attribution, and
+[`docs/compliance/LICENSING.md`](docs/compliance/LICENSING.md) for the
+detailed licensing posture.
+
+JA4 and JA4+ are trademarks of FoxIO, LLC. This project is not affiliated
+with or endorsed by FoxIO, LLC.
+

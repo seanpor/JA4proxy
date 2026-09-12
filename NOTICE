@@ -1,0 +1,23 @@
+JA4proxy
+Copyright (c) 2026 Sean O'Riordain
+
+The original code in this repository is licensed under the MIT License (see LICENSE).
+
+Fingerprinting methods
+----------------------
+- JA4 (TLS client fingerprinting) is (c) FoxIO, LLC, published under the BSD 3-Clause
+  License. JA4proxy implements the JA4 specification independently; see internal/tls/ja4.go.
+
+- JA4proxy implements JA4X, JA4T, and JA4Q, which are JA4+ methods (c) FoxIO, LLC.
+  All rights reserved. Patent Pending. JA4+ methods are licensed under the FoxIO
+  License 1.1 (see LICENSE.foxio). That license permits non-commercial use only;
+  commercial use — including providing the software on a hosted or managed service
+  basis — requires a separate license from FoxIO, LLC.
+
+  Canonical license text and source:
+  https://github.com/FoxIO-LLC/ja4/blob/main/LICENSE
+
+Trademarks
+----------
+JA4 and JA4+ are trademarks of FoxIO, LLC. JA4proxy is an independent project and is
+not affiliated with, sponsored by, or endorsed by FoxIO, LLC.

@@ -5,7 +5,26 @@ import (
 	"github.com/gopacket/gopacket/layers"
 )
 
-// decoder turns a raw captured frame into a network flow and TCP layer using a
+// Proto identifies the transport protocol decoded from the frame.
+type Proto int
+
+const (
+	ProtoTCP Proto = iota
+	ProtoUDP
+	ProtoUnsupported
+)
+
+// decodeResult holds the output of decode. The caller inspects .Proto to
+// decide whether to use .TCP or .UDP. Only one transport layer is valid per call.
+type decodeResult struct {
+	NetFlow gopacket.Flow
+	TCP     *layers.TCP
+	UDP     *layers.UDP
+	TTL     uint8
+	Proto   Proto
+}
+
+// decoder turns a raw captured frame into a network flow and TCP/UDP layer using a
 // pre-allocated gopacket.DecodingLayerParser. The layer structs are reused
 // across calls, so steady-state decoding is allocation-free on the hot path
 // (PHASE_316a §3 zero-copy decode). A decoder is NOT safe for concurrent use;
@@ -17,6 +36,7 @@ type decoder struct {
 	ip4      layers.IPv4
 	ip6      layers.IPv6
 	tcp      layers.TCP
+	udp      layers.UDP // NEW
 	payload  gopacket.Payload
 	decoded  []gopacket.LayerType
 }
@@ -25,44 +45,39 @@ func newDecoder(linkType layers.LinkType) *decoder {
 	d := &decoder{linkType: linkType, decoded: make([]gopacket.LayerType, 0, 6)}
 	d.parser = gopacket.NewDecodingLayerParser(
 		firstLayerType(linkType),
-		&d.eth, &d.ip4, &d.ip6, &d.tcp, &d.payload,
+		&d.eth, &d.ip4, &d.ip6, &d.tcp, &d.udp, &d.payload,
 	)
-	// Mirror feeds carry plenty of protocols we don't model (ARP, ICMP, UDP,
+	// Mirror feeds carry plenty of protocols we don't model (ARP, ICMP,
 	// tunnelling). Skip them quietly instead of erroring per packet.
 	d.parser.IgnoreUnsupported = true
 	return d
 }
 
-// decode reports the network flow (client→server orientation for the first
-// packet of a connection), the decoded TCP layer, and the IP TTL (IPv4) or
-// hop-limit (IPv6) of the frame. ok is false when the frame is not IPv4/IPv6 +
-// TCP. The returned *layers.TCP aliases reused storage and is only valid until
-// the next decode call. The TTL is plumbed through to OS classification (316b),
-// which needs it from the SYN; the reassembly callbacks never see the IP layer.
-func (d *decoder) decode(data []byte) (netFlow gopacket.Flow, tcp *layers.TCP, ttl uint8, ok bool) {
-	// DecodeLayers returns an error for the trailing unsupported/truncated
-	// layer; that's expected, so we inspect d.decoded rather than the error.
+// decode reports the network flow, transport layer, and IP TTL. The returned
+// *layers.TCP or *layers.UDP aliases reused storage and is only valid until
+// the next decode call.
+func (d *decoder) decode(data []byte) decodeResult {
 	_ = d.parser.DecodeLayers(data, &d.decoded)
 
-	var haveIP, haveTCP bool
+	var res decodeResult
+	res.Proto = ProtoUnsupported
 	for _, lt := range d.decoded {
 		switch lt {
 		case layers.LayerTypeIPv4:
-			netFlow = d.ip4.NetworkFlow()
-			ttl = d.ip4.TTL
-			haveIP = true
+			res.NetFlow = d.ip4.NetworkFlow()
+			res.TTL = d.ip4.TTL
 		case layers.LayerTypeIPv6:
-			netFlow = d.ip6.NetworkFlow()
-			ttl = d.ip6.HopLimit
-			haveIP = true
+			res.NetFlow = d.ip6.NetworkFlow()
+			res.TTL = d.ip6.HopLimit
 		case layers.LayerTypeTCP:
-			haveTCP = true
+			res.TCP = &d.tcp
+			res.Proto = ProtoTCP
+		case layers.LayerTypeUDP:
+			res.UDP = &d.udp
+			res.Proto = ProtoUDP
 		}
 	}
-	if !haveIP || !haveTCP {
-		return netFlow, nil, 0, false
-	}
-	return netFlow, &d.tcp, ttl, true
+	return res
 }
 
 // firstLayerType maps a capture link type to the gopacket layer the parser

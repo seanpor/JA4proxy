@@ -52,6 +52,10 @@ var (
 		Name: "ja4proxy_tap_ja4t_written_total",
 		Help: "Passive JA4T TCP fingerprints written to fp:ja4t:ip, by result (written|skipped_unknown|error). skipped_unknown counts SYN-less connections (no JA4T) and nil-backend dry runs.",
 	}, []string{"result"})
+	JA4QWrittenTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "ja4proxy_tap_ja4q_written_total",
+		Help: "Passive JA4Q QUIC fingerprints written to fp:ja4q:ip, by result (written|skipped_unknown|error). skipped_unknown counts missing decryption keys, nil-backend dry runs, and empty fingerprints.",
+	}, []string{"result"})
 	// EnforcementActionsTotal counts out-of-band enforcement decisions (Phase
 	// 316d). The result="error" label supersedes the outline's separate
 	// ja4proxy_tap_enforcement_errors_total — one counter, one taxonomy.
@@ -122,6 +126,7 @@ func Collectors() []prometheus.Collector {
 		WorkerRestartsTotal,
 		FingerprintsWrittenTotal,
 		JA4TWrittenTotal,
+		JA4QWrittenTotal,
 		EnforcementActionsTotal,
 		EnforcementArmed,
 		RedisCircuitBreakerOpenedTotal,
@@ -139,4 +144,6 @@ const (
 	dropGap           = "gap"            // missing bytes before the handshake; cannot parse
 	dropEventOverflow = "event_overflow" // handshake-event channel full; event dropped (F-007)
 	dropReadError     = "read_error"     // genuine (non-timeout) PacketSource read error (F-020)
+	dropNonQUIC       = "non_quic_port"  // UDP but not port 443, or QUIC disabled
+	dropQUICDecode    = "quic_decode"    // QUIC Initial parse failed
 )

@@ -56,7 +56,11 @@ def test_every_docker_dockerfile_is_referenced():
                 referenced.add(resolved)
 
     # Dockerfile.cli is built directly by CI (release-cli.yml), not via compose
-    ci_only = {(REPO_ROOT / "deploy" / "docker" / "Dockerfile.cli").resolve()}
+    # Dockerfile.go-proxy.foss is the pure FOSS commercial profile image built directly/standalone
+    ci_only = {
+        (REPO_ROOT / "deploy" / "docker" / "Dockerfile.cli").resolve(),
+        (REPO_ROOT / "deploy" / "docker" / "Dockerfile.go-proxy.foss").resolve(),
+    }
     for df in dockerfiles:
         resolved = df.resolve()
         if resolved in ci_only:

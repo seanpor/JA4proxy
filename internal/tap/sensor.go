@@ -10,6 +10,8 @@ import (
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
 	"github.com/gopacket/gopacket/reassembly"
+
+	"github.com/seanpor/ja4proxy/internal/quic"
 )
 
 // PacketSource yields raw frames. Both the offline pcap reader and the live
@@ -56,15 +58,29 @@ type Sensor struct {
 	decoder *decoder
 	pool    *reassembly.StreamPool
 	asm     *reassembly.Assembler
+	quic    *quic.Decoder // nil when QUIC disabled
 	events  chan HandshakeEvent
 }
 
 // NewSensor builds a sensor for the given capture link type. eventBuffer sizes
 // the emit channel; when full, events are dropped (fail-open — the sensor never
-// blocks the capture path).
-func NewSensor(linkType layers.LinkType, eventBuffer int) *Sensor {
+// blocks the capture path). Optional enableQUIC activates the QUIC Initial packet decoder.
+func NewSensor(linkType layers.LinkType, eventBuffer int, extra ...any) *Sensor {
 	s := &Sensor{
 		events: make(chan HandshakeEvent, eventBuffer),
+	}
+	var enableQUIC bool
+	var keyLog *quic.KeyLog
+	for _, arg := range extra {
+		switch v := arg.(type) {
+		case bool:
+			enableQUIC = v
+		case *quic.KeyLog:
+			keyLog = v
+		}
+	}
+	if enableQUIC {
+		s.quic = quic.NewDecoder(keyLog)
 	}
 	factory := &streamFactory{emit: s.deliver}
 	s.pool = reassembly.NewStreamPool(factory)
@@ -90,15 +106,47 @@ func (s *Sensor) deliver(e HandshakeEvent) {
 	}
 }
 
-// ProcessPacket decodes one frame and feeds it to the reassembler.
+// ProcessPacket decodes one frame and feeds it to the reassembler or QUIC decoder.
 func (s *Sensor) ProcessPacket(data []byte, ci gopacket.CaptureInfo) {
 	PacketsReceivedTotal.Inc()
-	netFlow, tcp, ttl, ok := s.decoder.decode(data)
-	if !ok {
+	res := s.decoder.decode(data)
+
+	switch res.Proto {
+	case ProtoTCP:
+		if res.TCP == nil {
+			PacketsDroppedTotal.WithLabelValues(dropNonTCP).Inc()
+			return
+		}
+		s.asm.AssembleWithContext(res.NetFlow, res.TCP, &assemblerCtx{ci: ci, ttl: res.TTL})
+	case ProtoUDP:
+		if s.quic == nil {
+			PacketsDroppedTotal.WithLabelValues(dropNonQUIC).Inc()
+			return
+		}
+		if res.UDP == nil || res.UDP.DstPort != 443 {
+			PacketsDroppedTotal.WithLabelValues(dropNonQUIC).Inc()
+			return
+		}
+		ev, err := s.quic.DecodeInitial(res.NetFlow, res.UDP, ci, res.TTL)
+		if err != nil {
+			PacketsDroppedTotal.WithLabelValues(dropQUICDecode).Inc()
+			return
+		}
+		if ev != nil {
+			s.deliver(HandshakeEvent{
+				ClientIP:    ev.ClientIP,
+				ServerIP:    ev.ServerIP,
+				ClientPort:  ev.ClientPort,
+				ServerPort:  ev.ServerPort,
+				FirstSeen:   ev.FirstSeen,
+				IsQUIC:      true,
+				QUICVersion: ev.Version,
+				Features:    ev.Features,
+			})
+		}
+	default:
 		PacketsDroppedTotal.WithLabelValues(dropNonTCP).Inc()
-		return
 	}
-	s.asm.AssembleWithContext(netFlow, tcp, &assemblerCtx{ci: ci, ttl: ttl})
 }
 
 // Flush closes and emits all in-flight connections (call at shutdown / EOF).

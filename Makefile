@@ -336,13 +336,23 @@ agent-status:
 
 # ── Build ──────────────────────────────────────────────────────────────────────
 
-build: bump-build ## Build Go binaries + all Docker images (requires .env — run 'make init' first)
+# Build Docker images
+
+build: bump-build ## Build all Docker images (Go compiled inside Docker — no local Go required)
+	@$(MAKE) env-sync
+	@$(MAKE) compose-validate
+	@echo "Building Docker images (BuildKit enabled)..."
+	DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 \
+	VERSION=$(FULL_VERSION) GIT_COMMIT=$(GIT_COMMIT) BUILD_DATE=$(BUILD_DATE) \
+	docker compose -f deploy/docker/docker-compose.poc.yml --env-file .env build
+
+build-native: bump-build ## Build host-native Go binaries (requires local Go 1.26+)
 	@mkdir -p bin
 	@$(MAKE) go-build cli-build
 	@$(MAKE) env-sync
 	@$(MAKE) compose-validate
 	@echo "Building Docker images (BuildKit enabled)..."
-	@DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 \
+	DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 \
 	VERSION=$(FULL_VERSION) GIT_COMMIT=$(GIT_COMMIT) BUILD_DATE=$(BUILD_DATE) \
 	docker compose -f deploy/docker/docker-compose.poc.yml --env-file .env build
 
@@ -1556,6 +1566,11 @@ go-build: ## Build the Go proxy daemon into bin/ja4pd
 	@mkdir -p bin
 	$(GO) build $(LDFLAGS) -o bin/ja4pd ./cmd/ja4pd
 	@echo "✓ bin/ja4pd"
+
+go-build-foss: ## Build royalty-free Go proxy daemon into bin/ja4pd-foss (-tags no_ja4plus)
+	@mkdir -p bin
+	$(GO) build -tags no_ja4plus $(LDFLAGS) -o bin/ja4pd-foss ./cmd/ja4pd
+	@echo "✓ bin/ja4pd-foss (pure FOSS, no FoxIO JA4+ methods)"
 
 
 cli-build: ## Build the unified ja4p CLI tool
