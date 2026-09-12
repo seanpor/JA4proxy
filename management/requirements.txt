@@ -12,26 +12,26 @@
 # Bumping a version? Change the '==' line, rebuild, run the management
 # test suite, and open a separate PR. Do NOT revert to '=='.
 
-fastapi==0.140.0         # phase-800: was 0.110.0 — starlette<1.0.0 cap in older fastapi blocked the fix for CVE-2024-47874/CVE-2026-48818/CVE-2026-54283 (starlette); 0.139.2 is the first release that lifts the starlette upper bound
-uvicorn[standard]==0.27.0
-redis[asyncio]==8.0.1
+fastapi==0.141.1         # phase-800: was 0.110.0 — starlette<1.0.0 cap in older fastapi blocked the fix for CVE-2024-47874/CVE-2026-48818/CVE-2026-54283 (starlette); 0.139.2 is the first release that lifts the starlette upper bound
+uvicorn[standard]==0.52.4
+redis[asyncio]==8.1.0
 PyJWT[crypto]==2.13.0          # phase-831: replaced unmaintained python-jose (clears CVE-2024-23342 in ecdsa)
 pyasn1==0.6.4              # phase-800: clears CVE-2026-30922
 passlib[bcrypt]==1.7.4
 jinja2==3.1.6
 python-multipart==0.0.32
-sse-starlette==2.0.0
-httpx==0.27.0
+sse-starlette==3.4.10
+httpx==0.28.1
 pytest==9.1.1
 pytest-asyncio==1.4.0
 fakeredis[aioredis]==2.37.1
 bcrypt==5.0.0              # phase-79: bearer token hashing
-pyotp==2.9.0               # phase-79: TOTP MFA
-qrcode[pil]==7.4.2         # phase-79: TOTP setup QR codes
-cryptography==50.0.0       # phase-79: Fernet encryption for TOTP secrets (PR #336: was 48.0.1 -- webauthn 3.0.0 requires cryptography>=49.0.0) (phase-813: CVE-2026-69247 fix)
+pyotp==2.10.0               # phase-79: TOTP MFA
+qrcode[pil]==8.2         # phase-79: TOTP setup QR codes
+cryptography==50.0.1       # phase-79: Fernet encryption for TOTP secrets (PR #336: was 48.0.1 -- webauthn 3.0.0 requires cryptography>=49.0.0) (phase-813: CVE-2026-69247 fix)
 webauthn==3.0.0            # phase-79: WebAuthn/FIDO2 hardware key MFA
 python3-saml==1.16.0       # phase-79: SAML 2.0 SSO (requires xmlsec1 system package)
-authlib==1.7.2             # phase-79: OIDC / OAuth 2.0 (PKCE, token validation)
+authlib==1.8.0             # phase-79: OIDC / OAuth 2.0 (PKCE, token validation)
 pyyaml==6.0.3              # phase-100: proxy.yml SSO role mapping (Gap 6)
 aiohttp==3.14.3          # phase-234: Prometheus HTTP API query for infra row (phase-316-hotfix: was 3.9.5 — no cp314 wheel; broke `make scan` image build on the python:3.14 base) (phase-813: CVE-2026-69244 fix)
 prometheus-client==0.26.0   # console metrics — management_ui_rules.yml alerts on these
