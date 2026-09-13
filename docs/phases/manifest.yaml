@@ -3239,8 +3239,9 @@ phases:
       docs/phases/complete/PHASE_251_WIP.patch (design reference only)."
   251a:
     name: "ReplaceConfig Enrichment Worker Restart (JA4PROXY-2026-0089)"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_251a.md
+    status: COMPLETE
+    completed: '2026-09-13'
+    action_plan: docs/phases/complete/PHASE_251a.md
     dependencies: []
     size: SMALL
     summary: "Fix hot config reload orphaning DNS/AbuseIPDB/RDAP/feed enrichment

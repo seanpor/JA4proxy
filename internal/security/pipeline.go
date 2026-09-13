@@ -124,6 +124,13 @@ type Pipeline struct {
 	JA4XWhitelist map[string]bool
 	JA4XBlacklist map[string]bool
 
+	// Enrichment worker lifecycle management (JA4PROXY-2026-0089 / Phase 251a)
+	bgCtx       context.Context
+	dnsCancel   context.CancelFunc
+	abuseCancel context.CancelFunc
+	rdapCancel  context.CancelFunc
+	feedCancel  context.CancelFunc
+
 	mu sync.RWMutex
 }
 
@@ -352,12 +359,62 @@ func (p *Pipeline) ReplaceConfig(cfg *PipelineConfig) {
 	p.rateLimiter = NewRateLimiter(buildRateLimiterConfig(cfg), p.redis, p.log)
 	p.tcpAnalyzer = NewTCPAnalyzer(buildTCPAnalyzerConfig(cfg), p.redis, p.log)
 	p.asnClassifier = NewASNClassifier(buildASNClassifierConfig(cfg), p.log)
+
+	// JA4PROXY-2026-0089 (Phase 251a): cancel old enrichment workers before
+	// constructing replacements so their background goroutines exit and don't
+	// leak or pin old configuration.
+	if p.dnsCancel != nil {
+		p.dnsCancel()
+		p.dnsCancel = nil
+	}
 	p.dnsEnrichment = NewDNSEnrichment(buildDNSEnrichmentConfig(cfg), p.redis, p.log)
+	if p.bgCtx != nil {
+		dnsCtx, cancel := context.WithCancel(p.bgCtx)
+		p.dnsCancel = cancel
+		p.dnsEnrichment.Start(dnsCtx)
+		p.log.WithField("component", "dns").Info("enrichment worker restarted after config reload")
+	}
+
 	p.blocklists = NewBlocklistManager(buildBlocklistConfig(cfg), p.log)
+
+	if p.feedCancel != nil {
+		p.feedCancel()
+		p.feedCancel = nil
+	}
 	p.feedDownloader = NewFeedDownloader(cfg.BlocklistFeeds, p.blocklists, p.log)
+	if p.bgCtx != nil {
+		feedCtx, cancel := context.WithCancel(p.bgCtx)
+		p.feedCancel = cancel
+		p.feedDownloader.Start(feedCtx)
+		p.log.WithField("component", "feed").Info("enrichment worker restarted after config reload")
+	}
+
 	p.beaconing = NewBeaconingDetector(buildBeaconingConfig(cfg), p.redis, p.log)
+
+	if p.abuseCancel != nil {
+		p.abuseCancel()
+		p.abuseCancel = nil
+	}
 	p.abuseipdb = NewAbuseIPDB(buildAbuseIPDBConfig(cfg), p.redis, p.log)
+	if p.bgCtx != nil {
+		abuseCtx, cancel := context.WithCancel(p.bgCtx)
+		p.abuseCancel = cancel
+		p.abuseipdb.Start(abuseCtx)
+		p.log.WithField("component", "abuseipdb").Info("enrichment worker restarted after config reload")
+	}
+
+	if p.rdapCancel != nil {
+		p.rdapCancel()
+		p.rdapCancel = nil
+	}
 	p.rdap = NewRDAPEnricher(buildRDAPConfig(cfg), p.redis, p.log)
+	if p.bgCtx != nil {
+		rdapCtx, cancel := context.WithCancel(p.bgCtx)
+		p.rdapCancel = cancel
+		p.rdap.Start(rdapCtx)
+		p.log.WithField("component", "rdap").Info("enrichment worker restarted after config reload")
+	}
+
 	p.tapConsumer = NewTapConsumer(buildTapConsumerConfig(cfg), redisReaderGetter{p.redis}, p.log)
 	p.ja4tConsumer = NewJA4TConsumer(buildJA4TConsumerConfig(cfg), redisReaderGetter{p.redis}, p.log)
 	if cfg.AutoEscalate.Enabled {
@@ -471,15 +528,32 @@ const asyncScoringWorkers = 32
 // beaconing and audit workers, which were previously started at construction
 // with no stop path.
 func (p *Pipeline) StartBackgroundWorkers(ctx context.Context) {
+	p.mu.Lock()
+	p.bgCtx = ctx
 	for i := 0; i < asyncScoringWorkers; i++ {
 		go p.runAsyncScoringLoop(ctx)
 	}
 	go p.beaconingWorker(ctx)
 	go p.auditWorker(ctx)
-	p.dnsEnrichment.Start(ctx)
-	p.abuseipdb.Start(ctx)
-	p.rdap.Start(ctx)
-	p.feedDownloader.Start(ctx) // phase-309 WP-6: periodic blocklist feed refresh
+
+	// JA4PROXY-2026-0089 (Phase 251a): enrichment workers use child contexts
+	// so ReplaceConfig can cancel and restart them individually on config reload.
+	dnsCtx, dnsCancel := context.WithCancel(ctx)
+	p.dnsCancel = dnsCancel
+	p.dnsEnrichment.Start(dnsCtx)
+
+	abuseCtx, abuseCancel := context.WithCancel(ctx)
+	p.abuseCancel = abuseCancel
+	p.abuseipdb.Start(abuseCtx)
+
+	rdapCtx, rdapCancel := context.WithCancel(ctx)
+	p.rdapCancel = rdapCancel
+	p.rdap.Start(rdapCtx)
+
+	feedCtx, feedCancel := context.WithCancel(ctx)
+	p.feedCancel = feedCancel
+	p.feedDownloader.Start(feedCtx) // phase-309 WP-6: periodic blocklist feed refresh
+	p.mu.Unlock()
 }
 
 // Process runs a connection through the full pipeline and returns the result.

@@ -1,0 +1,1 @@
+- fix(security): restart enrichment workers on hot config reload (Phase 251a, JA4PROXY-2026-0089)
