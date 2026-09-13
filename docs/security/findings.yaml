@@ -2816,22 +2816,23 @@ findings:
     id: 515-03
     discovered: '2026-07-02'
   remediation_phases:
-  - '517'
+  - 251a
   owner: '@seanpor'
   lane: go-proxy
   discovered: '2026-07-02'
   due: '2026-08-31'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
+  regression_test: internal/security/pipeline_test.go::TestPipeline_ReplaceConfig_RestartsEnrichmentWorkers
   closed_commit: ''
   cvss_v3_1:
     score: 2.2
     vector: CVSS:3.1/AV:N/AC:H/PR:H/UI:N/S:U/C:N/I:L/A:N
-  notes: 'DEFERRED from phase-515 (scope: cache isolation + config-read races). Correct fix needs per-module
-    worker lifecycle: cancel old workers and Start new ones on reload, or reconfigure modules in place
-    instead of recreating. Own phase + regression tests. Discovered in phase-515 second-pass review.'
+  notes: 'Fixed (Phase 251a): Pipeline now tracks child contexts and cancel functions (dnsCancel, abuseCancel,
+    rdapCancel, feedCancel) bound to p.bgCtx. ReplaceConfig cancels old enrichment workers before constructing
+    new instances and restarts them with fresh child contexts. Covered by TestPipeline_ReplaceConfig_RestartsEnrichmentWorkers,
+    TestPipeline_ReplaceConfig_NoGoroutineGrowth, and TestPipeline_ReplaceConfig_WithoutBackgroundWorkers.'
 - id: JA4PROXY-2026-0090
   title: beaconing/audit workers started at construction with no stop path leak goroutines per Pipeline
   severity: MEDIUM

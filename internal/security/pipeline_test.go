@@ -292,3 +292,100 @@ func TestPipeline_ConfigReadUnderLock(t *testing.T) {
 	wg.Wait()
 	// Run with -race flag to detect data races.
 }
+
+// JA4PROXY-2026-0089 (Phase 251a): Test that ReplaceConfig stops old enrichment
+// workers and starts new workers so jobs sent to the new instance's queue are drained.
+func TestPipeline_ReplaceConfig_RestartsEnrichmentWorkers(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	p := newTestPipeline(50)
+	p.StartBackgroundWorkers(ctx)
+
+	// Capture the original DNS enrichment instance and its queue
+	oldDNS := p.dnsEnrichment
+
+	// Reload configuration with ReplaceConfig
+	newCfg := *p.cfg
+	p.ReplaceConfig(&newCfg)
+
+	newDNS := p.dnsEnrichment
+	if oldDNS == newDNS {
+		t.Fatal("expected ReplaceConfig to construct a new DNSEnrichment instance")
+	}
+
+	// Send a job to the new DNS enrichment queue.
+	// Without the Phase 251a fix, newDNS is never started and its queue is never drained.
+	testIP := "192.0.2.1"
+	select {
+	case newDNS.queue <- testIP:
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("timed out enqueuing test job to newDNS.queue")
+	}
+
+	// Poll until the job is consumed from newDNS.queue
+	deadline := time.Now().Add(2 * time.Second)
+	consumed := false
+	for time.Now().Before(deadline) {
+		if len(newDNS.queue) == 0 {
+			consumed = true
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	if !consumed {
+		t.Errorf("expected job on newDNS.queue to be consumed after ReplaceConfig, but queue depth remained %d", len(newDNS.queue))
+	}
+}
+
+// JA4PROXY-2026-0089 (Phase 251a): Test that repeated reloads do not leak goroutines.
+func TestPipeline_ReplaceConfig_NoGoroutineGrowth(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	p := newTestPipeline(50)
+	p.StartBackgroundWorkers(ctx)
+
+	// Perform 10 reloads
+	for i := 0; i < 10; i++ {
+		cfg := *p.cfg
+		p.ReplaceConfig(&cfg)
+	}
+
+	// Cancel root context
+	cancel()
+
+	// Wait up to 3 seconds for goroutines to drain
+	deadline := time.Now().Add(3 * time.Second)
+	var finalCount int
+	for time.Now().Before(deadline) {
+		runtime.Gosched()
+		time.Sleep(50 * time.Millisecond)
+		finalCount = runtime.NumGoroutine()
+		if finalCount <= 10 { // Expected baseline test runner goroutines
+			break
+		}
+	}
+
+	if finalCount > 20 {
+		t.Errorf("possible goroutine leak after 10x ReplaceConfig and context cancel: %d goroutines running", finalCount)
+	}
+}
+
+// JA4PROXY-2026-0089 (Phase 251a): Test that ReplaceConfig on a Pipeline without
+// background workers does not panic or start background workers.
+func TestPipeline_ReplaceConfig_WithoutBackgroundWorkers(t *testing.T) {
+	p := newTestPipeline(50)
+	// StartBackgroundWorkers is NOT called (e.g. ja4p CLI or simple tests)
+
+	beforeGoroutines := runtime.NumGoroutine()
+
+	cfg := *p.cfg
+	p.ReplaceConfig(&cfg)
+
+	afterGoroutines := runtime.NumGoroutine()
+	if afterGoroutines > beforeGoroutines+1 {
+		t.Errorf("ReplaceConfig without background workers spawned goroutines: before=%d, after=%d",
+			beforeGoroutines, afterGoroutines)
+	}
+}
