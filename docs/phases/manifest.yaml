@@ -5099,6 +5099,14 @@ phases:
     size: SMALL
     summary: "Eliminate all 3 first-party security scan exceptions (CVE-2026-0994, GHSA-6v7p-g79w-8964, CVE-2025-47273) by upgrading protobuf to 5.x and stripping pip from runtime images, achieving 0 first-party scan exceptions."
 
+  834:
+    name: "Third-Party CVE Reduction — HAProxy 2.8 Update"
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_834.md
+    dependencies: [833]
+    size: SMALL
+    summary: "Upgrade pinned haproxy to 2.8.28-alpine across prod, poc, and scale compose configurations, eliminating HAProxy as a carrier for CVE-2026-14456."
+
   600:
     name: "QUIC/JA4Q Passive Sensing"
     status: IN_PROGRESS

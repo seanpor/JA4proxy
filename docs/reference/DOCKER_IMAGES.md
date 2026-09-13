@@ -15,8 +15,8 @@ This document serves as the canonical registry of every Docker image used in the
 |-------|----------------|---------|---------------|-------|
 | `python:3.14.6-alpine3.24` | `3.14.6-alpine3.24@sha256:26730869004e2b9c4b9ad09cab8625e81d256d1ce97e72df5520e806b1709f92` | `src/analytics/Dockerfile`, `src/tarpit/Dockerfile`, `deploy/docker/Dockerfile.test`, `deploy/docker/Dockerfile.trafficgen`, `deploy/docker/Dockerfile.management` | 2026-07-22 | **Phase 317** hardened, digest-pinned, perl-free alpine base; **Phase 801** added `management` (was Debian `python:3.14-slim`, 41 HIGH/CRITICAL findings, 36 no-fix OS packages). All five scan **0 HIGH/CRITICAL** (`management` carries one dated `.trivyignore` residual, `CVE-2024-23342`/ecdsa, upstream won't-fix) |
 | `redis:7.4.9-alpine` | `7.4.9-alpine@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99` | `deploy/docker/docker-compose.prod.yml`, `deploy/docker/docker-compose.poc.yml` | 2026-07-21 | Lightweight official Redis (replaced redis-stack). Bumped from frozen `7.4.0-alpine` (Phase 800: that exact tag stopped receiving rebuilds ~2024; `7.4.9` is the current same-line patch) |
-| `haproxy:2.8-alpine` | `2.8.26-alpine` | `deploy/docker/docker-compose.prod.yml`, `deploy/docker/docker-compose.poc.yml` | 2026-07-21 | Edge proxy/Load balancer |
-| `haproxy:2.6` | `2.6.15` | `deploy/docker/docker-compose.scale.yml` | 2026-06-13 | Legacy scaling tests |
+| `haproxy:2.8-alpine` | `2.8.28-alpine` | `deploy/docker/docker-compose.prod.yml`, `deploy/docker/docker-compose.poc.yml`, `deploy/docker/docker-compose.scale.yml` | 2026-09-13 | Edge proxy/Load balancer (Phase 834: bumped from 2.8.27-alpine; scans 0 HIGH/CRITICAL) |
+
 | `redis:7-alpine` | `7.2.4-alpine` | `deploy/docker/docker-compose.test.yml` | 2026-06-13 | Lightweight Redis for tests |
 | `mcr.microsoft.com/playwright:v1.40.0-jammy` | `v1.40.0-jammy` | `deploy/docker/docker-compose.test.yml` | 2026-06-13 | E2E testing environment |
 | `prom/prometheus` | `v3.13.1` | `deploy/docker/docker-compose.prod.yml`, `deploy/docker/docker-compose.monitoring.yml` | 2026-07-21 | Time-series metrics |
