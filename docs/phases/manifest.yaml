@@ -5117,8 +5117,8 @@ phases:
 
   600:
     name: "QUIC/JA4Q Passive Sensing"
-    status: IN_PROGRESS
-    action_plan: docs/phases/PHASE_600.md
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_600.md
     dependencies:
     - 316
     size: LARGE
