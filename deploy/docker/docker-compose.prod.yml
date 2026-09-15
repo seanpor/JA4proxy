@@ -368,7 +368,7 @@ services:
           cpus: '1.0'
 
   grafana:
-    image: grafana/grafana:13.1.4-ubuntu
+    image: grafana/grafana:13.1.6-ubuntu
     ports:
       # JA4PROXY-2026-0045: bind to loopback — the comment claims
       # "internal only" but the previous form "3001:3000" published
@@ -412,7 +412,7 @@ services:
           memory: 128M
 
   loki:
-    image: grafana/loki:3.7.6
+    image: grafana/loki:3.7.7
     # No host ports (0046): Grafana queries loki:3100 and Promtail pushes over
     # the network. Was published on 0.0.0.0:3100.
     volumes:

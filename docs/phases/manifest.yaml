@@ -5107,6 +5107,14 @@ phases:
     size: SMALL
     summary: "Upgrade pinned haproxy to 2.8.28-alpine across prod, poc, and scale compose configurations, eliminating HAProxy as a carrier for CVE-2026-14456."
 
+  835:
+    name: "Third-Party Sidecar CVE Bumps (Grafana & Loki)"
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_835.md
+    dependencies: [834]
+    size: SMALL
+    summary: "Upgrade Grafana to 13.1.6-ubuntu and Loki to 3.7.7 in monitoring and prod compose files, eliminating multiple HIGH CVEs in sidecars."
+
   600:
     name: "QUIC/JA4Q Passive Sensing"
     status: IN_PROGRESS

@@ -87,7 +87,7 @@ services:
       retries: 3
 
   grafana:
-    image: grafana/grafana:13.1.4-ubuntu
+    image: grafana/grafana:13.1.6-ubuntu
     ports:
       # JA4PROXY-2026-0045: bind to loopback only — consistent with the
       # Prometheus and Alertmanager services above. Dashboards should be
@@ -212,7 +212,7 @@ services:
           cpus: '0.5'
 
   loki:
-    image: grafana/loki:3.7.6
+    image: grafana/loki:3.7.7
     # Not exposed to host — only accessible from monitoring network
     volumes:
       - ../monitoring/loki/loki-config.yml:/etc/loki/local-config.yaml:ro
