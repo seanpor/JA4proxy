@@ -19,12 +19,12 @@ This document serves as the canonical registry of every Docker image used in the
 
 | `redis:7-alpine` | `7.2.4-alpine` | `deploy/docker/docker-compose.test.yml` | 2026-06-13 | Lightweight Redis for tests |
 | `mcr.microsoft.com/playwright:v1.40.0-jammy` | `v1.40.0-jammy` | `deploy/docker/docker-compose.test.yml` | 2026-06-13 | E2E testing environment |
-| `prom/prometheus` | `v3.13.1` | `deploy/docker/docker-compose.prod.yml`, `deploy/docker/docker-compose.monitoring.yml` | 2026-07-21 | Time-series metrics |
-| `prom/alertmanager` | `v0.33.1` | `deploy/docker/docker-compose.monitoring.yml` | 2026-07-21 | Alerting gateway. Newest stable tag; still carries HIGH findings (x/crypto, os.Root) awaiting upstream rebuild — see `.trivyignore` |
-| `grafana/grafana` | `13.0.4-ubuntu` | `deploy/docker/docker-compose.prod.yml`, `deploy/docker/docker-compose.monitoring.yml` | 2026-07-27 | Visualisation dashboard. **Phase 810** bumped from `13.0.2-ubuntu` (18 fewer HIGH/CRITICAL findings, zero new; latest published tag — still carries a dated `.trivyignore` residual set, see that file) |
+| `prom/prometheus` | `v3.14.0` | `deploy/docker/docker-compose.prod.yml`, `deploy/docker/docker-compose.monitoring.yml` | 2026-09-15 | Time-series metrics |
+| `prom/alertmanager` | `v0.34.0` | `deploy/docker/docker-compose.monitoring.yml` | 2026-09-15 | Alerting gateway |
+| `grafana/grafana` | `13.1.6-ubuntu` | `deploy/docker/docker-compose.prod.yml`, `deploy/docker/docker-compose.monitoring.yml` | 2026-09-15 | Visualisation dashboard. Phase 835: bumped to 13.1.6-ubuntu, eliminating multiple HIGH findings |
 | `prom/node-exporter` | `v1.12.1` | `deploy/docker/docker-compose.monitoring.yml` | 2026-07-21 | Host metrics collector |
 | `oliver006/redis_exporter` | `v1.87.0` | `deploy/docker/docker-compose.prod.yml`, `deploy/docker/docker-compose.monitoring.yml` | 2026-07-21 | Redis metrics collector |
-| `grafana/loki` | `3.7.4` | `deploy/docker/docker-compose.prod.yml`, `deploy/docker/docker-compose.monitoring.yml` | 2026-07-30 | Log aggregation system. Bumped from `3.7.2` (2 patch releases) after an expired `.trivyignore` batch forced re-verification — cleared 23 of 25 waived HIGH/CRITICAL findings, zero new (one pre-existing `golang.org/x/text` DoS now shared across all four Go-based monitoring images, see `.trivyignore`) |
+| `grafana/loki` | `3.7.7` | `deploy/docker/docker-compose.prod.yml`, `deploy/docker/docker-compose.monitoring.yml` | 2026-09-15 | Log aggregation system. Phase 835: bumped to 3.7.7 |
 | `grafana/promtail` | `3.6.11` | `deploy/docker/docker-compose.prod.yml`, `deploy/docker/docker-compose.monitoring.yml` | 2026-06-13 | Log shipment agent |
 
 ## First-Party Images
