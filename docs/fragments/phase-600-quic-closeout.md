@@ -1,0 +1,1 @@
+- Closed out Phase 600 (QUIC/JA4Q Passive Sensing): UDP-based QUIC-Initial decoder and JA4Q fingerprinting in `cmd/ja4-tap`.
