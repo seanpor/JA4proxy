@@ -23,7 +23,8 @@ This document serves as the canonical registry of every Docker image used in the
 | `prom/alertmanager` | `v0.34.0` | `deploy/docker/docker-compose.monitoring.yml` | 2026-09-15 | Alerting gateway |
 | `grafana/grafana` | `13.1.6-ubuntu` | `deploy/docker/docker-compose.prod.yml`, `deploy/docker/docker-compose.monitoring.yml` | 2026-09-15 | Visualisation dashboard. Phase 835: bumped to 13.1.6-ubuntu, eliminating multiple HIGH findings |
 | `prom/node-exporter` | `v1.12.1` | `deploy/docker/docker-compose.monitoring.yml` | 2026-07-21 | Host metrics collector |
-| `oliver006/redis_exporter` | `v1.87.0` | `deploy/docker/docker-compose.prod.yml`, `deploy/docker/docker-compose.monitoring.yml` | 2026-07-21 | Redis metrics collector |
+| `oliver006/redis_exporter` | `v1.91.1` | `deploy/docker/docker-compose.prod.yml`, `deploy/docker/docker-compose.monitoring.yml` | 2026-09-17 | Redis metrics collector. Phase 836: bumped to v1.91.1 (scans 0 HIGH/CRITICAL) |
+| `grafana/alloy` | `v1.19.2` | `deploy/docker/docker-compose.prod.yml`, `deploy/docker/docker-compose.monitoring.yml` | 2026-09-17 | Telemetry collector (Phase 836: bumped to v1.19.2, reducing HIGH findings from 17 to 4) |
 | `grafana/loki` | `3.7.7` | `deploy/docker/docker-compose.prod.yml`, `deploy/docker/docker-compose.monitoring.yml` | 2026-09-15 | Log aggregation system. Phase 835: bumped to 3.7.7 |
 | `grafana/promtail` | `3.6.11` | `deploy/docker/docker-compose.prod.yml`, `deploy/docker/docker-compose.monitoring.yml` | 2026-06-13 | Log shipment agent |
 
