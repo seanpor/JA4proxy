@@ -5115,6 +5115,14 @@ phases:
     size: SMALL
     summary: "Upgrade Grafana to 13.1.6-ubuntu and Loki to 3.7.7 in monitoring and prod compose files, eliminating multiple HIGH CVEs in sidecars."
 
+  836:
+    name: "Third-Party CVE Reduction — Prune Dead Waivers & Sidecar Bumps"
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_836.md
+    dependencies: [835]
+    size: SMALL
+    summary: "Prune 4 dead CVE waivers from .trivyignore.third-party and upgrade redis_exporter to v1.91.1 and alloy to v1.19.2 across compose configurations, reducing third-party CVE exceptions from 24 to 20."
+
   600:
     name: "QUIC/JA4Q Passive Sensing"
     status: COMPLETE
