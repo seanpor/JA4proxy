@@ -1,3 +1,10 @@
+<!--
+title: SLSA Level 3 Provenance Verification Runbook
+audience: architect
+last_reviewed: 2026-09-18
+phase: 601
+-->
+
 # SLSA Level 3 Provenance Verification Runbook
 
 > **Audience:** System Architects, Security Engineers, and Deployers  
