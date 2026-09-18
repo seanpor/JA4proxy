@@ -151,40 +151,13 @@ services:
       timeout: 10s
       retries: 3
 
-  node-exporter:
-    image: prom/node-exporter:v1.12.1
-    command:
-      - '--path.procfs=/host/proc'
-      - '--path.sysfs=/host/sys'
-      - '--path.rootfs=/host'
-      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
-      # Phase 805: reads the .prom file scripts/export_ci_benchmark_textfile.sh
-      # writes on the host via a systemd timer (D5 — kept a host-level cron,
-      # not a container, so no container needs write access to this path).
-      - '--collector.textfile.directory=/textfile'
-    # Not exposed to host — only accessible from monitoring network
-    volumes:
-      - /proc:/host/proc:ro
-      - /sys:/host/sys:ro
-      - /:/host:ro
-      # Read-only here; scripts/export_ci_benchmark_textfile.sh writes this
-      # path from the host, outside any container (the puller's own
-      # `mkdir -p` creates it on first run if absent). See
-      # docs/runbooks/nightly_benchmark_regression.md for install steps.
-      - /var/lib/node_exporter/textfile_collector:/textfile:ro
-    restart: unless-stopped
-    networks:
-      - ja4proxy-monitoring
-    read_only: true
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
-    deploy:
-      resources:
-        limits:
-          memory: 128M
-          cpus: '0.5'
+  # phase-837: `node-exporter` (prom/node-exporter:v1.12.1) removed.
+  # Host metrics now come from Alloy's built-in prometheus.exporter.unix — Alloy
+  # already had node_exporter compiled in, and consolidating metrics into Alloy
+  # retires node-exporter as an external image, eliminating carrier redundancy
+  # for 8 Go stdlib and x/crypto CVEs. Prometheus keeps job="node" so all rules
+  # and dashboards resolve untouched.
+
 
   redis-exporter:
     image: oliver006/redis_exporter:v1.91.1
@@ -303,6 +276,12 @@ services:
       - /sys:/sys:ro
       - /var/lib/docker:/var/lib/docker:ro
       - /dev/disk/:/dev/disk:ro
+      # phase-837: node-exporter's read-only host mounts, moved verbatim.
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/host:ro
+      - /var/lib/node_exporter/textfile_collector:/textfile:ro
+
     command:
       - run
       - --storage.path=/var/lib/alloy/data

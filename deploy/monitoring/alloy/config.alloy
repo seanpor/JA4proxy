@@ -164,3 +164,28 @@ prometheus.exporter.cadvisor "containers" {
 //
 // Endpoint: /api/v0/component/prometheus.exporter.cadvisor.containers/metrics
 // on the Alloy HTTP server (:12345). See prometheus.yml's `cadvisor` job.
+
+// ── Host/Node metrics (phase-837) ────────────────────────────────────────────
+// Replaces the standalone prom/node-exporter:v1.12.1 sidecar.
+//
+// WHY: prom/node-exporter carries 8 Go stdlib and x/crypto CVEs. Alloy already
+// has the full prometheus node_exporter compiled in as `prometheus.exporter.unix`.
+// Moving collection into Alloy retires node-exporter as an external image,
+// reducing third-party carrier redundancy and attack surface.
+//
+// Endpoint: /api/v0/component/prometheus.exporter.unix.node/metrics
+// on the Alloy HTTP server (:12345). See prometheus.yml's `node` job.
+prometheus.exporter.unix "node" {
+	procfs_path = "/host/proc"
+	sysfs_path  = "/host/sys"
+	rootfs_path = "/host"
+
+	filesystem {
+		mount_points_exclude = "^/(sys|proc|dev|host|etc)($|/)"
+	}
+
+	textfile {
+		directory = "/textfile"
+	}
+}
+

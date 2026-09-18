@@ -45,10 +45,21 @@ def test_cadvisor_sidecar_is_gone(services: dict) -> None:
     assert "cadvisor" not in services
 
 
+def test_node_exporter_sidecar_is_gone(services: dict) -> None:
+    """Phase 837: node-exporter retired into Alloy's unix exporter."""
+    assert "node-exporter" not in services
+
+
 def test_no_service_still_pulls_the_cadvisor_image(services: dict) -> None:
     """A renamed service would keep the image and the CVEs."""
     images = [s.get("image", "") for s in services.values()]
     assert not [i for i in images if "cadvisor/cadvisor" in i]
+
+
+def test_no_service_still_pulls_the_node_exporter_image(services: dict) -> None:
+    """A renamed service would keep the node-exporter image and CVEs."""
+    images = [s.get("image", "") for s in services.values()]
+    assert not [i for i in images if "node-exporter" in i]
 
 
 def test_alloy_gains_only_the_capabilities_cadvisor_needed(services: dict) -> None:
@@ -81,8 +92,18 @@ def test_alloy_does_not_gain_the_docker_socket(services: dict) -> None:
 
 
 def test_alloy_host_mounts_are_read_only(services: dict) -> None:
-    """Every host path cadvisor read, it read read-only. Same here."""
-    host_paths = ("/rootfs", "/sys", "/var/lib/docker", "/dev/disk", "/var/run")
+    """Every host path cadvisor and node-exporter read, it read read-only. Same here."""
+    host_paths = (
+        "/rootfs",
+        "/sys",
+        "/var/lib/docker",
+        "/dev/disk",
+        "/var/run",
+        "/host/proc",
+        "/host/sys",
+        "/host",
+        "/textfile",
+    )
     writable = []
     for mount in services["alloy"].get("volumes") or []:
         m = str(mount)
@@ -92,6 +113,7 @@ def test_alloy_host_mounts_are_read_only(services: dict) -> None:
             if not m.endswith(":ro"):
                 writable.append(m)
     assert not writable, f"host mounts must be read-only: {writable}"
+
 
 
 def test_sys_ptrace_is_held_only_by_alloy(services: dict) -> None:

@@ -146,8 +146,9 @@ services:
           memory: 128M
 
   redis:
-    image: redis:7.4.9-alpine@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99
-    # Official redis:7.4.9-alpine passes extra flags as command args to redis-server
+    image: redis:7.4.11-alpine@sha256:520775a41a63e77e06c73e35d2fd9cc15921a609516818796b4ecbb813078bc7
+    # Official redis:7.4.11-alpine passes extra flags as command args to redis-server
+
     # JA4PROXY-2026-0042: --unixsocketperm 770 (not 777). The proxy service
     # mounts redis-sock to connect via unix socket; for that to keep working
     # after tightening to 770, the proxy service is given `group_add:
