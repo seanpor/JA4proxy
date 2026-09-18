@@ -136,7 +136,7 @@ help-ops: ## Incident response and threat intelligence help
 	@echo "  make geoip-report               - Full geo-blocking report"
 	@echo ""
 
-help-lint:
+help-lint:  ## Show linting commands help
 	@echo ""
 	@echo "── Linting ───────────────────────────────────────────────────"
 	@echo "  lint-static       - Python: mypy + bandit + ruff + pip-audit"
@@ -154,7 +154,7 @@ help-lint:
 	@echo "  lint-all          - Run every linter in one shot"
 
 # ── Scan sub-help ────────────────────────────────────────────────────────
-help-scan:
+help-scan:  ## Show security scanning commands help
 	@echo ""
 	@echo "── Security Scanning ─────────────────────────────────────────"
 	@echo "  scan               - Run ALL security + container scans (full gate)"
@@ -171,13 +171,13 @@ help-scan:
 	@echo "  check-updates      - Check all deps (Docker, Go, Python, Node) for updates"
 
 # ── Legacy (Python) sub-help ─────────────────────────────────────────────
-help-legacy:
+help-legacy:  ## Show legacy Python proxy sub-help
 	@echo ""
 	@echo "── Signal-Score Audit ──────────────────────────────────────"
 	@echo "  check-scores      - Audit Go/Python scores vs signal registry"
 
 # ── Dev sub-help ─────────────────────────────────────────────────────────
-help-dev:
+help-dev:  ## Show developer commands sub-help
 	@echo ""
 	@echo "── Build ─────────────────────────────────────────────────────"
 	@echo "  build             - Build Go binaries + all Docker images"
@@ -252,15 +252,15 @@ help-dev:
 # ── Startup / Shutdown ────────────────────────────────────────────────────────
 
 # Start full stack (POC + monitoring)
-start:
+start:  ## Start full stack (POC + Prometheus/Grafana)
 	@./scripts/start-all.sh
 
 # Start monitoring stack only (Prometheus / Grafana / Loki)
-start-monitoring:
+start-monitoring:  ## Start monitoring stack only
 	@./scripts/start-monitoring.sh
 
 # Start scaled configuration with 4 workers and HAProxy (Phase 26d)
-start-scaled:
+start-scaled:  ## Start 4-worker scaled config with HAProxy
 	@echo "Starting JA4Proxy with 4-worker scaling..."
 	@docker compose -f deploy/docker/docker-compose.poc.yml -f deploy/docker/docker-compose.scale.yml --env-file .env up -d
 	@echo "✓ HAProxy load balancer started on port 443"
@@ -268,15 +268,15 @@ start-scaled:
 	@echo "✓ HAProxy stats available at http://localhost:8404/stats (admin/admin123)"
 
 # Stop all services (keep Redis data)
-stop:
+stop:  ## Stop all services (keep Redis data)
 	@./scripts/stop-all.sh
 
 # Stop all services AND remove all volumes (fresh slate)
-stop-clean:
+stop-clean:  ## Stop all + wipe volumes (fresh slate)
 	@./scripts/stop-all.sh --clean
 
 # Show health of all services + security state
-status:
+status:  ## Show health of all services + security state
 	@./scripts/status.sh
 
 # ── Remote Manual Testing (Phase 220) ─────────────────────────────────────────
@@ -287,7 +287,7 @@ status:
 # test bot below. See docs/runbooks/REMOTE_TESTING.md.
 #
 # Run the TLS test bot against a (remote) proxy. Usage: make remote-bot HOST=10.0.0.5 PORT=443
-remote-bot:
+remote-bot:  ## Run test bot against remote proxy (HOST=... PORT=...)
 	@[ -n "$(HOST)" ] || { echo "Usage: make remote-bot HOST=<proxy-ip> [PORT=<port>]"; exit 1; }
 	@PYTHONPATH=. $(PYTHON) scripts/test-bot.py --proxy "$(HOST)" --port $(or $(PORT),443)
 
@@ -296,7 +296,7 @@ remote-bot:
 # Start an isolated agent environment (auto-generates .env.<name> if missing).
 # Writes .current-agent so subsequent commands default to this agent.
 # Usage: make agent-up NAME=claude
-agent-up:
+agent-up:  ## Start an isolated agent environment (NAME=<agent>)
 	@[ -n "$(NAME)" ] || (echo "Usage: make agent-up NAME=<agent>  (agents: gemini|claude|ollama|mistral)"; exit 1)
 	@[ -f ".env.$(NAME)" ] || (echo "→ No .env.$(NAME) found — generating..."; ./scripts/agent-env.sh $(NAME))
 	docker compose -f deploy/docker/docker-compose.poc.yml --project-name ja4_$(NAME) --env-file .env.$(NAME) up -d
@@ -321,7 +321,7 @@ agent-up:
 # If NAME is not given, reads .current-agent (set by the last agent-up).
 # Clears .current-agent if it matches the stopped agent.
 # Usage: make agent-down NAME=claude  OR  make agent-down
-agent-down:
+agent-down:  ## Stop an isolated agent environment (NAME=<agent>)
 	$(eval _NAME := $(or $(NAME),$(shell cat .current-agent 2>/dev/null)))
 	@[ -n "$(_NAME)" ] || (echo "Usage: make agent-down NAME=<agent>  (or run make agent-up first to set .current-agent)"; exit 1)
 	@[ -f ".env.$(_NAME)" ] || (echo "No .env.$(_NAME) — is agent $(_NAME) configured?"; exit 1)
@@ -329,7 +329,7 @@ agent-down:
 	@if [ "$$(cat .current-agent 2>/dev/null)" = "$(_NAME)" ]; then rm -f .current-agent; echo "✓ Cleared .current-agent"; fi
 
 # List all running agent environments and show which is current.
-agent-status:
+agent-status:  ## List all running agent environments
 	@echo "Running ja4_* agent environments:"
 	@docker compose ls 2>/dev/null | grep '^ja4_' || echo "  (none running)"
 	@if [ -f .current-agent ]; then echo "Current (.current-agent): $$(cat .current-agent)"; fi
@@ -395,28 +395,28 @@ test: tools-image cli-build ## Phase 146 — Run the full test suite
 	@$(TOOLS_RUN) python scripts/pipeline_summary.py test
 
 # Run unit tests only (containerized — pinned Python 3.14, no host venv)
-test-unit: tools-image
+test-unit: tools-image  ## Run unit tests only
 	@$(TOOLS_RUN) pytest tests/unit/ -n $(WORKERS) --dist=loadfile --timeout=60 --tb=short $(ARGS)
 	@$(TOOLS_RUN) pytest management/tests/ -n $(WORKERS) --dist=loadfile --timeout=60 --tb=short $(ARGS)
 
 # Run chaos/resilience tests only (containerized)
-test-chaos: tools-image
+test-chaos: tools-image  ## Run chaos/resilience tests only
 	@$(TOOLS_RUN) pytest tests/chaos/ -n $(WORKERS) --dist=loadfile --timeout=60 --tb=short $(ARGS)
 
 # Run adversarial/fuzz tests only (containerized; no parallelism — some are stateful)
-test-adversarial: tools-image
+test-adversarial: tools-image  ## Run adversarial/fuzz tests only
 	@$(TOOLS_RUN) pytest tests/adversarial/ --timeout=60 --tb=short $(ARGS)
 
 # Benchmark this machine and store worker count in .local/machine.mk
-test-calibrate:
+test-calibrate:  ## Benchmark this machine, store worker count
 	@$(PYTHON) scripts/detect_workers.py
 
 # Run tests inside Docker (CI / clean environment)
-test-docker:
+test-docker:  ## Run tests inside Docker (CI env)
 	@./scripts/run-tests.sh
 
 # Run quick smoke test
-smoke-test:
+smoke-test:  ## Quick sanity check
 	@./scripts/smoke-test.sh
 
 # Run linting
@@ -426,11 +426,11 @@ lint: ## Phase 146 — Run all linters (Python, Go, Infra, Docs)
 	@python3 scripts/ci_summary.py lint
 
 # Security scanning with bandit (medium/high severity, skip B104 bind-all)
-lint-security: bandit-image
+lint-security: bandit-image  ## bandit SAST (medium/high severity)
 	@$(BANDIT_RUN) bandit -r src/analytics/ -ll --skip B104 && echo "  ✓ lint-security passed"
 
 # Type checking with mypy (suppress output)
-lint-types:
+lint-types:  ## Run mypy type checker on src/
 	docker run --rm -v $(PWD):/app python:3.14.0-slim sh -c "cd /app && pip install mypy && mypy src/ 2>/dev/null || echo 'Mypy warnings above, see baseline docs/reports/MYPY_BASELINE.md'"
 
 # Phase 16f static analysis gates — runs locally (no Docker required).
@@ -439,7 +439,7 @@ lint-types:
 #   bandit:   SAST scan, medium/high severity only (-ll), ignore B104 (bind 0.0.0.0 intentional)
 #   ruff:     fast linter/formatter-check (replaces flake8/isort for new code)
 #   pip-audit: CVE scan of requirements.txt; urllib3 CVEs acknowledged (transitive, tracked backlog)
-lint-static: tools-image bandit-image
+lint-static: tools-image bandit-image  ## mypy + bandit + ruff + pip-audit
 	@echo "=== mypy: type checking ==="
 	@$(TOOLS_RUN) mypy src/analytics/ && echo "  ✓ mypy passed"
 	@echo ""
@@ -468,11 +468,11 @@ lint-static: tools-image bandit-image
 	@echo "✓ All static analysis gates passed"
 
 # Code quality with flake8 (suppress output)
-lint-quality:
+lint-quality:  ## flake8 code quality
 	docker run --rm -v $(PWD):/app python:3.14.0-slim sh -c "cd /app && pip install flake8 && flake8 src/analytics/ scripts/ tests/ 2>/dev/null || echo 'Flake8 warnings above, see baseline docs/QUICK_REFERENCE.md'"
 
 # Coverage reporting with pytest-cov (Phase 16c gate: ≥80% all modules)
-lint-coverage:
+lint-coverage:  ## pytest-cov coverage reporting (≥80% gate)
 	$(PYTHON) -m pytest tests/ --ignore=tests/integration/test_docker_stack.py \
 		--cov=src --cov=proxy \
 		--cov-fail-under=80 \
@@ -496,7 +496,7 @@ HADOLINT_DOCKERFILES := deploy/docker/Dockerfile.management \
 	tests/docker/Dockerfile.recorder \
 	tests/docker/Dockerfile.test-runner tests/docker/Dockerfile.tls-backend
 
-lint-docker:
+lint-docker:  ## hadolint + `docker compose config --quiet` (all overlays)
 	@echo "=== hadolint: Dockerfiles ==="
 	@# Pre-pull so Docker's "Unable to find image / Downloaded" messages (stderr,
 	@# emitted on a cold runner) don't land in $$result below and false-FAIL the
@@ -536,7 +536,7 @@ lint-docker:
 # and local share one reproducible env with no host `pip install`. Tools with
 # their own official images (hadolint, shellcheck, trivy, gitleaks, gosec,
 # promtool, amtool, scorecard, lychee, semgrep) are run from those directly.
-tools-image:
+tools-image:  ## Build containerized tools image (Dockerfile.tools)
 	@docker build -q -t $(TOOLS_IMG) -f Dockerfile.tools . >/dev/null
 # Docker socket mounted so tests/integration/test_container_config.py,
 # test_dockerfile_coverage.py, and test_go_proxy_image.py (all gated on
@@ -549,7 +549,7 @@ TOOLS_RUN = docker run --rm -v $(PWD):/src -w /src -v /var/run/docker.sock:/var/
 # use ast.Num, removed in 3.12, which makes bandit silently skip whole files on
 # the 3.14 tools image. Separate image keeps full SAST coverage.
 BANDIT_IMG := ja4proxy-bandit
-bandit-image:
+bandit-image:  ## Build containerized bandit SAST image (Dockerfile.bandit)
 	@docker build -q -t $(BANDIT_IMG) -f Dockerfile.bandit . >/dev/null
 BANDIT_RUN = docker run --rm -v $(PWD):/src -w /src $(BANDIT_IMG)
 
@@ -570,7 +570,7 @@ CHECKMAKE_IMG := mrtazz/checkmake:2c59d1f0939900ca3a4208fb9b9300de90ecee8a
 # parse time, so the noise appeared before any target ran and looked like a
 # failure of whatever target was asked for. Nothing there is a shell script.
 SHELL_SCRIPTS := $(shell find . -name "*.sh" -not -path "./.git/*" -not -path "./node_modules/*" -not -path "./.claude/*" -not -path "./.local/*" | sort)
-lint-shell:
+lint-shell:  ## shellcheck all `.sh` scripts (error-level)
 	@echo "=== shellcheck: shell scripts ==="
 	@fail=0; \
 	for f in $(SHELL_SCRIPTS); do \
@@ -617,7 +617,7 @@ TRIVY_IMAGES = $(shell $(PYTHON) scripts/check_image_versions.py --list-third-pa
 check-manifest: ## Verify manifest.yaml / TODO.md / CHANGELOG.md stay consistent
 	@$(PYTHON) scripts/check_manifest.py
 
-scan-images:
+scan-images:  ## Trivy scan of third-party images (HIGH/CRITICAL; fails on CRITICAL)
 	@mkdir -p "$(TRIVY_CACHE)"
 	@echo "=== Trivy: third-party image CVE scan (HIGH + CRITICAL) ==="
 	@echo "    Fails on HIGH or CRITICAL. CVEs in .trivyignore are documented exceptions."
@@ -654,7 +654,7 @@ scan-images:
 # Does NOT require building images — analyses file content only.
 # Catches: running as root, missing HEALTHCHECK, ADD with URL, exposed secrets, missing no-new-privileges.
 # Policy: HIGH + CRITICAL → exit 1 (we own these files; zero tolerance).
-scan-dockerfiles:
+scan-dockerfiles:  ## Trivy config scan of Dockerfiles + compose files (HIGH/CRITICAL → fail)
 	@mkdir -p "$(TRIVY_CACHE)"
 	@echo "=== Trivy: Dockerfile/compose misconfiguration scan (HIGH + CRITICAL) ==="
 	@echo "    Fails on HIGH or CRITICAL findings."
@@ -687,7 +687,7 @@ scan-dockerfiles:
 # HIGH is actionable (base bump / dep bump / dated .trivyignore). The profile-gated
 # CI-only test + trafficgen images are skipped by 'make build', so this target
 # builds them explicitly — otherwise they would be scanned-as-absent (a vacuous pass).
-scan-first-party:
+scan-first-party:  ## Trivy CVE scan of built images (CRITICAL → fail)
 	@mkdir -p "$(TRIVY_CACHE)"
 	@echo "=== Trivy: first-party image CVE scan (HIGH + CRITICAL) ==="
 	@echo "    Phase 317: fails on HIGH or CRITICAL. .trivyignore holds dated exceptions."
@@ -746,7 +746,7 @@ scan-exceptions: ## List Trivy scan exceptions (.trivyignore) with days-to-expir
 
 # Detect :latest tags and version drift between compose files.
 # Runs in < 5 seconds — no external calls, no Docker required.
-check-image-versions:
+check-image-versions:  ## Detect `:latest` tags and version drift across compose files
 	@$(PYTHON) scripts/check_image_versions.py
 
 # Lint YAML config and monitoring files with yamllint.
@@ -763,7 +763,7 @@ YAML_DIRS := config deploy/monitoring
 # `command -v` guard — the only linter in the repo not running from a pinned
 # image. It hard-failed anywhere yamllint was absent, and silently used whatever
 # version the host happened to have otherwise. Now pinned in Dockerfile.tools.
-lint-yaml: tools-image
+lint-yaml: tools-image  ## yamllint `config/` and `monitoring/`
 	@echo "=== yamllint: config and monitoring YAML ==="
 	@$(TOOLS_RUN) yamllint -c .yamllint.yaml $(YAML_DIRS) && echo "✓ YAML lint passed"
 
@@ -783,7 +783,7 @@ PROM_RULES := /monitoring/prometheus/alerts.yml \
 	/monitoring/alertmanager/rules/tls_alerts.yml \
 	/monitoring/alertmanager/rules/tap.yml \
 	/monitoring/alertmanager/rules/performance.rules.yml
-lint-prom:
+lint-prom:  ## promtool check rules (alerts + recording)
 	@echo "=== promtool check rules: Prometheus alert + recording rules ==="
 	@docker run --rm --entrypoint promtool \
 		-v "$(PWD)/deploy/monitoring:/monitoring" \
@@ -793,7 +793,7 @@ lint-prom:
 
 # Check Python and Go dependencies for known CVEs.
 # pip-audit scans requirements.txt; govulncheck scans go.mod.
-lint-deps: scan-container
+lint-deps: scan-container  ## pip-audit (Python) + govulncheck (Go) CVE scan
 	@echo "=== pip-audit: Python dependency CVEs ==="
 	@pip-audit -r requirements.txt || true
 	@pip-audit -r requirements-test.txt || true
@@ -806,7 +806,7 @@ lint-deps: scan-container
 # Scan git history for accidentally committed secrets (gitleaks).
 # Scans committed files only — working-tree secrets are handled by .gitignore.
 # False positives are suppressed in .gitleaks.toml with rationale.
-lint-secrets:
+lint-secrets:  ## gitleaks scan of git history
 	@echo "=== gitleaks: scan git history for secrets ==="
 	@docker run --rm \
 		-v "$(PWD):/repo" \
@@ -823,7 +823,7 @@ lint-secrets:
 # (go1.26.4) and it refuses to load the config. Pin to v2.11.4 instead — the
 # same version `:latest` currently resolves to, built with go1.26.1. Bump this
 # and ci.yml's SAST/CI action pins together when intentionally upgrading.
-lint-go-full:
+lint-go-full:  ## golangci-lint comprehensive
 	@echo "=== golangci-lint: Go code ==="
 	@docker run --rm \
 		-v "$(PWD):/app" -w /app \
@@ -834,7 +834,7 @@ lint-go-full:
 # Lint the Redis Lua script with luacheck.
 # KEYS, ARGV, and redis globals are declared in .luacheckrc (Redis runtime injects them).
 LUACHECK_SCRIPTS := scripts/sliding_window.lua
-lint-lua:
+lint-lua:  ## luacheck Redis Lua scripts
 	@echo "=== luacheck: Lua/Redis scripts ==="
 	@docker run --rm \
 		-v "$(PWD):/repo" \
@@ -850,7 +850,7 @@ lint-lua:
 # ci_benchmark_trend.json would have.
 JSON_FILES := $(wildcard deploy/monitoring/grafana/dashboards/*.json) \
 	docs/api/openapi.json
-lint-json:
+lint-json:  ## JSON syntax validation
 	@echo "=== JSON syntax validation ==="
 	@fail=0; \
 	for f in $(JSON_FILES); do \
@@ -864,7 +864,7 @@ lint-json:
 
 # Validate Alertmanager configuration with amtool.
 # Uses the alertmanager container to match the deployed version.
-lint-alertmanager:
+lint-alertmanager:  ## amtool check-config
 	@echo "=== amtool check-config: Alertmanager ==="
 	@docker run --rm \
 		--entrypoint amtool \
@@ -881,7 +881,7 @@ lint-alertmanager:
 CLEAN_DUMMY_ENV := MANAGEMENT_JWT_SECRET=_ MANAGEMENT_ADMIN_USER=_ MANAGEMENT_ADMIN_PASSWORD=_ REDIS_PASSWORD=_ GRAFANA_PASSWORD=_ BACKEND_HOST=_ HAPROXY_STATS_USER=_ HAPROXY_STATS_PASSWORD=_
 
 # Clean up (agent-aware: uses .current-agent if set)
-clean:
+clean:  ## Stop + remove all containers and volumes
 	$(eval _AGENT := $(shell cat .current-agent 2>/dev/null))
 	@echo "Cleaning up containers and volumes..."
 	@if [ -n "$(_AGENT)" ]; then \
@@ -897,7 +897,7 @@ clean:
 # Full clean rebuild from scratch — wipes volumes, removes built images, rebuilds, starts.
 # If .current-agent is set (i.e. an agent stack is active), rebuilds and restarts that
 # agent's stack.  Otherwise rebuilds and restarts the default ja4proxy stack.
-rebuild: clean build
+rebuild: clean build  ## Wipe volumes/images, rebuild from scratch, start fresh
 	$(eval _AGENT := $(shell cat .current-agent 2>/dev/null))
 	@echo "Starting clean rebuild..."
 	@if [ -n "$(_AGENT)" ]; then \
@@ -919,16 +919,16 @@ rebuild: clean build
 	fi
 
 # Deploy PoC environment
-deploy-poc:
+deploy-poc:  ## Deploy PoC environment
 	@./scripts/start-poc.sh
 
 # Deploy enterprise environment
-deploy-enterprise:
+deploy-enterprise:  ## Deploy enterprise environment (sudo)
 	@echo "Running enterprise deployment script..."
 	@sudo ./scripts/deploy.sh production
 
 # Health checks (agent-aware: uses .current-agent if set)
-health-check:
+health-check:  ## Run health checks against metrics + Redis
 	$(eval _AGENT := $(shell cat .current-agent 2>/dev/null))
 	@ENVFILE=$$([ -n "$(_AGENT)" ] && echo ".env.$(_AGENT)" || echo ".env"); \
 	IP=$$(grep '^AGENT_BIND_IP=' "$$ENVFILE" 2>/dev/null | cut -d= -f2); IP=$${IP:-localhost}; \
@@ -940,7 +940,7 @@ health-check:
 	docker compose -f deploy/docker/docker-compose.poc.yml --env-file .env $$FLAGS exec -T redis redis-cli -a "$$RPASS" ping > /dev/null 2>&1 && echo "✓ Redis OK" || echo "✗ Redis failed"
 
 # View logs (agent-aware: uses .current-agent if set)
-logs:
+logs:  ## Stream proxy container logs
 	$(eval _AGENT := $(shell cat .current-agent 2>/dev/null))
 	@if [ -n "$(_AGENT)" ]; then \
 		docker compose -f deploy/docker/docker-compose.poc.yml --project-name ja4_$(_AGENT) --env-file .env.$(_AGENT) logs -f proxy; \
@@ -951,7 +951,7 @@ logs:
 # Flush all transient security state from Redis (bans, blocks, rate windows, audit logs)
 # Preserves ja4:whitelist and ja4:blacklist so config survives the flush.
 # Agent-aware: uses .current-agent if set.
-flush-redis:
+flush-redis:  ## Reset bans/blocks/rates (keeps whitelist/blacklist)
 	$(eval _AGENT := $(shell cat .current-agent 2>/dev/null))
 	@ENVFILE=$$([ -n "$(_AGENT)" ] && echo ".env.$(_AGENT)" || echo ".env"); \
 	REDIS_PASS=$$(grep '^REDIS_PASSWORD=' "$$ENVFILE" 2>/dev/null | cut -d= -f2); \
@@ -968,65 +968,65 @@ flush-redis:
 # ── ja4db feed management ─────────────────────────────────────────────────────
 
 # Fetch new malicious fingerprints from FoxIO GitHub / ja4db.com, queue for review
-fetch-db:
+fetch-db:  ## Fetch new malicious fingerprints from ja4db/FoxIO
 	@./scripts/fetch-ja4db.sh
 
 # Show fingerprints awaiting approval
-list-pending:
+list-pending:  ## Show fingerprints awaiting admin approval
 	@./scripts/ja4-admin.sh list-pending
 
 # Approve all pending fingerprints (prompts for confirmation)
-approve-all:
+approve-all:  ## Approve all pending fingerprints
 	@./scripts/ja4-admin.sh approve-all
 
 # ── GeoIP monitoring ───────────────────────────────────────────────────────────
 
 # Full blocking report (countries, CIDRs, fingerprints, Prometheus summary)
-geoip-report:
+geoip-report:  ## Full blocking report
 	@./scripts/ja4-admin.sh report
 
 # Run the GeoIP monitor once — auto-blocks attacking countries, respects safe list
-geoip-monitor:
+geoip-monitor:  ## Auto-block attacking countries (run once)
 	@./scripts/geoip-monitor.sh
 
 # Run geoip-monitor in watch mode (loops every 60s, Ctrl-C to stop)
-geoip-watch:
+geoip-watch:  ## Auto-block attacking countries (continuous loop)
 	@./scripts/geoip-monitor.sh --watch
 
 # Download the latest IP2Location LITE country database (run monthly)
 # Requires proxy restart after update: make stop && make start
-update-geoip:
+update-geoip:  ## Download latest IP2Location LITE DB (monthly)
 	@./scripts/update-geoip.sh
 
 # Check how old the current GeoIP database is (no download)
-check-geoip:
+check-geoip:  ## Check age of current GeoIP database
 	@./scripts/update-geoip.sh --check
 
 # ── Incident response shortcuts (wrappers for scripts/ja4-admin.sh) ──────────
 
 # Quick security snapshot: active bans, block totals, top threats
-attack-status:
+attack-status:  ## Quick security snapshot
 	@./scripts/ja4-admin.sh status
 
 # Top 10 fingerprints by traffic (red = blocked, green = allowed)
-top-attackers:
+top-attackers:  ## Top 10 fingerprints by traffic
 	@./scripts/ja4-admin.sh top 10
 
 # Blacklist a JA4 fingerprint (instant TCP RST, permanent)
 # Usage: make block-ja4 FP=t13d190900_9dc949149365_97f8aa674fd9
-block-ja4:
+block-ja4:  ## Blacklist a JA4 fingerprint (FP=...)
 	@[ -n "$(FP)" ] || (echo "Usage: make block-ja4 FP=<fingerprint>"; exit 1)
 	@./scripts/ja4-admin.sh block-ja4 $(FP)
 
 # Hard-block an IP for 1 hour
 # Usage: make block-ip IP=203.0.113.42
-block-ip:
+block-ip:  ## Hard-block an IP address for 1 hour (IP=...)
 	@[ -n "$(IP)" ] || (echo "Usage: make block-ip IP=<address>"; exit 1)
 	@./scripts/ja4-admin.sh block-ip $(IP) 3600
 
 # Remove all blocks/bans for an IP
 # Usage: make unblock-ip IP=203.0.113.42
-unblock-ip:
+unblock-ip:  ## Remove blocks/bans for an IP (IP=...)
 	@[ -n "$(IP)" ] || (echo "Usage: make unblock-ip IP=<address>"; exit 1)
 	@./scripts/ja4-admin.sh unblock-ip $(IP)
 
@@ -1042,7 +1042,7 @@ poc-secrets: ## Generate any missing deploy/secrets/*.txt the PoC stack needs
 	@echo "=== PoC secrets ==="
 	@scripts/ensure-poc-secrets.sh
 
-perf-test: poc-secrets
+perf-test: poc-secrets  ## Run performance tests with Locust
 	@echo "Starting performance tests..."
 	@echo "Note: This requires services to be running (make deploy-poc)"
 	@[ -f .env ] || { echo "✗ .env not found — run 'make start-poc' once to generate it (it must not be created ad hoc here: start-poc.sh owns the full required key set)"; exit 1; }
@@ -1052,7 +1052,7 @@ perf-test: poc-secrets
 
 # Set the blocking dial (0 = monitor only, 100 = full blocking)
 # Usage: make dial LEVEL=50
-dial:
+dial:  ## Set blocking dial 0-100 (LEVEL=...)
 	@[ -n "$(LEVEL)" ] || (echo "Usage: make dial LEVEL=<0-100>"; exit 1)
 	@$(PYTHON) scripts/set_dial.py $(LEVEL)
 
@@ -1060,7 +1060,7 @@ dial:
 
 # Print SSH tunnel command for the default (non-agent) stack.
 # For agent stacks use: make tunnel NAME=<agent> [HOST=user@server]
-ssh-tunnels:
+ssh-tunnels:  ## Print SSH tunnel command for default stack
 	@echo ""
 	@echo "NOTE: For agent stacks use: make tunnel NAME=<agent> HOST=user@server"
 	@echo ""
@@ -1083,7 +1083,7 @@ GO     := GOROOT=$(GOROOT) go
 
 # Build the Go proxy binary into bin/ja4p
 # Run all Go unit tests
-go-test:
+go-test:  ## Run all Go unit tests
 	$(GO) test ./... -count=1
 
 # Run all Go tests under the race detector (phase-518). This is the enforcement
@@ -1091,15 +1091,15 @@ go-test:
 # snapshot JA4PROXY-2026-0088, forward() config capture 0068, worker lifecycle
 # 0090) only *detect* a regression when run with -race, and the plain `make test`
 # gate does not pass -race. Requires cgo (a C toolchain); CI runners have one.
-test-race:
+test-race:  ## Run Go unit tests under the race detector
 	$(GO) test -race ./... -count=1
 
 # Run go vet (static analysis)
-go-lint:
+go-lint:  ## Run `go vet` on Go code
 	$(GO) vet ./...
 
 # Audit Python and Go signal scores against registry (Phase 65)
-check-scores: tools-image
+check-scores: tools-image  ## Audit Python and Go signal scores against registry
 	@$(TOOLS_RUN) python scripts/check-signal-scores.py
 
 # ── Security Scans ────────────────────────────────────────────────────────────
@@ -1122,27 +1122,27 @@ scan-container: ## Run Go SAST (gosec) in a container — gates on high-severity
 	@docker run --rm -v "$(PWD):/app" ja4proxy-security-scan \
 		"gosec -severity high -confidence high -exclude-dir=.claude -quiet ./..."
 
-scan-local:
+scan-local:  ## Run gosec Go SAST scanner locally
 	@(gosec -fmt=text -exclude-dir=.claude ./... || true)
 
 scan: ## Phase 146 — Run all security and container scans
 	@$(MAKE) scan-all
 	@python3 scripts/pipeline_summary.py scan
 
-scan-all: scan-container scan-dockerfiles scan-first-party scan-images
+scan-all: scan-container scan-dockerfiles scan-first-party scan-images  ## Run all security scans (container, dockerfiles, 1st-party, images)
 	@echo "✓ All blocking scan gates passed (HIGH=0, CRITICAL=0)"
 
 # Analyze Docker containers and dependencies for version discrepancies
-check-updates-container:
+check-updates-container:  ## Run dependency update checker in container
 	@echo "=== Containerized Update Check (Go, Python, Docker, Node) ==="
 	@docker build -q -t ja4proxy-update-checker -f deploy/docker/update-checker/Dockerfile .
 	@docker run --rm -v "$(PWD):/app" ja4proxy-update-checker
 
-check-updates-local:
+check-updates-local:  ## Run dependency update checker locally
 	@echo "=== Local Update Check (Go, Python, Docker, Node) ==="
 	@$(PYTHON) scripts/check_updates.py
 
-check-updates: check-updates-container
+check-updates: check-updates-container  ## Check Python/Go/Docker dependency versions
 
 # Start Python legacy proxy alongside the Go proxy for parity comparison.
 # Both proxies share the same Redis instance.
@@ -1162,35 +1162,35 @@ check-updates: check-updates-container
 # ── Docker test harness ────────────────────────────────────────────────────────
 
 # Generate ClientHello fixtures (curl + openssl + synthetic)
-capture-fixtures:
+capture-fixtures:  ## Generate ClientHello `.bin` fixtures (curl + openssl)
 	@bash scripts/generate_fixtures.sh
 
 # Build ja4check utility (reads .bin file, prints JA4 fingerprint)
-go-build-ja4check:
+go-build-ja4check:  ## Build `bin/ja4check` utility
 	@echo "Building ja4check..."
 	@mkdir -p bin
 	$(GO) build -o bin/ja4check ./cmd/ja4check
 	@echo "✓ bin/ja4check"
 
 # Run Go integration tests inside Docker (full test harness, self-contained)
-test-go-docker:
+test-go-docker:  ## Go integration tests inside Docker (self-contained)
 	@echo "Starting Go proxy test stack..."
 	docker compose -f deploy/docker/docker-compose.test.yml up --build --abort-on-container-exit --exit-code-from test-runner test-runner
 
 # Run Go integration tests locally (requires Go proxy running on GO_PROXY_PORT)
-test-go-integration:
+test-go-integration:  ## Go integration tests locally
 	$(PYTHON) -m pytest tests/integration/test_go_python_parity.py -v
 
 # Run Go chaos tests locally (requires Go proxy running on GO_PROXY_PORT)
-test-go-chaos:
+test-go-chaos:  ## Go chaos tests locally
 	$(PYTHON) -m pytest tests/chaos/test_go_proxy_chaos.py -v
 
 # Run Go performance benchmarks locally (requires Go proxy running on GO_PROXY_PORT)
-test-go-perf:
+test-go-perf:  ## Go performance benchmarks
 	$(PYTHON) -m pytest tests/performance/test_bench_go_proxy.py -v -s
 
 # Run all Go tests: build binaries, generate fixtures, then run test suite
-test-go:
+test-go:  ## Build + test all Go (build binaries, generate fixtures, run suite)
 	$(MAKE) go-build
 	$(MAKE) go-build-ja4check
 	$(MAKE) capture-fixtures
@@ -1204,7 +1204,7 @@ test-go:
 # Generates a self-signed cert, brings up the redis-tls compose overlay, runs the
 # in-package TLS unit suite (which dials real TLS listeners via the harness),
 # then tears down. Real TLS handshake; no shortcuts.
-test-go-redis-tls:
+test-go-redis-tls:  ## Go Redis TLS smoke test
 	@bash deploy/docker/redis-tls/generate-certs.sh
 	@docker compose -f deploy/docker/docker-compose.redis-tls.yml up -d --wait
 	@trap 'docker compose -f deploy/docker/docker-compose.redis-tls.yml down -v' EXIT; \
@@ -1234,7 +1234,7 @@ bench-macro: ## Run end-to-end load test (requires: make start)
 	./bin/ja4p test benchmark --host 127.0.0.1:$$PORT --duration 30 $(ARGS)
 
 # Generate SBOM (Software Bill of Materials) for the Go proxy
-sbom:
+sbom:  ## Generate CycloneDX SBOM for Go proxy binary
 	@echo "Generating SBOM for Go proxy..."
 	@if command -v syft &>/dev/null; then \
 		syft bin/ja4pd -o cyclonedx-json > reports/sbom-proxy.json; \
@@ -1243,12 +1243,12 @@ sbom:
 		echo "✗ syft not found. Install with: curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh"; \
 	fi
 
-validation-report:
+validation-report:  ## Generate validation report
 	$(PYTHON) scripts/generate_validation_report.py
 
 
 ## Phase 63 targets — SLO validation and reporting
-validate-slo-rules:
+validate-slo-rules:  ## Validate SLO recording/alert rules (promtool or YAML)
 	@command -v promtool >/dev/null 2>&1 && { \
 		promtool check rules deploy/monitoring/prometheus/slo_recording_rules.yml; \
 		promtool check rules deploy/monitoring/alertmanager/rules/slo_alerts.yml; \
@@ -1257,7 +1257,7 @@ validate-slo-rules:
 		$(PYTHON) -c "import yaml; yaml.safe_load(open('deploy/monitoring/prometheus/slo_recording_rules.yml')); yaml.safe_load(open('deploy/monitoring/alertmanager/rules/slo_alerts.yml')); print('YAML structurally valid (promtool not installed)')"; \
 	}
 
-slo-report:
+slo-report:  ## Show SLO report from live Prometheus
 	@echo "=== JA4proxy SLO Report ==="
 	@curl -sg 'http://localhost:9090/api/v1/query?query=job:ja4proxy_availability:ratio_rate5m' \
 		| $(PYTHON) -c "import sys,json; d=json.load(sys.stdin); v=d['data']['result']; print('Availability (5m):', round(float(v[0]['value'][1])*100, 4) if v else 'NO DATA', '%')"
@@ -1266,7 +1266,7 @@ slo-report:
 	@curl -sg 'http://localhost:9090/api/v1/query?query=job:ja4proxy_redis_correctness:ratio_rate5m' \
 		| $(PYTHON) -c "import sys,json; d=json.load(sys.stdin); v=d['data']['result']; print('Redis      (5m):', round(float(v[0]['value'][1])*100, 4) if v else 'NO DATA', '%')"
 
-test-slo:
+test-slo:  ## SLO validation tests
 	GOROOT=$(GOROOT) go test ./internal/metrics/... ./internal/redis/... -count=1
 	$(PYTHON) -c "import yaml; yaml.safe_load(open('deploy/monitoring/prometheus/slo_recording_rules.yml')); yaml.safe_load(open('deploy/monitoring/alertmanager/rules/slo_alerts.yml')); print('YAML OK')"
 
@@ -1525,19 +1525,19 @@ lint-ansible: ## Lint the Ansible playbooks/roles under deploy/ansible (containe
 		ansible-lint deploy/ansible/ \
 		|| echo "  ! ansible-lint reported issues or is unavailable (advisory)"
 
-lint-all: lint-meta lint-python lint-go lint-sast lint-infra lint-observability \
-          lint-supply-chain lint-docs-all ## Run every linter in one shot
+lint-all: lint-meta lint-python lint-go lint-sast lint-infra lint-observability lint-supply-chain lint-docs-all  ## Run every linter in one shot
 	@echo ""
 	@echo "✓ lint-all complete"
 	@python3 scripts/ci_summary.py lint
 
-test-lint-hierarchy: ## Run Phase 92 lint hierarchy structural tests
-	@python3 -m pytest tests/lint-hierarchy/ -v
+test-lint-hierarchy: tools-image ## Run Phase 92 lint hierarchy structural tests
+	@$(TOOLS_RUN) python3 -m pytest tests/lint-hierarchy/ -v
 
 start-poc: deploy-poc ## Alias for starting the POC environment
 
-sync: tools-image ## Sync roadmap from manifest.yaml to PROJECT_STATUS.md
+sync: tools-image ## Sync roadmap from manifest.yaml and generated reference docs
 	@$(TOOLS_RUN) python scripts/sync-roadmap.py
+	@$(TOOLS_RUN) python scripts/sync_reference_docs.py
 
 changelog-assemble: tools-image ## Fold docs/fragments/*.md into CHANGELOG.md (run at release, not per-phase)
 	@$(TOOLS_RUN) python scripts/assemble-changelog.py
@@ -1771,10 +1771,10 @@ test-journeys: ## Phase 824 — run customer-journey checks against a live stack
 # stream, events rejected on an HMAC mismatch, the proxy never loading its
 # blacklist, an empty Intelligence panel. See docs/DEMO_RUNBOOK.md.
 .PHONY: demo-check demo-bot
-demo-check:
+demo-check:  ## Pre-flight health check for demo environment
 	@scripts/demo-check.sh
 
 # One deliberately non-browser TLS connection, for the "now something that
 # isn't a browser" step of the demo.
-demo-bot:
+demo-bot:  ## Send test non-browser TLS connection for demo
 	@scripts/demo-bot.sh

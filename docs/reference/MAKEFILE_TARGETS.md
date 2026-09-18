@@ -43,358 +43,329 @@ The default lane runs **without HAProxy** (single proxy, reached directly on
 
 ---
 
-## Startup / Shutdown
+<!-- BEGIN GENERATED: make-targets -->
 
-| Target | Description | Env / Args | Prerequisites |
-|--------|-------------|------------|---------------|
-| `start` | Start full stack (POC + Prometheus/Grafana) | `.env` | Docker |
-| `start-monitoring` | Start monitoring stack only | `.env` | Docker |
-| `start-scaled` | Start 4-worker scaled config with HAProxy | `.env` | Docker |
-| `stop` | Stop all services (keep Redis data) | — | Running stack |
-| `stop-clean` | Stop all + wipe volumes (fresh slate) | — | Running stack |
-| `status` | Show health of all services + security state | — | Running stack |
-| `logs` | Stream proxy container logs | `.current-agent` | Running stack |
-| `health-check` | Run health checks against metrics + Redis | `.current-agent` | Running stack |
+_193 targets. Generated from the Makefile's own `##` help comments by `make sync` — do not edit this table by hand._
 
-### Multi-Agent
-
-| Target | Description | Env / Args | Prerequisites |
-|--------|-------------|------------|---------------|
-| `agent-up NAME=<agent>` | Start isolated agent env (writes `.current-agent`) | `NAME` (required) | Docker |
-| `agent-down [NAME=]` | Stop agent env (reads `.current-agent` if no NAME) | `NAME` (optional) | Running agent |
-| `agent-status` | List all running agent environments | — | Docker |
-| `tunnel NAME=<agent> [HOST=user@server]` | SSH tunnels for agent UIs | `NAME`, `HOST` (optional) | Running agent |
-
----
-
-## Build
-
-| Target | Description | Env / Args | Prerequisites |
-|--------|-------------|------------|---------------|
-| `build` | Build Docker images (incremental, BuildKit) | — | Docker |
-| `rebuild` | Wipe volumes/images, rebuild from scratch, start fresh | `.current-agent` (optional) | Docker |
-| `clean` | Stop + remove all containers and volumes | `.current-agent` (optional) | Docker |
-| `deploy-poc` | Deploy PoC environment | — | Docker, `.env` |
-| `deploy-enterprise` | Deploy enterprise environment (sudo) | — | Sudo, Docker |
-
----
-
-## Testing
-
-| Target | Description | Env / Args | Prerequisites |
-|--------|-------------|------------|---------------|
-| `test` | Run all tests locally (fast, no Docker) | `ARGS=` | Python deps |
-| `test-live` | Run full suite including live-service tests | `ARGS=` | Go + Python proxy + Redis |
-| `test-unit` | Run unit tests only | `ARGS=` | Python deps |
-| `test-chaos` | Run chaos/resilience tests only | `ARGS=` | Python deps |
-| `test-adversarial` | Run adversarial/fuzz tests only | `ARGS=` | Python deps |
-| `test-calibrate` | Benchmark this machine, store worker count | — | Python deps |
-| `test-docker` | Run tests inside Docker (CI env) | — | Docker |
-| `smoke-test` | Quick sanity check | — | Python deps |
-| `smoke-docker` | Docker Compose lifecycle smoke test | — | Docker |
-| `smoke-k8s` | Helm/kind smoke test (skips if kind absent) | — | kind, Helm |
-| `test-component-suites` | Run every per-component test suite | — | Go + Python deps |
-
-### Go-Specific Test Targets
-
-| Target | Description | Prerequisites |
-|--------|-------------|---------------|
-| `test-go` | Build + test all Go (build binaries, generate fixtures, run suite) | GOROOT |
-| `test-go-docker` | Go integration tests inside Docker (self-contained) | Docker |
-| `test-go-integration` | Go integration tests locally | Go proxy on GO_PROXY_PORT |
-| `test-go-chaos` | Go chaos tests locally | Go proxy on GO_PROXY_PORT |
-| `test-go-perf` | Go performance benchmarks | Go proxy on GO_PROXY_PORT |
-| `test-go-redis-tls` | Go Redis TLS smoke test | Docker |
-| `test-go-fuzz-smoke` | Go fuzz tests (10s each) | GOROOT |
-| `test-go-property` | Go property-based tests | GOROOT |
-| `test-go-chaos-unit` | Go chaos unit tests | GOROOT |
-
-### Component Test Suites
-
-| Target | Description | Prerequisites |
-|--------|-------------|---------------|
-| `test-mgmt-api` | All Management API tests | Python deps |
-| `test-mgmt-api-unit` | Unit tests: auth, dial, lists, bans, health, config, audit | Python deps |
-| `test-mgmt-api-events` | Management API events tests | Python deps |
-| `test-logging-webhook` | Logging + webhook tests (Go + Python) | GOROOT, Python deps |
-| `test-policy-validator` | Policy validator tests | Python deps |
-| `test-compliance` | All compliance regression guards | Go + Python deps |
-| `test-compliance-go` | Go compliance tests | GOROOT |
-| `test-compliance-python` | Python compliance tests | Python deps |
-| `test-compliance-parity` | Cross-language compliance parity | Go + Python deps |
-| `test-cli` | CLI tests (build + vet + test + parity) | GOROOT, Python deps |
-| `test-slo` | SLO validation tests | GOROOT, Python deps |
-| `test-infra-monitoring` | Infra monitoring unit tests | Python deps |
-| `test-infra-monitoring-integration` | Infra monitoring integration tests | Monitoring stack |
-| `test-docker-consistency` | Dockerfile consistency tests | Python deps |
-| `test-gdpr-compliance` | GDPR compliance tests | Python deps |
-| `test-lint-hierarchy` | Lint hierarchy tests | Python deps |
-| `test-provisioning` | Terraform provider + emergency playbook tests | GOROOT, Python deps |
-| `test-tap` | All TAP mode unit/chaos/corpus tests | Python deps |
-| `test-tap-live INTERFACE=eth1` | TAP integration with live capture interface | Sudo, TAP interface |
-| `test-tap-perf` | TAP throughput benchmark | Python deps |
-| `test-attack-mapping` | ATT&CK mapping CI gate | Python deps |
-| `test-doc-links` | Doc link check (requires lychee) | lychee CLI |
-| `test-compliance-language` | Fail if "certified"/"compliant" in self-assessed docs | Python deps |
-| `test-evidence-paths` | Fail if conformance docs cite nonexistent paths | Python deps |
-
----
-
-## Linting
-
-### Python
+### Aggregate linters
 
 | Target | Description |
 |--------|-------------|
-| `lint-static` | mypy + bandit + ruff + pip-audit |
-| `lint-security` | bandit SAST (medium/high severity) |
-| `lint-pylint` | pylint errors-only — catches semantic bugs |
-| `lint-quality` | flake8 code quality |
+| `bench-all` | Run every heavy benchmark (perf, load, go-perf, MTTR) — slow, runs alone |
+| `bench-hostnative` | End-to-end throughput, ja4pd host-native (no docker-proxy; ~4.5x the bridge port) |
+| `bump-build` | Show build number (derived from git commit count — no file needed) |
+| `changelog-assemble` | Fold docs/fragments/*.md into CHANGELOG.md (run at release, not per-phase) |
+| `ci-verify` | Fast CI mirror: the deterministic checks GitHub Actions gates on (no Docker/network) |
+| `cli-build` | Build the unified ja4p CLI tool |
+| `doc-health` | Validate documentation frontmatter |
+| `go-build` | Build the Go proxy daemon into bin/ja4pd |
+| `go-build-foss` | Build royalty-free Go proxy daemon into bin/ja4pd-foss (-tags no_ja4plus) |
+| `init` | Start the guided setup wizard |
+| `install-hooks` | Install shared git hooks (pre-push runs `make ci-verify`) |
+| `ja4p-validate` | Validate proxy configuration YAML |
+| `lane` | Show this worktree's dev lane (collision-free host ports + Grafana URL) |
+| `link-check` | Alias for the internal-link checker (test-doc-links) |
+| `lint-all` | Run every linter in one shot |
+| `lint-ansible` | Lint the Ansible playbooks/roles under deploy/ansible (containerised; advisory) |
+| `lint-docs` | Core documentation quality checks |
+| `lint-docs-all` | Run all documentation quality checks |
+| `lint-go` | Run all Go linters (fmt, vet, golangci-lint, mod verify) |
+| `lint-infra` | Run all infrastructure linters |
+| `lint-observability` | Run observability linters (promtool, amtool) |
+| `lint-phases` | Validate phase docs (frontmatter, numbering, manifest sync) |
+| `lint-python` | Run all Python linters (ruff, mypy, bandit, pylint) |
+| `lint-sast` | Run cross-language SAST (Semgrep, Checkov) |
+| `lint-semgrep` | Run Semgrep SAST using the project ruleset (containerised) |
+| `lint-supply-chain` | Run supply-chain linters (Gitleaks, govulncheck) |
+| `loadtest` | Lane-isolated good/bad load test -> watch Grafana (knobs: GOOD_RATE BAD_RATE DURATION WORKERS DIAL) |
+| `management-down` | Stop the management UI for the current agent |
+| `management-logs` | Tail the management UI logs for the current agent |
+| `management-shell` | Open a shell in the management UI container for the current agent |
+| `management-up` | Start the management UI for the current agent |
+| `open` | Open a lane service: make open SVC=grafana|management|metrics|prometheus |
+| `scan-js` | Scan the vendored Management-UI JS for known CVEs (retire.js) |
+| `setup-build` | Build the ja4p CLI the setup wizard needs |
+| `start-poc` | Alias for starting the POC environment |
+| `sync` | Sync roadmap from manifest.yaml and generated reference docs |
+| `test-component-suites` | Run every component test suite (unit, chaos, adversarial) |
+| `test-lint-hierarchy` | Run Phase 92 lint hierarchy structural tests |
+| `test-ratio` | Show the test-to-code ratio |
+| `tunnel` | Print the SSH local-forward command for an agent stack (NAME=, HOST=) |
+| `verify-all` | Full release gate: lint + scan + test + bench-all — slow |
+
+### Benchmarking
+
+| Target | Description |
+|--------|-------------|
+| `bench` | Run all benchmarks (micro + macro) |
+| `bench-macro` | Run end-to-end load test (requires: make start) |
+| `bench-micro` | Run Go native micro-benchmarks |
+| `ci-local` | Run the same fast checks the CI workflow runs (Go + Python tests) |
+| `findings-list` | List open findings (add FINDINGS_ARGS=... to pass flags, e.g. --severity HIGH) |
+| `findings-render` | Regenerate docs/security/FINDINGS_REGISTER.md from findings.yaml |
+| `lint-alert-urls` | Verify Alertmanager runbook_url values are up to date |
+| `lint-meta` | Phase 147 — Verify Makefile and automation script health |
+| `load-test` | Run JA4proxy load test |
+| `load-test-baseline` | Run baseline load test (localhost:8080, 60s, 1000 rps) |
+| `load-test-report` | Show latest load test reports |
+| `measure-mttr` | Measure MTTR for DR scenarios |
+| `perf-test-basic` | Run basic performance test against a local proxy |
+| `quality` | Run all linters + coverage checks in one shot |
+| `quick-start` | Start the proxy with default config (builds if needed) |
+| `reload` | Reload proxy configuration without restart (SIGHUP) |
+| `sbom` | Generate CycloneDX SBOM for Go proxy binary |
+| `slo-report` | Show SLO report from live Prometheus |
+| `smoke-docker` | Run Docker Compose smoke test |
+| `smoke-k8s` | Run Helm + kind smoke test |
+| `test-attack-mapping` | Phase 107f.4 — fail if ATT&CK mapping rows lack confidence labels or cite missing source files |
+| `test-compliance` | Phase 107h — all regulatory-conformance regression guards |
+| `test-compliance-language` | Phase 107h.1 — fail if "certified"/"compliant" appears in self-assessed compliance docs |
+| `test-doc-links` | Phase 107w.3 — lychee-check all docs for broken internal links (advisory; gated by docs-link-check.yml) |
+| `test-evidence-paths` | Phase 107h.2 — fail if conformance docs cite repo paths that don't exist |
+| `test-ip` | Alias for simulating IP decision |
+| `test-slo` | SLO validation tests |
+| `validate-slo-rules` | Validate SLO recording/alert rules (promtool or YAML) |
+| `validation-report` | Generate validation report |
+| `verify-findings` | Validate docs/security/findings.yaml schema and referential integrity |
+| `verify-findings-green` | Run only the regression tests backing findings.yaml entries (fast signal) |
+| `verify-manifest-closeout` | Manifest close-out gate — validate register, required docs, ADRs, manifest |
+
+### Build
+
+| Target | Description |
+|--------|-------------|
+| `bandit-image` | Build containerized bandit SAST image (Dockerfile.bandit) |
+| `build` | Build all Docker images (Go compiled inside Docker — no local Go required) |
+| `build-native` | Build host-native Go binaries (requires local Go 1.26+) |
+| `check-image-versions` | Detect `:latest` tags and version drift across compose files |
+| `check-manifest` | Verify manifest.yaml / TODO.md / CHANGELOG.md stay consistent |
+| `clean` | Stop + remove all containers and volumes |
+| `compose-validate` | Validate docker-compose files and required env vars (fast, no image build) |
+| `deploy-enterprise` | Deploy enterprise environment (sudo) |
+| `deploy-poc` | Deploy PoC environment |
+| `env-sync` | Add any newly-required vars to an existing .env (idempotent, never overwrites) |
+| `flush-redis` | Reset bans/blocks/rates (keeps whitelist/blacklist) |
+| `health-check` | Run health checks against metrics + Redis |
+| `lint` | Phase 146 — Run all linters (Python, Go, Infra, Docs) |
+| `lint-alertmanager` | amtool check-config |
 | `lint-coverage` | pytest-cov coverage reporting (≥80% gate) |
-| `lint-python` | Aggregate: `lint-static` + `lint-security` + `lint-pylint` |
-
-### Go
-
-| Target | Description |
-|--------|-------------|
-| `go-lint` | `go vet` |
-| `lint-go-full` | golangci-lint comprehensive |
-| `lint-go-mod` | `go mod verify` — module integrity |
-| `lint-go` | Aggregate: `go-lint` + `lint-go-full` + `lint-go-mod` |
-
-### Infrastructure / Config
-
-| Target | Description |
-|--------|-------------|
+| `lint-deps` | pip-audit (Python) + govulncheck (Go) CVE scan |
 | `lint-docker` | hadolint + `docker compose config --quiet` (all overlays) |
-| `lint-compose-config` | `docker compose config --quiet` (poc/test/prod) |
-| `lint-shell` | shellcheck all `.sh` scripts (error-level) |
-| `lint-yaml` | yamllint `config/` and `monitoring/` |
+| `lint-go-full` | golangci-lint comprehensive |
 | `lint-json` | JSON syntax validation |
 | `lint-lua` | luacheck Redis Lua scripts |
-| `lint-haproxy` | haproxy `-c` config validation |
-| `lint-helm` | helm lint chart validation |
-| `lint-github-actions` | actionlint workflow validation |
-| `lint-ansible` | ansible-lint playbook validation |
-| `lint-makefiles` | checkmake Makefile validation |
-| `lint-toml` | TOML syntax + parse validation |
-| `lint-infra` | Aggregate of all infra linters |
-
-### Observability
-
-| Target | Description |
-|--------|-------------|
 | `lint-prom` | promtool check rules (alerts + recording) |
-| `lint-alertmanager` | amtool check-config |
-| `lint-observability` | Aggregate: `lint-prom` + `lint-alertmanager` |
-
-### Cross-Cutting / SAST
-
-| Target | Description |
-|--------|-------------|
-| `lint-semgrep` | semgrep auto-config cross-language pattern matching |
-| `lint-checkov` | checkov IaC security misconfiguration scan |
-| `lint-sast` | Aggregate: `lint-semgrep` + `lint-checkov` |
-
-### Supply Chain
-
-| Target | Description |
-|--------|-------------|
+| `lint-quality` | flake8 code quality |
 | `lint-secrets` | gitleaks scan of git history |
-| `lint-deps` | pip-audit (Python) + govulncheck (Go) CVE scan |
-| `lint-supply-chain` | Aggregate: `lint-secrets` + `lint-deps` + advisory image scans |
-
-### Documentation
-
-| Target | Description |
-|--------|-------------|
-| `lint-docs` | Validate doc frontmatter |
-| `lint-phases` | Validate manifest + phase doc integrity |
-| `link-check` | Check internal Markdown links (markdown-link-check) |
-| `lint-markdown` | markdownlint structural quality |
-| `lint-spelling` | codespell typo detection |
-| `check-paths` | Check for dangling moved-path references |
-| `lint-alert-urls` | Verify Alertmanager runbook URLs are up to date |
-| `lint-docs-all` | All doc linters aggregate |
-| `doc-health` | Run `lint-phases` + `lint-docs` + `link-check` + `check-paths` |
-
-### Mega-Aggregates
-
-| Target | Description |
-|--------|-------------|
-| `lint-all` | Every linter — the single entry point for full validation |
-| `quality` | `lint-all` + `lint-coverage` + Go coverage check (≥50%) |
-
----
-
-## Container Scanning
-
-| Target | Description |
-|--------|-------------|
-| `scan-images` | Trivy scan of third-party images (HIGH/CRITICAL; fails on CRITICAL) |
+| `lint-security` | bandit SAST (medium/high severity) |
+| `lint-shell` | shellcheck all `.sh` scripts (error-level) |
+| `lint-static` | mypy + bandit + ruff + pip-audit |
+| `lint-types` | Run mypy type checker on src/ |
+| `lint-yaml` | yamllint `config/` and `monitoring/` |
+| `logs` | Stream proxy container logs |
+| `rebuild` | Wipe volumes/images, rebuild from scratch, start fresh |
 | `scan-dockerfiles` | Trivy config scan of Dockerfiles + compose files (HIGH/CRITICAL → fail) |
+| `scan-exceptions` | List Trivy scan exceptions (.trivyignore) with days-to-expiry |
 | `scan-first-party` | Trivy CVE scan of built images (CRITICAL → fail) |
-| `scan` | All three scans combined |
-| `scan-js` | retire.js CVE scan of the vendored Management-UI JS (`management/static`); fails on a known-vulnerable lib version |
-| `check-image-versions` | Detect `:latest` tags and version drift across compose files |
+| `scan-images` | Trivy scan of third-party images (HIGH/CRITICAL; fails on CRITICAL) |
+| `scan-summary` | Phase 228 — compact CRIT/HIGH/MED rollup of all scans (images + misconfig + gosec; reporting only) |
+| `smoke-test` | Quick sanity check |
+| `test` | Phase 146 — Run the full test suite |
+| `test-adversarial` | Run adversarial/fuzz tests only |
+| `test-calibrate` | Benchmark this machine, store worker count |
+| `test-chaos` | Run chaos/resilience tests only |
+| `test-docker` | Run tests inside Docker (CI env) |
+| `test-unit` | Run unit tests only |
+| `tools-image` | Build containerized tools image (Dockerfile.tools) |
 
----
-
-## Operations
-
-| Target | Description | Env / Args |
-|--------|-------------|------------|
-| `flush-redis` | Reset bans/blocks/rates (keeps whitelist/blacklist) | `.current-agent` (optional) |
-| `dial LEVEL=<0-100>` | Set the blocking dial via pubsub | `LEVEL` (required) |
-| `ssh-tunnels` | Print SSH tunnel command for default stack | — |
-| `perf-test` | Run performance tests with Locust | Docker stack running |
-| `perf-test-basic` | Run basic performance test | — |
-| `quick-start` | Start proxy with default config | Docker |
-
-### Incident Response
-
-| Target | Description | Env / Args |
-|--------|-------------|------------|
-| `attack-status` | Quick security snapshot | — |
-| `top-attackers` | Top 10 fingerprints by traffic | — |
-| `block-ja4 FP=<fp>` | Blacklist a JA4 fingerprint (instant TCP RST) | `FP` (required) |
-| `block-ip IP=<ip>` | Hard-block an IP for 1 hour | `IP` (required) |
-| `unblock-ip IP=<ip>` | Remove all blocks for an IP | `IP` (required) |
-
-### Threat Intelligence
+### Configuration
 
 | Target | Description |
 |--------|-------------|
-| `fetch-db` | Fetch new malicious fingerprints from ja4db/FoxIO |
-| `list-pending` | Show fingerprints awaiting admin approval |
-| `approve-all` | Approve all pending fingerprints |
-| `update-geoip` | Download latest IP2Location LITE DB (monthly) |
-| `check-geoip` | Check age of current GeoIP database |
-| `geoip-report` | Full blocking report |
-| `geoip-monitor` | Auto-block attacking countries (run once) |
-| `geoip-watch` | Auto-block attacking countries (continuous loop) |
+| `dial` | Set blocking dial 0-100 (LEVEL=...) |
 
-### GDPR / Compliance
-
-| Target | Description | Env / Args |
-|--------|-------------|------------|
-| `gdpr-delete IP=<ip>` | Delete all Redis data for a specific IP | `IP` (required), `DRY_RUN` (optional) |
-| `validate-ecs-schema` | Validate ECS event JSON schema | Python jsonschema |
-
----
-
-## Go Proxy
-
-| Target | Description | Prerequisites |
-|--------|-------------|---------------|
-| `go-build` | Build Go proxy binary to `bin/ja4pd` | GOROOT |
-| `go-test` | Run all Go unit tests | GOROOT |
-| `go-lint` | Run `go vet` on Go code | GOROOT |
-| `go-build-ja4check` | Build `bin/ja4check` utility | GOROOT |
-| `check-scores` | Audit Python and Go signal scores against registry | Python deps |
-| `parity-check` | Live end-to-end decision parity verification | Both proxies running |
-| `go-start` | Start Python legacy proxy alongside Go (parity comparison) | Docker |
-| `go-stop` | Stop Python legacy proxy container | Docker |
-| `go-switch` | Show instructions to confirm Go proxy is HAProxy primary | — |
-| `go-rollback` | Emergency: roll HAProxy back to Python proxy | Docker |
-| `go-parity` | Run cross-language parity tests | Both proxies running |
-
-### Go Internal Benchmarks
+### Dev sub-help
 
 | Target | Description |
 |--------|-------------|
-| `bench-go-pipeline` | Go pipeline benchmark (no Python) |
+| `help-dev` | Show developer commands sub-help |
 
----
-
-## Benchmarking
-
-| Target | Description | Env / Args |
-|--------|-------------|------------|
-| `bench` | Run all benchmarks (micro + macro) | `ARGS=` |
-| `bench-micro` | Go native micro-benchmarks (pipeline cost, no I/O) | — |
-| `bench-macro` | End-to-end load test through the bridge port (requires `make start`) | `ARGS=` |
-| `bench-hostnative` | End-to-end throughput with `ja4pd` host-native (no `docker-proxy`; ~4.5× the bridge port). See `docs/performance/benchmarks.md` | `BENCH_WORKERS=`, `BENCH_DURATION=`, `BENCH_GOOD_RATE=` |
-| `bench-all` | Every heavy benchmark (perf, load, go-perf, MTTR) — slow, runs alone | — |
-
----
-
-## Management UI
-
-| Target | Description | Prerequisites |
-|--------|-------------|---------------|
-| `management-build` | Build management UI Docker image | Docker |
-| `management-up` | Start management UI container (agent-aware) | Docker |
-| `management-down` | Stop management UI container (agent-aware) | Running stack |
-| `management-logs` | Stream management UI logs (agent-aware) | Running stack |
-| `management-test` | Run management UI tests | Python deps |
-| `management-shell` | Open shell in management container (agent-aware) | Running stack |
-
----
-
-## Load Testing
-
-| Target | Description | Env / Args |
-|--------|-------------|------------|
-| `load-test` | Run JA4proxy load test | `LOAD_TEST_TARGET`, `LOAD_TEST_DURATION`, `LOAD_TEST_RPS`, `LOAD_TEST_SCENARIO` |
-| `load-test-baseline` | Baseline load test (localhost:8080, 60s, 1000 rps) | — |
-| `load-test-report` | Show latest load test reports | — |
-
----
-
-## Fixture Capture
+### Docker test harness
 
 | Target | Description |
 |--------|-------------|
 | `capture-fixtures` | Generate ClientHello `.bin` fixtures (curl + openssl) |
-| `capture-fixtures-browser` | Capture browser-specific ClientHello fixtures (Docker + recorder) |
+| `go-build-ja4check` | Build `bin/ja4check` utility |
+| `test-go` | Build + test all Go (build binaries, generate fixtures, run suite) |
+| `test-go-chaos` | Go chaos tests locally |
+| `test-go-docker` | Go integration tests inside Docker (self-contained) |
+| `test-go-integration` | Go integration tests locally |
+| `test-go-perf` | Go performance benchmarks |
+| `test-go-redis-tls` | Go Redis TLS smoke test |
 
----
-
-## SLO / Validation
-
-| Target | Description |
-|--------|-------------|
-| `validate-slo-rules` | Validate SLO recording/alert rules (promtool or YAML) |
-| `slo-report` | Show SLO report from live Prometheus |
-| `test-ratio` | Show current test-to-code ratio |
-| `validation-report` | Generate validation report |
-| `ci-local` | Run the same checks the CI workflow runs (Go + Python) |
-
----
-
-## Findings Register
+### Environment Configuration
 
 | Target | Description |
 |--------|-------------|
-| `verify-findings` | Validate `docs/security/findings.yaml` schema and integrity |
-| `verify-findings-green` | Run regression tests backing findings entries (fast signal) |
-| `findings-render` | Regenerate `FINDINGS_REGISTER.md` from `findings.yaml` |
-| `findings-list` | List open findings (`FINDINGS_ARGS=--severity HIGH`) |
-| `verify-manifest-closeout` | Manifest close-out gate (register, docs, ADRs, manifest) |
+| `doctor` | Phase 147/225 — Verify environment and toolchain health |
 
----
-
-## Phase / Manifest Management
+### GeoIP monitoring
 
 | Target | Description |
 |--------|-------------|
-| `sync` | Sync roadmap/status docs (`python3 scripts/sync-roadmap.py`) |
-| `lint-phases` | Validate phase doc + manifest consistency |
-| `check-manifest` | Manifest consistency check (TODO.md, PROJECT_STATUS, CHANGELOG, CLAUDE.md) |
+| `check-geoip` | Check age of current GeoIP database |
+| `geoip-monitor` | Auto-block attacking countries (run once) |
+| `geoip-report` | Full blocking report |
+| `geoip-watch` | Auto-block attacking countries (continuous loop) |
+| `update-geoip` | Download latest IP2Location LITE DB (monthly) |
 
----
-
-## Miscellaneous
+### Incident response shortcuts (wrappers for scripts/ja4-admin.sh)
 
 | Target | Description |
 |--------|-------------|
-| `openapi-spec` | Export OpenAPI spec from management API |
+| `attack-status` | Quick security snapshot |
+| `block-ip` | Hard-block an IP address for 1 hour (IP=...) |
+| `block-ja4` | Blacklist a JA4 fingerprint (FP=...) |
+| `perf-test` | Run performance tests with Locust |
+| `poc-secrets` | Generate any missing deploy/secrets/*.txt the PoC stack needs |
+| `top-attackers` | Top 10 fingerprints by traffic |
+| `unblock-ip` | Remove blocks/bans for an IP (IP=...) |
+
+### Individual linters (Phase 92 additions)
+
+| Target | Description |
+|--------|-------------|
+| `lint-checkov` | Run Checkov IaC security scan (containerised; advisory) |
+| `lint-go-mod` | Verify go.mod and go.sum are consistent (go mod verify) |
+| `lint-haproxy` | Validate HAProxy configuration syntax (advisory) |
+| `lint-helm` | Run helm lint on Helm charts (advisory) |
+| `lint-makefiles` | Lint Makefile for common issues (checkmake) |
+| `lint-markdown` | Lint Markdown files for formatting issues (advisory) |
+| `lint-pylint` | Run pylint errors-only on Python source (advisory) |
+| `lint-spelling` | Spell-check documentation (advisory) |
+| `lint-toml` | Validate TOML files (pyproject.toml, .gitleaks.toml) using tomllib |
+
+### Legacy (Python) sub-help
+
+| Target | Description |
+|--------|-------------|
+| `help-legacy` | Show legacy Python proxy sub-help |
+
+### Master help
+
+| Target | Description |
+|--------|-------------|
+| `help` | Show the essential front-door targets |
+| `help-lint` | Show linting commands help |
+| `help-ops` | Incident response and threat intelligence help |
+
+### Multi-Agent
+
+| Target | Description |
+|--------|-------------|
+| `agent-down` | Stop an isolated agent environment (NAME=<agent>) |
+| `agent-status` | List all running agent environments |
+| `agent-up` | Start an isolated agent environment (NAME=<agent>) |
+
+### Operations
+
+| Target | Description |
+|--------|-------------|
+| `ssh-tunnels` | Print SSH tunnel command for default stack |
+
+### Phase 245: First-class admin CLI + minimal init
+
+| Target | Description |
+|--------|-------------|
+| `admin` | Run the ja4-admin incident response CLI (pass ARGS for commands) |
+| `init-minimal` | Emergency init: prompt for BACKEND_HOST, generate .env, done |
+
+### Phase 332: pre-PR gate
+
+| Target | Description |
+|--------|-------------|
+| `check` | Fast gate: compile + env validate + tests (~3 min, no image builds or CVE scans) |
+| `preflight` | Full local gate before opening a PR: lint + scan + test (~25 min) |
+| `tap-build` | Build standalone TAP sensor binary |
+
+### Phase 511: Emergency traffic insertion / rollback
+
+| Target | Description |
+|--------|-------------|
+| `traffic-off` | Remove JA4proxy from the traffic path (instant rollback; needs sudo) |
+| `traffic-on` | Insert JA4proxy into the traffic path (iptables redirect :443→:8443; needs sudo) |
+
+### Phase 814a: penetration-testing range
+
+| Target | Description |
+|--------|-------------|
+| `pentest-range` | Bring up the isolated pentest range (zero egress, verified) and print provenance |
+| `pentest-range-down` | Tear down the pentest range (evidence is kept) |
+| `pentest-range-verify` | Re-run the range isolation assertions without rebuilding |
+| `pentest-shell` | Open a shell on the attacker workstation inside the range |
+| `test-journeys` | Phase 824 — run customer-journey checks against a live stack |
+
+### Proxy Operations
+
+| Target | Description |
+|--------|-------------|
+| `check-scores` | Audit Python and Go signal scores against registry |
+| `go-lint` | Run `go vet` on Go code |
+| `go-test` | Run all Go unit tests |
+| `test-race` | Run Go unit tests under the race detector |
+
+### Remote Manual Testing (Phase 220)
+
+| Target | Description |
+|--------|-------------|
+| `remote-bot` | Run test bot against remote proxy (HOST=... PORT=...) |
+
+### Scan sub-help
+
+| Target | Description |
+|--------|-------------|
+| `help-scan` | Show security scanning commands help |
+
+### Security Scans
+
+| Target | Description |
+|--------|-------------|
 | `check-updates` | Check Python/Go/Docker dependency versions |
-| `test-compose-config-lint` | Deprecated alias for `lint-compose-config` |
-| `verify-manifest-closeout` | Manifest close-out gate |
-| `test-attack-mapping` | ATT&CK mapping CI gate (Phase 107f) |
-| `test-doc-links` | Doc link check (Phase 107w, requires lychee) |
+| `check-updates-container` | Run dependency update checker in container |
+| `check-updates-local` | Run dependency update checker locally |
+| `scan` | Phase 146 — Run all security and container scans |
+| `scan-all` | Run all security scans (container, dockerfiles, 1st-party, images) |
+| `scan-container` | Run Go SAST (gosec) in a container — gates on high-severity/high-confidence findings |
+| `scan-local` | Run gosec Go SAST scanner locally |
+| `scorecard-local` | OpenSSF Scorecard (local, advisory — the gate is scorecard.yml) |
+
+### Startup / Shutdown
+
+| Target | Description |
+|--------|-------------|
+| `start` | Start full stack (POC + Prometheus/Grafana) |
+| `start-monitoring` | Start monitoring stack only |
+| `start-scaled` | Start 4-worker scaled config with HAProxy |
+| `status` | Show health of all services + security state |
+| `stop` | Stop all services (keep Redis data) |
+| `stop-clean` | Stop all + wipe volumes (fresh slate) |
+
+### ja4db feed management
+
+| Target | Description |
+|--------|-------------|
+| `approve-all` | Approve all pending fingerprints |
+| `fetch-db` | Fetch new malicious fingerprints from ja4db/FoxIO |
+| `list-pending` | Show fingerprints awaiting admin approval |
+
+### phase-826: demo support
+
+| Target | Description |
+|--------|-------------|
+| `demo-bot` | Send test non-browser TLS connection for demo |
+| `demo-check` | Pre-flight health check for demo environment |
+
+<!-- END GENERATED: make-targets -->
 
 ---
 

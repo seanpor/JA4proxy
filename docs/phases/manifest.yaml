@@ -4573,8 +4573,9 @@ phases:
       written down), amending PROGRAMME.md and its change log."
   815:
     name: "Generated reference docs — stop hand-maintaining three drifted lists"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_815.md
+    status: COMPLETE
+    completed: "2026-09-18"
+    action_plan: docs/phases/complete/PHASE_815.md
     dependencies: []
     size: MEDIUM
     summary: "PROPOSED 2026-08-05, raised while adding make targets during

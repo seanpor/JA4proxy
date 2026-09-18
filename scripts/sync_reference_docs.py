@@ -4,22 +4,10 @@ sync_reference_docs.py — generate the reference lists from the things they
 describe, instead of hand-maintaining them (Phase 815).
 
     ┌───────────────────────────────────────────────────────────────────────┐
-    │ STATUS: UNWIRED WIP for Phase 815 — rescued 2026-08-15, NOT ACTIVE.   │
+    │ STATUS: ACTIVE for Phase 815.                                         │
     │                                                                       │
-    │ No Makefile target and no workflow invokes this. It has never been    │
-    │ run against the real docs beyond a smoke test, and the docs it        │
-    │ targets do not yet carry the BEGIN/END GENERATED markers it needs     │
-    │ (running --check today reports exactly that).                         │
-    │                                                                       │
-    │ It was written 2026-08-06 and survived only on the                    │
-    │ `handoff-to-deepseek` branch, which was about to be deleted. It is    │
-    │ preserved here so Phase 815 (PROPOSED) can pick it up rather than     │
-    │ rewrite it — HANDOFF-2026-08-06.md records that it also BLOCKS 814b,  │
-    │ which needs the same derive-doc-from-reality + --check drift gate.    │
-    │                                                                       │
-    │ Do not wire this into `make lint` or CI until Phase 815 is approved   │
-    │ and it has real tests. tests/unit/test_sync_reference_docs_smoke.py   │
-    │ only guards against bit-rot; it does not validate the output.         │
+    │ Invoked by `make sync` and verified by `python3                       │
+    │ scripts/sync_reference_docs.py --check` in CI.                        │
     └───────────────────────────────────────────────────────────────────────┘
 
 Three documents under ``docs/reference/`` enumerate artefacts that already
