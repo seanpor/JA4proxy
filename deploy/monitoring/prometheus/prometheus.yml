@@ -90,14 +90,19 @@ scrape_configs:
       - targets:
           - 'localhost:9090'
 
-  # Node exporter (if available)
+  # phase-837: Node exporter metrics now come from Alloy's built-in
+  # prometheus.exporter.unix, not the standalone prom/node-exporter:v1.12.1
+  # sidecar (retires node-exporter image and 8 CVEs). The job_name remains
+  # 'node' so all existing dashboards and alerts resolve untouched.
   - job_name: 'node'
     scrape_interval: 30s
+    metrics_path: /api/v0/component/prometheus.exporter.unix.node/metrics
     static_configs:
       - targets:
-          - 'node-exporter:9100'
+          - 'alloy:12345'
         labels:
           role: 'infrastructure'
+
 
   # phase-829c: container metrics now come from Alloy's built-in
   # prometheus.exporter.cadvisor, not the standalone

@@ -5123,6 +5123,16 @@ phases:
     size: SMALL
     summary: "Prune 4 dead CVE waivers from .trivyignore.third-party and upgrade redis_exporter to v1.91.1 and alloy to v1.19.2 across compose configurations, reducing third-party CVE exceptions from 24 to 20."
 
+  837:
+    name: "Node Exporter Consolidation into Alloy & Carrier Reduction"
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_837.md
+    dependencies: [836]
+    size: SMALL
+    summary: "Consolidate host metric collection into Grafana Alloy using built-in unix exporter and retire standalone prom/node-exporter sidecar, reducing third-party CVE carrier footprint."
+
+
+
   600:
     name: "QUIC/JA4Q Passive Sensing"
     status: COMPLETE

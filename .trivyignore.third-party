@@ -104,7 +104,7 @@
 #   every week. Renewal now runs daily.
 
 # CVE-2026-21728: DoS in Grafana Tempo query parser.
-# Carriers (generated 2026-09-17): grafana/grafana:13.1.6-ubuntu.
+# Carriers (generated 2026-09-18): grafana/grafana:13.1.6-ubuntu.
 # Each is a pinned third-party image we cannot rebuild, so the fix
 # only reaches us when the publisher ships a new tag.
 # Why not exploitable: We do not deploy or configure Tempo as a query source for Grafana.
@@ -113,7 +113,7 @@ CVE-2026-21728 exp:2026-09-22
 
 
 # CVE-2026-28377: Info disclosure in Tempo.
-# Carriers (generated 2026-09-17): grafana/grafana:13.1.6-ubuntu.
+# Carriers (generated 2026-09-18): grafana/grafana:13.1.6-ubuntu.
 # Each is a pinned third-party image we cannot rebuild, so the fix
 # only reaches us when the publisher ships a new tag.
 # Why not exploitable: Tempo integration is not deployed or used in our configuration.
@@ -121,7 +121,7 @@ CVE-2026-28377 exp:2026-09-22
 
 
 # CVE-2026-41567: Container archive execution in Docker.
-# Carriers (generated 2026-09-17):
+# Carriers (generated 2026-09-18):
 #
 #   grafana/alloy:v1.19.2@sha256:b8ec653c44235fbe910879145dac3597d66b0aaecf60bcbbe82580767771a839
 # Each is a pinned third-party image we cannot rebuild, so the fix
@@ -133,7 +133,7 @@ CVE-2026-28377 exp:2026-09-22
 CVE-2026-41567 exp:2026-09-22
 
 # CVE-2026-42306: Race condition in docker cp.
-# Carriers (generated 2026-09-17):
+# Carriers (generated 2026-09-18):
 #
 #   grafana/alloy:v1.19.2@sha256:b8ec653c44235fbe910879145dac3597d66b0aaecf60bcbbe82580767771a839
 # Each is a pinned third-party image we cannot rebuild, so the fix
@@ -145,13 +145,12 @@ CVE-2026-42306 exp:2026-09-22
 
 
 
-# Carriers (generated 2026-09-17):
-#   grafana/grafana:13.1.6-ubuntu, grafana/loki:3.7.7,
-#   prom/node-exporter:v1.12.1
+# Carriers (generated 2026-09-18):
+#   grafana/grafana:13.1.6-ubuntu, grafana/loki:3.7.7
 # Each is a pinned third-party image we cannot rebuild, so the fix
 # only reaches us when the publisher ships a new tag.
 CVE-2026-39821 exp:2026-09-22
-# Carriers (generated 2026-09-17): grafana/grafana:13.1.6-ubuntu.
+# Carriers (generated 2026-09-18): grafana/grafana:13.1.6-ubuntu.
 # Each is a pinned third-party image we cannot rebuild, so the fix
 # only reaches us when the publisher ships a new tag.
 CVE-2026-39822 exp:2026-09-22
@@ -170,9 +169,8 @@ CVE-2026-39822 exp:2026-09-22
 # by alloy, phase-825).
 # Why no fix (third-party): pinned tags that compile x/net transitively;
 # fixing requires an upstream rebuild, and none has shipped.
-# Carriers (generated 2026-09-17):
-#   grafana/grafana:13.1.6-ubuntu, grafana/loki:3.7.7,
-#   prom/node-exporter:v1.12.1
+# Carriers (generated 2026-09-18):
+#   grafana/grafana:13.1.6-ubuntu, grafana/loki:3.7.7
 # Each is a pinned third-party image we cannot rebuild, so the fix
 # only reaches us when the publisher ships a new tag.
 # ⚠ NOT TRUE OF ja4proxy:2.0.0 — that is a Go stdlib finding
@@ -199,9 +197,8 @@ CVE-2026-46600 exp:2026-09-22
 # upstream tags we cannot rebuild — the fix only reaches us when each project
 # publishes an image built on 1.26.6. Registry re-checked 2026-08-19: every one
 # of the six is already on its newest published tag.
-# Carriers (generated 2026-09-17):
-#   grafana/grafana:13.1.6-ubuntu, grafana/loki:3.7.7,
-#   prom/node-exporter:v1.12.1
+# Carriers (generated 2026-09-18):
+#   grafana/grafana:13.1.6-ubuntu, grafana/loki:3.7.7
 # Each is a pinned third-party image we cannot rebuild, so the fix
 # only reaches us when the publisher ships a new tag.
 # ⚠ NOT waived for our own images. The identical CVEs were present in
@@ -214,33 +211,28 @@ CVE-2026-46600 exp:2026-09-22
 # ASN.1 or terminates TLS from an untrusted peer.
 # Re-review at expiry: check for upstream rebuilds on Go 1.26.6.
 CVE-2026-33818 exp:2026-09-22
-# Carriers (generated 2026-09-17):
-#   grafana/grafana:13.1.6-ubuntu, grafana/loki:3.7.7,
-#   prom/node-exporter:v1.12.1
+# Carriers (generated 2026-09-18):
+#   grafana/grafana:13.1.6-ubuntu, grafana/loki:3.7.7
 # Each is a pinned third-party image we cannot rebuild, so the fix
 # only reaches us when the publisher ships a new tag.
 CVE-2026-56853 exp:2026-09-22
-# Carriers (generated 2026-09-17):
-#   grafana/grafana:13.1.6-ubuntu, grafana/loki:3.7.7,
-#   prom/node-exporter:v1.12.1
+# Carriers (generated 2026-09-18):
+#   grafana/grafana:13.1.6-ubuntu, grafana/loki:3.7.7
 # Each is a pinned third-party image we cannot rebuild, so the fix
 # only reaches us when the publisher ships a new tag.
 CVE-2026-56858 exp:2026-09-22
-# Carriers (generated 2026-09-17):
-#   grafana/grafana:13.1.6-ubuntu, grafana/loki:3.7.7,
-#   prom/node-exporter:v1.12.1
+# Carriers (generated 2026-09-18):
+#   grafana/grafana:13.1.6-ubuntu, grafana/loki:3.7.7
 # Each is a pinned third-party image we cannot rebuild, so the fix
 # only reaches us when the publisher ships a new tag.
 CVE-2026-56859 exp:2026-09-22
-# Carriers (generated 2026-09-17):
-#   grafana/grafana:13.1.6-ubuntu, grafana/loki:3.7.7,
-#   prom/node-exporter:v1.12.1
+# Carriers (generated 2026-09-18):
+#   grafana/grafana:13.1.6-ubuntu, grafana/loki:3.7.7
 # Each is a pinned third-party image we cannot rebuild, so the fix
 # only reaches us when the publisher ships a new tag.
 CVE-2026-56860 exp:2026-09-22
-# Carriers (generated 2026-09-17):
-#   grafana/grafana:13.1.6-ubuntu, grafana/loki:3.7.7,
-#   prom/node-exporter:v1.12.1
+# Carriers (generated 2026-09-18):
+#   grafana/grafana:13.1.6-ubuntu, grafana/loki:3.7.7
 # Each is a pinned third-party image we cannot rebuild, so the fix
 # only reaches us when the publisher ships a new tag.
 CVE-2026-56862 exp:2026-09-22
@@ -256,7 +248,7 @@ CVE-2026-56862 exp:2026-09-22
 # property that survives a database refresh, and this is the second time a
 # renewal review has been overtaken by one.
 #
-# Carriers (generated 2026-09-17): prom/alertmanager:v0.34.0.
+# Carriers (generated 2026-09-18): prom/alertmanager:v0.34.0.
 # Each is a pinned third-party image we cannot rebuild, so the fix
 # only reaches us when the publisher ships a new tag.
 # ⚠ Not applicable to our own images: ja4proxy:2.0.0 scans clean with no
@@ -271,14 +263,14 @@ CVE-2026-56862 exp:2026-09-22
 # Re-review at expiry: check for alloy / alertmanager tags built against
 # golang.org/x/mod >= 0.40.0.
 CVE-2026-56864 exp:2026-09-22
-# Carriers (generated 2026-09-17): prom/alertmanager:v0.34.0.
+# Carriers (generated 2026-09-18): prom/alertmanager:v0.34.0.
 # Each is a pinned third-party image we cannot rebuild, so the fix
 # only reaches us when the publisher ships a new tag.
 CVE-2026-56865 exp:2026-09-22
 
 # CVE-2026-43871: Apache Thrift Denial of Service via infinite loop.
 # Carriers (2026-09-10): grafana/grafana:13.1.4-ubuntu. Pinned upstream image we cannot rebuild.
-# Carriers (generated 2026-09-17): grafana/grafana:13.1.6-ubuntu.
+# Carriers (generated 2026-09-18): grafana/grafana:13.1.6-ubuntu.
 # Each is a pinned third-party image we cannot rebuild, so the fix
 # only reaches us when the publisher ships a new tag.
 # Why not exploitable: Thrift protocol endpoints are not used or exposed by JA4proxy Grafana.
@@ -287,9 +279,8 @@ CVE-2026-43871 exp:2026-09-22
 # CVE-2026-56854: golang.org/x/crypto/ssh vulnerability in third-party Go services.
 # Carriers (2026-09-15): redis_exporter, alertmanager, node-exporter, prometheus. (Grafana 13.1.6 and Loki 3.7.7 cleared carrier status in Phase 835).
 # Pinned upstream images we cannot rebuild until publishers ship new releases.
-# Carriers (generated 2026-09-17):
-#   prom/alertmanager:v0.34.0, prom/node-exporter:v1.12.1,
-#   prom/prometheus:v3.14.0
+# Carriers (generated 2026-09-18):
+#   prom/alertmanager:v0.34.0, prom/prometheus:v3.14.0
 # Each is a pinned third-party image we cannot rebuild, so the fix
 # only reaches us when the publisher ships a new tag.
 # Why not exploitable: None of these monitoring sidecars run SSH servers or parse untrusted SSH traffic.
@@ -298,7 +289,7 @@ CVE-2026-56854 exp:2026-09-22
 # CVE-2026-84304: google.golang.org/grpc vulnerability in third-party monitoring services.
 # Carriers (2026-09-15): loki, alertmanager, prometheus. (Grafana 13.1.6 cleared carrier status in Phase 835).
 # Pinned upstream images we cannot rebuild until publishers ship new releases.
-# Carriers (generated 2026-09-17):
+# Carriers (generated 2026-09-18):
 #
 #   grafana/alloy:v1.19.2@sha256:b8ec653c44235fbe910879145dac3597d66b0aaecf60bcbbe82580767771a839,
 #   grafana/grafana:13.1.6-ubuntu, grafana/loki:3.7.7,
@@ -311,7 +302,7 @@ CVE-2026-84304 exp:2026-09-22
 # CVE-2026-14456: OpenSSL DoS via unbounded memory (libcrypto3 in Alpine).
 # Carriers (2026-09-13): tecnativa/docker-socket-proxy:v0.5.0. (haproxy bumped to 2.8.28-alpine in Phase 834, clearing its carrier status).
 # Pinned upstream images we cannot rebuild until publishers ship new tags.
-# Carriers (generated 2026-09-17): tecnativa/docker-socket-proxy:v0.5.0.
+# Carriers (generated 2026-09-18): tecnativa/docker-socket-proxy:v0.5.0.
 # Each is a pinned third-party image we cannot rebuild, so the fix
 # only reaches us when the publisher ships a new tag.
 # Why not exploitable: Socket proxy only communicates over local Unix socket; never exposed to untrusted network traffic.
@@ -319,7 +310,7 @@ CVE-2026-14456 exp:2026-09-22
 # CVE-2026-84445: google.golang.org/grpc Denial of Service via xDS server crash.
 # Carriers (2026-09-15): grafana/alloy, grafana/loki, prom/alertmanager, prom/prometheus. (Grafana 13.1.6 cleared carrier status in Phase 835).
 # Pinned upstream third-party images we cannot rebuild until publishers ship new releases.
-# Carriers (generated 2026-09-17):
+# Carriers (generated 2026-09-18):
 #
 #   grafana/alloy:v1.19.2@sha256:b8ec653c44235fbe910879145dac3597d66b0aaecf60bcbbe82580767771a839,
 #   grafana/grafana:13.1.6-ubuntu, grafana/loki:3.7.7,
