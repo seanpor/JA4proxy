@@ -49,6 +49,9 @@ jobs:
       contents: read
       packages: write      # GHCR push
       id-token: write      # keyless cosign OIDC (ADR-202d)
+    outputs:
+      image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+      digest: ${{ steps.push.outputs.digest }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -147,3 +150,20 @@ jobs:
             echo "Attaching SBOM to ${tag}@${DIGEST}"
             cosign attach sbom --sbom sbom.cdx.json --type cyclonedx "${tag}@${DIGEST}"
           done <<< "$TAGS"
+
+  provenance:
+    name: Generate SLSA Provenance
+    needs: build-scan-sign-push
+    permissions:
+      actions: read
+      id-token: write
+      packages: write
+    # SLSA Level 3 container provenance generator.
+    # SHA-pinned per ADR-202a Path A (accepted).
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@f7dd8c54c2067bafc12ca7a55595d5ee9b75204a  # v2.1.0
+    with:
+      image: ${{ needs.build-scan-sign-push.outputs.image }}
+      digest: ${{ needs.build-scan-sign-push.outputs.digest }}
+      registry-username: ${{ github.actor }}
+    secrets:
+      registry-password: ${{ secrets.GITHUB_TOKEN }}

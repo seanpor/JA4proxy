@@ -19,10 +19,10 @@ on:
       image_ref:
         description: >-
           Fully-qualified container image reference whose SLSA v1.0 provenance
-          attestation should be verified. Default points at the latest published
-          Go proxy image. Until 107c.3 lands, expect "no attestation found".
+          attestation should be verified. Default points at the published
+          Go proxy image.
         required: true
-        default: 'ghcr.io/ja4proxy/ja4proxy-go:latest'
+        default: 'ghcr.io/seanpor/ja4proxy-go:latest'
 
 permissions:
   contents: read
