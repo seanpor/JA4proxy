@@ -146,8 +146,9 @@ services:
           memory: 128M
 
   redis:
-    image: redis:7.4.9-alpine@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99
-    # Official redis:7.4.9-alpine passes extra flags as command args to redis-server
+    image: redis:7.4.11-alpine@sha256:520775a41a63e77e06c73e35d2fd9cc15921a609516818796b4ecbb813078bc7
+    # Official redis:7.4.11-alpine passes extra flags as command args to redis-server
+
     # JA4PROXY-2026-0042: --unixsocketperm 770 (not 777). The proxy service
     # mounts redis-sock to connect via unix socket; for that to keep working
     # after tightening to 770, the proxy service is given `group_add:
@@ -299,7 +300,7 @@ services:
   # ── Monitoring ────────────────────────────────────────────────────────────
 
   redis-exporter:
-    image: oliver006/redis_exporter:v1.87.0
+    image: oliver006/redis_exporter:v1.91.1
     environment:
       - REDIS_ADDR=redis:6379
       # Phase 813: previously authenticated with no username at all, which
@@ -442,7 +443,7 @@ services:
   # identical to a quiet system. config.prod.alloy discovers by file over the
   # ../../logs mount this service already had.
   alloy:
-    image: grafana/alloy:v1.18.1@sha256:0f4434c92b3e6cdac38bb129b344e1790c246f7b6e2eaffcc16a5fa363240e33
+    image: grafana/alloy:v1.19.2@sha256:b8ec653c44235fbe910879145dac3597d66b0aaecf60bcbbe82580767771a839
     volumes:
       - ../monitoring/alloy/config.prod.alloy:/etc/alloy/config.alloy:ro
       - ../../logs:/var/log/ja4proxy:ro
