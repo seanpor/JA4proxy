@@ -1,0 +1,1 @@
+- **Generated reference docs (Phase 815)**: Automated derivation and CI drift gate for `MAKEFILE_TARGETS.md`, `SCRIPTS.md`, and first-party images in `DOCKER_IMAGES.md` via `scripts/sync_reference_docs.py` and `make sync`. See `docs/phases/complete/PHASE_815.md`.

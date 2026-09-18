@@ -10,93 +10,143 @@ phase: 21
 All scripts live in `scripts/`. Each has a usage header — run with `--help` or
 read the top of the file for full options.
 
----
+<!-- BEGIN GENERATED: scripts -->
 
-## Startup / Shutdown
-
-| Script | Called by | What it does |
-|--------|-----------|-------------|
-| `../scripts/start-all.sh` | `make start` | Start full stack: POC (proxy, HAProxy, Redis, backend, tarpit) + monitoring (Prometheus, Grafana, Loki, Alertmanager) |
-| `../scripts/start-poc.sh` | `make deploy-poc` | Start POC environment only (no monitoring) |
-| `../scripts/start-monitoring.sh` | `make start-monitoring` | Start monitoring stack only (Prometheus, Grafana, Loki, Alertmanager) |
-| `../scripts/stop-all.sh` | `make stop` / `make stop-clean` | Stop all stacks; pass `--clean` to wipe volumes |
-
----
-
-## Status / Health
+_129 scripts. Generated from each script's header comment by `make sync` — do not edit this table by hand._
 
 | Script | Called by | What it does |
-|--------|-----------|-------------|
-| `../scripts/status.sh` | `make status` | Unified health check — all services, Redis state, active bans, dial setting |
-| `../scripts/check-status.sh` | — | Quick one-shot status check (subset of `../scripts/status.sh`) |
-| `../scripts/poc-status-check.sh` | — | POC readiness check for assessors: verifies all services are reachable and responsive |
-| `../scripts/view-metrics.sh` | — | Pretty-print raw Prometheus metrics from the proxy (:9090) and Redis exporter |
+|--------|-----------|--------------|
+| `agent-env.sh` | `make agent-up` | scripts/agent-env.sh — Generate isolated .env file for a named agent |
+| `assemble-changelog.py` | `make changelog-assemble` | Assemble CHANGELOG news fragments into CHANGELOG.md. |
+| `basic_perf_test.sh` | `make perf-test-basic` | Basic performance test script |
+| `bench-hostnative.sh` | `make bench-hostnative` | end-to-end throughput benchmark with the engine running |
+| `bench-tls-backend.py` | — | Minimal asyncio TLS echo backend for benchmark use. |
+| `benchmark.py` | — | JA4proxy Performance Benchmark |
+| `benchmark_comparison.py` | — | JA4proxy Comprehensive Benchmark: Go Proxy vs Python Proxy. |
+| `blue-green-deploy.sh` | — | Phase 43 — Blue/Green Deployment Tooling |
+| `bootstrap.sh` | — | JA4proxy single-host bootstrapper (phase-231b / phase-332). |
+| `branch_hygiene.py` | — | Automates Git branch hygiene analysis and stale branch cleanup. |
+| `branch_protection.sh` | — | scripts/branch_protection.sh — bootstrap GitHub branch protection for main. |
+| `capacity_calculator.py` | — | Phase 86c / 86i — Capacity sizing calculator for JA4proxy. |
+| `capture_clienthello.py` | — | Capture TLS ClientHello bytes from connections for JA4 parity testing. |
+| `capture_server.py` | — | Persistent TLS ClientHello capture server. |
+| `check-action-shas.py` | — | Verify SHA-pinned GitHub Actions use commit SHAs, not annotated tag SHAs. |
+| `check-isolation.sh` | — | scripts/check-isolation.sh — Verify multi-agent Docker isolation |
+| `check-python314-compat.py` | — | check-python314-compat.py — PyPI wheel compatibility checker for Python 3.14. |
+| `check-signal-scores.py` | `make check-scores` | Signal Score Consistency Linter. |
+| `check-status.sh` | — | Quick status check for JA4proxy POC and monitoring stack |
+| `check_bare_except.py` | — | Fail if any file contains a bare except: or a bare except Exception: pass. |
+| `check_bind_address.py` | — | Pre-flight guard for JA4PROXY-2026-0045 (Phase 226). |
+| `check_doc_frontmatter.py` | `make doc-health` | Documentation Frontmatter Validator |
+| `check_finding_spec.py` | — | check_finding_spec.py — completeness gate for penetration-testing finding |
+| `check_image_versions.py` | `make scan-images` | check_image_versions.py — detect :latest tags and version drift between compose files. |
+| `check_logger_format.sh` | — | Fail if any Python file uses f-strings in logger calls. |
+| `check_manifest.py` | `make check-manifest` | check_manifest.py — local consistency gate for the manifest-driven roadmap. |
+| `check_trivyignore_drift.py` | — | Diff what the deployed images actually carry against what the ignorefile waives. |
+| `check_updates.py` | `make check-updates-local` | check_updates.py — Check all project dependencies for available updates. |
+| `ci_summary.py` | `make lint` | CI summary utility. |
+| `close-phase.sh` | — | mechanical pre-merge gate for phase close-out. |
+| `compute_ja4_fixtures.py` | — | Add current dir to path to import local modules |
+| `config-signer.py` | — | config-signer.py — Ed25519 signing utility for JA4proxy configuration files. |
+| `count_lines.py` | — | Count non-blank lines of code by category across the JA4proxy project. |
+| `create_test_mmdb.py` | — | Create a minimal MaxMind test database for ASN classifier testing. |
+| `demo-bot.sh` | `make demo-bot` | make ONE deliberately non-browser TLS connection. |
+| `demo-check.sh` | `make demo-check` | refuse to start a demo on a stack that is quietly broken. |
+| `demo-poc.sh` | — | JA4 Proxy POC Demo Script |
+| `demo-scan.py` | — | Generate distributed-scan traffic from many real source IPs. |
+| `demo-scan.sh` | — | run demo-scan.py in a container with many source IPs. |
+| `dependabot_pr_refresh.py` | — | Decide whether a Dependabot PR needs a stale-CI refresh or cascading rebase (Phase 812, Phase 830). |
+| `deploy.sh` | `make deploy-enterprise` | Enterprise deployment script for JA4 Proxy |
+| `detect_workers.py` | `make test-calibrate` | Detect optimal parallel worker count for this machine. |
+| `docker-entrypoint.sh` | — | phase-800: MUST be /bin/sh, not /bin/bash. |
+| `docker-net-diag.sh` | — | Diagnose Docker container networking |
+| `ensure-poc-secrets.sh` | `make poc-secrets` | create any missing deploy/secrets/*.txt the PoC |
+| `env-sync.sh` | `make env-sync` | Top up an EXISTING .env with any newly-required variables. |
+| `export_ci_benchmark_textfile.sh` | — | Phase 805 — host-side puller for the nightly benchmark regression job. |
+| `fetch-ja4db.sh` | `make fetch-db` | Fetch known-bad JA4 fingerprints from FoxIO's public database |
+| `fetch_tranco_top10k.py` | — | Fetch Tranco top 10,000 domains for false-positive testing. |
+| `findings_register.py` | `make verify-findings` | Canonical findings register CLI for JA4proxy. |
+| `fix-docker-dns.sh` | — | Fix Docker container networking while keeping "iptables": false and UFW intact. |
+| `fix_doc_links.py` | — | Documentation Link Fixer |
+| `fix_runbook_urls.py` | `make lint-alert-urls` | Phase 86h - Rewrite dead runbook_url annotations in Alertmanager rule files. |
+| `gdpr_delete.py` | — | GDPR Subject Erasure (Right to be Forgotten) — Live Redis Purge |
+| `generate-backend-cert.sh` | — | Generate a self-signed TLS cert for the mock backend (deploy/docker/Dockerfile.mockbackend |
+| `generate-test-traffic.sh` | — | Generate realistic test traffic for JA4proxy to populate Grafana dashboard |
+| `generate-tls-traffic.sh` | — | TLS Traffic Generator - Performance Testing Script for JA4proxy |
+| `generate_adversarial_corpus.py` | — | Generate adversarial TLS corpus files for testing. |
+| `generate_dependency_graph.py` | — | Dependency Graph Generator |
+| `generate_fixtures.sh` | `make capture-fixtures` | Build ja4check |
+| `generate_fixtures_browser.py` | — | Generate TLS ClientHello fixtures from real browsers using Playwright. |
+| `generate_realistic_domains.py` | — | Generate realistic domain list for Tranco top 10k testing. |
+| `generate_residential_ips.py` | — | Generate anonymized residential IP addresses for ASN testing. |
+| `generate_synthetic_fixtures.py` | — | Generate synthetic TLS ClientHello fixture files with known JA4 fingerprints. |
+| `generate_test_pcap.py` | — | generate_test_pcap.py — Synthetic PCAP corpus generator for TAP mode tests. |
+| `generate_validation_report.py` | `make validation-report` | Phase 62 — pre-enterprise validation report generator. |
+| `geoip-monitor.sh` | `make geoip-monitor` | Auto-block countries that are actively attacking |
+| `ja4-admin.sh` | `make agent-up` | ja4-admin — JA4proxy incident response CLI |
+| `ja4proxy_admin.py` | — | ja4proxy-admin — CLI for JA4proxy operational management. |
+| `lane-env.sh` | `make lane` | assign this git worktree a collision-free "lane" of host ports |
+| `lint-phases.py` | `make lint-phases` | lint-phases.py — Validate phase documentation consistency. |
+| `lint_toml.py` | `make lint-toml` | TOML syntax + parse validation. |
+| `load_test.py` | `make load-test` | Phase 86b / 86i — Load testing harness for JA4proxy. |
+| `measure_mttr.sh` | `make measure-mttr` | Phase 64h — MTTR baseline measurement script. |
+| `meta_lint.py` | `make lint-meta` | Meta-lint: verify the Makefile is internally honest. |
+| `mock-backend.py` | — | Mock backend server for testing JA4 Proxy |
+| `namespace_setup.sh` | — | Namespace isolation helper for JA4proxy (Phase 56b-3) |
+| `nightly_benchmark_gate.py` | — | nightly_benchmark_gate.py — Phase 805 nightly performance regression gate. |
+| `perf-matrix.sh` | — | — |
+| `perf-test.sh` | — | Performance testing script for JA4 Proxy |
+| `phase-800-code-health.sh` | — | deterministic gate-runner + reporter (Phase 800). |
+| `phase_121_verify.py` | `make verify-manifest-closeout` | Phase 121 close-out gate. |
+| `pin_table_autofix.py` | — | Verify and append new GitHub Actions SHA pins (Phase 812, 812-C). |
+| `pip-audit-resilient.sh` | `make lint-static` | run pip-audit but don't let a transient outage of a |
+| `pipeline_summary.py` | `make test` | scripts/pipeline_summary.py — unified one-line verdict for lint, scan, and test. |
+| `poc-status-check.sh` | — | Quick POC readiness check |
+| `populate-grafana-demo-data.sh` | — | Populate Grafana with realistic demo data by simulating security events |
+| `process_metrics.py` | — | process_metrics.py — emit an engineering-process metrics report. |
+| `quick-start.sh` | `make quick-start` | JA4proxy quick-start helper |
+| `reconcile_ipset.py` | — | reconcile_ipset.py — iptables/ipset drift reconciliation for TAP enforcement. |
+| `redis-acl-setup.sh` | — | scripts/redis-acl-setup.sh — Configure Redis ACL users for least-privilege operation |
+| `redis-to-ebpf.py` | — | redis-to-ebpf.py — Sync Redis blacklist/ban entries into a BPF hash map. |
+| `refresh_trivyignore_justifications.py` | — | Regenerate the "carried by" line on each .trivyignore entry from scan data. |
+| `renew_trivyignore.py` | — | Renew soon-to-expire .trivyignore exceptions (Phase 812, 812-B). |
+| `rotate_soar_token.sh` | — | Rotate a JA4proxy Management API SOAR token. |
+| `run-all-tests.sh` | — | JA4proxy Comprehensive Test Runner |
+| `run-benchmark.sh` | — | Load .env if available |
+| `run-local-tests.sh` | — | JA4proxy — local test runner |
+| `run-tests.sh` | `make test-docker` | Test runner script for JA4 Proxy POC |
+| `scale-proxies.sh` | — | Scale JA4proxy to N proxy instances behind HAProxy |
+| `scan_exceptions.py` | `make scan-exceptions` | List Trivy scan exceptions (.trivyignore) with days-to-expiry. |
+| `scan_summary.py` | `make scan-summary` | scripts/scan_summary.py — human-readable rollup of the security scans (Phase 228). |
+| `set_dial.py` | `make dial` | Set the proxy dial value via pubsub. |
+| `setup-redis-security.sh` | — | Setup script for Redis security (TLS + Secrets) |
+| `setup_wizard.py` | — | DEPRECATED — superseded by Phase 161 Go-native ``ja4p init`` wizard. |
+| `smoke-test.sh` | `make smoke-test` | Quick smoke test to verify POC is working |
+| `start-all.sh` | `make start` | Start complete JA4proxy with monitoring |
+| `start-monitoring.sh` | `make start-monitoring` | Quick start script for JA4proxy monitoring stack |
+| `start-pentest-range.sh` | `make pentest-range` | bring up the JA4proxy penetration-testing range |
+| `start-poc.sh` | `make compose-validate` | JA4 Proxy POC Startup Script |
+| `status.sh` | `make status` | Unified JA4proxy health status |
+| `stop-all.sh` | `make stop` | Stop all JA4proxy stacks (POC + monitoring) |
+| `sync-roadmap.py` | `make sync` | Sync Roadmap Script |
+| `sync_reference_docs.py` | `make sync` | sync_reference_docs.py — generate the reference lists from the things they |
+| `tap_benchmark.py` | — | tap_benchmark.py — TAP mode throughput benchmark. |
+| `test-bot.py` | `make remote-bot` | JA4proxy test bot — lightweight manual tester. |
+| `test-ja4-blocking.sh` | — | JA4 Fingerprint Blocking Test Script |
+| `test-wrapper.sh` | — | Test wrapper script that ensures proper exit with debugging |
+| `test_ratio.py` | `make test-ratio` | Test-to-Code Ratio Calculator |
+| `tls-traffic-generator.py` | — | TLS Traffic Generator for JA4proxy Performance Testing |
+| `traceability.py` | — | traceability.py — generate ``docs/reference/TRACEABILITY.md`` from phase docs. |
+| `update-geoip.sh` | `make update-geoip` | Download the latest IP2Location LITE country database |
+| `update_readme_stats.py` | — | Map count categories to README labels |
+| `validate-single-host.sh` | — | JA4proxy single-host deployment validator (phase-231b real-host E2E). |
+| `verify-image-signature.sh` | — | Usage: scripts/verify-image-signature.sh <image-ref> |
+| `verify-slsa.sh` | — | scripts/verify-slsa.sh — Verify SLSA Level 3 provenance for JA4proxy artifacts. |
+| `verify_revert.sh` | — | machine-check the two-state proof (Phase 814a). |
+| `view-metrics.sh` | — | — |
+| `workspace_integrity_tool.py` | — | Workspace Integrity Tool (WIT) |
 
----
-
-## Operations / Incident Response
-
-| Script | Called by | What it does |
-|--------|-----------|-------------|
-| `../scripts/ja4-admin.sh` | `make block-ja4` etc. | Incident response CLI: block/unblock IPs and JA4 fingerprints, show top attackers, full security report |
-| `ja4proxy-admin.py` | — | Python CLI with the same commands as `../scripts/ja4-admin.sh`, for scripted automation |
-| `../scripts/set_dial.py` | `make dial` | Set the blocking dial (0–100) via Redis pub/sub — no restart required |
-| `../scripts/geoip-monitor.sh` | `make geoip-monitor` / `make geoip-watch` | Auto-block countries that are actively generating blocked traffic; `--watch` loops every 60 s |
-| `../scripts/update-geoip.sh` | `make update-geoip` | Download the latest IP2Location LITE country database; pass `--check` to report database age without downloading |
-| `../scripts/fetch-ja4db.sh` | `make fetch-db` | Fetch known-bad JA4 fingerprints from FoxIO's public database and queue for admin review |
-| `../scripts/setup-redis-security.sh` | — | Configure Redis TLS and secrets for production hardening |
-| `../scripts/scale-proxies.sh` | — | Scale proxy to N instances behind HAProxy (`./scale-proxies.sh 4`); reconfigures HAProxy automatically |
-| `../scripts/fix-docker-dns.sh` | — | Fix Docker container DNS when running with `"iptables": false` + UFW (this host's network setup) |
-| `../scripts/docker-net-diag.sh` | — | Diagnose Docker container networking (DNS, routing, external connectivity) |
-
----
-
-## Testing
-
-| Script | Called by | What it does |
-|--------|-----------|-------------|
-| `../scripts/run-local-tests.sh` | `make test` | Fast parallel local test runner; writes timestamped logs + JUnit XML to `test-results/` |
-| `../scripts/run-tests.sh` | `make test-docker` | Run tests inside Docker (CI / clean environment); respects `PYTHONUNBUFFERED` |
-| `../scripts/run-all-tests.sh` | — | Comprehensive runner that runs all test categories sequentially with summaries |
-| `../scripts/test-wrapper.sh` | — | Wrapper ensuring correct exit codes and debug output; used by some CI configurations |
-| `../scripts/smoke-test.sh` | `make smoke-test` | Quick sanity check — verifies proxy accepts connections and returns expected responses |
-| `../scripts/test-ja4-blocking.sh` | — | End-to-end test that JA4 blacklist blocking works (sends known-bad fingerprint, expects RST) |
-| `../scripts/detect_workers.py` | `make test-calibrate` | Benchmarks this machine with a sample test module, writes optimal `WORKERS` count to `.local/machine.mk` |
-
----
-
-## Traffic Generation / Benchmarking
-
-| Script | Called by | What it does |
-|--------|-----------|-------------|
-| `../scripts/generate-tls-traffic.sh` | — | **Main demo tool.** Generates realistic TLS traffic with browser and attack profiles. Usage: `./scripts/generate-tls-traffic.sh <secs> <legit_pct> <workers>` |
-| `../scripts/generate-test-traffic.sh` | — | Generate test traffic to populate Grafana dashboard with realistic data |
-| `../scripts/populate-grafana-demo-data.sh` | — | Inject pre-canned security events directly into Redis to make Grafana look populated without running traffic |
-| `../scripts/demo-poc.sh` | — | Guided POC demo script — starts traffic, pauses, shows metrics, stops cleanly |
-| `../scripts/benchmark.py` | — | Low-level TLS connection benchmark; measures raw SSL handshake throughput |
-| `../scripts/tls-traffic-generator.py` | `../scripts/generate-tls-traffic.sh` | Core traffic generation logic: browser profiles (Chrome/Firefox/Safari) and attack profiles (Sliver, CobaltStrike, Evilginx, etc.) |
-| `../scripts/perf-test.sh` | `make perf-test` | Performance test using Locust against a running stack |
-| `../scripts/run-benchmark.sh` | `make run-benchmark` | Run throughput benchmarks and write results to `reports/` |
-
----
-
-## Development / Fixtures
-
-| Script | Called by | What it does |
-|--------|-----------|-------------|
-| `../scripts/capture_clienthello.py` | — | One-shot: listens on a port, saves the first TLS ClientHello received to `tests/fixtures/clienthello/<name>.bin` |
-| `../scripts/capture_server.py` | — | Persistent multi-port ClientHello capture server; saves each connection's ClientHello as a fixture |
-| `../scripts/generate_fixtures.sh` | `make capture-fixtures` | Build `bin/ja4check` then generate synthetic ClientHello fixtures for Go/Python parity tests |
-| `../scripts/generate_fixtures_browser.py` | `make capture-fixtures-browser` | Generate ClientHello fixtures from real browsers using Playwright (requires Docker + recorder service) |
-| `../scripts/generate_synthetic_fixtures.py` | — | Generate synthetic ClientHello bytes covering different TLS versions, ciphers, and extensions |
-| `../scripts/generate_adversarial_corpus.py` | — | Generate malformed/adversarial ClientHello bytes for fuzz testing the Go parser |
-| `../scripts/generate_realistic_domains.py` | — | Generate a realistic domain list (draws from Tranco top 10k) for SNI analysis testing |
-| `../scripts/generate_residential_ips.py` | — | Generate a residential IP list for FCrDNS/ASN testing |
-| `../scripts/fetch_tranco_top10k.py` | — | Download the Tranco top 10k domain list for false-positive corpus testing |
-| `../scripts/compute_ja4.py` | — | Compute a JA4 fingerprint from a raw ClientHello `.bin` file; useful for verifying parity |
-| `../scripts/create_test_mmdb.py` | — | Create a minimal MaxMind `.mmdb` test database with residential and datacenter entries |
-| `../scripts/mock-backend.py` | Docker | Mock HTTPS backend server used inside the test container; provides `/api/health` and other test endpoints |
-| `../scripts/docker-entrypoint.sh` | Docker | Container entry point for the proxy container; configures environment then exec's the proxy |
+<!-- END GENERATED: scripts -->
 
 ---
 

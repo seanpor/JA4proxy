@@ -84,6 +84,9 @@ jobs:
         run: |
           pip install pyyaml
           python scripts/sync-roadmap.py
+      # Phase 815: Generated reference docs drift gate
+      - name: Verify reference docs in sync (Phase 815)
+        run: python3 scripts/sync_reference_docs.py --check
       - name: Publish roadmap docs artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
