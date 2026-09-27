@@ -23,6 +23,9 @@ fi
 # Source .env if it exists (for password display)
 [ -f .env ] && { set -a; source .env; set +a; }
 
+# Ensure Grafana TLS certificate exists
+[ -f "scripts/generate-grafana-cert.sh" ] && bash scripts/generate-grafana-cert.sh > /dev/null 2>&1 || true
+
 # Start monitoring stack
 echo -e "${GREEN}▶ Starting monitoring stack...${NC}"
 docker compose -f deploy/docker/docker-compose.monitoring.yml up -d

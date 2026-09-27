@@ -4862,8 +4862,8 @@ phases:
 
   816:
     name: Demo environment — end-to-end management console showcase
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_816.md
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_816.md
     dependencies: []
     size: MEDIUM
     summary: 'Single-command demo: fake backend + varied TLS traffic + management
