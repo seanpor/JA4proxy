@@ -12,7 +12,7 @@ read the top of the file for full options.
 
 <!-- BEGIN GENERATED: scripts -->
 
-_129 scripts. Generated from each script's header comment by `make sync` — do not edit this table by hand._
+_132 scripts. Generated from each script's header comment by `make sync` — do not edit this table by hand._
 
 | Script | Called by | What it does |
 |--------|-----------|--------------|
@@ -52,9 +52,12 @@ _129 scripts. Generated from each script's header comment by `make sync` — do 
 | `create_test_mmdb.py` | — | Create a minimal MaxMind test database for ASN classifier testing. |
 | `demo-bot.sh` | `make demo-bot` | make ONE deliberately non-browser TLS connection. |
 | `demo-check.sh` | `make demo-check` | refuse to start a demo on a stack that is quietly broken. |
+| `demo-mgmt.sh` | `make demo` | Orchestrate full JA4proxy showcase demo: boot, seed API, generate traffic, verify |
 | `demo-poc.sh` | — | JA4 Proxy POC Demo Script |
 | `demo-scan.py` | — | Generate distributed-scan traffic from many real source IPs. |
 | `demo-scan.sh` | — | run demo-scan.py in a container with many source IPs. |
+| `demo-up.sh` | — | Start the lean JA4proxy demo stack with traffic generator and monitoring |
+| `demo-verify.sh` | `make demo-verify` | Verify end-to-end data flow and live policy enforcement across the demo stack |
 | `dependabot_pr_refresh.py` | — | Decide whether a Dependabot PR needs a stale-CI refresh or cascading rebase (Phase 812, Phase 830). |
 | `deploy.sh` | `make deploy-enterprise` | Enterprise deployment script for JA4 Proxy |
 | `detect_workers.py` | `make test-calibrate` | Detect optimal parallel worker count for this machine. |

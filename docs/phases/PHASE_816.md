@@ -1,7 +1,7 @@
 ---
 phase: 816
 title: "Demo environment — end-to-end management console showcase"
-status: PROPOSED
+status: IN_PROGRESS
 size: MEDIUM
 created: 2026-08-13
 audience: [developer, operator]
@@ -9,7 +9,7 @@ audience: [developer, operator]
 
 # Demo environment — end-to-end management console showcase
 
-> **STATUS: PROPOSED — plan for review. No code until approved.**
+> **STATUS: IN_PROGRESS — implementing demo environment showcase.**
 
 ## Goal (plain language)
 

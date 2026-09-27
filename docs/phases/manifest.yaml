@@ -4862,7 +4862,7 @@ phases:
 
   816:
     name: Demo environment — end-to-end management console showcase
-    status: PROPOSED
+    status: IN_PROGRESS
     action_plan: docs/phases/PHASE_816.md
     dependencies: []
     size: MEDIUM

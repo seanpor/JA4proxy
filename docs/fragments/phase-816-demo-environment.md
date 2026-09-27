@@ -1,0 +1,1 @@
+- **Demo environment showcase (Phase 816)**: Stand up single-command showcase demo (`make demo`) connecting Go proxy, continuous varied TLS traffic generator, FastAPI management console, Prometheus, and Grafana with dynamic blocking dial control, automated 6-point verification, and SecOps demonstration runbook. See `docs/operations/DEMO_MANAGEMENT_CONSOLE.md`.

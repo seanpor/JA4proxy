@@ -45,7 +45,7 @@ The default lane runs **without HAProxy** (single proxy, reached directly on
 
 <!-- BEGIN GENERATED: make-targets -->
 
-_193 targets. Generated from the Makefile's own `##` help comments by `make sync` — do not edit this table by hand._
+_196 targets. Generated from the Makefile's own `##` help comments by `make sync` — do not edit this table by hand._
 
 ### Aggregate linters
 
@@ -304,6 +304,14 @@ _193 targets. Generated from the Makefile's own `##` help comments by `make sync
 | `pentest-range-verify` | Re-run the range isolation assertions without rebuilding |
 | `pentest-shell` | Open a shell on the attacker workstation inside the range |
 | `test-journeys` | Phase 824 — run customer-journey checks against a live stack |
+
+### Phase 816: End-to-end management console showcase demo
+
+| Target | Description |
+|--------|-------------|
+| `demo` | Phase 816 — Launch showcase demo environment with API seeding and traffic |
+| `demo-stop` | Phase 816 — Gracefully stop all demo environment services |
+| `demo-verify` | Phase 816 — Run end-to-end data flow and policy assertions on demo stack |
 
 ### Proxy Operations
 

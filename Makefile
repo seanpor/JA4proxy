@@ -1778,3 +1778,14 @@ demo-check:  ## Pre-flight health check for demo environment
 # isn't a browser" step of the demo.
 demo-bot:  ## Send test non-browser TLS connection for demo
 	@scripts/demo-bot.sh
+
+# ── Phase 816: End-to-end management console showcase demo ──────────────────
+.PHONY: demo demo-verify demo-stop
+demo: poc-secrets ## Phase 816 — Launch showcase demo environment with API seeding and traffic
+	@bash scripts/demo-mgmt.sh
+
+demo-verify: ## Phase 816 — Run end-to-end data flow and policy assertions on demo stack
+	@bash scripts/demo-verify.sh
+
+demo-stop: ## Phase 816 — Gracefully stop all demo environment services
+	@bash scripts/stop-all.sh
