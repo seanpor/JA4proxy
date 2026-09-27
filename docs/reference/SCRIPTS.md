@@ -12,7 +12,7 @@ read the top of the file for full options.
 
 <!-- BEGIN GENERATED: scripts -->
 
-_132 scripts. Generated from each script's header comment by `make sync` — do not edit this table by hand._
+_133 scripts. Generated from each script's header comment by `make sync` — do not edit this table by hand._
 
 | Script | Called by | What it does |
 |--------|-----------|--------------|
@@ -74,6 +74,7 @@ _132 scripts. Generated from each script's header comment by `make sync` — do 
 | `fix_runbook_urls.py` | `make lint-alert-urls` | Phase 86h - Rewrite dead runbook_url annotations in Alertmanager rule files. |
 | `gdpr_delete.py` | — | GDPR Subject Erasure (Right to be Forgotten) — Live Redis Purge |
 | `generate-backend-cert.sh` | — | Generate a self-signed TLS cert for the mock backend (deploy/docker/Dockerfile.mockbackend |
+| `generate-grafana-cert.sh` | — | Generate a self-signed TLS cert for Grafana (deploy/docker/docker-compose.monitoring.yml mounts this). |
 | `generate-test-traffic.sh` | — | Generate realistic test traffic for JA4proxy to populate Grafana dashboard |
 | `generate-tls-traffic.sh` | — | TLS Traffic Generator - Performance Testing Script for JA4proxy |
 | `generate_adversarial_corpus.py` | — | Generate adversarial TLS corpus files for testing. |

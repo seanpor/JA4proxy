@@ -118,6 +118,13 @@ rcli() {
 # --- Assertion 1: Proxy Metrics Reporting Connections ---
 echo -e "${BLUE}▶ 1. Checking Proxy Metrics...${NC}"
 METRICS_OUTPUT=$(curl -s "http://${BIND_IP}:${METRICS_PORT}/metrics" 2>/dev/null || true)
+if [ -z "$METRICS_OUTPUT" ]; then
+    local_p_name="${COMPOSE_PROJECT_NAME:-ja4proxy}"
+    proxy_container=$(docker ps --format '{{.Names}}' | grep -E "^${local_p_name}-proxy-[0-9]+$" | head -1 || true)
+    if [ -n "$proxy_container" ]; then
+        METRICS_OUTPUT=$(docker exec "$proxy_container" curl -s http://127.0.0.1:9090/metrics 2>/dev/null || true)
+    fi
+fi
 CONN_COUNT=$(echo "$METRICS_OUTPUT" | awk -F'[ {}]' '/^ja4proxy_connections_total/{print $NF}' | awk '{s+=$1} END{print s+0}')
 
 if [ "${CONN_COUNT%.*}" -gt 0 ]; then

@@ -85,9 +85,12 @@ if ! docker info > /dev/null 2>&1; then
     exit 1
 fi
 
-# 2. Mock backend TLS certificate
+# 2. Mock backend & Grafana TLS certificates
 if [ -f "scripts/generate-backend-cert.sh" ]; then
     bash scripts/generate-backend-cert.sh > /dev/null 2>&1 || true
+fi
+if [ -f "scripts/generate-grafana-cert.sh" ]; then
+    bash scripts/generate-grafana-cert.sh > /dev/null 2>&1 || true
 fi
 
 # 3. Ensure deploy/secrets directory and metrics_token.txt file exist
