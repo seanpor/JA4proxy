@@ -5147,13 +5147,13 @@ phases:
     summary: "Enable Shadow Mode for policy testing without enforcement and implement simulation API and analytics dashboard."
   603:
     name: "Hermetic Tooling & make doctor Accuracy"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_603.md
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_603.md
     dependencies:
     - 225
     - 313
     size: MEDIUM
-    summary: "Containerize remaining 5 host-only linters and align CI/Makefile to use pinned Docker tools exclusively."
+    summary: "Containerize pip-audit dependency scanner, eliminate Makefile find permission noise, ensure accurate make doctor environment validation, and align CI lint jobs."
   604:
     name: "Documentation Information Architecture"
     status: PROPOSED

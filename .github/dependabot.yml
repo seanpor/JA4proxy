@@ -91,6 +91,10 @@ updates:
     open-pull-requests-limit: 5
     cooldown:
       default-days: 7
+    # Dockerfile.bandit is deliberately pinned to python:3.11-slim (see Dockerfile.bandit).
+    # Ignore python bumps in repo root so Dependabot doesn't reopen PRs bumping it to 3.14.
+    ignore:
+      - dependency-name: "python"
 
   - package-ecosystem: "docker"
     directory: "/deploy/docker"
