@@ -36,7 +36,7 @@ _13 first-party images. Generated from the Dockerfiles and compose files by `mak
 
 | Image | Dockerfile | Base |
 |-------|------------|------|
-| — | `Dockerfile.bandit` | `python:3.14-slim` |
+| — | `Dockerfile.bandit` | `python:3.11-slim` |
 | — | `Dockerfile.tools` | `python:3.14-slim` |
 | `ja4proxy-attacker:1.0.0` | `deploy/docker/Dockerfile.attacker` | `alpine:3.22.2@sha256:4b7ce07002c69e8f3d704a9c5d6fd3053be500b7f1c69fc0d80990c2ad8dd412` |
 | — | `deploy/docker/Dockerfile.cli` | `gcr.io/distroless/static-debian12@sha256:a9fcaedd4c9b59e12dd65d954f0b5044f19b0647a8a3712e77205df9e7b102cd` |

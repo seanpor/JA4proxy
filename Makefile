@@ -1,6 +1,8 @@
 .PHONY: all bench-all build bump-build check ci-verify clean cli-build compose-validate env-sync doc-health doctor go-build help help-dev help-legacy help-lint help-ops help-scan init install-hooks ja4p-validate link-check lint lint-ansible lint-docs lint-phases lint-semgrep logs management-down management-logs management-shell management-up rebuild reload remote-bot sbom scan scan-exceptions scorecard-local setup-build start start-poc status stop sync test test-component-suites test-ip test-race test-ratio traffic-off traffic-on tunnel verify-all preflight poc-secrets
 PYTHON ?= $(shell command -v python || command -v python3 || echo python)
-GO ?= $(shell command -v go || echo go)
+# Prefer snap Go if present (local dev), else fall back to env/system GOROOT.
+GOROOT := $(shell if [ -d /snap/go/current ]; then echo /snap/go/current; elif [ -n "$$GOROOT" ]; then echo "$$GOROOT"; else go env GOROOT 2>/dev/null; fi)
+GO     := $(shell if [ -x /snap/go/current/bin/go ]; then echo GOROOT=$(GOROOT) /snap/go/current/bin/go; elif [ -n "$$GOROOT" ]; then echo GOROOT=$(GOROOT) go; else echo go; fi)
 
 # ── Phony targets ─────────────────────────────────────────────────────────────
 
@@ -36,24 +38,25 @@ NAME ?= $(or $(Name),$(name))
 # Default target
 all: help
 
-doctor: ## Phase 147/225 — Verify environment and toolchain health
+doctor: ## Phase 147/225/603 — Verify environment and toolchain health
 	@echo "=== JA4proxy Doctor: Environment Health Check ==="
 	@echo "── Required on the host (build will fail without these) ──────────────"
-	@command -v docker > /dev/null && echo "  ✓ docker" || { echo "  ✗ docker NOT found — required to build images and run make scan"; exit 1; }
-	@go version | grep -E "go1\\.2[6-9]|go1\\.[3-9]" > /dev/null && echo "  ✓ Go ($$(go version | awk '{print $$3}'))" || { echo "  ✗ Go 1.26+ required, found: $$(go version 2>&1)"; exit 1; }
+	@command -v docker > /dev/null && echo "  ✓ docker binary" || { echo "  ✗ docker NOT found — required to run containerized tools and build images"; exit 1; }
+	@docker info > /dev/null 2>&1 && echo "  ✓ docker daemon responsive" || { echo "  ✗ docker daemon NOT running or not accessible by current user"; exit 1; }
+	@$(GO) version 2>/dev/null | grep -E "go1\.(2[6-9]|[3-9][0-9])" > /dev/null && echo "  ✓ Go ($$($(GO) version | awk '{print $$3}'))" || { echo "  ✗ Go 1.26+ required, found: $$($(GO) version 2>&1)"; exit 1; }
 	@command -v $(PYTHON) > /dev/null && echo "  ✓ python3 ($$($(PYTHON) --version 2>&1 | awk '{print $$2}'))" || { echo "  ✗ python3 NOT found"; exit 1; }
-	@echo "── Informational (not required on the host) ─────────────────────────"
-	@$(PYTHON) --version 2>&1 | grep -E "Python 3\\.1[4-9]" > /dev/null \
-		&& echo "  ✓ Python is 3.14+ (matches CI)" \
-		|| echo "  · Python is $$($(PYTHON) --version 2>&1 | cut -d' ' -f2) — CI and the built images use 3.14; local Python linters are advisory only"
-	@echo "  · Lint/scan tools are run authoritatively in CI; trivy runs in a pinned"
-	@echo "    container via 'make scan'. A host copy is OPTIONAL (only for running a"
-	@echo "    target locally outside CI):"
-	@for tool in hadolint trivy semgrep promtool amtool gitleaks; do \
-		command -v $$tool > /dev/null && echo "      ✓ $$tool (on host)" || echo "      · $$tool (not on host — optional)"; \
-	done
+	@echo "── Containerized Toolchain (hermetic; zero host dependencies) ───────"
+	@docker image inspect $(TOOLS_IMG) > /dev/null 2>&1 \
+		&& echo "  ✓ $(TOOLS_IMG) image present (Python linters, test runner, pip-audit, doc tools)" \
+		|| echo "  · $(TOOLS_IMG) image absent — will build on demand on first 'make lint' / 'make test'"
+	@docker image inspect ja4proxy-bandit > /dev/null 2>&1 \
+		&& echo "  ✓ ja4proxy-bandit image present (bandit SAST on Python 3.11)" \
+		|| echo "  · ja4proxy-bandit image absent — will build on demand on first 'make lint'"
+	@echo "  ✓ Official pinned images used on demand: trivy, hadolint, gitleaks, semgrep, shellcheck,"
+	@echo "    golangci-lint, checkmake, luacheck, ansible-lint, promtool, amtool, helm, scorecard"
+	@echo "── Environment Configuration ────────────────────────────────────────"
 	@[ -f .env ] && echo "  ✓ .env present" || echo "  · .env absent — created by 'make start-poc' or 'cp template.env .env'"
-	@echo "=== Doctor: required host tooling OK ==="
+	@echo "=== Doctor: environment and toolchain OK ==="
 
 
 # ── Master help ───────────────────────────────────────────────────────────
@@ -569,7 +572,7 @@ CHECKMAKE_IMG := mrtazz/checkmake:2c59d1f0939900ca3a4208fb9b9300de90ecee8a
 # denied" warning on EVERY make invocation — this variable is expanded at
 # parse time, so the noise appeared before any target ran and looked like a
 # failure of whatever target was asked for. Nothing there is a shell script.
-SHELL_SCRIPTS := $(shell find . -name "*.sh" -not -path "./.git/*" -not -path "./node_modules/*" -not -path "./.claude/*" -not -path "./.local/*" | sort)
+SHELL_SCRIPTS := $(shell find . \( -path "./.git" -o -path "./.local" -o -path "./node_modules" -o -path "./.claude" \) -prune -o -name "*.sh" -print | sort)
 lint-shell:  ## shellcheck all `.sh` scripts (error-level)
 	@echo "=== shellcheck: shell scripts ==="
 	@fail=0; \
@@ -792,12 +795,12 @@ lint-prom:  ## promtool check rules (alerts + recording)
 		&& echo "✓ Prometheus rules valid"
 
 # Check Python and Go dependencies for known CVEs.
-# pip-audit scans requirements.txt; govulncheck scans go.mod.
-lint-deps: scan-container  ## pip-audit (Python) + govulncheck (Go) CVE scan
-	@echo "=== pip-audit: Python dependency CVEs ==="
-	@pip-audit -r requirements.txt || true
-	@pip-audit -r requirements-test.txt || true
-	@pip-audit -r requirements-analytics.txt || true
+# pip-audit scans requirements.txt inside $(TOOLS_IMG); scan-container checks Go.
+lint-deps: tools-image scan-container  ## pip-audit (Python in container) + gosec/govulncheck
+	@echo "=== pip-audit: Python dependency CVEs (containerized) ==="
+	@$(TOOLS_RUN) pip-audit -r requirements.txt || true
+	@$(TOOLS_RUN) pip-audit -r requirements-test.txt || true
+	@$(TOOLS_RUN) pip-audit -r requirements-analytics.txt || true
 	@echo "  (CVEs above are advisory — pinned versions may lag; update requirements.txt to remediate)"
 	@echo ""
 	@echo ""

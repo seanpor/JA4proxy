@@ -149,7 +149,7 @@ _196 targets. Generated from the Makefile's own `##` help comments by `make sync
 | `lint` | Phase 146 — Run all linters (Python, Go, Infra, Docs) |
 | `lint-alertmanager` | amtool check-config |
 | `lint-coverage` | pytest-cov coverage reporting (≥80% gate) |
-| `lint-deps` | pip-audit (Python) + govulncheck (Go) CVE scan |
+| `lint-deps` | pip-audit (Python in container) + gosec/govulncheck |
 | `lint-docker` | hadolint + `docker compose config --quiet` (all overlays) |
 | `lint-go-full` | golangci-lint comprehensive |
 | `lint-json` | JSON syntax validation |
@@ -207,7 +207,7 @@ _196 targets. Generated from the Makefile's own `##` help comments by `make sync
 
 | Target | Description |
 |--------|-------------|
-| `doctor` | Phase 147/225 — Verify environment and toolchain health |
+| `doctor` | Phase 147/225/603 — Verify environment and toolchain health |
 
 ### GeoIP monitoring
 
