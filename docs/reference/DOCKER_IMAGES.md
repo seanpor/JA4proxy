@@ -38,13 +38,13 @@ _13 first-party images. Generated from the Dockerfiles and compose files by `mak
 |-------|------------|------|
 | — | `Dockerfile.bandit` | `python:3.11-slim` |
 | — | `Dockerfile.tools` | `python:3.14-slim` |
-| `ja4proxy-attacker:1.0.0` | `deploy/docker/Dockerfile.attacker` | `alpine:3.22.2@sha256:4b7ce07002c69e8f3d704a9c5d6fd3053be500b7f1c69fc0d80990c2ad8dd412` |
+| `ja4proxy-attacker:1.0.0` | `deploy/docker/Dockerfile.attacker` | `alpine:3.24.2@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6` |
 | — | `deploy/docker/Dockerfile.cli` | `gcr.io/distroless/static-debian12@sha256:a9fcaedd4c9b59e12dd65d954f0b5044f19b0647a8a3712e77205df9e7b102cd` |
-| `ja4proxy:2.0.0` | `deploy/docker/Dockerfile.go-proxy` | `alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b` |
-| — | `deploy/docker/Dockerfile.go-proxy.foss` | `alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b` |
-| `ja4proxy-tap:1.0.0` | `deploy/docker/Dockerfile.ja4-tap` | `alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b` |
+| `ja4proxy:2.0.0` | `deploy/docker/Dockerfile.go-proxy` | `alpine:3.24.2@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6` |
+| — | `deploy/docker/Dockerfile.go-proxy.foss` | `alpine:3.24.2@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6` |
+| `ja4proxy-tap:1.0.0` | `deploy/docker/Dockerfile.ja4-tap` | `alpine:3.24.2@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6` |
 | `ghcr.io/seanpor/ja4proxy-management:main` | `deploy/docker/Dockerfile.management` | `python:3.14.6-alpine3.24@sha256:26730869004e2b9c4b9ad09cab8625e81d256d1ce97e72df5520e806b1709f92` |
-| `ja4proxy-mockbackend:1.0.0` | `deploy/docker/Dockerfile.mockbackend` | `alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b` |
+| `ja4proxy-mockbackend:1.0.0` | `deploy/docker/Dockerfile.mockbackend` | `alpine:3.24.2@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6` |
 | `ja4proxy-test:1.0.0` | `deploy/docker/Dockerfile.test` | `python:3.14.6-alpine3.24@sha256:26730869004e2b9c4b9ad09cab8625e81d256d1ce97e72df5520e806b1709f92` |
 | `ja4proxy-trafficgen:1.0.0` | `deploy/docker/Dockerfile.trafficgen` | `python:3.14.6-alpine3.24@sha256:26730869004e2b9c4b9ad09cab8625e81d256d1ce97e72df5520e806b1709f92` |
 | `ja4proxy-analytics:1.0.0` | `src/analytics/Dockerfile` | `python:3.14.6-alpine3.24@sha256:26730869004e2b9c4b9ad09cab8625e81d256d1ce97e72df5520e806b1709f92` |
