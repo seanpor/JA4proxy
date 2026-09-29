@@ -14,10 +14,10 @@ prometheus-client==0.26.0
 
 # Config + validation
 pyyaml==6.0.3
-jsonschema==4.25.1
+jsonschema==4.26.0
 
 # Numerical analysis (baseline stats, distribution comparison)
-numpy>=2.5.2
+numpy>=2.5.3
 
 msgpack>=1.2.2  # GHSA-6v7p-g79w-8964 (HIGH) — not a direct dep; local rebuild (Python 3.14,
 # matching the image) resolved cleanly with no msgpack at all, so this pin is defensive
