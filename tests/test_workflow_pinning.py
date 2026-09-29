@@ -89,6 +89,7 @@ KNOWN_ACTION_SHAS: dict[str, dict[str, str]] = {
         "v7.0.0": "5fda3b95a4ea91299a34e894583c3862153e4b97",  # PR #379
     },
     "trufflesecurity/trufflehog": {
+        "v3.97.6": "64d939a56362f519781c53ea09b27f8d1dc0140a",  # phase-812-autofix (PR #516)
         "v3.97.4": "363923b901c911a9164f50b6c423f47c15372b1c",  # phase-812-autofix (PR #491)
         "v3.88.2": "a94d152bf65bebf5baa486d3d4dfee520af2ceed",
         "v3.94.3": "47e7b7cd74f578e1e3145d48f669f22fd1330ca6",
@@ -128,6 +129,7 @@ KNOWN_ACTION_SHAS: dict[str, dict[str, str]] = {
         "v7.2.3": "f06c13b6b1a9625abc9e6e439d9c05a8f2190e94",  # PR #347
     },
     "docker/setup-qemu-action": {
+        "v4.4.0": "99012661954931238ded8c8b007157a8430204e1",  # phase-812-autofix (PR #516)
         "v4.3.0": "1f40c72289eff860ee54a304f1438e3cff362e0a",  # phase-812-autofix (PR #491)
         "v3.2.0": "49b3bc8e6bdd4a60e6116a5414239cba5943d3cf",
         "v4.0.0": "ce360397dd3f832beb865e1373c09c0e9f86d70a",
@@ -135,6 +137,7 @@ KNOWN_ACTION_SHAS: dict[str, dict[str, str]] = {
         "v4.2.0": "96fe6ef7f33517b61c61be40b68a1882f3264fb8",  # PR #347
     },
     "docker/setup-buildx-action": {
+        "v4.4.1": "f87e5991a6d7451dcb8d9637bfbc97413f497069",  # phase-812-autofix (PR #516)
         "v4.3.0": "37fe631027851001ddb9b187196cc803df7f5f0e",  # phase-812-autofix (PR #491)
         "v3.8.0": "6524bf65af31da8d45b59e8c27de4bd072b392f5",
         "v4.0.0": "4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd",
@@ -157,6 +160,7 @@ KNOWN_ACTION_SHAS: dict[str, dict[str, str]] = {
         "v6.2.0": "dc802804100637a589fabce1cb79ff13a1411302",  # PR #347
     },
     "docker/build-push-action": {
+        "v7.4.0": "c3c9e263c25d99ce0380d002d59b67737d91b0dc",  # phase-812-autofix (PR #516)
         "v6.13.0": "ca877d9245402d1537745e0e356eab47c3520991",
         "v7.1.0": "bcafcacb16a39f128d818304e6c9c0c18556b85f",
         "v7.2.0": "f9f3042f7e2789586610d6e8b85c8f03e5195baf",  # phase-307 (PR #105)
