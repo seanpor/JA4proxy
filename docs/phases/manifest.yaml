@@ -5164,8 +5164,8 @@ phases:
     summary: "Formalize IA mapping between repo structure and documentation hierarchy; complete remaining operator runbooks."
   605:
     name: "Go Test Parity (Adversarial Coverage)"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_605.md
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_605.md
     dependencies:
     - 15
     - 62

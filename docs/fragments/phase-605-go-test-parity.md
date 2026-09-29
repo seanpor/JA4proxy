@@ -1,0 +1,1 @@
+- **Go Test Parity & Adversarial Coverage (Phase 605)**: Ported the adversarial fuzzing corpus and edge-case traffic scenarios into hermetic Go unit, table-driven, fuzzer, and proxy pipeline tests covering malformed records, truncated ClientHellos, max-length/null-byte SNIs, duplicate extension types, and GREASE filtering. See `docs/phases/complete/PHASE_605.md`.
