@@ -66,6 +66,12 @@ linters:
       - linters:
           - gosec
         text: "G703"
+      # G602: parser.go bounds checks precede all slice indexing/slicing;
+      # gosec's static analyzer reports false positive slice bounds on loops.
+      - path: "internal/tls/parser\\.go"
+        linters:
+          - gosec
+        text: "G602"
       # G704: CLI client makes requests to admin-configured management API URL.
       - path: "internal/cli/client/client\\.go"
         linters:
