@@ -155,6 +155,7 @@ epics:
   - 116
   - 117
   - 605
+  - 606
 - name: 'Epic: Regulatory & Supply-Chain Conformance'
   description: Alignment with international standards and regulatory frameworks.
   phases:
@@ -5171,3 +5172,12 @@ phases:
     - 62
     size: LARGE
     summary: "Port Python adversarial tests to Go and expand fuzzing corpus to ensure behavioral parity for edge cases."
+  606:
+    name: "System-Wide Test Modernization & Invariant Enforcement"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_606.md
+    dependencies:
+    - 603
+    - 605
+    size: LARGE
+    summary: "Modernize unit, integration, and system test suites by adding property-based testing and verifying core system invariants."
