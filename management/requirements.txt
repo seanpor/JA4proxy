@@ -13,18 +13,18 @@
 # test suite, and open a separate PR. Do NOT revert to '=='.
 
 fastapi==0.141.1         # phase-800: was 0.110.0 — starlette<1.0.0 cap in older fastapi blocked the fix for CVE-2024-47874/CVE-2026-48818/CVE-2026-54283 (starlette); 0.139.2 is the first release that lifts the starlette upper bound
-uvicorn[standard]==0.52.4
+uvicorn[standard]==0.53.0
 redis[asyncio]==8.1.0
-PyJWT[crypto]==2.13.0          # phase-831: replaced unmaintained python-jose (clears CVE-2024-23342 in ecdsa)
+PyJWT[crypto]==2.15.0          # phase-831: replaced unmaintained python-jose (clears CVE-2024-23342 in ecdsa)
 pyasn1==0.6.4              # phase-800: clears CVE-2026-30922
 passlib[bcrypt]==1.7.4
 jinja2==3.1.6
 python-multipart==0.0.32
-sse-starlette==3.4.10
+sse-starlette==3.4.11
 httpx==0.28.1
 pytest==9.1.1
 pytest-asyncio==1.4.0
-fakeredis[aioredis]==2.37.1
+fakeredis[aioredis]==2.38.0
 bcrypt==5.0.0              # phase-79: bearer token hashing
 pyotp==2.10.0               # phase-79: TOTP MFA
 qrcode[pil]==8.2         # phase-79: TOTP setup QR codes
