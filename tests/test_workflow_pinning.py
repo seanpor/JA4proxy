@@ -89,6 +89,7 @@ KNOWN_ACTION_SHAS: dict[str, dict[str, str]] = {
         "v7.0.0": "5fda3b95a4ea91299a34e894583c3862153e4b97",  # PR #379
     },
     "trufflesecurity/trufflehog": {
+        "v3.97.9": "4dd8831c5f12599465d4d45c3c447b4018a34c85",  # phase-812-autofix (PR #523)
         "v3.97.6": "64d939a56362f519781c53ea09b27f8d1dc0140a",  # phase-812-autofix (PR #516)
         "v3.97.4": "363923b901c911a9164f50b6c423f47c15372b1c",  # phase-812-autofix (PR #491)
         "v3.88.2": "a94d152bf65bebf5baa486d3d4dfee520af2ceed",
