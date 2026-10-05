@@ -1,23 +1,25 @@
 ---
-# Phase 812 (812-D) & Phase 830 — Automated cascading rebase and refresh for Dependabot PRs on main-branch changes.
+# Phase 812, Phase 830, Phase 838 — Automated PR cascading rebase and refresh.
 #
 # When a PR merges to main:
-# 1. Open Dependabot PRs in state 'BEHIND' are cascade-rebased via GitHub API (one per push,
-#    preventing thundering herds). Auto-merge squash-merges each upon green CI, which in
-#    turn triggers this workflow for the next PR.
-# 2. Conflicted PRs ('DIRTY') receive an @dependabot rebase comment.
-# 3. Failing PRs are refreshed via close/reopen (at most ONCE per head SHA via dedup label).
+# 1. Open PRs with auto-merge enabled (maintainers, agents, Dependabot) in state 'BEHIND'
+#    are cascade-rebased via GitHub API (one per push, preventing thundering herds).
+#    Auto-merge squash-merges each upon green CI, which in turn triggers this workflow for
+#    the next PR in the queue.
+# 2. Conflicted Dependabot PRs ('DIRTY') receive an @dependabot rebase comment.
+# 3. Failing Dependabot PRs are refreshed via close/reopen (at most ONCE per head SHA via dedup label).
 #
 # continue-on-error on the whole job: a notifier/nudger must never itself
 # become a required, blockable check.
 
-name: Dependabot PR Refresh
+name: PR Cascade & Auto-Merge Refresh
 
 on:
   push:
     branches: [main]
   schedule:
-    # Phase 832: Daily off-peak sweep at 03:00 UTC to rebase BEHIND Dependabot PRs
+    # Phase 838: Regular 30-minute fallback sweep + Phase 832 daily sweep
+    - cron: '*/30 * * * *'
     - cron: '0 3 * * *'
   workflow_dispatch:
     inputs:
@@ -31,7 +33,7 @@ permissions:
 
 jobs:
   refresh:
-    name: Refresh and rebase stale Dependabot PRs
+    name: Refresh and rebase stale and behind PRs
     continue-on-error: true
     permissions:
       contents: write
@@ -45,24 +47,28 @@ jobs:
         with:
           python-version: "3.14"
 
-      - name: Process open Dependabot PRs (cascading rebase and stale refresh)
+      - name: Process open PRs (cascading rebase and stale refresh)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DRY_RUN: ${{ github.event.inputs.dry_run }}
         run: |
           set -euo pipefail
-          prs=$(gh pr list --author "app/dependabot" --state open --json number,headRefOid,labels)
+          prs=$(gh pr list --state open --json number,headRefOid,labels,author,autoMergeRequest)
           echo "$prs" | python3 -c "import json,sys; print(len(json.load(sys.stdin)))" | \
-            xargs -I{} echo "Found {} open Dependabot PR(s)"
+            xargs -I{} echo "Found {} open PR(s)"
 
           updated_one_branch=false
 
           echo "$prs" | python3 -c '
           import json, sys
           for pr in json.load(sys.stdin):
-              print(pr["number"], pr["headRefOid"][:7], ",".join(l["name"] for l in pr["labels"]))
-          ' | while read -r number head_sha labels; do
-            echo "--- PR #$number (head $head_sha) ---"
+              author = (pr.get("author") or {}).get("login", "unknown")
+              has_automerge = "true" if pr.get("autoMergeRequest") else "false"
+              labels = ",".join(l["name"] for l in pr.get("labels", []))
+              print(pr["number"], pr["headRefOid"][:7], labels or "-", author, has_automerge)
+          ' | while read -r number head_sha labels author has_automerge; do
+            [ "$labels" = "-" ] && labels=""
+            echo "--- PR #$number (head $head_sha, author $author, auto-merge $has_automerge) ---"
 
             # Query mergeable_state from GitHub REST API (behind, clean, dirty, blocked, unknown)
             merge_state=$(gh api "repos/${{ github.repository }}/pulls/$number" --jq '.mergeable_state' 2>/dev/null || echo "unknown")
@@ -82,7 +88,12 @@ jobs:
             [ "$conclusion" = "passing" ] && checks_passing="true"
 
             decision=$(python3 scripts/dependabot_pr_refresh.py \
-              --head-sha "$head_sha" --checks-passing "$checks_passing" --labels "$labels" --merge-state "$merge_state")
+              --head-sha "$head_sha" \
+              --checks-passing "$checks_passing" \
+              --labels "$labels" \
+              --merge-state "$merge_state" \
+              --author "$author" \
+              --auto-merge "$has_automerge")
             echo "$decision (merge_state=$merge_state)"
 
             action=$(echo "$decision" | awk '{print $1}')
