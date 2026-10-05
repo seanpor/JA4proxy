@@ -32,7 +32,6 @@ from management.api.event_insight import (
     suggest_action,
 )
 
-
 # ── O2: the explanation reaches the API verbatim ──────────────────────────────
 
 

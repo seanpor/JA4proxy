@@ -17,7 +17,6 @@ sys.path.insert(0, str(scripts_dir))
 
 import pin_table_autofix as autofix  # noqa: E402
 
-
 TEST_FILE_TEMPLATE = '''\
 KNOWN_ACTION_SHAS: dict[str, dict[str, str]] = {{
     "actions/checkout": {{

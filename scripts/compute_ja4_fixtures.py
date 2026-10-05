@@ -8,6 +8,7 @@ import sys
 sys.path.append(os.getcwd())
 
 from proxy import JA4Generator
+
 from src.tls.parser import parse_client_hello
 
 
