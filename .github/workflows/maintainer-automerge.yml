@@ -1,0 +1,27 @@
+---
+# Maintainer auto-merge (Phase 838)
+#
+# Enables GitHub auto-merge on pull requests created by maintainers or automated
+# phase branches. The PR will be automatically squash-merged into main once all
+# required status checks are green.
+name: Maintainer auto-merge
+
+on:
+  pull_request_target:
+    types: [opened, ready_for_review, reopened]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  maintainer-automerge:
+    name: Maintainer auto-merge
+    runs-on: ubuntu-latest
+    if: (github.actor == 'seanpor' || startsWith(github.head_ref, 'phase-')) && !github.event.pull_request.draft
+    steps:
+      - name: Enable auto-merge for maintainer / phase PR
+        run: gh pr merge --auto --squash "$PR_URL" || echo "Auto-merge could not be set"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

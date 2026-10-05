@@ -12,6 +12,7 @@ import pytest
 
 try:
     from analytics.output_writer import FINDING_SCHEMA
+
     from management.api.routes.partials import _FINDING_SCHEMA
 except ImportError:
     pytest.skip("Analytics or Management API not importable", allow_module_level=True)

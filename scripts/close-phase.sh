@@ -60,15 +60,9 @@ echo -e "  Pipeline touched: $PIPELINE_TOUCHED"
 echo ""
 
 # 1. Python lint (ruff) — fastest check, catches most common CI breaker
-echo -e "${BOLD}[1/8] ruff check .${RESET}"
-if command -v ruff &>/dev/null; then
-    ruff check . || fail "ruff found lint errors"
-    pass "ruff"
-else
-    pip install -q ruff==0.15.9
-    ruff check . || fail "ruff found lint errors"
-    pass "ruff"
-fi
+echo -e "${BOLD}[1/8] ruff check . (containerized)${RESET}"
+docker run --rm -v "$PWD":/src -w /src ja4proxy-tools ruff check . || fail "ruff found lint errors"
+pass "ruff"
 
 # 2. Go formatting — second most common CI breaker
 echo -e "${BOLD}[2/8] gofmt${RESET}"

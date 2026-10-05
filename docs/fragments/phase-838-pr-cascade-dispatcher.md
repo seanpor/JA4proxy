@@ -1,0 +1,1 @@
+- **PR Cascade & Zero-Babysitter Automation (Phase 838)**: Deployed universal PR cascade rebase dispatcher and maintainer auto-merge workflows, automatically advancing blocked PRs out of `BEHIND` state upon upstream merges under strict branch protection. See `docs/phases/complete/PHASE_838.md`.

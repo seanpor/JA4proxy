@@ -1,9 +1,8 @@
 """Tests for GET /api/v1/tls-health (TLS certificate expiry)."""
 
+import os
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, mock_open, patch
-
-import os
 
 import pytest
 

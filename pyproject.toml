@@ -126,7 +126,7 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 # Tests: allow unused imports (often imported for re-export or side effects)
-"tests/**" = ["F401", "F811", "F841", "E711", "E712", "E721"]
+"tests/**" = ["F401", "F811", "F841", "E711", "E712", "E721", "E741"]
 # Admin CLI: allow broad exception handling
 "scripts/ja4proxy_admin.py" = ["E722"]
 
