@@ -1,0 +1,4 @@
+- **CI Dependency & Security Waiver Unblock (Phase 838)**:
+  - Pinned `fakeredis==2.38.0` in `requirements.txt` to resolve upstream 2.39.0 `xtrim minid` regression.
+  - Bumped `PyJWT[crypto]` to `2.15.1` in `management/requirements.txt` and `requirements-lint-management.txt`, clearing 13 newly published CVEs.
+  - Renewed weekly third-party `.trivyignore` exceptions through 2026-10-12 (resolving Issue #525 and PR #526).
