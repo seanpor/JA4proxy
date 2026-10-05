@@ -5118,6 +5118,15 @@ phases:
     size: SMALL
     summary: "Consolidate host metric collection into Grafana Alloy using built-in unix exporter and retire standalone prom/node-exporter sidecar, reducing third-party CVE carrier footprint."
 
+  838:
+    name: "Autonomous PR Cascade Dispatcher & Zero-Babysitter Automation"
+    status: IN_PROGRESS
+    action_plan: docs/phases/PHASE_838.md
+    dependencies: [837]
+    size: SMALL
+    summary: "Deploy an autonomous PR cascading rebase engine and maintainer auto-merge workflow to keep the PR queue continuously moving without manual babysitting under strict branch protection."
+
+
 
 
   600:
