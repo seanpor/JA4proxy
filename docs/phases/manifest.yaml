@@ -5248,6 +5248,14 @@ phases:
     - 606
     size: MEDIUM
     summary: "Implement property-based invariant test suites for transport splicing, buffer replay, and zero-loss packet slicing (internal/proxy)."
+  '606c':
+    name: "Resource Conservation & Concurrency Invariants"
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_606c.md
+    dependencies:
+    - 606
+    size: MEDIUM
+    summary: "Implement property-based invariant test suites for resource conservation, goroutine leak freedom, and concurrency bounds (internal/proxy)."
   '606e':
     name: "Passive TAP & Flow Reassembly Invariants"
     status: COMPLETE

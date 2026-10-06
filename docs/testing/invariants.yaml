@@ -86,7 +86,6 @@ invariants:
     description: Abrupt TCP RST client aborts do not cause unhandled runtime panics
     package: cmd/ja4pd
     test_func: TestInvariant_Resource_AbruptTCPRSTResiliency
-
   # Phase 606d: State Store & Distributed Rate-Limiting Invariants
   - id: INV-REDIS-001
     name: Atomic Sliding Window Count

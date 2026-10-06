@@ -1695,14 +1695,16 @@ loadtest: go-build cli-build ## Lane-isolated good/bad load test -> watch Grafan
 check: go-build cli-build compose-validate test ## Fast gate: compile + env validate + tests (~3 min, no image builds or CVE scans)
 	@echo "✓ check passed — matches CI required checks"
 
-preflight: ## Full local gate before opening a PR: lint + scan + test (~25 min)
+preflight: ## Full local gate before opening a PR: lint + scan + test + test-race (~25 min)
 	@echo "NOTE: scan-first-party scans Docker images — run 'make build' first to ensure they are current."
-	@echo "=== preflight [1/3] make lint ==="
+	@echo "=== preflight [1/4] make lint ==="
 	@$(MAKE) lint
-	@echo "=== preflight [2/3] make scan ==="
+	@echo "=== preflight [2/4] make scan ==="
 	@$(MAKE) scan
-	@echo "=== preflight [3/3] make test ==="
+	@echo "=== preflight [3/4] make test ==="
 	@$(MAKE) test
+	@echo "=== preflight [4/4] make test-race ==="
+	@$(MAKE) test-race
 	@echo "✓ preflight passed — safe to open a PR"
 tap-build: ## Build standalone TAP sensor binary
 	GOBIN=$(GOPATH)/bin go build -o bin/ja4-tap ./cmd/ja4-tap
