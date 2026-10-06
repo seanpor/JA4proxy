@@ -1,0 +1,1 @@
+- Implemented property-based invariant test suite for risk scoring and threat intelligence engine (`internal/security`), defining and verifying `INV-SCORE-001` through `INV-SCORE-004`.

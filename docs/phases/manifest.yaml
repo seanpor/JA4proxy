@@ -5199,4 +5199,13 @@ phases:
     - 606
     size: MEDIUM
     summary: "Implement property-based invariant test suites for JA4proxy's Redis state store and atomic Lua sliding-window rate limiter (internal/redis)."
+  '606f':
+    name: "Intelligence, Risk Scoring & Temporal Decay Invariants"
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_606f.md
+    dependencies:
+    - 606
+    size: MEDIUM
+    summary: "Implement property-based invariant test suites for risk scoring, threat intelligence elevation, and score decay mechanics (internal/security)."
+
 
