@@ -1,0 +1,25 @@
+invariants:
+  # Phase 606d: State Store & Distributed Rate-Limiting Invariants
+  - id: INV-REDIS-001
+    name: Atomic Sliding Window Count
+    description: Exec(N concurrent at t) => Count == N
+    package: internal/redis
+    test_func: TestInvariant_Redis_AtomicSlidingWindowCount
+
+  - id: INV-REDIS-002
+    name: Timestamp Expiration
+    description: forall t' >= t + W, Contribution(req_t, t') == 0
+    package: internal/redis
+    test_func: TestInvariant_Redis_TimestampExpiration
+
+  - id: INV-REDIS-003
+    name: GDPR TTL Enforcement
+    description: forall K in KeysWritten, TTL(K) <= ARGV[3]
+    package: internal/redis
+    test_func: TestInvariant_Redis_GDPRTTLEnforcement
+
+  - id: INV-REDIS-004
+    name: Lua Script Embedded Parity
+    description: Hash(scripts/) == Hash(internal/redis/scripts/)
+    package: internal/redis
+    test_func: TestInvariant_Redis_ScriptEmbeddedParity
