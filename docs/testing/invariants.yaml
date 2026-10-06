@@ -23,3 +23,28 @@ invariants:
     description: Hash(scripts/) == Hash(internal/redis/scripts/)
     package: internal/redis
     test_func: TestInvariant_Redis_ScriptEmbeddedParity
+
+  # Phase 606f: Intelligence, Risk Scoring & Temporal Decay Invariants
+  - id: INV-SCORE-001
+    name: Risk Score Bounding
+    description: forall signals, 0 <= TotalScore <= 100
+    package: internal/security
+    test_func: TestInvariant_Score_Bounding
+
+  - id: INV-SCORE-002
+    name: Risk Score Monotonicity
+    description: S(x U {MaliciousSignal}) >= S(x), S(x U {TrustSignal}) <= S(x)
+    package: internal/security
+    test_func: TestInvariant_Score_Monotonicity
+
+  - id: INV-SCORE-003
+    name: Empty Signal List Zero Evaluation
+    description: empty signals => score == 0, action == 'allow'
+    package: internal/security
+    test_func: TestInvariant_Score_EmptySignalsZero
+
+  - id: INV-SCORE-004
+    name: Individual Signal Clamping Sanitization
+    description: forall s in signals, Clamped(s.Score) in [-100, 100]
+    package: internal/security
+    test_func: TestInvariant_Score_ClampedSignalSanitization
