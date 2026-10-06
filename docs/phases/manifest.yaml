@@ -5239,4 +5239,11 @@ phases:
     - 606
     size: LARGE
     summary: "Extract unexported proxy struct and server loop from cmd/ja4pd/main.go into internal/server package for modular testing and component isolation."
-
+  '606b':
+    name: "Transport Splice, Buffer Replay & Packet Slicing Invariants"
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_606b.md
+    dependencies:
+    - 606
+    size: MEDIUM
+    summary: "Implement property-based invariant test suites for transport splicing, buffer replay, and zero-loss packet slicing (internal/proxy)."
