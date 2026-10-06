@@ -82,34 +82,6 @@ func (p *proxy) syncServerConfig() {
 			StreamHMACSecret: p.streamHMACSecret,
 			ActiveConns:      atomic.LoadInt64(&p.activeConns),
 		}
-	} else {
-		if p.cfg != nil {
-			p.Cfg = p.cfg
-		}
-		if p.log != nil {
-			p.Log = p.log
-		}
-		if p.pipeline != nil {
-			p.Pipeline = p.pipeline
-		}
-		if p.redis != nil {
-			p.Redis = p.redis
-		}
-		if p.acceptSem != nil {
-			p.AcceptSem = p.acceptSem
-		}
-		if p.cfgPath != "" {
-			p.CfgPath = p.cfgPath
-		}
-		if p.streamEventQueue != nil {
-			p.StreamEventQueue = p.streamEventQueue
-		}
-		if p.streamHMACSecret != "" {
-			p.StreamHMACSecret = p.streamHMACSecret
-		}
-		if atomic.LoadInt64(&p.activeConns) > 0 {
-			atomic.StoreInt64(&p.ActiveConns, atomic.LoadInt64(&p.activeConns))
-		}
 	}
 }
 
