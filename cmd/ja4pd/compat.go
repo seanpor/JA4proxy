@@ -57,7 +57,7 @@ func newProxy(cfg *config.Config, cfgPath string, log *logrus.Logger) (*proxy, e
 		acceptSem:        srv.AcceptSem,
 		tarpitConcurrent: srv.TarpitConcurrent,
 		tarpitPerIP:      srv.TarpitPerIP,
-		trustedCIDRs:     srv.TrustedCIDRs,
+		trustedCIDRs:     srv.GetTrustedCIDRs(),
 	}
 	return p, nil
 }
@@ -237,9 +237,6 @@ func (p *proxy) enqueueStreamEvent(event []byte) {
 	}
 	p.syncServerConfig()
 	if p.Server != nil {
-		if p.streamEventQueue != nil {
-			p.StreamEventQueue = p.streamEventQueue
-		}
 		p.EnqueueStreamEvent(event)
 	}
 }
