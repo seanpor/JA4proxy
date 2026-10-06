@@ -5207,5 +5207,14 @@ phases:
     - 606
     size: MEDIUM
     summary: "Implement property-based invariant test suites for risk scoring, threat intelligence elevation, and score decay mechanics (internal/security)."
+  '606h':
+    name: "Telemetry & Metrics Conservation Invariants"
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_606h.md
+    dependencies:
+    - 606
+    size: MEDIUM
+    summary: "Implement property-based invariant test suites for Prometheus metrics, counter monotonicity, and telemetry conservation laws (internal/metrics)."
+
 
 

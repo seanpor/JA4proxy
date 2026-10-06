@@ -1,0 +1,1 @@
+- Implemented property-based invariant test suite for Prometheus metrics and telemetry engine (`internal/metrics`), defining and verifying `INV-METRICS-001` through `INV-METRICS-004`.
