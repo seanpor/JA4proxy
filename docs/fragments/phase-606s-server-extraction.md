@@ -1,0 +1,1 @@
+- **Proxy Server Package Extraction (Phase 606s)**: Extracted unexported proxy struct and server runtime logic from `cmd/ja4pd/main.go` into `internal/server/` package for component isolation, modular testing, and TDD modernization. Maintained zero-breaking-change backwards compatibility via `cmd/ja4pd/compat.go`. See `docs/phases/complete/PHASE_606s.md`.

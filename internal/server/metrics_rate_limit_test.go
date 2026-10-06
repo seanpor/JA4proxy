@@ -1,18 +1,7 @@
-package main
+package server
 
 // Regression test for JA4PROXY-2026-0026 — Unauthenticated Health/Metrics
 // Endpoints Missing Rate Limiting (MEDIUM, CVSS 5.3).
-//
-// Even with auth in place (JA4PROXY-2026-0008), a compromised token or a
-// misconfigured scraper can spam /metrics, /health, /health/deep, and
-// /metrics/summary. Each hit costs a Redis PING plus JSON encode plus log
-// emission, so an unbounded request rate floods logs, churns Redis, and
-// recycles Prometheus scrape state — DoS on the observability subsystem.
-//
-// The fix adds a per-remote-IP token-bucket limiter (metricsRateLimiter)
-// that sits *after* auth in the middleware chain, so rejected-auth traffic
-// can't poison the buckets but authenticated traffic still gets throttled.
-// Loopback is exempted — co-located Prometheus sidecars are never limited.
 
 import (
 	"io"
@@ -34,16 +23,11 @@ func newTestLimitedHandler() http.Handler {
 }
 
 func TestRegression_JA4PROXY_2026_0026_remote_is_throttled_after_burst(t *testing.T) {
-	// Very small burst so we can exhaust it synchronously.
-	lim := newMetricsRateLimiter(1.0 /* rps */, 3 /* burst */)
-	h := metricsRateLimitMiddleware(newTestLimitedHandler(), lim, nil)
+	lim := NewMetricsRateLimiter(1.0 /* rps */, 3 /* burst */)
+	h := MetricsRateLimitMiddleware(newTestLimitedHandler(), lim, nil)
 
-	// Freeze "now" via repeated calls within the same ms — the bucket
-	// refill is elapsed*rps, so hitting it rapidly should exhaust the 3
-	// initial tokens and then start returning 429.
 	remote := "203.0.113.42:54321"
 
-	// 3 rapid requests should all succeed (burst = 3).
 	for i := 0; i < 3; i++ {
 		req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
 		req.RemoteAddr = remote
@@ -53,7 +37,7 @@ func TestRegression_JA4PROXY_2026_0026_remote_is_throttled_after_burst(t *testin
 			t.Fatalf("burst request %d: want 200, got %d", i+1, rec.Code)
 		}
 	}
-	// 4th request within the same moment should be 429.
+
 	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
 	req.RemoteAddr = remote
 	rec := httptest.NewRecorder()
@@ -67,11 +51,9 @@ func TestRegression_JA4PROXY_2026_0026_remote_is_throttled_after_burst(t *testin
 }
 
 func TestRegression_JA4PROXY_2026_0026_loopback_is_never_throttled(t *testing.T) {
-	lim := newMetricsRateLimiter(1.0, 1)
-	h := metricsRateLimitMiddleware(newTestLimitedHandler(), lim, nil)
+	lim := NewMetricsRateLimiter(1.0, 1)
+	h := MetricsRateLimitMiddleware(newTestLimitedHandler(), lim, nil)
 
-	// 50 loopback requests in a row — all must succeed. Loopback is the
-	// Prometheus-sidecar case; throttling it would starve real observability.
 	for i := 0; i < 50; i++ {
 		req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
 		req.RemoteAddr = "127.0.0.1:60000"
@@ -84,8 +66,8 @@ func TestRegression_JA4PROXY_2026_0026_loopback_is_never_throttled(t *testing.T)
 }
 
 func TestRegression_JA4PROXY_2026_0026_ipv6_loopback_exempt(t *testing.T) {
-	lim := newMetricsRateLimiter(1.0, 1)
-	h := metricsRateLimitMiddleware(newTestLimitedHandler(), lim, nil)
+	lim := NewMetricsRateLimiter(1.0, 1)
+	h := MetricsRateLimitMiddleware(newTestLimitedHandler(), lim, nil)
 	for i := 0; i < 20; i++ {
 		req := httptest.NewRequest(http.MethodGet, "/health", nil)
 		req.RemoteAddr = "[::1]:60000"
@@ -98,10 +80,9 @@ func TestRegression_JA4PROXY_2026_0026_ipv6_loopback_exempt(t *testing.T) {
 }
 
 func TestRegression_JA4PROXY_2026_0026_separate_ips_have_separate_buckets(t *testing.T) {
-	lim := newMetricsRateLimiter(1.0, 2)
-	h := metricsRateLimitMiddleware(newTestLimitedHandler(), lim, nil)
+	lim := NewMetricsRateLimiter(1.0, 2)
+	h := MetricsRateLimitMiddleware(newTestLimitedHandler(), lim, nil)
 
-	// IP A exhausts its burst.
 	for i := 0; i < 2; i++ {
 		req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
 		req.RemoteAddr = "198.51.100.10:1000"
@@ -111,7 +92,7 @@ func TestRegression_JA4PROXY_2026_0026_separate_ips_have_separate_buckets(t *tes
 			t.Fatalf("IP-A burst: want 200, got %d", rec.Code)
 		}
 	}
-	// IP A over-burst should be 429.
+
 	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
 	req.RemoteAddr = "198.51.100.10:1000"
 	rec := httptest.NewRecorder()
@@ -119,7 +100,7 @@ func TestRegression_JA4PROXY_2026_0026_separate_ips_have_separate_buckets(t *tes
 	if rec.Code != http.StatusTooManyRequests {
 		t.Fatalf("IP-A over-burst: want 429, got %d", rec.Code)
 	}
-	// IP B has its own bucket — first request must still succeed.
+
 	req = httptest.NewRequest(http.MethodGet, "/metrics", nil)
 	req.RemoteAddr = "198.51.100.11:1000"
 	rec = httptest.NewRecorder()
@@ -130,8 +111,7 @@ func TestRegression_JA4PROXY_2026_0026_separate_ips_have_separate_buckets(t *tes
 }
 
 func TestRegression_JA4PROXY_2026_0026_tokens_refill_over_time(t *testing.T) {
-	lim := newMetricsRateLimiter(100.0 /* 100 rps */, 1)
-	// Direct allow() so we can control "now".
+	lim := NewMetricsRateLimiter(100.0 /* 100 rps */, 1)
 	remote := "203.0.113.99:2000"
 	t0 := time.Unix(0, 0)
 
@@ -141,17 +121,13 @@ func TestRegression_JA4PROXY_2026_0026_tokens_refill_over_time(t *testing.T) {
 	if lim.allow(remote, t0) {
 		t.Fatalf("second request at t0 should be over-limit")
 	}
-	// At 100 rps, after 15ms we should have ~1.5 tokens — more than one.
 	if !lim.allow(remote, t0.Add(15*time.Millisecond)) {
 		t.Fatalf("request after 15ms at 100rps should have refilled")
 	}
 }
 
 func TestRegression_JA4PROXY_2026_0026_zero_rps_disables_limiter(t *testing.T) {
-	// Config rps=0 means feature off; the config-wiring path skips building
-	// the limiter, but allow() must also defensively allow everything if
-	// someone calls it with an rps-zero limiter.
-	lim := newMetricsRateLimiter(0, 0)
+	lim := NewMetricsRateLimiter(0, 0)
 	remote := "203.0.113.200:5000"
 	for i := 0; i < 1000; i++ {
 		if !lim.allow(remote, time.Now()) {
@@ -161,17 +137,14 @@ func TestRegression_JA4PROXY_2026_0026_zero_rps_disables_limiter(t *testing.T) {
 }
 
 func TestRegression_JA4PROXY_2026_0026_nil_limiter_is_safe(t *testing.T) {
-	// A nil *metricsRateLimiter must be a no-op so the middleware can be
-	// skipped entirely when the feature is off.
-	var lim *metricsRateLimiter
+	var lim *MetricsRateLimiter
 	if !lim.allow("203.0.113.250:6000", time.Now()) {
 		t.Fatalf("nil limiter must not throttle")
 	}
 }
 
 func TestRegression_JA4PROXY_2026_0026_bucket_map_capped(t *testing.T) {
-	// Synthesize many unique IPs so the map-eviction path is covered.
-	lim := newMetricsRateLimiter(1.0, 1)
+	lim := NewMetricsRateLimiter(1.0, 1)
 	lim.maxEntries = 8
 
 	now := time.Unix(0, 0)
@@ -186,7 +159,6 @@ func TestRegression_JA4PROXY_2026_0026_bucket_map_capped(t *testing.T) {
 }
 
 func toIPPort(i int) string {
-	// Deterministic fake IPs in 203.0.113.0/24, unique per i.
 	return formatIP(203, 0, 113, byte(i)) + ":1000"
 }
 

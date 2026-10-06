@@ -58,8 +58,8 @@ func TestActiveConnectionsHasASingleWriterPair(t *testing.T) {
 				"and later Dec() calls drive it negative (observed: -19).",
 				s.file, s.op)
 		}
-		if !strings.HasPrefix(s.file, "cmd/ja4pd") {
-			t.Errorf("%s writes ActiveConnections (.%s); only cmd/ja4pd's "+
+		if !strings.HasPrefix(s.file, "cmd/ja4pd") && !strings.HasPrefix(s.file, "internal/server") {
+			t.Errorf("%s writes ActiveConnections (.%s); only internal/server's "+
 				"accept path may.", s.file, s.op)
 		}
 	}
