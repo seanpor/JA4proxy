@@ -386,16 +386,29 @@ compose-validate: ## Validate docker-compose files and required env vars (fast, 
 test: tools-image cli-build ## Phase 146 — Run the full test suite
 	@echo "=== Running Go Native Tests ==="
 	@GOROOT=$(GOROOT) go test -v -coverprofile=coverage.txt -covermode=atomic ./...
-	@echo "=== Running Python Unit Tests (containerized: $(TOOLS_IMG)) ==="
-	@$(TOOLS_RUN) pytest tests/unit/ -n auto --dist=loadfile --timeout=60 --tb=short
-	@echo "=== Running management/tests/ (phase-808 — was silently excluded, see manifest) ==="
-	@$(TOOLS_RUN) pytest management/tests/ -n auto --dist=loadfile --timeout=60 --tb=short
+	@echo "=== Running Invariant Tests & Registry Check ==="
+	@$(MAKE) test-invariants
+	@echo "=== Running Python Unit Tests & Coverage (tests/unit/ + management/tests/) ==="
+	@$(MAKE) cover-python
 	@echo "=== Running Integration Smoke Tests (containerized) ==="
 	@$(TOOLS_RUN) pytest tests/integration/ -k "not docker_stack" -x -q --timeout=60
 	@echo "=== Running CI/workflow guardrail tests (containerized) ==="
 	@$(TOOLS_RUN) pytest tests/test_workflow_pinning.py -q --timeout=60
+	@echo "=== Enforcing Coverage Ratchet ==="
+	@$(MAKE) cover-check
 	@echo "✓ Full test suite passed"
 	@$(TOOLS_RUN) python scripts/pipeline_summary.py test
+
+test-invariants: tools-image ## Run invariant tests and verify registry match
+	@echo "=== Running Invariant Tests ==="
+	@WANT=$$(python3 -c "import yaml; print(len(yaml.safe_load(open('docs/testing/invariants.yaml'))['invariants']))") ; \
+	GOT=$$($(GO) test -count=1 -v -run '^(TestInvariant_|FuzzInvariant_)' ./... | grep -E '^=== RUN   (TestInvariant_|FuzzInvariant_)[^/]+$$' | wc -l) ; \
+	echo "Registry invariants: $$WANT, Go tests executed: $$GOT" ; \
+	if [ "$$GOT" -lt "$$WANT" ]; then \
+		echo "ERROR: Executed Go invariant count ($$GOT) is less than registered count ($$WANT)" ; \
+		exit 1 ; \
+	fi
+	@$(TOOLS_RUN) pytest tests/unit/test_invariant_registry.py -q
 
 # Run unit tests only (containerized — pinned Python 3.14, no host venv)
 test-unit: tools-image  ## Run unit tests only
@@ -474,13 +487,35 @@ lint-static: tools-image bandit-image  ## mypy + bandit + ruff + pip-audit
 lint-quality:  ## flake8 code quality
 	docker run --rm -v $(PWD):/app python:3.14.0-slim sh -c "cd /app && pip install flake8 && flake8 src/analytics/ scripts/ tests/ 2>/dev/null || echo 'Flake8 warnings above, see baseline docs/QUICK_REFERENCE.md'"
 
-# Coverage reporting with pytest-cov (Phase 16c gate: ≥80% all modules)
-lint-coverage:  ## pytest-cov coverage reporting (≥80% gate)
-	$(PYTHON) -m pytest tests/ --ignore=tests/integration/test_docker_stack.py \
-		--cov=src --cov=proxy \
-		--cov-fail-under=80 \
-		--cov-report=term-missing \
-		--cov-report=html:reports/coverage/html
+cover-python: tools-image ## Python coverage (management + src), containerised
+	@rm -f .coverage coverage-python.json
+	@$(TOOLS_RUN) pytest tests/unit/ -n auto --dist=loadfile \
+		--timeout=60 --cov=management --cov=src --cov-append -q
+	@$(TOOLS_RUN) pytest management/tests/ -n auto --dist=loadfile \
+		--timeout=60 --cov=management --cov=src --cov-append --cov-report=json:coverage-python.json \
+		--cov-report=term-missing:skip-covered
+
+lint-coverage: cover-python ## Alias for containerised Python coverage reporting
+
+cover-check: tools-image ## Fail if any package's coverage dropped below baseline
+	@if [ -f coverage.txt ]; then \
+		$(TOOLS_RUN) python3 scripts/coverage_ratchet.py check --lang go \
+			--profile coverage.txt --baseline docs/testing/coverage-baseline.json ; \
+	fi
+	@if [ -f coverage-python.json ]; then \
+		$(TOOLS_RUN) python3 scripts/coverage_ratchet.py check --lang python \
+			--profile coverage-python.json --baseline docs/testing/coverage-baseline.json ; \
+	fi
+
+cover-update: tools-image ## Monotonically update coverage baseline from current test profiles
+	@if [ -f coverage.txt ]; then \
+		$(TOOLS_RUN) python3 scripts/coverage_ratchet.py update --lang go \
+			--profile coverage.txt --baseline docs/testing/coverage-baseline.json ; \
+	fi
+	@if [ -f coverage-python.json ]; then \
+		$(TOOLS_RUN) python3 scripts/coverage_ratchet.py update --lang python \
+			--profile coverage-python.json --baseline docs/testing/coverage-baseline.json ; \
+	fi
 
 # Lint Dockerfiles (hadolint) and validate docker-compose files (docker compose config).
 # Ignored rules are consciously accepted — see .hadolint.yaml for rationale.

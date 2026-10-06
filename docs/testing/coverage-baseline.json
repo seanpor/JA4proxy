@@ -1,0 +1,46 @@
+{
+  "go": {
+    "cmd/ja4-tap": 57.04,
+    "cmd/ja4p": 0.0,
+    "cmd/ja4pd": 80.06,
+    "internal/backup": 84.13,
+    "internal/cache": 98.04,
+    "internal/cli/auth": 100.0,
+    "internal/cli/client": 88.0,
+    "internal/cli/commands": 95.6,
+    "internal/cli/config": 84.62,
+    "internal/cli/engine": 0.0,
+    "internal/cli/output": 91.23,
+    "internal/cluster/sync": 0.0,
+    "internal/compliance": 98.1,
+    "internal/config": 87.6,
+    "internal/fingerprint": 100.0,
+    "internal/health": 100.0,
+    "internal/logging": 90.59,
+    "internal/metrics": 84.52,
+    "internal/proxy": 87.3,
+    "internal/quic": 55.45,
+    "internal/redis": 91.21,
+    "internal/security": 90.6,
+    "internal/tap": 79.94,
+    "internal/test/bench": 11.56,
+    "internal/test/nullbackend": 0.0,
+    "internal/tls": 88.83,
+    "internal/webhook": 86.54,
+    "internal/wizard": 88.27
+  },
+  "python": {
+    "management/api": 74.75,
+    "management/compliance": 84.92,
+    "management/tasks": 57.14,
+    "management/tests": 98.52,
+    "src/__init__.py": 100.0,
+    "src/analytics": 84.96,
+    "src/utils": 73.45
+  },
+  "targets": {
+    "cmd/*": 85.0,
+    "internal/*": 95.0,
+    "management/*": 90.0
+  }
+}

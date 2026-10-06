@@ -45,7 +45,7 @@ The default lane runs **without HAProxy** (single proxy, reached directly on
 
 <!-- BEGIN GENERATED: make-targets -->
 
-_196 targets. Generated from the Makefile's own `##` help comments by `make sync` — do not edit this table by hand._
+_200 targets. Generated from the Makefile's own `##` help comments by `make sync` — do not edit this table by hand._
 
 ### Aggregate linters
 
@@ -141,6 +141,9 @@ _196 targets. Generated from the Makefile's own `##` help comments by `make sync
 | `check-manifest` | Verify manifest.yaml / TODO.md / CHANGELOG.md stay consistent |
 | `clean` | Stop + remove all containers and volumes |
 | `compose-validate` | Validate docker-compose files and required env vars (fast, no image build) |
+| `cover-check` | Fail if any package's coverage dropped below baseline |
+| `cover-python` | Python coverage (management + src), containerised |
+| `cover-update` | Monotonically update coverage baseline from current test profiles |
 | `deploy-enterprise` | Deploy enterprise environment (sudo) |
 | `deploy-poc` | Deploy PoC environment |
 | `env-sync` | Add any newly-required vars to an existing .env (idempotent, never overwrites) |
@@ -148,7 +151,7 @@ _196 targets. Generated from the Makefile's own `##` help comments by `make sync
 | `health-check` | Run health checks against metrics + Redis |
 | `lint` | Phase 146 — Run all linters (Python, Go, Infra, Docs) |
 | `lint-alertmanager` | amtool check-config |
-| `lint-coverage` | pytest-cov coverage reporting (≥80% gate) |
+| `lint-coverage` | Alias for containerised Python coverage reporting |
 | `lint-deps` | pip-audit (Python in container) + gosec/govulncheck |
 | `lint-docker` | hadolint + `docker compose config --quiet` (all overlays) |
 | `lint-go-full` | golangci-lint comprehensive |
@@ -175,6 +178,7 @@ _196 targets. Generated from the Makefile's own `##` help comments by `make sync
 | `test-calibrate` | Benchmark this machine, store worker count |
 | `test-chaos` | Run chaos/resilience tests only |
 | `test-docker` | Run tests inside Docker (CI env) |
+| `test-invariants` | Run invariant tests and verify registry match |
 | `test-unit` | Run unit tests only |
 | `tools-image` | Build containerized tools image (Dockerfile.tools) |
 

@@ -1,0 +1,11 @@
+# Every TestInvariant_* / FuzzInvariant_* function MUST be listed here, and
+# every entry here MUST exist in code. Checked by
+# tests/unit/test_invariant_registry.py (runs in `make test`).
+invariants:
+  - id: INV-TAP-001
+    phase: "606-0"
+    package: internal/tap
+    test: TestInvariant_Tap_CircuitBreakerCooldownIsExact
+    statement: >
+      Circuit breaker transitions from OPEN to CLOSED at exact 10s cooldown boundary.
+    mutation_check: "change Before() check to After() in Set -> test fails"

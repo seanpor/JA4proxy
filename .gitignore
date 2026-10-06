@@ -109,6 +109,7 @@ wheels/
 coverage.json
 coverage.xml
 coverage.txt
+coverage-python.json
 htmlcov/
 .tox/
 .hypothesis/

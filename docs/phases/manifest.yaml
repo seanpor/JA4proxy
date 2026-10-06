@@ -5193,8 +5193,8 @@ phases:
     summary: "System-wide test modernization split into 606a–606g sub-phases. Establishes mathematical and architectural invariant test suites across TLS/QUIC parsing, transport splicing, resource conservation, rate limiting, passive tap, security scoring, and management hot-swap."
   '606-0':
     name: "Test Infrastructure, Baseline & Invariant-Plan Rewrite"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_606-0.md
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_606-0.md
     dependencies:
     - 603
     - 605

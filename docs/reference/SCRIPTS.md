@@ -12,7 +12,7 @@ read the top of the file for full options.
 
 <!-- BEGIN GENERATED: scripts -->
 
-_133 scripts. Generated from each script's header comment by `make sync` — do not edit this table by hand._
+_134 scripts. Generated from each script's header comment by `make sync` — do not edit this table by hand._
 
 | Script | Called by | What it does |
 |--------|-----------|--------------|
@@ -49,6 +49,7 @@ _133 scripts. Generated from each script's header comment by `make sync` — do 
 | `compute_ja4_fixtures.py` | — | Add current dir to path to import local modules |
 | `config-signer.py` | — | config-signer.py — Ed25519 signing utility for JA4proxy configuration files. |
 | `count_lines.py` | — | Count non-blank lines of code by category across the JA4proxy project. |
+| `coverage_ratchet.py` | `make cover-check` | coverage_ratchet.py — Enforce monotonic coverage ratchet for Go and Python packages. |
 | `create_test_mmdb.py` | — | Create a minimal MaxMind test database for ASN classifier testing. |
 | `demo-bot.sh` | `make demo-bot` | make ONE deliberately non-browser TLS connection. |
 | `demo-check.sh` | `make demo-check` | refuse to start a demo on a stack that is quietly broken. |

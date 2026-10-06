@@ -1,0 +1,1 @@
+- Phase 606-0: Established testing infrastructure baseline including coverage ratchet (`scripts/coverage_ratchet.py`), shared ClientHello fixtures (`internal/testutil/tlsfixture`), `goleak` leak detection, import guard, invariant testing registry (`docs/testing/invariants.yaml`), `testing/synctest` exemplar, and testing handbook (`docs/testing/INVARIANT_TESTING.md`).
