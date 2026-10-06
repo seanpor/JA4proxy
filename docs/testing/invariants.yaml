@@ -48,3 +48,28 @@ invariants:
     description: forall s in signals, Clamped(s.Score) in [-100, 100]
     package: internal/security
     test_func: TestInvariant_Score_ClampedSignalSanitization
+
+  # Phase 606h: Telemetry & Metrics Conservation Invariants
+  - id: INV-METRICS-001
+    name: Counter Monotonicity
+    description: forall t2 >= t1, Counter(t2) >= Counter(t1)
+    package: internal/metrics
+    test_func: TestInvariant_Metrics_CounterMonotonicity
+
+  - id: INV-METRICS-002
+    name: Active Connections Gauge Non-Negative
+    description: ActiveConnections >= 0 under concurrent inc/dec
+    package: internal/metrics
+    test_func: TestInvariant_Metrics_ActiveConnectionsGaugeNonNegative
+
+  - id: INV-METRICS-003
+    name: Connection Decision Conservation Law
+    description: Delta(ConnectionsTotal) == sum(Delta(action_counters))
+    package: internal/metrics
+    test_func: TestInvariant_Metrics_DecisionConservation
+
+  - id: INV-METRICS-004
+    name: Risk Score Histogram Bounding
+    description: RiskScore values strictly within [0, 100]
+    package: internal/metrics
+    test_func: TestInvariant_Metrics_HistogramBucketBounds
