@@ -5256,3 +5256,11 @@ phases:
     - 606
     size: MEDIUM
     summary: "Implement property-based invariant test suites for JA4proxy's passive TAP and TCP stream reassembly engine (internal/tap)."
+  '606i':
+    name: "Management Plane & Audit Invariants"
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_606i.md
+    dependencies:
+    - 606
+    size: MEDIUM
+    summary: "Implement property-based invariant test suites for management REST API authorization, audit logging, and payload validation (management/)."

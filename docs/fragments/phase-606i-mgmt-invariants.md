@@ -1,0 +1,1 @@
+- Implemented property-based invariant test suite for management REST API authorization, health, and payload sanitization (`management/`), defining and verifying `INV-MGMT-001` through `INV-MGMT-004`.
