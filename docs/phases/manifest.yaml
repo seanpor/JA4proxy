@@ -5215,6 +5215,15 @@ phases:
     - 606
     size: MEDIUM
     summary: "Implement property-based invariant test suites for Prometheus metrics, counter monotonicity, and telemetry conservation laws (internal/metrics)."
+  '606j':
+    name: "CLI Engine Invariants"
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_606j.md
+    dependencies:
+    - 606
+    size: MEDIUM
+    summary: "Implement property-based invariant test suites for JA4proxy CLI output formatting, command flags, and error status code mapping (internal/cli)."
+
 
 
 
