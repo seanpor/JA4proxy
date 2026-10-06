@@ -717,21 +717,20 @@ not flaky, and record the result in the PR.
 | Coverage ratchet blocks unrelated PRs | Only *drops* fail; a deleted package only warns; `update` is a one-line command documented in the failure message |
 | Rewrite copies new mistakes | B4 self-check plus compile-checked templates |
 
-## Open decisions (need maintainer sign-off)
+## Approved Architectural Decisions (Signed Off)
 
-1. **606s: extract the proxy server from `cmd/ja4pd/main.go`** (2,236 lines,
-   `package main`) into `internal/server`. It is the biggest testability
-   obstacle, but it is a production refactor with risk. Recommendation:
-   approve it as a separate phase that 606b/c may *optionally* wait for. The
-   rewritten docs work against `package main` either way.
-2. **Add a `ja4proxy_connections_accepted_total` counter?** That would make
-   the conservation law a one-line equation instead of a per-path analysis.
-   It is a small product change, so it would need its own phase.
-3. **Coverage targets.** Proposed: `internal/*` ≥ 95%, `cmd/*` ≥ 85%,
-   `management/*` ≥ 90%, reached via the ratchet. 99.9% statement coverage
-   is not recommended: it pushes engineers to cover `main()` and OS error
-   branches with tests that assert nothing. Mutation efficacy is the better
-   reliability signal.
+The maintainer has formally approved all three key architectural decisions for Phase 606:
+
+1. **Approved — Phase 606s (Server Package Extraction):**
+   Extracting the core proxy server struct from `cmd/ja4pd/main.go` (2,236 lines, `package main`) into `internal/server` is approved as a dedicated sub-phase `606s`. This isolates connection handling and server lifecycle into a clean, testable Go package so sub-phases `606b` (transport splice) and `606c` (resource conservation) can test the server directly without reaching into `cmd/ja4pd`.
+
+2. **Approved — Telemetry Counter (`ja4proxy_connections_accepted_total`):**
+   Adding the `ja4proxy_connections_accepted_total` Prometheus counter to `internal/metrics` is approved. This turns the Telemetry Conservation Law into an exact, single-line mathematical equality:
+   $$\Delta\text{Accepted} \equiv \Delta\text{Forwarded} + \Delta\text{Blocked} + \Delta\text{Tarpitted} + \Delta\text{Dropped}$$
+   without complex, brittle per-path error counter offset arithmetic.
+
+3. **Approved — Coverage Targets & Ratchet Strategy:**
+   The coverage targets (`internal/*` ≥ 95%, `cmd/*` ≥ 85%, `management/*` ≥ 90%) enforced monotonically via `scripts/coverage_ratchet.py` are approved. Pure statement coverage of 99.9% is explicitly rejected in favor of strict package ratchets and mutation testing efficacy, avoiding low-value tests written solely to hit unreachable OS error branches.
 
 ---
 

@@ -5205,16 +5205,15 @@ phases:
     status: PROPOSED
     action_plan: docs/phases/PHASE_606a.md
     dependencies:
-    - 603
-    - 605
+    - '606-0'
     size: MEDIUM
-    summary: "Property-based tests asserting GREASE independence, canonical vs wire-order JA4_r differentiation, JA4 regex compliance, and parser non-panic/bounded memory over arbitrary mutated byte slices."
+    summary: "Property-based tests asserting GREASE independence, canonical extension order invariance, JA4 regex compliance, and parser non-panic/bounded memory over arbitrary mutated byte slices."
   606b:
     name: "Transport Splice, Buffer Replay & Packet Slicing Invariants"
     status: PROPOSED
     action_plan: docs/phases/PHASE_606b.md
     dependencies:
-    - 606a
+    - '606-0'
     size: MEDIUM
     summary: "Homomorphic stream partitioning across arbitrary TCP chunk boundaries and jitter, zero-loss/zero-duplication splice conservation under proxy ALLOW, fail-closed non-TLS drop, and backpressure buffer bounding."
   606c:
@@ -5222,7 +5221,7 @@ phases:
     status: PROPOSED
     action_plan: docs/phases/PHASE_606c.md
     dependencies:
-    - 606b
+    - '606-0'
     size: MEDIUM
     summary: "Resource recovery monotonicity (zero net goroutine/FD leaks after connection close, client abort, slowloris stall, or tarpit expiry), active connection gauge conservation, and data race elimination."
   606d:
@@ -5230,30 +5229,70 @@ phases:
     status: PROPOSED
     action_plan: docs/phases/PHASE_606d.md
     dependencies:
-    - 606c
+    - '606-0'
     size: MEDIUM
-    summary: "Strict ban transitivity and deterministic TTL expiration, CIDR containment monotonicity, sliding-window token non-negativity under high-concurrency burst, and circuit-breaker fail-secure behavior."
+    summary: "Redis Lua sliding-window concurrency bounds, timestamp window expiration, TTL enforcement, and miniredis integration testing."
   606e:
     name: "Passive TAP & Flow Reassembly Invariants"
     status: PROPOSED
     action_plan: docs/phases/PHASE_606e.md
     dependencies:
-    - 606d
+    - '606-0'
     size: MEDIUM
-    summary: "TCP commutativity (out-of-order segment reassembly invariance), packet loss detection and unrecoverable stream abortion, stream-cap bounded memory, and zero-drop packet capture ring buffer."
+    summary: "16 KiB flow cap, MarkGap stream handling, HandshakeEvent extraction, active_streams gauge conservation, and malformed packet fuzzing."
   606f:
     name: "Security Scoring & Telemetry Conservation Invariants"
     status: PROPOSED
     action_plan: docs/phases/PHASE_606f.md
     dependencies:
-    - 606e
+    - 606b
     size: MEDIUM
-    summary: "Risk score monotonicity under cumulative threat signals, exponential score decay over time, and telemetry conservation law ensuring AcceptedConns == Sum(Allowed + Blocked + Dropped + Tarpitted + Errored)."
+    summary: "ActionDecider monotonicity, DecisionCache capacity and TTL bounds, CIDR containment, and telemetry conservation law ensuring AcceptedConns == Sum(Allowed + Blocked + Dropped + Tarpitted + Errored)."
   606g:
     name: "Configuration Hot-Swap & Management API Invariants"
     status: PROPOSED
     action_plan: docs/phases/PHASE_606g.md
     dependencies:
-    - 606f
+    - '606-0'
     size: MEDIUM
-    summary: "Atomic hot-reload without dropping in-flight connections, automatic rollback on syntax/semantic validation errors, RBAC total mediation, and audit log completeness."
+    summary: "Direct p.reload() config hot-swap without dropping connections, automatic rollback on syntax/semantic validation errors, RBAC Total Mediation across all FastAPI routes, and audit logging."
+  606h:
+    name: "QUIC Initial Decoder Invariants & Coverage"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_606h.md
+    dependencies:
+    - '606-0'
+    size: MEDIUM
+    summary: "Decoder.DecodeInitial, ParseCRYPTOFrames, ParseClientHelloFeatures, ComputeJA4Q; CRYPTO frame reassembly order independence, and decoder eviction bounds. Elevates internal/quic coverage from 55.5% to >=85%."
+  606i:
+    name: "Cluster Sync Agent Tests"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_606i.md
+    dependencies:
+    - '606-0'
+    size: MEDIUM
+    summary: "Unit and integration testing for internal/cluster/sync. Elevates package coverage from 0.0% to >=80%."
+  606j:
+    name: "CLI Engine & Command Tests"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_606j.md
+    dependencies:
+    - '606-0'
+    size: MEDIUM
+    summary: "Unit and execution flow tests for cmd/ja4p and internal/cli/engine. Elevates coverage from 0.0% to >=80%."
+  606k:
+    name: "Python Management API & Analytics Coverage Push"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_606k.md
+    dependencies:
+    - '606-0'
+    size: MEDIUM
+    summary: "Comprehensive unit and Hypothesis stateful model-based testing across management/ and src/. Elevates Python coverage to >=90%."
+  606s:
+    name: "Proxy Server Package Extraction (cmd/ja4pd -> internal/server)"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_606s.md
+    dependencies:
+    - '606-0'
+    size: LARGE
+    summary: "Extract unexported proxy struct and server loop from cmd/ja4pd/main.go (2,236 lines) into internal/server package for modular testing and component isolation."
