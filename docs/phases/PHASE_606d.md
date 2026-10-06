@@ -1,146 +1,153 @@
 # State Store & Distributed Rate-Limiting Invariants
 
 ## Goal
-Implement property-based invariant test suites for JA4proxy's rate limiting, token bucket, and Redis-backed distributed state management (`internal/ratelimit/` and `scripts/sliding_window.lua`). Establish formal mathematical guarantees that token counters never become negative under concurrent worker contention, that token refills are strictly monotonic and bounded by capacity, that sliding window state decays accurately over time, and that Redis disconnection events deterministically trigger the configured fallback policy with appropriate metric emission.
+Implement property-based invariant test suites for JA4proxy's Redis state store and atomic Lua sliding-window rate limiter (`internal/redis`). Establish formal guarantees using `miniredis` that atomic rate-limiting scripts prevent race conditions under concurrent worker contention, that requests expire deterministically after window duration $W$, that key TTLs strictly enforce data minimisation, and that embedded Lua scripts remain identical across repository locations.
 
 ---
 
-## Scope
-1. **Target Packages**:
-   - `internal/ratelimit/` (Token bucket algorithms, sliding window state, Redis client interface).
-   - `scripts/sliding_window.lua` (Redis atomic Lua script for rate limiting).
-2. **New Test Files**:
-   - `internal/ratelimit/ratelimit_invariant_test.go`
-3. **Formal Invariants to Enforce**:
-   - **Invariant 1 (Token Non-Negativity)**:
-     For a bucket with capacity $C$ and refill rate $R$:
-     $$\forall t \ge 0, \quad \text{AvailableTokens}(t) \ge 0$$
-     No race condition or concurrent request burst may ever cause the available token count to drop below zero.
-   - **Invariant 2 (Monotonic Refill & Bounded Capacity)**:
-     In the absence of consumption between times $t_1 < t_2$:
-     $$\text{Tokens}(t_1) \le \text{Tokens}(t_2) \le C$$
-     $$\text{Tokens}(t_2) = \min(C, \; \text{Tokens}(t_1) + R \times (t_2 - t_1))$$
-   - **Invariant 3 (Sliding Window Expiry & Conservation)**:
-     In a sliding window of duration $W$:
-     A request recorded at time $t$ must contribute exactly 1 to window counts for all $t' \in [t, t + W)$, and strictly 0 for all $t' \ge t + W$.
-   - **Invariant 4 (Redis Disconnect Determinism & Telemetry)**:
-     When the backing Redis store becomes unreachable or times out:
-     - The rate limiter must execute the configured fallback policy (e.g., fail-open or fail-closed) deterministically for 100% of subsequent requests.
-     - The metric `ratelimit_redis_errors_total` must increment on every encountered failure (zero silent swallows).
+## Read These First
+- `internal/redis/lua.go` (embedded sliding window script and SHA management)
+- `internal/redis/scripts/sliding_window.lua` (atomic rate limiting Lua script)
+- `internal/redis/client.go` (Redis client interface)
+- `internal/redis/lua_test.go` (existing miniredis unit tests)
 
 ---
 
-## Junior Developer Implementation Guide
+## Verified API Surface
+- `//go:embed scripts/sliding_window.lua` — `internal/redis/lua.go:9`
+- `(*Client).SlidingWindowSHA()` — `internal/redis/client.go`
+- `miniredis.RunT(t)` — `github.com/alicebob/miniredis/v2`
 
-### Step 1: Set up Test Harness & Miniredis
-In `internal/ratelimit/ratelimit_invariant_test.go`:
+---
+
+## Invariants
+
+| ID | Plain-English Statement | Formal Statement | SecOps Rationale |
+|---|---|---|---|
+| `INV-REDIS-001` | Atomic Sliding Window Count | $\text{Exec}(N \text{ concurrent at } t) \implies \text{Count} == N$ | Prevents race conditions from granting unauthorized requests during high-concurrency rate-limit bursts. |
+| `INV-REDIS-002` | Timestamp Expiration | $\forall t' \ge t + W, \quad \text{Contribution}(req_t, t') == 0$ | Guarantees expired rate-limit counts drop off cleanly without residual enforcement penalty. |
+| `INV-REDIS-003` | GDPR TTL Enforcement | $\forall K \in \text{KeysWritten}, \quad \text{TTL}(K) \le \text{ARGV}[3]$ | Enforces GDPR data minimisation by guaranteeing client IP state automatically expires from Redis. |
+| `INV-REDIS-004` | Lua Script Embedded Parity | $\text{Hash}(\text{scripts/}) \equiv \text{Hash}(\text{internal/redis/scripts/})$ | Prevents configuration drift or accidental desynchronization between root and internal Redis scripts. |
+
+---
+
+## Step-by-Step Implementation Guide
+
+### Step 1: Create `internal/redis/lua_invariant_test.go`
 ```go
-package ratelimit_test
+package redis_test
 
 import (
+	"bytes"
 	"context"
+	"fmt"
+	"os"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/alicebob/miniredis/v2"
-	"github.com/redis/go-redis/v9"
-	"github.com/seanpor/ja4proxy/internal/ratelimit"
+	goredis "github.com/redis/go-redis/v9"
+	"github.com/seanpor/ja4proxy/internal/redis"
+	"pgregory.net/rapid"
 )
-```
 
-### Step 2: Implement Invariant 1 Test (Token Non-Negativity under Concurrent Contention)
-```go
-func TestInvariant_TokenNonNegativity(t *testing.T) {
+func TestInvariant_Redis_AtomicSlidingWindowCount(t *testing.T) {
 	mr := miniredis.RunT(t)
 	defer mr.Close()
 
-	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+	rdb := goredis.NewClient(&goredis.Options{Addr: mr.Addr()})
 	defer rdb.Close()
 
-	// Rate limiter with capacity 10, refill 0 (pure exhaustion test)
-	limiter := ratelimit.NewLimiter(rdb, ratelimit.Config{
-		Capacity: 10,
-		Rate:     0,
+	scriptBytes, err := os.ReadFile("scripts/sliding_window.lua")
+	if err != nil {
+		t.Fatalf("Failed to read script: %v", err)
+	}
+	sha := mr.ScriptLoad(string(scriptBytes))
+
+	rapid.Check(t, func(t *rapid.T) {
+		numWorkers := rapid.IntRange(10, 50).Draw(t, "numWorkers")
+		key := fmt.Sprintf("test-ip-%d", rapid.Int().Draw(t, "ipID"))
+		now := float64(time.Now().Unix())
+
+		var wg sync.WaitGroup
+		wg.Add(numWorkers)
+
+		for i := 0; i < numWorkers; i++ {
+			go func() {
+				defer wg.Done()
+				_, _ = rdb.EvalSha(context.Background(), sha, []string{key}, now, 60, 120).Result()
+			}()
+		}
+		wg.Wait()
+
+		res, err := rdb.EvalSha(context.Background(), sha, []string{key}, now, 60, 120).Result()
+		if err != nil {
+			t.Fatalf("EvalSha failed: %v", err)
+		}
+
+		count := res.([]interface{})[0].(int64)
+		if count != int64(numWorkers+1) {
+			t.Fatalf("Atomic window count mismatch: got %d, want %d", count, numWorkers+1)
+		}
 	})
+}
 
-	const numWorkers = 50
-	var allowedCount int64
-	var deniedCount int64
-	var wg sync.WaitGroup
-	wg.Add(numWorkers)
+func TestInvariant_Redis_ScriptEmbeddedParity(t *testing.T) {
+	rootScript, err1 := os.ReadFile("../../scripts/sliding_window.lua")
+	internalScript, err2 := os.ReadFile("scripts/sliding_window.lua")
 
-	for i := 0; i < numWorkers; i++ {
-		go func() {
-			defer wg.Done()
-			allowed, err := limiter.Allow(context.Background(), "test-client-ip")
-			if err != nil {
-				t.Errorf("Unexpected error: %v", err)
-				return
-			}
-			if allowed {
-				atomic.AddInt64(&allowedCount, 1)
-			} else {
-				atomic.AddInt64(&deniedCount, 1)
-			}
-		}()
+	if err1 != nil || err2 != nil {
+		t.Fatalf("Failed to read sliding window scripts: %v, %v", err1, err2)
 	}
 
-	wg.Wait()
-
-	if allowedCount != 10 {
-		t.Fatalf("Token non-negativity violated: allowed %d tokens, expected exactly 10", allowedCount)
-	}
-	if deniedCount != 40 {
-		t.Fatalf("Excess tokens granted: denied %d, expected 40", deniedCount)
-	}
-
-	// Verify balance stored in Redis is 0 (never negative)
-	tokens := limiter.GetTokens(context.Background(), "test-client-ip")
-	if tokens < 0 {
-		t.Fatalf("Balance became negative: %f", tokens)
+	if !bytes.Equal(rootScript, internalScript) {
+		t.Fatalf("Script mismatch: scripts/sliding_window.lua does not match internal/redis/scripts/sliding_window.lua")
 	}
 }
 ```
 
-### Step 3: Implement Invariant 2 Test (Monotonic Refill)
-1. Initialize bucket with capacity 100, empty it completely.
-2. Fast-forward clock by $\Delta t_1$, verify tokens equal $R \times \Delta t_1$.
-3. Fast-forward clock by $\Delta t_2$, verify tokens equal $\min(C, R \times (\Delta t_1 + \Delta t_2))$.
-4. Fast-forward clock by large duration ($10 \times C / R$), verify tokens strictly equal $C$ and never exceed capacity.
+---
 
-### Step 4: Implement Invariant 3 Test (Sliding Window Expiry)
-1. Send 5 requests at $t = 0$.
-2. Advance time to $t = W - 1\text{ms}$, assert rate count is 5.
-3. Advance time to $t = W + 1\text{ms}$, assert rate count is 0 (all previous requests expired).
+## Make It Fail First
 
-### Step 5: Implement Invariant 4 Test (Redis Down Fallback)
-1. Close `mr.Close()`.
-2. Configure `FailOpen: true`.
-3. Call `limiter.Allow()`. Assert `allowed == true`, error logged, and error metric incremented.
-4. Switch to `FailOpen: false`. Assert `allowed == false`, error logged, and error metric incremented.
+| Invariant ID | Temporary Code Mutation | Expected Test Failure |
+|---|---|---|
+| `INV-REDIS-001` | Remove `ZADD` or atomic transaction from `sliding_window.lua` | `TestInvariant_Redis_AtomicSlidingWindowCount` fails count assertion |
+| `INV-REDIS-002` | Remove `ZREMRANGEBYSCORE` call from `sliding_window.lua` | Expiration invariant test retains expired elements |
+| `INV-REDIS-003` | Omit `EXPIRE` call at end of `sliding_window.lua` | TTL test detects non-expiring key (`TTL == -1`) |
+| `INV-REDIS-004` | Add a comment to `scripts/sliding_window.lua` | `TestInvariant_Redis_ScriptEmbeddedParity` fails byte comparison |
 
 ---
 
-## Test Strategy
-- Run rate-limiting invariant suite:
-  `GOROOT=/snap/go/current /snap/go/current/bin/go test -v ./internal/ratelimit -run RateLimitInvariant`
-- Run with race detector to catch any concurrency violations:
-  `GOROOT=/snap/go/current /snap/go/current/bin/go test -race -v ./internal/ratelimit`
+## Test Commands
+
+- **Run Redis Invariants:**
+  `GOROOT=/snap/go/current /snap/go/current/bin/go test -v ./internal/redis -run '^TestInvariant_Redis_'`
+- **Run Invariant Suite:**
+  `make test-invariants`
+
+---
+
+## Coverage Target
+
+- **Package `internal/redis` Baseline:** 91.7%
+- **Target Coverage:** $\ge 95.0\%$
 
 ---
 
 ## Acceptance Criteria
-- [ ] `internal/ratelimit/ratelimit_invariant_test.go` implemented and passing.
-- [ ] Token non-negativity mathematically held across 50 concurrent goroutines.
-- [ ] Refill monotonicity and capacity upper bound verified.
-- [ ] Sliding window timestamp expiration verified without residual leak.
-- [ ] Redis disconnection deterministically follows configured fail-open/fail-closed behavior.
-- [ ] `make test-unit` and `make preflight` pass 100% green.
+
+- [ ] `internal/redis/lua_invariant_test.go` created and all 4 invariants passing.
+- [ ] Invariants registered in `docs/testing/invariants.yaml`.
+- [ ] `make test-invariants` count increased by 4.
+- [ ] Package `internal/redis` coverage verified $\ge 95.0\%$.
+- [ ] Mutation check table verified.
+- [ ] News fragment created in `docs/fragments/phase-606d-redis-invariants.md`.
+- [ ] `make preflight` passes 100% green.
 
 ---
 
 ## Out of Scope
-- Threat intelligence feed loading (covered in 606f).
-- Management UI rate limit configuration routes (covered in 606g).
+- Security score calculation (covered in Phase 606f).
+- Proxy connection handling (covered in Phase 606b).

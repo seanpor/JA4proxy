@@ -1,145 +1,157 @@
 # Transport Splice, Buffer Replay & Packet Slicing Invariants
 
 ## Goal
-Implement property-based invariant test suites for JA4proxy's transport splice and data plane forwarding engines (`internal/proxy/`). Establish formal mathematical guarantees that arbitrary network packetization (such as 1-byte TCP window trickles, pathological segment boundaries, or varying MTUs) does not alter upstream payload delivery, that pre-read ClientHello handshake buffers are replayed losslessly without corruption or duplication, and that streaming backpressure is strictly enforced without unbounded memory growth.
+Implement property-based invariant test suites for JA4proxy's transport splice and data plane forwarding engine (`cmd/ja4pd`). Establish formal guarantees that arbitrary network packetization (1-byte TCP trickles, pathological segment boundaries, MTU variations) does not mutate upstream payload delivery, that pre-read ClientHello handshake buffers are replayed losslessly to upstream servers, and that streaming backpressure prevents unbounded memory growth.
 
 ---
 
-## Scope
-1. **Target Packages**:
-   - `internal/proxy/` (TCP splice, handshake sniffing, connection piping, buffer pool recycling).
-2. **New Test Files**:
-   - `internal/proxy/splice_invariant_test.go`
-3. **Formal Invariants to Enforce**:
-   - **Invariant 1 (Homomorphic Packet Partitioning)**:
-     For any valid connection stream $S$ composed of ClientHello $H$ followed by application payload $P$, splitting $S$ into arbitrary sequence of chunks $[c_1, c_2, \dots, c_k]$ where $\sum c_i = S$:
-     - The proxy extracts the identical JA4 fingerprint regardless of chunk boundaries.
-     - The upstream destination receives byte-identical stream $S' \equiv S$.
-   - **Invariant 2 (Lossless ClientHello Replay)**:
-     The initial bytes read by the proxy to extract TLS metadata must be prepended and forwarded to the upstream server upon splice initiation. The byte stream arriving at upstream must satisfy:
-     $$\text{UpstreamReceived}[:|H|] == \text{ClientSent}[:|H|] \quad \land \quad \text{len}(\text{UpstreamReceived}) == \text{len}(\text{ClientSent})$$
-     Zero bytes may be dropped, repeated, or corrupted.
-   - **Invariant 3 (Streaming Backpressure & Memory Bounds)**:
-     When an upstream server stalls reading from the proxy, downstream reading must stall once the internal buffer reaches `MaxBufferSize`. Memory allocation per connection must never exceed $O(\text{BufferCap})$.
-   - **Invariant 4 (Buffer Recycling Cleanliness)**:
-     Every buffer borrowed from `sync.Pool` during handshake inspection must be returned upon connection termination. Re-borrowed buffers must not leak data across distinct connections.
+## Read These First
+- `cmd/ja4pd/main.go` (`handleConn`, `forward`, `reassembleClientHello`, non-TLS drop)
+- `cmd/ja4pd/lifecycle_test.go` (`newTestProxy`, `startEchoServer`, `startDiscardServer`)
+- `cmd/ja4pd/pentest_fragmentation_regression_test.go` (existing fragmentation tests)
+- `cmd/ja4pd/pentest_pooled_buffer_alias_test.go` (existing buffer aliasing checks)
+- `cmd/ja4pd/pentest_tls_protocol_lockdown_regression_test.go` (non-TLS lockdown behavior)
 
 ---
 
-## Junior Developer Implementation Guide
+## Verified API Surface
+- `newTestProxy(t *testing.T) (*proxy, *miniredis.Miniredis, *config.Config)` — `cmd/ja4pd/lifecycle_test.go:31`
+- `startEchoServer(t *testing.T) (string, func())` — `cmd/ja4pd/lifecycle_test.go:81`
+- `startDiscardServer(t *testing.T) (string, func())` — `cmd/ja4pd/lifecycle_test.go:105`
+- `ja4proxy_connection_errors_total{reason="non_tls_dropped"}` — `cmd/ja4pd/main.go:652`
+- `tlsfixture.Build(spec)` — `internal/testutil/tlsfixture/builder.go`
 
-### Step 1: Set up Mock Upstream and Proxy Loop
-In `internal/proxy/splice_invariant_test.go`:
+---
+
+## Invariants
+
+| ID | Plain-English Statement | Formal Statement | SecOps Rationale |
+|---|---|---|---|
+| `INV-SPLICE-001` | Homomorphic Packet Partitioning | $\forall S = H \circ P, \forall \{c_i\} \text{ s.t. } \sum c_i = S, \quad \mathcal{D}_{\text{upstream}}(\circ c_i) \equiv S$ | Prevents TCP segmentation trickles or fragmentation attacks from bypassing security inspection or corrupting proxy streams. |
+| `INV-SPLICE-002` | Lossless ClientHello Replay | $\text{UpstreamReceived}[:\|H\|] \equiv \text{ClientSent}[:\|H\|]$ | Guarantees the pre-read TLS ClientHello is forwarded to the backend without missing or duplicated bytes. |
+| `INV-SPLICE-003` | Backpressure Buffer Bounding | $R_{\text{upstream}} \to 0 \implies \text{BufferAllocated}_{\text{proxy}} \le 64\,\text{MiB}$ | Ensures slow or stalled backend servers trigger TCP window backpressure rather than consuming proxy memory. |
+| `INV-SPLICE-004` | Non-TLS Lockdown Fail-Closed | $\text{ProtocolLockdown} \land \neg \text{IsTLS}(x) \implies \text{Forwarded}(x) == 0$ | Guarantees non-TLS traffic (HTTP/1.1, SSH, noise) is immediately terminated when protocol lockdown is active. |
+
+---
+
+## Step-by-Step Implementation Guide
+
+### Step 1: Create `cmd/ja4pd/splice_invariant_test.go`
 ```go
-package proxy_test
+package main
 
 import (
 	"bytes"
 	"crypto/rand"
-	"io"
 	"net"
-	"sync"
 	"testing"
 	"time"
 
-	"github.com/seanpor/ja4proxy/internal/config"
-	"github.com/seanpor/ja4proxy/internal/proxy"
+	"pgregory.net/rapid"
+	"github.com/seanpor/ja4proxy/internal/testutil/tlsfixture"
 )
-```
 
-Create a helper `startEchoUpstream(t *testing.T) (net.Listener, <-chan []byte)` that listens on `127.0.0.1:0` and reads all incoming data until EOF into a buffer, returning the received byte channel.
-
-### Step 2: Implement Invariant 1 & 2 Test (Chunk Slicing & Lossless Replay)
-```go
-func TestInvariant_HomomorphicChunkSlicingAndReplay(t *testing.T) {
-	// 1. Start echo upstream server
-	upstream, receivedCh := startEchoUpstream(t)
-	defer upstream.Close()
-
-	// 2. Start JA4proxy instance pointing to echo upstream
-	proxyCfg := &config.Config{
-		ListenAddr: "127.0.0.1:0",
-		Upstream:   upstream.Addr().String(),
-		Timeout:    5 * time.Second,
-	}
-	p := proxy.New(proxyCfg)
-	proxyListener, err := p.Start()
-	if err != nil {
-		t.Fatalf("Failed to start proxy: %v", err)
-	}
+func TestInvariant_Splice_HomomorphicChunkSlicingAndReplay(t *testing.T) {
+	p, mr, cfg := newTestProxy(t)
+	defer mr.Close()
 	defer p.Stop()
 
-	// 3. Prepare payload: ClientHello + random application data
-	clientHello := getBaselineClientHello()
-	appData := make([]byte, 16384)
-	_, _ = rand.Read(appData)
-	fullStream := append(clientHello, appData...)
+	// Configure proxy to allow test JA4
+	spec := tlsfixture.Spec{}
+	hello := tlsfixture.Build(spec)
 
-	// 4. Test partition strategies: 1-byte trickles, 7-byte primes, 1024-byte chunks
-	chunkSizes := []int{1, 7, 64, 512, 1460, 4096}
+	echoAddr, cleanupEcho := startEchoServer(t)
+	defer cleanupEcho()
+	cfg.Proxy.Upstream = echoAddr
 
-	for _, chunkSize := range chunkSizes {
-		conn, err := net.Dial("tcp", proxyListener.Addr().String())
-		if err != nil {
-			t.Fatalf("Dial failed for chunk size %d: %v", chunkSize, err)
-		}
-
-		// Write in chunk increments
-		go func(c net.Conn, size int) {
-			defer c.Close()
-			for i := 0; i < len(fullStream); i += size {
-				end := i + size
-				if end > len(fullStream) {
-					end = len(fullStream)
-				}
-				_, _ = c.Write(fullStream[i:end])
-				time.Sleep(1 * time.Millisecond) // Ensure individual network packetization
-			}
-		}(conn, chunkSize)
-
-		// Assert received data matches original byte-for-byte
-		received := <-receivedCh
-		if !bytes.Equal(received, fullStream) {
-			t.Fatalf("Chunk size %d corrupted stream: got %d bytes, want %d bytes", chunkSize, len(received), len(fullStream))
-		}
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("Failed to listen: %v", err)
 	}
+	defer listener.Close()
+
+	go p.serveOnListener(listener)
+
+	rapid.Check(t, func(t *rapid.T) {
+		appDataLen := rapid.IntRange(1024, 16384).Draw(t, "appDataLen")
+		appData := make([]byte, appDataLen)
+		_, _ = rand.Read(appData)
+		fullPayload := append(hello, appData...)
+
+		chunkSizes := []int{1, 7, 64, 512, 1460}
+		chunkSize := rapid.SampledFrom(chunkSizes).Draw(t, "chunkSize")
+
+		conn, err := net.Dial("tcp", listener.Addr().String())
+		if err != nil {
+			t.Fatalf("Dial failed: %v", err)
+		}
+		defer conn.Close()
+
+		go func() {
+			for i := 0; i < len(fullPayload); i += chunkSize {
+				end := i + chunkSize
+				if end > len(fullPayload) {
+					end = len(fullPayload)
+				}
+				_, _ = conn.Write(fullPayload[i:end])
+				time.Sleep(100 * time.Microsecond)
+			}
+		}()
+
+		received := make([]byte, len(fullPayload))
+		_, err = io.ReadFull(conn, received)
+		if err != nil {
+			t.Fatalf("Read failed for chunk size %d: %v", chunkSize, err)
+		}
+
+		if !bytes.Equal(received, fullPayload) {
+			t.Fatalf("Stream corrupted for chunk size %d", chunkSize)
+		}
+	})
 }
 ```
 
-### Step 3: Implement Invariant 3 Test (Backpressure & Buffer Bounds)
-Create a slow upstream reader that reads 1 byte per second.
-Client attempts to write 10MB of data.
-Verify that:
-1. Client `Write()` blocks once the proxy's buffer fills.
-2. Proxy process memory does not spike to 10MB.
-3. Once upstream resumes normal reading, all data flows through accurately.
+---
 
-### Step 4: Implement Invariant 4 Test (Zero Buffer Leakage across Connections)
-Create connection $A$ sending sensitive marker `SECRET_A`.
-Close connection $A$.
-Create connection $B$ sending short payload.
-Verify that connection $B$'s upstream receive buffer contains zero trace of `SECRET_A` (buffers zeroed before pool return).
+## Make It Fail First
+
+| Invariant ID | Temporary Code Mutation | Expected Test Failure |
+|---|---|---|
+| `INV-SPLICE-001` | Skip first byte when reassembling initial data in `forward()` | `TestInvariant_Splice_HomomorphicChunkSlicingAndReplay` fails byte comparison |
+| `INV-SPLICE-002` | Omit `initialData` prepend when initiating backend splice | `TestInvariant_Splice_HomomorphicChunkSlicingAndReplay` fails on prefix match |
+| `INV-SPLICE-003` | Remove `SetReadDeadline` or window backpressure in splice loop | Backpressure test exceeds memory threshold |
+| `INV-SPLICE-004` | Comment out non-TLS drop branch in `handleConn` | Non-TLS lockdown invariant test receives forwarded bytes |
 
 ---
 
-## Test Strategy
-- Run with Go test runner:
-  `GOROOT=/snap/go/current /snap/go/current/bin/go test -v ./internal/proxy -run SpliceInvariant`
-- Run with race detector to catch any splice data races:
-  `GOROOT=/snap/go/current /snap/go/current/bin/go test -race ./internal/proxy -run SpliceInvariant`
+## Test Commands
+
+- **Run Splice Invariants:**
+  `GOROOT=/snap/go/current /snap/go/current/bin/go test -v ./cmd/ja4pd -run '^TestInvariant_Splice_'`
+- **Run Invariant Suite:**
+  `make test-invariants`
+
+---
+
+## Coverage Target
+
+- **Package `cmd/ja4pd` Baseline:** 80.1%
+- **Target Coverage:** $\ge 85.0\%$
 
 ---
 
 ## Acceptance Criteria
-- [ ] `internal/proxy/splice_invariant_test.go` implemented and passing.
-- [ ] 1-byte, prime-sized, and standard MTU packetization strategies verified lossless.
-- [ ] Pre-read ClientHello verified byte-identical at upstream.
-- [ ] Backpressure verified: slow upstream halts client reading without memory ballooning.
-- [ ] Buffer recycling clean: no cross-connection data leakage.
-- [ ] `make test-unit` and `make preflight` pass 100% green.
+
+- [ ] `cmd/ja4pd/splice_invariant_test.go` created and all 4 invariants passing.
+- [ ] Invariants registered in `docs/testing/invariants.yaml`.
+- [ ] `make test-invariants` count increased by 4.
+- [ ] Package `cmd/ja4pd` coverage verified $\ge 85.0\%$.
+- [ ] Mutation check table verified.
+- [ ] News fragment created in `docs/fragments/phase-606b-splice-invariants.md`.
+- [ ] `make preflight` passes 100% green.
 
 ---
 
 ## Out of Scope
-- TLS parsing internals (covered in 606a).
-- Connection resource cleanup and FD leak bounds (covered in 606c).
+- Server package extraction (covered in Phase 606s).
+- TLS parsing internals (covered in Phase 606a).

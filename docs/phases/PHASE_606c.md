@@ -1,167 +1,198 @@
 # Resource Conservation & Concurrency Invariants
 
 ## Goal
-Implement property-based invariant test suites for resource management and concurrency lifecycle across JA4proxy (`internal/proxy/` and `cmd/ja4pd/`). Establish formal mathematical guarantees that the proxy does not leak goroutines, file descriptors, memory buffers, or timers under high-concurrency client churn, slowloris attack profiles, or abrupt client/upstream network resets.
+Implement property-based invariant test suites for resource management and concurrency lifecycle across JA4proxy (`cmd/ja4pd`). Establish formal guarantees using `goleak` and Linux FD tracking that the proxy does not leak goroutines, file descriptors, memory buffers, or timers under connection churn, slowloris attack profiles, or abrupt client/upstream TCP resets.
 
 ---
 
-## Scope
-1. **Target Packages**:
-   - `internal/proxy/` (Connection lifecycle, goroutine coordination, timeout deadlines, socket closure).
-2. **New Test Files**:
-   - `internal/proxy/resource_invariant_test.go`
-3. **Formal Invariants to Enforce**:
-   - **Invariant 1 (Goroutine Conservation Law)**:
-     Let $G_0$ be the number of running goroutines at idle. After establishing, transmitting through, and terminating $N$ concurrent client connections ($N \ge 500$), the system must return to steady state within a grace period:
-     $$\lim_{t \to t_{\text{settle}}} |G(t) - G_0| == 0$$
-   - **Invariant 2 (File Descriptor Conservation Law)**:
-     Let $F_0$ be the number of open file descriptors (`/proc/self/fd` on Linux). After cycling $N$ connections across normal closes, client RSTs, and upstream drops:
-     $$\lim_{t \to t_{\text{settle}}} |F(t) - F_0| == 0$$
-   - **Invariant 3 (Slowloris & Incomplete Handshake Defense)**:
-     A client that opens a TCP connection and trickles 1 byte every 500ms must be forcibly terminated when `HandshakeTimeout` expires. All associated goroutines and buffers must be released immediately.
-   - **Invariant 4 (Abrupt Reset Resiliency)**:
-     Injecting abrupt TCP RST packets (`SO_LINGER` set to 0) from either client or upstream at any point during handshake or splice must never cause unhandled panics, stuck channels, or orphaned goroutines.
+## Read These First
+- `cmd/ja4pd/main.go` (`handleConn`, socket deadline configuration)
+- `cmd/ja4pd/lifecycle_test.go` (`newTestProxy`, `startEchoServer`)
+- `cmd/ja4pd/pentest_goroutine_leak_regression_test.go` (`TestRegression_JA4PROXY_2026_0009_ForwardDoesNotLeakGoroutines`)
+- `cmd/ja4pd/pentest_tarpit_slot_exhaustion_regression_test.go` (slot exhaustion checks)
+- `cmd/ja4pd/pentest_accept_loop_semaphore_regression_test.go` (concurrency semaphore bounds)
 
 ---
 
-## Junior Developer Implementation Guide
+## Verified API Surface
+- `goleak.VerifyNone(t, goleak.IgnoreCurrent())` — `go.uber.org/goleak`
+- `cfg.Proxy.ReadTimeout` — `internal/config/loader.go:505`
+- `newTestProxy(t *testing.T)` — `cmd/ja4pd/lifecycle_test.go:31`
 
-### Step 1: Set up Test Harness & Goroutine Leak Detection
-In `internal/proxy/resource_invariant_test.go`:
+---
+
+## Invariants
+
+| ID | Plain-English Statement | Formal Statement | SecOps Rationale |
+|---|---|---|---|
+| `INV-RESOURCE-001` | Goroutine Conservation Law | $\lim_{t \to t_{\text{drain}}} \|G(t) - G_0\| == 0$ | Prevents connection worker goroutines from leaking under sustained traffic spikes or malicious connection churn. |
+| `INV-RESOURCE-002` | File Descriptor Conservation Law | $\lim_{t \to t_{\text{drain}}} \|F(t) - F_0\| == 0$ | Guarantees socket file descriptors are cleanly closed on Linux systems, preventing socket exhaustion outages. |
+| `INV-RESOURCE-003` | Slowloris Read Timeout Bound | $t_{\text{trickle}} \ge \text{ReadTimeout} \implies \text{ClosedByProxy}(conn)$ | Ensures slowloris attack connections trickling partial handshakes are forcibly terminated when `ReadTimeout` elapses. |
+| `INV-RESOURCE-004` | Abrupt TCP RST Resiliency | $\text{InjectRST}(conn) \implies \text{PanicCount} == 0 \land \text{GoleakPassed}$ | Prevents abrupt client or upstream resets (`SO_LINGER=0`) from causing stuck channels or unhandled panics. |
+
+---
+
+## Step-by-Step Implementation Guide
+
+### Step 1: Create `cmd/ja4pd/resource_invariant_test.go`
 ```go
-package proxy_test
+package main
 
 import (
-	"fmt"
 	"net"
-	"os"
-	"runtime"
-	"sync"
 	"testing"
 	"time"
 
-	"github.com/seanpor/ja4proxy/internal/config"
-	"github.com/seanpor/ja4proxy/internal/proxy"
+	"go.uber.org/goleak"
+	"github.com/seanpor/ja4proxy/internal/testutil/tlsfixture"
 )
-```
 
-Create helper functions to count active goroutines and open file descriptors:
-```go
-func countOpenFDs() (int, error) {
-	entries, err := os.ReadDir("/proc/self/fd")
-	if err != nil {
-		return 0, err
-	}
-	return len(entries), nil
-}
+func TestInvariant_Resource_GoroutineConservation(t *testing.T) {
+	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 
-func waitForGoroutines(t *testing.T, expected int, timeout time.Duration) {
-	deadline := time.Now().Add(timeout)
-	for time.Now().Before(deadline) {
-		runtime.GC()
-		current := runtime.NumGoroutine()
-		if current <= expected {
-			return
-		}
-		time.Sleep(20 * time.Millisecond)
-	}
-	t.Fatalf("Goroutine leak detected: want <= %d, got %d", expected, runtime.NumGoroutine())
-}
-```
-
-### Step 2: Implement Invariant 1 Test (Goroutine Conservation)
-```go
-func TestInvariant_GoroutineConservation(t *testing.T) {
-	// Baseline goroutine count
-	runtime.GC()
-	baselineGoroutines := runtime.NumGoroutine()
-
-	// Start upstream and proxy
-	upstream, _ := startEchoUpstream(t)
-	defer upstream.Close()
-
-	p := proxy.New(&config.Config{
-		ListenAddr: "127.0.0.1:0",
-		Upstream:   upstream.Addr().String(),
-		Timeout:    2 * time.Second,
-	})
-	listener, err := p.Start()
-	if err != nil {
-		t.Fatalf("Start proxy failed: %v", err)
-	}
+	p, mr, cfg := newTestProxy(t)
+	defer mr.Close()
 	defer p.Stop()
 
-	// Execute 500 concurrent connections
-	const totalConnections = 500
-	var wg sync.WaitGroup
-	wg.Add(totalConnections)
+	echoAddr, cleanupEcho := startEchoServer(t)
+	defer cleanupEcho()
+	cfg.Proxy.Upstream = echoAddr
 
-	for i := 0; i < totalConnections; i++ {
-		go func() {
-			defer wg.Done()
-			conn, err := net.Dial("tcp", listener.Addr().String())
-			if err != nil {
-				return
-			}
-			_, _ = conn.Write(getBaselineClientHello())
-			buf := make([]byte, 128)
-			_, _ = conn.Read(buf)
-			_ = conn.Close()
-		}()
-	}
-
-	wg.Wait()
-
-	// Verify goroutines return to baseline
-	waitForGoroutines(t, baselineGoroutines+2, 3*time.Second) // +2 allowed for test runner overhead
-}
-```
-
-### Step 3: Implement Invariant 2 Test (File Descriptor Conservation)
-```go
-func TestInvariant_FDConservation(t *testing.T) {
-	initialFDs, err := countOpenFDs()
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
-		t.Skip("FD inspection not available on this platform")
+		t.Fatalf("Listen failed: %v", err)
+	}
+	defer listener.Close()
+
+	go p.serveOnListener(listener)
+
+	// Run 100 client connection cycles with clean close, abrupt abort, and timeouts
+	hello := tlsfixture.Build(tlsfixture.Spec{})
+	for i := 0; i < 100; i++ {
+		conn, err := net.Dial("tcp", listener.Addr().String())
+		if err != nil {
+			continue
+		}
+		_, _ = conn.Write(hello)
+		if i%2 == 0 {
+			_ = conn.(*net.TCPConn).SetLinger(0) // Abrupt RST
+		}
+		_ = conn.Close()
 	}
 
-	// Run 200 connection cycles with mixed close types (normal, client abort, timeout)
-	// Assert countOpenFDs() returns to initialFDs within tolerance (+1 for dir read)
+	time.Sleep(200 * time.Millisecond) // Allow background cleanup
+}
+
+func TestInvariant_Resource_SlowlorisReadTimeout(t *testing.T) {
+	p, mr, cfg := newTestProxy(t)
+	defer mr.Close()
+	defer p.Stop()
+
+	cfg.Proxy.ReadTimeout = 1 // 1 second read timeout
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("Listen failed: %v", err)
+	}
+	defer listener.Close()
+
+	go p.serveOnListener(listener)
+
+	conn, err := net.Dial("tcp", listener.Addr().String())
+	if err != nil {
+		t.Fatalf("Dial failed: %v", err)
+	}
+	defer conn.Close()
+
+	start := time.Now()
+	_, _ = conn.Write([]byte{0x16}) // partial record header byte
+
+	buf := make([]byte, 10)
+	_ = conn.SetReadDeadline(time.Now().Add(3 * time.Second))
+	_, err = conn.Read(buf)
+
+	elapsed := time.Since(start)
+	if err == nil {
+		t.Fatalf("Expected slowloris connection to be closed by proxy")
+	}
+	if elapsed < 900*time.Millisecond || elapsed > 2500*time.Millisecond {
+		t.Fatalf("Slowloris read timeout out of bounds: elapsed %v, want ~1s", elapsed)
+	}
 }
 ```
 
-### Step 4: Implement Invariant 3 Test (Slowloris Bound)
-Connect to proxy listener.
-Send 1 byte every 300ms.
-Assert connection is closed by proxy at `t == HandshakeTimeout` ($\pm 100\text{ms}$).
-Assert goroutines return to baseline immediately after timeout.
+### Step 2: Create `cmd/ja4pd/fd_linux_test.go` (`//go:build linux`)
+```go
+//go:build linux
 
-### Step 5: Implement Invariant 4 Test (Abrupt TCP RST)
-Open TCP connection.
-Set `conn.(*net.TCPConn).SetLinger(0)` (forces RST on close).
-Close immediately.
-Verify proxy logs no unhandled panic and closes upstream socket cleanly.
+package main
+
+import (
+	"os"
+	"testing"
+)
+
+func countOpenFDs(t *testing.T) int {
+	entries, err := os.ReadDir("/proc/self/fd")
+	if err != nil {
+		t.Fatalf("Failed to read /proc/self/fd: %v", err)
+	}
+	return len(entries)
+}
+
+func TestInvariant_Resource_FDConservationLinux(t *testing.T) {
+	initialFDs := countOpenFDs(t)
+
+	// Run connection churn loop...
+
+	finalFDs := countOpenFDs(t)
+	if finalFDs > initialFDs+1 { // +1 tolerance for dir handle
+		t.Fatalf("File descriptor leak: initial %d, final %d", initialFDs, finalFDs)
+	}
+}
+```
 
 ---
 
-## Test Strategy
-- Run with race detector:
-  `GOROOT=/snap/go/current /snap/go/current/bin/go test -race -v ./internal/proxy -run ResourceInvariant`
-- Run leak tests repeatedly to confirm zero flakes:
-  `GOROOT=/snap/go/current /snap/go/current/bin/go test -count=10 -v ./internal/proxy -run GoroutineConservation`
+## Make It Fail First
+
+| Invariant ID | Temporary Code Mutation | Expected Test Failure |
+|---|---|---|
+| `INV-RESOURCE-001` | Remove `defer conn.Close()` in worker loop in `cmd/ja4pd/main.go` | `TestInvariant_Resource_GoroutineConservation` fails with leaked goroutine stack |
+| `INV-RESOURCE-002` | Omit `Close()` on upstream TCP socket on error | `TestInvariant_Resource_FDConservationLinux` fails with elevated FD count |
+| `INV-RESOURCE-003` | Remove `SetReadDeadline(ReadTimeout)` call in `handleConn` | `TestInvariant_Resource_SlowlorisReadTimeout` times out after 3 seconds |
+| `INV-RESOURCE-004` | Remove panic recovery defer in connection handler | Abrupt RST test causes unhandled runtime panic |
+
+---
+
+## Test Commands
+
+- **Run Resource Invariants:**
+  `GOROOT=/snap/go/current /snap/go/current/bin/go test -v ./cmd/ja4pd -run '^TestInvariant_Resource_'`
+- **Run Invariant Suite:**
+  `make test-invariants`
+
+---
+
+## Coverage Target
+
+- **Package `cmd/ja4pd` Baseline:** 80.1%
+- **Target Coverage:** $\ge 85.0\%$
 
 ---
 
 ## Acceptance Criteria
-- [ ] `internal/proxy/resource_invariant_test.go` implemented and passing.
-- [ ] Goroutine conservation verified across 500 concurrent connections.
-- [ ] File descriptor count verified neutral before and after client bursts.
-- [ ] Slowloris connections terminated at `HandshakeTimeout` without dangling sockets.
-- [ ] Abrupt client RSTs handled gracefully without goroutine leaks.
-- [ ] `make test-unit` and `make preflight` pass 100% green.
+
+- [ ] `cmd/ja4pd/resource_invariant_test.go` and `fd_linux_test.go` created and passing.
+- [ ] Invariants registered in `docs/testing/invariants.yaml`.
+- [ ] `make test-invariants` count increased by 4.
+- [ ] Package `cmd/ja4pd` coverage verified $\ge 85.0\%$.
+- [ ] Mutation check table verified.
+- [ ] News fragment created in `docs/fragments/phase-606c-resource-invariants.md`.
+- [ ] `make preflight` passes 100% green.
 
 ---
 
 ## Out of Scope
-- Distributed state store sync (covered in 606d).
-- TCP packet reassembly for TAP (covered in 606e).
+- Server package extraction (covered in Phase 606s).
+- Rate limiter state store (covered in Phase 606d).
