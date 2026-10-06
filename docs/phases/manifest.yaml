@@ -5184,10 +5184,19 @@ phases:
     summary: "Port Python adversarial tests to Go and expand fuzzing corpus to ensure behavioral parity for edge cases."
   606:
     name: "System-Wide Test Modernization & Invariant Enforcement"
-    status: PROPOSED
+    status: IN_PROGRESS
     action_plan: docs/phases/PHASE_606.md
     dependencies:
     - 603
     - 605
     size: LARGE
     summary: "Modernize unit, integration, and system test suites by adding property-based testing and verifying core system invariants."
+  '606d':
+    name: "State Store & Distributed Rate-Limiting Invariants"
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_606d.md
+    dependencies:
+    - 606
+    size: MEDIUM
+    summary: "Implement property-based invariant test suites for JA4proxy's Redis state store and atomic Lua sliding-window rate limiter (internal/redis)."
+

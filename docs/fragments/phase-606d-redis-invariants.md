@@ -1,0 +1,1 @@
+- Implemented property-based invariant test suite for Redis state store and atomic Lua sliding-window rate limiter (`internal/redis`), defining and verifying `INV-REDIS-001` through `INV-REDIS-004`.
