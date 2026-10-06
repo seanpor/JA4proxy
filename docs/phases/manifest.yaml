@@ -5183,11 +5183,77 @@ phases:
     size: LARGE
     summary: "Port Python adversarial tests to Go and expand fuzzing corpus to ensure behavioral parity for edge cases."
   606:
-    name: "System-Wide Test Modernization & Invariant Enforcement"
+    name: "System-Wide Test Modernization & Invariant Enforcement (index)"
     status: PROPOSED
     action_plan: docs/phases/PHASE_606.md
     dependencies:
     - 603
     - 605
     size: LARGE
-    summary: "Modernize unit, integration, and system test suites by adding property-based testing and verifying core system invariants."
+    summary: "System-wide test modernization split into 606a–606g sub-phases. Establishes mathematical and architectural invariant test suites across TLS/QUIC parsing, transport splicing, resource conservation, rate limiting, passive tap, security scoring, and management hot-swap."
+  '606-0':
+    name: "Test Infrastructure, Baseline & Invariant-Plan Rewrite"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_606-0.md
+    dependencies:
+    - 603
+    - 605
+    size: LARGE
+    summary: "Prerequisite for all 606 sub-phases. Per-package Go+Python coverage baseline and ratchet, goleak, shared tlsfixture builder + rapid generator, invariant registry (kills silent-green -run filters), synctest exemplar, mutation-testing baseline, invariant-testing handbook; rewrites 606a-g against the verified API surface and adds 606h-k for uncovered packages."
+  606a:
+    name: "Cryptographic, TLS & QUIC Parsing Invariants"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_606a.md
+    dependencies:
+    - 603
+    - 605
+    size: MEDIUM
+    summary: "Property-based tests asserting GREASE independence, canonical vs wire-order JA4_r differentiation, JA4 regex compliance, and parser non-panic/bounded memory over arbitrary mutated byte slices."
+  606b:
+    name: "Transport Splice, Buffer Replay & Packet Slicing Invariants"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_606b.md
+    dependencies:
+    - 606a
+    size: MEDIUM
+    summary: "Homomorphic stream partitioning across arbitrary TCP chunk boundaries and jitter, zero-loss/zero-duplication splice conservation under proxy ALLOW, fail-closed non-TLS drop, and backpressure buffer bounding."
+  606c:
+    name: "Resource Conservation & Concurrency Invariants"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_606c.md
+    dependencies:
+    - 606b
+    size: MEDIUM
+    summary: "Resource recovery monotonicity (zero net goroutine/FD leaks after connection close, client abort, slowloris stall, or tarpit expiry), active connection gauge conservation, and data race elimination."
+  606d:
+    name: "State Store & Distributed Rate-Limiting Invariants"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_606d.md
+    dependencies:
+    - 606c
+    size: MEDIUM
+    summary: "Strict ban transitivity and deterministic TTL expiration, CIDR containment monotonicity, sliding-window token non-negativity under high-concurrency burst, and circuit-breaker fail-secure behavior."
+  606e:
+    name: "Passive TAP & Flow Reassembly Invariants"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_606e.md
+    dependencies:
+    - 606d
+    size: MEDIUM
+    summary: "TCP commutativity (out-of-order segment reassembly invariance), packet loss detection and unrecoverable stream abortion, stream-cap bounded memory, and zero-drop packet capture ring buffer."
+  606f:
+    name: "Security Scoring & Telemetry Conservation Invariants"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_606f.md
+    dependencies:
+    - 606e
+    size: MEDIUM
+    summary: "Risk score monotonicity under cumulative threat signals, exponential score decay over time, and telemetry conservation law ensuring AcceptedConns == Sum(Allowed + Blocked + Dropped + Tarpitted + Errored)."
+  606g:
+    name: "Configuration Hot-Swap & Management API Invariants"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_606g.md
+    dependencies:
+    - 606f
+    size: MEDIUM
+    summary: "Atomic hot-reload without dropping in-flight connections, automatic rollback on syntax/semantic validation errors, RBAC total mediation, and audit log completeness."
