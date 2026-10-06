@@ -191,9 +191,10 @@ rule**:
    ```make
    cover-python: tools-image ## Python coverage (management + src), containerised
    	@$(TOOLS_RUN) pytest tests/unit/ management/tests/ -n auto --dist=loadfile \
-   		--timeout=60 --cov=management --cov=src --cov-report=json:coverage-python.json \
+   		--timeout=60 --cov=management --cov=src --cov-append --cov-report=json:coverage-python.json \
    		--cov-report=term-missing:skip-covered
    ```
+   Note: `--cov-append` is mandatory under `pytest-xdist` (`-n auto`) to ensure parallel worker coverage reports are safely merged.
    Leave a `lint-coverage: cover-python` alias so nobody's muscle memory
    breaks.
 3. Extend `coverage_ratchet.py` with `--lang python`. It reads
@@ -216,7 +217,7 @@ hide a one-goroutine-per-connection leak. `go.uber.org/goleak` reports
    `defer goleak.VerifyNone(t, goleak.IgnoreCurrent())` at the top of the
    test. `IgnoreCurrent()` snapshots the goroutines that already exist
    (miniredis, logrus hooks, Prometheus), so only goroutines created *by
-   this test* are checked.
+   this test* are checked. Note: if a background worker spawns new child goroutines during test execution, use `goleak.IgnoreTopFunction(...)` to explicitly ignore known background workers.
 3. **Do not** add `goleak.VerifyTestMain` to existing packages in this phase.
    It will very likely fail on pre-existing background goroutines. Doing it
    is 606c's job, and every ignore needs a justification.
@@ -345,9 +346,8 @@ invariants **explicit, auditable, and machine-checked in both directions**.
    - Same rules for Python: `def test_invariant_` in `management/tests/` and
      `tests/unit/`.
 3. `make test-invariants`: runs `go test -count=1 -v -run '^(TestInvariant_|FuzzInvariant_)' ./...`
-   and **fails if the number of `=== RUN   TestInvariant_` lines is less
-   than the number of Go registry entries**. That makes "0 tests ran"
-   impossible to miss. Add it to `make test`.
+   and **fails if the number of top-level `=== RUN   (TestInvariant_|FuzzInvariant_)[^/]+$` lines is less
+   than the number of Go registry entries**. Using exact top-level regex matching prevents subtests (`t.Run`) from over-counting as separate invariant functions. Add it to `make test`.
 4. **Naming rule:** `TestInvariant_<Area>_<Property>`, where `<Area>` ∈
    `TLS, QUIC, Splice, Resource, Redis, Tap, Security, Telemetry, Config, Mgmt`.
    Phase docs filter with `-run '^TestInvariant_<Area>_'`. **Never** filter
@@ -370,11 +370,7 @@ every goroutine in the bubble is blocked.
 3. Register it as `INV-TAP-001`.
 4. Prove it: temporarily change the cooldown comparison (`>` → `>=`), see the
    test fail, revert. Write the result in the PR.
-5. **Limitations (put these in the handbook):** synctest bubbles do not make
-   **real network sockets** durably blocking. Use `net.Pipe()` for in-memory
-   connections and **verify** it behaves inside a bubble before relying on
-   it. A test that uses real TCP listeners cannot use synctest; give it
-   generous bounds instead.
+5. **Limitations (put these in the handbook):** synctest bubbles fake time for timers and channels, but **stall or deadlock on real OS TCP listeners and sockets (`net.Listen`, `net.Dial`)**. Use `net.Pipe()` for in-memory connections and **verify** it behaves inside a bubble before relying on it. Tests invoking `net.Listen` (such as `cmd/ja4pd` integration tests) cannot use synctest; give them short explicit deadline bounds instead.
 
 ### Step A8 — Mutation-testing baseline (advisory)
 
@@ -385,10 +381,7 @@ for "does this test suite catch bugs". Invariant tests are exactly what raises
 it.
 
 1. Tool: `github.com/go-gremlins/gremlins`, version pinned. **Verify** it
-   builds and runs with Go 1.26. If it doesn't, try
-   `github.com/zimmski/go-mutesting`. If neither works, record that in
-   `MUTATION_BASELINE.md`, skip A8, and tell the reviewer. Don't burn more
-   than half a day on this.
+   builds and runs with Go 1.26. Note: if AST generic parsing issues occur on Go 1.26 syntax structures, try `github.com/zimmski/go-mutesting` as fallback. Mutation testing is strictly advisory and non-blocking in CI. If neither works, record that in `MUTATION_BASELINE.md`, skip A8, and tell the reviewer. Don't burn more than half a day on this.
 2. Makefile (advisory, **not** in `preflight` because it is slow):
    ```make
    mutation: ## Mutation test one package: make mutation PKG=./internal/tls
