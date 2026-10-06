@@ -66,6 +66,9 @@ func (p *proxy) syncServerConfig() {
 	if p == nil {
 		return
 	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
 	if p.Server == nil {
 		p.Server = &server.Server{
 			Cfg:              p.cfg,
