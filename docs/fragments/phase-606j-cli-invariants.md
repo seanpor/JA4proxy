@@ -1,0 +1,1 @@
+- Implemented property-based invariant test suite for CLI output formatting and table rendering (`internal/cli/output`), defining and verifying `INV-CLI-001` through `INV-CLI-004`.

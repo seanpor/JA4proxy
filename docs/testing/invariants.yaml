@@ -73,3 +73,28 @@ invariants:
     description: RiskScore values strictly within [0, 100]
     package: internal/metrics
     test_func: TestInvariant_Metrics_HistogramBucketBounds
+
+  # Phase 606j: CLI Engine Invariants
+  - id: INV-CLI-001
+    name: RenderJSON Valid JSON
+    description: json.Valid([]byte(RenderJSON(data))) == true
+    package: internal/cli/output
+    test_func: TestInvariant_CLI_RenderJSONValidJSON
+
+  - id: INV-CLI-002
+    name: RenderCSV Header Match
+    description: First line of CSV output matches struct field names
+    package: internal/cli/output
+    test_func: TestInvariant_CLI_RenderCSVHeaderMatch
+
+  - id: INV-CLI-003
+    name: Non-Slice Error Handling
+    description: Passing non-slice input returns error without panic
+    package: internal/cli/output
+    test_func: TestInvariant_CLI_NonSliceError
+
+  - id: INV-CLI-004
+    name: WriteTo Trailing Newline
+    description: WriteTo output ends with exactly one newline '\n'
+    package: internal/cli/output
+    test_func: TestInvariant_CLI_WriteToAppendsNewline
