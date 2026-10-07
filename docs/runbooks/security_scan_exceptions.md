@@ -54,8 +54,8 @@ again — forcing a re-review.
 
 | Action | How |
 |--------|-----|
-| **Add** | Confirm there is genuinely no fix (`make scan` shows `fix_deferred`/`affected`). Append a `#` block stating *why no fix* and *why not exploitable here*, then `CVE-XXXX-NNNNN exp:<today+7d>`. |
-| **Edit / extend** | Change the `exp:` date and update the justification comment to say why it still applies. **Max window: 7 days** — keep exceptions short-lived. |
+| **Add** | Confirm there is genuinely no fix (`make scan` shows `fix_deferred`/`affected`). Append a `#` block stating *why no fix* and *why not exploitable here*, then `CVE-XXXX-NNNNN exp:<today+90d>`. |
+| **Edit / extend** | Change the `exp:` date and update the justification comment to say why it still applies. **Max window: 90 days** (third-party sidecars) — align with CVE SLA policy. |
 | **Delete** | When a fix lands, remove the comment block + CVE line and let `apt/apk upgrade` clear it; or remove once the risk is otherwise resolved. |
 
 Always run `make scan-exceptions` after editing, and `make scan` to confirm the

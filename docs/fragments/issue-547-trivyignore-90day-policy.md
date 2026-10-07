@@ -1,0 +1,1 @@
+- **Third-Party Security Scan Exceptions (Issue #547)**: Align third-party sidecar scan exception expiry policy with the 90-day CVE SLA, eliminating weekly renewal toil.
