@@ -5230,7 +5230,6 @@ phases:
     dependencies:
     - 606
     size: MEDIUM
-<<<<<<< HEAD
     summary: "Implement property-based invariant test suites for JA4proxy CLI output formatting, command flags, and error status code mapping (internal/cli)."
   '606s':
     name: "Proxy Server Package Extraction (cmd/ja4pd -> internal/server)"
