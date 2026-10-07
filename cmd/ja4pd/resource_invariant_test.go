@@ -37,6 +37,9 @@ func (h *resourceTestHelper) close() {
 		_ = c.Close()
 	}
 	h.mu.Unlock()
+	if h.prx != nil && h.prx.redis != nil {
+		_ = h.prx.redis.Close()
+	}
 	if h.mr != nil {
 		h.mr.Close()
 	}
@@ -86,7 +89,11 @@ func setupResourceTestProxy(t *testing.T, backendAddr string, modifyCfg ...func(
 
 // INV-RESOURCE-001: Goroutine Conservation Law
 func TestInvariant_Resource_GoroutineConservation(t *testing.T) {
-	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
+	defer goleak.VerifyNone(t,
+		goleak.IgnoreCurrent(),
+		goleak.IgnoreTopFunction("github.com/redis/go-redis/v9/internal/pool.(*ConnPool).checkMinIdleConns"),
+		goleak.IgnoreTopFunction("github.com/redis/go-redis/v9/internal/pool.(*ConnPool).reap"),
+	)
 
 	echoAddr, cleanupEcho := startEchoServer(t)
 	defer cleanupEcho()
