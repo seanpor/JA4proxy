@@ -5190,7 +5190,6 @@ phases:
     - 603
     - 605
     size: LARGE
-<<<<<<< HEAD
     summary: "System-wide test modernization split into 606a–606g sub-phases. Establishes mathematical and architectural invariant test suites across TLS/QUIC parsing, transport splicing, resource conservation, rate limiting, passive tap, security scoring, and management hot-swap."
   '606a':
     name: "Cryptographic, TLS & QUIC Parsing Invariants"
@@ -5200,10 +5199,7 @@ phases:
     - 606
     size: MEDIUM
     summary: "Property-based tests asserting GREASE independence, canonical extension order invariance, JA4 regex compliance, and parser non-panic/bounded memory over arbitrary mutated byte slices."
-=======
-    summary: "Modernize unit, integration, and system test suites by adding property-based testing and verifying core system invariants."
-<<<<<<< HEAD
->>>>>>> e9bcc0fc (feat(tap): passive TAP & flow reassembly invariants (Phase 606e))
+
   '606d':
     name: "State Store & Distributed Rate-Limiting Invariants"
     status: COMPLETE
