@@ -1579,12 +1579,12 @@ cli-build: ## Build the unified ja4p CLI tool
 	@echo "✓ bin/ja4p"
 
 
-ci-verify: ## Fast CI mirror: the deterministic checks GitHub Actions gates on (no Docker/network)
-	@$(MAKE) lint-meta
+ci-verify: ## CI mirror: full lint, security scans, and test suite gate
+	@$(MAKE) preflight
 
-install-hooks: ## Install shared git hooks (pre-push runs `make ci-verify`)
+install-hooks: ## Install shared git hooks (pre-push runs `make preflight`)
 	@git config core.hooksPath .githooks
-	@echo "✓ git hooks installed: core.hooksPath=.githooks (pre-push runs 'make ci-verify')"
+	@echo "✓ git hooks installed: core.hooksPath=.githooks (pre-push runs 'make preflight')"
 
 
 tunnel: ## Print the SSH local-forward command for an agent stack (NAME=, HOST=)

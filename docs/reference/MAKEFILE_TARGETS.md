@@ -55,13 +55,13 @@ _196 targets. Generated from the Makefile's own `##` help comments by `make sync
 | `bench-hostnative` | End-to-end throughput, ja4pd host-native (no docker-proxy; ~4.5x the bridge port) |
 | `bump-build` | Show build number (derived from git commit count — no file needed) |
 | `changelog-assemble` | Fold docs/fragments/*.md into CHANGELOG.md (run at release, not per-phase) |
-| `ci-verify` | Fast CI mirror: the deterministic checks GitHub Actions gates on (no Docker/network) |
+| `ci-verify` | CI mirror: full lint, security scans, and test suite gate |
 | `cli-build` | Build the unified ja4p CLI tool |
 | `doc-health` | Validate documentation frontmatter |
 | `go-build` | Build the Go proxy daemon into bin/ja4pd |
 | `go-build-foss` | Build royalty-free Go proxy daemon into bin/ja4pd-foss (-tags no_ja4plus) |
 | `init` | Start the guided setup wizard |
-| `install-hooks` | Install shared git hooks (pre-push runs `make ci-verify`) |
+| `install-hooks` | Install shared git hooks (pre-push runs `make preflight`) |
 | `ja4p-validate` | Validate proxy configuration YAML |
 | `lane` | Show this worktree's dev lane (collision-free host ports + Grafana URL) |
 | `link-check` | Alias for the internal-link checker (test-doc-links) |
