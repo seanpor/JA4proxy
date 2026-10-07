@@ -15,14 +15,16 @@
 #
 set -euo pipefail
 
-echo "pre-push: running 'make ci-verify' (Makefile integrity / CI mirror)…"
-if ! make ci-verify; then
+echo "pre-push: running 'make preflight' (full lint, scan, and test gate)…"
+export GOROOT=/snap/go/current
+if ! make preflight; then
 	cat >&2 <<'MSG'
 
-✗ pre-push blocked: 'make ci-verify' failed — pushing this would break CI.
+✗ pre-push blocked: 'make preflight' failed — pushing this would break CI.
   Fix the reported issues above, then push again.
   (Emergency bypass, discouraged: git push --no-verify)
 MSG
 	exit 1
 fi
 echo "✓ pre-push checks passed."
+

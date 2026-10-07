@@ -1,0 +1,1 @@
+- Phase 606a: Implemented TLS ClientHello parser property-based invariant test suite (`internal/tls/invariant_test.go`) covering GREASE independence (INV-TLS-001), extension permutation invariance (INV-TLS-002), canonical JA4 grammar adherence (INV-TLS-003), and parser non-panic totality (INV-TLS-004). Registered all invariants in `docs/testing/invariants.yaml`.

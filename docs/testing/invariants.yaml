@@ -1,4 +1,42 @@
 invariants:
+  - id: INV-TAP-001
+    phase: "606-0"
+    package: internal/tap
+    test: TestInvariant_Tap_CircuitBreakerCooldownIsExact
+    statement: >
+      Circuit breaker transitions from OPEN to CLOSED at exact 10s cooldown boundary.
+    mutation_check: "change Before() check to After() in Set -> test fails"
+
+  # Phase 606a: Cryptographic, TLS & QUIC Parsing Invariants
+  - id: INV-TLS-001
+    phase: 606a
+    package: internal/tls
+    test: TestInvariant_TLS_GREASEIndependence
+    statement: >
+      Inserting any RFC 8701 GREASE value as a cipher, extension or group does not change the JA4 fingerprint.
+    mutation_check: "remove GREASE filtering in parser.go -> test fails"
+  - id: INV-TLS-002
+    phase: 606a
+    package: internal/tls
+    test: TestInvariant_TLS_ExtensionPermutationInvariance
+    statement: >
+      Permuting wire order of ClientHello extensions does not mutate canonical JA4 fingerprint.
+    mutation_check: "disable extension sorting in hello_info.go -> test fails"
+  - id: INV-TLS-003
+    phase: 606a
+    package: internal/tls
+    test: TestInvariant_TLS_GrammarAdherence
+    statement: >
+      All computed JA4 fingerprints strictly match canonical regex grammar.
+    mutation_check: "hardcode separator as - in hello_info.go -> test fails"
+  - id: INV-TLS-004
+    phase: 606a
+    package: internal/tls
+    test: TestInvariant_TLS_ParserTotality
+    statement: >
+      ClientHello parser never panics or loops indefinitely over any truncated or malformed byte slice.
+    mutation_check: "remove slice length check before reading extension length in parser.go -> test fails"
+
   # Phase 606d: State Store & Distributed Rate-Limiting Invariants
   - id: INV-REDIS-001
     name: Atomic Sliding Window Count
