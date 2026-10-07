@@ -1,0 +1,1 @@
+- Implemented property-based invariant test suite for configuration parsing and validation engine (`internal/config`), defining and verifying `INV-CONFIG-001` through `INV-CONFIG-004`.
