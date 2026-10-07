@@ -5231,8 +5231,12 @@ phases:
     - 606
     size: MEDIUM
     summary: "Implement property-based invariant test suites for JA4proxy CLI output formatting, command flags, and error status code mapping (internal/cli)."
-
-
-
-
+  '606s':
+    name: "Proxy Server Package Extraction (cmd/ja4pd -> internal/server)"
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_606s.md
+    dependencies:
+    - 606
+    size: LARGE
+    summary: "Extract unexported proxy struct and server loop from cmd/ja4pd/main.go into internal/server package for modular testing and component isolation."
 

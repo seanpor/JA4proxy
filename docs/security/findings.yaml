@@ -902,7 +902,7 @@ findings:
   supersedes: []
   depends_on:
   - JA4PROXY-2026-0008
-  regression_test: cmd/ja4pd/pentest_metrics_rate_limit_regression_test.go::TestRegression_JA4PROXY_2026_0026_remote_is_throttled_after_burst
+  regression_test: internal/server/metrics_rate_limit_test.go::TestRegression_JA4PROXY_2026_0026_remote_is_throttled_after_burst
   closed_commit: f2803ab
   description: '/health and /metrics endpoints lack rate limiting. Attacker spams endpoints: log flooding,
     Redis connection churn, Prometheus metric churn. DoS on observability.'
