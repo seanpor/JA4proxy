@@ -44,13 +44,13 @@ ENTRY_LINE = re.compile(
 )
 
 
-def renew(text: str, today: date, within_days: int) -> tuple[str, list[str]]:
+def renew(text: str, today: date, within_days: int, renew_days: int = 90) -> tuple[str, list[str]]:
     """Return (new_text, renewed_ids). Only rewrites the exp: date on
     matching lines; every other line (including comments, blank lines,
     NO-EXP entries which are policy violations to fix by hand, not renew)
     is left byte-for-byte untouched.
     """
-    new_exp = (today + timedelta(days=7)).isoformat()
+    new_exp = (today + timedelta(days=renew_days)).isoformat()
     renewed: list[str] = []
     out_lines = []
     for line in text.splitlines(keepends=True):
@@ -73,6 +73,11 @@ def main(argv: list[str]) -> int:
     within_days = 5
     if "--within-days" in argv:
         within_days = int(argv[argv.index("--within-days") + 1])
+    renew_days = 90
+    if "--days" in argv:
+        renew_days = int(argv[argv.index("--days") + 1])
+    elif "--renew-days" in argv:
+        renew_days = int(argv[argv.index("--renew-days") + 1])
 
     present = [p for p in IGNORE_FILES if p.exists()]
     if not present:
@@ -82,7 +87,7 @@ def main(argv: list[str]) -> int:
     renewed: list[str] = []
     pending: list[tuple[Path, str]] = []
     for path in present:
-        new_text, got = renew(path.read_text(encoding="utf-8"), today, within_days)
+        new_text, got = renew(path.read_text(encoding="utf-8"), today, within_days, renew_days)
         if got:
             pending.append((path, new_text))
             renewed.extend(got)
@@ -93,7 +98,7 @@ def main(argv: list[str]) -> int:
 
     for path, new_text in pending:
         path.write_text(new_text, encoding="utf-8")
-    new_exp = (today + timedelta(days=7)).isoformat()
+    new_exp = (today + timedelta(days=renew_days)).isoformat()
     print(f"Renewed {len(renewed)} exception(s) to exp:{new_exp}:")
     for cve in renewed:
         print(f"  - {cve}")
