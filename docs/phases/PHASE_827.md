@@ -32,7 +32,7 @@ Eliminate security-theater date bumping for third-party sidecar container image 
 - `scripts/check_upstream_image_updates.py` successfully queries registry APIs and identifies newer image tags.
 - `make scan-exceptions` runs containerized and fails if an un-upgraded sidecar has available upstream tag updates.
 - All new Python code passes `ruff`, `mypy`, `pytest`, and `make preflight`.
-- Manifest entry for Phase 823 created and validated with `make lint-phases`.
+- Manifest entry for Phase 827 created and validated with `make lint-phases`.
 
 ## Out of Scope
 - Automatic image tag bumping in production compose files without human PR review.

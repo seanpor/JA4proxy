@@ -64,7 +64,7 @@ gate is satisfied.
 ## Rules
 
 1. **No blanket ignores** — one entry per CVE, each individually justified.
-2. **Every entry needs an `exp:` date** (max +7 days) and a justification comment.
+2. **Every entry needs an `exp:` date** (max 90 days for third-party sidecars) and a justification comment.
 3. **Fixable ⇒ patch, don't ignore** — only no-fix CVEs belong here.
-4. Prefer a **real fix** (base-image change, e.g. Phase 229) over repeatedly
-   extending an exception.
+4. **Automated Upstream Tag Verification (Phase 827)** — Third-party sidecar waivers are audited against OCI/Docker Hub registries via `scripts/check_upstream_image_updates.py`. If a newer upstream tag is published by the vendor, the sidecar image MUST be upgraded rather than renewing the waiver.
+5. Prefer a **real fix** (base-image change or tag bump) over repeatedly extending an exception.
