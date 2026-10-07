@@ -162,6 +162,7 @@ invariants:
     package: internal/security
     test_func: TestInvariant_Score_ClampedSignalSanitization
 
+<<<<<<< HEAD
   # Phase 606h: Telemetry & Metrics Conservation Invariants
   - id: INV-METRICS-001
     name: Counter Monotonicity
@@ -211,3 +212,155 @@ invariants:
     description: WriteTo output ends with exactly one newline '\n'
     package: internal/cli/output
     test_func: TestInvariant_CLI_WriteToAppendsNewline
+<<<<<<< HEAD
+=======
+
+  # Phase 606a: Cryptographic, TLS & QUIC Parsing Invariants
+  - id: INV-TLS-001
+    name: GREASE Independence
+    description: Parse(wire_with_grease) == Parse(wire_without_grease) except grease in ext list
+    package: internal/tls
+    test_func: TestInvariant_TLS_GREASEIndependence
+
+  - id: INV-TLS-002
+    name: Wire Order Fingerprint Invariance
+    description: JA4_r raw fingerprint preserved regardless of extension permutation
+    package: internal/tls
+    test_func: TestInvariant_TLS_ExtensionPermutationInvariance
+
+  - id: INV-TLS-003
+    name: JA4 Regex Compliance
+    description: forall hello, JA4_regex.Match(ClientHello.JA4()) == true
+    package: internal/tls
+    test_func: TestInvariant_TLS_GrammarAdherence
+
+  - id: INV-TLS-004
+    name: Parser Non-Panic / Bounded Memory
+    description: forall payload in ByteSlices, ParseClientHello(payload) does not panic
+    package: internal/tls
+    test_func: TestInvariant_TLS_ParserTotality
+
+  # Phase 606b: Transport Splice, Buffer Replay & Packet Slicing Invariants
+  - id: INV-SPLICE-001
+    name: Buffer Replay Homomorphism
+    description: Stream partitioning across chunk boundaries preserves exact payload bytes
+    package: cmd/ja4pd
+    test_func: TestInvariant_Splice_HomomorphicChunkSlicingAndReplay
+
+  - id: INV-SPLICE-002
+    name: Lossless ClientHello Replay
+    description: Pre-read TLS ClientHello record is replayed losslessly to upstream server
+    package: cmd/ja4pd
+    test_func: TestInvariant_Splice_LosslessClientHelloReplay
+
+  - id: INV-SPLICE-003
+    name: Backpressure Buffer Bounding
+    description: Stalled upstream servers trigger backpressure bounding
+    package: cmd/ja4pd
+    test_func: TestInvariant_Splice_BackpressureBufferBounding
+
+  - id: INV-SPLICE-004
+    name: Non-TLS Protocol Lockdown Fail-Closed
+    description: Non-TLS protocol traffic under protocol lockdown is fail-closed terminated
+    package: cmd/ja4pd
+    test_func: TestInvariant_Splice_NonTLSProtocolLockdownFailClosed
+
+  # Phase 606c: Resource Conservation & Concurrency Invariants
+  - id: INV-RESOURCE-001
+    name: Goroutine Conservation
+    description: Connection worker goroutines return cleanly without memory or channel leaks
+    package: cmd/ja4pd
+    test_func: TestInvariant_Resource_GoroutineConservation
+
+  - id: INV-RESOURCE-002
+    name: FD Conservation Linux
+    description: Socket file descriptors on Linux systems are closed cleanly
+    package: cmd/ja4pd
+    test_func: TestInvariant_Resource_FDConservationLinux
+
+  - id: INV-RESOURCE-003
+    name: Slowloris Read Timeout
+    description: Slowloris attack connections trickling partial handshakes are forcibly terminated
+    package: cmd/ja4pd
+    test_func: TestInvariant_Resource_SlowlorisReadTimeout
+
+  - id: INV-RESOURCE-004
+    name: Abrupt TCP RST Resiliency
+    description: Abrupt TCP RST client aborts do not cause unhandled runtime panics
+    package: cmd/ja4pd
+    test_func: TestInvariant_Resource_AbruptTCPRSTResiliency
+
+  # Phase 606e: Passive TAP & Flow Reassembly Invariants
+  - id: INV-TAP-001
+    name: 16 KiB Per-Direction Buffer Cap
+    description: BufferLen(dir) <= 16384 for all streams
+    package: internal/tap
+    test_func: TestInvariant_Tap_BufferCap16KiB
+
+  - id: INV-TAP-002
+    name: Single HandshakeEvent Emission
+    description: Count(HandshakeEvent) <= 1 for all streams
+    package: internal/tap
+    test_func: TestInvariant_Tap_SingleHandshakeEvent
+
+  - id: INV-TAP-003
+    name: Active Stream Eviction
+    description: ActiveStreams delta == 0 after ReassemblyComplete
+    package: internal/tap
+    test_func: TestInvariant_Tap_ActiveStreamEviction
+
+  - id: INV-TAP-004
+    name: Circuit Breaker Cooldown Exactness
+    description: Failures >= N => Open && ResetsAt(t_cooldown)
+    package: internal/tap
+    test_func: TestInvariant_Tap_CircuitBreakerCooldownExactness
+
+  # Phase 606g: Configuration Engine & Atomic Reload Invariants
+  - id: INV-CONFIG-001
+    name: Default Config Validity
+    description: DefaultConfig().Validate() == nil
+    package: internal/config
+    test_func: TestInvariant_Config_DefaultConfigValid
+
+  - id: INV-CONFIG-002
+    name: Invalid Port Rejection
+    description: forall p not in [1, 65535], Validate() returns error
+    package: internal/config
+    test_func: TestInvariant_Config_InvalidPortRejection
+
+  - id: INV-CONFIG-003
+    name: Env Var Expansion Integrity
+    description: Load reads file and expands env vars cleanly
+    package: internal/config
+    test_func: TestInvariant_Config_EnvVarExpansionIntegrity
+
+  - id: INV-CONFIG-004
+    name: Risk Scorer Threshold Monotonicity
+    description: Violation of flag <= rate_limit <= tarpit <= block <= ban fails Validate()
+    package: internal/config
+    test_func: TestInvariant_Config_RiskScorerThresholdMonotonicity
+
+  # Phase 606i: Management Plane & Audit Invariants
+  - id: INV-MGMT-001
+    name: Total Mediation
+    description: Unauthenticated requests to protected endpoints return 401, 403, or 302/307
+    package: management
+    test_func: test_invariant_mgmt_total_mediation
+
+  - id: INV-MGMT-002
+    name: Health Check Accessibility
+    description: /api/v1/health always accessible with HTTP 200
+    package: management
+    test_func: test_invariant_mgmt_health_check_accessibility
+
+  - id: INV-MGMT-003
+    name: Payload Sanitization
+    description: Arbitrary payloads yield 400/401/403/422, never HTTP 500
+    package: management
+    test_func: test_invariant_mgmt_payload_sanitization
+
+  - id: INV-MGMT-004
+    name: Role Defaults Fail-Closed
+    description: Random invalid headers return 401/403 (never 200)
+    package: management
+    test_func: test_invariant_mgmt_role_defaults_fail_closed
