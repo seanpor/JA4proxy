@@ -29,7 +29,7 @@ func setupResourceTestProxy(t *testing.T, backendAddr string, modifyCfg ...func(
 		fn(cfg)
 	}
 	if prx.Server != nil {
-		prx.Server.Cfg = cfg
+		prx.Cfg = cfg
 	}
 
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
