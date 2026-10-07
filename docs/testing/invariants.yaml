@@ -37,6 +37,31 @@ invariants:
       ClientHello parser never panics or loops indefinitely over any truncated or malformed byte slice.
     mutation_check: "remove slice length check before reading extension length in parser.go -> test fails"
 
+  # Phase 606b: Transport Splice, Buffer Replay & Packet Slicing Invariants
+  - id: INV-SPLICE-001
+    name: Buffer Replay Homomorphism
+    description: Stream partitioning across chunk boundaries preserves exact payload bytes
+    package: cmd/ja4pd
+    test_func: TestInvariant_Splice_HomomorphicChunkSlicingAndReplay
+
+  - id: INV-SPLICE-002
+    name: Lossless ClientHello Replay
+    description: Pre-read TLS ClientHello record is replayed losslessly to upstream server
+    package: cmd/ja4pd
+    test_func: TestInvariant_Splice_LosslessClientHelloReplay
+
+  - id: INV-SPLICE-003
+    name: Backpressure Buffer Bounding
+    description: Stalled upstream servers trigger backpressure bounding
+    package: cmd/ja4pd
+    test_func: TestInvariant_Splice_BackpressureBufferBounding
+
+  - id: INV-SPLICE-004
+    name: Non-TLS Protocol Lockdown Fail-Closed
+    description: Non-TLS protocol traffic under protocol lockdown is fail-closed terminated
+    package: cmd/ja4pd
+    test_func: TestInvariant_Splice_NonTLSProtocolLockdownFailClosed
+
   # Phase 606d: State Store & Distributed Rate-Limiting Invariants
   - id: INV-REDIS-001
     name: Atomic Sliding Window Count
