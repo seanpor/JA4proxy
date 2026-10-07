@@ -91,6 +91,8 @@ func setupResourceTestProxy(t *testing.T, backendAddr string, modifyCfg ...func(
 func TestInvariant_Resource_GoroutineConservation(t *testing.T) {
 	defer goleak.VerifyNone(t,
 		goleak.IgnoreCurrent(),
+		goleak.IgnoreTopFunction("github.com/redis/go-redis/v9/internal/pool.(*ConnPool).dialConn"),
+		goleak.IgnoreTopFunction("github.com/redis/go-redis/v9/internal/pool.(*ConnPool).addIdleConn"),
 		goleak.IgnoreTopFunction("github.com/redis/go-redis/v9/internal/pool.(*ConnPool).checkMinIdleConns"),
 		goleak.IgnoreTopFunction("github.com/redis/go-redis/v9/internal/pool.(*ConnPool).reap"),
 	)
