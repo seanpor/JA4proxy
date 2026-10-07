@@ -5199,6 +5199,7 @@ phases:
     - 606
     size: MEDIUM
     summary: "Property-based tests asserting GREASE independence, canonical extension order invariance, JA4 regex compliance, and parser non-panic/bounded memory over arbitrary mutated byte slices."
+
   '606d':
     name: "State Store & Distributed Rate-Limiting Invariants"
     status: COMPLETE
@@ -5247,3 +5248,11 @@ phases:
     - 606
     size: MEDIUM
     summary: "Implement property-based invariant test suites for transport splicing, buffer replay, and zero-loss packet slicing (internal/proxy)."
+  '606e':
+    name: "Passive TAP & Flow Reassembly Invariants"
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_606e.md
+    dependencies:
+    - 606
+    size: MEDIUM
+    summary: "Implement property-based invariant test suites for JA4proxy's passive TAP and TCP stream reassembly engine (internal/tap)."

@@ -62,6 +62,31 @@ invariants:
     package: cmd/ja4pd
     test_func: TestInvariant_Splice_NonTLSProtocolLockdownFailClosed
 
+  # Phase 606c: Resource Conservation & Concurrency Invariants
+  - id: INV-RESOURCE-001
+    name: Goroutine Conservation
+    description: Connection worker goroutines return cleanly without memory or channel leaks
+    package: cmd/ja4pd
+    test_func: TestInvariant_Resource_GoroutineConservation
+
+  - id: INV-RESOURCE-002
+    name: FD Conservation Linux
+    description: Socket file descriptors on Linux systems are closed cleanly
+    package: cmd/ja4pd
+    test_func: TestInvariant_Resource_FDConservationLinux
+
+  - id: INV-RESOURCE-003
+    name: Slowloris Read Timeout
+    description: Slowloris attack connections trickling partial handshakes are forcibly terminated
+    package: cmd/ja4pd
+    test_func: TestInvariant_Resource_SlowlorisReadTimeout
+
+  - id: INV-RESOURCE-004
+    name: Abrupt TCP RST Resiliency
+    description: Abrupt TCP RST client aborts do not cause unhandled runtime panics
+    package: cmd/ja4pd
+    test_func: TestInvariant_Resource_AbruptTCPRSTResiliency
+
   # Phase 606d: State Store & Distributed Rate-Limiting Invariants
   - id: INV-REDIS-001
     name: Atomic Sliding Window Count
@@ -86,6 +111,31 @@ invariants:
     description: Hash(scripts/) == Hash(internal/redis/scripts/)
     package: internal/redis
     test_func: TestInvariant_Redis_ScriptEmbeddedParity
+
+  # Phase 606e: Passive TAP & Flow Reassembly Invariants
+  - id: INV-TAP-001
+    name: 16 KiB Per-Direction Buffer Cap
+    description: BufferLen(dir) <= 16384 for all streams
+    package: internal/tap
+    test_func: TestInvariant_Tap_BufferCap16KiB
+
+  - id: INV-TAP-002
+    name: Single HandshakeEvent Emission
+    description: Count(HandshakeEvent) <= 1 for all streams
+    package: internal/tap
+    test_func: TestInvariant_Tap_SingleHandshakeEvent
+
+  - id: INV-TAP-003
+    name: Active Stream Eviction
+    description: ActiveStreams delta == 0 after ReassemblyComplete
+    package: internal/tap
+    test_func: TestInvariant_Tap_ActiveStreamEviction
+
+  - id: INV-TAP-004
+    name: Circuit Breaker Cooldown Exactness
+    description: Failures >= N => Open && ResetsAt(t_cooldown)
+    package: internal/tap
+    test_func: TestInvariant_Tap_CircuitBreakerCooldownExactness
 
   # Phase 606f: Intelligence, Risk Scoring & Temporal Decay Invariants
   - id: INV-SCORE-001

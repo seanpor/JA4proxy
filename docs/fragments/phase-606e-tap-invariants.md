@@ -1,0 +1,1 @@
+- Implemented property-based invariant test suite for passive TAP and TCP stream reassembly engine (`internal/tap`), defining and verifying `INV-TAP-001` through `INV-TAP-004`.
