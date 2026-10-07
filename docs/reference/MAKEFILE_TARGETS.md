@@ -285,7 +285,7 @@ _196 targets. Generated from the Makefile's own `##` help comments by `make sync
 | Target | Description |
 |--------|-------------|
 | `check` | Fast gate: compile + env validate + tests (~3 min, no image builds or CVE scans) |
-| `preflight` | Full local gate before opening a PR: lint + scan + test (~25 min) |
+| `preflight` | Full local gate before opening a PR: lint + scan + test + test-race (~25 min) |
 | `tap-build` | Build standalone TAP sensor binary |
 
 ### Phase 511: Emergency traffic insertion / rollback
