@@ -29,9 +29,8 @@ func TestInvariant_Resource_FDConservationLinux(t *testing.T) {
 	echoAddr, cleanupEcho := startEchoServer(t)
 	defer cleanupEcho()
 
-	prx, mr, _, listener := setupResourceTestProxy(t, echoAddr)
-	defer mr.Close()
-	defer listener.Close()
+	prx, _, _, listener, cleanup := setupResourceTestProxy(t, echoAddr)
+	defer cleanup()
 
 	hello := tlsfixture.Build(tlsfixture.Spec{})
 

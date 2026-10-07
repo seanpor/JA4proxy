@@ -8,6 +8,7 @@ import (
 	"context"
 	"net"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -18,7 +19,30 @@ import (
 	"github.com/seanpor/ja4proxy/internal/testutil/tlsfixture"
 )
 
-func setupResourceTestProxy(t *testing.T, backendAddr string, modifyCfg ...func(*config.Config)) (*proxy, *miniredis.Miniredis, *config.Config, net.Listener) {
+type resourceTestHelper struct {
+	prx   *proxy
+	mr    *miniredis.Miniredis
+	cfg   *config.Config
+	ln    net.Listener
+	conns []net.Conn
+	mu    sync.Mutex
+}
+
+func (h *resourceTestHelper) close() {
+	if h.ln != nil {
+		_ = h.ln.Close()
+	}
+	h.mu.Lock()
+	for _, c := range h.conns {
+		_ = c.Close()
+	}
+	h.mu.Unlock()
+	if h.mr != nil {
+		h.mr.Close()
+	}
+}
+
+func setupResourceTestProxy(t *testing.T, backendAddr string, modifyCfg ...func(*config.Config)) (*proxy, *miniredis.Miniredis, *config.Config, net.Listener, func()) {
 	t.Helper()
 	prx, mr, cfg := newTestProxy(t)
 	host, portStr, _ := net.SplitHostPort(backendAddr)
@@ -37,17 +61,27 @@ func setupResourceTestProxy(t *testing.T, backendAddr string, modifyCfg ...func(
 		t.Fatalf("Listen failed: %v", err)
 	}
 
+	h := &resourceTestHelper{
+		prx: prx,
+		mr:  mr,
+		cfg: cfg,
+		ln:  ln,
+	}
+
 	go func() {
 		for {
 			conn, err := ln.Accept()
 			if err != nil {
 				return
 			}
+			h.mu.Lock()
+			h.conns = append(h.conns, conn)
+			h.mu.Unlock()
 			go prx.handleConn(context.Background(), conn)
 		}
 	}()
 
-	return prx, mr, cfg, ln
+	return prx, mr, cfg, ln, h.close
 }
 
 // INV-RESOURCE-001: Goroutine Conservation Law
@@ -57,7 +91,8 @@ func TestInvariant_Resource_GoroutineConservation(t *testing.T) {
 	echoAddr, cleanupEcho := startEchoServer(t)
 	defer cleanupEcho()
 
-	prx, mr, _, listener := setupResourceTestProxy(t, echoAddr)
+	prx, _, _, listener, cleanup := setupResourceTestProxy(t, echoAddr)
+	defer cleanup()
 
 	hello := tlsfixture.Build(tlsfixture.Spec{})
 	for i := 0; i < 30; i++ {
@@ -73,9 +108,6 @@ func TestInvariant_Resource_GoroutineConservation(t *testing.T) {
 	}
 
 	time.Sleep(200 * time.Millisecond)
-
-	listener.Close()
-	mr.Close()
 	_ = prx
 }
 
@@ -84,11 +116,10 @@ func TestInvariant_Resource_SlowlorisReadTimeout(t *testing.T) {
 	echoAddr, cleanupEcho := startEchoServer(t)
 	defer cleanupEcho()
 
-	_, mr, _, listener := setupResourceTestProxy(t, echoAddr, func(c *config.Config) {
+	_, _, _, listener, cleanup := setupResourceTestProxy(t, echoAddr, func(c *config.Config) {
 		c.Proxy.ReadTimeout = 1
 	})
-	defer mr.Close()
-	defer listener.Close()
+	defer cleanup()
 
 	conn, err := net.Dial("tcp", listener.Addr().String())
 	if err != nil {
@@ -117,9 +148,8 @@ func TestInvariant_Resource_AbruptTCPRSTResiliency(t *testing.T) {
 	echoAddr, cleanupEcho := startEchoServer(t)
 	defer cleanupEcho()
 
-	prx, mr, _, listener := setupResourceTestProxy(t, echoAddr)
-	defer mr.Close()
-	defer listener.Close()
+	prx, _, _, listener, cleanup := setupResourceTestProxy(t, echoAddr)
+	defer cleanup()
 
 	hello := tlsfixture.Build(tlsfixture.Spec{})
 	for i := 0; i < 20; i++ {
