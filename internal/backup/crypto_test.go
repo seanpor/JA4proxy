@@ -81,3 +81,36 @@ func TestUniqueSaltAndNonce(t *testing.T) {
 		t.Fatal("two encryptions of the same plaintext produced identical artifacts (salt/nonce reuse)")
 	}
 }
+
+func TestPBKDF2IterationsBoundsAndDefault(t *testing.T) {
+	if defaultPBKDF2Iterations != 100_000 {
+		t.Fatalf("expected defaultPBKDF2Iterations 100000, got %d", defaultPBKDF2Iterations)
+	}
+
+	art, err := EncryptPayload([]byte("test"), "key")
+	if err != nil {
+		t.Fatalf("EncryptPayload: %v", err)
+	}
+
+	// Corrupt iterations in header (offset magic(4)+ver(1)+salt(16) = 21)
+	badArt := append([]byte(nil), art...)
+
+	// Set iterations to 0 (below minPBKDF2Iterations)
+	badArt[21] = 0
+	badArt[22] = 0
+	badArt[23] = 0
+	badArt[24] = 0
+	if _, err := DecryptPayload(badArt, "key"); err == nil {
+		t.Fatal("DecryptPayload should fail for 0 iterations")
+	}
+
+	// Set iterations to 20,000,000 (above maxPBKDF2Iterations)
+	badArt[21] = 0x01
+	badArt[22] = 0x31
+	badArt[23] = 0x2D
+	badArt[24] = 0x00
+	if _, err := DecryptPayload(badArt, "key"); err == nil {
+		t.Fatal("DecryptPayload should fail for 20M iterations")
+	}
+}
+

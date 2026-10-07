@@ -40,10 +40,17 @@ const (
 	// pbkdf2Iterations is the work factor for password-based key derivation.
 	// 100k SHA-256 iterations is a conservative 2020s-era floor; it is recorded
 	// in the header so a future bump stays backward-compatible on decrypt.
-	pbkdf2Iterations = 100_000
+	defaultPBKDF2Iterations = 100_000
+	minPBKDF2Iterations     = 1_000
+	maxPBKDF2Iterations     = 10_000_000
 
 	headerLen = len(magic) + 1 + saltLen + 4 + nonceLen
 )
+
+// pbkdf2Iterations is the work factor for password-based key derivation.
+// 100k SHA-256 iterations is a conservative 2020s-era floor; it is recorded
+// in the header so a future bump stays backward-compatible on decrypt.
+var pbkdf2Iterations = defaultPBKDF2Iterations
 
 // ErrShortArtifact is returned when a blob is too small to contain a valid header.
 var ErrShortArtifact = errors.New("backup: artifact too short / truncated")
@@ -86,7 +93,7 @@ func EncryptPayload(plaintext []byte, passphrase string) ([]byte, error) {
 	header = append(header, magic...)
 	header = append(header, formatVersion)
 	header = append(header, salt...)
-	header = binary.BigEndian.AppendUint32(header, uint32(pbkdf2Iterations))
+	header = binary.BigEndian.AppendUint32(header, uint32(pbkdf2Iterations)) // #nosec G115 -- bounded iteration count
 	header = append(header, nonce...)
 
 	block, err := aes.NewCipher(key)
@@ -123,6 +130,9 @@ func DecryptPayload(artifact []byte, passphrase string) ([]byte, error) {
 	salt := artifact[off : off+saltLen]
 	off += saltLen
 	iterations := int(binary.BigEndian.Uint32(artifact[off : off+4]))
+	if iterations < minPBKDF2Iterations || iterations > maxPBKDF2Iterations {
+		return nil, errors.New("backup: invalid iteration count in artifact header")
+	}
 	off += 4
 	nonce := artifact[off : off+nonceLen]
 	off += nonceLen

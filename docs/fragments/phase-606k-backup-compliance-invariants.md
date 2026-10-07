@@ -1,0 +1,1 @@
+- Added property-based invariant test suites for encrypted state backup (`internal/backup`) and compliance signal classification (`internal/compliance`) verifying AES-256-GCM roundtrip integrity, fail-closed behavior on corrupted artifacts, default signal category mapping determinism, and override precedence (`INV-BACKUP-001..002`, `INV-COMPLIANCE-001..002`).
