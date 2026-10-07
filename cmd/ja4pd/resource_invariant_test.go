@@ -18,13 +18,19 @@ import (
 	"github.com/seanpor/ja4proxy/internal/testutil/tlsfixture"
 )
 
-func setupResourceTestProxy(t *testing.T, backendAddr string) (*proxy, *miniredis.Miniredis, *config.Config, net.Listener) {
+func setupResourceTestProxy(t *testing.T, backendAddr string, modifyCfg ...func(*config.Config)) (*proxy, *miniredis.Miniredis, *config.Config, net.Listener) {
 	t.Helper()
 	prx, mr, cfg := newTestProxy(t)
 	host, portStr, _ := net.SplitHostPort(backendAddr)
 	port, _ := strconv.Atoi(portStr)
 	cfg.Proxy.BackendHost = host
 	cfg.Proxy.BackendPort = config.FlexInt(port)
+	for _, fn := range modifyCfg {
+		fn(cfg)
+	}
+	if prx.Server != nil {
+		prx.Server.Cfg = cfg
+	}
 
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -78,14 +84,11 @@ func TestInvariant_Resource_SlowlorisReadTimeout(t *testing.T) {
 	echoAddr, cleanupEcho := startEchoServer(t)
 	defer cleanupEcho()
 
-	prx, mr, cfg, listener := setupResourceTestProxy(t, echoAddr)
+	_, mr, _, listener := setupResourceTestProxy(t, echoAddr, func(c *config.Config) {
+		c.Proxy.ReadTimeout = 1
+	})
 	defer mr.Close()
 	defer listener.Close()
-
-	cfg.Proxy.ReadTimeout = 1
-	if prx.Server != nil {
-		prx.Server.Cfg.Proxy.ReadTimeout = 1
-	}
 
 	conn, err := net.Dial("tcp", listener.Addr().String())
 	if err != nil {
@@ -107,7 +110,6 @@ func TestInvariant_Resource_SlowlorisReadTimeout(t *testing.T) {
 	if elapsed > 3*time.Second {
 		t.Fatalf("Slowloris read timeout out of bounds: elapsed %v", elapsed)
 	}
-	_ = prx
 }
 
 // INV-RESOURCE-004: Abrupt TCP RST Resiliency
