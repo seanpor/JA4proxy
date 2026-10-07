@@ -5275,8 +5275,8 @@ phases:
     summary: "Implement property-based invariant test suites for management REST API authorization, audit logging, and payload validation (management/)."
   '827':
     name: "Upstream Sidecar CVE Verification & Tag Auditing"
-    status: IN_PROGRESS
-    action_plan: docs/phases/PHASE_827.md
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_827.md
     dependencies: []
     size: MEDIUM
     summary: "Automate upstream tag checks for pinned third-party sidecar container images (Grafana, HAProxy, Loki) to prevent date-bumping waiver abuse and force image updates when upstream patches exist."
