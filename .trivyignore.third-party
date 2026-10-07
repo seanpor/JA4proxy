@@ -324,22 +324,22 @@ CVE-2026-84445 exp:2026-10-13
 # Carriers: grafana/alloy:v1.19.2, grafana/grafana:13.1.6-ubuntu.
 # Pinned upstream third-party images we cannot rebuild until publishers ship new releases.
 # Why not exploitable: Internal monitoring network only, no untrusted TLS renegotiation or direct exposure.
-CVE-2026-84782 exp:2026-10-12
+CVE-2026-84782 exp:2026-10-14
 
 # CVE-2026-103111 / CVE-2026-86145 / CVE-2026-89157 / CVE-2026-89161: pcre2 vulnerabilities in Alpine 3.19/3.24.
 # Carriers: haproxy:2.8.28-alpine, tecnativa/docker-socket-proxy:v0.5.0.
 # Pinned upstream official third-party images we cannot rebuild.
 # Why not exploitable: Socket proxy only communicates over local Unix socket; never parses untrusted regex.
-CVE-2026-103111 exp:2026-10-12
-CVE-2026-86145 exp:2026-10-12
-CVE-2026-89157 exp:2026-10-12
-CVE-2026-89161 exp:2026-10-12
+CVE-2026-103111 exp:2026-10-14
+CVE-2026-86145 exp:2026-10-14
+CVE-2026-89157 exp:2026-10-14
+CVE-2026-89161 exp:2026-10-14
 
 # CVE-2026-75804: OpenSSL DoS via unenforced QUIC in Alpine libcrypto3.
 # Carriers: redis:7.4.11-alpine.
 # Pinned upstream official Redis container image we cannot rebuild.
 # Why not exploitable: Redis is on an isolated internal Docker bridge network and does not terminate QUIC.
-CVE-2026-75804 exp:2026-10-12
+CVE-2026-75804 exp:2026-10-14
 
 
 
