@@ -3,14 +3,15 @@ from __future__ import annotations
 
 import json
 from unittest.mock import MagicMock, patch
+
 import pytest
 
 from scripts.check_upstream_image_updates import (
     ImageRef,
+    check_upstream_updates,
     extract_ignored_images,
     find_newer_tags,
     parse_image_ref,
-    check_upstream_updates,
 )
 
 

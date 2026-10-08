@@ -59,13 +59,23 @@ echo -e "  Signal scores touched: $SCORES_TOUCHED"
 echo -e "  Pipeline touched: $PIPELINE_TOUCHED"
 echo ""
 
+# 0. Git state & phase doc tracking — ensure no unstaged deleted phase docs
+echo -e "${BOLD}[1/10] git state & phase doc tracking${RESET}"
+deleted_phases="$(git ls-files --deleted docs/phases/ 2>/dev/null || true)"
+if [ -n "$deleted_phases" ]; then
+    echo "Found deleted files on disk still tracked in git:"
+    echo "$deleted_phases"
+    fail "Phase files were moved/deleted with mv instead of git mv. Run 'git rm' on them."
+fi
+pass "phase git tracking"
+
 # 1. Python lint (ruff) — fastest check, catches most common CI breaker
-echo -e "${BOLD}[1/8] ruff check . (containerized)${RESET}"
+echo -e "${BOLD}[2/10] ruff check . (containerized)${RESET}"
 docker run --rm -v "$PWD":/src -w /src ja4proxy-tools ruff check . || fail "ruff found lint errors"
 pass "ruff"
 
 # 2. Go formatting — second most common CI breaker
-echo -e "${BOLD}[2/8] gofmt${RESET}"
+echo -e "${BOLD}[3/10] gofmt${RESET}"
 if $GO_AVAILABLE; then
     out="$(gofmt -l . | grep -vE '^\.claude/|^\.qwen/|^vendor/' || true)"
     if [ -n "$out" ]; then
@@ -79,7 +89,7 @@ else
 fi
 
 # 3. Go vet
-echo -e "${BOLD}[3/8] go vet${RESET}"
+echo -e "${BOLD}[4/10] go vet${RESET}"
 if $GO_AVAILABLE; then
     go vet $(go list ./... | grep -vE '/\.claude/|/\.qwen/|/vendor/') || fail "go vet found issues"
     pass "go vet"
@@ -88,7 +98,7 @@ else
 fi
 
 # 4. Go tests
-echo -e "${BOLD}[4/8] go test${RESET}"
+echo -e "${BOLD}[5/10] go test${RESET}"
 if $GO_AVAILABLE; then
     GOFLAGS="-count=1" go test ./... || fail "Go tests failed"
     pass "go test"
@@ -97,17 +107,22 @@ else
 fi
 
 # 5. make test (Python: mypy + bandit + ruff + pip-audit + pytest)
-echo -e "${BOLD}[5/8] make test${RESET}"
+echo -e "${BOLD}[6/10] make test${RESET}"
 make test || fail "make test failed"
 pass "make test"
 
-# 6. Phase doc lint
-echo -e "${BOLD}[6/8] make lint-phases${RESET}"
+# 6. Semgrep SAST (containerized, matches CI rulesets p/ci, p/security-audit, p/secrets)
+echo -e "${BOLD}[7/10] make lint-semgrep${RESET}"
+make lint-semgrep || fail "make lint-semgrep failed"
+pass "lint-semgrep"
+
+# 7. Phase doc lint
+echo -e "${BOLD}[8/10] make lint-phases${RESET}"
 make lint-phases || fail "make lint-phases failed"
 pass "lint-phases"
 
-# 7. Signal score parity (conditional)
-echo -e "${BOLD}[7/8] make check-scores${RESET}"
+# 8. Signal score parity (conditional)
+echo -e "${BOLD}[9/10] make check-scores${RESET}"
 if $SCORES_TOUCHED; then
     make check-scores || fail "make check-scores failed — signal scores don't match config/signal_scores.yml"
     pass "check-scores"
@@ -115,11 +130,11 @@ else
     echo "  (no signal score changes, skipping)"
 fi
 
-# 8. Phase doc sync
+# 9. Phase doc sync
 # Phase 332: TODO.md / PROJECT_STATUS.md are generated build artifacts (gitignored),
 # not committed source. We still run `make sync` here as a generation-validity gate
 # — it must regenerate cleanly from manifest.yaml — but there is nothing to stage.
-echo -e "${BOLD}[8/8] sync roadmap (generation check)${RESET}"
+echo -e "${BOLD}[10/10] sync roadmap (generation check)${RESET}"
 make sync || fail "make sync (containerized sync-roadmap.py) failed — fix manifest.yaml"
 pass "sync"
 

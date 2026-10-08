@@ -17,6 +17,7 @@ meaning "open work", and the phase list becomes noise.
 from __future__ import annotations
 
 import re
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -46,12 +47,32 @@ def _status_by_id() -> dict[str, str]:
 
 
 def _docs_in(folder: Path) -> list[tuple[str, str]]:
-    """(phase_id, filename) for every phase doc directly in `folder`."""
+    """(phase_id, filename) for every phase doc directly in `folder` on disk OR in git index."""
+    names: set[str] = {f.name for f in folder.glob("PHASE_*.md")}
+
+    # Also inspect git index so files removed on disk via `mv` but still tracked in git are caught
+    try:
+        rel = folder.relative_to(REPO)
+        res = subprocess.run(
+            ["git", "-c", "safe.directory=*", "ls-files", f"{rel}/PHASE_*.md"],
+            cwd=REPO,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if res.returncode == 0:
+            for line in res.stdout.splitlines():
+                line = line.strip()
+                if line:
+                    names.add(Path(line).name)
+    except Exception:
+        pass
+
     out = []
-    for f in sorted(folder.glob("PHASE_*.md")):
-        m = _DOC_RE.match(f.name)
+    for name in sorted(names):
+        m = _DOC_RE.match(name)
         if m:
-            out.append((m.group(1), f.name))
+            out.append((m.group(1), name))
     return out
 
 
@@ -107,3 +128,18 @@ def test_manifest_action_plan_paths_resolve(field):
         if (v or {}).get(field) and not (REPO / (v or {})[field]).is_file()
     ]
     assert not missing, "manifest action_plan path(s) do not exist:\n  " + "\n  ".join(missing)
+
+
+def test_git_tracked_zombie_docs_are_detected(monkeypatch):
+    """If a phase doc is deleted on disk but remains tracked in git, _docs_in must catch it."""
+    fake_run = subprocess.CompletedProcess(
+        args=[],
+        returncode=0,
+        stdout="docs/phases/PHASE_9999.md\n",
+        stderr="",
+    )
+    monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: fake_run)
+    docs = dict(_docs_in(PHASES))
+    assert "9999" in docs
+    assert docs["9999"] == "PHASE_9999.md"
+
