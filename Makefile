@@ -1517,10 +1517,10 @@ lint-phases: tools-image ## Validate phase docs (frontmatter, numbering, manifes
 lint-docs-all: lint-docs lint-phases check-manifest link-check lint-markdown lint-spelling ## Run all documentation quality checks
 	@echo "✓ lint-docs-all complete"
 
-lint-semgrep: ## Run Semgrep SAST using the project ruleset (containerised)
+lint-semgrep: ## Run Semgrep SAST using the project ruleset and CI rulesets (containerised)
 	@echo "=== semgrep: SAST (official image — Semgrep does not run on Python 3.14) ==="
 	@docker run --rm -v $(PWD):/src -w /src $(SEMGREP_IMG) \
-		semgrep --quiet --error --config .semgrep-phase122.yml .
+		semgrep --quiet --error --config .semgrep-phase122.yml --config p/ci --config p/security-audit --config p/secrets .
 
 lint-ansible: ## Lint the Ansible playbooks/roles under deploy/ansible (containerised; advisory)
 	@echo "=== ansible-lint: deploy/ansible (advisory — molecule role-path syntax-checks are pre-existing) ==="
