@@ -12,7 +12,7 @@ read the top of the file for full options.
 
 <!-- BEGIN GENERATED: scripts -->
 
-_133 scripts. Generated from each script's header comment by `make sync` — do not edit this table by hand._
+_134 scripts. Generated from each script's header comment by `make sync` — do not edit this table by hand._
 
 | Script | Called by | What it does |
 |--------|-----------|--------------|
@@ -44,6 +44,7 @@ _133 scripts. Generated from each script's header comment by `make sync` — do 
 | `check_manifest.py` | `make check-manifest` | check_manifest.py — local consistency gate for the manifest-driven roadmap. |
 | `check_trivyignore_drift.py` | — | Diff what the deployed images actually carry against what the ignorefile waives. |
 | `check_updates.py` | `make check-updates-local` | check_updates.py — Check all project dependencies for available updates. |
+| `check_upstream_image_updates.py` | — | Automated Upstream Sidecar Container Image Tag Checker (Phase 827). |
 | `ci_summary.py` | `make lint` | CI summary utility. |
 | `close-phase.sh` | — | mechanical pre-merge gate for phase close-out. |
 | `compute_ja4_fixtures.py` | — | Add current dir to path to import local modules |

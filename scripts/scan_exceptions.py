@@ -131,8 +131,18 @@ def main(argv: list[str]) -> int:
         print(f"\n✓ {shown} exception(s) expiring within {within_days} day(s).")
         return 0
     print(f"\n✓ {len(entries)} exception(s) ({breakdown}), all within their time window.")
+
+    if "--no-upstream" not in argv:
+        print("\n=== Upstream Sidecar Container Image Audit (Phase 827) ===")
+        try:
+            from check_upstream_image_updates import check_upstream_updates
+            check_upstream_updates(fail_on_update=False)
+        except Exception as err:
+            print(f"  ! Upstream tag audit skipped ({err})")
+
     return 0
 
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv[1:]))
+
