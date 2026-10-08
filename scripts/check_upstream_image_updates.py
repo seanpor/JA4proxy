@@ -76,10 +76,14 @@ def parse_image_ref(image_str: str) -> ImageRef | None:
 
 def fetch_docker_hub_tags(repo: str, timeout: int = 5) -> list[str]:
     """Fetch published tags from Docker Hub API v2."""
+    if not repo or ".." in repo:
+        return []
     url = f"https://hub.docker.com/v2/repositories/{repo}/tags?page_size=100"
+    if not url.startswith("https://"):
+        return []
     req = urllib.request.Request(url, headers={"User-Agent": "JA4proxy-UpstreamChecker/1.0"})
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
             if resp.status != 200:
                 return []
             data = json.loads(resp.read().decode("utf-8"))
