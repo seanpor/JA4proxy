@@ -29,9 +29,11 @@ date-gated); `tests/unit/test_pentest_range_config.py` and
 `tests/unit/test_findings_provenance.py`. 28 unit tests across the three new
 files.
 
-**Still open in 814a:** an end-to-end test for `verify_revert.sh` — it needs a
-scratch git repo with a planted bug, a fix commit and a test, which is worth
-doing properly rather than quickly.
+**Still open in 814a (Junior Engineer Handoff Checklist):**
+1. **Missing Makefile targets:** Wire `make verify-finding` (invokes `scripts/verify_revert.sh "$$FINDING"`) and `make verify-findings-all` into `Makefile` per `PROGRAMME.md` §10.3 / `PHASE_814.md`.
+2. **End-to-end test for `verify_revert.sh`:** Implement `tests/unit/test_verify_revert_e2e.py` using a temporary git repo fixture with a planted bug, a fix commit, and a regression test to verify both pass/fail exit paths without dirtying the working directory.
+3. **CI environment alignment:** Run `make verify-findings` via `ja4proxy-tools` image in `.github/workflows/ci.yml` or ensure container-strict parity.
+4. **Phase close-out:** Run `bash scripts/close-phase.sh` and transition `manifest.yaml` status to `COMPLETE`.
 
 ## Decisions
 
@@ -162,23 +164,18 @@ all images" — missing `Dockerfile.go-proxy`, which builds the production proxy
 Adding three more hand-maintained rows to lists that are already 63% wrong
 would be ceremony, not documentation. See `PHASE_815.md`.
 
-## Pre-flight on 814b — why it was re-specced before starting
+## Pre-flight on 814b — why it was re-specced, and the final AST simplification
 
-Probing 814b's central mechanism found it would have produced a confidently
-wrong result:
+Probing 814b's central mechanism initially produced a trap:
 
-| Route enumeration approach | Routes found |
-|---|---|
-| Naive `app.routes` iteration | **4** |
-| Recursing into `.routes` | **4** |
-| `app.openapi()` | **94** |
+| Route enumeration approach | Routes found | Why / Gotcha |
+|---|---|---|
+| Naive `app.routes` iteration | **4** | FastAPI 0.141.1 hides sub-routers in `_IncludedRouter` |
+| Recursing into `.routes` | **4** | `_IncludedRouter` exposes no `.routes` attribute |
+| `app.openapi()` | **94** | Flattens paths but discards RBAC / required roles |
+| Runtime `_IncludedRouter` traversal | ~94 | Fragile private internals; requires mock secrets for boot guards |
+| **Static AST traversal (`ast` stdlib)** | **105** | **Fastest (0.06s), exact roles, zero dependencies, no boot guards** |
 
-FastAPI 0.141.1 wraps included routers in `_IncludedRouter` objects that do not
-expose `.routes`, so the natural traversal finds only the auto-docs endpoints.
-An inventory built that way would report a 4-route attack surface — and would
-**understate** it, the dangerous direction. `app.openapi()` flattens correctly
-but does not carry the auth dependency or required role, which is exactly what
-814b needs; that requires `_IncludedRouter.original_router` traversal plus
-`dependant` inspection.
+FastAPI 0.141.1 wrapping sub-routers in `_IncludedRouter` objects initially prompted a complex runtime proposal traversing private `_IncludedRouter.original_router.routes` with `dependant` role inspection. 
 
-Five further issues, and the re-spec, are recorded in `PHASE_814.md` §5 (814b).
+**Simplification settled:** Avoid importing FastAPI and avoid calling `create_app()` entirely. Static analysis using Python's built-in `ast` module parses all route decorators (`@router.<method>` / `@app.<method>`) across `management/api/routes/*.py`, `auth.py`, and `main.py`, and extracts `require_role(Role.<name>)` directly from parameter defaults. This catches all 105 endpoints with exact roles, bypasses the `0096` secret boot guards without mock environment variables, and keeps Phase 814b accessible to a junior engineer.

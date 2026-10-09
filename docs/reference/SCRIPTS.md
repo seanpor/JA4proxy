@@ -147,7 +147,7 @@ _134 scripts. Generated from each script's header comment by `make sync` — do 
 | `validate-single-host.sh` | — | JA4proxy single-host deployment validator (phase-231b real-host E2E). |
 | `verify-image-signature.sh` | — | Usage: scripts/verify-image-signature.sh <image-ref> |
 | `verify-slsa.sh` | — | scripts/verify-slsa.sh — Verify SLSA Level 3 provenance for JA4proxy artifacts. |
-| `verify_revert.sh` | — | machine-check the two-state proof (Phase 814a). |
+| `verify_revert.sh` | `make verify-finding` | machine-check the two-state proof (Phase 814a). |
 | `view-metrics.sh` | — | — |
 | `workspace_integrity_tool.py` | — | Workspace Integrity Tool (WIT) |
 
