@@ -4236,8 +4236,9 @@ phases:
       enforced only when someone remembers."
   814b:
     name: "Pentest: recon, attack-surface baseline, durable-content lift"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_814.md
+    status: COMPLETE
+    completed: '2026-10-10'
+    action_plan: docs/phases/complete/PHASE_814b.md
     dependencies: [814a, 815]
     size: LARGE
     summary: "Stage 0. scripts/surface_inventory.py + generated

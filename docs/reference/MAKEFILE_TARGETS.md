@@ -45,7 +45,7 @@ The default lane runs **without HAProxy** (single proxy, reached directly on
 
 <!-- BEGIN GENERATED: make-targets -->
 
-_196 targets. Generated from the Makefile's own `##` help comments by `make sync` — do not edit this table by hand._
+_197 targets. Generated from the Makefile's own `##` help comments by `make sync` — do not edit this table by hand._
 
 ### Aggregate linters
 
@@ -86,7 +86,8 @@ _196 targets. Generated from the Makefile's own `##` help comments by `make sync
 | `scan-js` | Scan the vendored Management-UI JS for known CVEs (retire.js) |
 | `setup-build` | Build the ja4p CLI the setup wizard needs |
 | `start-poc` | Alias for starting the POC environment |
-| `sync` | Sync roadmap from manifest.yaml and generated reference docs |
+| `surface-inventory` | Rebuild docs/security/ATTACK_SURFACE.md from static AST inspection |
+| `sync` | Sync roadmap from manifest.yaml, attack surface, and generated reference docs |
 | `test-component-suites` | Run every component test suite (unit, chaos, adversarial) |
 | `test-lint-hierarchy` | Run Phase 92 lint hierarchy structural tests |
 | `test-ratio` | Show the test-to-code ratio |

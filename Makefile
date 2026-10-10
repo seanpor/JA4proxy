@@ -830,7 +830,7 @@ lint-go-full:  ## golangci-lint comprehensive
 	@echo "=== golangci-lint: Go code ==="
 	@docker run --rm \
 		-v "$(PWD):/app" -w /app \
-		golangci/golangci-lint:v2.11.4 \
+		golangci/golangci-lint:v2.12.0 \
 		golangci-lint run --config .golangci.yaml ./... \
 		&& echo "✓ Go lint passed"
 
@@ -1538,9 +1538,13 @@ test-lint-hierarchy: tools-image ## Run Phase 92 lint hierarchy structural tests
 
 start-poc: deploy-poc ## Alias for starting the POC environment
 
-sync: tools-image ## Sync roadmap from manifest.yaml and generated reference docs
+surface-inventory: tools-image ## Rebuild docs/security/ATTACK_SURFACE.md from static AST inspection
+	@$(TOOLS_RUN) python scripts/surface_inventory.py
+
+sync: tools-image ## Sync roadmap from manifest.yaml, attack surface, and generated reference docs
 	@$(TOOLS_RUN) python scripts/sync-roadmap.py
 	@$(TOOLS_RUN) python scripts/sync_reference_docs.py
+	@$(TOOLS_RUN) python scripts/surface_inventory.py
 
 changelog-assemble: tools-image ## Fold docs/fragments/*.md into CHANGELOG.md (run at release, not per-phase)
 	@$(TOOLS_RUN) python scripts/assemble-changelog.py
