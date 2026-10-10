@@ -41,7 +41,7 @@ COMPOSE_DIR = REPO_ROOT / "deploy" / "docker"
 
 # Go module directories
 GO_MODULES = [
-    REPO_ROOT / "cmd" / "proxy",
+    REPO_ROOT,
     REPO_ROOT / "deploy" / "terraform-provider",
 ]
 
