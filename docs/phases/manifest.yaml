@@ -136,6 +136,7 @@ epics:
   - 500
   - 501
   - 603
+  - 840
 - name: 'Epic: Quality Assurance & Test Maturity'
   description: Comprehensive testing, adversarial coverage, and performance validation.
   phases:
@@ -4270,8 +4271,8 @@ phases:
       break when 814 is archived to complete/."
   814c:
     name: "Pentest: retrospective closure sweep — re-verify what we believe is fixed"
-    status: IN_PROGRESS
-    action_plan: docs/phases/PHASE_814c.md
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_814c.md
     dependencies: [814a]
     size: MEDIUM
     summary: "Stage 0, runs BEFORE new-bug hunting. The register holds 92
@@ -5287,3 +5288,10 @@ phases:
     dependencies: []
     size: SMALL
     summary: "Eliminate CI failure escapes by aligning local Makefile Semgrep SAST rulesets with GitHub CI, enhancing phase doc filing tests to check git-tracked files (git ls-files), and enforcing committed git tree state in preflight gates."
+  840:
+    name: "LogTide Architectural Evaluation & Telemetry Stack Replacement"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_840.md
+    dependencies: []
+    size: MEDIUM
+    summary: "Critical architectural evaluation of replacing heavy third-party telemetry sidecars (Loki, Grafana, Prometheus sidecars) with LogTide to reduce resource footprint, eliminate JVM/runtime overhead, and eliminate third-party container CVE waiver debt."

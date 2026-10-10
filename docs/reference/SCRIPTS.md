@@ -12,7 +12,7 @@ read the top of the file for full options.
 
 <!-- BEGIN GENERATED: scripts -->
 
-_134 scripts. Generated from each script's header comment by `make sync` — do not edit this table by hand._
+_136 scripts. Generated from each script's header comment by `make sync` — do not edit this table by hand._
 
 | Script | Called by | What it does |
 |--------|-----------|--------------|
@@ -42,6 +42,7 @@ _134 scripts. Generated from each script's header comment by `make sync` — do 
 | `check_image_versions.py` | `make scan-images` | check_image_versions.py — detect :latest tags and version drift between compose files. |
 | `check_logger_format.sh` | — | Fail if any Python file uses f-strings in logger calls. |
 | `check_manifest.py` | `make check-manifest` | check_manifest.py — local consistency gate for the manifest-driven roadmap. |
+| `check_toolchain_alignment.py` | `make lint-meta` | check_toolchain_alignment.py — Verify toolchain version alignment across the project. |
 | `check_trivyignore_drift.py` | — | Diff what the deployed images actually carry against what the ignorefile waives. |
 | `check_updates.py` | `make check-updates-local` | check_updates.py — Check all project dependencies for available updates. |
 | `check_upstream_image_updates.py` | — | Automated Upstream Sidecar Container Image Tag Checker (Phase 827). |
@@ -133,6 +134,7 @@ _134 scripts. Generated from each script's header comment by `make sync` — do 
 | `start-poc.sh` | `make compose-validate` | JA4 Proxy POC Startup Script |
 | `status.sh` | `make status` | Unified JA4proxy health status |
 | `stop-all.sh` | `make stop` | Stop all JA4proxy stacks (POC + monitoring) |
+| `sweep_retrospective_findings.py` | — | sweep_retrospective_findings.py — Execute Phase 814c Retrospective Closure Sweep. |
 | `sync-roadmap.py` | `make sync` | Sync Roadmap Script |
 | `sync_reference_docs.py` | `make sync` | sync_reference_docs.py — generate the reference lists from the things they |
 | `tap_benchmark.py` | — | tap_benchmark.py — TAP mode throughput benchmark. |
