@@ -4270,8 +4270,8 @@ phases:
       break when 814 is archived to complete/."
   814c:
     name: "Pentest: retrospective closure sweep — re-verify what we believe is fixed"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_814.md
+    status: IN_PROGRESS
+    action_plan: docs/phases/PHASE_814c.md
     dependencies: [814a]
     size: MEDIUM
     summary: "Stage 0, runs BEFORE new-bug hunting. The register holds 92
