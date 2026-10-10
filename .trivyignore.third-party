@@ -344,3 +344,21 @@ CVE-2026-75804 exp:2027-01-05
 
 
 
+
+# CVE-2026-78667: net/http: golang: Denial of Service via crafted HTTP requests in Go stdlib < 1.26.9 / 1.27.2.
+# Carriers (generated 2026-10-10): grafana/alloy, grafana/grafana, grafana/loki, oliver006/redis_exporter, prom/alertmanager, prom/prometheus.
+# Pinned third-party upstream images we cannot rebuild until publishers ship new tags built with Go 1.27.2 / 1.26.9.
+# Why not exploitable: Internal monitoring network stack bound to loopback / internal Docker bridge with no public exposure.
+CVE-2026-78667 exp:2027-01-08
+
+# CVE-2026-97031: crypto/tls: golang: Denial of Service via crafted TLS handshake in Go stdlib < 1.26.9 / 1.27.2.
+# Carriers (generated 2026-10-10): grafana/alloy, grafana/grafana, grafana/loki, oliver006/redis_exporter, prom/alertmanager, prom/prometheus.
+# Pinned third-party upstream images we cannot rebuild until publishers ship new tags built with Go 1.27.2 / 1.26.9.
+# Why not exploitable: Internal monitoring network stack bound to loopback / internal Docker bridge with no public exposure.
+CVE-2026-97031 exp:2027-01-08
+
+# CVE-2026-78669: net/http: golang.org/x/net: Denial of Service via HTTP/2 frames in golang.org/x/net < 0.60.0.
+# Carriers (generated 2026-10-10): grafana/alloy, grafana/grafana, grafana/loki, oliver006/redis_exporter, prom/alertmanager, prom/prometheus.
+# Pinned third-party upstream images we cannot rebuild until publishers ship new tags.
+# Why not exploitable: Internal monitoring network stack bound to loopback / internal Docker bridge with no public exposure.
+CVE-2026-78669 exp:2027-01-08

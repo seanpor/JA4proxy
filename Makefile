@@ -1391,6 +1391,10 @@ test-doc-links: ## Phase 107w.3 — lychee-check all docs for broken internal li
 		|| echo "  ! lychee reported link issues (advisory — see the docs-link-check workflow for the gate)"
 lint-meta: tools-image ## Phase 147 — Verify Makefile and automation script health
 	@$(TOOLS_RUN) python3 scripts/meta_lint.py
+	@$(TOOLS_RUN) python3 scripts/check_toolchain_alignment.py
+
+check-toolchain: tools-image ## Audit toolchain alignment across go.mod, Dockerfiles, and linter capabilities
+	@$(TOOLS_RUN) python3 scripts/check_toolchain_alignment.py
 
 reload: ## Reload proxy configuration without restart (SIGHUP)
 	@docker compose -f deploy/docker/docker-compose.poc.yml kill -s SIGHUP proxy 2>/dev/null || kill -s SIGHUP $$(pgrep ja4p) 2>/dev/null || echo "Proxy not running"

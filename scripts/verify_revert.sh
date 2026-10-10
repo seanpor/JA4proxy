@@ -115,7 +115,15 @@ echo ""
 run_test() {
     local dir="$1" nodeid="$2"
     if [[ "$nodeid" == *"_test.go"* || "$nodeid" == ./* ]]; then
-        ( cd "$dir" && go test "$(dirname "${nodeid#./}")/..." 2>&1 )
+        local clean_path="${nodeid%%::*}"
+        clean_path="${clean_path#./}"
+        local pkg_dir="./$(dirname "$clean_path")"
+        if [[ "$nodeid" == *"::"* ]]; then
+            local func_name="${nodeid#*::}"
+            ( cd "$dir" && GOROOT=/snap/go/current /snap/go/current/bin/go test "$pkg_dir" -run "^${func_name}$" 2>&1 )
+        else
+            ( cd "$dir" && GOROOT=/snap/go/current /snap/go/current/bin/go test "$pkg_dir" 2>&1 )
+        fi
     else
         # Container-strict per AGENTS.md: Python runs in the pinned tools image.
         docker run --rm -v "${dir}:/src" -w /src ja4proxy-tools pytest "$nodeid" -q 2>&1
