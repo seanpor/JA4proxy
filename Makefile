@@ -1343,7 +1343,13 @@ quality: lint-all lint-coverage ## Run all linters + coverage checks in one shot
 	@echo "✓ quality complete — all checks passed"
 
 
-# Canonical findings register
+verify-finding: ## Run two-state revert proof for a single finding (usage: make verify-finding FINDING=JA4PROXY-2026-0042)
+	@if [ -z "$(FINDING)" ]; then echo "Error: FINDING is required (e.g. make verify-finding FINDING=JA4PROXY-2026-0042)" >&2; exit 1; fi
+	@scripts/verify_revert.sh $(FINDING)
+
+verify-findings-all: ## Run two-state revert proof for all findings with recorded regression tests
+	@scripts/verify_revert.sh --all
+
 verify-findings: ## Validate docs/security/findings.yaml schema and referential integrity
 	@$(PYTHON) scripts/findings_register.py validate
 
