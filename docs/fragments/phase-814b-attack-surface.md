@@ -1,0 +1,1 @@
+- **Phase 814b (Attack-Surface Baseline & Recon Inventory):** Implemented `scripts/surface_inventory.py` AST router parser, generated `docs/security/ATTACK_SURFACE.md`, added `make surface-inventory` target, and wired drift check into `make lint`.
