@@ -12,7 +12,7 @@ read the top of the file for full options.
 
 <!-- BEGIN GENERATED: scripts -->
 
-_134 scripts. Generated from each script's header comment by `make sync` — do not edit this table by hand._
+_135 scripts. Generated from each script's header comment by `make sync` — do not edit this table by hand._
 
 | Script | Called by | What it does |
 |--------|-----------|--------------|
@@ -133,6 +133,7 @@ _134 scripts. Generated from each script's header comment by `make sync` — do 
 | `start-poc.sh` | `make compose-validate` | JA4 Proxy POC Startup Script |
 | `status.sh` | `make status` | Unified JA4proxy health status |
 | `stop-all.sh` | `make stop` | Stop all JA4proxy stacks (POC + monitoring) |
+| `surface_inventory.py` | `make surface-inventory` | Attack-Surface Inventory Parser & Documentation Generator. |
 | `sync-roadmap.py` | `make sync` | Sync Roadmap Script |
 | `sync_reference_docs.py` | `make sync` | sync_reference_docs.py — generate the reference lists from the things they |
 | `tap_benchmark.py` | — | tap_benchmark.py — TAP mode throughput benchmark. |

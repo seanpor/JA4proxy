@@ -341,6 +341,19 @@ CVE-2026-89161 exp:2027-01-05
 # Why not exploitable: Redis is on an isolated internal Docker bridge network and does not terminate QUIC.
 CVE-2026-75804 exp:2027-01-05
 
+# CVE-2026-78667: net/http: golang: Denial of Service via crafted HTTP requests.
+# Carriers: grafana/alloy, grafana/grafana, grafana/loki, oliver006/redis_exporter, prom/alertmanager, prom/prometheus.
+# Pinned upstream third-party images we cannot rebuild until publishers ship new releases built with Go 1.27.2+.
+# Why not exploitable: Internal monitoring network only; no untrusted HTTP body parsing exposed to public ingress.
+CVE-2026-78667 exp:2027-01-05
+
+# CVE-2026-97031: net/http: golang: Denial of Service via crafted HTTP requests.
+# Carriers: grafana/alloy, grafana/grafana, grafana/loki, oliver006/redis_exporter, prom/alertmanager, prom/prometheus.
+# Pinned upstream third-party images we cannot rebuild until publishers ship new releases built with Go 1.27.2+.
+# Why not exploitable: Internal monitoring network only; no untrusted HTTP body parsing exposed to public ingress.
+CVE-2026-97031 exp:2027-01-05
+
+
 
 
 
