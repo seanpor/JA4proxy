@@ -45,7 +45,7 @@ The default lane runs **without HAProxy** (single proxy, reached directly on
 
 <!-- BEGIN GENERATED: make-targets -->
 
-_196 targets. Generated from the Makefile's own `##` help comments by `make sync` — do not edit this table by hand._
+_197 targets. Generated from the Makefile's own `##` help comments by `make sync` — do not edit this table by hand._
 
 ### Aggregate linters
 
@@ -100,6 +100,7 @@ _196 targets. Generated from the Makefile's own `##` help comments by `make sync
 | `bench` | Run all benchmarks (micro + macro) |
 | `bench-macro` | Run end-to-end load test (requires: make start) |
 | `bench-micro` | Run Go native micro-benchmarks |
+| `check-toolchain` | Audit toolchain alignment across go.mod, Dockerfiles, and linter capabilities |
 | `ci-local` | Run the same fast checks the CI workflow runs (Go + Python tests) |
 | `findings-list` | List open findings (add FINDINGS_ARGS=... to pass flags, e.g. --severity HIGH) |
 | `findings-render` | Regenerate docs/security/FINDINGS_REGISTER.md from findings.yaml |

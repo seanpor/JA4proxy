@@ -1,6 +1,6 @@
 module github.com/seanpor/ja4proxy
 
-go 1.26.6
+go 1.26.0
 
 require (
 	github.com/alicebob/miniredis/v2 v2.39.0
@@ -16,7 +16,7 @@ require (
 	github.com/zalando/go-keyring v0.2.8
 	go.uber.org/goleak v1.3.0
 	go.yaml.in/yaml/v3 v3.0.5
-	golang.org/x/net v0.59.0
+	golang.org/x/net v0.60.0
 	golang.org/x/sync v0.23.0
 	golang.org/x/sys v0.48.0
 	pgregory.net/rapid v1.3.0
