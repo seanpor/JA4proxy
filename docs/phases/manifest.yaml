@@ -4237,8 +4237,8 @@ phases:
       scripts/close-phase.sh."
   814b:
     name: "Pentest: recon, attack-surface baseline, durable-content lift"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_814.md
+    status: IN_PROGRESS
+    action_plan: docs/phases/PHASE_814b.md
     dependencies: [814a, 815]
     size: MEDIUM
     summary: "Stage 0. JUNIOR DEVELOPER READY via static AST architecture:
