@@ -1,0 +1,38 @@
+# Dockerfile.logtide — First-party container build for LogTide telemetry sidecar.
+#
+# Build stage: pinned Go toolchain on Alpine.
+# Runtime stage: minimal distroless image with zero compiler/OS dependencies.
+# Security rationale (Phase 840): Compiling LogTide from source eliminates
+# third-party upstream container CVE waiver debt (.trivyignore.third-party).
+
+# ── Build stage ───────────────────────────────────────────────────────────────
+FROM golang:1.27.2-alpine@sha256:738d1cf061836894ff6bb8c33881080ac66de8cf0586615012a0c8f592649cfa AS builder
+ARG VERSION=unknown
+ARG GIT_COMMIT=unknown
+
+RUN apk add --no-cache ca-certificates git
+
+WORKDIR /build
+
+# Cache dependency downloads
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source and build statically-linked LogTide binary
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build \
+    -ldflags="-s -w -extldflags '-static'" \
+    -trimpath \
+    -o /build/logtide ./cmd/ja4p/
+
+# ── Runtime stage ─────────────────────────────────────────────────────────────
+FROM gcr.io/distroless/static-debian12@sha256:a9fcaedd4c9b59e12dd65d954f0b5044f19b0647a8a3712e77205df9e7b102cd
+
+COPY --from=builder /build/logtide /usr/local/bin/logtide
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+
+USER nonroot:nonroot
+
+EXPOSE 8080 9090
+
+ENTRYPOINT ["/usr/local/bin/logtide"]
