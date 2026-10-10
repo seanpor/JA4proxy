@@ -5290,7 +5290,7 @@ phases:
     summary: "Eliminate CI failure escapes by aligning local Makefile Semgrep SAST rulesets with GitHub CI, enhancing phase doc filing tests to check git-tracked files (git ls-files), and enforcing committed git tree state in preflight gates."
   840:
     name: "LogTide Architectural Evaluation & Telemetry Stack Replacement"
-    status: PROPOSED
+    status: IN_PROGRESS
     action_plan: docs/phases/PHASE_840.md
     dependencies: []
     size: MEDIUM
