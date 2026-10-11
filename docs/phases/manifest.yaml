@@ -4336,8 +4336,8 @@ phases:
       completeness, image signing, dependency confusion, and the release path."
   814g:
     name: "Pentest: agent instruction surface (prompt injection into the dev pipeline)"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_814.md
+    status: IN_PROGRESS
+    action_plan: docs/phases/PHASE_814g.md
     dependencies: [814b]
     size: MEDIUM
     summary: "Stage 1, novel and specific to how this project is built. The repo
