@@ -7,6 +7,7 @@ package security
 import (
 	"context"
 	"net"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -113,9 +114,9 @@ func TestFailOpen_TelemetrySidecarBackpressureInvariant(t *testing.T) {
 	p := NewPipeline(cfg, &mockRedis{}, logrus.New())
 
 	// Stalled / slow telemetry receiver (e.g. LogTide sidecar backpressure)
-	telemetryInvoked := false
+	var telemetryInvoked atomic.Bool
 	p.OnScored = func(conn *ConnectionContext, result *PipelineResult) {
-		telemetryInvoked = true
+		telemetryInvoked.Store(true)
 		// Simulate heavy backpressure stall or slow consumer
 		time.Sleep(10 * time.Millisecond)
 	}
@@ -146,7 +147,7 @@ func TestFailOpen_TelemetrySidecarBackpressureInvariant(t *testing.T) {
 
 	// Give worker a moment to execute
 	time.Sleep(50 * time.Millisecond)
-	if !telemetryInvoked {
+	if !telemetryInvoked.Load() {
 		t.Fatal("telemetry callback was never invoked")
 	}
 }
