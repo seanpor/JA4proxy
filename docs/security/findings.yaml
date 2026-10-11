@@ -1,5 +1,5 @@
 schema_version: 1
-last_allocated_id: 119
+last_allocated_id: 120
 findings:
 - id: JA4PROXY-2026-0001
   title: PROXY Protocol v2 Spoofing from Untrusted Source
@@ -3786,3 +3786,32 @@ findings:
     vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:M
   notes: Add rate-limited throttling to AdmitConn accept-overflow logging
   github_issue: 583
+- id: JA4PROXY-2026-0120
+  title: Missing CODEOWNERS and instruction file review gates permit agent prompt poisoning via untrusted
+    PRs
+  severity: HIGH
+  severity_rationale: High-privilege instruction files (AGENTS.md, CLAUDE.md, workflows) have no CODEOWNERS
+    protection, allowing external or unprivileged PRs to modify autonomous agent system instructions.
+  source_refs:
+  - report: PHASE_814g
+    id: 814g-01
+    discovered: '2026-10-11'
+  remediation_phases:
+  - 814g
+  owner: '@seanpor'
+  lane: infrastructure
+  discovered: '2026-10-11'
+  due: '2026-11-10'
+  github_issue: 568
+  found_against:
+    git_sha: 2577bc77209f27c3f3b9c7ca95d5ee11f010cb7c
+    config_sha256: da71b09b56c2fe97
+    note: pentest range, agent instruction surface posture
+  status: FIXED
+  supersedes: []
+  depends_on: []
+  regression_test: tests/adversarial/cicd/test_agent_instruction_surface.py::test_codeowners_protects_critical_agent_instruction_files
+  closed_commit: ''
+  cvss_v3_1:
+    score: 8.7
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:R/S:C/C:H/I:H/A:N

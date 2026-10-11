@@ -1,0 +1,16 @@
+# Lines starting with '#' are comments.
+# Each line is a file pattern followed by one or more owners.
+# More specific rules take precedence over general rules.
+
+# Default global ownership: maintainer
+* @seanpor
+
+# Critical autonomous agent instruction files (JA4PROXY-2026-0108)
+# These files define agent governance, system instructions, and multi-agent roles.
+# Any modification requires explicit review and approval by @seanpor.
+AGENTS.md @seanpor
+CLAUDE.md @seanpor
+docs/phases/manifest.yaml @seanpor
+.github/workflows/ @seanpor
+.github/CODEOWNERS @seanpor
+docs/security/ @seanpor
