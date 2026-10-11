@@ -59,7 +59,6 @@ from management.api.auth import _create_access_token
 from management.api.main import create_app
 from management.api.routes.oidc import _clear_jwks_cache, _extract_claims
 
-
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
 @pytest_asyncio.fixture()

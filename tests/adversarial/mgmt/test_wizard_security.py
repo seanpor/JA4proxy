@@ -16,6 +16,7 @@ import stat
 from pathlib import Path
 
 import pytest
+
 from scripts.setup_wizard import SECRET_KEYS, build_env, redacted_summary, write_env
 
 
