@@ -1,5 +1,5 @@
 schema_version: 1
-last_allocated_id: 109
+last_allocated_id: 113
 findings:
 - id: JA4PROXY-2026-0001
   title: PROXY Protocol v2 Spoofing from Untrusted Source
@@ -3488,3 +3488,126 @@ findings:
   cvss_v3_1:
     score: 6.5
     vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:L/A:L
+- id: JA4PROXY-2026-0110
+  title: Multi-packet PROXY protocol smuggling bypasses secondary read anti-smuggling check
+  severity: CRITICAL
+  severity_rationale: 'C-4 / L1-018: Enables DMZ scanning and backend open-proxy exploitation by smuggling
+    secondary PROXY headers across TCP packet boundaries.'
+  source_refs:
+  - report: PHASE_814i
+    id: 814i-01
+    discovered: '2026-10-11'
+  remediation_phases:
+  - 814i
+  owner: '@seanpor'
+  lane: go-proxy
+  discovered: '2026-10-11'
+  due: '2026-10-18'
+  github_issue: 573
+  found_against:
+    git_sha: b622b575ef8f02bd8b50033a8b2ea14e09fcd921
+    config_sha256: da71b09b56c2fe97
+    note: pentest range, Go dataplane network and DMZ edge posture
+  status: FIXED
+  supersedes: []
+  depends_on: []
+  regression_test: cmd/ja4pd/pentest_network_dmz_edge_test.go::TestAdversarial_MultiPacketProxySmuggling
+  closed_commit: ''
+  cvss_v3_1:
+    score: 9.8
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N
+  notes: Discovered during Phase 814i pentest. Post-strip secondary read at server.go:430 fails to check
+    for secondary PROXY headers.
+- id: JA4PROXY-2026-0111
+  title: Fragmented PROXY protocol header prematurely dropped by TLS protocol lockdown causing false positive
+    denial of service
+  severity: HIGH
+  severity_rationale: 'C-4: Violates core asymmetry (false-positive blocking of valid connections) by
+    dropping legitimate upstreams splitting PROXY headers across TCP packets.'
+  source_refs:
+  - report: PHASE_814i
+    id: 814i-02
+    discovered: '2026-10-11'
+  remediation_phases:
+  - 814i
+  owner: '@seanpor'
+  lane: go-proxy
+  discovered: '2026-10-11'
+  due: '2026-11-10'
+  github_issue: 574
+  found_against:
+    git_sha: b622b575ef8f02bd8b50033a8b2ea14e09fcd921
+    config_sha256: da71b09b56c2fe97
+    note: pentest range, Go dataplane network and DMZ edge posture
+  status: FIXED
+  supersedes: []
+  depends_on: []
+  regression_test: cmd/ja4pd/pentest_network_dmz_edge_test.go::TestAdversarial_ProxyHeaderFragmentation
+  closed_commit: ''
+  cvss_v3_1:
+    score: 7.5
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H
+  notes: Discovered during Phase 814i pentest. Lack of PROXY header reassembly causes protocol lockdown
+    to drop valid connections when preamble is split across TCP segments.
+- id: JA4PROXY-2026-0112
+  title: Management API auth client IP extraction trusts leftmost X-Forwarded-For header allowing rate
+    limit and lockout bypass
+  severity: HIGH
+  severity_rationale: 'L4-028 re-emergence: Leftmost extraction enables trivial IP spoofing behind trusted
+    reverse proxies to evade brute-force lockout and rate limits.'
+  source_refs:
+  - report: PHASE_814i
+    id: 814i-03
+    discovered: '2026-10-11'
+  remediation_phases:
+  - 814i
+  owner: '@seanpor'
+  lane: python-management
+  discovered: '2026-10-11'
+  due: '2026-11-10'
+  github_issue: 575
+  found_against:
+    git_sha: b622b575ef8f02bd8b50033a8b2ea14e09fcd921
+    config_sha256: da71b09b56c2fe97
+    note: pentest range, Python management API posture
+  status: FIXED
+  supersedes: []
+  depends_on: []
+  regression_test: tests/adversarial/mgmt/test_management_xff_spoofing.py::TestXFFSpoofingDefense
+  closed_commit: ''
+  cvss_v3_1:
+    score: 7.5
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N
+  notes: Discovered during Phase 814i pentest. management/api/auth.py extracts forwarded_for.split(',')[0].strip()
+    rather than rightmost untrusted hop.
+- id: JA4PROXY-2026-0113
+  title: PROXY protocol v1 and v2 parsers accept out-of-spec lines, tokens, and fail to discard LOCAL
+    command headers
+  severity: MEDIUM
+  severity_rationale: 'Spec non-compliance: v1 accepts lines > 107 bytes, invalid transport tokens, out-of-range
+    ports; v2 drops LOCAL health check connections under TLS lockdown and caps TLVs at 256 bytes.'
+  source_refs:
+  - report: PHASE_814i
+    id: 814i-04
+    discovered: '2026-10-11'
+  remediation_phases:
+  - 814i
+  owner: '@seanpor'
+  lane: go-proxy
+  discovered: '2026-10-11'
+  due: '2026-12-10'
+  github_issue: 576
+  found_against:
+    git_sha: b622b575ef8f02bd8b50033a8b2ea14e09fcd921
+    config_sha256: da71b09b56c2fe97
+    note: pentest range, Go dataplane proxy protocol parser posture
+  status: FIXED
+  supersedes: []
+  depends_on: []
+  regression_test: internal/proxy/proxy_protocol_spec_test.go::TestProxyProtocolV1_LineLengthBound
+  closed_commit: ''
+  cvss_v3_1:
+    score: 5.3
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:L/A:L
+  notes: Discovered during Phase 814i pentest. Spec conformance hardening across ReadProxyProtocol and
+    ReadProxyProtocolV2WithLength.

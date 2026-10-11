@@ -1,10 +1,13 @@
 package server
 
 import (
+	"bytes"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"net"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -173,3 +176,105 @@ func (s *Server) ReassembleClientHello(clientConn net.Conn, data, buf []byte) []
 	_ = clientConn.SetReadDeadline(time.Time{})
 	return data
 }
+
+var proxyV2Preamble = []byte{0x0D, 0x0A, 0x0D, 0x0A, 0x00, 0x0D, 0x0A, 0x51, 0x55, 0x49, 0x54, 0x0A}
+
+// ReassembleProxyHeader accumulates partial PROXY protocol v1 or v2 preambles across
+// TCP packet boundaries, preventing premature connection drops under TLS protocol lockdown
+// when legitimate upstreams split the header across TCP segments (JA4PROXY-2026-0111).
+func (s *Server) ReassembleProxyHeader(clientConn net.Conn, data, buf []byte) []byte {
+	if len(data) == 0 {
+		return data
+	}
+
+	deadline := time.Now().Add(200 * time.Millisecond)
+
+	// PROXY v1 partial detection
+	isV1 := false
+	if len(data) < 6 && strings.HasPrefix("PROXY ", string(data)) {
+		isV1 = true
+	} else if strings.HasPrefix(string(data), "PROXY ") {
+		isV1 = true
+	}
+
+	if isV1 && !strings.Contains(string(data), "\r\n") {
+		const maxV1Header = 107
+		for !strings.Contains(string(data), "\r\n") && len(data) < maxV1Header {
+			if time.Now().After(deadline) {
+				break
+			}
+			_ = clientConn.SetReadDeadline(deadline)
+			offset := len(data)
+			if offset >= cap(buf) {
+				break
+			}
+			m, err := clientConn.Read(buf[offset:])
+			if m > 0 {
+				data = buf[:offset+m]
+			}
+			if err != nil {
+				break
+			}
+		}
+		_ = clientConn.SetReadDeadline(time.Time{})
+		return data
+	}
+
+	// PROXY v2 partial detection
+	isV2 := false
+	if len(data) < 12 && bytes.Equal(data, proxyV2Preamble[:len(data)]) {
+		isV2 = true
+	} else if len(data) >= 12 && bytes.Equal(data[:12], proxyV2Preamble) {
+		isV2 = true
+	}
+
+	if isV2 {
+		for len(data) < 16 {
+			if time.Now().After(deadline) {
+				break
+			}
+			_ = clientConn.SetReadDeadline(deadline)
+			offset := len(data)
+			if offset >= cap(buf) {
+				break
+			}
+			m, err := clientConn.Read(buf[offset:])
+			if m > 0 {
+				data = buf[:offset+m]
+			}
+			if err != nil {
+				break
+			}
+		}
+
+		if len(data) >= 16 && bytes.Equal(data[:12], proxyV2Preamble) {
+			addrLen := int(binary.BigEndian.Uint16(data[14:16]))
+			want := 16 + addrLen
+			if want > cap(buf) {
+				want = cap(buf)
+			}
+			for len(data) < want {
+				if time.Now().After(deadline) {
+					break
+				}
+				_ = clientConn.SetReadDeadline(deadline)
+				offset := len(data)
+				if offset >= cap(buf) {
+					break
+				}
+				m, err := clientConn.Read(buf[offset:])
+				if m > 0 {
+					data = buf[:offset+m]
+				}
+				if err != nil {
+					break
+				}
+			}
+		}
+		_ = clientConn.SetReadDeadline(time.Time{})
+		return data
+	}
+
+	return data
+}
+
