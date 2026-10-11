@@ -17,8 +17,8 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-import yaml
 import pytest
+import yaml
 
 from scripts.pin_table_autofix import (
     ACTION_NAME_RE,

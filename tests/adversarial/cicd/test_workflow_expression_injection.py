@@ -11,8 +11,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-import yaml
 import pytest
+import yaml
 
 WORKFLOWS_DIR = Path(".github/workflows")
 

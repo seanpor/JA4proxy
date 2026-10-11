@@ -13,8 +13,8 @@ import json
 import subprocess
 from pathlib import Path
 
-import yaml
 import pytest
+import yaml
 
 WORKFLOW_FILE = Path(".github/workflows/slsa-verify.yml")
 

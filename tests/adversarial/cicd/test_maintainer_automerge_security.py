@@ -11,8 +11,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import yaml
 import pytest
+import yaml
 
 WORKFLOW_FILE = Path(".github/workflows/maintainer-automerge.yml")
 
