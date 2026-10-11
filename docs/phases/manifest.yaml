@@ -4360,8 +4360,8 @@ phases:
       instruction-file provenance recommendations."
   814h:
     name: "Pentest: TLS/JA4 parser and protocol fuzzing"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_814.md
+    status: IN_PROGRESS
+    action_plan: docs/phases/PHASE_814h.md
     dependencies: [814b]
     size: LARGE
     summary: "Stage 1. Record fragmentation across TCP segments and TLS records,
