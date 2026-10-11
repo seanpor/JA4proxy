@@ -5280,7 +5280,7 @@ phases:
     summary: "Critical architectural evaluation of replacing heavy third-party telemetry sidecars (Loki, Grafana, Prometheus sidecars) with LogTide to reduce resource footprint, eliminate JVM/runtime overhead, and eliminate third-party container CVE waiver debt."
   842:
     name: "Concurrency Assurance & Systematic Race Condition Elimination"
-    status: PROPOSED
+    status: IN_PROGRESS
     action_plan: docs/phases/PHASE_842.md
     dependencies: [814d]
     size: LARGE
