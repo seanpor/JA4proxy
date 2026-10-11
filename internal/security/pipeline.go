@@ -6,6 +6,7 @@ import (
 	"net"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/seanpor/ja4proxy/internal/config"
@@ -70,7 +71,34 @@ const (
 // reference — keep both sides in sync if it ever changes.
 const tapEnforcedBanValuePrefix = "tap_enforce:"
 
+type PipelineSnapshot struct {
+	cfg            *PipelineConfig
+	scorer         *RiskScorer
+	decider        *ActionDecider
+	tlsEnforcer    *TLSEnforcer
+	sniAnalyzer    *SNIAnalyzer
+	rateLimiter    *RateLimiter
+	tcpAnalyzer    *TCPAnalyzer
+	asnClassifier  *ASNClassifier
+	dnsEnrichment  *DNSEnrichment
+	blocklists     *BlocklistManager
+	beaconing      *BeaconingDetector
+	abuseipdb      *AbuseIPDB
+	rdap           *RDAPEnricher
+	tapConsumer    *TapConsumer
+	ja4tConsumer   *JA4TConsumer
+	offenseCounter *OffenseCounter
+
+	// Dynamic Lists (immutable view in snapshot)
+	whitelist     map[string]bool
+	blacklist     map[string]bool
+	dynamicCIDR   cidranger.Ranger
+	ja4xWhitelist map[string]bool
+	ja4xBlacklist map[string]bool
+}
+
 type Pipeline struct {
+	snapshot       atomic.Pointer[PipelineSnapshot]
 	cfg            *PipelineConfig
 	cache          *DecisionCache
 	workChan       chan *ConnectionContext
@@ -332,7 +360,37 @@ func NewPipeline(cfg *PipelineConfig, redis RedisReader, log *logrus.Logger) *Pi
 	// which leaked two goroutines (each pinning the whole Pipeline via closure)
 	// for every Pipeline that was built and discarded without running for the
 	// life of the process (e.g. the ja4p CLI and every unit test).
+
+	p.snapshot.Store(p.newSnapshotLocked(cfg))
 	return p
+}
+
+// newSnapshotLocked constructs an immutable PipelineSnapshot from the current
+// pipeline components and list sets. Must be called with p.mu held (or during construction).
+func (p *Pipeline) newSnapshotLocked(cfg *PipelineConfig) *PipelineSnapshot {
+	return &PipelineSnapshot{
+		cfg:            cfg,
+		scorer:         p.scorer,
+		decider:        p.decider,
+		tlsEnforcer:    p.tlsEnforcer,
+		sniAnalyzer:    p.sniAnalyzer,
+		rateLimiter:    p.rateLimiter,
+		tcpAnalyzer:    p.tcpAnalyzer,
+		asnClassifier:  p.asnClassifier,
+		dnsEnrichment:  p.dnsEnrichment,
+		blocklists:     p.blocklists,
+		beaconing:      p.beaconing,
+		abuseipdb:      p.abuseipdb,
+		rdap:           p.rdap,
+		tapConsumer:    p.tapConsumer,
+		ja4tConsumer:   p.ja4tConsumer,
+		offenseCounter: p.offenseCounter,
+		whitelist:      p.Whitelist,
+		blacklist:      p.Blacklist,
+		dynamicCIDR:    p.dynamicCIDR,
+		ja4xWhitelist:  p.JA4XWhitelist,
+		ja4xBlacklist:  p.JA4XBlacklist,
+	}
 }
 
 func (p *Pipeline) ReplaceConfig(cfg *PipelineConfig) {
@@ -360,12 +418,14 @@ func (p *Pipeline) ReplaceConfig(cfg *PipelineConfig) {
 	p.tcpAnalyzer = NewTCPAnalyzer(buildTCPAnalyzerConfig(cfg), p.redis, p.log)
 	p.asnClassifier = NewASNClassifier(buildASNClassifierConfig(cfg), p.log)
 
-	// JA4PROXY-2026-0089 (Phase 251a): cancel old enrichment workers before
-	// constructing replacements so their background goroutines exit and don't
-	// leak or pin old configuration.
+	// JA4PROXY-2026-0089 (Phase 251a / Phase 842): cancel old enrichment workers
+	// and wait for their goroutines to exit before constructing and starting replacements.
 	if p.dnsCancel != nil {
 		p.dnsCancel()
 		p.dnsCancel = nil
+		if p.dnsEnrichment != nil {
+			p.dnsEnrichment.Stop()
+		}
 	}
 	p.dnsEnrichment = NewDNSEnrichment(buildDNSEnrichmentConfig(cfg), p.redis, p.log)
 	if p.bgCtx != nil {
@@ -380,6 +440,9 @@ func (p *Pipeline) ReplaceConfig(cfg *PipelineConfig) {
 	if p.feedCancel != nil {
 		p.feedCancel()
 		p.feedCancel = nil
+		if p.feedDownloader != nil {
+			p.feedDownloader.Stop()
+		}
 	}
 	p.feedDownloader = NewFeedDownloader(cfg.BlocklistFeeds, p.blocklists, p.log)
 	if p.bgCtx != nil {
@@ -394,6 +457,9 @@ func (p *Pipeline) ReplaceConfig(cfg *PipelineConfig) {
 	if p.abuseCancel != nil {
 		p.abuseCancel()
 		p.abuseCancel = nil
+		if p.abuseipdb != nil {
+			p.abuseipdb.Stop()
+		}
 	}
 	p.abuseipdb = NewAbuseIPDB(buildAbuseIPDBConfig(cfg), p.redis, p.log)
 	if p.bgCtx != nil {
@@ -406,6 +472,9 @@ func (p *Pipeline) ReplaceConfig(cfg *PipelineConfig) {
 	if p.rdapCancel != nil {
 		p.rdapCancel()
 		p.rdapCancel = nil
+		if p.rdap != nil {
+			p.rdap.Stop()
+		}
 	}
 	p.rdap = NewRDAPEnricher(buildRDAPConfig(cfg), p.redis, p.log)
 	if p.bgCtx != nil {
@@ -422,6 +491,9 @@ func (p *Pipeline) ReplaceConfig(cfg *PipelineConfig) {
 	} else {
 		p.offenseCounter = nil
 	}
+
+	// Atomically swap the new immutable snapshot for zero-lock connection processing.
+	p.snapshot.Store(p.newSnapshotLocked(cfg))
 }
 
 // redisReaderGetter adapts RedisReader (which uses GetString) to the narrow
@@ -578,6 +650,8 @@ func (p *Pipeline) Process(ctx context.Context, conn *ConnectionContext) *Pipeli
 }
 
 func (p *Pipeline) process(ctx context.Context, conn *ConnectionContext) *PipelineResult {
+	snap := p.snapshot.Load()
+
 	// Phase 515 (JA4PROXY-2026-0087): consult the cache under the composite
 	// per-client key so a decision for one client is never served to another
 	// client that merely shares its JA4 fingerprint.
@@ -586,7 +660,7 @@ func (p *Pipeline) process(ctx context.Context, conn *ConnectionContext) *Pipeli
 			return res
 		}
 	}
-	if block, reason := p.checkHardBlocks(conn); block {
+	if block, reason := p.checkHardBlocksWithSnapshot(conn, snap); block {
 		return &PipelineResult{Action: "block", Score: 100, BypassReason: reason}
 	}
 
@@ -625,11 +699,13 @@ func (p *Pipeline) process(ctx context.Context, conn *ConnectionContext) *Pipeli
 	// from another for the same connection. This is now that single call
 	// site; the result is cached on conn and reused by processInternal instead
 	// of calling Check() again (see JA4PROXY-2026-0094 fix note there).
-	p.mu.RLock()
-	blocklists := p.blocklists
-	p.mu.RUnlock()
+	// Phase 842: Read blocklists directly from immutable snapshot with zero locks.
 	startBL := time.Now()
-	blSigs, blHardBlock := blocklists.Check(conn.ParsedIP)
+	var blSigs []RiskSignal
+	var blHardBlock bool
+	if snap != nil && snap.blocklists != nil {
+		blSigs, blHardBlock = snap.blocklists.Check(conn.ParsedIP)
+	}
 	p.measure("blocklist", startBL)
 	conn.blocklistSignals = blSigs
 	if blHardBlock {
@@ -639,7 +715,7 @@ func (p *Pipeline) process(ctx context.Context, conn *ConnectionContext) *Pipeli
 	}
 
 	if p.Sync {
-		return p.processInternal(ctx, conn)
+		return p.processInternalWithSnapshot(ctx, conn, snap)
 	}
 	select {
 	case p.workChan <- conn:
@@ -653,36 +729,35 @@ func (p *Pipeline) process(ctx context.Context, conn *ConnectionContext) *Pipeli
 }
 
 func (p *Pipeline) processInternal(ctx context.Context, conn *ConnectionContext) *PipelineResult {
-	// JA4PROXY-2026-0088 (phase-515): snapshot the config and every signal
-	// module under a single read lock. ReplaceConfig() reassigns all of these
-	// under p.mu on SIGHUP / pub/sub reload; reading them here without the lock
-	// is a data race (concurrent interface/pointer read+write is memory-unsafe
-	// in Go and can crash the proxy or mix an old-and-new module set). We copy
-	// the references once and operate on the locals for the rest of the call, so
-	// a reload that lands mid-scoring is applied atomically to the next
-	// connection, never torn across this one. p.redis and p.log are never
-	// reassigned after construction, so they stay accessed via p.
-	p.mu.RLock()
-	cfg := p.cfg
-	scorer := p.scorer
-	decider := p.decider
-	tlsEnforcer := p.tlsEnforcer
-	sniAnalyzer := p.sniAnalyzer
-	rateLimiter := p.rateLimiter
-	tcpAnalyzer := p.tcpAnalyzer
-	asnClassifier := p.asnClassifier
-	dnsEnrichment := p.dnsEnrichment
-	beaconing := p.beaconing
-	abuseipdb := p.abuseipdb
-	rdap := p.rdap
-	tapConsumer := p.tapConsumer
-	ja4tConsumer := p.ja4tConsumer
-	offenseCounter := p.offenseCounter
-	ja4xBlacklist := p.JA4XBlacklist
-	p.mu.RUnlock()
+	return p.processInternalWithSnapshot(ctx, conn, p.snapshot.Load())
+}
+
+func (p *Pipeline) processInternalWithSnapshot(ctx context.Context, conn *ConnectionContext, snap *PipelineSnapshot) *PipelineResult {
+	// Phase 842: Operate entirely on immutable snap with zero locks.
+	if snap == nil {
+		snap = p.snapshot.Load()
+	}
+	cfg := snap.cfg
+	scorer := snap.scorer
+	decider := snap.decider
+	tlsEnforcer := snap.tlsEnforcer
+	sniAnalyzer := snap.sniAnalyzer
+	rateLimiter := snap.rateLimiter
+	tcpAnalyzer := snap.tcpAnalyzer
+	asnClassifier := snap.asnClassifier
+	dnsEnrichment := snap.dnsEnrichment
+	beaconing := snap.beaconing
+	abuseipdb := snap.abuseipdb
+	rdap := snap.rdap
+	tapConsumer := snap.tapConsumer
+	ja4tConsumer := snap.ja4tConsumer
+	offenseCounter := snap.offenseCounter
+	ja4xBlacklist := snap.ja4xBlacklist
+
+
 
 	// ── 1. HARD BLOCKS (Blacklists, etc.)
-	if block, reason := p.checkHardBlocks(conn); block {
+	if block, reason := p.checkHardBlocksWithSnapshot(conn, snap); block {
 		if p.log.IsLevelEnabled(logrus.DebugLevel) {
 			p.log.WithFields(logrus.Fields{
 				"ip":     conn.ClientIP,
@@ -718,7 +793,7 @@ func (p *Pipeline) processInternal(ctx context.Context, conn *ConnectionContext)
 	blSigs := conn.blocklistSignals
 
 	// ── 2. BYPASS CHECKS (Whitelists, etc.) ──────────────────────────────────────────────────
-	if bypass, reason := p.checkBypasses(conn); bypass {
+	if bypass, reason := p.checkBypassesWithSnapshot(conn, snap); bypass {
 		if p.log.IsLevelEnabled(logrus.DebugLevel) {
 			p.log.WithFields(logrus.Fields{
 				"ip":     conn.ClientIP,
@@ -969,6 +1044,7 @@ func (p *Pipeline) UpdateSets(whitelist, blacklist map[string]bool) {
 	defer p.mu.Unlock()
 	p.Whitelist = whitelist
 	p.Blacklist = blacklist
+	p.snapshot.Store(p.newSnapshotLocked(p.cfg))
 }
 
 // UpdateJA4XSets replaces in-process JA4X maps. Called on startup and pub/sub update.
@@ -977,6 +1053,7 @@ func (p *Pipeline) UpdateJA4XSets(whitelist, blacklist map[string]bool) {
 	defer p.mu.Unlock()
 	p.JA4XWhitelist = whitelist
 	p.JA4XBlacklist = blacklist
+	p.snapshot.Store(p.newSnapshotLocked(p.cfg))
 }
 
 // UpdateDynamicCIDRs replaces the in-process CIDR blocklist.
@@ -1002,25 +1079,31 @@ func (p *Pipeline) UpdateDynamicCIDRs(cidrs []string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.dynamicCIDR = ranger
+	p.snapshot.Store(p.newSnapshotLocked(p.cfg))
 }
 
-// checkBypasses returns (true, reason) if the connection matches an ALLOW bypass.
-func (p *Pipeline) checkBypasses(conn *ConnectionContext) (bool, string) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
+// CheckBypasses returns (true, reason) if the connection matches an ALLOW bypass.
+func (p *Pipeline) CheckBypasses(conn *ConnectionContext) (bool, string) {
+	snap := p.snapshot.Load()
+	return p.checkBypassesWithSnapshot(conn, snap)
+}
 
+func (p *Pipeline) checkBypassesWithSnapshot(conn *ConnectionContext, snap *PipelineSnapshot) (bool, string) {
+	if snap == nil || snap.cfg == nil {
+		return false, ""
+	}
 	// ALPN browser bypass: h2 or h1 → always allow
-	if p.cfg.ALPNBrowserBypass && (conn.ALPN == "h2" || conn.ALPN == "h1") {
+	if snap.cfg.ALPNBrowserBypass && (conn.ALPN == "h2" || conn.ALPN == "h1") {
 		return true, "alpn_browser"
 	}
 
 	// JA4 whitelist bypass
-	if p.cfg.JA4WhitelistBypass && conn.JA4 != "" {
-		if p.Whitelist[conn.JA4] {
+	if snap.cfg.JA4WhitelistBypass && conn.JA4 != "" {
+		if snap.whitelist[conn.JA4] {
 			return true, "ja4_whitelist"
 		}
 		// Pattern match: whitelist_patterns are ALPN suffix patterns
-		for _, pat := range p.cfg.WhitelistSuffs {
+		for _, pat := range snap.cfg.WhitelistSuffs {
 			if strings.HasSuffix(conn.JA4, pat) || strings.Contains(conn.JA4, pat) {
 				return true, "ja4_whitelist_pattern"
 			}
@@ -1028,52 +1111,57 @@ func (p *Pipeline) checkBypasses(conn *ConnectionContext) (bool, string) {
 	}
 
 	// JA4X whitelist bypass
-	if p.cfg.JA4XWhitelistBypass && conn.JA4X != "" && p.cfg.JA4XEnabled {
-		if p.JA4XWhitelist[conn.JA4X] {
+	if snap.cfg.JA4XWhitelistBypass && conn.JA4X != "" && snap.cfg.JA4XEnabled {
+		if snap.ja4xWhitelist[conn.JA4X] {
 			return true, "ja4x_whitelist"
 		}
 	}
 
 	// mTLS bypass: valid client cert
-	if p.cfg.MTLSBypass && conn.HasValidClientCert {
+	if snap.cfg.MTLSBypass && conn.HasValidClientCert {
 		return true, "mtls"
 	}
 
 	// Static IP allowlist bypass
-	if p.cfg.StaticIPAllowlistEnabled && p.cfg.StaticIPAllowlist[conn.ClientIP] {
+	if snap.cfg.StaticIPAllowlistEnabled && snap.cfg.StaticIPAllowlist[conn.ClientIP] {
 		return true, "static_ip"
 	}
 
 	return false, ""
 }
 
-// checkHardBlocks returns (true, reason) if the connection must be blocked immediately.
-func (p *Pipeline) checkHardBlocks(conn *ConnectionContext) (bool, string) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
+// CheckHardBlocks returns (true, reason) if the connection must be blocked immediately.
+func (p *Pipeline) CheckHardBlocks(conn *ConnectionContext) (bool, string) {
+	snap := p.snapshot.Load()
+	return p.checkHardBlocksWithSnapshot(conn, snap)
+}
 
+func (p *Pipeline) checkHardBlocksWithSnapshot(conn *ConnectionContext, snap *PipelineSnapshot) (bool, string) {
+	if snap == nil || snap.cfg == nil {
+		return false, ""
+	}
 	// JA4 blacklist
-	if p.cfg.JA4BlockingEnabled && conn.JA4 != "" && p.Blacklist[conn.JA4] {
+	if snap.cfg.JA4BlockingEnabled && conn.JA4 != "" && snap.blacklist[conn.JA4] {
 		return true, "ja4_blacklist"
 	}
 
 	// JA4X blacklist
-	if p.cfg.JA4XBlockingEnabled && conn.JA4X != "" && p.cfg.JA4XEnabled {
-		if p.JA4XBlacklist[conn.JA4X] {
+	if snap.cfg.JA4XBlockingEnabled && conn.JA4X != "" && snap.cfg.JA4XEnabled {
+		if snap.ja4xBlacklist[conn.JA4X] {
 			return true, "ja4x_blacklist"
 		}
 	}
 
 	// Country blacklist
-	if p.cfg.CountryBlockingEnabled && conn.Country != "" && p.cfg.CountryBlacklist[conn.Country] {
+	if snap.cfg.CountryBlockingEnabled && conn.Country != "" && snap.cfg.CountryBlacklist[conn.Country] {
 		return true, "country_blacklist"
 	}
 
 	// Dynamic CIDR blocklist
-	if p.dynamicCIDR != nil {
+	if snap.dynamicCIDR != nil {
 		ip := net.ParseIP(conn.ClientIP)
 		if ip != nil {
-			if contains, err := p.dynamicCIDR.Contains(ip); err == nil && contains {
+			if contains, err := snap.dynamicCIDR.Contains(ip); err == nil && contains {
 				return true, "dynamic_cidr"
 			}
 		}
@@ -1290,6 +1378,15 @@ func (p *Pipeline) runAsyncScoringLoop(ctx context.Context) {
 			p.notifyScored(conn, result)
 		}
 	}
+}
+
+// SetASNClassifierForTest replaces the ASNClassifier and rebuilds the snapshot.
+// Intended exclusively for unit tests injecting mock classifiers.
+func (p *Pipeline) SetASNClassifierForTest(c *ASNClassifier) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.asnClassifier = c
+	p.snapshot.Store(p.newSnapshotLocked(p.cfg))
 }
 
 // notifyScored publishes the completed score to the OnScored hook.

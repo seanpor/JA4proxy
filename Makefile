@@ -410,6 +410,10 @@ test-chaos: tools-image  ## Run chaos/resilience tests only
 test-adversarial: tools-image  ## Run adversarial/fuzz tests only
 	@$(TOOLS_RUN) pytest tests/adversarial/ --timeout=60 --tb=short $(ARGS)
 
+# Run multi-core concurrent preemption stress tests (Go -race with elevated GOMAXPROCS)
+test-race-stress:  ## Run Go concurrency stress harness (Phase 842)
+	@./scripts/run-concurrency-stress.sh
+
 # Benchmark this machine and store worker count in .local/machine.mk
 test-calibrate:  ## Benchmark this machine, store worker count
 	@$(PYTHON) scripts/detect_workers.py

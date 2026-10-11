@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/seanpor/ja4proxy/internal/metrics"
@@ -66,6 +67,7 @@ type RDAPEnricher struct {
 	http  *http.Client
 	queue chan rdapJob
 	log   *logrus.Logger
+	wg    sync.WaitGroup
 }
 
 // NewRDAPEnricher creates an RDAPEnricher.
@@ -101,7 +103,16 @@ func NewRDAPEnricher(cfg *RDAPConfig, redis RedisReader, log *logrus.Logger) *RD
 
 // Start launches the background worker goroutine.
 func (r *RDAPEnricher) Start(ctx context.Context) {
-	go r.worker(ctx)
+	r.wg.Add(1)
+	go func() {
+		defer r.wg.Done()
+		r.worker(ctx)
+	}()
+}
+
+// Stop waits for all running workers to terminate.
+func (r *RDAPEnricher) Stop() {
+	r.wg.Wait()
 }
 
 func (r *RDAPEnricher) worker(ctx context.Context) {

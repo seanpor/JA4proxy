@@ -45,7 +45,7 @@ The default lane runs **without HAProxy** (single proxy, reached directly on
 
 <!-- BEGIN GENERATED: make-targets -->
 
-_200 targets. Generated from the Makefile's own `##` help comments by `make sync` — do not edit this table by hand._
+_201 targets. Generated from the Makefile's own `##` help comments by `make sync` — do not edit this table by hand._
 
 ### Aggregate linters
 
@@ -179,6 +179,7 @@ _200 targets. Generated from the Makefile's own `##` help comments by `make sync
 | `test-calibrate` | Benchmark this machine, store worker count |
 | `test-chaos` | Run chaos/resilience tests only |
 | `test-docker` | Run tests inside Docker (CI env) |
+| `test-race-stress` | Run Go concurrency stress harness (Phase 842) |
 | `test-unit` | Run unit tests only |
 | `tools-image` | Build containerized tools image (Dockerfile.tools) |
 

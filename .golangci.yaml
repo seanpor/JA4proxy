@@ -13,8 +13,9 @@ linters:
     - staticcheck
     - govet
     - unused
-    - gosec      # phase-91: security anti-patterns (weak crypto, cmd injection, path traversal)
-    - bodyclose  # phase-91: unclosed HTTP response bodies (resource leak)
+    - gosec        # phase-91: security anti-patterns (weak crypto, cmd injection, path traversal)
+    - bodyclose    # phase-91: unclosed HTTP response bodies (resource leak)
+
 
   settings:
     errcheck:
@@ -37,6 +38,17 @@ linters:
         - (*net.TCPConn).SetLinger
         - os.Unsetenv
         - os.Remove
+    govet:
+      enable:
+        - copylocks
+    gocritic:
+      enabled-checks:
+        - badLock
+        - badSyncOnceFunc
+        - exposedSyncMutex
+        - rangeValCopy
+        - rangeExprCopy
+        - syncMapLoadAndDelete
 
   exclusions:
     rules:
@@ -88,3 +100,8 @@ linters:
       - linters:
           - gosec
         text: "G118"
+      # Legacy packages with non-propagated context in background loops/daemons
+      - path: "cmd/ja4-tap/.*\\.go|internal/backup/.*\\.go|internal/cluster/.*\\.go|internal/redis/.*\\.go|internal/webhook/.*\\.go"
+        linters:
+          - contextcheck
+
