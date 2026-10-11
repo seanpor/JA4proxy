@@ -145,10 +145,10 @@ Execute a comprehensive adversarial penetration test of JA4proxy's complete soft
 
 ## Acceptance Criteria
 
-- [ ] Comprehensive test suite covering all 16 workflow files in `tests/adversarial/cicd/` passing 100%.
-- [ ] Detailed adversarial audit of `maintainer-automerge.yml` proving safe gate condition (fork PRs cannot trigger auto-merge).
-- [ ] Detailed audit of `pin-table-autofix.yml` proving safety against refspec injection, worktree filter exploitation, and unauthorized push targets.
-- [ ] SLSA provenance failure demonstrated closed against deliberately tampered artifacts and mismatched source URIs.
-- [ ] Zero unescaped expression injections `${{ ... }}` in `run:` shell steps across all 16 workflows.
-- [ ] All findings registered in `docs/security/findings.yaml` with verified two-state proofs.
-- [ ] `make preflight` and `bash scripts/close-phase.sh` exit 0.
+- [x] Comprehensive test suite covering all 16 workflow files in `tests/adversarial/cicd/` passing 100%.
+- [x] Detailed adversarial audit of `maintainer-automerge.yml` proving safe gate condition (fork PRs cannot trigger auto-merge).
+- [x] Detailed audit of `pin-table-autofix.yml` proving safety against refspec injection, worktree filter exploitation, and unauthorized push targets.
+- [x] SLSA provenance failure demonstrated closed against deliberately tampered artifacts and mismatched source URIs.
+- [x] Zero unescaped expression injections `${{ ... }}` in `run:` shell steps across all 16 workflows.
+- [x] All findings registered in `docs/security/findings.yaml` with verified two-state proofs.
+- [x] `make preflight` and `bash scripts/close-phase.sh` exit 0.
