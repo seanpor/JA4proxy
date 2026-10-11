@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"strings"
 	"unsafe"
 )
 
@@ -61,7 +62,19 @@ func ParseClientHello(data []byte) (*ClientHelloInfo, error) {
 		// record layer. This handles fragmented ClientHello messages that
 		// exceed the 16384-byte TLS record limit.
 		if recordCount > 1 && len(payloads) >= 4 {
-			return parseClientHelloBody(payloads, data)
+			info, err := parseClientHelloBody(payloads, data)
+			if err != nil {
+				return nil, err
+			}
+			// JA4PROXY-2026-0108: payloads is a transient heap slice inside this function.
+			// Clone all extracted strings so info does not hold dangling pointers into transient memory.
+			if info.SNI != "" {
+				info.SNI = strings.Clone(info.SNI)
+			}
+			for i, alpn := range info.ALPNProtocols {
+				info.ALPNProtocols[i] = strings.Clone(alpn)
+			}
+			return info, nil
 		}
 	}
 	//   byte 0:    content type (0x16 = Handshake)

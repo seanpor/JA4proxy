@@ -325,12 +325,27 @@ func RemotePort(conn net.Conn) int {
 	return 0
 }
 
+func sanitizeString(s string) string {
+	if s == "" {
+		return ""
+	}
+	var b strings.Builder
+	b.Grow(len(s))
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if c >= 0x20 && c != 0x7f {
+			b.WriteByte(c)
+		}
+	}
+	return b.String()
+}
+
 func PopulateTLSFingerprints(connCtx *security.ConnectionContext, hello *tlsparse.ClientHelloInfo) {
 	connCtx.JA4 = tlsparse.ComputeJA4(hello)
 	connCtx.TLSVersion = int(hello.LegacyVersion)
-	connCtx.SNI = strings.Clone(hello.SNI)
+	connCtx.SNI = sanitizeString(hello.SNI)
 	if len(hello.ALPNProtocols) > 0 {
-		connCtx.ALPN = strings.Clone(hello.ALPNProtocols[0])
+		connCtx.ALPN = sanitizeString(hello.ALPNProtocols[0])
 	}
 	connCtx.CipherList = make([]int, len(hello.CipherSuites))
 	for i, cs := range hello.CipherSuites {
