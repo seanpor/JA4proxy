@@ -4315,8 +4315,8 @@ phases:
       vendored JS CVEs."
   814f:
     name: "Pentest: supply chain and CI/CD (fork-based, de-escalation ladder)"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_814.md
+    status: IN_PROGRESS
+    action_plan: docs/phases/PHASE_814f.md
     dependencies: [814b]
     size: LARGE
     summary: "Stage 1, largest never-tested surface — and it grew in Phase 812.
