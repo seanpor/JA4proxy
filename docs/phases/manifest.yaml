@@ -4273,8 +4273,9 @@ phases:
       immediately to Wave 1. Backstopped by hardened scripts/verify_revert.sh."
   814d:
     name: "Pentest: decision-logic and false-positive weaponisation"
-    status: IN_PROGRESS
-    action_plan: docs/phases/PHASE_814d.md
+    status: COMPLETE
+    completed: 2026-10-11
+    action_plan: docs/phases/complete/PHASE_814d.md
     dependencies: [814b]
     size: LARGE
     summary: "Stage 1, highest-value sub-phase, no true precedent in prior
@@ -5277,3 +5278,11 @@ phases:
     dependencies: []
     size: MEDIUM
     summary: "Critical architectural evaluation of replacing heavy third-party telemetry sidecars (Loki, Grafana, Prometheus sidecars) with LogTide to reduce resource footprint, eliminate JVM/runtime overhead, and eliminate third-party container CVE waiver debt."
+  842:
+    name: "Concurrency Assurance & Systematic Race Condition Elimination"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_842.md
+    dependencies: [814d]
+    size: LARGE
+    summary: "Systematic, layered engineering programme to eliminate race conditions, memory synchronization bugs, and deadlock risks across JA4proxy: strict partial lock ordering (L_Server < L_Pipeline < L_Cache) with go-deadlock, atomic snapshotting (atomic.Pointer[PipelineSnapshot]) for zero-lock connection evaluation, two-phase channel teardown protocol, sync.WaitGroup worker termination handshakes, uber-go/goleak verification across all suites, and pgregory.net/rapid concurrent linearizability fuzzing."
+
