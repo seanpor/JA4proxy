@@ -1,0 +1,3 @@
+- Deliver Phase 814c retrospective closure sweep: verified two-state proofs for 31 CRITICAL and HIGH security findings and promoted them to VERIFIED posture in `docs/security/findings.yaml`.
+- Add automated toolchain alignment validator `scripts/check_toolchain_alignment.py` and wire `make check-toolchain` target into `make lint-meta` to prevent `go.mod` vs `golangci-lint` vs Docker base image version drift.
+- Repair `scripts/check_updates.py` to target root `go.mod` (`REPO_ROOT`) across all Go proxy dependencies.
