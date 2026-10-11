@@ -43,8 +43,8 @@ from pathlib import Path
 SHA_AND_TAG_RE = re.compile(
     r"uses:\s*([^/\s]+/[^@\s]+)@([a-f0-9]{40})\s*#\s*(v[0-9A-Za-z.\-_]+)"
 )
-ACTION_NAME_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
-TAG_RE = re.compile(r"^v?[0-9]+(\.[0-9]+){0,3}(-[A-Za-z0-9.]+)?$")
+ACTION_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*/[A-Za-z0-9][A-Za-z0-9_.-]*\Z")
+TAG_RE = re.compile(r"^v?[0-9]+(\.[0-9]+){0,3}(-[A-Za-z0-9.]+)?\Z")
 
 
 def extract_triples(workflow_dir: Path) -> set[tuple[str, str, str]]:
