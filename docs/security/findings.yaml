@@ -1,5 +1,5 @@
 schema_version: 1
-last_allocated_id: 102
+last_allocated_id: 105
 findings:
 - id: JA4PROXY-2026-0001
   title: PROXY Protocol v2 Spoofing from Untrusted Source
@@ -3280,5 +3280,94 @@ findings:
   depends_on: []
   regression_test: internal/security/fail_open_test.go::TestFailOpen_ExternalDependencyDegradation
   closed_commit: ''
-  notes: Identified and fixed during Phase 814d adversarial pentest. Enforce metrics.BeaconingJobsDroppedTotal and
-    metrics.RDAPQueueDroppedTotal per AGENTS.md code patterns.
+  notes: Identified and fixed during Phase 814d adversarial pentest. Enforce metrics.BeaconingJobsDroppedTotal
+    and metrics.RDAPQueueDroppedTotal per AGENTS.md code patterns.
+- id: JA4PROXY-2026-0103
+  title: OIDC ID token claim extraction fails to validate aud and iss claims
+  severity: HIGH
+  severity_rationale: An attacker with a valid ID token issued by the same IdP for another client application
+    can exchange it for an administrative session on JA4proxy (missing aud/iss token binding, absorbed
+    from Phase 523).
+  source_refs:
+  - report: PHASE_814e
+    id: 814e-01
+    discovered: '2026-10-11'
+  remediation_phases:
+  - 814e
+  owner: ''
+  lane: python-management
+  discovered: '2026-10-11'
+  found_against:
+    git_sha: e4a463be5d2d19fc8c0e13cf1ae84cdafe37ca3a
+    config_sha256: da71b09b56c2fe97
+    note: pentest range, production posture
+  due: '2026-11-10'
+  github_issue: 561
+  status: FIXED
+  supersedes: []
+  depends_on: []
+  regression_test: tests/adversarial/mgmt/test_auth_cryptographic_deepdive.py::test_oidc_aud_and_iss_validation
+  closed_commit: ''
+  cvss_v3_1:
+    score: 8.1
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:N
+- id: JA4PROXY-2026-0104
+  title: CSRF middleware scopes enforcement to /api/v1/ prefix, exposing non-API mutating MFA and WebAuthn
+    routes
+  severity: MEDIUM
+  severity_rationale: Mutating endpoints outside /api/v1/ (such as DELETE /auth/mfa/webauthn/credentials/{id}
+    and POST /auth/mfa/totp/verify) rely on cookie authentication but bypass CSRF double-submit validation,
+    allowing cross-site manipulation of enrolled credentials.
+  source_refs:
+  - report: PHASE_814e
+    id: 814e-02
+    discovered: '2026-10-11'
+  remediation_phases:
+  - 814e
+  owner: ''
+  lane: python-management
+  discovered: '2026-10-11'
+  found_against:
+    git_sha: e4a463be5d2d19fc8c0e13cf1ae84cdafe37ca3a
+    config_sha256: da71b09b56c2fe97
+    note: pentest range, production posture
+  due: '2026-12-10'
+  github_issue: 562
+  status: FIXED
+  supersedes: []
+  depends_on: []
+  regression_test: tests/adversarial/mgmt/test_ssrf_and_injection.py::test_non_api_mutating_mfa_requires_csrf
+  closed_commit: ''
+  cvss_v3_1:
+    score: 7.1
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:H/A:L
+- id: JA4PROXY-2026-0105
+  title: Missing HTTP security response headers across management API and Web UI (CSP, HSTS, X-Content-Type-Options,
+    Frame-Ancestors)
+  severity: LOW
+  severity_rationale: While base.html specifies a <meta> CSP tag, HTTP responses omit server-level security
+    headers (X-Content-Type-Options, X-Frame-Options/frame-ancestors, Strict-Transport-Security, Content-Security-Policy),
+    which are not enforced on non-HTML responses or frame-ancestors checks.
+  source_refs:
+  - report: PHASE_814e
+    id: 814e-03
+    discovered: '2026-10-11'
+  remediation_phases:
+  - 814e
+  owner: ''
+  lane: python-management
+  discovered: '2026-10-11'
+  found_against:
+    git_sha: e4a463be5d2d19fc8c0e13cf1ae84cdafe37ca3a
+    config_sha256: da71b09b56c2fe97
+    note: pentest range, production posture
+  due: '2027-02-08'
+  github_issue: 563
+  status: FIXED
+  supersedes: []
+  depends_on: []
+  regression_test: tests/adversarial/mgmt/test_ui_xss_and_csp.py::test_security_response_headers_enforced
+  closed_commit: ''
+  cvss_v3_1:
+    score: 4.3
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:L/A:N

@@ -4294,7 +4294,7 @@ phases:
       path and ban expiry."
   814e:
     name: "Pentest: Management API and UI (WSTG / ASVS L2 / API Top 10)"
-    status: PROPOSED
+    status: IN_PROGRESS
     action_plan: docs/phases/PHASE_814e.md
     dependencies: [814b]
     size: LARGE
