@@ -4295,7 +4295,7 @@ phases:
   814e:
     name: "Pentest: Management API and UI (WSTG / ASVS L2 / API Top 10)"
     status: PROPOSED
-    action_plan: docs/phases/PHASE_814.md
+    action_plan: docs/phases/PHASE_814e.md
     dependencies: [814b]
     size: LARGE
     summary: "Stage 1, highest likely finding yield. Generated every-route x
