@@ -18,7 +18,7 @@ jobs:
   maintainer-automerge:
     name: Maintainer auto-merge
     runs-on: ubuntu-latest
-    if: (github.actor == 'seanpor' || startsWith(github.head_ref, 'phase-')) && !github.event.pull_request.draft
+    if: (github.event.pull_request.head.repo.full_name == github.repository) && (github.actor == 'seanpor' || startsWith(github.head_ref, 'phase-')) && !github.event.pull_request.draft
     steps:
       - name: Enable auto-merge for maintainer / phase PR
         run: gh pr merge --auto --squash "$PR_URL" || echo "Auto-merge could not be set"

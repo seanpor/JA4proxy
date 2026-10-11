@@ -1,5 +1,5 @@
 schema_version: 1
-last_allocated_id: 105
+last_allocated_id: 107
 findings:
 - id: JA4PROXY-2026-0001
   title: PROXY Protocol v2 Spoofing from Untrusted Source
@@ -3371,3 +3371,61 @@ findings:
   cvss_v3_1:
     score: 4.3
     vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:L/A:N
+- id: JA4PROXY-2026-0106
+  title: maintainer-automerge workflow on pull_request_target allows arbitrary fork PRs to trigger auto-merge
+    via head_ref name
+  severity: HIGH
+  severity_rationale: An untrusted fork PR with a branch name starting with 'phase-' satisfies the workflow
+    if condition and attempts auto-merge with write tokens.
+  source_refs:
+  - report: PHASE_814f
+    id: 814f-01
+    discovered: '2026-10-11'
+  remediation_phases:
+  - 814f
+  owner: '@seanpor'
+  lane: infrastructure
+  discovered: '2026-10-11'
+  due: '2026-11-10'
+  github_issue: 565
+  found_against:
+    git_sha: 2e83d10e6aebc3aa25c2763f044bb4f64da21342
+    config_sha256: da71b09b56c2fe97
+    note: pentest range, CI/CD workflow security posture
+  status: FIXED
+  supersedes: []
+  depends_on: []
+  regression_test: tests/adversarial/cicd/test_maintainer_automerge_security.py::test_maintainer_automerge_condition_rejects_fork_phase_branch
+  closed_commit: ''
+  cvss_v3_1:
+    score: 7.5
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N
+- id: JA4PROXY-2026-0107
+  title: pin_table_autofix.py ACTION_NAME_RE regex permits leading dashes causing potential flag injection
+    in git ls-remote
+  severity: LOW
+  severity_rationale: An action name starting with a dash (e.g. -option/repo) passes regex validation
+    and is passed as a URL argument to git ls-remote.
+  source_refs:
+  - report: PHASE_814f
+    id: 814f-02
+    discovered: '2026-10-11'
+  remediation_phases:
+  - 814f
+  owner: '@seanpor'
+  lane: infrastructure
+  discovered: '2026-10-11'
+  due: '2027-02-08'
+  github_issue: 566
+  found_against:
+    git_sha: 2e83d10e6aebc3aa25c2763f044bb4f64da21342
+    config_sha256: da71b09b56c2fe97
+    note: pentest range, CI/CD workflow security posture
+  status: FIXED
+  supersedes: []
+  depends_on: []
+  regression_test: tests/adversarial/cicd/test_pin_table_autofix_security.py::test_parser_input_validation_regexes
+  closed_commit: ''
+  cvss_v3_1:
+    score: 3.7
+    vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:L/A:N
