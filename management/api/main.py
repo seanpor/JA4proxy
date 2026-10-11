@@ -305,6 +305,19 @@ def create_app() -> FastAPI:
         _m.REQUEST_DURATION_MS.labels(request.method, path).observe(elapsed_ms)
         if response.status_code in (401, 403):
             _m.AUTH_FAILURES.labels("401" if response.status_code == 401 else "403").inc()
+
+        # JA4PROXY-2026-0105: Standard HTTP security headers across all API and UI endpoints
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault(
+            "Content-Security-Policy",
+            "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+            "style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; "
+            "connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+        )
+        if request.url.scheme == "https" or is_production():
+            response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+
         return response
 
     @app.get("/metrics", include_in_schema=False)

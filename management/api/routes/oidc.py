@@ -213,17 +213,23 @@ async def _fetch_jwks(jwks_uri: str) -> object:
         return key_set
 
 
-async def _extract_claims(id_token: str, jwks_uri: str) -> dict:
+async def _extract_claims(
+    id_token: str,
+    jwks_uri: str,
+    expected_issuer: Optional[str] = None,
+    expected_audience: Optional[str] = None,
+) -> dict:
     """Verify the ID token signature using JWKS and return its claims.
 
-    In ``MANAGEMENT_TEST_MODE=1`` (unit tests only), signature verification is
-    skipped and the payload is returned decoded without verification — this
-    preserves the existing unit-test behaviour for tests that are not testing
-    JWKS.  In all other environments, RS256/ES256 signature is fully verified.
+    In all environments, RS256/ES256 signature is fully verified, and
+    claims are validated against the expected issuer and audience
+    (JA4PROXY-2026-0103 / Phase 523 Item 1 token binding).
 
     Args:
         id_token: The raw ID token JWT string.
         jwks_uri: The JWKS URI from the OIDC discovery document.
+        expected_issuer: Expected IdP issuer URI (default: from discovery or None).
+        expected_audience: Expected client ID (default: MANAGEMENT_OIDC_CLIENT_ID).
 
     Returns:
         Dict of verified JWT claims.
@@ -260,9 +266,22 @@ async def _extract_claims(id_token: str, jwks_uri: str) -> dict:
             detail="ID token uses disallowed signature algorithm",
         )
 
+    claims_options = {}
+    aud = expected_audience or os.environ.get("MANAGEMENT_OIDC_CLIENT_ID")
+    if aud:
+        claims_options["aud"] = {"essential": True, "value": aud}
+
+    iss = expected_issuer or os.environ.get("MANAGEMENT_OIDC_ISSUER")
+    if not iss:
+        discovery_url = os.environ.get("MANAGEMENT_OIDC_DISCOVERY_URL", "")
+        if "/.well-known/" in discovery_url:
+            iss = discovery_url.split("/.well-known/", 1)[0]
+    if iss:
+        claims_options["iss"] = {"essential": True, "value": iss}
+
     try:
         key_set = await _fetch_jwks(jwks_uri)
-        claims = _OIDC_JWT.decode(id_token, key_set)
+        claims = _OIDC_JWT.decode(id_token, key_set, claims_options=claims_options or None)
         claims.validate()
         return dict(claims)
     except HTTPException:
@@ -465,7 +484,12 @@ async def oidc_callback(
     # Verify ID token signature and extract claims (Gap 1 — Production Readiness)
     id_token = token_response.get("id_token", "")
     try:
-        claims = await _extract_claims(id_token, jwks_uri)
+        claims = await _extract_claims(
+            id_token,
+            jwks_uri,
+            expected_issuer=discovery.get("issuer"),
+            expected_audience=os.environ.get("MANAGEMENT_OIDC_CLIENT_ID"),
+        )
     except HTTPException:
         raise
     except Exception as exc:

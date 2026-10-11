@@ -61,6 +61,24 @@ CSRF_HEADER_NAME = "X-CSRF-Token"
 TOKEN_VALIDITY_SECONDS = 3600  # 1 hour
 _API_PREFIX = "/api/v1/"
 _MUTATING_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
+# Public endpoints that either initiate login or receive standard SSO assertion POSTs.
+# These have their own single-use nonce / PKCE / state checks.
+_CSRF_EXEMPT_PATHS = frozenset({
+    "/auth/login",
+    "/auth/sso/saml/acs",
+    "/auth/sso/oidc/callback",
+})
+
+
+def _requires_csrf_protection(path: str) -> bool:
+    """Return True if the route must enforce CSRF protection on mutation."""
+    if path in _CSRF_EXEMPT_PATHS:
+        return False
+    if path.startswith(_API_PREFIX):
+        return True
+    if path.startswith("/auth/mfa/"):
+        return True
+    return False
 
 
 def _get_signing_key() -> bytes:
@@ -179,8 +197,8 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         if os.environ.get("MANAGEMENT_DISABLE_CSRF") == "1" and is_explicit_nonproduction():
             return await call_next(request)
 
-        # Not an API route → middleware is a no-op.
-        if not path.startswith(_API_PREFIX):
+        # Routes outside protected scope → middleware is a no-op.
+        if not _requires_csrf_protection(path):
             return await call_next(request)
 
         # Bearer-token callers are out of scope — the browser cannot
