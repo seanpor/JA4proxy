@@ -1,5 +1,5 @@
 schema_version: 1
-last_allocated_id: 107
+last_allocated_id: 109
 findings:
 - id: JA4PROXY-2026-0001
   title: PROXY Protocol v2 Spoofing from Untrusted Source
@@ -3429,3 +3429,62 @@ findings:
   cvss_v3_1:
     score: 3.7
     vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:L/A:N
+- id: JA4PROXY-2026-0108
+  title: ParseClientHello unsafeString zero-copy points to transient heap slice during multi-record reassembly
+  severity: HIGH
+  severity_rationale: When ClientHello is fragmented across multiple TLS records (recordCount > 1), payloads
+    is a local heap slice inside ParseClientHello. unsafeString creates string headers pointing into payloads,
+    which can be garbage collected or recycled while callers hold ClientHelloInfo.
+  source_refs:
+  - report: PHASE_814h
+    id: 814h-01
+    discovered: '2026-10-11'
+  remediation_phases:
+  - 814h
+  owner: '@seanpor'
+  lane: go-proxy
+  discovered: '2026-10-11'
+  due: '2026-11-10'
+  github_issue: 570
+  found_against:
+    git_sha: b6ef681edbe3ff7b036577fc24fa69fffa68b75f
+    config_sha256: da71b09b56c2fe97
+    note: pentest range, Go dataplane TLS parser posture
+  status: FIXED
+  supersedes: []
+  depends_on: []
+  regression_test: internal/tls/parser_pentest_regression_test.go::TestRegression_JA4PROXY_2026_0108_MultiRecordStringCloned
+  closed_commit: ''
+  cvss_v3_1:
+    score: 8.1
+    vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H
+- id: JA4PROXY-2026-0109
+  title: parseSNI and parseALPN permit embedded NUL bytes and control characters causing log and event
+    stream injection
+  severity: MEDIUM
+  severity_rationale: parseSNI and parseALPN extract strings directly using byte lengths without validating
+    RFC 6066 hostname syntax. Embedded NUL bytes or CRLF control characters injected via SNI or ALPN propagate
+    to log files and JSON event streams.
+  source_refs:
+  - report: PHASE_814h
+    id: 814h-02
+    discovered: '2026-10-11'
+  remediation_phases:
+  - 814h
+  owner: '@seanpor'
+  lane: go-proxy
+  discovered: '2026-10-11'
+  due: '2026-12-10'
+  github_issue: 571
+  found_against:
+    git_sha: b6ef681edbe3ff7b036577fc24fa69fffa68b75f
+    config_sha256: da71b09b56c2fe97
+    note: pentest range, Go dataplane TLS parser posture
+  status: FIXED
+  supersedes: []
+  depends_on: []
+  regression_test: cmd/ja4pd/pentest_sni_alpn_control_chars_test.go::TestRegression_JA4PROXY_2026_0109_SanitizesSNIAndALPNControlChars
+  closed_commit: ''
+  cvss_v3_1:
+    score: 6.5
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:L/A:L

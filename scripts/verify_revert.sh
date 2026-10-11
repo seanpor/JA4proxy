@@ -159,7 +159,7 @@ run_test() {
         if [ -x "/snap/go/current/bin/go" ]; then
             go_bin="/snap/go/current/bin/go"
         fi
-        ( cd "$dir" && GOROOT="/snap/go/current" "$go_bin" test "${run_arg[@]}" "$(dirname "${test_file#./}")/..." 2>&1 )
+        ( cd "$dir" && GOROOT="/snap/go/current" "$go_bin" test "${run_arg[@]}" "./$(dirname "${test_file#./}")/..." 2>&1 )
     else
         if [ -f "/.dockerenv" ] || ! command -v docker >/dev/null 2>&1 || ! docker info >/dev/null 2>&1; then
             ( cd "$dir" && PYTHONPATH="$dir" pytest "$nodeid" -q 2>&1 )
