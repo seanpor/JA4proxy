@@ -1,0 +1,36 @@
+# JA4proxy LogTide Benchmark & Evaluation Stack (Phase 840)
+name: ja4proxy-logtide-eval
+
+services:
+  logtide-sidecar:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.logtide
+    image: ja4proxy-logtide:1.0.0
+    container_name: ja4proxy-logtide-eval
+    environment:
+      - LOGTIDE_MODE=eval
+      - LOGTIDE_PORT=8080
+    ports:
+      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:9090:9090"
+    restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: '0.5'
+        reservations:
+          memory: 16M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "2"
