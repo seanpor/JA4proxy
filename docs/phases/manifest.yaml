@@ -4273,8 +4273,8 @@ phases:
       immediately to Wave 1. Backstopped by hardened scripts/verify_revert.sh."
   814d:
     name: "Pentest: decision-logic and false-positive weaponisation"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_814.md
+    status: IN_PROGRESS
+    action_plan: docs/phases/PHASE_814d.md
     dependencies: [814b]
     size: LARGE
     summary: "Stage 1, highest-value sub-phase, no true precedent in prior
