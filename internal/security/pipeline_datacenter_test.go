@@ -92,7 +92,7 @@ func dcTestPipeline(t *testing.T, action string, exceptions []uint, asnNum uint)
 	}
 	p := NewPipeline(cfg, r, nil)
 	// Inject classifier that always says "this IP is datacenter ASN asnNum".
-	p.asnClassifier = newDCClassifier(asnNum, "TestDC Corp", map[uint]bool{asnNum: true}, nil)
+	p.SetASNClassifierForTest(newDCClassifier(asnNum, "TestDC Corp", map[uint]bool{asnNum: true}, nil))
 	return p
 }
 
@@ -159,7 +159,7 @@ func TestDatacenterPolicy_NonDatacenterIP_Unaffected(t *testing.T) {
 	}
 	p := NewPipeline(cfg, r, nil)
 	// Inject classifier that returns residential ASN (not in datacenter list).
-	p.asnClassifier = newDCClassifier(15169, "Google", map[uint]bool{}, nil)
+	p.SetASNClassifierForTest(newDCClassifier(15169, "Google", map[uint]bool{}, nil))
 	conn := &ConnectionContext{ClientIP: "8.8.8.8", JA4: "t13d190900"}
 	result := p.processInternal(context.Background(), conn)
 	if result != nil && result.BypassReason == "datacenter_policy" {
@@ -186,7 +186,7 @@ func TestDatacenterPolicy_ReplaceConfig_UpdatesPolicy(t *testing.T) {
 		Action: "tarpit", Exceptions: nil, LogActions: false,
 	}
 	p.ReplaceConfig(&newCfg)
-	p.asnClassifier = newDCClassifier(16509, "Amazon AWS", map[uint]bool{16509: true}, nil)
+	p.SetASNClassifierForTest(newDCClassifier(16509, "Amazon AWS", map[uint]bool{16509: true}, nil))
 
 	r2 := p.processInternal(context.Background(), conn)
 	if r2 == nil || r2.Action != "tarpit" {

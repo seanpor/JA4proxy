@@ -12,7 +12,7 @@ read the top of the file for full options.
 
 <!-- BEGIN GENERATED: scripts -->
 
-_137 scripts. Generated from each script's header comment by `make sync` — do not edit this table by hand._
+_138 scripts. Generated from each script's header comment by `make sync` — do not edit this table by hand._
 
 | Script | Called by | What it does |
 |--------|-----------|--------------|
@@ -119,6 +119,7 @@ _137 scripts. Generated from each script's header comment by `make sync` — do 
 | `rotate_soar_token.sh` | — | Rotate a JA4proxy Management API SOAR token. |
 | `run-all-tests.sh` | — | JA4proxy Comprehensive Test Runner |
 | `run-benchmark.sh` | — | Load .env if available |
+| `run-concurrency-stress.sh` | `make test-race-stress` | scripts/run-concurrency-stress.sh |
 | `run-local-tests.sh` | — | JA4proxy — local test runner |
 | `run-tests.sh` | `make test-docker` | Test runner script for JA4 Proxy POC |
 | `scale-proxies.sh` | — | Scale JA4proxy to N proxy instances behind HAProxy |

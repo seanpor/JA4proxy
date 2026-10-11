@@ -84,9 +84,9 @@ func (c *DecisionCache) Get(key string) (*PipelineResult, bool) {
 		return nil, false
 	}
 	if !now.Before(e.expiresAt) {
-		// Expired — drop under the write lock and report a miss.
+		// Expired — drop under write lock.
 		c.mu.Lock()
-		if cur, still := c.data[key]; still && cur.expiresAt.Equal(e.expiresAt) {
+		if cur, still := c.data[key]; still && !now.Before(cur.expiresAt) {
 			delete(c.data, key)
 		}
 		c.mu.Unlock()

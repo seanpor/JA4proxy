@@ -159,9 +159,9 @@ func TestPipeline_ProcessRecordsASNProvenanceOnContext(t *testing.T) {
 		Blacklist: map[string]bool{},
 	}, &mockRedis{dial: 100}, nil)
 	p.Sync = true
-	p.asnClassifier = newTestASNClassifier(
+	p.SetASNClassifierForTest(newTestASNClassifier(
 		defaultASNCfg(), residentialLookup(15502, "Vodafone Ireland"),
-	)
+	))
 
 	conn := &ConnectionContext{
 		ParsedIP: net.ParseIP("86.40.7.11"),

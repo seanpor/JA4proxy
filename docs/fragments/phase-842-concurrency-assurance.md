@@ -1,0 +1,6 @@
+- Implemented True Copy-on-Write architecture for JA4proxy connection evaluation via `atomic.Pointer[PipelineSnapshot]`, eliminating mutex acquisition on the critical request path.
+- Established strict partial lock hierarchy ($L_{\text{Server}} \prec L_{\text{Pipeline}} \prec L_{\text{Tarpit}} \prec L_{\text{TrustedCIDRs}} \prec L_{\text{DecisionCache}}$) with zero-tolerance cycle detection documented in `docs/architecture/CONCURRENCY.md`.
+- Implemented structured worker lifecycle handshakes (`sync.WaitGroup` and `Stop()`) across background enrichment modules (`DNSEnrichment`, `RDAPEnricher`, `AbuseIPDB`, and `FeedDownloader`) to guarantee race-free reloads.
+- Hardened `DecisionCache` against TOCTOU race conditions under lock transition.
+- Integrated `pgregory.net/rapid` property-based concurrent linearizability fuzz testing and `uber-go/goleak` leak detection.
+- Introduced `make test-race-stress` multi-core high-preemption stress testing harness.

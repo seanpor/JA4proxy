@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -45,6 +46,7 @@ type AbuseIPDB struct {
 	http       *http.Client
 	queue      chan string
 	log        *logrus.Logger
+	wg         sync.WaitGroup
 }
 
 // NewAbuseIPDB creates an AbuseIPDB instance.
@@ -88,8 +90,17 @@ func (a *AbuseIPDB) Start(ctx context.Context) {
 		workers = 2
 	}
 	for i := 0; i < workers; i++ {
-		go a.worker(ctx)
+		a.wg.Add(1)
+		go func() {
+			defer a.wg.Done()
+			a.worker(ctx)
+		}()
 	}
+}
+
+// Stop waits for all running workers to terminate.
+func (a *AbuseIPDB) Stop() {
+	a.wg.Wait()
 }
 
 func (a *AbuseIPDB) worker(ctx context.Context) {

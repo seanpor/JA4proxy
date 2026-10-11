@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"sync"
 
 	"github.com/seanpor/ja4proxy/internal/metrics"
 	"github.com/sirupsen/logrus"
@@ -33,6 +34,7 @@ type DNSEnrichment struct {
 	redis RedisWriter
 	log   *logrus.Logger
 	queue chan string
+	wg    sync.WaitGroup
 }
 
 // NewDNSEnrichment creates a DNSEnrichment with the given configuration.
@@ -58,8 +60,17 @@ func (d *DNSEnrichment) Start(ctx context.Context) {
 		workers = 4
 	}
 	for i := 0; i < workers; i++ {
-		go d.worker(ctx)
+		d.wg.Add(1)
+		go func() {
+			defer d.wg.Done()
+			d.worker(ctx)
+		}()
 	}
+}
+
+// Stop waits for all running workers to terminate.
+func (d *DNSEnrichment) Stop() {
+	d.wg.Wait()
 }
 
 func (d *DNSEnrichment) worker(ctx context.Context) {

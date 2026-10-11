@@ -46,6 +46,7 @@ type FeedDownloader struct {
 
 	mu    sync.Mutex
 	etags map[string]string
+	wg    sync.WaitGroup
 }
 
 // NewFeedDownloader builds a downloader for the enabled, URL-bearing feeds in
@@ -77,8 +78,20 @@ func (d *FeedDownloader) Start(ctx context.Context) {
 		if !fc.Enabled || fc.URL == "" {
 			continue
 		}
-		go d.runFeed(ctx, fc)
+		d.wg.Add(1)
+		go func(feed BlocklistFeedConfig) {
+			defer d.wg.Done()
+			d.runFeed(ctx, feed)
+		}(fc)
 	}
+}
+
+// Stop waits for all running feed download workers to terminate.
+func (d *FeedDownloader) Stop() {
+	if d == nil {
+		return
+	}
+	d.wg.Wait()
 }
 
 func (d *FeedDownloader) runFeed(ctx context.Context, fc BlocklistFeedConfig) {
