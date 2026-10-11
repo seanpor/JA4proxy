@@ -266,6 +266,24 @@ var (
 		},
 	)
 
+	// BeaconingJobsDroppedTotal counts beaconing jobs dropped because the
+	// bounded beaconing worker queue was saturated (JA4PROXY-2026-0102).
+	BeaconingJobsDroppedTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "ja4proxy_beaconing_jobs_dropped_total",
+			Help: "Beaconing jobs dropped due to saturated beaconing worker queue",
+		},
+	)
+
+	// RDAPQueueDroppedTotal counts RDAP lookups dropped because the
+	// async RDAP queue was saturated (JA4PROXY-2026-0102).
+	RDAPQueueDroppedTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "ja4proxy_rdap_queue_dropped_total",
+			Help: "RDAP lookups dropped due to saturated RDAP worker queue",
+		},
+	)
+
 	ConnectionErrorsTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "ja4proxy_connection_errors_total",
@@ -448,6 +466,8 @@ func Register() {
 		SignalDriftTotal,
 		WorkChanDroppedTotal,
 		AuditJobsDroppedTotal,
+		BeaconingJobsDroppedTotal,
+		RDAPQueueDroppedTotal,
 		ActiveConnections, RiskScore,
 		DialCurrent, DialChangesTotal, SecurityEventsTotal, TarpitConcurrent,
 		TarpitOverflowTotal, ConfigReloadsTotal, BypassTotal, SignalTotal,

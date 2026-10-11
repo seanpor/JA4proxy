@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/seanpor/ja4proxy/internal/metrics"
 	"github.com/sirupsen/logrus"
 	"go.yaml.in/yaml/v3"
 )
@@ -133,9 +134,12 @@ func (r *RDAPEnricher) GetSignals(ctx context.Context, conn *ConnectionContext, 
 			select {
 			case r.queue <- rdapJob{ip: conn.ClientIP, score: triggerScore, alpn: conn.ALPN}:
 			default:
+				// Worker queue saturated — drop rather than block (JA4PROXY-2026-0102)
+				metrics.RDAPQueueDroppedTotal.Inc()
 			}
 		}
 		return nil
+
 	}
 
 	var res rdapResult

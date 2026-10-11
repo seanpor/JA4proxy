@@ -925,8 +925,10 @@ func (p *Pipeline) processInternal(ctx context.Context, conn *ConnectionContext)
 	select {
 	case p.beaconingJobs <- beaconingJob{ctx: ctx, conn: conn, action: action}:
 	default:
-		// Worker saturated — drop rather than block the pipeline
+		// Worker saturated — drop rather than block the pipeline (JA4PROXY-2026-0102)
+		metrics.BeaconingJobsDroppedTotal.Inc()
 	}
+
 
 	// phase-828a: compute counterfactuals at every dial, not only at dial 0.
 	//
