@@ -12,6 +12,7 @@ import os
 import pathlib
 import subprocess
 import tempfile
+
 import pytest
 
 SCRIPT_PATH = pathlib.Path(__file__).resolve().parent.parent.parent / "scripts" / "verify_revert.sh"

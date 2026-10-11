@@ -13,6 +13,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -40,7 +41,6 @@ def main() -> int:
     for f in findings:
         fid = f.get("id")
         sev = f.get("severity")
-        st = f.get("status")
         reg_test = f.get("regression_test")
         closed_commit = f.get("closed_commit")
 

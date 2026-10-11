@@ -104,8 +104,7 @@ def parse_fastapi_routes_from_file(file_path: Path) -> list[dict]:
                                         endpoint_role = extracted
 
                         # Check function parameter defaults (e.g. user = Depends(require_role(...)))
-                        for arg in node.args.args + node.args.kwonlyargs:
-                            default_idx = len(node.args.args) - len(node.args.defaults)
+                        for _arg in node.args.args + node.args.kwonlyargs:
                             # Match args with defaults if present
                             pass
 
@@ -200,8 +199,8 @@ def generate_attack_surface_md(routes: list[dict], listeners: list[dict], redis_
         "| :--- | :--- | :--- | :--- | :--- |",
     ])
 
-    for l in listeners:
-        lines.append(f"| `{l['service']}` | `{l['container']}` | `{l['zone']}` | `{l['port']}` | {l['ingress']} |")
+    for item in listeners:
+        lines.append(f"| `{item['service']}` | `{item['container']}` | `{item['zone']}` | `{item['port']}` | {item['ingress']} |")
 
     lines.extend([
         "",
