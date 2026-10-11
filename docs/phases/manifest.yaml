@@ -4376,8 +4376,8 @@ phases:
       library."
   814i:
     name: "Pentest: network and DMZ edge"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_814.md
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_814i.md
     dependencies: [814b]
     size: MEDIUM
     summary: "Stage 1. Re-tests from scratch against Go what the 2026-04-16

@@ -384,11 +384,12 @@ func (s *Server) HandleConn(ctx context.Context, clientConn net.Conn) {
 	}
 
 	if cfg.Proxy.ProxyProtocol {
+		data = s.ReassembleProxyHeader(clientConn, data, buf)
 		socketIP, _ := RemoteIP(clientConn)
 		trusted := proxypkg.IsTrustedProxySourceCIDRs(socketIP, s.GetTrustedCIDRs())
 		stripped := false
 		if realIP, ok, hdrLen := proxypkg.ReadProxyProtocolV2WithLength(data); ok {
-			if trusted {
+			if trusted && realIP != "" {
 				connCtx.ClientIP = realIP
 				connCtx.ParsedIP = net.ParseIP(realIP)
 			}
@@ -396,7 +397,7 @@ func (s *Server) HandleConn(ctx context.Context, clientConn net.Conn) {
 			data = data[hdrLen:]
 			stripped = true
 		} else if realIP, ok := proxypkg.ReadProxyProtocol(data); ok {
-			if trusted {
+			if trusted && realIP != "" {
 				connCtx.ClientIP = realIP
 				connCtx.ParsedIP = net.ParseIP(realIP)
 			}
@@ -438,6 +439,28 @@ func (s *Server) HandleConn(ctx context.Context, clientConn net.Conn) {
 			return
 		}
 		data = buf[:n]
+
+		// Multi-packet PROXY smuggling check (JA4PROXY-2026-0110):
+		// When packet 1 contained only the first PROXY header, len(data) was 0.
+		// If packet 2 begins with another PROXY header, reject it immediately.
+		if cfg.Proxy.ProxyProtocol {
+			if _, ok, _ := proxypkg.ReadProxyProtocolV2WithLength(data); ok {
+				metrics.ProxyProtocolParserEvents.WithLabelValues("smuggling_blocked").Inc()
+				metrics.ConnectionErrorsTotal.WithLabelValues("proxy_protocol_smuggling").Inc()
+				if s.Log != nil {
+					s.Log.WithField("remote", connCtx.ClientIP).Warn("proxy: multi-packet chained PROXY v2 header rejected as smuggling attempt")
+				}
+				return
+			}
+			if _, ok := proxypkg.ReadProxyProtocol(data); ok {
+				metrics.ProxyProtocolParserEvents.WithLabelValues("smuggling_blocked").Inc()
+				metrics.ConnectionErrorsTotal.WithLabelValues("proxy_protocol_smuggling").Inc()
+				if s.Log != nil {
+					s.Log.WithField("remote", connCtx.ClientIP).Warn("proxy: multi-packet chained PROXY v1 header rejected as smuggling attempt")
+				}
+				return
+			}
+		}
 	}
 
 	if cfg.Security.ProtocolLockdownEnabled() && len(data) >= 1 && data[0] != 0x16 {

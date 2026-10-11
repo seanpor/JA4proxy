@@ -272,7 +272,20 @@ def _client_ip(request: Request) -> str:
         return socket_ip
 
     if any(peer in net for net in trusted):
-        return forwarded_for.split(",")[0].strip()
+        hops = [h.strip() for h in forwarded_for.split(",") if h.strip()]
+        for hop in reversed(hops):
+            try:
+                hop_ip = ipaddress.ip_address(hop)
+            except ValueError:
+                continue
+            if any(hop_ip in net for net in trusted):
+                continue
+            return str(hop_ip)
+        for hop in hops:
+            try:
+                return str(ipaddress.ip_address(hop))
+            except ValueError:
+                continue
 
     return socket_ip
 

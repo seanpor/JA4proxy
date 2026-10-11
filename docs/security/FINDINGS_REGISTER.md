@@ -102,14 +102,14 @@ get forgotten.
 
 ## Register snapshot (2026-10-11)
 
-**Total:** 103 canonical finding(s).
+**Total:** 111 canonical finding(s).
 
 | Severity | Count | Status | Count |
 |----------|-------|--------|-------|
-| CRITICAL | 14 | OPEN | 0 |
-| HIGH | 24 | IN_PROGRESS | 0 |
-| MEDIUM | 38 | FIXED | 72 |
-| LOW | 27 | VERIFIED | 31 |
+| CRITICAL | 15 | OPEN | 0 |
+| HIGH | 28 | IN_PROGRESS | 0 |
+| MEDIUM | 40 | FIXED | 80 |
+| LOW | 28 | VERIFIED | 31 |
 |  |  | CLOSED | 0 |
 |  |  | DUPLICATE | 0 |
 
@@ -311,5 +311,13 @@ get forgotten.
 | JA4PROXY-2026-0103 | HIGH | FIXED | python-management | 2026-11-10 | OIDC ID token claim extraction fails to validate aud and iss claims |
 | JA4PROXY-2026-0104 | MEDIUM | FIXED | python-management | 2026-12-10 | CSRF middleware scopes enforcement to /api/v1/ prefix, exposing non-API mutating MFA and WebAuthn routes |
 | JA4PROXY-2026-0105 | LOW | FIXED | python-management | 2027-02-08 | Missing HTTP security response headers across management API and Web UI (CSP, HSTS, X-Content-Type-Options, Frame-Ancestors) |
+| JA4PROXY-2026-0106 | HIGH | FIXED | infrastructure | 2026-11-10 | maintainer-automerge workflow on pull_request_target allows arbitrary fork PRs to trigger auto-merge via head_ref name |
+| JA4PROXY-2026-0107 | LOW | FIXED | infrastructure | 2027-02-08 | pin_table_autofix.py ACTION_NAME_RE regex permits leading dashes causing potential flag injection in git ls-remote |
+| JA4PROXY-2026-0108 | HIGH | FIXED | go-proxy | 2026-11-10 | ParseClientHello unsafeString zero-copy points to transient heap slice during multi-record reassembly |
+| JA4PROXY-2026-0109 | MEDIUM | FIXED | go-proxy | 2026-12-10 | parseSNI and parseALPN permit embedded NUL bytes and control characters causing log and event stream injection |
+| JA4PROXY-2026-0110 | CRITICAL | FIXED | go-proxy | 2026-10-18 | Multi-packet PROXY protocol smuggling bypasses secondary read anti-smuggling check |
+| JA4PROXY-2026-0111 | HIGH | FIXED | go-proxy | 2026-11-10 | Fragmented PROXY protocol header prematurely dropped by TLS protocol lockdown causing false positive denial of service |
+| JA4PROXY-2026-0112 | HIGH | FIXED | python-management | 2026-11-10 | Management API auth client IP extraction trusts leftmost X-Forwarded-For header allowing rate limit and lockout bypass |
+| JA4PROXY-2026-0113 | MEDIUM | FIXED | go-proxy | 2026-12-10 | PROXY protocol v1 and v2 parsers accept out-of-spec lines, tokens, and fail to discard LOCAL command headers |
 
 <!-- END GENERATED -->

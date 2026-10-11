@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 
 	"github.com/seanpor/ja4proxy/internal/config"
@@ -121,8 +122,14 @@ func IsTrustedProxySourceCIDRs(ip string, cidrs []string) bool {
 }
 
 // isTrustedIP checks whether addr is contained in any of the CIDRs.
+// Handles IPv4, IPv6, IPv4-mapped IPv6 (::ffff:192.0.2.1), and interface zone IDs (fe80::1%eth0).
 // Invalid IPs and malformed CIDRs are silently skipped (fail-open).
 func isTrustedIP(ip string, cidrs []string) bool {
+	// Strip interface zone index if present (e.g. fe80::1%eth0 -> fe80::1)
+	if idx := strings.IndexByte(ip, '%'); idx != -1 {
+		ip = ip[:idx]
+	}
+
 	addr := net.ParseIP(ip)
 	if addr == nil {
 		return false
@@ -137,19 +144,28 @@ func isTrustedIP(ip string, cidrs []string) bool {
 		if ipNet.Contains(addr) {
 			return true
 		}
+		// If addr is an IPv4 address, check if ipNet is an IPv4-mapped IPv6 CIDR
+		if a4 := addr.To4(); a4 != nil && len(ipNet.IP) == 16 {
+			if ipNet.Contains(addr.To16()) {
+				return true
+			}
+		}
 	}
 
 	return false
 }
 
 // ReadProxyProtocol parses a PROXY protocol v1 header from buf.
-// Returns (realClientIP, true) if the header is valid.
-// Returns ("", false) if not a PROXY protocol header.
+// Spec: HAProxy proxy-protocol.txt section 2.1
+// - Maximum line length is 107 characters (including CRLF).
+// - Transport protocol must be TCP4, TCP6, or UNKNOWN.
+// - Returns (realClientIP, true) if the header is valid.
+// - Returns ("", false) if not a PROXY protocol header.
 // Never panics. Fails open.
 func ReadProxyProtocol(buf []byte) (clientIP string, ok bool) {
 	s := string(buf)
 	crlfIdx := strings.Index(s, "\r\n")
-	if crlfIdx < 0 {
+	if crlfIdx < 0 || crlfIdx > 107 {
 		return "", false
 	}
 	if !strings.HasPrefix(s, "PROXY ") {
@@ -158,17 +174,45 @@ func ReadProxyProtocol(buf []byte) (clientIP string, ok bool) {
 	line := s[:crlfIdx]
 	parts := strings.Fields(line)
 	// PROXY TCP4 <src_ip> <dst_ip> <src_port> <dst_port>
-	if len(parts) < 6 {
+	if len(parts) < 2 {
 		return "", false
 	}
 	if parts[1] == "UNKNOWN" {
 		return "", false
 	}
-	ip := net.ParseIP(parts[2])
-	if ip == nil {
+	if parts[1] != "TCP4" && parts[1] != "TCP6" {
 		return "", false
 	}
-	return ip.String(), true
+	if len(parts) != 6 {
+		return "", false
+	}
+
+	srcIP := net.ParseIP(parts[2])
+	dstIP := net.ParseIP(parts[3])
+	if srcIP == nil || dstIP == nil {
+		return "", false
+	}
+
+	switch parts[1] {
+	case "TCP4":
+		if srcIP.To4() == nil || dstIP.To4() == nil {
+			return "", false
+		}
+	case "TCP6":
+		if srcIP.To4() != nil || dstIP.To4() != nil {
+			return "", false
+		}
+	default:
+		return "", false
+	}
+
+	srcPort, err1 := strconv.Atoi(parts[4])
+	dstPort, err2 := strconv.Atoi(parts[5])
+	if err1 != nil || err2 != nil || !validPort(srcPort) || !validPort(dstPort) {
+		return "", false
+	}
+
+	return srcIP.String(), true
 }
 
 // PROXY protocol v2 binary signature (12 bytes).
@@ -189,7 +233,10 @@ const (
 // ReadProxyProtocolV2WithLength for that.
 func ReadProxyProtocolV2(buf []byte) (clientIP string, ok bool) {
 	ip, ok, _ := ReadProxyProtocolV2WithLength(buf)
-	return ip, ok
+	if !ok || ip == "" {
+		return "", false
+	}
+	return ip, true
 }
 
 // ReadProxyProtocolV2WithLength is like ReadProxyProtocolV2 but also returns
@@ -218,9 +265,23 @@ func ReadProxyProtocolV2WithLength(buf []byte) (clientIP string, ok bool, header
 	}
 	command := cmdVer & 0x0F
 
-	// LOCAL command has no address info — nothing to extract
-	if command == v2CmdLOCAL {
+	// Address length (big-endian)
+	addrLen := int(binary.BigEndian.Uint16(buf[14:16]))
+
+	// Buffer must contain at least that many bytes after the 16-byte prefix.
+	if len(buf) < v2MinHeaderSize+addrLen {
 		return "", false, 0
+	}
+
+	headerLen = v2MinHeaderSize + addrLen
+
+	// LOCAL command per HAProxy spec 2.2:
+	// "The LOCAL command is used for health checks and internally generated connections.
+	// The receiver MUST discard the header and use the real connection's addresses."
+	// Returning ok=true with clientIP="" signals the caller to strip headerLen bytes
+	// while retaining the underlying socket address.
+	if command == v2CmdLOCAL {
+		return "", true, headerLen
 	}
 
 	// Must be PROXY command
@@ -229,17 +290,6 @@ func ReadProxyProtocolV2WithLength(buf []byte) (clientIP string, ok bool, header
 	}
 
 	family := buf[13]
-
-	// Address length (big-endian)
-	addrLen := int(binary.BigEndian.Uint16(buf[14:16]))
-
-	// Sanity check: addrLen must be reasonable (≤ 256 prevents overflow)
-	// and the buffer must contain at least that many bytes after the 16-byte prefix.
-	if addrLen > 256 || len(buf) < v2MinHeaderSize+addrLen {
-		return "", false, 0
-	}
-
-	headerLen = v2MinHeaderSize + addrLen
 
 	// Parse addresses based on family
 	var srcIP net.IP
