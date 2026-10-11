@@ -99,8 +99,8 @@ Execute an adversarial penetration test of JA4proxy's autonomous multi-agent dev
 
 ## Acceptance Criteria
 
-- [ ] Comprehensive adversarial test suite in `tests/adversarial/cicd/test_agent_instruction_surface.py` passing 100%.
-- [ ] Formal `docs/security/AGENT_TRUST_BOUNDARY.md` published specifying threat model, 3-tier data classification, delimiter architecture, and token least-privilege matrix.
-- [ ] Instruction file governance audit complete (verifying `AGENTS.md`, `CLAUDE.md`, `.github/workflows/` cannot be poisoned via unreviewed fork PRs).
-- [ ] All discovered vulnerabilities logged in `docs/security/findings.yaml` with two-state verified proofs (`scripts/verify_revert.sh`).
-- [ ] `make preflight` and `bash scripts/close-phase.sh` exit 0.
+- [x] Comprehensive adversarial test suite in `tests/adversarial/cicd/test_agent_instruction_surface.py` passing 100%.
+- [x] Formal `docs/security/AGENT_TRUST_BOUNDARY.md` published specifying threat model, 3-tier data classification, delimiter architecture, and token least-privilege matrix.
+- [x] Instruction file governance audit complete (verifying `AGENTS.md`, `CLAUDE.md`, `.github/workflows/` cannot be poisoned via unreviewed fork PRs).
+- [x] All discovered vulnerabilities logged in `docs/security/findings.yaml` with two-state verified proofs (`scripts/verify_revert.sh`).
+- [x] `make preflight` and `bash scripts/close-phase.sh` exit 0.
