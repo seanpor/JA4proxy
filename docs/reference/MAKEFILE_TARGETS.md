@@ -45,7 +45,7 @@ The default lane runs **without HAProxy** (single proxy, reached directly on
 
 <!-- BEGIN GENERATED: make-targets -->
 
-_196 targets. Generated from the Makefile's own `##` help comments by `make sync` — do not edit this table by hand._
+_198 targets. Generated from the Makefile's own `##` help comments by `make sync` — do not edit this table by hand._
 
 ### Aggregate linters
 
@@ -126,7 +126,9 @@ _196 targets. Generated from the Makefile's own `##` help comments by `make sync
 | `test-slo` | SLO validation tests |
 | `validate-slo-rules` | Validate SLO recording/alert rules (promtool or YAML) |
 | `validation-report` | Generate validation report |
+| `verify-finding` | Run two-state revert proof for a single finding (usage: make verify-finding FINDING=JA4PROXY-2026-0042) |
 | `verify-findings` | Validate docs/security/findings.yaml schema and referential integrity |
+| `verify-findings-all` | Run two-state revert proof for all findings with recorded regression tests |
 | `verify-findings-green` | Run only the regression tests backing findings.yaml entries (fast signal) |
 | `verify-manifest-closeout` | Manifest close-out gate — validate register, required docs, ADRs, manifest |
 

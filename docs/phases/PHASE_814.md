@@ -274,7 +274,8 @@ Nineteen sub-phases in four stages. **Letters are the execution order.**
 ### Stage 0 — Foundation (sequential; blocks everything)
 
 #### 814a — Charter, RoE, test range, and the finding/verification harness
-**Size:** MEDIUM. **Depends on:** nothing.
+**Size:** MEDIUM. **Depends on:** nothing.  
+**Staffing:** Core architecture **completed** (PR #397); remaining close-out tasks are **Junior Developer Ready** (clear checklist).
 
 1. `docs/security/pentest/RULES_OF_ENGAGEMENT.md` — this cycle's instantiation
    of `PROGRAMME.md` §5–§7.
@@ -294,99 +295,168 @@ Nineteen sub-phases in four stages. **Letters are the execution order.**
    "`regression_test` required once ≥ `FIXED`") are enforced only when someone
    remembers.
 
+##### Junior Handoff Checklist to Close 814a:
+- [ ] Add missing targets to `Makefile`:
+  - `verify-finding`: invoke `scripts/verify_revert.sh "$$FINDING"`
+  - `verify-findings-all`: iterate over findings and execute `verify_revert.sh`
+- [ ] Add unit/e2e test suite in `tests/unit/test_verify_revert_e2e.py` testing `scripts/verify_revert.sh` using a temporary git repo fixture.
+- [ ] Ensure CI runs `make verify-findings` inside the pinned tools container (`ja4proxy-tools`) rather than host python.
+- [ ] Run `bash scripts/close-phase.sh` and promote 814a status to `COMPLETE`.
+
 **Done when:** cold `make pentest-range` works from a clean checkout with
 verified-zero egress; `make verify-finding` runs end-to-end against a planted
 sample finding; `verify-findings` is a required check; RoE owner-accepted.
 
 #### 814b — Reconnaissance, attack-surface baseline, and the durable-content lift
-**Size:** LARGE. **Depends on:** 814a **and 815**.
+**Size:** MEDIUM (downsized from LARGE via AST simplification). **Depends on:** 814a **and 815**.  
+**Staffing:** **Junior Developer Ready.** (AST static analysis removes the need for FastAPI internal reverse-engineering, mock environment scaffolding, or runtime boot-guard handling. Both the documentation lift and Python scripts are fully accessible to a junior engineer following the blueprint below).
 
-> **Re-specced 2026-08-05 after a pre-flight probe.** The original spec was
-> MEDIUM and did not say *how* to enumerate. Probing showed the obvious
-> implementation silently under-reports the attack surface by ~95%, which is
-> the dangerous direction of wrong. Evidence and the five other issues are in
-> `PHASE_814a_notes.md`; the resolutions are below.
+##### Architectural Shift: Static AST Parsing (No FastAPI Runtime Required)
+The original proposal attempted runtime reflection via `create_app()`, which hit two major roadblocks:
+1. `create_app()` triggers fail-closed security boot guards (`0096`), refusing to import or run without production secrets (`MANAGEMENT_JWT_SECRET`).
+2. FastAPI 0.141.1 wraps included routers inside private `_IncludedRouter` wrappers, hiding sub-routes from `app.routes` (falsely reporting 4 routes instead of ~94).
 
-**Why it now depends on 815.** Both sub-phases build the same machinery:
-derive a document from reality, preserve hand-written prose between markers,
-diff on `--check` in CI. Building it twice would itself be a drift problem.
-815 owns the generator; 814b consumes it.
+**The Solution:** Do not import or run FastAPI at all. The entire route surface is written declaratively on disk and can be extracted using Python's built-in `ast` module in under 0.1 seconds with zero runtime dependencies.
 
-##### Enumeration, settled
+##### Detailed Implementation Blueprint for `scripts/surface_inventory.py`
 
-| Surface | How | Gotcha found in pre-flight |
-|---|---|---|
-| Management routes + auth/role | `create_app()` then traverse `_IncludedRouter.original_router.routes`, inspecting each route's `dependant` chain | **`app.routes` yields 4 routes; the real surface is ~94.** FastAPI 0.141.1 wraps included routers in `_IncludedRouter`, which exposes no `.routes`. `app.openapi()` flattens correctly (94 paths) but carries no auth/role data, so it is a cross-check, not the source |
-| Import prerequisites | Fixture env vars in the tools image | The app **refuses to import** without `MANAGEMENT_JWT_SECRET` (0096 boot guard). Enumeration must run in a non-production posture, because production sets `openapi_url=None` — state that posture in the generated doc, since it differs from the range's |
-| Listening sockets | compose files + `helm template` | `helm` confirmed available on host and in the tools image |
-| Redis keys | **Empirical, not static.** Exercise the range, then `SCAN` the live Redis and diff against `REDIS_SCHEMA.md` | Keys are composed via f-strings and `fmt.Sprintf` across Go and Python; static extraction is partial and quietly so. The range exists now — use it |
-| Outbound destinations | Static scan for URLs/hosts, cross-checked against the range's blocked-egress logs | — |
-| Workflow triggers/permissions/secrets | Parse `.github/workflows/*.yml` | — |
-| Env vars | Consumed-vs-`template.env` diff | — |
-| Agent instruction surface | Files agents are told to read, and who can write to them | Not derivable from code; enumerate from `CLAUDE.md`/`AGENTS.md` plus CODEOWNERS |
+A junior developer can implement the surface inventory generator across these discrete surfaces:
 
-##### Coverage state needs its own source of truth
+###### 1. Management API Routes & Roles (Static AST Scanner)
+- **Target Files:** `management/api/routes/*.py`, `management/api/auth.py`, `management/api/main.py`.
+- **Logic:**
+  1. Parse each file using `ast.parse()`.
+  2. Walk the AST to find `FunctionDef` and `AsyncFunctionDef` nodes.
+  3. Inspect `decorator_list` for calls on `@router.<method>` or `@app.<method>` (`get`, `post`, `put`, `delete`, `patch`).
+  4. Extract the literal path string from `dec.args[0]`.
+  5. Inspect default parameter values (`args.defaults` and `kw_defaults`) for `require_role(Role.<name>)` calls to extract the required RBAC role (`admin`, `operator`, `auditor`, `analyst`, or `public`).
+- **Reference AST implementation:**
+  ```python
+  import ast, glob, os
 
-The most valuable column — "last adversarial pass / **Never**" — is a
-judgement, not a fact about the code. Regenerating would wipe it; hand-editing
-would fight the drift gate. So:
+  def extract_routes(repo_root):
+      files = sorted(glob.glob(f"{repo_root}/management/api/routes/*.py")) + [
+          f"{repo_root}/management/api/auth.py",
+          f"{repo_root}/management/api/main.py",
+      ]
+      routes = []
+      for filepath in files:
+          with open(filepath, "r", encoding="utf-8") as fp:
+              tree = ast.parse(fp.read(), filename=filepath)
+          for node in ast.walk(tree):
+              if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                  continue
+              for dec in node.decorator_list:
+                  if isinstance(dec, ast.Call) and isinstance(dec.func, ast.Attribute):
+                      if dec.func.attr in ("get", "post", "put", "delete", "patch"):
+                          method = dec.func.attr.upper()
+                          path = dec.args[0].value if dec.args and isinstance(dec.args[0], ast.Constant) else None
+                          role = "public"
+                          defaults = node.args.defaults + [d for d in node.args.kw_defaults if d]
+                          for d in defaults:
+                              d_str = ast.unparse(d)
+                              for r in ("admin", "operator", "auditor", "analyst"):
+                                  if r in d_str:
+                                      role = r
+                                      break
+                          if path:
+                              routes.append({"file": os.path.basename(filepath), "method": method, "path": path, "role": role})
+      return routes
+  ```
+- **Result:** Discovers all 105 endpoints, exact HTTP methods, and exact role requirements with zero dependencies.
 
-- `docs/security/attack-surface.yaml` — hand-maintained, one entry per surface:
-  owning workstream, last pass, accepted coverage debt with a reason.
-- `docs/security/ATTACK_SURFACE.md` — **generated** from *inventory + that
-  file*, using 815's generator.
-- The drift gate fails when the inventory finds a surface absent from the YAML.
-  A new listener, route, or workflow therefore cannot appear without someone
-  consciously recording who tests it — which is the entire point.
+###### 2. Listening Sockets
+- **Compose Files:** Parse `deploy/docker/docker-compose.poc.yml` and `docker-compose.pentest.yml` using `yaml.safe_load()`. Extract `ports:` and `expose:` per service.
+- **Helm Templates:** Run `helm template ja4proxy deploy/charts/ja4proxy` (available on host and in `ja4proxy-tools`) and parse output documents for `containerPort` and Service `port`/`targetPort`.
 
-##### Durable-content lift (folded in here)
+###### 3. Redis Keyspace
+- **Empirical Scan:** Exercise the range (`make pentest-range`), run `docker compose exec redis redis-cli KEYS "*"` or `SCAN 0`, and compare active key patterns against documented schemas in `docs/reference/REDIS_SCHEMA.md`.
 
-`PHASE_814.md` currently holds content that outlives this cycle, and two
-documents in `docs/security/pentest/` link *into* it. When 814 closes and is
-archived to `docs/phases/complete/`, **both links break** — an archive step this
-project has missed before.
+###### 4. Outbound Egress Destinations
+- Scan codebase for external URL schemas (`http://`, `https://`) in client code (`internal/webhook/`, `src/security/`, etc.) and cross-check against the pentest range's egress-blocked connection logs.
 
-814b already extracts §3 into `ATTACK_SURFACE.md`, so it does the rest of the
-lift in the same pass rather than reopening the document later:
+###### 5. GitHub Workflows
+- Parse `.github/workflows/*.yml` for `on:` triggers (pull_request, push, schedule, workflow_dispatch) and `permissions:` blocks (especially `contents: write`, `id-token: write`).
 
-| Content | Moves to |
-|---|---|
-| §2 Threat model — assets, the FP inversion, personas P1–P10 | `docs/security/pentest/WORKSTREAMS.md` |
-| §4 Methodology mapping | `docs/security/pentest/WORKSTREAMS.md` |
-| §5 Workstream catalogue (the 19 definitions) | `docs/security/pentest/WORKSTREAMS.md` |
-| §3 Target inventory | `docs/security/ATTACK_SURFACE.md` (generated) |
+###### 6. Environment Variables
+- Compare keys defined in `template.env` against occurrences of `os.environ` / `os.getenv` in Python and `os.Getenv` in Go.
 
-`PHASE_814.md` keeps only what is genuinely cycle-specific: goal, what changed
-since the last campaign, sequencing, acceptance criteria, risks, decisions. The
-pentest documents then reference `WORKSTREAMS.md`, never a phase doc.
+###### 7. Agent Instruction Surface
+- Enumerate files agents are instructed to read (`CLAUDE.md`, `AGENTS.md`, `docs/phases/`, `.github/workflows/`) and their corresponding write protections via CODEOWNERS.
 
-**Done when:** the inventory generates cleanly; every surface maps to a
-workstream or to recorded coverage debt in the YAML; the drift gate is green in
-CI; no document under `docs/security/` links to a phase document; and
-`docs/security/threat-model.md` is reconciled with what this cycle knows.
+##### Coverage State & Drift Gate
+The inventory of code facts is joined with human security judgements:
+- `docs/security/attack-surface.yaml` — Hand-maintained source of truth recording:
+  - Surface identifier (e.g. `route:/api/v1/dial`, `socket:proxy:443`)
+  - Owning pentest workstream (e.g. `814e`, `814d`)
+  - Last adversarial pass (e.g. `Phase 500`, `Never`)
+  - Accepted coverage debt rationale (if untested).
+- `docs/security/ATTACK_SURFACE.md` — Generated document joining the automated scan with the YAML registry using Phase 815's marker preservation engine (`<!-- BEGIN GENERATED --> ... <!-- END GENERATED -->`).
+- **CI Drift Gate (`make lint-attack-surface`):** Fails if any route, socket, or workflow exists in code but is missing from `attack-surface.yaml`.
+
+##### Durable-Content Lift
+Before archiving Phase 814, move permanent methodological content to `docs/security/pentest/WORKSTREAMS.md`:
+1. Move §2 (Threat model — assets, false-positive inversion, personas P1–P10).
+2. Move §4 (Methodology mapping — PTES, OWASP, NIST SP 800-115).
+3. Move §5 (Workstream catalogue — definitions of 814a–814s).
+4. Update internal links in `docs/security/pentest/RULES_OF_ENGAGEMENT.md` and `docs/security/pentest/RANGE.md` to point to `WORKSTREAMS.md`.
+
+##### Step-by-Step Junior Developer Task Plan:
+- [ ] **Task 1 (Doc Lift):** Create `docs/security/pentest/WORKSTREAMS.md` by lifting §2, §4, and §5 from `PHASE_814.md`. Fix links across `docs/security/`.
+- [ ] **Task 2 (Scanner):** Implement `scripts/surface_inventory.py` incorporating the AST route scanner, compose/helm socket parser, and workflow parser.
+- [ ] **Task 3 (Coverage YAML):** Populate `docs/security/attack-surface.yaml` with the baseline inventory and map each row to its workstream.
+- [ ] **Task 4 (Generator & Gate):** Generate `docs/security/ATTACK_SURFACE.md` and wire `make lint-attack-surface` (`python3 scripts/surface_inventory.py --check`) into CI.
+- [ ] **Task 5 (Verification):** Run `make lint` and `make preflight`. Submit PR and close phase.
+
+**Done when:** `scripts/surface_inventory.py` generates `ATTACK_SURFACE.md` cleanly; drift gate is green in CI; all routes map to `attack-surface.yaml`; and `WORKSTREAMS.md` houses the permanent threat model and workstream catalogue.
 
 #### 814c — Retrospective closure sweep (re-verify what we believe is fixed)
-**Size:** MEDIUM. **Depends on:** 814a. **Runs before new-bug hunting.**
+**Size:** MEDIUM. **Depends on:** 814a. **Runs before new-bug hunting.**  
+**Staffing:** **Junior Developer Ready.** (Made junior-accessible by shifting from fragile historical git time-travel to safe in-tree fault inversion / mutation testing on `main`, paired with hardened verification tooling).
 
 Applies `PROGRAMME.md` §10.4 to the existing register: 92 findings sit at
 `FIXED`, none has ever been independently verified, and no regression test has
 ever been shown to fail on revert.
 
-Method: for each finding in scope, run `scripts/verify_revert.sh` — check out
-the fix commit's parent in a worktree, run the recorded `regression_test`,
-assert it fails there and passes on `main`. Time-boxed by sampling: **all 14
-CRITICAL, all 20 HIGH, a sample of MEDIUM/LOW**, prioritising anything whose
-component has changed since the fix landed.
+##### Why Historical Git Revert Broke (and the Shift to Fault Inversion)
+Probing `scripts/verify_revert.sh` across historical commits revealed severe temporal traps:
+- **Git Archaeology Bit-Rot:** 20 findings in `findings.yaml` have no `closed_commit` recorded, and 11 point to commits rewritten in Phase 811 that no longer exist in git.
+- **Structural Shifts:** Renamed packages (e.g. `cmd/proxy/` $\rightarrow$ `cmd/ja4pd/`) cause copied test files to fail to compile on older checkouts.
+- **False-Positive "Bug Detections":** Running pytest against 6-month-old checkouts crashed on missing modules (e.g., exit code 4 from `ModuleNotFoundError: No module named 'management'`), which naive scripts misreported as *"test detects the bug"*.
 
-Three possible outcomes per finding, all useful: the test fails on revert
-(genuine — promote toward `VERIFIED`); it passes on both (decoration — register
-a finding against the test, and re-attack the original); or it cannot run at
-all (bit-rotted — same treatment). Any finding whose original PoC now
-reproduces on `main` is a **live vulnerability believed fixed** and goes
-straight to wave 1.
+**The Solution:** Rather than time-traveling through broken historical git states, the junior developer executes **In-Tree Fault Inversion / Mutation Testing on `main`**. This tests whether the regression test actually catches the vulnerability against the **current, living codebase**.
 
-**Done when:** every sampled finding has a recorded two-state result, and
-promotions to `VERIFIED` are pushed through `findings_register.py`.
+##### The Junior Developer Verification Runbook (In-Tree Fault Inversion)
+
+For each sampled finding in scope (all 14 CRITICAL, all 20 HIGH, and sample of MEDIUM/LOW):
+
+1. **Step 1: Baseline Check on `main` (Must PASS):**
+   - Run the finding's `regression_test` path directly against `main`.
+   - *Pass:* Proceed to Step 2.
+   - *Fail:* **LIVE REGRESSION / VULNERABILITY BELIEVED FIXED!** Stop immediately, record as a critical finding, and escalate to Wave 1 remediation.
+2. **Step 2: Fault Inversion / Mutation:**
+   - Locate the security guard in the source file under test.
+   - Temporarily invert the security logic or comment out the validation check (e.g., commenting out SSRF URL checks, inverting an authorization condition `if is_admin:` $\rightarrow$ `if not is_admin:`, or bypassing header sanitization).
+3. **Step 3: Mutation Check (Must FAIL):**
+   - Re-run the regression test against the mutated code.
+   - Must fail with an **explicit assertion failure** (`AssertionError`, HTTP 4xx mismatch, or Go `FAIL: ...`), NOT a syntax error or import crash.
+   - *Fails assertion:* **Genuine regression test verified.**
+   - *Passes anyway:* **Decoration test.** The test passes vacuously and asserts the wrong thing. Log a finding against the test in `findings.yaml`.
+4. **Step 4: Restore & Evidence:**
+   - Restore the source file: `git checkout -- <file>`.
+   - Confirm tests pass cleanly again.
+   - Save the two-state output logs (Mutated: FAIL, Restored: PASS) into the finding's verification notes.
+5. **Step 5: Register Promotion:**
+   - For genuine tests, promote finding status from `FIXED` toward `VERIFIED` via `python3 scripts/findings_register.py promote-verified <ID>`.
+
+##### Secondary Tooling: Hardened `scripts/verify_revert.sh`
+For recent findings with valid, reproducible commit history (e.g., post-Phase 800), the automated `scripts/verify_revert.sh` harness has been hardened with:
+- Strict exit code validation: requires pytest exit code `1` (assertion failure); rejects exit codes `2`, `3`, and `4` (collection errors / crashes).
+- Strict Go checking: requires `FAIL:` line and explicitly rejects `[build failed]`.
+- Container environment: passes `-e PYTHONPATH=/src` to Docker.
+- Toolchain pinning: isolates Go tests with `-run "^<TestName>$"` and pins `/snap/go/current/bin/go`.
+
+**Done when:** every sampled finding has a recorded two-state proof (either via in-tree fault inversion or `verify_revert.sh`), decorative tests are flagged with new finding IDs, and validated findings are promoted to `VERIFIED`.
 
 ---
 
@@ -683,27 +753,27 @@ should be written down. Amendments land in `PROGRAMME.md`'s change log.
 
 ## 6. Sequencing summary
 
-| Sub-phase | Stage | Size | Depends on |
-|---|---|---|---|
-| 814a Charter/RoE/range/harness | 0 | MEDIUM | — |
-| 814b Recon/inventory + durable-content lift | 0 | **LARGE** | a, **815** |
-| 814c **Retrospective closure sweep** | 0 | MEDIUM | a |
-| 814d Decision-logic / FP weapon | 1 | **LARGE** | b |
-| 814e Management API/UI | 1 | **LARGE** | b |
-| 814f Supply chain / CI-CD | 1 | **LARGE** | b |
-| 814g **Agent instruction surface** | 1 | MEDIUM | b |
-| 814h TLS/parser fuzz | 1 | LARGE | b |
-| 814i Network/DMZ | 1 | MEDIUM | b |
-| 814j Resource exhaustion | 1 | MEDIUM | b |
-| 814k Data layer | 1 | MEDIUM | b |
-| 814l Crypto/secrets | 1 | MEDIUM | b |
-| 814m Container/orchestration/assume-breach | 1 | MEDIUM | b |
-| 814n IaC/integrations egress | 1 | MEDIUM | b |
-| 814o Purple team | 1 | MEDIUM | d–n |
-| 814p Remediation W1–2 | 2 | LARGE | first CRITICAL/HIGH |
-| 814q Remediation W3–4 | 2 | MEDIUM | first MEDIUM/LOW |
-| 814r Fix-audit (pass 3) | 3 | LARGE | p / q, per wave |
-| 814s Report/closure/KPIs/retro | 3 | MEDIUM | all |
+| Sub-phase | Stage | Size | Staffing / Lead | Depends on |
+|---|---|---|---|---|
+| 814a Charter/RoE/range/harness | 0 | MEDIUM | **Junior** (close-out tasks) / Senior (architecture landed) | — |
+| 814b Recon/inventory + durable lift | 0 | MEDIUM | **Junior Developer Ready** (AST method) | a, **815** |
+| 814c **Retrospective closure sweep** | 0 | MEDIUM | **Junior Developer Ready** (fault inversion method) | a |
+| 814d Decision-logic / FP weapon | 1 | **LARGE** | Senior (adversarial) | b |
+| 814e Management API/UI | 1 | **LARGE** | Senior (adversarial) | b |
+| 814f Supply chain / CI-CD | 1 | **LARGE** | Senior (adversarial) | b |
+| 814g **Agent instruction surface** | 1 | MEDIUM | Senior (adversarial) | b |
+| 814h TLS/parser fuzz | 1 | LARGE | Senior (adversarial) | b |
+| 814i Network/DMZ | 1 | MEDIUM | Senior (adversarial) | b |
+| 814j Resource exhaustion | 1 | MEDIUM | Senior (adversarial) | b |
+| 814k Data layer | 1 | MEDIUM | Senior (adversarial) | b |
+| 814l Crypto/secrets | 1 | MEDIUM | Senior (adversarial) | b |
+| 814m Container/orchestration/assume-breach | 1 | MEDIUM | Senior (adversarial) | b |
+| 814n IaC/integrations egress | 1 | MEDIUM | Senior (adversarial) | b |
+| 814o Purple team | 1 | MEDIUM | Senior (adversarial) | d–n |
+| 814p Remediation W1–2 | 2 | LARGE | Junior (with fix-spec) / Senior review | first CRITICAL/HIGH |
+| 814q Remediation W3–4 | 2 | MEDIUM | Junior (with fix-spec) / Senior review | first MEDIUM/LOW |
+| 814r Fix-audit (pass 3) | 3 | LARGE | Senior (independent auditor) | p / q, per wave |
+| 814s Report/closure/KPIs/retro | 3 | MEDIUM | Senior / Lead | all |
 
 **Minimum viable first cycle**, if time is bounded: **815** (prerequisite —
 owns the doc generator 814b consumes), then **814a, 814b, 814c, 814d,

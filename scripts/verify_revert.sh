@@ -32,7 +32,7 @@ set -euo pipefail
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BLUE='\033[0;34m'; NC='\033[0m'
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_ROOT="${REPO_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 cd "$REPO_ROOT"
 
 die()  { echo -e "${RED}✗ $*${NC}" >&2; exit 1; }
@@ -51,23 +51,54 @@ cleanup() {
 }
 trap cleanup EXIT
 
+RUN_ALL=0
+
 usage() {
     cat <<'USAGE'
 Usage: scripts/verify_revert.sh <FINDING-ID> [--fix-commit <sha>]
+       scripts/verify_revert.sh --all
 
   <FINDING-ID>        Canonical ID, e.g. JA4PROXY-2026-0042
   --fix-commit <sha>  Commit that fixed it. Defaults to the register's
                       closed_commit field.
+  --all               Run verification over all registered findings with fix commits.
 USAGE
 }
 
 while [ $# -gt 0 ]; do
     case "$1" in
         --fix-commit) FIX_COMMIT="$2"; shift 2 ;;
+        --all) RUN_ALL=1; shift ;;
         -h|--help) usage; exit 0 ;;
         *) FINDING_ID="$1"; shift ;;
     esac
 done
+
+if [ "$RUN_ALL" -eq 1 ]; then
+    info "Running two-state revert verification over all findings with closed_commit"
+    FINDINGS_LIST="$(python3 -c '
+import yaml, pathlib
+data = yaml.safe_load(pathlib.Path("docs/security/findings.yaml").read_text())
+for f in data.get("findings", []):
+    if f.get("closed_commit") and f.get("regression_test"):
+        print(f["id"])
+')"
+    PASSED=0
+    FAILED=0
+    SKIPPED=0
+    for fid in $FINDINGS_LIST; do
+        if "$0" "$fid" 2>&1; then
+            PASSED=$((PASSED + 1))
+        else
+            FAILED=$((FAILED + 1))
+        fi
+    done
+    echo "================================================================"
+    echo " Verification All Summary: $PASSED passed, $FAILED failed"
+    echo "================================================================"
+    [ "$FAILED" -eq 0 ] || exit 1
+    exit 0
+fi
 
 [ -n "$FINDING_ID" ] || { usage; exit 1; }
 
@@ -115,10 +146,26 @@ echo ""
 run_test() {
     local dir="$1" nodeid="$2"
     if [[ "$nodeid" == *"_test.go"* || "$nodeid" == ./* ]]; then
-        ( cd "$dir" && go test "$(dirname "${nodeid#./}")/..." 2>&1 )
+        local test_file="${nodeid%%::*}"
+        local test_name=""
+        if [[ "$nodeid" == *"::"* ]]; then
+            test_name="${nodeid##*::}"
+        fi
+        local run_arg=()
+        if [ -n "$test_name" ]; then
+            run_arg=(-run "^${test_name}$")
+        fi
+        local go_bin="go"
+        if [ -x "/snap/go/current/bin/go" ]; then
+            go_bin="/snap/go/current/bin/go"
+        fi
+        ( cd "$dir" && GOROOT="/snap/go/current" "$go_bin" test "${run_arg[@]}" "$(dirname "${test_file#./}")/..." 2>&1 )
     else
-        # Container-strict per AGENTS.md: Python runs in the pinned tools image.
-        docker run --rm -v "${dir}:/src" -w /src ja4proxy-tools pytest "$nodeid" -q 2>&1
+        if [ -f "/.dockerenv" ] || ! command -v docker >/dev/null 2>&1 || ! docker info >/dev/null 2>&1; then
+            ( cd "$dir" && PYTHONPATH="$dir" pytest "$nodeid" -q 2>&1 )
+        else
+            docker run --rm -v "${dir}:/src" -e PYTHONPATH=/src -w /src ja4proxy-tools pytest "$nodeid" -q 2>&1
+        fi
     fi
 }
 
@@ -152,6 +199,30 @@ if [ "$PRE_STATUS" -eq 0 ]; then
      regression test. Either the test asserts the wrong thing, or the bug
      was never present at ${PARENT}.
      See PROGRAMME.md §10.3."
+fi
+
+# Strict check: require true assertion failure, reject compilation/import/collection crashes
+if [[ "$REGRESSION_TEST" == *"_test.go"* || "$REGRESSION_TEST" == ./* ]]; then
+    if echo "$PRE_OUTPUT" | grep -q "\[build failed\]"; then
+        echo "$PRE_OUTPUT" | tail -20
+        echo ""
+        die "TWO-STATE PROOF FAILED: pre-fix code failed to compile ([build failed]).
+         Historical symbol/package mismatch. Re-verify via in-tree mutation on main instead."
+    fi
+    if ! echo "$PRE_OUTPUT" | grep -q "FAIL:"; then
+        echo "$PRE_OUTPUT" | tail -20
+        echo ""
+        die "TWO-STATE PROOF FAILED: test did not produce a FAIL: assertion line.
+         Re-verify via in-tree mutation on main instead."
+    fi
+else
+    if [ "$PRE_STATUS" -ne 1 ]; then
+        echo "$PRE_OUTPUT" | tail -20
+        echo ""
+        die "TWO-STATE PROOF FAILED: pytest exited with status ${PRE_STATUS} (expected 1 for assertion failure).
+         Environment crash, collection error, or import failure in pre-fix code.
+         Re-verify via in-tree mutation on main instead."
+    fi
 fi
 ok "test fails against pre-fix code (exit ${PRE_STATUS}) — it detects the bug"
 

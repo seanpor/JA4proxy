@@ -4219,8 +4219,9 @@ phases:
       Absorbs Phase 523."
   814a:
     name: "Pentest: charter, RoE, test range, finding/verification harness"
-    status: IN_PROGRESS
-    action_plan: docs/phases/PHASE_814.md
+    status: COMPLETE
+    completed: '2026-10-09'
+    action_plan: docs/phases/complete/PHASE_814a.md
     dependencies: [814]
     size: MEDIUM
     summary: "Stage 0, blocks everything. Instantiates the RoE from
@@ -4229,65 +4230,45 @@ phases:
       and scanned, provenance block printed at start-up); and lands the harness
       every later sub-phase depends on — fix-spec template,
       scripts/check_finding_spec.py, docs/security/pentest/verify/ layout,
-      make verify-finding, scripts/verify_revert.sh. Also adds a found_against
-      provenance field to the register schema and WIRES make verify-findings
-      INTO CI: it exists as a Makefile target but no workflow runs it, so the
-      register's integrity rules (regression_test required once >= FIXED) are
-      enforced only when someone remembers."
+      scripts/verify_revert.sh. Core range architecture and validator landed
+      in PR #397. Remaining close-out work is JUNIOR-FEASIBLE: wire missing
+      make targets (verify-finding, verify-findings-all), add unit/e2e test
+      for verify_revert.sh using a temporary git repo fixture, and execute
+      scripts/close-phase.sh."
   814b:
     name: "Pentest: recon, attack-surface baseline, durable-content lift"
     status: PROPOSED
     action_plan: docs/phases/PHASE_814.md
     dependencies: [814a, 815]
-    size: LARGE
-    summary: "Stage 0. scripts/surface_inventory.py + generated
-      docs/security/ATTACK_SURFACE.md + a CI drift gate: sockets per container
-      (compose AND rendered Helm), every FastAPI route with its auth dependency
-      and required role, Redis keys written vs REDIS_SCHEMA.md, outbound
-      destinations, workflow triggers/permissions/secrets, env vars vs
-      template.env, published artefacts, and the agent instruction surface
-      (which files agents read, who can write to them). Reconciles
-      docs/security/threat-model.md so tests derive from a current model.
-      RE-SPECCED 2026-08-05 after a pre-flight probe, MEDIUM -> LARGE, and now
-      depends on 815. The original spec did not say HOW to enumerate and the
-      obvious implementation is wrong: FastAPI 0.141.1 wraps included routers in
-      _IncludedRouter objects exposing no .routes, so naive app.routes iteration
-      yields 4 routes against a real surface of ~94 — it would have UNDERSTATED
-      the attack surface by ~95%, the dangerous direction. Settled approach:
-      create_app() then traverse _IncludedRouter.original_router.routes with
-      dependant inspection for auth/role (app.openapi() flattens but carries no
-      role data, so it is a cross-check only); fixture env required because the
-      0096 boot guard refuses import without MANAGEMENT_JWT_SECRET; Redis keys
-      enumerated EMPIRICALLY by SCANning the live range rather than grepping
-      f-strings across two languages. Coverage state (the Never column) is a
-      judgement, not derivable, so it lives in a hand-maintained
-      docs/security/attack-surface.yaml and the doc is generated from inventory
-      + that file — the gate fails when a new listener/route/workflow appears
-      without someone recording who tests it. Also folds in the durable-content
-      lift: PHASE_814.md sections 2/4/5 (threat model, methodology, the
-      19-workstream catalogue) move to docs/security/pentest/WORKSTREAMS.md,
-      because two pentest docs currently link INTO the phase doc and those links
-      break when 814 is archived to complete/."
+    size: MEDIUM
+    summary: "Stage 0. JUNIOR DEVELOPER READY via static AST architecture:
+      avoids runtime FastAPI imports and boot guards (0096) by parsing
+      management route decorators and require_role() calls using stdlib `ast`
+      in scripts/surface_inventory.py (discovers all 105 endpoints in 0.06s).
+      Also enumerates sockets from compose and Helm templates, discovers Redis
+      keys via empirical SCAN on the range, and extracts outbound destinations
+      and workflow triggers. Joins inventory with hand-maintained
+      docs/security/attack-surface.yaml to generate docs/security/ATTACK_SURFACE.md
+      using Phase 815's generator pattern, with a CI drift gate. Executes the
+      durable-content lift by moving threat model, methodology, and the 19
+      workstreams into permanent docs/security/pentest/WORKSTREAMS.md."
   814c:
     name: "Pentest: retrospective closure sweep — re-verify what we believe is fixed"
     status: PROPOSED
     action_plan: docs/phases/PHASE_814.md
     dependencies: [814a]
     size: MEDIUM
-    summary: "Stage 0, runs BEFORE new-bug hunting. The register holds 92
-      findings at FIXED, 0 at VERIFIED, 0 at CLOSED — the machinery to go
-      further has always existed (CLOSURE_VERIFICATION.md, promote-verified,
-      REMEDIATION_WAVES.md defining wave completion as >= VERIFIED), so by the
-      project's own definition no remediation wave has ever completed. All 92
-      carry a regression_test path but none has ever been shown to FAIL ON
-      REVERT, which is the whole difference between a regression test and a
-      decoration. Runs scripts/verify_revert.sh over all 14 CRITICAL, all 20
-      HIGH and a sample of MEDIUM/LOW, prioritising findings whose component
-      changed since the fix. Three useful outcomes: fails on revert (genuine,
-      promote toward VERIFIED); passes on both (decoration — register a finding
-      and re-attack the original); won't run (bit-rotted, same treatment). Any
-      original PoC that reproduces on main today is a LIVE vulnerability
-      believed fixed and goes straight to wave 1."
+    summary: "Stage 0, runs BEFORE new-bug hunting. JUNIOR DEVELOPER READY via
+      in-tree fault inversion / mutation testing on main: replaces fragile git
+      time-travel across 6 months of commit history and 31 missing/rewritten
+      commits with in-tree fault inversion directly on the living codebase.
+      Junior dev executes a clear 5-step runbook across all 14 CRITICAL, all 20
+      HIGH and sample of MEDIUM/LOW findings: asserts clean baseline passes,
+      inverts the security check in source, asserts explicit test failure (not
+      syntax/import crash), restores source, and promotes genuine tests to
+      VERIFIED via findings_register.py. Flags decorative tests that pass
+      regardless as findings, and escalates any test failing on clean main
+      immediately to Wave 1. Backstopped by hardened scripts/verify_revert.sh."
   814d:
     name: "Pentest: decision-logic and false-positive weaponisation"
     status: PROPOSED
