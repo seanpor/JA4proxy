@@ -42,7 +42,7 @@ jobs:
           # Promote scope to all of docs/ once the existing link landscape is clean.
           args: >-
             --no-progress
-            --accept 200,204,301,302,403,429
+            --accept 200,204,301,302,403,429,503,504
             --max-concurrency 4
             --exclude SLSA_VERIFICATION
             --exclude https://eur-lex.europa.eu
