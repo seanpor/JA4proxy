@@ -303,7 +303,7 @@ jobs:
           # whole point of the SHA-pinning policy for actions — a CVE-scanner
           # binary that auto-upgrades on every CI run is itself unverified
           # third-party code.
-          go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
+          go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
           "$(go env GOPATH)/bin/govulncheck" ./...
 
   dependency-review:
