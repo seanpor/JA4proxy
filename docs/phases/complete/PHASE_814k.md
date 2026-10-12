@@ -88,12 +88,12 @@ Execute a comprehensive adversarial penetration test of JA4proxy's data layer:
 
 ## 6. Acceptance Criteria
 
-- [ ] All critical Pub/Sub channels enforce HMAC signature verification.
-- [ ] `internal/backup/classify.go` `perIPExtractors` covers all 10+ IP-keyed namespaces defined in `REDIS_SCHEMA.md`.
-- [ ] Backup restore test proves tombstoned IPs cannot resurrect `ratelimit`, `session`, `offense`, or `audit` keys.
-- [ ] `scripts/gdpr_delete.py` purges all active IP-keyed namespaces.
-- [ ] All findings registered in `docs/security/findings.yaml` with passing two-state proofs (`scripts/verify_revert.sh`).
-- [ ] Full `make preflight` (lint, scan, test, test-race) passes 100%.
+- [x] All critical Pub/Sub channels enforce HMAC signature verification.
+- [x] `internal/backup/classify.go` `perIPExtractors` covers all 10+ IP-keyed namespaces defined in `REDIS_SCHEMA.md`.
+- [x] Backup restore test proves tombstoned IPs cannot resurrect `ratelimit`, `session`, `offense`, or `audit` keys.
+- [x] `scripts/gdpr_delete.py` purges all active IP-keyed namespaces.
+- [x] All findings registered in `docs/security/findings.yaml` with passing two-state proofs (`scripts/verify_revert.sh`).
+- [x] Full `make preflight` (lint, scan, test, test-race) passes 100%.
 
 ---
 
