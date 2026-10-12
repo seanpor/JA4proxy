@@ -3937,7 +3937,7 @@ findings:
   closed_commit: ''
   cvss_v3_1:
     score: 7.5
-    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:N
+    vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:H/I:H/A:N
   notes: SAML assertion replay prevented via Redis SET NX tracking of Assertion ID with NotOnOrAfter TTL
 - id: JA4PROXY-2026-0125
   title: Committed-Default Secrets Permitted by Production Boot Guard and Remote Redis Validation
