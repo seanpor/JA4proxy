@@ -54,11 +54,12 @@ type signedPubSubMessage struct {
 
 // PubSubHandler listens on Redis pub/sub channels and calls registered handlers.
 type PubSubHandler struct {
-	client     *Client
-	log        *logrus.Logger
-	onReload   func()
-	onRefresh  func() // Refresh JA4/CIDR lists
-	hmacSecret []byte // JA4PROXY-2026-0019 — nil/empty means "no verification"
+	client        *Client
+	log           *logrus.Logger
+	onReload      func()
+	onRefresh     func() // Refresh JA4/CIDR lists
+	hmacSecret    []byte // JA4PROXY-2026-0019
+	allowUnsigned bool   // JA4PROXY-2026-0121 — test escape hatch only
 }
 
 // NewPubSubHandler creates a handler that calls onReload or onRefresh when
@@ -75,14 +76,19 @@ func NewPubSubHandler(client *Client, log *logrus.Logger, onReload, onRefresh fu
 	}
 }
 
+// SetAllowUnsigned permits unsigned messages on critical channels when no HMAC
+// secret is configured (test-only).
+func (h *PubSubHandler) SetAllowUnsigned(allow bool) {
+	h.allowUnsigned = allow
+}
+
 // SetHMACSecret configures HMAC verification for critical pub/sub channels.
-// An empty string disables verification — in that mode the handler logs a
-// one-line WARN on construction so operators are aware the escape hatch is
-// engaged. The secret should match the Python publisher's signing_key.
+// An empty string unsets the key, causing critical channels to drop messages
+// unless SetAllowUnsigned(true) has been explicitly engaged.
 func (h *PubSubHandler) SetHMACSecret(secret string) {
 	if secret == "" {
 		h.hmacSecret = nil
-		h.log.Warn("pubsub: HMAC secret not configured; unsigned messages on critical channels will be accepted (JA4PROXY-2026-0019)")
+		h.log.Warn("pubsub: HMAC secret not configured; unsigned messages on critical channels will be dropped (JA4PROXY-2026-0121)")
 		return
 	}
 	h.hmacSecret = []byte(secret)
@@ -161,13 +167,23 @@ func (h *PubSubHandler) handleMessage(msg *rdb.Message) {
 		"pubsub_raw": msg.Payload,
 	}).Debug("pubsub: received message")
 
-	if _, critical := criticalChannels[msg.Channel]; critical && len(h.hmacSecret) > 0 {
-		if err := verifyPubSubHMAC(h.hmacSecret, msg.Channel, msg.Payload); err != nil {
-			h.log.WithFields(logrus.Fields{
-				"channel": msg.Channel,
-				"reason":  err.Error(),
-			}).Warn("pubsub: HMAC verification failed; dropping message (JA4PROXY-2026-0019)")
-			return
+	if _, critical := criticalChannels[msg.Channel]; critical {
+		if len(h.hmacSecret) == 0 {
+			if !h.allowUnsigned {
+				h.log.WithFields(logrus.Fields{
+					"channel": msg.Channel,
+					"reason":  "unsigned message on critical channel rejected (HMAC secret required)",
+				}).Warn("pubsub: unsigned message on critical channel dropped (JA4PROXY-2026-0121)")
+				return
+			}
+		} else {
+			if err := verifyPubSubHMAC(h.hmacSecret, msg.Channel, msg.Payload); err != nil {
+				h.log.WithFields(logrus.Fields{
+					"channel": msg.Channel,
+					"reason":  err.Error(),
+				}).Warn("pubsub: HMAC verification failed; dropping message (JA4PROXY-2026-0019)")
+				return
+			}
 		}
 	}
 

@@ -277,3 +277,72 @@ func TestRestore_LockHeld(t *testing.T) {
 		t.Fatal("expected restore to abort while the lock is held")
 	}
 }
+
+// backupAllTo writes a backup artifact containing all keys from rdb.
+func backupAllTo(t *testing.T, rdb goredis.UniversalClient) string {
+	t.Helper()
+	eng := New(rdb, Config{Dir: t.TempDir(), KeyPrefixes: []string{""}, Passphrase: "pw"}, silentLog(), NopMetrics{})
+	res, err := eng.Backup(context.Background())
+	if err != nil {
+		t.Fatalf("backup: %v", err)
+	}
+	return res.Path
+}
+
+// TestRegression_JA4PROXY_2026_0122_TombstoneSkipsAllSubjectNamespaces verifies
+// that GDPR tombstones prevent resurrection across all per-IP namespaces.
+func TestRegression_JA4PROXY_2026_0122_TombstoneSkipsAllSubjectNamespaces(t *testing.T) {
+	src, srcMr := newMiniClient(t)
+	// Populate per-IP keys for an erased subject (1.2.3.4) and a retained subject (5.6.7.8)
+	srcMr.Set("session:1.2.3.4", "sess")
+	srcMr.Set("ratelimit:ip:1.2.3.4", "10")
+	srcMr.Set("offense:1.2.3.4", "5")
+	srcMr.Set("audit:last_score:1.2.3.4", "80")
+	srcMr.Set("dns:fcrdns:1.2.3.4", "clean")
+	srcMr.Set("rdap:ip:1.2.3.4", "data")
+
+	srcMr.Set("session:5.6.7.8", "sess_retained")
+	srcMr.Set("ratelimit:ip:5.6.7.8", "1")
+
+	art := backupAllTo(t, src)
+	ctx := context.Background()
+
+	dst, _ := newMiniClient(t)
+	// Seed target's erasure log with post-backup erasure for 1.2.3.4
+	entry, _ := json.Marshal(map[string]any{
+		"timestamp": time.Now().Add(time.Minute).UTC().Format(time.RFC3339),
+		"ip":        "1.2.3.4",
+		"dry_run":   false,
+	})
+	dst.LPush(ctx, "management:gdpr_erasure_log", string(entry))
+
+	res, err := newRestoreEngine(dst).Restore(ctx, art, RestoreOptions{
+		Passphrase: "pw", IncludeBlocks: true, Force: true,
+	}, NopRestoreMetrics{})
+	if err != nil {
+		t.Fatalf("restore: %v", err)
+	}
+
+	// 6 keys for 1.2.3.4 should have been skipped
+	if res.SkippedErased < 6 {
+		t.Errorf("expected at least 6 erased keys skipped, got %d", res.SkippedErased)
+	}
+
+	for _, key := range []string{
+		"session:1.2.3.4",
+		"ratelimit:ip:1.2.3.4",
+		"offense:1.2.3.4",
+		"audit:last_score:1.2.3.4",
+		"dns:fcrdns:1.2.3.4",
+		"rdap:ip:1.2.3.4",
+	} {
+		if dst.Exists(ctx, key).Val() != 0 {
+			t.Errorf("erased key %s was resurrected despite tombstone", key)
+		}
+	}
+
+	// Retained subject must be present
+	if dst.Exists(ctx, "session:5.6.7.8").Val() != 1 {
+		t.Errorf("retained subject session:5.6.7.8 was not restored")
+	}
+}
