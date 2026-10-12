@@ -714,6 +714,24 @@ func (p *Pipeline) process(ctx context.Context, conn *ConnectionContext) *Pipeli
 		return result
 	}
 
+	// JA4PROXY-2026-0115: TLS version and cipher enforcement hard blocks.
+	// Evaluated synchronously before workChan enqueue so that legacy TLS versions
+	// (TLS 1.0/1.1) and prohibited weak ciphers cannot fail open to "allow" under queue saturation.
+	if snap != nil && snap.tlsEnforcer != nil {
+		tlsVer := uint16(conn.TLSVersion) // #nosec G115 -- TLS version is always in uint16 range
+		if tlsSigs, hardBlock := snap.tlsEnforcer.Check(tlsVer, uint16s(conn.CipherList)); hardBlock {
+			result := &PipelineResult{
+				Action:       "block",
+				Bypassed:     false,
+				BypassReason: "tls_enforcement",
+				Score:        100,
+				Signals:      tlsSigs,
+			}
+			p.cacheResult(conn, result)
+			return result
+		}
+	}
+
 	if p.Sync {
 		return p.processInternalWithSnapshot(ctx, conn, snap)
 	}

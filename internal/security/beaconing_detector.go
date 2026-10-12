@@ -163,6 +163,7 @@ func (d *BeaconingDetector) MaybeRecord(ctx context.Context, conn *ConnectionCon
 	d.redis.ZAdd(ctx, key, now, fmt.Sprintf("%f", now))
 	// Trim old entries outside the long window
 	d.redis.ZRemRangeByScore(ctx, key, 0, now-longWindow)
+	_ = d.redis.Expire(ctx, key, time.Duration(longWindow)*time.Second)
 }
 
 // computeCV computes the coefficient of variation of inter-arrival times.

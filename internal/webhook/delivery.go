@@ -277,6 +277,8 @@ func (d *Dispatcher) deliverToEndpoint(ep WebhookEndpoint, event WebhookEvent) e
 		ctx := context.Background()
 		d.rc.XAdd(ctx, &redis.XAddArgs{
 			Stream: d.cfg.DLQStreamKey,
+			MaxLen: 10000,
+			Approx: true,
 			Values: map[string]interface{}{"payload": string(dlqPayload)},
 		})
 	}
