@@ -4466,8 +4466,8 @@ phases:
       compose file."
   814n:
     name: "Pentest: IaC, deployment and downstream-consumer egress"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_814.md
+    status: IN_PROGRESS
+    action_plan: docs/phases/PHASE_814n.md
     dependencies: [814b]
     size: MEDIUM
     summary: "Stage 1, persona P8 — the sub-phase that protects our users' OTHER
