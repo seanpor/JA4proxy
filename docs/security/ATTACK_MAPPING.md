@@ -1,14 +1,14 @@
 <!--
 title: JA4proxy — Attack Mapping
 audience: security
-last_reviewed: 2026-06-04
+last_reviewed: 2026-10-12
 phase: v2.0
 -->
 
 # MITRE ATT&CK Technique Mapping
 
-> **Status:** DRAFT — self-assessed mapping
-> **Phase:** 107f (sub-phase 107f.1 scaffolding; 107f.2/.3 content; 107f.4 CI gate)
+> **Status:** VALIDATED — Stage 1 Purple Team Verified (Phase 814o)
+> **Phase:** 107f (sub-phase 107f.1 scaffolding; 107f.2/.3 content; 107f.4 CI gate; 814o purple team validation)
 > **Framework:** MITRE ATT&CK Enterprise (current published matrix)
 
 ---
@@ -149,6 +149,7 @@ which to act on based on adjacent telemetry.
 | Recon / Resource Development / Initial Access | 107f.2 | Done — see forward table rows |
 | C2 / Defense Evasion + reverse view + SIEM examples | 107f.3 | Done — see forward/reverse tables and SIEM section |
 | CI gate (`make test-attack-mapping`) | 107f.4 | Done — see `tests/test_attack_mapping.py` |
+| Purple Team Validation (Stage 1 closer) | Phase 814o (2026-10-12) | Validated — confidence labels verified against Stage 1 pentest findings |
 
 **Refresh trigger:** when a signal module is renamed, a new C2-framework JA4
 is added to the blacklist, or the MITRE ATT&CK matrix publishes a new
