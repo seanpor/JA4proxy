@@ -3454,7 +3454,7 @@ findings:
   supersedes: []
   depends_on: []
   regression_test: internal/tls/parser_pentest_regression_test.go::TestRegression_JA4PROXY_2026_0108_MultiRecordStringCloned
-  closed_commit: 4c25747c01d278c392b123030fda8fd4ecc69bc2
+  closed_commit: b622b575ef8f02bd8b50033a8b2ea14e09fcd921
   cvss_v3_1:
     score: 8.1
     vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H
