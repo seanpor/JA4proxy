@@ -12,7 +12,7 @@ services:
     container_name: ja4proxy_haproxy
     ports:
       - "443:443"
-      - "8404:8404"  # HAProxy stats port
+      - "${AGENT_BIND_IP:-127.0.0.1}:8404:8404"  # HAProxy stats port
     volumes:
       - ../../config/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
     networks:
@@ -34,7 +34,7 @@ services:
       - PROXY_PORT=8080
       - WORKER_ID=1
     ports:
-      - "8080:8080"
+      - "${AGENT_BIND_IP:-127.0.0.1}:8080:8080"
     networks:
       - ja4proxy-network
 
@@ -47,7 +47,7 @@ services:
       - PROXY_PORT=8083
       - WORKER_ID=2
     ports:
-      - "8083:8083"
+      - "${AGENT_BIND_IP:-127.0.0.1}:8083:8083"
     networks:
       - ja4proxy-network
 
@@ -60,7 +60,7 @@ services:
       - PROXY_PORT=8084
       - WORKER_ID=3
     ports:
-      - "8084:8084"
+      - "${AGENT_BIND_IP:-127.0.0.1}:8084:8084"
     networks:
       - ja4proxy-network
 
@@ -73,7 +73,7 @@ services:
       - PROXY_PORT=8085
       - WORKER_ID=4
     ports:
-      - "8085:8085"
+      - "${AGENT_BIND_IP:-127.0.0.1}:8085:8085"
     networks:
       - ja4proxy-network
 

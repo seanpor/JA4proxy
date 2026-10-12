@@ -11,6 +11,8 @@ import (
 	"sort"
 	"syscall"
 	"unsafe"
+
+	"golang.org/x/sys/unix"
 )
 
 type seccompProfile struct {
@@ -70,6 +72,12 @@ const (
 )
 
 func loadBPF(allow map[int]bool) error {
+	// JA4PROXY-2026-0127: Loading a seccomp filter without CAP_SYS_ADMIN strictly
+	// requires PR_SET_NO_NEW_PRIVS to be set on Linux, otherwise SYS_SECCOMP fails with EACCES.
+	if err := unix.Prctl(unix.PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0); err != nil {
+		return fmt.Errorf("prctl PR_SET_NO_NEW_PRIVS: %w", err)
+	}
+
 	sockFilter := buildBPFFilter(allow)
 	prog := [2]uintptr{
 		uintptr(len(sockFilter)),
@@ -471,4 +479,9 @@ var x86_64Syscalls = map[string]int{
 	"pwritev2":               328,
 	"statx":                  332,
 	"rseq":                   334,
+	"clone3":                 435,
+	"close_range":            436,
+	"openat2":                437,
+	"faccessat2":             439,
+	"epoll_pwait2":           441,
 }

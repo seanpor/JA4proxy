@@ -37,7 +37,7 @@
         "exit", "exit_group",
         "prctl", "arch_prctl",
         "getrandom", "memfd_create",
-        "clone", "rseq",
+        "clone", "rseq", "clone3", "close_range", "openat2", "faccessat2", "epoll_pwait2",
         "splice", "tee",
         "inotify_add_watch", "inotify_rm_watch", "inotify_init1",
         "fanotify_mark"
