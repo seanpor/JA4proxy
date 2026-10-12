@@ -30,6 +30,7 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import AsyncGenerator
+from urllib.parse import urlparse
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -168,27 +169,32 @@ def _enforce_no_test_mode_in_production() -> None:
         )
 
 
-# JA4PROXY-2026-0096 — the quickstart docker-compose.yml ships this literal as
-# the default MANAGEMENT_JWT_SECRET so `docker compose up` works out of the
-# box. It is committed and public in this repository, so a deployment that
-# never overrides it signs admin JWTs with a known key.
+# JA4PROXY-2026-0096 / JA4PROXY-2026-0125 — committed defaults and placeholders from
+# docker-compose quickstarts and template.env files that are public in this repo.
 _QUICKSTART_JWT_SECRET = "ja4proxy-quickstart-secret-change-me"
 _MIN_JWT_SECRET_LENGTH = 32
 
+_COMMITTED_INSECURE_SECRETS = frozenset({
+    "changeme",
+    "ja4proxy-quickstart-secret-change-me",
+    "REPLACE_ME_SECURELY",
+    "change_me_redis_strong_password",
+    "change_me_jwt_secret",
+    "change_me_admin_password",
+    "test-fixtures-pw",
+    "admin",
+    "password",
+})
+
 
 def _enforce_strong_secrets() -> None:
-    """Refuse to boot on the committed quickstart secret / default password.
+    """Refuse to boot on committed defaults or weak placeholder secrets.
 
-    JA4PROXY-2026-0096 — ``docker-compose.yml`` (the quickstart file an
-    operator under incident pressure copies) defaults
-    ``MANAGEMENT_JWT_SECRET`` to a literal that is public in this repo, and
-    ``MANAGEMENT_ADMIN_PASSWORD`` to ``changeme``. Nothing previously
-    refused to boot on those values, so a deployment that forgets to
-    override them signs admin JWTs with a known key / accepts a known
-    password. This compounds JA4PROXY-2026-0093's fail-open-by-default
-    theme, so it reuses the same fail-closed rule: the guard is skipped
-    only when ENVIRONMENT is an explicit dev/test value (the quickstart
-    itself sets ``ENVIRONMENT=dev``, so `make start` / CI still boot).
+    JA4PROXY-2026-0096 / JA4PROXY-2026-0125 — ``docker-compose.yml`` and ``template.env``
+    ship known placeholder credentials ('changeme', 'REPLACE_ME_SECURELY', etc.).
+    In production posture (any non-explicit-dev/test environment), refuse to boot
+    if MANAGEMENT_JWT_SECRET, MANAGEMENT_ADMIN_PASSWORD, or Redis credentials
+    remain set to any committed default or placeholder.
     """
     if is_explicit_nonproduction():
         return
@@ -199,11 +205,11 @@ def _enforce_strong_secrets() -> None:
             "refusing to start: MANAGEMENT_JWT_SECRET is not set. Set it to a "
             "cryptographically random string (e.g. openssl rand -hex 32)."
         )
-    if secret == _QUICKSTART_JWT_SECRET:
+    if secret in _COMMITTED_INSECURE_SECRETS:
         raise RuntimeError(
-            "refusing to start: MANAGEMENT_JWT_SECRET is still the committed "
-            "quickstart default, which is public in this repository. Set it "
-            "to a cryptographically random string (e.g. openssl rand -hex 32)."
+            f"refusing to start: MANAGEMENT_JWT_SECRET is still the committed "
+            f"quickstart default or placeholder {secret!r}, which is public in this "
+            f"repository. Set it to a cryptographically random string (e.g. openssl rand -hex 32)."
         )
     if len(secret) < _MIN_JWT_SECRET_LENGTH:
         raise RuntimeError(
@@ -212,15 +218,46 @@ def _enforce_strong_secrets() -> None:
             f"random string (e.g. openssl rand -hex 32)."
         )
 
-    if (
-        not os.environ.get("MANAGEMENT_ADMIN_PASSWORD_HASH")
-        and os.environ.get("MANAGEMENT_ADMIN_PASSWORD") == "changeme"
-    ):
+    admin_pw = os.environ.get("MANAGEMENT_ADMIN_PASSWORD", "")
+    if not os.environ.get("MANAGEMENT_ADMIN_PASSWORD_HASH"):
+        if admin_pw in _COMMITTED_INSECURE_SECRETS:
+            raise RuntimeError(
+                f"refusing to start: MANAGEMENT_ADMIN_PASSWORD is set to committed "
+                f"insecure default {admin_pw!r}. Set MANAGEMENT_ADMIN_PASSWORD_HASH "
+                f"to a bcrypt hash (preferred) or MANAGEMENT_ADMIN_PASSWORD to a "
+                f"strong, unique password."
+            )
+
+    # JA4PROXY-2026-0125: Verify Redis credentials in production posture
+    redis_url = os.environ.get("REDIS_URL", "")
+    redis_pw = os.environ.get("REDIS_PASSWORD", "")
+    redis_host = os.environ.get("REDIS_HOST", "localhost")
+    if redis_url:
+        try:
+            parts = urlparse(redis_url)
+            if parts.password:
+                redis_pw = parts.password
+            if parts.hostname:
+                redis_host = parts.hostname
+        except Exception:
+            pass
+
+    if redis_pw in _COMMITTED_INSECURE_SECRETS:
         raise RuntimeError(
-            "refusing to start: MANAGEMENT_ADMIN_PASSWORD is still the "
-            "quickstart default 'changeme'. Set MANAGEMENT_ADMIN_PASSWORD_HASH "
-            "to a bcrypt hash (preferred) or MANAGEMENT_ADMIN_PASSWORD to a "
-            "strong, unique password."
+            f"refusing to start: Redis password is set to committed insecure "
+            f"default {redis_pw!r}. Set REDIS_PASSWORD (or REDIS_URL) to a "
+            f"strong, random credential."
+        )
+
+    is_local_redis = (
+        redis_host.lower() in ("localhost", "127.0.0.1", "::1", "[::1]")
+        or redis_host.startswith("/")
+        or redis_host.startswith("unix:")
+    )
+    if not is_local_redis and not redis_pw:
+        raise RuntimeError(
+            f"refusing to start: remote Redis host {redis_host!r} configured without "
+            f"a password in production. Set REDIS_PASSWORD or REDIS_URL."
         )
 
 

@@ -5,6 +5,8 @@
 # For a trusted cert, replace 'tls internal' with 'tls /certs/cert.pem /certs/key.pem'
 # and mount your cert files into the container at /certs/.
 :8444 {
-    tls internal
+    tls internal {
+        protocols tls1.2 tls1.3
+    }
     reverse_proxy management:8090
 }

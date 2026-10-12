@@ -119,6 +119,10 @@ def _make_mock_saml_auth(
     mock.get_attribute.return_value = groups or ["Security-Admins"]
     mock.get_errors.return_value = errors or []
     mock.login.return_value = "http://mock-idp.test/sso?SAMLRequest=FAKE"
+    import secrets
+    mock.get_last_assertion_id.side_effect = lambda: f"mock_assertion_{secrets.token_hex(8)}"
+    mock.get_last_assertion_not_on_or_after.return_value = None
+    mock.get_last_message_id.return_value = None
     return mock
 
 
