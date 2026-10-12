@@ -4483,8 +4483,9 @@ phases:
       output format, and webhook egress SSRF and receiver spoofing."
   814o:
     name: "Pentest: purple team — detection and response validation"
-    status: IN_PROGRESS
-    action_plan: docs/phases/PHASE_814o.md
+    status: COMPLETE
+    completed: "2026-10-12"
+    action_plan: docs/phases/complete/PHASE_814o.md
     dependencies: [814d, 814e, 814f, 814g, 814h, 814i, 814j, 814k, 814l, 814m, 814n]
     size: MEDIUM
     summary: "Stage 1 closer. Treats every attack executed in 814d-814n as a
