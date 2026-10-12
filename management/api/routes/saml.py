@@ -43,6 +43,7 @@ import json
 import logging
 import os
 import secrets
+import time
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -264,16 +265,14 @@ async def saml_acs(
     form = await request.form()
     nonce = str(form.get("RelayState", ""))
 
-    # CSRF check — nonce must exist in Redis
-    redirect_target = await redis.get(f"mgmt:saml:nonce:{nonce}")
+    # JA4PROXY-2026-0126: CSRF check — nonce must exist in Redis and be consumed atomically (single-use)
+    redirect_target = await redis.getdel(f"mgmt:saml:nonce:{nonce}")
     if redirect_target is None:
         logger.warning("saml | event=invalid_relay_state | nonce=%r", nonce)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid or expired SAML relay state — start the login flow again",
         )
-    # Consume nonce (single-use)
-    await redis.delete(f"mgmt:saml:nonce:{nonce}")
 
     request_data = await _build_request_data(request)
     auth = OneLogin_Saml2_Auth(request_data, _get_saml_settings())
@@ -288,6 +287,38 @@ async def saml_acs(
         )
 
     nameid = auth.get_nameid()
+
+    # JA4PROXY-2026-0124: SAML assertion replay prevention.
+    # While python3-saml verifies XML signature and validity timestamps,
+    # it is stateless across requests and does not track assertion IDs.
+    # We record the assertion ID in Redis with an atomic SET NX so an
+    # assertion cannot be replayed within its NotOnOrAfter validity window.
+    assertion_id = auth.get_last_assertion_id() or auth.get_last_message_id()
+    if assertion_id:
+        assertion_id_str = str(assertion_id)
+        not_on_or_after = auth.get_last_assertion_not_on_or_after()
+        now = time.time()
+        if not_on_or_after and isinstance(not_on_or_after, (int, float)) and not_on_or_after > now:
+            ttl = max(60, int(not_on_or_after - now) + 30)
+        else:
+            ttl = 600
+
+        acquired = await redis.set(
+            f"mgmt:saml:assertion:{assertion_id_str}",
+            nameid,
+            ex=ttl,
+            nx=True,
+        )
+        if not acquired:
+            logger.warning(
+                "saml | event=assertion_replay_detected | assertion_id=%s | user=%s",
+                assertion_id_str,
+                nameid,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="SAML assertion has already been used (replay detected)",
+            )
     groups_attr = os.environ.get("MANAGEMENT_SAML_GROUPS_ATTRIBUTE", "groups")
     groups: list[str] = auth.get_attribute(groups_attr) or []
 

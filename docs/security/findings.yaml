@@ -3930,14 +3930,15 @@ findings:
     git_sha: 629769214f3a568cbb3402a3a3f7adab9fcb3849
     config_sha256: da71b09b56c2fe97
     note: pentest range, cryptography and secrets posture
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
+  regression_test: management/tests/test_pentest_saml_replay_regression.py::test_regression_ja4proxy_2026_0124_saml_assertion_replay_rejected
   closed_commit: ''
   cvss_v3_1:
     score: 7.5
     vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:N
+  notes: SAML assertion replay prevented via Redis SET NX tracking of Assertion ID with NotOnOrAfter TTL
 - id: JA4PROXY-2026-0125
   title: Committed-Default Secrets Permitted by Production Boot Guard and Remote Redis Validation
   severity: HIGH
@@ -3964,14 +3965,15 @@ findings:
     git_sha: 629769214f3a568cbb3402a3a3f7adab9fcb3849
     config_sha256: da71b09b56c2fe97
     note: pentest range, cryptography and secrets posture
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
+  regression_test: management/tests/test_pentest_committed_secrets_boot_guard_regression.py::test_regression_ja4proxy_2026_0125_rejects_committed_admin_passwords
   closed_commit: ''
   cvss_v3_1:
     score: 7.4
     vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N
+  notes: Expand _enforce_strong_secrets() and ValidateRedisAuth() to reject committed placeholder passwords
 - id: JA4PROXY-2026-0126
   title: Non-Atomic Single-Use Nonce and Challenge Verification Race Condition
   severity: MEDIUM
@@ -3996,11 +3998,12 @@ findings:
     git_sha: 629769214f3a568cbb3402a3a3f7adab9fcb3849
     config_sha256: da71b09b56c2fe97
     note: pentest range, cryptography and secrets posture
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
+  regression_test: management/tests/test_pentest_atomic_nonces_regression.py::test_regression_ja4proxy_2026_0126_saml_relaystate_atomic_single_use
   closed_commit: ''
   cvss_v3_1:
     score: 5.3
     vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:N
+  notes: Consume single-use nonces and challenges atomically via redis.getdel()

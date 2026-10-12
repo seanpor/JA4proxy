@@ -422,17 +422,14 @@ async def oidc_callback(
     code = request.query_params.get("code", "")
     state = request.query_params.get("state", "")
 
-    # CSRF / state check
-    state_raw = await redis.get(f"mgmt:oidc:state:{state}")
+    # JA4PROXY-2026-0126: CSRF / state check — consume atomically on first read
+    state_raw = await redis.getdel(f"mgmt:oidc:state:{state}")
     if not state_raw:
         logger.warning("oidc | event=invalid_state | state=%r", state)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid or expired OIDC state — start the login flow again",
         )
-    # Consume state (single-use) — before any further checks so the state
-    # cannot be replayed even on error paths (e.g. IdP error, token failure)
-    await redis.delete(f"mgmt:oidc:state:{state}")
 
     # Check for IdP error response (e.g. access_denied, consent_required)
     idp_error = request.query_params.get("error", "")

@@ -86,7 +86,8 @@ async def _load_challenge(redis, user_id: str, expected_type: str) -> bytes:
     Raises:
         HTTPException(400): If no challenge found or type mismatch.
     """
-    raw = await redis.get(_challenge_key(user_id))
+    # JA4PROXY-2026-0126: Consume challenge atomically to prevent concurrent reuse races
+    raw = await redis.getdel(_challenge_key(user_id))
     if not raw:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -98,8 +99,6 @@ async def _load_challenge(redis, user_id: str, expected_type: str) -> bytes:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Challenge type mismatch: expected '{expected_type}', found '{stored.get('type')}'",
         )
-    # Consume immediately — single-use on any code path
-    await redis.delete(_challenge_key(user_id))
     return base64url_to_bytes(stored["challenge"])
 
 

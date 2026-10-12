@@ -938,32 +938,61 @@ var ErrRedisAuthRequired = errors.New(
 		"set JA4PROXY_ALLOW_UNAUTH_REDIS=1 to override for local test clusters)",
 )
 
+// committedInsecureRedisPasswords contains known default passwords and placeholders
+// from quickstarts, documentation, and template environments.
+var committedInsecureRedisPasswords = map[string]struct{}{
+	"changeme":                         {},
+	"REPLACE_ME_SECURELY":             {},
+	"change_me_redis_strong_password": {},
+	"test-fixtures-pw":                 {},
+	"admin":                            {},
+	"password":                         {},
+}
+
+// ErrRedisCommittedDefaultPassword is returned by ValidateRedisAuth when a remote
+// Redis is configured with a known committed default password.
+var ErrRedisCommittedDefaultPassword = errors.New(
+	"redis: committed default/placeholder password rejected for remote host " +
+		"(JA4PROXY-2026-0125 — change redis.password to a strong, unique secret)",
+)
+
 // ValidateRedisAuth refuses to start the proxy against a remote Redis without
-// credentials. Local Redis (loopback host or unix socket) is permitted because
-// it is presumed reachable only from the same host. The env-var escape hatch
-// JA4PROXY_ALLOW_UNAUTH_REDIS=1 exists for integration tests that purposely
-// run unauthenticated Redis on non-loopback addresses (e.g. docker bridge).
+// credentials or with known committed default passwords. Local Redis (loopback
+// host or unix socket) is permitted because it is presumed reachable only from
+// the same host. The env-var escape hatch JA4PROXY_ALLOW_UNAUTH_REDIS=1 exists
+// for integration tests that purposely run test Redis on non-loopback addresses.
 func ValidateRedisAuth(cfg *Config) error {
 	if cfg == nil {
 		return nil
 	}
-	if strings.TrimSpace(cfg.Redis.Password) != "" {
-		return nil
+	pw := strings.TrimSpace(cfg.Redis.Password)
+	if pw == "" {
+		host := cfg.Redis.Host
+		if host == "" && len(cfg.Redis.Sentinels) > 0 {
+			host = cfg.Redis.Sentinels[0]
+		}
+		if isLocalRedisHost(host) {
+			return nil
+		}
+		if os.Getenv("JA4PROXY_ALLOW_UNAUTH_REDIS") == "1" {
+			return nil
+		}
+		return fmt.Errorf("%w (host=%q)", ErrRedisAuthRequired, host)
 	}
-	// Sentinel / managed-cluster deployments may not set a Host at all; the
-	// client resolves via the sentinels list. Treat the first sentinel as the
-	// effective host for this check.
-	host := cfg.Redis.Host
-	if host == "" && len(cfg.Redis.Sentinels) > 0 {
-		host = cfg.Redis.Sentinels[0]
+
+	if _, isInsecure := committedInsecureRedisPasswords[pw]; isInsecure {
+		if os.Getenv("JA4PROXY_ALLOW_UNAUTH_REDIS") == "1" {
+			return nil
+		}
+		host := cfg.Redis.Host
+		if host == "" && len(cfg.Redis.Sentinels) > 0 {
+			host = cfg.Redis.Sentinels[0]
+		}
+		if !isLocalRedisHost(host) {
+			return fmt.Errorf("%w (password=%q on host=%q)", ErrRedisCommittedDefaultPassword, pw, host)
+		}
 	}
-	if isLocalRedisHost(host) {
-		return nil
-	}
-	if os.Getenv("JA4PROXY_ALLOW_UNAUTH_REDIS") == "1" {
-		return nil
-	}
-	return fmt.Errorf("%w (host=%q)", ErrRedisAuthRequired, host)
+	return nil
 }
 
 // isLocalRedisHost returns true when the host string points at the same

@@ -106,9 +106,9 @@ get forgotten.
 
 | Severity | Count | Status | Count |
 |----------|-------|--------|-------|
-| CRITICAL | 15 | OPEN | 3 |
+| CRITICAL | 15 | OPEN | 0 |
 | HIGH | 35 | IN_PROGRESS | 0 |
-| MEDIUM | 46 | FIXED | 90 |
+| MEDIUM | 46 | FIXED | 93 |
 | LOW | 28 | VERIFIED | 31 |
 |  |  | CLOSED | 0 |
 |  |  | DUPLICATE | 0 |
@@ -329,8 +329,8 @@ get forgotten.
 | JA4PROXY-2026-0121 | HIGH | FIXED | go-proxy | 2026-11-11 | Unauthenticated control-plane Pub/Sub message forgery when HMAC secret is unconfigured |
 | JA4PROXY-2026-0122 | HIGH | FIXED | go-proxy | 2026-11-11 | GDPR Right-to-Erasure resurrection during backup restore due to incomplete perIPExtractors coverage |
 | JA4PROXY-2026-0123 | MEDIUM | FIXED | infrastructure | 2026-12-11 | GDPR deletion script omits rate-limiting and offense counter namespaces |
-| JA4PROXY-2026-0124 | HIGH | OPEN | python-management | 2026-11-11 | SAML Assertion Replay Vulnerability in Management API ACS Endpoint |
-| JA4PROXY-2026-0125 | HIGH | OPEN | python-management | 2026-11-11 | Committed-Default Secrets Permitted by Production Boot Guard and Remote Redis Validation |
-| JA4PROXY-2026-0126 | MEDIUM | OPEN | python-management | 2026-12-11 | Non-Atomic Single-Use Nonce and Challenge Verification Race Condition |
+| JA4PROXY-2026-0124 | HIGH | FIXED | python-management | 2026-11-11 | SAML Assertion Replay Vulnerability in Management API ACS Endpoint |
+| JA4PROXY-2026-0125 | HIGH | FIXED | python-management | 2026-11-11 | Committed-Default Secrets Permitted by Production Boot Guard and Remote Redis Validation |
+| JA4PROXY-2026-0126 | MEDIUM | FIXED | python-management | 2026-12-11 | Non-Atomic Single-Use Nonce and Challenge Verification Race Condition |
 
 <!-- END GENERATED -->
