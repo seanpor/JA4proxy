@@ -3367,7 +3367,7 @@ findings:
   supersedes: []
   depends_on: []
   regression_test: tests/adversarial/mgmt/test_ui_xss_and_csp.py::test_security_response_headers_enforced
-  closed_commit: ''
+  closed_commit: c139e964c08c77037e558fb5de8f5feaf6a09cf2
   cvss_v3_1:
     score: 4.3
     vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:L/A:N
@@ -3396,7 +3396,7 @@ findings:
   supersedes: []
   depends_on: []
   regression_test: tests/adversarial/cicd/test_maintainer_automerge_security.py::test_maintainer_automerge_condition_rejects_fork_phase_branch
-  closed_commit: ''
+  closed_commit: 52980485f56832288ce48f48c4ccc11b036f9342
   cvss_v3_1:
     score: 7.5
     vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N
@@ -3425,7 +3425,7 @@ findings:
   supersedes: []
   depends_on: []
   regression_test: tests/adversarial/cicd/test_pin_table_autofix_security.py::test_parser_input_validation_regexes
-  closed_commit: ''
+  closed_commit: 52980485f56832288ce48f48c4ccc11b036f9342
   cvss_v3_1:
     score: 3.7
     vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:L/A:N
@@ -3454,7 +3454,7 @@ findings:
   supersedes: []
   depends_on: []
   regression_test: internal/tls/parser_pentest_regression_test.go::TestRegression_JA4PROXY_2026_0108_MultiRecordStringCloned
-  closed_commit: ''
+  closed_commit: 4c25747c01d278c392b123030fda8fd4ecc69bc2
   cvss_v3_1:
     score: 8.1
     vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H
@@ -3484,7 +3484,7 @@ findings:
   supersedes: []
   depends_on: []
   regression_test: cmd/ja4pd/pentest_sni_alpn_control_chars_test.go::TestRegression_JA4PROXY_2026_0109_SanitizesSNIAndALPNControlChars
-  closed_commit: ''
+  closed_commit: b622b575ef8f02bd8b50033a8b2ea14e09fcd921
   cvss_v3_1:
     score: 6.5
     vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:L/A:L
@@ -3512,7 +3512,7 @@ findings:
   supersedes: []
   depends_on: []
   regression_test: cmd/ja4pd/pentest_network_dmz_edge_test.go::TestAdversarial_MultiPacketProxySmuggling
-  closed_commit: ''
+  closed_commit: 7c4ece9ba26bbb551ad80159cbb2b36e457efde0
   cvss_v3_1:
     score: 9.8
     vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N
@@ -3543,7 +3543,7 @@ findings:
   supersedes: []
   depends_on: []
   regression_test: cmd/ja4pd/pentest_network_dmz_edge_test.go::TestAdversarial_ProxyHeaderFragmentation
-  closed_commit: ''
+  closed_commit: 7c4ece9ba26bbb551ad80159cbb2b36e457efde0
   cvss_v3_1:
     score: 7.5
     vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H
@@ -3574,7 +3574,7 @@ findings:
   supersedes: []
   depends_on: []
   regression_test: tests/adversarial/mgmt/test_management_xff_spoofing.py::TestXFFSpoofingDefense
-  closed_commit: ''
+  closed_commit: 7c4ece9ba26bbb551ad80159cbb2b36e457efde0
   cvss_v3_1:
     score: 7.5
     vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N
@@ -3605,7 +3605,7 @@ findings:
   supersedes: []
   depends_on: []
   regression_test: internal/proxy/proxy_protocol_spec_test.go::TestProxyProtocolV1_LineLengthBound
-  closed_commit: ''
+  closed_commit: 7c4ece9ba26bbb551ad80159cbb2b36e457efde0
   cvss_v3_1:
     score: 5.3
     vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:L/A:L
@@ -3634,7 +3634,7 @@ findings:
   supersedes: []
   depends_on: []
   regression_test: cmd/ja4pd/pentest_resource_exhaustion_test.go::TestPentest_BufferPoolEarlyReturn
-  closed_commit: ''
+  closed_commit: 37fd5b0596393c4423a62de90734164d3c1537f2
   cvss_v3_1:
     score: 7.5
     vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H
@@ -3663,7 +3663,7 @@ findings:
   supersedes: []
   depends_on: []
   regression_test: internal/security/pentest_tls_enforcement_saturation_regression_test.go::TestPentest_WorkChanSaturation_TLSEnforcementHardBlock
-  closed_commit: ''
+  closed_commit: 37fd5b0596393c4423a62de90734164d3c1537f2
   cvss_v3_1:
     score: 7.5
     vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N
@@ -3692,7 +3692,7 @@ findings:
   supersedes: []
   depends_on: []
   regression_test: cmd/ja4pd/pentest_resource_exhaustion_test.go::TestPentest_Tarpit_ZeroWindow_WriteDeadline
-  closed_commit: ''
+  closed_commit: 37fd5b0596393c4423a62de90734164d3c1537f2
   cvss_v3_1:
     score: 5.3
     vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:M
@@ -3721,7 +3721,7 @@ findings:
   supersedes: []
   depends_on: []
   regression_test: internal/security/pentest_beaconing_ttl_test.go::TestPentest_BeaconingDetector_SetsTTLOnZSET
-  closed_commit: ''
+  closed_commit: 37fd5b0596393c4423a62de90734164d3c1537f2
   cvss_v3_1:
     score: 5.3
     vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:M
@@ -3751,7 +3751,7 @@ findings:
   supersedes: []
   depends_on: []
   regression_test: tests/adversarial/mgmt/test_management_metrics_cardinality.py::test_normalise_path_collapses_arbitrary_unregistered_paths
-  closed_commit: ''
+  closed_commit: 37fd5b0596393c4423a62de90734164d3c1537f2
   cvss_v3_1:
     score: 5.3
     vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:M
@@ -3780,7 +3780,7 @@ findings:
   supersedes: []
   depends_on: []
   regression_test: cmd/ja4pd/pentest_resource_exhaustion_test.go::TestPentest_AdmitConn_LoggingThrottled
-  closed_commit: ''
+  closed_commit: 37fd5b0596393c4423a62de90734164d3c1537f2
   cvss_v3_1:
     score: 5.3
     vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:M
@@ -3811,7 +3811,7 @@ findings:
   supersedes: []
   depends_on: []
   regression_test: tests/adversarial/cicd/test_agent_instruction_surface.py::test_codeowners_protects_critical_agent_instruction_files
-  closed_commit: ''
+  closed_commit: 4c25747c01d278c392b123030fda8fd4ecc69bc2
   cvss_v3_1:
     score: 8.7
     vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:R/S:C/C:H/I:H/A:N
@@ -3839,7 +3839,7 @@ findings:
   supersedes: []
   depends_on: []
   regression_test: internal/redis/pentest_pubsub_unsigned_regression_test.go::TestRegression_JA4PROXY_2026_0121_UnsignedCriticalDroppedWithoutSecret
-  closed_commit: ''
+  closed_commit: 629769214f3a568cbb3402a3a3f7adab9fcb3849
   cvss_v3_1:
     score: 8.2
     vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:H
@@ -3870,7 +3870,7 @@ findings:
   supersedes: []
   depends_on: []
   regression_test: internal/backup/restore_test.go::TestRegression_JA4PROXY_2026_0122_TombstoneSkipsAllSubjectNamespaces
-  closed_commit: ''
+  closed_commit: 629769214f3a568cbb3402a3a3f7adab9fcb3849
   cvss_v3_1:
     score: 7.5
     vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N
@@ -3899,7 +3899,7 @@ findings:
   supersedes: []
   depends_on: []
   regression_test: tests/unit/test_gdpr_delete.py::test_regression_ja4proxy_2026_0123_ratelimit_and_offense_keys_erased
-  closed_commit: ''
+  closed_commit: 629769214f3a568cbb3402a3a3f7adab9fcb3849
   cvss_v3_1:
     score: 5.3
     vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N
@@ -3934,7 +3934,7 @@ findings:
   supersedes: []
   depends_on: []
   regression_test: management/tests/test_pentest_saml_replay_regression.py::test_regression_ja4proxy_2026_0124_saml_assertion_replay_rejected
-  closed_commit: ''
+  closed_commit: b7150f7451a4b356ae14fb93165368eb4fd50080
   cvss_v3_1:
     score: 7.5
     vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:H/I:H/A:N
@@ -3969,7 +3969,7 @@ findings:
   supersedes: []
   depends_on: []
   regression_test: management/tests/test_pentest_committed_secrets_boot_guard_regression.py::test_regression_ja4proxy_2026_0125_rejects_committed_admin_passwords
-  closed_commit: ''
+  closed_commit: b7150f7451a4b356ae14fb93165368eb4fd50080
   cvss_v3_1:
     score: 7.4
     vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N
@@ -4002,7 +4002,7 @@ findings:
   supersedes: []
   depends_on: []
   regression_test: management/tests/test_pentest_atomic_nonces_regression.py::test_regression_ja4proxy_2026_0126_saml_relaystate_atomic_single_use
-  closed_commit: ''
+  closed_commit: b7150f7451a4b356ae14fb93165368eb4fd50080
   cvss_v3_1:
     score: 5.3
     vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:N
@@ -4035,7 +4035,7 @@ findings:
   supersedes: []
   depends_on: []
   regression_test: tests/unit/test_pentest_seccomp_prod_compose_regression.py::test_regression_ja4proxy_2026_0127_prod_compose_enforces_seccomp_required
-  closed_commit: ''
+  closed_commit: b44143895bcd69a76058b4e4047c25bfc3972a98
   cvss_v3_1:
     score: 7.1
     vector: CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:C/C:H/I:H/A:N
@@ -4068,7 +4068,7 @@ findings:
   supersedes: []
   depends_on: []
   regression_test: tests/unit/test_pentest_compose_port_exposure_regression.py::test_regression_ja4proxy_2026_0128_scale_compose_ports_restricted_to_loopback
-  closed_commit: ''
+  closed_commit: b44143895bcd69a76058b4e4047c25bfc3972a98
   cvss_v3_1:
     score: 7.5
     vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N
@@ -4100,7 +4100,7 @@ findings:
   supersedes: []
   depends_on: []
   regression_test: tests/unit/test_pentest_container_read_only_rootfs_regression.py::test_regression_ja4proxy_2026_0129_prod_compose_read_only_rootfs
-  closed_commit: ''
+  closed_commit: b44143895bcd69a76058b4e4047c25bfc3972a98
   cvss_v3_1:
     score: 5.3
     vector: CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:L/I:L/A:L
@@ -4131,7 +4131,7 @@ findings:
   supersedes: []
   depends_on: []
   regression_test: tests/unit/test_pentest_haproxy_stats_auth_regression.py::test_regression_ja4proxy_2026_0130_haproxy_stats_auth_enforced
-  closed_commit: ''
+  closed_commit: d643fed76e8cd33427b5dbeabbb6393f98517cf4
   cvss_v3_1:
     score: 7.5
     vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N
@@ -4162,7 +4162,7 @@ findings:
   supersedes: []
   depends_on: []
   regression_test: tests/unit/test_pentest_ansible_checksum_regression.py::test_regression_ja4proxy_2026_0131_ansible_binary_requires_checksum
-  closed_commit: ''
+  closed_commit: d643fed76e8cd33427b5dbeabbb6393f98517cf4
   cvss_v3_1:
     score: 7.5
     vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H
@@ -4194,7 +4194,7 @@ findings:
   supersedes: []
   depends_on: []
   regression_test: tests/unit/test_pentest_servicenow_injection_regression.py::test_regression_ja4proxy_2026_0132_servicenow_sanitizes_injection_payloads
-  closed_commit: ''
+  closed_commit: d643fed76e8cd33427b5dbeabbb6393f98517cf4
   cvss_v3_1:
     score: 5.4
     vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:L/I:L/A:N

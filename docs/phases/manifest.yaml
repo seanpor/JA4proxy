@@ -4498,8 +4498,8 @@ phases:
       via the existing make measure-mttr harness, and corrects the runbooks."
   814p:
     name: "Pentest: remediation wave 1-2 (CRITICAL + HIGH)"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_814.md
+    status: IN_PROGRESS
+    action_plan: docs/phases/PHASE_814p.md
     dependencies: [814a]
     size: LARGE
     summary: "Stage 2, wave-triggered not stage-gated — starts the moment 814c or
