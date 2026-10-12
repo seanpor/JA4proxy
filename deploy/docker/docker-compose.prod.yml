@@ -391,8 +391,11 @@ services:
     networks:
       - ja4proxy-monitoring
     restart: unless-stopped
+    read_only: true
     security_opt:
       - no-new-privileges:true
+    tmpfs:
+      - /tmp:noexec,nosuid,nodev,size=50m
     cap_drop:
       - ALL
     # Phase 813: deploy/secrets/*.txt are chmod 600 on the host (policy:
@@ -465,8 +468,11 @@ services:
     networks:
       - ja4proxy-monitoring
     restart: unless-stopped
+    read_only: true
     security_opt:
       - no-new-privileges:true
+    tmpfs:
+      - /tmp:noexec,nosuid,nodev,size=50m
     cap_drop:
       - ALL
     deploy:
@@ -518,7 +524,7 @@ services:
     entrypoint:
       - /bin/sh
       - -c
-      - 'export REDIS_PASSWORD="$$(cat /run/secrets/ja4tap_redis_password)"; exec /usr/local/bin/ja4-tap --interface="$$TAP_INTERFACE" --metrics-addr=:9110 --quiet'
+      - 'export REDIS_PASSWORD="$$(cat /run/secrets/ja4tap_redis_password)"; exec /usr/local/bin/ja4-tap --interface="$$TAP_INTERFACE" --metrics-addr=:9110 --seccomp-required --quiet'
     restart: unless-stopped
     read_only: true
     security_opt:

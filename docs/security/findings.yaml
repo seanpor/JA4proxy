@@ -4031,10 +4031,10 @@ findings:
     git_sha: b7150f7451a4b356ae14fb93165368eb4fd50080
     config_sha256: e801d9f848b52f6c
     note: pentest range, container and host orchestration posture
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: internal/tap/pentest_seccomp_no_new_privs_regression_test.go::TestRegression_JA4PROXY_2026_0127_SeccompLoadsAfterDropCapabilities
+  regression_test: tests/unit/test_pentest_seccomp_prod_compose_regression.py::test_regression_ja4proxy_2026_0127_prod_compose_enforces_seccomp_required
   closed_commit: ''
   cvss_v3_1:
     score: 7.1
@@ -4064,7 +4064,7 @@ findings:
     git_sha: b7150f7451a4b356ae14fb93165368eb4fd50080
     config_sha256: e801d9f848b52f6c
     note: pentest range, container and host orchestration posture
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
   regression_test: tests/unit/test_pentest_compose_port_exposure_regression.py::test_regression_ja4proxy_2026_0128_scale_compose_ports_restricted_to_loopback
@@ -4096,7 +4096,7 @@ findings:
     git_sha: b7150f7451a4b356ae14fb93165368eb4fd50080
     config_sha256: e801d9f848b52f6c
     note: pentest range, container and host orchestration posture
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
   regression_test: tests/unit/test_pentest_container_read_only_rootfs_regression.py::test_regression_ja4proxy_2026_0129_prod_compose_read_only_rootfs
