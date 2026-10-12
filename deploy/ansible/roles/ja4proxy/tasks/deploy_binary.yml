@@ -61,11 +61,20 @@
 - name: Install ja4proxy binary
   when: ja4proxy_binary_src is defined and ja4proxy_binary_src | length > 0
   block:
-    - name: Download binary from URL
+    - name: Validate checksum is supplied for remote binary download
+      when: ja4proxy_binary_src is match("https?://.*")
+      ansible.builtin.assert:
+        that:
+          - ja4proxy_binary_checksum is defined
+          - ja4proxy_binary_checksum | length > 0
+        fail_msg: "JA4PROXY-2026-0131: ja4proxy_binary_checksum must be specified when downloading binaries via URL (e.g. 'sha256:<hash>')"
+
+    - name: Download binary from URL with checksum verification
       when: ja4proxy_binary_src is match("https?://.*")
       ansible.builtin.get_url:
         url: "{{ ja4proxy_binary_src }}"
         dest: "{{ ja4proxy_binary_path }}"
+        checksum: "{{ ja4proxy_binary_checksum }}"
         mode: "0750"
         owner: root
         group: "{{ ja4proxy_group }}"

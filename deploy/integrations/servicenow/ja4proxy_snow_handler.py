@@ -25,6 +25,25 @@ import requests
 # so that tests can patch os.environ without reloading the module.
 
 
+def _sanitize_field(value: str) -> str:
+    """Sanitize text fields for downstream ServiceNow incident records.
+
+    Removes CR/LF and control characters to prevent header/delimiter injection,
+    and prepends a single quote if the string begins with spreadsheet formula
+    characters ('=', '+', '-', '@', '\t', '\r') to neutralize CSV/formula injection.
+    """
+    if not value:
+        return ""
+    # Strip carriage returns and newlines, and non-printable control characters
+    sanitized = "".join(ch if (ch == " " or ch >= " " and ch != "\x7f") else " " for ch in str(value))
+    sanitized = " ".join(sanitized.split())  # collapse whitespace
+
+    # Formula injection defense
+    if sanitized and sanitized[0] in ("=", "+", "-", "@", "\t", "%"):
+        sanitized = "'" + sanitized
+    return sanitized
+
+
 def ecs_to_sir(event: dict) -> dict:
     """Build a ServiceNow SIR payload from a JA4proxy ECS event dict.
 
@@ -45,7 +64,8 @@ def ecs_to_sir(event: dict) -> dict:
     # Build signal description
     if signals:
         signal_txt = "; ".join(
-            f"{s['name']}(+{s['score']}): {s['reason']}" for s in signals
+            f"{_sanitize_field(s.get('name', ''))}(+{s.get('score', 0)}): {_sanitize_field(s.get('reason', ''))}"
+            for s in signals
         )
     else:
         signal_txt = "No signals recorded."
@@ -53,16 +73,17 @@ def ecs_to_sir(event: dict) -> dict:
     # SIR severity: 1=Critical, 2=High, 3=Moderate, 4=Low, 5=Planning
     severity = "1" if risk_score >= 85 else "2"
 
-    source_ip = event.get("source.ip", "unknown")
+    raw_ip = str(event.get("source.ip", "unknown"))
+    source_ip = _sanitize_field(raw_ip)
 
     return {
         "short_description": (f"JA4proxy ban: {source_ip} (score={risk_score})"),
         "description": signal_txt,
         "category": "network_intrusion",
         "severity": severity,
-        "u_source_ip": event.get("source.ip", ""),
-        "u_ja4_fingerprint": event.get("ja4proxy.fingerprint.ja4", ""),
-        "u_ja4proxy_ban_id": event.get("ja4proxy.ban_id", ""),
+        "u_source_ip": _sanitize_field(str(event.get("source.ip", ""))),
+        "u_ja4_fingerprint": _sanitize_field(str(event.get("ja4proxy.fingerprint.ja4", ""))),
+        "u_ja4proxy_ban_id": _sanitize_field(str(event.get("ja4proxy.ban_id", ""))),
     }
 
 
