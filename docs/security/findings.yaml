@@ -1,5 +1,5 @@
 schema_version: 1
-last_allocated_id: 123
+last_allocated_id: 126
 findings:
 - id: JA4PROXY-2026-0001
   title: PROXY Protocol v2 Spoofing from Untrusted Source
@@ -3904,3 +3904,103 @@ findings:
     score: 5.3
     vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N
   notes: Add ratelimit and offense patterns to _IP_KEY_PATTERNS in gdpr_delete.py
+- id: JA4PROXY-2026-0124
+  title: SAML Assertion Replay Vulnerability in Management API ACS Endpoint
+  severity: HIGH
+  severity_rationale: H (CWE-294 Authentication Bypass by Capture-replay + CWE-347 Improper Verification
+    of Cryptographic Signature). In management/api/routes/saml.py, saml_acs accepts and validates SAML
+    responses from the IdP. While XML signature and timestamp validation are performed by python3-saml,
+    the service does not persist or verify the unique Assertion ID (auth.get_last_assertion_id()), nor
+    is request_id passed to process_response. An attacker intercepting a valid user's SAML response can
+    initiate a fresh SAML login, obtain a valid RelayState nonce, and replay the victim's signed Assertion
+    within its validity window (NotOnOrAfter) to mint an authenticated session as the victim, and even
+    inherit MFA trust if MANAGEMENT_SSO_TRUST_IDP_MFA is enabled.
+  source_refs:
+  - report: PHASE_814l
+    id: 814l-01
+    discovered: '2026-10-12'
+  remediation_phases:
+  - 814l
+  owner: '@seanpor'
+  lane: python-management
+  discovered: '2026-10-12'
+  due: '2026-11-11'
+  github_issue: 589
+  found_against:
+    git_sha: 629769214f3a568cbb3402a3a3f7adab9fcb3849
+    config_sha256: da71b09b56c2fe97
+    note: pentest range, cryptography and secrets posture
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  cvss_v3_1:
+    score: 7.5
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:N
+- id: JA4PROXY-2026-0125
+  title: Committed-Default Secrets Permitted by Production Boot Guard and Remote Redis Validation
+  severity: HIGH
+  severity_rationale: H (CWE-1188 Insecure Default Initialization + CWE-798 Use of Hard-coded Credentials).
+    The Phase 522 boot guard _enforce_strong_secrets() in management/api/main.py only validated MANAGEMENT_JWT_SECRET
+    and MANAGEMENT_ADMIN_PASSWORD == 'changeme'. It completely omitted checks on REDIS_PASSWORD (and passwords
+    inside REDIS_URL), allowing the management API to boot in production with committed default credentials
+    (changeme, REPLACE_ME_SECURELY, change_me_redis_strong_password). Similarly, in the Go proxy (internal/config/loader.go
+    ValidateRedisAuth), remote Redis connections with password changeme or template placeholders passed
+    validation. Furthermore, placeholder secrets from template.env (REPLACE_ME_SECURELY) were not rejected
+    for admin passwords.
+  source_refs:
+  - report: PHASE_814l
+    id: 814l-02
+    discovered: '2026-10-12'
+  remediation_phases:
+  - 814l
+  owner: '@seanpor'
+  lane: python-management
+  discovered: '2026-10-12'
+  due: '2026-11-11'
+  github_issue: 590
+  found_against:
+    git_sha: 629769214f3a568cbb3402a3a3f7adab9fcb3849
+    config_sha256: da71b09b56c2fe97
+    note: pentest range, cryptography and secrets posture
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  cvss_v3_1:
+    score: 7.4
+    vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N
+- id: JA4PROXY-2026-0126
+  title: Non-Atomic Single-Use Nonce and Challenge Verification Race Condition
+  severity: MEDIUM
+  severity_rationale: M (CWE-362 Concurrent Execution using Shared Resource with Improper Synchronization
+    + CWE-307 Improper Restriction of Excessive Authentication Attempts). In management/api/routes/saml.py
+    (RelayState nonce), management/api/routes/oidc.py (OAuth state), and management/api/routes/webauthn.py
+    (MFA challenge), single-use values were read with redis.get() followed subsequently by redis.delete().
+    This introduces a TOCTOU race condition where concurrent HTTP requests presenting the identical nonce
+    or challenge can both pass verification before either deletion executes.
+  source_refs:
+  - report: PHASE_814l
+    id: 814l-03
+    discovered: '2026-10-12'
+  remediation_phases:
+  - 814l
+  owner: '@seanpor'
+  lane: python-management
+  discovered: '2026-10-12'
+  due: '2026-12-11'
+  github_issue: 591
+  found_against:
+    git_sha: 629769214f3a568cbb3402a3a3f7adab9fcb3849
+    config_sha256: da71b09b56c2fe97
+    note: pentest range, cryptography and secrets posture
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  cvss_v3_1:
+    score: 5.3
+    vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:N
