@@ -81,21 +81,92 @@ ACTIONS = Counter(
 )
 
 
-def normalise_path(path: str) -> str:
-    """Collapse identifiers so the `path` label stays bounded.
+_KNOWN_ROOTS = {
+    "",
+    "login",
+    "lists",
+    "bans",
+    "audit",
+    "threat-intel",
+    "under-attack",
+    "security-policy",
+    "intelligence-review",
+    "metrics",
+}
 
-    CLAUDE.md forbids unbounded-cardinality labels: /api/v1/bans/1.2.3.4 as a
-    distinct label value would let anyone inflate Prometheus memory by making
-    requests. Numeric, IP-ish and hex-ish segments become ``{id}``.
+_KNOWN_API_MODULES = {
+    "health",
+    "ready",
+    "dial",
+    "config",
+    "tokens",
+    "nodes",
+    "bans",
+    "lists",
+    "datacenter-policy",
+    "attack-mode",
+    "attack",
+    "threat-intel",
+    "edl",
+    "compliance",
+    "ip",
+    "partials",
+    "triage",
+    "intelligence",
+}
+
+
+def normalise_path(path: str) -> str:
+    """Collapse identifiers and unmapped paths so the `path` label stays bounded.
+
+    CLAUDE.md forbids unbounded-cardinality labels. Unmapped/fuzzed paths collapse
+    to `{unmatched}` (JA4PROXY-2026-0118) while valid routes parameterize variable
+    IDs to `{id}`.
     """
-    out = []
-    for seg in path.split("/"):
-        if not seg:
-            out.append(seg)
-        elif seg.replace(".", "").replace(":", "").isdigit() or (
-            len(seg) >= 16 and all(c in "0123456789abcdefABCDEF_" for c in seg)
-        ):
-            out.append("{id}")
-        else:
-            out.append(seg)
-    return "/".join(out) or "/"
+    if not path or path == "/":
+        return "/"
+
+    parts = [p for p in path.strip("/").split("/") if p]
+    if not parts:
+        return "/"
+
+    if len(parts) == 1:
+        if parts[0] in _KNOWN_ROOTS:
+            return f"/{parts[0]}"
+        return "{unmatched}"
+
+    if parts[0] in ("ip", "fingerprint") and len(parts) == 2:
+        return f"/{parts[0]}/{{id}}"
+
+    if parts[0] == "auth":
+        if len(parts) >= 2 and parts[1] in ("sso", "mfa"):
+            normalized = []
+            for seg in parts:
+                if seg.replace(".", "").replace(":", "").isdigit() or (
+                    len(seg) >= 16 and all(c in "0123456789abcdefABCDEF_-" for c in seg)
+                ):
+                    normalized.append("{id}")
+                else:
+                    normalized.append(seg)
+            return "/" + "/".join(normalized)
+        return "{unmatched}"
+
+    if parts[0] == "api" and len(parts) >= 2 and parts[1] == "v1":
+        if len(parts) >= 3:
+            module = parts[2]
+            if module not in _KNOWN_API_MODULES:
+                return "{unmatched}"
+            normalized = ["api", "v1", module]
+            for seg in parts[3:]:
+                if (
+                    seg.replace(".", "").replace(":", "").isdigit()
+                    or (len(seg) >= 16 and all(c in "0123456789abcdefABCDEF_-" for c in seg))
+                    or module in ("bans", "lists", "tokens", "nodes", "edl", "ip", "triage", "intelligence")
+                ):
+                    normalized.append("{id}")
+                else:
+                    normalized.append(seg)
+            return "/" + "/".join(normalized)
+        return "/api/v1"
+
+    return "{unmatched}"

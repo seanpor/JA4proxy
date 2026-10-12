@@ -1,5 +1,5 @@
 schema_version: 1
-last_allocated_id: 113
+last_allocated_id: 119
 findings:
 - id: JA4PROXY-2026-0001
   title: PROXY Protocol v2 Spoofing from Untrusted Source
@@ -3611,3 +3611,178 @@ findings:
     vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:L/A:L
   notes: Discovered during Phase 814i pentest. Spec conformance hardening across ReadProxyProtocol and
     ReadProxyProtocolV2WithLength.
+- id: JA4PROXY-2026-0114
+  title: HandleConn retains 32KB BufferPool allocation for entire connection lifespan across Forward
+  severity: HIGH
+  severity_rationale: Holding 32KB client read buffer across Forward's wg.Wait blocks 320MB of redundant
+    RAM under 10k connections, inducing OOM in container cgroups
+  source_refs:
+  - report: PHASE_814j
+    id: 814j-01
+    discovered: '2026-10-12'
+  remediation_phases:
+  - 814j
+  owner: '@seanpor'
+  lane: go-proxy
+  discovered: '2026-10-12'
+  due: '2026-11-11'
+  found_against:
+    git_sha: 7c4ece9ba26bbb551ad80159cbb2b36e457efde0
+    config_sha256: da71b09b56c2fe97
+    note: pentest range, resource exhaustion and availability posture
+  status: FIXED
+  supersedes: []
+  depends_on: []
+  regression_test: cmd/ja4pd/pentest_resource_exhaustion_test.go::TestPentest_BufferPoolEarlyReturn
+  closed_commit: ''
+  cvss_v3_1:
+    score: 7.5
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H
+  notes: HandleConn must deep-copy initialData and return bp to BufferPool before entering Forward
+  github_issue: 578
+- id: JA4PROXY-2026-0115
+  title: workChan saturation forces fail-open bypass of TLS version and cipher suite enforcement
+  severity: HIGH
+  severity_rationale: When workChan saturates, Process returns allow and drops event without running tlsEnforcer.Check,
+    forwarding legacy TLS 1.0/1.1 and weak ciphers to backend
+  source_refs:
+  - report: PHASE_814j
+    id: 814j-02
+    discovered: '2026-10-12'
+  remediation_phases:
+  - 814j
+  owner: '@seanpor'
+  lane: go-proxy
+  discovered: '2026-10-12'
+  due: '2026-11-11'
+  found_against:
+    git_sha: 7c4ece9ba26bbb551ad80159cbb2b36e457efde0
+    config_sha256: da71b09b56c2fe97
+    note: pentest range, resource exhaustion and availability posture
+  status: FIXED
+  supersedes: []
+  depends_on: []
+  regression_test: internal/security/pentest_tls_enforcement_saturation_regression_test.go::TestPentest_WorkChanSaturation_TLSEnforcementHardBlock
+  closed_commit: ''
+  cvss_v3_1:
+    score: 7.5
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N
+  notes: Extract tlsEnforcer.Check into synchronous evaluation in Process before workChan enqueue
+  github_issue: 579
+- id: JA4PROXY-2026-0116
+  title: Tarpit copyOne missing write deadline enables zero-window connection and goroutine leak
+  severity: MEDIUM
+  severity_rationale: Without dst.SetWriteDeadline in copyOne loop, zero-window clients hang in kernel
+    write buffer indefinitely, pinning tarpit slots and goroutines
+  source_refs:
+  - report: PHASE_814j
+    id: 814j-03
+    discovered: '2026-10-12'
+  remediation_phases:
+  - 814j
+  owner: '@seanpor'
+  lane: go-proxy
+  discovered: '2026-10-12'
+  due: '2026-12-11'
+  found_against:
+    git_sha: 7c4ece9ba26bbb551ad80159cbb2b36e457efde0
+    config_sha256: da71b09b56c2fe97
+    note: pentest range, resource exhaustion and availability posture
+  status: FIXED
+  supersedes: []
+  depends_on: []
+  regression_test: cmd/ja4pd/pentest_resource_exhaustion_test.go::TestPentest_Tarpit_ZeroWindow_WriteDeadline
+  closed_commit: ''
+  cvss_v3_1:
+    score: 5.3
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:M
+  notes: Set dst.SetWriteDeadline on each write in copyOne and enforce non-zero MaxLifetimeSeconds
+  github_issue: 580
+- id: JA4PROXY-2026-0117
+  title: Unbounded Redis structures in beaconing ZSET (missing TTL) and webhook DLQ stream (missing MaxLen)
+  severity: MEDIUM
+  severity_rationale: beacon:ip:ja4 ZSET keys have no TTL and persist indefinitely; webhook DLQ stream
+    XAdd has no MaxLen cap, leading to unbounded Redis RAM exhaustion
+  source_refs:
+  - report: PHASE_814j
+    id: 814j-04
+    discovered: '2026-10-12'
+  remediation_phases:
+  - 814j
+  owner: '@seanpor'
+  lane: go-proxy
+  discovered: '2026-10-12'
+  due: '2026-12-11'
+  found_against:
+    git_sha: 7c4ece9ba26bbb551ad80159cbb2b36e457efde0
+    config_sha256: da71b09b56c2fe97
+    note: pentest range, resource exhaustion and availability posture
+  status: FIXED
+  supersedes: []
+  depends_on: []
+  regression_test: internal/security/pentest_beaconing_ttl_test.go::TestPentest_BeaconingDetector_SetsTTLOnZSET
+  closed_commit: ''
+  cvss_v3_1:
+    score: 5.3
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:M
+  notes: Set Expire on beacon ZSET keys and specify MaxLen 10000 on webhook DLQ XAdd
+  github_issue: 581
+- id: JA4PROXY-2026-0118
+  title: Management API normalise_path passes arbitrary path segments allowing Prometheus cardinality
+    DoS
+  severity: MEDIUM
+  severity_rationale: normalise_path does not collapse arbitrary non-numeric path segments, allowing unauthenticated
+    attackers to flood Prometheus metric registry with hundreds of thousands of timeseries
+  source_refs:
+  - report: PHASE_814j
+    id: 814j-05
+    discovered: '2026-10-12'
+  remediation_phases:
+  - 814j
+  owner: '@seanpor'
+  lane: python-management
+  discovered: '2026-10-12'
+  due: '2026-12-11'
+  found_against:
+    git_sha: 7c4ece9ba26bbb551ad80159cbb2b36e457efde0
+    config_sha256: da71b09b56c2fe97
+    note: pentest range, resource exhaustion and availability posture
+  status: FIXED
+  supersedes: []
+  depends_on: []
+  regression_test: tests/adversarial/mgmt/test_management_metrics_cardinality.py::test_normalise_path_collapses_arbitrary_unregistered_paths
+  closed_commit: ''
+  cvss_v3_1:
+    score: 5.3
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:M
+  notes: Collapse unrecognised path segments to {unmatched} or match against registered routes
+  github_issue: 582
+- id: JA4PROXY-2026-0119
+  title: AdmitConn synchronous warning log on accept overflow stalls listener loop under connection flood
+  severity: MEDIUM
+  severity_rationale: Synchronous Warn log on every dropped connection in AdmitConn blocks ln.Accept on
+    disk/console I/O, overflowing the OS listen backlog
+  source_refs:
+  - report: PHASE_814j
+    id: 814j-06
+    discovered: '2026-10-12'
+  remediation_phases:
+  - 814j
+  owner: '@seanpor'
+  lane: go-proxy
+  discovered: '2026-10-12'
+  due: '2026-12-11'
+  found_against:
+    git_sha: 7c4ece9ba26bbb551ad80159cbb2b36e457efde0
+    config_sha256: da71b09b56c2fe97
+    note: pentest range, resource exhaustion and availability posture
+  status: FIXED
+  supersedes: []
+  depends_on: []
+  regression_test: cmd/ja4pd/pentest_resource_exhaustion_test.go::TestPentest_AdmitConn_LoggingThrottled
+  closed_commit: ''
+  cvss_v3_1:
+    score: 5.3
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:M
+  notes: Add rate-limited throttling to AdmitConn accept-overflow logging
+  github_issue: 583

@@ -52,7 +52,9 @@ type Server struct {
 	StreamEventQueue chan []byte
 	StreamHMACSecret string
 	NodeID           string
-	ConnSeq          uint64
+	ConnSeq              uint64
+	BuffersReturnedEarly int64
+	lastAcceptOverflowNano int64
 
 	// Lowercase field aliases for backwards compatibility with tests in package main
 	cfg              *config.Config
@@ -337,9 +339,15 @@ func (s *Server) AdmitConn(conn net.Conn) bool {
 		return true
 	default:
 		metrics.ConnectionErrorsTotal.WithLabelValues("accept_overflow").Inc()
-		if s.Log != nil {
-			s.Log.WithField("remote", conn.RemoteAddr().String()).
-				Warn("proxy: accept-loop at capacity; dropping connection")
+		now := time.Now().UnixNano()
+		last := atomic.LoadInt64(&s.lastAcceptOverflowNano)
+		if now-last > int64(time.Second) {
+			if atomic.CompareAndSwapInt64(&s.lastAcceptOverflowNano, last, now) {
+				if s.Log != nil {
+					s.Log.WithField("remote", conn.RemoteAddr().String()).
+						Warn("proxy: accept-loop at capacity; dropping connection")
+				}
+			}
 		}
 		_ = conn.Close()
 		return false
@@ -362,7 +370,12 @@ func (s *Server) HandleConn(ctx context.Context, clientConn net.Conn) {
 
 	bp := BufferPool.Get().(*[]byte)
 	buf := *bp
-	defer BufferPool.Put(bp)
+	returnedBuf := false
+	defer func() {
+		if !returnedBuf {
+			BufferPool.Put(bp)
+		}
+	}()
 
 	_ = clientConn.SetReadDeadline(time.Now().Add(time.Duration(cfg.Proxy.ReadTimeout) * time.Second))
 	n, err := clientConn.Read(buf)
@@ -489,6 +502,13 @@ func (s *Server) HandleConn(ctx context.Context, clientConn net.Conn) {
 		}
 	}
 
+	// JA4PROXY-2026-0114: Deep-copy initialData and return 32KB buffer to BufferPool early.
+	// Prevents holding bp across the entire lifespan of forwarded connections (Forward's wg.Wait).
+	initialData := append([]byte(nil), data...)
+	BufferPool.Put(bp)
+	returnedBuf = true
+	atomic.AddInt64(&s.BuffersReturnedEarly, 1)
+
 	result := s.Pipeline.Process(ctx, connCtx)
 	if s.Log != nil {
 		s.Log.WithFields(logrus.Fields{
@@ -513,9 +533,9 @@ func (s *Server) HandleConn(ctx context.Context, clientConn net.Conn) {
 
 	switch result.Action {
 	case "allow", "flag", "rate_limit":
-		s.Forward(clientConn, data, connCtx.ClientIP, connCtx.ClientPort)
+		s.Forward(clientConn, initialData, connCtx.ClientIP, connCtx.ClientPort)
 	case "tarpit":
-		s.Tarpit(clientConn, data, connCtx.ClientIP)
+		s.Tarpit(clientConn, initialData, connCtx.ClientIP)
 	case "block", "ban":
 		if tcpConn, ok := clientConn.(*net.TCPConn); ok {
 			_ = tcpConn.SetLinger(0)

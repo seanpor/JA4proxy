@@ -80,12 +80,16 @@ func (s *Server) Tarpit(clientConn net.Conn, data []byte, clientIP string) {
 	}
 
 	inactivity := time.Duration(cfg.Tarpit.InactivityTimeoutSeconds) * time.Second
-	lifetime := time.Duration(cfg.Tarpit.MaxLifetimeSeconds) * time.Second
-	deadline := time.Now().Add(lifetime)
-	if lifetime > 0 {
-		_ = clientConn.SetDeadline(deadline)
-		_ = tarpitConn.SetDeadline(deadline)
+	if inactivity <= 0 {
+		inactivity = 60 * time.Second
 	}
+	lifetime := time.Duration(cfg.Tarpit.MaxLifetimeSeconds) * time.Second
+	if lifetime <= 0 {
+		lifetime = 300 * time.Second // JA4PROXY-2026-0116: default hard ceiling to prevent indefinite hold
+	}
+	deadline := time.Now().Add(lifetime)
+	_ = clientConn.SetDeadline(deadline)
+	_ = tarpitConn.SetDeadline(deadline)
 
 	done := make(chan struct{}, 2)
 	copyOne := func(dst, src net.Conn) {
@@ -96,6 +100,9 @@ func (s *Server) Tarpit(clientConn net.Conn, data []byte, clientIP string) {
 			}
 			n, err := src.Read(buf)
 			if n > 0 {
+				if inactivity > 0 {
+					_ = dst.SetWriteDeadline(time.Now().Add(inactivity))
+				}
 				if _, werr := dst.Write(buf[:n]); werr != nil {
 					break
 				}
