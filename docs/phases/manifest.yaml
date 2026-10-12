@@ -4513,8 +4513,9 @@ phases:
       814r."
   814q:
     name: "Pentest: remediation wave 3-4 (MEDIUM + LOW)"
-    status: IN_PROGRESS
-    action_plan: docs/phases/PHASE_814q.md
+    status: COMPLETE
+    completed: "2026-10-12"
+    action_plan: docs/phases/complete/PHASE_814q.md
     dependencies: [814a]
     size: MEDIUM
     summary: "Stage 2. Same discipline as 814p at lower priority. Also resolves

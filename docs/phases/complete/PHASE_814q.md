@@ -11,7 +11,7 @@ Audit and verify remediation across all 14 MEDIUM and LOW findings:
    - *Regression test*: `internal/logging/redactor_test.go::TestRegression_JA4PROXY_2026_0048_redacts_opaque_fields_in_production`
 
 2. **JA4PROXY-2026-0089 (MEDIUM, CVSS 2.2)**: Hot config reload orphaned async enrichment workers (DNS/AbuseIPDB/RDAP/feed) — enrichment silently degraded after SIGHUP.
-   - *Fix commit*: `50129e133dc3184db7fc34fc07b5398dbe39f864` (Phase 251a)
+   - *Fix commit*: `50129e13be397b064582e66fcdb372812cf65ad2` (Phase 251a)
    - *Regression test*: `internal/security/pipeline_test.go::TestPipeline_ReplaceConfig_RestartsEnrichmentWorkers`
 
 3. **JA4PROXY-2026-0105 (LOW, CVSS 4.3)**: Missing HTTP security response headers across management API and Web UI (CSP, HSTS, X-Content-Type-Options, Frame-Ancestors).
