@@ -100,15 +100,15 @@ get forgotten.
 
 <!-- BEGIN GENERATED: findings_register.py render -->
 
-## Register snapshot (2026-10-11)
+## Register snapshot (2026-10-12)
 
-**Total:** 111 canonical finding(s).
+**Total:** 121 canonical finding(s).
 
 | Severity | Count | Status | Count |
 |----------|-------|--------|-------|
 | CRITICAL | 15 | OPEN | 0 |
-| HIGH | 28 | IN_PROGRESS | 0 |
-| MEDIUM | 40 | FIXED | 80 |
+| HIGH | 33 | IN_PROGRESS | 0 |
+| MEDIUM | 45 | FIXED | 90 |
 | LOW | 28 | VERIFIED | 31 |
 |  |  | CLOSED | 0 |
 |  |  | DUPLICATE | 0 |
@@ -319,5 +319,15 @@ get forgotten.
 | JA4PROXY-2026-0111 | HIGH | FIXED | go-proxy | 2026-11-10 | Fragmented PROXY protocol header prematurely dropped by TLS protocol lockdown causing false positive denial of service |
 | JA4PROXY-2026-0112 | HIGH | FIXED | python-management | 2026-11-10 | Management API auth client IP extraction trusts leftmost X-Forwarded-For header allowing rate limit and lockout bypass |
 | JA4PROXY-2026-0113 | MEDIUM | FIXED | go-proxy | 2026-12-10 | PROXY protocol v1 and v2 parsers accept out-of-spec lines, tokens, and fail to discard LOCAL command headers |
+| JA4PROXY-2026-0114 | HIGH | FIXED | go-proxy | 2026-11-11 | HandleConn retains 32KB BufferPool allocation for entire connection lifespan across Forward |
+| JA4PROXY-2026-0115 | HIGH | FIXED | go-proxy | 2026-11-11 | workChan saturation forces fail-open bypass of TLS version and cipher suite enforcement |
+| JA4PROXY-2026-0116 | MEDIUM | FIXED | go-proxy | 2026-12-11 | Tarpit copyOne missing write deadline enables zero-window connection and goroutine leak |
+| JA4PROXY-2026-0117 | MEDIUM | FIXED | go-proxy | 2026-12-11 | Unbounded Redis structures in beaconing ZSET (missing TTL) and webhook DLQ stream (missing MaxLen) |
+| JA4PROXY-2026-0118 | MEDIUM | FIXED | python-management | 2026-12-11 | Management API normalise_path passes arbitrary path segments allowing Prometheus cardinality DoS |
+| JA4PROXY-2026-0119 | MEDIUM | FIXED | go-proxy | 2026-12-11 | AdmitConn synchronous warning log on accept overflow stalls listener loop under connection flood |
+| JA4PROXY-2026-0120 | HIGH | FIXED | infrastructure | 2026-11-10 | Missing CODEOWNERS and instruction file review gates permit agent prompt poisoning via untrusted PRs |
+| JA4PROXY-2026-0121 | HIGH | FIXED | go-proxy | 2026-11-11 | Unauthenticated control-plane Pub/Sub message forgery when HMAC secret is unconfigured |
+| JA4PROXY-2026-0122 | HIGH | FIXED | go-proxy | 2026-11-11 | GDPR Right-to-Erasure resurrection during backup restore due to incomplete perIPExtractors coverage |
+| JA4PROXY-2026-0123 | MEDIUM | FIXED | infrastructure | 2026-12-11 | GDPR deletion script omits rate-limiting and offense counter namespaces |
 
 <!-- END GENERATED -->

@@ -40,6 +40,9 @@ LIVE_IP_KEYS = [
     "fp:ja4t:ip:{ip}",
     "fp:ban_intent:ip:{ip}",
     "fp:ip:{ip}",
+    "ratelimit:ip:{ip}",
+    "ratelimit:ip_ja4:{ip}:*",
+    "offense:{ip}",
 ]
 
 # Stale Python-proxy key forms that must NOT reappear — they never match anything
@@ -82,3 +85,10 @@ def test_scan_and_exact_partition_is_consistent(gdpr):
         in_exact = p in gdpr._EXACT_PATTERNS
         assert in_scan != in_exact, f"{p!r} must be in exactly one of SCAN/EXACT"
         assert in_scan == ("*" in p), f"{p!r} wildcard classification is wrong"
+
+
+def test_regression_ja4proxy_2026_0123_ratelimit_and_offense_keys_erased(gdpr):
+    """JA4PROXY-2026-0123: ratelimit and offense keys must be in _IP_KEY_PATTERNS."""
+    for required in ("ratelimit:ip:{ip}", "ratelimit:ip_ja4:{ip}:*", "offense:{ip}"):
+        assert required in gdpr._IP_KEY_PATTERNS, f"{required} missing from GDPR deletion catalogue"
+

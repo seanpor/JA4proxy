@@ -1,5 +1,5 @@
 schema_version: 1
-last_allocated_id: 120
+last_allocated_id: 123
 findings:
 - id: JA4PROXY-2026-0001
   title: PROXY Protocol v2 Spoofing from Untrusted Source
@@ -3815,3 +3815,92 @@ findings:
   cvss_v3_1:
     score: 8.7
     vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:R/S:C/C:H/I:H/A:N
+- id: JA4PROXY-2026-0121
+  title: Unauthenticated control-plane Pub/Sub message forgery when HMAC secret is unconfigured
+  severity: HIGH
+  severity_rationale: When pubsub_hmac_secret is empty, critical channels (reload, dial change, list edits)
+    accept unsigned messages without validation, allowing rogue Redis clients to alter proxy posture
+  source_refs:
+  - report: PHASE_814k
+    id: 814k-01
+    discovered: '2026-10-12'
+  remediation_phases:
+  - 814k
+  owner: '@seanpor'
+  lane: go-proxy
+  discovered: '2026-10-12'
+  due: '2026-11-11'
+  github_issue: 585
+  found_against:
+    git_sha: 4c25747c01d278c392b123030fda8fd4ecc69bc2
+    config_sha256: da71b09b56c2fe97
+    note: pentest range, data layer posture
+  status: FIXED
+  supersedes: []
+  depends_on: []
+  regression_test: internal/redis/pentest_pubsub_unsigned_regression_test.go::TestRegression_JA4PROXY_2026_0121_UnsignedCriticalDroppedWithoutSecret
+  closed_commit: ''
+  cvss_v3_1:
+    score: 8.2
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:H
+  notes: Require HMAC signing on critical PubSub channels by default; drop unsigned messages when secret
+    is empty
+- id: JA4PROXY-2026-0122
+  title: GDPR Right-to-Erasure resurrection during backup restore due to incomplete perIPExtractors coverage
+  severity: HIGH
+  severity_rationale: internal/backup/classify.go SubjectIP only extracts IPs from 4 namespaces; restoring
+    a backup with tombstones resurrects ratelimit, session, offense, audit, and intelligence keys for
+    erased subjects
+  source_refs:
+  - report: PHASE_814k
+    id: 814k-02
+    discovered: '2026-10-12'
+  remediation_phases:
+  - 814k
+  owner: '@seanpor'
+  lane: go-proxy
+  discovered: '2026-10-12'
+  due: '2026-11-11'
+  github_issue: 586
+  found_against:
+    git_sha: 4c25747c01d278c392b123030fda8fd4ecc69bc2
+    config_sha256: da71b09b56c2fe97
+    note: pentest range, data layer posture
+  status: FIXED
+  supersedes: []
+  depends_on: []
+  regression_test: internal/backup/restore_test.go::TestRegression_JA4PROXY_2026_0122_TombstoneSkipsAllSubjectNamespaces
+  closed_commit: ''
+  cvss_v3_1:
+    score: 7.5
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N
+  notes: Add comprehensive per-IP namespace extraction to perIPExtractors in classify.go
+- id: JA4PROXY-2026-0123
+  title: GDPR deletion script omits rate-limiting and offense counter namespaces
+  severity: MEDIUM
+  severity_rationale: scripts/gdpr_delete.py _IP_KEY_PATTERNS omits ratelimit:ip, ratelimit:ip_ja4, and
+    offense namespaces, leaving subject PII in Redis after erasure execution
+  source_refs:
+  - report: PHASE_814k
+    id: 814k-03
+    discovered: '2026-10-12'
+  remediation_phases:
+  - 814k
+  owner: '@seanpor'
+  lane: infrastructure
+  discovered: '2026-10-12'
+  due: '2026-12-11'
+  github_issue: 587
+  found_against:
+    git_sha: 4c25747c01d278c392b123030fda8fd4ecc69bc2
+    config_sha256: da71b09b56c2fe97
+    note: pentest range, data layer posture
+  status: FIXED
+  supersedes: []
+  depends_on: []
+  regression_test: tests/unit/test_gdpr_delete.py::test_regression_ja4proxy_2026_0123_ratelimit_and_offense_keys_erased
+  closed_commit: ''
+  cvss_v3_1:
+    score: 5.3
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N
+  notes: Add ratelimit and offense patterns to _IP_KEY_PATTERNS in gdpr_delete.py

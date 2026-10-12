@@ -55,6 +55,9 @@ _IP_KEY_PATTERNS = [
     "fp:ja4t:ip:{ip}",  # phase-316c — passive JA4T TCP fingerprint observed by the TAP sensor
     "fp:ban_intent:ip:{ip}",  # phase-316d — advisory TAP enforcement watchlist entry
     "fp:ip:{ip}",  # phase-316b — per-IP fingerprint history (TAP); covers 316c too
+    "ratelimit:ip:{ip}",  # phase-814k (JA4PROXY-2026-0123) — rate-limit counter
+    "ratelimit:ip_ja4:{ip}:*",  # phase-814k (JA4PROXY-2026-0123) — compound rate-limit key
+    "offense:{ip}",  # phase-814k (JA4PROXY-2026-0123) — offense counter
     # --- Deprecated namespaces (no live writer in the Go proxy) kept for
     #     defensive erasure of any residual data from a prior Python deployment;
     #     DEL on an absent key is a harmless no-op. See docs/reference/REDIS_SCHEMA.md.

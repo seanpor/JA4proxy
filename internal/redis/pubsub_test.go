@@ -42,6 +42,7 @@ func TestPubSubHandler_HandleMessage_ConfigReload(t *testing.T) {
 		func() { atomic.AddInt32(&reloadCount, 1) },
 		func() { atomic.AddInt32(&refreshCount, 1) },
 	)
+	h.SetAllowUnsigned(true)
 
 	// Test config reload channel
 	h.handleMessage(&goredis.Message{Channel: ChannelConfigReload, Payload: "1"})
@@ -62,6 +63,7 @@ func TestPubSubHandler_HandleMessage_DialChange(t *testing.T) {
 		func() { atomic.AddInt32(&reloadCount, 1) },
 		func() {},
 	)
+	h.SetAllowUnsigned(true)
 
 	h.handleMessage(&goredis.Message{Channel: ChannelDialChange, Payload: "50"})
 	if atomic.LoadInt32(&reloadCount) != 1 {
@@ -78,6 +80,7 @@ func TestPubSubHandler_HandleMessage_BlacklistAdd(t *testing.T) {
 		func() {},
 		func() { atomic.AddInt32(&refreshCount, 1) },
 	)
+	h.SetAllowUnsigned(true)
 
 	h.handleMessage(&goredis.Message{Channel: ChannelBlacklistAdd, Payload: "fp1"})
 	if atomic.LoadInt32(&refreshCount) != 1 {
@@ -94,6 +97,7 @@ func TestPubSubHandler_HandleMessage_BlacklistRemove(t *testing.T) {
 		func() {},
 		func() { atomic.AddInt32(&refreshCount, 1) },
 	)
+	h.SetAllowUnsigned(true)
 
 	h.handleMessage(&goredis.Message{Channel: ChannelBlacklistRemove, Payload: "fp1"})
 	if atomic.LoadInt32(&refreshCount) != 1 {
@@ -110,6 +114,7 @@ func TestPubSubHandler_HandleMessage_WhitelistAdd(t *testing.T) {
 		func() {},
 		func() { atomic.AddInt32(&refreshCount, 1) },
 	)
+	h.SetAllowUnsigned(true)
 
 	h.handleMessage(&goredis.Message{Channel: ChannelWhitelistAdd, Payload: "fp2"})
 	if atomic.LoadInt32(&refreshCount) != 1 {
@@ -126,6 +131,7 @@ func TestPubSubHandler_HandleMessage_WhitelistRemove(t *testing.T) {
 		func() {},
 		func() { atomic.AddInt32(&refreshCount, 1) },
 	)
+	h.SetAllowUnsigned(true)
 
 	h.handleMessage(&goredis.Message{Channel: ChannelWhitelistRemove, Payload: "fp2"})
 	if atomic.LoadInt32(&refreshCount) != 1 {
@@ -142,6 +148,7 @@ func TestPubSubHandler_HandleMessage_CIDRUpdate(t *testing.T) {
 		func() {},
 		func() { atomic.AddInt32(&refreshCount, 1) },
 	)
+	h.SetAllowUnsigned(true)
 
 	h.handleMessage(&goredis.Message{Channel: ChannelCIDRUpdate, Payload: "192.168.0.0/24"})
 	if atomic.LoadInt32(&refreshCount) != 1 {
