@@ -4427,8 +4427,9 @@ phases:
       included."
   814l:
     name: "Pentest: cryptography and secrets"
-    status: IN_PROGRESS
-    action_plan: docs/phases/PHASE_814l.md
+    status: COMPLETE
+    completed: '2026-10-12'
+    action_plan: docs/phases/complete/PHASE_814l.md
     dependencies: [814b]
     size: MEDIUM
     summary: "Stage 1. JWT algorithm confusion, none, key confusion, kid
