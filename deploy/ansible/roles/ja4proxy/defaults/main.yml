@@ -16,6 +16,7 @@ ja4proxy_deploy_mode: "auto"
 
 # ── Binary deployment (ja4proxy_deploy_mode == "binary") ────
 ja4proxy_binary_src: ""              # path to pre-built binary on Ansible control node or URL
+ja4proxy_binary_checksum: ""         # mandatory sha256 checksum (e.g. "sha256:<hash>") when ja4proxy_binary_src is a URL
 ja4proxy_install_dir: "/usr/local/bin"
 ja4proxy_binary_path: "{{ ja4proxy_install_dir }}/ja4proxy"
 ja4proxy_config_dir: "/etc/ja4proxy"

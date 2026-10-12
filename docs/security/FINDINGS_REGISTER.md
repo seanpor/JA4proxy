@@ -102,13 +102,13 @@ get forgotten.
 
 ## Register snapshot (2026-10-12)
 
-**Total:** 127 canonical finding(s).
+**Total:** 130 canonical finding(s).
 
 | Severity | Count | Status | Count |
 |----------|-------|--------|-------|
 | CRITICAL | 15 | OPEN | 0 |
-| HIGH | 37 | IN_PROGRESS | 0 |
-| MEDIUM | 47 | FIXED | 96 |
+| HIGH | 39 | IN_PROGRESS | 0 |
+| MEDIUM | 48 | FIXED | 99 |
 | LOW | 28 | VERIFIED | 31 |
 |  |  | CLOSED | 0 |
 |  |  | DUPLICATE | 0 |
@@ -335,5 +335,8 @@ get forgotten.
 | JA4PROXY-2026-0127 | HIGH | FIXED | go-proxy | 2026-11-11 | TAP sensor fails open without seccomp filtering due to missing PR_SET_NO_NEW_PRIVS and default non-enforcement |
 | JA4PROXY-2026-0128 | HIGH | FIXED | infrastructure | 2026-11-11 | Unrestricted 0.0.0.0 host port bindings in multi-process scale compose bypass HAProxy ingress and expose internal worker and stats ports |
 | JA4PROXY-2026-0129 | MEDIUM | FIXED | infrastructure | 2026-12-11 | Read-only root filesystem and capability drop omissions in production and monitoring compose files (CIS Docker Benchmark 5.12 & 5.27) |
+| JA4PROXY-2026-0130 | HIGH | FIXED | infrastructure | 2026-11-11 | HAProxy stats dashboard exposed without authentication |
+| JA4PROXY-2026-0131 | HIGH | FIXED | infrastructure | 2026-11-11 | Unverified remote binary download in Ansible ja4proxy role |
+| JA4PROXY-2026-0132 | MEDIUM | FIXED | infrastructure | 2026-12-11 | Downstream telemetry injection in ServiceNow SIR incident integration |
 
 <!-- END GENERATED -->

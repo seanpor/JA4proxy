@@ -1,5 +1,5 @@
 schema_version: 1
-last_allocated_id: 129
+last_allocated_id: 132
 findings:
 - id: JA4PROXY-2026-0001
   title: PROXY Protocol v2 Spoofing from Untrusted Source
@@ -4105,3 +4105,97 @@ findings:
     score: 5.3
     vector: CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:L/I:L/A:L
   notes: "Enforce read_only: true and tmpfs mounts across monitoring sidecars in prod compose"
+- id: JA4PROXY-2026-0130
+  title: HAProxy stats dashboard exposed without authentication
+  severity: HIGH
+  severity_rationale: "H (CWE-306 Missing Authentication for Critical Function + CWE-200 Information Exposure).
+    In deploy/haproxy/haproxy.cfg, 'frontend stats' enables the statistics and Prometheus metrics endpoints
+    on port 8404 without configured authentication ('stats auth'). Network actors reaching the stats port
+    can scrape real-time connection counts, proxy backend health statuses, and internal routing topology."
+  source_refs:
+  - report: PHASE_814n
+    id: 814n-01
+    discovered: '2026-10-12'
+  remediation_phases:
+  - 814n
+  owner: '@seanpor'
+  lane: infrastructure
+  discovered: '2026-10-12'
+  due: '2026-11-11'
+  github_issue: 597
+  found_against:
+    git_sha: b4414389178fb0d6118d5337e735d4fa5cffaa63
+    config_sha256: e801d9f848b52f6c
+    note: pentest range, IaC and reverse proxy posture
+  status: FIXED
+  supersedes: []
+  depends_on: []
+  regression_test: tests/unit/test_pentest_haproxy_stats_auth_regression.py::test_regression_ja4proxy_2026_0130_haproxy_stats_auth_enforced
+  closed_commit: ''
+  cvss_v3_1:
+    score: 7.5
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N
+  notes: Enforce stats auth in haproxy.cfg for statistics UI and Prometheus endpoint
+- id: JA4PROXY-2026-0131
+  title: Unverified remote binary download in Ansible ja4proxy role
+  severity: HIGH
+  severity_rationale: "H (CWE-494 Download of Code Without Integrity Check + CWE-353 Missing Support for Integrity Check).
+    In deploy/ansible/roles/ja4proxy/tasks/deploy_binary.yml, 'ansible.builtin.get_url' downloads the ja4proxy binary
+    from an external URL without providing a 'checksum' parameter. An active network attacker or compromised upstream mirror
+    can supply a trojaned binary that executes with root privileges upon systemd unit startup."
+  source_refs:
+  - report: PHASE_814n
+    id: 814n-02
+    discovered: '2026-10-12'
+  remediation_phases:
+  - 814n
+  owner: '@seanpor'
+  lane: infrastructure
+  discovered: '2026-10-12'
+  due: '2026-11-11'
+  github_issue: 598
+  found_against:
+    git_sha: b4414389178fb0d6118d5337e735d4fa5cffaa63
+    config_sha256: e801d9f848b52f6c
+    note: pentest range, IaC deployment posture
+  status: FIXED
+  supersedes: []
+  depends_on: []
+  regression_test: tests/unit/test_pentest_ansible_checksum_regression.py::test_regression_ja4proxy_2026_0131_ansible_binary_requires_checksum
+  closed_commit: ''
+  cvss_v3_1:
+    score: 7.5
+    vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H
+  notes: Require ja4proxy_binary_checksum in Ansible deploy_binary.yml get_url task
+- id: JA4PROXY-2026-0132
+  title: Downstream telemetry injection in ServiceNow SIR incident integration
+  severity: MEDIUM
+  severity_rationale: "M (CWE-116 Improper Encoding or Escaping of Output + CWE-1236 Improper Neutralization of Formula Elements in CSV File).
+    In deploy/integrations/servicenow/ja4proxy_snow_handler.py, ecs_to_sir() formats 'short_description' and 'description'
+    by string concatenation with raw, unescaped 'source.ip' and signal reason text. Crafting inputs with control characters,
+    CR/LF newlines, or formula injection prefixes (=, +, -, @) allows an attacker to inject arbitrary content into incident fields
+    and downstream spreadsheet exports."
+  source_refs:
+  - report: PHASE_814n
+    id: 814n-03
+    discovered: '2026-10-12'
+  remediation_phases:
+  - 814n
+  owner: '@seanpor'
+  lane: infrastructure
+  discovered: '2026-10-12'
+  due: '2026-12-11'
+  github_issue: 599
+  found_against:
+    git_sha: b4414389178fb0d6118d5337e735d4fa5cffaa63
+    config_sha256: e801d9f848b52f6c
+    note: pentest range, downstream SIEM/SOAR egress posture
+  status: FIXED
+  supersedes: []
+  depends_on: []
+  regression_test: tests/unit/test_pentest_servicenow_injection_regression.py::test_regression_ja4proxy_2026_0132_servicenow_sanitizes_injection_payloads
+  closed_commit: ''
+  cvss_v3_1:
+    score: 5.4
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:L/I:L/A:N
+  notes: Sanitize CR/LF, control characters, and CSV formula prefixes in ServiceNow incident builder
