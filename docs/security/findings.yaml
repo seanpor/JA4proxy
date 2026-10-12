@@ -2824,7 +2824,7 @@ findings:
   supersedes: []
   depends_on: []
   regression_test: internal/security/pipeline_test.go::TestPipeline_ReplaceConfig_RestartsEnrichmentWorkers
-  closed_commit: ''
+  closed_commit: 50129e13be397b064582e66fcdb372812cf65ad2
   cvss_v3_1:
     score: 2.2
     vector: CVSS:3.1/AV:N/AC:H/PR:H/UI:N/S:U/C:N/I:L/A:N
