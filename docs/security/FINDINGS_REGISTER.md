@@ -102,13 +102,13 @@ get forgotten.
 
 ## Register snapshot (2026-10-12)
 
-**Total:** 124 canonical finding(s).
+**Total:** 127 canonical finding(s).
 
 | Severity | Count | Status | Count |
 |----------|-------|--------|-------|
-| CRITICAL | 15 | OPEN | 0 |
-| HIGH | 35 | IN_PROGRESS | 0 |
-| MEDIUM | 46 | FIXED | 93 |
+| CRITICAL | 15 | OPEN | 3 |
+| HIGH | 37 | IN_PROGRESS | 0 |
+| MEDIUM | 47 | FIXED | 93 |
 | LOW | 28 | VERIFIED | 31 |
 |  |  | CLOSED | 0 |
 |  |  | DUPLICATE | 0 |
@@ -332,5 +332,8 @@ get forgotten.
 | JA4PROXY-2026-0124 | HIGH | FIXED | python-management | 2026-11-11 | SAML Assertion Replay Vulnerability in Management API ACS Endpoint |
 | JA4PROXY-2026-0125 | HIGH | FIXED | python-management | 2026-11-11 | Committed-Default Secrets Permitted by Production Boot Guard and Remote Redis Validation |
 | JA4PROXY-2026-0126 | MEDIUM | FIXED | python-management | 2026-12-11 | Non-Atomic Single-Use Nonce and Challenge Verification Race Condition |
+| JA4PROXY-2026-0127 | HIGH | OPEN | go-proxy | 2026-11-11 | TAP sensor fails open without seccomp filtering due to missing PR_SET_NO_NEW_PRIVS and default non-enforcement |
+| JA4PROXY-2026-0128 | HIGH | OPEN | infrastructure | 2026-11-11 | Unrestricted 0.0.0.0 host port bindings in multi-process scale compose bypass HAProxy ingress and expose internal worker and stats ports |
+| JA4PROXY-2026-0129 | MEDIUM | OPEN | infrastructure | 2026-12-11 | Read-only root filesystem and capability drop omissions in production and monitoring compose files (CIS Docker Benchmark 5.12 & 5.27) |
 
 <!-- END GENERATED -->

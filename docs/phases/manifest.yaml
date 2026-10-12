@@ -4445,8 +4445,8 @@ phases:
       templates that Phase 522's self-audit flagged and never finished."
   814m:
     name: "Pentest: container, host, orchestration, and assume-breach"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_814.md
+    status: IN_PROGRESS
+    action_plan: docs/phases/PHASE_814m.md
     dependencies: [814b]
     size: MEDIUM
     summary: "Stage 1. CIS Docker Benchmark across all 8 compose files (they

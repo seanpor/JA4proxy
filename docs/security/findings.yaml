@@ -1,5 +1,5 @@
 schema_version: 1
-last_allocated_id: 126
+last_allocated_id: 129
 findings:
 - id: JA4PROXY-2026-0001
   title: PROXY Protocol v2 Spoofing from Untrusted Source
@@ -4007,3 +4007,101 @@ findings:
     score: 5.3
     vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:N
   notes: Consume single-use nonces and challenges atomically via redis.getdel()
+- id: JA4PROXY-2026-0127
+  title: TAP sensor fails open without seccomp filtering due to missing PR_SET_NO_NEW_PRIVS and default non-enforcement
+  severity: HIGH
+  severity_rationale: H (CWE-693 Protection Mechanism Failure + CWE-1188 Insecure Default Initialization).
+    In internal/tap/hardening.go, DropCapabilities() drops root privileges and clears PR_SET_KEEPCAPS
+    before LoadSeccomp() runs. Under Linux, calling seccomp(SECCOMP_SET_MODE_FILTER) without CAP_SYS_ADMIN
+    requires prctl(PR_SET_NO_NEW_PRIVS, 1). Because PR_SET_NO_NEW_PRIVS was never set, SYS_SECCOMP returns
+    EACCES. In cmd/ja4-tap/main.go, LoadSeccomp() error handling logs a warning and proceeds unconfined
+    by default. The TAP sensor runs with unconfined syscall access.
+  source_refs:
+  - report: PHASE_814m
+    id: 814m-01
+    discovered: '2026-10-12'
+  remediation_phases:
+  - 814m
+  owner: '@seanpor'
+  lane: go-proxy
+  discovered: '2026-10-12'
+  due: '2026-11-11'
+  github_issue: 593
+  found_against:
+    git_sha: b7150f7451a4b356ae14fb93165368eb4fd50080
+    config_sha256: e801d9f848b52f6c
+    note: pentest range, container and host orchestration posture
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: internal/tap/pentest_seccomp_no_new_privs_regression_test.go::TestRegression_JA4PROXY_2026_0127_SeccompLoadsAfterDropCapabilities
+  closed_commit: ''
+  cvss_v3_1:
+    score: 7.1
+    vector: CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:C/C:H/I:H/A:N
+  notes: Add PR_SET_NO_NEW_PRIVS in seccomp_linux.go and fail closed when seccomp fails
+- id: JA4PROXY-2026-0128
+  title: Unrestricted 0.0.0.0 host port bindings in multi-process scale compose bypass HAProxy ingress and expose internal worker and stats ports
+  severity: HIGH
+  severity_rationale: H (CWE-668 Exposure of Resource to Wrong Sphere + CWE-284 Improper Access Control).
+    In deploy/docker/docker-compose.scale.yml, HAProxy stats port (8404:8404) and backend worker direct
+    ports (8080:8080, 8083:8083, 8084:8084, 8085:8085) are published directly on all host network interfaces
+    (0.0.0.0). External network attackers can bypass the HAProxy load balancer and TLS termination layer
+    by communicating directly with backend workers, or inspect internal routing metrics via the unauthenticated
+    stats port.
+  source_refs:
+  - report: PHASE_814m
+    id: 814m-02
+    discovered: '2026-10-12'
+  remediation_phases:
+  - 814m
+  owner: '@seanpor'
+  lane: infrastructure
+  discovered: '2026-10-12'
+  due: '2026-11-11'
+  github_issue: 594
+  found_against:
+    git_sha: b7150f7451a4b356ae14fb93165368eb4fd50080
+    config_sha256: e801d9f848b52f6c
+    note: pentest range, container and host orchestration posture
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: tests/unit/test_pentest_compose_port_exposure_regression.py::test_regression_ja4proxy_2026_0128_scale_compose_ports_restricted_to_loopback
+  closed_commit: ''
+  cvss_v3_1:
+    score: 7.5
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N
+  notes: Restrict stats port and worker ports to loopback in docker-compose.scale.yml
+- id: JA4PROXY-2026-0129
+  title: Read-only root filesystem and capability drop omissions in production and monitoring compose files (CIS Docker Benchmark 5.12 & 5.27)
+  severity: MEDIUM
+  severity_rationale: "M (CWE-250 Execution with Unnecessary Privileges + CWE-732 Incorrect Permission Assignment).
+    In deploy/docker/docker-compose.prod.yml, the alloy monitoring container and grafana service omit
+    'read_only: true' and appropriate tmpfs mounts, violating CIS Docker Benchmark 5.12. In the event of
+    application compromise, an attacker can modify rootfs binaries, write persistent backdoors, or stage
+    local toolchains."
+  source_refs:
+  - report: PHASE_814m
+    id: 814m-03
+    discovered: '2026-10-12'
+  remediation_phases:
+  - 814m
+  owner: '@seanpor'
+  lane: infrastructure
+  discovered: '2026-10-12'
+  due: '2026-12-11'
+  github_issue: 595
+  found_against:
+    git_sha: b7150f7451a4b356ae14fb93165368eb4fd50080
+    config_sha256: e801d9f848b52f6c
+    note: pentest range, container and host orchestration posture
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: tests/unit/test_pentest_container_read_only_rootfs_regression.py::test_regression_ja4proxy_2026_0129_prod_compose_read_only_rootfs
+  closed_commit: ''
+  cvss_v3_1:
+    score: 5.3
+    vector: CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:L/I:L/A:L
+  notes: "Enforce read_only: true and tmpfs mounts across monitoring sidecars in prod compose"
