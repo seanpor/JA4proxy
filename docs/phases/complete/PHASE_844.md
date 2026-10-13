@@ -18,7 +18,11 @@ As JA4proxy approaches feature completeness, the focus must shift from rapid cap
 2. **Maintenance Velocity & Cognition:** Does the refactoring simplify package boundaries, reduce cyclomatic complexity, eliminate duplicate logic, or reduce onboarding friction for junior engineers?
 3. **Safety & Concurrency Resilience:** Does it reduce lock contention, lower goroutine leak surfaces (`goleak`), or strengthen panic recovery boundaries?
 
-This phase defines a structured, empirical audit of the Go production proxy (`cmd/ja4pd/`, `internal/server/`, `internal/security/`, `internal/tls/`, `internal/proxy/`), evaluates potential refactoring candidates against strict criteria, and outlines a data-driven refactoring roadmap.
+### Strict Operational Scope: Audit & Profiling ONLY (Zero Code Rewrites)
+Following expert critical review, **Phase 844 is strictly scoped as a Read-Only Architecture Audit & Baseline Profiling Study**.
+- **Production Code Changes:** Exactly **0 lines** changed in `cmd/` or `internal/` in Phase 844.
+- **Goal:** Profile hot paths, analyze memory lifecycles, run `benchstat` baseline measurements, evaluate cyclomatic complexity, and deliver an empirical report with prioritized, small follow-on phases.
+- **Frozen Test Compatibility:** `cmd/ja4pd/compat.go` is explicitly designated as a **frozen regression test compatibility harness** and is **out of scope** for deletion or major restructuring, preserving backwards compatibility across 35+ CVE regression tests.
 
 ---
 
@@ -40,9 +44,10 @@ A refactoring proposal is **REJECTED** if:
 - It causes a measurable regression in hot-path throughput or latency (`bench-macro`, `bench-hostnative`).
 - It introduces new abstractions (e.g. gratuitous interfaces or adapter layers) without eliminating real maintenance pain.
 - It degrades test readability or breaks existing regression assertions.
+- It alters synchronous/asynchronous execution order on security enforcement paths (e.g. bypassing fail-closed manual bans).
 
 A refactoring proposal is **APPROVED** if:
-- It removes structural debt (e.g., God structs, giant switch statements, redundant memory allocations).
+- It removes structural debt (e.g., God structs, redundant memory allocations).
 - It measurably reduces heap allocations (`B/op`, `allocs/op`).
 - It makes the codebase easier and safer to navigate for junior and senior engineers alike.
 
@@ -51,8 +56,8 @@ A refactoring proposal is **APPROVED** if:
 ## Audit Focus Areas in the Go Proxy Subsystems
 
 ### 1. Hot Path & Memory Lifecycle (`internal/server`, `internal/tls`)
-- **Buffer & Slice Reuse:** Review `BufferPool` allocations and slice copying in `HandleConn`, `reassembleClientHello`, and `ParseClientHello`.
-- **String Conversions:** Audit string allocations in SNI extraction, ALPN matching, and JA4 hash string formatting. Are there remaining unneeded heap escapes?
+- **Buffer & Slice Reuse:** Review `BufferPool` allocations and slice copying in `HandleConn`, `reassembleClientHello`, and `ParseClientHello`. Audit early buffer return invariants (`returnedBuf = true` safety).
+- **String Conversions:** Audit string allocations in SNI extraction, ALPN matching, and JA4 hash string formatting. Identify any remaining unneeded heap escapes.
 - **Read/Write Deadlines & Resource Bounds:** Verify connection deadline hygiene across all socket states (tarpit, forwarding, drain).
 
 ### 2. Pipeline Architecture & Modularity (`internal/security`)
@@ -61,22 +66,22 @@ A refactoring proposal is **APPROVED** if:
 - **Config Representation Parity:** Review data structures in `BuildPipelineConfig` and audit for redundant struct conversion overhead.
 
 ### 3. Entrypoint & Compatibility Layer (`cmd/ja4pd/`, `cmd/ja4pd/compat.go`)
-- **Separation of Concerns:** `cmd/ja4pd/` currently acts as a wiring harness with a large `compat.go` forwarding layer to `internal/server/`. Evaluate whether `compat.go` can be cleaned up or streamlined without breaking legacy test fixtures.
+- **Test Compatibility Invariants:** Document the coupling between `cmd/ja4pd/compat.go` and the 35+ penetration regression test suites.
 - **Signal Handling & Shutdown Lifecycle:** Audit two-phase drain (`Server.Drain()`) and worker termination handshakes.
 
 ---
 
 ## Empirical Measurement Methodology
 
-To ensure changes are strictly measured:
-1. **Microbenchmarks (`make bench-micro`):**
+To ensure all findings are backed by hard data:
+1. **Microbenchmarks & Allocation Profiling (`make bench-micro`):**
    - Measure `BenchmarkClientHelloParse`, `BenchmarkJA4Compute`, and hot-path evaluation.
-   - Assert `ns/op`, `B/op`, and `allocs/op` before vs. after.
-2. **Macro & Engine Throughput (`make bench-macro`, `make bench-hostnative`):**
-   - Measure CPS and latency under saturated load (Phase 819a harness).
-   - Assert `rate_limited == false` and compare throughput against baseline.
+   - Run $N \ge 10$ iterations with `benchstat` to establish statistically significant baseline distributions for `ns/op`, `B/op`, and `allocs/op`.
+2. **Macro & Saturated Throughput (`make bench-macro`, `make bench-hostnative`):**
+   - Measure connection throughput and latency percentiles (p50, p95, p99) under saturated load using Phase 819a harness.
+   - Assert `rate_limited == false` to verify load generator is saturating the proxy.
 3. **Static Complexity & Maintainability Metrics:**
-   - Cyclomatic complexity inspection (`gocyclo` / `golangci-lint gocognit`).
+   - Cyclomatic & cognitive complexity inspection (`gocyclo` / `golangci-lint gocognit`).
    - Package dependency cycle check and coupling analysis.
 
 ---
@@ -85,7 +90,15 @@ To ensure changes are strictly measured:
 
 1. **Architecture & Refactoring Assessment Report (`docs/reports/2026-10_PROXY_CODE_QUALITY_AUDIT.md`):**
    - Inventory of high-value refactoring opportunities categorized by ROI (High/Med/Low impact, High/Med/Low risk).
-   - Benchmark data from baseline measurements.
-2. **Prioritized Action Plan:**
-   - Ranked list of discrete, small-to-medium refactoring phases for implementation.
+   - Statistical benchmark baseline data (`benchstat`).
+   - Memory profiling (`pprof`) analysis of hot paths.
+2. **Prioritized Action Plan for Follow-On Phases:**
+   - Ranked list of discrete, small-to-medium mini-phases for implementation (e.g., Phase 844a, 844b).
    - Clear justification statements for each proposed change answering: *Why refactor this? What is gained? What was measured?*
+
+---
+
+## Out of Scope
+- Direct production code refactoring in `internal/` or `cmd/` (deferred to discrete follow-on phases).
+- Modifying, renaming, or removing `cmd/ja4pd/compat.go`.
+- Modifying security-critical regression tests in `cmd/ja4pd/`.
