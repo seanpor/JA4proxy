@@ -95,7 +95,7 @@ _137 scripts. Generated from each script's header comment by `make sync` — do 
 | `lint-phases.py` | `make lint-phases` | lint-phases.py — Validate phase documentation consistency. |
 | `lint_toml.py` | `make lint-toml` | TOML syntax + parse validation. |
 | `load_test.py` | `make load-test` | Phase 86b / 86i — Load testing harness for JA4proxy. |
-| `measure_mttr.sh` | `make measure-mttr` | Phase 64h — MTTR baseline measurement script. |
+| `measure_mttr.sh` | `make measure-mttr` | Phase 64h / 819d — MTTR baseline measurement script. |
 | `meta_lint.py` | `make lint-meta` | Meta-lint: verify the Makefile is internally honest. |
 | `mock-backend.py` | — | Mock backend server for testing JA4 Proxy |
 | `namespace_setup.sh` | — | Namespace isolation helper for JA4proxy (Phase 56b-3) |

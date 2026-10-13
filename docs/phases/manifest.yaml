@@ -4653,11 +4653,12 @@ phases:
     summary: "Repair test_bench_go_proxy.py port mapping to active proxy, drop obsolete Python proxy comparison test, and repair scripts/load_test.py under container-strict execution."
   819d:
     name: "Isolate measure-mttr on pentest-range"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_819d.md
+    status: COMPLETE
+    completed: 2026-10-13
+    action_plan: docs/phases/complete/PHASE_819d.md
     dependencies: [819c]
     size: MEDIUM
-    summary: "Isolate scripts/measure-mttr.sh to execute redis-cli inside containers, use project-scoped docker compose commands, and target make pentest-range without live lane pollution."
+    summary: "Isolate scripts/measure_mttr.sh to execute redis-cli inside containers, use project-scoped docker compose commands, and target make pentest-range without live lane pollution."
 
   817:
     name: "Analytics node crash-loop fix — src/utils missing from image (JA4PROXY-2026-0097)"

@@ -93,11 +93,11 @@ _SESSION_START: list[float] = []  # populated by pytest_sessionstart
 #                            (no live Redis with ACL config; set INTEGRATION_REDIS_URL)
 #   2  Docker enforcement  — tests/integration/test_multi_process_enforcement.py
 #                            (requires Docker Compose multi-process env; set CI_DOCKER=1)
-#   4  Performance tests   — tests/performance/test_bench_go_proxy.py
-#                            (require live proxy; run make start then make test-perf)
+#   3  Performance tests   — tests/performance/test_bench_go_proxy.py
+#                            (require live proxy; run make start then make test-go-perf)
 #   1  Schema parity test  — tests/unit/test_schema_parity.py
 #                            (requires analytics + management packages importable)
-_APPROVED_SKIP_COUNT = 13
+_APPROVED_SKIP_COUNT = 12
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
