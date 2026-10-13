@@ -51,7 +51,7 @@ _202 targets. Generated from the Makefile's own `##` help comments by `make sync
 
 | Target | Description |
 |--------|-------------|
-| `bench-all` | Run every heavy benchmark (perf, load, go-perf, MTTR) — slow, runs alone |
+| `bench-all` | Run every heavy benchmark (perf, load, go-perf, hostnative) — slow, runs alone |
 | `bench-hostnative` | End-to-end throughput, ja4pd host-native (no docker-proxy; ~4.5x the bridge port) |
 | `bump-build` | Show build number (derived from git commit count — no file needed) |
 | `changelog-assemble` | Fold docs/fragments/*.md into CHANGELOG.md (run at release, not per-phase) |

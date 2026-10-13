@@ -1241,7 +1241,7 @@ bench-micro: ## Run Go native micro-benchmarks
 	@echo "=== Go Proxy Micro-benchmarks ==="
 	@GOROOT=$(GOROOT) go test -bench=. -run=^$$ -benchmem ./cmd/ja4pd/ ./internal/tls/
 
-bench-macro: ## Run end-to-end load test (requires: make start)
+bench-macro: go-build cli-build ## Run end-to-end load test (requires: make start)
 	@echo "=== JA4proxy High-Speed Go Macro-benchmark ==="
 	@PORT=$$(grep "^HOST_PORT_DIRECT=" .env | cut -d= -f2); \
 	PORT=$${PORT:-8081}; \
@@ -1662,13 +1662,13 @@ test-component-suites: ## Run every component test suite (unit, chaos, adversari
 	@$(MAKE) test-unit test-chaos test-adversarial
 
 
-bench-all: ## Run every heavy benchmark (perf, load, go-perf, MTTR) — slow, runs alone
+bench-all: ## Run every heavy benchmark (perf, load, go-perf, hostnative) — slow, runs alone
 	@echo "=== bench-all: heavy benchmarks (excluded from 'make lint scan test') ==="
 	@$(MAKE) bench
 	@$(MAKE) perf-test
 	@$(MAKE) test-go-perf
 	@$(MAKE) load-test
-	@$(MAKE) measure-mttr
+	@$(MAKE) bench-hostnative
 	@echo "✓ bench-all complete"
 
 verify-all: ## Full release gate: lint + scan + test + bench-all — slow

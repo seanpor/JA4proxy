@@ -1,7 +1,7 @@
 ---
 phase: 819a
 title: "Benchmark truthfulness — the throughput and false-positive numbers are both constants"
-status: PROPOSED
+status: COMPLETE
 size: MEDIUM
 created: 2026-08-13
 audience: [developer, operations]
@@ -9,7 +9,7 @@ audience: [developer, operations]
 
 # Benchmark truthfulness
 
-> **STATUS: PROPOSED — plan for review. No code until approved.**
+> **STATUS: COMPLETE.**
 >
 > Revision 2, after expert review. Three reviewers audited revision 1; the
 > central finding was confirmed and strengthened, two of my claims were wrong
@@ -18,7 +18,7 @@ audience: [developer, operations]
 >
 > Split from the original single phase on the unanimous recommendation of all
 > three reviewers. **819a is the half that changes a published number and the
-> half that is dangerous to leave.** The bit-rot half is [PHASE_819b](PHASE_819b.md).
+> half that is dangerous to leave.** The bit-rot half is [PHASE_819b](../PHASE_819b.md).
 
 ## Goal (plain language)
 
@@ -236,7 +236,7 @@ turns `make verify-all` into a command that destroys the developer's lane.**
 This is why step 0 below is a one-line change made on day one.
 
 The full `measure-mttr` analysis — and my two wrong claims about it — moved to
-[PHASE_819b](PHASE_819b.md#f9). Only the removal from `bench-all` happens here.
+[PHASE_819b](../PHASE_819b.md). Only the removal from `bench-all` happens here.
 
 ---
 
@@ -449,7 +449,7 @@ durable than a Makefile flag.
   2026-06-10 numbers, that is a follow-up with a real target — see Risks.
 - Re-architecting the generator to open-loop. Closed-loop is fine; it just has
   to saturate.
-- Everything in [PHASE_819b](PHASE_819b.md).
+- Everything in [PHASE_819b](../PHASE_819b.md).
 
 ## Risks
 

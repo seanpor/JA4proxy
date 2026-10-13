@@ -103,6 +103,18 @@ class TestRegression:
         assert isinstance(failures, list)
 
 
+class TestRateLimitedGate:
+    def test_rate_limited_true_fails(self, baseline):
+        result = _result(rate_limited=True, offered_rate_cps=96)
+        failures = gate.check_regression(result, baseline, gate_percent=20.0)
+        assert any("artificially rate-limited" in f for f in failures)
+
+    def test_rate_limited_false_passes(self, baseline):
+        result = _result(rate_limited=False, offered_rate_cps=1000)
+        failures = gate.check_regression(result, baseline, gate_percent=20.0)
+        assert failures == []
+
+
 class TestMainExitCode:
     def test_clean_result_exits_zero(self, tmp_path, baseline, monkeypatch, capsys):
         result_path = tmp_path / "result.json"

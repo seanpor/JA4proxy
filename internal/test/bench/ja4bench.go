@@ -23,25 +23,41 @@ import (
 )
 
 type BenchResult struct {
-	TotalGood     int             `json:"total_good"`
-	GoodAllowed   int             `json:"good_allowed"`
-	GoodBlocked   int             `json:"good_blocked"`
-	TotalBad      int             `json:"total_bad"`
-	BadAllowed    int             `json:"bad_allowed"`
-	BadBlocked    int             `json:"bad_blocked"`
-	TotalLatency  time.Duration   `json:"-"`
-	Latencies     []time.Duration `json:"-"`
-	Errors        int             `json:"errors"`
-	LastError     string          `json:"last_error,omitempty"`
-	StartTime     time.Time       `json:"start_time"`
-	EndTime       time.Time       `json:"end_time"`
-	Duration      time.Duration   `json:"duration_total"`
-	ThroughputCPS float64         `json:"throughput_cps"`
-	AvgLatencyMS  float64         `json:"avg_latency_ms"`
-	P50LatencyMS  float64         `json:"p50_latency_ms"`
-	P95LatencyMS  float64         `json:"p95_latency_ms"`
-	P99LatencyMS  float64         `json:"p99_latency_ms"`
-	mu            sync.Mutex
+	TotalGood      int             `json:"total_good"`
+	GoodAllowed    int             `json:"good_allowed"`
+	GoodBlocked    int             `json:"good_blocked"`
+	TotalBad       int             `json:"total_bad"`
+	BadAllowed     int             `json:"bad_allowed"`
+	BadBlocked     int             `json:"bad_blocked"`
+	TotalLatency   time.Duration   `json:"-"`
+	Latencies      []time.Duration `json:"-"`
+	Errors         int             `json:"errors"`
+	LastError      string          `json:"last_error,omitempty"`
+	StartTime      time.Time       `json:"start_time"`
+	EndTime        time.Time       `json:"end_time"`
+	Duration       time.Duration   `json:"duration_total"`
+	ThroughputCPS  float64         `json:"throughput_cps"`
+	OfferedRateCPS int             `json:"offered_rate_cps"`
+	Workers        int             `json:"workers"`
+	RateLimited    bool            `json:"rate_limited"`
+	AvgLatencyMS   float64         `json:"avg_latency_ms"`
+	P50LatencyMS   float64         `json:"p50_latency_ms"`
+	P95LatencyMS   float64         `json:"p95_latency_ms"`
+	P99LatencyMS   float64         `json:"p99_latency_ms"`
+	mu             sync.Mutex
+}
+
+// OfferedRate returns the total offered connections per second across all workers.
+// Integer division rate/workers determines each worker's tick rate.
+func OfferedRate(rate, workers int) int {
+	if workers <= 0 || rate <= 0 {
+		return 0
+	}
+	ratePerWorker := rate / workers
+	if ratePerWorker == 0 {
+		ratePerWorker = 1
+	}
+	return workers * ratePerWorker
 }
 
 func (r *BenchResult) Record(isGood, allowed bool, latency time.Duration, err error) {
@@ -50,10 +66,14 @@ func (r *BenchResult) Record(isGood, allowed bool, latency time.Duration, err er
 	if err != nil {
 		r.Errors++
 		r.LastError = err.Error()
-		return
+		if allowed {
+			return
+		}
 	}
-	r.TotalLatency += latency
-	r.Latencies = append(r.Latencies, latency)
+	if latency > 0 {
+		r.TotalLatency += latency
+		r.Latencies = append(r.Latencies, latency)
+	}
 	if isGood {
 		r.TotalGood++
 		if allowed {
@@ -78,7 +98,11 @@ func (r *BenchResult) Calculate() {
 		r.ThroughputCPS = float64(total) / r.Duration.Seconds()
 	}
 
-	if total > 0 {
+	if r.OfferedRateCPS > 0 {
+		r.RateLimited = r.ThroughputCPS >= 0.9*float64(r.OfferedRateCPS)
+	}
+
+	if total > 0 && r.TotalLatency > 0 {
 		r.AvgLatencyMS = float64(r.TotalLatency.Milliseconds()) / float64(total)
 	}
 
@@ -116,17 +140,6 @@ func (r *BenchResult) FalseNegativeRate() float64 {
 //
 // This is the single verdict used by both the human-readable and JSON output
 // paths, and it is what RunBenchmark turns into a process exit code.
-//
-// Phase 800: this verdict used to exist only as a printed line. `ja4p test
-// benchmark` exited 0 regardless, so `make bench-macro` reported success after
-// making 0 connections and logging 2880 'connection refused' errors — while
-// also printing 0.00% false-positive and false-negative rates derived from zero
-// samples. A benchmark that reports clean metrics on no data is worse than one
-// that errors, because it looks like a passing result.
-//
-// Note the zero-connection check is unconditional. It previously required
-// Errors > 0, so a run that connected zero times AND recorded zero errors fell
-// through to the fp == 0 branch and printed PASSED.
 func (r *BenchResult) Status() error {
 	r.Calculate()
 
@@ -151,6 +164,9 @@ func (r *BenchResult) Print() {
 	fmt.Printf("\n=== JA4proxy High-Speed Benchmark Results ===\n")
 	fmt.Printf("Duration:          %v\n", r.Duration)
 	fmt.Printf("Total Connections: %d (%.2f CPS)\n", total, r.ThroughputCPS)
+	if r.OfferedRateCPS > 0 {
+		fmt.Printf("Offered Rate:      %d CPS (%d workers, rate_limited=%v)\n", r.OfferedRateCPS, r.Workers, r.RateLimited)
+	}
 	fmt.Printf("Avg Latency:       %.2fms\n", r.AvgLatencyMS)
 	fmt.Printf("p50 Latency:       %.2fms\n", r.P50LatencyMS)
 	fmt.Printf("p95 Latency:       %.2fms\n", r.P95LatencyMS)
@@ -175,9 +191,9 @@ func (r *BenchResult) Print() {
 	}
 
 	if err := r.Status(); err != nil {
-		fmt.Printf("Status:            FAILED \u274c (%v)\n", err)
+		fmt.Printf("Status:            FAILED ❌ (%v)\n", err)
 	} else {
-		fmt.Printf("Status:            PASSED \u2705\n")
+		fmt.Printf("Status:            PASSED ✅\n")
 	}
 	fmt.Printf("============================================\n")
 }
@@ -196,18 +212,22 @@ func RunBenchmark(args []string) error {
 		outputFormat string
 	)
 	fs.StringVar(&host, "host", "127.0.0.1:8081", "Target host:port")
-	fs.IntVar(&goodRate, "good-rate", 100, "Good connections per second")
+	fs.IntVar(&goodRate, "good-rate", 1000, "Good connections per second")
 	fs.IntVar(&badRate, "bad-rate", 0, "Bad connections per second")
 	fs.IntVar(&duration, "duration", 10, "Test duration in seconds")
-	fs.IntVar(&workers, "workers", 8, "Number of concurrent workers")
+	fs.IntVar(&workers, "workers", 32, "Number of concurrent workers")
 	fs.StringVar(&outputFormat, "output", "text", "Output format (text|json)")
 	_ = fs.Parse(args) // FlagSet uses ExitOnError; Parse never returns here
 
 	if outputFormat != "json" {
-		fmt.Printf("\u25b6 Starting benchmark against %s (%ds duration)...\n", host, duration)
+		fmt.Printf("▶ Starting benchmark against %s (%ds duration)...\n", host, duration)
 	}
 
-	res := &BenchResult{StartTime: time.Now()}
+	res := &BenchResult{
+		StartTime:      time.Now(),
+		OfferedRateCPS: OfferedRate(goodRate+badRate, workers),
+		Workers:        workers,
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -309,6 +329,7 @@ func runProfile(ctx context.Context, host string, isGood bool, rate, workers int
 					startDial := time.Now()
 					conn, err := tls.DialWithDialer(&net.Dialer{Timeout: 2 * time.Second}, "tcp", host, conf)
 					if err == nil {
+						_ = conn.SetDeadline(time.Now().Add(2 * time.Second))
 						_, _ = conn.Write([]byte("GET /health HTTP/1.1\r\nHost: backend\r\nConnection: close\r\n\r\n"))
 						_, _ = io.Copy(io.Discard, conn)
 						_ = conn.Close()
