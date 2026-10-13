@@ -4645,8 +4645,9 @@ phases:
     summary: "Retire bit-rotten locust 2.17.0 and tests/performance/locust_tests.py, drop unneeded dependencies from requirements.txt, and clean Makefile perf-test targets."
   819c:
     name: "Repair test-go-perf and Load Test Harness"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_819c.md
+    status: COMPLETE
+    completed: 2026-10-13
+    action_plan: docs/phases/complete/PHASE_819c.md
     dependencies: [819b]
     size: MEDIUM
     summary: "Repair test_bench_go_proxy.py port mapping to active proxy, drop obsolete Python proxy comparison test, and repair scripts/load_test.py under container-strict execution."

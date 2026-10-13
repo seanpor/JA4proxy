@@ -246,8 +246,8 @@ def run_benchmark(target: str, duration: int, rps: int, scenario: str) -> dict:
     they fall back to the "mixed" distribution so the pre-86i mock-based
     unit tests keep passing.
     """
-    host, port = target.rsplit(":", 1)
-    port = int(port)
+    host_str, port_str = target.rsplit(":", 1)
+    port = int(port_str)
 
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
     output_dir = REPO_ROOT / "test-results" / "load-test" / timestamp
@@ -260,7 +260,7 @@ def run_benchmark(target: str, duration: int, rps: int, scenario: str) -> dict:
         sys.executable,
         str(TLS_TRAFFIC_GEN_PY),
         "--target-host",
-        host,
+        host_str,
         "--target-port",
         str(port),
         "--duration",
@@ -370,28 +370,30 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
-        "--target", required=True, help="Target proxy host:port (e.g. localhost:8080)"
+        "--target",
+        default=os.environ.get("LOAD_TEST_TARGET", "localhost:8080"),
+        help="Target proxy host:port (default: $LOAD_TEST_TARGET or localhost:8080)",
     )
     parser.add_argument(
         "--duration",
         type=int,
-        default=60,
-        help="Duration per scenario in seconds (default: 60)",
+        default=int(os.environ.get("LOAD_TEST_DURATION", "60")),
+        help="Duration per scenario in seconds (default: $LOAD_TEST_DURATION or 60)",
     )
     parser.add_argument(
         "--rps",
         type=int,
-        default=1000,
-        help="Target connections per second (documented; "
+        default=int(os.environ.get("LOAD_TEST_RPS", "1000")),
+        help="Target connections per second (default: $LOAD_TEST_RPS or 1000; "
         "benchmark engine runs at native max throughput)",
     )
     parser.add_argument(
         "--scenario",
-        default="mixed",
+        default=os.environ.get("LOAD_TEST_SCENARIO", "mixed"),
         choices=sorted(SCENARIOS.keys()),
         help=(
             "Scenario: bypass-only, full-signal, attack-wave, "
-            "mixed (default: mixed). See epilog for fingerprint "
+            "mixed (default: $LOAD_TEST_SCENARIO or mixed). See epilog for fingerprint "
             "distributions."
         ),
     )
