@@ -393,6 +393,21 @@ management:
   max_dial_change: 100
 
 security_policy:
+  # ── FAIL-OPEN / RESILIENCE POLICY (Phase 843) ─────────────────────────
+  # Default: true. In transparent inline proxying, auxiliary/state degradation
+  # (Redis down, queue saturation, feed failures) fails open (allows traffic)
+  # rather than dropping legitimate user connections.
+  # Protocol-level attacks (malformed ClientHello, smuggling) unconditionally fail-closed.
+  fail_open: true
+  circuit_breaker:
+    failure_threshold: 5
+    cooldown_seconds: 10
+  subsystems:
+    redis_failure: true
+    queue_saturation: true
+    geo_enrichment_failure: true
+    reputation_feed_failure: true
+
   # ── ALLOW BYPASSES ────────────────────────────────────────────────────
   alpn_browser_bypass:
     enabled: false          # Default: false (JA4PROXY-2026-0004).

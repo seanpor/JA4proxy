@@ -5286,8 +5286,8 @@ phases:
     summary: "Systematic, layered engineering programme to eliminate race conditions, memory synchronization bugs, and deadlock risks across JA4proxy: strict partial lock ordering (L_Server < L_Pipeline < L_Cache) with go-deadlock, atomic snapshotting (atomic.Pointer[PipelineSnapshot]) for zero-lock connection evaluation, two-phase channel teardown protocol, sync.WaitGroup worker termination handshakes, uber-go/goleak verification across all suites, and pgregory.net/rapid concurrent linearizability fuzzing."
   843:
     name: "Configurable Fail-Open Policy & Overload Resilience"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_843.md
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_843.md
     dependencies: []
     size: MEDIUM
     summary: "Centralize and formalize an operator-configurable security_policy.fail_open toggle (defaulting to true for transparent inline proxying), defining strict boundaries between auxiliary/state service degradation (fail-open) and protocol attacks/smuggling (fail-closed)."
@@ -5298,4 +5298,18 @@ phases:
     dependencies: [819a]
     size: MEDIUM
     summary: "Comprehensive architecture and code quality audit of the Go production proxy as it approaches feature completeness, systematically identifying and empirically benchmarking high-ROI refactoring opportunities for performance, maintainability, and concurrency resilience."
+  845:
+    name: "Zero-Warning Quality Enforcement & Deprecation Elimination"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_845.md
+    dependencies: []
+    size: MEDIUM
+    summary: "Enforce a strict zero-warning policy across test and lint pipelines (gcc -Wall philosophy for CI), eliminating all upstream deprecation warnings (Starlette, datetime, SAML), link-checker breaks, and advisor-stage noise so that make lint and make test emit zero warnings."
+  846:
+    name: "Go Proxy Core 90%+ Coverage, Invariant Hardening & Continuous Fuzzing"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_846.md
+    dependencies: [844]
+    size: LARGE
+    summary: "Elevate Go proxy core test suite to 90%+ statement coverage, implement property-based invariant verification, and introduce comprehensive continuous fuzzing to make the production proxy bulletproof against adversarial attacks."
 

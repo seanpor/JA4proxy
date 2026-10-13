@@ -52,7 +52,7 @@ def parse_image_ref(image_str: str) -> ImageRef | None:
         repo = f"library/{repo}"
     elif repo.startswith("gcr.io/"):
         # Strip gcr.io prefix for mapping if needed, e.g. gcr.io/cadvisor/cadvisor
-        repo = repo.replace("gcr.io/", "")
+        repo = repo.removeprefix("gcr.io/")
 
     prefix = "v" if tag.startswith("v") else ""
     clean_tag = tag[1:] if prefix else tag

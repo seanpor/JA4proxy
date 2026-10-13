@@ -257,6 +257,22 @@ var (
 		},
 	)
 
+	// Phase 843: Fail-open and fail-closed resilience telemetry
+	FailOpenEventsTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "ja4proxy_fail_open_events_total",
+			Help: "Total connections allowed due to fail-open policy on subsystem degradation",
+		},
+		[]string{"subsystem"},
+	)
+	FailClosedEventsTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "ja4proxy_fail_closed_events_total",
+			Help: "Total connections blocked/dropped due to fail-closed policy on subsystem degradation",
+		},
+		[]string{"subsystem"},
+	)
+
 	// AuditJobsDroppedTotal counts mesh drift audit jobs dropped because the
 	// bounded audit worker queue was saturated.
 	AuditJobsDroppedTotal = prometheus.NewCounter(
@@ -465,6 +481,8 @@ func Register() {
 		SignalLatencySeconds,
 		SignalDriftTotal,
 		WorkChanDroppedTotal,
+		FailOpenEventsTotal,
+		FailClosedEventsTotal,
 		AuditJobsDroppedTotal,
 		BeaconingJobsDroppedTotal,
 		RDAPQueueDroppedTotal,
