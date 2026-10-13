@@ -3752,8 +3752,8 @@ phases:
 
   800:
     name: "Code Health Loop — Gate-Runner, Fixing Skill & Honest Reporting"
-    status: IN_PROGRESS
-    action_plan: docs/phases/PHASE_800.md
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_800.md
     skill_script: scripts/phase-800-code-health.sh
     dependencies: []
     size: LARGE
@@ -4152,8 +4152,8 @@ phases:
       per ACL user. Unblocks Phase 812's 812-A."
   812:
     name: "CI/CD automation hardening — stop recurring manual-toil failure modes"
-    status: IN_PROGRESS
-    action_plan: docs/phases/PHASE_812.md
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_812.md
     dependencies: [813]
     size: MEDIUM
     summary: "PROPOSED, revised after critical review. Four independent
@@ -4829,8 +4829,8 @@ phases:
 
   821c:
     name: "Prometheus hardening (quarantined)"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_821c.md
+    status: CLOSED
+    action_plan: docs/phases/cancelled/PHASE_821c.md
     dependencies: [820, 821a, 821b]
     size: SMALL
     summary: "PROPOSED 2026-08-15. Quarantined from 821 because expert review
@@ -5046,8 +5046,8 @@ phases:
 
   831:
     name: "Dependency Security Hardening: PyJWT Migration & Upstream gRPC Bump"
-    status: IN_PROGRESS
-    action_plan: docs/phases/PHASE_831.md
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_831.md
     dependencies: [304]
     size: SMALL
     summary: "Migrate management API from python-jose to PyJWT (permanently deleting CVE-2024-23342 exception) and bump google.golang.org/grpc in terraform-provider to 1.83.1 (resolving Dependabot alerts #102, #103, #104)."
@@ -5131,8 +5131,8 @@ phases:
     summary: "Achieved SLSA Level 3 build provenance for the Go proxy container image and CLI binary using slsa-framework/slsa-github-generator reusable workflows (generator_container_slsa3.yml and generator_generic_slsa3.yml). Added scripts/verify-slsa.sh and docs/for-architects/SLSA_VERIFICATION.md operator runbook, updated slsa-verify.yml, and resolved Phase 107 deferred subtasks 107c.3, 107c.4, and 107c.5."
   602:
     name: "Shadow Mode & Policy Analytics"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_602.md
+    status: CLOSED
+    action_plan: docs/phases/cancelled/PHASE_602.md
     dependencies:
     - 79
     - 100
@@ -5149,8 +5149,8 @@ phases:
     summary: "Containerize pip-audit dependency scanner, eliminate Makefile find permission noise, ensure accurate make doctor environment validation, and align CI lint jobs."
   604:
     name: "Documentation Information Architecture"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_604.md
+    status: CLOSED
+    action_plan: docs/phases/cancelled/PHASE_604.md
     dependencies:
     - 309
     size: MEDIUM
@@ -5166,8 +5166,8 @@ phases:
     summary: "Port Python adversarial tests to Go and expand fuzzing corpus to ensure behavioral parity for edge cases."
   606:
     name: "System-Wide Test Modernization & Invariant Enforcement"
-    status: IN_PROGRESS
-    action_plan: docs/phases/PHASE_606.md
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_606.md
     dependencies:
     - 603
     - 605

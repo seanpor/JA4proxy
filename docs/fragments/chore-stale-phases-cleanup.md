@@ -1,0 +1,3 @@
+- Promoted and archived delivered phases (`606`, `800`, `812`, `831`) to `docs/phases/complete/`.
+- Closed obsolete phases (`602` Shadow Mode, `604` Documentation IA, `821c` Quarantined Prometheus Hardening) and moved their phase plans to `docs/phases/cancelled/`.
+- Updated `docs/phases/manifest.yaml` and verified clean filing via `tests/unit/test_phase_doc_filing.py`.
