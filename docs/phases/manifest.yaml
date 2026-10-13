@@ -4527,8 +4527,9 @@ phases:
       calendar. An accepted risk is never recorded as FIXED."
   814r:
     name: "Pentest: independent fix-audit and adjacent-bug hunt (pass 3)"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_814.md
+    status: COMPLETE
+    completed: "2026-10-12"
+    action_plan: docs/phases/complete/PHASE_814r.md
     dependencies: [814p]
     size: LARGE
     summary: "Stage 3, the owner-mandated third pass, run per remediation wave
