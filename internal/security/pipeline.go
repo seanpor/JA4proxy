@@ -95,6 +95,9 @@ type PipelineSnapshot struct {
 	dynamicCIDR   cidranger.Ranger
 	ja4xWhitelist map[string]bool
 	ja4xBlacklist map[string]bool
+
+	// Phase 843: Reference to active circuit breaker
+	circuitBreaker *CircuitBreaker
 }
 
 type Pipeline struct {
@@ -143,6 +146,9 @@ type Pipeline struct {
 	// Bounded audit worker — prevents unbounded goroutine growth on slow Redis
 	auditJobs chan auditJob
 
+	// Phase 843: Fast-failing circuit breaker for Redis/auxiliary failures
+	circuitBreaker *CircuitBreaker
+
 	// JA4 lists (dynamic, synchronized with Redis)
 	Whitelist   map[string]bool
 	Blacklist   map[string]bool
@@ -164,6 +170,12 @@ type Pipeline struct {
 
 // PipelineConfig holds the pipeline's toggleable bypass flags and list sets.
 type PipelineConfig struct {
+	// Phase 843: Fail-open resilience configuration
+	FailOpen                    *bool
+	SubsystemsFailOpen          map[string]bool
+	CircuitBreakerFailureThresh int
+	CircuitBreakerCooldownSec   int
+
 	// Bypass toggles (from security_policy in proxy.yml)
 	ALPNBrowserBypass      bool
 	JA4WhitelistBypass     bool
@@ -351,6 +363,7 @@ func NewPipeline(cfg *PipelineConfig, redis RedisReader, log *logrus.Logger) *Pi
 	if cfg.AutoEscalate.Enabled {
 		p.offenseCounter = NewOffenseCounter(redis, &cfg.AutoEscalate, log)
 	}
+	p.circuitBreaker = NewCircuitBreaker(cfg.CircuitBreakerFailureThresh, cfg.CircuitBreakerCooldownSec)
 	p.beaconingJobs = make(chan beaconingJob, beaconingJobBuf)
 	p.auditJobs = make(chan auditJob, auditJobBuf)
 	// JA4PROXY-2026-0090: the beaconing and audit workers are started by
@@ -390,6 +403,7 @@ func (p *Pipeline) newSnapshotLocked(cfg *PipelineConfig) *PipelineSnapshot {
 		dynamicCIDR:    p.dynamicCIDR,
 		ja4xWhitelist:  p.JA4XWhitelist,
 		ja4xBlacklist:  p.JA4XBlacklist,
+		circuitBreaker: p.circuitBreaker,
 	}
 }
 
@@ -628,6 +642,32 @@ func (p *Pipeline) StartBackgroundWorkers(ctx context.Context) {
 	p.mu.Unlock()
 }
 
+// ShouldFailOpen reports whether the pipeline should fail open for a given subsystem.
+func (snap *PipelineSnapshot) ShouldFailOpen(subsystem string) bool {
+	if snap == nil || snap.cfg == nil {
+		return true // Default safe transparent inline proxy behavior
+	}
+	if snap.cfg.SubsystemsFailOpen != nil {
+		if val, exists := snap.cfg.SubsystemsFailOpen[subsystem]; exists {
+			return val
+		}
+	}
+	if snap.cfg.FailOpen == nil {
+		return true
+	}
+	return *snap.cfg.FailOpen
+}
+
+// ShouldFailOpen reports whether the pipeline should fail open for a given subsystem.
+func (p *Pipeline) ShouldFailOpen(subsystem string) bool {
+	return p.snapshot.Load().ShouldFailOpen(subsystem)
+}
+
+// CircuitBreaker returns the pipeline's circuit breaker instance.
+func (p *Pipeline) CircuitBreaker() *CircuitBreaker {
+	return p.circuitBreaker
+}
+
 // Process runs a connection through the full pipeline and returns the result.
 // It never panics; all module errors are caught and logged.
 func (p *Pipeline) Process(ctx context.Context, conn *ConnectionContext) *PipelineResult {
@@ -677,19 +717,29 @@ func (p *Pipeline) process(ctx context.Context, conn *ConnectionContext) *Pipeli
 	// the queue is full — only these two explicit-block decisions become
 	// unconditional.
 	if p.redis != nil && conn.ClientIP != "" {
-		// D-001: distinguish a sensor-enforced ban (tap.Enforcer writes
-		// "tap_enforce:ja4t=..." — internal/tap/enforcement.go) from an
-		// operator ban, instead of reporting every ban:{ip} hit as
-		// "manual_ban" regardless of who wrote it. Existence alone (the
-		// prior Exists() check) cannot tell them apart.
-		if banVal := p.redis.GetString(ctx, "ban:"+conn.ClientIP); banVal != "" {
-			reason := "manual_ban"
-			if strings.HasPrefix(banVal, tapEnforcedBanValuePrefix) {
-				reason = "tap_enforce_ban"
+		cb := snap.circuitBreaker
+		if cb == nil || cb.AllowExecution() {
+			banVal := p.redis.GetString(ctx, "ban:"+conn.ClientIP)
+			if banVal != "" {
+				if cb != nil {
+					cb.RecordSuccess()
+				}
+				reason := "manual_ban"
+				if strings.HasPrefix(banVal, tapEnforcedBanValuePrefix) {
+					reason = "tap_enforce_ban"
+				}
+				result := &PipelineResult{Action: "block", Score: 100, BypassReason: reason}
+				p.cacheResult(conn, result)
+				return result
 			}
-			result := &PipelineResult{Action: "block", Score: 100, BypassReason: reason}
-			p.cacheResult(conn, result)
-			return result
+		} else {
+			// Circuit breaker open — Redis is failing or degraded
+			if snap.ShouldFailOpen("redis_failure") {
+				metrics.FailOpenEventsTotal.WithLabelValues("redis_failure").Inc()
+			} else {
+				metrics.FailClosedEventsTotal.WithLabelValues("redis_failure").Inc()
+				return &PipelineResult{Action: "block", Score: 100, BypassReason: "redis_failure_fail_closed"}
+			}
 		}
 	}
 
@@ -740,6 +790,18 @@ func (p *Pipeline) process(ctx context.Context, conn *ConnectionContext) *Pipeli
 	default:
 		// JA4PROXY-2026-0073: track workChan saturation for operational visibility.
 		metrics.WorkChanDroppedTotal.Inc()
+		if snap != nil && !snap.ShouldFailOpen("queue_saturation") {
+			metrics.FailClosedEventsTotal.WithLabelValues("queue_saturation").Inc()
+			result := &PipelineResult{
+				Action:       "block",
+				Bypassed:     false,
+				BypassReason: "queue_saturation_fail_closed",
+				Score:        100,
+			}
+			p.cacheResult(conn, result)
+			return result
+		}
+		metrics.FailOpenEventsTotal.WithLabelValues("queue_saturation").Inc()
 	}
 	// Deferred: scoring is queued, not done. The zero score here is "not yet
 	// evaluated", not "evaluated as harmless" — see PipelineResult.Deferred.

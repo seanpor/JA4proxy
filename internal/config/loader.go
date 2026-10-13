@@ -46,6 +46,10 @@ func (f *FlexInt) UnmarshalYAML(value *yaml.Node) error {
 	return nil
 }
 
+func boolPtr(b bool) *bool {
+	return &b
+}
+
 // envVarPattern matches ${VAR} and ${VAR:-default} substitution syntax.
 var envVarPattern = regexp.MustCompile(`\$\{([^}:]+)(?::-([^}]*))?\}`)
 
@@ -87,6 +91,22 @@ func Load(path string) (*Config, error) {
 		logrus.WithField("value", cfg.DatacenterPolicy.Action).
 			Warn("config: unknown datacenter_policy.action — defaulting to 'score'")
 		cfg.DatacenterPolicy.Action = "score"
+	}
+
+	// Phase 843: Ensure SecurityPolicy.FailOpen default and environment overrides
+	if envFO := os.Getenv("JA4PROXY_SECURITY_POLICY_FAIL_OPEN"); envFO != "" {
+		fo := strings.ToLower(strings.TrimSpace(envFO)) == "true" || envFO == "1"
+		cfg.SecurityPolicy.FailOpen = &fo
+	}
+	if cfg.SecurityPolicy.FailOpen == nil {
+		fo := true
+		cfg.SecurityPolicy.FailOpen = &fo
+	}
+	if cfg.SecurityPolicy.CircuitBreaker.FailureThreshold <= 0 {
+		cfg.SecurityPolicy.CircuitBreaker.FailureThreshold = 5
+	}
+	if cfg.SecurityPolicy.CircuitBreaker.CooldownSeconds <= 0 {
+		cfg.SecurityPolicy.CircuitBreaker.CooldownSeconds = 10
 	}
 	return cfg, nil
 }
@@ -160,6 +180,17 @@ func DefaultConfig() *Config {
 			},
 		},
 		SecurityPolicy: SecurityPolicyConfig{
+			FailOpen: boolPtr(true),
+			Subsystems: map[string]bool{
+				"redis_failure":          true,
+				"queue_saturation":       true,
+				"geo_enrichment_failure": true,
+				"reputation_feed_failure": true,
+			},
+			CircuitBreaker: CircuitBreakerConfig{
+				FailureThreshold: 5,
+				CooldownSeconds:  10,
+			},
 			// JA4PROXY-2026-0004: ALPN is attacker-controlled. Default OFF.
 			ALPNBrowserBypass:      BypassConfig{Enabled: false},
 			JA4WhitelistBypass:     BypassConfig{Enabled: true},
@@ -597,16 +628,25 @@ type MonitorModeConfig struct {
 	MaxDialChangePerHour int  `yaml:"max_dial_change_per_hour"`
 }
 
-// SecurityPolicyConfig holds per-bypass toggle settings.
+// SecurityPolicyConfig holds per-bypass toggle settings and fail-open policies.
 type SecurityPolicyConfig struct {
-	ALPNBrowserBypass      BypassConfig `yaml:"alpn_browser_bypass"`
-	JA4WhitelistBypass     BypassConfig `yaml:"ja4_whitelist_bypass"`
-	JA4BlockingEnabled     BypassConfig `yaml:"ja4_blocking_enabled"`
-	MTLSBypass             BypassConfig `yaml:"mtls_bypass"`
-	StaticIPAllowlist      BypassConfig `yaml:"static_ip_allowlist"`
-	CountryBlockingEnabled BypassConfig `yaml:"country_blocking_enabled"`
-	SpamhausBypass         BypassConfig `yaml:"spamhaus_bypass"`
-	TLSVersionBypass       BypassConfig `yaml:"tls_version_bypass"`
+	FailOpen               *bool                `yaml:"fail_open"`
+	Subsystems             map[string]bool      `yaml:"subsystems"`
+	CircuitBreaker         CircuitBreakerConfig `yaml:"circuit_breaker"`
+	ALPNBrowserBypass      BypassConfig         `yaml:"alpn_browser_bypass"`
+	JA4WhitelistBypass     BypassConfig         `yaml:"ja4_whitelist_bypass"`
+	JA4BlockingEnabled     BypassConfig         `yaml:"ja4_blocking_enabled"`
+	MTLSBypass             BypassConfig         `yaml:"mtls_bypass"`
+	StaticIPAllowlist      BypassConfig         `yaml:"static_ip_allowlist"`
+	CountryBlockingEnabled BypassConfig         `yaml:"country_blocking_enabled"`
+	SpamhausBypass         BypassConfig         `yaml:"spamhaus_bypass"`
+	TLSVersionBypass       BypassConfig         `yaml:"tls_version_bypass"`
+}
+
+// CircuitBreakerConfig defines threshold parameters for fast-failing during outages.
+type CircuitBreakerConfig struct {
+	FailureThreshold int `yaml:"failure_threshold"`
+	CooldownSeconds  int `yaml:"cooldown_seconds"`
 }
 
 // BypassConfig holds the enabled toggle for a single bypass rule.
@@ -989,7 +1029,7 @@ func ValidateRedisAuth(cfg *Config) error {
 			host = cfg.Redis.Sentinels[0]
 		}
 		if !isLocalRedisHost(host) {
-			return fmt.Errorf("%w (password=%q on host=%q)", ErrRedisCommittedDefaultPassword, pw, host)
+			return fmt.Errorf("%w on host=%q", ErrRedisCommittedDefaultPassword, host)
 		}
 	}
 	return nil

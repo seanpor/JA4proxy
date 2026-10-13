@@ -1,0 +1,3 @@
+- Implement centralized configurable `security_policy.fail_open: true` policy (Phase 843), ensuring transparent inline proxying under Redis or worker queue overload while preserving unconditional fail-closed drops on protocol attacks.
+- Add fast-failing `CircuitBreaker` protecting hot-path execution against Redis latency spikes, and export `ja4proxy_fail_open_events_total` and `ja4proxy_fail_closed_events_total` metrics.
+- Fix CodeQL alert #107 (cleartext password logging avoidance) and #106 (strict image prefix sanitization).
