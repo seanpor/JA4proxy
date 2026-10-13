@@ -12,7 +12,7 @@ read the top of the file for full options.
 
 <!-- BEGIN GENERATED: scripts -->
 
-_138 scripts. Generated from each script's header comment by `make sync` — do not edit this table by hand._
+_137 scripts. Generated from each script's header comment by `make sync` — do not edit this table by hand._
 
 | Script | Called by | What it does |
 |--------|-----------|--------------|
@@ -101,7 +101,6 @@ _138 scripts. Generated from each script's header comment by `make sync` — do 
 | `namespace_setup.sh` | — | Namespace isolation helper for JA4proxy (Phase 56b-3) |
 | `nightly_benchmark_gate.py` | — | nightly_benchmark_gate.py — Phase 805 nightly performance regression gate. |
 | `perf-matrix.sh` | — | — |
-| `perf-test.sh` | — | Performance testing script for JA4 Proxy |
 | `phase-800-code-health.sh` | — | deterministic gate-runner + reporter (Phase 800). |
 | `phase_121_verify.py` | `make verify-manifest-closeout` | Phase 121 close-out gate. |
 | `pin_table_autofix.py` | — | Verify and append new GitHub Actions SHA pins (Phase 812, 812-C). |

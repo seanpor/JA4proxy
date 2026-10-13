@@ -2,7 +2,7 @@
 # management/ imports. Version constraints are intentionally loose — the lint
 # environment does not run management code, only type-checks it.
 #
-# fastapi, redis, jinja2, httpx, uvicorn, and cryptography are already pinned
+# fastapi, redis, httpx, uvicorn, and cryptography are already pinned
 # in requirements.txt / requirements-test.txt and are NOT repeated here.
 PyJWT[crypto]>=2.15.1
 passlib[bcrypt]
@@ -12,3 +12,5 @@ python3-saml>=1.16
 authlib>=1.8.0
 pyotp>=2.10.0
 qrcode[pil]>=8.2
+jinja2>=3.1.6
+
