@@ -79,6 +79,11 @@ def check_regression(result: dict, baseline: dict, gate_percent: float) -> list[
             f"({error_rate:.2f}%) exceeds max {max_error_rate:.2f}%"
         )
 
+    if result.get("rate_limited", False):
+        failures.append(
+            f"benchmark was artificially rate-limited (achieved throughput was within 90% of offered rate {result.get('offered_rate_cps', 'unknown')} CPS)"
+        )
+
     return failures
 
 

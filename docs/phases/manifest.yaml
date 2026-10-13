@@ -4603,8 +4603,8 @@ phases:
       consumes it for ATTACK_SURFACE.md."
   819a:
     name: "Benchmark truthfulness — the throughput and false-positive numbers are both constants"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_819a.md
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_819a.md
     dependencies: []
     size: MEDIUM
     summary: "PROPOSED 2026-08-13, raised by rerunning make bench-all after the

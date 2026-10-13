@@ -86,6 +86,11 @@ gauge(
     data.get("baseline_p95_latency_ms", 0.0),
 )
 gauge(
+    "ja4proxy_loadtest_rate_limited",
+    "1.0 if the benchmark was capped by offered rate (>=90% of offered), 0.0 otherwise",
+    1.0 if data.get("rate_limited", False) else 0.0,
+)
+gauge(
     "ja4proxy_loadtest_last_ci_run_timestamp_seconds",
     "Unix timestamp this nightly benchmark textfile was last refreshed",
     time.time(),

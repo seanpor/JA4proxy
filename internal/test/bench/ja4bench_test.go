@@ -11,6 +11,15 @@
 package bench
 
 import (
+	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"math/big"
+	"net"
 	"strings"
 	"testing"
 	"time"
@@ -61,8 +70,9 @@ func TestStatus(t *testing.T) {
 			name: "good traffic all allowed passes",
 			result: func() *BenchResult {
 				r := newResult()
-				r.TotalGood = 1000
-				r.GoodAllowed = 1000
+				for i := 0; i < 1000; i++ {
+					r.Record(true, true, 5*time.Millisecond, nil)
+				}
 				return r
 			},
 			wantErr: false,
@@ -71,9 +81,10 @@ func TestStatus(t *testing.T) {
 			name: "any blocked good traffic is a failure",
 			result: func() *BenchResult {
 				r := newResult()
-				r.TotalGood = 1000
-				r.GoodAllowed = 999
-				r.GoodBlocked = 1
+				for i := 0; i < 999; i++ {
+					r.Record(true, true, 5*time.Millisecond, nil)
+				}
+				r.Record(true, false, 0, nil)
 				return r
 			},
 			wantErr:    true,
@@ -87,10 +98,12 @@ func TestStatus(t *testing.T) {
 			name: "false negatives alone do not fail the run",
 			result: func() *BenchResult {
 				r := newResult()
-				r.TotalGood = 500
-				r.GoodAllowed = 500
-				r.TotalBad = 500
-				r.BadAllowed = 500
+				for i := 0; i < 500; i++ {
+					r.Record(true, true, 5*time.Millisecond, nil)
+				}
+				for i := 0; i < 500; i++ {
+					r.Record(false, true, 5*time.Millisecond, nil)
+				}
 				return r
 			},
 			wantErr: false,
@@ -133,17 +146,223 @@ func TestRatesAreZeroWhenNoTrafficSent(t *testing.T) {
 
 func TestRatesAreComputedCorrectly(t *testing.T) {
 	r := newResult()
-	r.TotalGood = 200
-	r.GoodAllowed = 190
-	r.GoodBlocked = 10
-	r.TotalBad = 50
-	r.BadAllowed = 5
-	r.BadBlocked = 45
+	for i := 0; i < 190; i++ {
+		r.Record(true, true, 5*time.Millisecond, nil)
+	}
+	for i := 0; i < 10; i++ {
+		r.Record(true, false, 0, nil)
+	}
+	for i := 0; i < 5; i++ {
+		r.Record(false, true, 5*time.Millisecond, nil)
+	}
+	for i := 0; i < 45; i++ {
+		r.Record(false, false, 0, nil)
+	}
 
 	if got, want := r.FalsePositiveRate(), 5.0; got != want {
 		t.Errorf("FalsePositiveRate: got %v, want %v", got, want)
 	}
 	if got, want := r.FalseNegativeRate(), 10.0; got != want {
 		t.Errorf("FalseNegativeRate: got %v, want %v", got, want)
+	}
+}
+
+func TestOfferedRate(t *testing.T) {
+	cases := []struct {
+		rate    int
+		workers int
+		want    int
+	}{
+		{100, 8, 96},
+		{4, 8, 8},
+		{0, 8, 0},
+		{10, 16, 16},
+		{190, 16, 176},
+		{1000, 32, 992},
+	}
+	for _, tc := range cases {
+		got := OfferedRate(tc.rate, tc.workers)
+		if got != tc.want {
+			t.Errorf("OfferedRate(%d, %d) = %d, want %d", tc.rate, tc.workers, got, tc.want)
+		}
+	}
+}
+
+func TestRateLimitedCalculation(t *testing.T) {
+	r := newResult()
+	r.OfferedRateCPS = 100
+	r.Workers = 8
+	// 100 total connections over 10 seconds = 10 CPS. Offered is 100 CPS. 10 < 90 -> RateLimited false
+	for i := 0; i < 100; i++ {
+		r.Record(true, true, 5*time.Millisecond, nil)
+	}
+	r.Calculate()
+	if r.RateLimited {
+		t.Errorf("expected RateLimited=false at 10 CPS out of 100 offered, got true")
+	}
+
+	// Now simulate achieved throughput >= 90% of offered
+	r2 := newResult()
+	r2.OfferedRateCPS = 100
+	r2.Workers = 8
+	// 950 total connections over 10 seconds = 95 CPS. 95 >= 90 -> RateLimited true
+	for i := 0; i < 950; i++ {
+		r2.Record(true, true, 5*time.Millisecond, nil)
+	}
+	r2.Calculate()
+	if !r2.RateLimited {
+		t.Errorf("expected RateLimited=true at 95 CPS out of 100 offered, got false")
+	}
+}
+
+// generateTestTLSCert creates an ephemeral in-memory TLS certificate for hermetic tests.
+func generateTestTLSCert(t *testing.T) tls.Certificate {
+	t.Helper()
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("failed to generate ecdsa key: %v", err)
+	}
+	template := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject:      pkix.Name{CommonName: "backend"},
+		NotBefore:    time.Now().Add(-1 * time.Hour),
+		NotAfter:     time.Now().Add(1 * time.Hour),
+		IPAddresses:  []net.IP{net.ParseIP("127.0.0.1")},
+		DNSNames:     []string{"backend", "localhost"},
+	}
+	certDER, err := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
+	if err != nil {
+		t.Fatalf("failed to create certificate: %v", err)
+	}
+	return tls.Certificate{
+		Certificate: [][]byte{certDER},
+		PrivateKey:  key,
+	}
+}
+
+// TestRunProfileHermetic_F1 verifies that runProfile correctly observes rate_limited=true
+// when the server responds fast (5ms delay), and rate_limited=false when throughput is bottlenecked.
+func TestRunProfileHermetic_F1(t *testing.T) {
+	cert := generateTestTLSCert(t)
+	tlsConfig := &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		NextProtos:   []string{"h2", "http/1.1"},
+	}
+
+	ln, err := tls.Listen("tcp", "127.0.0.1:0", tlsConfig)
+	if err != nil {
+		t.Fatalf("failed to listen on tls: %v", err)
+	}
+	defer ln.Close()
+
+	stopServer := make(chan struct{})
+	go func() {
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				select {
+				case <-stopServer:
+					return
+				default:
+					return
+				}
+			}
+			go func(c net.Conn) {
+				defer c.Close()
+				time.Sleep(5 * time.Millisecond)
+				buf := make([]byte, 1024)
+				n, _ := c.Read(buf)
+				if n > 0 {
+					_, _ = c.Write([]byte("HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nOK"))
+				}
+			}(conn)
+		}
+	}()
+	defer close(stopServer)
+
+	// Offered rate = 40 CPS (workers=4, ratePerWorker=10)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	res := &BenchResult{
+		StartTime:      time.Now(),
+		OfferedRateCPS: OfferedRate(40, 4),
+		Workers:        4,
+	}
+
+	err = runProfile(ctx, ln.Addr().String(), true, 40, 4, res)
+	if err != nil {
+		t.Fatalf("runProfile failed: %v", err)
+	}
+	res.EndTime = time.Now()
+	res.Calculate()
+
+	if res.TotalGood == 0 {
+		t.Fatalf("expected completed connections, got 0")
+	}
+	// Under 5ms server latency with 100ms tick period, achieved rate meets the offered rate
+	if !res.RateLimited {
+		t.Errorf("expected rate_limited=true on fast server path, got false (Throughput: %.2f, Offered: %d)",
+			res.ThroughputCPS, res.OfferedRateCPS)
+	}
+}
+
+// TestRunProfileHermetic_F2 verifies that a connection blocked by the proxy (RST / connection drop)
+// is recorded through Record() as a block (GoodBlocked > 0), producing FalsePositiveRate > 0
+// and tripping Status().
+func TestRunProfileHermetic_F2(t *testing.T) {
+	// TCP listener that accepts and immediately resets/closes connections without completing TLS handshake
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("failed to listen on tcp: %v", err)
+	}
+	defer ln.Close()
+
+	stopServer := make(chan struct{})
+	go func() {
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				select {
+				case <-stopServer:
+					return
+				default:
+					return
+				}
+			}
+			if tcpConn, ok := conn.(*net.TCPConn); ok {
+				_ = tcpConn.SetLinger(0)
+			}
+			_ = conn.Close()
+		}
+	}()
+	defer close(stopServer)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
+	res := &BenchResult{
+		StartTime:      time.Now(),
+		OfferedRateCPS: OfferedRate(20, 2),
+		Workers:        2,
+	}
+
+	err = runProfile(ctx, ln.Addr().String(), true, 20, 2, res)
+	if err != nil {
+		t.Fatalf("runProfile returned unexpected error: %v", err)
+	}
+	res.EndTime = time.Now()
+	res.Calculate()
+
+	if res.GoodBlocked == 0 {
+		t.Errorf("expected GoodBlocked > 0 when connection is reset/dropped, got %d", res.GoodBlocked)
+	}
+	if fp := res.FalsePositiveRate(); fp == 0 {
+		t.Errorf("expected FalsePositiveRate > 0, got %.2f%%", fp)
+	}
+	if statusErr := res.Status(); statusErr == nil {
+		t.Errorf("expected Status() to fail with false positive error, got nil")
+	} else if !strings.Contains(statusErr.Error(), "false positives") {
+		t.Errorf("expected Status() error to mention false positives, got %v", statusErr)
 	}
 }

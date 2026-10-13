@@ -61,12 +61,14 @@ class TestHappyPath:
         assert "ja4proxy_loadtest_throughput_cps 605.3" in content
         assert "ja4proxy_loadtest_baseline_throughput_cps 600.0" in content
         assert "ja4proxy_loadtest_errors_total 0" in content
+        assert "ja4proxy_loadtest_rate_limited 0.0" in content
         assert "# TYPE ja4proxy_loadtest_connections_attempted_total counter" in content
         assert "# TYPE ja4proxy_loadtest_throughput_cps gauge" in content
+        assert "# TYPE ja4proxy_loadtest_rate_limited gauge" in content
 
     def test_computes_attempted_as_sum_of_good_bad_errors(self, tmp_path):
         source = tmp_path / "result.json"
-        result = dict(VALID_RESULT, total_good=100, total_bad=20, errors=5)
+        result = dict(VALID_RESULT, total_good=100, total_bad=20, errors=5, rate_limited=True)
         source.write_text(json.dumps(result))
 
         code, _out, err, out_file = _run_script(tmp_path, f"file://{source}")
@@ -75,6 +77,7 @@ class TestHappyPath:
         content = out_file.read_text()
         assert "ja4proxy_loadtest_connections_attempted_total 125" in content
         assert "ja4proxy_loadtest_connections_completed_total 120" in content
+        assert "ja4proxy_loadtest_rate_limited 1.0" in content
 
 
 class TestFailOpen:

@@ -15,9 +15,11 @@ groups:
           ja4proxy_loadtest_throughput_cps < ja4proxy_loadtest_baseline_throughput_cps * 0.8
           or
           ja4proxy_loadtest_p95_latency_ms > ja4proxy_loadtest_baseline_p95_latency_ms * 1.2
+          or
+          ja4proxy_loadtest_rate_limited > 0
         for: 0m
         labels: {severity: warning}
         annotations:
-          summary: "Nightly benchmark regressed more than 20% against baseline"
-          description: "throughput={{ $labels.__name__ }} current vs baseline, or p95 latency, moved past the 20% regression gate. See docs/reports/nightly_benchmark_baseline.json for the current baseline and docs/runbooks/nightly_benchmark_regression.md for triage."
+          summary: "Nightly benchmark regressed more than 20% against baseline or was artificially rate-limited"
+          description: "throughput={{ $labels.__name__ }} current vs baseline, p95 latency moved past the 20% regression gate, or benchmark ran in an artificially rate-limited regime. See docs/reports/nightly_benchmark_baseline.json for the current baseline and docs/runbooks/nightly_benchmark_regression.md for triage."
           runbook_url: "https://github.com/seanpor/JA4proxy/blob/main/docs/runbooks/nightly_benchmark_regression.md"
