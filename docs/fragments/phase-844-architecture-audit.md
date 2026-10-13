@@ -1,0 +1,2 @@
+- Completed Phase 844: Go Proxy Architecture Audit, Code Quality Review & Empirical Refactoring Assessment, publishing statistical `benchstat` baselines, cyclomatic complexity profiling, and empirical refactoring roadmap in `docs/reports/2026-10_PROXY_CODE_QUALITY_AUDIT.md`.
+- Resolved CodeQL Alert 106 (`py/incomplete-url-substring-sanitization`) by hardening registry host component parsing in `scripts/check_upstream_image_updates.py`.
