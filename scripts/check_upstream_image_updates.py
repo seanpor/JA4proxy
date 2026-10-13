@@ -48,11 +48,13 @@ def parse_image_ref(image_str: str) -> ImageRef | None:
     if ":" not in image_str:
         return None
     repo, tag = image_str.split(":", 1)
-    if "/" not in repo:
+    # Handle registry prefix (e.g. gcr.io/cadvisor/cadvisor or quay.io/...)
+    parts = repo.split("/")
+    if len(parts) == 1:
         repo = f"library/{repo}"
-    elif repo.startswith("gcr.io/"):
-        # Strip gcr.io prefix for mapping if needed, e.g. gcr.io/cadvisor/cadvisor
-        repo = repo.removeprefix("gcr.io/")
+    elif len(parts) > 2 and ("." in parts[0] or ":" in parts[0]):
+        # Strip external registry host component (e.g. gcr.io -> cadvisor/cadvisor)
+        repo = "/".join(parts[1:])
 
     prefix = "v" if tag.startswith("v") else ""
     clean_tag = tag[1:] if prefix else tag

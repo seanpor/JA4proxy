@@ -5293,7 +5293,7 @@ phases:
     summary: "Centralize and formalize an operator-configurable security_policy.fail_open toggle (defaulting to true for transparent inline proxying), defining strict boundaries between auxiliary/state service degradation (fail-open) and protocol attacks/smuggling (fail-closed)."
   844:
     name: "Go Proxy Architecture Audit, Code Quality Review & Empirical Refactoring Assessment"
-    status: PROPOSED
+    status: IN_PROGRESS
     action_plan: docs/phases/PHASE_844.md
     dependencies: [819a]
     size: MEDIUM
