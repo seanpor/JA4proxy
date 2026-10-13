@@ -4637,42 +4637,26 @@ phases:
       carrying docker-volume-rm authority. Adds bench-hostnative, the only
       stage that measures the engine. Closes the Phase 524 D2 debt."
   819b:
-    name: "Bench-all stage repair — bit-rot, lane-awareness, and safe MTTR isolation"
+    name: "Retire Locust & Clean Performance Dependencies"
     status: PROPOSED
     action_plan: docs/phases/PHASE_819b.md
-    dependencies: [819a, 814a]
-    size: LARGE
-    summary: "PROPOSED 2026-08-13, the second half of the bench-all
-      restoration; 819a lands first. perf-test is dead four layers deep: locust
-      2.17.0 cannot import on Python 3.14 (PEP 649/749), AND the events it
-      fires at eight sites (request_success/request_failure) were removed in
-      locust 2.0, AND its ClientHello is structurally corrupt (pack_into '>I'
-      writes 4 bytes into the 3-byte handshake-length field; all extensions
-      emitted with length 0), AND it points plain HTTP at the TLS passthrough
-      port while driving 100 users at the live lane for 5 minutes — so the fix
-      is retirement, not a version bump, which also drops the msgpack pin and a
-      large CVE surface. test-go-perf defaults to port 18082 while lanes
-      publish HOST_PORT_DIRECT, so 4/4 tests skip and exit 0; its 4264 conn/s
-      is GIL-bound Python threads doing bare TCP connects and must not be
-      promoted; its Python-ratio test defaults PYTHON_PROXY_PORT to 8081, the
-      same as the compose HOST_PORT_DIRECT default, so after the port fix it
-      compares the Go proxy against itself and fails rather than skips.
-      load-test references four LOAD_TEST_* variables defined nowhere, and
-      fixing that alone would make it silently green: it records no throughput,
-      latency or error count, keeps only the last 2000 chars of stdout (which
-      truncates the throughput line on a 4-profile mix), and has no non-zero
-      exit for zero successful connections. measure-mttr expects a host
-      redis-cli (forbidden by container-strict execution); behind that sit an
-      invalid 'docker compose volume ls' (the plural 'volumes' exists and is
-      project-scoped), a redis service publishing no host port, an NDJSON parse
-      failure that makes scenario 2 stop docker-socket-proxy instead of the
-      proxy, no trap so an interrupt leaves config:dial=100 published, and —
-      critically — .env sets COMPOSE_PROJECT_NAME so bare 'docker compose'
-      targets the LIVE LANE with the root 4-service file, recreating its Redis
-      under an incompatible definition and breaking ACL auth fleet-wide. Also:
-      bench-micro never runs internal/security's benchmarks, two stages run
-      host Python 3.10 against AGENTS.md container-strict, and bench-all leaves
-      an untracked MTTR_BASELINE.md that trips Phase 800's dirty-tree refusal."
+    dependencies: [819a]
+    size: SMALL
+    summary: "Retire bit-rotten locust 2.17.0 and tests/performance/locust_tests.py, drop unneeded dependencies from requirements.txt, and clean Makefile perf-test targets."
+  819c:
+    name: "Repair test-go-perf and Load Test Harness"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_819c.md
+    dependencies: [819b]
+    size: MEDIUM
+    summary: "Repair test_bench_go_proxy.py port mapping to active proxy, drop obsolete Python proxy comparison test, and repair scripts/load_test.py under container-strict execution."
+  819d:
+    name: "Isolate measure-mttr on pentest-range"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_819d.md
+    dependencies: [819c]
+    size: MEDIUM
+    summary: "Isolate scripts/measure-mttr.sh to execute redis-cli inside containers, use project-scoped docker compose commands, and target make pentest-range without live lane pollution."
 
   817:
     name: "Analytics node crash-loop fix — src/utils missing from image (JA4PROXY-2026-0097)"
@@ -5298,4 +5282,11 @@ phases:
     dependencies: [814d]
     size: LARGE
     summary: "Systematic, layered engineering programme to eliminate race conditions, memory synchronization bugs, and deadlock risks across JA4proxy: strict partial lock ordering (L_Server < L_Pipeline < L_Cache) with go-deadlock, atomic snapshotting (atomic.Pointer[PipelineSnapshot]) for zero-lock connection evaluation, two-phase channel teardown protocol, sync.WaitGroup worker termination handshakes, uber-go/goleak verification across all suites, and pgregory.net/rapid concurrent linearizability fuzzing."
+  843:
+    name: "Configurable Fail-Open Policy & Overload Resilience"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_843.md
+    dependencies: []
+    size: MEDIUM
+    summary: "Centralize and formalize an operator-configurable security_policy.fail_open toggle (defaulting to true for transparent inline proxying), defining strict boundaries between auxiliary/state service degradation (fail-open) and protocol attacks/smuggling (fail-closed)."
 
