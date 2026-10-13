@@ -1049,11 +1049,9 @@ poc-secrets: ## Generate any missing deploy/secrets/*.txt the PoC stack needs
 	@echo "=== PoC secrets ==="
 	@scripts/ensure-poc-secrets.sh
 
-perf-test: poc-secrets  ## Run performance tests with Locust
-	@echo "Starting performance tests..."
-	@echo "Note: This requires services to be running (make deploy-poc)"
-	@[ -f .env ] || { echo "✗ .env not found — run 'make start-poc' once to generate it (it must not be created ad hoc here: start-poc.sh owns the full required key set)"; exit 1; }
-	docker compose -f deploy/docker/docker-compose.poc.yml --env-file .env run --rm test locust -f /app/performance/locust_tests.py --host http://proxy:8080 --users 100 --spawn-rate 10 --run-time 5m --headless
+perf-test:  ## (Retired) Formerly ran Locust performance tests; use make bench-macro
+	@echo "perf-test: Locust performance tests have been retired (Phase 819b)."
+	@echo "Use 'make bench-macro' or 'make bench-hostnative' for truthful proxy load benchmarking."
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 
@@ -1662,10 +1660,9 @@ test-component-suites: ## Run every component test suite (unit, chaos, adversari
 	@$(MAKE) test-unit test-chaos test-adversarial
 
 
-bench-all: ## Run every heavy benchmark (perf, load, go-perf, hostnative) — slow, runs alone
+bench-all: ## Run every heavy benchmark (load, go-perf, hostnative) — slow, runs alone
 	@echo "=== bench-all: heavy benchmarks (excluded from 'make lint scan test') ==="
 	@$(MAKE) bench
-	@$(MAKE) perf-test
 	@$(MAKE) test-go-perf
 	@$(MAKE) load-test
 	@$(MAKE) bench-hostnative

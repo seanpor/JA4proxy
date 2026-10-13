@@ -493,11 +493,10 @@ docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" \
 ### Performance Testing Under Load
 
 ```bash
-# Use locust for load testing
-pip install locust
-
-# Create locustfile.py with JA4 header simulation
-# Run: locust -f locustfile.py --host=http://localhost:8080
+# Run truthful Go load generator
+./bin/ja4p test benchmark --host 127.0.0.1:8081 --duration 30
+# Or native host benchmark
+make bench-hostnative
 ```
 
 ---

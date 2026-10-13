@@ -29,7 +29,6 @@ pytest-cov==7.1.0
 pytest-mock==3.15.1
 pytest-xdist==3.8.0
 pytest-timeout==2.4.0
-locust==2.46.4
 
 # Development dependencies
 black>=26.5.1
@@ -59,6 +58,4 @@ protobuf>=5.29.6  # PYSEC-2026-1805 / CVE-2026-0994 fix (clears protobuf 4.x vul
 # NOTE (phase-800 / phase-833): click 8.1.8 (PYSEC-2026-2132) is acknowledged in the lint gate
 # because semgrep pins click~=8.1.8 (fix is 8.3.3). Dev/CI tooling only.
 # protobuf 4.25.9 (PYSEC-2026-1805) was resolved in Phase 833 by pinning protobuf>=5.29.6 above.
-
-msgpack>=1.2.2  # GHSA-6v7p-g79w-8964 (HIGH) — transitive dep of locust 2.17.0; pinned to force safe resolution
 

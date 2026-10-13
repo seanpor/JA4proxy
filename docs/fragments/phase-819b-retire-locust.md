@@ -1,0 +1,2 @@
+- Retired bit-rotten `locust` (2.46.4) and `msgpack` dependencies from `requirements.txt` and removed `tests/performance/locust_tests.py` and `tests/performance/locustfile.py`.
+- Deprecated and retired `make perf-test`, directing operators to `make bench-macro` and `make bench-hostnative` for high-fidelity Go proxy load generation (Phase 819b).

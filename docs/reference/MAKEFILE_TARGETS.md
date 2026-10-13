@@ -51,7 +51,7 @@ _202 targets. Generated from the Makefile's own `##` help comments by `make sync
 
 | Target | Description |
 |--------|-------------|
-| `bench-all` | Run every heavy benchmark (perf, load, go-perf, hostnative) — slow, runs alone |
+| `bench-all` | Run every heavy benchmark (load, go-perf, hostnative) — slow, runs alone |
 | `bench-hostnative` | End-to-end throughput, ja4pd host-native (no docker-proxy; ~4.5x the bridge port) |
 | `bump-build` | Show build number (derived from git commit count — no file needed) |
 | `changelog-assemble` | Fold docs/fragments/*.md into CHANGELOG.md (run at release, not per-phase) |
@@ -232,7 +232,7 @@ _202 targets. Generated from the Makefile's own `##` help comments by `make sync
 | `attack-status` | Quick security snapshot |
 | `block-ip` | Hard-block an IP address for 1 hour (IP=...) |
 | `block-ja4` | Blacklist a JA4 fingerprint (FP=...) |
-| `perf-test` | Run performance tests with Locust |
+| `perf-test` | (Retired) Formerly ran Locust performance tests; use make bench-macro |
 | `poc-secrets` | Generate any missing deploy/secrets/*.txt the PoC stack needs |
 | `top-attackers` | Top 10 fingerprints by traffic |
 | `unblock-ip` | Remove blocks/bans for an IP (IP=...) |

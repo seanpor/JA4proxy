@@ -498,19 +498,6 @@ run_layer7_performance() {
     else
         log_warning "Performance benchmarks had issues"
     fi
-    
-    # 7c. Load Testing with Locust (optional, takes longer)
-    if [ "${RUN_LOAD_TESTS:-false}" = "true" ]; then
-        log_section "7c. Load Testing (Locust)"
-        docker compose -f "$COMPOSE_FILE" run --rm trafficgen \
-            locust -f tests/performance/locustfile.py \
-            --headless -u 100 -r 10 -t 60s \
-            --html "$REPORTS_DIR/locust-report.html" \
-            --json 2>&1 || true
-        log_success "Load tests completed"
-    else
-        log_warning "Load tests skipped (set RUN_LOAD_TESTS=true to run)"
-    fi
 }
 
 # ============================================================================

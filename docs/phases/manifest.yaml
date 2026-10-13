@@ -4638,8 +4638,8 @@ phases:
       stage that measures the engine. Closes the Phase 524 D2 debt."
   819b:
     name: "Retire Locust & Clean Performance Dependencies"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_819b.md
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_819b.md
     dependencies: [819a]
     size: SMALL
     summary: "Retire bit-rotten locust 2.17.0 and tests/performance/locust_tests.py, drop unneeded dependencies from requirements.txt, and clean Makefile perf-test targets."
@@ -5289,4 +5289,11 @@ phases:
     dependencies: []
     size: MEDIUM
     summary: "Centralize and formalize an operator-configurable security_policy.fail_open toggle (defaulting to true for transparent inline proxying), defining strict boundaries between auxiliary/state service degradation (fail-open) and protocol attacks/smuggling (fail-closed)."
+  844:
+    name: "Go Proxy Architecture Audit, Code Quality Review & Empirical Refactoring Assessment"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_844.md
+    dependencies: [819a]
+    size: MEDIUM
+    summary: "Comprehensive architecture and code quality audit of the Go production proxy as it approaches feature completeness, systematically identifying and empirically benchmarking high-ROI refactoring opportunities for performance, maintainability, and concurrency resilience."
 
