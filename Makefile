@@ -1190,9 +1190,9 @@ test-go-integration:  ## Go integration tests locally
 test-go-chaos:  ## Go chaos tests locally
 	$(PYTHON) -m pytest tests/chaos/test_go_proxy_chaos.py -v
 
-# Run Go performance benchmarks locally (requires Go proxy running on GO_PROXY_PORT)
-test-go-perf:  ## Go performance benchmarks
-	$(PYTHON) -m pytest tests/performance/test_bench_go_proxy.py -v -s
+# Run Go performance benchmarks locally (requires Go proxy running on GO_PROXY_PORT / HOST_PORT_DIRECT)
+test-go-perf: tools-image  ## Go performance benchmarks
+	@docker run --rm --net=host -v $(PWD):/src -w /src $(TOOLS_IMG) pytest tests/performance/test_bench_go_proxy.py -v -s
 
 # Run all Go tests: build binaries, generate fixtures, then run test suite
 test-go:  ## Build + test all Go (build binaries, generate fixtures, run suite)
@@ -1306,8 +1306,13 @@ measure-mttr: ## Measure MTTR for DR scenarios
 
 
 ## Phase 86b targets — Load testing harness
-load-test: ## Run JA4proxy load test
-	$(PYTHON) scripts/load_test.py \
+LOAD_TEST_TARGET ?= localhost:8080
+LOAD_TEST_DURATION ?= 60
+LOAD_TEST_RPS ?= 1000
+LOAD_TEST_SCENARIO ?= mixed
+
+load-test: tools-image ## Run JA4proxy load test
+	@docker run --rm --net=host -v $(PWD):/src -w /src $(TOOLS_IMG) python scripts/load_test.py \
 		--target $(LOAD_TEST_TARGET) \
 		--duration $(LOAD_TEST_DURATION) \
 		--rps $(LOAD_TEST_RPS) \
@@ -1317,7 +1322,7 @@ load-test-baseline: ## Run baseline load test (localhost:8080, 60s, 1000 rps)
 	LOAD_TEST_TARGET=localhost:8080 \
 	LOAD_TEST_DURATION=60 \
 	LOAD_TEST_RPS=1000 \
-	LOAD_TEST_SCENARIO=baseline \
+	LOAD_TEST_SCENARIO=mixed \
 	$(MAKE) load-test
 
 load-test-report: ## Show latest load test reports

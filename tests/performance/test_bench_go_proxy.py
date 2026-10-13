@@ -1,14 +1,12 @@
 """
-Performance benchmarks: Go proxy vs Python proxy throughput and latency.
+Performance benchmarks: Go proxy throughput and latency.
 
-Measures connection throughput (conn/s) and p99 latency for the Go proxy,
-with an optional comparison against the Python proxy (requires both running).
+Measures connection throughput (conn/s) and p99 latency for the Go proxy.
 
 Run: python3 -m pytest tests/performance/test_bench_go_proxy.py -v -s
 
-Environment variables (see integration tests for full list):
-  GO_PROXY_HOST, GO_PROXY_PORT  -- Go proxy address (default 127.0.0.1:8082)
-  PYTHON_PROXY_HOST, PYTHON_PROXY_PORT -- Python proxy (default 127.0.0.1:8081)
+Environment variables:
+  GO_PROXY_HOST, GO_PROXY_PORT  -- Go proxy address (default: HOST_PORT_DIRECT, .env, or 8080)
 """
 
 import concurrent.futures
@@ -16,32 +14,49 @@ import os
 import socket
 import statistics
 import time
+from pathlib import Path
 
 import pytest
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 
+
+def _resolve_proxy_port() -> int:
+    """Resolve the Go proxy port from environment, .env file, or standard default."""
+    if "GO_PROXY_PORT" in os.environ:
+        return int(os.environ["GO_PROXY_PORT"])
+    if "HOST_PORT_DIRECT" in os.environ:
+        return int(os.environ["HOST_PORT_DIRECT"])
+
+    # Attempt to read from .env if present
+    env_file = Path(__file__).resolve().parent.parent.parent / ".env"
+    if env_file.exists():
+        try:
+            for line in env_file.read_text().splitlines():
+                line = line.strip()
+                if line.startswith("HOST_PORT_DIRECT="):
+                    val = line.split("=", 1)[1].strip().strip('"').strip("'")
+                    if val.isdigit():
+                        return int(val)
+        except OSError:
+            pass
+
+    return 8080
+
+
 GO_PROXY_HOST = os.environ.get("GO_PROXY_HOST", "127.0.0.1")
-GO_PROXY_PORT = int(os.environ.get("GO_PROXY_PORT", "18082"))
-PYTHON_PROXY_HOST = os.environ.get("PYTHON_PROXY_HOST", "127.0.0.1")
-PYTHON_PROXY_PORT = int(os.environ.get("PYTHON_PROXY_PORT", "8081"))
+GO_PROXY_PORT = _resolve_proxy_port()
 GO_BINARY = os.environ.get("GO_BINARY", "bin/ja4pd")
 
 THROUGHPUT_DURATION = 10  # seconds for throughput test
 THROUGHPUT_THREADS = 10
 SUSTAINED_CONNECTIONS = 1000
 LATENCY_SAMPLES = 100
-# Go must be at least this many times faster than Python when both are running
-GO_VS_PYTHON_MIN_RATIO = 2.0
 
 # All tests in this file require a live Go proxy on GO_PROXY_PORT.
-# Excluded from `make test`; use `make test-live` when services are running.
+# Excluded from `make test`; use `make test-live` or `make test-go-perf` when services are running.
 pytestmark = [
     pytest.mark.live_services,
-    pytest.mark.skipif(
-        not (os.path.exists(GO_BINARY) or os.path.exists("/usr/local/bin/ja4pd")),
-        reason="Go binary not built",
-    ),
 ]
 
 
@@ -75,7 +90,6 @@ def _connections_in_duration(
     Returns (total_connections, successful_connections, elapsed_seconds).
     """
     deadline = time.monotonic() + duration
-    results = []
 
     def _worker():
         count = 0
@@ -117,44 +131,6 @@ def test_go_proxy_connection_throughput():
     )
 
     assert rate > 1.0, f"Go proxy accepted only {rate:.1f} conn/s — expected > 1 conn/s"
-
-
-def test_go_vs_python_throughput_ratio():
-    """Go proxy throughput must be >= GO_VS_PYTHON_MIN_RATIO× Python when both are running.
-
-    Skipped if the Python proxy is not reachable (not required for Go-only runs).
-    """
-    if not _check_port(GO_PROXY_HOST, GO_PROXY_PORT):
-        pytest.skip(f"Go proxy not reachable at {GO_PROXY_HOST}:{GO_PROXY_PORT}")
-
-    if not _check_port(PYTHON_PROXY_HOST, PYTHON_PROXY_PORT):
-        pytest.skip(
-            f"Python proxy not reachable at {PYTHON_PROXY_HOST}:{PYTHON_PROXY_PORT} "
-            "(skip: comparison test requires both proxies)"
-        )
-
-    go_total, go_elapsed = _connections_in_duration(
-        GO_PROXY_HOST, GO_PROXY_PORT, THROUGHPUT_DURATION, THROUGHPUT_THREADS
-    )
-    py_total, py_elapsed = _connections_in_duration(
-        PYTHON_PROXY_HOST, PYTHON_PROXY_PORT, THROUGHPUT_DURATION, THROUGHPUT_THREADS
-    )
-
-    go_rate = go_total / go_elapsed if go_elapsed > 0 else 0
-    py_rate = py_total / py_elapsed if py_elapsed > 0 else 1.0  # avoid div-by-zero
-
-    ratio = go_rate / py_rate if py_rate > 0 else float("inf")
-
-    print(
-        f"\nGo:     {go_rate:.1f} conn/s\n"
-        f"Python: {py_rate:.1f} conn/s\n"
-        f"Ratio:  {ratio:.1f}x (required >= {GO_VS_PYTHON_MIN_RATIO}x)"
-    )
-
-    assert ratio >= GO_VS_PYTHON_MIN_RATIO, (
-        f"Go proxy ({go_rate:.1f} conn/s) is only {ratio:.1f}x faster than "
-        f"Python proxy ({py_rate:.1f} conn/s); expected >= {GO_VS_PYTHON_MIN_RATIO}x"
-    )
 
 
 def test_go_proxy_p99_latency():
