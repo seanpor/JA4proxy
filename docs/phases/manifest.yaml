@@ -4172,7 +4172,7 @@ phases:
   523:
     name: "Phase 522 Residual Security Backlog (SUBSUMED by 814)"
     status: CLOSED
-    action_plan: docs/phases/PHASE_814.md
+    action_plan: docs/phases/complete/PHASE_814.md
     dependencies: []
     size: SMALL
     summary: "Never written as its own phase. Was to carry Phase 522's honest
@@ -4186,8 +4186,9 @@ phases:
       references in PHASE_521.md and PHASE_522.md resolve instead of dangling."
   814:
     name: "Full-Spectrum Penetration Testing Programme (umbrella)"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_814.md
+    status: COMPLETE
+    completed: '2026-10-12'
+    action_plan: docs/phases/complete/PHASE_814.md
     dependencies: []
     size: XLARGE
     summary: "PROPOSED, owner-approved 2026-08-04. Converts ad-hoc pentest
@@ -4550,8 +4551,9 @@ phases:
       accept-or-redesign decision."
   814s:
     name: "Pentest: report, register closure, KPIs, cadence and method retrospective"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_814.md
+    status: COMPLETE
+    completed: '2026-10-12'
+    action_plan: docs/phases/complete/PHASE_814s.md
     dependencies: [814o, 814r]
     size: MEDIUM
     summary: "Stage 3 close-out. Publishes docs/reports/<date>_PENTEST_CAMPAIGN.md

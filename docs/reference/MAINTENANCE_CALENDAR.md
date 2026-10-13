@@ -1,7 +1,7 @@
 <!--
 title: "Maintenance Calendar"
 audience: reference
-last_reviewed: 2026-08-04
+last_reviewed: 2026-10-12
 phase: 814
 -->
 
@@ -70,7 +70,7 @@ operations** (a running JA4proxy install). Skip to the one you own.
 
 | Task | Who | If skipped |
 |---|---|---|
-| **Pentest delta cycle** — workstreams covering whatever changed that quarter ([`PROGRAMME.md`](../security/pentest/PROGRAMME.md) §15) | 🧑 | Coverage decays exactly as it did between 2026-04-16 and 2026-08-04: new components ship with no adversarial attention at all |
+| **Pentest delta cycle** — workstreams covering whatever changed that quarter ([`PROGRAMME.md`](../security/pentest/PROGRAMME.md) §15; next scheduled: **2027-01-12**) | 🧑 | Coverage decays exactly as it did between 2026-04-16 and 2026-08-04: new components ship with no adversarial attention at all |
 | Re-verify a sample of already-`FIXED` findings (two-state proof, `PROGRAMME.md` §10.4) | 🧑 | "Fixed" stays an assertion; a regressed CRITICAL looks identical to a fixed one |
 | Credential rotation — Redis ACL, AbuseIPDB key, cloud storage IAM (90 days, [`credential_rotation.md`](../runbooks/credential_rotation.md)) | 🧑 | Long-lived credentials; a leak from a year ago is still valid |
 | Documentation review sweep — `last_reviewed` older than ~2 quarters | 🧑 | Docs drift from code; the Phase 309/340 audits exist because this was skipped |
@@ -80,8 +80,8 @@ operations** (a running JA4proxy install). Skip to the one you own.
 
 | Task | Who | If skipped |
 |---|---|---|
-| **Full pentest cycle** — every workstream, full report, KPI baseline | 🧑 | The only thing that answers "what has never been tested?" stops being answered |
-| Method retrospective + amendment of [`PROGRAMME.md`](../security/pentest/PROGRAMME.md) §16 | 🧑 | The method stops improving and calcifies around its original blind spots |
+| **Full pentest cycle** — every workstream, full report, KPI baseline (completed **Phase 814** on 2026-10-12; next: **2027-10-12**) | 🧑 | The only thing that answers "what has never been tested?" stops being answered |
+| Method retrospective + amendment of [`PROGRAMME.md`](../security/pentest/PROGRAMME.md) §16 (logged 2026-10-12) | 🧑 | The method stops improving and calcifies around its original blind spots |
 | Threat-model refresh ([`threat-model.md`](../security/threat-model.md)) | 🧑 | Tests keep deriving from an out-of-date model of the adversary |
 | Review this calendar against reality | 🧑 | It becomes aspirational fiction — the standard fate of maintenance calendars |
 

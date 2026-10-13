@@ -1,7 +1,6 @@
 ---
 phase: 814
 title: "Full-Spectrum Penetration Testing Programme — First Cycle"
-status: PROPOSED
 size: XL
 created: 2026-08-04
 audience: [security, developer, operations]
@@ -18,7 +17,7 @@ audience: [security, developer, operations]
 > or a decision record does.
 
 > **The method lives elsewhere, on purpose.**
-> [`docs/security/pentest/PROGRAMME.md`](../security/pentest/PROGRAMME.md) is
+> [`docs/security/pentest/PROGRAMME.md`](../../security/pentest/PROGRAMME.md) is
 > the durable, repeatable process. **This document is the first cycle's plan.**
 > Phase docs get archived to `docs/phases/complete/` when they close; a process
 > meant to run again and again cannot live in one. Where this document and

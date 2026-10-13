@@ -279,3 +279,25 @@ findings.yaml`.
   per-wave tables in the same commit.
 - Waves do not change once declared. A finding moves between waves only if
   its severity is formally reclassified per the rubric.
+
+---
+
+## 10. Phase 814 Campaign Remediation Waves (2026-10-12)
+
+Under Phase 814, the three-pass adversarial pentest campaign grouped all findings across Stage 1 and Stage 2 into four severity-aligned remediation waves:
+
+### 10.1 Wave Overview & Status
+
+| Wave | Severity Scope | Phase 814 Remediations | Status | Verified Rate |
+|---|---|---|---|---|
+| **Wave 1** | CRITICAL (7d SLA) | `JA4PROXY-2026-0110` | **COMPLETE** | 100% (`status: VERIFIED`) |
+| **Wave 2** | HIGH (30d SLA) | `JA4PROXY-2026-0098`, `0099`, `0101`, `0103`, `0106`, `0108`, `0111`, `0112`, `0114`, `0115`, `0120`, `0121`, `0122`, `0124`, `0125`, `0127`, `0128`, `0130`, `0131` | **COMPLETE** | 100% (`status: VERIFIED`) |
+| **Wave 3** | MEDIUM (60d SLA) | `JA4PROXY-2026-0074`, `0089`, `0100`, `0104`, `0109`, `0113`, `0116`, `0117`, `0118`, `0119`, `0123`, `0126`, `0129`, `0132` | **COMPLETE** | 100% (`status: VERIFIED`) |
+| **Wave 4** | LOW (120d SLA) | `JA4PROXY-2026-0102`, `0105`, `0107` | **COMPLETE** | 100% (`status: VERIFIED`) |
+
+### 10.2 Wave Execution Traceability
+
+- **Wave 1–2 (Phase 814p, PR #602)**: Remediated all CRITICAL and HIGH severity findings. Canonical merge commit: `e7081a0d`. All 16 findings verified with machine-checked two-state proofs.
+- **Wave 3–4 (Phase 814q, PR #603)**: Remediated all MEDIUM and LOW severity findings (including historical drift items `JA4PROXY-2026-0074` and `JA4PROXY-2026-0089`). Canonical merge commit: `7a6c378c`.
+- **Pass 3 Fix-Audit & Adjacent Bug Hunt (Phase 814r, PR #604)**: Evaluated four-question framework (Q1–Q4) across all remediations. Canonical merge commit: `81f63b87`. All findings promoted to `status: VERIFIED` with 0.0% escape rate.
+- **Total Campaign Outcome**: 35 Phase 814 findings verified; 0 OPEN findings remaining in `docs/security/findings.yaml`.

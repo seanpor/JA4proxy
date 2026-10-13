@@ -3218,7 +3218,7 @@ findings:
     config_sha256: 266a8c650e072d3c
     note: pentest range, production posture
   due: '2026-10-08'
-  status: FIXED
+  status: VERIFIED
   supersedes: []
   depends_on: []
   github_issue: 403
@@ -3227,6 +3227,8 @@ findings:
   cvss_v3_1:
     score: 4.3
     vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:L/A:N
+  verified_by: '@seanpor'
+  verified_on: '2026-10-12'
 - id: JA4PROXY-2026-0101
   title: "GDPR purge targets the wrong stream \u2014 retention/erasure never applied to the stream holding\
     \ connection PII"
@@ -3279,13 +3281,15 @@ findings:
     config_sha256: da71b09b56c2fe97
     note: pentest range, production posture
   due: '2027-02-08'
-  status: FIXED
+  status: VERIFIED
   supersedes: []
   depends_on: []
   regression_test: internal/security/fail_open_test.go::TestFailOpen_ExternalDependencyDegradation
-  closed_commit: ''
+  closed_commit: d7bdc1d80b7d3419bb9ff979ee05a5d2ff13ee79
   notes: Identified and fixed during Phase 814d adversarial pentest. Enforce metrics.BeaconingJobsDroppedTotal
     and metrics.RDAPQueueDroppedTotal per AGENTS.md code patterns.
+  verified_by: '@seanpor'
+  verified_on: '2026-10-12'
 - id: JA4PROXY-2026-0103
   title: OIDC ID token claim extraction fails to validate aud and iss claims
   severity: HIGH
@@ -3298,7 +3302,7 @@ findings:
     discovered: '2026-10-11'
   remediation_phases:
   - 814e
-  owner: ''
+  owner: '@seanpor'
   lane: python-management
   discovered: '2026-10-11'
   found_against:
@@ -3307,14 +3311,16 @@ findings:
     note: pentest range, production posture
   due: '2026-11-10'
   github_issue: 561
-  status: FIXED
+  status: VERIFIED
   supersedes: []
   depends_on: []
   regression_test: tests/adversarial/mgmt/test_auth_cryptographic_deepdive.py::test_oidc_aud_and_iss_validation
-  closed_commit: ''
+  closed_commit: c139e964dd33669d5102ffb109e2cf3bb6524fb4
   cvss_v3_1:
     score: 8.1
     vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:N
+  verified_by: '@seanpor'
+  verified_on: '2026-10-12'
 - id: JA4PROXY-2026-0104
   title: CSRF middleware scopes enforcement to /api/v1/ prefix, exposing non-API mutating MFA and WebAuthn
     routes
@@ -3328,7 +3334,7 @@ findings:
     discovered: '2026-10-11'
   remediation_phases:
   - 814e
-  owner: ''
+  owner: '@seanpor'
   lane: python-management
   discovered: '2026-10-11'
   found_against:
@@ -3337,14 +3343,16 @@ findings:
     note: pentest range, production posture
   due: '2026-12-10'
   github_issue: 562
-  status: FIXED
+  status: VERIFIED
   supersedes: []
   depends_on: []
   regression_test: tests/adversarial/mgmt/test_ssrf_and_injection.py::test_non_api_mutating_mfa_requires_csrf
-  closed_commit: ''
+  closed_commit: c139e964dd33669d5102ffb109e2cf3bb6524fb4
   cvss_v3_1:
     score: 7.1
     vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:H/A:L
+  verified_by: '@seanpor'
+  verified_on: '2026-10-12'
 - id: JA4PROXY-2026-0105
   title: Missing HTTP security response headers across management API and Web UI (CSP, HSTS, X-Content-Type-Options,
     Frame-Ancestors)

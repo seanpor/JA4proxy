@@ -152,11 +152,9 @@ run_layer1_static() {
         EXIT_CODE=1
     fi
     
-    # 1b. Fuzz/Property Tests
-    log_section "1b. Fuzz/Property Tests"
-    if docker compose -f "$COMPOSE_FILE" run --rm test \
-        pytest tests/fuzz/ -v --tb=short \
-        --junitxml="$REPORTS_DIR/junit-fuzz.xml" 2>&1; then
+    # 1b. Fuzz Smoke Tests (Go native)
+    log_section "1b. Fuzz Smoke Tests (Go native)"
+    if make test-go-fuzz-smoke 2>&1; then
         log_success "Fuzz tests passed"
     else
         log_error "Fuzz tests failed"
@@ -451,7 +449,7 @@ run_layer6_security() {
     # 6a. Security Tests
     log_section "6a. OWASP Security Tests"
     if docker compose -f "$COMPOSE_FILE" run --rm test \
-        pytest tests/security/ -v --tb=short \
+        pytest tests/adversarial/ -v --tb=short \
         --junitxml="$REPORTS_DIR/junit-security.xml" 2>&1; then
         log_success "Security tests passed"
     else
