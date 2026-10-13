@@ -104,11 +104,11 @@ Use this checklist before deploying JA4 Proxy to any environment.
 ## 🟡 MEDIUM PRIORITY - Recommended
 
 ### Testing and Validation
-- [ ] Run security test suite: `pytest tests/security/ -v`
-- [ ] Run fuzzing tests: `pytest tests/fuzz/ -v`
+- [ ] Run security test suite: `pytest tests/adversarial/ -v`
+- [ ] Run fuzzing smoke test: `make test-go-fuzz-smoke`
 - [ ] Perform penetration testing
-- [ ] Conduct vulnerability scanning: `bandit -r proxy.py security/`
-- [ ] Check dependencies: `safety check`
+- [ ] Conduct vulnerability scanning: `make scan`
+- [ ] Check dependencies: `make audit`
 - [ ] Test disaster recovery procedures
 - [ ] Validate backup and restore procedures
 
@@ -197,13 +197,13 @@ redis-cli -h localhost -a $REDIS_PASSWORD ping
 # Should return: PONG
 
 # 3. Run security tests
-pytest tests/security/ -v
+pytest tests/adversarial/ -v
 
 # 4. Check for security issues
-bandit -r proxy.py security/ -f screen
+make scan
 
 # 5. Verify dependencies
-safety check
+make audit
 
 # 6. Test Docker build
 docker compose -f deploy/docker/docker-compose.poc.yml build

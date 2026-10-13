@@ -101,7 +101,6 @@ set +e
     --ignore=tests/fp_corpus/ \
     --ignore=tests/fuzz/ \
     --ignore=tests/performance/ \
-    --ignore=tests/security/ \
     --ignore=tests/tap/ \
     --ignore=tests/test_proxy.py \
     --ignore=tests/integration/test_cli_parity.py \

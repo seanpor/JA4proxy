@@ -45,7 +45,7 @@ The default lane runs **without HAProxy** (single proxy, reached directly on
 
 <!-- BEGIN GENERATED: make-targets -->
 
-_201 targets. Generated from the Makefile's own `##` help comments by `make sync` — do not edit this table by hand._
+_202 targets. Generated from the Makefile's own `##` help comments by `make sync` — do not edit this table by hand._
 
 ### Aggregate linters
 
@@ -204,6 +204,7 @@ _201 targets. Generated from the Makefile's own `##` help comments by `make sync
 | `test-go` | Build + test all Go (build binaries, generate fixtures, run suite) |
 | `test-go-chaos` | Go chaos tests locally |
 | `test-go-docker` | Go integration tests inside Docker (self-contained) |
+| `test-go-fuzz-smoke` | Run Go native fuzz smoke tests (10s per target) |
 | `test-go-integration` | Go integration tests locally |
 | `test-go-perf` | Go performance benchmarks |
 | `test-go-redis-tls` | Go Redis TLS smoke test |

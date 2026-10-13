@@ -7,7 +7,11 @@ echo "=========================================================="
 echo " Starting JA4proxy High-Preemption Concurrency Stress Test"
 echo "=========================================================="
 
-export GOROOT=${GOROOT:-/snap/go/current}
+if [ -d "/snap/go/current" ]; then
+    export GOROOT="/snap/go/current"
+else
+    export GOROOT=${GOROOT:-/snap/go/current}
+fi
 GO_BIN="${GOROOT}/bin/go"
 
 if [ ! -x "${GO_BIN}" ]; then
