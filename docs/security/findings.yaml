@@ -2376,7 +2376,9 @@ findings:
   lane: go-proxy
   discovered: '2026-06-24'
   due: '2026-10-22'
-  status: FIXED
+  status: VERIFIED
+  verified_by: '@seanpor'
+  verified_on: 2026-10-12
   supersedes: []
   depends_on: []
   regression_test: internal/logging/redactor_test.go::TestRegression_JA4PROXY_2026_0048_redacts_opaque_fields_in_production
@@ -2820,7 +2822,9 @@ findings:
   lane: go-proxy
   discovered: '2026-07-02'
   due: '2026-08-31'
-  status: FIXED
+  status: VERIFIED
+  verified_by: '@seanpor'
+  verified_on: 2026-10-12
   supersedes: []
   depends_on: []
   regression_test: internal/security/pipeline_test.go::TestPipeline_ReplaceConfig_RestartsEnrichmentWorkers
@@ -3363,7 +3367,9 @@ findings:
     note: pentest range, production posture
   due: '2027-02-08'
   github_issue: 563
-  status: FIXED
+  status: VERIFIED
+  verified_by: '@seanpor'
+  verified_on: 2026-10-12
   supersedes: []
   depends_on: []
   regression_test: tests/adversarial/mgmt/test_ui_xss_and_csp.py::test_security_response_headers_enforced
@@ -3392,7 +3398,9 @@ findings:
     git_sha: 2e83d10e6aebc3aa25c2763f044bb4f64da21342
     config_sha256: da71b09b56c2fe97
     note: pentest range, CI/CD workflow security posture
-  status: FIXED
+  status: VERIFIED
+  verified_by: '@seanpor'
+  verified_on: 2026-10-12
   supersedes: []
   depends_on: []
   regression_test: tests/adversarial/cicd/test_maintainer_automerge_security.py::test_maintainer_automerge_condition_rejects_fork_phase_branch
@@ -3421,7 +3429,9 @@ findings:
     git_sha: 2e83d10e6aebc3aa25c2763f044bb4f64da21342
     config_sha256: da71b09b56c2fe97
     note: pentest range, CI/CD workflow security posture
-  status: FIXED
+  status: VERIFIED
+  verified_by: '@seanpor'
+  verified_on: 2026-10-12
   supersedes: []
   depends_on: []
   regression_test: tests/adversarial/cicd/test_pin_table_autofix_security.py::test_parser_input_validation_regexes
@@ -3450,7 +3460,9 @@ findings:
     git_sha: b6ef681edbe3ff7b036577fc24fa69fffa68b75f
     config_sha256: da71b09b56c2fe97
     note: pentest range, Go dataplane TLS parser posture
-  status: FIXED
+  status: VERIFIED
+  verified_by: '@seanpor'
+  verified_on: 2026-10-12
   supersedes: []
   depends_on: []
   regression_test: internal/tls/parser_pentest_regression_test.go::TestRegression_JA4PROXY_2026_0108_MultiRecordStringCloned
@@ -3480,7 +3492,9 @@ findings:
     git_sha: b6ef681edbe3ff7b036577fc24fa69fffa68b75f
     config_sha256: da71b09b56c2fe97
     note: pentest range, Go dataplane TLS parser posture
-  status: FIXED
+  status: VERIFIED
+  verified_by: '@seanpor'
+  verified_on: 2026-10-12
   supersedes: []
   depends_on: []
   regression_test: cmd/ja4pd/pentest_sni_alpn_control_chars_test.go::TestRegression_JA4PROXY_2026_0109_SanitizesSNIAndALPNControlChars
@@ -3508,7 +3522,9 @@ findings:
     git_sha: b622b575ef8f02bd8b50033a8b2ea14e09fcd921
     config_sha256: da71b09b56c2fe97
     note: pentest range, Go dataplane network and DMZ edge posture
-  status: FIXED
+  status: VERIFIED
+  verified_by: '@seanpor'
+  verified_on: 2026-10-12
   supersedes: []
   depends_on: []
   regression_test: cmd/ja4pd/pentest_network_dmz_edge_test.go::TestAdversarial_MultiPacketProxySmuggling
@@ -3539,7 +3555,9 @@ findings:
     git_sha: b622b575ef8f02bd8b50033a8b2ea14e09fcd921
     config_sha256: da71b09b56c2fe97
     note: pentest range, Go dataplane network and DMZ edge posture
-  status: FIXED
+  status: VERIFIED
+  verified_by: '@seanpor'
+  verified_on: 2026-10-12
   supersedes: []
   depends_on: []
   regression_test: cmd/ja4pd/pentest_network_dmz_edge_test.go::TestAdversarial_ProxyHeaderFragmentation
@@ -3570,7 +3588,9 @@ findings:
     git_sha: b622b575ef8f02bd8b50033a8b2ea14e09fcd921
     config_sha256: da71b09b56c2fe97
     note: pentest range, Python management API posture
-  status: FIXED
+  status: VERIFIED
+  verified_by: '@seanpor'
+  verified_on: 2026-10-12
   supersedes: []
   depends_on: []
   regression_test: tests/adversarial/mgmt/test_management_xff_spoofing.py::TestXFFSpoofingDefense
@@ -3601,7 +3621,9 @@ findings:
     git_sha: b622b575ef8f02bd8b50033a8b2ea14e09fcd921
     config_sha256: da71b09b56c2fe97
     note: pentest range, Go dataplane proxy protocol parser posture
-  status: FIXED
+  status: VERIFIED
+  verified_by: '@seanpor'
+  verified_on: 2026-10-12
   supersedes: []
   depends_on: []
   regression_test: internal/proxy/proxy_protocol_spec_test.go::TestProxyProtocolV1_LineLengthBound
@@ -3630,7 +3652,9 @@ findings:
     git_sha: 7c4ece9ba26bbb551ad80159cbb2b36e457efde0
     config_sha256: da71b09b56c2fe97
     note: pentest range, resource exhaustion and availability posture
-  status: FIXED
+  status: VERIFIED
+  verified_by: '@seanpor'
+  verified_on: 2026-10-12
   supersedes: []
   depends_on: []
   regression_test: cmd/ja4pd/pentest_resource_exhaustion_test.go::TestPentest_BufferPoolEarlyReturn
@@ -3659,7 +3683,9 @@ findings:
     git_sha: 7c4ece9ba26bbb551ad80159cbb2b36e457efde0
     config_sha256: da71b09b56c2fe97
     note: pentest range, resource exhaustion and availability posture
-  status: FIXED
+  status: VERIFIED
+  verified_by: '@seanpor'
+  verified_on: 2026-10-12
   supersedes: []
   depends_on: []
   regression_test: internal/security/pentest_tls_enforcement_saturation_regression_test.go::TestPentest_WorkChanSaturation_TLSEnforcementHardBlock
@@ -3688,7 +3714,9 @@ findings:
     git_sha: 7c4ece9ba26bbb551ad80159cbb2b36e457efde0
     config_sha256: da71b09b56c2fe97
     note: pentest range, resource exhaustion and availability posture
-  status: FIXED
+  status: VERIFIED
+  verified_by: '@seanpor'
+  verified_on: 2026-10-12
   supersedes: []
   depends_on: []
   regression_test: cmd/ja4pd/pentest_resource_exhaustion_test.go::TestPentest_Tarpit_ZeroWindow_WriteDeadline
@@ -3717,7 +3745,9 @@ findings:
     git_sha: 7c4ece9ba26bbb551ad80159cbb2b36e457efde0
     config_sha256: da71b09b56c2fe97
     note: pentest range, resource exhaustion and availability posture
-  status: FIXED
+  status: VERIFIED
+  verified_by: '@seanpor'
+  verified_on: 2026-10-12
   supersedes: []
   depends_on: []
   regression_test: internal/security/pentest_beaconing_ttl_test.go::TestPentest_BeaconingDetector_SetsTTLOnZSET
@@ -3747,7 +3777,9 @@ findings:
     git_sha: 7c4ece9ba26bbb551ad80159cbb2b36e457efde0
     config_sha256: da71b09b56c2fe97
     note: pentest range, resource exhaustion and availability posture
-  status: FIXED
+  status: VERIFIED
+  verified_by: '@seanpor'
+  verified_on: 2026-10-12
   supersedes: []
   depends_on: []
   regression_test: tests/adversarial/mgmt/test_management_metrics_cardinality.py::test_normalise_path_collapses_arbitrary_unregistered_paths
@@ -3776,7 +3808,9 @@ findings:
     git_sha: 7c4ece9ba26bbb551ad80159cbb2b36e457efde0
     config_sha256: da71b09b56c2fe97
     note: pentest range, resource exhaustion and availability posture
-  status: FIXED
+  status: VERIFIED
+  verified_by: '@seanpor'
+  verified_on: 2026-10-12
   supersedes: []
   depends_on: []
   regression_test: cmd/ja4pd/pentest_resource_exhaustion_test.go::TestPentest_AdmitConn_LoggingThrottled
@@ -3807,7 +3841,9 @@ findings:
     git_sha: 2577bc77209f27c3f3b9c7ca95d5ee11f010cb7c
     config_sha256: da71b09b56c2fe97
     note: pentest range, agent instruction surface posture
-  status: FIXED
+  status: VERIFIED
+  verified_by: '@seanpor'
+  verified_on: 2026-10-12
   supersedes: []
   depends_on: []
   regression_test: tests/adversarial/cicd/test_agent_instruction_surface.py::test_codeowners_protects_critical_agent_instruction_files
@@ -3835,7 +3871,9 @@ findings:
     git_sha: 4c25747c01d278c392b123030fda8fd4ecc69bc2
     config_sha256: da71b09b56c2fe97
     note: pentest range, data layer posture
-  status: FIXED
+  status: VERIFIED
+  verified_by: '@seanpor'
+  verified_on: 2026-10-12
   supersedes: []
   depends_on: []
   regression_test: internal/redis/pentest_pubsub_unsigned_regression_test.go::TestRegression_JA4PROXY_2026_0121_UnsignedCriticalDroppedWithoutSecret
@@ -3866,7 +3904,9 @@ findings:
     git_sha: 4c25747c01d278c392b123030fda8fd4ecc69bc2
     config_sha256: da71b09b56c2fe97
     note: pentest range, data layer posture
-  status: FIXED
+  status: VERIFIED
+  verified_by: '@seanpor'
+  verified_on: 2026-10-12
   supersedes: []
   depends_on: []
   regression_test: internal/backup/restore_test.go::TestRegression_JA4PROXY_2026_0122_TombstoneSkipsAllSubjectNamespaces
@@ -3895,7 +3935,9 @@ findings:
     git_sha: 4c25747c01d278c392b123030fda8fd4ecc69bc2
     config_sha256: da71b09b56c2fe97
     note: pentest range, data layer posture
-  status: FIXED
+  status: VERIFIED
+  verified_by: '@seanpor'
+  verified_on: 2026-10-12
   supersedes: []
   depends_on: []
   regression_test: tests/unit/test_gdpr_delete.py::test_regression_ja4proxy_2026_0123_ratelimit_and_offense_keys_erased
@@ -3930,7 +3972,9 @@ findings:
     git_sha: 629769214f3a568cbb3402a3a3f7adab9fcb3849
     config_sha256: da71b09b56c2fe97
     note: pentest range, cryptography and secrets posture
-  status: FIXED
+  status: VERIFIED
+  verified_by: '@seanpor'
+  verified_on: 2026-10-12
   supersedes: []
   depends_on: []
   regression_test: management/tests/test_pentest_saml_replay_regression.py::test_regression_ja4proxy_2026_0124_saml_assertion_replay_rejected
@@ -3965,7 +4009,9 @@ findings:
     git_sha: 629769214f3a568cbb3402a3a3f7adab9fcb3849
     config_sha256: da71b09b56c2fe97
     note: pentest range, cryptography and secrets posture
-  status: FIXED
+  status: VERIFIED
+  verified_by: '@seanpor'
+  verified_on: 2026-10-12
   supersedes: []
   depends_on: []
   regression_test: management/tests/test_pentest_committed_secrets_boot_guard_regression.py::test_regression_ja4proxy_2026_0125_rejects_committed_admin_passwords
@@ -3998,7 +4044,9 @@ findings:
     git_sha: 629769214f3a568cbb3402a3a3f7adab9fcb3849
     config_sha256: da71b09b56c2fe97
     note: pentest range, cryptography and secrets posture
-  status: FIXED
+  status: VERIFIED
+  verified_by: '@seanpor'
+  verified_on: 2026-10-12
   supersedes: []
   depends_on: []
   regression_test: management/tests/test_pentest_atomic_nonces_regression.py::test_regression_ja4proxy_2026_0126_saml_relaystate_atomic_single_use
@@ -4031,7 +4079,9 @@ findings:
     git_sha: b7150f7451a4b356ae14fb93165368eb4fd50080
     config_sha256: e801d9f848b52f6c
     note: pentest range, container and host orchestration posture
-  status: FIXED
+  status: VERIFIED
+  verified_by: '@seanpor'
+  verified_on: 2026-10-12
   supersedes: []
   depends_on: []
   regression_test: tests/unit/test_pentest_seccomp_prod_compose_regression.py::test_regression_ja4proxy_2026_0127_prod_compose_enforces_seccomp_required
@@ -4064,7 +4114,9 @@ findings:
     git_sha: b7150f7451a4b356ae14fb93165368eb4fd50080
     config_sha256: e801d9f848b52f6c
     note: pentest range, container and host orchestration posture
-  status: FIXED
+  status: VERIFIED
+  verified_by: '@seanpor'
+  verified_on: 2026-10-12
   supersedes: []
   depends_on: []
   regression_test: tests/unit/test_pentest_compose_port_exposure_regression.py::test_regression_ja4proxy_2026_0128_scale_compose_ports_restricted_to_loopback
@@ -4096,7 +4148,9 @@ findings:
     git_sha: b7150f7451a4b356ae14fb93165368eb4fd50080
     config_sha256: e801d9f848b52f6c
     note: pentest range, container and host orchestration posture
-  status: FIXED
+  status: VERIFIED
+  verified_by: '@seanpor'
+  verified_on: 2026-10-12
   supersedes: []
   depends_on: []
   regression_test: tests/unit/test_pentest_container_read_only_rootfs_regression.py::test_regression_ja4proxy_2026_0129_prod_compose_read_only_rootfs
@@ -4127,7 +4181,9 @@ findings:
     git_sha: b4414389178fb0d6118d5337e735d4fa5cffaa63
     config_sha256: e801d9f848b52f6c
     note: pentest range, IaC and reverse proxy posture
-  status: FIXED
+  status: VERIFIED
+  verified_by: '@seanpor'
+  verified_on: 2026-10-12
   supersedes: []
   depends_on: []
   regression_test: tests/unit/test_pentest_haproxy_stats_auth_regression.py::test_regression_ja4proxy_2026_0130_haproxy_stats_auth_enforced
@@ -4158,7 +4214,9 @@ findings:
     git_sha: b4414389178fb0d6118d5337e735d4fa5cffaa63
     config_sha256: e801d9f848b52f6c
     note: pentest range, IaC deployment posture
-  status: FIXED
+  status: VERIFIED
+  verified_by: '@seanpor'
+  verified_on: 2026-10-12
   supersedes: []
   depends_on: []
   regression_test: tests/unit/test_pentest_ansible_checksum_regression.py::test_regression_ja4proxy_2026_0131_ansible_binary_requires_checksum
@@ -4190,7 +4248,9 @@ findings:
     git_sha: b4414389178fb0d6118d5337e735d4fa5cffaa63
     config_sha256: e801d9f848b52f6c
     note: pentest range, downstream SIEM/SOAR egress posture
-  status: FIXED
+  status: VERIFIED
+  verified_by: '@seanpor'
+  verified_on: 2026-10-12
   supersedes: []
   depends_on: []
   regression_test: tests/unit/test_pentest_servicenow_injection_regression.py::test_regression_ja4proxy_2026_0132_servicenow_sanitizes_injection_payloads
