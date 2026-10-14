@@ -21,6 +21,18 @@ import (
 
 
 
+func RunDaemon(ctx context.Context, cfg *config.Config, cfgPath string, log *logrus.Logger) error {
+	srv, err := server.NewWithConfigPath(cfg, cfgPath, log)
+	if err != nil {
+		return fmt.Errorf("failed to initialise proxy: %w", err)
+	}
+
+	server.UpdateTLSCertExpiryGauge(os.Getenv("JA4PROXY_TLS_CERT_FILE"), log)
+
+	srv.Serve(ctx)
+	return nil
+}
+
 func main() {
 	cfgPath := os.Getenv("CONFIG_PATH")
 	if cfgPath == "" {
@@ -44,12 +56,13 @@ func main() {
 	}
 
 	metrics.Register()
-	server.UpdateTLSCertExpiryGauge(os.Getenv("JA4PROXY_TLS_CERT_FILE"), log)
 
 	srv, err := server.NewWithConfigPath(cfg, cfgPath, log)
 	if err != nil {
 		log.WithError(err).Fatal("failed to initialise proxy")
 	}
+
+	server.UpdateTLSCertExpiryGauge(os.Getenv("JA4PROXY_TLS_CERT_FILE"), log)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

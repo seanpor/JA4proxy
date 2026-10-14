@@ -80,11 +80,26 @@ def test_dockerfile_go_proxy_has_oci_labels() -> None:
 # ── Docker-gated build/run check ─────────────────────────────────────────────
 
 
-_DOCKER_AVAILABLE = shutil.which("docker") is not None
+def _is_docker_daemon_available() -> bool:
+    if shutil.which("docker") is None:
+        return False
+    try:
+        res = subprocess.run(
+            ["docker", "info"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=5,
+        )
+        return res.returncode == 0
+    except Exception:
+        return False
+
+
+_DOCKER_AVAILABLE = _is_docker_daemon_available()
 
 
 @pytest.mark.integration
-@pytest.mark.skipif(not _DOCKER_AVAILABLE, reason="docker CLI not on PATH")
+@pytest.mark.skipif(not _DOCKER_AVAILABLE, reason="docker daemon not reachable")
 def test_built_image_runs_as_uid_1000() -> None:
     """Actually build the image and verify `id -u` returns 1000.
 

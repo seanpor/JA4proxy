@@ -145,7 +145,10 @@ func (s *Server) StreamEventWorker(ctx context.Context, streamKey string, timeou
 			if mac := SignStreamEvent(s.StreamHMACSecret, event); mac != "" {
 				values["hmac"] = mac
 			}
-			err := s.Redis.XAddErr(writeCtx, streamKey, values)
+			var err error
+			if s.Redis != nil {
+				err = s.Redis.XAddErr(writeCtx, streamKey, values)
+			}
 			cancel()
 			if err != nil {
 				if errors.Is(err, context.DeadlineExceeded) {

@@ -5308,8 +5308,8 @@ phases:
     summary: "Enforce a strict zero-warning policy across test and lint pipelines (gcc -Wall philosophy for CI), eliminating all upstream deprecation warnings (Starlette, datetime, SAML), link-checker breaks, and advisor-stage noise so that make lint and make test emit zero warnings."
   846:
     name: "Go Proxy Core 90%+ Coverage, Invariant Hardening & Continuous Fuzzing"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_846.md
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_846.md
     dependencies: [844]
     size: LARGE
     summary: "Elevate Go proxy core test suite to 90%+ statement coverage, implement property-based invariant verification, and introduce comprehensive continuous fuzzing to make the production proxy bulletproof against adversarial attacks."
