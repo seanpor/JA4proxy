@@ -18,7 +18,7 @@ List of files to be modified:
 - [go.mod](../../../go.mod) - Bump Go toolchain and dependencies to resolve first-party CVEs.
 - [go.sum](../../../go.sum) - Updated for bumped dependencies.
 - [docs/reference/DOCKER_IMAGES.md](../../reference/DOCKER_IMAGES.md) - Update documented pinned container tags to match Makefile and compose files.
-- [.trivyignore](../../../.trivyignore) - Add dated, justified entries for any remaining unfixed CVEs.
+- [.trivyignore.first-party](../../../.trivyignore.first-party) - Add dated, justified entries for any remaining unfixed CVEs.
 - [tests/integration/test_ci_flow.py](../../../tests/integration/test_ci_flow.py) - Update assertions to check that HIGH-severity vulnerabilities trigger failures.
 - [docs/phases/complete/PHASE_313.md](PHASE_313.md) - Mark the deferred subtask checkbox as completed.
 - [CHANGELOG.md](../../../CHANGELOG.md) - Document the changes made in this phase.

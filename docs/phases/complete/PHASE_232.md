@@ -1,6 +1,6 @@
 # PHASE 232 — Security Foundations & Quick Wins (Index)
 
-> **Lineage:** This phase is part of the **Container & Interface Consolidation** programme (see [PHASE_231.md](complete/PHASE_231.md)). Following a request for more granular, reviewable units and dedicated operational documentation updates, the original monolithic Phase 232 plan has been split into smaller sub-phases:
+> **Lineage:** This phase is part of the **Container & Interface Consolidation** programme (see [PHASE_231.md](PHASE_231.md)). Following a request for more granular, reviewable units and dedicated operational documentation updates, the original monolithic Phase 232 plan has been split into smaller sub-phases:
 >
 > - **PHASE_232a** — Frontend Asset Vendoring & Static Compilation (Size: SMALL) — not implemented.
 > - **PHASE_232b** — Threat Posture Situation Bar & Heartbeat Alerting (Size: SMALL) — not implemented.

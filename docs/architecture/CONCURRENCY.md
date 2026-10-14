@@ -131,7 +131,7 @@ Enrichment modules (`DNSEnrichment`, `RDAPEnricher`, `AbuseIPDB`, `FeedDownloade
 
 ## 5. Buffer Pool Ownership & Zero Post-Return Aliasing
 
-### The Problem: Byte Slice Re-Use Corruption
+### The Problem: Byte Slice Reuse Corruption
 `internal/server/forward.go` utilizes `sync.Pool` (`BufferPool`) to allocate 32 KiB I/O copy buffers.
 If a buffer reference escapes its stack frame—such as being passed asynchronously to a logging hook, telemetry callback, or TAP sniffer—and is subsequently returned to the pool via `pool.Put(buf)`, another goroutine will acquire the buffer and overwrite its memory while the first goroutine is still reading it. This corrupts JA4 fingerprint calculation or TLS ClientHello parsing.
 

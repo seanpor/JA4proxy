@@ -83,7 +83,7 @@ Open **http://127.0.0.1:3000** — this is **Grafana**, not the management UI.
 
 ### Management UI (Security Control Center)
 
-Open **https://127.0.0.1:8444** (HTTP: **http://127.0.0.1:8090**) — this is the **JA4proxy Management UI**, used to change blocking policy and manage IP bans.
+Open `https://127.0.0.1:8444` (HTTP: `http://127.0.0.1:8090`) — this is the **JA4proxy Management UI**, used to change blocking policy and manage IP bans.
 - Credentials: `admin` / `changeme` (default); see `MANAGEMENT_ADMIN_PASSWORD` in `.env`
 - **⚠ Important:** Change the default password in production (see [Phase 522 finding JA4PROXY-2026-0096](../../docs/security/findings.yaml))
 

@@ -126,7 +126,7 @@ async def add_to_list(
     if source == "attack_ui" and list_type == "ja4" and list_name == "blacklist":
         if _is_known_browser(entry):
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=(
                     f"Safety gate: '{entry}' is in the known-browser corpus. "
                     "Blocking it would affect real users browsing with this browser. "
