@@ -248,6 +248,24 @@ async def test_under_attack_page_unauthenticated(test_client: AsyncClient) -> No
     assert response.status_code < 500
 
 
+@pytest.mark.asyncio
+async def test_panel4_reliability_partial_authenticated(authenticated_client: AsyncClient) -> None:
+    """GET /api/v1/partials/panel4-reliability returns 200 with HTML when authenticated."""
+    response = await authenticated_client.get("/api/v1/partials/panel4-reliability")
+    assert response.status_code == 200
+    assert _is_html(response)
+    assert "Panel 4" in response.text
+    assert "Operational Reliability" in response.text
+
+
+@pytest.mark.asyncio
+async def test_panel4_reliability_partial_unauthenticated(test_client: AsyncClient) -> None:
+    """GET /api/v1/partials/panel4-reliability without auth returns 401, not 500."""
+    response = await test_client.get("/api/v1/partials/panel4-reliability")
+    assert response.status_code == 401
+
+
+
 def test_no_template_links_to_a_route_that_does_not_exist() -> None:
     """Every internal href must resolve to a route the app declares.
 

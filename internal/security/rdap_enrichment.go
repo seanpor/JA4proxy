@@ -144,6 +144,7 @@ func (r *RDAPEnricher) GetSignals(ctx context.Context, conn *ConnectionContext, 
 		if triggerScore >= minScore {
 			select {
 			case r.queue <- rdapJob{ip: conn.ClientIP, score: triggerScore, alpn: conn.ALPN}:
+				metrics.RDAPEnrichmentQueueDepth.Set(float64(len(r.queue)))
 			default:
 				// Worker queue saturated — drop rather than block (JA4PROXY-2026-0102)
 				metrics.RDAPQueueDroppedTotal.Inc()

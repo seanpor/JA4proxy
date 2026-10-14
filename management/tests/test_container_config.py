@@ -139,6 +139,33 @@ def test_docker_compose_management_redis_url_uses_password() -> None:
     )
 
 
+def test_docker_compose_management_prometheus_url_configured() -> None:
+    """Phase 821a: Management service in docker-compose.poc.yml must explicitly
+    declare PROMETHEUS_URL environment variable.
+    """
+    compose_path = os.path.join(
+        os.path.dirname(__file__), "..", "..", "deploy", "docker", "docker-compose.poc.yml"
+    )
+    assert os.path.isfile(compose_path), f"docker-compose.poc.yml not found at {compose_path}"
+
+    with open(compose_path) as f:
+        content = f.read()
+
+    mgmt_match = re.search(r"management:\n(.*?)(?=\n  \w|\Z)", content, re.DOTALL)
+    assert mgmt_match is not None, "management service not found in docker-compose.poc.yml"
+
+    mgmt_section = mgmt_match.group(1)
+    prom_match = re.search(r"PROMETHEUS_URL=([^\n]+)", mgmt_section)
+    assert prom_match is not None, (
+        "PROMETHEUS_URL environment variable not found in management service definition. "
+        "The management container needs PROMETHEUS_URL explicitly configured."
+    )
+    assert "prometheus:9090" in prom_match.group(1), (
+        f"PROMETHEUS_URL must point to prometheus:9090 by default, got: {prom_match.group(1)!r}"
+    )
+
+
+
 # ---------------------------------------------------------------------------
 # Required env vars produce clear errors
 # ---------------------------------------------------------------------------

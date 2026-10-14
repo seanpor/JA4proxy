@@ -7,7 +7,7 @@
 
 ## 1. Management API Endpoints Matrix
 
-Total Endpoints Discovered: **106**
+Total Endpoints Discovered: **107**
 
 | Method | Path | Function | Required Role | Summary |
 | :--- | :--- | :--- | :--- | :--- |
@@ -72,6 +72,7 @@ Total Endpoints Discovered: **106**
 | `GET` | `/api/v1/partials/intelligence` | `intelligence_partial` | `public` | Return the analytics intelligence row as an HTML fragment. |
 | `GET` | `/api/v1/partials/intelligence-review` | `intelligence_review_partial` | `public` | Return the intelligence review content as an HTML fragment. |
 | `GET` | `/api/v1/partials/list-table` | `list_table_partial` | `public` | Return a list entries table as an HTML fragment. |
+| `GET` | `/api/v1/partials/panel4-reliability` | `panel4_reliability_partial` | `public` | Return Panel 4 ('Can I trust what it's telling me?') as an HTML fragment. |
 | `GET` | `/api/v1/partials/situation` | `situation_partial` | `public` | Return the threat posture situation bar as an HTML fragment (polled every 10s). |
 | `GET` | `/api/v1/partials/threat-posture` | `threat_posture_partial` | `public` | Return the Threat Posture row as an HTML fragment. |
 | `GET` | `/api/v1/partials/triage-queue` | `triage_queue_partial` | `public` | Return the Triage Queue as an HTML fragment. |

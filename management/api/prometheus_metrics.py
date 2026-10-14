@@ -80,6 +80,15 @@ ACTIONS = Counter(
     registry=REGISTRY,
 )
 
+# Phase 821a: Self-observability counter for Prometheus client queries
+# ja4proxy_console_prometheus_queries_total{result="ok"|"empty"|"error"|"timeout"}
+PROMETHEUS_QUERIES = Counter(
+    "ja4proxy_console_prometheus_queries_total",
+    "Prometheus queries executed by the management console client.",
+    ["result"],
+    registry=REGISTRY,
+)
+
 
 _KNOWN_ROOTS = {
     "",
