@@ -192,7 +192,7 @@ async def get_connections(
     # Validate since < until
     if since is not None and until is not None and since >= until:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="'since' must be before 'until'",
         )
 

@@ -185,7 +185,7 @@ async def totp_verify(
         code = str(body.get("code", ""))
     except Exception:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Request body must be JSON with a 'code' field",
         )
 

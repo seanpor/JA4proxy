@@ -178,7 +178,7 @@ async def webauthn_register_complete(
         body: Dict[str, Any] = await request.json()
     except Exception:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Request body must be valid JSON",
         )
 
@@ -310,13 +310,13 @@ async def webauthn_auth_complete(
         credential_id_b64: str = str(body.get("id", ""))
     except Exception:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Request body must be JSON with an 'id' field",
         )
 
     if not credential_id_b64:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Missing 'id' field in request body",
         )
 

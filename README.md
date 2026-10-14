@@ -217,4 +217,3 @@ detailed licensing posture.
 
 JA4 and JA4+ are trademarks of FoxIO, LLC. This project is not affiliated
 with or endorsed by FoxIO, LLC.
-

@@ -1,0 +1,6 @@
+- Enforced strict zero-warning policy across test and lint pipelines (`pyproject.toml` `-W error` scoped to `management.*` and `src.*`).
+- Migrated Starlette 422 HTTP status codes from deprecated `HTTP_422_UNPROCESSABLE_ENTITY` to `HTTP_422_UNPROCESSABLE_CONTENT` across all management API routes.
+- Eliminated deprecated `asyncio.iscoroutinefunction` in rate-limiting tests, replacing with `inspect.iscoroutinefunction`.
+- Modernized datetime and test marker usage across `management/tests/`, completely eliminating first-party deprecation warnings.
+- Fixed 12 broken documentation links and target paths in `docs/` and `docs/phases/complete/` without adding any `.lycheeignore` suppressions.
+- Resolved spell-check and markdown formatting issues across documentation.

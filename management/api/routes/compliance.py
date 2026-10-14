@@ -193,7 +193,7 @@ def _parse_date(date_str: str, field_name: str) -> datetime:
     except ValueError:
         pass
     raise HTTPException(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
         detail=f"Invalid date format for '{field_name}': {date_str!r}. "
         "Use ISO-8601 (e.g. '2026-01-01' or '2026-01-01T00:00:00Z').",
     )
@@ -316,7 +316,7 @@ async def generate_pci_dss_pack(
 
     if to_dt <= from_dt:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="to_date must be after from_date",
         )
 
@@ -359,7 +359,7 @@ async def generate_report(
 
     if to_dt <= from_dt:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="to_date must be after from_date",
         )
 

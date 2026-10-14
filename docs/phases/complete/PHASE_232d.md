@@ -58,13 +58,13 @@ Decommission and completely remove the unauthenticated `admin-api` container (wh
 ## Scope
 
 ### Files to create/modify:
-- [deploy/docker/docker-compose.poc.yml](../../deploy/docker/docker-compose.poc.yml) — remove the `admin-api` service block.
+- [deploy/docker/docker-compose.poc.yml](../../../deploy/docker/docker-compose.poc.yml) — remove the `admin-api` service block.
 - `deploy/docker/Dockerfile.admin` — `git rm` (already removed).
-- [tests/integration/test_container_config.py](../../tests/integration/test_container_config.py) — add the absence regression test (corrected from `tests/unit/`).
-- [scripts/agent-env.sh](../../scripts/agent-env.sh) — drop `HOST_PORT_ADMIN_API`.
-- [scripts/check_updates.py](../../scripts/check_updates.py) — drop `ja4proxy-admin-api` from the first-party image set.
-- [deploy/docker/README.md](../../deploy/docker/README.md) — remove `admin-api` from the service/network tables.
-- [docs/runbooks/REMOTE_TESTING.md](../runbooks/REMOTE_TESTING.md) — remove the `8091`/admin-api port row and bind-list mention.
+- [tests/integration/test_container_config.py](../../../tests/integration/test_container_config.py) — add the absence regression test (corrected from `tests/unit/`).
+- [scripts/agent-env.sh](../../../scripts/agent-env.sh) — drop `HOST_PORT_ADMIN_API`.
+- [scripts/check_updates.py](../../../scripts/check_updates.py) — drop `ja4proxy-admin-api` from the first-party image set.
+- [deploy/docker/README.md](../../../deploy/docker/README.md) — remove `admin-api` from the service/network tables.
+- [docs/runbooks/REMOTE_TESTING.md](../../runbooks/REMOTE_TESTING.md) — remove the `8091`/admin-api port row and bind-list mention.
 
 ### Out of scope:
 - Vendoring assets or frontend situation bar code (covered by 232a/b).

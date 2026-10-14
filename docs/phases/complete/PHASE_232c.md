@@ -36,8 +36,8 @@ no internal production service is ever republished on a wildcard interface.
 ## Scope
 
 ### Files to create/modify:
-- [deploy/docker/docker-compose.poc.yml](../../deploy/docker/docker-compose.poc.yml) — add `ja4proxy-data` to the `analytics` service networks.
-- [tests/integration/test_container_config.py](../../tests/integration/test_container_config.py) — extend the existing structural-invariants suite (the mandatory `test_container_config.py` already lives here, not under `tests/unit/`).
+- [deploy/docker/docker-compose.poc.yml](../../../deploy/docker/docker-compose.poc.yml) — add `ja4proxy-data` to the `analytics` service networks.
+- [tests/integration/test_container_config.py](../../../tests/integration/test_container_config.py) — extend the existing structural-invariants suite (the mandatory `test_container_config.py` already lives here, not under `tests/unit/`).
 
 ### Out of scope:
 - `docker-compose.prod.yml` — already hardened in Phase 0046 (no change needed; this phase only guards it).

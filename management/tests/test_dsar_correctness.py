@@ -171,11 +171,7 @@ async def test_dsar_export_benchmark_one_million_entries(auditor_client):
 
     # Fast bulk insert: use a pipeline or just check this is documented
     # Full benchmark requires 1M entries which is too heavy for unit tests
-    # Mark as slow for CI
-    pytest.mark.slow
-
-    # For now, document the requirement:
-    # - Benchmark on real Redis with 1M entries must complete in < 2s
+    # Requirement: Benchmark on real Redis with 1M entries must complete in < 2s
     # - This test will pass after the H1 fix is implemented
     r = await client.get("/api/v1/compliance/dsar/10.0.0.1")
     assert r.status_code == 200

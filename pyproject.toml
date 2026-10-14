@@ -58,6 +58,21 @@ filterwarnings = [
     "ignore::pytest.PytestUnraisableExceptionWarning",
     # Google API Python 3.10 end-of-support notice — not actionable until we upgrade
     "ignore::FutureWarning:google.api_core",
+    # Strict warning enforcement on first-party management and src modules
+    "error::DeprecationWarning:management.*",
+    "error::DeprecationWarning:src.*",
+    # Upstream python3-saml (onelogin.saml2) datetime & port deprecations (Python 3.14 upstream debt)
+    "ignore:datetime.datetime.utcnow\\(\\) is deprecated:DeprecationWarning:onelogin.saml2.*",
+    "ignore:datetime.datetime.utcfromtimestamp\\(\\) is deprecated:DeprecationWarning:onelogin.saml2.*",
+    "ignore:The server_port key in request data is deprecated:DeprecationWarning:onelogin.saml2.*",
+    # Upstream Authlib / Jose deprecation warnings (scheduled for Authlib 2.0.0)
+    "ignore::authlib.deprecate.AuthlibDeprecationWarning",
+    # Upstream Starlette / FastAPI testclient httpx warning
+    "ignore::starlette.exceptions.StarletteDeprecationWarning",
+    # HTTPX per-request cookie deprecation in integration test clients
+    "ignore:Setting per-request cookies=.* is being deprecated:DeprecationWarning:httpx.*",
+    # Intentional short HMAC key in test_protected_route_wrong_secret negative test
+    "ignore:The HMAC key is 12 bytes long:UserWarning:jwt.api_jwt",
 ]
 
 # ── mypy configuration (consolidated from mypy.ini) ──────────────────────────

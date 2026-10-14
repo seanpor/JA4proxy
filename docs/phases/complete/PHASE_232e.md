@@ -12,7 +12,7 @@ dependencies: [232d]
 # Legacy Management Module Removal
 
 > **STATUS: COMPLETE (2026-06-15).**
-> The deferred source-deletion tail of [PHASE_232d](../PHASE_232d.md). Phase 232d
+> The deferred source-deletion tail of [PHASE_232d](PHASE_232d.md). Phase 232d
 > decommissioned the unauthenticated `admin-api` *container*; this phase deletes
 > the now-orphaned `src/management/` *source module* it used to run.
 
