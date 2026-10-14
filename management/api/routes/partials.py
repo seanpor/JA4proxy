@@ -821,6 +821,63 @@ async def infrastructure_partial(
     )
 
 
+# ── Panel 4: Reliability & Operational Integrity (Phase 821a) ─────────────────
+
+
+@router.get("/api/v1/partials/panel4-reliability", response_class=HTMLResponse)
+async def panel4_reliability_partial(
+    request: Request,
+    current_user=Depends(get_current_user),
+) -> HTMLResponse:
+    """Return Panel 4 ('Can I trust what it's telling me?') as an HTML fragment.
+
+    Renders live tiles from the declarative Metric Catalogue via PrometheusClient:
+    - Silent degradation / load shedding rate
+    - Blocklist staleness and feed presence
+    - Redis proxy connection health
+    - Enrichment queue depths (DNS, AbuseIPDB, RDAP)
+    - Enrichment error rates (DNS, AbuseIPDB)
+    - Clock drift
+
+    Evaluates to Ok, Empty (rendered as 0), or Unavailable.
+    """
+    from ..metric_catalogue import PANEL_4_TILES
+    from ..prometheus_client import Empty, Ok, Unavailable, get_prometheus_client
+
+    prom_client = get_prometheus_client()
+    templates = _get_templates()
+
+    tile_results = {}
+    for tile_id, tile in PANEL_4_TILES.items():
+        res = await prom_client.query_instant(tile.expr)
+        tile_results[tile_id] = {
+            "tile": tile,
+            "status": "ok" if isinstance(res, Ok) else ("empty" if isinstance(res, Empty) else "unavailable"),
+            "value": res.value if isinstance(res, Ok) else (0 if isinstance(res, Empty) else None),
+            "reason": res.reason if isinstance(res, Unavailable) else None,
+            "last_ok_at": res.last_ok_at if isinstance(res, Unavailable) else None,
+            "fetched_at": res.fetched_at if isinstance(res, (Ok, Empty)) else None,
+        }
+
+    # Derive scrape target display for lane awareness
+    scrape_target = prom_client.base_url
+
+    user = current_user[0]
+    role = current_user[1].value
+
+    return templates.TemplateResponse(
+        request,
+        "partials/panel4_reliability.html",
+        {
+            "user": user,
+            "role": role,
+            "scrape_target": scrape_target,
+            "tiles": tile_results,
+        },
+    )
+
+
+
 # ── Triage Queue ────────────────────────────────────────────────────────────────
 
 

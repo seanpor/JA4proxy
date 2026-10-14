@@ -29,6 +29,8 @@ func RunDaemon(ctx context.Context, cfg *config.Config, cfgPath string, log *log
 
 	server.UpdateTLSCertExpiryGauge(os.Getenv("JA4PROXY_TLS_CERT_FILE"), log)
 
+	go metrics.StartNTPMonitor(ctx, 60, log)
+
 	srv.Serve(ctx)
 	return nil
 }
@@ -66,6 +68,8 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	go metrics.StartNTPMonitor(ctx, 60, log)
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)

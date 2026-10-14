@@ -4793,8 +4793,8 @@ phases:
 
   821a:
     name: "Console metrics foundation — Prometheus client, metric catalogue, one panel"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_821a.md
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_821a.md
     dependencies: []
     size: MEDIUM
     summary: "PROPOSED 2026-08-15. Makes the management console the single

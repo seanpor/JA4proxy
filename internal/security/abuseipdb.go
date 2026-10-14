@@ -152,11 +152,11 @@ func (a *AbuseIPDB) GetSignal(clientIP string) *RiskSignal {
 	}
 	// Check Redis cache
 	if a.redis == nil {
-		// Not cached — enqueue lookup
-		metrics.AbuseIPDBLookupsTotal.WithLabelValues("miss").Inc()
 		select {
 		case a.queue <- clientIP:
+			metrics.AbuseIPDBEnrichmentQueueDepth.Set(float64(len(a.queue)))
 		default:
+			metrics.AbuseIPDBQueueDroppedTotal.Inc()
 		}
 		return nil
 	}
@@ -183,7 +183,9 @@ func (a *AbuseIPDB) GetSignal(clientIP string) *RiskSignal {
 	metrics.AbuseIPDBLookupsTotal.WithLabelValues("miss").Inc()
 	select {
 	case a.queue <- clientIP:
+		metrics.AbuseIPDBEnrichmentQueueDepth.Set(float64(len(a.queue)))
 	default:
+		metrics.AbuseIPDBQueueDroppedTotal.Inc()
 	}
 	return nil
 }
