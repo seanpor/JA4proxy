@@ -27,7 +27,7 @@ var (
 	version = config.Version
 )
 
-func main() {
+func NewRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "ja4p",
 		Short: "JA4proxy Operational Toolset",
@@ -120,12 +120,13 @@ a .env with a random Redis password, and prints next steps.`,
 	rootCmd.AddCommand(&cobra.Command{
 		Use:   "validate",
 		Short: "Verify proxy configuration and security feeds",
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := runConfigValidate(cfgPath); err != nil {
 				fmt.Fprintf(os.Stderr, "Config validation failed: %v\n", err)
-				os.Exit(1)
+				return fmt.Errorf("config validation failed: %w", err)
 			}
 			fmt.Println("✓ Configuration is valid.")
+			return nil
 		},
 	})
 
@@ -138,16 +139,15 @@ a .env with a random Redis password, and prints next steps.`,
 		Use:   "ip [address]",
 		Short: "Simulate a pipeline decision for an IP address",
 		Args:  cobra.ExactArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := config.Load(cfgPath)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "failed to load config: %v\n", err)
-				os.Exit(1)
+				return fmt.Errorf("failed to load config: %w", err)
 			}
 			if err := runTestIP(cfg, args[0]); err != nil {
-				fmt.Fprintf(os.Stderr, "Simulation failed: %v\n", err)
-				os.Exit(1)
+				return fmt.Errorf("simulation failed: %w", err)
 			}
+			return nil
 		},
 	})
 	testCmd.AddCommand(&cobra.Command{
@@ -207,20 +207,25 @@ Load on login by adding the source command to your shell's rc file.`,
 		Args:      cobra.ExactArgs(1),
 		ValidArgs: []string{"bash", "zsh", "fish", "powershell"},
 		Run: func(cmd *cobra.Command, args []string) {
+			out := cmd.OutOrStdout()
 			switch args[0] {
 			case "bash":
-				_ = cmd.Root().GenBashCompletion(os.Stdout)
+				_ = cmd.Root().GenBashCompletion(out)
 			case "zsh":
-				_ = cmd.Root().GenZshCompletion(os.Stdout)
+				_ = cmd.Root().GenZshCompletion(out)
 			case "fish":
-				_ = cmd.Root().GenFishCompletion(os.Stdout, true)
+				_ = cmd.Root().GenFishCompletion(out, true)
 			case "powershell":
-				_ = cmd.Root().GenPowerShellCompletion(os.Stdout)
+				_ = cmd.Root().GenPowerShellCompletion(out)
 			}
 		},
 	})
 
-	if err := rootCmd.Execute(); err != nil {
+	return rootCmd
+}
+
+func main() {
+	if err := NewRootCmd().Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}

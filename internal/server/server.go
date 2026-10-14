@@ -228,22 +228,24 @@ func (s *Server) Serve(ctx context.Context) {
 	s.StartStreamEventWorkers(ctx)
 	go s.StartIntegrityWorker(ctx)
 
-	go func() {
-		hostname, _ := os.Hostname()
-		key := "proxy:heartbeat:" + hostname
-		t := time.NewTicker(60 * time.Second)
-		defer t.Stop()
-		s.Redis.Set(ctx, key, fmt.Sprintf("%d", time.Now().Unix()), 90*time.Second)
-		for {
-			select {
-			case <-ctx.Done():
-				s.Redis.Raw().Del(context.Background(), key)
-				return
-			case <-t.C:
-				s.Redis.Set(ctx, key, fmt.Sprintf("%d", time.Now().Unix()), 90*time.Second)
+	if s.Redis != nil {
+		go func() {
+			hostname, _ := os.Hostname()
+			key := "proxy:heartbeat:" + hostname
+			t := time.NewTicker(60 * time.Second)
+			defer t.Stop()
+			s.Redis.Set(ctx, key, fmt.Sprintf("%d", time.Now().Unix()), 90*time.Second)
+			for {
+				select {
+				case <-ctx.Done():
+					s.Redis.Raw().Del(context.Background(), key)
+					return
+				case <-t.C:
+					s.Redis.Set(ctx, key, fmt.Sprintf("%d", time.Now().Unix()), 90*time.Second)
+				}
 			}
-		}
-	}()
+		}()
+	}
 
 	if s.Cfg.Metrics.Enabled {
 		go func() {

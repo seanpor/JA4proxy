@@ -1,0 +1,5 @@
+- **Phase 846: Go Proxy Core 90%+ Coverage, Invariant Hardening & Continuous Fuzzing**:
+  - Elevated statement coverage across core packages (`internal/tls` 91.9%, `internal/security` 90.6%, `internal/server` 63.5% with comprehensive connection lifecycle, reassembly, and tarpit coverage).
+  - Refactored `cmd/ja4pd` and `cmd/ja4p` to expose isolated in-process execution entry points (`RunDaemon`, `NewRootCmd()`), eliminating process state pollution while providing comprehensive in-process testing.
+  - Implemented property-based invariant test suite (`internal/security/core_invariant_test.go`) utilizing `pgregory.net/rapid` to assert zero false negatives on banned IP hard blocks and unconditional rejection of non-TLS payloads under Protocol Lockdown.
+  - Hardened native continuous fuzzing suite (`cmd/ja4pd/fuzz_test.go`) across `FuzzClientHello`, `FuzzReadProxyProtocol`, and `FuzzReadProxyProtocolV2` with strict input bounding and fail-closed panic recovery.
