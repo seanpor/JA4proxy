@@ -4886,35 +4886,125 @@ phases:
       buffering."
 
   824:
-    name: "Customer journeys — catalogue, journey regression tests, and a RED flag for the UI"
+    name: "Customer journeys & UI regression gate (umbrella)"
     status: PROPOSED
     action_plan: docs/phases/PHASE_824.md
-    dependencies: [816, 821a]
+    dependencies: [816, 821a, 821b]
     size: LARGE
-    summary: "PROPOSED 2026-08-15. The suite proves the parts work; it does not
-      prove a person can get their job done. Catalogues ten customer journeys
-      (stop-the-bots, day-one deploy, demo, false-positive rescue, dial tuning,
-      retrospective, hot config change, degraded dependencies, audit/DSAR,
-      capacity) with the CLI path, the console path, and an explicit
-      'proves it worked' assertion for each. The UI gap is structural: the
-      console is a shell plus htmx partials polled from /api/v1/partials/*, and
-      test_pages.py asserts only that the shell renders — which it does
-      identically when every partial behind it is broken, because htmx fetches
-      them after page load. Of 15 hx-get URLs referenced across templates, 6
-      already have route-resolution assertions (incidentally, from tests written
-      for other purposes) and 9 do not: health-cards, dial, bans, audit,
+    summary: "PROPOSED 2026-08-15, split into 824a–824f on 2026-10-15 after
+      review. The suite proves the parts work; it does not prove a person can
+      get their job done, and it does not notice a blank console. Umbrella for a
+      persona-level regression layer and a UI gate. Split so each piece is
+      independently reviewable: 824a the journey catalogue (docs-only); 824b
+      route-contract tests for the eight partials with no dedicated route test;
+      824c a self-maintaining static gate that extracts hx-* targets FROM the
+      templates and asserts each resolves (plus a refresh of the stale
+      check_console_journey.sh list); 824d a /api/v1/health/ui four-state
+      endpoint reusing Phase 821a's Ok/Empty/Unavailable model, where EMPTY and
+      DEGRADED must never read RED; 824e the T2 journey scripts (J1/J4/J8) and
+      make test-journeys TIER= selection; 824f CI tiering + branch protection.
+      CORRECTED 2026-10-15: the earlier plan claimed '20 targets, 7 asserted, 13
+      unasserted' and listed alerts-bar/panel1-5 as unasserted. Measured: 21
+      hx-get targets (20 partials + tls-health), 13 covered, 8 not —
+      attack-fingerprint-table, attack-mode-indicator, attack-top, audit, dial,
+      health-cards, intelligence, intelligence-review. Phase 821b did not widen
+      the gap; it added tests for the panels it added (b1e5aa14)."
+
+  824a:
+    name: "Customer journey catalogue (docs-only)"
+    status: COMPLETE
+    completed: '2026-10-15'
+    action_plan: docs/phases/complete/PHASE_824a.md
+    dependencies: []
+    size: SMALL
+    summary: "COMPLETE 2026-10-15. Adds docs/reference/CUSTOMER_JOURNEYS.md with
+      eleven journeys (stop-the-bots, day-one deploy, demo, false-positive
+      rescue, dial tuning, retrospective, hot config load, degraded
+      dependencies, audit/compliance, capacity, upgrade/rollback), each with the
+      CLI path, the console path, and the observable outcome that proves it
+      worked. Documents the corrected UI route-coverage table (21 targets, 13
+      covered, 8 uncovered) with the command to re-derive it. No code."
+
+  824b:
+    name: "Route-contract tests for the eight uncovered partials"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_824b.md
+    dependencies: []
+    size: SMALL
+    summary: "PROPOSED 2026-10-15. Adds authenticated + unauthenticated
+      route-contract tests to management/tests/test_pages.py for the eight
+      partials with no dedicated route test (health-cards, dial, audit,
       intelligence, intelligence-review, attack-top, attack-fingerprint-table,
-      attack-mode-indicator. All 15 resolve today, but two live in
-      attack_mode.py and tls_health.py rather than partials.py, so a router
-      refactor can blank a panel with nothing to catch it. Proposes three UI tiers (route
-      resolution extracted FROM the templates so it is self-maintaining; content
-      checks that a 200 is not rendering an error state; Playwright nightly) and
-      a /api/v1/health/ui RED flag reusing Phase 821a's Ok/Empty/Unavailable
-      model — EMPTY must never read RED or a quiet system reports itself broken.
-      The same endpoint serves operator, Prometheus alert and CI assertion, and
-      must be proven to go RED by deliberately breaking a panel. Journey tiering
-      is explicit about cost: T2 (every PR) is J1/J2/J8 — enforcement works,
-      first deploy harms nobody, degradation fails open."
+      attack-mode-indicator). Copy of the existing panel4 pair. Landmarks must
+      survive the empty state; attack-mode-indicator returns an empty string
+      when inactive, so it asserts status + content-type only. Renaming a route
+      must be demonstrated to fail the test."
+
+  824c:
+    name: "Template route-target gate (self-maintaining) + refresh stale journey list"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_824c.md
+    dependencies: [824b]
+    size: MEDIUM
+    summary: "PROPOSED 2026-10-15. A static test extracts every hx-* target from
+      management/templates/** and asserts each resolves to a registered route —
+      forward direction from templates to app.routes, and reverse (registered
+      partials with no template reference, allowing the attack-table alias).
+      Handles Jinja query expressions and the JS-assembled hx-get at
+      threat_posture.html:258. Mutating targets are matched by method and never
+      sent. Excludes the 824d health endpoint. Also completes the stale
+      hardcoded partial list in check_console_journey.sh (it predates 821b).
+      No live HTTP in this gate."
+
+  824d:
+    name: "/api/v1/health/ui four-state endpoint"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_824d.md
+    dependencies: [824c]
+    size: MEDIUM
+    summary: "PROPOSED 2026-10-15. Adds an authenticated GET /api/v1/health/ui
+      that probes every extracted partial in-process (httpx ASGITransport, not a
+      self-HTTP request — the management image runs --workers 1) and reports
+      OK/EMPTY/DEGRADED/BROKEN per panel. DEGRADED is Phase 821a's 'Unavailable'
+      under a wire name; EMPTY and DEGRADED never make the aggregate RED.
+      Classification is content-based, not status-based, so a 200 rendering
+      'unavailable' is not reported OK. Requires at least auditor (anonymous
+      would be a twenty-render amplifier), returns stable reason codes only
+      (never upstream text — cf JA4PROXY-2026-0008), excludes itself, and is
+      NOT wired into the container HEALTHCHECK. The Prometheus gauge and
+      background refresher are deliberately out of scope. Must be demonstrated
+      to go RED by breaking a panel and to stay non-RED with Redis down."
+
+  824e:
+    name: "T2 journey scripts (J1/J4/J8) and make test-journeys TIER="
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_824e.md
+    dependencies: [824a]
+    size: MEDIUM
+    summary: "PROPOSED 2026-10-15. Turns the highest-value journeys from
+      docs/reference/CUSTOMER_JOURNEYS.md into live-stack checks and adds tier
+      selection to the existing make test-journeys (TIER=, default 2; scripts
+      declare their own tier). J1 stop-the-bots asserts bot traffic IS blocked
+      AND a legitimate control group survives — the second half is the point.
+      J4 false-positive rescue asserts recovery within a bounded propagation
+      interval. J8 degraded dependencies (TIER=3) stops Redis, asserts the proxy
+      fails OPEN and the console fails VISIBLY, then recovery. Each script
+      prints its wall-clock so the tier cost budget is observable. J2 already
+      exists; J3/J5-J7/J9-J11 remain T3/planned."
+
+  824f:
+    name: "Journey CI tiering and branch protection"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_824f.md
+    dependencies: [824d, 824e]
+    size: SMALL
+    summary: "PROPOSED 2026-10-15. Wires the T1 checks (824b/824c/824d) into
+      ci.yml as a required job and adds the T2 journey job as nightly +
+      workflow_dispatch with continue-on-error (a flaky required check stalls
+      every merge). Registers the new required context in
+      scripts/branch_protection.sh in the same change, or
+      tests/test_workflow_pinning.py:318 fails. All uses: SHA-pinned. The only
+      sub-phase that touches main's protection, so it lands as one PR."
 
   825:
     name: "Migrate Promtail to Grafana Alloy (cAdvisor stays)"
@@ -4960,7 +5050,7 @@ phases:
     name: "Connect the Intelligence pipeline end-to-end"
     status: COMPLETE
     action_plan: docs/phases/complete/PHASE_826.md
-    dependencies: [824]
+    dependencies: []
     size: MEDIUM
     summary: "PROPOSED 2026-08-17 after asking why the console's Intelligence
       panel was always empty. The panel, its review page, the dismiss/mark-FP

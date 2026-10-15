@@ -72,6 +72,7 @@ subsystems live in the subdirectories at the end.
 - [Redis Schema](reference/REDIS_SCHEMA.md) — every Redis key pattern (source of truth).
 - [Observability Standards](reference/OBSERVABILITY_STANDARDS.md) — Prometheus metrics, log schema, dashboards, alerts.
 - [Makefile Targets](reference/MAKEFILE_TARGETS.md) — every `make` target.
+- [Customer Journeys](reference/CUSTOMER_JOURNEYS.md) — what people actually do with JA4proxy, end to end, and what proves each journey worked.
 - [Scripts](reference/SCRIPTS.md) — reference for `scripts/`.
 - [Docker Images](reference/DOCKER_IMAGES.md) — canonical registry of all images and pins.
 - [Service Targets](reference/SERVICE_TARGETS.md) — SLA / SLO / SLI commitments.
