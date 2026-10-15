@@ -35,7 +35,18 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from ..auth import get_current_user
-from ..ja4_corpus import browser_label as _corpus_label  # phase-250
+from ..ja4_corpus import (
+    browser_label as _corpus_label,  # phase-250
+)
+from ..ja4_corpus import (
+    corpus_mtime as _corpus_mtime,
+)
+from ..ja4_corpus import (
+    corpus_size as _corpus_size,
+)
+from ..ja4_corpus import (
+    is_known_browser as _is_known_browser,
+)
 from ..redis_client import get_redis
 
 logger = logging.getLogger(__name__)
@@ -590,6 +601,9 @@ async def threat_posture_partial(
     action_dist: dict[str, int] = defaultdict(int)
     stream_depth = 0
     total_events = 0
+    browser_total_count = 0
+    browser_punitive_count = 0
+    punitive_actions = {"block", "ban", "tarpit", "rate_limit"}
 
     try:
         raw = await redis.xrevrange(_STREAM_KEY, max="+", min=min_id, count=5000)
@@ -621,6 +635,10 @@ async def threat_posture_partial(
 
             if ja4:
                 ja4_counts[ja4] += 1
+                if _is_known_browser(ja4):
+                    browser_total_count += 1
+                    if action in punitive_actions:
+                        browser_punitive_count += 1
 
             if action in _VALID_ACTIONS:
                 action_dist[action] += 1
@@ -676,6 +694,7 @@ async def threat_posture_partial(
     }
 
     stream_warn = stream_depth > 80_000
+    current_dial = await _get_dial(redis)
 
     user = current_user[0]
     role = current_user[1].value
@@ -694,6 +713,11 @@ async def threat_posture_partial(
             "stream_depth": stream_depth,
             "stream_warn": stream_warn,
             "total_events": total_events,
+            "browser_total_count": browser_total_count,
+            "browser_punitive_count": browser_punitive_count,
+            "corpus_size": _corpus_size(),
+            "corpus_mtime": _corpus_mtime(),
+            "dial": current_dial,
         },
     )
 
@@ -875,6 +899,221 @@ async def panel4_reliability_partial(
             "tiles": tile_results,
         },
     )
+
+
+# ── Panel 1: Harm to Real Users (Phase 821b) ───────────────────────────────────
+
+
+@router.get("/api/v1/partials/panel1-harm", response_class=HTMLResponse)
+async def panel1_harm_partial(
+    request: Request,
+    current_user=Depends(get_current_user),
+) -> HTMLResponse:
+    """Return Panel 1 ('Is it hurting real users?') as an HTML fragment."""
+    from ..metric_catalogue import PANEL_1_TILES
+    from ..prometheus_client import Empty, Ok, Unavailable, get_prometheus_client
+
+    prom_client = get_prometheus_client()
+    templates = _get_templates()
+
+    tile_results = {}
+    for tile_id, tile in PANEL_1_TILES.items():
+        res = await prom_client.query_instant(tile.expr)
+        tile_results[tile_id] = {
+            "tile": tile,
+            "status": "ok" if isinstance(res, Ok) else ("empty" if isinstance(res, Empty) else "unavailable"),
+            "value": res.value if isinstance(res, Ok) else (0 if isinstance(res, Empty) else None),
+            "reason": res.reason if isinstance(res, Unavailable) else None,
+            "last_ok_at": res.last_ok_at if isinstance(res, Unavailable) else None,
+            "fetched_at": res.fetched_at if isinstance(res, (Ok, Empty)) else None,
+        }
+
+    return templates.TemplateResponse(
+        request,
+        "partials/panel1_harm.html",
+        {
+            "user": current_user[0],
+            "role": current_user[1].value,
+            "scrape_target": prom_client.base_url,
+            "tiles": tile_results,
+        },
+    )
+
+
+# ── Panel 2: Decisions & Enforcement (Phase 821b) ──────────────────────────────
+
+
+@router.get("/api/v1/partials/panel2-decisions", response_class=HTMLResponse)
+async def panel2_decisions_partial(
+    request: Request,
+    current_user=Depends(get_current_user),
+    redis=Depends(get_redis),
+) -> HTMLResponse:
+    """Return Panel 2 ('What is it deciding?') as an HTML fragment."""
+    from ..metric_catalogue import PANEL_2_TILES
+    from ..prometheus_client import Empty, Ok, Unavailable, get_prometheus_client
+
+    prom_client = get_prometheus_client()
+    templates = _get_templates()
+
+    tile_results = {}
+    for tile_id, tile in PANEL_2_TILES.items():
+        res = await prom_client.query_instant(tile.expr)
+        tile_results[tile_id] = {
+            "tile": tile,
+            "status": "ok" if isinstance(res, Ok) else ("empty" if isinstance(res, Empty) else "unavailable"),
+            "value": res.value if isinstance(res, Ok) else (0 if isinstance(res, Empty) else None),
+            "reason": res.reason if isinstance(res, Unavailable) else None,
+            "last_ok_at": res.last_ok_at if isinstance(res, Unavailable) else None,
+            "fetched_at": res.fetched_at if isinstance(res, (Ok, Empty)) else None,
+        }
+
+    authoritative_dial = await _get_dial(redis)
+
+    return templates.TemplateResponse(
+        request,
+        "partials/panel2_decisions.html",
+        {
+            "user": current_user[0],
+            "role": current_user[1].value,
+            "scrape_target": prom_client.base_url,
+            "tiles": tile_results,
+            "authoritative_dial": authoritative_dial,
+        },
+    )
+
+
+# ── Panel 3: Liveness & Performance (Phase 821b) ───────────────────────────────
+
+
+@router.get("/api/v1/partials/panel3-liveness", response_class=HTMLResponse)
+async def panel3_liveness_partial(
+    request: Request,
+    current_user=Depends(get_current_user),
+) -> HTMLResponse:
+    """Return Panel 3 ('Is it alive and keeping up?') as an HTML fragment."""
+    from ..metric_catalogue import PANEL_3_TILES
+    from ..prometheus_client import Empty, Ok, Unavailable, get_prometheus_client
+
+    prom_client = get_prometheus_client()
+    templates = _get_templates()
+
+    tile_results = {}
+    for tile_id, tile in PANEL_3_TILES.items():
+        res = await prom_client.query_instant(tile.expr)
+        tile_results[tile_id] = {
+            "tile": tile,
+            "status": "ok" if isinstance(res, Ok) else ("empty" if isinstance(res, Empty) else "unavailable"),
+            "value": res.value if isinstance(res, Ok) else (0 if isinstance(res, Empty) else None),
+            "reason": res.reason if isinstance(res, Unavailable) else None,
+            "last_ok_at": res.last_ok_at if isinstance(res, Unavailable) else None,
+            "fetched_at": res.fetched_at if isinstance(res, (Ok, Empty)) else None,
+        }
+
+    return templates.TemplateResponse(
+        request,
+        "partials/panel3_liveness.html",
+        {
+            "user": current_user[0],
+            "role": current_user[1].value,
+            "scrape_target": prom_client.base_url,
+            "tiles": tile_results,
+        },
+    )
+
+
+# ── Panel 5: Audit & Changes (Phase 821b) ──────────────────────────────────────
+
+
+@router.get("/api/v1/partials/panel5-changes", response_class=HTMLResponse)
+async def panel5_changes_partial(
+    request: Request,
+    current_user=Depends(get_current_user),
+    redis=Depends(get_redis),
+) -> HTMLResponse:
+    """Return Panel 5 ('What changed?') as an HTML fragment."""
+    from ..metric_catalogue import PANEL_5_TILES
+    from ..prometheus_client import Empty, Ok, Unavailable, get_prometheus_client
+
+    prom_client = get_prometheus_client()
+    templates = _get_templates()
+
+    tile_results = {}
+    for tile_id, tile in PANEL_5_TILES.items():
+        res = await prom_client.query_instant(tile.expr)
+        tile_results[tile_id] = {
+            "tile": tile,
+            "status": "ok" if isinstance(res, Ok) else ("empty" if isinstance(res, Empty) else "unavailable"),
+            "value": res.value if isinstance(res, Ok) else (0 if isinstance(res, Empty) else None),
+            "reason": res.reason if isinstance(res, Unavailable) else None,
+            "last_ok_at": res.last_ok_at if isinstance(res, Unavailable) else None,
+            "fetched_at": res.fetched_at if isinstance(res, (Ok, Empty)) else None,
+        }
+
+    # Fetch dial change history from authoritative Redis stream
+    audit_events = []
+    try:
+        entries = await redis.xrevrange(_AUDIT_KEY, max="+", min="-", count=10)
+        for _id, fields in entries:
+            ev_str = fields.get("event", "{}")
+            try:
+                ev = json.loads(ev_str)
+                if "dial" in ev.get("action", "").lower() or "dial" in ev_str.lower():
+                    audit_events.append(ev)
+            except Exception:
+                continue
+    except Exception as exc:
+        logger.warning("partials | event=audit_redis_error | error=%s", exc)
+
+    return templates.TemplateResponse(
+        request,
+        "partials/panel5_changes.html",
+        {
+            "user": current_user[0],
+            "role": current_user[1].value,
+            "scrape_target": prom_client.base_url,
+            "tiles": tile_results,
+            "dial_changes": audit_events[:5],
+        },
+    )
+
+
+# ── Firing Alerts Bar (Phase 821b) ─────────────────────────────────────────────
+
+
+@router.get("/api/v1/partials/alerts-bar", response_class=HTMLResponse)
+async def alerts_bar_partial(
+    request: Request,
+    current_user=Depends(get_current_user),
+) -> HTMLResponse:
+    """Return the active Prometheus alerts banner/bar as an HTML fragment."""
+    from ..prometheus_client import Empty, Ok, Unavailable, get_prometheus_client
+
+    prom_client = get_prometheus_client()
+    templates = _get_templates()
+
+    res = await prom_client.get_alerts()
+    alerts = []
+    status = "ok"
+    reason = None
+    if isinstance(res, Ok):
+        alerts = [a for a in res.value if a.get("state") == "firing"]
+    elif isinstance(res, Unavailable):
+        status = "unavailable"
+        reason = res.reason
+
+    return templates.TemplateResponse(
+        request,
+        "partials/alerts_bar.html",
+        {
+            "user": current_user[0],
+            "role": current_user[1].value,
+            "status": status,
+            "reason": reason,
+            "alerts": alerts,
+        },
+    )
+
 
 
 

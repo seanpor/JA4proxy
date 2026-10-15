@@ -70,6 +70,31 @@
     </div>
   </div>
 
+  <!-- Panel 1: Browser Harm Indicator -->
+  <div class="bg-slate-800 border border-slate-700 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs">
+    <div>
+      <span class="font-semibold text-slate-200">Panel 1 · Real-User Impact:</span>
+      <span class="ml-1.5 font-mono font-medium {% if browser_punitive_count > 0 %}text-amber-400{% else %}text-emerald-400{% endif %}">
+        {% if browser_total_count < 30 %}
+          <span class="text-slate-400 italic">insufficient browser-classified sample ({{ browser_total_count }}/30 min)</span>
+          <span class="text-slate-500 font-normal"> · {{ browser_punitive_count }} punitive of {{ browser_total_count }} corpus-browser connections</span>
+        {% else %}
+          <strong>{{ browser_punitive_count }}</strong> punitive of <strong>{{ browser_total_count }}</strong> corpus-browser connections
+          <span class="text-slate-400 font-normal">({{ ((browser_punitive_count / browser_total_count) * 100) | round(1) }}%)</span>
+        {% endif %}
+      </span>
+    </div>
+    <div class="text-[11px] text-slate-400 flex items-center gap-2">
+      <span>corpus: <strong class="text-slate-300">{{ corpus_size }}</strong> fingerprints (updated {{ corpus_mtime }})</span>
+      <span>·</span>
+      <span>dial: <strong class="text-slate-300">{{ dial }}</strong>
+        {% if dial == 0 %}
+          <span class="text-slate-500 italic" title="At dial=0 only dial-independent hard blocks are reachable; low punitive count does not prove zero impact.">(hard blocks only)</span>
+        {% endif %}
+      </span>
+    </div>
+  </div>
+
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
     <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">

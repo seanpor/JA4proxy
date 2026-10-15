@@ -54,6 +54,16 @@
     </button>
   </div>
 
+  <!-- ── Alerts Bar: Firing Prometheus Alerts (15s poll, Phase 821b) ──── -->
+  <section aria-label="Firing Prometheus Alerts">
+    <div id="alerts-bar-outer"
+         hx-get="/api/v1/partials/alerts-bar"
+         hx-trigger="load"
+         hx-swap="outerHTML">
+      <div class="bg-slate-800 border border-slate-700 rounded-xl p-3 animate-pulse h-10"></div>
+    </div>
+  </section>
+
   <!-- ── Row 1: Health cards (polled every 10s via HTMX) ──────────── -->
   <section aria-label="System health">
     <div id="health-cards"
@@ -94,13 +104,54 @@
     </div>
   </section>
 
-  <!-- ── Row 3b: Panel 4 Reliability & Integrity (10s poll, Phase 821a) ─ -->
-  <section aria-label="Operational reliability and metric integrity">
+  <!-- ── Console Telemetry Panels (Phase 821a & 821b) ───────────── -->
+  <!-- Panel 1: Harm to Real Users (10s poll) -->
+  <section aria-label="Panel 1 Real-User Impact">
+    <div id="panel1-harm-outer"
+         hx-get="/api/v1/partials/panel1-harm"
+         hx-trigger="load"
+         hx-swap="outerHTML">
+      <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 animate-pulse h-28"></div>
+    </div>
+  </section>
+
+  <!-- Panel 2: Decisions & Fleet Enforcement (10s poll) -->
+  <section aria-label="Panel 2 Decisions and Enforcement">
+    <div id="panel2-decisions-outer"
+         hx-get="/api/v1/partials/panel2-decisions"
+         hx-trigger="load"
+         hx-swap="outerHTML">
+      <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 animate-pulse h-28"></div>
+    </div>
+  </section>
+
+  <!-- Panel 3: Liveness & Performance (10s poll) -->
+  <section aria-label="Panel 3 Liveness and Pipeline Performance">
+    <div id="panel3-liveness-outer"
+         hx-get="/api/v1/partials/panel3-liveness"
+         hx-trigger="load"
+         hx-swap="outerHTML">
+      <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 animate-pulse h-28"></div>
+    </div>
+  </section>
+
+  <!-- Panel 4: Reliability & Integrity (10s poll, Phase 821a) -->
+  <section aria-label="Panel 4 Operational reliability and metric integrity">
     <div id="panel4-reliability-outer"
          hx-get="/api/v1/partials/panel4-reliability"
          hx-trigger="load"
          hx-swap="outerHTML">
       <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 animate-pulse h-32"></div>
+    </div>
+  </section>
+
+  <!-- Panel 5: Audit & Changes (10s poll) -->
+  <section aria-label="Panel 5 Configuration and Policy Changes">
+    <div id="panel5-changes-outer"
+         hx-get="/api/v1/partials/panel5-changes"
+         hx-trigger="load"
+         hx-swap="outerHTML">
+      <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 animate-pulse h-28"></div>
     </div>
   </section>
 

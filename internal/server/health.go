@@ -10,9 +10,19 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/seanpor/ja4proxy/internal/health"
+	"github.com/seanpor/ja4proxy/internal/metrics"
 )
 
 func (s *Server) HandleHealth(w http.ResponseWriter, r *http.Request) {
+	defer func() {
+		if rec := recover(); rec != nil {
+			metrics.HealthCheckPanicsTotal.Inc()
+			if s.Log != nil {
+				s.Log.WithField("panic", rec).Error("health check recovered from panic")
+			}
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+		}
+	}()
 	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
 	defer cancel()
 	redisStatus := "ok"
@@ -35,6 +45,15 @@ func (s *Server) HandleHealth(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) HandleHealthDeep(w http.ResponseWriter, r *http.Request) {
+	defer func() {
+		if rec := recover(); rec != nil {
+			metrics.HealthCheckPanicsTotal.Inc()
+			if s.Log != nil {
+				s.Log.WithField("panic", rec).Error("health deep recovered from panic")
+			}
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+		}
+	}()
 	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
 	defer cancel()
 

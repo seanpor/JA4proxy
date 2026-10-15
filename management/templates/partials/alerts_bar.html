@@ -1,0 +1,60 @@
+<!--
+  HTMX Partial: alerts_bar.html
+  GET /api/v1/partials/alerts-bar
+  Polled every 15s.
+  Phase 821b: Firing Alerts Bar (active Prometheus alerts without expr disclosure)
+-->
+<div id="alerts-bar"
+     hx-get="/api/v1/partials/alerts-bar"
+     hx-trigger="every 15s"
+     hx-swap="outerHTML">
+  {% if status == 'unavailable' %}
+    <div class="bg-amber-950/40 border border-amber-800/60 rounded-xl px-4 py-2.5 flex items-center justify-between text-xs text-amber-300">
+      <div class="flex items-center gap-2">
+        <span class="text-amber-400 font-bold">⚠ Alerts Monitoring Degraded:</span>
+        <span>Prometheus alerts endpoint unreachable ({{ reason }})</span>
+      </div>
+      <span class="text-[10px] text-amber-500 font-mono uppercase tracking-wider">Telemetry Warning</span>
+    </div>
+  {% elif alerts %}
+    <div class="bg-red-950/50 border border-red-800/70 rounded-xl p-3.5 space-y-2">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping"></span>
+          <span class="text-xs font-bold text-red-200 uppercase tracking-wide">
+            {{ alerts | length }} Prometheus Alert{% if alerts | length > 1 %}s{% endif %} Firing
+          </span>
+        </div>
+        <span class="text-[10px] text-red-400 font-mono">Auto-refreshes every 15s</span>
+      </div>
+      <div class="space-y-1.5">
+        {% for a in alerts %}
+          <div class="bg-red-900/30 border border-red-700/40 rounded px-2.5 py-1.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-xs">
+            <div class="flex items-center gap-2">
+              <span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase
+                     {% if a.severity == 'critical' %}bg-red-600 text-white{% else %}bg-amber-600 text-white{% endif %}">
+                {{ a.severity }}
+              </span>
+              <strong class="text-slate-100 font-mono">{{ a.alertname }}</strong>
+              <span class="text-slate-300">{{ a.summary }}</span>
+            </div>
+            {% if a.active_at %}
+              <div class="text-[10px] text-slate-400 font-mono shrink-0">
+                Active since: {{ a.active_at[:19] | replace('T', ' ') }}
+              </div>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  {% else %}
+    <div class="bg-slate-800/80 border border-slate-700/80 rounded-xl px-4 py-2 flex items-center justify-between text-xs text-slate-400">
+      <div class="flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+        <span class="text-slate-300 font-medium">Prometheus Alerting:</span>
+        <span>All systems nominal · Zero active firing alerts</span>
+      </div>
+      <span class="text-[10px] text-slate-500 font-mono">15s poll</span>
+    </div>
+  {% endif %}
+</div>

@@ -7,7 +7,7 @@
 
 ## 1. Management API Endpoints Matrix
 
-Total Endpoints Discovered: **107**
+Total Endpoints Discovered: **112**
 
 | Method | Path | Function | Required Role | Summary |
 | :--- | :--- | :--- | :--- | :--- |
@@ -60,6 +60,7 @@ Total Endpoints Discovered: **107**
 | `GET` | `/api/v1/metrics/summary` | `metrics_summary` | `auditor` | Return an operational metrics snapshot. |
 | `GET` | `/api/v1/nodes` | `get_nodes` | `auditor` | Return all live proxy nodes detected via heartbeat keys. |
 | `POST` | `/api/v1/nodes/{host}/reload` | `reload_node` | `admin` | Publish a reload signal to the named proxy host. |
+| `GET` | `/api/v1/partials/alerts-bar` | `alerts_bar_partial` | `public` | Return the active Prometheus alerts banner/bar as an HTML fragment. |
 | `GET` | `/api/v1/partials/attack-fingerprint-table` | `attack_fingerprint_table_partial` | `public` | Return the attack fingerprint table as an HTML fragment for HTMX polling. |
 | `GET` | `/api/v1/partials/attack-mode-indicator` | `attack_mode_indicator` | `auditor` | Return a red dot HTML span when attack mode is active, empty string otherwise. |
 | `GET` | `/api/v1/partials/attack-table` | `attack_table_partial` | `public` | Return the top-attackers table as an HTML fragment (polled every 5s). |
@@ -72,7 +73,11 @@ Total Endpoints Discovered: **107**
 | `GET` | `/api/v1/partials/intelligence` | `intelligence_partial` | `public` | Return the analytics intelligence row as an HTML fragment. |
 | `GET` | `/api/v1/partials/intelligence-review` | `intelligence_review_partial` | `public` | Return the intelligence review content as an HTML fragment. |
 | `GET` | `/api/v1/partials/list-table` | `list_table_partial` | `public` | Return a list entries table as an HTML fragment. |
+| `GET` | `/api/v1/partials/panel1-harm` | `panel1_harm_partial` | `public` | Return Panel 1 ('Is it hurting real users?') as an HTML fragment. |
+| `GET` | `/api/v1/partials/panel2-decisions` | `panel2_decisions_partial` | `public` | Return Panel 2 ('What is it deciding?') as an HTML fragment. |
+| `GET` | `/api/v1/partials/panel3-liveness` | `panel3_liveness_partial` | `public` | Return Panel 3 ('Is it alive and keeping up?') as an HTML fragment. |
 | `GET` | `/api/v1/partials/panel4-reliability` | `panel4_reliability_partial` | `public` | Return Panel 4 ('Can I trust what it's telling me?') as an HTML fragment. |
+| `GET` | `/api/v1/partials/panel5-changes` | `panel5_changes_partial` | `public` | Return Panel 5 ('What changed?') as an HTML fragment. |
 | `GET` | `/api/v1/partials/situation` | `situation_partial` | `public` | Return the threat posture situation bar as an HTML fragment (polled every 10s). |
 | `GET` | `/api/v1/partials/threat-posture` | `threat_posture_partial` | `public` | Return the Threat Posture row as an HTML fragment. |
 | `GET` | `/api/v1/partials/triage-queue` | `triage_queue_partial` | `public` | Return the Triage Queue as an HTML fragment. |

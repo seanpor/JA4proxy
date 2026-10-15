@@ -1,0 +1,4 @@
+- feat(console): implement remaining Prometheus telemetry panels (Panels 1, 2, 3, 5) and firing alerts bar (Phase 821b).
+- feat(server): restore pipeline metrics emission (connections total, pipeline duration, risk score, bypass total) in HandleConn.
+- feat(monitoring): wire panic recovery in HTTP health check handlers and instrument config reload failures.
+- test(regression): add regression tests for browser harm floor suppression, alert sanitization, and Go source emission site validation.

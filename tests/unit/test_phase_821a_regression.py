@@ -39,7 +39,7 @@ _METRIC_OPTS_RE = re.compile(
     r'(?:CounterOpts|GaugeOpts|HistogramOpts|SummaryOpts)\s*\{\s*Name:\s*"([^"]+)"'
 )
 _VEC_LABELS_RE = re.compile(
-    r'New(?:Counter|Gauge|Histogram|Summary)Vec\s*\(\s*(?:prometheus\.)?(?:Counter|Gauge|Histogram|Summary)Opts\s*\{\s*Name:\s*"([^"]+)"[^}]*\}\s*,\s*\[\]string\{([^}]+)\}',
+    r'New(?:Counter|Gauge|Histogram|Summary)Vec\s*\(\s*(?:prometheus\.)?(?:Counter|Gauge|Histogram|Summary)Opts\s*\{\s*Name:\s*"([^"]+)"[^}]*\}\s*,\s*(?://[^\n]*\n\s*)*\[\]string\{([^}]+)\}',
     re.DOTALL,
 )
 
@@ -146,6 +146,11 @@ def test_catalogue_metrics_and_labels_resolve_in_go():
             )
             assert base_name in emitted_metrics, (
                 f"Tile {tile_id} references metric {base_name} which has no emission sites outside internal/metrics/"
+            )
+
+        if "histogram_quantile" in tile.expr:
+            assert "sum by (le)" in tile.expr or "sum by(le)" in tile.expr, (
+                f"Tile {tile_id} uses histogram_quantile without fleet-wide aggregation 'sum by (le)': {tile.expr}"
             )
 
         # Check label names if selectors exist

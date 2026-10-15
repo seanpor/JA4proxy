@@ -1,0 +1,97 @@
+<!--
+  HTMX Partial: panel5_changes.html
+  GET /api/v1/partials/panel5-changes
+  Polled every 10s.
+  Phase 821b: Panel 5 ("What changed?")
+-->
+<div id="panel5-changes"
+     hx-get="/api/v1/partials/panel5-changes"
+     hx-trigger="every 10s"
+     hx-swap="outerHTML"
+     class="bg-slate-800 border border-slate-700 rounded-xl p-4 space-y-4">
+
+  <div class="flex items-center justify-between border-b border-slate-700/60 pb-2">
+    <div class="flex items-center gap-2">
+      <span class="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.6)]"></span>
+      <h2 class="text-sm font-semibold text-slate-100">Panel 5: Audit & Configuration Changes</h2>
+    </div>
+    <div class="flex items-center gap-3">
+      <span class="text-[11px] text-slate-400 font-mono">Target: {{ scrape_target }}</span>
+      <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-slate-700 text-slate-300">
+        10s Scrape TTL
+      </span>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    {% for tid, item in tiles.items() %}
+    {% set tile = item.tile %}
+    {% set status = item.status %}
+    {% set val = item.value %}
+    <div class="bg-slate-900/60 border border-slate-700/70 rounded-lg p-3 flex flex-col justify-between space-y-2">
+      <div>
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-medium text-slate-300">{{ tile.title }}</span>
+          {% if status == 'unavailable' %}
+            <span class="text-[10px] font-bold text-red-400 bg-red-950/60 px-1.5 py-0.5 rounded border border-red-800/40">
+              UNAVAILABLE
+            </span>
+          {% elif status == 'empty' or (val is not none and val == 0) %}
+            <span class="text-[10px] font-bold text-emerald-400 bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-800/40">
+              OK (0)
+            </span>
+          {% else %}
+            <span class="text-[10px] font-bold text-amber-400 bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-800/40">
+              LIVE
+            </span>
+          {% endif %}
+        </div>
+        <p class="text-[11px] text-slate-400 mt-1 leading-snug">{{ tile.means }}</p>
+      </div>
+
+      <div class="pt-2 border-t border-slate-800 flex items-baseline justify-between">
+        <div>
+          {% if status == 'unavailable' %}
+            <div class="text-xs font-mono text-amber-400">
+              {{ item.reason or "Prometheus unreachable" }}
+            </div>
+            {% if item.last_ok_at %}
+              <div class="text-[10px] text-slate-500 font-mono">Last ok: {{ item.last_ok_at | round(1) }}s</div>
+            {% endif %}
+          {% else %}
+            <div class="text-lg font-mono font-bold {% if val and val > 0 %}text-amber-300{% else %}text-slate-100{% endif %}">
+              {{ val | round(3) if val is number else val }}
+              {% if tile.unit %}<span class="text-xs font-normal text-slate-400 ml-0.5">{{ tile.unit }}</span>{% endif %}
+            </div>
+          {% endif %}
+        </div>
+        <div class="text-[10px] text-slate-500 text-right max-w-[140px] truncate" title="{{ tile.when_red }}">
+          ⚠ {{ tile.when_red }}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Recent Dial Changes (Authoritative Redis Audit Stream) -->
+  <div class="mt-4 pt-3 border-t border-slate-700/60">
+    <h3 class="text-xs font-semibold text-slate-300 mb-2">Recent Dial History (Authoritative Redis Audit)</h3>
+    {% if dial_changes %}
+      <div class="space-y-1.5">
+        {% for entry in dial_changes %}
+          <div class="text-[11px] font-mono text-slate-300 bg-slate-900/40 px-2.5 py-1.5 rounded border border-slate-800 flex items-center justify-between">
+            <div>
+              <span class="text-amber-400 font-bold">{{ entry.action | upper }}</span>
+              <span class="text-slate-400 ml-2">{{ entry.detail or entry.reason or '' }}</span>
+            </div>
+            <div class="text-slate-500 text-[10px]">
+              {{ entry.user or 'system' }} · {{ entry.timestamp or '' }}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="text-xs text-slate-500 italic">No recent dial changes recorded in policy audit stream.</div>
+    {% endif %}
+  </div>
+</div>
