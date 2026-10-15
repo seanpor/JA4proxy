@@ -4812,8 +4812,8 @@ phases:
 
   821b:
     name: "Console panels — the remaining Prometheus tiles"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_821b.md
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_821b.md
     dependencies: [821a]
     size: MEDIUM
     summary: "PROPOSED 2026-08-15, rewritten after a second expert review that

@@ -174,6 +174,74 @@ class PrometheusClient:
             PROMETHEUS_QUERIES.labels(result="error").inc()
             return Unavailable(reason=str(exc))
 
+    async def get_alerts(self) -> QueryResult:
+        """Fetch firing alerts from /api/v1/alerts.
+        Returns sanitized alerts list containing only alertname, state, activeAt, summary.
+        Does not expose query expressions (expr).
+        """
+        now = time.time()
+        cache_key = "__alerts__"
+        if cache_key in self._cache:
+            result, cached_at = self._cache[cache_key]
+            if now - cached_at < self.ttl:
+                return result
+
+        if cache_key in self._inflight:
+            return await self._inflight[cache_key]
+
+        loop = asyncio.get_running_loop()
+        future: asyncio.Future[QueryResult] = loop.create_future()
+        self._inflight[cache_key] = future
+
+        try:
+            url = f"{self.base_url}/api/v1/alerts"
+            async with httpx.AsyncClient(timeout=self.timeout, follow_redirects=False) as client:
+                resp = await client.get(url)
+                if resp.status_code != 200:
+                    PROMETHEUS_QUERIES.labels(result="error").inc()
+                    res = Unavailable(reason=f"HTTP {resp.status_code}")
+                else:
+                    data = resp.json()
+                    if data.get("status") != "success":
+                        PROMETHEUS_QUERIES.labels(result="error").inc()
+                        res = Unavailable(reason=data.get("error", "alerts query failed"))
+                    else:
+                        alerts_raw = data.get("data", {}).get("alerts", [])
+                        sanitized = []
+                        for a in alerts_raw:
+                            labels = a.get("labels", {})
+                            annotations = a.get("annotations", {})
+                            sanitized.append({
+                                "alertname": labels.get("alertname", "UnknownAlert"),
+                                "state": a.get("state", "unknown"),
+                                "active_at": a.get("activeAt", ""),
+                                "summary": annotations.get("summary", ""),
+                                "severity": labels.get("severity", "unknown"),
+                            })
+                        PROMETHEUS_QUERIES.labels(result="ok").inc()
+                        res = Ok(value=sanitized, fetched_at=now)
+
+            if isinstance(res, Ok):
+                self._last_ok_at[cache_key] = res.fetched_at
+            elif isinstance(res, Unavailable) and cache_key in self._last_ok_at:
+                res = Unavailable(reason=res.reason, last_ok_at=self._last_ok_at[cache_key])
+
+            self._cache[cache_key] = (res, time.time())
+            future.set_result(res)
+            return res
+        except httpx.TimeoutException:
+            PROMETHEUS_QUERIES.labels(result="timeout").inc()
+            err_res = Unavailable(reason="alerts query timeout", last_ok_at=self._last_ok_at.get(cache_key))
+            future.set_result(err_res)
+            return err_res
+        except Exception as exc:  # noqa: BLE001
+            PROMETHEUS_QUERIES.labels(result="error").inc()
+            err_res = Unavailable(reason=str(exc), last_ok_at=self._last_ok_at.get(cache_key))
+            future.set_result(err_res)
+            return err_res
+        finally:
+            self._inflight.pop(cache_key, None)
+
 
 # Default singleton client
 _DEFAULT_CLIENT: Optional[PrometheusClient] = None
@@ -184,3 +252,4 @@ def get_prometheus_client() -> PrometheusClient:
     if _DEFAULT_CLIENT is None:
         _DEFAULT_CLIENT = PrometheusClient()
     return _DEFAULT_CLIENT
+

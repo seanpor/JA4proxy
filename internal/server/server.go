@@ -511,7 +511,16 @@ func (s *Server) HandleConn(ctx context.Context, clientConn net.Conn) {
 	returnedBuf = true
 	atomic.AddInt64(&s.BuffersReturnedEarly, 1)
 
+	startPipeline := time.Now()
 	result := s.Pipeline.Process(ctx, connCtx)
+	metrics.PipelineDurationSeconds.Observe(time.Since(startPipeline).Seconds())
+
+	metrics.ConnectionsTotal.WithLabelValues(result.Action).Inc()
+	metrics.RiskScore.Observe(float64(result.Score))
+	if result.Bypassed {
+		metrics.BypassTotal.WithLabelValues(result.BypassReason).Inc()
+	}
+
 	if s.Log != nil {
 		s.Log.WithFields(logrus.Fields{
 			"client_ip":   connCtx.ClientIP,
@@ -566,6 +575,7 @@ func (s *Server) Reload() error {
 	}
 	newCfg, err := config.Load(cfgPath)
 	if err != nil {
+		metrics.ConfigReloadFailuresTotal.Inc()
 		return err
 	}
 	pipelineCfg := BuildPipelineConfig(newCfg)

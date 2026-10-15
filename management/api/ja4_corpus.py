@@ -62,3 +62,14 @@ def browser_label(ja4: str) -> str:
 def corpus_size() -> int:
     """Return the number of entries in the corpus (for diagnostics)."""
     return len(_CORPUS)
+
+
+def corpus_mtime() -> str:
+    """Return the last modified date of the corpus file (YYYY-MM-DD)."""
+    try:
+        from datetime import datetime, timezone
+        mtime = _CORPUS_PATH.stat().st_mtime
+        return datetime.fromtimestamp(mtime, tz=timezone.utc).strftime("%Y-%m-%d")
+    except Exception:
+        return "unknown"
+

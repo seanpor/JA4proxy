@@ -265,6 +265,86 @@ async def test_panel4_reliability_partial_unauthenticated(test_client: AsyncClie
     assert response.status_code == 401
 
 
+@pytest.mark.asyncio
+async def test_panel1_harm_partial_authenticated(authenticated_client: AsyncClient) -> None:
+    """GET /api/v1/partials/panel1-harm returns 200 with HTML when authenticated."""
+    response = await authenticated_client.get("/api/v1/partials/panel1-harm")
+    assert response.status_code == 200
+    assert _is_html(response)
+    assert "Panel 1" in response.text
+
+
+@pytest.mark.asyncio
+async def test_panel1_harm_partial_unauthenticated(test_client: AsyncClient) -> None:
+    """GET /api/v1/partials/panel1-harm without auth returns 401."""
+    response = await test_client.get("/api/v1/partials/panel1-harm")
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_panel2_decisions_partial_authenticated(authenticated_client: AsyncClient) -> None:
+    """GET /api/v1/partials/panel2-decisions returns 200 with HTML when authenticated."""
+    response = await authenticated_client.get("/api/v1/partials/panel2-decisions")
+    assert response.status_code == 200
+    assert _is_html(response)
+    assert "Panel 2" in response.text
+
+
+@pytest.mark.asyncio
+async def test_panel2_decisions_partial_unauthenticated(test_client: AsyncClient) -> None:
+    """GET /api/v1/partials/panel2-decisions without auth returns 401."""
+    response = await test_client.get("/api/v1/partials/panel2-decisions")
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_panel3_liveness_partial_authenticated(authenticated_client: AsyncClient) -> None:
+    """GET /api/v1/partials/panel3-liveness returns 200 with HTML when authenticated."""
+    response = await authenticated_client.get("/api/v1/partials/panel3-liveness")
+    assert response.status_code == 200
+    assert _is_html(response)
+    assert "Panel 3" in response.text
+
+
+@pytest.mark.asyncio
+async def test_panel3_liveness_partial_unauthenticated(test_client: AsyncClient) -> None:
+    """GET /api/v1/partials/panel3-liveness without auth returns 401."""
+    response = await test_client.get("/api/v1/partials/panel3-liveness")
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_panel5_changes_partial_authenticated(authenticated_client: AsyncClient) -> None:
+    """GET /api/v1/partials/panel5-changes returns 200 with HTML when authenticated."""
+    response = await authenticated_client.get("/api/v1/partials/panel5-changes")
+    assert response.status_code == 200
+    assert _is_html(response)
+    assert "Panel 5" in response.text
+
+
+@pytest.mark.asyncio
+async def test_panel5_changes_partial_unauthenticated(test_client: AsyncClient) -> None:
+    """GET /api/v1/partials/panel5-changes without auth returns 401."""
+    response = await test_client.get("/api/v1/partials/panel5-changes")
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_alerts_bar_partial_authenticated(authenticated_client: AsyncClient) -> None:
+    """GET /api/v1/partials/alerts-bar returns 200 with HTML when authenticated."""
+    response = await authenticated_client.get("/api/v1/partials/alerts-bar")
+    assert response.status_code == 200
+    assert _is_html(response)
+
+
+@pytest.mark.asyncio
+async def test_alerts_bar_partial_unauthenticated(test_client: AsyncClient) -> None:
+    """GET /api/v1/partials/alerts-bar without auth returns 401."""
+    response = await test_client.get("/api/v1/partials/alerts-bar")
+    assert response.status_code == 401
+
+
+
 
 def test_no_template_links_to_a_route_that_does_not_exist() -> None:
     """Every internal href must resolve to a route the app declares.
