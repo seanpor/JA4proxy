@@ -44,4 +44,22 @@ rationale.
 
 ## Active exceptions
 
-_None as of phase 61._
+## CVE-2026-59951
+- **Severity**: HIGH (CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H)
+- **Component**: `mcp` 1.29.0 (transitive dependency of `semgrep`, not imported by any JA4proxy code)
+- **Accepted by**: phase-824c
+- **Date accepted**: 2026-10-16
+- **Expiry**: 2027-01-14  (90 days)
+- **Upstream tracker**: https://github.com/advisories/GHSA-84m7-p3x7-pcfv
+- **Reason no upgrade fix is possible**: `semgrep` hard-pins `mcp==1.29.0`, and the
+  latest semgrep release (1.181.0) still does; `mcp` 1.30.0 is the fix. Bumping
+  `mcp` independently would break semgrep's resolution, so there is no safe
+  resolution today. This mirrors the existing `click`/PYSEC-2026-2132 exception.
+- **Rationale**: The vulnerability is unbounded session accumulation in MCP's
+  **StreamableHTTP server transport** — it requires running an MCP *server* over
+  streamable HTTP. JA4proxy never does: `mcp` is pulled in only by `semgrep` (a
+  CLI scanner), no first-party module imports it, and no MCP server is exposed.
+  The vulnerable code path is therefore unreachable in this deployment.
+- **Re-evaluation trigger**: a semgrep release that pins `mcp>=1.30.0` (then
+  upgrade semgrep and drop this exception), or any first-party use of `mcp`.
+
