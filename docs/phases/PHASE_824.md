@@ -33,46 +33,60 @@ piece is independently reviewable and small enough to hand to a junior engineer.
 | Sub-phase | Deliverable | Size | Deps |
 |---|---|---|---|
 | **824a** | Journey catalogue in `docs/reference/CUSTOMER_JOURNEYS.md` | SMALL | — |
-| **824b** | Route-contract tests for the 8 uncovered partials | SMALL | — |
-| **824c** | T1 gate: every template `hx-*` target resolves; refresh `check_console_journey.sh` | MEDIUM | 824b |
+| **824b** | Per-partial auth enforcement + panel landmarks | SMALL | 824c |
+| **824c** | Fix the Tier-1 extractor hole; static forward/reverse/mutating target gate; refresh `check_console_journey.sh` | SMALL–MEDIUM | — |
 | **824d** | `/api/v1/health/ui` four-state endpoint + tests | MEDIUM | 824c |
 | **824e** | T2 journey scripts J1/J2/J4/J8 + `make test-journeys TIER=` | MEDIUM | 824a |
 | **824f** | CI tiering + branch protection wiring | SMALL | 824d, 824e |
 
-824a, 824b and 824c have no shared code, so they can be worked in parallel.
-824d needs 824c (it reuses the extraction list). 824e needs 824a (the catalogue
-names the assertions). 824f is last — it is the only sub-phase that touches
-`main`'s branch protection.
+**824c is the foundation and lands first.** It repairs the extractor hole in the
+existing Tier 1 gate, and 824b imports its `hx_targets` helper — so the edge runs
+824c → 824b, not the other way round. 824d reuses 824c's target list. 824e needs
+only 824a and can proceed in parallel with 824b–824d. 824f is last — it is the
+only sub-phase that touches `main`'s branch protection.
 
 ---
 
-## The gap, measured (corrected 2026-10-15)
+## The gap, measured (corrected 2026-10-16)
 
-The previous single-file plan said *"20 distinct `hx-get` route targets … 7 have
-dedicated route assertions … 13 lack"*. All three numbers were wrong, and they
-were the plan's whole justification. The measured numbers:
+Two successive versions of this table were wrong in different ways, and each was
+the plan's whole justification. Re-derive it from the tree; do not trust a
+snapshot.
 
-- **21 `hx-get` targets** appear across `management/templates/**`: **20** under
-  `/api/v1/partials/*` plus the `/api/v1/tls-health` page route.
-- **13 targets already have a dedicated route test** that GETs the exact path
-  (12 partials + `tls-health`).
-- **8 partials have no dedicated route test** — this is the real gap.
+- **20 `hx-get` partial targets** appear across `management/templates/**`, plus
+  `/api/v1/tls-health` = **21**.
+- **`management/tests/test_ui_regression.py` (Phase 826) already covers 18 of the
+  20 partials** — and `tls-health` — with an authenticated GET that fails on a
+  404. Tier 1 is parametrised over URLs extracted from the templates, so it is
+  self-maintaining.
+- **Exactly 2 partials were invisible to it**: `attack-top` and
+  `attack-fingerprint-table`. Not because they lacked a test, but because the
+  extractor's regex (`hx-get=["']([^"'{}]+)["']`) **drops any URL containing a
+  Jinja brace**, and those two are brace-only:
+  `hx-get="/api/v1/partials/attack-top{% if attack_mode_active %}…{% endif %}"`.
+  Fixing that regex is 824c's first job.
+- The earlier "13 tested / 8 untested" table was wrong because it counted only
+  tests that name a route **literally**. Tier 1 builds its URLs from `_hx_urls()`,
+  so grepping for the string `/api/v1/partials/health-cards` finds nothing even
+  though the route is requested on every run. 824b's original "add 16 tests for 8
+  uncovered partials" was duplicate work and has been replaced.
 
 | Status | Targets |
 |---|---|
-| Tested | `alerts-bar`, `bans`, `infrastructure`, `list-table`, `panel1-harm`, `panel2-decisions`, `panel3-liveness`, `panel4-reliability`, `panel5-changes`, `situation`, `threat-posture`, `triage-queue`, `tls-health` |
-| **Untested** | `attack-fingerprint-table`, `attack-mode-indicator`, `attack-top`, `audit`, `dial`, `health-cards`, `intelligence`, `intelligence-review` |
+| Covered by Tier 1 (live authenticated GET) | 18 partials + `tls-health` |
+| **Invisible to Tier 1 (extractor drops braces)** | `attack-top`, `attack-fingerprint-table` |
+| No per-partial auth assertion in `make test` | 14 partials — only `panel1-harm`…`panel5-changes` + `alerts-bar` have one |
 
-The earlier claim that Phase 821b *widened* the gap is backwards: 821b added
-authenticated + unauthenticated route tests for `panel1-harm`, `panel2-decisions`,
-`panel3-liveness`, `panel5-changes` and `alerts-bar` in the same commit that
-added the panels (`b1e5aa14`, `management/tests/test_pages.py:252-341`).
+The earlier claim that Phase 821b *widened* the gap is backwards: 821b *added*
+authenticated + unauthenticated tests for the panels it added (`b1e5aa14`,
+`management/tests/test_pages.py:252-341`).
 
-Re-derive this table from the tree — do not trust the snapshot:
+Re-derive the target list from the tree — and remember that grepping for a route
+name will **not** find the parametrised Tier 1 cases:
 
 ```bash
-grep -rhoE 'hx-get="[^"]*"' management/templates/ \
-  | sed -E 's/hx-get="//; s/"$//; s/\?.*//; s/\{%.*//' | sort -u
+# every hx-* target, with its method — the authoritative re-derivation
+grep -rhoE 'hx-(get|post|put|patch|delete)="[^"]*"' management/templates/ | sort -u
 ```
 
 Two structural facts still hold:
@@ -82,8 +96,9 @@ Two structural facts still hold:
   renders, but the shell renders **identically** when every partial behind it is
   broken — htmx fetches them after page load.
 - `attack-mode-indicator` is registered in `management/api/routes/attack_mode.py`
-  and `tls-health` in `management/api/routes/tls_health.py`, not in
-  `partials.py`, so a router refactor can blank them with nothing to catch it.
+  and `tls-health` in `management/api/routes/tls_health.py`, not in `partials.py`.
+  Tier 1 catches a rename of either (both have brace-free `hx-get`s), and 824c's
+  static gate catches the same rename by method as well as path.
 
 **Mutating targets must never be probed** (they change bans, dials, audit and
 triage state). The full set, extracted from the templates:
@@ -152,11 +167,14 @@ These apply to every sub-phase. They are here so they are written once.
   required job must be added to that script in the same change, or the test
   fails. Only the cheap checks should be required; a flaky required check stalls
   every merge.
-- **Phase 826 already landed and mentions Phase 824.** `826` was recorded as
-  `dependencies: [824]` while 824 was still PROPOSED — an inversion. The edge was
-  removed in this restructure; 826's actual subject (the Intelligence pipeline)
-  is now covered by 824e's journeys, so the dependency runs 824 → 826, not the
-  other way round.
+- **Phase 826 also landed the UI regression gate this umbrella assumed it had to
+  build.** `management/tests/test_ui_regression.py` implements Tier 1 (every
+  `hx-get` URL resolves, live and authenticated), Tier 2 (a 200 that renders an
+  error state still fails) and Tier 3 (fingerprint drill-down content). 824c is an
+  **extension** of that file — it fixes the extractor's brace hole and adds the
+  mutating/reverse checks — not a new gate. Check the tree for an existing guard
+  before writing a new one; the original plan and its first correction both
+  missed this file.
 - **The journeys are documented once**, in
   `docs/reference/CUSTOMER_JOURNEYS.md` (824a). Phase docs reference it; they do
   not restate it.

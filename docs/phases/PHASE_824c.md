@@ -1,119 +1,226 @@
 <!--
 title: Template_Route_Target_Gate
 audience: developer
-last_reviewed: 2026-10-15
+last_reviewed: 2026-10-16
 phase: 824c
 -->
 
 # Phase 824c — Template Route Target Gate
 
 > **Status:** PROPOSED
-> **Size:** MEDIUM
-> **Dependencies:** Phase 824b
+> **Size:** SMALL–MEDIUM
+> **Dependencies:** none
+> **Branch:** `phase-824c-template-route-gate`
 > **Part of:** Phase 824 (umbrella) — see `docs/phases/PHASE_824.md`
 
 ---
 
 ## Goal
 
-Make the route contract **self-maintaining**: extract every `hx-*` target from
-the templates and assert it resolves to a registered route. Adding a panel to a
-template then adds its own coverage, with no hand-maintained list to forget.
+Close the **last** route-coverage hole in the console and add the two target
+checks that no test performs today.
 
-This is the cheapest check with the highest yield: it catches the class of bug
-where a router refactor blanks a panel and nothing notices.
+This phase was originally written as "build a self-maintaining gate". A review on
+2026-10-16 found that gate **already exists** — `management/tests/test_ui_regression.py`
+(Phase 826) parametrises Tier 1 over every `hx-get` URL it extracts from the
+templates, so a renamed partial already fails CI. Building a second gate would be
+duplicate work.
+
+What that gate does **not** do, and this phase adds:
+
+1. It **silently drops** any `hx-get` whose URL contains a Jinja brace — its regex
+   is `hx-get=["']([^"'{}]+)["']`. Exactly two template URLs are brace-only, so
+   exactly two partials are invisible to it: `attack-top` and
+   `attack-fingerprint-table`. That is a real hole in an existing guard.
+2. It never checks **mutating** targets (`hx-post`/`hx-delete`) against the route
+   table.
+3. It never checks the **reverse** direction (a registered partial route that no
+   template references, which rots unseen).
 
 ---
 
 ## Scope
 
-**In:** a new test that scans `management/templates/**`; a refresh of the stale
-hardcoded partial list in `tests/integration/journeys/check_console_journey.sh`.
+**In:** a shared `hx-*` extractor; repairing `_hx_urls()` so Tier 1 sees the two
+dropped partials; a new static registration gate for forward + reverse + mutating
+targets; refreshing the stale partial list in
+`tests/integration/journeys/check_console_journey.sh`.
 
-**Out:** issuing live HTTP requests in the gate (that is 824b for the eight
-routes and 824e for journeys); the health endpoint (824d).
+**Out:** sending any request (that is the existing Tier 1 and Phase 824e);
+positive content assertions and per-partial auth enforcement (Phase 824b);
+`/api/v1/health/ui` (Phase 824d); the panels themselves.
 
 ---
 
-## 824c.1 Extract the targets
+## 824c.1 One extractor, shared
 
-Scan `management/templates/**/*.html` for `hx-get`, `hx-post`, `hx-put`,
-`hx-patch`, `hx-delete` attributes. The extractor must handle three things a
-naive regex gets wrong:
+Add `management/tests/hx_targets.py` exposing a single function used by both this
+gate and Tier 1:
 
-1. **Jinja in the URL.** `?window={{ window }}`, `?filter={{ key }}` and
-   `attack-top{% if attack_mode_active %}?attack_mode=true{% endif %}` are not
-   literal paths. Strip `{% ... %}` blocks, and for `{{ ... }}` substitute a
-   sample value from a small per-parameter fixture table.
-2. **JS-assembled URLs.** `management/templates/partials/threat_posture.html:258`
-   builds an `hx-get` in JavaScript and calls `setAttribute`. A static scan
-   cannot see it. Either (a) also scan `<script>` blocks and
-   `management/static/*.js` for `hx-get` strings, or (b) forbid JS-assembled
-   `hx-get` and change that widget to issue a plain htmx request. Pick one and
-   state it in the test docstring. (Option (a) is less invasive; today the JS URL
-   duplicates the static one, so a scan of the literal string in the script is
-   enough.)
-3. **Query strings do not affect route resolution.** Resolve on the path only;
-   keep the query only for the sample fixture.
+```python
+ATTR = re.compile(r"""hx-(get|post|put|patch|delete)=["']([^"']*)["']""")
+JINJA_TAG = re.compile(r"\{%.*?%\}", re.S)      # {% if ... %} / {% endif %}
+JINJA_EXPR = re.compile(r"\{\{.*?\}\}", re.S)   # {{ window }}
 
-Write the extractor as a small helper in the test file, and unit-test the helper
-against the three Jinja cases and the JS-assembled one.
+def hx_targets() -> list[tuple[str, str, str]]:
+    """(method, request_url, path) for every hx-* target in the templates."""
+    out = []
+    for tpl in TEMPLATES.rglob("*.html"):
+        for m in ATTR.finditer(tpl.read_text(encoding="utf-8")):
+            url = JINJA_EXPR.sub("sample", JINJA_TAG.sub("", m.group(2).strip()))
+            if url.startswith("/"):
+                out.append((m.group(1).upper(), url, url.split("?", 1)[0]))
+    return out
+```
 
-## 824c.2 Assert the forward direction
+Normalisation rules, and why each exists:
 
-For every extracted target:
+1. **Remove `{% ... %}` tags.** `attack-top{% if attack_mode_active %}?attack_mode=true{% endif %}`
+   becomes `attack-top?attack_mode=true`. Stripping only the tags (not the block
+   body) is correct and keeps the query.
+2. **Replace `{{ ... }}` with the sample token `sample`.** Handles `?window={{ window }}`
+   and `?filter={{ key }}`.
+3. **Keep the query in `request_url`; drop it for `path`.** Do not drop it from
+   `request_url` — `list-table` is `?list=`-driven and may not render without it.
+4. **Never match a URL containing `{` or `}` after normalisation.** If one
+   survives, the normaliser is incomplete; fail loudly rather than pass silently.
 
-- **`hx-get`** → a route matching the path with method `GET` **must** exist in
-  `app.routes`. Do not send a request; matching the routing table is enough and
-  is free.
-- **`hx-post` / `hx-put` / `hx-patch` / `hx-delete`** → a route matching the path
-  with the corresponding method **must** exist. **Never send a request to these.**
-  They change bans, dials, audit and triage state. The full mutating set is
-  listed in `docs/phases/PHASE_824.md`.
+Unit-test the normaliser against all four real cases plus the JS one in 824c.4.
 
-A target that matches no route fails the test with the template file and the
-target in the message.
+## 824c.2 Repair Tier 1 so it sees the two dropped partials
 
-## 824c.3 Assert the reverse direction
+Change `_hx_urls()` in `management/tests/test_ui_regression.py` to build its list
+from the shared extractor:
 
-Build the set of registered `GET` routes under `/api/v1/partials/`, subtract the
-set of template targets, and assert the remainder is empty — **except** for an
-explicit `ALLOWED_UNREFERENCED` set for deliberate aliases. Today that set
-contains one entry: `/api/v1/partials/attack-table`, which is a compatibility
-alias of `attack-top` registered as a second decorator
-(`management/api/routes/partials.py:1605-1606`).
+```python
+from .hx_targets import hx_targets
 
-This catches the opposite failure: a route nobody links to, which rots unseen.
+def _hx_urls() -> list[str]:
+    return sorted({url for method, url, _ in hx_targets() if method == "GET"})
+```
 
-## 824c.4 Exclude the UI health endpoint
+This is the whole fix for the hole — after it, `attack-top?attack_mode=true` and
+`attack-fingerprint-table?attack_mode=true` are requested by Tier 1 like every
+other panel. Verify both newly appear, and that the existing "guard the guard"
+test (`len(_hx_urls()) >= 5`) still passes and its count **rose** from 22.
 
-The extraction must exclude `/api/v1/health/ui` (added in 824d). It is polled by
-the console and would otherwise be probed recursively. Add it to the exclude set
-now, even though it does not exist yet, so 824d does not have to remember.
+## 824c.3 The static registration gate
 
-## 824c.5 Refresh the existing hand-rolled check
+New file `management/tests/test_template_route_targets.py`. It sends **no
+requests** — it matches the extracted target against the declared route table.
 
-`tests/integration/journeys/check_console_journey.sh` has a hardcoded partial
-list that predates Phase 821b and is stale — it omits `alerts-bar` and
-`panel1-harm`…`panel5-changes`. Update the list to be complete, and add a comment
-pointing at the new automated test as the authoritative coverage. Do not delete
-the script: it runs against a live stack and checks unauthenticated behaviour
-(401, no 5xx), which the static gate cannot.
+**Discover routes by parsing decorators, not by calling `create_app()`.** An
+existing test already learned this the hard way and documented it —
+`management/tests/test_pages.py:349` (`test_no_template_links_to_a_route_that_does_not_exist`):
+the app registers a different route set per environment, and a `create_app()`-based
+version *"passed on a dev host and failed in the CI container"*. Reuse that test's
+approach; do not reintroduce the flaky one.
+
+Capture the **method** so mutating targets can be checked, tolerate a multi-line
+decorator, and tolerate an `f` prefix:
+
+```python
+DECORATOR = re.compile(
+    r'@router\.(get|post|put|patch|delete)\(\s*f?[\'"]([^\'"]+)[\'"]'
+)
+```
+
+- **Forward.** For each `(method, _, path)`, assert some registered route matches
+  `path` **and** declares `method`. Match by **prefix** — strip each declared route
+  at its first `{` — exactly as `test_pages.py:375` does. This is required because
+  real routes are parameterised in ways a literal comparison would miss:
+  `/api/v1/bans/{ip:path}`, `/api/v1/lists/{list_type}/{list_name}/{entry:path}`,
+  `/api/v1/intelligence/dismiss/{finding_id}`.
+- **Never send the mutating ones.** `hx-post` and `hx-delete` targets change bans,
+  dials, audit and triage state. The gate is static for all targets; the full set
+  is listed in `docs/phases/PHASE_824.md`.
+- **Guard the guard.** Assert the extractor found ≥ 20 targets and ≥ 6 mutating
+  targets, so a broken regex fails instead of passing vacuously.
+- **Reverse.** Enumerate registered `GET` routes under `/api/v1/partials/`,
+  subtract the referenced paths, and assert the remainder is **exactly**
+  `{"/api/v1/partials/attack-table"}`. Assert the set equals that value (not merely
+  `⊆`), so a future allowance cannot be added without someone choosing to.
+- **Justify the alias.** A second test asserts `/api/v1/partials/attack-table` is
+  referenced by **no** template `hx-get` — that is precisely why it is allowed. It
+  is a second decorator on the `attack-top` handler
+  (`management/api/routes/partials.py:1605-1606`), and the only mention in a
+  template is an HTML comment (`management/templates/partials/attack_table.html:3`),
+  which is not an `hx-get`.
+
+## 824c.4 Record the two blind spots (do not try to fix them here)
+
+A static `hx-*` attribute scan cannot see every target. Both known gaps are
+acceptable **and must be written down in the test docstring**, because a future
+reader will otherwise assume the gate is exhaustive:
+
+- **JS-assembled URLs.** `management/templates/partials/threat_posture.html`
+  builds its `hx-get` in JavaScript (`setThreatWindow()` calls
+  `container.setAttribute('hx-get', '/api/v1/partials/threat-posture?window=' + …)`).
+  The same path also appears as a static literal
+  (`hx-get="/api/v1/partials/threat-posture?window=15m"`), so the **path** is
+  covered. Assert that invariant — the JS-built path is covered by a static
+  target — rather than scraping `<script>` blocks.
+- **Python-generated attributes.** `management/api/routes/events.py` emits
+  `hx-post` attributes from server-side f-strings (the live-feed row buttons). The
+  scan is templates-only by design; those targets duplicate template ones. Do not
+  extend the scan to `*.py` in this phase.
+
+## 824c.5 No exclusion for `/api/v1/health/ui`
+
+The earlier draft required excluding `/api/v1/health/ui` from "probing". That
+requirement is **dropped**: this gate sends no requests, and `/api/v1/health/ui` is
+not under `/api/v1/partials/` so it is outside the reverse check anyway. When
+Phase 824d adds that route *and* its template `hx-get` in the same change, the
+forward check covers it for free — and if the template lands first, the forward
+check fails until the route exists, which is the desired behaviour. Do not add a
+special case.
+
+## 824c.6 Refresh the hand-rolled live check
+
+`tests/integration/journeys/check_console_journey.sh:59` lists 13 partials and
+expects **401** from each against a live unauthenticated stack. It is stale: it
+omits **seven** — `alerts-bar`, `list-table`, `panel1-harm`, `panel2-decisions`,
+`panel3-liveness`, `panel4-reliability`, `panel5-changes`.
+
+Complete the list to all 20, and add a comment pointing at
+`management/tests/test_template_route_targets.py` as the authoritative coverage
+map. Keep the script — it is the only check that runs against a live stack and
+asserts real unauthenticated behaviour (401, no 5xx), which a static gate cannot.
+
+---
+
+## Test Strategy
+
+- Unit-test the normaliser (`hx_targets`) against: `?window={{ window }}`,
+  `?filter={{ key }}`, `attack-top{% if … %}…{% endif %}`, a plain literal, and the
+  JS-built URL from `threat_posture.html`.
+- Prove the gate **can fail**: temporarily rename one partial decorator (e.g.
+  `dial` → `dial-x`) and confirm the gate reports it; temporarily delete
+  `ALLOWED_UNREFERENCED`'s entry and confirm the reverse check fails. Revert both.
+  Record in the PR description.
+- **Demonstrate the hole being closed.** Before 824c.2, assert
+  `/api/v1/partials/attack-top` is absent from `_hx_urls()`; after, present. Put
+  this in the PR description — it is the phase's actual value.
+- Run `make test` and `make lint`.
 
 ---
 
 ## Acceptance Criteria
 
-- [ ] A new test file extracts targets from `management/templates/**`.
-- [ ] Every `hx-get` target resolves to a registered `GET` route.
-- [ ] Every mutating target resolves by method, and **no** mutating request is
-      sent (demonstrate: ban count unchanged after a run — see 824.md).
-- [ ] The extractor is tested against `?window={{ window }}`,
-      `?filter={{ key }}`, `attack-top{% if … %}` and the JS-assembled URL at
-      `threat_posture.html:258`.
-- [ ] The reverse check passes and explicitly verifies the `attack-table` alias.
-- [ ] Renaming a partial route is **demonstrated** to fail the gate.
-- [ ] `check_console_journey.sh`'s partial list is complete.
+- [ ] `management/tests/hx_targets.py` exists and is unit-tested against the four
+      Jinja/JS cases.
+- [ ] `_hx_urls()` now includes `attack-top` and `attack-fingerprint-table`, and
+      Tier 1's URL count rose accordingly.
+- [ ] Every extracted target resolves to a route by **path + method**, matched
+      with the prefix rule, with routes parsed from decorators (not `create_app()`).
+- [ ] No request is sent for any mutating target (the gate is static).
+- [ ] The reverse check passes and asserts the allowance set is **exactly**
+      `{"/api/v1/partials/attack-table"}`, with a test proving it is unreferenced.
+- [ ] Renaming a partial route, and removing the allowance, were each
+      **demonstrated** to fail the gate.
+- [ ] The two blind spots (JS-assembled, Python-generated) are documented in the
+      test docstring.
+- [ ] `check_console_journey.sh` lists all 20 partials.
 - [ ] `make test` passes; `make lint` passes.
 - [ ] A fragment exists at `docs/fragments/phase-824c-*.md`.
 
@@ -123,7 +230,9 @@ the script: it runs against a live stack and checks unauthenticated behaviour
 
 | File | Change |
 |------|--------|
-| `management/tests/test_template_route_targets.py` | New file — the extraction gate |
+| `management/tests/hx_targets.py` | New — the shared `hx-*` extractor/normaliser |
+| `management/tests/test_template_route_targets.py` | New — forward + reverse + mutating gate |
+| `management/tests/test_ui_regression.py` | `_hx_urls()` delegates to the extractor |
 | `tests/integration/journeys/check_console_journey.sh` | Complete the stale partial list |
 | `docs/fragments/phase-824c-template-route-gate.md` | New file — changelog fragment |
 
@@ -131,11 +240,19 @@ the script: it runs against a live stack and checks unauthenticated behaviour
 
 ## Notes for Implementer
 
-- The app object is importable the same way `management/tests/test_new_endpoints.py`
-  imports it; iterate `app.routes` and match `route.path` + `route.methods`.
-- Resolve routes by **path pattern**, not by calling them. Starlette stores
-  `/api/v1/bans/{ip}` literally, so match its pattern, not a concrete IP.
-- Keep the fixture table of sample query values small and near the extractor.
-  One entry per parameter name is enough.
-- This gate is deliberately **static**. It proves the route is registered; 824b
-  proves the route renders. Both are needed.
+- **The gate is static by design.** It proves a route is *registered*; the
+  existing Tier 1 proves the route *renders*. Both are needed and both are cheap.
+  Do not merge them.
+- The decorator parser cannot see routes registered from an **f-string** — e.g.
+  `management/api/routes/canonical_lists.py:320-392` registers
+  `f"/api/v1/{list_name}"`. That is acceptable here: no partial route is registered
+  that way, so the reverse check is sound. Document it, and do **not** loosen the
+  matcher to "fix" a failure it causes — a loose matcher would hide the real
+  breakage this gate exists to catch.
+- `attack-top` and `attack-table` are the **same handler** with two decorators.
+  `attack-table` is the alias; `attack-top` is what templates reference.
+- A discovered, **out-of-scope** defect worth reporting separately (not fixing
+  here): `management/static/confirm-modal.js:26` builds
+  `/api/v1/actions/${target}/tarpit`, and no route under `/api/v1/actions/` exists
+  anywhere in `management/api/`. The modal's "Tarpit IP" action therefore 404s.
+  This is a JS-built URL, so this gate would not have caught it either.
