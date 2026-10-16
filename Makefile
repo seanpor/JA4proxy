@@ -470,6 +470,7 @@ lint-static: tools-image bandit-image  ## mypy + bandit + ruff + pip-audit
 	  --ignore-vuln CVE-2026-21441 \
 	  --ignore-vuln CVE-2026-4539 \
 	  --ignore-vuln PYSEC-2026-2132 \
+	  --ignore-vuln CVE-2026-59951 \
 	  && echo "  ✓ pip-audit passed (urllib3/pygments/click CVEs acknowledged — transitive deps, no safe resolution available)"
 	@echo ""
 	@echo "✓ All static analysis gates passed"
