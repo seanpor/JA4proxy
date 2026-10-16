@@ -285,9 +285,14 @@ jobs:
           # phase-800: PYSEC-2026-2132 (click) + PYSEC-2026-1805 (protobuf)
           # acknowledged — semgrep-walled, same ignores as the Makefile
           # lint-static gate; removal condition documented in requirements.txt.
+          # phase-824c: CVE-2026-59951 (mcp 1.29.0) acknowledged — semgrep
+          # hard-pins mcp==1.29.0 (latest semgrep 1.181.0 still does), so no
+          # safe resolution exists; vulnerable path is an MCP StreamableHTTP
+          # server JA4proxy never runs. See docs/security/CVE_EXCEPTIONS.md.
           bash scripts/pip-audit-resilient.sh -r requirements.txt --strict \
             --ignore-vuln PYSEC-2026-2132 \
-            --ignore-vuln PYSEC-2026-1805
+            --ignore-vuln PYSEC-2026-1805 \
+            --ignore-vuln CVE-2026-59951
 
   dependency-audit-go:
     name: Go dependency audit (govulncheck)

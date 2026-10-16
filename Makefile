@@ -463,6 +463,11 @@ lint-static: tools-image bandit-image  ## mypy + bandit + ruff + pip-audit
 	@# phase-800: PYSEC-2026-2132 (click 8.1.8) acknowledged — walled off by semgrep:
 	@# it pins click~=8.1.8 (fix is 8.3.3). Dev/CI tooling deps only.
 	@# (phase-833): PYSEC-2026-1805 / CVE-2026-0994 resolved via protobuf>=5.29.6.
+	@# (phase-824c): CVE-2026-59951 (mcp 1.29.0) acknowledged — semgrep hard-pins
+	@# mcp==1.29.0, and its latest release (1.181.0) still does, so no safe
+	@# resolution exists. The CVE is in MCP's StreamableHTTP *server* transport,
+	@# which JA4proxy never runs; mcp is pulled in only by semgrep (a CLI scanner)
+	@# and is imported by no first-party code. See docs/security/CVE_EXCEPTIONS.md.
 	@$(TOOLS_RUN) bash scripts/pip-audit-resilient.sh -r requirements.txt \
 	  --ignore-vuln CVE-2025-50181 \
 	  --ignore-vuln CVE-2025-66418 \
@@ -470,7 +475,8 @@ lint-static: tools-image bandit-image  ## mypy + bandit + ruff + pip-audit
 	  --ignore-vuln CVE-2026-21441 \
 	  --ignore-vuln CVE-2026-4539 \
 	  --ignore-vuln PYSEC-2026-2132 \
-	  && echo "  ✓ pip-audit passed (urllib3/pygments/click CVEs acknowledged — transitive deps, no safe resolution available)"
+	  --ignore-vuln CVE-2026-59951 \
+	  && echo "  ✓ pip-audit passed (urllib3/pygments/click/mcp CVEs acknowledged — transitive or tooling-only deps, no safe resolution available)"
 	@echo ""
 	@echo "✓ All static analysis gates passed"
 
