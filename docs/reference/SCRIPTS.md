@@ -12,7 +12,7 @@ read the top of the file for full options.
 
 <!-- BEGIN GENERATED: scripts -->
 
-_138 scripts. Generated from each script's header comment by `make sync` — do not edit this table by hand._
+_139 scripts. Generated from each script's header comment by `make sync` — do not edit this table by hand._
 
 | Script | Called by | What it does |
 |--------|-----------|--------------|
@@ -146,6 +146,7 @@ _138 scripts. Generated from each script's header comment by `make sync` — do 
 | `test_ratio.py` | `make test-ratio` | Test-to-Code Ratio Calculator |
 | `tls-traffic-generator.py` | — | TLS Traffic Generator for JA4proxy Performance Testing |
 | `traceability.py` | — | traceability.py — generate ``docs/reference/TRACEABILITY.md`` from phase docs. |
+| `trivy_image_report.py` | `make scan-images` | scripts/trivy_image_report.py — the `make scan-images` per-image gate (Phase 847b). |
 | `update-geoip.sh` | `make update-geoip` | Download the latest IP2Location LITE country database |
 | `update_readme_stats.py` | — | Map count categories to README labels |
 | `validate-single-host.sh` | — | JA4proxy single-host deployment validator (phase-231b real-host E2E). |

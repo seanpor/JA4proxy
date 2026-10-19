@@ -38,7 +38,7 @@ import json
 import re
 import sys
 from pathlib import Path
-from typing import Dict, Iterable, List, Set, Tuple
+from typing import Any, Dict, Iterable, List, NamedTuple, Set, Tuple
 
 _ROOT = Path(__file__).resolve().parents[1]
 
@@ -68,19 +68,41 @@ def waived_ids(ignorefile: Path) -> Set[str]:
     return out
 
 
-def findings_from_scan(path: Path) -> Dict[str, str]:
-    """Return {cve_id: severity} for HIGH/CRITICAL in one Trivy JSON report.
+class VulnRow(NamedTuple):
+    """One HIGH/CRITICAL finding: CVE id, package, installed version, severity."""
+
+    cve: str
+    package: str
+    installed: str
+    severity: str
+
+
+def load_report(path: Path) -> Dict[str, Any]:
+    """Parse one Trivy JSON report, naming the file in the error if it is unusable."""
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise ValueError(f"unreadable Trivy report {path.name}: {exc}") from exc
+
+
+def vuln_rows(doc: Dict[str, Any]) -> List[VulnRow]:
+    """HIGH/CRITICAL findings in one Trivy image report, deduplicated by CVE id.
+
+    THE single Trivy-JSON parser in this repo. Both `findings_from_scan` (drift
+    checking) and `scripts/trivy_image_report.py` (the `make scan-images` gate)
+    derive from this function, so the gate cannot fail on a finding the drift
+    checker treats as waived — or vice versa. Phase 847b.3.
+
+    Deduplication is by CVE id, not by row: the ignorefile waives ids, and Trivy
+    emits one row per (target, package, CVE), so the same CVE under several
+    OS layers is a single finding. Counting rows instead would let one waived id
+    inflate a count.
 
     A CRITICAL always wins over a HIGH for the same id: Trivy can report an id
     at different severities across packages within one image, and reporting the
     lower one would understate the finding.
     """
-    try:
-        doc = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError) as exc:
-        raise ValueError(f"unreadable Trivy report {path.name}: {exc}") from exc
-
-    out: Dict[str, str] = {}
+    best: Dict[str, VulnRow] = {}
     for result in doc.get("Results") or []:
         for vuln in result.get("Vulnerabilities") or []:
             sev = vuln.get("Severity")
@@ -89,9 +111,22 @@ def findings_from_scan(path: Path) -> Dict[str, str]:
             cve = vuln.get("VulnerabilityID")
             if not cve:
                 continue
-            if out.get(cve) != "CRITICAL":
-                out[cve] = sev
-    return out
+            prev = best.get(cve)
+            if prev is None:
+                best[cve] = VulnRow(
+                    cve=cve,
+                    package=vuln.get("PkgName") or "?",
+                    installed=vuln.get("InstalledVersion") or "?",
+                    severity=sev,
+                )
+            elif prev.severity != "CRITICAL" and sev == "CRITICAL":
+                best[cve] = prev._replace(severity="CRITICAL")
+    return list(best.values())
+
+
+def findings_from_scan(path: Path) -> Dict[str, str]:
+    """Return {cve_id: severity} for HIGH/CRITICAL in one Trivy JSON report."""
+    return {row.cve: row.severity for row in vuln_rows(load_report(path))}
 
 
 def _artifact_name(path: Path) -> str:

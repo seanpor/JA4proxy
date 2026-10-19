@@ -164,7 +164,7 @@ help-scan:  ## Show security scanning commands help
 	@echo "  scan-all           - Alias of 'scan'"
 	@echo "  scan-container     - Go SAST (gosec) in a container"
 	@echo "  scan-local         - gosec locally (view output)"
-	@echo "  scan-exceptions    - List .trivyignore exceptions + days-to-expiry"
+	@echo "  scan-exceptions    - List .trivyignore.first-party / .trivyignore.third-party + days-to-expiry"
 	@echo ""
 	@echo "── Container Scanning ────────────────────────────────────────"
 	@echo "  scan-images        - Trivy scan of production images"
@@ -627,7 +627,8 @@ check-manifest: ## Verify manifest.yaml / TODO.md / CHANGELOG.md stay consistent
 scan-images:  ## Trivy scan of third-party images (HIGH/CRITICAL; fails on CRITICAL)
 	@mkdir -p "$(TRIVY_CACHE)"
 	@echo "=== Trivy: third-party image CVE scan (HIGH + CRITICAL) ==="
-	@echo "    Fails on HIGH or CRITICAL. CVEs in .trivyignore are documented exceptions."
+	@echo "    Fails on HIGH or CRITICAL. Waivers are authored in security/waivers.yaml"
+	@echo "    and generated into .trivyignore.third-party by scripts/render_waivers.py."
 	@echo ""
 	@images="$$($(PYTHON) scripts/check_image_versions.py --list-third-party)" || { \
 		echo "✗ Could not derive the third-party image list from the compose"; \
@@ -638,23 +639,16 @@ scan-images:  ## Trivy scan of third-party images (HIGH/CRITICAL; fails on CRITI
 	fail=0; \
 	for img in $$images; do \
 		echo "  Scanning $$img ..."; \
-		result=$$(docker run --rm -v "$(PWD):/scan:ro" -v "$(TRIVY_CACHE):/root/.cache/trivy" aquasec/trivy:0.71.0 image \
-			--severity HIGH,CRITICAL --exit-code 0 \
-			--no-progress --scanners vuln \
-			--ignorefile /scan/.trivyignore.third-party \
-			--skip-version-check \
-			--format table "$$img" 2>&1); \
-		high=$$(echo "$$result" | grep -v "Total:" | grep -c "HIGH" || true); \
-		crit=$$(echo "$$result" | grep -v "Total:" | grep -c "CRITICAL" || true); \
-		matches=$$(echo "$$result" | grep -E "CRITICAL|HIGH|Total:" || true); \
-		echo "    $$matches"; \
-		if [ "$$high" -gt 0 ] || [ "$$crit" -gt 0 ]; then \
-			echo "    ✗ $$high HIGH + $$crit CRITICAL CVE(s) in $$img — add a justified, dated .trivyignore entry"; \
-			fail=1; \
-		fi; \
-		echo ""; \
+		TRIVY_CACHE="$(TRIVY_CACHE)" $(PYTHON) scripts/trivy_image_report.py --ignorefile /scan/.trivyignore.third-party "$$img" || fail=1; \
 	done; \
-	[ $$fail -eq 0 ] || { echo "✗ HIGH/CRITICAL CVEs found — see .trivyignore for documented exceptions"; exit 1; }; \
+	[ $$fail -eq 0 ] || { \
+		echo "✗ HIGH/CRITICAL CVEs found, or a scan could not be run — Phase 847b: a"; \
+		echo "  scan that fails to produce JSON is treated as a FAILURE, never a pass."; \
+		echo "  Waivers are authored in security/waivers.yaml and generated into"; \
+		echo "  .trivyignore.third-party by scripts/render_waivers.py — see"; \
+		echo "  docs/runbooks/security_scan_exceptions.md"; \
+		exit 1; \
+	}; \
 	echo "✓ Image scan complete — no findings"
 
 # Trivy misconfiguration scan of Dockerfiles and compose files.
@@ -691,13 +685,13 @@ scan-dockerfiles:  ## Trivy config scan of Dockerfiles + compose files (HIGH/CRI
 # CVE scan of first-party images we build.
 # Run 'make build' first to ensure the non-profiled images are current.
 # Policy (Phase 317): HIGH + CRITICAL → exit 1. We build/own these images, so a
-# HIGH is actionable (base bump / dep bump / dated .trivyignore). The profile-gated
+# HIGH is actionable (base bump / dep bump / dated .trivyignore.first-party). The profile-gated
 # CI-only test + trafficgen images are skipped by 'make build', so this target
 # builds them explicitly — otherwise they would be scanned-as-absent (a vacuous pass).
 scan-first-party:  ## Trivy CVE scan of built images (CRITICAL → fail)
 	@mkdir -p "$(TRIVY_CACHE)"
 	@echo "=== Trivy: first-party image CVE scan (HIGH + CRITICAL) ==="
-	@echo "    Phase 317: fails on HIGH or CRITICAL. .trivyignore holds dated exceptions."
+	@echo "    Phase 317: fails on HIGH or CRITICAL. .trivyignore.first-party holds dated exceptions."
 	@echo "    Phase 800: a cached apk/apt layer can sit for weeks and silently hide a"
 	@echo "    since-fixed OS CVE (observed: ja4proxy-test carried a 5-week-stale c-ares"
 	@echo "    layer that a plain 'make build' never re-executed). CI runners are always"
@@ -719,20 +713,18 @@ scan-first-party:  ## Trivy CVE scan of built images (CRITICAL → fail)
 	@fail=0; \
 	for img in ja4proxy:2.0.0 ja4proxy-analytics:1.0.0 ja4proxy-tarpit:1.0.0 ja4proxy-mockbackend:1.0.0 ja4proxy-management:1.0.0 ja4proxy-test:1.0.0 ja4proxy-trafficgen:1.0.0 ja4proxy-tap:1.0.0; do \
 		echo "  Scanning $$img ..."; \
-		result=$$(docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-			-v "$(PWD):/scan:ro" \
-			-v "$(TRIVY_CACHE):/root/.cache/trivy" \
-			aquasec/trivy:0.71.0 image --severity HIGH,CRITICAL --exit-code 0 \
-			--no-progress --scanners vuln --ignorefile /scan/.trivyignore.first-party \
-			--skip-version-check \
-			--format table "$$img" 2>&1 \
-			| grep -E "CRITICAL|HIGH|Total:" || true); \
-		findings=$$(echo "$$result" | grep -v "Total:" | grep -E -c "CRITICAL|HIGH" || true); \
-		echo "    $$result"; \
-		[ "$$findings" -eq 0 ] || { echo "    ✗ HIGH/CRITICAL in $$img — bump the base image or dep, or add a justified, dated .trivyignore entry"; fail=1; }; \
-		echo ""; \
+		TRIVY_CACHE="$(TRIVY_CACHE)" $(PYTHON) scripts/trivy_image_report.py \
+			--ignorefile /scan/.trivyignore.first-party --docker-socket "$$img" || fail=1; \
 	done; \
-	[ $$fail -eq 0 ] || exit 1
+	[ $$fail -eq 0 ] || { \
+		echo "✗ HIGH/CRITICAL CVEs found, or a scan could not be run — Phase 847b:"; \
+		echo "  a scan that fails to produce JSON is a FAILURE, never a pass."; \
+		echo "  Fix it by bumping the base image or dependency, or add a justified,"; \
+		echo "  dated .trivyignore.first-party entry — authored in"; \
+		echo "  security/waivers.yaml (scripts/render_waivers.py), see"; \
+		echo "  docs/runbooks/security_scan_exceptions.md"; \
+		exit 1; \
+	}
 	@echo "✓ First-party image scan complete (HIGH + CRITICAL gate)"
 
 # Phase 228: human-readable rollup of the image CVE scans. Reporting only —
@@ -751,7 +743,7 @@ scan-summary: ## Phase 228 — compact CRIT/HIGH/MED rollup of all scans (images
 			| $(PYTHON) scripts/scan_summary.py gosec \
 		|| echo "  ! gosec summary skipped (build/docker unavailable)"
 
-scan-exceptions: ## List Trivy scan exceptions (.trivyignore) with days-to-expiry
+scan-exceptions: ## List .trivyignore.first-party / .trivyignore.third-party exceptions with days-to-expiry
 	@$(PYTHON) scripts/scan_exceptions.py
 
 # Detect :latest tags and version drift between compose files.

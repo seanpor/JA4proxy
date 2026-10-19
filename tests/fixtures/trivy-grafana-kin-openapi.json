@@ -1,0 +1,305 @@
+{
+  "SchemaVersion": 2,
+  "ArtifactName": "grafana/grafana:13.2.4-ubuntu",
+  "ArtifactType": "container_image",
+  "Results": [
+    {
+      "Target": "usr/share/grafana/bin/grafana",
+      "Class": "lang-pkgs",
+      "Type": "gobinary",
+      "Vulnerabilities": [
+        {
+          "VulnerabilityID": "CVE-2026-100349",
+          "VendorIDs": [
+            "GHSA-74vm-87hj-r66f"
+          ],
+          "PkgID": "github.com/getkin/kin-openapi@v0.144.0",
+          "PkgName": "github.com/getkin/kin-openapi",
+          "PkgIdentifier": {
+            "PURL": "pkg:golang/github.com/getkin/kin-openapi@v0.144.0",
+            "UID": "395b8e43d9bf5e84"
+          },
+          "InstalledVersion": "v0.144.0",
+          "FixedVersion": "0.146.0",
+          "Status": "fixed",
+          "Layer": {
+            "Digest": "sha256:6eb6b82e579b3547f527851e9ec2b1700b44bf5a83cff795d2fcefeb473feca5",
+            "DiffID": "sha256:04dcdc387f96971ff1a29027d3f468073938ab31e93bb308b83b13e600ad28e5"
+          },
+          "SeveritySource": "ghsa",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2026-100349",
+          "DataSource": {
+            "ID": "ghsa",
+            "Name": "GitHub Security Advisory Go",
+            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Ago"
+          },
+          "Fingerprint": "sha256:b74a96c087867c96d0f6fc257a0ecd046601a8ba386a109c1c9d20752339041d",
+          "Title": "github.com/getkin/kin-openapi: kin-openapi: Denial of Service via nil pointer dereference in response validation",
+          "Description": "kin-openapi is a Go project for handling OpenAPI files. Prior to 0.146.0, openapi3filter.ValidateResponse passes a nil response header schema to decodeValue when an OpenAPI document declares the header with content instead of schema. The document passes validation, but every response validation for the affected operation dereferences the nil schema and panics even when the response does not contain the declared header. Applications that ingest an untrusted specification can expose this as remote availability impact, while applications using only trusted local specifications still crash when the affected operation is exercised. This issue is fixed in version 0.146.0.",
+          "Severity": "HIGH",
+          "CweIDs": [
+            "CWE-476"
+          ],
+          "VendorSeverity": {
+            "ghsa": 3,
+            "redhat": 3
+          },
+          "CVSS": {
+            "ghsa": {
+              "V40Vector": "CVSS:4.0/AV:N/AC:L/AT:P/PR:N/UI:N/VC:N/VI:N/VA:H/SC:N/SI:N/SA:N",
+              "V40Score": 8.2
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+              "V3Score": 7.5
+            }
+          },
+          "References": [
+            "https://access.redhat.com/security/cve/CVE-2026-100349",
+            "https://github.com/getkin/kin-openapi",
+            "https://github.com/getkin/kin-openapi/commit/f5441d67f855ed34d975b3b85665764644ab1459",
+            "https://github.com/getkin/kin-openapi/releases/tag/v0.146.0",
+            "https://github.com/getkin/kin-openapi/security/advisories/GHSA-74vm-87hj-r66f",
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-100349",
+            "https://www.cve.org/CVERecord?id=CVE-2026-100349"
+          ],
+          "PublishedDate": "2026-10-15T16:17:30.64Z",
+          "LastModifiedDate": "2026-10-16T18:17:10.35Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2026-100351",
+          "VendorIDs": [
+            "GHSA-23vg-4cjm-66q5"
+          ],
+          "PkgID": "github.com/getkin/kin-openapi@v0.144.0",
+          "PkgName": "github.com/getkin/kin-openapi",
+          "PkgIdentifier": {
+            "PURL": "pkg:golang/github.com/getkin/kin-openapi@v0.144.0",
+            "UID": "395b8e43d9bf5e84"
+          },
+          "InstalledVersion": "v0.144.0",
+          "FixedVersion": "0.147.0",
+          "Status": "fixed",
+          "Layer": {
+            "Digest": "sha256:6eb6b82e579b3547f527851e9ec2b1700b44bf5a83cff795d2fcefeb473feca5",
+            "DiffID": "sha256:04dcdc387f96971ff1a29027d3f468073938ab31e93bb308b83b13e600ad28e5"
+          },
+          "SeveritySource": "ghsa",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2026-100351",
+          "DataSource": {
+            "ID": "ghsa",
+            "Name": "GitHub Security Advisory Go",
+            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Ago"
+          },
+          "Fingerprint": "sha256:6cb02aa13540c7b69e62dc6afb4595b50efa01622f226de7162d16402d9f6218",
+          "Title": "github.com/getkin/kin-openapi: kin-openapi: Authentication bypass via URL path decoding discrepancy",
+          "Description": "kin-openapi is a Go project for handling OpenAPI files. From 0.144.0 until 0.147.0, openapi3filter.ValidationHandler validates an operation selected from decoded URL.Path while a downstream gorilla/mux router configured with UseEncodedPath can dispatch a different operation selected from URL.RawPath. When a public exact route and a protected parameterized route use the same method and overlap after decoding, an unauthenticated remote request containing an encoded path separator can be validated as public and then dispatched to the protected handler without invoking the configured AuthenticationFunc. The reachable path parameter is constrained to an encoded representation that decodes to the public literal route, and proxies that canonicalize the URI before forwarding prevent this specific mismatch. This issue is fixed in version 0.147.0.",
+          "Severity": "HIGH",
+          "CweIDs": [
+            "CWE-289",
+            "CWE-436"
+          ],
+          "VendorSeverity": {
+            "ghsa": 3,
+            "redhat": 3
+          },
+          "CVSS": {
+            "ghsa": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N",
+              "V3Score": 7.4
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N",
+              "V3Score": 7.4
+            }
+          },
+          "References": [
+            "https://access.redhat.com/security/cve/CVE-2026-100351",
+            "https://github.com/getkin/kin-openapi",
+            "https://github.com/getkin/kin-openapi/commit/eda80e2676e9f577ceed2dd80e64f16083edb041",
+            "https://github.com/getkin/kin-openapi/releases/tag/v0.147.0",
+            "https://github.com/getkin/kin-openapi/security/advisories/GHSA-23vg-4cjm-66q5",
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-100351",
+            "https://www.cve.org/CVERecord?id=CVE-2026-100351"
+          ],
+          "PublishedDate": "2026-10-15T16:17:31.11Z",
+          "LastModifiedDate": "2026-10-15T17:17:07.52Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2026-100352",
+          "VendorIDs": [
+            "GHSA-rj39-cv6w-8wv7"
+          ],
+          "PkgID": "github.com/getkin/kin-openapi@v0.144.0",
+          "PkgName": "github.com/getkin/kin-openapi",
+          "PkgIdentifier": {
+            "PURL": "pkg:golang/github.com/getkin/kin-openapi@v0.144.0",
+            "UID": "395b8e43d9bf5e84"
+          },
+          "InstalledVersion": "v0.144.0",
+          "FixedVersion": "0.148.0",
+          "Status": "fixed",
+          "Layer": {
+            "Digest": "sha256:6eb6b82e579b3547f527851e9ec2b1700b44bf5a83cff795d2fcefeb473feca5",
+            "DiffID": "sha256:04dcdc387f96971ff1a29027d3f468073938ab31e93bb308b83b13e600ad28e5"
+          },
+          "SeveritySource": "ghsa",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2026-100352",
+          "DataSource": {
+            "ID": "ghsa",
+            "Name": "GitHub Security Advisory Go",
+            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Ago"
+          },
+          "Fingerprint": "sha256:caa1ffdbfe5133a7f467287f45a72de06ed751a8e06ad08daf39b9f967588258",
+          "Title": "github.com/getkin/kin-openapi: kin-openapi: Denial of Service via improper handling of non-finite numeric values",
+          "Description": "kin-openapi is a Go project for handling OpenAPI files. Prior to 0.148.0, the OpenAPI 3.1 validation path passes YAML NaN and infinity numeric values to santhosh-tekuri/jsonschema v6.0.2 without applying kin-openapi's existing finite-number guards. A remote unauthenticated client can send an application/yaml or application/x-yaml request body containing .nan, .inf, or -.inf to an operation with a numeric constraint, causing the dependency to create and dereference a nil big.Rat during ValidateRequest. Standard net/http servers recover the panic per connection, while other hosts or application goroutines may terminate the process. This issue is fixed in version 0.148.0.",
+          "Severity": "HIGH",
+          "CweIDs": [
+            "CWE-754"
+          ],
+          "VendorSeverity": {
+            "ghsa": 3,
+            "redhat": 3
+          },
+          "CVSS": {
+            "ghsa": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+              "V3Score": 7.5
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+              "V3Score": 7.5
+            }
+          },
+          "References": [
+            "https://access.redhat.com/security/cve/CVE-2026-100352",
+            "https://github.com/getkin/kin-openapi",
+            "https://github.com/getkin/kin-openapi/commit/4487f198ab8be0c37d6ca72c54f5dca4dc25270e",
+            "https://github.com/getkin/kin-openapi/releases/tag/v0.148.0",
+            "https://github.com/getkin/kin-openapi/security/advisories/GHSA-rj39-cv6w-8wv7",
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-100352",
+            "https://www.cve.org/CVERecord?id=CVE-2026-100352"
+          ],
+          "PublishedDate": "2026-10-15T16:17:31.307Z",
+          "LastModifiedDate": "2026-10-15T16:17:31.45Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2026-100353",
+          "VendorIDs": [
+            "GHSA-vrcc-3ch7-hppw"
+          ],
+          "PkgID": "github.com/getkin/kin-openapi@v0.144.0",
+          "PkgName": "github.com/getkin/kin-openapi",
+          "PkgIdentifier": {
+            "PURL": "pkg:golang/github.com/getkin/kin-openapi@v0.144.0",
+            "UID": "395b8e43d9bf5e84"
+          },
+          "InstalledVersion": "v0.144.0",
+          "FixedVersion": "0.149.0",
+          "Status": "fixed",
+          "Layer": {
+            "Digest": "sha256:6eb6b82e579b3547f527851e9ec2b1700b44bf5a83cff795d2fcefeb473feca5",
+            "DiffID": "sha256:04dcdc387f96971ff1a29027d3f468073938ab31e93bb308b83b13e600ad28e5"
+          },
+          "SeveritySource": "ghsa",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2026-100353",
+          "DataSource": {
+            "ID": "ghsa",
+            "Name": "GitHub Security Advisory Go",
+            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Ago"
+          },
+          "Fingerprint": "sha256:302cf97dce0bace6558f9a2d253252d66767b18cdb1891202b5ed49d3cd10efe",
+          "Title": "github.com/getkin/kin-openapi: kin-openapi: Denial of Service via nil-pointer dereference in request decoding",
+          "Description": "kin-openapi is a Go project for handling OpenAPI files. From 0.136.0 until 0.149.0, three openapi3filter decoder paths that were missed by the fix for GHSA-p6wj-qrr4-pgh5 lack a nil-items guard for legal OpenAPI 3.1 array schemas. An unauthenticated remote client can trigger a deterministic nil-pointer panic through an array query parameter, a deepObject query parameter containing an array property, or an application/x-www-form-urlencoded request body whose array property appears inside an allOf, anyOf, or oneOf subschema. The query and composed-body paths reach urlValuesDecoder.parseArray, while the deepObject path reaches buildResObj, and all pass a nil items schema into code that dereferences it. This issue is fixed in version 0.149.0.",
+          "Severity": "HIGH",
+          "CweIDs": [
+            "CWE-476"
+          ],
+          "VendorSeverity": {
+            "ghsa": 3,
+            "redhat": 3
+          },
+          "CVSS": {
+            "ghsa": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+              "V3Score": 7.5
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+              "V3Score": 7.5
+            }
+          },
+          "References": [
+            "https://access.redhat.com/security/cve/CVE-2026-100353",
+            "https://github.com/getkin/kin-openapi",
+            "https://github.com/getkin/kin-openapi/commit/9814d1f2b212f3508bf52296aa9e248b2122a5a9",
+            "https://github.com/getkin/kin-openapi/releases/tag/v0.149.0",
+            "https://github.com/getkin/kin-openapi/security/advisories/GHSA-vrcc-3ch7-hppw",
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-100353",
+            "https://www.cve.org/CVERecord?id=CVE-2026-100353"
+          ],
+          "PublishedDate": "2026-10-15T17:17:07.627Z",
+          "LastModifiedDate": "2026-10-15T17:17:07.747Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2026-100354",
+          "VendorIDs": [
+            "GHSA-g8cf-rcjf-c8cf"
+          ],
+          "PkgID": "github.com/getkin/kin-openapi@v0.144.0",
+          "PkgName": "github.com/getkin/kin-openapi",
+          "PkgIdentifier": {
+            "PURL": "pkg:golang/github.com/getkin/kin-openapi@v0.144.0",
+            "UID": "395b8e43d9bf5e84"
+          },
+          "InstalledVersion": "v0.144.0",
+          "FixedVersion": "0.149.0",
+          "Status": "fixed",
+          "Layer": {
+            "Digest": "sha256:6eb6b82e579b3547f527851e9ec2b1700b44bf5a83cff795d2fcefeb473feca5",
+            "DiffID": "sha256:04dcdc387f96971ff1a29027d3f468073938ab31e93bb308b83b13e600ad28e5"
+          },
+          "SeveritySource": "ghsa",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2026-100354",
+          "DataSource": {
+            "ID": "ghsa",
+            "Name": "GitHub Security Advisory Go",
+            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Ago"
+          },
+          "Fingerprint": "sha256:31586a4d9b34935e83bf7003f656fe04a6c21bf36265aab5b089a89e7e3b3068",
+          "Title": "github.com/getkin/kin-openapi: kin-openapi: Denial of Service via unbounded recursion during schema validation",
+          "Description": "kin-openapi is a Go project for handling OpenAPI files. Prior to 0.149.0, runtime request, response, and direct schema validation lacks cycle detection when an allOf, anyOf, or oneOf chain refers back to an ancestor schema, even though loading and document validation accept the circular reference. A request or response that reaches the affected schema causes unbounded recursion in Schema.visitJSON or openapi3filter.decodeValue and exhausts the Go goroutine stack. The resulting fatal stack overflow cannot be caught with recover and terminates the entire process, including unrelated requests. This issue is fixed in version 0.149.0.",
+          "Severity": "HIGH",
+          "CweIDs": [
+            "CWE-674"
+          ],
+          "VendorSeverity": {
+            "ghsa": 3,
+            "redhat": 3
+          },
+          "CVSS": {
+            "ghsa": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+              "V3Score": 7.5
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+              "V3Score": 7.5
+            }
+          },
+          "References": [
+            "https://access.redhat.com/security/cve/CVE-2026-100354",
+            "https://github.com/getkin/kin-openapi",
+            "https://github.com/getkin/kin-openapi/commit/9245cef66c840e27a08409a8a5cd0ee930c5bcff",
+            "https://github.com/getkin/kin-openapi/releases/tag/v0.149.0",
+            "https://github.com/getkin/kin-openapi/security/advisories/GHSA-g8cf-rcjf-c8cf",
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-100354",
+            "https://www.cve.org/CVERecord?id=CVE-2026-100354"
+          ],
+          "PublishedDate": "2026-10-15T17:17:07.78Z",
+          "LastModifiedDate": "2026-10-15T19:17:12.943Z"
+        }
+      ]
+    }
+  ]
+}

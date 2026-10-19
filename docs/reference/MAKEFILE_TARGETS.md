@@ -169,7 +169,7 @@ _202 targets. Generated from the Makefile's own `##` help comments by `make sync
 | `logs` | Stream proxy container logs |
 | `rebuild` | Wipe volumes/images, rebuild from scratch, start fresh |
 | `scan-dockerfiles` | Trivy config scan of Dockerfiles + compose files (HIGH/CRITICAL → fail) |
-| `scan-exceptions` | List Trivy scan exceptions (.trivyignore) with days-to-expiry |
+| `scan-exceptions` | List .trivyignore.first-party / .trivyignore.third-party exceptions with days-to-expiry |
 | `scan-first-party` | Trivy CVE scan of built images (CRITICAL → fail) |
 | `scan-images` | Trivy scan of third-party images (HIGH/CRITICAL; fails on CRITICAL) |
 | `scan-summary` | Phase 228 — compact CRIT/HIGH/MED rollup of all scans (images + misconfig + gosec; reporting only) |
