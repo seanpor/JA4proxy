@@ -306,7 +306,8 @@ def main(argv: list[str] | None = None) -> int:
             # change to it makes *all* of them "touched". Scanning only the
             # files in the diff would make deleting a waiver a silent no-op.
             touched = all_surfaces(changed, head_refs, dockerfiles)
-            print("⚠ a waiver input changed — every surface is in scope for this PR")
+            # stderr, not stdout: `--plan` writes JSON to stdout and CI parses it.
+            print("⚠ a waiver input changed — every surface is in scope for this PR", file=sys.stderr)
         else:
             touched = touched_surfaces(changed, base_refs, head_refs, dockerfiles)
     except DiffError as exc:

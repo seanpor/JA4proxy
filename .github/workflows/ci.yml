@@ -30,7 +30,9 @@ on:
   # (continue-on-error). Full Lint and Security Scan were a time-boxed Phase 332
   # trial as non-required (2026-06-15 to 2026-06-29); the trial expired without
   # a lint/scan regression reaching main, so both were restored to required on
-  # 2026-07-01 and now run unguarded here like every other required job.
+  # 2026-07-01. Phase 847c then moved the *required* CVE gate to `scan-regression`
+  # (diff-scoped, see its comment) and made `scan` conditional — so `scan` is now
+  # guarded like `smoke-docker` rather than running unguarded on every PR.
   merge_group:
   schedule:
     - cron: "0 6 * * 1"  # Mondays 06:00 UTC — weekly CVE sweep
@@ -157,9 +159,42 @@ jobs:
         # is the default on linux/amd64).
         run: make test-race
 
+  # Phase 847c: does this PR move the *waiver set*? That is an input to the
+  # verdict for every surface, so it is the one case where the full scan must
+  # still run on a PR (see the `scan` job's condition). Plumbing job, not a gate
+  # in its own right — continue-on-error keeps it out of the required-check set.
+  scan-scope:
+    name: Detect waiver-set changes
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    if: github.event_name != 'merge_group'
+    outputs:
+      waivers: ${{ steps.filter.outputs.waivers }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d  # v4.0.3
+        id: filter
+        with:
+          filters: |
+            waivers:
+              - 'security/waivers.yaml'
+              - '.trivyignore.third-party'
+              - '.trivyignore.first-party'
+              - '.pip-audit-ignores'
+
   scan:
     name: Security Scan (make scan)
-    # Required check (restored 2026-07-01 — see the merge_group comment above).
+    needs: scan-scope
+    # Phase 847c — de-required on the PR path. The full scan still runs on
+    # push/schedule (so main keeps a complete record and the scheduled-failure
+    # notifier still has something to report on), and on a PR only when the
+    # waiver set moved, because a waiver change moves the gate's own inputs for
+    # every surface. An unrelated PR is no longer reddened by an upstream CVE
+    # disclosed overnight — `scan-regression` judges it against the baseline.
+    if: >
+      always() &&
+      (github.event_name != 'pull_request' ||
+       needs.scan-scope.outputs.waivers == 'true')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -187,6 +222,56 @@ jobs:
         run: make build
       - name: make scan
         run: make scan
+
+  # Phase 847c: the required PR gate. Scans ONLY the surfaces this PR touches
+  # (compose-pinned images, Dockerfiles, dependency files) and fails only on
+  # findings absent from security/baseline.json — which is the recording of what
+  # main already carries. A PR touching nothing security-relevant therefore
+  # passes without scanning anything, no matter what the vulnerability DB has
+  # learned overnight, while a PR that bumps an image or a dependency still has
+  # that surface scanned and still fails on a new unwaived finding.
+  scan-regression:
+    name: Scan Regression (surfaces touched)
+    runs-on: ubuntu-latest
+    steps:
+      # Full history: the gate diffs against the merge-base with main and reads
+      # the touched files *at that revision* (`git show <base>:<path>`).
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Fetch origin/main (the gate's baseline revision)
+        run: git fetch --no-tags origin "+refs/heads/main:refs/remotes/origin/main"
+      # Phase 227's DB cache, same rolling key: the first scan of a run does not
+      # re-download the vulnerability DB.
+      - name: Cache Trivy DB
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: ~/.cache/trivy
+          key: trivy-db-${{ github.run_id }}
+          restore-keys: |
+            trivy-db-
+      # Decide BEFORE building anything. Most PRs touch no security-relevant
+      # surface, and their cost should be seconds, not an image build.
+      - name: Which surfaces does this PR touch?
+        id: plan
+        run: |
+          make scan-regression-plan > plan.json
+          cat plan.json
+          echo "surfaces=$(python3 -c "import json; print(' '.join(json.load(open('plan.json'))['surfaces']))")" >> "$GITHUB_OUTPUT"
+      - name: Prepare .env for build
+        if: contains(steps.plan.outputs.surfaces, 'image:ja4proxy')
+        run: cp template.env .env
+      - name: Generate backend cert for build
+        if: contains(steps.plan.outputs.surfaces, 'image:ja4proxy')
+        run: bash scripts/generate-backend-cert.sh
+      # Only when a first-party surface is in scope. `make build-first-party-images`
+      # also builds the profile-gated test/trafficgen/tap images that `make build`
+      # skips — without them the gate would fail closed on an image CI never built.
+      - name: Build first-party images (in scope only)
+        if: contains(steps.plan.outputs.surfaces, 'image:ja4proxy')
+        run: make build-first-party-images
+      - name: Regression gate
+        run: make scan-regression
 
   test:
     name: Full Test Suite (make test)

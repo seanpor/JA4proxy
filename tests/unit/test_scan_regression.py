@@ -207,7 +207,10 @@ class TestWaiverInputsAreASurface:
 
         assert gate.main(["--base", "base", "--head", "head"]) == 0
         assert seen == ["image:ja4proxy", "image:redis", "pypi"]
-        assert "every surface is in scope" in capsys.readouterr().out
+        captured = capsys.readouterr()
+        assert "every surface is in scope" in captured.err
+        # Must not pollute stdout: `--plan` writes parseable JSON there.
+        assert "every surface is in scope" not in captured.out
 
     def test_deleted_waiver_fails_when_the_finding_reappears(self, monkeypatch, capsys):
         _patch_git(monkeypatch, [".trivyignore.third-party"], {}, {}, makefile="")

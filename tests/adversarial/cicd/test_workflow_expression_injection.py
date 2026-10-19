@@ -1,6 +1,6 @@
 """Tests for expression injection across all GitHub Actions workflows (Phase 814f L0).
 
-Audits all 16 GitHub Actions workflow files for unsafe inline expansion of
+Audits all 17 GitHub Actions workflow files for unsafe inline expansion of
 ${{ ... }} expressions inside `run:` blocks. Values derived from untrusted
 contexts (head_ref, PR title/body, commit message, issue content, etc.) must
 never be interpolated directly into shell strings. Instead, they must be passed
@@ -36,7 +36,7 @@ UNTRUSTED_EXPRESSION_PATTERNS = [
 
 def get_workflow_files() -> list[Path]:
     files = sorted(WORKFLOWS_DIR.glob("*.yml"))
-    assert len(files) == 16, f"Expected 16 workflow files in {WORKFLOWS_DIR}, found {len(files)}"
+    assert len(files) == 17, f"Expected 17 workflow files in {WORKFLOWS_DIR}, found {len(files)}"
     return files
 
 
