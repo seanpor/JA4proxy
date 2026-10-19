@@ -172,6 +172,12 @@ help-scan:  ## Show security scanning commands help
 	@echo "  scan-first-party   - Trivy scan of 1st-party Python/Go deps"
 	@echo "  check-image-versions - Check base image tags against Dockerfiles"
 	@echo "  check-updates      - Check all deps (Docker, Go, Python, Node) for updates"
+	@echo ""
+	@echo "── CVE baseline: PR gate vs scheduled monitor (Phase 847c) ────"
+	@echo "  scan-regression    - PR gate: scans only the surfaces this branch touches"
+	@echo "  scan-regression-plan - Print those surfaces as JSON (no scanning; CI helper)"
+	@echo "  scan-baseline      - Record security/baseline.json (run on main)"
+	@echo "  scan-monitor       - Full scan + drift report (APPLY=1 files deduplicated issues)"
 
 # ── Legacy (Python) sub-help ─────────────────────────────────────────────
 help-legacy:  ## Show legacy Python proxy sub-help
@@ -682,20 +688,12 @@ scan-dockerfiles:  ## Trivy config scan of Dockerfiles + compose files (HIGH/CRI
 	@echo "✓ All Dockerfiles passed"
 	@echo "  (compose files validated separately via 'docker compose config' in CI)"
 
-# CVE scan of first-party images we build.
-# Run 'make build' first to ensure the non-profiled images are current.
-# Policy (Phase 317): HIGH + CRITICAL → exit 1. We build/own these images, so a
-# HIGH is actionable (base bump / dep bump / dated .trivyignore.first-party). The profile-gated
-# CI-only test + trafficgen images are skipped by 'make build', so this target
-# builds them explicitly — otherwise they would be scanned-as-absent (a vacuous pass).
-scan-first-party:  ## Trivy CVE scan of built images (fails on HIGH or CRITICAL)
-	@mkdir -p "$(TRIVY_CACHE)"
-	@echo "=== Trivy: first-party image CVE scan (HIGH + CRITICAL) ==="
-	@echo "    Phase 317: fails on HIGH or CRITICAL. .trivyignore.first-party holds dated exceptions."
-	@echo "    Phase 800: a cached apk/apt layer can sit for weeks and silently hide a"
-	@echo "    since-fixed OS CVE (observed: ja4proxy-test carried a 5-week-stale c-ares"
-	@echo "    layer that a plain 'make build' never re-executed). CI runners are always"
-	@echo "    cache-free, so this only bites local runs — rebuild --no-cache here to match."
+# Build every first-party image the CVE gates cover. Split out of
+# `scan-first-party` (Phase 847c) so the PR regression gate's CI job can build
+# exactly the prerequisites it needs — including the profile-gated
+# test/trafficgen/tap images that 'make build' skips — without duplicating these
+# build lines into workflow YAML, where they would silently drift from this file.
+build-first-party-images:
 	@if [ -z "$$CI" ]; then \
 		echo "    Rebuilding all first-party images with --no-cache (local run)..."; \
 		DOCKER_BUILDKIT=1 docker build --no-cache -q -f deploy/docker/Dockerfile.go-proxy -t ja4proxy:2.0.0 . >/dev/null; \
@@ -709,6 +707,20 @@ scan-first-party:  ## Trivy CVE scan of built images (fails on HIGH or CRITICAL)
 	@DOCKER_BUILDKIT=1 docker build --no-cache -q -f deploy/docker/Dockerfile.trafficgen -t ja4proxy-trafficgen:1.0.0 . >/dev/null
 	@echo "    Building ja4proxy-tap (deploy/docker/docker-compose.prod.yml's 'tap' profile, skipped by 'make build')..."
 	@DOCKER_BUILDKIT=1 docker build --no-cache -q -f deploy/docker/Dockerfile.ja4-tap -t ja4proxy-tap:1.0.0 . >/dev/null
+
+# CVE scan of first-party images we build.
+# Policy (Phase 317): HIGH + CRITICAL → exit 1. We build/own these images, so a
+# HIGH is actionable (base bump / dep bump / dated .trivyignore.first-party). The profile-gated
+# CI-only test + trafficgen images are skipped by 'make build', so this target
+# builds them explicitly — otherwise they would be scanned-as-absent (a vacuous pass).
+scan-first-party: build-first-party-images  ## Trivy CVE scan of built images (fails on HIGH or CRITICAL)
+	@mkdir -p "$(TRIVY_CACHE)"
+	@echo "=== Trivy: first-party image CVE scan (HIGH + CRITICAL) ==="
+	@echo "    Phase 317: fails on HIGH or CRITICAL. .trivyignore.first-party holds dated exceptions."
+	@echo "    Phase 800: a cached apk/apt layer can sit for weeks and silently hide a"
+	@echo "    since-fixed OS CVE (observed: ja4proxy-test carried a 5-week-stale c-ares"
+	@echo "    layer that a plain 'make build' never re-executed). CI runners are always"
+	@echo "    cache-free, so this only bites local runs — rebuild --no-cache here to match."
 	@echo ""
 	@fail=0; \
 	for img in ja4proxy:2.0.0 ja4proxy-analytics:1.0.0 ja4proxy-tarpit:1.0.0 ja4proxy-mockbackend:1.0.0 ja4proxy-management:1.0.0 ja4proxy-test:1.0.0 ja4proxy-trafficgen:1.0.0 ja4proxy-tap:1.0.0; do \
@@ -745,6 +757,37 @@ scan-summary: ## Phase 228 — compact CRIT/HIGH/MED rollup of all scans (images
 
 scan-exceptions: ## List .trivyignore.first-party / .trivyignore.third-party exceptions with days-to-expiry
 	@$(PYTHON) scripts/scan_exceptions.py
+
+# Phase 847c: the PR regression gate. Scans ONLY the surfaces this branch
+# touches and fails only on findings absent from security/baseline.json, so an
+# upstream CVE disclosed overnight cannot redden an unrelated PR — while a PR
+# that bumps an image or a dependency still gets that surface scanned.
+BASE_REF ?= origin/main
+
+scan-regression:  ## PR gate: scan only the surfaces this branch touches (fails on NEW unwaived findings)
+	@echo "=== Phase 847c regression gate (base: $(BASE_REF)) ==="
+	@$(PYTHON) scripts/scan_regression.py --base "$(BASE_REF)"
+
+scan-regression-plan:  ## Print the surfaces this branch touches as JSON (no scanning; used by CI)
+	@$(PYTHON) scripts/scan_regression.py --base "$(BASE_REF)" --plan
+
+# Phase 847c: record the baseline the regression gate judges against. Run from
+# main after images/deps change. First-party images must be built first
+# ('make build', plus 'make scan-first-party' for the profile-gated ones); a
+# missing image fails the recording rather than being silently omitted, because
+# an omitted surface would read as "nothing known here" at gate time.
+scan-baseline:  ## Record security/baseline.json (third-party + first-party images + Python deps)
+	@mkdir -p "$(TRIVY_CACHE)"
+	@echo "=== Recording the CVE baseline ==="
+	@TRIVY_CACHE="$(TRIVY_CACHE)" $(PYTHON) scripts/scan_baseline.py --record --images $(FIRST_PARTY_IMAGES)
+
+# Phase 847c: the scheduled monitor (the other half of the split). Full scan,
+# drift vs the baseline, one deduplicated issue per unwaived finding. Never
+# blocks a PR — it is deliberately not a required check. Needs the first-party
+# images built, same as scan-baseline.
+scan-monitor:  ## Full CVE scan, drift report, and (APPLY=1) deduplicated issues
+	@mkdir -p "$(TRIVY_CACHE)"
+	@TRIVY_CACHE="$(TRIVY_CACHE)" $(PYTHON) scripts/scan_baseline_monitor.py --images $(FIRST_PARTY_IMAGES) $(if $(APPLY),--apply,)
 
 # Detect :latest tags and version drift between compose files.
 # Runs in < 5 seconds — no external calls, no Docker required.
