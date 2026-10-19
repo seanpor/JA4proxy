@@ -22,7 +22,8 @@ WHAT IT DOES
 2. Diff against `security/baseline.json`: findings that appeared, findings that
    went away, and surfaces whose artifact digest changed underneath us.
 3. One GitHub issue per unwaived HIGH/CRITICAL finding, deduplicated by title,
-   so re-running cannot flood the tracker.
+   so re-running cannot flood the tracker. A closed issue whose finding comes
+   back is *reopened*, never duplicated.
 4. A fix queue: which findings already have a published fix version (that is
    what the fix-forward bot in 847d burns down).
 
@@ -49,11 +50,14 @@ try:  # works as `python3 scripts/x.py` and as `from scripts.x import ...`
     from scripts.check_image_versions import scan_gate_compose_paths, third_party_image_refs
     from scripts.scan_baseline import (
         BASELINE_PATH,
+        PYPI_SURFACE,
         BaselineError,
         image_name,
         is_first_party,
         load_baseline,
         new_findings,
+        pypi_findings,
+        run_pip_audit,
         scan_image,
         surface_for_image,
     )
@@ -64,11 +68,14 @@ except ImportError:  # invoked directly, scripts/ on sys.path
     )
     from scan_baseline import (  # type: ignore[no-redef]
         BASELINE_PATH,
+        PYPI_SURFACE,
         BaselineError,
         image_name,
         is_first_party,
         load_baseline,
         new_findings,
+        pypi_findings,
+        run_pip_audit,
         scan_image,
         surface_for_image,
     )
@@ -112,20 +119,31 @@ def issue_body(surface: str, cve: str, info: dict) -> str:
     )
 
 
-def plan_issues(current: dict[str, dict], existing_titles: set[str]) -> list[dict]:
-    """Findings that need an issue and do not have one yet.
+def plan_issues(current: dict[str, dict], known: dict[str, dict]) -> list[dict]:
+    """Findings that need an issue and do not already have an open one.
 
-    Pure: the GitHub call is the caller's. Sorted by severity then id so a capped
-    run spends its budget on CRITICALs first, and deterministic so a re-run after
-    a partial failure does not reorder and re-file.
+    Pure: the GitHub call is the caller's. `known` maps every issue title to
+    `{"number", "state"}`. An issue that matches but is CLOSED is *reopened*, not
+    duplicated — the plan's alert-fatigue rule is one issue per finding, forever,
+    so a finding that comes back after its issue was closed (fixed, waived, then
+    un-waived or rolled back) must resurface without minting a second issue and
+    without going silent.
+
+    Sorted by severity then id so a capped run spends its budget on CRITICALs
+    first, and deterministic so a re-run after a partial failure does not reorder
+    and re-file.
     """
     planned: list[dict] = []
     for surface in sorted(current):
         for cve, info in sorted(current[surface].get("findings", {}).items()):
             title = issue_title(surface, cve)
-            if title in existing_titles:
+            existing = known.get(title)
+            if existing and existing.get("state") == "OPEN":
                 continue
-            planned.append({"surface": surface, "cve": cve, "title": title, "info": info})
+            item = {"surface": surface, "cve": cve, "title": title, "info": info}
+            if existing:
+                item["reopen"] = existing.get("number")
+            planned.append(item)
     planned.sort(key=lambda item: (item["info"].get("severity") != "CRITICAL", item["cve"]))
     return planned
 
@@ -200,7 +218,14 @@ def render_report(current: dict[str, dict], drift_report: dict, planned: list[di
 
 
 def scan_surfaces(refs: list[str], cache: str) -> tuple[dict[str, dict], list[str]]:
-    """Scan every ref; return `(current, failures)`.
+    """Scan every ref *and* the dependency surface; return `(current, failures)`.
+
+    The dependency surface is scanned here rather than left to a Makefile target
+    because the monitor's job is completeness: it is the only thing watching for
+    drift on surfaces nobody touched, so a surface it forgot is a surface nobody
+    watches. It is `requirements.txt`, the same file the required
+    `dependency-audit-python` job audits, so the two cannot disagree about what
+    "the Python dependency surface" means.
 
     Failures are collected rather than raised so one unreachable image cannot
     hide the findings of the other nine — but the caller must still exit non-zero.
@@ -224,19 +249,34 @@ def scan_surfaces(refs: list[str], cache: str) -> tuple[dict[str, dict], list[st
                 "fixed": row.fixed,
             }
         current[surface_for_image(image_name(ref))] = entry
+    try:
+        current[PYPI_SURFACE] = {"findings": pypi_findings(run_pip_audit())}
+    except Exception as exc:  # noqa: BLE001 -- reported, then exit non-zero
+        failures.append(f"{PYPI_SURFACE}: {exc}")
     return current, failures
 
 
-def existing_issue_titles() -> set[str]:
-    """Open issue titles, so re-running cannot re-file the same finding."""
+def issues_by_title() -> dict[str, dict]:
+    """Every issue, by title: `{"number": n, "state": "OPEN"|"CLOSED"}`.
+
+    ALL states, deliberately. Filtering to open issues would re-file a finding
+    whose issue a human closed (fixed, waived, or consciously accepted) on every
+    subsequent run — a daily flood of duplicates, which is the adoption risk the
+    plan names. Closed issues are reopened instead (see :func:`plan_issues`).
+    """
     proc = subprocess.run(  # nosec B603 -- fixed argv, no shell
-        ["gh", "issue", "list", "--state", "open", "--limit", "1000", "--json", "title", "--jq", ".[].title"],
+        [
+            "gh", "issue", "list",
+            "--state", "all",
+            "--limit", "1000",
+            "--json", "number,title,state",
+        ],
         capture_output=True,
         text=True,
     )
     if proc.returncode != 0:
         raise RuntimeError(f"gh issue list failed: {proc.stderr.strip()[:300]}")
-    return {line.strip() for line in proc.stdout.splitlines() if line.strip()}
+    return {item["title"]: {"number": item["number"], "state": item["state"]} for item in json.loads(proc.stdout)}
 
 
 def create_issue(title: str, body: str) -> str:
@@ -249,6 +289,18 @@ def create_issue(title: str, body: str) -> str:
     if proc.returncode != 0:
         raise RuntimeError(f"gh issue create failed for {title!r}: {proc.stderr.strip()[:300]}")
     return proc.stdout.strip()
+
+
+def reopen_issue(number: int, body: str) -> str:
+    """Reopen a closed issue and comment the fresh evidence. Returns a reference."""
+    for argv in (
+        ["gh", "issue", "reopen", str(number)],
+        ["gh", "issue", "comment", str(number), "--body", body],
+    ):
+        proc = subprocess.run(argv, capture_output=True, text=True)  # nosec B603, B607
+        if proc.returncode != 0:
+            raise RuntimeError(f"`{' '.join(argv[:3])}` failed: {proc.stderr.strip()[:300]}")
+    return f"#{number} (reopened)"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -291,12 +343,12 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.apply:
         try:
-            existing = existing_issue_titles()
-        except RuntimeError as exc:
+            existing = issues_by_title()
+        except (RuntimeError, json.JSONDecodeError) as exc:
             print(f"\u2717 {exc}", file=sys.stderr)
             return 1
     else:
-        existing = set()
+        existing = {}
 
     planned = plan_issues(current, existing)
     report = render_report(current, drift_report, planned, queue)
@@ -323,8 +375,12 @@ def main(argv: list[str] | None = None) -> int:
 
     filed = 0
     for item in planned[: args.max_issues]:
+        body = issue_body(item["surface"], item["cve"], item["info"])
         try:
-            url = create_issue(item["title"], issue_body(item["surface"], item["cve"], item["info"]))
+            if item.get("reopen"):
+                url = reopen_issue(item["reopen"], f"Reappeared after this issue was closed.\n\n{body}")
+            else:
+                url = create_issue(item["title"], body)
         except RuntimeError as exc:
             print(f"\u2717 {exc}", file=sys.stderr)
             return 1

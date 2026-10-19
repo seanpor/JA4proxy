@@ -50,6 +50,12 @@ jobs:
       - name: Generate backend cert for build
         run: bash scripts/generate-backend-cert.sh
 
+      # The Python dependency surface is audited by pip-audit inside this image
+      # (`make scan-baseline` uses the same one), so the results are the pinned
+      # container's, not whatever a runner happens to have.
+      - name: Build the tools image
+        run: make tools-image
+
       # The first-party images are part of the monitored surface. This builds all
       # of them, including the profile-gated test/trafficgen/tap images that
       # `make build` skips — the monitor is the one place that must cover

@@ -258,6 +258,13 @@ jobs:
           make scan-regression-plan > plan.json
           cat plan.json
           echo "surfaces=$(python3 -c "import json; print(' '.join(json.load(open('plan.json'))['surfaces']))")" >> "$GITHUB_OUTPUT"
+      # The dependency surface is audited by pip-audit *inside the pinned tools
+      # image* (`lint-static`'s pattern), not by a host install — a runner has no
+      # pip-audit, and an unpinned one would drift from the container's. Same
+      # rationale as the image build below: pay for it only when it is in scope.
+      - name: Build the tools image (dependency surface in scope)
+        if: contains(steps.plan.outputs.surfaces, 'pypi')
+        run: make tools-image
       - name: Prepare .env for build
         if: contains(steps.plan.outputs.surfaces, 'image:ja4proxy')
         run: cp template.env .env

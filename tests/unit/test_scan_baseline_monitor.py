@@ -16,13 +16,21 @@ Issue creation itself is an external side effect and is not exercised here;
 """
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
+
+import pytest
 
 _ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_ROOT / "scripts"))
 
 import scan_baseline_monitor as monitor  # noqa: E402
+
+
+def _proc(returncode=0, stdout="", stderr=""):
+    """A stand-in for subprocess.CompletedProcess."""
+    return type("P", (), {"returncode": returncode, "stdout": stdout, "stderr": stderr})()
 
 
 def _entry(*cves, digest=None, fix=""):
@@ -60,15 +68,30 @@ class TestIssueIdentity:
 
 
 class TestDeduplication:
-    def test_existing_title_is_not_refiled(self):
+    def test_open_issue_is_not_refiled(self):
         current = {"image:redis": _entry("CVE-1")}
-        existing = {monitor.issue_title("image:redis", "CVE-1")}
-        assert monitor.plan_issues(current, existing) == []
+        title = monitor.issue_title("image:redis", "CVE-1")
+        assert monitor.plan_issues(current, {title: {"number": 7, "state": "OPEN"}}) == []
 
     def test_missing_title_is_planned(self):
         current = {"image:redis": _entry("CVE-1")}
-        planned = monitor.plan_issues(current, set())
+        planned = monitor.plan_issues(current, {})
         assert [p["cve"] for p in planned] == ["CVE-1"]
+        assert "reopen" not in planned[0]
+
+    def test_closed_issue_is_reopened_not_duplicated(self):
+        """One issue per finding, forever: a closed one comes back, not a twin.
+
+        Filtering to open issues only (the obvious implementation) re-files every
+        finding whose issue a human closed, once per run — a daily duplicate
+        flood, which is the plan's named adoption risk. Nothing is filed either
+        if it went silent.
+        """
+        current = {"image:redis": _entry("CVE-1")}
+        title = monitor.issue_title("image:redis", "CVE-1")
+        planned = monitor.plan_issues(current, {title: {"number": 7, "state": "CLOSED"}})
+        assert len(planned) == 1
+        assert planned[0]["reopen"] == 7
 
     def test_critical_sorts_before_high(self):
         current = {
@@ -79,11 +102,11 @@ class TestDeduplication:
                 }
             }
         }
-        assert [p["cve"] for p in monitor.plan_issues(current, set())] == ["CVE-CRIT", "CVE-HIGH"]
+        assert [p["cve"] for p in monitor.plan_issues(current, {})] == ["CVE-CRIT", "CVE-HIGH"]
 
     def test_planning_is_deterministic(self):
         current = {"image:b": _entry("CVE-2"), "image:a": _entry("CVE-1")}
-        assert monitor.plan_issues(current, set()) == monitor.plan_issues(current, set())
+        assert monitor.plan_issues(current, {}) == monitor.plan_issues(current, {})
 
 
 class TestFixableQueue:
@@ -139,3 +162,142 @@ class TestReport:
         report = monitor.render_report({"image:redis": _entry("CVE-9")}, drift, [], [])
         assert "CVE-9" in report
         assert "appeared since the baseline" in report
+
+
+class TestGitHubCalls:
+    """`gh` is the only side effect; it must be loud on failure and idempotent."""
+
+    def test_issues_by_title_reads_every_state_not_just_open(self, monkeypatch):
+        calls: list[list[str]] = []
+
+        def fake_run(argv, **kwargs):
+            calls.append(argv)
+            return _proc(stdout=json.dumps([{"number": 3, "title": "t", "state": "CLOSED"}]))
+
+        monkeypatch.setattr(monitor.subprocess, "run", fake_run)
+        assert monitor.issues_by_title() == {"t": {"number": 3, "state": "CLOSED"}}
+        # `--state open` would re-file every finding a human had closed.
+        assert calls[0][:3] == ["gh", "issue", "list"]
+        assert "all" in calls[0]
+
+    def test_issues_by_title_fails_loudly(self, monkeypatch):
+        monkeypatch.setattr(monitor.subprocess, "run", lambda *a, **k: _proc(1, stderr="gh is missing"))
+        with pytest.raises(RuntimeError, match="gh is missing"):
+            monitor.issues_by_title()
+
+    def test_reopen_reopens_then_comments(self, monkeypatch):
+        seen: list[list[str]] = []
+        monkeypatch.setattr(monitor.subprocess, "run", lambda argv, **k: (seen.append(argv), _proc())[1])
+
+        assert "7" in monitor.reopen_issue(7, "the evidence")
+
+        assert seen[0][:3] == ["gh", "issue", "reopen"]
+        assert seen[1][:3] == ["gh", "issue", "comment"]
+        assert "the evidence" in seen[1]
+
+    def test_reopen_failure_is_not_swallowed(self, monkeypatch):
+        monkeypatch.setattr(monitor.subprocess, "run", lambda *a, **k: _proc(1, stderr="denied"))
+        with pytest.raises(RuntimeError, match="denied"):
+            monitor.reopen_issue(7, "body")
+
+
+class TestScannedSurfaces:
+    def test_includes_the_dependency_surface(self, monkeypatch):
+        """The monitor's job is completeness; a surface it forgets is unwatched."""
+        monkeypatch.setattr(monitor, "scan_image", lambda ref, first_party, cache: ([], None))
+        monkeypatch.setattr(
+            monitor,
+            "run_pip_audit",
+            lambda: [{"name": "urllib3", "version": "1", "vulns": [{"id": "CVE-1", "fix_versions": ["2"]}]}],
+        )
+
+        current, failures = monitor.scan_surfaces(["redis:7"], "/tmp/cache")
+
+        assert failures == []
+        assert "image:redis" in current
+        assert current["pypi"]["findings"]["CVE-1"]["package"] == "urllib3"
+
+    def test_a_failed_dependency_audit_is_a_failure_not_a_pass(self, monkeypatch):
+        monkeypatch.setattr(monitor, "scan_image", lambda ref, first_party, cache: ([], None))
+
+        def unreachable():
+            raise RuntimeError("OSV unreachable")
+
+        monkeypatch.setattr(monitor, "run_pip_audit", unreachable)
+
+        current, failures = monitor.scan_surfaces(["redis:7"], "/tmp/cache")
+
+        assert "pypi" not in current, "a failed audit must not read as 'nothing found'"
+        assert failures and "OSV unreachable" in failures[0]
+
+
+class TestApply:
+    def _wire(self, monkeypatch, issues):
+        monkeypatch.setattr(monitor, "third_party_image_refs", lambda paths: [])
+        monkeypatch.setattr(monitor, "scan_gate_compose_paths", lambda: [])
+        monkeypatch.setattr(
+            monitor, "scan_surfaces", lambda refs, cache: ({"image:redis": _entry("CVE-1")}, [])
+        )
+        monkeypatch.setattr(monitor, "load_baseline", lambda path=None: _baseline())
+        monkeypatch.setattr(monitor, "issues_by_title", lambda: issues)
+        created: list[str] = []
+        reopened: list[int] = []
+        monkeypatch.setattr(monitor, "create_issue", lambda t, b: (created.append(t), "url")[1])
+        monkeypatch.setattr(monitor, "reopen_issue", lambda n, b: (reopened.append(n), "url")[1])
+        return created, reopened
+
+    def test_creates_when_there_is_no_issue(self, monkeypatch, capsys):
+        created, reopened = self._wire(monkeypatch, {})
+
+        assert monitor.main(["--apply"]) == 0
+
+        assert len(created) == 1
+        assert reopened == []
+
+    def test_reopens_a_closed_issue_instead_of_creating_a_twin(self, monkeypatch, capsys):
+        title = monitor.issue_title("image:redis", "CVE-1")
+        created, reopened = self._wire(monkeypatch, {title: {"number": 4, "state": "CLOSED"}})
+
+        assert monitor.main(["--apply"]) == 0
+
+        assert created == []
+        assert reopened == [4]
+
+    def test_skips_an_open_issue(self, monkeypatch, capsys):
+        title = monitor.issue_title("image:redis", "CVE-1")
+        created, reopened = self._wire(monkeypatch, {title: {"number": 4, "state": "OPEN"}})
+
+        assert monitor.main(["--apply"]) == 0
+
+        assert created == []
+        assert reopened == []
+
+    def test_dry_run_files_nothing_but_says_what_it_would(self, monkeypatch, capsys):
+        created, reopened = self._wire(monkeypatch, {})
+
+        assert monitor.main([]) == 0
+
+        assert created == [] and reopened == []
+        assert "would be filed" in capsys.readouterr().out
+
+    def test_a_partial_scan_failure_exits_non_zero(self, monkeypatch, capsys):
+        monkeypatch.setattr(monitor, "third_party_image_refs", lambda paths: [])
+        monkeypatch.setattr(monitor, "scan_gate_compose_paths", lambda: [])
+        monkeypatch.setattr(monitor, "scan_surfaces", lambda refs, cache: ({}, ["redis: timed out"]))
+        monkeypatch.setattr(monitor, "load_baseline", lambda path=None: _baseline())
+
+        assert monitor.main([]) == 1
+
+        assert "could not be scanned" in capsys.readouterr().err
+
+    def test_a_missing_baseline_still_reports_findings(self, monkeypatch, capsys):
+        """Degrade the drift comparison, never the finding itself."""
+        created, _ = self._wire(monkeypatch, {})
+        monkeypatch.setattr(
+            monitor, "load_baseline", lambda path=None: (_ for _ in ()).throw(monitor.BaselineError("gone"))
+        )
+
+        assert monitor.main(["--apply"]) == 0
+
+        assert len(created) == 1
+        assert "without a drift comparison" in capsys.readouterr().err
