@@ -123,10 +123,18 @@ it.
       security-relevant surface touched" while the DB is current; a docs-only
       diff, a `requirements.txt` bump, and a compose bump each select exactly
       their own surface).
-- [x] A PR bumping to a vulnerable image fails (demonstrated: the grafana bump
-      scenario selects `image:grafana/grafana` and returns the 12 HIGHs with
-      their `FixedVersion`s when the ignorefile is emptied; with the waivers
-      applied it returns 0, which is the "unchanged CVE set" case).
+- [x] A PR bumping to a vulnerable image fails (demonstrated end to end against
+      the real database: on a throwaway branch the sole diff
+      `prom/alertmanager:v0.34.1 → v0.22.0` selected exactly
+      `image:prom/alertmanager` — reason `version v0.34.1 -> v0.22.0` — and the
+      gate exited 1 listing **87 findings not in the baseline** with each
+      `FixedVersion`, ending in "This PR introduces unwaived findings that are
+      not in the baseline". The first attempt also proved the ambiguity guard:
+      bumping prometheus in *one* of the two gated compose files that pin it
+      exits 2 (`resolves to ['v2.30.0', 'v3.15.0']`, no single artifact to scan)
+      rather than silently scanning whichever file was read last. Branches and
+      images from the demonstration were discarded; only the recorded output is
+      evidence.)
 - [x] Scheduled monitor opens/updates deduplicated issues on drift and reports the
       fixable-queue count. (One issue per finding id, stable
       `[cve-baseline] <CVE> <surface>` title; the run summary reports the
@@ -255,6 +263,28 @@ it.
 > the file set `make scan-images` covers (`scan_gate_compose_paths()`), so a
 > compose file outside that set is not a trigger — the honest limitation, stated
 > rather than implied.
+
+> **Two ways the required gate could have reddened a PR for an unrelated
+> reason, found reviewing it before it went live.** Both are the class the split
+> exists to remove, so both are fixed rather than documented:
+>
+> 1. **A `pyproject.toml`-only PR would exit 2.** `pyproject.toml`/`Pipfile` are
+>    correctly *triggers* (the dependency set moved), but `requirements_of()`
+>    could hand pip-audit the same path, and `pip-audit -r pyproject.toml` errors
+>    — the required check would redden with "could not scan pypi" on a config
+>    edit. Trigger and auditable file are now separate: only
+>    requirements/constraints files can be audited, and a `pyproject.toml`
+>    change audits `requirements.txt`, the file this repo installs from and the
+>    one the recorder and the required `dependency-audit-python` job audit.
+> 2. **A changed Dockerfile outside the Makefile's build set was silently
+>    ignored.** Detection is deliberately limited to what
+>    `make scan-first-party` scans, and 11 Dockerfiles are outside it —
+>    `Dockerfile.cli` and `Dockerfile.go-proxy.foss` among them. Failing on a
+>    dev-tooling Dockerfile (`Dockerfile.tools` is not a shipped artifact) would
+>    be the unrelated red this phase removes, so the gate *reports* them on
+>    stderr instead of judging them. A touched file the gate cannot judge must
+>    not be silent — that is the programme's "zero silent findings" property —
+>    and widening the scanned set is 847d/e work.
 
 > **Observed, not fixed here:** the branch-protection API reports
 > `required_status_checks.strict: false`, contradicting the AGENTS.md line
