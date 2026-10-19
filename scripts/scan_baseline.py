@@ -100,12 +100,20 @@ def surface_for_image(image_name: str) -> str:
 def image_name(ref: str) -> str:
     """Strip the tag/digest from an image reference, keeping any registry port.
 
-    `grafana/grafana:13.2.4-ubuntu` -> `grafana/grafana`
-    `localhost:5000/x:1`           -> `localhost:5000/x`
-    `x@sha256:abc`                 -> `x`
+    `grafana/grafana:13.2.4-ubuntu`      -> `grafana/grafana`
+    `localhost:5000/x:1`                 -> `localhost:5000/x`
+    `x@sha256:abc`                       -> `x`
+    `redis:7.4.11-alpine@sha256:abc`     -> `redis`
+
+    The digest is dropped *first*: a digest-pinned ref also carries a tag, and
+    handling the `@` case by returning `ref.split("@")[0]` left the tag in the
+    key — found live, where the compose-pinned `redis:7.4.11-alpine@sha256:…`
+    recorded `image:redis:7.4.11-alpine` instead of `image:redis`. A tag-keyed
+    surface breaks the whole design: routine tag bumps would mint a new surface,
+    whose findings are all "new" by definition, so the gate would fail exactly
+    the bumps it is meant to allow through.
     """
-    if "@" in ref:
-        return ref.split("@", 1)[0]
+    ref = ref.split("@", 1)[0]
     head, sep, tail = ref.rpartition(":")
     # A colon with no slash after it is a tag; with a slash it is a registry port.
     if sep and "/" not in tail:
@@ -373,7 +381,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--record", action="store_true", help="scan every surface and write the baseline")
     parser.add_argument("--out", default=str(BASELINE_PATH), help=f"baseline path (default: {BASELINE_PATH})")
-    parser.add_argument("--images", nargs="*", default=[], help="image refs to record (default: from compose files)")
+    parser.add_argument("--images", nargs="*", default=[], help="extra image refs to record (appended to the compose list)")
+    parser.add_argument("--no-third-party", action="store_true", help="skip the compose-derived third-party list")
     parser.add_argument("--no-pypi", action="store_true", help="skip the Python dependency surface")
     parser.add_argument("--summary", action="store_true", help="print the recorded surfaces and exit")
     args = parser.parse_args(argv)
@@ -391,9 +400,15 @@ def main(argv: list[str] | None = None) -> int:
     if not args.record:
         parser.error("nothing to do: pass --record or --summary")
 
-    refs = list(args.images)
-    if not refs:
-        refs = third_party_image_refs(scan_gate_compose_paths())
+    # Third-party refs come from the compose files; first-party refs are passed
+    # in by the caller (`make scan-baseline` passes $(FIRST_PARTY_IMAGES)), so
+    # there is exactly one authority per list rather than a second one here that
+    # could disagree with the Makefile about what the repo builds.
+    refs: list[str] = []
+    if not args.no_third_party:
+        refs += third_party_image_refs(scan_gate_compose_paths())
+    refs += list(args.images)
+    refs = list(dict.fromkeys(refs))  # stable de-dupe; order preserved for readable output
     entries: dict[str, dict] = {}
     failed = 0
     cache = os.environ.get("TRIVY_CACHE", os.path.expanduser("~/.cache/trivy"))

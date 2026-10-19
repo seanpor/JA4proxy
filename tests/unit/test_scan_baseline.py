@@ -62,6 +62,22 @@ class TestImageIdentity:
     def test_digest_is_stripped(self):
         assert scan_baseline.image_name("redis@sha256:abc") == "redis"
 
+    def test_digest_pinned_ref_also_drops_its_tag(self):
+        # Found live: the compose-pinned redis ref carries BOTH a tag and a
+        # digest, and dropping only the digest left the tag in the surface key.
+        assert (
+            scan_baseline.image_name(
+                "redis:7.4.11-alpine@sha256:520775a41a63e77e06c73e35d2fd9cc15921a609516818796b4ecbb813078bc7"
+            )
+            == "redis"
+        )
+
+    def test_tag_and_digest_forms_of_one_image_share_a_surface(self):
+        """The recorder and the gate must agree, whichever form compose uses."""
+        assert scan_baseline.surface_for_image(
+            scan_baseline.image_name("redis:7.4.11-alpine@sha256:abc")
+        ) == scan_baseline.surface_for_image(scan_baseline.image_name("redis:7.4.11-alpine"))
+
     def test_surface_key_namespaces_images(self):
         assert scan_baseline.surface_for_image("grafana/grafana") == "image:grafana/grafana"
 
