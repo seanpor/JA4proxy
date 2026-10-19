@@ -156,6 +156,68 @@ class TestRequirementsSelection:
         assert gate.requirements_of(["sub/pyproject.toml"]) == "sub/pyproject.toml"
 
 
+class TestWaiverInputsAreASurface:
+    """A waiver change moves the gate's own inputs, so nothing is out of scope.
+
+    Without this, deleting a waiver row touches no compose file, no Dockerfile
+    and no requirements file — so a surface-scoped gate would look at nothing and
+    pass, and the finding the deletion un-waived would go unseen until the
+    scheduled monitor ran. That is the one fail-open path in a diff-scoped gate.
+    """
+
+    def test_waiver_registry_change_is_detected(self):
+        assert gate.waiver_inputs_changed(["security/waivers.yaml"])
+
+    def test_generated_ignorefiles_are_detected(self):
+        assert gate.waiver_inputs_changed([".trivyignore.third-party"])
+        assert gate.waiver_inputs_changed([".trivyignore.first-party"])
+        assert gate.waiver_inputs_changed([".pip-audit-ignores"])
+
+    def test_unrelated_file_is_not_a_waiver_input(self):
+        assert not gate.waiver_inputs_changed(["scripts/scan_regression.py", "README.md"])
+
+    def test_all_surfaces_covers_compose_dockerfiles_and_pypi(self):
+        everything = gate.all_surfaces(
+            ["security/waivers.yaml"],
+            {"redis": frozenset({"7.4.11"})},
+            {"deploy/docker/Dockerfile.go-proxy": "ja4proxy:2.0.0"},
+        )
+        assert set(everything) == {"image:redis", "image:ja4proxy", "pypi"}
+
+    def test_compose_ref_wins_over_the_makefile_build_tag(self):
+        """The deployed tag is what the waiver is about, so it must win."""
+        everything = gate.all_surfaces(
+            [],
+            {"ja4proxy-tap": frozenset({"2.0.0"})},
+            {"deploy/docker/Dockerfile.ja4-tap": "ja4proxy-tap:1.0.0"},
+        )
+        assert everything["image:ja4proxy-tap"]["ref"] == "ja4proxy-tap:2.0.0"
+
+    def test_main_scans_every_surface_on_a_waiver_change(self, monkeypatch, capsys):
+        _patch_git(
+            monkeypatch,
+            ["security/waivers.yaml"],
+            {"redis": frozenset({"1"})},
+            {"redis": frozenset({"1"})},
+            makefile="-f deploy/docker/Dockerfile.go-proxy -t ja4proxy:2.0.0",
+        )
+        monkeypatch.setattr(gate, "load_baseline", lambda path=None: _baseline())
+        seen: list[str] = []
+        monkeypatch.setattr(gate, "scan_surface", lambda s, r, c: seen.append(s) or {})
+
+        assert gate.main(["--base", "base", "--head", "head"]) == 0
+        assert seen == ["image:ja4proxy", "image:redis", "pypi"]
+        assert "every surface is in scope" in capsys.readouterr().out
+
+    def test_deleted_waiver_fails_when_the_finding_reappears(self, monkeypatch, capsys):
+        _patch_git(monkeypatch, [".trivyignore.third-party"], {}, {}, makefile="")
+        monkeypatch.setattr(gate, "load_baseline", lambda path=None: _baseline())
+        monkeypatch.setattr(gate, "scan_surface", lambda *a: {"CVE-2026-1": _finding("CVE-2026-1")})
+
+        assert gate.main(["--base", "base", "--head", "head"]) == 1
+        assert "CVE-2026-1" in capsys.readouterr().out
+
+
 class TestExitCodes:
     def test_nothing_touched_exits_zero_without_scanning(self, monkeypatch, capsys):
         _patch_git(monkeypatch, ["README.md"], {"redis": frozenset({"1"})}, {"redis": frozenset({"1"})})

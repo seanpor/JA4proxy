@@ -49,6 +49,7 @@ try:  # works as `python3 scripts/x.py` and as `from scripts.x import ...`
     from scripts.check_image_versions import (
         FIRST_PARTY_IMAGES,
         SCAN_GATE_COMPOSE_REPOS,
+        dockerfile_image_map,
         extract_images_from_text,
     )
     from scripts.scan_baseline import (
@@ -67,6 +68,7 @@ except ImportError:  # invoked directly, scripts/ on sys.path
     from check_image_versions import (  # type: ignore[no-redef]
         FIRST_PARTY_IMAGES,
         SCAN_GATE_COMPOSE_REPOS,
+        dockerfile_image_map,
         extract_images_from_text,
     )
     from scan_baseline import (  # type: ignore[no-redef]
@@ -89,10 +91,20 @@ except ImportError:  # invoked directly, scripts/ on sys.path
 PYPI_FILE_RE = re.compile(
     r"(^|/)(requirements[\w.\-]*\.txt|constraints[\w.\-]*\.txt|pyproject\.toml|Pipfile|Pipfile\.lock)$"
 )
-COMPOSE_FILE_RE = re.compile(r"(^|/)docker-compose.*\.ya?ml$")
 DOCKERFILE_RE = re.compile(r"(^|/)Dockerfile[\w.\-]*$")
-# `-f <dockerfile> -t <image:tag>` pairs, as written in the Makefile's build lines.
-DOCKER_IMAGE_RE = re.compile(r"-f\s+(\S+)\s+-t\s+(\S+)")
+
+# The gate's OWN inputs. `security/waivers.yaml` is the authored registry and
+# the three generated files are what Trivy/pip-audit actually apply, so a change
+# to any of them changes the verdict for *every* surface — which is the one case
+# where scanning only "what this PR touches" would be fail-open: deleting a
+# waiver touches no image, so a surface-scoped gate would never look, and the
+# finding it un-waives would go unnoticed until the scheduled monitor ran.
+WAIVER_INPUTS = (
+    "security/waivers.yaml",
+    ".trivyignore.third-party",
+    ".trivyignore.first-party",
+    ".pip-audit-ignores",
+)
 
 MAKEFILE = "Makefile"
 
@@ -176,14 +188,6 @@ def single_ref(name: str, versions: frozenset[str]) -> str:
     return f"{name}:{next(iter(versions))}"
 
 
-def dockerfile_image_map(text: str) -> dict[str, str]:
-    """Parse `{dockerfile path: image:tag}` out of the Makefile's build lines."""
-    mapping: dict[str, str] = {}
-    for dockerfile, image in DOCKER_IMAGE_RE.findall(text):
-        mapping[dockerfile] = image
-    return mapping
-
-
 def touched_surfaces(
     changed: list[str],
     base_refs: dict[str, frozenset[str]],
@@ -239,6 +243,36 @@ def requirements_of(changed: list[str]) -> str:
     return "requirements.txt"
 
 
+def waiver_inputs_changed(changed: list[str]) -> bool:
+    """True when the PR edits the waiver registry or the files generated from it."""
+    return any(path in WAIVER_INPUTS for path in changed)
+
+
+def all_surfaces(
+    changed: list[str],
+    head_refs: dict[str, frozenset[str]],
+    dockerfile_images: dict[str, str],
+) -> dict[str, dict]:
+    """Every surface this repo currently has, for a waiver-input change.
+
+    Compose-derived refs win over Dockerfile-derived ones for the same image, so
+    a first-party image pinned in compose is scanned at its deployed tag rather
+    than at the Makefile's build tag (they can differ, and the deployed one is
+    what the waiver is actually about).
+    """
+    reason = "waiver set changed"
+    everything: dict[str, dict] = {}
+    for name in sorted(head_refs):
+        everything[surface_for_image(name)] = {"ref": single_ref(name, head_refs[name]), "reason": reason}
+    for dockerfile, image in sorted(dockerfile_images.items()):
+        everything.setdefault(
+            surface_for_image(image_name(image)),
+            {"ref": image, "reason": f"{reason} ({dockerfile})"},
+        )
+    everything.setdefault(PYPI_SURFACE, {"ref": requirements_of(changed), "reason": reason})
+    return everything
+
+
 def scan_surface(surface: str, ref: str, cache: str) -> dict[str, dict]:
     """Scan one surface and return `{finding id: entry}`.
 
@@ -266,9 +300,15 @@ def main(argv: list[str] | None = None) -> int:
         base_refs = compose_refs_at(args.base)
         head_refs = compose_refs_at(args.head)
         makefile_text = file_at(args.head, MAKEFILE) or ""
-        touched = touched_surfaces(
-            changed, base_refs, head_refs, dockerfile_image_map(makefile_text)
-        )
+        dockerfiles = dockerfile_image_map(makefile_text)
+        if waiver_inputs_changed(changed):
+            # The waiver set is an input to the verdict for every surface, so a
+            # change to it makes *all* of them "touched". Scanning only the
+            # files in the diff would make deleting a waiver a silent no-op.
+            touched = all_surfaces(changed, head_refs, dockerfiles)
+            print("⚠ a waiver input changed — every surface is in scope for this PR")
+        else:
+            touched = touched_surfaces(changed, base_refs, head_refs, dockerfiles)
     except DiffError as exc:
         print(f"\u2717 cannot determine what this PR touches: {exc}", file=sys.stderr)
         return 2
