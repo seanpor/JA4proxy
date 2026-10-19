@@ -150,15 +150,23 @@ on. Edit `manifest.yaml`; run `make sync` to preview locally.
 > is personal-account-owned, so it is unavailable — see `docs/phases/complete/PHASE_332.md`.)*
 >
 > **Required checks (the merge gate).** The full required set is Meta-Validation,
-> Full Lint, Full Test, Security Scan, Secrets scan, SAST, the Python/Go
-> dependency audits, Traceability, lychee, and Go Build + Compose Validate.
-> Full Lint and Security Scan were run as **non-required, advisory-only** for a
-> time-boxed two-week Phase 332 trial (2026-06-15 → 2026-06-29); the trial
-> expired with zero lint/scan regressions reaching `main` undetected, and both
-> were **restored to required on 2026-07-01**. Run **`make preflight`**
-> (lint + scan + test) locally before opening any PR regardless — it's the same
-> gate CI now enforces, and catching a break locally is faster than waiting on
-> CI. Because `main` is strict (branches must be up to date), run
+> Full Lint, Full Test, Scan Regression (surfaces touched), Secrets scan, SAST, the
+> Python/Go dependency audits, Traceability, lychee, and Go Build + Compose
+> Validate. Full Lint and Security Scan were run as **non-required,
+> advisory-only** for a time-boxed two-week Phase 332 trial (2026-06-15 →
+> 2026-06-29); the trial expired with zero lint/scan regressions reaching `main`
+> undetected, and both were **restored to required on 2026-07-01**. **Phase 847c
+> then split the CVE gate**: `Scan Regression (surfaces touched)`
+> (`make scan-regression`) is the required PR check — it scans only the surfaces a
+> PR touches and fails only on findings absent from `security/baseline.json`, so an
+> upstream CVE disclosed overnight cannot redden an unrelated PR. The full
+> `Security Scan (make scan)` job is **de-required**: it still runs on push and
+> schedule, and on a PR only when the waiver set moved. Do not add it back to the
+> required contexts — a required check that a PR *skips* never reports, and GitHub
+> treats a never-reported required check as blocking forever. Run **`make
+> preflight`** (lint + scan + test) locally before opening any PR regardless — it's
+> the same gate CI now enforces, and catching a break locally is faster than
+> waiting on CI. Because `main` is strict (branches must be up to date), run
 > `make preflight` against a reasonably current branch — and expect to
 > `gh pr update-branch --rebase` if `main` advances before your checks finish.
 >

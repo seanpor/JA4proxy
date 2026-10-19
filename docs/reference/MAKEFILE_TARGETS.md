@@ -45,7 +45,7 @@ The default lane runs **without HAProxy** (single proxy, reached directly on
 
 <!-- BEGIN GENERATED: make-targets -->
 
-_202 targets. Generated from the Makefile's own `##` help comments by `make sync` — do not edit this table by hand._
+_207 targets. Generated from the Makefile's own `##` help comments by `make sync` — do not edit this table by hand._
 
 ### Aggregate linters
 
@@ -168,10 +168,14 @@ _202 targets. Generated from the Makefile's own `##` help comments by `make sync
 | `lint-yaml` | yamllint `config/` and `monitoring/` |
 | `logs` | Stream proxy container logs |
 | `rebuild` | Wipe volumes/images, rebuild from scratch, start fresh |
+| `scan-baseline` | Record security/baseline.json (third-party + first-party images + Python deps) |
 | `scan-dockerfiles` | Trivy config scan of Dockerfiles + compose files (HIGH/CRITICAL → fail) |
 | `scan-exceptions` | List .trivyignore.first-party / .trivyignore.third-party exceptions with days-to-expiry |
 | `scan-first-party` | Trivy CVE scan of built images (fails on HIGH or CRITICAL) |
 | `scan-images` | Trivy scan of third-party images (fails on HIGH or CRITICAL) |
+| `scan-monitor` | Full CVE scan, drift report, and (APPLY=1) deduplicated issues |
+| `scan-regression` | PR gate: scan only the surfaces this branch touches (fails on NEW unwaived findings) |
+| `scan-regression-plan` | Print the surfaces this branch touches as JSON (no scanning; used by CI) |
 | `scan-summary` | Phase 228 — compact CRIT/HIGH/MED rollup of all scans (images + misconfig + gosec; reporting only) |
 | `smoke-test` | Quick sanity check |
 | `test` | Phase 146 — Run the full test suite |
@@ -378,6 +382,14 @@ _202 targets. Generated from the Makefile's own `##` help comments by `make sync
 |--------|-------------|
 | `demo-bot` | Send test non-browser TLS connection for demo |
 | `demo-check` | Pre-flight health check for demo environment |
+
+### Undocumented
+
+_1 targets carry no `##` description. They are listed here rather than omitted, so the gap stays visible instead of becoming invisible again. Fix one by adding `## <description>` to its rule in the Makefile._
+
+| Target |
+|--------|
+| `build-first-party-images` |
 
 <!-- END GENERATED: make-targets -->
 

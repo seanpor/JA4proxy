@@ -12,7 +12,7 @@ read the top of the file for full options.
 
 <!-- BEGIN GENERATED: scripts -->
 
-_139 scripts. Generated from each script's header comment by `make sync` — do not edit this table by hand._
+_142 scripts. Generated from each script's header comment by `make sync` — do not edit this table by hand._
 
 | Script | Called by | What it does |
 |--------|-----------|--------------|
@@ -123,7 +123,10 @@ _139 scripts. Generated from each script's header comment by `make sync` — do 
 | `run-local-tests.sh` | — | JA4proxy — local test runner |
 | `run-tests.sh` | `make test-docker` | Test runner script for JA4 Proxy POC |
 | `scale-proxies.sh` | — | Scale JA4proxy to N proxy instances behind HAProxy |
+| `scan_baseline.py` | `make scan-baseline` | scripts/scan_baseline.py — record and query the CVE baseline (Phase 847c). |
+| `scan_baseline_monitor.py` | `make scan-monitor` | scripts/scan_baseline_monitor.py — the scheduled baseline monitor (Phase 847c). |
 | `scan_exceptions.py` | `make scan-exceptions` | List Trivy scan exceptions (.trivyignore) with days-to-expiry. |
+| `scan_regression.py` | `make scan-regression` | scripts/scan_regression.py — the PR regression gate (Phase 847c). |
 | `scan_summary.py` | `make scan-summary` | scripts/scan_summary.py — human-readable rollup of the security scans (Phase 228). |
 | `set_dial.py` | `make dial` | Set the proxy dial value via pubsub. |
 | `setup-redis-security.sh` | — | Setup script for Redis security (TLS + Secrets) |
