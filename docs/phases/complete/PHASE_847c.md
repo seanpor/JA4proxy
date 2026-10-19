@@ -232,10 +232,19 @@ it.
 > **The `scan` job is de-required by condition, not by deletion.** It still runs
 > on push and schedule (so `main` keeps a complete record and
 > `notify-scheduled-failure` still has something to report), and on a PR only
-> when `scan-scope` says the waiver set moved. A required check that a PR
-> *skips* never reports, and GitHub treats a never-reported required check as
-> blocking forever, so it could not simply be left in the required list while
-> becoming conditional. `scripts/branch_protection.sh` and
+> when `scan-scope` says the waiver set moved. It is *also* removed from the
+> required contexts, and that half needs its reason stated precisely, because the
+> first version of this note had it backwards: a job skipped by an `if:` inside a
+> workflow that **did** run reports `skipped`, and `skipped` satisfies a required
+> context. The evidence is in this repo — the required `Cold-start smoke test
+> (start-poc.sh)` is skipped on any PR that does not touch the cold-start path,
+> and #621 merged with it skipped; ci.yml's comment on that job spells out the
+> rule, which is that only a *workflow*-level `paths:` filter leaves a check
+> permanently unreported. So `scan` could have been left in the required list
+> when it became conditional without blocking anything — but a required check
+> that skips on most PRs is a *vacuous* gate: it reports green without scanning
+> while still reading as a full CVE scan, which is the opposite of what this
+> phase set out to build. `scripts/branch_protection.sh` and
 > `tests/test_workflow_pinning.py` name it in an explicit, justified
 > not-required list; the guard test also asserts each exemption still names a
 > real job, so the list cannot rot into a way to silence drift. The two

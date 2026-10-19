@@ -162,8 +162,18 @@ on. Edit `manifest.yaml`; run `make sync` to preview locally.
 > upstream CVE disclosed overnight cannot redden an unrelated PR. The full
 > `Security Scan (make scan)` job is **de-required**: it still runs on push and
 > schedule, and on a PR only when the waiver set moved. Do not add it back to the
-> required contexts — a required check that a PR *skips* never reports, and GitHub
-> treats a never-reported required check as blocking forever. Run **`make
+> required contexts — but state the reason precisely, because the
+> obvious-sounding one is false. A job skipped by an `if:` inside a workflow that
+> *did* run reports `skipped`, and `skipped` **satisfies** a required context:
+> the proof is in this repo, where the required `Cold-start smoke test
+> (start-poc.sh)` is skipped on every PR that does not touch the cold-start path
+> (e.g. #621 merged with it skipped). What genuinely blocks forever is a required
+> check the PR's workflows never create at all — a *workflow*-level `paths:`
+> filter (see the comment on `poc-cold-start` in ci.yml), or one whose job does
+> not exist in the base branch. A skipped check therefore does not block merging;
+> it just gates nothing — on most PRs a required `scan` would report green
+> without scanning while still reading as a full CVE scan. The requirement
+> belongs to `scan-regression`, which runs on every PR's diff. Run **`make
 > preflight`** (lint + scan + test) locally before opening any PR regardless — it's
 > the same gate CI now enforces, and catching a break locally is faster than
 > waiting on CI. Because `main` is strict (branches must be up to date), run
