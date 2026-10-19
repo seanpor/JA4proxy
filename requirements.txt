@@ -53,6 +53,13 @@ tomli>=2.0; python_version < "3.11"  # phase-92: TOML validation fallback for Py
 jsonpath-ng==1.8.0  # phase-85: REST generic TI feed client (src/analytics/ti_feeds/rest_generic.py)
 
 mcp>=1.29.0  # CVE-2025-66416 (requires >=1.28.0) — pinned to match semgrep 1.176+ and force safe resolution
+# mcp 1.29.0 also carries CVE-2026-59951 (fix: 1.30.0), which CANNOT be taken:
+# semgrep hard-pins mcp==1.29.0 and its latest release (1.181.0) still does, so
+# raising this floor breaks semgrep's resolution. Acknowledged in
+# security/waivers.yaml (rendered into .pip-audit-ignores, which both the Makefile
+# lint-static gate and the ci.yml dependency-audit-python job consume) with the
+# rationale in docs/security/CVE_EXCEPTIONS.md
+# (expiry 2027-01-14). Vulnerable path is an MCP StreamableHTTP server we never run.
 protobuf>=5.29.6  # PYSEC-2026-1805 / CVE-2026-0994 fix (clears protobuf 4.x vulnerability)
 
 # NOTE (phase-800 / phase-833): click 8.1.8 (PYSEC-2026-2132) is acknowledged in the lint gate

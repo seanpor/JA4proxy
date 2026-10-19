@@ -255,23 +255,31 @@ the upgrade window.
 
 The console is a shell page plus htmx partials polled from
 `/api/v1/partials/*`. The shell renders **identically** when a partial behind it
-is broken, so a dedicated route test per partial is required.
+is broken, so every partial that the UI fetches must be covered by a route test.
 
 Measured 2026-10-15 across `management/templates/**`:
 
-- **21** `hx-get` targets: **20** partials plus the `/api/v1/tls-health` page.
-- **13** have a dedicated route test (12 partials + `tls-health`).
-- **8** do not: `attack-fingerprint-table`, `attack-mode-indicator`,
-  `attack-top`, `audit`, `dial`, `health-cards`, `intelligence`,
-  `intelligence-review`.
+- **20 `hx-get` partial targets**, plus `/api/v1/tls-health` = **21**.
+- **`management/tests/test_ui_regression.py` (Phase 826) covers 18 of the 20
+  partials** — and `tls-health` — with an authenticated GET that fails on a 404.
+  Tier 1 is parametrised over URLs extracted from the templates, so it is
+  self-maintaining.
+- **Exactly 2 partials are invisible to that gate because the extractor drops
+  brace-wrapped URLs:** `attack-top` and `attack-fingerprint-table`. Those two
+  are brace-only in the templates (`{% if attack_mode_active %}`), so the
+  extractor's old regex skipped them. Phase 824c fixes that hole and adds the
+  missing static checks (mutating targets + reverse direction). Phase 824b adds
+  per-partial auth enforcement and positive panel landmarks.
 
-Phase 824b closes the 8-route gap. Phase 824c makes the check self-maintaining by
-extracting the target list **from the templates** rather than hand-maintaining
-it. Re-derive the list with:
+Phase 824c fixes the extractor so Tier 1 sees the missing two, and adds static
+forward/reverse/mutating checks. Phase 824b adds parametrised unauthenticated
+(401) and positive-landmark assertions for the partials, because a "200 and no
+error marker" is not proof the partial rendered the right panel. Re-derive the
+authoritative list with:
 
 ```bash
-grep -rhoE 'hx-get="[^"]*"' management/templates/ \
-  | sed -E 's/hx-get="//; s/"$//; s/\?.*//; s/\{%.*//' | sort -u
+# every hx-* target, with its method
+grep -rhoE 'hx-(get|post|put|patch|delete)="[^"]*"' management/templates/ | sort -u
 ```
 
 Mutating targets (`hx-post`, `hx-delete`, `hx-put`, `hx-patch`) must never be
