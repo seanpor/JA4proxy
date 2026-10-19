@@ -109,6 +109,37 @@ Always run `make scan-exceptions` after editing, and `make scan` to confirm the
 gate is satisfied. CI runs `render_waivers.py --check`, so a registry edit that
 was not re-rendered (or a hand-edited generated file) fails the build.
 
+## Where a finding is caught (Phase 847c)
+
+Since Phase 847c a CVE is judged in one of two places, and which one an operator
+is looking at changes what to do:
+
+| | `make scan-regression` (required, every PR) | `make scan-monitor` (daily, scheduled) |
+|---|---|---|
+| Scans | only the surfaces **this PR touches** | everything: third-party images, first-party images, `requirements.txt` |
+| Compares | findings vs `security/baseline.json` | findings vs the baseline **and** the registry |
+| Result | fails the PR, on a finding the baseline does not have | files one deduplicated issue per unwaived finding |
+
+`security/baseline.json` records what `main` already carries, per surface, with
+the artifact's digest as provenance. **Refresh it deliberately** — after a fix or
+a waiver lands *and is on `main`*:
+
+```bash
+make scan-baseline                 # re-record the baseline from the current tree
+git diff security/baseline.json    # should show only the finding(s) you removed
+```
+
+Never refresh it to turn a red PR green: the gate is telling you the PR adds a
+finding the baseline does not have. Refresh only once the finding is genuinely
+gone from `main`.
+
+`make scan` (the full scan) still runs on push and schedule, and on a PR only
+when the waiver set itself moved — deleting a waiver touches no scanned file, so
+it would otherwise be the one change that scanned nothing. The monitor reopens an
+issue whose finding has come back rather than filing a second one, and a monitor
+run that could not scan reports that (it comments the scheduled-failure issue) —
+a scanner that failed is never reported as "nothing found".
+
 ## Rules
 
 1. **No blanket ignores** — one entry per CVE, each individually justified.
