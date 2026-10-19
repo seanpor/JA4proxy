@@ -624,7 +624,7 @@ TRIVY_IMAGES = $(shell $(PYTHON) scripts/check_image_versions.py --list-third-pa
 check-manifest: ## Verify manifest.yaml / TODO.md / CHANGELOG.md stay consistent
 	@$(PYTHON) scripts/check_manifest.py
 
-scan-images:  ## Trivy scan of third-party images (HIGH/CRITICAL; fails on CRITICAL)
+scan-images:  ## Trivy scan of third-party images (fails on HIGH or CRITICAL)
 	@mkdir -p "$(TRIVY_CACHE)"
 	@echo "=== Trivy: third-party image CVE scan (HIGH + CRITICAL) ==="
 	@echo "    Fails on HIGH or CRITICAL. Waivers are authored in security/waivers.yaml"
@@ -688,7 +688,7 @@ scan-dockerfiles:  ## Trivy config scan of Dockerfiles + compose files (HIGH/CRI
 # HIGH is actionable (base bump / dep bump / dated .trivyignore.first-party). The profile-gated
 # CI-only test + trafficgen images are skipped by 'make build', so this target
 # builds them explicitly — otherwise they would be scanned-as-absent (a vacuous pass).
-scan-first-party:  ## Trivy CVE scan of built images (CRITICAL → fail)
+scan-first-party:  ## Trivy CVE scan of built images (fails on HIGH or CRITICAL)
 	@mkdir -p "$(TRIVY_CACHE)"
 	@echo "=== Trivy: first-party image CVE scan (HIGH + CRITICAL) ==="
 	@echo "    Phase 317: fails on HIGH or CRITICAL. .trivyignore.first-party holds dated exceptions."

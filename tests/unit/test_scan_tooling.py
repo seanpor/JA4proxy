@@ -276,6 +276,17 @@ class TestBothImageGates:
         assert 'grep -v "Total:"' not in makefile
         assert 'grep -E -c "CRITICAL|HIGH"' not in makefile
 
+    def test_help_text_states_the_real_threshold(self):
+        """`make help` is what an operator reads first, and both gates have failed
+        on HIGH since Phase 317 — so neither target may advertise CRITICAL-only
+        gating, the way its summary used to contradict its own recipe echo."""
+        seen = 0
+        for line in (_ROOT / "Makefile").read_text().splitlines():
+            if line.startswith(("scan-images:  ##", "scan-first-party:  ##")):
+                seen += 1
+                assert "fails on HIGH or CRITICAL" in line, f"understates the gate: {line}"
+        assert seen == 2, f"expected both targets' help lines, found {seen}"
+
 
 # --- --ignorefile must never silently re-home a typo ----------------------------
 

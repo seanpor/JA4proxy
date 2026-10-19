@@ -77,6 +77,13 @@ generated `.trivyignore.third-party` / `.trivyignore.first-party`, plus the
 runbook. Both targets now say what to do — bump the base/dep, or add a dated
 entry — instead of pointing at a file that no longer exists.
 
+The same class reached `make help`. `scan-images` advertised
+`(HIGH/CRITICAL; fails on CRITICAL)` and `scan-first-party` `(CRITICAL → fail)` —
+each contradicting its own recipe echo three lines below ("Fails on HIGH or
+CRITICAL") and the code, which has failed on HIGH since Phase 317. An operator
+reading `make help` would have concluded a HIGH-only red gate was a bug. Both
+summaries now read `fails on HIGH or CRITICAL`, guarded by a test.
+
 ### 847b.3 The two ignore lists are consumed identically
 
 After 847a, `Makefile` and `ci.yml` both read the generated `.pip-audit-ignores`.
@@ -192,7 +199,7 @@ not just of these two targets.
 
 ## Test strategy (as executed)
 
-`tests/unit/test_scan_tooling.py` — **23 tests** across seven groups:
+`tests/unit/test_scan_tooling.py` — **24 tests** across seven groups:
 
 1. **JSON counting** — the 5 kin-openapi CVEs count as 5 through the shared
    parser; dedup is by CVE id (one waived id must not inflate on repeated rows);
@@ -240,12 +247,12 @@ outcome); a bad ignorefile path → **exit 2**; a locally-built image with
 | `scripts/trivy_image_report.py` | **New** — JSON gate (exit 0/1/2), per-CVE table, `resolve_ignorefile` |
 | `scripts/check_trivyignore_drift.py` | Promote `VulnRow` / `load_report` / `vuln_rows` to shared parser |
 | `scripts/check_image_versions.py` | `FIRST_PARTY_IMAGES` += `ja4proxy-tap`, `ja4proxy-management` |
-| `Makefile` | `scan-images` + `scan-first-party` onto the gate; real failure messages |
+| `Makefile` | `scan-images` + `scan-first-party` onto the gate; real failure messages; truthful `## help` |
 | `.github/workflows/go-proxy-image.yml` | `trivyignores: .trivyignore` → `.trivyignore.first-party` |
 | `scripts/scan_summary.py` | `verdict()` default: HIGH → `FAIL` (847b.7), docstring states what it does |
 | `tests/integration/test_ci_flow.py` | Two severity tests rewritten — they *required* `grep -c "HIGH"` and the removed expression |
 | `tests/unit/test_scan_summary.py` | `HIGH: 3` now expects `FAIL` |
-| `tests/unit/test_scan_tooling.py` | **New** — 23 tests |
+| `tests/unit/test_scan_tooling.py` | **New** — 24 tests |
 | `tests/fixtures/trivy-grafana-kin-openapi.json` | **New** — real captured Trivy JSON (5 kin-openapi HIGHs) |
 | `tests/fixtures/trivy-grafana-kin-openapi.table.txt` | **New** — matching real `--format table` output |
 | `docs/fragments/phase-847b-scan-tooling.md` | Changelog fragment |
