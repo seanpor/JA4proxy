@@ -52,10 +52,18 @@ def _extract_images(compose_path: Path) -> list[ImageRef]:
 
 # First-party images are built locally via 'make build' and tagged :latest by convention.
 # They have no external registry to pin against, so :latest is expected and correct.
+# MUST stay in sync with `FIRST_PARTY_IMAGES` in the Makefile — the Makefile
+# builds and scans this list, while this set decides what `--list-third-party`
+# (used by `make scan-images`) hands to Trivy. When the two drifted, a
+# locally-built image (ja4proxy-tap) was offered to the *third-party* scan,
+# which cannot pull it from a registry. Phase 847b; guarded by
+# tests/unit/test_scan_tooling.py::test_first_party_lists_agree_with_the_makefile.
 FIRST_PARTY_IMAGES: frozenset[str] = frozenset(
     {
         "ja4proxy",
         "ja4proxy-analytics",
+        "ja4proxy-management",
+        "ja4proxy-tap",
         "ja4proxy-tarpit",
         "ja4proxy-mockbackend",
         "ja4proxy-test",

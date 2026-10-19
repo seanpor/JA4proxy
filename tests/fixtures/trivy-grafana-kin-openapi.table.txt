@@ -1,0 +1,26 @@
+Total: 5 (HIGH: 5, CRITICAL: 0)
+
+┌───────────────────────────────┬─────────────────┬──────────┬────────┬───────────────────┬───────────────┬────────────────────────────────────────────────────────────┐
+│            Library            │  Vulnerability  │ Severity │ Status │ Installed Version │ Fixed Version │                           Title                            │
+├───────────────────────────────┼─────────────────┼──────────┼────────┼───────────────────┼───────────────┼────────────────────────────────────────────────────────────┤
+│ github.com/getkin/kin-openapi │ CVE-2026-100349 │ HIGH     │ fixed  │ v0.144.0          │ 0.146.0       │ github.com/getkin/kin-openapi: kin-openapi: Denial of      │
+│                               │                 │          │        │                   │               │ Service via nil pointer dereference in response            │
+│                               │                 │          │        │                   │               │ validation...                                              │
+│                               │                 │          │        │                   │               │ https://avd.aquasec.com/nvd/cve-2026-100349                │
+│                               ├─────────────────┤          │        │                   ├───────────────┼────────────────────────────────────────────────────────────┤
+│                               │ CVE-2026-100351 │          │        │                   │ 0.147.0       │ github.com/getkin/kin-openapi: kin-openapi: Authentication │
+│                               │                 │          │        │                   │               │ bypass via URL path decoding discrepancy                   │
+│                               │                 │          │        │                   │               │ https://avd.aquasec.com/nvd/cve-2026-100351                │
+│                               ├─────────────────┤          │        │                   ├───────────────┼────────────────────────────────────────────────────────────┤
+│                               │ CVE-2026-100352 │          │        │                   │ 0.148.0       │ github.com/getkin/kin-openapi: kin-openapi: Denial of      │
+│                               │                 │          │        │                   │               │ Service via improper handling of non-finite numeric        │
+│                               │                 │          │        │                   │               │ values...                                                  │
+│                               │                 │          │        │                   │               │ https://avd.aquasec.com/nvd/cve-2026-100352                │
+│                               ├─────────────────┤          │        │                   ├───────────────┼────────────────────────────────────────────────────────────┤
+│                               │ CVE-2026-100353 │          │        │                   │ 0.149.0       │ github.com/getkin/kin-openapi: kin-openapi: Denial of      │
+│                               │                 │          │        │                   │               │ Service via nil-pointer dereference in request decoding    │
+│                               │                 │          │        │                   │               │ https://avd.aquasec.com/nvd/cve-2026-100353                │
+│                               ├─────────────────┤          │        │                   │               ├────────────────────────────────────────────────────────────┤
+│                               │ CVE-2026-100354 │          │        │                   │               │ github.com/getkin/kin-openapi: kin-openapi: Denial of      │
+│                               │                 │          │        │                   │               │ Service via unbounded recursion during schema validation   │
+│                               │                 │          │        │                   │               │ https://avd.aquasec.com/nvd/cve-2026-100354                │

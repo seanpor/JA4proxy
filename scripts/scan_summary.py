@@ -72,9 +72,19 @@ def count_gosec(gosec_json: dict) -> dict[str, int]:
     return _tally(raw, GOSEC_SEVS)
 
 
-def verdict(counts: dict[str, int], fail=("CRITICAL",), warn=("HIGH",)) -> str:
+def verdict(counts: dict[str, int], fail=("CRITICAL", "HIGH"), warn=()) -> str:
     """FAIL if any `fail` severity is present; WARN if any `warn` severity is;
-    else OK. Defaults match the image gate (CRITICAL fails, HIGH is advisory)."""
+    else OK.
+
+    The defaults mirror the *blocking image gates*: `scan-images` and
+    `scan-first-party` fail on **HIGH or CRITICAL** (since Phase 317), so a HIGH
+    that reddens the build must not be rendered here as a mere WARN. The previous
+    defaults claimed in this docstring to "match the image gate" while
+    disagreeing with it — Phase 847b.7. The misconfig and gosec callers already
+    passed HIGH as a failing severity explicitly; this aligns the default with
+    them. MEDIUM does not gate, so `warn` defaults to empty (its count is a
+    table column already).
+    """
     if any(counts.get(s, 0) > 0 for s in fail):
         return "FAIL"
     if any(counts.get(s, 0) > 0 for s in warn):

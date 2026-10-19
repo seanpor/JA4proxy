@@ -12,10 +12,12 @@ What is checked instead:
 
 * the Makefile parses and the new ``docker-run-tools`` helper target exists;
 * ``lint`` and ``scan`` route their work through ``docker-run-tools``;
-* ``scan-images`` fails on HIGH/CRITICAL (``--exit-code 1``), not just CRITICAL;
+* ``scan-images`` / ``scan-first-party`` run the Phase 847b JSON gate and fail on
+  HIGH *and* CRITICAL — not just CRITICAL;
 * ``scripts/pipeline_summary.py`` summarises each stage quickly without
   recursing back into ``make`` (a regression guard for the infinite loop).
 """
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -24,6 +26,9 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MAKEFILE = REPO_ROOT / "Makefile"
+
+sys.path.insert(0, str(REPO_ROOT / "scripts"))
+import trivy_image_report  # noqa: E402
 
 
 def _recipe(target: str) -> str:
@@ -94,37 +99,83 @@ def test_dockerfile_tools_has_no_pip_gitleaks():
     assert not offenders, f"gitleaks must not be pip-installed in Dockerfile.tools: {offenders}"
 
 
-def test_scan_images_gates_on_high_and_critical():
-    """scan-images scans both HIGH and CRITICAL severity findings.
+def _one_finding_report(severity: str) -> str:
+    """A minimal Trivy report containing exactly one finding of `severity`."""
+    return json.dumps({
+        "SchemaVersion": 2,
+        "ArtifactName": "example/img:1",
+        "Results": [{"Vulnerabilities": [{
+            "VulnerabilityID": "CVE-2026-00001",
+            "Severity": severity,
+            "PkgName": "pkg",
+            "InstalledVersion": "1.0.0",
+        }]}],
+    })
 
-    HIGH is advisory (non-blocking) for third-party images we do not build;
-    CRITICAL blocks the gate. Both must be counted and reported separately so
-    operators can see what was found vs. what caused a failure.
+
+def test_scan_images_gates_on_high_and_critical(tmp_path, monkeypatch):
+    """scan-images scans **both** HIGH and CRITICAL, and fails on either.
+
+    The previous version of this test asserted ``grep -c "HIGH"`` in the recipe —
+    pinning the token-counting defect itself (Phase 847b) — and its docstring
+    claimed HIGH was "advisory" for third-party images, which the recipe
+    contradicted (``if high -gt 0 || crit -gt 0 → fail=1``). Severity policy now
+    lives in the gate, so the assertions follow the code: the recipe must invoke
+    the gate and propagate its failure, the gate's *argv* must carry the policy,
+    and both severities must actually fail.
     """
+    monkeypatch.chdir(REPO_ROOT)
     recipe = _recipe("scan-images")
-    assert "--severity HIGH,CRITICAL" in recipe, "scan-images should scan HIGH+CRITICAL"
-    assert 'grep -c "HIGH"' in recipe, (
-        "scan-images must count HIGH findings (advisory for third-party images)"
+    assert "scripts/trivy_image_report.py" in recipe, "scan-images no longer runs the JSON gate"
+    assert "|| fail=1" in recipe, "a gate that fails must redden the target"
+    assert "--ignorefile /scan/.trivyignore.third-party" in recipe
+
+    argv = trivy_image_report.trivy_cmd(
+        "example/img:1", "/scan/.trivyignore.third-party", str(tmp_path)
     )
-    assert 'grep -c "CRITICAL"' in recipe, (
-        "scan-images must count CRITICAL findings (blocking gate)"
+    assert argv[argv.index("--severity") + 1] == "HIGH,CRITICAL", "gate must scan HIGH+CRITICAL"
+    assert argv[argv.index("--format") + 1] == "json", "the gate must count JSON, not table text"
+    assert argv[argv.index("--ignorefile") + 1] == "/scan/.trivyignore.third-party"
+    assert trivy_image_report.TRIVY_IMAGE in argv, "the pinned Trivy image must be the one run"
+    assert "/var/run/docker.sock:/var/run/docker.sock" not in argv, (
+        "third-party images come from registries; the gate must not get host socket access"
     )
 
+    # HIGH must block, not just CRITICAL (this is the assertion the old test named).
+    for severity in ("HIGH", "CRITICAL"):
+        report = tmp_path / f"{severity}.json"
+        report.write_text(_one_finding_report(severity))
+        assert trivy_image_report.main(["--json-file", str(report)]) == 1, (
+            f"a {severity} finding must fail scan-images"
+        )
 
-def test_scan_first_party_gates_on_high_and_critical():
+
+def test_scan_first_party_gates_on_high_and_critical(tmp_path, monkeypatch):
     """Phase 317: first-party images are ours, so scan-first-party gates on HIGH+
     CRITICAL (not just CRITICAL). It also builds the profile-gated CI-only
     test/trafficgen images first so they are actually scanned, not scanned-as-absent.
+
+    Phase 847b: this target carried the identical token-counting defect as
+    scan-images, so it now runs the same gate — which needs the docker socket
+    (locally-built images exist in no registry) and the first-party ignorefile.
     """
+    monkeypatch.chdir(REPO_ROOT)
     recipe = _recipe("scan-first-party")
-    assert "--severity HIGH,CRITICAL" in recipe, "scan-first-party should scan HIGH+CRITICAL"
-    assert 'grep -v "Total:" | grep -E -c "CRITICAL|HIGH"' in recipe, (
-        "scan-first-party must gate on both HIGH and CRITICAL findings, excluding the totals line"
-    )
+    assert "scripts/trivy_image_report.py" in recipe, "scan-first-party no longer runs the JSON gate"
+    assert "|| fail=1" in recipe, "a gate that fails must redden the target"
+    assert "--ignorefile /scan/.trivyignore.first-party" in recipe
+    assert "--docker-socket" in recipe, "locally-built images cannot be pulled from a registry"
     assert "Dockerfile.test" in recipe and "Dockerfile.trafficgen" in recipe, (
         "scan-first-party must build the profile-gated test/trafficgen images so they "
         "are not scanned-as-absent (a vacuous pass)"
     )
+
+    argv = trivy_image_report.trivy_cmd(
+        "ja4proxy:2.0.0", "/scan/.trivyignore.first-party", str(tmp_path), docker_socket=True
+    )
+    assert argv[argv.index("--severity") + 1] == "HIGH,CRITICAL"
+    assert argv[argv.index("--ignorefile") + 1] == "/scan/.trivyignore.first-party"
+    assert "/var/run/docker.sock:/var/run/docker.sock" in argv
 
 
 @pytest.mark.parametrize("mode", ["lint", "scan", "test"])

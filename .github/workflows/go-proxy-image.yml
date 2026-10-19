@@ -97,7 +97,11 @@ jobs:
           severity: CRITICAL
           exit-code: '1'
           ignore-unfixed: true
-          trivyignores: .trivyignore
+          # Phase 822 split the single .trivyignore into first/third-party; this
+          # file did not exist any more, so this CRITICAL scan applied NO waivers
+          # at all. ja4proxy-go:ci is an image we build, so the first-party file
+          # is the correct scope (matches `make scan-first-party`). Phase 847b.
+          trivyignores: .trivyignore.first-party
           format: table
 
       - name: Generate SBOM (CycloneDX JSON)

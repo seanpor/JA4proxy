@@ -40,7 +40,7 @@ def test_count_severities_empty_document():
 
 @pytest.mark.parametrize("counts,expected", [
     ({"CRITICAL": 1, "HIGH": 0, "MEDIUM": 0}, "FAIL"),
-    ({"CRITICAL": 0, "HIGH": 3, "MEDIUM": 9}, "WARN"),
+    ({"CRITICAL": 0, "HIGH": 3, "MEDIUM": 9}, "FAIL"),  # HIGH gates like CRITICAL (scan-images)
     ({"CRITICAL": 0, "HIGH": 0, "MEDIUM": 5}, "OK"),
     ({"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0}, "OK"),
 ])
