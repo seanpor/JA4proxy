@@ -69,12 +69,21 @@ def waived_ids(ignorefile: Path) -> Set[str]:
 
 
 class VulnRow(NamedTuple):
-    """One HIGH/CRITICAL finding: CVE id, package, installed version, severity."""
+    """One HIGH/CRITICAL finding: CVE id, package, installed version, severity.
+
+    `fixed` is the upstream fix version Trivy reports, or "" when none is
+    published. Added in Phase 847c as a trailing field with a default, so every
+    existing positional construction keeps working: the baseline needs
+    fix-availability to decide what it can *act* on (847d's fix-forward queue),
+    and getting it from the one shared parser keeps that fact in step with the
+    id/severity facts rather than re-deriving it from a second scan.
+    """
 
     cve: str
     package: str
     installed: str
     severity: str
+    fixed: str = ""
 
 
 def load_report(path: Path) -> Dict[str, Any]:
@@ -118,6 +127,7 @@ def vuln_rows(doc: Dict[str, Any]) -> List[VulnRow]:
                     package=vuln.get("PkgName") or "?",
                     installed=vuln.get("InstalledVersion") or "?",
                     severity=sev,
+                    fixed=vuln.get("FixedVersion") or "",
                 )
             elif prev.severity != "CRITICAL" and sev == "CRITICAL":
                 best[cve] = prev._replace(severity="CRITICAL")

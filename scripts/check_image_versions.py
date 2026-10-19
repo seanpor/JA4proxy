@@ -31,8 +31,18 @@ class ImageRef(NamedTuple):
 
 def _extract_images(compose_path: Path) -> list[ImageRef]:
     """Extract all image: values from a Docker Compose file."""
-    with compose_path.open() as f:
-        data = yaml.safe_load(f)
+    return extract_images_from_text(compose_path.read_text(), source=str(compose_path))
+
+
+def extract_images_from_text(text: str, source: str = "<text>") -> list[ImageRef]:
+    """Extract all image: values from compose YAML held in *text*.
+
+    Split out of :func:`_extract_images` so the Phase 847c regression gate can
+    parse the compose files **at the merge-base** (`git show rev:path`) as well
+    as in the working tree — one parser, two revisions, instead of a second
+    hand-rolled extractor that could disagree about what an image is.
+    """
+    data = yaml.safe_load(text)
 
     refs: list[ImageRef] = []
     services = (data or {}).get("services", {}) or {}
@@ -46,7 +56,7 @@ def _extract_images(compose_path: Path) -> list[ImageRef]:
             name, version = image.rsplit(":", 1)
         else:
             name, version = image, "latest"
-        refs.append(ImageRef(name=name, version=version, source=str(compose_path)))
+        refs.append(ImageRef(name=name, version=version, source=source))
     return refs
 
 
@@ -125,6 +135,25 @@ SCAN_GATE_COMPOSE_FILES = (
     "docker-compose.monitoring.yml",
 )
 
+# The tuple above holds *names only*, and that distinction is load-bearing: the
+# files live in COMPOSE_DIR. `third_party_image_refs()` silently skips a compose
+# file that does not exist, so a caller that passes
+# `Path("docker-compose.prod.yml")` from the repo root gets an empty image list
+# and a green gate — no image, no finding, no error. Anything that wants these
+# files must go through scan_gate_compose_paths() (filesystem) or
+# SCAN_GATE_COMPOSE_REPOS (git).
+COMPOSE_DIR = "deploy/docker"
+
+
+def scan_gate_compose_paths(repo_root: Path | None = None) -> list[Path]:
+    """Filesystem paths of the compose files that define the scanned image set."""
+    root = repo_root if repo_root is not None else Path(__file__).resolve().parent.parent
+    return [root / COMPOSE_DIR / f for f in SCAN_GATE_COMPOSE_FILES]
+
+
+# The same files as repo-relative paths, for `git show rev:path`.
+SCAN_GATE_COMPOSE_REPOS = tuple(f"{COMPOSE_DIR}/{f}" for f in SCAN_GATE_COMPOSE_FILES)
+
 
 def third_party_image_refs(
     compose_paths: list[Path],
@@ -171,7 +200,7 @@ def main() -> int:
     repo_root = Path(__file__).parent.parent
 
     if "--list-third-party" in sys.argv:
-        scan_files = [repo_root / "deploy" / "docker" / f for f in SCAN_GATE_COMPOSE_FILES]
+        scan_files = scan_gate_compose_paths(repo_root)
         try:
             for ref in third_party_image_refs(scan_files):
                 print(ref)

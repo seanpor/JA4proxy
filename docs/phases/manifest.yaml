@@ -5431,7 +5431,7 @@ phases:
 
   847c:
     name: "Split scan: PR regression gate + baseline monitor"
-    status: PROPOSED
+    status: IN_PROGRESS
     action_plan: docs/phases/PHASE_847c.md
     dependencies: [847a, 847b]
     size: LARGE
