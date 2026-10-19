@@ -1,7 +1,12 @@
 # =============================================================================
-# Trivy scan exceptions — PINNED UPSTREAM IMAGES.  (policy: Phase 226 / 822)
-# Consumed by `make scan-images` ONLY.
+# Trivy scan exceptions — PINNED UPSTREAM IMAGES. (policy: 226/822/847)
+# Consumed by `make scan-images` ONLY.               *** GENERATED FILE ***
 # =============================================================================
+#
+# DO NOT EDIT. This file is rendered from `security/waivers.yaml` by
+# `scripts/render_waivers.py`. Hand edits are reverted by the drift test
+# (`tests/unit/test_waivers_registry.py`). To change a waiver, edit the
+# registry and re-run the renderer.
 #
 # SPLIT FROM `.trivyignore` IN PHASE 822 — see .trivyignore.first-party for the
 # full rationale. Short version: one shared ignorefile meant a waiver for a
@@ -14,351 +19,369 @@
 #   fixed version existing upstream in Go or a Go module does NOT help us until
 #   the image publisher ships a new tag.
 #
-#   The old single file's header claimed "only when there is genuinely no fix
-#   available", which was never true of most entries here — 70 of 73 carried a
-#   non-empty FixedVersion. Stating the real rule makes the list defensible
-#   instead of quietly contradictory.
-#
-#   Before renewing, re-check for a newer upstream tag and compare raw CVE-ID
-#   sets — not release notes. Several "newer" tags are measured net regressions
-#   (cadvisor v0.54.1/v0.55.1, grafana 13.1.3); those findings are recorded
-#   inline below.
-#
-#   Every entry needs: a '#' block stating why no fix AND why not exploitable
-#   here, plus an inline `exp:YYYY-MM-DD` at most 90 days out.
-#
-#   Verify with `make scan-exceptions`. Guide:
-#   docs/runbooks/security_scan_exceptions.md
+# ENTRY FORMAT
+#   One `CVE-… exp:YYYY-MM-DD` line per waiver, preceded by its justification
+#   comment block. Trivy suppresses the finding while `today < exp`, so an entry
+#   whose exp: is today is ALREADY expired (Phase 812 fix). Renewal runs
+#   daily so the window never lapses inside its own cron morning.
 # =============================================================================
 
+# kin-openapi nil-pointer dereference in openapi3filter.ValidateResponse: an
+# OpenAPI document declaring a response header with `content` instead of
+# `schema` passes validation, but every response validation for that operation
+# then dereferences the nil schema and panics. No grafana tag fixes it (13.1.6
+# and 13.2.4 both ship kin-openapi v0.144.0; fix is 0.146.0). Grafana runs on
+# the internal monitoring network and never validates untrusted OpenAPI
+# specifications, so the vulnerable path is unreachable.
+#
+# Carriers:
+#   - grafana/grafana:13.2.4-ubuntu
+# Reachability: internal-monitoring-only
+# Severity: HIGH
+# Re-check when: grafana ships kin-openapi >= 0.149.0
+CVE-2026-100349 exp:2027-01-17
 
-# =============================================================================
-# Trivy scan exceptions — JUSTIFIED, TIME-WINDOWED only.   (policy: Phase 226)
-# =============================================================================
+# kin-openapi ValidationHandler security-requirement bypass via encoded-path
+# operation confusion. No grafana tag fixes it (13.1.6 and 13.2.4 both ship
+# kin-openapi v0.144.0; fix is 0.147.0). Grafana runs on the internal
+# monitoring network and never validates untrusted OpenAPI specifications, so
+# the ValidationHandler path is unreachable.
 #
-# HOW THIS WORKS
-#   `make scan` passes each finding listed here to Trivy's --ignorefile, so a
-#   listed CVE no longer fails the gate UNTIL its `exp:` date, after which Trivy
-#   stops ignoring it and the scan fails again — forcing a re-review.
-#   Run `make scan-exceptions` to list every entry with days-remaining.
-#
-# RULES
-#   1. NO blanket ignores. One entry per CVE, only when there is genuinely no
-#      fix available (anything fixable is patched via apt/apk upgrade instead).
-#   2. Every entry MUST have a '#' comment block directly above it (WHY no fix +
-#      WHY not exploitable here) and an inline expiry `CVE-XXXX exp:YYYY-MM-DD`.
-#   3. Maximum window is 7 days (today + 7d) so exceptions never quietly
-#      become permanent.
-#
-# OPERATOR: ADD / EDIT / DELETE
-#   ADD    — append a '#' comment block then `CVE-... exp:<today+7d>`.
-#   EDIT   — change the `exp:` date (re-justify in the comment) when extending.
-#   DELETE — remove the comment block + CVE line once fixed or resolved.
-#   Verify with `make scan-exceptions`. Full guide:
-#   docs/runbooks/security_scan_exceptions.md
-# =============================================================================
-#
-# ── 2026-08-06 remediation + renewal (Phase 818) ──
-#   The 31 exceptions that expired 2026-08-06 were re-investigated for real
-#   fixes (not just renewed). Outcome: NONE had an available fix.
-#   • GHSA-6v7p-g79w-8964 (msgpack) + CVE-2025-47273 (setuptools): both are
-#     pip's OWN vendored copies (pip/_vendor), not dependencies we install;
-#     unfixable by us even at the current pip 26.2.1. The build is
-#     non-deterministic about which surfaces first, so both are exceptioned.
-#   • The remaining 29 (grafana 13.0.4-ubuntu, promtail 3.6.11 EOL, alertmanager
-#     v0.33.1, cadvisor v0.52.1, python-ecdsa, ja4proxy-test protobuf): confirmed
-#     no better upstream tag exists (alertmanager/promtail are latest; grafana
-#     13.1.x and cadvisor v0.55.1 carry a larger CVE set per the 2026-08-03
-#     re-verification; ecdsa has no upstream patch).
-#   All 31 renewed to today+7.
-#   Recurrence fix: the Phase 812-B weekly renewal workflow (was broken — see
-#   Phase 818 / issue #396) now keeps these fresh before they cliff.
-#
-# ── 2026-08-10 remediation + renewal (Phase 800) ──
-#   42 exceptions had expired (exp:2026-08-10 — see the off-by-one note below).
-#   Every affected image was re-scanned against its newest upstream tag with
-#   `trivy image --severity HIGH,CRITICAL` and no ignorefile, comparing raw
-#   CVE-ID sets rather than trusting release notes.
-#   TWO REAL FIXES FOUND AND APPLIED (contra the 2026-08-06 conclusion):
-#     • grafana/loki  3.7.4 -> 3.7.6          2 HIGH/CRITICAL -> 0, no regressions
-#     • grafana/grafana 13.0.4 -> 13.0.6-ubuntu  9 -> 7, no regressions
-#     Both clear CVE-2026-56852 + GHSA-hrxh-6v49-42gf *in those two images*.
-#     The entries stay anyway: promtail 3.6.11, alertmanager v0.33.1,
-#     haproxy-exporter v0.15.0 and cadvisor v0.52.1 still carry them and have
-#     no newer tag at all (verified against Docker Hub / gcr.io tag lists).
-#   CONFIRMED STILL UNFIXABLE (upgrade is a net regression — measured, not assumed):
-#     • cadvisor v0.54.1 -> 44 and v0.55.1 -> 43 HIGH/CRITICAL vs v0.52.1's 42
-#       (each clears 9-10 but introduces 11 new). Staying on v0.52.1.
-#     • grafana 13.1.3-ubuntu -> 11 vs 13.0.6's 7 (clears 2, introduces 4).
-#     • promtail / alertmanager / haproxy-exporter: already the newest tag
-#       published; there is nothing to bump to.
-#   All 72 renewed to 2026-08-17.
-#
-#   ⚠ WHY THESE EXPIRED UNNOTICED: `scripts/scan_exceptions.py` counted an entry
-#   whose exp: date is TODAY as still valid, but trivy suppresses only while
-#   `today < exp` — so the early-warning tool printed "✓ all within their time
-#   window" and exited 0 on the same run where `make scan` failed on 42 of them.
-#   Fixed 2026-08-10 (d <= 0 is now EXPIRED), with boundary tests.
-#   The weekly Wed 05:00 UTC renewal cron also renewed to today+7, i.e. entries
-#   expired at 00:00 on the very morning the job ran — a guaranteed red window
-#   every week. Renewal now runs daily.
+# Carriers:
+#   - grafana/grafana:13.2.4-ubuntu
+# Reachability: internal-monitoring-only
+# Severity: HIGH
+# Re-check when: grafana ships kin-openapi >= 0.149.0
+CVE-2026-100351 exp:2027-01-15
 
-# CVE-2026-21728: DoS in Grafana Tempo query parser.
-# Carriers (generated 2026-09-18): grafana/grafana:13.1.6-ubuntu.
-# Each is a pinned third-party image we cannot rebuild, so the fix
-# only reaches us when the publisher ships a new tag.
-# Why not exploitable: We do not deploy or configure Tempo as a query source for Grafana.
+# kin-openapi YAML NaN/Inf values bypass built-in guards and panic via OAS
+# 3.1. No grafana tag fixes it (13.2.4 still ships v0.144.0; fix is 0.148.0).
+# Requires parsing untrusted OAS 3.1 documents, which Grafana on the internal
+# monitoring network does not do.
+#
+# Carriers:
+#   - grafana/grafana:13.2.4-ubuntu
+# Reachability: internal-monitoring-only
+# Severity: HIGH
+# Re-check when: grafana ships kin-openapi >= 0.149.0
+CVE-2026-100352 exp:2027-01-15
+
+# kin-openapi incomplete fix for GHSA-p6wj-qrr4-pgh5: nil-Items panic paths in
+# openapi3filter. No grafana tag fixes it (fix is 0.149.0). Requires untrusted
+# OpenAPI filter input, which is not reachable in our internal-only Grafana
+# deployment.
+#
+# Carriers:
+#   - grafana/grafana:13.2.4-ubuntu
+# Reachability: internal-monitoring-only
+# Severity: HIGH
+# Re-check when: grafana ships kin-openapi >= 0.149.0
+CVE-2026-100353 exp:2027-01-15
+
+# kin-openapi uncontrolled recursion on circular allOf/anyOf/oneOf schemas
+# causes fatal process crash. No grafana tag fixes it (fix is 0.149.0).
+# Requires attacker-supplied circular schemas; our Grafana never validates
+# untrusted OpenAPI schemas.
+#
+# Carriers:
+#   - grafana/grafana:13.2.4-ubuntu
+# Reachability: internal-monitoring-only
+# Severity: HIGH
+# Re-check when: grafana ships kin-openapi >= 0.149.0
+CVE-2026-100354 exp:2027-01-15
+
+# pcre2 vulnerability in Alpine 3.19/3.24; pinned upstream official images we
+# cannot rebuild until publishers ship new tags. The socket proxy only
+# communicates over a local Unix socket and never parses untrusted regex;
+# haproxy uses pcre2 only for its own static config patterns.
+#
+# Carriers:
+#   - haproxy:2.8.28-alpine
+#   - tecnativa/docker-socket-proxy:v0.5.0
+# Reachability: local-socket-only
+# Severity: HIGH
+# Re-check when: the carrier images ship a rebuilt Alpine base with patched
+# pcre2
+CVE-2026-103111 exp:2027-01-05
+
+# OpenSSL DoS (libcrypto3 in Alpine) in a pinned upstream image we cannot
+# rebuild until the publisher ships a new tag. The socket proxy only
+# communicates over a local Unix socket and is never exposed to untrusted
+# network traffic.
+#
+# Carriers:
+#   - tecnativa/docker-socket-proxy:v0.5.0
+# Reachability: local-socket-only
+# Severity: HIGH
+# Re-check when: tecnativa/docker-socket-proxy ships a rebuilt Alpine base
+CVE-2026-14456 exp:2027-01-05
+
+# DoS in the Grafana Tempo query parser. We do not deploy or configure Tempo
+# as a query source for Grafana, so the affected path is unreachable. Each
+# carrier is a pinned third-party image we cannot rebuild, so the fix only
+# reaches us when the publisher ships a new tag.
+#
+# Carriers:
+#   - grafana/grafana:13.2.4-ubuntu
+# Reachability: internal-monitoring-only
+# Severity: HIGH
+# Re-check when: grafana/grafana ships a tag with the Tempo parser fixed
 CVE-2026-21728 exp:2027-01-05
 
-
-
-# CVE-2026-28377: Info disclosure in Tempo.
-# Carriers (generated 2026-09-18): grafana/grafana:13.1.6-ubuntu.
-# Each is a pinned third-party image we cannot rebuild, so the fix
-# only reaches us when the publisher ships a new tag.
-# Why not exploitable: Tempo integration is not deployed or used in our configuration.
+# Info disclosure in Tempo. Tempo integration is not deployed or used in our
+# configuration. Pinned third-party image we cannot rebuild; the fix only
+# reaches us when the publisher ships a new tag.
+#
+# Carriers:
+#   - grafana/grafana:13.2.4-ubuntu
+# Reachability: internal-monitoring-only
+# Severity: HIGH
+# Re-check when: grafana/grafana ships a tag with the Tempo fix
 CVE-2026-28377 exp:2027-01-05
 
-
-# CVE-2026-41567: Container archive execution in Docker.
-# Carriers (generated 2026-09-18):
+# Go 1.26.5 stdlib encoding/asn1 DoS. Fixed in Go 1.26.6, but these are pinned
+# upstream tags we cannot rebuild. DoS/parsing bugs in asn1 paths: all
+# carriers are internal-only scrape targets on the monitoring network with no
+# host port exposure, and none parses attacker-supplied ASN.1 or terminates
+# TLS from an untrusted peer. NOT waived for our own images — Phase 822 fixed
+# the identical CVE in ja4proxy by bumping the builder.
 #
-#   grafana/alloy:v1.19.2@sha256:b8ec653c44235fbe910879145dac3597d66b0aaecf60bcbbe82580767771a839
-# Each is a pinned third-party image we cannot rebuild, so the fix
-# only reaches us when the publisher ships a new tag.
-# Why not exploitable: Promtail has no access to the Docker API socket in our
-# production deployment. cAdvisor's Docker socket mount is read-only and it
-# only ever calls read-only stats/inspect endpoints — it never calls the
-# archive/copy endpoints (ContainerArchive / CopyToContainer) this CVE affects.
+# Carriers:
+#   - grafana/loki:3.7.7
+# Reachability: internal-monitoring-only
+# Severity: HIGH
+# Re-check when: the carrier images ship a Go >= 1.26.6 build
+CVE-2026-33818 exp:2027-01-05
+
+# Monitoring sidecars on the internal network; the affected path is not
+# reachable without untrusted input to these services. Pinned third-party
+# images we cannot rebuild, so the fix only reaches us when the publishers
+# ship new tags.
+#
+# Carriers:
+#   - grafana/loki:3.7.7
+# Reachability: internal-monitoring-only
+# Severity: HIGH
+# Re-check when: the carrier images publish a tag carrying the fix
+CVE-2026-39821 exp:2027-01-05
+
+# Container archive execution in Docker. Promtail has no access to the Docker
+# API socket in our production deployment; cAdvisor's Docker socket mount is
+# read-only and it only ever calls read-only stats/inspect endpoints — never
+# the archive/copy endpoints (ContainerArchive / CopyToContainer) this CVE
+# affects. Pinned third-party image we cannot rebuild.
+#
+# Carriers:
+#   - grafana/alloy:v1.19.2@sha256:b8ec653c44235fbe910879145dac3597d66b0aaecf60bcbbe82580767771a839
+# Reachability: local-socket-only
+# Severity: HIGH
+# Re-check when: grafana/alloy is rebuilt against a patched Docker library
 CVE-2026-41567 exp:2027-01-05
 
-# CVE-2026-42306: Race condition in docker cp.
-# Carriers (generated 2026-09-18):
-#
-#   grafana/alloy:v1.19.2@sha256:b8ec653c44235fbe910879145dac3597d66b0aaecf60bcbbe82580767771a839
-# Each is a pinned third-party image we cannot rebuild, so the fix
-# only reaches us when the publisher ships a new tag.
-# Why not exploitable: Neither Promtail nor cAdvisor invokes docker cp / the
-# archive-extraction code path this race affects — cAdvisor only calls
+# Race condition in docker cp. Neither Promtail nor cAdvisor invokes docker cp
+# or the archive-extraction code path this race affects; cAdvisor only calls
 # read-only stats/inspect endpoints over its read-only Docker socket mount.
+# Pinned third-party image we cannot rebuild.
+#
+# Carriers:
+#   - grafana/alloy:v1.19.2@sha256:b8ec653c44235fbe910879145dac3597d66b0aaecf60bcbbe82580767771a839
+# Reachability: local-socket-only
+# Severity: HIGH
+# Re-check when: grafana/alloy is rebuilt against a patched Docker library
 CVE-2026-42306 exp:2027-01-05
 
-
-
-# Carriers (generated 2026-09-18):
-#   grafana/grafana:13.1.6-ubuntu, grafana/loki:3.7.7
-# Each is a pinned third-party image we cannot rebuild, so the fix
-# only reaches us when the publisher ships a new tag.
-CVE-2026-39821 exp:2027-01-05
-# Carriers (generated 2026-09-18): grafana/grafana:13.1.6-ubuntu.
-# Each is a pinned third-party image we cannot rebuild, so the fix
-# only reaches us when the publisher ships a new tag.
-CVE-2026-39822 exp:2027-01-05
-
-# CVE-2026-46600: golang.org/x/net/dns/dnsmessage (x/net before 0.56.0).
-# Newly disclosed sibling of the -46595/-46597 batch above; surfaced by a
-# Trivy DB update on 2026-08-12.
-# phase-820 CORRECTION: the previous note claimed "the same four Go-based
-# monitoring images" and named haproxy-exporter (now deleted — see the Phase
-# 810/820 block below). A no-ignorefile scan of every pinned image on
-# 2026-08-14 shows the real affected set is wider. Re-measured 2026-08-19
-# (issue #451) against the deployed set after this PR's bumps: cadvisor
-# v0.52.1, alloy v1.18.1, grafana 13.0.6-ubuntu, loki 3.7.6, node-exporter
-# v1.12.1 and redis_exporter v1.87.0. The prometheus v3.14.0 and alertmanager
-# v0.34.0 bumps clear it from both; promtail is no longer deployed (replaced
-# by alloy, phase-825).
-# Why no fix (third-party): pinned tags that compile x/net transitively;
-# fixing requires an upstream rebuild, and none has shipped.
-# Carriers (generated 2026-09-18):
-#   grafana/grafana:13.1.6-ubuntu, grafana/loki:3.7.7
-# Each is a pinned third-party image we cannot rebuild, so the fix
-# only reaches us when the publisher ships a new tag.
-# ⚠ NOT TRUE OF ja4proxy:2.0.0 — that is a Go stdlib finding
-# (deploy/docker/Dockerfile.go-proxy pins golang:1.26.5-alpine) and Go 1.26.6
-# fixes it. This waiver must NOT be read as covering our own image; the bump
-# is tracked as its own phase, together with splitting .trivyignore into
-# first-party and third-party files so a sidecar waiver can never again
-# silently suppress a finding in the product.
-# Why not exploitable (third-party only): dns/dnsmessage parses
-# host-originated DNS records, which none of those components reach in our
-# deployment. Re-review at expiry.
+# golang.org/x/net/dns/dnsmessage (x/net before 0.56.0). dns/dnsmessage parses
+# host-originated DNS records, which none of these components reach in our
+# deployment. Pinned tags that compile x/net transitively; fixing requires an
+# upstream rebuild, and none has shipped. NOTE: this waiver does NOT cover
+# ja4proxy — that is a Go stdlib finding fixed by the Phase 822
+# golang:1.26.6-alpine builder, and must not be read as covering our image.
+#
+# Carriers:
+#   - grafana/loki:3.7.7
+# Reachability: internal-monitoring-only
+# Severity: HIGH
+# Re-check when: the carrier images are rebuilt against x/net >= 0.56.0
 CVE-2026-46600 exp:2027-01-05
 
-
-# ── Go 1.26.5 stdlib batch, surfaced by a Trivy DB update on 2026-08-15 ──
-# Six stdlib CVEs (encoding/asn1 DoS and siblings), all present in
-# `stdlib v1.26.5`.
-# Carrier set re-measured 2026-08-19 (issue #451). The previous text named
-# prometheus:v3.13.2 and alertmanager:v0.33.1; the bumps in this PR
-# (v3.14.0 / v0.34.0) CLEAR all six from both images. The real remaining set
-# is cadvisor v0.52.1, alloy v1.18.1, grafana 13.0.6-ubuntu, loki 3.7.6,
-# node-exporter v1.12.1 and redis_exporter v1.87.0.
-# Why no fix HERE: all six are fixed in Go 1.26.6, but these are pinned
-# upstream tags we cannot rebuild — the fix only reaches us when each project
-# publishes an image built on 1.26.6. Registry re-checked 2026-08-19: every one
-# of the six is already on its newest published tag.
-# Carriers (generated 2026-09-18):
-#   grafana/grafana:13.1.6-ubuntu, grafana/loki:3.7.7
-# Each is a pinned third-party image we cannot rebuild, so the fix
-# only reaches us when the publisher ships a new tag.
-# ⚠ NOT waived for our own images. The identical CVEs were present in
-# ja4proxy:2.0.0 and Phase 822 FIXED them by bumping the builder to
-# golang:1.26.6-alpine; that image now scans clean with no ignorefile at all.
-# This is exactly the split this file exists to enforce — see the header.
-# Why not exploitable here: these are DoS/parsing bugs in asn1 and related
-# stdlib paths. All four components are internal-only scrape targets on the
-# monitoring network with no host port exposure; none parses attacker-supplied
-# ASN.1 or terminates TLS from an untrusted peer.
-# Re-review at expiry: check for upstream rebuilds on Go 1.26.6.
-CVE-2026-33818 exp:2027-01-05
-# Carriers (generated 2026-09-18):
-#   grafana/grafana:13.1.6-ubuntu, grafana/loki:3.7.7
-# Each is a pinned third-party image we cannot rebuild, so the fix
-# only reaches us when the publisher ships a new tag.
+# Go 1.26.5 stdlib batch; fixed in Go 1.26.6 but these are pinned upstream
+# tags we cannot rebuild. Internal-only monitoring services; no untrusted
+# input reaches the affected stdlib path.
+#
+# Carriers:
+#   - grafana/loki:3.7.7
+# Reachability: internal-monitoring-only
+# Severity: HIGH
+# Re-check when: the carrier images ship a Go >= 1.26.6 build
 CVE-2026-56853 exp:2027-01-05
-# Carriers (generated 2026-09-18):
-#   grafana/grafana:13.1.6-ubuntu, grafana/loki:3.7.7
-# Each is a pinned third-party image we cannot rebuild, so the fix
-# only reaches us when the publisher ships a new tag.
+
+# Go 1.26.5 stdlib batch; fixed in Go 1.26.6 but these are pinned upstream
+# tags we cannot rebuild. Internal-only monitoring services; no untrusted
+# input reaches the affected stdlib path.
+#
+# Carriers:
+#   - grafana/loki:3.7.7
+# Reachability: internal-monitoring-only
+# Severity: HIGH
+# Re-check when: the carrier images ship a Go >= 1.26.6 build
 CVE-2026-56858 exp:2027-01-05
-# Carriers (generated 2026-09-18):
-#   grafana/grafana:13.1.6-ubuntu, grafana/loki:3.7.7
-# Each is a pinned third-party image we cannot rebuild, so the fix
-# only reaches us when the publisher ships a new tag.
+
+# Go 1.26.5 stdlib batch; fixed in Go 1.26.6 but these are pinned upstream
+# tags we cannot rebuild. Internal-only monitoring services; no untrusted
+# input reaches the affected stdlib path.
+#
+# Carriers:
+#   - grafana/loki:3.7.7
+# Reachability: internal-monitoring-only
+# Severity: HIGH
+# Re-check when: the carrier images ship a Go >= 1.26.6 build
 CVE-2026-56859 exp:2027-01-05
-# Carriers (generated 2026-09-18):
-#   grafana/grafana:13.1.6-ubuntu, grafana/loki:3.7.7
-# Each is a pinned third-party image we cannot rebuild, so the fix
-# only reaches us when the publisher ships a new tag.
+
+# Go 1.26.5 stdlib batch; fixed in Go 1.26.6 but these are pinned upstream
+# tags we cannot rebuild. Internal-only monitoring services; no untrusted
+# input reaches the affected stdlib path.
+#
+# Carriers:
+#   - grafana/loki:3.7.7
+# Reachability: internal-monitoring-only
+# Severity: HIGH
+# Re-check when: the carrier images ship a Go >= 1.26.6 build
 CVE-2026-56860 exp:2027-01-05
-# Carriers (generated 2026-09-18):
-#   grafana/grafana:13.1.6-ubuntu, grafana/loki:3.7.7
-# Each is a pinned third-party image we cannot rebuild, so the fix
-# only reaches us when the publisher ships a new tag.
+
+# Go 1.26.5 stdlib batch; fixed in Go 1.26.6 but these are pinned upstream
+# tags we cannot rebuild. Internal-only monitoring services; no untrusted
+# input reaches the affected stdlib path.
+#
+# Carriers:
+#   - grafana/loki:3.7.7
+# Reachability: internal-monitoring-only
+# Severity: HIGH
+# Re-check when: the carrier images ship a Go >= 1.26.6 build
 CVE-2026-56862 exp:2027-01-05
 
-
-# CVE-2026-56864 / CVE-2026-56865: golang.org/x/mod v0.37.0 in grafana/alloy
-# v1.18.1 and prom/alertmanager v0.34.0.
+# Go stdlib net/http DoS; pinned upstream image we cannot rebuild until the
+# publisher ships a new release. The Redis exporter runs inside the internal
+# telemetry network with no untrusted network access.
 #
-# Added 2026-08-19 (issue #451). These were NOT in the vuln DB when the
-# 2026-08-18 renewal was reviewed, so the ignorefile silently developed a
-# two-entry GAP and `make scan-images` began failing on alloy — an image nobody
-# had changed. Recorded here because "the file was complete yesterday" is not a
-# property that survives a database refresh, and this is the second time a
-# renewal review has been overtaken by one.
-#
-# Carriers (generated 2026-09-18): prom/alertmanager:v0.34.0.
-# Each is a pinned third-party image we cannot rebuild, so the fix
-# only reaches us when the publisher ships a new tag.
-# ⚠ Not applicable to our own images: ja4proxy:2.0.0 scans clean with no
-# ignorefile at all (phase-822 golang:1.26.6-alpine builder).
-#
-# Why not exploitable here: both are attacks by a malicious GOSUMDB / GOPROXY
-# against a Go client that is FETCHING MODULES. Neither alloy nor alertmanager
-# fetches Go modules at runtime — they are compiled binaries running as
-# internal-only services on the monitoring network with no host port published.
-# The vulnerable code path is build-time tooling that is never invoked in the
-# running container.
-# Re-review at expiry: check for alloy / alertmanager tags built against
-# golang.org/x/mod >= 0.40.0.
-CVE-2026-56864 exp:2027-01-05
-# Carriers (generated 2026-09-18): prom/alertmanager:v0.34.0.
-# Each is a pinned third-party image we cannot rebuild, so the fix
-# only reaches us when the publisher ships a new tag.
-CVE-2026-56865 exp:2027-01-05
-
-# CVE-2026-43871: Apache Thrift Denial of Service via infinite loop.
-# Carriers (2026-09-10): grafana/grafana:13.1.4-ubuntu. Pinned upstream image we cannot rebuild.
-# Carriers (generated 2026-09-18): grafana/grafana:13.1.6-ubuntu.
-# Each is a pinned third-party image we cannot rebuild, so the fix
-# only reaches us when the publisher ships a new tag.
-# Why not exploitable: Thrift protocol endpoints are not used or exposed by JA4proxy Grafana.
-CVE-2026-43871 exp:2027-01-05
-
-# CVE-2026-56854: golang.org/x/crypto/ssh vulnerability in third-party Go services.
-# Carriers (2026-09-15): redis_exporter, alertmanager, node-exporter, prometheus. (Grafana 13.1.6 and Loki 3.7.7 cleared carrier status in Phase 835).
-# Pinned upstream images we cannot rebuild until publishers ship new releases.
-# Carriers (generated 2026-09-18):
-#   prom/alertmanager:v0.34.0, prom/prometheus:v3.14.0
-# Each is a pinned third-party image we cannot rebuild, so the fix
-# only reaches us when the publisher ships a new tag.
-# Why not exploitable: None of these monitoring sidecars run SSH servers or parse untrusted SSH traffic.
-CVE-2026-56854 exp:2027-01-05
-
-# CVE-2026-84304: google.golang.org/grpc vulnerability in third-party monitoring services.
-# Carriers (2026-09-15): loki, alertmanager, prometheus. (Grafana 13.1.6 cleared carrier status in Phase 835).
-# Pinned upstream images we cannot rebuild until publishers ship new releases.
-# Carriers (generated 2026-09-18):
-#
-#   grafana/alloy:v1.19.2@sha256:b8ec653c44235fbe910879145dac3597d66b0aaecf60bcbbe82580767771a839,
-#   grafana/grafana:13.1.6-ubuntu, grafana/loki:3.7.7,
-#   prom/alertmanager:v0.34.0, prom/prometheus:v3.14.0
-# Each is a pinned third-party image we cannot rebuild, so the fix
-# only reaches us when the publisher ships a new tag.
-# Why not exploitable: Internal monitoring network only, no untrusted gRPC exposure.
-CVE-2026-84304 exp:2027-01-05
-
-# CVE-2026-14456: OpenSSL DoS via unbounded memory (libcrypto3 in Alpine).
-# Carriers (2026-09-13): tecnativa/docker-socket-proxy:v0.5.0. (haproxy bumped to 2.8.28-alpine in Phase 834, clearing its carrier status).
-# Pinned upstream images we cannot rebuild until publishers ship new tags.
-# Carriers (generated 2026-09-18): tecnativa/docker-socket-proxy:v0.5.0.
-# Each is a pinned third-party image we cannot rebuild, so the fix
-# only reaches us when the publisher ships a new tag.
-# Why not exploitable: Socket proxy only communicates over local Unix socket; never exposed to untrusted network traffic.
-CVE-2026-14456 exp:2027-01-05
-# CVE-2026-84445: google.golang.org/grpc Denial of Service via xDS server crash.
-# Carriers (2026-09-15): grafana/alloy, grafana/loki, prom/alertmanager, prom/prometheus. (Grafana 13.1.6 cleared carrier status in Phase 835).
-# Pinned upstream third-party images we cannot rebuild until publishers ship new releases.
-# Carriers (generated 2026-09-18):
-#
-#   grafana/alloy:v1.19.2@sha256:b8ec653c44235fbe910879145dac3597d66b0aaecf60bcbbe82580767771a839,
-#   grafana/grafana:13.1.6-ubuntu, grafana/loki:3.7.7,
-#   prom/alertmanager:v0.34.0, prom/prometheus:v3.14.0
-# Each is a pinned third-party image we cannot rebuild, so the fix
-# only reaches us when the publisher ships a new tag.
-# Why not exploitable: Internal monitoring network only, no untrusted xDS server configuration.
-CVE-2026-84445 exp:2027-01-05
-
-# CVE-2026-84782: OpenSSL info disclosure in Ubuntu libssl3t64.
-# Carriers: grafana/alloy:v1.19.2, grafana/grafana:13.1.6-ubuntu.
-# Pinned upstream third-party images we cannot rebuild until publishers ship new releases.
-# Why not exploitable: Internal monitoring network only, no untrusted TLS renegotiation or direct exposure.
-CVE-2026-84782 exp:2027-01-05
-
-# CVE-2026-103111 / CVE-2026-86145 / CVE-2026-89157 / CVE-2026-89161: pcre2 vulnerabilities in Alpine 3.19/3.24.
-# Carriers: haproxy:2.8.28-alpine, tecnativa/docker-socket-proxy:v0.5.0.
-# Pinned upstream official third-party images we cannot rebuild.
-# Why not exploitable: Socket proxy only communicates over local Unix socket; never parses untrusted regex.
-CVE-2026-103111 exp:2027-01-05
-CVE-2026-86145 exp:2027-01-05
-CVE-2026-89157 exp:2027-01-05
-CVE-2026-89161 exp:2027-01-05
-
-# CVE-2026-75804: OpenSSL DoS via unenforced QUIC in Alpine libcrypto3.
-# Carriers: redis:7.4.11-alpine.
-# Pinned upstream official Redis container image we cannot rebuild.
-# Why not exploitable: Redis is on an isolated internal Docker bridge network and does not terminate QUIC.
-CVE-2026-75804 exp:2027-01-05
-
-# CVE-2026-78669: golang.org/x/net HTTP/2 header parsing vulnerability in third-party Go services.
-# Carriers: grafana/alloy, grafana/grafana, grafana/loki, prom/alertmanager, prom/prometheus.
-# Pinned upstream third-party images we cannot rebuild until publishers ship new releases.
-# Why not exploitable: Internal monitoring network only, no untrusted HTTP/2 exposure to untrusted peers.
-CVE-2026-78669 exp:2027-01-08
-
-# CVE-2026-78667: Go stdlib net/http DoS in third-party Go services.
-# Carriers: oliver006/redis_exporter.
-# Pinned upstream third-party images we cannot rebuild until publishers ship new releases.
-# Why not exploitable: Redis exporter runs inside the internal telemetry network with no untrusted network access.
+# Carriers:
+#   - grafana/alloy:v1.19.2@sha256:b8ec653c44235fbe910879145dac3597d66b0aaecf60bcbbe82580767771a839
+#   - grafana/grafana:13.2.4-ubuntu
+#   - grafana/loki:3.7.7
+#   - oliver006/redis_exporter:v1.91.1
+#   - prom/alertmanager:v0.34.1
+#   - prom/prometheus:v3.15.0
+# Reachability: internal-monitoring-only
+# Severity: HIGH
+# Re-check when: oliver006/redis_exporter ships a Go >= the fixed build
 CVE-2026-78667 exp:2027-01-08
 
-# CVE-2026-97031: Go stdlib crypto/tls DoS in third-party Go services.
-# Carriers: grafana/alloy, grafana/grafana, grafana/loki, prom/alertmanager, prom/prometheus.
-# Pinned upstream third-party images we cannot rebuild until publishers ship new releases.
-# Why not exploitable: Telemetry stack operates within protected internal network segment.
+# golang.org/x/net HTTP/2 header parsing vulnerability; pinned upstream images
+# we cannot rebuild until publishers ship new releases. Internal monitoring
+# network only, no untrusted HTTP/2 exposure.
+#
+# Carriers:
+#   - grafana/alloy:v1.19.2@sha256:b8ec653c44235fbe910879145dac3597d66b0aaecf60bcbbe82580767771a839
+#   - grafana/grafana:13.2.4-ubuntu
+#   - grafana/loki:3.7.7
+#   - oliver006/redis_exporter:v1.91.1
+#   - prom/alertmanager:v0.34.1
+#   - prom/prometheus:v3.15.0
+# Reachability: internal-monitoring-only
+# Severity: HIGH
+# Re-check when: the carrier images are rebuilt against x/net >= the fixed
+# release
+CVE-2026-78669 exp:2027-01-08
+
+# google.golang.org/grpc in pinned upstream images we cannot rebuild until
+# publishers ship new releases. Internal monitoring network only, no untrusted
+# gRPC exposure.
+#
+# Carriers:
+#   - grafana/alloy:v1.19.2@sha256:b8ec653c44235fbe910879145dac3597d66b0aaecf60bcbbe82580767771a839
+#   - grafana/grafana:13.2.4-ubuntu
+#   - grafana/loki:3.7.7
+# Reachability: internal-monitoring-only
+# Severity: HIGH
+# Re-check when: the carrier images are rebuilt against grpc >= the fixed
+# release
+CVE-2026-84304 exp:2027-01-05
+
+# google.golang.org/grpc xDS DoS in pinned upstream images we cannot rebuild
+# until publishers ship new releases. Internal monitoring network only, no
+# untrusted xDS server configuration.
+#
+# Carriers:
+#   - grafana/alloy:v1.19.2@sha256:b8ec653c44235fbe910879145dac3597d66b0aaecf60bcbbe82580767771a839
+#   - grafana/grafana:13.2.4-ubuntu
+#   - grafana/loki:3.7.7
+#   - prom/alertmanager:v0.34.1
+# Reachability: internal-monitoring-only
+# Severity: HIGH
+# Re-check when: the carrier images are rebuilt against grpc >= the fixed
+# release
+CVE-2026-84445 exp:2027-01-05
+
+# OpenSSL info disclosure in Ubuntu libssl3t64; pinned upstream images we
+# cannot rebuild until publishers ship new releases. Internal monitoring
+# network only, no untrusted TLS renegotiation or direct exposure.
+#
+# Carriers:
+#   - grafana/alloy:v1.19.2@sha256:b8ec653c44235fbe910879145dac3597d66b0aaecf60bcbbe82580767771a839
+#   - redis:7.4.11-alpine@sha256:520775a41a63e77e06c73e35d2fd9cc15921a609516818796b4ecbb813078bc7
+# Reachability: internal-monitoring-only
+# Severity: HIGH
+# Re-check when: the carrier images ship a rebuilt Ubuntu base
+CVE-2026-84782 exp:2027-01-05
+
+# pcre2 vulnerability in Alpine 3.19/3.24; pinned upstream official images we
+# cannot rebuild until publishers ship new tags. The socket proxy only
+# communicates over a local Unix socket and never parses untrusted regex.
+#
+# Carriers:
+#   - tecnativa/docker-socket-proxy:v0.5.0
+# Reachability: local-socket-only
+# Severity: HIGH
+# Re-check when: the carrier images ship a rebuilt Alpine base with patched
+# pcre2
+CVE-2026-86145 exp:2027-01-05
+
+# pcre2 vulnerability in Alpine 3.19/3.24; pinned upstream official images we
+# cannot rebuild until publishers ship new tags. The socket proxy only
+# communicates over a local Unix socket and never parses untrusted regex.
+#
+# Carriers:
+#   - tecnativa/docker-socket-proxy:v0.5.0
+# Reachability: local-socket-only
+# Severity: HIGH
+# Re-check when: the carrier images ship a rebuilt Alpine base with patched
+# pcre2
+CVE-2026-89157 exp:2027-01-05
+
+# pcre2 vulnerability in Alpine 3.19/3.24; pinned upstream official images we
+# cannot rebuild until publishers ship new tags. The socket proxy only
+# communicates over a local Unix socket and never parses untrusted regex.
+#
+# Carriers:
+#   - tecnativa/docker-socket-proxy:v0.5.0
+# Reachability: local-socket-only
+# Severity: HIGH
+# Re-check when: the carrier images ship a rebuilt Alpine base with patched
+# pcre2
+CVE-2026-89161 exp:2027-01-05
+
+# Go stdlib crypto/tls DoS; pinned upstream images we cannot rebuild until
+# publishers ship new releases. The telemetry stack operates within a
+# protected internal network segment.
+#
+# Carriers:
+#   - grafana/alloy:v1.19.2@sha256:b8ec653c44235fbe910879145dac3597d66b0aaecf60bcbbe82580767771a839
+#   - grafana/grafana:13.2.4-ubuntu
+#   - grafana/loki:3.7.7
+#   - oliver006/redis_exporter:v1.91.1
+#   - prom/alertmanager:v0.34.1
+#   - prom/prometheus:v3.15.0
+# Reachability: internal-monitoring-only
+# Severity: HIGH
+# Re-check when: the carrier images ship a Go >= the fixed build
 CVE-2026-97031 exp:2027-01-08
-
-
-
 

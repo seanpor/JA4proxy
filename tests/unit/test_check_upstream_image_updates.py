@@ -84,6 +84,38 @@ def test_extract_ignored_images(tmp_path, monkeypatch):
     assert "prom/alertmanager:v0.34.0" in extracted
 
 
+def test_extract_ignored_images_generated_multiline_format(tmp_path, monkeypatch):
+    """Phase 847a: the generated file lists carriers one per `#   - image` line,
+    and the digest of a pinned image must not confuse the tag parse.
+    """
+    mock_file = tmp_path / ".trivyignore.third-party"
+    mock_file.write_text(
+        "# Carriers:\n"
+        "#   - grafana/grafana:13.1.6-ubuntu\n"
+        "#   - grafana/alloy:v1.19.2@sha256:abc123\n"
+        "# Reachability: internal-monitoring-only\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr("scripts.check_upstream_image_updates.THIRD_PARTY_IGNORE", mock_file)
+    extracted = extract_ignored_images()
+    assert extracted == {"grafana/grafana:13.1.6-ubuntu", "grafana/alloy:v1.19.2"}
+
+
+def test_extract_ignored_images_real_file():
+    """The committed generated file must yield the deployed sidecars, not an
+    empty set — an empty set silently disables the Phase 827 upstream audit.
+    """
+    from scripts.check_upstream_image_updates import THIRD_PARTY_IGNORE
+
+    extracted = extract_ignored_images()
+    assert THIRD_PARTY_IGNORE.exists(), "expected the committed ignorefile"
+    # Version-agnostic on purpose: the pin is bumped whenever a newer tag clears
+    # a CVE (e.g. grafana 13.1.6 -> 13.2.4 in Phase 847a), and this test is about
+    # the carrier parse working at all, not about a specific tag.
+    assert any(img.startswith("grafana/grafana:") for img in extracted)
+    assert len(extracted) >= 5
+
+
 @patch("scripts.check_upstream_image_updates.fetch_docker_hub_tags")
 def test_check_upstream_updates(mock_fetch, tmp_path, monkeypatch):
     mock_file = tmp_path / ".trivyignore.third-party"

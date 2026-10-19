@@ -460,17 +460,17 @@ lint-static: tools-image bandit-image  ## mypy + bandit + ruff + pip-audit
 	@# phase-311: resilient wrapper — retries transient PyPI/OSV outages and
 	@# soft-passes (with a CI warning) if the service is unreachable, but still
 	@# fails on a real vulnerability. Stops upstream-outage flakes reddening the gate.
-	@# phase-800: PYSEC-2026-2132 (click 8.1.8) acknowledged — walled off by semgrep:
-	@# it pins click~=8.1.8 (fix is 8.3.3). Dev/CI tooling deps only.
-	@# (phase-833): PYSEC-2026-1805 / CVE-2026-0994 resolved via protobuf>=5.29.6.
+	@# phase-847a: waived CVEs live in security/waivers.yaml and are rendered into
+	@# the ignorefiles by scripts/render_waivers.py, so this gate and the ci.yml
+	@# dependency-audit-python job can no longer drift apart. The old inline list
+	@# here (6 entries) had already diverged from ci.yml's (2 entries).
+	@# Fail fast if a derived file is stale or a hand edit slipped in (the pytest
+	@# drift test covers the same ground; this just fails earlier in the gate).
+	@$(TOOLS_RUN) python scripts/render_waivers.py --check
+	@test -s .pip-audit-ignores || { echo "✗ .pip-audit-ignores missing — run: python3 scripts/render_waivers.py"; exit 1; }
 	@$(TOOLS_RUN) bash scripts/pip-audit-resilient.sh -r requirements.txt \
-	  --ignore-vuln CVE-2025-50181 \
-	  --ignore-vuln CVE-2025-66418 \
-	  --ignore-vuln CVE-2025-66471 \
-	  --ignore-vuln CVE-2026-21441 \
-	  --ignore-vuln CVE-2026-4539 \
-	  --ignore-vuln PYSEC-2026-2132 \
-	  && echo "  ✓ pip-audit passed (urllib3/pygments/click CVEs acknowledged — transitive deps, no safe resolution available)"
+	  $$(grep -v '^[[:space:]]*#' .pip-audit-ignores) \
+	  && echo "  ✓ pip-audit passed (waived CVEs: see security/waivers.yaml)"
 	@echo ""
 	@echo "✓ All static analysis gates passed"
 
@@ -740,7 +740,10 @@ scan-first-party:  ## Trivy CVE scan of built images (CRITICAL → fail)
 FIRST_PARTY_IMAGES := ja4proxy:2.0.0 ja4proxy-analytics:1.0.0 ja4proxy-tarpit:1.0.0 ja4proxy-mockbackend:1.0.0 ja4proxy-management:1.0.0 ja4proxy-test:1.0.0 ja4proxy-trafficgen:1.0.0 ja4proxy-tap:1.0.0
 scan-summary: ## Phase 228 — compact CRIT/HIGH/MED rollup of all scans (images + misconfig + gosec; reporting only)
 	@mkdir -p "$(TRIVY_CACHE)"
-	@$(PYTHON) scripts/scan_summary.py $(TRIVY_IMAGES) $(FIRST_PARTY_IMAGES)
+	@# Phase 847a: pass the correct scope-split ignorefile (Phase 822 deleted the
+	@# single .trivyignore this used to hard-code, so waivers had stopped applying).
+	@$(PYTHON) scripts/scan_summary.py --ignorefile .trivyignore.third-party $(TRIVY_IMAGES)
+	@$(PYTHON) scripts/scan_summary.py --ignorefile .trivyignore.first-party $(FIRST_PARTY_IMAGES)
 	@# gosec rollup (best-effort; builds the pinned security-scan image)
 	@docker build -q -t ja4proxy-security-scan -f deploy/docker/security-scan/Dockerfile . >/dev/null 2>&1 \
 		&& docker run --rm -v "$(PWD):/app" ja4proxy-security-scan \

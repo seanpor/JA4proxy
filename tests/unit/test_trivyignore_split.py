@@ -99,12 +99,15 @@ class TestMakefileWiring:
         lines = MAKEFILE.read_text().splitlines()
         target, seen = None, {}
         for line in lines:
-            if line.startswith("scan-images:"):
-                target = "scan-images"
-            elif line.startswith("scan-first-party:"):
-                target = "scan-first-party"
-            elif line and not line[0].isspace() and line.endswith(":"):
-                target = None
+            if line and not line[0].isspace():
+                # Top-level line: a target (`name:` possibly with a trailing
+                # `## comment`) or a variable assignment. Either way the previous
+                # target's recipe is over. Matching on a bare `line.endswith(":")`
+                # missed targets carrying a `## comment` (e.g. scan-summary, which
+                # legitimately uses both scopes), misattributing its lines to the
+                # previous target.
+                m = re.match(r"^([A-Za-z0-9_./-]+):", line)
+                target = m.group(1) if m else None
             if target and "--ignorefile" in line:
                 seen.setdefault(target, []).append(line.strip())
 

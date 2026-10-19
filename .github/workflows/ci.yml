@@ -282,12 +282,12 @@ jobs:
           # flags HIGH/CRITICAL via the exit code when used without --ignore-vuln.
           # phase-311: wrapped so a transient PyPI/OSV outage retries + soft-passes
           # (warning) instead of reddening the gate; a real vuln still fails.
-          # phase-800: PYSEC-2026-2132 (click) + PYSEC-2026-1805 (protobuf)
-          # acknowledged — semgrep-walled, same ignores as the Makefile
-          # lint-static gate; removal condition documented in requirements.txt.
+          # phase-847a: the ignore list is now GENERATED from security/waivers.yaml
+          # by scripts/render_waivers.py, so this job and the Makefile lint-static
+          # gate cannot drift apart (they had: 2 entries here vs 6 in the Makefile).
+          # Each entry's justification and removal condition live in the registry.
           bash scripts/pip-audit-resilient.sh -r requirements.txt --strict \
-            --ignore-vuln PYSEC-2026-2132 \
-            --ignore-vuln PYSEC-2026-1805
+            $(grep -v '^[[:space:]]*#' .pip-audit-ignores)
 
   dependency-audit-go:
     name: Go dependency audit (govulncheck)

@@ -1,187 +1,104 @@
 #!/usr/bin/env python3
-"""Regenerate the "carried by" line on each .trivyignore entry from scan data.
+"""Regenerate each Trivy waiver's `carriers:` claim from scan data.
 
-Phase 829b.
+Phase 829b; registry-aware since Phase 847a.
 
 WHY THIS EXISTS
 ---------------
-18 of the 56 third-party exceptions claimed to cover `promtail:3.6.11` (removed
-in phase-825), `grafana:13.0.4-ubuntu` (now 13.0.6) and
+18 of 56 third-party exceptions claimed to cover `promtail:3.6.11` (removed in
+phase-825), `grafana:13.0.4-ubuntu` (now 13.0.6) and
 `prom/haproxy-exporter:v0.15.0` (retired in phase-820) — images not present in
-the deployment at all. Several read "both already on newest stable tag" about
-two images that were not deployed.
+the deployment at all. The waivers themselves were correct; the stated REASON had
+rotted, which is the entire point of a *justified* exception. A reviewer trusting
+that text was told the waiver covered something it did not.
 
-The waivers themselves were correct: the CVEs are genuinely present. What had
-rotted was the stated REASON, which is the entire point of a *justified*
-exception. A reviewer trusting that text was being told the waiver covered
-something it did not.
+They were rewritten by hand once (#459). Nothing stopped them rotting again,
+because the claim is prose about image versions and image versions move.
 
-They were rewritten by hand on 2026-08-19 (#459). Nothing stopped them rotting
-again, because the claim is prose about image versions and image versions move.
+REGISTRY-AWARE (Phase 847a)
+---------------------------
+Since 847a the `.trivyignore.*` files are GENERATED from
+`security/waivers.yaml`. Rewriting the generated file directly is reverted by the
+drift test, so this script now rewrites the registry's `carriers:` list and
+re-renders. The machine-checkable half of the claim therefore still tracks
+reality, and the human half stays put.
 
 WHAT THIS DELIBERATELY DOES NOT DO
 ----------------------------------
 It rewrites the CARRIER CLAIM only — the machine-checkable half.
 
-The "why not exploitable here" reasoning underneath is a human judgement about
-OUR deployment ("cadvisor is an internal-only metrics sidecar with no host port
-published"), and no scanner knows that. Generating it would produce confident
-text nobody had thought about, which is worse than stale text someone once did.
+The `rationale` (the "why not exploitable here" judgement about OUR deployment)
+is never machine-written: no scanner knows that cAdvisor is an internal-only
+sidecar with no published host port. Generating it would produce confident text
+nobody had thought about, which is worse than stale text someone once did.
 
-The file's dated history sections are also left alone. They record what was true
-at the time; regenerating them would falsify the record.
+An entry the scan reports NOTHING for is left untouched rather than being blanked
+(a registry entry must name at least one carrier). Such entries are surfaced as
+DEAD by `scripts/check_trivyignore_drift.py`, which the renewal PR body includes;
+847d turns that into a controlled removal.
 """
 from __future__ import annotations
 
 import argparse
 import sys
 from pathlib import Path
-from typing import Dict, List, Sequence
+from typing import Any, Dict, List
 
-# Imported as a package member so this works both as `python3 scripts/x.py`
-# and as `from scripts.x import ...` in tests.
-try:
-    from scripts.check_trivyignore_drift import _ENTRY, scan_dir_findings
+try:  # works as `python3 scripts/x.py` and as `from scripts.x import ...`
+    from scripts import render_waivers
 except ImportError:  # invoked directly, scripts/ on sys.path
-    from check_trivyignore_drift import _ENTRY, scan_dir_findings
+    import render_waivers
 
-_ROOT = Path(__file__).resolve().parents[1]
-THIRD_PARTY_IGNORE = _ROOT / ".trivyignore.third-party"
-
-# The generated block. Recognised by this marker on re-runs so the script is
-# idempotent instead of stacking a new claim on every invocation.
-MARKER = "# Carriers (generated"
-
-# Lines that begin the human reasoning. The generator stops at the first of
-# these and never touches anything from there down.
-HUMAN_SECTIONS = (
-    "# Why not exploitable",
-    "# Why not applicable",
-    "# Re-review",
-    "# ⚠",
-    "# Note:",
-)
-
-# A claim line the generator owns and may replace.
-OWNED_PREFIXES = ("# Why no fix:", MARKER)
+try:
+    from scripts.check_trivyignore_drift import scan_dir_findings
+except ImportError:  # invoked directly
+    from check_trivyignore_drift import scan_dir_findings
 
 
-def build_claim(cve: str, carriers: Sequence[str], date: str) -> List[str]:
-    """The generated carrier block for one entry."""
-    if carriers:
-        who = ", ".join(sorted(carriers))
-        # Measure the WHOLE line, not just the carrier list. Comparing `who`
-        # alone ignored the ~30-character marker prefix and emitted a
-        # 103-column line.
-        single = f"{MARKER} {date}): {who}."
-        lines = [single] if len(single) <= 79 else [f"{MARKER} {date}):"]
-        if len(single) > 79:
-            # Wrap long carrier lists rather than emitting a 200-column line.
-            current = "#   "
-            for name in sorted(carriers):
-                piece = name + ", "
-                if len(current) + len(piece) > 76:
-                    lines.append(current.rstrip())
-                    current = "#   "
-                current += piece
-            lines.append(current.rstrip().rstrip(","))
-        lines.append(
-            "# Each is a pinned third-party image we cannot rebuild, so the fix"
-        )
-        lines.append(
-            "# only reaches us when the publisher ships a new tag."
-        )
-        return lines
-    return [
-        f"{MARKER} {date}): NO deployed image carries this any more.",
-        "# This entry is DEAD and can be deleted — see check_trivyignore_drift.py.",
-    ]
+def refresh(registry: Dict[str, Any], carriers_by_cve: Dict[str, List[str]]) -> List[str]:
+    """Rewrite each trivy waiver's `carriers:` from measured scan data.
 
-
-def refresh(text: str, carriers_by_cve: Dict[str, List[str]], date: str) -> str:
-    """Rewrite the carrier claim above every entry line.
-
-    Walks the file, and for each entry line rewrites the owned lines in the
-    comment block directly above it, leaving everything else byte-identical.
+    Returns the ids that changed. Entries the scan reported nothing for are left
+    as-is (see module docstring).
     """
-    lines = text.split("\n")
-    out: List[str] = []
-
-    for line in lines:
-        m = _ENTRY.match(line.strip())
-        if not m:
-            out.append(line)
+    changed: List[str] = []
+    for w in registry.get("waivers") or []:
+        if w.get("source") != "trivy":
             continue
-
-        cve = m.group("id")
-
-        # Find this entry's comment block: contiguous '#' lines directly above.
-        start = len(out)
-        while start > 0 and out[start - 1].startswith("#"):
-            start -= 1
-        block = out[start:]
-
-        # Split into the part the generator owns and the human part.
-        #
-        # `in_owned` is explicit state, not a look-back at the last KEPT line.
-        # Peeking at kept[-1] cannot work: once an owned line is skipped it is
-        # never in `kept`, so the continuation lines beneath it looked
-        # unowned, survived, and a fresh claim was appended above them — the
-        # file grew by two lines per entry per run. Caught by the idempotency
-        # test, which is exactly what that test is for.
-        kept: List[str] = []
-        i = 0
-        in_owned = False
-        while i < len(block):
-            b = block[i]
-            if b.startswith(HUMAN_SECTIONS):
-                break
-            if b.startswith(OWNED_PREFIXES):
-                in_owned = True
-                i += 1
-                continue
-            if in_owned and b.startswith("#"):
-                i += 1
-                continue
-            in_owned = False
-            kept.append(b)
-            i += 1
-        human = block[i:]
-
-        rebuilt = kept + build_claim(cve, carriers_by_cve.get(cve, []), date) + human
-        out[start:] = rebuilt
-        out.append(line)
-
-    return "\n".join(out)
+        measured = carriers_by_cve.get(str(w.get("id")))
+        if not measured:
+            continue
+        if sorted(measured) != sorted(w.get("carriers") or []):
+            w["carriers"] = sorted(measured)
+            changed.append(str(w.get("id")))
+    return changed
 
 
 def main(argv: List[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--scan-dir", type=Path, required=True)
-    parser.add_argument("--ignorefile", type=Path, default=THIRD_PARTY_IGNORE)
-    parser.add_argument("--date", default="", help="stamp (default: today)")
+    parser.add_argument("--registry", type=Path, default=render_waivers.REGISTRY)
     parser.add_argument(
         "--check",
         action="store_true",
-        help="exit non-zero if the file would change, without writing",
+        help="exit non-zero if the registry would change, without writing",
     )
     args = parser.parse_args(argv)
 
-    if not args.date:
-        from datetime import date as _date
-
-        args.date = _date.today().isoformat()
-
     try:
-        _severity, carriers = scan_dir_findings(args.scan_dir)
+        _severity, carriers_by_cve = scan_dir_findings(args.scan_dir)
     except ValueError as exc:
         print(f"✗ {exc}", file=sys.stderr)
         return 2
 
-    original = args.ignorefile.read_text(encoding="utf-8")
-    updated = refresh(original, carriers, args.date)
+    try:
+        registry = render_waivers.load_registry(args.registry)
+    except render_waivers.RegistryError as exc:
+        print(f"✗ {exc}", file=sys.stderr)
+        return 2
 
-    if updated == original:
+    changed = refresh(registry, carriers_by_cve)
+    if not changed:
         print("Carrier claims already match the scan data.")
         return 0
 
@@ -189,8 +106,11 @@ def main(argv: List[str] | None = None) -> int:
         print("✗ carrier claims are stale — run without --check to regenerate.")
         return 1
 
-    args.ignorefile.write_text(updated, encoding="utf-8")
-    print(f"Regenerated carrier claims in {args.ignorefile.name}.")
+    render_waivers.save_registry(registry, args.registry)
+    render_waivers.write_derived(render_waivers.render_all(registry))
+    print(f"Regenerated carrier claims for {len(changed)} entry/entries.")
+    for wid in sorted(changed):
+        print(f"  - {wid}")
     return 0
 
 

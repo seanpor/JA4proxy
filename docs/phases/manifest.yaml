@@ -5414,11 +5414,12 @@ phases:
 
   847a:
     name: "CVE registry as single source of truth"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_847a.md
+    status: COMPLETE
+    completed: '2026-10-19'
+    action_plan: docs/phases/complete/PHASE_847a.md
     dependencies: []
     size: MEDIUM
-    summary: "PROPOSED 2026-10-17. Author every CVE waiver once in security/waivers.yaml; render .trivyignore.{first,third}-party and the pip-audit ignore args from it; drift-test that derived files match the source. Migrates the 29 third-party Trivy entries and the 7 (vs ci.yml's 4) pip-audit ignores, killing the divergence. No gate behaviour change."
+    summary: "COMPLETE 2026-10-19. Authored every CVE waiver in security/waivers.yaml; render_waivers.py generates .trivyignore.{first,third}-party and the pip-audit ignore args from it, and a drift test fails CI when a derived file diverges. Migrated the Trivy and pip-audit inventories (Makefile 6 vs ci.yml 2 — union 7 — plus 824c's CVE-2026-59951 = 8), killing the divergence. Two recorded deviations: added evidenced kin-openapi waivers (CVE-2026-100349/100351-354, which had reddened every PR) and, per the 'zero fixable-but-waived' rule, fixed CVE-2026-56851 by bumping the monitoring images and deleted the six waivers those bumps made dead — the registry ends smaller. scan-images green; drift check reports zero gaps / zero dead."
 
   847b:
     name: "Scan tooling correctness"

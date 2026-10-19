@@ -73,12 +73,14 @@ fi
 # Dependency vulnerability check with pip-audit (Phase 16f — replaces safety 3.x which requires auth)
 if command -v pip-audit &> /dev/null; then
     echo "  ✓ Running pip-audit CVE scan..."
+    # Phase 847a: the ignore list is generated from security/waivers.yaml, so this
+    # script can no longer carry its own divergent copy (it had 4 entries vs the
+    # Makefile's 6 and ci.yml's 2). The word-splitting below is deliberate: each
+    # non-comment line is a `--ignore-vuln <ID>` flag pair.
+    # shellcheck disable=SC2046
     pip-audit -r requirements.txt \
-      --ignore-vuln CVE-2025-50181 \
-      --ignore-vuln CVE-2025-66418 \
-      --ignore-vuln CVE-2025-66471 \
-      --ignore-vuln CVE-2026-21441 \
-      && echo "  ✓ pip-audit: OK (urllib3 CVEs acknowledged — transitive dep)" \
+      $(grep -v '^[[:space:]]*#' .pip-audit-ignores) \
+      && echo "  ✓ pip-audit: OK (waived CVEs: see security/waivers.yaml)" \
       || echo "  ✗ pip-audit: new vulnerabilities found — update requirements.txt"
 else
     echo "  ✗ pip-audit not installed (pip install pip-audit)"

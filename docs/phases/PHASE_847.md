@@ -57,11 +57,16 @@ Four compounding defects:
 | 4 | **Fix path costs more than waive path** — waiving is a 1-line edit; fixing is a PR + image validation + smoke test. Under pressure everyone waives, and nothing tells you when a fix *does* ship. | — |
 
 Current inventory (2026-10-17): **29** entries in `.trivyignore.third-party`
-(0 first-party), **7/4** diverging pip-audit ignores, gate scans `HIGH,CRITICAL`
+(0 first-party), **6/2** diverging pip-audit ignores (Makefile vs `ci.yml`; union
+7), gate scans `HIGH,CRITICAL`
 only (MEDIUM not gated), and the only scheduled security jobs are
 `trivyignore-renewal`, `dependabot-automerge`, `dependabot-pr-refresh` — there is
 **no scheduled scan**, which is exactly why new-DB-CVEs are discovered by accident
 on someone else's PR.
+
+After 847a the ignorefile holds **28** entries: the kin-openapi waivers were added
+and six entries that the monitoring-image bump rendered dead were removed (see
+`complete/PHASE_847a.md`).
 
 ---
 
@@ -138,7 +143,7 @@ blockers.
 
 | Sub-phase | Title | Size | Depends on | Delivers |
 |-----------|-------|------|-----------|----------|
-| **847a** | CVE registry as single source of truth | MEDIUM | — | `security/waivers.yaml` + renderer + drift test; migrates 29 Trivy + 7 pip-audit entries. No gate change. Kills divergence. |
+| **847a** | CVE registry as single source of truth | MEDIUM | — | `security/waivers.yaml` + renderer + drift test; migrates 29 Trivy + 8 pip-audit entries. No gate change. Kills divergence. |
 | **847b** | Scan tooling correctness | SMALL | 847a | Count CVEs from Trivy **JSON** (not `grep -c HIGH` on grouped tables); fix the "see `.trivyignore`" message; both ignore lists driven from the registry. |
 | **847c** | Split scan: regression gate + baseline monitor | LARGE | 847a, 847b | Required PR gate diffs vs a recorded baseline; scheduled monitor files issues on drift. Ends "new CVE reddens every PR." |
 | **847d** | Fix-forward bot + expiry re-affirmation | MEDIUM | 847c | Scheduled job checks fix availability, opens bump PRs with scan diffs; expiry re-affirmation replaces blind re-dating. |
