@@ -153,22 +153,23 @@ def render_table(rows: list[VulnRow]) -> str:
     return "\n".join(lines)
 
 
-def run_trivy(image: str, ignorefile: str, cache: str, docker_socket: bool = False) -> dict:
-    """Run the pinned Trivy container against `image` and return the parsed JSON.
+def trivy_cmd(image: str, ignorefile: str, cache: str, docker_socket: bool = False) -> list[str]:
+    """The exact argv Trivy receives, built without running anything.
+
+    Split out of :func:`run_trivy` so the gate's *policy* — which severities it
+    scans for, which ignorefile it applies, and that it reads JSON rather than a
+    human table — is assertable without docker or network (Phase 847b).
 
     `docker_socket` is required for locally-built images: they exist only in the
     local daemon, not in any registry, so without the mount Trivy cannot find
     them. It is deliberately opt-in — third-party images come from registries and
     need no host socket at all.
-
-    Raises RuntimeError if Trivy produced no usable JSON — a scan we could not
-    read must never be mistaken for a scan that found nothing (Phase 847b).
     """
     os.makedirs(cache, exist_ok=True)
     mounts = ["-v", f"{os.getcwd()}:/scan:ro", "-v", f"{cache}:/root/.cache/trivy"]
     if docker_socket:
         mounts += ["-v", "/var/run/docker.sock:/var/run/docker.sock"]
-    cmd = [
+    return [
         "docker", "run", "--rm",
         *mounts,
         TRIVY_IMAGE, "image",
@@ -179,6 +180,15 @@ def run_trivy(image: str, ignorefile: str, cache: str, docker_socket: bool = Fal
         "--skip-version-check",
         "--format", "json", image,
     ]
+
+
+def run_trivy(image: str, ignorefile: str, cache: str, docker_socket: bool = False) -> dict:
+    """Run the pinned Trivy container against `image` and return the parsed JSON.
+
+    Raises RuntimeError if Trivy produced no usable JSON — a scan we could not
+    read must never be mistaken for a scan that found nothing (Phase 847b).
+    """
+    cmd = trivy_cmd(image, ignorefile, cache, docker_socket)
     proc = subprocess.run(cmd, capture_output=True, text=True)  # nosec B603 -- fixed argv, no shell
     if not proc.stdout.strip():
         raise RuntimeError(f"trivy produced no output: {proc.stderr.strip()[:300]}")

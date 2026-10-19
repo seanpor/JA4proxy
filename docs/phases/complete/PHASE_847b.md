@@ -21,9 +21,9 @@ Fix three concrete correctness defects in the scan tooling that were exposed dur
 Phase 824c. Each is small, independent, and removes a way the tooling actively
 misleads a human triaging under pressure.
 
-Doing the work surfaced three more of the same family (847b.4–847b.6) — found by
-the honesty fix rather than by inspection, which is itself the argument for
-having made it. All six are recorded below.
+Doing the work surfaced four more of the same family (847b.4–847b.7) — found by
+the honesty fix, by `make preflight`, and by reading what the tooling says about
+itself. All seven are recorded below.
 
 ---
 
@@ -127,6 +127,24 @@ does not exist. (The test checks *consumers* only — a `trivyignores:` field or
 an `--ignorefile` argument — so prose mentioning a filename is not a false
 positive.)
 
+### 847b.7 *(found by reading the tooling's own claims)* `scan-summary` calls a HIGH "WARN"
+
+`scripts/scan_summary.py`'s `verdict()` docstring claimed *"Defaults match the
+image gate (CRITICAL fails, HIGH is advisory)"*. They never matched it, and had
+not since Phase 317: `scan-images` and `scan-first-party` fail on **HIGH or
+CRITICAL**, so a HIGH that just reddened the build was rendered to the operator
+as a mere `WARN` — in the very report they reach for to understand a red gate.
+
+The divergence was internal too. The misconfig and gosec rows already passed
+`fail=("HIGH",)` / `fail=("CRITICAL", "HIGH")` explicitly; only the *default* the
+image path relied on still encoded the pre-317 policy.
+
+**Fix:** default to `fail=("CRITICAL", "HIGH"), warn=()` so all three consumers
+agree, and reword the docstring to state what it actually does. Zero CI risk,
+verified three ways: `scan-summary` is reporting-only, it is not a prerequisite
+of `scan-all`, and `pipeline_summary.py` prints an unconditional verdict rather
+than parsing these labels — the required check fails on `make`'s exit codes.
+
 ---
 
 ## What was built
@@ -158,8 +176,11 @@ positive.)
 **one** parser (847b.1's plan warned against adding a third). A test asserts the
 two agree on the same report.
 
-**`scripts/scan_summary.py` is deliberately untouched** — it is a *report* (exit 0
-with findings present), not a gate. Gating lives only in the new script.
+**`scripts/scan_summary.py` remains a report, never a gate** — it exits 0 with
+findings present, and gating lives only in the new script. One correction
+(847b.7): its `verdict()` default now labels HIGH `FAIL`, the way every gate and
+both other report rows already did, so the report cannot understate what just
+failed.
 
 **`Makefile`** — `scan-images` and `scan-first-party` both delegate to the gate
 with an explicit `--ignorefile` (`/scan/.trivyignore.third-party` and
@@ -221,6 +242,9 @@ outcome); a bad ignorefile path → **exit 2**; a locally-built image with
 | `scripts/check_image_versions.py` | `FIRST_PARTY_IMAGES` += `ja4proxy-tap`, `ja4proxy-management` |
 | `Makefile` | `scan-images` + `scan-first-party` onto the gate; real failure messages |
 | `.github/workflows/go-proxy-image.yml` | `trivyignores: .trivyignore` → `.trivyignore.first-party` |
+| `scripts/scan_summary.py` | `verdict()` default: HIGH → `FAIL` (847b.7), docstring states what it does |
+| `tests/integration/test_ci_flow.py` | Two severity tests rewritten — they *required* `grep -c "HIGH"` and the removed expression |
+| `tests/unit/test_scan_summary.py` | `HIGH: 3` now expects `FAIL` |
 | `tests/unit/test_scan_tooling.py` | **New** — 23 tests |
 | `tests/fixtures/trivy-grafana-kin-openapi.json` | **New** — real captured Trivy JSON (5 kin-openapi HIGHs) |
 | `tests/fixtures/trivy-grafana-kin-openapi.table.txt` | **New** — matching real `--format table` output |
@@ -269,6 +293,26 @@ outcome); a bad ignorefile path → **exit 2**; a locally-built image with
 > 822's guard tests — which pin that path — stay green and keep guarding. The
 > script accepts both spellings and validates strictly instead of silently taking
 > a basename.
+>
+> **The plan's own tests asserted the defect (surfaced by `make preflight`).**
+> `tests/integration/test_ci_flow.py` *required* `grep -c "HIGH"`,
+> `grep -c "CRITICAL"` and the exact `grep -v "Total:" | grep -E -c …` in the
+> recipes — pinning 847b.1's bug as a requirement — while its docstrings claimed
+> HIGH was "advisory" for third-party images, which the recipe itself contradicted
+> (`if high -gt 0 || crit -gt 0 → fail=1`, in force since Phase 317). The
+> assertions were not deleted; they were relocated to where the policy now lives.
+> `trivy_cmd()` was split out of `run_trivy()` so the tests assert the *argv*
+> Trivy receives (`--severity HIGH,CRITICAL`, `--format json`, the pinned image,
+> and **no** host socket for third-party images) and, behaviourally, that a HIGH
+> and a CRITICAL each return exit 1. This is what the first `make preflight` run
+> caught; the stale "advisory" prose went with it.
+>
+> **Scope addition — 847b.7 (`scan-summary` verdict).** Not in the plan, found by
+> reading a docstring that claimed parity with a gate this phase had just
+> re-examined. It changes no policy and no CI outcome (reporting-only, absent from
+> `scan-all`, and `pipeline_summary` does not parse these labels) — it removes a
+> report that understated a red gate and aligns the image rows with the
+> misconfig/gosec rows that already said `FAIL` for HIGH.
 
 ---
 
