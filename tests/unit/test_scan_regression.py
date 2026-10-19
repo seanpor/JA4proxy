@@ -152,8 +152,52 @@ class TestRequirementsSelection:
     def test_prefers_requirements_txt(self):
         assert gate.requirements_of(["pyproject.toml", "requirements.txt"]) == "requirements.txt"
 
-    def test_falls_back_to_a_pypi_file(self):
-        assert gate.requirements_of(["sub/pyproject.toml"]) == "sub/pyproject.toml"
+    def test_prefers_the_requirements_file_over_another_auditable_one(self):
+        assert gate.requirements_of(["requirements-test.txt", "requirements.txt"]) == "requirements.txt"
+
+    def test_audits_a_changed_requirements_file(self):
+        assert gate.requirements_of(["requirements-test.txt"]) == "requirements-test.txt"
+
+    def test_pyproject_only_still_audits_a_requirements_file(self):
+        """`pip-audit -r pyproject.toml` errors, and exit 2 on a config edit is the
+        unrelated-red the split exists to remove. The surface is still in scope."""
+        assert gate.requirements_of(["pyproject.toml"]) == "requirements.txt"
+
+    def test_never_returns_a_file_pip_audit_cannot_read(self):
+        for changed in (["pyproject.toml"], ["Pipfile"], ["Pipfile.lock"], ["sub/pyproject.toml"]):
+            assert gate.AUDITABLE_DEPS_RE.search(gate.requirements_of(changed)), changed
+
+    def test_pyproject_only_touches_the_pypi_surface(self):
+        touched = gate.touched_surfaces(["pyproject.toml"], {}, {}, {})
+        assert touched["pypi"]["ref"] == "requirements.txt"
+
+
+class TestUnscannedDockerfiles:
+    """A touched file the gate cannot judge must be reported, never silent."""
+
+    def test_reports_a_dockerfile_outside_the_build_set(self):
+        assert gate.unscanned_dockerfiles(["Dockerfile.tools"], {}) == ["Dockerfile.tools"]
+
+    def test_does_not_report_a_scanned_dockerfile(self):
+        mapping = {"deploy/docker/Dockerfile.go-proxy": "ja4proxy:2.0.0"}
+        assert gate.unscanned_dockerfiles(list(mapping), mapping) == []
+
+    def test_ignores_non_dockerfile_paths(self):
+        assert gate.unscanned_dockerfiles(["scripts/scan_regression.py", "docs/x.md"], {}) == []
+
+    def test_is_sorted_and_deduplicated_for_a_readable_report(self):
+        assert gate.unscanned_dockerfiles(
+            ["b/Dockerfile.two", "a/Dockerfile.two", "a/Dockerfile.one"], {}
+        ) == ["a/Dockerfile.one", "a/Dockerfile.two", "b/Dockerfile.two"]
+
+    def test_main_reports_it_without_failing_the_gate(self, monkeypatch, capsys):
+        monkeypatch.setattr(gate, "changed_files", lambda base, head="HEAD", repo=".": ["Dockerfile.tools"])
+        monkeypatch.setattr(gate, "compose_refs_at", lambda rev, repo=".": {})
+        monkeypatch.setattr(gate, "file_at", lambda rev, path, repo=".": "")
+
+        assert gate.main([]) == 0, "an unscanned Dockerfile must not fail an unrelated PR"
+
+        assert "not judged by this gate" in capsys.readouterr().err
 
 
 class TestWaiverInputsAreASurface:

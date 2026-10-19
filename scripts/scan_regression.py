@@ -91,6 +91,12 @@ except ImportError:  # invoked directly, scripts/ on sys.path
 PYPI_FILE_RE = re.compile(
     r"(^|/)(requirements[\w.\-]*\.txt|constraints[\w.\-]*\.txt|pyproject\.toml|Pipfile|Pipfile\.lock)$"
 )
+# What pip-audit can actually *read* (`-r` wants a requirements-format file). A
+# pyproject.toml/Pipfile change still puts the dependency surface in scope, but
+# the audit has to run against a requirements file: `pip-audit -r pyproject.toml`
+# errors, which would have made a pyproject.toml-only PR exit 2 with "could not
+# scan pypi" — a required check failing for a reason unrelated to the change.
+AUDITABLE_DEPS_RE = re.compile(r"(^|/)(requirements[\w.\-]*\.txt|constraints[\w.\-]*\.txt)$")
 DOCKERFILE_RE = re.compile(r"(^|/)Dockerfile[\w.\-]*$")
 
 # The gate's OWN inputs. `security/waivers.yaml` is the authored registry and
@@ -233,14 +239,37 @@ def touched_surfaces(
 
 
 def requirements_of(changed: list[str]) -> str:
-    """The requirements file to audit, preferring one actually named in the diff."""
+    """The requirements-format file to audit, preferring one named in the diff.
+
+    Only files pip-audit can read are candidates. A pyproject.toml change puts
+    the dependency surface in scope but still audits `requirements.txt` — the
+    file this repo installs from, and the one the recorder and the required
+    `dependency-audit-python` job audit — because `-r` on a pyproject.toml fails,
+    and a hard failure there would redden a PR for an unrelated reason.
+    """
     for path in changed:
         if path.endswith("requirements.txt"):
             return path
     for path in changed:
-        if PYPI_FILE_RE.search(path):
+        if AUDITABLE_DEPS_RE.search(path):
             return path
     return "requirements.txt"
+
+
+def unscanned_dockerfiles(changed: list[str], dockerfile_images: dict[str, str]) -> list[str]:
+    """Changed Dockerfiles that are *not* part of the scanned image set.
+
+    Detection is deliberately limited to what the Makefile builds, because that
+    is what `make scan-first-party` scans: marking a surface the scanner does not
+    cover would be false coverage, and failing the PR on a dev-tooling Dockerfile
+    (`Dockerfile.tools`) would be exactly the unrelated red the split exists to
+    remove. It is *reported* rather than ignored — a touched file the gate cannot
+    judge must not be silent, which is the programme's "zero silent findings"
+    property — and widening the scanned set is 847d/e work, not this gate's.
+    """
+    return sorted(
+        path for path in changed if DOCKERFILE_RE.search(path) and path not in dockerfile_images
+    )
 
 
 def waiver_inputs_changed(changed: list[str]) -> bool:
@@ -313,6 +342,16 @@ def main(argv: list[str] | None = None) -> int:
     except DiffError as exc:
         print(f"\u2717 cannot determine what this PR touches: {exc}", file=sys.stderr)
         return 2
+
+    for path in unscanned_dockerfiles(changed, dockerfiles):
+        # Visible, not fatal: see the docstring — the scan set is the Makefile's,
+        # and a dev-tooling Dockerfile must not block an unrelated PR. Silence
+        # here would be the "zero silent findings" property leaking.
+        print(
+            f"\u26a0 {path} changed but is not built by the Makefile, so it is not in the "
+            f"scanned image set — not judged by this gate",
+            file=sys.stderr,
+        )
 
     if args.plan:
         print(json.dumps({"base": args.base, "head": args.head, "surfaces": touched}, indent=2, sort_keys=True))
