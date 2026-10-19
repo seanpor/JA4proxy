@@ -5404,3 +5404,60 @@ phases:
     size: LARGE
     summary: "Elevate Go proxy core test suite to 90%+ statement coverage, implement property-based invariant verification, and introduce comprehensive continuous fuzzing to make the production proxy bulletproof against adversarial attacks."
 
+  847:
+    name: "Zero unwaived CVEs (programme umbrella)"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_847.md
+    dependencies: []
+    size: LARGE
+    summary: "PROPOSED 2026-10-17. Replace reactive, debt-accumulating CVE handling with a controlled, repeatable, evidence-bound process whose steady state is zero unwaived Medium/High/Critical findings. Root cause: the required Security Scan conflates 'this PR regressed security' with 'the upstream DB changed', so a new upstream CVE reddens every PR and forces pressure-driven waivers (both 824c blockers). Splits into 847a-f. Defines 'zero' honestly as zero untriaged, zero fixable-but-waived, zero auto-renewed expiries, zero silent findings, zero divergent lists."
+
+  847a:
+    name: "CVE registry as single source of truth"
+    status: COMPLETE
+    completed: '2026-10-19'
+    action_plan: docs/phases/complete/PHASE_847a.md
+    dependencies: []
+    size: MEDIUM
+    summary: "COMPLETE 2026-10-19. Authored every CVE waiver in security/waivers.yaml; render_waivers.py generates .trivyignore.{first,third}-party and the pip-audit ignore args from it, and a drift test fails CI when a derived file diverges. Migrated the Trivy and pip-audit inventories (Makefile 6 vs ci.yml 2 — union 7 — plus 824c's CVE-2026-59951 = 8), killing the divergence. Two recorded deviations: added evidenced kin-openapi waivers (CVE-2026-100349/100351-354, which had reddened every PR) and, per the 'zero fixable-but-waived' rule, fixed CVE-2026-56851 by bumping the monitoring images and deleted the six waivers those bumps made dead — the registry ends smaller. scan-images green; drift check reports zero gaps / zero dead."
+
+  847b:
+    name: "Scan tooling correctness"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_847b.md
+    dependencies: [847a]
+    size: SMALL
+    summary: "PROPOSED 2026-10-17. Count CVE findings from Trivy JSON, not grep -c HIGH on a grouped table (a 4-in-one-group image was reported as 1). Fix the failure message that points at the deleted .trivyignore. Assert Makefile and ci.yml consume the same generated ignore source."
+
+  847c:
+    name: "Split scan: PR regression gate + baseline monitor"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_847c.md
+    dependencies: [847a, 847b]
+    size: LARGE
+    summary: "PROPOSED 2026-10-17. The structural core. A required PR gate scans the surfaces a PR touches and diffs against a baseline recorded per image digest on main, failing only on findings the PR introduces. A scheduled monitor does the full scan, diffs against the registry, and files deduplicated issues on drift. Ends 'a new upstream CVE reddens every PR' without weakening regression protection. Fail-safe, never fail-open."
+
+  847d:
+    name: "Fix-forward bot + expiry re-affirmation"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_847d.md
+    dependencies: [847c]
+    size: MEDIUM
+    summary: "PROPOSED 2026-10-17. Make fixing cheaper than waiving: on a new finding, check for a clearing upstream version and open a bump PR with a before/after CVE table; if none exists, record fix_available: false with evidence. Replace blind exp: re-dating with premise re-affirmation (carrier still affected? fix shipped? reachability still true?). Never auto-merges."
+
+  847e:
+    name: "MEDIUM-CVE gating (measure, then extend)"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_847e.md
+    dependencies: [847c]
+    size: MEDIUM
+    summary: "PROPOSED 2026-10-17. Inventory the MEDIUM surface first (counts, fixability, reachability), then extend the 847 machinery to MEDIUM in the scope the data supports (full-baseline, diff-only, or monitor-only + ratchet). Enforces a ratchet so the MEDIUM baseline can only shrink. Refuses to promise literal zero-MEDIUM without data."
+
+  847f:
+    name: "Reachability evidence binding"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_847f.md
+    dependencies: [847a]
+    size: MEDIUM
+    summary: "PROPOSED 2026-10-17. Make waiver justifications checked, not asserted: bind each waiver's reachability claim to an automated assertion (internal-monitoring-only -> compose has no public port; not-imported -> no first-party import). A broken premise fails CI and requires re-justification rather than silently outliving its justification."
+

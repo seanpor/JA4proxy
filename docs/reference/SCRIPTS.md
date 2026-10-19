@@ -12,7 +12,7 @@ read the top of the file for full options.
 
 <!-- BEGIN GENERATED: scripts -->
 
-_137 scripts. Generated from each script's header comment by `make sync` — do not edit this table by hand._
+_138 scripts. Generated from each script's header comment by `make sync` — do not edit this table by hand._
 
 | Script | Called by | What it does |
 |--------|-----------|--------------|
@@ -113,8 +113,9 @@ _137 scripts. Generated from each script's header comment by `make sync` — do 
 | `reconcile_ipset.py` | — | reconcile_ipset.py — iptables/ipset drift reconciliation for TAP enforcement. |
 | `redis-acl-setup.sh` | — | scripts/redis-acl-setup.sh — Configure Redis ACL users for least-privilege operation |
 | `redis-to-ebpf.py` | — | redis-to-ebpf.py — Sync Redis blacklist/ban entries into a BPF hash map. |
-| `refresh_trivyignore_justifications.py` | — | Regenerate the "carried by" line on each .trivyignore entry from scan data. |
-| `renew_trivyignore.py` | — | Renew soon-to-expire .trivyignore exceptions (Phase 812, 812-B). |
+| `refresh_trivyignore_justifications.py` | — | Regenerate each Trivy waiver's `carriers:` claim from scan data. |
+| `render_waivers.py` | `make lint-static` | Render the CVE-waiver derived artifacts from security/waivers.yaml. |
+| `renew_trivyignore.py` | — | Renew soon-to-expire Trivy waivers (Phase 812, 812-B; registry-aware in 847a). |
 | `rotate_soar_token.sh` | — | Rotate a JA4proxy Management API SOAR token. |
 | `run-all-tests.sh` | — | JA4proxy Comprehensive Test Runner |
 | `run-benchmark.sh` | — | Load .env if available |

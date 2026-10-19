@@ -1,107 +1,78 @@
 #!/usr/bin/env python3
-"""Renew soon-to-expire .trivyignore exceptions (Phase 812, 812-B).
+"""Renew soon-to-expire Trivy waivers (Phase 812, 812-B; registry-aware in 847a).
 
-Mechanically bumps the `exp:` date of every entry expiring within
---within-days (default 5) to `today + 7 days` -- computed from *today*,
-never from the entry's own (soon-to-be-stale) old expiry, which is exactly
-the drift that would let the Phase 226 7-day maximum window creep longer
-through repeated renewals.
+Since Phase 847a the `.trivyignore.*` files are GENERATED from
+`security/waivers.yaml`. Editing them directly is reverted by the drift test, so
+this script now renews the REGISTRY (`created:` / `expires:`) and re-renders the
+derived files — the write path moved, the renewal policy did not.
 
-Deliberately does NOT attempt to decide whether a newer upstream image tag
-exists and clears the CVE -- that judgment call (comparing total CVE counts,
-checking for regressions, the same process used manually every time this
-came up) stays with the human reviewing the PR this script's output feeds
-into. Automating tag discovery across Docker Hub, GCR, and whatever
-registries future images use is real, ongoing maintenance surface for a
-question a human can answer in the same PR review anyway; not worth it for
-a first version. See docs/phases/PHASE_812.md's 812-B section.
+Bumps the window of every trivy waiver expiring within `--within-days` (default
+5) to `today + --days` (default 90) — computed from *today*, never from the
+entry's own (soon-to-be-stale) old expiry, which is exactly the drift that let a
+window creep longer through repeated renewals. `created:` moves to today so the
+window stays within the policy `max_window_days`.
 
-Prints a summary of what changed (for the calling workflow's PR body) and
-exits 0 if nothing needed renewal, 1 on error. Idempotent: re-running with
-nothing newly in the window is a no-op.
+Deliberately does NOT decide whether a newer upstream image tag clears the CVE —
+that judgment stays with the human reviewing the PR this feeds. See
+`docs/phases/PHASE_812.md` §812-B and `docs/phases/PHASE_847d.md`.
+
+Prints a summary of what changed (for the calling workflow's PR body) and exits
+0 if nothing needed renewal, 1 on error. Idempotent.
 """
 from __future__ import annotations
 
-import re
+import argparse
 import sys
-from datetime import date, datetime, timedelta
+from datetime import date
 from pathlib import Path
 
-_ROOT = Path(__file__).resolve().parents[1]
-
-# phase-822: `.trivyignore` was split into first-party / third-party scopes so a
-# waiver for an upstream sidecar cannot silently cover a finding in an image we
-# build. Renewal must walk BOTH files — pointing this at the retired single
-# path would have made the weekly job a silent no-op, which is precisely the
-# failure mode Phase 812 existed to fix.
-IGNORE_FILES = (
-    _ROOT / ".trivyignore.first-party",
-    _ROOT / ".trivyignore.third-party",
-)
-ENTRY_LINE = re.compile(
-    r"^(?P<id>CVE-\d{4}-\d+|GHSA-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4})"
-    r"\s+exp:(?P<exp>\d{4}-\d{2}-\d{2})\s*$"
-)
+try:  # works as `python3 scripts/x.py` and as `from scripts.x import ...`
+    from scripts import render_waivers
+except ImportError:  # invoked directly, scripts/ on sys.path
+    import render_waivers
 
 
-def renew(text: str, today: date, within_days: int, renew_days: int = 90) -> tuple[str, list[str]]:
-    """Return (new_text, renewed_ids). Only rewrites the exp: date on
-    matching lines; every other line (including comments, blank lines,
-    NO-EXP entries which are policy violations to fix by hand, not renew)
-    is left byte-for-byte untouched.
-    """
-    new_exp = (today + timedelta(days=renew_days)).isoformat()
-    renewed: list[str] = []
-    out_lines = []
-    for line in text.splitlines(keepends=True):
-        stripped = line.rstrip("\n")
-        m = ENTRY_LINE.match(stripped)
-        if m:
-            days = (datetime.strptime(m.group("exp"), "%Y-%m-%d").date() - today).days
-            if days <= within_days:
-                out_lines.append(f"{m.group('id')} exp:{new_exp}\n")
-                renewed.append(m.group("id"))
-                continue
-        out_lines.append(line)
-    return "".join(out_lines), renewed
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--within-days", type=int, default=5)
+    parser.add_argument("--days", "--renew-days", type=int, default=90, dest="days")
+    parser.add_argument("--today", default="", help="override today (YYYY-MM-DD)")
+    parser.add_argument("--registry", type=Path, default=render_waivers.REGISTRY)
+    args = parser.parse_args(argv)
 
+    today = date.fromisoformat(args.today) if args.today else date.today()
 
-def main(argv: list[str]) -> int:
-    today = date.today()
-    if "--today" in argv:
-        today = datetime.strptime(argv[argv.index("--today") + 1], "%Y-%m-%d").date()
-    within_days = 5
-    if "--within-days" in argv:
-        within_days = int(argv[argv.index("--within-days") + 1])
-    renew_days = 90
-    if "--days" in argv:
-        renew_days = int(argv[argv.index("--days") + 1])
-    elif "--renew-days" in argv:
-        renew_days = int(argv[argv.index("--renew-days") + 1])
+    try:
+        registry = render_waivers.load_registry(args.registry)
+    except render_waivers.RegistryError as exc:
+        print(f"✗ {exc}", file=sys.stderr)
+        return 1
 
-    present = [p for p in IGNORE_FILES if p.exists()]
-    if not present:
-        print("No .trivyignore.{first,third}-party file — nothing to renew.")
-        return 0
-
-    renewed: list[str] = []
-    pending: list[tuple[Path, str]] = []
-    for path in present:
-        new_text, got = renew(path.read_text(encoding="utf-8"), today, within_days, renew_days)
-        if got:
-            pending.append((path, new_text))
-            renewed.extend(got)
+    before = {
+        w["id"]: w["expires"]
+        for w in registry.get("waivers") or []
+        if w.get("source") == "trivy"
+    }
+    renewed = render_waivers.renew_expiring(
+        registry, args.within_days, args.days, today
+    )
 
     if not renewed:
-        print(f"No exceptions expiring within {within_days} day(s) — nothing to renew.")
+        print(
+            f"No exceptions expiring within {args.within_days} day(s) — nothing to renew."
+        )
         return 0
 
-    for path, new_text in pending:
-        path.write_text(new_text, encoding="utf-8")
-    new_exp = (today + timedelta(days=renew_days)).isoformat()
-    print(f"Renewed {len(renewed)} exception(s) to exp:{new_exp}:")
-    for cve in renewed:
-        print(f"  - {cve}")
+    render_waivers.save_registry(registry, args.registry)
+    render_waivers.write_derived(render_waivers.render_all(registry))
+
+    print(f"Renewed {renewed} exception(s):")
+    for wid in sorted(before):
+        after = next(
+            (w["expires"] for w in registry["waivers"] if w.get("id") == wid), None
+        )
+        if after != before[wid]:
+            print(f"  - {wid}: {before[wid]} -> {after}")
     print(
         "\nREVIEWER: verify no newer upstream image tag clears each CVE above "
         "before merging (compare total CVE counts the same way past renewals "

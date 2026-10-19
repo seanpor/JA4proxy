@@ -28,6 +28,9 @@ COMPOSE_DIR = _ROOT / "deploy" / "docker"
 
 TAG_REGEX = re.compile(r"^v?(\d+)\.(\d+)\.(\d+)(?:[.\-](\w+[\w\-]*))?$")
 CARRIER_REGEX = re.compile(r"^\s*#\s*Carriers.*:\s*([^\n]+)", re.MULTILINE | re.IGNORECASE)
+# Phase 847a: the generated .trivyignore.third-party lists each carrier on its
+# own `#   - image:tag` line rather than one comma-separated line.
+CARRIER_ITEM_REGEX = re.compile(r"^\s*#\s*-\s*(\S+)\s*$")
 CVE_LINE_REGEX = re.compile(r"^(CVE-\d{4}-\d+|GHSA-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4})\s+exp:(\d{4}-\d{2}-\d{2})")
 
 
@@ -125,18 +128,30 @@ def find_newer_tags(ref: ImageRef, available_tags: list[str]) -> list[str]:
 
 
 def extract_ignored_images() -> set[str]:
-    """Extract third-party image strings (repo:tag) from .trivyignore.third-party."""
+    """Extract third-party image strings (repo:tag) from .trivyignore.third-party.
+
+    Handles both the legacy one-line form
+        # Carriers (generated 2026-09-18): grafana/grafana:13.1.6-ubuntu, ...
+    and the generated multi-line form (Phase 847a)
+        # Carriers:
+        #   - grafana/grafana:13.1.6-ubuntu
+    """
     if not THIRD_PARTY_IGNORE.exists():
         return set()
-    text = THIRD_PARTY_IGNORE.read_text(encoding="utf-8")
     images = set()
-    for line in text.splitlines():
+    for line in THIRD_PARTY_IGNORE.read_text(encoding="utf-8").splitlines():
         if "Carriers" in line:
             found = re.findall(r"([a-zA-Z0-9_\-\./]+:[a-zA-Z0-9_\-\.]+)", line)
             for f in found:
-                cleaned = f.rstrip(".")
+                cleaned = f.split("@")[0].rstrip(".")
                 if ":" in cleaned and not cleaned.startswith("http"):
                     images.add(cleaned)
+            continue
+        m = CARRIER_ITEM_REGEX.match(line)
+        if m:
+            cleaned = m.group(1).split("@")[0].rstrip(".")
+            if ":" in cleaned and not cleaned.startswith("http"):
+                images.add(cleaned)
     return images
 
 

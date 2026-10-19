@@ -1,37 +1,24 @@
 # =============================================================================
-# Trivy scan exceptions — IMAGES WE BUILD.        (policy: Phase 226 / 822)
-# Consumed by `make scan-first-party` ONLY.
+# Trivy scan exceptions — IMAGES WE BUILD.        (policy: 226/822/847)
+# Consumed by `make scan-first-party` ONLY.          *** GENERATED FILE ***
 # =============================================================================
+#
+# DO NOT EDIT. Rendered from `security/waivers.yaml` by
+# `scripts/render_waivers.py`; hand edits are reverted by the drift test.
 #
 # WHY THIS FILE IS SEPARATE (Phase 822)
 #   Until Phase 822 there was one `.trivyignore`, and the Makefile passed it to
-#   BOTH the third-party and first-party scans. Trivy's ignorefile has no
-#   per-image scoping, so every waiver granted to an abandoned monitoring
-#   sidecar ALSO suppressed the same finding in the proxy we ship.
+#   BOTH scans. Trivy's ignorefile has no per-image scoping, so every waiver
+#   granted to an abandoned third-party sidecar ALSO suppressed the same finding
+#   in the proxy we ship. CVE-2026-39821 and CVE-2026-46600 were waived with
+#   justifications written entirely about Grafana/Promtail/Alertmanager/cAdvisor
+#   while both were live in ja4proxy:2.0.0, an internet-facing TLS proxy. Both
+#   were fixed with a one-line Go bump instead.
 #
-#   That was not hypothetical: CVE-2026-39821 and CVE-2026-46600 were waived
-#   with justifications written entirely about Grafana, Promtail, Alertmanager
-#   and cAdvisor — "they consume metrics/logs or serve authenticated admin UIs
-#   only" — while both were live in ja4proxy:2.0.0, an internet-facing TLS
-#   proxy. Both were fixed by a one-line Go bump (1.26.5 -> 1.26.6), which is
-#   what Phase 822 did instead of renewing them.
-#
-# THE RULE HERE IS STRICTER THAN THE THIRD-PARTY FILE
+# THE RULE HERE IS STRICTER
 #   We control these images. If a fix exists ANYWHERE upstream — a base-image
-#   bump, a dependency bump, an apk/apt upgrade — it is not a waiver candidate.
-#   Do the fix. An entry belongs here only when no rebuild we can perform
-#   clears it (e.g. a library vendored inside pip itself).
-#
-#   Every entry still needs: a '#' block stating why no fix AND why not
-#   exploitable here, plus an inline `exp:YYYY-MM-DD` at most 7 days out.
-#
-#   Verify with `make scan-exceptions`. Guide:
-#   docs/runbooks/security_scan_exceptions.md
-# =============================================================================
-# =============================================================================
-# As of Phase 833, all 3 first-party exceptions have been permanently resolved:
-# - CVE-2026-0994 (protobuf) resolved by bumping to protobuf>=5.29.6.
-# - GHSA-6v7p-g79w-8964 & CVE-2025-47273 resolved by stripping pip from production images.
-# Zero active first-party exceptions.
+#   bump, a dependency bump, a Go toolchain bump — it is not a waiver, it is a
+#   fix we owe. This file is expected to stay EMPTY.
 # =============================================================================
 
+# (No waivers for this scope.)

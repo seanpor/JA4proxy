@@ -1,6 +1,6 @@
 services:
   prometheus:
-    image: prom/prometheus:v3.14.0
+    image: prom/prometheus:v3.15.0
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
@@ -55,7 +55,7 @@ services:
       retries: 3
 
   alertmanager:
-    image: prom/alertmanager:v0.34.0
+    image: prom/alertmanager:v0.34.1
     command:
       - '--config.file=/etc/alertmanager/alertmanager.yml'
       - '--storage.path=/alertmanager'
@@ -87,7 +87,7 @@ services:
       retries: 3
 
   grafana:
-    image: grafana/grafana:13.1.6-ubuntu
+    image: grafana/grafana:13.2.4-ubuntu
     ports:
       # JA4PROXY-2026-0045: bind to loopback only — consistent with the
       # Prometheus and Alertmanager services above. Dashboards should be

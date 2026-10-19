@@ -106,8 +106,14 @@ def format_table(rows, severities=VULN_SEVS, verdict_fn=verdict, name_header="IM
 
 # --- scanner invocation (I/O) ------------------------------------------------
 
-def scan_image(image: str) -> dict[str, int]:
-    """Run Trivy (containerised) against one image and return severity counts."""
+def scan_image(image: str, ignorefile: str = ".trivyignore.third-party") -> dict[str, int]:
+    """Run Trivy (containerised) against one image and return severity counts.
+
+    `ignorefile` selects the Phase 822 scope split: third-party images use
+    `.trivyignore.third-party`, images we build use `.trivyignore.first-party`.
+    (Until Phase 847a this hard-coded `/scan/.trivyignore`, which Phase 822 had
+    deleted — so every summary ran with no waivers applied at all.)
+    """
     cache = os.environ.get("TRIVY_CACHE", os.path.expanduser("~/.cache/trivy"))
     os.makedirs(cache, exist_ok=True)
     cwd = os.getcwd()
@@ -119,7 +125,7 @@ def scan_image(image: str) -> dict[str, int]:
         TRIVY_IMAGE, "image",
         "--severity", "CRITICAL,HIGH,MEDIUM",
         "--scanners", "vuln", "--no-progress",
-        "--ignorefile", "/scan/.trivyignore",
+        "--ignorefile", f"/scan/{os.path.basename(ignorefile)}",
         "--format", "json", image,
     ]
     proc = subprocess.run(cmd, capture_output=True, text=True)  # nosec B603 -- fixed argv, no shell
@@ -130,11 +136,11 @@ def scan_image(image: str) -> dict[str, int]:
 
 # --- mode dispatch -----------------------------------------------------------
 
-def _summarise_images(images: list[str]) -> int:
+def _summarise_images(images: list[str], ignorefile: str = ".trivyignore.third-party") -> int:
     rows, failed = [], False
     for img in images:
         try:
-            rows.append((img, scan_image(img)))
+            rows.append((img, scan_image(img, ignorefile)))
         except Exception as exc:  # pragma: no cover - integration path
             print(f"  ! could not scan {img}: {exc}", file=sys.stderr)
             failed = True
@@ -164,12 +170,24 @@ def _summarise_stdin(kind: str) -> int:
 
 
 def main(argv: list[str]) -> int:
-    if len(argv) < 2:
-        print("usage: scan_summary.py {IMAGE...|gosec|misconfig}", file=sys.stderr)
+    args = argv[1:]
+    ignorefile = ".trivyignore.third-party"
+    if "--ignorefile" in args:
+        i = args.index("--ignorefile")
+        if i + 1 >= len(args):
+            print("--ignorefile needs a path", file=sys.stderr)
+            return 2
+        ignorefile = args[i + 1]
+        del args[i:i + 2]
+    if not args:
+        print(
+            "usage: scan_summary.py [--ignorefile PATH] {IMAGE...|gosec|misconfig}",
+            file=sys.stderr,
+        )
         return 2
-    if argv[1] in ("gosec", "misconfig"):
-        return _summarise_stdin(argv[1])
-    return _summarise_images(argv[1:])
+    if args[0] in ("gosec", "misconfig"):
+        return _summarise_stdin(args[0])
+    return _summarise_images(args, ignorefile)
 
 
 if __name__ == "__main__":  # pragma: no cover
