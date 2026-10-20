@@ -693,6 +693,21 @@ scan-dockerfiles:  ## Trivy config scan of Dockerfiles + compose files (HIGH/CRI
 # exactly the prerequisites it needs — including the profile-gated
 # test/trafficgen/tap images that 'make build' skips — without duplicating these
 # build lines into workflow YAML, where they would silently drift from this file.
+# Builds every image `scan-first-party` / the baseline model scans.
+#
+# Phase 847c follow-up (found by the first CI run of scan-baseline-monitor.yml):
+# the five `make build`-produced images used to be built only when NOT in CI
+# (`[ -z "$CI" ]`), because the one CI caller at the time — the `Security Scan`
+# job — had already built them via `make build`, and a --no-cache rebuild of
+# five images is minutes of redundant CI time. But 847c added two callers that
+# do NOT run `make build` first: the monitor workflow, and the scan-regression
+# PR gate when a first-party surface is in scope. Under the old guard both got
+# "unable to find the specified image" and exit 2 — fail-closed, but a monitor
+# that can never scan and a PR gate that reddens any PR touching a first-party
+# Dockerfile. The guard now keys on *presence in this job* instead of on `$CI`:
+# local runs still rebuild --no-cache (Phase 800's stale-layer-cache rationale),
+# the Security Scan job still pays nothing (the images are present), and any
+# other caller — CI or local — gets the images it needs.
 build-first-party-images:
 	@if [ -z "$$CI" ]; then \
 		echo "    Rebuilding all first-party images with --no-cache (local run)..."; \
@@ -701,6 +716,21 @@ build-first-party-images:
 		DOCKER_BUILDKIT=1 docker build --no-cache -q -f src/tarpit/Dockerfile -t ja4proxy-tarpit:1.0.0 src/tarpit >/dev/null; \
 		DOCKER_BUILDKIT=1 docker build --no-cache -q -f deploy/docker/Dockerfile.mockbackend -t ja4proxy-mockbackend:1.0.0 . >/dev/null; \
 		DOCKER_BUILDKIT=1 docker build --no-cache -q -f deploy/docker/Dockerfile.management -t ja4proxy-management:1.0.0 . >/dev/null; \
+	else \
+		echo "    CI: ensuring each first-party image exists in this job (no rebuild if present)..."; \
+		for spec in \
+			"deploy/docker/Dockerfile.go-proxy ja4proxy:2.0.0 ." \
+			"src/analytics/Dockerfile ja4proxy-analytics:1.0.0 ." \
+			"src/tarpit/Dockerfile ja4proxy-tarpit:1.0.0 src/tarpit" \
+			"deploy/docker/Dockerfile.mockbackend ja4proxy-mockbackend:1.0.0 ." \
+			"deploy/docker/Dockerfile.management ja4proxy-management:1.0.0 ."; do \
+			set -- $$spec; df=$$1; tag=$$2; ctx=$$3; \
+			if docker image inspect "$$tag" >/dev/null 2>&1; then \
+				echo "      $$tag: already present, not rebuilding"; \
+			else \
+				DOCKER_BUILDKIT=1 docker build -q -f "$$df" -t "$$tag" "$$ctx" >/dev/null; \
+			fi; \
+		done; \
 	fi
 	@echo "    Building the profile-gated CI-only test/trafficgen images (skipped by 'make build')..."
 	@DOCKER_BUILDKIT=1 docker build --no-cache -q -f deploy/docker/Dockerfile.test -t ja4proxy-test:1.0.0 . >/dev/null
