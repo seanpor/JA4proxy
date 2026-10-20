@@ -27,6 +27,21 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MAKEFILE = REPO_ROOT / "Makefile"
 
+# Every image `scan-first-party`'s loop scans. The first five are produced by
+# `make build` as well; the last three are profile-gated and built only by
+# `build-first-party-images`.
+SCANNED_FIRST_PARTY_IMAGES = (
+    "ja4proxy:2.0.0",
+    "ja4proxy-analytics:1.0.0",
+    "ja4proxy-tarpit:1.0.0",
+    "ja4proxy-mockbackend:1.0.0",
+    "ja4proxy-management:1.0.0",
+    "ja4proxy-test:1.0.0",
+    "ja4proxy-trafficgen:1.0.0",
+    "ja4proxy-tap:1.0.0",
+)
+MAKE_BUILD_PRODUCED_IMAGES = SCANNED_FIRST_PARTY_IMAGES[:5]
+
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 import trivy_image_report  # noqa: E402
 
@@ -213,6 +228,87 @@ def test_scan_first_party_gates_on_high_and_critical(tmp_path, monkeypatch):
     assert argv[argv.index("--severity") + 1] == "HIGH,CRITICAL"
     assert argv[argv.index("--ignorefile") + 1] == "/scan/.trivyignore.first-party"
     assert "/var/run/docker.sock:/var/run/docker.sock" in argv
+
+
+# --- build-first-party-images must build in CI, keyed on presence not on $CI ----
+#
+# Phase 847c follow-up, found by the first CI run of scan-baseline-monitor.yml
+# (run 39459929246): the five `make build`-produced images were built only when
+# `$CI` was unset, because the one CI caller at the time — the `Security Scan`
+# job — had already built them via `make build`. The phase's two new callers
+# (the monitor workflow; the `scan-regression` PR gate when a first-party
+# surface is in scope) run no `make build`, so every first-party image was
+# scanned-as-absent: `trivy ... FATAL ... unable to find the specified image`,
+# exit 2. Fail-closed, but a monitor that can never scan is no safety net, and
+# the PR gate reddened any PR touching a first-party Dockerfile. The guard now
+# keys on presence in this job instead of on `$CI` — the Security Scan job
+# still pays nothing, and any other caller gets the images it needs.
+
+
+def _ci_else_branch(recipe: str) -> str:
+    """The body of the recipe's `if [ -z "$CI" ] ... else ... fi` else-branch.
+
+    Tracks if/fi nesting so the *outer* fi closes the slice, not the inner
+    presence-check's fi.
+    """
+    lines = recipe.splitlines()
+    else_idx = next(
+        (i for i, ln in enumerate(lines) if ln.strip() == "else \\"), None
+    )
+    if else_idx is None:
+        raise AssertionError(
+            "build-first-party-images lost its else-branch: the CI path must exist"
+        )
+    depth = 0
+    for i in range(else_idx + 1, len(lines)):
+        stripped = lines[i].strip()
+        if stripped.startswith("if "):
+            depth += 1
+        elif stripped.startswith("fi"):
+            # `fi` or `fi; \` — make lines end with `; \` continuations.
+            if depth == 0:
+                return "\n".join(lines[else_idx + 1 : i])
+            depth -= 1
+    raise AssertionError("unterminated else-branch in build-first-party-images")
+
+
+class TestBuildFirstPartyImagesCI:
+    """Under `$CI`, the target must ensure each scanned image exists in the job."""
+
+    def test_ci_branch_builds_every_make_build_produced_image(self):
+        ci_branch = _ci_else_branch(_recipe("build-first-party-images"))
+        for tag in MAKE_BUILD_PRODUCED_IMAGES:
+            assert tag in ci_branch, (
+                f"the CI branch of build-first-party-images must build {tag}: a caller "
+                "without a preceding `make build` (the monitor workflow, or the "
+                "scan-regression gate on a first-party surface) would scan it as "
+                "absent and fail closed"
+            )
+
+    def test_ci_branch_skips_only_when_the_image_is_already_present(self):
+        """Presence, not `$CI`, decides whether to build — so the Security Scan
+        job (which pre-builds via `make build`) still pays nothing."""
+        ci_branch = _ci_else_branch(_recipe("build-first-party-images"))
+        assert "docker image inspect" in ci_branch, (
+            "CI builds must be skipped per-image by a presence check, not wholesale "
+            "by `$CI` — wholesale skipping is the regression this test guards"
+        )
+
+    def test_local_branch_still_rebuilds_with_no_cache(self):
+        """Phase 800: a cached apk/apt layer can hide a since-fixed OS CVE, so
+        local runs keep the unconditional --no-cache rebuild."""
+        assert "--no-cache" in _recipe("build-first-party-images"), (
+            "local runs must rebuild --no-cache (Phase 800's stale-layer lesson)"
+        )
+
+    def test_every_scanned_image_is_built_by_the_closure(self):
+        """The scan's loop-list and the build target's set must not drift apart:
+        a scanned image nothing builds is scanned-as-absent (fail-closed noise)."""
+        closure = _recipe_closure("scan-first-party")
+        for tag in SCANNED_FIRST_PARTY_IMAGES:
+            assert tag in closure, (
+                f"{tag} is scanned by scan-first-party but never built by the closure"
+            )
 
 
 @pytest.mark.parametrize("mode", ["lint", "scan", "test"])

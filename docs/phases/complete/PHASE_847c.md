@@ -323,3 +323,22 @@ it.
 > reviewable change — edit `[strict]` in `scripts/branch_protection.sh`, flip
 > the line in AGENTS.md, and update this file and PHASE_838's constraint in the
 > same commit — never an unrecorded API state.
+
+> **Post-merge bug (found by this phase's own monitor, fixed on
+> `phase-847c-ci-image-ensure`): `build-first-party-images` skipped its builds
+> under `$CI`.** The target guarded the five `make build`-produced images behind
+> `[ -z "$$CI" ]`, so they were built only on a local run. That was correct for
+> the one caller that existed when the target was written — the `Security Scan`
+> job, which pre-builds via `make build` and would otherwise pay a redundant
+> --no-cache rebuild. But 847c added two callers that run no `make build`: the
+> monitor workflow, and the `scan-regression` PR gate when a first-party surface
+> is in scope. Both got `FATAL ... unable to find the specified image` and exit 2
+> for all five images (evidence: monitor run `39459929246`). Fail-closed, so no
+> false clean bill of health — but a monitor that can never scan is no safety
+> net, and the PR gate reddened any PR touching a first-party Dockerfile.
+>
+> The guard now keys on **presence in this job** (`docker image inspect`) rather
+> than on `$CI`: the Security Scan job still pays nothing (images present), and
+> any other caller gets the images it needs. `TestBuildFirstPartyImagesCI` in
+> `tests/integration/test_ci_flow.py` pins the CI branch's image set and the
+> presence-check, so the guard cannot silently regress to wholesale skipping.
