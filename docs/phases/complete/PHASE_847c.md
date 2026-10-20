@@ -295,6 +295,31 @@ it.
 >    not be silent — that is the programme's "zero silent findings" property —
 >    and widening the scanned set is 847d/e work.
 
-> **Observed, not fixed here:** the branch-protection API reports
-> `required_status_checks.strict: false`, contradicting the AGENTS.md line
-> verified on 2026-08-12. Unrelated to this phase; recorded so it is not lost.
+> **Strict-mode divergence, resolved in this phase's protection update.** The
+> branch-protection API reported `required_status_checks.strict: false`, while
+> three in-repo sources say `true`: the AGENTS.md line verified 2026-08-12
+> (commit `0e00ed90`, which rewrote an AGENTS section that previously said the
+> opposite), the declarative bootstrap `scripts/branch_protection.sh`
+> (`--field "required_status_checks[strict]=true"`), and PHASE_838 — whose
+> cascade-rebase engine (complete 2026-10-05) exists *because* of strict and
+> lists "loosening strict check requirements on `main`" as a forbidden change.
+>
+> The history is genuinely mixed, so it is worth stating precisely rather than
+> calling the divergence a plain accident. Phase 332 (2026-06-15) set
+> `strict=false` **deliberately**, to drop the rebase-on-base-advance loop, and
+> both `CHANGELOG.md` and `PHASE_332.md` record it. Something then set it back
+> to `true` before the 2026-08-12 API verification — undocumented, as is the
+> subsequent return to `false` that this phase observed. So neither of the two
+> most recent live states has a recorded decision behind it, and live has
+> diverged from `branch_protection.sh`, the one file in the repo that declares
+> the setting.
+>
+> Decision (2026-10-20, approved): **restore `strict: true`** in the same
+> protection update that applies this phase's required-context swap, carried
+> *explicitly* alongside every other live field verbatim so nothing else is
+> reset the way `strict` apparently was. The rationale is SSOT reconciliation,
+> not history-guessing: live must match the declared policy, and if the June
+> Phase-332 preference for `false` is still wanted, that is a deliberate,
+> reviewable change — edit `[strict]` in `scripts/branch_protection.sh`, flip
+> the line in AGENTS.md, and update this file and PHASE_838's constraint in the
+> same commit — never an unrecorded API state.
