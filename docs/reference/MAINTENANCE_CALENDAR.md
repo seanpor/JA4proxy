@@ -37,7 +37,7 @@ operations** (a running JA4proxy install). Skip to the one you own.
 
 | Task | Who | If skipped |
 |---|---|---|
-| Full lint, full test, meta-validation, security scan (the four required checks) | 🤖 `ci.yml` | `main` is branch-protected; a PR simply cannot merge. This is the backstop everything else assumes |
+| Full lint, full test, meta-validation, scan regression (the required checks — Phase 847c makes the PR CVE gate diff-scoped; the full scan runs on push/schedule and on a PR that moves the waiver set) | 🤖 `ci.yml` | `main` is branch-protected; a PR simply cannot merge. This is the backstop everything else assumes |
 | `pentest_*` regression corpus (Go) + `tests/adversarial/` (Python) | 🤖 `ci.yml` | A previously-fixed vulnerability regresses undetected |
 | Findings-register integrity (`make verify-findings`) | 🤖 `ci.yml` | Register drifts: findings ≥ `FIXED` without a `regression_test`, broken references. **Wire this in if it is not there yet** — an integrity gate nobody runs is not a gate |
 | PoC cold-start smoke test (on touched paths) | 🤖 `ci.yml` | Bootstrap bugs reach the nightly run instead of the PR that caused them (the Phase 809/812/813 failure mode) |
@@ -47,13 +47,14 @@ operations** (a running JA4proxy install). Skip to the one you own.
 | Time (UTC) | Task | Who | If skipped |
 |---|---|---|---|
 | 03:17 | Nightly performance/load benchmark vs baseline | 🤖 `nightly-benchmark.yml` | Hot-path latency/throughput regressions land unnoticed; no signal until someone benchmarks by hand |
+| 05:37 | CVE baseline monitor: full scan, drift report, one deduplicated issue per unwaived finding | 🤖 `scan-baseline-monitor.yml` | A CVE the DB learns about between Monday sweeps sits in shipped images with **no PR to redden** — the Monday sweep reports but nobody is watching the log |
 
 ### Weekly
 
 | Time (UTC) | Task | Who | If skipped |
 |---|---|---|---|
 | Mon 06:00 | CVE sweep across all scanned images | 🤖 `ci.yml` scheduled run | Newly published CVEs sit unnoticed in shipped images |
-| Wed 05:00 | `.trivyignore` proactive renewal — opens a PR ~5 days before the earliest expiry | 🤖→🧑 `trivyignore-renewal.yml` | Exceptions expire in a cluster and redden `Security Scan` on `main` **and every open PR at once**, for reasons unrelated to those PRs |
+| Wed 05:00 | `.trivyignore` proactive renewal — opens a PR ~5 days before the earliest expiry | 🤖→🧑 `trivyignore-renewal.yml` | Exceptions expire in a cluster and redden the full `Security Scan` on `main` (and, since a waiver change puts every surface in scope, the renewal PR itself), for reasons unrelated to any other PR |
 | Sat 01:30 | OpenSSF Scorecard | 🤖 `scorecard.yml` | Supply-chain posture score drifts down silently |
 | — | Extended fuzz run against the pentest range | 🧑 (proposed) | Deep parser bugs need hours of fuzzing; PR-time smoke runs will not find them |
 | — | Attack-surface drift check (`ATTACK_SURFACE.md`) | 🤖 (proposed) | New listeners/routes/workflows appear with nobody noticing they were never security-tested |
@@ -129,6 +130,7 @@ Wed 05:00  .trivyignore renewal  (mid-week: slack before the Monday sweep,
                                   away from the weekend gap)
 Sat 01:30  Scorecard              ─┘
 Daily 03:17 Benchmark (off-peak, offset from the Monday 06:00 sweep)
+Daily 05:37 CVE baseline monitor (rotating, mostly the same job as the sweep)
 1st 06:00  Process metrics
 ```
 

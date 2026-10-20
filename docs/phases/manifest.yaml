@@ -5431,11 +5431,11 @@ phases:
 
   847c:
     name: "Split scan: PR regression gate + baseline monitor"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_847c.md
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_847c.md
     dependencies: [847a, 847b]
     size: LARGE
-    summary: "PROPOSED 2026-10-17. The structural core. A required PR gate scans the surfaces a PR touches and diffs against a baseline recorded per image digest on main, failing only on findings the PR introduces. A scheduled monitor does the full scan, diffs against the registry, and files deduplicated issues on drift. Ends 'a new upstream CVE reddens every PR' without weakening regression protection. Fail-safe, never fail-open."
+    summary: "COMPLETE 2026-10-19. The structural core. The required check is now Scan Regression (surfaces touched): make scan-regression works out which surfaces a PR touches (compose-pinned images, Dockerfile*, requirements*.txt), scans only those, and fails only on findings absent from security/baseline.json — the recording of what main already carries (18 surfaces: 9 third-party images, 8 first-party, the dependency surface; 0 unwaived findings). An upstream CVE disclosed overnight can no longer redden a PR that did not touch the affected surface, while a bump still has that surface scanned and still fails on a new unwaived HIGH/CRITICAL. The full scan job is retained but de-required by condition: push and schedule as before, and on a PR only when the waiver set itself moved (waivers.yaml or a generated ignorefile) — otherwise deleting a waiver would have been a silent no-op, since a waiver change is an input to the verdict for every surface. A daily monitor (scan-baseline-monitor.yml, make scan-monitor) scans everything, diffs against the baseline, files one deduplicated issue per unwaived finding, and reports the fixable-queue count 847d consumes. Recording the first real baseline caught a live identity bug — rsplit(':', 1) left ':tag' glued to the name for digest-pinned refs, so recorder and gate disagreed for five of nine images; identity is now the image name with the digest kept as provenance, so a routine tag bump carrying the same CVE set passes and a new CVE fails. Fail-safe throughout: missing/unreadable/invalid baseline, unrecorded surface, or failed scan all exit 2. Single-identity deviation from the plan's digest-keying is documented in the phase doc, with the failure digest-keying would have reintroduced. 66 new unit tests plus the CI guard-test updates."
 
   847d:
     name: "Fix-forward bot + expiry re-affirmation"

@@ -52,6 +52,40 @@ def _recipe(target: str) -> str:
     return "\n".join(body)
 
 
+def _prerequisites(target: str) -> list[str]:
+    """The targets named as prerequisites of ``target:`` (comment stripped)."""
+    for line in MAKEFILE.read_text().splitlines():
+        if line.startswith(f"{target}:") and not line.startswith(f"{target}:="):
+            spec = line.split(":", 1)[1].split("##", 1)[0]
+            return [tok for tok in spec.split() if "$" not in tok and "=" not in tok]
+    return []
+
+
+def _recipe_closure(target: str, _seen: set[str] | None = None) -> str:
+    """``_recipe(target)`` plus the recipes of its prerequisites, recursively.
+
+    Phase 847c moved the profile-gated test/trafficgen image builds out of
+    ``scan-first-party`` into ``build-first-party-images``, so that CI can call
+    the Makefile's build lines instead of duplicating ``docker build`` commands
+    in workflow YAML. The guarantee the CI-flow tests care about — those images
+    are built before the scan, so they cannot be scanned-as-absent — is a
+    property of the target's closure, not of one recipe body; asserting on the
+    closure keeps the guard honest across that kind of refactor instead of
+    pinning where a line happens to live.
+    """
+    seen = _seen if _seen is not None else set()
+    if target in seen:
+        return ""
+    seen.add(target)
+    parts = [_recipe(target)]
+    for prerequisite in _prerequisites(target):
+        try:
+            parts.append(_recipe_closure(prerequisite, seen))
+        except AssertionError:  # a phony/aggregate prerequisite with no recipe
+            continue
+    return "\n".join(part for part in parts if part)
+
+
 def test_makefile_parses_and_tools_image_target_exists():
     """``make -n`` forces a full parse; dry-run never executes Docker."""
     result = subprocess.run(
@@ -165,7 +199,10 @@ def test_scan_first_party_gates_on_high_and_critical(tmp_path, monkeypatch):
     assert "|| fail=1" in recipe, "a gate that fails must redden the target"
     assert "--ignorefile /scan/.trivyignore.first-party" in recipe
     assert "--docker-socket" in recipe, "locally-built images cannot be pulled from a registry"
-    assert "Dockerfile.test" in recipe and "Dockerfile.trafficgen" in recipe, (
+    # The build lives one level down, in the prerequisite target (Phase 847c), so
+    # the assertion follows the closure rather than this recipe body.
+    closure = _recipe_closure("scan-first-party")
+    assert "Dockerfile.test" in closure and "Dockerfile.trafficgen" in closure, (
         "scan-first-party must build the profile-gated test/trafficgen images so they "
         "are not scanned-as-absent (a vacuous pass)"
     )

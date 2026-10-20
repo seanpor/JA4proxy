@@ -329,6 +329,19 @@ def test_branch_protection_contexts_match_ci_job_names():
     with ci.open() as fh:
         doc = yaml.safe_load(fh)
 
+    # Jobs that carry a `name:` but are deliberately NOT required checks. Each
+    # entry needs a reason, because the whole point of this test is that "has a
+    # name in ci.yml" and "is required" are the same set by default — the ways to
+    # leave the set are explicit and reviewable.
+    not_required = {
+        # Phase 847c: the full scan moved off the PR path (it runs on push and
+        # schedule, and on a PR only when the waiver set changed) — so it can no
+        # longer be a required check. A required check that a PR skips never
+        # reports, and GitHub treats a never-reported required check as blocking
+        # forever. Its replacement on the PR path is `scan-regression`.
+        "Security Scan (make scan)",
+    }
+
     # `dependency-review` is PR-only; `continue-on-error` jobs are informational
     # (not required checks). Everything else must appear in branch_protection.sh.
     job_names = {
@@ -338,8 +351,20 @@ def test_branch_protection_contexts_match_ci_job_names():
         and isinstance(j, dict)
         and "name" in j
         and not j.get("continue-on-error", False)
+        and j["name"] not in not_required
     }
     assert job_names, "ci.yml has no jobs with `name:` fields"
+
+    # An exemption that no longer names a real job is stale scaffolding for
+    # silencing a future drift, so it must not linger.
+    ci_job_names = {
+        j["name"] for j in doc["jobs"].values() if isinstance(j, dict) and "name" in j
+    }
+    for exempt in not_required:
+        assert exempt in ci_job_names, (
+            f"not_required lists {exempt!r}, which is not a job name in ci.yml — "
+            f"remove it or fix the name"
+        )
 
     # Each external required check must be a real job AND its workflow must run on
     # every PR (no `paths:` filter), else it would block PRs by never reporting.

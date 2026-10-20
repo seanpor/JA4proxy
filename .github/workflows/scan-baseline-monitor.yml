@@ -1,0 +1,121 @@
+name: CVE baseline monitor
+
+# Phase 847c. The scheduled half of the scan split.
+#
+# The PR gate (`scan-regression` in ci.yml) only judges what a PR touches, so it
+# is deliberately blind to drift on surfaces nobody touched. This workflow is
+# what watches those: a full scan of every image and dependency, diffed against
+# `security/baseline.json`, filing one deduplicated issue per unwaived finding.
+#
+# It must never block a merge. It is not a required check and does not run on
+# PRs at all — a monitor that can block becomes the friction Phase 847 removed.
+
+on:
+  schedule:
+    # Daily, deliberately offset from the weekly CI sweep (Monday 06:00 UTC).
+    - cron: "37 5 * * *"
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "File issues (unset = dry run, report only)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  monitor:
+    name: Baseline monitor (full scan + drift)
+    runs-on: ubuntu-latest
+    env:
+      # `gh` reads GH_TOKEN; issues:write is scoped above.
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      # Same rolling-key cache as ci.yml's scan job: the vulnerability DB is
+      # downloaded once per run instead of once per image.
+      - name: Cache Trivy DB
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: ~/.cache/trivy
+          key: trivy-db-${{ github.run_id }}
+          restore-keys: |
+            trivy-db-
+
+      - name: Prepare .env for build
+        run: cp template.env .env
+      - name: Generate backend cert for build
+        run: bash scripts/generate-backend-cert.sh
+
+      # The Python dependency surface is audited by pip-audit inside this image
+      # (`make scan-baseline` uses the same one), so the results are the pinned
+      # container's, not whatever a runner happens to have.
+      - name: Build the tools image
+        run: make tools-image
+
+      # The first-party images are part of the monitored surface. This builds all
+      # of them, including the profile-gated test/trafficgen/tap images that
+      # `make build` skips — the monitor is the one place that must cover
+      # everything, so it must not inherit that gap.
+      - name: Build first-party images
+        run: make build-first-party-images
+
+      # `APPLY=1` on a schedule (the whole point); manual dispatches default to a
+      # dry run so a human can see what would be filed before filing it.
+      - name: Full scan, drift report, and issues
+        if: github.event_name == 'schedule' || inputs.apply
+        run: make scan-monitor APPLY=1
+
+      - name: Full scan and drift report (dry run)
+        if: github.event_name != 'schedule' && !inputs.apply
+        run: make scan-monitor
+
+      # A scheduled run that dies silently is indistinguishable from a clean one
+      # for anyone not watching the Actions tab — and the monitor's own exit 1
+      # (a surface it could not scan) is exactly the failure that must not be
+      # mistaken for "no findings". Reuses ci.yml's scheduled-failure label so
+      # both scheduled channels land in one triage queue.
+      - name: Report a failed monitor run
+        if: failure()
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3  # v9.0.0
+        with:
+          script: |
+            const label = 'scheduled-ci-failure';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = [
+              'The daily CVE baseline monitor failed.',
+              '',
+              `Run: ${runUrl}`,
+              '',
+              'A non-zero exit here means a surface **could not be scanned**, not that',
+              'a finding was found — findings are filed as `[cve-baseline] …` issues,',
+              'not as a failed run. Treat this as an outage of the drift watch:',
+              'findings on unscanned surfaces are unknown until it is fixed.',
+            ].join('\n');
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: label,
+            });
+            // Any open tagged issue — including ci.yml's weekly-run tracker —
+            // gets a comment rather than a duplicate issue.
+            if (issues.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issues[0].number,
+                body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                labels: [label],
+                title: 'Scheduled CI failure',
+                body,
+              });
+            }

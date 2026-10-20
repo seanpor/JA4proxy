@@ -12,6 +12,7 @@ Exit 1 = :latest tags found or version drift detected.
 
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
 from typing import NamedTuple
@@ -24,15 +25,54 @@ except ImportError:
 
 
 class ImageRef(NamedTuple):
-    name: str  # e.g. "grafana/grafana"
-    version: str  # e.g. "10.2.0" or "latest"
+    name: str  # e.g. "grafana/grafana" — never carries a tag or a digest
+    version: str  # e.g. "10.2.0", "13.2.4-ubuntu@sha256:…" (digest-pinned), "latest"
     source: str  # compose file path
+    # The verbatim `image:` value, so the exact string handed to Trivy can be
+    # reconstructed without re-deriving the tag/digest split.
+    ref: str = ""
+
+
+def split_image_ref(image: str) -> tuple[str, str]:
+    """`name[:tag][@digest]` -> `(name, version)`, keeping registry ports in name.
+
+    `version` retains the digest when one is present, so two files pinning the
+    same tag to different digests are reported as drift instead of agreeing.
+
+    Splitting with `rsplit(":", 1)` — the pre-847c behaviour — put the *digest*
+    into `version` and left the tag glued to `name`, giving one image two
+    identities depending on how it was pinned: the 847c recorder keyed
+    `redis:7.4.11-alpine@sha256:…` as `image:redis` while the gate keyed the same
+    image as `image:redis:7.4.11-alpine@sha256`, so every finding on it would
+    have counted as new.
+    """
+    base, _, digest = image.partition("@")
+    name, tag = base, ""
+    head, sep, tail = base.rpartition(":")
+    # A colon with no slash after it is a tag; with a slash it is a registry port.
+    if sep and "/" not in tail:
+        name, tag = head, tail
+    if digest:
+        version = f"{tag}@{digest}" if tag else f"@{digest}"
+    else:
+        version = tag or "latest"
+    return name, version
 
 
 def _extract_images(compose_path: Path) -> list[ImageRef]:
     """Extract all image: values from a Docker Compose file."""
-    with compose_path.open() as f:
-        data = yaml.safe_load(f)
+    return extract_images_from_text(compose_path.read_text(), source=str(compose_path))
+
+
+def extract_images_from_text(text: str, source: str = "<text>") -> list[ImageRef]:
+    """Extract all image: values from compose YAML held in *text*.
+
+    Split out of :func:`_extract_images` so the Phase 847c regression gate can
+    parse the compose files **at the merge-base** (`git show rev:path`) as well
+    as in the working tree — one parser, two revisions, instead of a second
+    hand-rolled extractor that could disagree about what an image is.
+    """
+    data = yaml.safe_load(text)
 
     refs: list[ImageRef] = []
     services = (data or {}).get("services", {}) or {}
@@ -42,11 +82,8 @@ def _extract_images(compose_path: Path) -> list[ImageRef]:
         image = svc.get("image")
         if not image:
             continue
-        if ":" in image:
-            name, version = image.rsplit(":", 1)
-        else:
-            name, version = image, "latest"
-        refs.append(ImageRef(name=name, version=version, source=str(compose_path)))
+        name, version = split_image_ref(image)
+        refs.append(ImageRef(name=name, version=version, source=source, ref=image))
     return refs
 
 
@@ -125,6 +162,36 @@ SCAN_GATE_COMPOSE_FILES = (
     "docker-compose.monitoring.yml",
 )
 
+# The tuple above holds *names only*, and that distinction is load-bearing: the
+# files live in COMPOSE_DIR. `third_party_image_refs()` silently skips a compose
+# file that does not exist, so a caller that passes
+# `Path("docker-compose.prod.yml")` from the repo root gets an empty image list
+# and a green gate — no image, no finding, no error. Anything that wants these
+# files must go through scan_gate_compose_paths() (filesystem) or
+# SCAN_GATE_COMPOSE_REPOS (git).
+COMPOSE_DIR = "deploy/docker"
+
+
+def scan_gate_compose_paths(repo_root: Path | None = None) -> list[Path]:
+    """Filesystem paths of the compose files that define the scanned image set."""
+    root = repo_root if repo_root is not None else Path(__file__).resolve().parent.parent
+    return [root / COMPOSE_DIR / f for f in SCAN_GATE_COMPOSE_FILES]
+
+
+# The same files as repo-relative paths, for `git show rev:path`.
+SCAN_GATE_COMPOSE_REPOS = tuple(f"{COMPOSE_DIR}/{f}" for f in SCAN_GATE_COMPOSE_FILES)
+
+# `-f <dockerfile> -t <image:tag>` pairs, as written in the Makefile's build
+# lines. One source for "which image does this Dockerfile produce", shared by the
+# regression gate (847c) and the baseline recorder — a second hand-kept mapping
+# would drift the moment someone renamed a Dockerfile.
+DOCKER_IMAGE_RE = re.compile(r"-f\s+(\S+)\s+-t\s+(\S+)")
+
+
+def dockerfile_image_map(makefile_text: str) -> dict[str, str]:
+    """Parse `{dockerfile path: image:tag}` out of the Makefile's build lines."""
+    return {dockerfile: image for dockerfile, image in DOCKER_IMAGE_RE.findall(makefile_text)}
+
 
 def third_party_image_refs(
     compose_paths: list[Path],
@@ -153,25 +220,25 @@ def third_party_image_refs(
         if path.exists():
             all_refs.extend(_extract_images(path))
 
-    by_name: dict[str, set[str]] = {}
+    by_name: dict[str, dict[str, str]] = {}
     for ref in all_refs:
         if ref.name in first_party:
             continue
-        by_name.setdefault(ref.name, set()).add(ref.version)
+        by_name.setdefault(ref.name, {})[ref.version] = ref.ref or f"{ref.name}:{ref.version}"
 
     conflicts = {name: vers for name, vers in by_name.items() if len(vers) > 1}
     if conflicts:
         details = "; ".join(f"{name}: {sorted(vers)}" for name, vers in sorted(conflicts.items()))
         raise ValueError(f"version drift across compose files — cannot pick one version to scan: {details}")
 
-    return sorted(f"{name}:{next(iter(vers))}" for name, vers in by_name.items())
+    return sorted(next(iter(vers.values())) for vers in by_name.values())
 
 
 def main() -> int:
     repo_root = Path(__file__).parent.parent
 
     if "--list-third-party" in sys.argv:
-        scan_files = [repo_root / "deploy" / "docker" / f for f in SCAN_GATE_COMPOSE_FILES]
+        scan_files = scan_gate_compose_paths(repo_root)
         try:
             for ref in third_party_image_refs(scan_files):
                 print(ref)

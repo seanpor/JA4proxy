@@ -40,7 +40,7 @@ gh api "repos/${REPO}/branches/main/protection" \
   --field "required_status_checks[contexts][]=Full Test Suite (make test)" \
   --field "required_status_checks[contexts][]=Go Build + Compose Validate" \
   --field "required_status_checks[contexts][]=Go race tests (make test-race)" \
-  --field "required_status_checks[contexts][]=Security Scan (make scan)" \
+  --field "required_status_checks[contexts][]=Scan Regression (surfaces touched)" \
   --field "required_status_checks[contexts][]=Secrets scan (TruffleHog)" \
   --field "required_status_checks[contexts][]=SAST (Semgrep)" \
   --field "required_status_checks[contexts][]=Python dependency audit (pip-audit)" \

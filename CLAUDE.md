@@ -32,9 +32,12 @@ agents ignore file ownership or push to the wrong branch. Follow these rules exa
   `gh pr create --base main` then `gh pr merge --auto --squash --delete-branch`.
 - **`main` is branch-protected and the protection is enforced for everyone,
   admins included.** A direct `git push origin main` is rejected; a PR can only
-  merge once its four required checks pass — **Meta-Validation, Full Lint, Full
-  Test, Security Scan**. There is no direct-merge shortcut. (Emergency override
-  and full details: the branch-protection callout in `AGENTS.md`.)
+  merge once its required checks pass — since Phase 847c that is **Meta-Validation,
+  Full Lint, Full Test, `Scan Regression (surfaces touched)`**, Secrets scan, SAST,
+  the dependency audits, Traceability, lychee and Go Build + Compose Validate. The
+  authoritative, kept-current list is in `AGENTS.md`. There is no direct-merge
+  shortcut. (Emergency override and full details: the branch-protection callout in
+  `AGENTS.md`.)
 
 ### File Ownership
 

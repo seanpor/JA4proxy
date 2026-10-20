@@ -150,15 +150,33 @@ on. Edit `manifest.yaml`; run `make sync` to preview locally.
 > is personal-account-owned, so it is unavailable — see `docs/phases/complete/PHASE_332.md`.)*
 >
 > **Required checks (the merge gate).** The full required set is Meta-Validation,
-> Full Lint, Full Test, Security Scan, Secrets scan, SAST, the Python/Go
-> dependency audits, Traceability, lychee, and Go Build + Compose Validate.
-> Full Lint and Security Scan were run as **non-required, advisory-only** for a
-> time-boxed two-week Phase 332 trial (2026-06-15 → 2026-06-29); the trial
-> expired with zero lint/scan regressions reaching `main` undetected, and both
-> were **restored to required on 2026-07-01**. Run **`make preflight`**
-> (lint + scan + test) locally before opening any PR regardless — it's the same
-> gate CI now enforces, and catching a break locally is faster than waiting on
-> CI. Because `main` is strict (branches must be up to date), run
+> Full Lint, Full Test, Scan Regression (surfaces touched), Secrets scan, SAST, the
+> Python/Go dependency audits, Traceability, lychee, and Go Build + Compose
+> Validate. Full Lint and Security Scan were run as **non-required,
+> advisory-only** for a time-boxed two-week Phase 332 trial (2026-06-15 →
+> 2026-06-29); the trial expired with zero lint/scan regressions reaching `main`
+> undetected, and both were **restored to required on 2026-07-01**. **Phase 847c
+> then split the CVE gate**: `Scan Regression (surfaces touched)`
+> (`make scan-regression`) is the required PR check — it scans only the surfaces a
+> PR touches and fails only on findings absent from `security/baseline.json`, so an
+> upstream CVE disclosed overnight cannot redden an unrelated PR. The full
+> `Security Scan (make scan)` job is **de-required**: it still runs on push and
+> schedule, and on a PR only when the waiver set moved. Do not add it back to the
+> required contexts — but state the reason precisely, because the
+> obvious-sounding one is false. A job skipped by an `if:` inside a workflow that
+> *did* run reports `skipped`, and `skipped` **satisfies** a required context:
+> the proof is in this repo, where the required `Cold-start smoke test
+> (start-poc.sh)` is skipped on every PR that does not touch the cold-start path
+> (e.g. #621 merged with it skipped). What genuinely blocks forever is a required
+> check the PR's workflows never create at all — a *workflow*-level `paths:`
+> filter (see the comment on `poc-cold-start` in ci.yml), or one whose job does
+> not exist in the base branch. A skipped check therefore does not block merging;
+> it just gates nothing — on most PRs a required `scan` would report green
+> without scanning while still reading as a full CVE scan. The requirement
+> belongs to `scan-regression`, which runs on every PR's diff. Run **`make
+> preflight`** (lint + scan + test) locally before opening any PR regardless — it's
+> the same gate CI now enforces, and catching a break locally is faster than
+> waiting on CI. Because `main` is strict (branches must be up to date), run
 > `make preflight` against a reasonably current branch — and expect to
 > `gh pr update-branch --rebase` if `main` advances before your checks finish.
 >

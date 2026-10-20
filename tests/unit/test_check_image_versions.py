@@ -105,6 +105,95 @@ class TestExtractImages:
         assert len(refs) == 2
 
 
+class TestDigestPinnedRefs:
+    """`image: name:tag@sha256:…` must yield a clean name and a round-tripping ref.
+
+    Phase 847c found this the hard way: `rsplit(":", 1)` put the *digest* in
+    `version` and left `:tag` glued to `name`, so one image had two identities —
+    the baseline recorded `image:redis` while the gate looked for
+    `image:redis:7.4.11-alpine@sha256`, and every finding on it would have been
+    counted as new.
+    """
+
+    def test_tag_and_digest_are_split_cleanly(self, tmp_path):
+        p = _write_compose(
+            tmp_path,
+            "dc.yml",
+            """
+            services:
+              redis:
+                image: redis:7.4.11-alpine@sha256:abc123
+        """,
+        )
+        ref = _extract_images(p)[0]
+        assert ref.name == "redis"
+        assert ref.version == "7.4.11-alpine@sha256:abc123"
+        assert ref.ref == "redis:7.4.11-alpine@sha256:abc123"
+
+    def test_registry_port_is_still_not_a_tag(self, tmp_path):
+        p = _write_compose(
+            tmp_path,
+            "dc.yml",
+            """
+            services:
+              reg:
+                image: localhost:5000/team/x:1.2@sha256:abc
+        """,
+        )
+        ref = _extract_images(p)[0]
+        assert ref.name == "localhost:5000/team/x"
+        assert ref.version == "1.2@sha256:abc"
+
+    def test_digest_without_a_tag_is_not_read_as_latest(self, tmp_path):
+        p = _write_compose(
+            tmp_path,
+            "dc.yml",
+            """
+            services:
+              redis:
+                image: redis@sha256:abc123
+        """,
+        )
+        ref = _extract_images(p)[0]
+        assert ref.name == "redis"
+        assert ref.version != "latest", "a digest-pinned image is pinned, not :latest"
+
+    def test_list_third_party_preserves_the_verbatim_reference(self, tmp_path):
+        p = _write_compose(
+            tmp_path,
+            "dc.yml",
+            """
+            services:
+              redis:
+                image: redis:7.4.11-alpine@sha256:abc123
+        """,
+        )
+        assert third_party_image_refs([p]) == ["redis:7.4.11-alpine@sha256:abc123"]
+
+    def test_same_tag_with_different_digests_is_drift(self, tmp_path):
+        """Two files pinning one tag to different digests must not look agreed."""
+        a = _write_compose(
+            tmp_path,
+            "a.yml",
+            """
+            services:
+              redis:
+                image: redis:7.4.11-alpine@sha256:aaa
+        """,
+        )
+        b = _write_compose(
+            tmp_path,
+            "b.yml",
+            """
+            services:
+              redis:
+                image: redis:7.4.11-alpine@sha256:bbb
+        """,
+        )
+        with pytest.raises(ValueError, match="drift"):
+            third_party_image_refs([a, b])
+
+
 class TestLatestTagDetection:
     def test_latest_tag_produces_error(self, tmp_path):
         p = _write_compose(

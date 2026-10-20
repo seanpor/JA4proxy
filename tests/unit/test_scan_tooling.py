@@ -280,12 +280,17 @@ class TestBothImageGates:
         """`make help` is what an operator reads first, and both gates have failed
         on HIGH since Phase 317 — so neither target may advertise CRITICAL-only
         gating, the way its summary used to contradict its own recipe echo."""
-        seen = 0
+        gates = {"scan-images", "scan-first-party"}
+        seen: set[str] = set()
         for line in (_ROOT / "Makefile").read_text().splitlines():
-            if line.startswith(("scan-images:  ##", "scan-first-party:  ##")):
-                seen += 1
+            # Match the target by name rather than by the exact `name:  ##` shape:
+            # a prerequisite between the colon and the `##` (Phase 847c made
+            # scan-first-party depend on build-first-party-images) must not hide
+            # the help line from this guard.
+            if line.split(":", 1)[0] in gates and "##" in line:
+                seen.add(line.split(":", 1)[0])
                 assert "fails on HIGH or CRITICAL" in line, f"understates the gate: {line}"
-        assert seen == 2, f"expected both targets' help lines, found {seen}"
+        assert seen == gates, f"expected both targets' help lines, found {sorted(seen)}"
 
 
 # --- --ignorefile must never silently re-home a typo ----------------------------

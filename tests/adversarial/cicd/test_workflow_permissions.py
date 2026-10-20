@@ -1,4 +1,4 @@
-"""Tests for workflow permissions across all 16 GitHub Actions workflows (Phase 814f L0).
+"""Tests for workflow permissions across all 17 GitHub Actions workflows (Phase 814f L0).
 
 Audits all workflows to ensure:
 1. Every workflow declares an explicit top-level permissions block or job-level blocks.
@@ -18,7 +18,7 @@ WORKFLOWS_DIR = Path(".github/workflows")
 
 def get_workflow_files() -> list[Path]:
     files = sorted(WORKFLOWS_DIR.glob("*.yml"))
-    assert len(files) == 16
+    assert len(files) == 17
     return files
 
 
