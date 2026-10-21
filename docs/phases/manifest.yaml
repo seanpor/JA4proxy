@@ -5439,7 +5439,7 @@ phases:
 
   847d:
     name: "Fix-forward bot + expiry re-affirmation"
-    status: PROPOSED
+    status: IN_PROGRESS
     action_plan: docs/phases/PHASE_847d.md
     dependencies: [847c]
     size: MEDIUM

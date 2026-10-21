@@ -386,3 +386,103 @@ def test_save_registry_refuses_to_drop_an_entry(tmp_path: Path) -> None:
 
     # And the file is untouched.
     assert "CVE-2026-99999" not in path.read_text(encoding="utf-8")
+
+
+# ── Phase 847d: fix-metadata splice (the fix-forward bot's write path) ───────
+
+_FIX_META_ENTRY = (
+    "  - id: CVE-2026-90001\n"
+    "    scope: third-party\n"
+    "    severity: HIGH\n"
+    "    source: trivy\n"
+    '    carriers: ["img:1.0"]\n'
+    "    rationale: synthetic entry for the 847d splice tests\n"
+    "    created: 2026-10-17\n"
+    "    expires: 2027-01-15\n"
+)
+
+
+def _write_fix_meta_registry(
+    tmp_path: Path, extra_lines: str = ""
+) -> tuple[Path, dict]:
+    path = tmp_path / "waivers.yaml"
+    path.write_text(
+        _REGISTRY_PROLOGUE + _FIX_META_ENTRY + extra_lines, encoding="utf-8"
+    )
+    return path, render_waivers.load_registry(path)
+
+
+def test_bot_splice_appends_fix_metadata_missing_from_text(tmp_path: Path) -> None:
+    """A registry record the splice silently dropped must not be possible: a
+    key the waiver carries but the text lacks is appended after the last
+    field."""
+    path, registry = _write_fix_meta_registry(tmp_path)
+    entry = registry["waivers"][0]
+    entry["fix_available"] = False
+    entry["recheck_trigger"] = "upstream publishes a fixed tag"
+    render_waivers.save_registry(
+        registry, path, mutable_keys=render_waivers.BOT_MUTABLE_KEYS
+    )
+    text = path.read_text(encoding="utf-8")
+    assert "    fix_available: false" in text
+    assert '    recheck_trigger: "upstream publishes a fixed tag"' in text
+    reloaded = render_waivers.load_registry(path)
+    assert reloaded["waivers"][0]["fix_available"] is False
+    assert reloaded["waivers"][0]["recheck_trigger"] == "upstream publishes a fixed tag"
+    assert render_waivers.validate(reloaded) == []
+
+
+def test_default_splice_preserves_fix_metadata_byte_for_byte(tmp_path: Path) -> None:
+    """The existing mutators must keep rewriting only created/expires/carriers
+    even when fix metadata is present in both text and dict."""
+    path, registry = _write_fix_meta_registry(
+        tmp_path,
+        '    fix_available: false\n'
+        '    recheck_trigger: "when upstream ships the fix"\n',
+    )
+    before = path.read_text(encoding="utf-8")
+    registry["waivers"][0]["expires"] = "2027-02-15"
+    render_waivers.save_registry(registry, path)  # default mutable keys
+    after = path.read_text(encoding="utf-8")
+    assert after == before.replace(
+        "expires: 2027-01-15", "expires: 2027-02-15"
+    )
+
+
+def test_bot_splice_drops_stale_trigger_when_fix_lands(tmp_path: Path) -> None:
+    """fix_available: true supersedes a recheck_trigger the waiver no longer
+    carries — the line must be dropped, not left stale."""
+    path, registry = _write_fix_meta_registry(
+        tmp_path,
+        '    fix_available: false\n    recheck_trigger: "when"\n',
+    )
+    entry = registry["waivers"][0]
+    entry["fix_available"] = True
+    entry.pop("recheck_trigger")
+    render_waivers.save_registry(
+        registry, path, mutable_keys=render_waivers.BOT_MUTABLE_KEYS
+    )
+    text = path.read_text(encoding="utf-8")
+    block = text.split("waivers:\n", 1)[1]
+    assert "    fix_available: true" in block
+    assert "recheck_trigger" not in block
+
+
+def test_bot_splice_quoted_trigger_round_trips(tmp_path: Path) -> None:
+    """A trigger with `: `/quotes/`#` survives JSON-quoting round-trip."""
+    trigger = 'when semgrep allows mcp >= 1.30.0: re-check "#1" (v2)'
+    path, registry = _write_fix_meta_registry(tmp_path)
+    entry = registry["waivers"][0]
+    entry["fix_available"] = False
+    entry["recheck_trigger"] = trigger
+    render_waivers.save_registry(
+        registry, path, mutable_keys=render_waivers.BOT_MUTABLE_KEYS
+    )
+    line = next(
+        ln
+        for ln in path.read_text(encoding="utf-8").splitlines()
+        if "recheck_trigger" in ln
+    )
+    assert line.startswith("    recheck_trigger: ")
+    reloaded = render_waivers.load_registry(path)
+    assert reloaded["waivers"][0]["recheck_trigger"] == trigger

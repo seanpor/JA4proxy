@@ -36,6 +36,7 @@ USAGE
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
 import textwrap
@@ -309,10 +310,17 @@ def write_derived(rendered: Dict[Path, str]) -> List[Path]:
     return changed
 
 
-# The only fields the mutators above change. Everything else in an entry
-# (rationale prose, recheck_trigger, severity…) is hand-authored and must survive
-# a rewrite byte-for-byte.
+# The fields the date/carrier mutators change. Everything else in an entry
+# (rationale prose, severity…) is hand-authored and must survive a rewrite
+# byte-for-byte.
 _MUTABLE_KEYS = ("created", "expires", "carriers")
+# Phase 847d: the fix-forward bot records fix-availability facts on existing
+# entries (`fix_available`, plus the schema-required `recheck_trigger` when it
+# records `false`). These are only ever rewritten by mutators that explicitly
+# pass BOT_MUTABLE_KEYS — the default splice path above still preserves them
+# byte-for-byte, exactly as it preserves rationale prose.
+FIX_META_KEYS = ("fix_available", "recheck_trigger")
+BOT_MUTABLE_KEYS = (*_MUTABLE_KEYS, *FIX_META_KEYS)
 
 _ENTRY_RE = re.compile(r"^(\s*)- id:\s*(\S+)\s*$")
 _KEY_RE = re.compile(r"^(\s*)([A-Za-z_][\w-]*):")
@@ -320,6 +328,21 @@ _KEY_RE = re.compile(r"^(\s*)([A-Za-z_][\w-]*):")
 
 def _format_carriers(carriers: Sequence[str]) -> str:
     return "[" + ", ".join('"%s"' % c for c in carriers) + "]"
+
+
+def _format_mutable_value(key: str, value: Any) -> str:
+    """Single-line YAML for a mutable key. Booleans must be lowercase
+    (`False` would round-trip as the *string* "False"), and the free-text
+    recheck_trigger is JSON-quoted so embedded `: `/`#`/quotes stay safe —
+    for values already written in the file's double-quoted style this is
+    byte-identical, so an unrelated save never churns the line."""
+    if key == "carriers":
+        return _format_carriers(value or [])
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if key == "recheck_trigger":
+        return json.dumps(str(value))
+    return str(value)
 
 
 def _is_list_continuation(line: str, key_indent: int) -> bool:
@@ -337,7 +360,36 @@ def _is_list_continuation(line: str, key_indent: int) -> bool:
     return indent >= key_indent and stripped.lstrip().startswith("- ")
 
 
-def _splice_entry_block(block: List[str], waiver: Dict[str, Any]) -> List[str]:
+def _last_field_end(block: List[str], key_indent: str) -> int:
+    """Index just past the entry's last field — deliberately overshooting any
+    trailing blank/comment lines (overshoot is harmless: a line inserted at key
+    indent before the next `- id:` still belongs to this entry; undershoot would
+    split a multi-line scalar and corrupt the YAML)."""
+    key_len = len(key_indent)
+    last = 0
+    for i, line in enumerate(block):
+        match = _KEY_RE.match(line)
+        if match is not None and match.group(1) == key_indent:
+            last = i + 1
+    j = last
+    while j < len(block):
+        stripped = block[j].rstrip("\n")
+        if (
+            stripped.strip() == ""
+            or _is_list_continuation(block[j], key_len)
+            or (len(stripped) - len(stripped.lstrip(" ")) > key_len)
+        ):
+            j += 1
+            continue
+        break
+    return j
+
+
+def _splice_entry_block(
+    block: List[str],
+    waiver: Dict[str, Any],
+    mutable_keys: Sequence[str] = _MUTABLE_KEYS,
+) -> List[str]:
     """Rewrite one entry's mutable scalars in place, keeping all comments.
 
     Emits single-line values only (`created: 2026-10-19`,
@@ -345,10 +397,17 @@ def _splice_entry_block(block: List[str], waiver: Dict[str, Any]) -> List[str]:
     consumed, so an existing block list collapses cleanly. Keys are matched at the
     entry's own key indent (derived from the `- id:` line) so prose inside a
     multi-line `rationale:` can never be mistaken for a field.
+
+    Phase 847d adds two moves for the fix-forward bot's keys: a mutable key the
+    waiver no longer carries has its line DROPPED (so `fix_available: true`
+    supersedes a stale `recheck_trigger`), and a mutable key the waiver carries
+    but the text lacks is APPENDED after the last field — a registry record the
+    splice silently dropped must not be possible.
     """
     first = block[0]
     key_indent = " " * ((len(first) - len(first.lstrip(" "))) + 2)
     out: List[str] = []
+    written: set = set()
     i = 0
     while i < len(block):
         line = block[i]
@@ -356,25 +415,33 @@ def _splice_entry_block(block: List[str], waiver: Dict[str, Any]) -> List[str]:
         if (
             match is not None
             and match.group(1) == key_indent
-            and match.group(2) in _MUTABLE_KEYS
-            and match.group(2) in waiver
+            and match.group(2) in mutable_keys
         ):
             key = match.group(2)
-            if key == "carriers":
-                value = _format_carriers(waiver[key] or [])
-            else:
-                value = str(waiver[key])
-            out.append(f"{key_indent}{key}: {value}\n")
             i += 1
             while i < len(block) and _is_list_continuation(block[i], len(key_indent)):
                 i += 1
+            if key in waiver:
+                out.append(f"{key_indent}{key}: {_format_mutable_value(key, waiver[key])}\n")
+                written.add(key)
             continue
         out.append(line)
         i += 1
+
+    missing = [k for k in mutable_keys if k in waiver and k not in written]
+    if missing:
+        at = _last_field_end(out, key_indent)
+        out[at:at] = [
+            f"{key_indent}{k}: {_format_mutable_value(k, waiver[k])}\n" for k in missing
+        ]
     return out
 
 
-def save_registry(registry: Dict[str, Any], path: Path = REGISTRY) -> None:
+def save_registry(
+    registry: Dict[str, Any],
+    path: Path = REGISTRY,
+    mutable_keys: Sequence[str] | None = None,
+) -> None:
     """Persist registry mutations while preserving the file's comments.
 
     `yaml.safe_dump` strips every comment — the whole header and schema
@@ -383,7 +450,12 @@ def save_registry(registry: Dict[str, Any], path: Path = REGISTRY) -> None:
     pure destruction, and the same would happen on every renewal. So splice only
     the fields the mutators touch into the existing text rather than
     re-serialising the document. New entries are authored by hand, not here.
+
+    `mutable_keys` widens which scalars may be rewritten (Phase 847d: the
+    fix-forward bot passes BOT_MUTABLE_KEYS to record fix availability); the
+    default keeps every other field — including fix metadata — byte-for-byte.
     """
+    mutable = tuple(mutable_keys) if mutable_keys is not None else _MUTABLE_KEYS
     lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
     by_id = {str(w.get("id")): w for w in registry.get("waivers") or []}
 
@@ -413,7 +485,7 @@ def save_registry(registry: Dict[str, Any], path: Path = REGISTRY) -> None:
         waiver = by_id.get(matched.group(2).strip("\"'"))
         if waiver is None:
             continue
-        lines[start:end] = _splice_entry_block(lines[start:end], waiver)
+        lines[start:end] = _splice_entry_block(lines[start:end], waiver, mutable)
 
     path.write_text("".join(lines), encoding="utf-8")
 
