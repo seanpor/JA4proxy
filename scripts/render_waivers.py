@@ -44,7 +44,7 @@ import sys
 import textwrap
 from datetime import date
 from pathlib import Path
-from typing import Any, Dict, List, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 try:  # invoked directly (scripts/ on sys.path) or as a package member
     from scripts.check_trivyignore_drift import scan_dir_findings
@@ -163,7 +163,19 @@ def load_registry(path: Path = REGISTRY) -> Dict[str, Any]:
     # `waivers:` with no entries loads as None, but every consumer (validate,
     # renderers, remove_entries) reasons about a *list*. An empty registry is a
     # legitimate end state (Phase 847d), so give it the type it means.
-    if data.get("waivers") is None:
+    #
+    # A MISSING key is a different thing and stays an error: it means the file
+    # is not a registry (a truncated edit, a bad merge). Coercing it to `[]`
+    # would read as "zero waivers", and the derived ignorefiles would then be
+    # regenerated EMPTY — every live exemption dropped, silently. This is the
+    # one failure the whole programme exists to prevent, so it is refused at
+    # load time rather than caught later by validate().
+    if "waivers" not in data:
+        raise RegistryError(
+            f"{path}: missing `waivers:` key — this file is not a registry "
+            "(an empty registry still has the key, with no entries)"
+        )
+    if data["waivers"] is None:
         data["waivers"] = []
     return data
 
@@ -337,6 +349,34 @@ FIX_META_KEYS = ("fix_available", "recheck_trigger")
 BOT_MUTABLE_KEYS = (*_MUTABLE_KEYS, *FIX_META_KEYS)
 
 _ENTRY_RE = re.compile(r"^(\s*)- id:\s*(\S+)\s*$")
+
+
+def _entry_starts(lines: Sequence[str]) -> List[int]:
+    """Indices of the lines that BEGIN a registry entry.
+
+    Only the first match's indent counts. Every entry is a sibling under
+    `waivers:` and shares one indent, while a deeper-indented `- id:` line is
+    prose inside a rationale's folded block scalar (`rationale: >-` followed by
+    indented lines). Treating that prose as an entry boundary made
+    `remove_entries` delete only the HEAD of an entry and leave its tail
+    behind — the surviving `created:`/`expires:` lines then parsed as a
+    top-level mapping and the registry stopped being valid YAML. Found by
+    constructing exactly that registry; Phase 847d.
+
+    `_ENTRY_RE` alone cannot tell the two apart: both lines match it.
+    """
+    starts: List[int] = []
+    indent: Optional[str] = None
+    for i, line in enumerate(lines):
+        matched = _ENTRY_RE.match(line)
+        if matched is None:
+            continue
+        if indent is None:
+            indent = matched.group(1)
+        elif matched.group(1) != indent:
+            continue  # prose inside a block scalar, not an entry
+        starts.append(i)
+    return starts
 _KEY_RE = re.compile(r"^(\s*)([A-Za-z_][\w-]*):")
 
 
@@ -473,7 +513,7 @@ def save_registry(
     lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
     by_id = {str(w.get("id")): w for w in registry.get("waivers") or []}
 
-    starts = [i for i, ln in enumerate(lines) if _ENTRY_RE.match(ln)]
+    starts = _entry_starts(lines)
     found = {
         matched.group(2).strip("\"'")
         for matched in (_ENTRY_RE.match(lines[s]) for s in starts)
@@ -522,7 +562,7 @@ def remove_entries(
     lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
 
     spans: Dict[str, Tuple[int, int]] = {}
-    starts = [i for i, ln in enumerate(lines) if _ENTRY_RE.match(ln)]
+    starts = _entry_starts(lines)
     for n, start in enumerate(starts):
         end = starts[n + 1] if n + 1 < len(starts) else len(lines)
         cid = _ENTRY_RE.match(lines[start]).group(2).strip("\"'")  # type: ignore[union-attr]
@@ -553,7 +593,29 @@ def remove_entries(
         start, end = spans[cid]
         del lines[start:end]
 
-    path.write_text("".join(lines), encoding="utf-8")
+    # Fail closed. The text is spliced, not re-serialised, so a wrong span
+    # would write a file that no longer parses — and the registry is the
+    # single source of truth, so an unparseable one breaks every downstream
+    # consumer. Verify BEFORE writing: the result must parse, and must hold
+    # exactly the entries we expect.
+    text = "".join(lines)
+    try:
+        import yaml
+
+        parsed = yaml.safe_load(text) or {}
+    except Exception as exc:  # noqa: BLE001 -- any parse failure is a refusal
+        raise ValueError(
+            f"refusing to write {path.name}: the result does not parse ({exc})"
+        ) from exc
+    kept = {str(w.get("id")) for w in parsed.get("waivers") or []}
+    expected = {str(w.get("id")) for w in registry.get("waivers") or []} - set(wanted)
+    if kept != expected:
+        raise ValueError(
+            f"refusing to write {path.name}: entries would be {sorted(kept)}, "
+            f"expected {sorted(expected)}"
+        )
+
+    path.write_text(text, encoding="utf-8")
     for w in list(registry.get("waivers") or []):
         if str(w.get("id")) in wanted:
             registry["waivers"].remove(w)

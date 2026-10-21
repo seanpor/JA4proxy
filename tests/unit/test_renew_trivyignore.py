@@ -172,6 +172,54 @@ def test_measure_carriers_reports_images_that_carried_nothing() -> None:
     assert scanned == {"grafana/grafana:13.2.4"}
 
 
+def test_measure_carriers_does_not_count_an_unanalyseable_report_as_covered() -> None:
+    """A report that names an image but analysed NOTHING is not coverage.
+
+    Trivy writes `"Results": null` when it could not analyse the image (no
+    detectable OS, an unreadable layer). The report still names the image, so
+    counting it as covered would let "nobody looked" read as "the CVE is gone"
+    — and delete a live waiver.
+    """
+    tmp = Path(tempfile.mkdtemp())
+    scan = tmp / "scan"
+    scan.mkdir()
+    (scan / "no-os.json").write_text(
+        json.dumps({"ArtifactName": "grafana/grafana:13.2.4", "Results": None}),
+        encoding="utf-8",
+    )
+    carriers, scanned = renew_trivyignore.measure_carriers(scan)
+    assert carriers == {}
+    assert scanned == set()
+
+
+def test_classify_is_unmeasured_when_the_carrier_report_analysed_nothing() -> None:
+    entry = _entry("CVE-2026-00001", "2026-08-06")  # carriers: grafana/grafana:13.2.4
+    # The carrier was "scanned" but Trivy analysed nothing: no evidence either way.
+    assert renew_trivyignore.classify(entry, {}, set()) == "unmeasured"
+
+
+def test_main_does_not_delete_when_trivy_analysed_nothing(tmp_path, capsys) -> None:
+    """End-to-end form of the guard above: a report that analysed nothing must
+    not delete the waiver it names."""
+    reg_path = _write_registry(tmp_path / "waivers.yaml", _entry("CVE-2026-00001", "2026-08-06"))
+    original = reg_path.read_text(encoding="utf-8")
+    scan = tmp_path / "scan"
+    scan.mkdir()
+    (scan / "no-os.json").write_text(
+        json.dumps({"ArtifactName": "grafana/grafana:13.2.4", "Results": None}),
+        encoding="utf-8",
+    )
+
+    rc = renew_trivyignore.main(
+        ["--today", "2026-08-04", "--within-days", "5",
+         "--registry", str(reg_path), "--scan-dir", str(scan)]
+    )
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert "carrier(s) missing from --scan-dir" in out
+    assert reg_path.read_text(encoding="utf-8") == original  # UNTOUCHED
+
+
 # ── the cardinal rule: nothing extends an expiry ────────────────────────────
 
 def test_no_autorenew_helper_exists_any_more() -> None:
@@ -469,6 +517,98 @@ def test_remove_entries_trims_only_the_named_block(tmp_path, monkeypatch) -> Non
     assert "# --- third-party ---" in text  # comments survive
     assert "img-b:1.0" in text and "img-a:1.0" not in text
     assert [w["id"] for w in render_waivers.load_registry(path)["waivers"]] == ["CVE-2026-00002"]
+
+
+def test_remove_entries_survives_a_rationale_that_looks_like_an_entry(tmp_path) -> None:
+    """A rationale may contain a line that looks like an entry start.
+
+    `rationale: >-` followed by an indented `- id: parser` is prose, but it
+    matches the same regex an entry does. Treating it as an entry boundary made
+    `remove_entries` delete only the HEAD of the target entry, leaving its
+    `created:`/`expires:` tail behind as a stray top-level mapping — the
+    registry stopped being valid YAML. Found by constructing that registry.
+    """
+    path = tmp_path / "waivers.yaml"
+    path.write_text(
+        "version: 1\n"
+        "policy:\n"
+        "  max_window_days: 90\n"
+        "  default_owner: security-oncall\n"
+        "waivers:\n"
+        "  - id: CVE-2026-00001\n"
+        "    scope: third-party\n"
+        "    severity: HIGH\n"
+        "    source: trivy\n"
+        '    carriers: ["img-a:1.0"]\n'
+        "    rationale: >-\n"
+        "      Affected paths are listed below.\n"
+        "      - id: parser\n"
+        "      - id: codec\n"
+        "    created: 2026-01-01\n"
+        "    expires: 2026-08-05\n"
+        "  - id: CVE-2026-00002\n"
+        "    scope: third-party\n"
+        "    severity: HIGH\n"
+        "    source: trivy\n"
+        '    carriers: ["img-b:1.0"]\n'
+        "    rationale: stays\n"
+        "    created: 2026-01-01\n"
+        "    expires: 2026-08-05\n",
+        encoding="utf-8",
+    )
+    registry = render_waivers.load_registry(path)
+
+    removed = render_waivers.remove_entries(registry, ["CVE-2026-00001"], path)
+
+    assert removed == ["CVE-2026-00001"]
+    # The whole entry went, not just its head.
+    assert "CVE-2026-00001" not in path.read_text(encoding="utf-8")
+    assert "- id: parser" not in path.read_text(encoding="utf-8")
+    # And the result is still a valid registry.
+    reloaded = render_waivers.load_registry(path)
+    assert [w["id"] for w in reloaded["waivers"]] == ["CVE-2026-00002"]
+
+
+def test_remove_entries_refuses_to_write_when_the_result_would_not_match_the_registry(tmp_path) -> None:
+    """Fail closed: the registry is the single source of truth, so a result
+    that would not hold exactly the entries the registry says it should must
+    never reach disk. A wrong span is caught here rather than as a broken
+    file that every downstream consumer trips over."""
+    path = tmp_path / "waivers.yaml"
+    path.write_text(
+        "version: 1\npolicy:\n  max_window_days: 90\n  default_owner: security-oncall\n"
+        "waivers:\n"
+        "  - id: CVE-2026-00001\n"
+        "    scope: third-party\n"
+        "    severity: HIGH\n"
+        "    source: trivy\n"
+        '    carriers: ["img-a:1.0"]\n'
+        "    rationale: goes away\n"
+        "    created: 2026-01-01\n"
+        "    expires: 2026-08-05\n",
+        encoding="utf-8",
+    )
+    original = path.read_text(encoding="utf-8")
+    registry = render_waivers.load_registry(path)
+    # The registry claims an entry the file does not contain, so the deletion
+    # would leave the file disagreeing with the registry.
+    registry["waivers"].append(
+        {
+            "id": "CVE-2026-99999",
+            "scope": "third-party",
+            "severity": "HIGH",
+            "source": "trivy",
+            "carriers": [],
+            "rationale": "not in the file",
+            "created": "2026-01-01",
+            "expires": "2026-08-05",
+        }
+    )
+
+    with pytest.raises(ValueError):
+        render_waivers.remove_entries(registry, ["CVE-2026-00001"], path)
+
+    assert path.read_text(encoding="utf-8") == original  # UNTOUCHED
 
 
 def test_remove_entries_refuses_unknown_id_without_writing(tmp_path, monkeypatch) -> None:

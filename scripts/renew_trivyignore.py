@@ -39,6 +39,7 @@ for a human, 2 = error. `--check` reports without writing, for CI.
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from datetime import date, timedelta
 from pathlib import Path
@@ -49,9 +50,9 @@ except ImportError:  # invoked directly, scripts/ on sys.path
     import render_waivers  # type: ignore[no-redef]
 
 try:
-    from scripts.check_trivyignore_drift import _artifact_name, scan_dir_findings
+    from scripts.check_trivyignore_drift import scan_dir_findings
 except ImportError:  # pragma: no cover - direct invocation
-    from check_trivyignore_drift import _artifact_name, scan_dir_findings  # type: ignore[no-redef]
+    from check_trivyignore_drift import scan_dir_findings  # type: ignore[no-redef]
 
 
 def _as_date(value: str) -> date | None:
@@ -75,6 +76,36 @@ def expiring_entries(registry: dict, within_days: int, today: date) -> list[dict
     return sorted(out, key=lambda w: (str(w.get("expires")), str(w.get("id"))))
 
 
+def covered_images(scan_dir: Path) -> set[str]:
+    """Images whose report shows Trivy actually ANALYSED them.
+
+    A report *existing* is not the same as the image having been *scanned*.
+    Trivy writes `"Results": null` when it could not analyse the image at all
+    (no detectable OS, an unreadable layer) — and that report still names the
+    image, so counting it as coverage would let a scan that looked at nothing
+    read as "this CVE is gone" and delete a live waiver.
+
+    A report whose `Results` is a LIST is the repo's established "scanned"
+    shape, including an empty list: `trivy_image_report.py` treats
+    `Results: []` as a genuine clean pass
+    (tests/unit/test_scan_tooling.py::test_empty_results_report_is_clean),
+    and the two must not disagree about what "scanned" means.
+
+    An unreadable file is skipped here; `scan_dir_findings()` raises on it a
+    moment later, so the run fails closed rather than reading it as clean.
+    """
+    covered: set[str] = set()
+    for report in sorted(scan_dir.glob("*.json")):
+        try:
+            doc = json.loads(report.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue  # unreadable — scan_dir_findings() raises on this below
+        if not isinstance(doc.get("Results"), list):
+            continue  # Trivy analysed nothing: not evidence of absence
+        covered.add(doc.get("ArtifactName") or report.stem)
+    return covered
+
+
 def measure_carriers(scan_dir: Path) -> tuple[dict[str, list[str]], set[str]]:
     """`({cve: [image refs]}, {images actually scanned})` from `scan_dir`.
 
@@ -87,11 +118,10 @@ def measure_carriers(scan_dir: Path) -> tuple[dict[str, list[str]], set[str]]:
     exactly the failure Phase 847d exists to remove.
     """
     _severity, carriers = render_waivers.scan_dir_findings(scan_dir)
-    scanned = {img for refs in carriers.values() for img in refs}
     # An image that carried nothing at all contributes no carriers entries, so it
-    # is invisible above. Read the report's own ArtifactName to recover it.
-    for report in sorted(scan_dir.glob("*.json")):
-        scanned.add(_artifact_name(report))
+    # is invisible in the map above; `covered_images` recovers it from the
+    # report itself.
+    scanned = {img for refs in carriers.values() for img in refs} | covered_images(scan_dir)
     return carriers, scanned
 
 

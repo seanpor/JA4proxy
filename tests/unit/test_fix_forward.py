@@ -620,23 +620,23 @@ def test_cached_scanner_roundtrip(tmp_path: Path) -> None:
         return _finding("CVE-X", "HIGH")
 
     cache_path = tmp_path / "cache.json"
-    scan, save = ff.cached_scanner(scanner, cache_path=cache_path, ignore_sha="abc", today="2026-10-21")
+    scan, save = ff.cached_scanner(scanner, cache_path=cache_path, ignore_digest="abc", today="2026-10-21")
     assert scan("img:1") == _finding("CVE-X", "HIGH")
     save()
     assert calls == ["img:1"]
 
     # Same ref + same ignore hash within max age: served from the cache.
-    scan2, _ = ff.cached_scanner(scanner, cache_path=cache_path, ignore_sha="abc", today="2026-10-25")
+    scan2, _ = ff.cached_scanner(scanner, cache_path=cache_path, ignore_digest="abc", today="2026-10-25")
     scan2("img:1")
     assert calls == ["img:1"]
 
     # A different ignorefile hash invalidates.
-    scan3, _ = ff.cached_scanner(scanner, cache_path=cache_path, ignore_sha="def", today="2026-10-25")
+    scan3, _ = ff.cached_scanner(scanner, cache_path=cache_path, ignore_digest="def", today="2026-10-25")
     scan3("img:1")
     assert calls == ["img:1", "img:1"]
 
     # Beyond max age the entry is stale: re-scanned.
-    scan4, _ = ff.cached_scanner(scanner, cache_path=cache_path, ignore_sha="abc", today="2026-11-01")
+    scan4, _ = ff.cached_scanner(scanner, cache_path=cache_path, ignore_digest="abc", today="2026-11-01")
     scan4("img:1")
     assert calls == ["img:1", "img:1", "img:1"]
 
@@ -644,7 +644,7 @@ def test_cached_scanner_roundtrip(tmp_path: Path) -> None:
 def test_cached_scanner_survives_corrupt_cache(tmp_path: Path) -> None:
     cache_path = tmp_path / "cache.json"
     cache_path.write_text("{not json", encoding="utf-8")
-    scan, _save = ff.cached_scanner(lambda ref: {}, cache_path=cache_path, ignore_sha="abc", today="2026-10-21")
+    scan, _save = ff.cached_scanner(lambda ref: {}, cache_path=cache_path, ignore_digest="abc", today="2026-10-21")
     assert scan("img:1") == {}
 
 

@@ -86,6 +86,42 @@ def test_missing_waivers_key_is_still_rejected() -> None:
     assert render_waivers.validate(reg) == ["`waivers:` must be a list"]
 
 
+def test_load_registry_refuses_a_file_with_no_waivers_key(tmp_path) -> None:
+    """A file that lost its `waivers:` key is not an empty registry.
+
+    Coercing it to `[]` would read as "zero waivers", and the derived
+    ignorefiles would then be regenerated EMPTY — every live exemption
+    dropped, silently. The dict-level check in `validate()` cannot catch it
+    once `load_registry` has normalised the value away, so the refusal has to
+    happen at load time.
+    """
+    path = tmp_path / "waivers.yaml"
+    path.write_text(
+        "version: 1\npolicy:\n  max_window_days: 90\n  default_owner: security-oncall\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(render_waivers.RegistryError) as excinfo:
+        render_waivers.load_registry(path)
+
+    assert "waivers" in str(excinfo.value)
+
+
+def test_load_registry_accepts_an_empty_waivers_list(tmp_path) -> None:
+    """The goal state: zero waivers, with the key still present."""
+    path = tmp_path / "waivers.yaml"
+    path.write_text(
+        "version: 1\npolicy:\n  max_window_days: 90\n  default_owner: security-oncall\n"
+        "waivers:\n",
+        encoding="utf-8",
+    )
+
+    registry = render_waivers.load_registry(path)
+
+    assert registry["waivers"] == []
+    assert render_waivers.validate(registry) == []
+
+
 def test_missing_rationale_is_rejected() -> None:
     reg = _valid_registry()
     del reg["waivers"][0]["rationale"]

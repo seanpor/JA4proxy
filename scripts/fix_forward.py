@@ -65,7 +65,7 @@ import sys
 import urllib.error
 import urllib.request
 from datetime import date
-from hashlib import sha1
+from hashlib import sha256
 from pathlib import Path
 from typing import Any, Callable, Sequence
 
@@ -606,11 +606,11 @@ def cached_scanner(
     scanner: Callable[[str], dict],
     *,
     cache_path: Path,
-    ignore_sha: str,
+    ignore_digest: str,
     today: str,
     max_age_days: int = DEFAULT_SCAN_CACHE_MAX_AGE_DAYS,
 ) -> tuple[Callable[[str], dict], Callable[[], None]]:
-    """Wrap `scanner` with an on-disk cache keyed by (ref, ignorefile hash).
+    """Wrap `scanner` with an on-disk cache keyed by (ref, ignorefile digest).
 
     Returns `(scanner, save)`. Entries older than `max_age_days` are ignored
     and re-scanned; `save` persists what was actually scanned this run.
@@ -623,7 +623,7 @@ def cached_scanner(
             data = {}
 
     def wrapped(ref: str) -> dict:
-        key = f"{ref}|{ignore_sha}"
+        key = f"{ref}|{ignore_digest}"
         entry = data.get(key)
         if isinstance(entry, dict) and _fresh(str(entry.get("at", "")), today, max_age_days):
             return dict(entry.get("findings") or {})
@@ -1317,9 +1317,15 @@ def main(argv: list[str] | None = None) -> int:
         scanner: Callable[[str], dict] = default_scanner()
     else:
         ignore_path = args.repo_root / ".trivyignore.third-party"
-        ignore_sha = sha1(ignore_path.read_bytes()).hexdigest()[:16] if ignore_path.exists() else "none"
+        # SHA-256, not SHA-1: this is a *content fingerprint* for the scan-cache
+        # key, never a signature, but there is no reason to reach for a digest
+        # that is broken for collisions when a stronger one costs the same.
+        # (Semgrep blocks SHA-1 outright, and it is right to.) Truncating to 16
+        # hex chars keeps the cache key short; 64 bits of a collision-resistant
+        # digest is far more than enough to tell two ignorefiles apart.
+        ignore_digest = sha256(ignore_path.read_bytes()).hexdigest()[:16] if ignore_path.exists() else "none"
         scanner, save_cache = cached_scanner(
-            default_scanner(), cache_path=args.scan_cache, ignore_sha=ignore_sha, today=today
+            default_scanner(), cache_path=args.scan_cache, ignore_digest=ignore_digest, today=today
         )
 
     fetch_json = memoized_json_fetch(pypi_fetch)
