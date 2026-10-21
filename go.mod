@@ -1,6 +1,14 @@
 module github.com/seanpor/ja4proxy
 
-go 1.26.6
+// The floor is 1.26.10, not 1.26.6.
+//
+// GO-2026-6809 (CVE-2026-111943) affects the crypto/x509 code this
+// repository calls — `x509.Certificate.Verify`, at
+// internal/security/mtls.go:50 — and it is fixed in Go 1.26.10 and 1.27.3.
+// The release workflows (`release-cli.yml`, `go-proxy-image.yml`) install Go
+// from this directive, so this floor is the toolchain the released CLI binary
+// is built with. See Phase 847g.
+go 1.26.10
 
 require (
 	github.com/alicebob/miniredis/v2 v2.39.0

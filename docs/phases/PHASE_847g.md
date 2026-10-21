@@ -38,6 +38,17 @@ Two parts, and they are not the same kind of work:
    **dated, justified waivers** — or a bump to a tag that happens to bundle a
    patched toolchain, if one exists by then.
 
+### Already done: the audit toolchain
+
+The **audit** half of the CVE is already handled. Every Go toolchain CI pins
+was moved to 1.27.3, and `go.mod`'s floor to 1.26.10, because the required
+"Go dependency audit (govulncheck)" job pinned the *vulnerable* 1.27.2 and
+`govulncheck` therefore exited 3 on `internal/security/mtls.go:50` — failing
+every pull request in the repository. That landed with Phase 847d, with
+`tests/unit/test_go_toolchain_pins.py` keeping it honest.
+
+What is left here is the half that **ships**: the images.
+
 ---
 
 ## Why this is a phase and not a commit
