@@ -12,6 +12,7 @@ hold that line — the old behaviour was a silent no-op with respect to truth.
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 import tempfile
 from datetime import date, timedelta
@@ -688,3 +689,157 @@ def test_remove_entries_with_no_ids_is_a_noop(tmp_path, monkeypatch) -> None:
     path.write_text("# untouched\n", encoding="utf-8")
     assert render_waivers.remove_entries({"waivers": []}, [], path) == []
     assert path.read_text(encoding="utf-8") == "# untouched\n"
+
+
+# ── The invocation the workflow actually uses ─────────────────────────────────
+#
+# Everything above calls `main()` in-process, with pytest's import machinery
+# already in place. The renewal workflow does something else entirely:
+#
+#     python3 scripts/renew_trivyignore.py --within-days 5 --scan-dir /tmp/…
+#
+# That puts `scripts/` on sys.path and NOT the repository root, so
+# `from scripts import fix_forward` — which resolves under pytest, because
+# pytest puts the repo root on sys.path — raises ModuleNotFoundError there.
+#
+# The re-affirmation only reaches that import when an entry is actually being
+# re-affirmed, so the defect stayed invisible: the unit suite passed over a
+# script that crashed the first time the workflow had real work to do. It was
+# found by running the script for real, against a real Trivy scan directory.
+
+
+def test_the_script_runs_the_way_the_workflow_runs_it(tmp_path) -> None:
+    """The script must work when invoked as a file, not only when imported.
+
+    The carrier is digest-pinned on purpose: `fix_forward` refuses to reason
+    about a digest-pinned image without touching the network, so this test
+    reaches the same code path as a real re-affirmation and still stays
+    inside the unit-test boundary of reaching no external process.
+    """
+    carrier = "grafana/alloy:v1.19.2@sha256:" + "b8ec653c" * 8
+    reg_path = _write_registry(
+        tmp_path / "waivers.yaml",
+        _entry("CVE-2026-00001", "2026-10-24", carriers=(carrier,)),
+    )
+    scan = _scan_dir(tmp_path, {carrier: {"CVE-2026-00001": "HIGH"}})
+
+    proc = subprocess.run(
+        [
+            sys.executable,
+            str(scripts_dir / "renew_trivyignore.py"),
+            "--today", "2026-10-21",
+            "--within-days", "5",
+            "--registry", str(reg_path),
+            "--scan-dir", str(scan),
+            "--check",
+        ],
+        cwd=str(scripts_dir.parent),
+        capture_output=True,
+        text=True,
+    )
+
+    assert "Traceback" not in proc.stderr, proc.stderr
+    assert "ModuleNotFoundError" not in proc.stderr, proc.stderr
+    # Not a crash, and not a silent no-op either: the entry was classified
+    # and the fix-forward decider was consulted and had no answer.
+    assert proc.returncode in (0, 1), proc.stderr
+    assert "no clearing tag found" in proc.stdout, proc.stdout
+
+
+def test_a_crash_is_an_error_not_an_escalation(tmp_path, monkeypatch, capsys) -> None:
+    """A broken script must not wear the exit code of a legitimate escalation.
+
+    The renewal workflow reads 1 as "a human needs to look" and files an
+    issue; 2 as "the tool is broken" and fails loudly. Python's default exit
+    code for an uncaught exception is 1 — so a crash would file a
+    legitimate-looking issue while the re-affirmation it was supposed to
+    perform never happened, and the job would look like it had worked.
+    """
+    reg_path = _write_registry(tmp_path / "waivers.yaml", _entry("CVE-2026-00001", "2026-08-06"))
+    scan = _scan_dir(tmp_path, {"grafana/grafana:13.2.4": {"CVE-2026-00001": "HIGH"}})
+
+    def boom(*_args, **_kwargs):
+        raise RuntimeError("simulated defect")
+
+    monkeypatch.setattr(renew_trivyignore, "classify", boom)
+    rc = renew_trivyignore.main(
+        ["--today", "2026-08-04", "--within-days", "5",
+         "--registry", str(reg_path), "--scan-dir", str(scan)]
+    )
+    assert rc == 2
+    assert "this is a bug in the script" in capsys.readouterr().err
+
+
+def test_a_dead_waiver_whose_carrier_is_shared_is_escalated_not_dropped(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    """A contested removal is a decision for a human, not an aborted run.
+
+    The registry refuses to remove an entry whose carrier another surviving
+    waiver still claims. That refusal used to raise, which exited 2 and took
+    the daily workflow red — over a situation that is a policy question, not
+    a defect. It must not abort the run, and it must not be reported as a
+    removal that happened.
+    """
+    shared = "grafana/grafana:13.2.4"
+    reg_path = _write_registry(
+        tmp_path / "waivers.yaml",
+        _entry("CVE-2026-00001", "2026-08-06", carriers=(shared,)),
+        _entry("CVE-2026-00002", "2026-08-06", carriers=(shared,)),
+    )
+    original = reg_path.read_text(encoding="utf-8")
+    # The scan still sees CVE-2026-00002, so that waiver is live; it does not
+    # see CVE-2026-00001, so that one is dead.
+    scan = _scan_dir(tmp_path, {shared: {"CVE-2026-00002": "HIGH"}})
+    rw = renew_trivyignore.render_waivers
+    monkeypatch.setattr(rw, "THIRD_PARTY_IGNORE", tmp_path / ".trivyignore.third-party")
+    monkeypatch.setattr(rw, "FIRST_PARTY_IGNORE", tmp_path / ".trivyignore.first-party")
+    monkeypatch.setattr(rw, "PIP_AUDIT_IGNORES", tmp_path / ".pip-audit-ignores")
+
+    rc = renew_trivyignore.main(
+        ["--today", "2026-08-04", "--within-days", "5",
+         "--registry", str(reg_path), "--scan-dir", str(scan)]
+    )
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert "dead, but not removable" in out
+    # The dead entry stays (the registry's rule), and the file is untouched.
+    assert reg_path.read_text(encoding="utf-8") == original
+    assert "CVE-2026-00001" in reg_path.read_text(encoding="utf-8")
+
+
+def test_a_contested_dead_waiver_does_not_block_the_removal_of_another(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    """One contested entry must not stop an unrelated dead waiver from going.
+
+    `remove_entries` refuses a whole batch when any one entry's carrier is
+    still claimed, so removing them one at a time is what keeps an unrelated
+    dead waiver from being held hostage by a contested sibling.
+    """
+    shared = "grafana/grafana:13.2.4"
+    sole = "redis:7.4.11-alpine"
+    reg_path = _write_registry(
+        tmp_path / "waivers.yaml",
+        _entry("CVE-2026-00001", "2026-08-06", carriers=(shared,)),
+        _entry("CVE-2026-00002", "2026-08-06", carriers=(shared,)),
+        _entry("CVE-2026-00003", "2026-08-06", carriers=(sole,)),
+    )
+    scan = _scan_dir(
+        tmp_path,
+        {shared: {"CVE-2026-00002": "HIGH"}, sole: {"CVE-2026-99999": "LOW"}},
+    )
+    rw = renew_trivyignore.render_waivers
+    monkeypatch.setattr(rw, "THIRD_PARTY_IGNORE", tmp_path / ".trivyignore.third-party")
+    monkeypatch.setattr(rw, "FIRST_PARTY_IGNORE", tmp_path / ".trivyignore.first-party")
+    monkeypatch.setattr(rw, "PIP_AUDIT_IGNORES", tmp_path / ".pip-audit-ignores")
+
+    rc = renew_trivyignore.main(
+        ["--today", "2026-08-04", "--within-days", "5",
+         "--registry", str(reg_path), "--scan-dir", str(scan)]
+    )
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert "Removed 1 dead waiver(s): CVE-2026-00003" in out
+    remaining = render_waivers.load_registry(reg_path)["waivers"]
+    assert sorted(str(w["id"]) for w in remaining) == ["CVE-2026-00001", "CVE-2026-00002"]

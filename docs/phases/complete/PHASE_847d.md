@@ -323,6 +323,58 @@ gate, or ship a knowingly-false header in a security artifact.
 
 ---
 
+### The live run, and the two defects only it could find
+
+The unit suite was green. The renewal workflow, however, had never actually
+re-affirmed an entry — it had been measuring nothing for 63 days, and the
+re-affirmation it now performs had therefore never been executed. So it was
+run **for real**: nine third-party images scanned with Trivy, and the
+re-affirmation pointed at the resulting scan directory.
+
+It crashed on the first entry it tried to re-affirm:
+
+```
+  File "scripts/renew_trivyignore.py", line 159, in fix_proposal
+    from scripts import fix_forward as ff
+ModuleNotFoundError: No module named 'scripts'
+```
+
+**The script was only ever correct when imported.** Every test called
+`main()` in-process, where pytest has the repository root on `sys.path` and
+`from scripts import fix_forward` resolves. The workflow runs
+`python3 scripts/renew_trivyignore.py …`, which puts `scripts/` on `sys.path`
+and *not* the repository root — so the same import raises there. It was the
+only bare sibling import in the repository; every other one already carried
+the `try: from scripts import X / except ImportError: import X` fallback.
+Fixed the same way, and the workflow's invocation is now a test.
+
+**The crash would have worn the exit code of a legitimate escalation.** Python
+exits 1 on an uncaught exception, and the workflow reads 1 as "a human needs
+to look" — it files an issue and stays green. So the first time a waiver
+entered the five-day window, the re-affirmation would have died, filed a
+perfectly legitimate-looking issue, and never run again. That is this phase's
+own failure class in a new costume: a tool that measures nothing and reports
+success. A crash is now exit code 2 — an error, and loudly so.
+
+**A contested removal aborted the whole run.** `remove_entries` refuses to
+delete an entry whose carrier another surviving waiver still claims. That
+refusal raised, and the run died with exit 2 — turning a policy question into
+a red daily job. It is now a per-entry escalation with the exact reason, and
+entries are removed one at a time, so one contested waiver no longer holds an
+unrelated dead waiver hostage. The refusal itself is kept: it is conservative,
+it fails safe, and changing what a carrier claim *means* is a decision for a
+follow-up phase, not a side effect of a bug fix.
+
+The output no longer claims a removal that did not happen either. It used to
+print `✓ dead: … — removing the waiver.` and then, in the contested case, not
+remove it.
+
+Both defects were invisible to the unit suite and obvious the moment the code
+ran against real data. That is the argument for the live run, and it is why
+the live run is part of this phase's test strategy rather than an extra.
+
+---
+
 ## Test strategy
 
 - **Fix-found path:** a synthetic finding with a known clearing version;
@@ -345,6 +397,11 @@ gate, or ship a knowingly-false header in a security artifact.
   DEAD/`unmeasured` distinction against the real registry with a deliberately
   partial scan dir — and, in both directions, proving the guard is not a
   blanket refusal (a complete scan does delete).
+- **The workflow's own invocation:** the re-affirmation run as
+  `python3 scripts/renew_trivyignore.py …` — a subprocess, with only
+  `scripts/` on `sys.path` — against a real scan directory. Two defects were
+  invisible to the in-process tests and found here; see the live-run section
+  above.
 - **Evidence quality:** a report that analysed nothing (`Results: null`) is
   not coverage; a rationale that looks like an entry does not move an entry
   boundary; a missing `waivers:` key is not an empty registry; a deletion that

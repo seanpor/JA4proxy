@@ -31,7 +31,10 @@ without evidence.
 
 Registry deletions go through `render_waivers.remove_entries`, which trims the
 entry's text block rather than re-serialising the document, and `remove_entries`
-refuses to delete a carrier another surviving waiver still claims.
+refuses to delete a carrier another surviving waiver still claims. That refusal
+is a policy question, not a defect: the entry is escalated for a human instead
+of aborting the run, and it is removed one at a time so that one contested
+waiver cannot hold an unrelated dead waiver hostage.
 
 Exit codes: 0 = nothing needed attention, 1 = something was changed or escalated
 for a human, 2 = error. `--check` reports without writing, for CI.
@@ -41,6 +44,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import traceback
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -53,6 +57,11 @@ try:
     from scripts.check_trivyignore_drift import scan_dir_findings
 except ImportError:  # pragma: no cover - direct invocation
     from check_trivyignore_drift import scan_dir_findings  # type: ignore[no-redef]
+
+try:  # works as `python3 scripts/x.py` and as `from scripts.x import ...`
+    from scripts import fix_forward as ff
+except ImportError:  # invoked directly, scripts/ on sys.path
+    import fix_forward as ff  # type: ignore[no-redef]
 
 
 def _as_date(value: str) -> date | None:
@@ -156,8 +165,6 @@ def fix_proposal(entry: dict, carriers: dict[str, list[str]], registry: dict, to
     reporting it as `fixable` would overclaim. The caller escalates multi-carrier
     entries for a human instead.
     """
-    from scripts import fix_forward as ff
-
     cve = str(entry.get("id"))
     refs = carriers.get(cve) or []
     if len(refs) != 1:
@@ -174,7 +181,12 @@ def fix_proposal(entry: dict, carriers: dict[str, list[str]], registry: dict, to
     return decisions[0] if decisions and decisions[0]["decision"] == "fixable" else None
 
 
-def _escalation_lines(entry: dict, carriers: dict[str, list[str]], verdict: str) -> list[str]:
+def _escalation_lines(
+    entry: dict,
+    carriers: dict[str, list[str]],
+    verdict: str,
+    next_step: str = "",
+) -> list[str]:
     cve = str(entry.get("id"))
     refs = carriers.get(cve) or []
     lines = [
@@ -183,6 +195,9 @@ def _escalation_lines(entry: dict, carriers: dict[str, list[str]], verdict: str)
     ]
     if refs:
         lines.append(f"    carriers: {', '.join(refs)}")
+    if next_step:
+        lines.append(f"    next: {next_step}")
+    elif refs:
         if len(refs) == 1:
             lines.append(
                 "    next: check whether a newer tag clears it, then either propose the bump "
@@ -202,6 +217,34 @@ def _escalation_lines(entry: dict, carriers: dict[str, list[str]], verdict: str)
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Run the re-affirmation and translate a crash into the right exit code.
+
+    Exit codes: 0 = nothing needed attention, 1 = something was changed or
+    escalated for a human, 2 = error.
+
+    A crash is an **error** (2), never an escalation (1). Python's default for
+    an uncaught exception is 1 — which the renewal workflow reads as "a human
+    needs to look", so a broken script files an issue claiming that somebody
+    must act, while the re-affirmation it was supposed to perform never
+    happened. That is the "measuring nothing and reporting success" failure
+    this script exists to prevent, in a new costume: the workflow stays green,
+    the issue looks legitimate, and the job is simply never done.
+
+    The traceback is still printed; only the exit code changes.
+    """
+    try:
+        return _reaffirm(argv)
+    except Exception:  # noqa: BLE001 -- any crash is an error, not an escalation
+        traceback.print_exc()
+        print(
+            "✗ re-affirmation crashed — this is a bug in the script, "
+            "not a decision that needs a human",
+            file=sys.stderr,
+        )
+        return 2
+
+
+def _reaffirm(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--within-days", type=int, default=5)
     parser.add_argument("--today", default="", help="override today (YYYY-MM-DD)")
@@ -267,7 +310,15 @@ def main(argv: list[str] | None = None) -> int:
         verdict = classify(entry, carriers, scanned)
         if verdict == "dead":
             dead.append(entry)
-            print(f"  ✓ dead: {entry['id']} no longer appears in any scan — removing the waiver.")
+            # A fact, not a promise. Whether the waiver is actually removed is
+            # decided in the write phase below, and it is not always: a
+            # carrier another surviving waiver still claims blocks the
+            # removal. Announcing a removal that then does not happen is how a
+            # tool ends up claiming it did something it did not do.
+            print(
+                f"  ✓ dead: {entry['id']} no longer appears in any scan that "
+                "covered its carriers."
+            )
             continue
         if verdict == "unmeasured":
             escalations.append(
@@ -286,9 +337,22 @@ def main(argv: list[str] | None = None) -> int:
 
     changed = False
     if dead and not args.check:
-        removed = render_waivers.remove_entries(
-            registry, [str(e["id"]) for e in dead], args.registry
-        )
+        # One entry at a time, deliberately. `remove_entries` refuses the WHOLE
+        # batch when any one entry's carrier is still claimed by a surviving
+        # waiver — so a single shared carrier would block the removal of
+        # unrelated dead entries. Removing them individually means one
+        # contested entry cannot stop the rest, and a refusal becomes a
+        # decision for a human rather than an aborted run.
+        removed: list[str] = []
+        refused: list[tuple[dict, str]] = []
+        for entry in dead:
+            cid = str(entry["id"])
+            try:
+                render_waivers.remove_entries(registry, [cid], args.registry)
+            except ValueError as exc:
+                refused.append((entry, str(exc)))
+                continue
+            removed.append(cid)
         if removed:
             errors = render_waivers.validate(registry)
             if errors:
@@ -298,6 +362,26 @@ def main(argv: list[str] | None = None) -> int:
             render_waivers.write_derived(render_waivers.render_all(registry))
             changed = True
             print(f"Removed {len(removed)} dead waiver(s): {', '.join(sorted(removed))}")
+        for entry, why in refused:
+            # The waiver is dead — the CVE is gone from every scan that
+            # covered its carriers — but the registry's carrier rule will not
+            # let it be removed while another surviving waiver still claims
+            # the same image. That is a conservative refusal, not a failure:
+            # the entry stays, the exemption stays, and a human decides
+            # whether to drop it by hand.
+            escalations.append(
+                _escalation_lines(
+                    entry,
+                    carriers,
+                    f"dead, but not removable — {why}",
+                    next_step=(
+                        "the CVE is gone from every scan that covered this waiver's carriers, "
+                        "so the exemption is inert; the registry refuses to remove an entry whose "
+                        "carrier another surviving waiver still claims. Remove it by hand if you "
+                        "judge that safe — the removal is a registry edit, not a scan."
+                    ),
+                )
+            )
 
     for lines in escalations:
         print("\n".join(lines))
