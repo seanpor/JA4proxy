@@ -115,6 +115,7 @@ The 90-day ceiling stays; it just stops being a rubber stamp.
 | (not planned) | The registry may be **empty** | `validate()` previously rejected an empty `waivers:` list, so deleting the last dead waiver made the registry unvalidatable — a repo that fixed everything could not record that fact. Zero waivers is the goal, not a schema error. A *missing* key still fails. |
 | (not planned) | Coverage means "Trivy **analysed** the image", not "a report exists" | Found in review: Trivy writes `"Results": null` when it could not analyse the image (no detectable OS, an unreadable layer). The report still names the image, so it counted as scanned — and a carrier with no findings read as DEAD. See "The review pass" below. |
 | (not planned) | Entry boundaries honour the **indent** of the first entry | Found in review: `_ENTRY_RE` matches prose inside a rationale's folded block scalar, so `remove_entries` deleted only an entry's *head* and left its tail behind — the registry stopped being valid YAML. See "The review pass" below. |
+| (not planned) | The re-affirmation **workflow** was fixed, not just the script | Found in review: the workflow had been measuring nothing since 2026-08-19 (missing PyYAML on the runner) and reporting success for 63 days. 847d's re-affirmation reads the scan dir that was never populated, so the feature would have been inert. See "The workflow had been measuring nothing for 63 days" below. |
 
 ### The review pass
 
@@ -154,6 +155,70 @@ The gate also caught a fifth: preflight's semgrep step blocks SHA-1 in the
 scan-cache fingerprint. It is a content fingerprint and never a signature,
 but there is no reason to reach for a broken digest when SHA-256 costs the
 same. `ignore_sha` is now `ignore_digest`.
+
+### The workflow had been measuring nothing for 63 days
+
+The sixth finding is the largest, and it was not in the branch at all — it was
+in the workflow the branch rewires.
+
+Phase 829a (2026-08-19) added
+`images="$(python3 scripts/check_image_versions.py --list-third-party)"` to
+`trivyignore-renewal.yml` without installing PyYAML. `actions/setup-python`
+installs a **clean** interpreter, so the PyYAML the runner image happens to
+carry was not there; `check_image_versions.py` imports it at module level and
+exits 2. The chain that followed was silent at every link:
+
+| Step | What actually happened | What it looked like |
+|---|---|---|
+| `images="$(… --list-third-party)"` | exits 2, prints to stderr | an empty list |
+| the Trivy loop | iterates over nothing | a successful scan |
+| `check_trivyignore_drift.py --scan-dir …` | runs against an empty directory | a clean drift report |
+| `renew_trivyignore.py` | dies with `ModuleNotFoundError: No module named 'yaml'` | — |
+| `… \| tee renewal_summary.txt` | the pipeline's status is `tee`'s — **0** | a successful run |
+| the job | — | **success, every day** |
+
+63 consecutive daily runs, 2026-08-19 to 2026-10-21, all green. The
+`.trivyignore` renewal safety net had been dead the whole time, and the
+"measured" drift report was measuring an empty directory.
+
+This is the programme's own failure class, one level up from the code: **a
+check that measures nothing and reports success is worse than no check**,
+because it looks like coverage while providing none. And it had a second,
+sharper edge — 847d's re-affirmation reads `/tmp/trivy-scans` to decide
+whether a waiver is DEAD. With the scan dir empty, every entry would have
+escalated. Safe, correct, and inert: the feature would never have fired.
+
+Four fixes, each aimed at a different link in that chain:
+
+1. **Install PyYAML** on the runner, in both workflows that run these scripts
+   there. `ci.yml` already hit this exact trap and says so at its own install
+   step.
+2. **An empty image list is an error**, not a clean scan. The step now says
+   how many images it scanned, so "nothing" is visible in the log.
+3. **The exit codes are no longer confused.** The runner invokes `bash -e`,
+   so `-e` is already on: an unguarded pipeline aborts the step the moment
+   the script exits 1 — which is the *expected* "a human needs to look" case
+   — and `| tee` reports 0 regardless, because the pipeline's status is
+   `tee`'s. `PIPESTATUS` carries the script's own code, so exit 1 now means
+   "needs a human" and exit 2+ fails the step loudly.
+4. **An escalation reaches a human.** A pure ESCALATION changes nothing on
+   disk, and the issue was gated on "did a file change?" — so the one verdict
+   that most needs a person was the one that produced no artifact. The issue
+   is now filed whenever `needs_human` is true, with or without a branch.
+
+The monitor workflow had the same missing dependency, introduced by *this*
+phase: adding `setup-python` without `pip install pyyaml` would have taken
+the drift monitor down entirely (`check_image_versions.py` is imported by the
+monitor, at module level, and exits 2 without it). Found before it could ship.
+
+`tests/unit/test_waiver_workflow_guards.py` now asserts each of these guards,
+so the shape cannot come back silently. The assertions include one that
+checks the *requirement* is real — that the scripts really do import `yaml` —
+so the install step cannot become spurious and the real breakage return.
+
+The generalisation, one level above the code-level lesson above: the same
+rule applies to the harness, not just to the evidence. "The file exists" is
+weak evidence; so is "the job went green".
 
 ### The HTTP cap, and why it is 32 MiB for PyPI
 
