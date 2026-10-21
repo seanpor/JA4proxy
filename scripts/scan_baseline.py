@@ -65,7 +65,7 @@ try:  # works as `python3 scripts/x.py` and as `from scripts.x import ...`
         scan_gate_compose_paths,
         third_party_image_refs,
     )
-    from scripts.check_trivyignore_drift import vuln_rows
+    from scripts.check_trivyignore_drift import severity_set, vuln_rows
     from scripts.trivy_image_report import GATING_SEVERITIES, run_trivy
 except ImportError:  # invoked directly, scripts/ on sys.path
     from check_image_versions import (  # type: ignore[no-redef]
@@ -73,10 +73,15 @@ except ImportError:  # invoked directly, scripts/ on sys.path
         scan_gate_compose_paths,
         third_party_image_refs,
     )
-    from check_trivyignore_drift import vuln_rows  # type: ignore[no-redef]
+    from check_trivyignore_drift import severity_set, vuln_rows  # type: ignore[no-redef]
     from trivy_image_report import GATING_SEVERITIES, run_trivy  # type: ignore[no-redef]
 
 BASELINE_PATH = Path("security/baseline.json")
+# The MEDIUM band's own record (Phase 847e). A separate file, not a second
+# section of the HIGH/CRITICAL one: the two bands are judged separately, they
+# have different rules (only the MEDIUM one is ratcheted), and mixing them
+# would make "is this finding new?" ambiguous.
+MEDIUM_BASELINE_PATH = Path("security/baseline-medium.json")
 PYPI_SURFACE = "pypi"
 TRIVY_IGNOREFILE_THIRD_PARTY = ".trivyignore.third-party"
 TRIVY_IGNOREFILE_FIRST_PARTY = ".trivyignore.first-party"
@@ -193,14 +198,22 @@ def finding_entry(row) -> dict:
     }
 
 
-def record_findings(rows: Iterable, ref: str, digest: str | None) -> dict:
+def record_findings(
+    rows: Iterable,
+    ref: str,
+    digest: str | None,
+    severities: str | None = None,
+) -> dict:
     """Build one surface entry from parsed rows (pure; no scanning).
 
-    Rows are already filtered to `GATING_SEVERITIES` by the scanner. Anything
-    else reaching here is a broken filter, and silently recording it would
-    widen what a later PR is allowed to introduce — so it raises instead.
+    Rows are already filtered to the scanner's `--severity` set. Anything
+    outside that set reaching here is a broken filter, and silently recording
+    it would widen what a later PR is allowed to introduce — so it raises
+    instead. `severities` overrides the default (`GATING_SEVERITIES`) for the
+    callers that scan a different severity band; the default is unchanged, so
+    the HIGH/CRITICAL baseline cannot be altered by passing a different set.
     """
-    gating = GATING_SEVERITIES.split(",")
+    gating = severity_set(severities or GATING_SEVERITIES)
     findings = {}
     for row in rows:
         if row.severity not in gating:
@@ -358,18 +371,30 @@ def report_digest(report: dict) -> str | None:
     return None
 
 
-def scan_image(ref: str, first_party: bool, cache: str | None = None) -> tuple[list, str | None]:
+def scan_image(
+    ref: str,
+    first_party: bool,
+    cache: str | None = None,
+    severities: str | None = None,
+) -> tuple[list, str | None]:
     """Scan one image and return (rows, digest).
 
     `first_party` selects the ignorefile scope and enables the docker socket:
     locally-built images exist only in the local daemon, so Trivy cannot find
     them without it (the Phase 847b defect that made `ja4proxy-tap` silently
     unscannable).
+
+    `severities` overrides the scanner's default severity set — Phase 847e
+    measures the MEDIUM band by asking for it explicitly, and the default
+    (HIGH,CRITICAL) is what every other caller gets.
     """
     ignorefile = TRIVY_IGNOREFILE_FIRST_PARTY if first_party else TRIVY_IGNOREFILE_THIRD_PARTY
     cache_dir = cache or os.environ.get("TRIVY_CACHE", os.path.expanduser("~/.cache/trivy"))
-    report = run_trivy(ref, ignorefile, cache_dir, docker_socket=first_party)
-    return vuln_rows(report), report_digest(report) or image_digest(ref)
+    report = run_trivy(ref, ignorefile, cache_dir, docker_socket=first_party, severities=severities)
+    # The parser is told which band was asked for, so it keeps exactly what the
+    # scan requested. Left to itself it would default to HIGH/CRITICAL and
+    # silently discard a MEDIUM scan's results — which reads as "no findings".
+    return vuln_rows(report, severities), report_digest(report) or image_digest(ref)
 
 
 def is_first_party(ref: str) -> bool:

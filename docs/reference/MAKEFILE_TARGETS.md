@@ -45,7 +45,7 @@ The default lane runs **without HAProxy** (single proxy, reached directly on
 
 <!-- BEGIN GENERATED: make-targets -->
 
-_207 targets. Generated from the Makefile's own `##` help comments by `make sync` — do not edit this table by hand._
+_208 targets. Generated from the Makefile's own `##` help comments by `make sync` — do not edit this table by hand._
 
 ### Aggregate linters
 
@@ -167,6 +167,7 @@ _207 targets. Generated from the Makefile's own `##` help comments by `make sync
 | `lint-types` | Run mypy type checker on src/ |
 | `lint-yaml` | yamllint `config/` and `monitoring/` |
 | `logs` | Stream proxy container logs |
+| `medium-inventory` | Measure the MEDIUM surface and record security/baseline-medium.json |
 | `rebuild` | Wipe volumes/images, rebuild from scratch, start fresh |
 | `scan-baseline` | Record security/baseline.json (third-party + first-party images + Python deps) |
 | `scan-dockerfiles` | Trivy config scan of Dockerfiles + compose files (HIGH/CRITICAL → fail) |

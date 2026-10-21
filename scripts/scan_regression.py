@@ -52,7 +52,9 @@ try:  # works as `python3 scripts/x.py` and as `from scripts.x import ...`
         dockerfile_image_map,
         extract_images_from_text,
     )
+    from scripts.check_trivyignore_drift import severity_set
     from scripts.scan_baseline import (
+        MEDIUM_BASELINE_PATH,
         PYPI_SURFACE,
         BaselineError,
         image_name,
@@ -64,6 +66,7 @@ try:  # works as `python3 scripts/x.py` and as `from scripts.x import ...`
         scan_image,
         surface_for_image,
     )
+    from scripts.trivy_image_report import GATING_SEVERITIES
 except ImportError:  # invoked directly, scripts/ on sys.path
     from check_image_versions import (  # type: ignore[no-redef]
         FIRST_PARTY_IMAGES,
@@ -71,7 +74,9 @@ except ImportError:  # invoked directly, scripts/ on sys.path
         dockerfile_image_map,
         extract_images_from_text,
     )
+    from check_trivyignore_drift import severity_set  # type: ignore[no-redef]
     from scan_baseline import (  # type: ignore[no-redef]
+        MEDIUM_BASELINE_PATH,
         PYPI_SURFACE,
         BaselineError,
         image_name,
@@ -83,6 +88,23 @@ except ImportError:  # invoked directly, scripts/ on sys.path
         scan_image,
         surface_for_image,
     )
+    from trivy_image_report import GATING_SEVERITIES  # type: ignore[no-redef]
+
+# Phase 847e — the MEDIUM gating scope.
+#
+# The scope is a *decision*, not a preference: `security/medium-inventory.md`
+# records the measurement it was made from, and this constant records the
+# decision. "off" restores the pre-847e behaviour (HIGH/CRITICAL only).
+# "diff-only" fails a touched surface on a MEDIUM finding that is neither
+# recorded in `security/baseline-medium.json` nor waived — the same rule HIGH
+# follows, applied to the band the measurement chose.
+#
+# It is a constant rather than a flag because a flag would make "is MEDIUM
+# gated?" a runtime question, and the answer has to be the same for every
+# caller, in CI and on a laptop, forever.
+MEDIUM_SCOPE = "diff-only"
+MEDIUM_SEVERITIES = "MEDIUM"
+GATING_SEVERITY_SET = severity_set(GATING_SEVERITIES)
 
 # Files whose contents define a security surface. Detection follows the same
 # file set the scanner uses (SCAN_GATE_COMPOSE_REPOS), so the gate never marks
@@ -354,16 +376,63 @@ def all_surfaces(
     return everything
 
 
-def scan_surface(surface: str, ref: str, cache: str) -> dict[str, dict]:
+def scan_surface(surface: str, ref: str, cache: str, severities: str | None = None) -> dict[str, dict]:
     """Scan one surface and return `{finding id: entry}`.
 
     Raises RuntimeError when the surface could not be scanned — the caller must
     treat that as exit 2, never as "clean" (Phase 847b's lesson, applied here).
+
+    `severities` is the band to scan for; None keeps the gate's default
+    (HIGH,CRITICAL). The band asked for and the band parsed must agree — the
+    scanner is told which one, so a MEDIUM scan cannot silently come back as
+    "no findings".
     """
     if surface == PYPI_SURFACE:
+        # pip-audit reports no severity, so this surface has no MEDIUM band at
+        # all: every finding it produces is treated as gating (HIGH), exactly
+        # as before Phase 847e.
         return pypi_findings(run_pip_audit(ref))
-    rows, digest = scan_image(ref, first_party=image_name(ref) in FIRST_PARTY_IMAGES, cache=cache)
-    return record_findings(rows, ref, digest)["findings"]
+    rows, digest = scan_image(
+        ref,
+        first_party=image_name(ref) in FIRST_PARTY_IMAGES,
+        cache=cache,
+        severities=severities,
+    )
+    return record_findings(rows, ref, digest, severities=severities)["findings"]
+
+
+def split_bands(findings: dict[str, dict]) -> tuple[dict[str, dict], dict[str, dict]]:
+    """Split findings into the HIGH/CRITICAL band and the MEDIUM band.
+
+    The two bands are judged against **different** baselines, so they must
+    never be mixed: a MEDIUM finding must not be able to make the
+    HIGH/CRITICAL comparison look dirty, and a HIGH finding must not be able
+    to make the MEDIUM comparison look dirty. Phase 847e.
+
+    Anything whose severity is neither band (LOW, UNKNOWN) is in neither —
+    the gate has never judged those, and it does not start now.
+    """
+    high = {cid: e for cid, e in findings.items() if e.get("severity") in GATING_SEVERITY_SET}
+    medium = {cid: e for cid, e in findings.items() if e.get("severity") == MEDIUM_SEVERITIES}
+    return high, medium
+
+
+def report_band(label: str, findings: dict[str, dict], fresh: set[str]) -> None:
+    """Print one band and the findings that are new in it."""
+    if not findings:
+        print(f"    ✓ no {label} findings")
+        return
+    if not fresh:
+        print(f"    ✓ {len(findings)} {label} finding(s), all already present in the baseline")
+        return
+    print(f"    ✗ {len(fresh)} {label} finding(s) NOT in the baseline:")
+    for vid in sorted(fresh):
+        entry = findings[vid]
+        fix = entry.get("fixed") or ""
+        note = f"(fixed in {fix})" if fix else "(no fix published)"
+        print(
+            f"        {entry['severity']:8s} {vid}  {entry['package']} {entry['installed']}  {note}"
+        )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -371,6 +440,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--base", default="origin/main", help="the revision to diff against (default: origin/main)")
     parser.add_argument("--head", default="HEAD", help="the revision under test (default: HEAD)")
     parser.add_argument("--baseline", default=None, help="path to security/baseline.json")
+    parser.add_argument(
+        "--medium-baseline",
+        default=None,
+        help="path to the MEDIUM band's baseline (default: security/baseline-medium.json)",
+    )
     parser.add_argument("--plan", action="store_true", help="print the touched surfaces as JSON and exit")
     parser.add_argument(
         "--waiver-set-changed",
@@ -451,32 +525,48 @@ def main(argv: list[str] | None = None) -> int:
         print("   (refusing to guess — a regression gate with no baseline is a no-op)", file=sys.stderr)
         return 2
 
+    # The MEDIUM band (Phase 847e). It is scanned in the same pass as the
+    # HIGH/CRITICAL band — one scan, two judgements — and it is judged against
+    # its own baseline, so neither band can make the other look dirty.
+    scan_severities = GATING_SEVERITIES
+    medium_baseline: dict | None = None
+    if MEDIUM_SCOPE != "off":
+        scan_severities = f"{MEDIUM_SEVERITIES},{GATING_SEVERITIES}"
+        try:
+            medium_baseline = load_baseline(args.medium_baseline or MEDIUM_BASELINE_PATH)
+        except BaselineError as exc:
+            # Fail-safe, same as above: a MEDIUM gate with no baseline cannot
+            # say what is new, and a gate that cannot say is not a gate.
+            print(f"\u2717 {exc}", file=sys.stderr)
+            print(
+                "   (refusing to guess — a MEDIUM gate with no baseline is a no-op)",
+                file=sys.stderr,
+            )
+            return 2
+
     regressions: dict[str, set[str]] = {}
     scan_errors = 0
     for surface, meta in sorted(touched.items()):
         print(f"\n  \u2500\u2500 {surface}  ({meta['reason']})")
         try:
-            findings = scan_surface(surface, meta["ref"], cache)
+            findings = scan_surface(surface, meta["ref"], cache, severities=scan_severities)
         except (RuntimeError, OSError, ValueError) as exc:
             print(f"    \u2717 could not scan: {exc}", file=sys.stderr)
             scan_errors += 1
             continue
-        if not findings:
-            print("    \u2713 no HIGH/CRITICAL findings")
+        high, medium = split_bands(findings)
+        fresh = new_findings(baseline, surface, high)
+        fresh_medium: set[str] = set()
+        if medium_baseline is not None:
+            fresh_medium = new_findings(medium_baseline, surface, medium)
+        if not high and not medium:
+            print("    \u2713 no HIGH/CRITICAL or MEDIUM findings")
             continue
-        fresh = new_findings(baseline, surface, findings)
-        if not fresh:
-            print(f"    \u2713 {len(findings)} finding(s), all already present in the baseline")
-            continue
-        print(f"    \u2717 {len(fresh)} finding(s) NOT in the baseline:")
-        for vid in sorted(fresh):
-            entry = findings[vid]
-            fix = entry.get("fixed") or ""
-            note = f"(fixed in {fix})" if fix else "(no fix published)"
-            print(
-                f"        {entry['severity']:8s} {vid}  {entry['package']} {entry['installed']}  {note}"
-            )
-        regressions[surface] = fresh
+        report_band("HIGH/CRITICAL", high, fresh)
+        if medium_baseline is not None:
+            report_band("MEDIUM", medium, fresh_medium)
+        if fresh or fresh_medium:
+            regressions[surface] = fresh | fresh_medium
 
     if scan_errors:
         print(f"\n\u2717 {scan_errors} surface(s) could not be scanned — failing closed", file=sys.stderr)

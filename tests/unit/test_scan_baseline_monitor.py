@@ -204,28 +204,28 @@ class TestGitHubCalls:
 class TestScannedSurfaces:
     def test_includes_the_dependency_surface(self, monkeypatch):
         """The monitor's job is completeness; a surface it forgets is unwatched."""
-        monkeypatch.setattr(monitor, "scan_image", lambda ref, first_party, cache: ([], None))
+        monkeypatch.setattr(monitor, "scan_image", lambda ref, first_party, cache, severities=None: ([], None))
         monkeypatch.setattr(
             monitor,
             "run_pip_audit",
             lambda: [{"name": "urllib3", "version": "1", "vulns": [{"id": "CVE-1", "fix_versions": ["2"]}]}],
         )
 
-        current, failures = monitor.scan_surfaces(["redis:7"], "/tmp/cache")
+        current, medium, failures = monitor.scan_surfaces(["redis:7"], "/tmp/cache")
 
         assert failures == []
         assert "image:redis" in current
         assert current["pypi"]["findings"]["CVE-1"]["package"] == "urllib3"
 
     def test_a_failed_dependency_audit_is_a_failure_not_a_pass(self, monkeypatch):
-        monkeypatch.setattr(monitor, "scan_image", lambda ref, first_party, cache: ([], None))
+        monkeypatch.setattr(monitor, "scan_image", lambda ref, first_party, cache, severities=None: ([], None))
 
         def unreachable():
             raise RuntimeError("OSV unreachable")
 
         monkeypatch.setattr(monitor, "run_pip_audit", unreachable)
 
-        current, failures = monitor.scan_surfaces(["redis:7"], "/tmp/cache")
+        current, medium, failures = monitor.scan_surfaces(["redis:7"], "/tmp/cache")
 
         assert "pypi" not in current, "a failed audit must not read as 'nothing found'"
         assert failures and "OSV unreachable" in failures[0]
@@ -236,7 +236,7 @@ class TestApply:
         monkeypatch.setattr(monitor, "third_party_image_refs", lambda paths: [])
         monkeypatch.setattr(monitor, "scan_gate_compose_paths", lambda: [])
         monkeypatch.setattr(
-            monitor, "scan_surfaces", lambda refs, cache: ({"image:redis": _entry("CVE-1")}, [])
+            monitor, "scan_surfaces", lambda refs, cache: ({"image:redis": _entry("CVE-1")}, {}, [])
         )
         monkeypatch.setattr(monitor, "load_baseline", lambda path=None: _baseline())
         monkeypatch.setattr(monitor, "issues_by_title", lambda: issues)
@@ -283,7 +283,7 @@ class TestApply:
     def test_a_partial_scan_failure_exits_non_zero(self, monkeypatch, capsys):
         monkeypatch.setattr(monitor, "third_party_image_refs", lambda paths: [])
         monkeypatch.setattr(monitor, "scan_gate_compose_paths", lambda: [])
-        monkeypatch.setattr(monitor, "scan_surfaces", lambda refs, cache: ({}, ["redis: timed out"]))
+        monkeypatch.setattr(monitor, "scan_surfaces", lambda refs, cache: ({}, {}, ["redis: timed out"]))
         monkeypatch.setattr(monitor, "load_baseline", lambda path=None: _baseline())
 
         assert monitor.main([]) == 1
@@ -318,7 +318,7 @@ class TestStateOut:
         monkeypatch.setattr(
             monitor,
             "scan_surfaces",
-            lambda refs, cache: ({"image:redis": _entry("CVE-1", fix="2.0")}, []),
+            lambda refs, cache: ({"image:redis": _entry("CVE-1", fix="2.0")}, {}, []),
         )
         monkeypatch.setattr(monitor, "load_baseline", lambda path=None: _baseline())
 
@@ -349,7 +349,7 @@ class TestStateOut:
         partial scan' failure the monitor already refuses to report."""
         monkeypatch.setattr(monitor, "third_party_image_refs", lambda paths: [])
         monkeypatch.setattr(monitor, "scan_gate_compose_paths", lambda: [])
-        monkeypatch.setattr(monitor, "scan_surfaces", lambda refs, cache: ({}, ["redis: timed out"]))
+        monkeypatch.setattr(monitor, "scan_surfaces", lambda refs, cache: ({}, {}, ["redis: timed out"]))
         monkeypatch.setattr(monitor, "load_baseline", lambda path=None: _baseline())
         out = tmp_path / "state.json"
 
@@ -373,3 +373,121 @@ class TestStateOut:
         for surface, entry in current.items():
             assert isinstance(surface, str)
             assert "findings" in entry
+
+
+class TestMediumBand:
+    """The MEDIUM band in the monitor — Phase 847e.
+
+    The monitor measures the MEDIUM band in the same scan pass as the
+    HIGH/CRITICAL one and reports it against the committed record, so the
+    backlog is visible without ever becoming a gate.
+    """
+
+    def _rows(self, *rows):
+        return list(rows), "sha256:x"
+
+    def _row(self, cve, severity, fix=""):
+        return type(
+            "R",
+            (),
+            {"cve": cve, "severity": severity, "package": "pkg", "installed": "1.0", "fixed": fix},
+        )()
+
+    def test_the_two_bands_are_partitioned_not_mixed(self, monkeypatch):
+        monkeypatch.setattr(
+            monitor,
+            "scan_image",
+            lambda ref, first_party, cache, severities=None: self._rows(
+                self._row("CVE-H", "HIGH"),
+                self._row("CVE-M", "MEDIUM"),
+                self._row("CVE-L", "LOW"),
+            ),
+        )
+        monkeypatch.setattr(monitor, "run_pip_audit", lambda: [])
+
+        current, medium, failures = monitor.scan_surfaces(["redis:7"], "/tmp/cache")
+
+        assert failures == []
+        assert set(current["image:redis"]["findings"]) == {"CVE-H"}
+        assert set(medium["image:redis"]["findings"]) == {"CVE-M"}
+
+    def test_the_scan_asks_for_both_bands_in_one_pass(self, monkeypatch):
+        seen = []
+
+        def fake_scan(ref, first_party, cache, severities=None):
+            seen.append(severities)
+            return [], "sha256:x"
+
+        monkeypatch.setattr(monitor, "scan_image", fake_scan)
+        monkeypatch.setattr(monitor, "run_pip_audit", lambda: [])
+
+        monitor.scan_surfaces(["redis:7"], "/tmp/cache")
+
+        assert seen == ["MEDIUM,HIGH,CRITICAL"]
+
+    def test_the_python_surface_has_no_medium_band(self, monkeypatch):
+        """pip-audit reports no severity, so there is nothing to partition."""
+        monkeypatch.setattr(monitor, "scan_image", lambda ref, first_party, cache, severities=None: ([], None))
+        monkeypatch.setattr(
+            monitor,
+            "run_pip_audit",
+            lambda: [{"name": "urllib3", "version": "1", "vulns": [{"id": "CVE-1", "fix_versions": ["2"]}]}],
+        )
+
+        current, medium, failures = monitor.scan_surfaces(["redis:7"], "/tmp/cache")
+
+        assert "pypi" in current
+        assert "pypi" not in medium
+
+
+class TestMediumState:
+    """`medium_state` — the live count against the committed record."""
+
+    def _medium(self, count):
+        return {
+            "image:redis": {
+                "findings": {f"CVE-{i}": {"severity": "MEDIUM"} for i in range(count)},
+            }
+        }
+
+    def _record(self, count, ceiling):
+        return {
+            "version": 1,
+            "ceiling": ceiling,
+            "surfaces": {
+                "image:redis": {
+                    "findings": {f"CVE-{i}": {"severity": "MEDIUM"} for i in range(count)},
+                }
+            },
+        }
+
+    def test_the_live_count_is_compared_with_the_record_and_the_ceiling(self):
+        state = monitor.medium_state(self._medium(5), self._record(4, 4))
+        assert state["live"] == 5
+        assert state["recorded"] == 4
+        assert state["ceiling"] == 4
+        assert state["over_ceiling"] is True
+
+    def test_a_shrinking_backlog_is_not_flagged(self):
+        state = monitor.medium_state(self._medium(2), self._record(4, 4))
+        assert state["live"] == 2
+        assert state["over_ceiling"] is False
+
+    def test_a_missing_record_degrades_to_the_live_count(self):
+        """No record means nothing to compare against — not a crash, not a pass."""
+        state = monitor.medium_state(self._medium(3), None)
+        assert state["live"] == 3
+        assert state["recorded"] == 0
+        assert state["ceiling"] == 0
+
+    def test_the_report_shows_the_medium_state(self):
+        report = monitor.render_report(
+            {"image:redis": _entry()},
+            {"appeared": {}, "cleared": {}, "retagged": {}},
+            [],
+            [],
+            monitor.medium_state(self._medium(5), self._record(4, 4)),
+        )
+        assert "MEDIUM band" in report
+        assert "**5**" in report
+        assert "above the ceiling" in report
