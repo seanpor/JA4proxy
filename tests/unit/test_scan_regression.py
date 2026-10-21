@@ -30,12 +30,22 @@ sys.path.insert(0, str(_ROOT / "scripts"))
 import scan_regression as gate  # noqa: E402
 
 
-def _git_repo(tmp_path: Path, base_text: str, head_text: str, path: str = ".trivyignore.third-party"):
+def _git_repo(
+    tmp_path: Path,
+    base_text: str,
+    head_text: str,
+    path: str = ".trivyignore.third-party",
+    files: tuple[str, ...] | None = None,
+):
     """A two-commit repo: *base_text* at the first commit, *head_text* at HEAD.
 
     Returns `(repo path, base commit sha)`. The waiver-set comparison reads the
     files at a revision, so it needs a real repository — a mock would test the
     mock.
+
+    Every applied ignorefile is created, not just the one under test: the
+    comparison reads all three, and a file that cannot be read at either end is
+    an ERROR (fail closed), not "unchanged". Pass *files* to create a subset.
     """
     repo = tmp_path / "repo"
     repo.mkdir()
@@ -53,16 +63,20 @@ def _git_repo(tmp_path: Path, base_text: str, head_text: str, path: str = ".triv
         )
         return proc.stdout.strip()
 
+    def write_all(text_for) -> None:
+        for name in files if files is not None else gate.APPLIED_WAIVER_FILES:
+            target = repo / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(text_for(name), encoding="utf-8")
+
     git("init", "-q")
-    target = repo / path
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(base_text, encoding="utf-8")
+    write_all(lambda name: base_text if name == path else "# untouched\n")
     git("add", "-A")
-    git("commit", "-qm", "base")
+    git("commit", "-q", "--allow-empty", "-m", "base")
     base = git("rev-parse", "HEAD")
-    target.write_text(head_text, encoding="utf-8")
+    write_all(lambda name: head_text if name == path else "# untouched\n")
     git("add", "-A")
-    git("commit", "-qm", "head")
+    git("commit", "-q", "--allow-empty", "-m", "head")
     return str(repo), base
 
 
@@ -175,6 +189,47 @@ class TestDetection:
             {},
         )
         assert touched["image:ja4proxy"]["ref"] == "ja4proxy:2.0.1"
+
+
+class TestWaiverSetChangedCli:
+    """The CI trigger asks this question on its own, so the answer has a contract.
+
+    Exit codes: 0 = changed, 1 = unchanged, 2 = could not tell. "Could not
+    tell" has to be distinguishable, or the caller has to choose between
+    running the full scan and staying quiet — and the caller must choose to
+    run it.
+    """
+
+    def test_unchanged_exits_1(self, tmp_path, monkeypatch, capsys):
+        repo, base = _git_repo(
+            tmp_path,
+            "# header\nCVE-2026-1 exp:2026-12-01\n",
+            "# header\nCVE-2026-1 exp:2026-12-01\n",
+        )
+        monkeypatch.chdir(repo)
+        assert gate.main(["--base", base, "--head", "HEAD", "--waiver-set-changed"]) == 1
+        assert "unchanged" in capsys.readouterr().out
+
+    def test_changed_exits_0(self, tmp_path, monkeypatch, capsys):
+        repo, base = _git_repo(
+            tmp_path,
+            "# header\nCVE-2026-1 exp:2026-12-01\n",
+            "# header\n",
+        )
+        monkeypatch.chdir(repo)
+        assert gate.main(["--base", base, "--head", "HEAD", "--waiver-set-changed"]) == 0
+        assert "changed" in capsys.readouterr().out
+
+    def test_could_not_tell_exits_2(self, tmp_path, monkeypatch, capsys):
+        repo, base = _git_repo(
+            tmp_path,
+            "# header\nCVE-2026-1 exp:2026-12-01\n",
+            "# header\nCVE-2026-1 exp:2026-12-01\n",
+            files=(".trivyignore.third-party",),
+        )
+        monkeypatch.chdir(repo)
+        assert gate.main(["--base", base, "--head", "HEAD", "--waiver-set-changed"]) == 2
+        assert "cannot determine" in capsys.readouterr().err
 
 
 class TestMakefileMap:
@@ -323,6 +378,23 @@ class TestWaiverInputsAreASurface:
             "",
         )
         assert gate.waiver_set_changed(base, "HEAD", repo=repo)
+
+    def test_a_file_unreadable_at_both_ends_is_an_ERROR(self, tmp_path):
+        """A comparison that did not happen must not read as "unchanged".
+
+        All three applied ignorefiles are tracked at every relevant revision,
+        so a file that cannot be read at either end means the git layer is
+        broken. Reading that as "the waiver set did not change" would skip the
+        full scan on a PR that may well have deleted a waiver.
+        """
+        repo, base = _git_repo(
+            tmp_path,
+            "# header\nCVE-2026-1 exp:2026-12-01\n",
+            "# header\nCVE-2026-1 exp:2026-12-01\n",
+            files=(".trivyignore.third-party",),
+        )
+        with pytest.raises(gate.DiffError):
+            gate.waiver_set_changed(base, "HEAD", repo=repo)
 
     def test_the_registry_alone_is_not_compared(self, tmp_path):
         """The bot writes its own metadata there without waiving anything.

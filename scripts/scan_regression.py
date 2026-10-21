@@ -317,7 +317,11 @@ def waiver_set_changed(base: str, head: str = "HEAD", repo: str = ".") -> bool:
         base_text = file_at(base, path, repo=repo)
         head_text = file_at(head, path, repo=repo)
         if base_text is None and head_text is None:
-            continue  # not tracked at either end: nothing to compare
+            # Unreadable at BOTH ends: the comparison did not happen. These
+            # files are tracked at every relevant revision, so this is a broken
+            # git layer, not an absent file — and it must not be read as "the
+            # waiver set did not change".
+            raise DiffError(f"could not read {path} at {base} or {head}")
         if base_text is None or head_text is None:
             return True  # added or deleted — the applied set changed
         if applied_waiver_entries(base_text) != applied_waiver_entries(head_text):
@@ -368,7 +372,31 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--head", default="HEAD", help="the revision under test (default: HEAD)")
     parser.add_argument("--baseline", default=None, help="path to security/baseline.json")
     parser.add_argument("--plan", action="store_true", help="print the touched surfaces as JSON and exit")
+    parser.add_argument(
+        "--waiver-set-changed",
+        action="store_true",
+        help="exit 0 if the waiver SET changed between --base and --head, 1 if not, 2 if unknown",
+    )
     args = parser.parse_args(argv)
+
+    if args.waiver_set_changed:
+        # The CI plumbing asks this question on its own: "did the waiver set
+        # move?" is the trigger for the full scan on a PR. It is answered here
+        # rather than in the workflow, with the SAME comparison the gate uses,
+        # so the two can never disagree — the failure mode being a trigger that
+        # fires on a documentation edit and one that stays silent on a real
+        # waiver change.
+        #
+        # Exit codes: 0 = changed, 1 = unchanged, 2 = could not tell. "Could not
+        # tell" is deliberately distinct, so a caller can fail closed (run the
+        # full scan) rather than read a broken comparison as "unchanged".
+        try:
+            waiver_changed = waiver_set_changed(args.base, args.head)
+        except DiffError as exc:
+            print(f"✗ cannot determine whether the waiver set changed: {exc}", file=sys.stderr)
+            return 2
+        print("changed" if waiver_changed else "unchanged")
+        return 0 if waiver_changed else 1
 
     cache = os.environ.get("TRIVY_CACHE", os.path.expanduser("~/.cache/trivy"))
 

@@ -29,6 +29,7 @@ _WORKFLOWS = _ROOT / ".github" / "workflows"
 
 RENEWAL = _WORKFLOWS / "trivyignore-renewal.yml"
 MONITOR = _WORKFLOWS / "scan-baseline-monitor.yml"
+CI = _WORKFLOWS / "ci.yml"
 
 
 def _text(path: Path) -> str:
@@ -191,3 +192,62 @@ def test_fix_forward_step_announces_its_failures_distinctly() -> None:
     body = _step_run(MONITOR, "Fix-forward proposals and recheck evidence")
     assert "::error::" in body, "a bot that could not run must say so"
     assert "::warning::" in body
+
+
+# ── the CI trigger and the gate must ask the same question ──────────────────
+
+def _job(path: Path, name: str) -> dict:
+    import yaml
+
+    doc = yaml.safe_load(_text(path))
+    return doc["jobs"][name]
+
+
+def test_ci_uses_the_gates_own_waiver_comparison() -> None:
+    """Two definitions of "the waiver set changed" is a divergent list.
+
+    The trigger in CI and the trigger in the gate must be the same question,
+    asked the same way. The gate compares the applied ENTRIES; a byte-level
+    paths-filter cannot, and put every surface in scope for a documentation
+    edit — which then failed on an upstream CVE disclosed overnight, on a PR
+    that had nothing to do with it.
+    """
+    body = _text(CI)
+    assert "scan_regression.py --base origin/main --waiver-set-changed" in body, (
+        "CI must ask the gate, not re-implement the question"
+    )
+    scope = _job(CI, "scan-scope")
+    assert not [s for s in scope["steps"] if "paths-filter" in str(s.get("uses", ""))], (
+        "the byte-level paths-filter cannot tell a waiver edit from a "
+        "documentation edit"
+    )
+
+
+def test_ci_trigger_fails_closed() -> None:
+    """A trigger that silently stops firing is the one failure a trigger must not have.
+
+    If the detection job fails, is skipped, or never sets its output, the full
+    scan must still run: the condition is "not unchanged", never "changed".
+    """
+    condition = _job(CI, "scan")["if"]
+    assert "!= 'false'" in condition
+    assert "== 'true'" not in condition
+
+
+def test_ci_scan_scope_installs_pyyaml() -> None:
+    """The gate imports `check_image_versions`, which imports yaml at module level."""
+    scope = _job(CI, "scan-scope")
+    assert any("setup-python" in str(s.get("uses", "")) for s in scope["steps"])
+    assert re.search(r"pip install[^\n]*pyyaml", _text(CI))
+
+
+def test_ci_trigger_reads_the_scripts_own_exit_code() -> None:
+    """Three answers, three exit codes: changed, unchanged, and could-not-tell.
+
+    "Could not tell" has to be distinguishable, or the caller cannot choose
+    the safe answer. The runner runs `bash -e`, so the call must be guarded.
+    """
+    body = _step_run(CI, "Did the waiver set change?")
+    assert "rc=$?" in body
+    assert "waivers=true" in body and "waivers=false" in body
+    assert "set +e" in body and "set -e" in body
