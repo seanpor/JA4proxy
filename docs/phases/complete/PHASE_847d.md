@@ -113,6 +113,47 @@ The 90-day ceiling stays; it just stops being a rubber stamp.
 | Re-affirmation: "has a fix shipped since `created`?" | Checked via `fix_forward`'s image check, restricted to a **unique** carrier | A bump to one image says nothing about a second, so a multi-carrier entry is escalated rather than reported as fixable. Overclaiming here would be worse than escalating. |
 | (not planned) | `DEAD` requires the scan to have **covered** the entry's declared carriers | Found during implementation: the renewal workflow writes no report for an image whose Trivy run fails (`|| echo warning`). Treating "absent from the results" as "gone" would delete a **live** waiver — silently narrowing an exemption. This is the exact failure class the programme exists to remove, so it is a first-class verdict (`unmeasured`), not a detail. |
 | (not planned) | The registry may be **empty** | `validate()` previously rejected an empty `waivers:` list, so deleting the last dead waiver made the registry unvalidatable — a repo that fixed everything could not record that fact. Zero waivers is the goal, not a schema error. A *missing* key still fails. |
+| (not planned) | Coverage means "Trivy **analysed** the image", not "a report exists" | Found in review: Trivy writes `"Results": null` when it could not analyse the image (no detectable OS, an unreadable layer). The report still names the image, so it counted as scanned — and a carrier with no findings read as DEAD. See "The review pass" below. |
+| (not planned) | Entry boundaries honour the **indent** of the first entry | Found in review: `_ENTRY_RE` matches prose inside a rationale's folded block scalar, so `remove_entries` deleted only an entry's *head* and left its tail behind — the registry stopped being valid YAML. See "The review pass" below. |
+
+### The review pass
+
+After the implementation was complete, an adversarial read of the branch found
+four more defects. Three of them are the failure class this phase exists to
+remove — something that looks like "the exemption can go" and is not — so they
+are recorded here rather than folded away:
+
+1. **`load_registry()` coerced a missing `waivers:` key to `[]`.** An empty
+   registry is the goal state; a file that *lost* the key is a truncated edit
+   or a bad merge. Coercing it to `[]` meant the derived ignorefiles would be
+   regenerated **empty** — every live exemption dropped, silently — and
+   `validate()` could no longer catch it, because the value had already been
+   normalised away. The key's absence is now refused at load time.
+2. **A rationale could masquerade as an entry.** `rationale: >-` followed by an
+   indented `- id: parser` is prose, but it matches the same regex an entry
+   does. `remove_entries` therefore computed the wrong span, deleted the
+   target's head, left its tail behind, and produced a registry that no longer
+   parsed. Entry boundaries now honour the indent of the first entry.
+3. **`remove_entries()` could write an unparseable registry.** The text is
+   spliced, not re-serialised. It now verifies before writing — the result
+   must parse, and must hold exactly the entries the registry says it should.
+   Fail closed, no partial write.
+4. **A report that analysed nothing counted as coverage.** See the table
+   above. Coverage now requires `Results` to be a list, which is the repo's
+   established "scanned and clean" shape — `trivy_image_report.py` treats
+   `Results: []` as a genuine clean pass, and the two must not disagree about
+   what "scanned" means.
+
+The fourth finding is the one that generalises: **every "is this exemption
+still needed?" check is only as good as the evidence it rests on**, and
+"the file exists" is weaker evidence than it looks. A missing report, a
+report that analysed nothing, and a scan that never covered the image are
+three different things, and the first two are not evidence of absence.
+
+The gate also caught a fifth: preflight's semgrep step blocks SHA-1 in the
+scan-cache fingerprint. It is a content fingerprint and never a signature,
+but there is no reason to reach for a broken digest when SHA-256 costs the
+same. `ignore_sha` is now `ignore_digest`.
 
 ### The HTTP cap, and why it is 32 MiB for PyPI
 
@@ -156,7 +197,12 @@ optional for this kind of change.
   script is asserted never to move a date.
 - **Live end-to-end:** the mcp/semgrep verdict against real PyPI/OSV, and the
   DEAD/`unmeasured` distinction against the real registry with a deliberately
-  partial scan dir.
+  partial scan dir — and, in both directions, proving the guard is not a
+  blanket refusal (a complete scan does delete).
+- **Evidence quality:** a report that analysed nothing (`Results: null`) is
+  not coverage; a rationale that looks like an entry does not move an entry
+  boundary; a missing `waivers:` key is not an empty registry; a deletion that
+  would produce an unparseable file is refused before it is written.
 - `make preflight`.
 
 ---
@@ -180,7 +226,7 @@ optional for this kind of change.
 |------|--------|
 | `scripts/fix_forward.py` | New — fix-availability engine + proposal authoring + registry recording |
 | `scripts/renew_trivyignore.py` | Reworked: re-affirmation (dead / fixable / unmeasured / escalate), never a date bump |
-| `scripts/render_waivers.py` | `renew_expiring` deleted; `remove_entries` added; fix-metadata splice; empty registry valid |
+| `scripts/render_waivers.py` | `renew_expiring` deleted; `remove_entries` added; fix-metadata splice; empty registry valid; indent-based entry boundaries; fail-closed registry writes |
 | `scripts/scan_baseline_monitor.py` | `--state-out` — the hand-off to the bot |
 | `.github/workflows/scan-baseline-monitor.yml` | `contents: write`; the fix-forward step; scan-cache; `--bytes-out` artifact |
 | `.github/workflows/trivyignore-renewal.yml` | Re-affirmation semantics: `--scan-dir`, exit-1 tolerated, deletions only |
