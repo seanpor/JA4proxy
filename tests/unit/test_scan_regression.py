@@ -17,6 +17,8 @@ every one of them would then be trusted.
 from __future__ import annotations
 
 import json
+import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -26,6 +28,42 @@ _ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_ROOT / "scripts"))
 
 import scan_regression as gate  # noqa: E402
+
+
+def _git_repo(tmp_path: Path, base_text: str, head_text: str, path: str = ".trivyignore.third-party"):
+    """A two-commit repo: *base_text* at the first commit, *head_text* at HEAD.
+
+    Returns `(repo path, base commit sha)`. The waiver-set comparison reads the
+    files at a revision, so it needs a real repository — a mock would test the
+    mock.
+    """
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    env = {
+        **os.environ,
+        "GIT_AUTHOR_NAME": "t",
+        "GIT_AUTHOR_EMAIL": "t@example.invalid",
+        "GIT_COMMITTER_NAME": "t",
+        "GIT_COMMITTER_EMAIL": "t@example.invalid",
+    }
+
+    def git(*args: str) -> str:
+        proc = subprocess.run(
+            ["git", *args], cwd=repo, env=env, capture_output=True, text=True, check=True
+        )
+        return proc.stdout.strip()
+
+    git("init", "-q")
+    target = repo / path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(base_text, encoding="utf-8")
+    git("add", "-A")
+    git("commit", "-qm", "base")
+    base = git("rev-parse", "HEAD")
+    target.write_text(head_text, encoding="utf-8")
+    git("add", "-A")
+    git("commit", "-qm", "head")
+    return str(repo), base
 
 
 def _finding(cve="CVE-2026-9001", severity="HIGH", fixed=""):
@@ -40,7 +78,7 @@ def _baseline(**surfaces):
     }
 
 
-def _patch_git(monkeypatch, changed, base_refs, head_refs, makefile=""):
+def _patch_git(monkeypatch, changed, base_refs, head_refs, makefile="", waiver_set_changed=False):
     """Replace the git layer so exit-code behaviour is testable without a repo."""
 
     def fake_changed(base, head="HEAD", repo="."):
@@ -55,6 +93,7 @@ def _patch_git(monkeypatch, changed, base_refs, head_refs, makefile=""):
     monkeypatch.setattr(gate, "changed_files", fake_changed)
     monkeypatch.setattr(gate, "compose_refs_at", fake_compose)
     monkeypatch.setattr(gate, "file_at", fake_file)
+    monkeypatch.setattr(gate, "waiver_set_changed", lambda *a, **k: waiver_set_changed)
 
 
 class TestDetection:
@@ -147,6 +186,24 @@ class TestMakefileMap:
     def test_no_pairs_gives_empty_map(self):
         assert gate.dockerfile_image_map("# nothing here") == {}
 
+    def test_make_shell_variables_are_not_a_surface(self):
+        """`-f "$$df" -t "$$tag"` is a shell loop's variables, not a build rule.
+
+        Parsed literally it produced a surface `image:"$$tag"` that cannot be
+        scanned, so the gate failed closed on a surface that never existed —
+        and the gate could not pass at all, on any PR that widened its scope.
+        """
+        makefile = (
+            "\t\t\tDOCKER_BUILDKIT=1 docker build -q "
+            '-f "$$df" -t "$$tag" "$$ctx" >/dev/null; \\\n'
+        )
+        assert gate.dockerfile_image_map(makefile) == {}
+
+    def test_the_real_makefile_yields_no_bogus_surface(self):
+        mapping = gate.dockerfile_image_map((_ROOT / "Makefile").read_text())
+        assert not [k for k in mapping if "$$" in k]
+        assert not [v for v in mapping.values() if "$$" in v]
+
 
 class TestRequirementsSelection:
     def test_prefers_requirements_txt(self):
@@ -209,16 +266,85 @@ class TestWaiverInputsAreASurface:
     scheduled monitor ran. That is the one fail-open path in a diff-scoped gate.
     """
 
-    def test_waiver_registry_change_is_detected(self):
-        assert gate.waiver_inputs_changed(["security/waivers.yaml"])
+    def test_a_removed_entry_is_detected(self, tmp_path):
+        """The load-bearing case: a waiver entry disappears."""
+        repo, base = _git_repo(
+            tmp_path,
+            "# header\nCVE-2026-1 exp:2026-12-01\nCVE-2026-2 exp:2026-12-01\n",
+            "# header\nCVE-2026-1 exp:2026-12-01\n",
+        )
+        assert gate.waiver_set_changed(base, "HEAD", repo=repo)
 
-    def test_generated_ignorefiles_are_detected(self):
-        assert gate.waiver_inputs_changed([".trivyignore.third-party"])
-        assert gate.waiver_inputs_changed([".trivyignore.first-party"])
-        assert gate.waiver_inputs_changed([".pip-audit-ignores"])
+    def test_an_added_entry_is_detected(self, tmp_path):
+        repo, base = _git_repo(
+            tmp_path,
+            "# header\nCVE-2026-1 exp:2026-12-01\n",
+            "# header\nCVE-2026-1 exp:2026-12-01\nCVE-2026-2 exp:2026-12-01\n",
+        )
+        assert gate.waiver_set_changed(base, "HEAD", repo=repo)
+
+    def test_a_changed_expiry_is_detected(self, tmp_path):
+        repo, base = _git_repo(
+            tmp_path,
+            "# header\nCVE-2026-1 exp:2026-12-01\n",
+            "# header\nCVE-2026-1 exp:2027-01-01\n",
+        )
+        assert gate.waiver_set_changed(base, "HEAD", repo=repo)
+
+    def test_a_comment_only_change_is_NOT_a_waiver_change(self, tmp_path):
+        """Rewording the generated header changes no verdict for any surface.
+
+        Byte comparison cannot tell a documentation edit from a waiver edit,
+        so the gate used to widen to every surface for one. Any upstream CVE
+        disclosed that night then reddened a PR that had nothing to do with it
+        — the exact failure this gate exists to prevent.
+        """
+        repo, base = _git_repo(
+            tmp_path,
+            "# header\nCVE-2026-1 exp:2026-12-01\n",
+            "# a better header\nCVE-2026-1 exp:2026-12-01\n",
+        )
+        assert not gate.waiver_set_changed(base, "HEAD", repo=repo)
+
+    def test_a_comment_above_an_entry_is_NOT_a_waiver_change(self, tmp_path):
+        """The rationale above an entry is documentation too."""
+        repo, base = _git_repo(
+            tmp_path,
+            "# why\nCVE-2026-1 exp:2026-12-01\n",
+            "# why else\nCVE-2026-1 exp:2026-12-01\n",
+        )
+        assert not gate.waiver_set_changed(base, "HEAD", repo=repo)
+
+    def test_a_deleted_ignorefile_is_a_waiver_change(self, tmp_path):
+        """Everything it waived is unwaived now — fail closed."""
+        repo, base = _git_repo(
+            tmp_path,
+            "# header\nCVE-2026-1 exp:2026-12-01\n",
+            "",
+        )
+        assert gate.waiver_set_changed(base, "HEAD", repo=repo)
+
+    def test_the_registry_alone_is_not_compared(self, tmp_path):
+        """The bot writes its own metadata there without waiving anything.
+
+        Comparing the registry's bytes would widen the gate on every bot PR,
+        so an unrelated upstream CVE would redden automated work that has
+        nothing to do with it. A registry edit that really changes the waiver
+        set changes the generated files with it — `make lint` refuses a
+        registry and its generated files that disagree.
+        """
+        assert "security/waivers.yaml" not in gate.APPLIED_WAIVER_FILES
+
+    def test_applied_entries_ignore_comments_and_blanks(self):
+        text = "# header\n\n  # rationale\nCVE-2026-1 exp:2026-12-01\n\n"
+        assert gate.applied_waiver_entries(text) == ["CVE-2026-1 exp:2026-12-01"]
 
     def test_unrelated_file_is_not_a_waiver_input(self):
-        assert not gate.waiver_inputs_changed(["scripts/scan_regression.py", "README.md"])
+        assert gate.APPLIED_WAIVER_FILES == (
+            ".trivyignore.third-party",
+            ".trivyignore.first-party",
+            ".pip-audit-ignores",
+        )
 
     def test_all_surfaces_covers_compose_dockerfiles_and_pypi(self):
         everything = gate.all_surfaces(
@@ -244,6 +370,7 @@ class TestWaiverInputsAreASurface:
             {"redis": frozenset({"1"})},
             {"redis": frozenset({"1"})},
             makefile="-f deploy/docker/Dockerfile.go-proxy -t ja4proxy:2.0.0",
+            waiver_set_changed=True,
         )
         monkeypatch.setattr(gate, "load_baseline", lambda path=None: _baseline())
         seen: list[str] = []
@@ -257,7 +384,14 @@ class TestWaiverInputsAreASurface:
         assert "every surface is in scope" not in captured.out
 
     def test_deleted_waiver_fails_when_the_finding_reappears(self, monkeypatch, capsys):
-        _patch_git(monkeypatch, [".trivyignore.third-party"], {}, {}, makefile="")
+        _patch_git(
+            monkeypatch,
+            [".trivyignore.third-party"],
+            {},
+            {},
+            makefile="",
+            waiver_set_changed=True,
+        )
         monkeypatch.setattr(gate, "load_baseline", lambda path=None: _baseline())
         monkeypatch.setattr(gate, "scan_surface", lambda *a: {"CVE-2026-1": _finding("CVE-2026-1")})
 
