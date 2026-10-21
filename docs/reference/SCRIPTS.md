@@ -115,7 +115,7 @@ _142 scripts. Generated from each script's header comment by `make sync` — do 
 | `redis-to-ebpf.py` | — | redis-to-ebpf.py — Sync Redis blacklist/ban entries into a BPF hash map. |
 | `refresh_trivyignore_justifications.py` | — | Regenerate each Trivy waiver's `carriers:` claim from scan data. |
 | `render_waivers.py` | `make lint-static` | Render the CVE-waiver derived artifacts from security/waivers.yaml. |
-| `renew_trivyignore.py` | — | Renew soon-to-expire Trivy waivers (Phase 812, 812-B; registry-aware in 847a). |
+| `renew_trivyignore.py` | — | Re-affirm soon-to-expire Trivy waivers (Phase 847d): classify dead/fixable/escalate — never blind-renew. |
 | `rotate_soar_token.sh` | — | Rotate a JA4proxy Management API SOAR token. |
 | `run-all-tests.sh` | — | JA4proxy Comprehensive Test Runner |
 | `run-benchmark.sh` | — | Load .env if available |

@@ -28,10 +28,12 @@ USAGE
 -----
     python3 scripts/render_waivers.py                 # write the derived files
     python3 scripts/render_waivers.py --check         # exit 1 if any is stale
-    python3 scripts/render_waivers.py --renew [--within-days 5] [--days 90]
-                                                      # bump soon-to-expire windows
     python3 scripts/render_waivers.py --refresh-carriers --scan-dir DIR
                                                       # rewrite `carriers:` from scan data
+
+Renewal is NOT here. Phase 847d removed the auto-renew: moving an expiry is a
+decision with evidence (`scripts/renew_trivyignore.py` classifies each expiring
+entry dead / fixable / escalate) rather than a date bump this module performs.
 """
 from __future__ import annotations
 
@@ -40,7 +42,7 @@ import json
 import re
 import sys
 import textwrap
-from datetime import date, timedelta
+from datetime import date
 from pathlib import Path
 from typing import Any, Dict, List, Sequence, Tuple
 
@@ -87,8 +89,10 @@ THIRD_PARTY_HEADER = """\
 # ENTRY FORMAT
 #   One `CVE-… exp:YYYY-MM-DD` line per waiver, preceded by its justification
 #   comment block. Trivy suppresses the finding while `today < exp`, so an entry
-#   whose exp: is today is ALREADY expired (Phase 812 fix). Renewal runs
-#   daily so the window never lapses inside its own cron morning.
+#   whose exp: is today is ALREADY expired (Phase 812 fix). Since Phase 847d a
+#   re-check pass (`scripts/renew_trivyignore.py`) classifies each expiring entry
+#   and either deletes a dead waiver, proposes the real fix, or escalates it with
+#   the dates UNCHANGED — the window is never extended without evidence.
 # =============================================================================
 """
 
@@ -155,6 +159,11 @@ def load_registry(path: Path = REGISTRY) -> Dict[str, Any]:
     if not isinstance(data, dict):
         raise RegistryError(f"{path}: top level must be a mapping")
     _normalise_dates(data)
+    # `waivers:` with no entries loads as None, but every consumer (validate,
+    # renderers, remove_entries) reasons about a *list*. An empty registry is a
+    # legitimate end state (Phase 847d), so give it the type it means.
+    if data.get("waivers") is None:
+        data["waivers"] = []
     return data
 
 
@@ -179,8 +188,12 @@ def validate(registry: Dict[str, Any]) -> List[str]:
     policy = registry.get("policy") or {}
     max_days = int(policy.get("max_window_days", 90))
     waivers = registry.get("waivers")
-    if not isinstance(waivers, list) or not waivers:
-        return ["`waivers:` must be a non-empty list"]
+    # An EMPTY registry is the goal state of Phase 847d's "zero CVEs" programme —
+    # every waiver deleted because every finding is genuinely gone is success,
+    # not a schema error. A missing key is still a violation: that means the
+    # registry is not a registry.
+    if not isinstance(waivers, list):
+        return ["`waivers:` must be a list"]
 
     seen: Dict[str, int] = {}
     for i, w in enumerate(waivers):
@@ -490,24 +503,60 @@ def save_registry(
     path.write_text("".join(lines), encoding="utf-8")
 
 
-def renew_expiring(registry: Dict[str, Any], within_days: int, days: int, today: date) -> int:
-    """Bump windows expiring within `within_days` to `today + days`.
+def remove_entries(
+    registry: Dict[str, Any], ids: Sequence[str], path: Path = REGISTRY
+) -> List[str]:
+    """Delete whole entries from the registry's text, keeping every comment.
 
-    Computed from *today*, never from the entry's own (soon-to-be-stale) expiry —
-    exactly the drift the old renew_trivyignore.py guarded against. `created` is
-    moved to today so the window stays within policy max_window_days.
+    Trims each entry's block (its `- id:` line through the last line before the
+    next entry) out of the document rather than re-serialising, so hand-authored
+    prose and comments survive. Refuses — with no partial write — when an entry
+    is unknown, or when another *surviving* waiver still claims one of its
+    carriers: silently dropping that carrier would narrow a live exemption.
+    Returns the ids actually removed.
     """
-    bumped = 0
-    for w in registry.get("waivers") or []:
-        if w.get("source") != "trivy":
+    wanted = [str(i) for i in ids]
+    if not wanted:
+        return []
+    lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
+
+    spans: Dict[str, Tuple[int, int]] = {}
+    starts = [i for i, ln in enumerate(lines) if _ENTRY_RE.match(ln)]
+    for n, start in enumerate(starts):
+        end = starts[n + 1] if n + 1 < len(starts) else len(lines)
+        cid = _ENTRY_RE.match(lines[start]).group(2).strip("\"'")  # type: ignore[union-attr]
+        spans[cid] = (start, end)
+
+    missing = [i for i in wanted if i not in spans]
+    if missing:
+        raise ValueError(f"no registry entry for: {', '.join(sorted(missing))}")
+
+    survivors: set = set()
+    for cid, w in {str(w.get("id")): w for w in registry.get("waivers") or []}.items():
+        if cid in wanted:
             continue
-        if not _is_iso_date(w.get("expires")):
-            continue
-        if (_as_date(w["expires"]) - today).days <= within_days:
-            w["created"] = today.isoformat()
-            w["expires"] = (today + timedelta(days=days)).isoformat()
-            bumped += 1
-    return bumped
+        survivors.update(w.get("carriers") or [])
+
+    for cid in wanted:
+        entry: Dict[str, Any] = next(
+            (w for w in registry.get("waivers") or [] if str(w.get("id")) == cid), {}
+        )
+        lost = sorted(set(entry.get("carriers") or []) & survivors)
+        if lost:
+            raise ValueError(
+                f"refusing to remove {cid}: carrier(s) {', '.join(lost)} are still "
+                "claimed by a surviving waiver (removing it would narrow that exemption)"
+            )
+
+    for cid in sorted(wanted, key=lambda i: spans[i][0], reverse=True):
+        start, end = spans[cid]
+        del lines[start:end]
+
+    path.write_text("".join(lines), encoding="utf-8")
+    for w in list(registry.get("waivers") or []):
+        if str(w.get("id")) in wanted:
+            registry["waivers"].remove(w)
+    return wanted
 
 
 def refresh_carriers(
@@ -529,9 +578,6 @@ def refresh_carriers(
 def main(argv: List[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true", help="exit 1 if a derived file is stale")
-    parser.add_argument("--renew", action="store_true", help="bump soon-to-expire windows")
-    parser.add_argument("--within-days", type=int, default=5)
-    parser.add_argument("--days", type=int, default=90)
     parser.add_argument("--refresh-carriers", action="store_true")
     parser.add_argument("--scan-dir", type=Path)
     parser.add_argument("--today", default="", help="override today (YYYY-MM-DD)")
@@ -553,10 +599,6 @@ def main(argv: List[str] | None = None) -> int:
         return 2
 
     mutated = False
-    if args.renew:
-        n = renew_expiring(registry, args.within_days, args.days, today)
-        print(f"Renewed {n} entr{'y' if n == 1 else 'ies'} expiring within {args.within_days}d.")
-        mutated = mutated or n > 0
     if args.refresh_carriers:
         if not args.scan_dir:
             print("✗ --refresh-carriers requires --scan-dir", file=sys.stderr)

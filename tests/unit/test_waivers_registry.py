@@ -71,6 +71,21 @@ def test_valid_registry_has_no_errors() -> None:
     assert render_waivers.validate(_valid_registry()) == []
 
 
+def test_empty_waiver_list_is_valid() -> None:
+    """Zero waivers is the *goal*, not an error (Phase 847d). Deleting the last
+    dead waiver must not make the registry unvalidatable — otherwise a repo that
+    fixed everything would be blocked from recording that fact."""
+    reg = _valid_registry()
+    reg["waivers"] = []
+    assert render_waivers.validate(reg) == []
+
+
+def test_missing_waivers_key_is_still_rejected() -> None:
+    reg = _valid_registry()
+    del reg["waivers"]
+    assert render_waivers.validate(reg) == ["`waivers:` must be a list"]
+
+
 def test_missing_rationale_is_rejected() -> None:
     reg = _valid_registry()
     del reg["waivers"][0]["rationale"]
@@ -199,29 +214,6 @@ def test_render_line_length_is_bounded() -> None:
     for text in render_waivers.render_all(registry).values():
         for line in text.splitlines():
             assert len(line) <= 100, line
-
-
-# ── Renewal helper (used by renew_trivyignore.py) ────────────────────────────
-
-def test_renew_expiring_bumps_only_trivy_within_window() -> None:
-    today = date(2026, 10, 17)
-    reg = {
-        "policy": {"max_window_days": 90},
-        "waivers": [
-            {**_valid_registry()["waivers"][0], "expires": "2026-10-19"},  # in window
-            {**_valid_registry()["waivers"][0], "id": "CVE-2026-00002",
-             "expires": "2027-01-15"},  # out of window
-            {**_valid_registry()["waivers"][0], "id": "CVE-2026-00003",
-             "source": "pip-audit", "expires": "2026-10-18"},  # pip-audit: skipped
-        ],
-    }
-    n = render_waivers.renew_expiring(reg, within_days=5, days=90, today=today)
-    assert n == 1
-    bumped = reg["waivers"][0]
-    assert bumped["expires"] == (today + timedelta(days=90)).isoformat()
-    assert bumped["created"] == today.isoformat()
-    # Renewed window is still within policy.
-    assert render_waivers.validate(reg) == []
 
 
 # ── save_registry: comments survive a rewrite ────────────────────────────────
