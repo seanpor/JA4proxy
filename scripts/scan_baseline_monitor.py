@@ -58,6 +58,8 @@ try:  # works as `python3 scripts/x.py` and as `from scripts.x import ...`
     from scripts.check_image_versions import scan_gate_compose_paths, third_party_image_refs
     from scripts.scan_baseline import (
         BASELINE_PATH,
+        GATING_SEVERITIES,
+        MEDIUM_BASELINE_PATH,
         PYPI_SURFACE,
         BaselineError,
         image_name,
@@ -76,6 +78,8 @@ except ImportError:  # invoked directly, scripts/ on sys.path
     )
     from scan_baseline import (  # type: ignore[no-redef]
         BASELINE_PATH,
+        GATING_SEVERITIES,
+        MEDIUM_BASELINE_PATH,
         PYPI_SURFACE,
         BaselineError,
         image_name,
@@ -91,6 +95,11 @@ except ImportError:  # invoked directly, scripts/ on sys.path
 TITLE_PREFIX = "[cve-baseline]"
 #: Ceiling per run, so a DB-wide disaster cannot open a hundred issues at once.
 MAX_ISSUES_PER_RUN = 25
+
+# The MEDIUM band (Phase 847e).
+MEDIUM_SEVERITIES = "MEDIUM"
+#: The bands the monitor measures, in one scan pass.
+MONITOR_SEVERITIES = f"{MEDIUM_SEVERITIES},{GATING_SEVERITIES}"
 
 
 def issue_title(surface: str, cve: str) -> str:
@@ -193,7 +202,49 @@ def drift(baseline: dict, current: dict[str, dict]) -> dict:
     return {"appeared": appeared, "cleared": cleared, "retagged": retagged}
 
 
-def render_report(current: dict[str, dict], drift_report: dict, planned: list[dict], queue: list[dict]) -> str:
+def medium_state(medium: dict[str, dict], medium_baseline: dict | None) -> dict:
+    """The MEDIUM band's live state against the committed record (Phase 847e).
+
+    The MEDIUM surface is a backlog this repository has committed to shrinking,
+    so the interesting number is not "how many MEDIUM findings exist" but "how
+    many exist now, against how many we recorded, against the ceiling we set".
+    A live count above the ceiling means the backlog grew, and growth is
+    supposed to be visible rather than absorbed.
+
+    The live count is *not* a gate and never blocks: the vulnerability database
+    churns daily, and a ratchet measured against a live scan would be a
+    coin-flip. The committed record is what the ratchet (and the PR gate)
+    judges against; this is the monitor's report of the difference.
+    """
+    live = sum(len(entry.get("findings", {})) for entry in medium.values())
+    recorded = 0
+    ceiling = 0
+    if medium_baseline:
+        recorded = sum(
+            len(entry.get("findings", {}))
+            for entry in (medium_baseline.get("surfaces") or {}).values()
+        )
+        ceiling = int(medium_baseline.get("ceiling", 0))
+    return {
+        "live": live,
+        "recorded": recorded,
+        "ceiling": ceiling,
+        "over_ceiling": live > ceiling,
+        "surfaces": {
+            surface: len(entry.get("findings", {}))
+            for surface, entry in sorted(medium.items())
+            if entry.get("findings")
+        },
+    }
+
+
+def render_report(
+    current: dict[str, dict],
+    drift_report: dict,
+    planned: list[dict],
+    queue: list[dict],
+    medium: dict | None = None,
+) -> str:
     """Markdown summary — what a human reads first."""
     total = sum(len(entry.get("findings", {})) for entry in current.values())
     lines = [
@@ -220,48 +271,100 @@ def render_report(current: dict[str, dict], drift_report: dict, planned: list[di
         for surface, change in sorted(drift_report["retagged"].items()):
             lines.append(f"- `{surface}`: {change['was'][:19]}… → {change['now'][:19]}…")
         lines.append("")
+    if medium is not None:
+        lines.extend(
+            [
+                "## MEDIUM band (Phase 847e)",
+                "",
+                f"- Unwaived MEDIUM findings now: **{medium['live']}**",
+                f"- Recorded in `security/baseline-medium.json`: **{medium['recorded']}**",
+                f"- Ceiling (may only go down): **{medium['ceiling']}**",
+                "",
+            ]
+        )
+        if medium["over_ceiling"]:
+            lines.extend(
+                [
+                    f"\u26a0 the live MEDIUM count ({medium['live']}) is above the ceiling "
+                    f"({medium['ceiling']}) — the backlog grew. Each new MEDIUM finding has to be "
+                    "fixed or waived; it is not absorbed by the record.",
+                    "",
+                ]
+            )
+        if medium["surfaces"]:
+            lines.append("Per surface:")
+            lines.append("")
+            for surface, count in sorted(medium["surfaces"].items(), key=lambda kv: -kv[1]):
+                lines.append(f"- `{surface}`: {count}")
+            lines.append("")
     if not total:
         lines.append("No unwaived HIGH/CRITICAL findings — steady state.")
     return "\n".join(lines) + "\n"
 
 
-def scan_surfaces(refs: list[str], cache: str) -> tuple[dict[str, dict], list[str]]:
-    """Scan every ref *and* the dependency surface; return `(current, failures)`.
+def scan_surfaces(refs: list[str], cache: str) -> tuple[dict[str, dict], dict[str, dict], list[str]]:
+    """Scan every ref *and* the dependency surface.
+
+    Returns `(current, medium, failures)`.
+
+    `current` holds the HIGH/CRITICAL findings, in the same shape it has had
+    since Phase 847c — the fix-forward bot (847d) consumes it, so its content
+    must not change under it. `medium` holds the MEDIUM findings (Phase 847e's
+    band), in the same shape.
+
+    One scan pass, two partitions. Two passes would be easier to write and
+    wrong: the vulnerability database moves under us, and the two bands have to
+    describe the same moment or their totals cannot be compared with anything.
 
     The dependency surface is scanned here rather than left to a Makefile target
     because the monitor's job is completeness: it is the only thing watching for
     drift on surfaces nobody touched, so a surface it forgot is a surface nobody
     watches. It is `requirements.txt`, the same file the required
     `dependency-audit-python` job audits, so the two cannot disagree about what
-    "the Python dependency surface" means.
+    "the Python dependency surface" means. It has no MEDIUM band — pip-audit
+    reports no severity — so it appears in `current` only.
 
     Failures are collected rather than raised so one unreachable image cannot
     hide the findings of the other nine — but the caller must still exit non-zero.
     """
     current: dict[str, dict] = {}
+    medium: dict[str, dict] = {}
     failures: list[str] = []
     for ref in refs:
         try:
-            rows, digest = scan_image(ref, first_party=is_first_party(ref), cache=cache)
+            rows, digest = scan_image(
+                ref,
+                first_party=is_first_party(ref),
+                cache=cache,
+                severities=MONITOR_SEVERITIES,
+            )
         except Exception as exc:  # noqa: BLE001 -- reported, then exit non-zero
             failures.append(f"{ref}: {exc}")
             continue
+        surface = surface_for_image(image_name(ref))
         entry: dict = {"ref": ref, "findings": {}}
+        medium_entry: dict = {"ref": ref, "findings": {}}
         if digest:
             entry["digest"] = digest
+            medium_entry["digest"] = digest
         for row in rows:
-            entry["findings"][row.cve] = {
+            info = {
                 "severity": row.severity,
                 "package": row.package,
                 "installed": row.installed,
                 "fixed": row.fixed,
             }
-        current[surface_for_image(image_name(ref))] = entry
+            if row.severity in GATING_SEVERITIES.split(","):
+                entry["findings"][row.cve] = info
+            elif row.severity == MEDIUM_SEVERITIES:
+                medium_entry["findings"][row.cve] = info
+        current[surface] = entry
+        medium[surface] = medium_entry
     try:
         current[PYPI_SURFACE] = {"findings": pypi_findings(run_pip_audit())}
     except Exception as exc:  # noqa: BLE001 -- reported, then exit non-zero
         failures.append(f"{PYPI_SURFACE}: {exc}")
-    return current, failures
+    return current, medium, failures
 
 
 def issues_by_title() -> dict[str, dict]:
@@ -314,6 +417,11 @@ def reopen_issue(number: int, body: str) -> str:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--baseline", default=None, help=f"baseline path (default: {BASELINE_PATH})")
+    parser.add_argument(
+        "--medium-baseline",
+        default=None,
+        help=f"MEDIUM band record (default: {MEDIUM_BASELINE_PATH})",
+    )
     parser.add_argument("--apply", action="store_true", help="actually file issues (default: report only)")
     parser.add_argument("--json", action="store_true", help="machine-readable summary instead of markdown")
     parser.add_argument("--images", nargs="*", default=[], help="extra image refs to scan (e.g. built first-party)")
@@ -338,7 +446,7 @@ def main(argv: list[str] | None = None) -> int:
     refs = third_party_image_refs(scan_gate_compose_paths()) + list(args.images)
     refs = list(dict.fromkeys(refs))
 
-    current, failures = scan_surfaces(refs, cache)
+    current, medium, failures = scan_surfaces(refs, cache)
     if failures:
         for failure in failures:
             print(f"\u2717 {failure}", file=sys.stderr)
@@ -357,6 +465,16 @@ def main(argv: list[str] | None = None) -> int:
         print(f"\u26a0 {exc} — reporting findings without a drift comparison", file=sys.stderr)
         baseline = {"version": 1, "surfaces": {}}
 
+    # The MEDIUM band's own record (Phase 847e). Its absence is not fatal: the
+    # HIGH/CRITICAL findings are still real and must still be filed. It only
+    # means the MEDIUM counts have nothing to be compared against.
+    medium_baseline: dict | None = None
+    try:
+        medium_baseline = load_baseline(args.medium_baseline or MEDIUM_BASELINE_PATH)
+    except BaselineError as exc:
+        print(f"\u26a0 {exc} — reporting MEDIUM counts without a record to compare against", file=sys.stderr)
+    medium_report = medium_state(medium, medium_baseline)
+
     drift_report = drift(baseline, current)
     queue = fixable_queue(current)
 
@@ -371,6 +489,7 @@ def main(argv: list[str] | None = None) -> int:
                 {
                     "generated_at": datetime.now(timezone.utc).isoformat(),
                     "current": current,
+                    "medium": medium_report,
                     "drift": drift_report,
                     "fixable": queue,
                 },
@@ -390,7 +509,7 @@ def main(argv: list[str] | None = None) -> int:
         existing = {}
 
     planned = plan_issues(current, existing)
-    report = render_report(current, drift_report, planned, queue)
+    report = render_report(current, drift_report, planned, queue, medium_report)
 
     if args.json:
         print(json.dumps(
@@ -399,6 +518,7 @@ def main(argv: list[str] | None = None) -> int:
                 "findings": sum(len(e.get("findings", {})) for e in current.values()),
                 "fixable": len(queue),
                 "drift": drift_report,
+                "medium": medium_report,
                 "planned_issues": [p["title"] for p in planned[: args.max_issues]],
             },
             indent=2,

@@ -5447,11 +5447,11 @@ phases:
 
   847e:
     name: "MEDIUM-CVE gating (measure, then extend)"
-    status: PROPOSED
+    status: IN_PROGRESS
     action_plan: docs/phases/PHASE_847e.md
     dependencies: [847c]
     size: MEDIUM
-    summary: "PROPOSED 2026-10-17. Inventory the MEDIUM surface first (counts, fixability, reachability), then extend the 847 machinery to MEDIUM in the scope the data supports (full-baseline, diff-only, or monitor-only + ratchet). Enforces a ratchet so the MEDIUM baseline can only shrink. Refuses to promise literal zero-MEDIUM without data."
+    summary: "IN_PROGRESS 2026-10-21. Inventory the MEDIUM surface first (counts, fixability, reachability), then extend the 847 machinery to MEDIUM in the scope the data supports (full-baseline, diff-only, or monitor-only + ratchet). Enforces a ratchet so the MEDIUM baseline can only shrink. Refuses to promise literal zero-MEDIUM without data. — Measured: 152 unwaived MEDIUM findings, 119 with a published fix, 149 in third-party images; scope chosen: diff-only MEDIUM gate + ratchet."
 
   847f:
     name: "Reachability evidence binding"

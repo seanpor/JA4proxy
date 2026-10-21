@@ -178,6 +178,7 @@ help-scan:  ## Show security scanning commands help
 	@echo "  scan-regression-plan - Print those surfaces as JSON (no scanning; CI helper)"
 	@echo "  scan-baseline      - Record security/baseline.json (run on main)"
 	@echo "  scan-monitor       - Full scan + drift report (APPLY=1 files deduplicated issues)"
+	@echo "  medium-inventory   - Measure the MEDIUM surface (Phase 847e)"
 
 # ── Legacy (Python) sub-help ─────────────────────────────────────────────
 help-legacy:  ## Show legacy Python proxy sub-help
@@ -818,6 +819,14 @@ scan-baseline:  ## Record security/baseline.json (third-party + first-party imag
 scan-monitor:  ## Full CVE scan, drift report, and (APPLY=1) deduplicated issues
 	@mkdir -p "$(TRIVY_CACHE)"
 	@TRIVY_CACHE="$(TRIVY_CACHE)" $(PYTHON) scripts/scan_baseline_monitor.py --images $(FIRST_PARTY_IMAGES) $(if $(APPLY),--apply,) $(if $(STATE_OUT),--state-out "$(STATE_OUT)",)
+
+# Phase 847e: measure the MEDIUM vulnerability surface, and record it. The
+# measurement is what the MEDIUM gating scope was decided from, so it has to be
+# re-runnable and reproducible: same images, same database, same numbers.
+# Needs the first-party images built, same as scan-baseline.
+medium-inventory:  ## Measure the MEDIUM surface and record security/baseline-medium.json
+	@mkdir -p "$(TRIVY_CACHE)"
+	@TRIVY_CACHE="$(TRIVY_CACHE)" $(PYTHON) scripts/medium_inventory.py
 
 # Detect :latest tags and version drift between compose files.
 # Runs in < 5 seconds — no external calls, no Docker required.

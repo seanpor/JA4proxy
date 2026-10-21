@@ -12,7 +12,7 @@ read the top of the file for full options.
 
 <!-- BEGIN GENERATED: scripts -->
 
-_143 scripts. Generated from each script's header comment by `make sync` — do not edit this table by hand._
+_144 scripts. Generated from each script's header comment by `make sync` — do not edit this table by hand._
 
 | Script | Called by | What it does |
 |--------|-----------|--------------|
@@ -97,6 +97,7 @@ _143 scripts. Generated from each script's header comment by `make sync` — do 
 | `lint_toml.py` | `make lint-toml` | TOML syntax + parse validation. |
 | `load_test.py` | `make load-test` | Phase 86b / 86i — Load testing harness for JA4proxy. |
 | `measure_mttr.sh` | `make measure-mttr` | Phase 64h / 819d — MTTR baseline measurement script. |
+| `medium_inventory.py` | `make medium-inventory` | scripts/medium_inventory.py — measure the MEDIUM vulnerability surface. |
 | `meta_lint.py` | `make lint-meta` | Meta-lint: verify the Makefile is internally honest. |
 | `mock-backend.py` | — | Mock backend server for testing JA4 Proxy |
 | `namespace_setup.sh` | — | Namespace isolation helper for JA4proxy (Phase 56b-3) |

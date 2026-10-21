@@ -55,6 +55,12 @@ _ENTRY = re.compile(r"^(?P<id>CVE-\d{4}-\d+|GHSA-[\w-]{4,})(?=\s|$)")
 
 SEVERITIES = ("HIGH", "CRITICAL")
 
+# Severity order, most severe first. Used to pick the *highest* severity seen
+# for one CVE id within a report: Trivy can report the same id at different
+# severities across packages within one image, and reporting the lower one
+# would understate the finding.
+_SEVERITY_ORDER = ("CRITICAL", "HIGH", "MEDIUM", "LOW", "UNKNOWN")
+
 
 def waived_ids(ignorefile: Path) -> Set[str]:
     """Every CVE/GHSA id the ignorefile waives."""
@@ -94,8 +100,8 @@ def load_report(path: Path) -> Dict[str, Any]:
         raise ValueError(f"unreadable Trivy report {path.name}: {exc}") from exc
 
 
-def vuln_rows(doc: Dict[str, Any]) -> List[VulnRow]:
-    """HIGH/CRITICAL findings in one Trivy image report, deduplicated by CVE id.
+def vuln_rows(doc: Dict[str, Any], severities: Iterable[str] | None = None) -> List[VulnRow]:
+    """Findings in one Trivy image report, deduplicated by CVE id.
 
     THE single Trivy-JSON parser in this repo. Both `findings_from_scan` (drift
     checking) and `scripts/trivy_image_report.py` (the `make scan-images` gate)
@@ -107,15 +113,28 @@ def vuln_rows(doc: Dict[str, Any]) -> List[VulnRow]:
     OS layers is a single finding. Counting rows instead would let one waived id
     inflate a count.
 
-    A CRITICAL always wins over a HIGH for the same id: Trivy can report an id
-    at different severities across packages within one image, and reporting the
+    The **highest** severity wins for the same id: Trivy can report an id at
+    different severities across packages within one image, and reporting the
     lower one would understate the finding.
+
+    `severities` is the band this caller asked Trivy for. It defaults to
+    `SEVERITIES` (HIGH,CRITICAL) — the band the gate has always used — so the
+    default behaviour is unchanged. Phase 847e passes the band it actually
+    scanned for, which is what lets the same parser serve a MEDIUM
+    measurement without becoming a second, divergent parser.
+
+    The band may be given as a list or as the comma-separated string the
+    scanner itself takes. The string form is normalised here rather than
+    `set()`-ed directly: `set("MEDIUM")` is the *characters* {'M','E','D','I',
+    'U'}, which matches nothing and reads as "this image has no findings" —
+    the exact silent-wrongness this parser exists to prevent.
     """
+    wanted = severity_set(severities)
     best: Dict[str, VulnRow] = {}
     for result in doc.get("Results") or []:
         for vuln in result.get("Vulnerabilities") or []:
             sev = vuln.get("Severity")
-            if sev not in SEVERITIES:
+            if sev not in wanted:
                 continue
             cve = vuln.get("VulnerabilityID")
             if not cve:
@@ -129,9 +148,30 @@ def vuln_rows(doc: Dict[str, Any]) -> List[VulnRow]:
                     severity=sev,
                     fixed=vuln.get("FixedVersion") or "",
                 )
-            elif prev.severity != "CRITICAL" and sev == "CRITICAL":
-                best[cve] = prev._replace(severity="CRITICAL")
+            elif _severity_rank(sev) < _severity_rank(prev.severity):
+                best[cve] = prev._replace(severity=sev)
     return list(best.values())
+
+
+def _severity_rank(severity: str) -> int:
+    """Where a severity sits in the order — lower is more severe."""
+    try:
+        return _SEVERITY_ORDER.index(severity)
+    except ValueError:
+        return len(_SEVERITY_ORDER)
+
+
+def severity_set(severities: Iterable[str] | str | None) -> set[str]:
+    """Normalise a severity band to a set of severity names.
+
+    A comma-separated string is split; anything iterable is taken as a
+    collection of names. `None` means the default band.
+    """
+    if severities is None:
+        return set(SEVERITIES)
+    if isinstance(severities, str):
+        return {part.strip() for part in severities.split(",") if part.strip()}
+    return {str(part).strip() for part in severities if str(part).strip()}
 
 
 def findings_from_scan(path: Path) -> Dict[str, str]:

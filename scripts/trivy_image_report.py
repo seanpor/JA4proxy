@@ -66,6 +66,10 @@ except ImportError:  # invoked directly, scripts/ on sys.path
     from check_trivyignore_drift import VulnRow, load_report, vuln_rows  # type: ignore[no-redef]
 
 TRIVY_IMAGE = "aquasec/trivy:0.71.0"
+# The severities the gate scans for. This is the DEFAULT for every caller, and
+# it stays the default: Phase 847e measures and gates MEDIUM through an
+# explicit `severities=` argument, so the HIGH/CRITICAL gate cannot be changed
+# by accident from a different call site.
 GATING_SEVERITIES = "HIGH,CRITICAL"
 DEFAULT_IGNOREFILE = ".trivyignore.third-party"
 # The repo is mounted read-only into the Trivy container here (see run_trivy),
@@ -153,12 +157,24 @@ def render_table(rows: list[VulnRow]) -> str:
     return "\n".join(lines)
 
 
-def trivy_cmd(image: str, ignorefile: str, cache: str, docker_socket: bool = False) -> list[str]:
+def trivy_cmd(
+    image: str,
+    ignorefile: str,
+    cache: str,
+    docker_socket: bool = False,
+    severities: str | None = None,
+) -> list[str]:
     """The exact argv Trivy receives, built without running anything.
 
     Split out of :func:`run_trivy` so the gate's *policy* — which severities it
     scans for, which ignorefile it applies, and that it reads JSON rather than a
     human table — is assertable without docker or network (Phase 847b).
+
+    `severities` defaults to :data:`GATING_SEVERITIES`, so every existing
+    caller keeps scanning for exactly what it scanned for before. Phase 847e
+    passes `MEDIUM` (or a wider set) explicitly, which is the only way the
+    severity dimension becomes a parameter rather than a constant — and the
+    default is what keeps the HIGH/CRITICAL gate unchanged.
 
     `docker_socket` is required for locally-built images: they exist only in the
     local daemon, not in any registry, so without the mount Trivy cannot find
@@ -173,7 +189,7 @@ def trivy_cmd(image: str, ignorefile: str, cache: str, docker_socket: bool = Fal
         "docker", "run", "--rm",
         *mounts,
         TRIVY_IMAGE, "image",
-        "--severity", GATING_SEVERITIES,
+        "--severity", severities or GATING_SEVERITIES,
         "--exit-code", "0",
         "--no-progress", "--scanners", "vuln",
         "--ignorefile", resolve_ignorefile(ignorefile),
@@ -182,13 +198,19 @@ def trivy_cmd(image: str, ignorefile: str, cache: str, docker_socket: bool = Fal
     ]
 
 
-def run_trivy(image: str, ignorefile: str, cache: str, docker_socket: bool = False) -> dict:
+def run_trivy(
+    image: str,
+    ignorefile: str,
+    cache: str,
+    docker_socket: bool = False,
+    severities: str | None = None,
+) -> dict:
     """Run the pinned Trivy container against `image` and return the parsed JSON.
 
     Raises RuntimeError if Trivy produced no usable JSON — a scan we could not
     read must never be mistaken for a scan that found nothing (Phase 847b).
     """
-    cmd = trivy_cmd(image, ignorefile, cache, docker_socket)
+    cmd = trivy_cmd(image, ignorefile, cache, docker_socket, severities)
     proc = subprocess.run(cmd, capture_output=True, text=True)  # nosec B603 -- fixed argv, no shell
     if not proc.stdout.strip():
         raise RuntimeError(f"trivy produced no output: {proc.stderr.strip()[:300]}")

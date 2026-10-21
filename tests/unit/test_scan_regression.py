@@ -446,7 +446,7 @@ class TestWaiverInputsAreASurface:
         )
         monkeypatch.setattr(gate, "load_baseline", lambda path=None: _baseline())
         seen: list[str] = []
-        monkeypatch.setattr(gate, "scan_surface", lambda s, r, c: seen.append(s) or {})
+        monkeypatch.setattr(gate, "scan_surface", lambda s, r, c, severities=None: seen.append(s) or {})
 
         assert gate.main(["--base", "base", "--head", "head"]) == 0
         assert seen == ["image:ja4proxy", "image:redis", "pypi"]
@@ -465,7 +465,7 @@ class TestWaiverInputsAreASurface:
             waiver_set_changed=True,
         )
         monkeypatch.setattr(gate, "load_baseline", lambda path=None: _baseline())
-        monkeypatch.setattr(gate, "scan_surface", lambda *a: {"CVE-2026-1": _finding("CVE-2026-1")})
+        monkeypatch.setattr(gate, "scan_surface", lambda *a, **k: {"CVE-2026-1": _finding("CVE-2026-1")})
 
         assert gate.main(["--base", "base", "--head", "head"]) == 1
         assert "CVE-2026-1" in capsys.readouterr().out
@@ -475,7 +475,7 @@ class TestExitCodes:
     def test_nothing_touched_exits_zero_without_scanning(self, monkeypatch, capsys):
         _patch_git(monkeypatch, ["README.md"], {"redis": frozenset({"1"})}, {"redis": frozenset({"1"})})
         scanned = []
-        monkeypatch.setattr(gate, "scan_surface", lambda *a: scanned.append(a) or {})
+        monkeypatch.setattr(gate, "scan_surface", lambda *a, **k: scanned.append(a) or {})
 
         assert gate.main(["--base", "base", "--head", "head"]) == 0
         assert scanned == [], "no surface means no scan — the whole point of the split"
@@ -484,7 +484,7 @@ class TestExitCodes:
     def test_new_finding_exits_one(self, monkeypatch, capsys):
         _patch_git(monkeypatch, ["x.yml"], {"redis": frozenset({"1"})}, {"redis": frozenset({"2"})})
         monkeypatch.setattr(gate, "load_baseline", lambda path=None: _baseline(**{"image:redis": {}}))
-        monkeypatch.setattr(gate, "scan_surface", lambda *a: {"CVE-2026-9001": _finding()})
+        monkeypatch.setattr(gate, "scan_surface", lambda *a, **k: {"CVE-2026-9001": _finding()})
 
         assert gate.main(["--base", "base", "--head", "head"]) == 1
         out = capsys.readouterr().out
@@ -496,7 +496,7 @@ class TestExitCodes:
         monkeypatch.setattr(
             gate, "load_baseline", lambda path=None: _baseline(**{"image:redis": {"CVE-1": {}}})
         )
-        monkeypatch.setattr(gate, "scan_surface", lambda *a: {"CVE-1": _finding("CVE-1")})
+        monkeypatch.setattr(gate, "scan_surface", lambda *a, **k: {"CVE-1": _finding("CVE-1")})
 
         assert gate.main(["--base", "base", "--head", "head"]) == 0
         assert "already present in the baseline" in capsys.readouterr().out
@@ -504,15 +504,15 @@ class TestExitCodes:
     def test_clean_surface_exits_zero(self, monkeypatch, capsys):
         _patch_git(monkeypatch, ["x.yml"], {"redis": frozenset({"1"})}, {"redis": frozenset({"2"})})
         monkeypatch.setattr(gate, "load_baseline", lambda path=None: _baseline())
-        monkeypatch.setattr(gate, "scan_surface", lambda *a: {})
+        monkeypatch.setattr(gate, "scan_surface", lambda *a, **k: {})
 
         assert gate.main(["--base", "base", "--head", "head"]) == 0
-        assert "no HIGH/CRITICAL findings" in capsys.readouterr().out
+        assert "no HIGH/CRITICAL or MEDIUM findings" in capsys.readouterr().out
 
     def test_scan_failure_exits_two(self, monkeypatch, capsys):
         """A scan that cannot run must never read as clean (Phase 847b's lesson)."""
 
-        def boom(*_a):
+        def boom(*_a, **_k):
             raise RuntimeError("trivy exploded")
 
         _patch_git(monkeypatch, ["x.yml"], {"redis": frozenset({"1"})}, {"redis": frozenset({"2"})})
@@ -549,7 +549,7 @@ class TestExitCodes:
     def test_plan_prints_json_and_does_not_scan(self, monkeypatch, capsys):
         _patch_git(monkeypatch, ["x.yml"], {"redis": frozenset({"1"})}, {"redis": frozenset({"2"})})
         monkeypatch.setattr(
-            gate, "scan_surface", lambda *a: pytest.fail("--plan must not scan")
+            gate, "scan_surface", lambda *a, **k: pytest.fail("--plan must not scan")
         )
 
         assert gate.main(["--base", "base", "--head", "head", "--plan"]) == 0
@@ -566,7 +566,177 @@ class TestExitCodes:
         )
         monkeypatch.setattr(gate, "load_baseline", lambda path=None: _baseline())
         seen = []
-        monkeypatch.setattr(gate, "scan_surface", lambda surface, ref, cache: seen.append((surface, ref)) or {})
+        monkeypatch.setattr(
+            gate, "scan_surface", lambda surface, ref, cache, severities=None: seen.append((surface, ref)) or {}
+        )
 
         assert gate.main(["--base", "base", "--head", "head"]) == 0
         assert seen == [("image:ja4proxy", "ja4proxy:2.0.0")]
+
+
+class TestMediumBand:
+    """The MEDIUM band — Phase 847e.
+
+    The gate now judges two bands in one scan pass, each against its own
+    baseline. The properties that matter:
+
+      * a new unwaived MEDIUM finding on a touched surface fails the PR;
+      * a MEDIUM finding that is already recorded does not;
+      * neither band can make the other look dirty — they are judged against
+        *different* baselines, and a finding in one must not be counted in
+        the other.
+    """
+
+    def _baselines(self, monkeypatch, high=None, medium=None):
+        """Load the HIGH baseline for `path=None` and the MEDIUM one for a path."""
+
+        def loader(path=None):
+            if path is None:
+                return _baseline(**(high or {}))
+            return _baseline(**(medium or {}))
+
+        monkeypatch.setattr(gate, "load_baseline", loader)
+
+    def test_a_new_medium_finding_exits_one(self, monkeypatch, capsys):
+        _patch_git(monkeypatch, ["x.yml"], {"redis": frozenset({"1"})}, {"redis": frozenset({"2"})})
+        self._baselines(monkeypatch, medium={"image:redis": {}})
+        monkeypatch.setattr(
+            gate,
+            "scan_surface",
+            lambda *a, **k: {"CVE-2026-7777": _finding("CVE-2026-7777", severity="MEDIUM")},
+        )
+
+        assert gate.main(["--base", "base", "--head", "head"]) == 1
+        out = capsys.readouterr().out
+        assert "CVE-2026-7777" in out
+        assert "MEDIUM" in out
+        assert "introduces unwaived findings" in out
+
+    def test_a_recorded_medium_finding_exits_zero(self, monkeypatch, capsys):
+        _patch_git(monkeypatch, ["x.yml"], {"redis": frozenset({"1"})}, {"redis": frozenset({"2"})})
+        self._baselines(
+            monkeypatch,
+            medium={"image:redis": {"CVE-2026-7777": {}}},
+        )
+        monkeypatch.setattr(
+            gate,
+            "scan_surface",
+            lambda *a, **k: {"CVE-2026-7777": _finding("CVE-2026-7777", severity="MEDIUM")},
+        )
+
+        assert gate.main(["--base", "base", "--head", "head"]) == 0
+        assert "already present in the baseline" in capsys.readouterr().out
+
+    def test_a_new_high_finding_is_not_judged_against_the_medium_baseline(
+        self, monkeypatch, capsys
+    ):
+        """The bands are separate records.
+
+        A HIGH finding that the HIGH baseline knows about must not be judged
+        against the MEDIUM record (which does not contain it) — that would
+        make every known HIGH finding look new.
+        """
+        _patch_git(monkeypatch, ["x.yml"], {"redis": frozenset({"1"})}, {"redis": frozenset({"2"})})
+        self._baselines(
+            monkeypatch,
+            high={"image:redis": {"CVE-1": {}}},
+            medium={"image:redis": {}},
+        )
+        monkeypatch.setattr(gate, "scan_surface", lambda *a, **k: {"CVE-1": _finding("CVE-1")})
+
+        assert gate.main(["--base", "base", "--head", "head"]) == 0
+        out = capsys.readouterr().out
+        assert "no MEDIUM findings" in out
+
+    def test_a_medium_finding_does_not_dirty_the_high_verdict(self, monkeypatch, capsys):
+        """A recorded MEDIUM finding must not make the HIGH band look dirty."""
+        _patch_git(monkeypatch, ["x.yml"], {"redis": frozenset({"1"})}, {"redis": frozenset({"2"})})
+        self._baselines(
+            monkeypatch,
+            high={"image:redis": {"CVE-1": {}}},
+            medium={"image:redis": {"CVE-2": {}}},
+        )
+        monkeypatch.setattr(
+            gate,
+            "scan_surface",
+            lambda *a, **k: {
+                "CVE-1": _finding("CVE-1"),
+                "CVE-2": _finding("CVE-2", severity="MEDIUM"),
+            },
+        )
+
+        assert gate.main(["--base", "base", "--head", "head"]) == 0
+        out = capsys.readouterr().out
+        assert "1 HIGH/CRITICAL finding(s), all already present" in out
+        assert "1 MEDIUM finding(s), all already present" in out
+
+    def test_the_scan_asks_for_both_bands_in_one_pass(self, monkeypatch):
+        """One scan, two judgements — the MEDIUM band costs no extra image pull."""
+        _patch_git(monkeypatch, ["x.yml"], {"redis": frozenset({"1"})}, {"redis": frozenset({"2"})})
+        self._baselines(monkeypatch)
+        seen = []
+
+        def fake_scan(surface, ref, cache, severities=None):
+            seen.append(severities)
+            return {}
+
+        monkeypatch.setattr(gate, "scan_surface", fake_scan)
+
+        assert gate.main(["--base", "base", "--head", "head"]) == 0
+        assert seen == ["MEDIUM,HIGH,CRITICAL"]
+
+    def test_a_missing_medium_baseline_exits_two(self, monkeypatch, capsys):
+        """Fail closed: a MEDIUM gate with no record cannot say what is new."""
+
+        def loader(path=None):
+            if path is None:
+                return _baseline()
+            raise gate.BaselineError("medium baseline does not exist")
+
+        _patch_git(monkeypatch, ["x.yml"], {"redis": frozenset({"1"})}, {"redis": frozenset({"2"})})
+        monkeypatch.setattr(gate, "load_baseline", loader)
+
+        assert gate.main(["--base", "base", "--head", "head"]) == 2
+        assert "refusing to guess" in capsys.readouterr().err
+
+    def test_the_medium_scope_can_be_turned_off(self, monkeypatch, capsys):
+        """`MEDIUM_SCOPE = "off"` restores the pre-847e behaviour exactly."""
+        _patch_git(monkeypatch, ["x.yml"], {"redis": frozenset({"1"})}, {"redis": frozenset({"2"})})
+        monkeypatch.setattr(gate, "MEDIUM_SCOPE", "off")
+        self._baselines(monkeypatch)
+        seen = []
+
+        def fake_scan(surface, ref, cache, severities=None):
+            seen.append(severities)
+            return {}
+
+        monkeypatch.setattr(gate, "scan_surface", fake_scan)
+
+        assert gate.main(["--base", "base", "--head", "head"]) == 0
+        assert seen == ["HIGH,CRITICAL"]
+
+
+class TestBandSplitting:
+    """`split_bands` — the partition the two judgements rest on."""
+
+    def test_severities_are_split_into_the_two_bands(self):
+        high, medium = gate.split_bands(
+            {
+                "CVE-1": _finding("CVE-1", severity="HIGH"),
+                "CVE-2": _finding("CVE-2", severity="CRITICAL"),
+                "CVE-3": _finding("CVE-3", severity="MEDIUM"),
+            }
+        )
+        assert set(high) == {"CVE-1", "CVE-2"}
+        assert set(medium) == {"CVE-3"}
+
+    def test_other_severities_are_in_neither_band(self):
+        """LOW and UNKNOWN have never been gated, and do not start now."""
+        high, medium = gate.split_bands(
+            {
+                "CVE-1": _finding("CVE-1", severity="LOW"),
+                "CVE-2": _finding("CVE-2", severity="UNKNOWN"),
+            }
+        )
+        assert high == {}
+        assert medium == {}
