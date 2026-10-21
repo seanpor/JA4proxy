@@ -240,6 +240,87 @@ injected-fetch unit tests passed while the feature was broken. Only the live
 run against real PyPI/OSV caught it. Live end-to-end verification is not
 optional for this kind of change.
 
+### The regression gate could not pass, and widened for the wrong reasons
+
+The sixth finding above was in the workflow 847d rewires. The seventh and
+eighth were in the *gate* — the 847c instrument that 847d's waiver lifecycle
+depends on. Neither was caused by 847d; both were exposed by it, and both
+would have kept the gate from doing its job.
+
+**The trigger compared file bytes.** `waiver_inputs_changed()` asked "is one of
+the four waiver files in the diff?" — which cannot tell a waiver edit from a
+documentation edit. The generated ignorefiles carry a header above their
+entries, so rewording that header widened the gate from "the surfaces this PR
+touches" to *every* surface. On this branch that is a one-line header change,
+and it put 19 surfaces in scope — which then failed on CVE-2026-111943, an
+upstream Go stdlib CVE published 2026-10-21, on images this branch never
+touched. That is precisely the failure 847c was built to prevent: *an upstream
+CVE disclosed overnight cannot redden an unrelated PR*.
+
+The comparison is now on the applied **entries** — the lines Trivy and pip-audit
+actually apply — so a comment is not a waiver change and a deleted entry still
+is. `security/waivers.yaml` is deliberately *not* compared: the bot records its
+own metadata there (`fix_available`, `recheck_trigger`) without changing a
+single applied waiver, so byte comparison widened the gate on every bot PR, and
+an unrelated upstream CVE would have reddened automated work that had nothing
+to do with it. A registry edit that really does change the waiver set changes
+the generated files with it — `make lint` runs `render_waivers.py --check` and
+refuses a registry and its generated files that disagree — so the generated
+files are the complete record of what is waived. Fail closed: a file that
+cannot be read at one end counts as changed, and one that cannot be read at
+*either* end is an error, not "unchanged".
+
+**A surface that never existed.** `dockerfile_image_map()` parsed the
+Makefile's rebuild loop — `-f "$$df" -t "$$tag"` — as a build rule, producing
+a Dockerfile path and an image name that cannot exist. The gate then tried to
+scan `image:"$$tag"` and failed closed, on a surface that was never real. So
+the gate could not pass at all, on any PR that widened its scope, which is
+every waiver change. `$$` is make's escape for a literal `$` and is by
+definition a shell variable, so captures containing it are now skipped.
+
+**Two definitions in one repository.** The same over-broad trigger still stood
+in CI, in the `scan-scope` plumbing job that decides whether the full scan
+runs on a PR: a byte-level `paths-filter` over the four waiver files. Two
+definitions of "the waiver set changed" is a divergent list — the programme's
+own fifth property — so the plumbing job now asks the gate
+(`scan_regression.py --waiver-set-changed`) and the two cannot drift apart.
+The question has three answers, not two: changed, unchanged, and
+could-not-tell, with a distinct exit code for the last so the caller can fail
+closed. The `scan` job's condition changed from `== 'true'` to `!= 'false'` for
+the same reason: a trigger that silently stops firing is the one failure mode a
+safety trigger must not have. If the detector fails, is skipped, or never sets
+its output, the full scan now runs anyway.
+
+All of it verified live, in both directions, against the real repository and
+the real ignorefiles — not only in unit tests:
+
+| State | The gate | The CI trigger |
+|---|---|---|
+| this branch (header-only change) | scans nothing | "unchanged" → the full scan is not triggered |
+| a real waiver entry deleted | widens to every surface, and catches the un-waived CVE-2026-100349 reappearing in grafana/grafana | "changed" → the full scan runs |
+
+### CVE-2026-111943, and what this phase did about it
+
+A Go standard-library CVE, published 2026-10-21, affects `crypto/x509` in Go
+1.27.2 (fixed in 1.26.10 / 1.27.3). It lands on this repository's first-party
+images *and* on six pinned third-party images (grafana, prometheus,
+alertmanager, redis_exporter) whose Go version is not ours to choose.
+
+It is recorded here because the honest position matters more than the optics:
+**847d did not fix it, and did not triage it by hand.** The 847c monitor did,
+within nine hours of publication — nine issues, one per affected surface, filed
+by `scan_baseline_monitor.py` with the evidence attached. That is the
+programme's designed channel, and it worked. What is left for a human is the
+decision the monitor cannot make: bump our own base images to Go 1.27.3, and
+either wait for upstream releases of the third-party images or waive them with
+a dated justification.
+
+The gate fix above is what made that separation possible. Before it, the CVE
+could not be triaged *at all* in this PR: the header change had widened the
+gate to every surface, so the branch was red on a finding it had no
+relationship to, and the honest options were both bad — land a red required
+gate, or ship a knowingly-false header in a security artifact.
+
 ---
 
 ## Test strategy
