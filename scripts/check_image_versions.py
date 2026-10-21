@@ -189,8 +189,24 @@ DOCKER_IMAGE_RE = re.compile(r"-f\s+(\S+)\s+-t\s+(\S+)")
 
 
 def dockerfile_image_map(makefile_text: str) -> dict[str, str]:
-    """Parse `{dockerfile path: image:tag}` out of the Makefile's build lines."""
-    return {dockerfile: image for dockerfile, image in DOCKER_IMAGE_RE.findall(makefile_text)}
+    """Parse `{dockerfile path: image:tag}` out of the Makefile's build lines.
+
+    Make's shell loops write `-f "$$df" -t "$$tag"` — the loop's *variables*,
+    not their values. Parsed literally those are a Dockerfile path and an image
+    name that cannot exist, and the regression gate would try to scan the
+    latter and fail closed on a surface that was never real: the gate could
+    not pass at all, on any PR that widened its scope.
+
+    `$$` is make's escape for a literal `$`, so a capture containing it is a
+    shell variable by definition. A Dockerfile path or image tag is written
+    literally in the Makefile's build rules and never contains `$$`.
+    """
+    out: dict[str, str] = {}
+    for dockerfile, image in DOCKER_IMAGE_RE.findall(makefile_text):
+        if "$$" in dockerfile or "$$" in image:
+            continue
+        out[dockerfile] = image
+    return out
 
 
 def third_party_image_refs(

@@ -102,8 +102,15 @@ All actions edit **`security/waivers.yaml`**, then re-render:
 |--------|-----|
 | **Add** | Confirm there is genuinely no fix (`make scan` shows `fix_deferred`/`affected`). Add a waiver to `security/waivers.yaml` stating *why no fix* and *why not exploitable here*, with `created: <today>` and `expires: <today+90d>`. Run `python3 scripts/render_waivers.py`. |
 | **Edit / extend** | Change `expires:` (and `created:` to keep the window ≤90d) and update `rationale`. **Max window: 90 days** (third-party sidecars) — enforced by the renderer. |
-| **Delete** | When a fix lands, remove the entry from the registry and re-render. |
-| **Bulk renew** | `python3 scripts/renew_trivyignore.py --within-days 5` (this is what the daily `trivyignore-renewal` workflow runs — it renews the registry and re-renders). `python3 scripts/render_waivers.py --renew` is the same renewal without the reviewer summary. |
+| **Delete** | When a fix lands, remove the entry from the registry and re-render. `scripts/renew_trivyignore.py` does this automatically for entries a scan no longer sees (a *dead* waiver). |
+| **Re-affirm** | `python3 scripts/renew_trivyignore.py --within-days 5 [--scan-dir DIR]` classifies each expiring entry as **dead** (removed), **fixable** (the fix is proposed; the window is *not* extended) or **escalated** (dates left untouched, with the next step printed). Since Phase 847d there is **no bulk-renew**: extending an expiry requires evidence, so a date cannot be pushed forward automatically. |
+
+> **No auto-renew (Phase 847d).** There is deliberately no command that extends a
+> waiver's `expires:`. The old behaviour bumped every window inside the notice
+> period, which meant a 90-day expiry was renewed indefinitely without anyone
+> checking whether a fix had shipped. To keep a waiver alive you now record *why*
+> (update `rationale` and set a new `created:`/`expires:` within 90 days). If a
+> script or workflow offers to refresh the date for you, that is a bug.
 
 Always run `make scan-exceptions` after editing, and `make scan` to confirm the
 gate is satisfied. CI runs `render_waivers.py --check`, so a registry edit that

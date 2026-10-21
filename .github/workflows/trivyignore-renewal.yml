@@ -1,34 +1,39 @@
 ---
-# Phase 812 (812-B) — Proactive .trivyignore renewal.
+# Phase 812 (812-B) — proactive .trivyignore re-affirmation; reworked in 847d.
 #
-# .trivyignore exceptions (Phase 226 policy, max 7-day window) were being
-# renewed reactively, whenever someone happened to touch the file, so they
-# clustered on one calendar day and caused a same-day cliff: Security Scan
-# went red on main AND on every open PR simultaneously, for reasons
-# unrelated to any of those PRs' actual diffs (observed directly: 42
-# entries expired on the same day this phase's investigation started).
+# .trivyignore exceptions used to be renewed reactively, whenever someone
+# happened to touch the file, so they clustered on one calendar day and caused a
+# same-day cliff: Security Scan went red on main AND on every open PR
+# simultaneously, for reasons unrelated to any of those PRs' actual diffs
+# (observed directly: 42 entries expired on the same day the 812 investigation
+# started).
 #
-# This runs DAILY and opens a PR renewing anything expiring within 5 days to
-# today+7d (never old_exp+7d -- see scripts/renew_trivyignore.py's docstring
-# for why that distinction matters). It does NOT decide whether a newer
-# upstream image tag actually clears a CVE -- that judgment call stays with
-# whoever reviews the PR, same as every manual renewal to date. Does not
-# auto-merge.
+# Phase 812 ran this DAILY and bumped anything expiring within 5 days to
+# today+7d. Phase 847d REMOVED the bump. The date moved but the *premise* was
+# never re-checked, so an entry that had been fixable for months could be
+# renewed indefinitely — the "auto-renewed expiry" the 847 CVE-zero programme
+# exists to eliminate. This workflow now classifies each expiring entry:
 #
-# WHY DAILY, not the original weekly Wednesday (fixed 2026-08-10, Phase 800):
-#   Trivy suppresses a finding only while `today < exp`, so an entry renewed to
-#   today+7 is ALREADY EXPIRED on day 7 -- which, on a weekly cadence, is the
-#   exact morning this job was scheduled to run. Every week there was therefore
-#   a guaranteed red window from 00:00 until this job's 05:00 PR landed, and a
-#   permanently red gate if any single run failed or its PR sat unreviewed.
+#   DEAD       no longer carried by any deployed image -> the waiver is DELETED
+#              (a stale waiver is a standing exemption nobody is watching)
+#   FIXABLE    a newer upstream tag clears it -> dates UNTOUCHED; the fix is
+#              proposed as a reviewable branch by the fix-forward bot
+#   ESCALATE   otherwise -> dates UNTOUCHED, next step printed for a human
+#
+# It still does NOT silently decide on a human's behalf, and never auto-merges.
+# The branch it pushes carries only DEAD deletions (removals); re-affirming a
+# live waiver stays a human edit that records WHY.
+#
+# WHY DAILY: Trivy suppresses a finding only while `today < exp`. Running daily
+# keeps the Phase 226 window cap while leaving slack before any lapse.
 #   The 7-day maximum window is Phase 226 security policy and is NOT changed
-#   here; running daily keeps that cap while giving renewal 5 days of slack to
-#   land, so a lapse needs 5 consecutive failures rather than one.
+#   here; running daily keeps that cap while giving the re-affirmation 5 days
+#   of slack to land, so a lapse needs 5 consecutive failures rather than one.
 #
 # Third-party actions are SHA-pinned per the convention in
 # .github/workflows/release-cli.yml.
 
-name: Trivyignore Renewal
+name: Trivyignore Re-affirmation
 
 on:
   schedule:
@@ -36,7 +41,7 @@ on:
   workflow_dispatch:
     inputs:
       dry_run:
-        description: "Report what would be renewed without opening a PR"
+        description: "Report what would change without opening a PR"
         type: boolean
         default: false
 
@@ -44,8 +49,8 @@ permissions:
   contents: read
 
 jobs:
-  renew:
-    name: Renew soon-to-expire .trivyignore exceptions
+  reaffirm:
+    name: Re-affirm soon-to-expire .trivyignore exceptions
     permissions:
       contents: write
       pull-requests: write
@@ -59,6 +64,24 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
         with:
           python-version: "3.14"
+
+      # PyYAML, explicitly. `setup-python` installs a CLEAN interpreter, so the
+      # PyYAML the runner image happens to carry is not there any more — and
+      # `scripts/check_image_versions.py` imports it at module level and exits
+      # 2 without it.
+      #
+      # This step was missing, and the silence was total. Phase 829a (2026-08-19)
+      # added `check_image_versions.py --list-third-party` to this workflow
+      # without it. The command substitution swallowed the exit code, so the
+      # image list came back EMPTY, the Trivy loop scanned NOTHING, the drift
+      # check ran against an empty directory, and `renew_trivyignore.py` died
+      # with a traceback that `| tee` hid. The job reported SUCCESS every day
+      # for 63 days: the renewal safety net was dead and looked alive.
+      #
+      # A "check" that measures nothing and reports success is worse than no
+      # check, so the emptiness is now an explicit error below too.
+      - name: Install Python deps
+        run: pip install pyyaml
 
       - name: List what's expiring soon (dry-run preview, always runs)
         run: python3 scripts/scan_exceptions.py --within-days 5 || true
@@ -81,7 +104,18 @@ jobs:
         run: |
           set -uo pipefail
           mkdir -p /tmp/trivy-scans
-          images="$(python3 scripts/check_image_versions.py --list-third-party)"
+          # The image list decides whether this step measures anything at all.
+          # An empty list used to look exactly like a clean scan, which is how
+          # 63 days of this workflow measured nothing and reported success.
+          if ! images="$(python3 scripts/check_image_versions.py --list-third-party)"; then
+            echo "::error::could not list the third-party images — the measured check cannot run"
+            exit 1
+          fi
+          if [ -z "$images" ]; then
+            echo "::error::no third-party images were listed — the measured check would measure nothing"
+            exit 1
+          fi
+          echo "scanning $(echo "$images" | wc -w) third-party image(s)"
           for img in $images; do
             slug="$(printf '%s' "$img" | tr '/:@' '___')"
             docker run --rm \
@@ -93,9 +127,18 @@ jobs:
                 "$img" > "/tmp/trivy-scans/${slug}.json" || \
               echo "::warning::scan failed for $img"
           done
+          # The drift check exits 1 when it FINDS unwaived findings — the
+          # normal, expected state this step exists to report, not a failure.
+          # The runner invokes `bash -e`, so an unguarded pipeline would abort
+          # the step on that exit and skip the justification refresh below
+          # (and the `| tee` would report 0 regardless, because the pipeline's
+          # status is tee's).
+          set +e
           python3 scripts/check_trivyignore_drift.py \
             --scan-dir /tmp/trivy-scans | tee drift_report.txt
-          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+          drift_rc=${PIPESTATUS[0]}
+          set -e
+          echo "exit_code=$drift_rc" >> "$GITHUB_OUTPUT"
 
           # phase-829b: regenerate the machine-checkable half of each
           # justification from the same scan data. 18 of 56 entries had claimed
@@ -106,10 +149,51 @@ jobs:
           python3 scripts/refresh_trivyignore_justifications.py \
             --scan-dir /tmp/trivy-scans || true
 
-      - name: Renew entries expiring within 5 days
-        id: renew
+      # Phase 847d: this no longer renews. It CLASSIFIES each expiring entry —
+      # DEAD (delete), FIXABLE (propose the bump; dates untouched) or ESCALATE
+      # (dates untouched, with the next step printed). Exit 1 means "something
+      # needs a human" and is expected; exit 2+ means the script itself broke.
+      #
+      # Those two must not be confused. `| tee` alone hid a crash: the
+      # pipeline's exit status is tee's, so a traceback was invisible and the
+      # job reported success. `PIPESTATUS` keeps the script's own code, so a
+      # broken script now fails the step instead of masquerading as a quiet
+      # day.
+      #
+      # `--scan-dir /tmp/trivy-scans` is what makes DEAD trustworthy: the drift
+      # step above scanned EVERY third-party image, so an entry whose declared
+      # carriers are all present there and yet carry nothing is genuinely gone.
+      # Without the scan dir, every entry escalates — a missing report is not
+      # evidence of absence.
+      - name: Re-affirm entries expiring within 5 days
+        id: reaffirm
         run: |
-          python3 scripts/renew_trivyignore.py --within-days 5 | tee renewal_summary.txt
+          set -uo pipefail
+          # The runner invokes `bash -e {0}`, so `-e` is ALREADY on. Left on,
+          # the pipeline below aborts the step the moment the script exits 1
+          # — which is the EXPECTED "a human needs to look" case — and the
+          # step dies before it can say so. Turn it off for the pipeline only,
+          # and read the script's own code out of PIPESTATUS.
+          set +e
+          python3 scripts/renew_trivyignore.py \
+            --within-days 5 --scan-dir /tmp/trivy-scans | tee renewal_summary.txt
+          rc=${PIPESTATUS[0]}
+          set -e
+          if [ "$rc" -gt 1 ]; then
+            echo "::error::re-affirmation failed (exit $rc) — see the traceback above"
+            exit "$rc"
+          fi
+          # Exit 1 means something needs a human. That is true for a DEAD
+          # deletion or a FIXABLE proposal, AND for a pure ESCALATION — the
+          # case where nothing on disk changes but a person still has to act.
+          # Gating on "did a file change?" alone would drop exactly that case
+          # on the floor, which is the one case that most needs a human.
+          if [ "$rc" -eq 1 ]; then
+            echo "needs_human=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "needs_human=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "branch=chore/trivyignore-reaffirm-$(date +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
           if git diff --quiet security/waivers.yaml .trivyignore.first-party .trivyignore.third-party .pip-audit-ignores; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
@@ -128,21 +212,27 @@ jobs:
       # review this workflow deliberately requires — and the job never fails on
       # a repo policy it cannot change. No repo-settings change, no self-approval
       # surface.
-      - name: Push branch and request review if changed
-        if: steps.renew.outputs.changed == 'true' && github.event.inputs.dry_run != 'true'
+      #
+      # Phase 847d: the branch carries only DEAD deletions. A FIXABLE entry is
+      # proposed by the fix-forward bot (a different branch, a different
+      # mechanism); an ESCALATE changes nothing on disk, so there is nothing to
+      # push — but it still needs a human, which is why the issue step below is
+      # gated on `needs_human` rather than on `changed`.
+      - name: Push branch if the registry changed
+        if: steps.reaffirm.outputs.changed == 'true' && github.event.inputs.dry_run != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          branch="chore/trivyignore-renewal-$(date +%Y-%m-%d)"
+          branch="${{ steps.reaffirm.outputs.branch }}"
           git checkout -b "$branch"
           # Phase 847a: security/waivers.yaml is the source of truth; the
           # .trivyignore.* / .pip-audit-ignores files are generated from it, so
           # the registry must travel with them in the same commit.
           git add security/waivers.yaml .trivyignore.first-party .trivyignore.third-party .pip-audit-ignores
-          git commit -m "chore: renew soon-to-expire .trivyignore exceptions ($(date +%Y-%m-%d))"
+          git commit -m "chore: re-affirm soon-to-expire .trivyignore exceptions ($(date +%Y-%m-%d))"
 
           # Rebase onto the CURRENT tip before pushing. The checkout above is of
           # main as it stood when the job started; anything merged since would
@@ -164,23 +254,48 @@ jobs:
           git fetch origin main
           if ! git rebase origin/main; then
             git rebase --abort || true
-            echo "::warning::renewal branch conflicts with current main; " \
+            echo "::warning::re-affirmation branch conflicts with current main; " \
                  "regenerate it on the current tip instead of merging this one"
           fi
 
           # --force-with-lease: a prior same-day run may have left this branch.
           git push --force-with-lease -u origin "$branch"
 
+      # Phase 847d: the issue is filed whenever a human is needed — NOT only
+      # when a file changed. A pure ESCALATION (dates untouched, nothing to
+      # push) is precisely the case where a person must decide, and gating on
+      # `changed` would have dropped it on the floor: the summary would have
+      # been printed to a log nobody reads, which is the silent failure this
+      # programme exists to remove.
+      - name: File or refresh the tracking issue
+        if: steps.reaffirm.outputs.needs_human == 'true' && github.event.inputs.dry_run != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+          branch="${{ steps.reaffirm.outputs.branch }}"
           compare_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/compare/main...${branch}?expand=1"
           {
-            echo "The weekly .trivyignore renewal pushed branch \`${branch}\` with"
-            echo "the soon-to-expire exceptions renewed."
+            if [ "${{ steps.reaffirm.outputs.changed }}" = "true" ]; then
+              echo "The daily .trivyignore re-affirmation pushed branch \`${branch}\`."
+              echo ""
+              echo "**Open the PR here (one click, pre-filled):** ${compare_url}"
+            else
+              echo "The daily .trivyignore re-affirmation needs a decision."
+              echo ""
+              echo "No waiver was deleted, so there is no branch to open — the"
+              echo "entries below were **escalated**, and their dates were left"
+              echo "**untouched** on purpose. Decide each one by hand: re-affirm"
+              echo "it with a reason, fix it, or remove it."
+            fi
             echo ""
-            echo "**Open the PR here (one click, pre-filled):** ${compare_url}"
+            echo "Since Phase 847d this is NOT a renewal: an expiring waiver is"
+            echo "**deleted** if no scan sees its CVE any more, and otherwise left"
+            echo "**untouched** and escalated. No window is ever extended."
             echo ""
-            echo "A human must still verify whether a newer upstream image tag"
-            echo "actually clears each CVE before merging — this workflow only"
-            echo "renews the time window. See docs/runbooks/security_scan_exceptions.md."
+            echo "A human must still decide what to do with the escalated entries"
+            echo "listed below — re-affirm, fix, or remove. See"
+            echo "docs/runbooks/security_scan_exceptions.md."
             echo ""
             echo '```'
             cat renewal_summary.txt
@@ -198,8 +313,8 @@ jobs:
               echo '```'
             else
               echo "> ⚠ The image scan step produced no report — the measured"
-              echo "> check did NOT run, so this renewal is date-only and could"
-              echo "> be hiding a new CVE. Do not merge on its word alone."
+              echo "> check did NOT run, so every entry was escalated rather than"
+              echo "> classified. Do not merge on this branch's word alone."
             fi
           } > issue_body.txt
 
@@ -207,10 +322,12 @@ jobs:
           # each week. Never fails the job — a notifier must not be a blocker.
           existing=$(gh issue list --label trivyignore-renewal --state open \
             --json number --jq '.[0].number' 2>/dev/null || echo "")
-          title="Action needed: open the weekly .trivyignore renewal PR ($(date +%Y-%m-%d))"
+          title="Action needed: open the daily .trivyignore re-affirmation PR ($(date +%Y-%m-%d))"
           if [ -n "$existing" ]; then
             gh issue edit "$existing" --title "$title" --body-file issue_body.txt || true
-            gh issue comment "$existing" --body "Branch \`${branch}\` refreshed — ${compare_url}" || true
+            if [ "${{ steps.reaffirm.outputs.changed }}" = "true" ]; then
+              gh issue comment "$existing" --body "Branch \`${branch}\` refreshed — ${compare_url}" || true
+            fi
           else
             gh issue create --title "$title" --label trivyignore-renewal \
               --body-file issue_body.txt || true
@@ -227,14 +344,15 @@ jobs:
           script: |
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
             const body = [
-              'The scheduled .trivyignore renewal workflow (Wednesdays 05:00 UTC) failed.',
+              'The scheduled .trivyignore re-affirmation workflow (daily 05:00 UTC) failed.',
               '',
               `Run: ${runUrl}`,
               '',
               'This does not itself mean Security Scan is broken -- check',
               '`scripts/scan_exceptions.py` separately -- but it does mean the',
-              'proactive-renewal safety net (Phase 812, 812-B) is not running,',
-              'so the next cliff will be a same-day reactive fire drill again.',
+              'proactive re-affirmation safety net (Phase 812, 812-B; reworked in',
+              '847d) is not running, so an expiring waiver will not be classified',
+              'as dead, fixable, or escalated before it lapses.',
               'Common causes: a script bug in scripts/renew_trivyignore.py, or',
               'Docker Hub/GCR rate limiting an upstream tag check done manually',
               'during PR review.',
@@ -257,7 +375,7 @@ jobs:
               await github.rest.issues.create({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                title: 'Trivyignore Renewal workflow failed',
+                title: 'Trivyignore Re-affirmation workflow failed',
                 body,
                 labels: [label],
               });

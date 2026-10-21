@@ -26,6 +26,12 @@ WHAT IT DOES
    back is *reopened*, never duplicated.
 4. A fix queue: which findings already have a published fix version (that is
    what the fix-forward bot in 847d burns down).
+5. With `--state-out FILE`, the machine-readable state
+   (`generated_at` / `current` / `drift` / `fixable`) that
+   `scripts/fix_forward.py` consumes — the hand-off between "what we measured"
+   and "what can be fixed" (Phase 847d). It is written in report-only mode
+   too, because the fix-forward step runs before any issue is filed, and it is
+   never written from a partial scan.
 
 Exit status
     0  ran fine — which includes "ran fine, found nothing" (the steady state)
@@ -45,6 +51,8 @@ import json
 import os
 import subprocess  # nosec B404 -- fixed argv, no shell
 import sys
+from datetime import datetime, timezone
+from pathlib import Path
 
 try:  # works as `python3 scripts/x.py` and as `from scripts.x import ...`
     from scripts.check_image_versions import scan_gate_compose_paths, third_party_image_refs
@@ -310,6 +318,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--json", action="store_true", help="machine-readable summary instead of markdown")
     parser.add_argument("--images", nargs="*", default=[], help="extra image refs to scan (e.g. built first-party)")
     parser.add_argument("--max-issues", type=int, default=MAX_ISSUES_PER_RUN)
+    parser.add_argument(
+        "--state-out",
+        type=Path,
+        default=None,
+        help=(
+            "write the machine-readable monitor state here for downstream steps "
+            "(Phase 847d: scripts/fix_forward.py consumes it). Written in "
+            "report-only mode too, since the fix-forward bot runs before any "
+            "issue is filed. Never written from a partial scan."
+        ),
+    )
     args = parser.parse_args(argv)
 
     cache = os.environ.get("TRIVY_CACHE", os.path.expanduser("~/.cache/trivy"))
@@ -340,6 +359,26 @@ def main(argv: list[str] | None = None) -> int:
 
     drift_report = drift(baseline, current)
     queue = fixable_queue(current)
+
+    if args.state_out is not None:
+        # The fix-forward bot (Phase 847d) runs as a LATER step and needs the
+        # findings this run measured — but it must never act on a partial
+        # picture, which is why this sits after the `failures` early-return
+        # above: a surface that could not be scanned aborts before we get here.
+        args.state_out.parent.mkdir(parents=True, exist_ok=True)
+        args.state_out.write_text(
+            json.dumps(
+                {
+                    "generated_at": datetime.now(timezone.utc).isoformat(),
+                    "current": current,
+                    "drift": drift_report,
+                    "fixable": queue,
+                },
+                indent=2,
+                sort_keys=True,
+            ),
+            encoding="utf-8",
+        )
 
     if args.apply:
         try:

@@ -99,14 +99,34 @@ PYPI_FILE_RE = re.compile(
 AUDITABLE_DEPS_RE = re.compile(r"(^|/)(requirements[\w.\-]*\.txt|constraints[\w.\-]*\.txt)$")
 DOCKERFILE_RE = re.compile(r"(^|/)Dockerfile[\w.\-]*$")
 
-# The gate's OWN inputs. `security/waivers.yaml` is the authored registry and
-# the three generated files are what Trivy/pip-audit actually apply, so a change
-# to any of them changes the verdict for *every* surface — which is the one case
-# where scanning only "what this PR touches" would be fail-open: deleting a
-# waiver touches no image, so a surface-scoped gate would never look, and the
-# finding it un-waives would go unnoticed until the scheduled monitor ran.
-WAIVER_INPUTS = (
-    "security/waivers.yaml",
+# The generated ignorefiles ARE the waiver set: their entry lines are exactly
+# what Trivy and pip-audit apply, so a change to them changes the verdict for
+# *every* surface — which is the one case where scanning only "what this PR
+# touches" would be fail-open: deleting a waiver touches no image, so a
+# surface-scoped gate would never look, and the finding it un-waives would go
+# unnoticed until the scheduled monitor ran.
+#
+# `security/waivers.yaml` is the authored source of the same set, and is
+# deliberately NOT compared here. Two reasons, both load-bearing:
+#
+#   * The bot records its own metadata there (`fix_available`,
+#     `recheck_trigger`) without changing a single applied waiver. Comparing
+#     the registry's BYTES widened the gate on every bot PR, so an unrelated
+#     upstream CVE would have reddened automated work that had nothing to do
+#     with it.
+#   * A registry edit that really does change the waiver set changes the
+#     generated files with it — `make lint` runs `render_waivers.py --check`
+#     and refuses a registry and its generated files that disagree — so the
+#     generated files are the complete record of what is waived.
+#
+# The comparison is on the applied ENTRIES, not on file bytes: a generated
+# ignorefile carries a documentation header above its entries, and rewording
+# that header changes no verdict for any surface. Byte comparison cannot tell
+# the two apart, so a comment-only edit widened the gate to every surface —
+# and any upstream CVE disclosed that night then reddened a PR that had
+# nothing to do with it, which is the exact failure the gate exists to
+# prevent.
+APPLIED_WAIVER_FILES = (
     ".trivyignore.third-party",
     ".trivyignore.first-party",
     ".pip-audit-ignores",
@@ -272,9 +292,41 @@ def unscanned_dockerfiles(changed: list[str], dockerfile_images: dict[str, str])
     )
 
 
-def waiver_inputs_changed(changed: list[str]) -> bool:
-    """True when the PR edits the waiver registry or the files generated from it."""
-    return any(path in WAIVER_INPUTS for path in changed)
+def applied_waiver_entries(text: str) -> list[str]:
+    """The lines of a generated ignorefile that Trivy/pip-audit actually apply.
+
+    Everything else in the file is documentation: the generated header, and a
+    comment block above each entry explaining why it is justified. A change to
+    any of it changes no finding's verdict.
+    """
+    return [
+        line.strip()
+        for line in text.splitlines()
+        if line.strip() and not line.strip().startswith("#")
+    ]
+
+
+def waiver_set_changed(base: str, head: str = "HEAD", repo: str = ".") -> bool:
+    """True when the PR changes the waiver SET, not merely the bytes of a file.
+
+    Compare the applied entries of every generated ignorefile at *base* and at
+    *head*. Fail closed: a file that cannot be read at one end, or that exists
+    at one end only, counts as changed.
+    """
+    for path in APPLIED_WAIVER_FILES:
+        base_text = file_at(base, path, repo=repo)
+        head_text = file_at(head, path, repo=repo)
+        if base_text is None and head_text is None:
+            # Unreadable at BOTH ends: the comparison did not happen. These
+            # files are tracked at every relevant revision, so this is a broken
+            # git layer, not an absent file — and it must not be read as "the
+            # waiver set did not change".
+            raise DiffError(f"could not read {path} at {base} or {head}")
+        if base_text is None or head_text is None:
+            return True  # added or deleted — the applied set changed
+        if applied_waiver_entries(base_text) != applied_waiver_entries(head_text):
+            return True
+    return False
 
 
 def all_surfaces(
@@ -320,7 +372,31 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--head", default="HEAD", help="the revision under test (default: HEAD)")
     parser.add_argument("--baseline", default=None, help="path to security/baseline.json")
     parser.add_argument("--plan", action="store_true", help="print the touched surfaces as JSON and exit")
+    parser.add_argument(
+        "--waiver-set-changed",
+        action="store_true",
+        help="exit 0 if the waiver SET changed between --base and --head, 1 if not, 2 if unknown",
+    )
     args = parser.parse_args(argv)
+
+    if args.waiver_set_changed:
+        # The CI plumbing asks this question on its own: "did the waiver set
+        # move?" is the trigger for the full scan on a PR. It is answered here
+        # rather than in the workflow, with the SAME comparison the gate uses,
+        # so the two can never disagree — the failure mode being a trigger that
+        # fires on a documentation edit and one that stays silent on a real
+        # waiver change.
+        #
+        # Exit codes: 0 = changed, 1 = unchanged, 2 = could not tell. "Could not
+        # tell" is deliberately distinct, so a caller can fail closed (run the
+        # full scan) rather than read a broken comparison as "unchanged".
+        try:
+            waiver_changed = waiver_set_changed(args.base, args.head)
+        except DiffError as exc:
+            print(f"✗ cannot determine whether the waiver set changed: {exc}", file=sys.stderr)
+            return 2
+        print("changed" if waiver_changed else "unchanged")
+        return 0 if waiver_changed else 1
 
     cache = os.environ.get("TRIVY_CACHE", os.path.expanduser("~/.cache/trivy"))
 
@@ -330,13 +406,16 @@ def main(argv: list[str] | None = None) -> int:
         head_refs = compose_refs_at(args.head)
         makefile_text = file_at(args.head, MAKEFILE) or ""
         dockerfiles = dockerfile_image_map(makefile_text)
-        if waiver_inputs_changed(changed):
+        if waiver_set_changed(args.base, args.head):
             # The waiver set is an input to the verdict for every surface, so a
             # change to it makes *all* of them "touched". Scanning only the
             # files in the diff would make deleting a waiver a silent no-op.
             touched = all_surfaces(changed, head_refs, dockerfiles)
             # stderr, not stdout: `--plan` writes JSON to stdout and CI parses it.
-            print("⚠ a waiver input changed — every surface is in scope for this PR", file=sys.stderr)
+            print(
+                "⚠ the waiver set changed — every surface is in scope for this PR",
+                file=sys.stderr,
+            )
         else:
             touched = touched_surfaces(changed, base_refs, head_refs, dockerfiles)
     except DiffError as exc:

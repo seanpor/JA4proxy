@@ -53,9 +53,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      # Every Go pin in this file is 1.27.3. 1.27.2 is in the affected range
+      # of GO-2026-6809 (CVE-2026-111943) and the repository calls the
+      # affected symbol — `x509.Certificate.Verify` — at
+      # internal/security/mtls.go:50, so the "Go dependency audit" required
+      # check failed on every pull request. See the dependency-audit-go job
+      # below for the full story.
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
         with:
-          go-version: "1.27.2"
+          go-version: "1.27.3"
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
         with:
           python-version: "3.14"
@@ -106,7 +112,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
         with:
-          go-version: "1.27.2"
+          go-version: "1.27.3"
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
         with:
           python-version: "3.14"
@@ -130,7 +136,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
         with:
-          go-version: "1.27.2"
+          go-version: "1.27.3"
       - name: Build Go binaries
         run: make go-build cli-build
       - name: Validate compose env vars (no image build)
@@ -153,7 +159,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
         with:
-          go-version: "1.27.2"
+          go-version: "1.27.3"
       - name: Go tests under race detector
         # -race requires cgo; ubuntu runners ship a C toolchain (CGO_ENABLED=1
         # is the default on linux/amd64).
@@ -172,15 +178,47 @@ jobs:
       waivers: ${{ steps.filter.outputs.waivers }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d  # v4.0.3
-        id: filter
         with:
-          filters: |
-            waivers:
-              - 'security/waivers.yaml'
-              - '.trivyignore.third-party'
-              - '.trivyignore.first-party'
-              - '.pip-audit-ignores'
+          fetch-depth: 0
+      - name: Fetch origin/main (the revision the waiver set is compared against)
+        run: git fetch --no-tags origin "+refs/heads/main:refs/remotes/origin/main"
+      # PyYAML, explicitly: `scripts/check_image_versions.py` (imported by the
+      # gate) imports it at module level and exits 2 without it.
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: "3.14"
+      - name: Install Python deps
+        run: pip install pyyaml
+      # The question is "did the waiver SET move?", not "did a waiver FILE
+      # change?". A generated ignorefile carries a documentation header above
+      # its entries; rewording that header waives nothing and un-waives
+      # nothing, yet treating it as a waiver change put EVERY surface in
+      # scope — which then failed on an upstream CVE disclosed overnight, on a
+      # PR that had nothing to do with it. That is the failure the split
+      # between the full scan and the regression gate exists to prevent.
+      #
+      # The comparison is the gate's own (`scripts/scan_regression.py
+      # --waiver-set-changed`), so the trigger here and the trigger in the
+      # gate can never drift apart.
+      #
+      # Exit codes: 0 = changed, 1 = unchanged, 2 = could not tell. "Could not
+      # tell" is reported as "changed": the full scan is the safe answer, and
+      # the alternative is a trigger that silently stops firing.
+      - name: Did the waiver set change?
+        id: filter
+        run: |
+          set +e
+          python3 scripts/scan_regression.py --base origin/main --waiver-set-changed
+          rc=$?
+          set -e
+          case "$rc" in
+            0) echo "waivers=true" >> "$GITHUB_OUTPUT" ;;
+            1) echo "waivers=false" >> "$GITHUB_OUTPUT" ;;
+            *)
+              echo "::error::could not determine whether the waiver set changed (exit $rc) — assuming it did"
+              echo "waivers=true" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
 
   scan:
     name: Security Scan (make scan)
@@ -191,10 +229,15 @@ jobs:
     # waiver set moved, because a waiver change moves the gate's own inputs for
     # every surface. An unrelated PR is no longer reddened by an upstream CVE
     # disclosed overnight — `scan-regression` judges it against the baseline.
+    #
+    # The condition is `!= 'false'`, not `== 'true'`: if the detection job
+    # cannot answer — it failed, it was skipped, its output was never set —
+    # the full scan RUNS. A trigger that silently stops firing is the one
+    # failure mode a safety trigger must not have.
     if: >
       always() &&
       (github.event_name != 'pull_request' ||
-       needs.scan-scope.outputs.waivers == 'true')
+       needs.scan-scope.outputs.waivers != 'false')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -287,7 +330,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
         with:
-          go-version: "1.27.2"
+          go-version: "1.27.3"
       # Python tests run inside the pinned 3.14 tools image (built by the
       # `tools-image` prereq of `make test`); Go tests run natively. No host
       # Python setup is required.
@@ -386,9 +429,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      # The audit toolchain must itself be patched. This job pinned Go
+      # 1.27.2, which is in the affected range of GO-2026-6809
+      # (CVE-2026-111943, "Distrust compromised intermediate certificates in
+      # crypto/x509", fixed in 1.26.10 and 1.27.3) — and the repository calls
+      # the affected symbol, `x509.Certificate.Verify`, at
+      # internal/security/mtls.go:50. govulncheck therefore reported it as
+      # REACHABLE and exited 3, failing this REQUIRED check on every pull
+      # request in the repository:
+      #
+      #     Vulnerability #1: GO-2026-6809
+      #       Found in: crypto/x509@go1.27.2
+      #       Fixed in: crypto/x509@go1.27.3
+      #       #1: internal/security/mtls.go:50:22: security.MTLSVerifier.Verify
+      #           calls x509.Certificate.Verify
+      #
+      # Auditing the source with a known-vulnerable compiler answers a
+      # question nobody asked: the finding is about the toolchain, not about
+      # this repository's code. The toolchain that SHIPS is a separate
+      # question — the first-party images are still built on
+      # golang:1.27.2-alpine, which Trivy still reports, and Phase 847g is
+      # the bump. This pin is about the audit being meaningful.
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
         with:
-          go-version: "1.27.2"
+          go-version: "1.27.3"
       - name: govulncheck
         run: |
           # phase-61 review-fix #2 (B2): pin govulncheck. @latest defeats the

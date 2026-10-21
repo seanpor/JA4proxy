@@ -71,6 +71,57 @@ def test_valid_registry_has_no_errors() -> None:
     assert render_waivers.validate(_valid_registry()) == []
 
 
+def test_empty_waiver_list_is_valid() -> None:
+    """Zero waivers is the *goal*, not an error (Phase 847d). Deleting the last
+    dead waiver must not make the registry unvalidatable — otherwise a repo that
+    fixed everything would be blocked from recording that fact."""
+    reg = _valid_registry()
+    reg["waivers"] = []
+    assert render_waivers.validate(reg) == []
+
+
+def test_missing_waivers_key_is_still_rejected() -> None:
+    reg = _valid_registry()
+    del reg["waivers"]
+    assert render_waivers.validate(reg) == ["`waivers:` must be a list"]
+
+
+def test_load_registry_refuses_a_file_with_no_waivers_key(tmp_path) -> None:
+    """A file that lost its `waivers:` key is not an empty registry.
+
+    Coercing it to `[]` would read as "zero waivers", and the derived
+    ignorefiles would then be regenerated EMPTY — every live exemption
+    dropped, silently. The dict-level check in `validate()` cannot catch it
+    once `load_registry` has normalised the value away, so the refusal has to
+    happen at load time.
+    """
+    path = tmp_path / "waivers.yaml"
+    path.write_text(
+        "version: 1\npolicy:\n  max_window_days: 90\n  default_owner: security-oncall\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(render_waivers.RegistryError) as excinfo:
+        render_waivers.load_registry(path)
+
+    assert "waivers" in str(excinfo.value)
+
+
+def test_load_registry_accepts_an_empty_waivers_list(tmp_path) -> None:
+    """The goal state: zero waivers, with the key still present."""
+    path = tmp_path / "waivers.yaml"
+    path.write_text(
+        "version: 1\npolicy:\n  max_window_days: 90\n  default_owner: security-oncall\n"
+        "waivers:\n",
+        encoding="utf-8",
+    )
+
+    registry = render_waivers.load_registry(path)
+
+    assert registry["waivers"] == []
+    assert render_waivers.validate(registry) == []
+
+
 def test_missing_rationale_is_rejected() -> None:
     reg = _valid_registry()
     del reg["waivers"][0]["rationale"]
@@ -199,29 +250,6 @@ def test_render_line_length_is_bounded() -> None:
     for text in render_waivers.render_all(registry).values():
         for line in text.splitlines():
             assert len(line) <= 100, line
-
-
-# ── Renewal helper (used by renew_trivyignore.py) ────────────────────────────
-
-def test_renew_expiring_bumps_only_trivy_within_window() -> None:
-    today = date(2026, 10, 17)
-    reg = {
-        "policy": {"max_window_days": 90},
-        "waivers": [
-            {**_valid_registry()["waivers"][0], "expires": "2026-10-19"},  # in window
-            {**_valid_registry()["waivers"][0], "id": "CVE-2026-00002",
-             "expires": "2027-01-15"},  # out of window
-            {**_valid_registry()["waivers"][0], "id": "CVE-2026-00003",
-             "source": "pip-audit", "expires": "2026-10-18"},  # pip-audit: skipped
-        ],
-    }
-    n = render_waivers.renew_expiring(reg, within_days=5, days=90, today=today)
-    assert n == 1
-    bumped = reg["waivers"][0]
-    assert bumped["expires"] == (today + timedelta(days=90)).isoformat()
-    assert bumped["created"] == today.isoformat()
-    # Renewed window is still within policy.
-    assert render_waivers.validate(reg) == []
 
 
 # ── save_registry: comments survive a rewrite ────────────────────────────────
@@ -386,3 +414,103 @@ def test_save_registry_refuses_to_drop_an_entry(tmp_path: Path) -> None:
 
     # And the file is untouched.
     assert "CVE-2026-99999" not in path.read_text(encoding="utf-8")
+
+
+# ── Phase 847d: fix-metadata splice (the fix-forward bot's write path) ───────
+
+_FIX_META_ENTRY = (
+    "  - id: CVE-2026-90001\n"
+    "    scope: third-party\n"
+    "    severity: HIGH\n"
+    "    source: trivy\n"
+    '    carriers: ["img:1.0"]\n'
+    "    rationale: synthetic entry for the 847d splice tests\n"
+    "    created: 2026-10-17\n"
+    "    expires: 2027-01-15\n"
+)
+
+
+def _write_fix_meta_registry(
+    tmp_path: Path, extra_lines: str = ""
+) -> tuple[Path, dict]:
+    path = tmp_path / "waivers.yaml"
+    path.write_text(
+        _REGISTRY_PROLOGUE + _FIX_META_ENTRY + extra_lines, encoding="utf-8"
+    )
+    return path, render_waivers.load_registry(path)
+
+
+def test_bot_splice_appends_fix_metadata_missing_from_text(tmp_path: Path) -> None:
+    """A registry record the splice silently dropped must not be possible: a
+    key the waiver carries but the text lacks is appended after the last
+    field."""
+    path, registry = _write_fix_meta_registry(tmp_path)
+    entry = registry["waivers"][0]
+    entry["fix_available"] = False
+    entry["recheck_trigger"] = "upstream publishes a fixed tag"
+    render_waivers.save_registry(
+        registry, path, mutable_keys=render_waivers.BOT_MUTABLE_KEYS
+    )
+    text = path.read_text(encoding="utf-8")
+    assert "    fix_available: false" in text
+    assert '    recheck_trigger: "upstream publishes a fixed tag"' in text
+    reloaded = render_waivers.load_registry(path)
+    assert reloaded["waivers"][0]["fix_available"] is False
+    assert reloaded["waivers"][0]["recheck_trigger"] == "upstream publishes a fixed tag"
+    assert render_waivers.validate(reloaded) == []
+
+
+def test_default_splice_preserves_fix_metadata_byte_for_byte(tmp_path: Path) -> None:
+    """The existing mutators must keep rewriting only created/expires/carriers
+    even when fix metadata is present in both text and dict."""
+    path, registry = _write_fix_meta_registry(
+        tmp_path,
+        '    fix_available: false\n'
+        '    recheck_trigger: "when upstream ships the fix"\n',
+    )
+    before = path.read_text(encoding="utf-8")
+    registry["waivers"][0]["expires"] = "2027-02-15"
+    render_waivers.save_registry(registry, path)  # default mutable keys
+    after = path.read_text(encoding="utf-8")
+    assert after == before.replace(
+        "expires: 2027-01-15", "expires: 2027-02-15"
+    )
+
+
+def test_bot_splice_drops_stale_trigger_when_fix_lands(tmp_path: Path) -> None:
+    """fix_available: true supersedes a recheck_trigger the waiver no longer
+    carries — the line must be dropped, not left stale."""
+    path, registry = _write_fix_meta_registry(
+        tmp_path,
+        '    fix_available: false\n    recheck_trigger: "when"\n',
+    )
+    entry = registry["waivers"][0]
+    entry["fix_available"] = True
+    entry.pop("recheck_trigger")
+    render_waivers.save_registry(
+        registry, path, mutable_keys=render_waivers.BOT_MUTABLE_KEYS
+    )
+    text = path.read_text(encoding="utf-8")
+    block = text.split("waivers:\n", 1)[1]
+    assert "    fix_available: true" in block
+    assert "recheck_trigger" not in block
+
+
+def test_bot_splice_quoted_trigger_round_trips(tmp_path: Path) -> None:
+    """A trigger with `: `/quotes/`#` survives JSON-quoting round-trip."""
+    trigger = 'when semgrep allows mcp >= 1.30.0: re-check "#1" (v2)'
+    path, registry = _write_fix_meta_registry(tmp_path)
+    entry = registry["waivers"][0]
+    entry["fix_available"] = False
+    entry["recheck_trigger"] = trigger
+    render_waivers.save_registry(
+        registry, path, mutable_keys=render_waivers.BOT_MUTABLE_KEYS
+    )
+    line = next(
+        ln
+        for ln in path.read_text(encoding="utf-8").splitlines()
+        if "recheck_trigger" in ln
+    )
+    assert line.startswith("    recheck_trigger: ")
+    reloaded = render_waivers.load_registry(path)
+    assert reloaded["waivers"][0]["recheck_trigger"] == trigger
