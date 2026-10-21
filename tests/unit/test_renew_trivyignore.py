@@ -98,6 +98,27 @@ def _scan_dir(tmp_path: Path, findings: dict) -> Path:
     return out
 
 
+@pytest.fixture(autouse=True)
+def _isolate_derived_files(monkeypatch, tmp_path):
+    """Keep every test in this module from writing the repo's REAL derived files.
+
+    `renew_trivyignore.main` re-renders `.trivyignore.third-party` and
+    `.pip-audit-ignores` from whatever registry it was handed. A test that
+    exercises the deletion path would otherwise rewrite the repo's live files
+    from a fixture registry — silently clobbering real exemptions. Redirecting
+    by default means a test that forgets to cannot.
+
+    The module to patch is `renew_trivyignore.render_waivers`, NOT the
+    top-level `render_waivers` this file imports: the script imports
+    `scripts.render_waivers`, which is a DIFFERENT module object with its own
+    globals, so patching the imported one silently does nothing.
+    """
+    rw = renew_trivyignore.render_waivers
+    monkeypatch.setattr(rw, "THIRD_PARTY_IGNORE", tmp_path / ".trivyignore.third-party")
+    monkeypatch.setattr(rw, "FIRST_PARTY_IGNORE", tmp_path / ".trivyignore.first-party")
+    monkeypatch.setattr(rw, "PIP_AUDIT_IGNORES", tmp_path / ".pip-audit-ignores")
+
+
 # ── selection ───────────────────────────────────────────────────────────────
 
 def test_selects_only_trivy_entries_inside_the_window() -> None:
