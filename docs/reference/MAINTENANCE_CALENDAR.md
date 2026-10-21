@@ -54,7 +54,7 @@ operations** (a running JA4proxy install). Skip to the one you own.
 | Time (UTC) | Task | Who | If skipped |
 |---|---|---|---|
 | Mon 06:00 | CVE sweep across all scanned images | 🤖 `ci.yml` scheduled run | Newly published CVEs sit unnoticed in shipped images |
-| Wed 05:00 | `.trivyignore` proactive renewal — opens a PR ~5 days before the earliest expiry | 🤖→🧑 `trivyignore-renewal.yml` | Exceptions expire in a cluster and redden the full `Security Scan` on `main` (and, since a waiver change puts every surface in scope, the renewal PR itself), for reasons unrelated to any other PR |
+| Daily 05:00 | `.trivyignore` re-affirmation — deletes dead waivers, escalates the rest ~5 days before expiry (never renews) | 🤖→🧑 `trivyignore-renewal.yml` | Exceptions expire in a cluster and redden the full `Security Scan` on `main` (and, since a waiver change puts every surface in scope, the re-affirmation PR itself), for reasons unrelated to any other PR |
 | Sat 01:30 | OpenSSF Scorecard | 🤖 `scorecard.yml` | Supply-chain posture score drifts down silently |
 | — | Extended fuzz run against the pentest range | 🧑 (proposed) | Deep parser bugs need hours of fuzzing; PR-time smoke runs will not find them |
 | — | Attack-surface drift check (`ATTACK_SURFACE.md`) | 🤖 (proposed) | New listeners/routes/workflows appear with nobody noticing they were never security-tested |
@@ -126,8 +126,8 @@ other:
 
 ```
 Mon 06:00  CVE sweep  ─┐
-Wed 05:00  .trivyignore renewal  (mid-week: slack before the Monday sweep,
-                                  away from the weekend gap)
+Daily 05:00 .trivyignore re-affirmation (daily, so the 5-day notice window
+                           has slack before a waiver lapses)
 Sat 01:30  Scorecard              ─┘
 Daily 03:17 Benchmark (off-peak, offset from the Monday 06:00 sweep)
 Daily 05:37 CVE baseline monitor (rotating, mostly the same job as the sweep)

@@ -22,8 +22,9 @@ on:
         default: false
 
 permissions:
-  contents: read
+  contents: write
   issues: write
+  pull-requests: write
 
 jobs:
   monitor:
@@ -35,6 +36,13 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
+      # Pinned Python for the scripts that run directly on the runner (the
+      # monitor and the fix-forward bot). Both need PyYAML; the runner's
+      # system Python happens to ship it, but "happens to" is not a pin.
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: "3.14"
+
       # Same rolling-key cache as ci.yml's scan job: the vulnerability DB is
       # downloaded once per run instead of once per image.
       - name: Cache Trivy DB
@@ -44,6 +52,19 @@ jobs:
           key: trivy-db-${{ github.run_id }}
           restore-keys: |
             trivy-db-
+
+      # Phase 847d: the fix-forward bot rescans candidate upstream tags to prove
+      # a bump clears a CVE. Those scans are the expensive part, so their results
+      # are cached ACROSS runs, keyed on the ignorefile content (`cached_scanner`
+      # in scripts/fix_forward.py). A CVE's status on a given image+ignorefile is
+      # a slow-moving fact; the 7-day cap inside the script bounds staleness.
+      - name: Cache fix-forward scan results
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: ~/.cache/ja4proxy-fix-forward
+          key: fix-forward-scans-${{ github.run_id }}
+          restore-keys: |
+            fix-forward-scans-
 
       - name: Prepare .env for build
         run: cp template.env .env
@@ -65,13 +86,48 @@ jobs:
 
       # `APPLY=1` on a schedule (the whole point); manual dispatches default to a
       # dry run so a human can see what would be filed before filing it.
+      # STATE_OUT gives the fix-forward step below exactly the findings this run
+      # measured, so the bot acts on one scan rather than re-scanning.
       - name: Full scan, drift report, and issues
         if: github.event_name == 'schedule' || inputs.apply
-        run: make scan-monitor APPLY=1
+        run: make scan-monitor APPLY=1 STATE_OUT=/tmp/monitor-state.json
 
       - name: Full scan and drift report (dry run)
         if: github.event_name != 'schedule' && !inputs.apply
-        run: make scan-monitor
+        run: make scan-monitor STATE_OUT=/tmp/monitor-state.json
+
+      # ── Phase 847d: fix-forward ────────────────────────────────────────────
+      #
+      # "Zero fixable-but-waived findings" cannot be achieved by re-dating a
+      # waiver, so the monitor now also asks, per waiver: does a newer upstream
+      # tag clear this CVE? If yes it opens a reviewable bump branch — the fix
+      # itself, not another 90 days of exposure. If no, it records WHY not
+      # (`fix_available: false` + the concrete upstream change that would
+      # unblock it) so the waiver carries an honest recheck trigger instead of a
+      # silently-renewed date.
+      #
+      # A bot never creates a waiver and never merges: it proposes a branch and
+      # an issue, and a human decides. `--bytes-out` records the HTTP response
+      # sizes it saw, which is how the PyPI metadata cap is justified by evidence
+      # rather than a guess.
+      - name: Fix-forward proposals and recheck evidence
+        if: github.event_name == 'schedule' || inputs.apply
+        run: |
+          python3 scripts/fix_forward.py \
+            --state /tmp/monitor-state.json \
+            --scan-cache ~/.cache/ja4proxy-fix-forward/scan-cache.json \
+            --bytes-out /tmp/fix-forward-bytes.json \
+            --apply || echo "::warning::fix-forward reported an issue; see the log"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Keep the fix-forward byte record
+        if: always() && (github.event_name == 'schedule' || inputs.apply)
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: fix-forward-bytes
+          path: /tmp/fix-forward-bytes.json
+          if-no-files-found: ignore
 
       # A scheduled run that dies silently is indistinguishable from a clean one
       # for anyone not watching the Actions tab — and the monitor's own exit 1

@@ -12,7 +12,7 @@ read the top of the file for full options.
 
 <!-- BEGIN GENERATED: scripts -->
 
-_142 scripts. Generated from each script's header comment by `make sync` — do not edit this table by hand._
+_143 scripts. Generated from each script's header comment by `make sync` — do not edit this table by hand._
 
 | Script | Called by | What it does |
 |--------|-----------|--------------|
@@ -73,6 +73,7 @@ _142 scripts. Generated from each script's header comment by `make sync` — do 
 | `findings_register.py` | `make verify-findings` | Canonical findings register CLI for JA4proxy. |
 | `fix-docker-dns.sh` | — | Fix Docker container networking while keeping "iptables": false and UFW intact. |
 | `fix_doc_links.py` | — | Documentation Link Fixer |
+| `fix_forward.py` | — | scripts/fix_forward.py — fix-availability engine + proposal authoring (Phase 847d). |
 | `fix_runbook_urls.py` | `make lint-alert-urls` | Phase 86h - Rewrite dead runbook_url annotations in Alertmanager rule files. |
 | `gdpr_delete.py` | — | GDPR Subject Erasure (Right to be Forgotten) — Live Redis Purge |
 | `generate-backend-cert.sh` | — | Generate a self-signed TLS cert for the mock backend (deploy/docker/Dockerfile.mockbackend |
@@ -115,7 +116,7 @@ _142 scripts. Generated from each script's header comment by `make sync` — do 
 | `redis-to-ebpf.py` | — | redis-to-ebpf.py — Sync Redis blacklist/ban entries into a BPF hash map. |
 | `refresh_trivyignore_justifications.py` | — | Regenerate each Trivy waiver's `carriers:` claim from scan data. |
 | `render_waivers.py` | `make lint-static` | Render the CVE-waiver derived artifacts from security/waivers.yaml. |
-| `renew_trivyignore.py` | — | Re-affirm soon-to-expire Trivy waivers (Phase 847d): classify dead/fixable/escalate — never blind-renew. |
+| `renew_trivyignore.py` | — | Re-affirm soon-to-expire Trivy waivers — never blind-renew them (Phase 847d). |
 | `rotate_soar_token.sh` | — | Rotate a JA4proxy Management API SOAR token. |
 | `run-all-tests.sh` | — | JA4proxy Comprehensive Test Runner |
 | `run-benchmark.sh` | — | Load .env if available |

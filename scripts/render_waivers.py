@@ -90,9 +90,10 @@ THIRD_PARTY_HEADER = """\
 #   One `CVE-… exp:YYYY-MM-DD` line per waiver, preceded by its justification
 #   comment block. Trivy suppresses the finding while `today < exp`, so an entry
 #   whose exp: is today is ALREADY expired (Phase 812 fix). Since Phase 847d a
-#   re-check pass (`scripts/renew_trivyignore.py`) classifies each expiring entry
-#   and either deletes a dead waiver, proposes the real fix, or escalates it with
-#   the dates UNCHANGED — the window is never extended without evidence.
+#   re-check pass (`scripts/renew_trivyignore.py`) classifies each expiring
+#   entry and either deletes a dead waiver, proposes the real fix, or
+#   escalates it with the dates UNCHANGED — the window is never extended
+#   without evidence.
 # =============================================================================
 """
 

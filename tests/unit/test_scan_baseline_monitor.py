@@ -301,3 +301,75 @@ class TestApply:
 
         assert len(created) == 1
         assert "without a drift comparison" in capsys.readouterr().err
+
+
+class TestStateOut:
+    """Phase 847d: the fix-forward bot consumes the monitor's findings.
+
+    The state file is the hand-off between two steps of the same workflow, so
+    the contract is exactly: `current` (what was measured) plus the drift and
+    the fixable queue. It is written in REPORT-ONLY mode too, because the bot
+    runs before any issue is filed.
+    """
+
+    def _wire(self, monkeypatch):
+        monkeypatch.setattr(monitor, "third_party_image_refs", lambda paths: [])
+        monkeypatch.setattr(monitor, "scan_gate_compose_paths", lambda: [])
+        monkeypatch.setattr(
+            monitor,
+            "scan_surfaces",
+            lambda refs, cache: ({"image:redis": _entry("CVE-1", fix="2.0")}, []),
+        )
+        monkeypatch.setattr(monitor, "load_baseline", lambda path=None: _baseline())
+
+    def test_writes_the_state_in_report_only_mode(self, monkeypatch, tmp_path):
+        self._wire(monkeypatch)
+        out = tmp_path / "state.json"
+
+        assert monitor.main(["--state-out", str(out)]) == 0
+
+        state = json.loads(out.read_text(encoding="utf-8"))
+        assert "current" in state
+        assert state["current"]["image:redis"]["findings"]["CVE-1"]["fixed"] == "2.0"
+        assert "generated_at" in state
+        assert "drift" in state
+
+    def test_the_state_carries_the_fixable_queue(self, monkeypatch, tmp_path):
+        self._wire(monkeypatch)
+        out = tmp_path / "state.json"
+
+        monitor.main(["--state-out", str(out)])
+
+        state = json.loads(out.read_text(encoding="utf-8"))
+        assert [entry["cve"] for entry in state["fixable"]] == ["CVE-1"]
+
+    def test_a_partial_scan_writes_no_state(self, monkeypatch, tmp_path):
+        """A state file from a partial scan would let the bot act on a picture
+        that is missing surfaces — the exact 'clean bill of health from a
+        partial scan' failure the monitor already refuses to report."""
+        monkeypatch.setattr(monitor, "third_party_image_refs", lambda paths: [])
+        monkeypatch.setattr(monitor, "scan_gate_compose_paths", lambda: [])
+        monkeypatch.setattr(monitor, "scan_surfaces", lambda refs, cache: ({}, ["redis: timed out"]))
+        monkeypatch.setattr(monitor, "load_baseline", lambda path=None: _baseline())
+        out = tmp_path / "state.json"
+
+        assert monitor.main(["--state-out", str(out)]) == 1
+
+        assert not out.exists()
+
+    def test_the_state_is_consumable_by_fix_forward(self, monkeypatch, tmp_path):
+        """The two scripts must agree on the contract, not just on this repo."""
+        from scripts import fix_forward as ff
+
+        self._wire(monkeypatch)
+        out = tmp_path / "state.json"
+        monitor.main(["--state-out", str(out)])
+
+        state = json.loads(out.read_text(encoding="utf-8"))
+
+        # fix_forward reads `state["current"]` and iterates its surfaces.
+        current = state.get("current") or {}
+        assert current
+        for surface, entry in current.items():
+            assert isinstance(surface, str)
+            assert "findings" in entry

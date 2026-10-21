@@ -817,7 +817,7 @@ scan-baseline:  ## Record security/baseline.json (third-party + first-party imag
 # images built, same as scan-baseline.
 scan-monitor:  ## Full CVE scan, drift report, and (APPLY=1) deduplicated issues
 	@mkdir -p "$(TRIVY_CACHE)"
-	@TRIVY_CACHE="$(TRIVY_CACHE)" $(PYTHON) scripts/scan_baseline_monitor.py --images $(FIRST_PARTY_IMAGES) $(if $(APPLY),--apply,)
+	@TRIVY_CACHE="$(TRIVY_CACHE)" $(PYTHON) scripts/scan_baseline_monitor.py --images $(FIRST_PARTY_IMAGES) $(if $(APPLY),--apply,) $(if $(STATE_OUT),--state-out "$(STATE_OUT)",)
 
 # Detect :latest tags and version drift between compose files.
 # Runs in < 5 seconds — no external calls, no Docker required.
