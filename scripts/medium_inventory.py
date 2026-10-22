@@ -63,6 +63,7 @@ try:  # works as `python3 scripts/x.py` and as `from scripts.x import ...`
         scan_gate_compose_paths,
         third_party_image_refs,
     )
+    from scripts.compose_exposure import service_publishes_host_port
     from scripts.scan_baseline import (
         PYPI_SURFACE,
         build_baseline,
@@ -78,6 +79,7 @@ except ImportError:  # invoked directly, scripts/ on sys.path
         scan_gate_compose_paths,
         third_party_image_refs,
     )
+    from compose_exposure import service_publishes_host_port  # type: ignore[no-redef]
     from scan_baseline import (  # type: ignore[no-redef]
         PYPI_SURFACE,
         build_baseline,
@@ -122,32 +124,6 @@ def first_party_refs() -> list[str]:
     )
 
 
-def _host_part(port: str) -> str:
-    """The host side of a compose port mapping (`8080:80` -> `8080`).
-
-    A mapping with no host side at all (`80`) publishes on every interface —
-    the container port is reachable directly — so it is reported as empty and
-    the caller treats it as published.
-    """
-    host, sep, _ = port.partition(":")
-    if not sep:
-        return ""
-    return host.strip()
-
-
-def _is_loopback(host: str) -> bool:
-    """Is this host binding loopback-only?
-
-    `${AGENT_BIND_IP:-127.0.0.1}` binds to loopback by default, so the
-    *default* is what decides — the operator can widen it, but the committed
-    configuration does not.
-    """
-    candidate = host
-    if candidate.startswith("${") and ":-" in candidate:
-        candidate = candidate.split(":-", 1)[1].rstrip("}")
-    return candidate in {"127.0.0.1", "localhost", "::1", "[::1]"}
-
-
 def _service_is_internal_only(service: dict) -> bool:
     """True when a compose service publishes no host port.
 
@@ -160,15 +136,13 @@ def _service_is_internal_only(service: dict) -> bool:
     Fail-safe by design: anything this cannot read as loopback-only is
     reported as *published*, so the inventory never understates a surface's
     exposure.
+
+    The port parsing itself lives in `scripts/compose_exposure.py`, shared with
+    the 847f reachability checks: two implementations of "is this published?"
+    is exactly the divergence that made the first version of this function
+    mis-report every default-bound monitoring service as published.
     """
-    ports = service.get("ports") or []
-    if not ports:
-        return True
-    for port in ports:
-        host = _host_part(str(port))
-        if not host or not _is_loopback(host):
-            return False
-    return True
+    return not service_publishes_host_port(service)
 
 
 def exposure_by_surface() -> dict[str, str]:

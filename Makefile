@@ -475,6 +475,11 @@ lint-static: tools-image bandit-image  ## mypy + bandit + ruff + pip-audit
 	@# drift test covers the same ground; this just fails earlier in the gate).
 	@$(TOOLS_RUN) python scripts/render_waivers.py --check
 	@test -s .pip-audit-ignores || { echo "✗ .pip-audit-ignores missing — run: python3 scripts/render_waivers.py"; exit 1; }
+	@# phase-847f: the registry is coherent — but is it still TRUE? Every waiver's
+	@# reachability premise is bound to a check and executed here, so a service that
+	@# gained a published port (or a dev dependency promoted into a runtime image)
+	@# fails the gate and demands re-justification instead of drifting silently.
+	@$(TOOLS_RUN) python scripts/reachability_checks.py >/dev/null && echo "  ✓ waiver reachability premises hold"
 	@$(TOOLS_RUN) bash scripts/pip-audit-resilient.sh -r requirements.txt \
 	  $$(grep -v '^[[:space:]]*#' .pip-audit-ignores) \
 	  && echo "  ✓ pip-audit passed (waived CVEs: see security/waivers.yaml)"
@@ -801,6 +806,20 @@ scan-regression:  ## PR gate: scan only the surfaces this branch touches (fails 
 
 scan-regression-plan:  ## Print the surfaces this branch touches as JSON (no scanning; used by CI)
 	@$(PYTHON) scripts/scan_regression.py --base "$(BASE_REF)" --plan
+
+# Phase 847f: every waiver's `reachability:` claim names a registered check, and
+# the check is executed against the live compose files and source tree. A
+# premise that has stopped being true — a service that was internal-only gains
+# a published port, a dev dependency gets promoted into a runtime image — fails
+# here and asks for re-justification. It never deletes the waiver: deleting the
+# waiver removes the *record* of the exposure, not the exposure.
+#
+# `tests/unit/test_reachability_checks.py` runs the same checks under `make
+# test`; this target is the fast, standalone signal for humans and for the
+# pre-PR path.
+reachability-check: tools-image  ## Verify every waiver's reachability premise still holds
+	@echo "=== Phase 847f reachability checks ==="
+	@$(TOOLS_RUN) python scripts/reachability_checks.py
 
 # Phase 847c: record the baseline the regression gate judges against. Run from
 # main after images/deps change. First-party images must be built first

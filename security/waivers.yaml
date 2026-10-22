@@ -314,7 +314,14 @@ waivers:
       cannot rebuild until publishers ship new tags. The socket proxy only
       communicates over a local Unix socket and never parses untrusted regex;
       haproxy uses pcre2 only for its own static config patterns.
-    reachability: local-socket-only
+    reachability: input-path-unreachable
+    reachability_evidence: >-
+      pcre2 is never reached with untrusted input. The socket proxy never
+      parses a regex from any source; haproxy compiles only the patterns
+      written into config/haproxy.cfg, which is a bind-mounted static file
+      and not attacker-reachable. haproxy is published on 443/80, so the
+      exposure of this carrier is network-wide — the premise that holds is
+      the input path, not the network path.
     fix_available: false
     recheck_trigger: "the carrier images ship a rebuilt Alpine base with patched pcre2"
     created: 2026-10-07
@@ -605,7 +612,7 @@ waivers:
       unbounded session accumulation in MCP's StreamableHTTP SERVER transport;
       JA4proxy never runs an MCP server. mcp is pulled in only by semgrep (a CLI
       scanner) and is imported by no first-party module.
-    reachability: dev-tooling-only
+    reachability: not-imported
     fix_available: false
     recheck_trigger: "semgrep relaxes its mcp pin to allow >= 1.30.0"
     created: 2026-10-17

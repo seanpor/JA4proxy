@@ -5447,19 +5447,20 @@ phases:
 
   847e:
     name: "MEDIUM-CVE gating (measure, then extend)"
-    status: IN_PROGRESS
-    action_plan: docs/phases/PHASE_847e.md
+    status: COMPLETE
+    completed: '2026-10-22'
+    action_plan: docs/phases/complete/PHASE_847e.md
     dependencies: [847c]
     size: MEDIUM
-    summary: "IN_PROGRESS 2026-10-21. Inventory the MEDIUM surface first (counts, fixability, reachability), then extend the 847 machinery to MEDIUM in the scope the data supports (full-baseline, diff-only, or monitor-only + ratchet). Enforces a ratchet so the MEDIUM baseline can only shrink. Refuses to promise literal zero-MEDIUM without data. — Measured: 152 unwaived MEDIUM findings, 119 with a published fix, 149 in third-party images; scope chosen: diff-only MEDIUM gate + ratchet."
+    summary: "COMPLETE 2026-10-22. Inventory the MEDIUM surface first (counts, fixability, reachability), then extend the 847 machinery to MEDIUM in the scope the data supports (full-baseline, diff-only, or monitor-only + ratchet). Enforces a ratchet so the MEDIUM baseline can only shrink. Refuses to promise literal zero-MEDIUM without data. — Measured: 152 unwaived MEDIUM findings, 119 with a published fix, 149 in third-party images; scope chosen: diff-only MEDIUM gate + ratchet. A port-parsing bug in the exposure classifier (over-splitting interpolated `${VAR:-default}` ports) was found and fixed (Phase 847f) — inventory re-measured with identical counts; 51 published surfaces corrected to 1, all now correctly reported as loopback-bound."
 
   847f:
     name: "Reachability evidence binding"
-    status: PROPOSED
+    status: IN_PROGRESS
     action_plan: docs/phases/PHASE_847f.md
     dependencies: [847a]
     size: MEDIUM
-    summary: "PROPOSED 2026-10-17. Make waiver justifications checked, not asserted: bind each waiver's reachability claim to an automated assertion (internal-monitoring-only -> compose has no public port; not-imported -> no first-party import). A broken premise fails CI and requires re-justification rather than silently outliving its justification."
+    summary: "IN_PROGRESS 2026-10-22. Make waiver justifications checked, not asserted: bind each waiver's reachability claim to an automated assertion (internal-monitoring-only -> compose has no public port; local-socket-only -> no published port at all; not-imported -> no first-party import and not a deployed dependency; dev-tooling-only -> not a deployed dependency). An attested value (input-path-unreachable) requires substantive evidence. A broken premise fails CI and requires re-justification rather than silently outliving its justification. Found and corrected: a port-parsing bug in the 847e inventory shared implementation; CVE-2026-103111 re-justified as input-path-unreachable; all 36 waivers pass 35 machine + 1 attested checks."
   847g:
     name: "Go 1.27.3 bump + CVE-2026-111943 triage"
     status: PROPOSED

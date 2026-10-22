@@ -1,12 +1,12 @@
 # MEDIUM vulnerability inventory (MEDIUM)
 
-Recorded: 2026-10-21 — produced by `scripts/medium_inventory.py`. The numbers below are the script's output, not a hand-written summary.
+Recorded: 2026-10-22 — produced by `scripts/medium_inventory.py`. The numbers below are the script's output, not a hand-written summary.
 
 ## Headline
 
 - **152** unwaived MEDIUM finding(s) across **18** surface(s)
 - **119** of them have a **published fix** for the same package (33 have none published)
-- **51** are on a surface that publishes a host port; **101** are on a surface that does not
+- **1** are on a surface that publishes a host port; **151** are on a surface that does not
 - **3** on images this repository builds, **149** on third-party images
 
 The decision this measurement informed, and the reasoning behind it, are recorded in `docs/phases/PHASE_847e.md`.
@@ -30,7 +30,7 @@ The decision this measurement informed, and the reasoning behind it, are recorde
 | Surface | Scope | Exposure | Findings | With a published fix | Top packages |
 |---------|-------|----------|----------|----------------------|--------------|
 | `image:grafana/alloy` | third-party | no published host port | 59 | 42 | perl-base×11, libc-bin×8, bsdutils×6 |
-| `image:grafana/grafana` | third-party | published | 30 | 14 | libgnutls30t64×5, stdlib×5, golang.org/x/net×4 |
+| `image:grafana/grafana` | third-party | no published host port | 30 | 14 | libgnutls30t64×5, stdlib×5, golang.org/x/net×4 |
 | `image:grafana/loki` | third-party | no published host port | 14 | 14 | stdlib×5, golang.org/x/net×4, golang.org/x/crypto×2 |
 | `image:haproxy` | third-party | published | 1 | 1 | zlib×1 |
 | `image:ja4proxy` | first-party | no published host port | 0 | 0 |  |
@@ -42,8 +42,8 @@ The decision this measurement informed, and the reasoning behind it, are recorde
 | `image:ja4proxy-test` | first-party | not deployed in compose | 1 | 1 | mcp×1 |
 | `image:ja4proxy-trafficgen` | first-party | not deployed in compose | 1 | 1 | pip×1 |
 | `image:oliver006/redis_exporter` | third-party | no published host port | 9 | 9 | stdlib×9 |
-| `image:prom/alertmanager` | third-party | published | 11 | 11 | stdlib×5, golang.org/x/net×4, golang.org/x/crypto×2 |
-| `image:prom/prometheus` | third-party | published | 9 | 9 | stdlib×5, golang.org/x/net×4 |
+| `image:prom/alertmanager` | third-party | no published host port | 11 | 11 | stdlib×5, golang.org/x/net×4, golang.org/x/crypto×2 |
+| `image:prom/prometheus` | third-party | no published host port | 9 | 9 | stdlib×5, golang.org/x/net×4 |
 | `image:redis` | third-party | no published host port | 9 | 9 | libcrypto3×8, zlib×1 |
 | `image:tecnativa/docker-socket-proxy` | third-party | no published host port | 7 | 7 | libcrypto3×3, pcre2×3, zlib×1 |
 | `pypi` | python | n/a | 0 | 0 |  |

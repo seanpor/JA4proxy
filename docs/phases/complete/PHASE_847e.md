@@ -7,7 +7,7 @@ phase: 847e
 
 # Phase 847e — MEDIUM-CVE gating (measure, then extend)
 
-> **Status:** IN_PROGRESS
+> **Status:** COMPLETE (2026-10-22)
 > **Size:** MEDIUM
 > **Dependencies:** [847c]
 > **Branch:** `phase-847e-medium-gating`
@@ -317,6 +317,24 @@ the pre-847e behaviour exactly, and a test pins that.
 | `tests/unit/test_scan_regression.py` | Extend — MEDIUM gate correctness |
 | `tests/unit/test_scan_baseline_monitor.py` | Extend — the monitor's MEDIUM measurement |
 | `docs/fragments/phase-847e-medium-gating.md` | Changelog fragment |
+
+---
+
+## Close-out (2026-10-22)
+
+Landed as designed: diff-only MEDIUM gate + ratchet, ceiling 152.
+
+One defect was found **after** the merge, by Phase 847f's reachability checks: the
+inventory's exposure classifier split a port mapping on the first `:`, which
+mangles the interpolated form the monitoring stack actually ships
+(`"${AGENT_BIND_IP:-127.0.0.1}:${HOST_PORT_GRAFANA:-3000}:3000"` → host read as
+`"${AGENT_BIND_IP"`). Grafana, Prometheus and Alertmanager were therefore reported
+as **published** when the committed configuration binds them to loopback — the
+opposite of what the function's own docstring promised. The parsing now lives in
+`scripts/compose_exposure.py`, shared with the 847f checks, and the inventory was
+re-measured against live Trivy: **152 findings, unchanged**, `published` corrected
+from 51 to **1**. The ceiling was not touched — a measurement correction is not a
+re-baseline.
 
 ---
 

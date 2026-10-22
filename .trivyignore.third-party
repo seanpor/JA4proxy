@@ -101,7 +101,13 @@ CVE-2026-100354 exp:2027-01-15
 # Carriers:
 #   - haproxy:2.8.28-alpine
 #   - tecnativa/docker-socket-proxy:v0.5.0
-# Reachability: local-socket-only
+# Reachability: input-path-unreachable
+# Reachability evidence: pcre2 is never reached with untrusted input. The
+# socket proxy never parses a regex from any source; haproxy compiles only the
+# patterns written into config/haproxy.cfg, which is a bind-mounted static
+# file and not attacker-reachable. haproxy is published on 443/80, so the
+# exposure of this carrier is network-wide — the premise that holds is the
+# input path, not the network path.
 # Severity: HIGH
 # Re-check when: the carrier images ship a rebuilt Alpine base with patched
 # pcre2

@@ -1,13 +1,12 @@
 <!--
 title: Reachability_Evidence_Binding
 audience: developer
-last_reviewed: 2026-10-17
+last_reviewed: 2026-10-22
 phase: 847f
 -->
 
 # Phase 847f — Reachability evidence binding
 
-> **Status:** PROPOSED
 > **Size:** MEDIUM
 > **Dependencies:** [847a]
 > **Branch:** `phase-847f-reachability-binding`
@@ -21,104 +20,203 @@ Turn waiver **justifications into automated assertions**, so a waiver's stated
 premise is *checked*, not merely *asserted*. If the premise stops being true, CI
 says so — instead of the waiver silently outliving its justification.
 
-This is what separates an evidenced waiver from a hand-wave. Today every
-`.trivyignore.third-party` entry ends with "Why not exploitable: …" as free text
-that nobody verifies and that can silently stop being true.
+This is what separates an evidenced waiver from a hand-wave. Before this phase
+every waiver carried a `reachability:` value that was free text: a claim with no
+checker behind it, and therefore a claim that can only ever decay.
 
 ---
 
-## The idea
+## The enum, as built
 
-Every waiver already carries an implicit claim about **attack surface**. Bind each
-`reachability:` value (from 847a's schema) to a machine check:
+The plan sketched four values. The registry's **actual** vocabulary is what the
+enum had to be reconciled against, because the plan's names predated the data:
 
-| `reachability` claim | Automated assertion |
+| `reachability` | Kind | Assertion |
+|---|---|---|
+| `internal-monitoring-only` | machine | The carrier's service publishes **no host port on a non-loopback address**, in any deployment this repository ships. |
+| `local-socket-only` | machine | The carrier's service publishes **no host port at all** — a loopback port is still a network route, so this is strictly stronger than the value above. |
+| `dev-tooling-only` | machine | The carrier package is **not a declared dependency of any deployed image**. |
+| `not-imported` | machine | No first-party module imports the carrier package, **and** it is not a declared dependency of any deployed image. |
+| `input-path-unreachable` | **attested** | The vulnerable code path is not reachable by untrusted input. No static signal exists for this, so the claim is a documented attestation: the waiver must carry a `reachability_evidence:` field. |
+
+Reconciliations against the plan's table, recorded rather than silently applied:
+
+- The plan's **`cli-tooling-only`** is the registry's `dev-tooling-only` (8
+  waivers already used it). The plan's name is dropped; the data won.
+- The plan's **`input-path-unreachable`** ships as an *attested* value, which the
+  plan's own notes explicitly permit ("may legitimately ship as a documented
+  manual attestation — do not block the phase on automating it"). It is
+  deliberately the **only** escape hatch, it costs written evidence to use, and
+  the summary line reports how many claims are attested so a registry drifting
+  towards attestation is visible rather than silent.
+- **`local-socket-only`** was already in use 7 times but was absent from the
+  plan's table. It is registered, and it earned its keep immediately (see the
+  findings below).
+
+A claim nothing checks is exactly what this programme exists to remove, so an
+unregistered value is rejected by the renderer at authoring time.
+
+---
+
+## Findings — three premises that were already broken
+
+The checks were written against the live registry, and running them found real
+defects. All three are the *good* kind of failure: the roadmap says a broken
+premise must produce a re-justification, and these did.
+
+### 1. A port-parsing bug in 847e made 3 true waivers look false, and 3 false ones look true
+
+`medium_inventory._host_part` split a port mapping on the first `:`:
+
+```
+"${AGENT_BIND_IP:-127.0.0.1}:${HOST_PORT_GRAFANA:-3000}:3000"
+  -> host = "${AGENT_BIND_IP"     # the colon inside ${…} ended the field
+```
+
+That is not a loopback address, so **grafana, prometheus and alertmanager were
+reported as published** — contradicting the function's own docstring ("the
+*default* is what decides"). Reading it from the other side: the 847e inventory
+over-reported exposure, which is the safe direction for a measurement, but the
+numbers it published (`51 published`) were wrong and 21 waivers whose premise is
+genuinely true would have failed a naive check.
+
+The port parsing now lives in **one** module, `scripts/compose_exposure.py`, used
+by both the inventory and these checks — two implementations of "is this
+published?" is the divergence that caused the bug. The inventory was re-measured
+against live Trivy: **152 findings, unchanged**, with `published` corrected from
+51 to **1**. Corrected: `grafana`, `prometheus`, `alertmanager` →
+`no published host port`.
+
+### 2. `CVE-2026-103111` was tagged with a premise its carrier does not have
+
+The waiver covers pcre2 in `haproxy:2.8.28-alpine` **and**
+`tecnativa/docker-socket-proxy:v0.5.0`, and was tagged `local-socket-only`. The
+socket proxy has no published port and does hold that premise. **haproxy
+publishes `443:443` and `80:80` in `docker-compose.prod.yml` and `443:443` in
+`docker-compose.scale.yml`** — it is reachable on every interface.
+
+The rationale's actual claim is an *input-path* claim, not a network claim:
+"haproxy uses pcre2 only for its own static config patterns". Re-tagged to
+`input-path-unreachable` with `reachability_evidence` naming the unreachable
+path. Re-justified, not deleted — which is the whole point of the phase.
+
+### 3. `local-socket-only` first asserted more than its name claims
+
+The first draft of the check required the service to *also* mount a local socket.
+The live registry killed that idea: `alloy` mounts `/var/run:/var/run:ro` in the
+monitoring stack, but the **production** stack mounts only its config and log
+directory. A service with no socket at all is *more* isolated than the premise
+requires, not less — so a missing socket mount was a false failure. The check now
+asserts the sound core (no published port) and reports the socket mounts it finds
+as supporting evidence.
+
+---
+
+## Scope
+
+| Aspect | Decision |
 |---|---|
-| `internal-monitoring-only` (grafana/loki/prometheus) | The compose file binds the service to an internal network with **no published host port** (`ports:` absent or loopback-only). |
-| `not-imported` (e.g. `mcp`, pulled in only by semgrep) | No first-party module imports the package (a source grep / import-linter check). |
-| `cli-tooling-only` | The package is only reachable from a CI/dev dependency path, never a runtime image. |
-| `input-path-unreachable` | The specific code path is not exercised by any reachable route (best-effort; may be a documented manual attestation where static analysis is infeasible). |
+| Compose files read | `prod`, `monitoring`, `poc`, `scale` (`DEPLOYED_COMPOSE_FILES`) — every stack this repository ships. Not the CVE gate's `prod`+`monitoring` pair, because `management` (a runtime service) is absent from the production compose file and the premise is about *any* deployment. |
+| Deliberately excluded | `docker-compose.test.yml` (CI harness), `docker-compose.pentest.yml` (a hostile range), `docker-compose.override.yml` (a developer tweak), and the `redis-tls` / `logtide-eval` overlays. |
+| CI-only images | A service behind a `profiles:` gate (`test`, `traffic`) only starts when the profile is named, so it is **not deployed** and does not contribute to a runtime dependency set. This is structural; no hand-kept image list exists anywhere in the checks. |
+| Unreadable input | Fails closed (exit 2). A missing compose file is an unreadable input, not an empty deployment. |
+| Operator overrides | `${VAR:-default}` is judged by its **default** — the committed configuration is what the repository ships. `.env` is gitignored, so there is nothing else to read. An interpolation with no default cannot be read and is therefore judged *not* loopback: fail closed. |
 
-Each waiver's `reachability:` value names one of these checks. A new test runs
-**every** bound check and fails if any waiver's premise no longer holds.
-
----
-
-## 847f.1 Registry → check binding
-
-Extend 847a's schema so `reachability` is an enum naming a registered check, not
-free text. The renderer validates that every `reachability:` value has a
-registered checker, so an unbound waiver is rejected at authoring time.
-
-## 847f.2 The check library
-
-`scripts/reachability_checks.py` implements each registered check against the live
-compose/source files:
-
-- **internal-monitoring-only:** parse the compose files; assert the named service
-  has no non-loopback `ports:` and is attached only to internal networks.
-- **not-imported:** assert the package appears in no first-party import (reuse the
-  discipline of the existing import-hygiene checks; the `mcp` case — imported
-  nowhere, pulled in by semgrep — is the reference example).
-- **cli-tooling-only:** assert the package is not present in any runtime image's
-  dependency set.
-
-## 847f.3 Failure = invalidated premise, not silent pass
-
-When a check fails, the message must name the waiver and the broken premise, and
-instruct re-justification — not merely delete the waiver. A waiver whose premise
-broke is a **finding**, and re-entering it correctly is the fix. (E.g. if grafana
-were later given a public port, the kin-openapi waivers' "internal-only" premise
-breaks and they must be re-assessed, not auto-removed.)
+What these checks **do not** claim is worth stating plainly: `dev-tooling-only`
+and `not-imported` inspect **declared** dependencies and **static** imports. A
+transitive introduction (adding `requests` pulls in `urllib3`) or a dynamic
+`importlib.import_module("mcp")` is invisible to both.
 
 ---
 
-## Test strategy
+## Failure behaviour
 
-- **Binding validity:** every waiver's `reachability:` maps to a registered check;
-  an unknown value fails the renderer.
-- **Positive:** with the current compose files, all `internal-monitoring-only`
-  checks pass (grafana/loki/prometheus are internal-only today).
-- **Negative (the whole point):** temporarily add a published port to grafana in a
-  scratch compose and assert the kin-openapi waivers' premise check **fails**;
-  revert. Record in the PR.
-- **not-imported:** assert `mcp` passes (imported by no first-party module).
-- Run `make preflight`.
+`scripts/reachability_checks.py` prints the waiver id, the premise, and the
+evidence (file, service, port), then:
+
+> Re-justify this waiver or remove the exposure; **do not delete the waiver to
+> silence CI.**
+
+The check is read-only — it never touches `security/waivers.yaml`. Deleting a
+waiver removes the *record* of an exposure, not the exposure itself, so
+automatic removal is not a fix and is not offered. Exit codes: `0` all premises
+hold, `1` a premise is broken, `2` the checks could not be evaluated.
+
+---
+
+## Wiring
+
+- `scripts/reachability_checks.py` — the check library and CLI (`--json`).
+- `scripts/compose_exposure.py` — the one implementation of "is this published?",
+  shared with `scripts/medium_inventory.py`.
+- `scripts/render_waivers.py` — `reachability` is required, must name a registered
+  check, and an attested value must carry `reachability_evidence`. The evidence is
+  rendered into `.trivyignore.third-party` so it is visible where the exemption is
+  consumed.
+- `make reachability-check` — standalone signal; also runs inside `make
+  lint-static` (the pre-PR gate) and, via the unit tests, inside `make test`.
+
+---
+
+## Test strategy (as executed)
+
+- **Live registry:** all 36 waivers' premises hold — 35 machine-checked, 1
+  attested.
+- **Binding validity:** every registered value is accepted by the schema, an
+  unregistered one is rejected, a missing field is rejected.
+- **Negative tests, one per machine check** (the phase's acceptance criterion):
+  a scratch compose file publishing `3000:3000` breaks
+  `internal-monitoring-only`; a scratch service publishing `2375:2375` breaks
+  `local-socket-only`; adding `urllib3` to a deployed image's requirements breaks
+  `dev-tooling-only`; a module importing `mcp` breaks `not-imported`. Each is a
+  real scratch tree, not a patched function.
+- **Attestation:** an attested claim with no evidence, or with placeholder
+  evidence, fails.
+- **The mechanism has teeth but no teeth marks:** the run is asserted to be
+  read-only (the registry is byte-identical before and after), and every failure
+  message is asserted to contain "Re-justify".
+- **Regression for finding 1:** the `${VAR:-default}` port form is pinned as
+  loopback, and `medium_inventory` is asserted to agree with the shared parser.
 
 ---
 
 ## Acceptance criteria
 
-- [ ] `reachability:` is a validated enum bound to registered checks.
-- [ ] `scripts/reachability_checks.py` implements every registered check.
-- [ ] A CI test runs all bound checks against live compose/source and fails on a
-      broken premise (demonstrated with a scratch compose edit).
-- [ ] A broken premise produces a "re-justify this waiver" failure, never a
+- [x] `reachability:` is a validated enum bound to registered checks.
+- [x] `scripts/reachability_checks.py` implements every registered check.
+- [x] A CI test runs all bound checks against live compose/source and fails on a
+      broken premise (demonstrated with scratch compose edits — see the negative
+      tests).
+- [x] A broken premise produces a "re-justify this waiver" failure, never a
       silent waiver removal.
-- [ ] `make preflight` passes.
+- [x] Three already-broken premises found and re-justified, not deleted.
+- [x] `make preflight` passes.
 
 ---
 
-## Files to modify
+## Files changed
 
 | File | Change |
 |------|--------|
-| `scripts/reachability_checks.py` | New — the check library |
-| `scripts/render_waivers.py` | Validate `reachability` enum + binding |
-| `security/waivers.yaml` | Convert free-text reachability to enum values |
+| `scripts/compose_exposure.py` | New — the shared "is this published?" implementation |
+| `scripts/reachability_checks.py` | New — the check library, enum, and CLI |
+| `scripts/medium_inventory.py` | Uses the shared parser (fixes finding 1) |
+| `scripts/render_waivers.py` | Validates the enum; requires evidence for attested claims; renders it |
+| `security/waivers.yaml` | `CVE-2026-103111` re-tagged + evidenced; `CVE-2026-59951` → `not-imported` |
+| `.trivyignore.third-party` | Regenerated |
+| `security/baseline-medium.json`, `security/medium-inventory.md` | Re-measured (152 findings unchanged; exposure corrected) |
 | `tests/unit/test_reachability_checks.py` | New |
+| `tests/unit/test_compose_exposure.py` | New |
+| `Makefile` | `reachability-check`; `lint-static` runs the checks |
 | `docs/fragments/phase-847f-reachability-binding.md` | Changelog fragment |
 
 ---
 
-## Notes for implementer
+## Out of scope
 
-- Start with the two checks that are cheap and high-value (`internal-monitoring-only`,
-  `not-imported`); `input-path-unreachable` is genuinely hard to automate and may
-  legitimately ship as a documented manual attestation — do not block the phase on
-  automating it.
-- These checks run on the **compose/source state**, so they belong in `make test`
-  (fast, static), not in the slow image scan.
-- Keep the failure message actionable: name the waiver ID, the premise, the file
-  that broke it, and the fix (re-justify or remediate). A bare "check failed" will
-  be ignored.
+- Automating `input-path-unreachable`. It ships as an attested value by design;
+  the check asserts the attestation is substantive, not that it is correct.
+- Reachability analysis of third-party image contents. The 152 MEDIUM findings
+  live inside binaries whose source is not ours; nothing here claims otherwise,
+  and `security/medium-inventory.md` continues to record them as **unknown**.
+- Deprecating `make scan` (de-required since 847c) or the `Security Scan` job.
