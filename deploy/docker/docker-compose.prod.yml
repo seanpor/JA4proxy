@@ -336,7 +336,7 @@ services:
           cpus: '0.5'
 
   prometheus:
-    image: prom/prometheus:v3.15.0
+    image: prom/prometheus:v3.15.1
     ports:
       # 0046: loopback-or-private only (never 0.0.0.0) — Prometheus UI for
       # debugging. Was published on 0.0.0.0:9091. Matches the grafana binding.
