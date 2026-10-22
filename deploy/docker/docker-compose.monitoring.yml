@@ -188,7 +188,7 @@ services:
           cpus: '0.5'
 
   loki:
-    image: grafana/loki:3.7.7
+    image: grafana/loki:3.7.9
     # Not exposed to host — only accessible from monitoring network
     volumes:
       - ../monitoring/loki/loki-config.yml:/etc/loki/local-config.yaml:ro
