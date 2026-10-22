@@ -50,14 +50,14 @@ def _hx_urls() -> list[str]:
 
     Self-maintaining on purpose: a new panel is covered the moment its template
     lands, without anyone remembering to extend a list here.
+
+    Phase 824c uses the shared normaliser so Jinja-wrapped hx-get targets
+    (e.g. attack-top with ``{% if attack_mode_active %}``) are no longer
+    dropped by the brace filter.
     """
-    urls: set[str] = set()
-    for tpl in TEMPLATES.rglob("*.html"):
-        for m in re.finditer(r"""hx-get=["']([^"'{}]+)["']""", tpl.read_text()):
-            url = m.group(1).strip()
-            if url.startswith("/"):
-                urls.add(url)
-    return sorted(urls)
+    from .hx_targets import hx_targets
+
+    return sorted({url for method, url, _ in hx_targets() if method == "GET"})
 
 
 class TestTier1RouteResolution:
