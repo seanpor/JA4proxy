@@ -1,6 +1,6 @@
 # Phase 229: aligned to the single pinned Go base used everywhere else
 # (was golang:1.25.10-alpine — a drifted, unpinned version).
-FROM golang:1.26.6-alpine@sha256:af8d6740070b8906d12eae1c3e3ea0957fb63f492051ea05e354c38ef9fe88df
+FROM golang:1.26.10-alpine@sha256:27f2d3b83cfc5803c8078f8e730af0f7c431bf067afaec8f60a36fb763187cba
 
 RUN apk add --no-cache git && \
     addgroup -g 1001 -S scanner && adduser -u 1001 -S -G scanner scanner
