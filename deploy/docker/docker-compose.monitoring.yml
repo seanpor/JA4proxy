@@ -163,7 +163,7 @@ services:
 
 
   redis-exporter:
-    image: oliver006/redis_exporter:v1.91.1
+    image: oliver006/redis_exporter:v1.95.0
     environment:
       - REDIS_ADDR=redis:6379
       # Phase 813: previously authenticated with no username (defaults to
