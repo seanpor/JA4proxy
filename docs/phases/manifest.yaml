@@ -4942,19 +4942,12 @@ phases:
 
   824c:
     name: "Template route-target gate (self-maintaining) + refresh stale journey list"
-    status: PROPOSED
+    status: COMPLETE
+    completed: '2026-10-22'
     action_plan: docs/phases/PHASE_824c.md
     dependencies: [824b]
     size: MEDIUM
-    summary: "PROPOSED 2026-10-15. A static test extracts every hx-* target from
-      management/templates/** and asserts each resolves to a registered route —
-      forward direction from templates to app.routes, and reverse (registered
-      partials with no template reference, allowing the attack-table alias).
-      Handles Jinja query expressions and the JS-assembled hx-get at
-      threat_posture.html:258. Mutating targets are matched by method and never
-      sent. Excludes the 824d health endpoint. Also completes the stale
-      hardcoded partial list in check_console_journey.sh (it predates 821b).
-      No live HTTP in this gate."
+    summary: "COMPLETE 2026-10-22. Shared hx_targets() normalises Jinja tags/expressions so attack-top/attack-fingerprint-table are covered; Tier 1 repaired. Static gate enforces forward/reverse/mutating targets; attack-table allowed as alias only. Stale console journey partial list refreshed."
 
   824d:
     name: "/api/v1/health/ui four-state endpoint"
