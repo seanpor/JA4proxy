@@ -839,6 +839,13 @@ scan-monitor:  ## Full CVE scan, drift report, and (APPLY=1) deduplicated issues
 	@mkdir -p "$(TRIVY_CACHE)"
 	@TRIVY_CACHE="$(TRIVY_CACHE)" $(PYTHON) scripts/scan_baseline_monitor.py --images $(FIRST_PARTY_IMAGES) $(if $(APPLY),--apply,) $(if $(STATE_OUT),--state-out "$(STATE_OUT)",)
 
+# Phase 849 (issue #622): GitHub does not dispatch workflows for events caused by
+# the default GITHUB_TOKEN, so a PR merged by the Actions app lands on main with
+# no `push` run — the commit that is now the tip was never built. This asks the
+# one question, and `APPLY=1` repairs a "no" by dispatching ci.yml against main.
+verify-main:  ## Ensure main's tip has a CI run (APPLY=1 dispatches CI when an app-token merge skipped it)
+	$(PYTHON) scripts/ensure_main_verified.py $(if $(APPLY),--apply,)
+
 # Phase 847e: measure the MEDIUM vulnerability surface, and record it. The
 # measurement is what the MEDIUM gating scope was decided from, so it has to be
 # re-runnable and reproducible: same images, same database, same numbers.

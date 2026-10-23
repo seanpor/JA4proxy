@@ -5473,3 +5473,11 @@ phases:
     size: SMALL
     summary: "IN_PROGRESS 2026-10-23. Issue #642. A dead waiver is an --ignore-vuln for a finding that no longer exists: harmless-looking, and a live suppression if the dependency ever regresses into the vulnerable range. It was invisible on the pip surface for two compounding reasons: the monitor runs pip-audit WITH the ignores (so the id is filtered before it can be compared) and the only dead-entry check reads Trivy JSON. Found while closing 847: an unignored audit reported 2 findings while .pip-audit-ignores held 9. Fix: one audit without ignores, in-process split into waived/unwaived/dead (alias-aware), a report section, one deduplicated issue per dead id that auto-closes once the waiver is gone, and an unchanged required-gate path."
 
+  849:
+    name: "Verify main after an app-authored merge"
+    status: IN_PROGRESS
+    action_plan: docs/phases/PHASE_849.md
+    dependencies: [847c]
+    size: SMALL
+    summary: "IN_PROGRESS 2026-10-23. Issue #622. GitHub does not dispatch workflows for events caused by the default GITHUB_TOKEN (anti-recursion), so a PR merged by the Actions app — auto-merge workflows, or any bot using that token — lands on main with NO push run: the commit that is now the tip was never built or scanned, while the PR's checks were green before it existed. Merges with a personal token are unaffected, which is why the gap looked intermittent. Fixing the root cause needs a standing repo-wide PAT; instead: scripts/ensure_main_verified.py decides purely whether a commit has a CI run (queued/in-progress counts; a completed FAILED run also counts, so the verifier cannot loop) and with --apply dispatches ci.yml against main. Wired to workflow_run of the two auto-merge workflows (repair in ~1 min) plus a :13/:43 sweep and workflow_dispatch. Never a required check: a verifier must not be the thing that needs verifying."
+

@@ -42,6 +42,12 @@ operations** (a running JA4proxy install). Skip to the one you own.
 | Findings-register integrity (`make verify-findings`) | 🤖 `ci.yml` | Register drifts: findings ≥ `FIXED` without a `regression_test`, broken references. **Wire this in if it is not there yet** — an integrity gate nobody runs is not a gate |
 | PoC cold-start smoke test (on touched paths) | 🤖 `ci.yml` | Bootstrap bugs reach the nightly run instead of the PR that caused them (the Phase 809/812/813 failure mode) |
 
+### Hourly
+
+| Time (UTC) | Task | Who | If skipped |
+|---|---|---|---|
+| :13 and :43 | Verify `main`'s tip has a CI run; dispatch `ci.yml` if an app-token merge skipped the `push` run | 🤖 `main-verification.yml` | A PR merged by the Actions app lands on `main` unbuilt, and every later commit inherits an unverified base |
+
 ### Daily
 
 | Time (UTC) | Task | Who | If skipped |
@@ -131,6 +137,7 @@ Daily 05:00 .trivyignore re-affirmation (daily, so the 5-day notice window
 Sat 01:30  Scorecard              ─┘
 Daily 03:17 Benchmark (off-peak, offset from the Monday 06:00 sweep)
 Daily 05:37 CVE baseline monitor (rotating, mostly the same job as the sweep)
+:13/:43   Main verification (main's tip has a CI run; #622)
 1st 06:00  Process metrics
 ```
 
