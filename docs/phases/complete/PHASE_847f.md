@@ -260,3 +260,32 @@ hold, `1` a premise is broken, `2` the checks could not be evaluated.
   live inside binaries whose source is not ours; nothing here claims otherwise,
   and `security/medium-inventory.md` continues to record them as **unknown**.
 - Deprecating `make scan` (de-required since 847c) or the `Security Scan` job.
+
+---
+
+## Close-out
+
+Landed on branch `phase-847f-reachability-binding`, bundled with 847g and 824c in
+one PR: the three touch the same waiver registry and the same gate, and splitting
+them would have produced intermediate commits where the derived ignorefiles
+disagreed with the registry.
+
+| Gate | Result |
+|------|--------|
+| `scripts/reachability_checks.py` | 28 bound checks — 27 machine-checked, 1 attested, **0 broken** |
+| `render_waivers.py --check` | derived files match the registry |
+| `tests/unit/test_reachability_checks.py` | namespace/underscore negative tests green |
+| `make lint`, `make test`, `make preflight` | green |
+
+The count moved 37 → 28 during 847g, not because anything here was relaxed but
+because ten entries were deleted when their carriers were bumped out of the
+finding: the checks run over whatever the registry contains, and a shrinking
+registry is the point.
+
+### Residual
+
+`input-path-unreachable` remains an **attested** value: the check verifies that
+substantive evidence was written, not that the evidence is correct. One waiver
+uses it (`CVE-2026-103111`, haproxy). Automating the claim would mean modelling
+haproxy's request path, which is a different phase's worth of work; recording it
+as attested is the honest stop.

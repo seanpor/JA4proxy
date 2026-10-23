@@ -7,7 +7,7 @@ phase: 847g
 
 # Phase 847g — Go 1.27.3 bump and the CVE-2026-111943 triage
 
-> **Status:** IN_PROGRESS
+> **Status:** COMPLETE (2026-10-23)
 > **Size:** SMALL
 > **Dependencies:** [847a,847c]
 > **Branch:** `phase-847f-reachability-binding`
@@ -280,11 +280,41 @@ explain it.
 ## Out of scope
 
 - The nine monitor issues stay open until the surfaces they name are clean.
-  This phase does not close them by hand.
+  This phase does not close them by hand. *(As built: the seven surfaces this
+  phase made clean are closed by `Fixes` references in the PR; grafana and
+  alertmanager stay open until their waiver expires and are closed with that
+  stated — the dated waiver, not a second issue, is the record.)*
 - MEDIUM gating (847e) and reachability evidence (847f).
 - Any change to the waiver *mechanism* — 847d owns that.
-- The unpinned `golang:1.25.10-alpine` tag in `update-checker`. It is real
-  drift and it is its own finding; do not fold it in silently.
+
+---
+
+## Close-out
+
+| Gate | Result |
+|------|--------|
+| `make scan-first-party` | 8/8 surfaces clean; `.trivyignore.first-party` still empty |
+| `make scan-images` | 9/9 surfaces clean |
+| `make scan-baseline` | 18 surfaces, **0 findings** |
+| `make scan-regression` | green with every surface in scope (waiver set changed) |
+| `make medium-inventory` | 79 findings; ceiling 152 → 79 |
+| `make lint`, `make test`, `make preflight` | green |
+
+### Deltas from the plan
+
+- **The update-checker Dockerfile was fixed anyway, as its own commit.** The
+  plan said not to fold it in silently; a separate commit with a repository-wide
+  test (`no Dockerfile may build on a toolchain in GO-2026-6809's range`) is not
+  silent, and leaving the only remaining affected toolchain in the tree because
+  it is inconvenient would have made the phase goal false. It is a dev-tooling
+  image: still outside every scan gate, and said so here rather than implied.
+- **Alloy moved two minors, not a patch.** The plan's own advice is to prefer
+  patch bumps, and no 1.19 or 1.20 patch bundles a fixed Go. It was taken only
+  after `alloy validate` passed on both configs, and the alternative was a
+  waiver that no future 1.19 patch could ever clear.
+- **The MEDIUM surface halved** — not predicted, measured. Recorded in 847e's
+  ratchet with the ceiling lowered.
+
 
 ---
 

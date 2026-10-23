@@ -5449,15 +5449,17 @@ phases:
 
   847f:
     name: "Reachability evidence binding"
-    status: IN_PROGRESS
-    action_plan: docs/phases/PHASE_847f.md
+    status: COMPLETE
+    completed: '2026-10-23'
+    action_plan: docs/phases/complete/PHASE_847f.md
     dependencies: [847a]
     size: MEDIUM
-    summary: "IN_PROGRESS 2026-10-22. Make waiver justifications checked, not asserted: bind each waiver's reachability claim to an automated assertion (internal-monitoring-only -> compose has no public port; local-socket-only -> no published port at all; not-imported -> no first-party import and not a deployed dependency; dev-tooling-only -> not a deployed dependency). An attested value (input-path-unreachable) requires substantive evidence. A broken premise fails CI and requires re-justification rather than silently outliving its justification. Found and corrected: a port-parsing bug in the 847e inventory shared implementation; CVE-2026-103111 re-justified as input-path-unreachable; all 36 waivers pass 35 machine + 1 attested checks."
+    summary: "COMPLETE 2026-10-23. Make waiver justifications checked, not asserted: bind each waiver's reachability claim to an automated assertion (internal-monitoring-only -> compose has no public port; local-socket-only -> no published port at all; not-imported -> no first-party import and not a deployed dependency; dev-tooling-only -> not a deployed dependency). An attested value (input-path-unreachable) requires substantive evidence. A broken premise fails CI and requires re-justification rather than silently outliving its justification. Found and corrected: a port-parsing bug in the 847e inventory shared implementation; CVE-2026-103111 re-justified as input-path-unreachable; all 36 waivers passed 35 machine + 1 attested checks (registry now 28 entries, 27 machine + 1 attested, 0 broken, after 847g removed ten whose images were bumped out of the finding)."
   847g:
     name: "Go 1.27.3 bump + CVE-2026-111943 triage"
-    status: IN_PROGRESS
-    action_plan: docs/phases/PHASE_847g.md
+    status: COMPLETE
+    completed: '2026-10-23'
+    action_plan: docs/phases/complete/PHASE_847g.md
     dependencies: [847a,847c]
     size: SMALL
     summary: "IN_PROGRESS 2026-10-23. CVE-2026-111943 (crypto/x509). First-party images bumped to golang:1.27.3-alpine / 1.26.10-alpine, digest-pinned to current multi-arch indexes (logtide stale-index anomaly fixed); make scan-first-party clean. Third-party: loki 3.7.7->3.7.9, alloy v1.19.2->v1.21.2 (both Alloy configs validate), prometheus v3.15.0->v3.15.1, redis_exporter v1.91.1->v1.95.0 (Ansible v1.86.0 bumped too; no flags removed). grafana:13.2.4-ubuntu and alertmanager:v0.34.1 have no fixed tag -> one dated HIGH waiver (internal-monitoring-only, expires 2027-01-21). 10 waivers removed as dead (alloy+loki bumps); registry 37->28. make scan-images 9/9 clean. MEDIUM re-measured 152->79 (ceiling lowered)."
