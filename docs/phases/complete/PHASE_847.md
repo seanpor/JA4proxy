@@ -269,9 +269,10 @@ gate.
   (registry 28 → 21); **Phase 848 landed the detector** — the monitor now audits
   without the ignore flags, splits waived/unwaived/dead in process, and files one
   auto-closing `[cve-waiver]` issue per dead id.
-- `main` is still not verified after an auto-merged PR run by
-  `app/github-actions` (issue #622). That is a CI-plumbing gap, not a CVE
-  process gap, and it is tracked separately.
+- `main` was not verified after an auto-merged PR run by `app/github-actions`
+  (issue #622) — GitHub suppresses `push` runs for `GITHUB_TOKEN`-authored
+  events. That is a CI-plumbing gap, not a CVE process gap; **Phase 849** now
+  detects an unverified tip and dispatches CI for it.
 
 ---
 

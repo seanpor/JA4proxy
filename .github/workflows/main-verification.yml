@@ -1,0 +1,56 @@
+---
+name: Main verification
+
+# Phase 849 — issue #622. "Every commit on main has been through CI" had one
+# hole: GitHub does not dispatch workflows for events caused by the default
+# GITHUB_TOKEN (anti-recursion), so a PR merged by the Actions app lands on main
+# with no `push` run at all. The PR was green before that commit existed.
+#
+# This job answers one question and repairs the answer:
+#
+#   does main's tip have a CI run?  ->  no  ->  dispatch ci.yml against main
+#
+# It is event-driven for the two merge paths that skip `push` (so the gap closes
+# in about a minute, not at the next sweep) and scheduled as the backstop for
+# every other app-token merge path, including a future bot nobody wired up here.
+#
+# Not a required check, and it cannot block a merge: being a verifier, it must
+# never become the thing that needs verifying. A run that exists but failed is
+# NOT re-dispatched — the failure is already visible on the commit, and looping
+# on it would turn a signal into noise.
+
+on:
+  workflow_run:
+    workflows: ["Dependabot auto-merge", "Maintainer auto-merge"]
+    types: [completed]
+  schedule:
+    # Offset from the cascade sweep (*/30) so the two never share a slot.
+    - cron: "13,43 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Two triggers can fire for the same merge; only one may dispatch.
+concurrency:
+  group: main-verification
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Ensure main's tip has a CI run
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write  # dispatch ci.yml; nothing else needs this
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      # Pinned for the same reason the monitor pins it: a runner image rotation
+      # must not change what the verifier runs.
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: "3.14"
+      - name: Ensure the current main tip is verified
+        run: python3 scripts/ensure_main_verified.py --apply

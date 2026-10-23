@@ -12,7 +12,7 @@ read the top of the file for full options.
 
 <!-- BEGIN GENERATED: scripts -->
 
-_146 scripts. Generated from each script's header comment by `make sync` — do not edit this table by hand._
+_147 scripts. Generated from each script's header comment by `make sync` — do not edit this table by hand._
 
 | Script | Called by | What it does |
 |--------|-----------|--------------|
@@ -67,6 +67,7 @@ _146 scripts. Generated from each script's header comment by `make sync` — do 
 | `docker-entrypoint.sh` | — | phase-800: MUST be /bin/sh, not /bin/bash. |
 | `docker-net-diag.sh` | — | Diagnose Docker container networking |
 | `ensure-poc-secrets.sh` | `make poc-secrets` | create any missing deploy/secrets/*.txt the PoC |
+| `ensure_main_verified.py` | `make verify-main` | Ensure the commit on `main` was actually built (Phase 849, issue #622). |
 | `env-sync.sh` | `make env-sync` | Top up an EXISTING .env with any newly-required variables. |
 | `export_ci_benchmark_textfile.sh` | — | Phase 805 — host-side puller for the nightly benchmark regression job. |
 | `fetch-ja4db.sh` | `make fetch-db` | Fetch known-bad JA4 fingerprints from FoxIO's public database |
