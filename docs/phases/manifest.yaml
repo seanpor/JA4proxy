@@ -5399,11 +5399,12 @@ phases:
 
   847:
     name: "Zero unwaived CVEs (programme umbrella)"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_847.md
+    status: COMPLETE
+    completed: '2026-10-23'
+    action_plan: docs/phases/complete/PHASE_847.md
     dependencies: []
     size: LARGE
-    summary: "PROPOSED 2026-10-17. Replace reactive, debt-accumulating CVE handling with a controlled, repeatable, evidence-bound process whose steady state is zero unwaived Medium/High/Critical findings. Root cause: the required Security Scan conflates 'this PR regressed security' with 'the upstream DB changed', so a new upstream CVE reddens every PR and forces pressure-driven waivers (both 824c blockers). Splits into 847a-f. Defines 'zero' honestly as zero untriaged, zero fixable-but-waived, zero auto-renewed expiries, zero silent findings, zero divergent lists."
+    summary: "COMPLETE 2026-10-23. Replaced reactive, debt-accumulating CVE handling with a controlled, repeatable, evidence-bound process whose steady state is zero unwaived Medium/High/Critical findings; split into 847a-g, all merged (a #620, b #621, c #623, d #635, e #636, f+g+824c #640). Steady state as measured: 18 deployed surfaces with 0 unwaived HIGH/CRITICAL, fixable queue 0, 21 waivers all bound to an executed reachability check and all dated (latest 2027-01-21), MEDIUM 152 -> 79 with the ratchet ceiling lowered, one registry rendering every derived artifact. Root cause fixed: the required gate compares against a recorded baseline per surface, so upstream DB churn no longer reddens unrelated PRs. Defines 'zero' honestly as zero untriaged, zero fixable-but-waived, zero auto-renewed expiries, zero silent findings, zero divergent lists. Known limits recorded: one attested (not machine-checked) reachability claim, pip-audit's missing severity forcing HIGH-gating for pip findings, and issue #622 (no push run after auto-merge) which is CI plumbing, not CVE process."
 
   847a:
     name: "CVE registry as single source of truth"
@@ -5454,7 +5455,7 @@ phases:
     action_plan: docs/phases/complete/PHASE_847f.md
     dependencies: [847a]
     size: MEDIUM
-    summary: "COMPLETE 2026-10-23. Make waiver justifications checked, not asserted: bind each waiver's reachability claim to an automated assertion (internal-monitoring-only -> compose has no public port; local-socket-only -> no published port at all; not-imported -> no first-party import and not a deployed dependency; dev-tooling-only -> not a deployed dependency). An attested value (input-path-unreachable) requires substantive evidence. A broken premise fails CI and requires re-justification rather than silently outliving its justification. Found and corrected: a port-parsing bug in the 847e inventory shared implementation; CVE-2026-103111 re-justified as input-path-unreachable; all 36 waivers passed 35 machine + 1 attested checks (registry now 28 entries, 27 machine + 1 attested, 0 broken, after 847g removed ten whose images were bumped out of the finding)."
+    summary: "COMPLETE 2026-10-23. Make waiver justifications checked, not asserted: bind each waiver's reachability claim to an automated assertion (internal-monitoring-only -> compose has no public port; local-socket-only -> no published port at all; not-imported -> no first-party import and not a deployed dependency; dev-tooling-only -> not a deployed dependency). An attested value (input-path-unreachable) requires substantive evidence. A broken premise fails CI and requires re-justification rather than silently outliving its justification. Found and corrected: a port-parsing bug in the 847e inventory shared implementation; CVE-2026-103111 re-justified as input-path-unreachable; all 36 waivers passed 35 machine + 1 attested checks (registry now 21 entries, 20 machine + 1 attested, 0 broken: 847g removed ten whose images were bumped out of the finding, and this close-out removed seven pip waivers whose fix had already been adopted)."
   847g:
     name: "Go 1.27.3 bump + CVE-2026-111943 triage"
     status: COMPLETE

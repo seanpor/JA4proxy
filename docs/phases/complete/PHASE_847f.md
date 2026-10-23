@@ -10,7 +10,7 @@ phase: 847f
 > **Size:** MEDIUM
 > **Dependencies:** [847a]
 > **Branch:** `phase-847f-reachability-binding`
-> **Part of:** Phase 847 (umbrella) — see `docs/phases/PHASE_847.md`
+> **Part of:** Phase 847 (umbrella) — see `docs/phases/complete/PHASE_847.md`
 
 ---
 
@@ -242,7 +242,7 @@ hold, `1` a premise is broken, `2` the checks could not be evaluated.
 | `scripts/render_waivers.py` | Validates the enum; requires evidence for attested claims; renders it |
 | `security/waivers.yaml` | `CVE-2026-103111` re-tagged + evidenced; `CVE-2026-59951` → `not-imported`; new `CVE-2026-114603` (`not-imported`, semgrep-only OpenTelemetry DoS) |
 | `.trivyignore.third-party` | Regenerated |
-| `.pip-audit-ignores` | Regenerated (now 9 ids) |
+| `.pip-audit-ignores` | Regenerated (9 ids at the time; 2 after the close-out removed seven dead pip waivers — see issue #642) |
 | `docs/security/CVE_EXCEPTIONS.md` | New `CVE-2026-114603` exception, expiry 2027-01-21 |
 | `security/baseline-medium.json`, `security/medium-inventory.md` | Re-measured (152 findings unchanged; exposure corrected) |
 | `tests/unit/test_reachability_checks.py` | New |
@@ -272,15 +272,17 @@ disagreed with the registry.
 
 | Gate | Result |
 |------|--------|
-| `scripts/reachability_checks.py` | 28 bound checks — 27 machine-checked, 1 attested, **0 broken** |
+| `scripts/reachability_checks.py` | 21 bound checks — 20 machine-checked, 1 attested, **0 broken** |
 | `render_waivers.py --check` | derived files match the registry |
 | `tests/unit/test_reachability_checks.py` | namespace/underscore negative tests green |
 | `make lint`, `make test`, `make preflight` | green |
 
-The count moved 37 → 28 during 847g, not because anything here was relaxed but
-because ten entries were deleted when their carriers were bumped out of the
-finding: the checks run over whatever the registry contains, and a shrinking
-registry is the point.
+The count moved 37 → 28 during 847g and 28 → 21 at the programme's close-out,
+not because anything here was relaxed but because dead entries were deleted when
+their finding went away: ten image waivers whose carriers were bumped out of the
+CVE in 847g, and seven pip waivers whose fix had already been adopted without
+anyone removing the ignore. The checks run over whatever the registry contains,
+and a shrinking registry is the point.
 
 ### Residual
 

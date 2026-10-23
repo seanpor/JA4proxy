@@ -7,7 +7,7 @@ phase: 847
 
 # Phase 847 — Zero Unwaived CVEs (programme umbrella)
 
-> **Status:** PROPOSED
+> **Status:** COMPLETE (2026-10-23)
 > **Size:** LARGE
 > **Dependencies:** none (847a is the entry point; the rest chain from it)
 > **Branch:** `phase-847-cve-zero-path`
@@ -66,7 +66,7 @@ on someone else's PR.
 
 After 847a the ignorefile holds **28** entries: the kin-openapi waivers were added
 and six entries that the monitoring-image bump rendered dead were removed (see
-`complete/PHASE_847a.md`).
+`PHASE_847a.md`).
 
 ---
 
@@ -213,12 +213,80 @@ Every sub-phase must, in addition to its own tests:
   empty scan cannot pass vacuously (existing repo convention).
 - Run `make preflight` (lint + scan + test) before opening any PR.
 
+## Outcome (2026-10-23)
+
+All seven sub-phases are complete and merged (847a #620, 847b #621, 847c #623,
+847d #635, 847e #636, 847f/847g/824c #640). The machinery is running; this
+section records the state it produced, measured rather than asserted.
+
+**The five properties, and what enforces each:**
+
+| Property | Mechanism | State on 2026-10-23 |
+|---|---|---|
+| Zero untriaged | Nightly `scan-baseline-monitor.yml`: full scan of every surface + the Python dependency set, one deduplicated issue per *unwaived* finding | 18 surfaces, **0 unwaived HIGH/CRITICAL** (`security/baseline.json`) |
+| Zero fixable-but-waived | `fix-forward.yml` + 847d's `fix_available` records and re-check triggers | fixable queue **0**; every remaining waiver is `fix_available: false` at a specific measured version |
+| Zero auto-renewed expiries | `renew_trivyignore.py` re-affirms the *premise* (carrier still carries it? fix shipped? reachability still true?) and escalates instead of re-dating | 21 waivers, all dated, latest expiry 2027-01-21; 17 were **deleted outright** when their fix shipped (ten image waivers in 847g, seven pip waivers at close-out) rather than left for an expiry to notice |
+| Zero silent findings | Required `Scan Regression (surfaces touched)` diffs every touched surface against the recorded baseline; monitor covers the untouched ones | required gate is `scan-regression`; the full `make scan` is de-required on PRs (it only measures upstream churn) |
+| Zero divergent lists | `security/waivers.yaml` renders `.trivyignore.third-party`, `.trivyignore.first-party` and `.pip-audit-ignores`; a drift test fails CI on a hand edit | `render_waivers.py --check` green; both scan paths in the Makefile read the same rendered files |
+
+**The MEDIUM band, measured before it was gated** (847e, re-measured in 847g):
+79 unwaived findings across 18 surfaces, down from 152; diff-only gate at the
+same baseline rule as HIGH; ratchet ceiling 79 in `tests/unit/test_medium_ratchet.py`
+so accretion must be a reviewed edit.
+
+**Waivers are evidence, not prose.** Every one of the 21 names a registered
+reachability check that CI executes (`reachability_checks.py`: 20 machine-checked,
+1 attested, 0 broken). The programme found and fixed three false premises that
+predated it — a port-parsing bug in the exposure classifier, an "internal-only"
+claim on a service that publishes 443/80, and a `not-imported` check that passed
+vacuously for namespace distributions — which is the strongest argument that the
+binding was worth doing: the *justifications* were the unreliable part, not the
+gate.
+
+**Honest limits, recorded so they are not mistaken for done:**
+
+- One reachability value (`input-path-unreachable`, haproxy) is **attested**, not
+  machine-checked. The check verifies the evidence exists; it cannot verify the
+  evidence is right.
+- **"Fixable queue 0" means "no *adoptable* clearing".** Two of the 21 waivers
+  (`CVE-2026-59951`, `CVE-2026-114603`) name a published fix version that cannot
+  be taken, because `semgrep` hard-pins the vulnerable one; 847d records that as
+  `blocked` → `fix_available: false` plus a `recheck_trigger`, not as "no fix
+  exists". The distinction is the whole point of `recheck_trigger`: when semgrep
+  relaxes its pin, the premise changes and the waiver must go.
+- `pip-audit` carries no severity, so every pip finding is gated as HIGH
+  regardless of its advisory CVSS. The registry records the advisory severity;
+  the gate stays conservative. This is why `CVE-2026-114603` is a MEDIUM waiver
+  that the monitor files as HIGH.
+- **Dead pip waivers are not detected automatically** (issue #642). The Trivy
+  side has `check_trivyignore_drift --fail-on-dead`; the pip side has nothing,
+  because the monitor's baseline diff only looks at *unwaived* findings. This
+  was not cosmetic: a re-audit without ignores showed `.pip-audit-ignores` held
+  **seven** ids for findings that no longer exist (four urllib3, pygments,
+  protobuf, PYSEC-2026-2132). A dead ignore keeps `--ignore-vuln` alive, so a
+  regression back into the vulnerable range would be suppressed silently — the
+  exact failure this programme exists to prevent. They were removed at close-out
+  (registry 28 → 21); the detector is the tracked follow-up.
+- `main` is still not verified after an auto-merged PR run by
+  `app/github-actions` (issue #622). That is a CI-plumbing gap, not a CVE
+  process gap, and it is tracked separately.
+
+---
+
 ## Acceptance criteria (programme-level)
 
-- [ ] All six sub-phases exist as `PROPOSED` manifest entries with correct deps.
-- [ ] Each sub-phase meets its own acceptance criteria and the three programme
-      tests above.
-- [ ] A single registry is the only place a waiver is authored; every derived
-      artifact is generated and drift-checked.
-- [ ] A new upstream CVE no longer reddens unrelated PRs (demonstrated in 847c).
-- [ ] The fixable-queue is reported and ~0 (demonstrated in 847d).
+- [x] All sub-phases exist as manifest entries with correct deps — **seven**, not
+      six: 847g was split out on 2026-10-21 when CVE-2026-111943 landed mid-programme.
+- [x] Each sub-phase meets its own acceptance criteria and the three programme
+      tests above. Every one recorded a demonstration that it can fail: 824c's
+      forward check was proven vacuous by a route rename, 847c's gate by a
+      synthetic finding, 847f's checks by breaking a premise, 847g's pin test by
+      reverting the pin.
+- [x] A single registry is the only place a waiver is authored; every derived
+      artifact is generated and drift-checked (`render_waivers.py --check` in `make lint`).
+- [x] A new upstream CVE no longer reddens unrelated PRs (demonstrated in 847c):
+      `Scan Regression (surfaces touched)` is the required gate and it compares
+      against the recorded baseline, per surface.
+- [x] The fixable-queue is reported and ~0 (demonstrated in 847d); it is **0**
+      today, and 847g removed ten waivers whose fix had actually shipped rather
+      than waiting for an expiry to notice.

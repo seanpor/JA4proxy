@@ -3,12 +3,5 @@
 # so the two pip-audit ignore lists can no longer diverge (Phase 847a).
 # Word-split by the shell at the point of use (one flag pair per line).
 
---ignore-vuln CVE-2025-50181
---ignore-vuln CVE-2025-66418
---ignore-vuln CVE-2025-66471
 --ignore-vuln CVE-2026-114603
---ignore-vuln CVE-2026-21441
---ignore-vuln CVE-2026-4539
 --ignore-vuln CVE-2026-59951
---ignore-vuln PYSEC-2026-1805
---ignore-vuln PYSEC-2026-2132

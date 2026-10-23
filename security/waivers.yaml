@@ -349,96 +349,6 @@ waivers:
   # Rendered into `.pip-audit-ignores`, consumed by BOTH the Makefile
   # `lint-static` gate and the ci.yml `dependency-audit-python` job, so the two
   # can no longer diverge.
-  - id: CVE-2025-50181
-    scope: third-party
-    severity: MEDIUM
-    source: pip-audit
-    carriers: ["urllib3"]
-    rationale: >-
-      urllib3; transitive dependency with no safe resolution available in the
-      pinned toolchain. Dev/CI tooling dependency, not on a production request
-      path.
-    reachability: dev-tooling-only
-    created: 2026-10-17
-    expires: 2027-01-15
-
-  - id: CVE-2025-66418
-    scope: third-party
-    severity: MEDIUM
-    source: pip-audit
-    carriers: ["urllib3"]
-    rationale: >-
-      urllib3; transitive dependency with no safe resolution available. Dev/CI
-      tooling dependency, not on a production request path.
-    reachability: dev-tooling-only
-    created: 2026-10-17
-    expires: 2027-01-15
-
-  - id: CVE-2025-66471
-    scope: third-party
-    severity: MEDIUM
-    source: pip-audit
-    carriers: ["urllib3"]
-    rationale: >-
-      urllib3; transitive dependency with no safe resolution available. Dev/CI
-      tooling dependency, not on a production request path.
-    reachability: dev-tooling-only
-    created: 2026-10-17
-    expires: 2027-01-15
-
-  - id: CVE-2026-21441
-    scope: third-party
-    severity: MEDIUM
-    source: pip-audit
-    carriers: ["urllib3"]
-    rationale: >-
-      urllib3; transitive dependency with no safe resolution available. Dev/CI
-      tooling dependency, not on a production request path.
-    reachability: dev-tooling-only
-    created: 2026-10-17
-    expires: 2027-01-15
-
-  - id: CVE-2026-4539
-    scope: third-party
-    severity: MEDIUM
-    source: pip-audit
-    carriers: ["pygments"]
-    rationale: >-
-      pygments; transitive dependency with no safe resolution available. Dev/CI
-      tooling dependency, not on a production request path.
-    reachability: dev-tooling-only
-    created: 2026-10-17
-    expires: 2027-01-15
-
-  - id: PYSEC-2026-2132
-    scope: third-party
-    severity: MEDIUM
-    source: pip-audit
-    carriers: ["click"]
-    rationale: >-
-      click 8.1.8. semgrep pins click~=8.1.8 and the fix is 8.3.3, so no
-      resolution clears it without breaking semgrep. semgrep is a CLI scanner;
-      the vulnerable path is not on a production request path.
-    reachability: dev-tooling-only
-    fix_available: false
-    recheck_trigger: "semgrep relaxes its click pin to allow >= 8.3.3"
-    created: 2026-10-17
-    expires: 2027-01-15
-
-  - id: PYSEC-2026-1805
-    scope: third-party
-    severity: MEDIUM
-    source: pip-audit
-    carriers: ["protobuf"]
-    rationale: >-
-      protobuf. Recorded for parity with the ci.yml job; the underlying finding
-      was resolved in Phase 833 by pinning protobuf>=5.29.6, so this ignore is
-      expected to match nothing. Kept until 847d's dead-entry detection removes it
-      in a controlled way.
-    reachability: dev-tooling-only
-    created: 2026-10-17
-    expires: 2027-01-15
-
   - id: CVE-2026-59951
     scope: third-party
     severity: HIGH
@@ -454,7 +364,7 @@ waivers:
     fix_available: false
     recheck_trigger: "semgrep relaxes its mcp pin to allow >= 1.30.0"
     created: 2026-10-17
-    expires: 2027-01-15
+    expires: 2027-01-14
 
   - id: CVE-2026-114603
     scope: third-party
@@ -470,6 +380,12 @@ waivers:
       tracestate headers. opentelemetry-api is pulled in only by semgrep (a CLI
       scanner) and is imported by no first-party module; no OTEL propagators are
       used by JA4proxy's request handling. Dev/CI tooling only.
+      SEVERITY NOTE: the advisory is MEDIUM (CVSS:3.1/AV:N/AC:L/PR:N/UI:N/
+      S:U/C:N/I:N/A:L = 5.3, availability only). pip-audit carries no severity, so
+      scan_baseline.pypi_findings treats every pip finding as gating and the
+      monitor files it as HIGH. Both are recorded here rather than reconciled:
+      the advisory severity is what a reader needs, and the gate stays
+      conservative regardless of this label.
     reachability: not-imported
     fix_available: false
     recheck_trigger: "semgrep relaxes its opentelemetry pins to allow opentelemetry-api>=1.45.1"
