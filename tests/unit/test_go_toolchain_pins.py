@@ -93,6 +93,35 @@ def test_no_workflow_pins_a_toolchain_with_the_x509_cve() -> None:
         )
 
 
+def test_no_dockerfile_builds_on_a_toolchain_with_the_x509_cve() -> None:
+    """The image half of the same defect, asserted as a property.
+
+    The Go pins that *ship* live in Dockerfiles, and they were fixed by hand in
+    a different change from the CI pins. Nothing structural stopped one being
+    missed — and one was: `deploy/docker/update-checker/Dockerfile` pinned
+    `golang:1.25.10-alpine`, inside the affected range, because it is not a
+    deployed image and so is outside every scan gate.
+
+    A per-file expectation list would go stale the next time a Dockerfile is
+    added, so this asserts the property against every `FROM golang:…` in the
+    repository.
+    """
+    offenders: list[str] = []
+    for path in sorted(ROOT.rglob("Dockerfile*")):
+        if not path.is_file() or any(
+            part in {".git", "node_modules", "vendor"} for part in path.parts
+        ):
+            continue
+        for lineno, line in enumerate(path.read_text(errors="replace").splitlines(), 1):
+            match = re.match(r"\s*FROM\s+golang:(\d+\.\d+\.\d+)", line, re.IGNORECASE)
+            if match and not _is_patched(match.group(1)):
+                offenders.append(f"{path.relative_to(ROOT)}:{lineno} (golang:{match.group(1)})")
+    assert not offenders, (
+        "Dockerfile(s) build on a Go toolchain in GO-2026-6809's affected range: "
+        + ", ".join(offenders)
+    )
+
+
 def test_the_module_directive_is_patched() -> None:
     """`go-version-file: go.mod` installs Go from the module's directive.
 
