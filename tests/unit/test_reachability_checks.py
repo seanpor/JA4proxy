@@ -325,6 +325,36 @@ def test_not_imported_matches_a_submodule_of_an_alias(tmp_path: Path) -> None:
     assert not result.ok
 
 
+def test_not_imported_matches_the_namespace_root_of_a_distribution(tmp_path: Path) -> None:
+    """`import opentelemetry` uses the distribution `opentelemetry-api`.
+
+    The import root of a namespace distribution is neither the distribution
+    name nor its hyphen/underscore variant, so without an `IMPORT_ALIASES`
+    entry the check sees nothing and the waiver reads as "not imported" while
+    claiming exactly the opposite of what the code does. (CVE-2026-114603 is
+    the waiver that exposed this: `opentelemetry-api`, carrier of a
+    semgrep-only DoS, really is imported nowhere — but the check has to be
+    able to notice if that stops being true.)
+    """
+    repo = _scratch_repo(tmp_path, "services: {}\n")
+    (repo / "src").mkdir()
+    (repo / "src" / "module.py").write_text(
+        "from opentelemetry.trace import get_tracer\n", encoding="utf-8"
+    )
+    result = rc.check_not_imported(_waiver(carriers=["opentelemetry-api"]), repo)
+    assert not result.ok, "a namespace root import must break the not-imported claim"
+    assert any("opentelemetry" in line for line in result.evidence)
+
+
+def test_not_imported_matches_the_underscored_form_of_a_hyphenated_dist(tmp_path: Path) -> None:
+    """`pip-audit` is imported as `pip_audit`; no alias table entry needed."""
+    repo = _scratch_repo(tmp_path, "services: {}\n")
+    (repo / "src").mkdir()
+    (repo / "src" / "module.py").write_text("import pip_audit\n", encoding="utf-8")
+    result = rc.check_not_imported(_waiver(carriers=["pip-audit"]), repo)
+    assert not result.ok
+
+
 # ── input-path-unreachable (attested) ───────────────────────────────────────
 
 def test_attested_claim_passes_with_substantive_evidence() -> None:

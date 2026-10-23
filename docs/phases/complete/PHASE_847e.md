@@ -218,6 +218,14 @@ Trivy database churns daily, so a live comparison would make the ratchet a
 coin-flip. The ratchet is about the *committed record*, which is the thing a
 reviewer can actually argue with.
 
+**Ceiling re-measured: 152 → 79 (Phase 847g, 2026-10-23).** The
+CVE-2026-111943 image bumps were measured for MEDIUM as well as HIGH/CRITICAL,
+and three of the four replacement tags carry no MEDIUM findings at all. The
+record and `MEDIUM_CEILING_MAX` were both lowered to the new measurement in the
+same commit; a ratchet that is not lowered when the surface genuinely shrinks is
+just a number, and leaving it at 152 would have re-permitted 73 findings of
+accretion silently.
+
 ### 847e.5 — The monitor tracks it
 
 The 847c monitor already diffs every surface against the baseline and files an

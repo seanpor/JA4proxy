@@ -145,6 +145,15 @@ MIN_EVIDENCE_CHARS = 20
 
 #: Distribution name → the import name(s) it is known to provide. A PyPI
 #: distribution is not always importable under its own name.
+#:
+#: Two families need an entry. A distribution whose import name differs
+#: entirely (`pyyaml` → `yaml`) must be listed, because no rule derives it. A
+#: *namespace* distribution (`opentelemetry-api` → `opentelemetry`) must be
+#: listed too: its import root is the shared namespace, which is not the
+#: distribution name and not the hyphen/underscore variant either — without the
+#: entry, `import opentelemetry` would be invisible and the `not-imported`
+#: claim would pass *vacuously*, asserting nothing about the code it is supposed
+#: to describe. (Found when waiving CVE-2026-114603, a semgrep-only dependency.)
 IMPORT_ALIASES: dict[str, set[str]] = {
     "pyyaml": {"yaml"},
     "pillow": {"pil"},
@@ -156,6 +165,7 @@ IMPORT_ALIASES: dict[str, set[str]] = {
     "protobuf": {"protobuf"},
     "python-multipart": {"multipart"},
     "setuptools": {"setuptools", "pkg_resources"},
+    "opentelemetry-api": {"opentelemetry"},
 }
 
 
@@ -411,8 +421,15 @@ def imported_modules(repo_root: Path) -> dict[str, list[str]]:
 
 
 def _candidate_import_names(carrier: str) -> set[str]:
+    """Every module name the distribution `carrier` could be imported under.
+
+    Distribution names are hyphenated by convention while module names cannot
+    be (`pip-audit` → `pip_audit`), so the underscore variant is always a
+    candidate; anything further (`pyyaml` → `yaml`, `opentelemetry-api` →
+    `opentelemetry`) is listed in `IMPORT_ALIASES` because no rule derives it.
+    """
     wanted = normalise_distribution(carrier)
-    return {wanted} | IMPORT_ALIASES.get(wanted, set())
+    return {wanted, wanted.replace("-", "_")} | IMPORT_ALIASES.get(wanted, set())
 
 
 def check_not_imported(waiver: dict, repo_root: Path) -> CheckResult:

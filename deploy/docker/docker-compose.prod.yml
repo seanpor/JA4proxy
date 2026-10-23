@@ -300,7 +300,7 @@ services:
   # ── Monitoring ────────────────────────────────────────────────────────────
 
   redis-exporter:
-    image: oliver006/redis_exporter:v1.91.1
+    image: oliver006/redis_exporter:v1.95.0
     environment:
       - REDIS_ADDR=redis:6379
       # Phase 813: previously authenticated with no username at all, which
@@ -336,7 +336,7 @@ services:
           cpus: '0.5'
 
   prometheus:
-    image: prom/prometheus:v3.15.0
+    image: prom/prometheus:v3.15.1
     ports:
       # 0046: loopback-or-private only (never 0.0.0.0) — Prometheus UI for
       # debugging. Was published on 0.0.0.0:9091. Matches the grafana binding.
@@ -416,7 +416,7 @@ services:
           memory: 128M
 
   loki:
-    image: grafana/loki:3.7.7
+    image: grafana/loki:3.7.9
     # No host ports (0046): Grafana queries loki:3100 and Promtail pushes over
     # the network. Was published on 0.0.0.0:3100.
     volumes:
@@ -446,7 +446,7 @@ services:
   # identical to a quiet system. config.prod.alloy discovers by file over the
   # ../../logs mount this service already had.
   alloy:
-    image: grafana/alloy:v1.19.2@sha256:b8ec653c44235fbe910879145dac3597d66b0aaecf60bcbbe82580767771a839
+    image: grafana/alloy:v1.21.2@sha256:89a5a320168387336b9ac3c850609c3ba7757eadd4ae5f1d819deb35e9854b18
     volumes:
       - ../monitoring/alloy/config.prod.alloy:/etc/alloy/config.alloy:ro
       - ../../logs:/var/log/ja4proxy:ro

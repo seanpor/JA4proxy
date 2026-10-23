@@ -5458,7 +5458,7 @@ phases:
     name: "Go 1.27.3 bump + CVE-2026-111943 triage"
     status: IN_PROGRESS
     action_plan: docs/phases/PHASE_847g.md
-    dependencies: []
+    dependencies: [847a,847c]
     size: SMALL
-    summary: "IN_PROGRESS 2026-10-22. CVE-2026-111943 (crypto/x509, Go 1.27.2) fixed in 1.26.10/1.27.3. First-party images bumped to golang:1.27.3-alpine (digest-pinned) and security-scan/test-runner to 1.26.10; go.mod/audit pins already done in 847d. Third-party images (grafana/prometheus/alertmanager/loki/alloy/redis_exporter) need upstream tag bumps or dated waivers per 847d re-affirmation."
+    summary: "IN_PROGRESS 2026-10-23. CVE-2026-111943 (crypto/x509). First-party images bumped to golang:1.27.3-alpine / 1.26.10-alpine, digest-pinned to current multi-arch indexes (logtide stale-index anomaly fixed); make scan-first-party clean. Third-party: loki 3.7.7->3.7.9, alloy v1.19.2->v1.21.2 (both Alloy configs validate), prometheus v3.15.0->v3.15.1, redis_exporter v1.91.1->v1.95.0 (Ansible v1.86.0 bumped too; no flags removed). grafana:13.2.4-ubuntu and alertmanager:v0.34.1 have no fixed tag -> one dated HIGH waiver (internal-monitoring-only, expires 2027-01-21). 10 waivers removed as dead (alloy+loki bumps); registry 37->28. make scan-images 9/9 clean. MEDIUM re-measured 152->79 (ceiling lowered)."
 

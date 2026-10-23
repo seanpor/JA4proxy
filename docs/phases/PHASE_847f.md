@@ -110,6 +110,36 @@ requires, not less — so a missing socket mount was a false failure. The check 
 asserts the sound core (no published port) and reports the socket mounts it finds
 as supporting evidence.
 
+### 4. `not-imported` could pass *vacuously* on a namespace distribution
+
+The first waiver authored after the checks went live was a brand-new CVE
+(`CVE-2026-114603`, OpenTelemetry `tracestate` quadratic parsing, published
+2026-10-22) that reddened `make lint-static` mid-phase. Triage was the routine
+kind — `semgrep` pins `opentelemetry-api~=1.37.0`, the fix is 1.45.1, and the
+combination does not resolve — so it became waiver 37 with
+`reachability: not-imported`.
+
+Authoring it exposed a hole in the check. `opentelemetry-api` is a **namespace**
+distribution: its import root is `opentelemetry`, which is neither the
+distribution name nor its hyphen/underscore variant, and it was not in
+`IMPORT_ALIASES`. The check therefore looked for the strings
+`opentelemetry-api`/`opentelemetry_api` in the import graph, found nothing, and
+passed — not because the premise held, but because it was asking the wrong
+question. It would have kept passing after `import opentelemetry` landed in
+`src/`.
+
+Two fixes, both in the check rather than the waiver:
+
+- `_candidate_import_names` now always includes the underscore variant of the
+  distribution name (`pip-audit` → `pip_audit`), which no alias entry can be
+  forgotten for.
+- `IMPORT_ALIASES` gains `opentelemetry-api → {opentelemetry}`, and the table's
+  docstring now says *why* namespace distributions must be listed explicitly.
+
+Both directions are pinned by tests: an `import opentelemetry` in a scratch tree
+breaks the claim, and so does an `import pip_audit` for a `pip-audit` carrier.
+
+
 ---
 
 ## Scope
@@ -125,7 +155,12 @@ as supporting evidence.
 What these checks **do not** claim is worth stating plainly: `dev-tooling-only`
 and `not-imported` inspect **declared** dependencies and **static** imports. A
 transitive introduction (adding `requests` pulls in `urllib3`) or a dynamic
-`importlib.import_module("mcp")` is invisible to both.
+`importlib.import_module("mcp")` is invisible to both. `not-imported` maps a
+distribution to its import name through a curated table (`IMPORT_ALIASES`); a
+distribution whose import root is neither its own name nor its underscore
+variant, and that is missing from the table, is invisible until someone adds it
+— which is why the table is a documented part of the check, not an
+implementation detail (finding 4).
 
 ---
 
@@ -160,7 +195,7 @@ hold, `1` a premise is broken, `2` the checks could not be evaluated.
 
 ## Test strategy (as executed)
 
-- **Live registry:** all 36 waivers' premises hold — 35 machine-checked, 1
+- **Live registry:** all 37 waivers' premises hold — 36 machine-checked, 1
   attested.
 - **Binding validity:** every registered value is accepted by the schema, an
   unregistered one is rejected, a missing field is rejected.
@@ -190,6 +225,9 @@ hold, `1` a premise is broken, `2` the checks could not be evaluated.
 - [x] A broken premise produces a "re-justify this waiver" failure, never a
       silent waiver removal.
 - [x] Three already-broken premises found and re-justified, not deleted.
+- [x] A waiver authored mid-phase (`CVE-2026-114603`) exposed a **vacuous pass**
+      in `not-imported` for namespace distributions; fixed in the check and
+      pinned by negative tests rather than worked around in the waiver.
 - [x] `make preflight` passes.
 
 ---
@@ -202,8 +240,10 @@ hold, `1` a premise is broken, `2` the checks could not be evaluated.
 | `scripts/reachability_checks.py` | New — the check library, enum, and CLI |
 | `scripts/medium_inventory.py` | Uses the shared parser (fixes finding 1) |
 | `scripts/render_waivers.py` | Validates the enum; requires evidence for attested claims; renders it |
-| `security/waivers.yaml` | `CVE-2026-103111` re-tagged + evidenced; `CVE-2026-59951` → `not-imported` |
+| `security/waivers.yaml` | `CVE-2026-103111` re-tagged + evidenced; `CVE-2026-59951` → `not-imported`; new `CVE-2026-114603` (`not-imported`, semgrep-only OpenTelemetry DoS) |
 | `.trivyignore.third-party` | Regenerated |
+| `.pip-audit-ignores` | Regenerated (now 9 ids) |
+| `docs/security/CVE_EXCEPTIONS.md` | New `CVE-2026-114603` exception, expiry 2027-01-21 |
 | `security/baseline-medium.json`, `security/medium-inventory.md` | Re-measured (152 findings unchanged; exposure corrected) |
 | `tests/unit/test_reachability_checks.py` | New |
 | `tests/unit/test_compose_exposure.py` | New |

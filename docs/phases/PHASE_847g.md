@@ -7,10 +7,10 @@ phase: 847g
 
 # Phase 847g — Go 1.27.3 bump and the CVE-2026-111943 triage
 
-> **Status:** PROPOSED
+> **Status:** IN_PROGRESS
 > **Size:** SMALL
-> **Dependencies:** []
-> **Branch:** `phase-847g-go-1-27-3-cve-2026-111943`
+> **Dependencies:** [847a,847c]
+> **Branch:** `phase-847f-reachability-binding`
 > **Part of:** Phase 847 (umbrella) — see `docs/phases/PHASE_847.md`
 
 ---
@@ -127,6 +127,118 @@ fixed.
 
 ---
 
+## Outcome (as built)
+
+### 847g.1 — first-party images: fixed, not waived
+
+Six build stages moved to `golang:1.27.3-alpine`, and the two remaining
+`1.26.x` toolchain images to `golang:1.26.10-alpine`, all digest-pinned to the
+**current multi-arch index** of each tag:
+
+| Tag | Index digest |
+|-----|--------------|
+| `golang:1.27.3-alpine` | `sha256:b8c9b82affbbb82a020bbcf998dad2ba9516944ac7e883524642a481a9505e9c` |
+| `golang:1.26.10-alpine` | `sha256:27f2d3b83cfc5803c8078f8e730af0f7c431bf067afaec8f60a36fb763187cba` |
+
+`tests/unit/test_go_toolchain_pins.py` keeps the pins honest.
+
+**The `Dockerfile.logtide` digest anomaly, resolved.** The plan said to find out
+why logtide carried a different digest for the same tag before changing it. It
+was not a platform pin, so nothing was silently amd64-only: `738d1cf0…`
+(logtide) and `f92b6ef8…` (the other five) are *both* image indexes for
+`golang:1.27.2-alpine`, published at different times, resolving to the same
+platform manifests. It was a **stale index pin** — a `FROM tag@digest` that no
+longer matched what `docker pull tag` returns, which is drift with no upside.
+All six now share one current index digest, verified with
+`docker buildx imagetools inspect`.
+
+### 847g.2 — third-party images: four bumps, two waivers, ten deletions
+
+Every one of the six was measured with Trivy at its then-current tag, and every
+candidate replacement tag was measured too — the bumps are not assumed to help.
+
+| Surface | Was | Now | Decision basis |
+|---------|-----|-----|----------------|
+| `grafana/loki` | `3.7.7` | `3.7.9` | tag published 2026-10-20; scans **clean** at HIGH/CRITICAL |
+| `grafana/alloy` | `v1.19.2` | `v1.21.2` | tag published 2026-10-22; scans **clean** |
+| `prom/prometheus` | `v3.15.0` | `v3.15.1` | tag published 2026-10-21; scans **clean** |
+| `oliver006/redis_exporter` | `v1.91.1` | `v1.95.0` | tag published 2026-10-21; scans **clean** |
+| `grafana/grafana` | `13.2.4-ubuntu` | *unchanged* | **no fixed tag exists** — 13.2.4 is the newest published tag in the 13.2 line (2026-10-13, before the Go fix). Waived. |
+| `prom/alertmanager` | `v0.34.1` | *unchanged* | **no fixed tag exists** — v0.34.1 is the newest (2026-09-17). Waived. |
+
+Alloy is the only non-patch bump (1.19 → 1.21, two minors) and therefore the
+only one that is a behaviour change, not just a rebuild. It was taken because
+the alternative was a waiver that no future patch of 1.19 would ever clear, and
+it was validated before being proposed: **both** Alloy configs
+(`config.alloy`, `config.prod.alloy`) pass `alloy validate` under v1.21.2. The
+other three were validated against their own tooling too — `promtool check
+config` plus `check rules` (51 + 24 + 34 rules), and `loki -verify-config` on
+`loki-config.yml`. `redis_exporter` has no config file; instead its `--help`
+flag set was diffed across v1.86.0/v1.91.1/v1.95.0 — **no flag was removed**,
+and every flag the Ansible role sets through env vars still exists.
+
+The Ansible-provisioned Redis exporter pin (`deploy/ansible/roles/redis-secure`)
+was also moved `v1.86.0 → v1.95.0`. It is outside the compose-derived scan set,
+so it is outside the gate that found this CVE — but it is the same image on a
+real deployment path, and the same measurement (no flags removed) makes the
+bump safe. Leaving it would have meant fixing the CVE everywhere except one
+place nobody scans.
+
+The two remaining surfaces get one dated waiver (`CVE-2026-111943`,
+`reachability: internal-monitoring-only`, expires 2027-01-21) whose rationale
+names the reason the fix is not ours: both are publisher-built images, and no
+published tag carries a patched Go toolchain.
+
+**The record shrank on the way through.** Bumping cleared **ten** previously
+waived findings — two Docker Engine CVEs in Alloy (the only carrier) and eight
+Loki CVEs. They were removed with `render_waivers.remove_entries`, the same
+validated splice the renewal bot uses; it re-parses the result and refuses to
+remove an entry whose carrier a surviving waiver still claims. Waivers:
+37 → 28. The now-empty "Docker Engine (vendored in alloy)" section header was
+replaced with a note recording the removal, because a section heading that
+names deleted entries is exactly the stale prose this programme exists to
+delete.
+
+`make scan-images` — 9/9 surfaces, **no HIGH/CRITICAL findings**.
+
+`make scan-first-party` — 8/8 surfaces, **no HIGH/CRITICAL findings**, with
+`.trivyignore.first-party` still empty. The split held: nothing here needed a
+waiver on our own images.
+
+### 847g.3 — the MEDIUM surface halved as a side effect
+
+Every candidate tag was measured in the MEDIUM band too, before being adopted,
+and `make medium-inventory` was re-run afterwards rather than trusting the
+HIGH/CRITICAL result to imply the rest:
+
+| Surface | MEDIUM before | after |
+|---------|--------------:|------:|
+| `image:grafana/alloy` | 59 | **16** |
+| `image:grafana/loki` | 14 | **0** |
+| `image:prom/prometheus` | 9 | **0** |
+| `image:oliver006/redis_exporter` | 9 | **0** |
+| `image:grafana/grafana` | 30 | 31 |
+| `image:ja4proxy-test` | 1 | 2 |
+| all others | 30 | 30 |
+
+**152 → 79 unwaived MEDIUM findings.** The two small increases are recorded in
+`security/baseline-medium.json` (Grafana is the un-bumpable surface; the test
+image follows the repo's own dependency set), and `MEDIUM_CEILING_MAX` in
+`tests/unit/test_medium_ratchet.py` was lowered with the record in the same
+commit — a ratchet left at 152 after the surface halved would have re-permitted
+73 findings of silent accretion.
+
+`make scan-baseline` re-recorded `security/baseline.json` at **18 surfaces, 0
+findings**. That number is the point of the whole programme: every surface we
+deploy — nine third-party images, eight of ours, and the Python dependency set —
+is clean at HIGH/CRITICAL, and anything that appears from now on is genuinely
+new rather than pre-existing noise. Waived findings are excluded from the
+record by construction, so nothing here is hidden behind the waivers above: when
+a waiver expires, the finding reappears as a new one and the 847c monitor has to
+explain it.
+
+---
+
 ## Test strategy
 
 - `make build` then `make scan-first-party` — zero HIGH/CRITICAL.
@@ -142,16 +254,25 @@ fixed.
 
 ## Acceptance criteria
 
-- [ ] No first-party image carries CVE-2026-111943; the fix is a base-image
-      bump, not a waiver.
-- [ ] Every first-party `FROM golang:…` line is digest-pinned, to the same
+- [x] No first-party image carries CVE-2026-111943; the fix is a base-image
+      bump, not a waiver. (`make scan-first-party`: 8/8 clean;
+      `.trivyignore.first-party` still empty.)
+- [x] Every first-party `FROM golang:…` line is digest-pinned, to the same
       1.27.3 (or 1.26.10) manifest digest, and the digest is recorded in the
-      commit message.
-- [ ] Every third-party surface carrying the CVE has either a bump or a
+      commit message. *(Deviation: the digests are recorded in the table above
+      instead. The bump commit was already pushed when the record was written,
+      and rewriting a pushed commit to add a line of documentation is a worse
+      trade than recording it here — `tests/unit/test_go_toolchain_pins.py`
+      is what actually enforces the pins.)*
+- [x] Every third-party surface carrying the CVE has either a bump or a
       dated, justified waiver, and the decision is written down per surface.
-- [ ] No third-party waiver suppresses a finding in a first-party image — the
-      split stays split.
-- [ ] `security/baseline.json` is re-recorded.
+      (Four bumps, two waivers — table above; `make scan-images` 9/9 clean.)
+- [x] No third-party waiver suppresses a finding in a first-party image — the
+      split stays split. (`render_waivers.py --check` green; the two ignore
+      files are rendered per scope.)
+- [x] `security/baseline.json` is re-recorded. (**18 surfaces, 0 findings** —
+      the record now names every deployed surface, ours and third-party, with
+      nothing in it, which is what makes the next finding visible.)
 - [ ] `make preflight` is green.
 
 ---

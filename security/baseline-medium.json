@@ -1,16 +1,10 @@
 {
-  "ceiling": 152,
-  "recorded_at": "2026-10-22",
+  "ceiling": 79,
+  "recorded_at": "2026-10-23",
   "surfaces": {
     "image:grafana/alloy": {
-      "digest": "sha256:b8ec653c44235fbe910879145dac3597d66b0aaecf60bcbbe82580767771a839",
+      "digest": "sha256:89a5a320168387336b9ac3c850609c3ba7757eadd4ae5f1d819deb35e9854b18",
       "findings": {
-        "CVE-2025-15649": {
-          "fixed": "5.38.2-3.2ubuntu0.4",
-          "installed": "5.38.2-3.2ubuntu0.3",
-          "package": "perl-base",
-          "severity": "MEDIUM"
-        },
         "CVE-2026-102473": {
           "fixed": "",
           "installed": "0.5.12-6ubuntu5",
@@ -23,39 +17,9 @@
           "package": "dash",
           "severity": "MEDIUM"
         },
-        "CVE-2026-12087": {
-          "fixed": "5.38.2-3.2ubuntu0.4",
-          "installed": "5.38.2-3.2ubuntu0.3",
-          "package": "perl-base",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-13221": {
-          "fixed": "5.38.2-3.2ubuntu0.4",
-          "installed": "5.38.2-3.2ubuntu0.3",
-          "package": "perl-base",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-13595": {
-          "fixed": "2.39.3-9ubuntu6.6",
-          "installed": "1:2.39.3-9ubuntu6.5",
-          "package": "bsdutils",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-13757": {
-          "fixed": "0.25.3-4ubuntu2.2",
-          "installed": "0.25.3-4ubuntu2.1",
-          "package": "libp11-kit0",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-15534": {
-          "fixed": "5.38.2-3.2ubuntu0.6",
-          "installed": "5.38.2-3.2ubuntu0.3",
-          "package": "perl-base",
-          "severity": "MEDIUM"
-        },
         "CVE-2026-18374": {
           "fixed": "",
-          "installed": "2.39-0ubuntu8.8",
+          "installed": "2.39-0ubuntu8.9",
           "package": "libc-bin",
           "severity": "MEDIUM"
         },
@@ -71,124 +35,10 @@
           "package": "tar",
           "severity": "MEDIUM"
         },
-        "CVE-2026-18938": {
-          "fixed": "0.25.3-4ubuntu2.2",
-          "installed": "0.25.3-4ubuntu2.1",
-          "package": "libp11-kit0",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-19487": {
-          "fixed": "5.38.2-3.2ubuntu0.6",
-          "installed": "5.38.2-3.2ubuntu0.3",
-          "package": "perl-base",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-19499": {
-          "fixed": "2.39-0ubuntu8.9",
-          "installed": "2.39-0ubuntu8.8",
-          "package": "libc-bin",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-19542": {
-          "fixed": "2.39-0ubuntu8.9",
-          "installed": "2.39-0ubuntu8.8",
-          "package": "libc-bin",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-27456": {
-          "fixed": "2.39.3-9ubuntu6.6",
-          "installed": "1:2.39.3-9ubuntu6.5",
-          "package": "bsdutils",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-33997": {
-          "fixed": "29.3.1",
-          "installed": "v28.5.2+incompatible",
-          "package": "github.com/docker/docker",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-41568": {
-          "fixed": "",
-          "installed": "v28.5.2+incompatible",
-          "package": "github.com/docker/docker",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-48959": {
-          "fixed": "5.38.2-3.2ubuntu0.4",
-          "installed": "5.38.2-3.2ubuntu0.3",
-          "package": "perl-base",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-48962": {
-          "fixed": "5.38.2-3.2ubuntu0.4",
-          "installed": "5.38.2-3.2ubuntu0.3",
-          "package": "perl-base",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-53612": {
-          "fixed": "2.39.3-9ubuntu6.6",
-          "installed": "1:2.39.3-9ubuntu6.5",
-          "package": "bsdutils",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-53613": {
-          "fixed": "2.39.3-9ubuntu6.6",
-          "installed": "1:2.39.3-9ubuntu6.5",
-          "package": "bsdutils",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-53614": {
-          "fixed": "2.39.3-9ubuntu6.6",
-          "installed": "1:2.39.3-9ubuntu6.5",
-          "package": "bsdutils",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-53615": {
-          "fixed": "2.39.3-9ubuntu6.6",
-          "installed": "1:2.39.3-9ubuntu6.5",
-          "package": "bsdutils",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-53910": {
-          "fixed": "1:3.10-1ubuntu0.1",
-          "installed": "1:3.10-1build1",
-          "package": "diffutils",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-54371": {
-          "fixed": "1:2.5.2-1ubuntu0.1",
-          "installed": "1:2.5.2-1build1.1",
-          "package": "libattr1",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-56855": {
-          "fixed": "0.56.0",
-          "installed": "v0.55.0",
-          "package": "golang.org/x/crypto",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-56866": {
-          "fixed": "1.26.9, 1.27.2",
-          "installed": "v1.26.7",
-          "package": "stdlib",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-57432": {
-          "fixed": "5.38.2-3.2ubuntu0.4",
-          "installed": "5.38.2-3.2ubuntu0.3",
-          "package": "perl-base",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-57433": {
-          "fixed": "5.38.2-3.2ubuntu0.4",
-          "installed": "5.38.2-3.2ubuntu0.3",
-          "package": "perl-base",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-6368": {
-          "fixed": "2.39-0ubuntu8.9",
-          "installed": "2.39-0ubuntu8.8",
-          "package": "libc-bin",
+        "CVE-2026-21726": {
+          "fixed": "3.6.4",
+          "installed": "v3.0.0-20260915071729-5cf8c23a258d",
+          "package": "github.com/grafana/loki/v3",
           "severity": "MEDIUM"
         },
         "CVE-2026-67693": {
@@ -197,85 +47,13 @@
           "package": "libgnutls30t64",
           "severity": "MEDIUM"
         },
-        "CVE-2026-6791": {
-          "fixed": "2.39-0ubuntu8.9",
-          "installed": "2.39-0ubuntu8.8",
-          "package": "libc-bin",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-7017": {
-          "fixed": "5.38.2-3.2ubuntu0.4",
-          "installed": "5.38.2-3.2ubuntu0.3",
-          "package": "perl-base",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-77117": {
-          "fixed": "2.39-0ubuntu8.9",
-          "installed": "2.39-0ubuntu8.8",
-          "package": "libc-bin",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-78659": {
-          "fixed": "0.60.0",
-          "installed": "v0.58.0",
-          "package": "golang.org/x/net",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-78660": {
-          "fixed": "0.60.0",
-          "installed": "v0.58.0",
-          "package": "golang.org/x/net",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-78662": {
-          "fixed": "0.56.0",
-          "installed": "v0.55.0",
-          "package": "golang.org/x/crypto",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-78663": {
-          "fixed": "0.60.0",
-          "installed": "v0.58.0",
-          "package": "golang.org/x/net",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-80489": {
-          "fixed": "2.39-0ubuntu8.9",
-          "installed": "2.39-0ubuntu8.8",
-          "package": "libc-bin",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-81871": {
-          "fixed": "0.21.0",
-          "installed": "v0.20.0",
-          "package": "go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-81872": {
-          "fixed": "0.21.0",
-          "installed": "v0.20.0",
-          "package": "go.opentelemetry.io/otel/sdk/log",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-84303": {
-          "fixed": "1.83.1",
-          "installed": "v1.83.0",
-          "package": "google.golang.org/grpc",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-85091": {
-          "fixed": "",
-          "installed": "1:1.3.dfsg-3.1ubuntu2.1",
-          "package": "zlib1g",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-86597": {
-          "fixed": "",
-          "installed": "v1.19.1",
-          "package": "github.com/snowflakedb/gosnowflake",
-          "severity": "MEDIUM"
-        },
         "CVE-2026-88647": {
+          "fixed": "",
+          "installed": "3.8.3-1.1ubuntu3.6",
+          "package": "libgnutls30t64",
+          "severity": "MEDIUM"
+        },
+        "CVE-2026-88648": {
           "fixed": "",
           "installed": "3.8.3-1.1ubuntu3.6",
           "package": "libgnutls30t64",
@@ -283,7 +61,7 @@
         },
         "CVE-2026-89092": {
           "fixed": "",
-          "installed": "2.39-0ubuntu8.8",
+          "installed": "2.39-0ubuntu8.9",
           "package": "libc-bin",
           "severity": "MEDIUM"
         },
@@ -305,24 +83,6 @@
           "package": "libpcre2-8-0",
           "severity": "MEDIUM"
         },
-        "CVE-2026-94439": {
-          "fixed": "1.26.9, 1.27.2",
-          "installed": "v1.26.7",
-          "package": "stdlib",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-94440": {
-          "fixed": "1.26.9, 1.27.2",
-          "installed": "v1.26.7",
-          "package": "stdlib",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-94448": {
-          "fixed": "1.26.9, 1.27.2",
-          "installed": "v1.26.7",
-          "package": "stdlib",
-          "severity": "MEDIUM"
-        },
         "CVE-2026-95184": {
           "fixed": "",
           "installed": "3.8.3-1.1ubuntu3.6",
@@ -340,27 +100,9 @@
           "installed": "3.8.3-1.1ubuntu3.6",
           "package": "libgnutls30t64",
           "severity": "MEDIUM"
-        },
-        "CVE-2026-9538": {
-          "fixed": "5.38.2-3.2ubuntu0.4",
-          "installed": "5.38.2-3.2ubuntu0.3",
-          "package": "perl-base",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-97030": {
-          "fixed": "1.26.9, 1.27.2",
-          "installed": "v1.26.7",
-          "package": "stdlib",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-97032": {
-          "fixed": "0.60.0",
-          "installed": "v0.58.0",
-          "package": "golang.org/x/net",
-          "severity": "MEDIUM"
         }
       },
-      "ref": "grafana/alloy:v1.19.2@sha256:b8ec653c44235fbe910879145dac3597d66b0aaecf60bcbbe82580767771a839"
+      "ref": "grafana/alloy:v1.21.2@sha256:89a5a320168387336b9ac3c850609c3ba7757eadd4ae5f1d819deb35e9854b18"
     },
     "image:grafana/grafana": {
       "digest": "sha256:d838696907b4350d9232eb8da1503dc1d1010a0359d3ce4b3f7d2ff7db28eb75",
@@ -462,12 +204,18 @@
           "severity": "MEDIUM"
         },
         "CVE-2026-85091": {
-          "fixed": "",
+          "fixed": "1:1.3.dfsg-3.1ubuntu2.3",
           "installed": "1:1.3.dfsg-3.1ubuntu2.2",
           "package": "zlib1g",
           "severity": "MEDIUM"
         },
         "CVE-2026-88647": {
+          "fixed": "",
+          "installed": "3.8.3-1.1ubuntu3.6",
+          "package": "libgnutls30t64",
+          "severity": "MEDIUM"
+        },
+        "CVE-2026-88648": {
           "fixed": "",
           "installed": "3.8.3-1.1ubuntu3.6",
           "package": "libgnutls30t64",
@@ -549,94 +297,9 @@
       "ref": "grafana/grafana:13.2.4-ubuntu"
     },
     "image:grafana/loki": {
-      "digest": "sha256:d70e4659623f3e109af669cae76fe2a5dd5be54e2298fe8aed380d982fbc2500",
-      "findings": {
-        "CVE-2026-56855": {
-          "fixed": "0.56.0",
-          "installed": "v0.55.0",
-          "package": "golang.org/x/crypto",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-56866": {
-          "fixed": "1.26.9, 1.27.2",
-          "installed": "v1.26.5",
-          "package": "stdlib",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-78659": {
-          "fixed": "0.60.0",
-          "installed": "v0.58.0",
-          "package": "golang.org/x/net",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-78660": {
-          "fixed": "0.60.0",
-          "installed": "v0.58.0",
-          "package": "golang.org/x/net",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-78662": {
-          "fixed": "0.56.0",
-          "installed": "v0.55.0",
-          "package": "golang.org/x/crypto",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-78663": {
-          "fixed": "0.60.0",
-          "installed": "v0.58.0",
-          "package": "golang.org/x/net",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-81871": {
-          "fixed": "0.21.0",
-          "installed": "v0.19.0",
-          "package": "go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-81872": {
-          "fixed": "0.21.0",
-          "installed": "v0.19.0",
-          "package": "go.opentelemetry.io/otel/sdk/log",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-84303": {
-          "fixed": "1.83.1",
-          "installed": "v1.82.1",
-          "package": "google.golang.org/grpc",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-94439": {
-          "fixed": "1.26.9, 1.27.2",
-          "installed": "v1.26.5",
-          "package": "stdlib",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-94440": {
-          "fixed": "1.26.9, 1.27.2",
-          "installed": "v1.26.5",
-          "package": "stdlib",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-94448": {
-          "fixed": "1.26.9, 1.27.2",
-          "installed": "v1.26.5",
-          "package": "stdlib",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-97030": {
-          "fixed": "1.26.9, 1.27.2",
-          "installed": "v1.26.5",
-          "package": "stdlib",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-97032": {
-          "fixed": "0.60.0",
-          "installed": "v0.58.0",
-          "package": "golang.org/x/net",
-          "severity": "MEDIUM"
-        }
-      },
-      "ref": "grafana/loki:3.7.7"
+      "digest": "sha256:0db216b630ae1f348a1584c67f3cead8b4c1fc839169a39501db664744158e28",
+      "findings": {},
+      "ref": "grafana/loki:3.7.9"
     },
     "image:haproxy": {
       "digest": "sha256:e0d1dc5a92d389551a968627602fcd64b038af819b496c9636bbc38a3cf745b4",
@@ -683,6 +346,12 @@
     },
     "image:ja4proxy-test": {
       "findings": {
+        "CVE-2026-114603": {
+          "fixed": "1.45.1",
+          "installed": "1.37.0",
+          "package": "opentelemetry-api",
+          "severity": "MEDIUM"
+        },
         "CVE-2026-59951": {
           "fixed": "1.30.0, 2.2.0",
           "installed": "1.29.0",
@@ -704,64 +373,9 @@
       "ref": "ja4proxy-trafficgen:1.0.0"
     },
     "image:oliver006/redis_exporter": {
-      "digest": "sha256:c67a432dba6b4ae30f471e3c77cf14a289133bbeeb89abb0bb03e6092efb2836",
-      "findings": {
-        "CVE-2026-56866": {
-          "fixed": "1.26.9, 1.27.2",
-          "installed": "v1.26.8",
-          "package": "stdlib",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-78659": {
-          "fixed": "1.26.9, 1.27.2",
-          "installed": "v1.26.8",
-          "package": "stdlib",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-78660": {
-          "fixed": "1.26.9, 1.27.2",
-          "installed": "v1.26.8",
-          "package": "stdlib",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-78663": {
-          "fixed": "1.26.9, 1.27.2",
-          "installed": "v1.26.8",
-          "package": "stdlib",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-94439": {
-          "fixed": "1.26.9, 1.27.2",
-          "installed": "v1.26.8",
-          "package": "stdlib",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-94440": {
-          "fixed": "1.26.9, 1.27.2",
-          "installed": "v1.26.8",
-          "package": "stdlib",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-94448": {
-          "fixed": "1.26.9, 1.27.2",
-          "installed": "v1.26.8",
-          "package": "stdlib",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-97030": {
-          "fixed": "1.26.9, 1.27.2",
-          "installed": "v1.26.8",
-          "package": "stdlib",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-97032": {
-          "fixed": "1.26.9, 1.27.2",
-          "installed": "v1.26.8",
-          "package": "stdlib",
-          "severity": "MEDIUM"
-        }
-      },
-      "ref": "oliver006/redis_exporter:v1.91.1"
+      "digest": "sha256:afb21407aba3df1b4010899f155fc6b1ba2026c97b725d72aca4019d772e7b6b",
+      "findings": {},
+      "ref": "oliver006/redis_exporter:v1.95.0"
     },
     "image:prom/alertmanager": {
       "digest": "sha256:e9733bafb1bdef9b00e25a21f8f99dc26a22224bf16641ad754d1649f4c3357a",
@@ -836,64 +450,9 @@
       "ref": "prom/alertmanager:v0.34.1"
     },
     "image:prom/prometheus": {
-      "digest": "sha256:efd719c99d83b060d9daefdcf00360461adf279f45ef5391f8d111892118753e",
-      "findings": {
-        "CVE-2026-56866": {
-          "fixed": "1.26.9, 1.27.2",
-          "installed": "v1.27.1",
-          "package": "stdlib",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-78659": {
-          "fixed": "0.60.0",
-          "installed": "v0.58.0",
-          "package": "golang.org/x/net",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-78660": {
-          "fixed": "0.60.0",
-          "installed": "v0.58.0",
-          "package": "golang.org/x/net",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-78663": {
-          "fixed": "0.60.0",
-          "installed": "v0.58.0",
-          "package": "golang.org/x/net",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-94439": {
-          "fixed": "1.26.9, 1.27.2",
-          "installed": "v1.27.1",
-          "package": "stdlib",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-94440": {
-          "fixed": "1.26.9, 1.27.2",
-          "installed": "v1.27.1",
-          "package": "stdlib",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-94448": {
-          "fixed": "1.26.9, 1.27.2",
-          "installed": "v1.27.1",
-          "package": "stdlib",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-97030": {
-          "fixed": "1.26.9, 1.27.2",
-          "installed": "v1.27.1",
-          "package": "stdlib",
-          "severity": "MEDIUM"
-        },
-        "CVE-2026-97032": {
-          "fixed": "0.60.0",
-          "installed": "v0.58.0",
-          "package": "golang.org/x/net",
-          "severity": "MEDIUM"
-        }
-      },
-      "ref": "prom/prometheus:v3.15.0"
+      "digest": "sha256:fa3302279710be2f21a8301ec17a8b4f2301fd829bd113839b3b6b02b6f191a2",
+      "findings": {},
+      "ref": "prom/prometheus:v3.15.1"
     },
     "image:redis": {
       "digest": "sha256:520775a41a63e77e06c73e35d2fd9cc15921a609516818796b4ecbb813078bc7",

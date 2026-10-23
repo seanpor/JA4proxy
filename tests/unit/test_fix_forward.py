@@ -567,6 +567,7 @@ def _registry() -> dict:
                 "source": "trivy",
                 "carriers": ["img:1.0"],
                 "rationale": "synthetic",
+                "reachability": "internal-monitoring-only",
                 "created": "2026-10-17",
                 "expires": "2027-01-15",
             }
@@ -935,6 +936,7 @@ def test_main_apply_records_blocked_evidence_and_proposes_batch(
         "    source: trivy\n"
         '    carriers: ["img:1.0"]\n'
         "    rationale: synthetic entry for the 847d CLI tests\n"
+        "    reachability: internal-monitoring-only\n"
         "    created: 2026-10-17\n"
         "    expires: 2027-01-15\n",
         encoding="utf-8",
@@ -970,6 +972,11 @@ def test_main_apply_records_blocked_evidence_and_proposes_batch(
             str(registry_path),
             "--repo-root",
             str(tmp_path),
+            # Pin the clock: the proposal branch is dated, so without this the
+            # assertion below fails on every day after the one the fixture was
+            # written (it did, on 2026-10-23).
+            "--today",
+            "2026-10-21",
         ]
     )
     assert rc == 0

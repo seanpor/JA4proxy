@@ -1,10 +1,10 @@
 {
-  "recorded_at": "2026-10-19T17:00:03+00:00",
+  "recorded_at": "2026-10-23T10:04:52+00:00",
   "surfaces": {
     "image:grafana/alloy": {
-      "digest": "sha256:b8ec653c44235fbe910879145dac3597d66b0aaecf60bcbbe82580767771a839",
+      "digest": "sha256:89a5a320168387336b9ac3c850609c3ba7757eadd4ae5f1d819deb35e9854b18",
       "findings": {},
-      "ref": "grafana/alloy:v1.19.2@sha256:b8ec653c44235fbe910879145dac3597d66b0aaecf60bcbbe82580767771a839"
+      "ref": "grafana/alloy:v1.21.2@sha256:89a5a320168387336b9ac3c850609c3ba7757eadd4ae5f1d819deb35e9854b18"
     },
     "image:grafana/grafana": {
       "digest": "sha256:d838696907b4350d9232eb8da1503dc1d1010a0359d3ce4b3f7d2ff7db28eb75",
@@ -12,9 +12,9 @@
       "ref": "grafana/grafana:13.2.4-ubuntu"
     },
     "image:grafana/loki": {
-      "digest": "sha256:d70e4659623f3e109af669cae76fe2a5dd5be54e2298fe8aed380d982fbc2500",
+      "digest": "sha256:0db216b630ae1f348a1584c67f3cead8b4c1fc839169a39501db664744158e28",
       "findings": {},
-      "ref": "grafana/loki:3.7.7"
+      "ref": "grafana/loki:3.7.9"
     },
     "image:haproxy": {
       "digest": "sha256:e0d1dc5a92d389551a968627602fcd64b038af819b496c9636bbc38a3cf745b4",
@@ -54,9 +54,9 @@
       "ref": "ja4proxy-trafficgen:1.0.0"
     },
     "image:oliver006/redis_exporter": {
-      "digest": "sha256:c67a432dba6b4ae30f471e3c77cf14a289133bbeeb89abb0bb03e6092efb2836",
+      "digest": "sha256:afb21407aba3df1b4010899f155fc6b1ba2026c97b725d72aca4019d772e7b6b",
       "findings": {},
-      "ref": "oliver006/redis_exporter:v1.91.1"
+      "ref": "oliver006/redis_exporter:v1.95.0"
     },
     "image:prom/alertmanager": {
       "digest": "sha256:e9733bafb1bdef9b00e25a21f8f99dc26a22224bf16641ad754d1649f4c3357a",
@@ -64,9 +64,9 @@
       "ref": "prom/alertmanager:v0.34.1"
     },
     "image:prom/prometheus": {
-      "digest": "sha256:efd719c99d83b060d9daefdcf00360461adf279f45ef5391f8d111892118753e",
+      "digest": "sha256:fa3302279710be2f21a8301ec17a8b4f2301fd829bd113839b3b6b02b6f191a2",
       "findings": {},
-      "ref": "prom/prometheus:v3.15.0"
+      "ref": "prom/prometheus:v3.15.1"
     },
     "image:redis": {
       "digest": "sha256:520775a41a63e77e06c73e35d2fd9cc15921a609516818796b4ecbb813078bc7",
