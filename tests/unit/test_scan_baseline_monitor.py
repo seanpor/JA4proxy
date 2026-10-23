@@ -208,10 +208,10 @@ class TestScannedSurfaces:
         monkeypatch.setattr(
             monitor,
             "run_pip_audit",
-            lambda: [{"name": "urllib3", "version": "1", "vulns": [{"id": "CVE-1", "fix_versions": ["2"]}]}],
+            lambda ignorefile=None: [{"name": "urllib3", "version": "1", "vulns": [{"id": "CVE-1", "fix_versions": ["2"]}]}],
         )
 
-        current, medium, failures = monitor.scan_surfaces(["redis:7"], "/tmp/cache")
+        current, medium, failures, dead = monitor.scan_surfaces(["redis:7"], "/tmp/cache")
 
         assert failures == []
         assert "image:redis" in current
@@ -220,12 +220,12 @@ class TestScannedSurfaces:
     def test_a_failed_dependency_audit_is_a_failure_not_a_pass(self, monkeypatch):
         monkeypatch.setattr(monitor, "scan_image", lambda ref, first_party, cache, severities=None: ([], None))
 
-        def unreachable():
+        def unreachable(ignorefile=None):
             raise RuntimeError("OSV unreachable")
 
         monkeypatch.setattr(monitor, "run_pip_audit", unreachable)
 
-        current, medium, failures = monitor.scan_surfaces(["redis:7"], "/tmp/cache")
+        current, medium, failures, dead = monitor.scan_surfaces(["redis:7"], "/tmp/cache")
 
         assert "pypi" not in current, "a failed audit must not read as 'nothing found'"
         assert failures and "OSV unreachable" in failures[0]
@@ -236,7 +236,7 @@ class TestApply:
         monkeypatch.setattr(monitor, "third_party_image_refs", lambda paths: [])
         monkeypatch.setattr(monitor, "scan_gate_compose_paths", lambda: [])
         monkeypatch.setattr(
-            monitor, "scan_surfaces", lambda refs, cache: ({"image:redis": _entry("CVE-1")}, {}, [])
+            monitor, "scan_surfaces", lambda refs, cache: ({"image:redis": _entry("CVE-1")}, {}, [], [])
         )
         monkeypatch.setattr(monitor, "load_baseline", lambda path=None: _baseline())
         monkeypatch.setattr(monitor, "issues_by_title", lambda: issues)
@@ -283,7 +283,7 @@ class TestApply:
     def test_a_partial_scan_failure_exits_non_zero(self, monkeypatch, capsys):
         monkeypatch.setattr(monitor, "third_party_image_refs", lambda paths: [])
         monkeypatch.setattr(monitor, "scan_gate_compose_paths", lambda: [])
-        monkeypatch.setattr(monitor, "scan_surfaces", lambda refs, cache: ({}, {}, ["redis: timed out"]))
+        monkeypatch.setattr(monitor, "scan_surfaces", lambda refs, cache: ({}, {}, ["redis: timed out"], []))
         monkeypatch.setattr(monitor, "load_baseline", lambda path=None: _baseline())
 
         assert monitor.main([]) == 1
@@ -318,7 +318,7 @@ class TestStateOut:
         monkeypatch.setattr(
             monitor,
             "scan_surfaces",
-            lambda refs, cache: ({"image:redis": _entry("CVE-1", fix="2.0")}, {}, []),
+            lambda refs, cache: ({"image:redis": _entry("CVE-1", fix="2.0")}, {}, [], []),
         )
         monkeypatch.setattr(monitor, "load_baseline", lambda path=None: _baseline())
 
@@ -349,7 +349,7 @@ class TestStateOut:
         partial scan' failure the monitor already refuses to report."""
         monkeypatch.setattr(monitor, "third_party_image_refs", lambda paths: [])
         monkeypatch.setattr(monitor, "scan_gate_compose_paths", lambda: [])
-        monkeypatch.setattr(monitor, "scan_surfaces", lambda refs, cache: ({}, {}, ["redis: timed out"]))
+        monkeypatch.setattr(monitor, "scan_surfaces", lambda refs, cache: ({}, {}, ["redis: timed out"], []))
         monkeypatch.setattr(monitor, "load_baseline", lambda path=None: _baseline())
         out = tmp_path / "state.json"
 
@@ -403,9 +403,9 @@ class TestMediumBand:
                 self._row("CVE-L", "LOW"),
             ),
         )
-        monkeypatch.setattr(monitor, "run_pip_audit", lambda: [])
+        monkeypatch.setattr(monitor, "run_pip_audit", lambda ignorefile=None: [])
 
-        current, medium, failures = monitor.scan_surfaces(["redis:7"], "/tmp/cache")
+        current, medium, failures, dead = monitor.scan_surfaces(["redis:7"], "/tmp/cache")
 
         assert failures == []
         assert set(current["image:redis"]["findings"]) == {"CVE-H"}
@@ -419,7 +419,7 @@ class TestMediumBand:
             return [], "sha256:x"
 
         monkeypatch.setattr(monitor, "scan_image", fake_scan)
-        monkeypatch.setattr(monitor, "run_pip_audit", lambda: [])
+        monkeypatch.setattr(monitor, "run_pip_audit", lambda ignorefile=None: [])
 
         monitor.scan_surfaces(["redis:7"], "/tmp/cache")
 
@@ -431,10 +431,10 @@ class TestMediumBand:
         monkeypatch.setattr(
             monitor,
             "run_pip_audit",
-            lambda: [{"name": "urllib3", "version": "1", "vulns": [{"id": "CVE-1", "fix_versions": ["2"]}]}],
+            lambda ignorefile=None: [{"name": "urllib3", "version": "1", "vulns": [{"id": "CVE-1", "fix_versions": ["2"]}]}],
         )
 
-        current, medium, failures = monitor.scan_surfaces(["redis:7"], "/tmp/cache")
+        current, medium, failures, dead = monitor.scan_surfaces(["redis:7"], "/tmp/cache")
 
         assert "pypi" in current
         assert "pypi" not in medium

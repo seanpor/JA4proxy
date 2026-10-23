@@ -5465,3 +5465,11 @@ phases:
     size: SMALL
     summary: "IN_PROGRESS 2026-10-23. CVE-2026-111943 (crypto/x509). First-party images bumped to golang:1.27.3-alpine / 1.26.10-alpine, digest-pinned to current multi-arch indexes (logtide stale-index anomaly fixed); make scan-first-party clean. Third-party: loki 3.7.7->3.7.9, alloy v1.19.2->v1.21.2 (both Alloy configs validate), prometheus v3.15.0->v3.15.1, redis_exporter v1.91.1->v1.95.0 (Ansible v1.86.0 bumped too; no flags removed). grafana:13.2.4-ubuntu and alertmanager:v0.34.1 have no fixed tag -> one dated HIGH waiver (internal-monitoring-only, expires 2027-01-21). 10 waivers removed as dead (alloy+loki bumps); registry 37->28. make scan-images 9/9 clean. MEDIUM re-measured 152->79 (ceiling lowered)."
 
+  848:
+    name: "Dead-waiver detection (pip surface)"
+    status: IN_PROGRESS
+    action_plan: docs/phases/PHASE_848.md
+    dependencies: [847a,847c,847e]
+    size: SMALL
+    summary: "IN_PROGRESS 2026-10-23. Issue #642. A dead waiver is an --ignore-vuln for a finding that no longer exists: harmless-looking, and a live suppression if the dependency ever regresses into the vulnerable range. It was invisible on the pip surface for two compounding reasons: the monitor runs pip-audit WITH the ignores (so the id is filtered before it can be compared) and the only dead-entry check reads Trivy JSON. Found while closing 847: an unignored audit reported 2 findings while .pip-audit-ignores held 9. Fix: one audit without ignores, in-process split into waived/unwaived/dead (alias-aware), a report section, one deduplicated issue per dead id that auto-closes once the waiver is gone, and an unchanged required-gate path."
+

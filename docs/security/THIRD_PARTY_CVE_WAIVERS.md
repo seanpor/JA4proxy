@@ -97,3 +97,23 @@ image whose upstream has since shipped a fixed tag, then remove its row).
    genuinely unfixable, given a dated `.trivyignore` entry per that file's policy.
 4. These advisory HIGHs remain covered by the weekly scheduled scan and
    Dependabot; this register is the human-readable index, not a suppression.
+
+### Dead waivers
+
+A waiver whose finding no longer exists is **dead**, and dead is not harmless:
+the rendered ignore outlives the finding, so a regression back into the
+vulnerable range would be reported and then suppressed silently.
+
+Both surfaces now detect it rather than waiting for someone to notice:
+
+- **Trivy** — `make lint-static` runs `check_trivyignore_drift --fail-on-dead`.
+- **pip-audit** (Phase 848) — the nightly monitor audits *without* the ignore
+  flags, subtracts `security/waivers.yaml` in process, and files one
+  `[cve-waiver] <ID>` issue per dead id. Removing the waiver closes that issue on
+  the next run.
+
+Remove a dead pip waiver with the validated splice, never a hand edit:
+
+```bash
+python3 scripts/render_waivers.py --drop CVE-2026-12345
+```

@@ -66,10 +66,13 @@ try:  # works as `python3 scripts/x.py` and as `from scripts.x import ...`
         is_first_party,
         load_baseline,
         new_findings,
+        pypi_alias_map,
         pypi_findings,
         run_pip_audit,
         scan_image,
+        split_waived,
         surface_for_image,
+        waived_pip_ids,
     )
 except ImportError:  # invoked directly, scripts/ on sys.path
     from check_image_versions import (  # type: ignore[no-redef]
@@ -86,10 +89,13 @@ except ImportError:  # invoked directly, scripts/ on sys.path
         is_first_party,
         load_baseline,
         new_findings,
+        pypi_alias_map,
         pypi_findings,
         run_pip_audit,
         scan_image,
+        split_waived,
         surface_for_image,
+        waived_pip_ids,
     )
 
 TITLE_PREFIX = "[cve-baseline]"
@@ -163,6 +169,81 @@ def plan_issues(current: dict[str, dict], known: dict[str, dict]) -> list[dict]:
             planned.append(item)
     planned.sort(key=lambda item: (item["info"].get("severity") != "CRITICAL", item["cve"]))
     return planned
+
+
+DEAD_WAIVER_PREFIX = "[cve-waiver]"
+
+
+def dead_waiver_title(cve: str) -> str:
+    """Stable title for a dead-waiver issue. Deduplication keys on it, so it must not drift."""
+    return f"{DEAD_WAIVER_PREFIX} {cve}"
+
+
+def dead_waiver_body(cve: str) -> str:
+    """What a dead waiver is, why it matters, and the one command that removes it."""
+    return "\n".join(
+        [
+            f"`{cve}` is waived in `security/waivers.yaml`, but no audit reports it any more.",
+            "",
+            "That makes the waiver **dead**: it waives nothing today, which would be",
+            "harmless if it stayed that way. It does not. The rendered `--ignore-vuln`",
+            "outlives the finding, so if a later change regresses the pinned dependency",
+            "back into the vulnerable range the audit reports the CVE and the ignore",
+            "**suppresses it silently** — the exact failure the CVE process exists to",
+            "prevent (Phase 848).",
+            "",
+            "Remove it through the validated splice, which refuses rather than drops a",
+            "carrier another waiver still claims:",
+            "",
+            "```bash",
+            f"python3 scripts/render_waivers.py --drop {cve}",
+            "```",
+            "",
+            "Commit `security/waivers.yaml` with the regenerated derived files. This issue",
+            "closes itself on the next monitor run once the waiver is gone.",
+            "",
+            f"_Tracking: {dead_waiver_title(cve)}_",
+        ]
+    )
+
+
+def plan_dead_waiver_issues(dead: list[str], known: dict[str, dict]) -> list[dict]:
+    """Dead waivers that need an issue and do not already have an open one (pure).
+
+    Same alert-fatigue rule as :func:`plan_issues`: one issue per waiver id,
+    forever — a waiver that dies, is removed, then dies again reopens the same
+    issue rather than minting a second one.
+    """
+    planned: list[dict] = []
+    for cve in sorted(dead):
+        title = dead_waiver_title(cve)
+        existing = known.get(title)
+        if existing and existing.get("state") == "OPEN":
+            continue
+        item = {"cve": cve, "title": title}
+        if existing:
+            item["reopen"] = existing.get("number")
+        planned.append(item)
+    return planned
+
+
+def plan_waiver_closures(dead: list[str], known: dict[str, dict]) -> list[dict]:
+    """Open dead-waiver issues whose waiver is no longer dead (pure).
+
+    The other half of the loop: an alert that can only open is a list that grows.
+    A waiver removed (or genuinely live again) closes its own issue on the next
+    run, so what stays open is exactly what still needs a human.
+    """
+    live = set(dead)
+    closures: list[dict] = []
+    prefix = f"{DEAD_WAIVER_PREFIX} "
+    for title, meta in sorted(known.items()):
+        if not title.startswith(prefix) or meta.get("state") != "OPEN":
+            continue
+        cve = title[len(prefix) :]
+        if cve not in live:
+            closures.append({"number": meta["number"], "cve": cve})
+    return closures
 
 
 def fixable_queue(current: dict[str, dict]) -> list[dict]:
@@ -244,6 +325,7 @@ def render_report(
     planned: list[dict],
     queue: list[dict],
     medium: dict | None = None,
+    dead: list[str] | None = None,
 ) -> str:
     """Markdown summary — what a human reads first."""
     total = sum(len(entry.get("findings", {})) for entry in current.values())
@@ -254,8 +336,10 @@ def render_report(
         f"- Unwaived HIGH/CRITICAL findings: **{total}**",
         f"- With a published fix (actionable): **{len(queue)}**",
         f"- New issues to file: **{len(planned)}**",
-        "",
     ]
+    if dead is not None:
+        lines.append(f"- Dead pip waivers (waiving nothing): **{len(dead)}**")
+    lines.append("")
     if drift_report["appeared"]:
         lines.append("## Findings that appeared since the baseline")
         for surface, ids in sorted(drift_report["appeared"].items()):
@@ -297,15 +381,33 @@ def render_report(
             for surface, count in sorted(medium["surfaces"].items(), key=lambda kv: -kv[1]):
                 lines.append(f"- `{surface}`: {count}")
             lines.append("")
+    if dead:
+        lines.extend(
+            [
+                "## Dead pip waivers (Phase 848)",
+                "",
+                "These ids are waived in `security/waivers.yaml` but reported by no audit.",
+                "The ignore is still applied, so a regression into the vulnerable range",
+                "would be suppressed silently. Remove each with:",
+                "",
+                f"    python3 scripts/render_waivers.py --drop {dead[0]}",
+                "",
+            ]
+        )
+        for cve in dead:
+            lines.append(f"- `{cve}`")
+        lines.append("")
     if not total:
         lines.append("No unwaived HIGH/CRITICAL findings — steady state.")
     return "\n".join(lines) + "\n"
 
 
-def scan_surfaces(refs: list[str], cache: str) -> tuple[dict[str, dict], dict[str, dict], list[str]]:
+def scan_surfaces(
+    refs: list[str], cache: str
+) -> tuple[dict[str, dict], dict[str, dict], list[str], list[str]]:
     """Scan every ref *and* the dependency surface.
 
-    Returns `(current, medium, failures)`.
+    Returns `(current, medium, failures, dead_waivers)`.
 
     `current` holds the HIGH/CRITICAL findings, in the same shape it has had
     since Phase 847c — the fix-forward bot (847d) consumes it, so its content
@@ -323,6 +425,15 @@ def scan_surfaces(refs: list[str], cache: str) -> tuple[dict[str, dict], dict[st
     `dependency-audit-python` job audits, so the two cannot disagree about what
     "the Python dependency surface" means. It has no MEDIUM band — pip-audit
     reports no severity — so it appears in `current` only.
+
+    The dependency audit runs **without** the waiver flags and the registry's
+    waivers are subtracted in process (Phase 848). Applying them in pip-audit —
+    which is what this did before — filters a waived id out of the output before
+    anything can compare it, which is exactly how dead waivers stayed invisible:
+    an ignore for a finding that no longer exists looks identical to a live one.
+    One audit, both answers. The findings the caller sees are unchanged (same
+    primary ids); the difference is that ids nobody reported come back as
+    `dead_waivers` instead of silently vanishing.
 
     Failures are collected rather than raised so one unreachable image cannot
     hide the findings of the other nine — but the caller must still exit non-zero.
@@ -360,11 +471,16 @@ def scan_surfaces(refs: list[str], cache: str) -> tuple[dict[str, dict], dict[st
                 medium_entry["findings"][row.cve] = info
         current[surface] = entry
         medium[surface] = medium_entry
+    dead: list[str] = []
     try:
-        current[PYPI_SURFACE] = {"findings": pypi_findings(run_pip_audit())}
+        deps = run_pip_audit(ignorefile=None)
+        unwaived, dead = split_waived(
+            pypi_findings(deps), waived_pip_ids(), pypi_alias_map(deps)
+        )
+        current[PYPI_SURFACE] = {"findings": unwaived}
     except Exception as exc:  # noqa: BLE001 -- reported, then exit non-zero
         failures.append(f"{PYPI_SURFACE}: {exc}")
-    return current, medium, failures
+    return current, medium, failures, dead
 
 
 def issues_by_title() -> dict[str, dict]:
@@ -414,6 +530,18 @@ def reopen_issue(number: int, body: str) -> str:
     return f"#{number} (reopened)"
 
 
+def close_issue(number: int, body: str) -> str:
+    """Comment then close a resolved issue. Returns a reference."""
+    for argv in (
+        ["gh", "issue", "comment", str(number), "--body", body],
+        ["gh", "issue", "close", str(number), "--reason", "completed"],
+    ):
+        proc = subprocess.run(argv, capture_output=True, text=True)  # nosec B603, B607
+        if proc.returncode != 0:
+            raise RuntimeError(f"`{' '.join(argv[:3])}` failed: {proc.stderr.strip()[:300]}")
+    return f"#{number} (closed)"
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--baseline", default=None, help=f"baseline path (default: {BASELINE_PATH})")
@@ -446,7 +574,7 @@ def main(argv: list[str] | None = None) -> int:
     refs = third_party_image_refs(scan_gate_compose_paths()) + list(args.images)
     refs = list(dict.fromkeys(refs))
 
-    current, medium, failures = scan_surfaces(refs, cache)
+    current, medium, failures, dead = scan_surfaces(refs, cache)
     if failures:
         for failure in failures:
             print(f"\u2717 {failure}", file=sys.stderr)
@@ -509,7 +637,9 @@ def main(argv: list[str] | None = None) -> int:
         existing = {}
 
     planned = plan_issues(current, existing)
-    report = render_report(current, drift_report, planned, queue, medium_report)
+    dead_planned = plan_dead_waiver_issues(dead, existing)
+    closures = plan_waiver_closures(dead, existing)
+    report = render_report(current, drift_report, planned, queue, medium_report, dead)
 
     if args.json:
         print(json.dumps(
@@ -519,7 +649,10 @@ def main(argv: list[str] | None = None) -> int:
                 "fixable": len(queue),
                 "drift": drift_report,
                 "medium": medium_report,
+                "dead_waivers": dead,
                 "planned_issues": [p["title"] for p in planned[: args.max_issues]],
+                "planned_dead_waiver_issues": [p["title"] for p in dead_planned],
+                "planned_waiver_closures": [c["number"] for c in closures],
             },
             indent=2,
             sort_keys=True,
@@ -530,6 +663,10 @@ def main(argv: list[str] | None = None) -> int:
     if not args.apply:
         if planned:
             print(f"\n(dry run) {len(planned)} issue(s) would be filed; pass --apply to file them")
+        if dead_planned:
+            print(f"(dry run) {len(dead_planned)} dead-waiver issue(s) would be filed")
+        if closures:
+            print(f"(dry run) {len(closures)} dead-waiver issue(s) would be closed")
         return 0
 
     filed = 0
@@ -550,6 +687,32 @@ def main(argv: list[str] | None = None) -> int:
             f"\u26a0 {len(planned) - args.max_issues} further finding(s) not filed this run "
             f"(cap {args.max_issues}); they will be picked up next run"
         )
+    for item in dead_planned:
+        body = dead_waiver_body(item["cve"])
+        try:
+            if item.get("reopen"):
+                url = reopen_issue(item["reopen"], f"Still dead after this issue was closed.\n\n{body}")
+            else:
+                url = create_issue(item["title"], body)
+        except RuntimeError as exc:
+            print(f"\u2717 {exc}", file=sys.stderr)
+            return 1
+        print(f"\u2713 filed {url} (dead waiver)")
+        filed += 1
+
+    for closure in closures:
+        try:
+            ref = close_issue(
+                closure["number"],
+                f"`{closure['cve']}` is no longer a dead waiver — it is either removed "
+                "from `security/waivers.yaml` or reported again. Closing automatically "
+                "(Phase 848); reopen if it dies again.",
+            )
+        except RuntimeError as exc:
+            print(f"\u2717 {exc}", file=sys.stderr)
+            return 1
+        print(f"\u2713 closed {ref} (dead waiver resolved)")
+
     print(f"\u2713 {filed} issue(s) filed")
     return 0
 

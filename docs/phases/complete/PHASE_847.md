@@ -266,7 +266,9 @@ gate.
   protobuf, PYSEC-2026-2132). A dead ignore keeps `--ignore-vuln` alive, so a
   regression back into the vulnerable range would be suppressed silently — the
   exact failure this programme exists to prevent. They were removed at close-out
-  (registry 28 → 21); the detector is the tracked follow-up.
+  (registry 28 → 21); **Phase 848 landed the detector** — the monitor now audits
+  without the ignore flags, splits waived/unwaived/dead in process, and files one
+  auto-closing `[cve-waiver]` issue per dead id.
 - `main` is still not verified after an auto-merged PR run by
   `app/github-actions` (issue #622). That is a CI-plumbing gap, not a CVE
   process gap, and it is tracked separately.
