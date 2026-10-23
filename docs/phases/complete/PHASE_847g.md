@@ -283,7 +283,7 @@ explain it.
 - [x] `security/baseline.json` is re-recorded. (**18 surfaces, 0 findings** —
       the record now names every deployed surface, ours and third-party, with
       nothing in it, which is what makes the next finding visible.)
-- [ ] `make preflight` is green.
+- [x] `make preflight` is green. (lint + scan + test + test-race, all four legs.)
 
 ---
 
