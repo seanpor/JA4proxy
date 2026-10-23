@@ -10,7 +10,7 @@ phase: 847f
 > **Size:** MEDIUM
 > **Dependencies:** [847a]
 > **Branch:** `phase-847f-reachability-binding`
-> **Part of:** Phase 847 (umbrella) — see `docs/phases/PHASE_847.md`
+> **Part of:** Phase 847 (umbrella) — see `docs/phases/complete/PHASE_847.md`
 
 ---
 

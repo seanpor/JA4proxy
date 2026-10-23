@@ -66,7 +66,7 @@ on someone else's PR.
 
 After 847a the ignorefile holds **28** entries: the kin-openapi waivers were added
 and six entries that the monitoring-image bump rendered dead were removed (see
-`complete/PHASE_847a.md`).
+`PHASE_847a.md`).
 
 ---
 

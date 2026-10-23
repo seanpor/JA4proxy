@@ -11,7 +11,7 @@ phase: 847a
 > **Size:** MEDIUM
 > **Dependencies:** none (entry point for the 847 programme)
 > **Branch:** `phase-847a-cve-registry`
-> **Part of:** Phase 847 (umbrella) — see `docs/phases/PHASE_847.md`
+> **Part of:** Phase 847 (umbrella) — see `docs/phases/complete/PHASE_847.md`
 
 ---
 

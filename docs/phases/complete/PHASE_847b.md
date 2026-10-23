@@ -11,7 +11,7 @@ phase: 847b
 > **Size:** SMALL
 > **Dependencies:** [847a]
 > **Branch:** `phase-847b-scan-tooling-correctness`
-> **Part of:** Phase 847 (umbrella) — see `docs/phases/PHASE_847.md`
+> **Part of:** Phase 847 (umbrella) — see `docs/phases/complete/PHASE_847.md`
 
 ---
 

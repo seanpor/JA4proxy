@@ -11,7 +11,7 @@ phase: 847e
 > **Size:** MEDIUM
 > **Dependencies:** [847c]
 > **Branch:** `phase-847e-medium-gating`
-> **Part of:** Phase 847 (umbrella) — see `docs/phases/PHASE_847.md`
+> **Part of:** Phase 847 (umbrella) — see `docs/phases/complete/PHASE_847.md`
 
 ---
 
