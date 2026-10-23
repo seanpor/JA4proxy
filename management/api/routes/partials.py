@@ -1616,10 +1616,19 @@ async def attack_table_partial(
     """
     import json as _json
 
-    from .attack import top_attackers  # local import to avoid circular dep
+    from .attack import _ATTACK_WINDOW_SECONDS, top_attackers  # local import to avoid circular dep
 
     templates = _get_templates()
-    result = await top_attackers(redis=redis, _user=current_user)
+    # `top_attackers` is an HTTP handler, so its `window` default is a FastAPI
+    # `Query` object that only becomes an int through dependency injection.
+    # Calling the handler directly (as this partial does) skips that step: the
+    # `Query` falls through to `time.time() - window` (TypeError) and to the
+    # response's `window_seconds` field (not JSON serialisable). Pass the
+    # resolved default explicitly — the partial has no window parameter of its
+    # own, so the handler's default is exactly what belongs here.
+    result = await top_attackers(
+        redis=redis, _user=current_user, window=_ATTACK_WINDOW_SECONDS
+    )
     data = _json.loads(result.body)
     return templates.TemplateResponse(
         request,

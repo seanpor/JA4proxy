@@ -35,6 +35,7 @@ from .hx_targets import hx_targets
 MANAGEMENT = Path(__file__).resolve().parents[1]
 ROUTES_DIR = MANAGEMENT / "api" / "routes"
 TEMPLATES_DIR = MANAGEMENT / "templates"
+JOURNEY = MANAGEMENT.parent / "tests" / "integration" / "journeys" / "check_console_journey.sh"
 
 # A route may be registered under /api/v1/partials/ with no template hx-get
 # reference ONLY if justified here. The justify test asserts the allowance is
@@ -59,16 +60,54 @@ def _scan_routes() -> list[tuple[str, str, str]]:
     return routes
 
 
-def _route_prefix_matches(declared: str, path: str) -> bool:
-    """Prefix match by stripping the declared route at its first '{'.
+def _journey_partials() -> set[str]:
+    """The partial names the live-stack journey probes, from its `PARTIALS=(...)`."""
+    block = JOURNEY.read_text(encoding="utf-8").split("PARTIALS=(", 1)[1].split(")", 1)[0]
+    return {line.strip() for line in block.splitlines() if line.strip()}
 
-    Mirrors management/tests/test_pages.py:375 — parameterised routes like
-    /api/v1/bans/{ip:path} must match a concrete /api/v1/bans/1.2.3.4.
+
+_PARAM_SEGMENT = re.compile(r"^\{([^{}:]+)(?::([a-z]+))?\}$")
+
+
+def _route_prefix_matches(declared: str, path: str) -> bool:
+    """Does a concrete request `path` match the route `declared`?
+
+    Segment-wise, mirroring the rules FastAPI/Starlette apply:
+
+    * a literal segment must be equal;
+    * ``{name}`` matches exactly **one** segment;
+    * ``{name:path}`` consumes the rest of the path (one or more segments);
+    * the segment counts must otherwise be equal.
+
+    Two earlier rules were wrong, and both made the forward half of this gate
+    assert **nothing** (Phase 824c close-out, found by renaming a partial route
+    and watching the forward check stay green):
+
+    1. A naive prefix match let the root route ``GET /`` match every path.
+    2. ``GET /api/v1/{list_name}`` — a *one-segment* parameterised route from
+       ``canonical_lists.py`` — matched every path under ``/api/v1/`` including
+       ``/api/v1/partials/attack-top``, so any ``/api/v1`` target "resolved".
+
+    Counting segments fixes both, and still matches the parameterised routes the
+    old rule existed for (``/api/v1/bans/{ip:path}`` → ``/api/v1/bans/1.2.3.4``).
+    This is deliberately stricter than `test_pages.py`'s prefix rule: a gate that
+    accepts a catch-all as proof of a specific route cannot fail, which is worse
+    than a gate that occasionally needs a route declaration tightened.
     """
-    prefix = declared.split("{", 1)[0]
-    if prefix.endswith("/"):
-        return path.startswith(prefix)
-    return path == prefix or path.startswith(prefix + "/")
+    declared_segments = [s for s in declared.split("/") if s]
+    path_segments = [s for s in path.split("/") if s]
+
+    for index, segment in enumerate(declared_segments):
+        param = _PARAM_SEGMENT.match(segment)
+        if param is None:
+            if index >= len(path_segments) or path_segments[index] != segment:
+                return False
+            continue
+        if (param.group(2) or "") == "path":
+            return index < len(path_segments)  # consumes every remaining segment
+        if index >= len(path_segments):
+            return False
+    return len(path_segments) == len(declared_segments)
 
 
 class TestTemplateRouteTargets:
@@ -76,6 +115,19 @@ class TestTemplateRouteTargets:
         targets = hx_targets()
         assert len(targets) >= 20
         assert sum(1 for m, _, _ in targets if m in {"POST", "DELETE"}) >= 6
+
+    def test_root_route_does_not_match_every_path(self):
+        """`GET /` is a catch-all; a catch-all must not satisfy a specific target.
+
+        Before this was pinned, `_route_prefix_matches("/", anything)` returned
+        True (the prefix "/" ends with "/"), so every GET target in the forward
+        check resolved to the root page and the check could never fail. Verified
+        by renaming a partial route: the reverse and journey checks failed, the
+        forward check did not.
+        """
+        assert _route_prefix_matches("/", "/")
+        assert not _route_prefix_matches("/", "/api/v1/partials/attack-top")
+        assert not _route_prefix_matches("/", "/api/v1/status")
 
     @pytest.mark.parametrize("method,request_url,path", hx_targets())
     def test_hx_target_resolves_to_a_registered_route(
@@ -134,3 +186,34 @@ class TestTemplateRouteTargets:
         targets = hx_targets()
         threat_paths = [p for _, _, p in targets if p == "/api/v1/partials/threat-posture"]
         assert threat_paths, "threat-posture must appear as a static hx-get target"
+
+    def test_journey_partial_list_matches_registered_routes(self):
+        """The live-stack journey must probe exactly the registered partials.
+
+        `tests/integration/journeys/check_console_journey.sh` cannot import the
+        route table — it is a shell script asserting real 401 behaviour against
+        a running stack — so its `PARTIALS=(...)` list is a hand-maintained copy
+        of the routes, and hand-maintained copies rot. The first draft of this
+        phase's refresh dropped a real route (`attack-mode-indicator`) while
+        claiming the list was complete, which is precisely the failure class
+        this phase exists to kill: the journey would have kept reporting a green
+        401 sweep while one partial went unprobed.
+
+        Aliases are excluded: the journey is a route sweep, and an alias that no
+        template fetches adds nothing to it.
+        """
+        routes = _scan_routes()
+        registered = {
+            path.rsplit("/", 1)[-1]
+            for method, path, _ in routes
+            if method == "GET" and path.startswith("/api/v1/partials/")
+        } - {path.rsplit("/", 1)[-1] for path in ALLOWED_UNREFERENCED_PARTIALS}
+
+        journey = _journey_partials()
+
+        assert journey, "could not parse PARTIALS=(...) from the journey script"
+        assert journey == registered, (
+            "the journey's partial list has drifted from the registered routes — "
+            f"missing from the journey: {sorted(registered - journey)}; "
+            f"not a registered route: {sorted(journey - registered)}"
+        )

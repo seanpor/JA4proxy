@@ -14,6 +14,7 @@ BASE="${1:-http://localhost:8000}"
 PARTIALS=(
   alerts-bar
   attack-fingerprint-table
+  attack-mode-indicator
   attack-top
   audit
   bans

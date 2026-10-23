@@ -7,7 +7,7 @@ phase: 824c
 
 # Phase 824c — Template Route Target Gate
 
-> **Status:** PROPOSED
+> **Status:** COMPLETE (2026-10-23)
 > **Size:** SMALL–MEDIUM
 > **Dependencies:** none
 > **Branch:** `phase-824c-template-route-gate`
@@ -205,24 +205,78 @@ asserts real unauthenticated behaviour (401, no 5xx), which a static gate cannot
 
 ---
 
+## Findings during close-out
+
+Three defects surfaced while verifying the phase rather than while writing it.
+Each is recorded here because each one is the *class* of failure the phase
+exists to prevent, found inside the gate itself.
+
+### 1. The forward check could not fail
+
+`_route_prefix_matches()` split the declared route at its first `{` and treated
+the remainder as a path prefix. Two declared routes then matched **every**
+target:
+
+* `GET /` — prefix `"/"` ends with `/`, so "starts with the prefix" is always true;
+* `GET /api/v1/{list_name}` (the f-string-registered canonical list route) —
+  prefix `"/api/v1/"`, so every `/api/v1/...` target matched a route that only
+  accepts one segment.
+
+The gate was therefore green for the wrong reason on all 48 targets: a template
+could reference a route that does not exist and the forward check would still
+pass. Found by *actually performing the demonstration the acceptance criteria
+ask for* — renaming `/api/v1/partials/attack-mode-indicator` failed the reverse
+check and the journey parity check, but the forward check stayed green.
+
+Fixed by matching segment-wise: a literal segment must be equal, `{name}`
+matches exactly one segment, `{name:path}` consumes the rest, and the segment
+counts must otherwise agree. This is deliberately **stricter** than
+`test_pages.py`'s prefix rule — a gate that accepts a catch-all as proof of a
+specific route is worse than useless.
+
+### 2. The journey's partial list drifted immediately
+
+`check_console_journey.sh` cannot import the route table (it is a shell script
+asserting real 401s against a running stack), so its `PARTIALS=(...)` list is a
+hand-maintained copy — and the first draft of the refresh dropped
+`attack-mode-indicator` while claiming completeness. A parity test now parses
+`PARTIALS=(...)` and fails when it differs from the registered partials (minus
+the justified alias).
+
+### 3. The repaired extractor exposed a real panel bug
+
+`/api/v1/partials/attack-top` calls the JSON handler `top_attackers()` directly,
+bypassing FastAPI's dependency injection. Its `window: int = Query(...)` default
+therefore reached `time.time() - window` (`TypeError`) and the response's
+`window_seconds` field (not JSON serialisable). The attack table had **never**
+rendered its content path; htmx's failure branch hid it exactly the way the
+Intelligence panel was hidden before Phase 826. Fixed at the call site (the
+partial has no window parameter of its own, so the handler's default is what
+belongs there) and pinned by a partial-level test.
+
+---
+
 ## Acceptance Criteria
 
-- [ ] `management/tests/hx_targets.py` exists and is unit-tested against the four
+- [x] `management/tests/hx_targets.py` exists and is unit-tested against the four
       Jinja/JS cases.
-- [ ] `_hx_urls()` now includes `attack-top` and `attack-fingerprint-table`, and
-      Tier 1's URL count rose accordingly.
-- [ ] Every extracted target resolves to a route by **path + method**, matched
-      with the prefix rule, with routes parsed from decorators (not `create_app()`).
-- [ ] No request is sent for any mutating target (the gate is static).
-- [ ] The reverse check passes and asserts the allowance set is **exactly**
+- [x] `_hx_urls()` now includes `attack-top` and `attack-fingerprint-table`, and
+      Tier 1's URL count rose accordingly (48 targets, 19 partials referenced).
+- [x] Every extracted target resolves to a route by **path + method**, matched
+      segment-wise (see finding 1 — the first implementation could not fail),
+      with routes parsed from decorators (not `create_app()`).
+- [x] No request is sent for any mutating target (the gate is static).
+- [x] The reverse check passes and asserts the allowance set is **exactly**
       `{"/api/v1/partials/attack-table"}`, with a test proving it is unreferenced.
-- [ ] Renaming a partial route, and removing the allowance, were each
-      **demonstrated** to fail the gate.
-- [ ] The two blind spots (JS-assembled, Python-generated) are documented in the
+- [x] Renaming a partial route, and removing the allowance, were each
+      **demonstrated** to fail the gate (3 failed / 51 passed and 2 failed / 52
+      passed respectively — see finding 1).
+- [x] The two blind spots (JS-assembled, Python-generated) are documented in the
       test docstring.
-- [ ] `check_console_journey.sh` lists all 20 partials.
-- [ ] `make test` passes; `make lint` passes.
-- [ ] A fragment exists at `docs/fragments/phase-824c-*.md`.
+- [x] `check_console_journey.sh` lists all 20 non-alias partials, and a parity
+      test fails when the list drifts (finding 2).
+- [x] `make test` passes; `make lint` passes.
+- [x] A fragment exists at `docs/fragments/phase-824c-template-route-gate.md`.
 
 ---
 
@@ -231,9 +285,11 @@ asserts real unauthenticated behaviour (401, no 5xx), which a static gate cannot
 | File | Change |
 |------|--------|
 | `management/tests/hx_targets.py` | New — the shared `hx-*` extractor/normaliser |
-| `management/tests/test_template_route_targets.py` | New — forward + reverse + mutating gate |
+| `management/tests/test_template_route_targets.py` | New — forward + reverse + mutating gate, journey parity |
 | `management/tests/test_ui_regression.py` | `_hx_urls()` delegates to the extractor |
-| `tests/integration/journeys/check_console_journey.sh` | Complete the stale partial list |
+| `management/api/routes/partials.py` | Resolves the handler's `Query` default at the direct call site (finding 3) |
+| `management/tests/test_attack.py` | Pins the attack-table partial contract |
+| `tests/integration/journeys/check_console_journey.sh` | Complete the stale partial list (20 non-alias partials) |
 | `docs/fragments/phase-824c-template-route-gate.md` | New file — changelog fragment |
 
 ---
@@ -256,3 +312,31 @@ asserts real unauthenticated behaviour (401, no 5xx), which a static gate cannot
   `/api/v1/actions/${target}/tarpit`, and no route under `/api/v1/actions/` exists
   anywhere in `management/api/`. The modal's "Tarpit IP" action therefore 404s.
   This is a JS-built URL, so this gate would not have caught it either.
+
+---
+
+## Close-out
+
+**Landed in PR** on branch `phase-847f-reachability-binding` (bundled with 847f
+rather than given its own PR: the change is a test-only gate plus one call-site
+fix, and it was completed while 847f was in flight).
+
+| Gate | Result |
+|---|---|
+| `management/tests/test_template_route_targets.py` | 54 passed (48 parametrised forward cases, 5 behavioural) |
+| `management/tests/test_ui_regression.py` + `test_attack.py` | 79 passed (Tier 1/2/3 green, including the two targets the old extractor dropped) |
+| Machine demonstrations | route rename → 3 failed / 51 passed; allowance removed → 2 failed / 52 passed |
+| `make lint`, `make test` | green |
+
+The journey script itself was **not** executed: `check_console_journey.sh` needs a
+running POC stack. Its list is now parity-checked against the route table, so the
+part it can get wrong statically is covered by CI.
+
+### Residual (documented, deliberately not fixed here)
+
+`management/static/confirm-modal.js:26` assembles
+`/api/v1/actions/${target}/tarpit`, and no route under `/api/v1/actions/` exists —
+the modal's "Tarpit IP" action 404s. It is a JS-assembled URL, so this gate would
+not catch it either (one of the two documented blind spots). Out of scope: it
+needs a product decision (wire the action to the ban/tarpit endpoint, or remove
+the control), not a test repair.
