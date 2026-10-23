@@ -75,177 +75,15 @@ waivers:
     created: 2026-10-07
     expires: 2027-01-05
 
-  # ── Docker Engine (vendored in alloy) CVE-2026-41567 / -42306 ─────────────
-  - id: CVE-2026-41567
-    scope: third-party
-    severity: HIGH
-    source: trivy
-    carriers: ["grafana/alloy:v1.19.2@sha256:b8ec653c44235fbe910879145dac3597d66b0aaecf60bcbbe82580767771a839"]
-    rationale: >-
-      Container archive execution in Docker. Promtail has no access to the Docker
-      API socket in our production deployment; cAdvisor's Docker socket mount is
-      read-only and it only ever calls read-only stats/inspect endpoints — never
-      the archive/copy endpoints (ContainerArchive / CopyToContainer) this CVE
-      affects. Pinned third-party image we cannot rebuild.
-    reachability: local-socket-only
-    fix_available: false
-    recheck_trigger: "grafana/alloy is rebuilt against a patched Docker library"
-    created: 2026-10-07
-    expires: 2027-01-05
-
-  - id: CVE-2026-42306
-    scope: third-party
-    severity: HIGH
-    source: trivy
-    carriers: ["grafana/alloy:v1.19.2@sha256:b8ec653c44235fbe910879145dac3597d66b0aaecf60bcbbe82580767771a839"]
-    rationale: >-
-      Race condition in docker cp. Neither Promtail nor cAdvisor invokes docker cp
-      or the archive-extraction code path this race affects; cAdvisor only calls
-      read-only stats/inspect endpoints over its read-only Docker socket mount.
-      Pinned third-party image we cannot rebuild.
-    reachability: local-socket-only
-    fix_available: false
-    recheck_trigger: "grafana/alloy is rebuilt against a patched Docker library"
-    created: 2026-10-07
-    expires: 2027-01-05
-
-  # ── Grafana / Loki monitoring stack (CVE-2026-39821 / -39822 / -46600) ─────
-  - id: CVE-2026-39821
-    scope: third-party
-    severity: HIGH
-    source: trivy
-    carriers: ["grafana/loki:3.7.7"]
-    rationale: >-
-      Monitoring sidecars on the internal network; the affected path is not
-      reachable without untrusted input to these services. Pinned third-party
-      images we cannot rebuild, so the fix only reaches us when the publishers
-      ship new tags.
-    reachability: internal-monitoring-only
-    fix_available: false
-    recheck_trigger: "the carrier images publish a tag carrying the fix"
-    created: 2026-10-07
-    expires: 2027-01-05
-
-  - id: CVE-2026-46600
-    scope: third-party
-    severity: HIGH
-    source: trivy
-    carriers: ["grafana/loki:3.7.7"]
-    rationale: >-
-      golang.org/x/net/dns/dnsmessage (x/net before 0.56.0). dns/dnsmessage
-      parses host-originated DNS records, which none of these components reach in
-      our deployment. Pinned tags that compile x/net transitively; fixing requires
-      an upstream rebuild, and none has shipped. NOTE: this waiver does NOT cover
-      ja4proxy — that is a Go stdlib finding fixed by the Phase 822
-      golang:1.26.6-alpine builder, and must not be read as covering our image.
-    reachability: internal-monitoring-only
-    fix_available: false
-    recheck_trigger: "the carrier images are rebuilt against x/net >= 0.56.0"
-    created: 2026-10-07
-    expires: 2027-01-05
-
-  # ── Go 1.26.5 stdlib batch, waived for pinned third-party tags ────────────
-  # (Phase 822 fixed the identical CVEs in our OWN images by bumping the Go
-  #  builder to 1.26.6. These entries are explicitly third-party only.)
-  - id: CVE-2026-33818
-    scope: third-party
-    severity: HIGH
-    source: trivy
-    carriers: ["grafana/loki:3.7.7"]
-    rationale: >-
-      Go 1.26.5 stdlib encoding/asn1 DoS. Fixed in Go 1.26.6, but these are
-      pinned upstream tags we cannot rebuild. DoS/parsing bugs in asn1 paths: all
-      carriers are internal-only scrape targets on the monitoring network with no
-      host port exposure, and none parses attacker-supplied ASN.1 or terminates
-      TLS from an untrusted peer. NOT waived for our own images — Phase 822 fixed
-      the identical CVE in ja4proxy by bumping the builder.
-    reachability: internal-monitoring-only
-    fix_available: false
-    recheck_trigger: "the carrier images ship a Go >= 1.26.6 build"
-    created: 2026-10-07
-    expires: 2027-01-05
-
-  - id: CVE-2026-56853
-    scope: third-party
-    severity: HIGH
-    source: trivy
-    carriers: ["grafana/loki:3.7.7"]
-    rationale: >-
-      Go 1.26.5 stdlib batch; fixed in Go 1.26.6 but these are pinned upstream
-      tags we cannot rebuild. Internal-only monitoring services; no untrusted
-      input reaches the affected stdlib path.
-    reachability: internal-monitoring-only
-    fix_available: false
-    recheck_trigger: "the carrier images ship a Go >= 1.26.6 build"
-    created: 2026-10-07
-    expires: 2027-01-05
-
-  - id: CVE-2026-56858
-    scope: third-party
-    severity: HIGH
-    source: trivy
-    carriers: ["grafana/loki:3.7.7"]
-    rationale: >-
-      Go 1.26.5 stdlib batch; fixed in Go 1.26.6 but these are pinned upstream
-      tags we cannot rebuild. Internal-only monitoring services; no untrusted
-      input reaches the affected stdlib path.
-    reachability: internal-monitoring-only
-    fix_available: false
-    recheck_trigger: "the carrier images ship a Go >= 1.26.6 build"
-    created: 2026-10-07
-    expires: 2027-01-05
-
-  - id: CVE-2026-56859
-    scope: third-party
-    severity: HIGH
-    source: trivy
-    carriers: ["grafana/loki:3.7.7"]
-    rationale: >-
-      Go 1.26.5 stdlib batch; fixed in Go 1.26.6 but these are pinned upstream
-      tags we cannot rebuild. Internal-only monitoring services; no untrusted
-      input reaches the affected stdlib path.
-    reachability: internal-monitoring-only
-    fix_available: false
-    recheck_trigger: "the carrier images ship a Go >= 1.26.6 build"
-    created: 2026-10-07
-    expires: 2027-01-05
-
-  - id: CVE-2026-56860
-    scope: third-party
-    severity: HIGH
-    source: trivy
-    carriers: ["grafana/loki:3.7.7"]
-    rationale: >-
-      Go 1.26.5 stdlib batch; fixed in Go 1.26.6 but these are pinned upstream
-      tags we cannot rebuild. Internal-only monitoring services; no untrusted
-      input reaches the affected stdlib path.
-    reachability: internal-monitoring-only
-    fix_available: false
-    recheck_trigger: "the carrier images ship a Go >= 1.26.6 build"
-    created: 2026-10-07
-    expires: 2027-01-05
-
-  - id: CVE-2026-56862
-    scope: third-party
-    severity: HIGH
-    source: trivy
-    carriers: ["grafana/loki:3.7.7"]
-    rationale: >-
-      Go 1.26.5 stdlib batch; fixed in Go 1.26.6 but these are pinned upstream
-      tags we cannot rebuild. Internal-only monitoring services; no untrusted
-      input reaches the affected stdlib path.
-    reachability: internal-monitoring-only
-    fix_available: false
-    recheck_trigger: "the carrier images ship a Go >= 1.26.6 build"
-    created: 2026-10-07
-    expires: 2027-01-05
-
-  # ── golang.org/x/mod GOSUMDB/GOPROXY (alertmanager, build-time only) ──────
+  # ── grpc (vendored in the pinned monitoring images) ───────────────────────
+  # (The two Docker Engine findings that sat here, CVE-2026-41567 / -42306,
+  # were removed on 2026-10-23: grafana/alloy v1.21.2 — the only carrier —
+  # scans clean, so the waivers were dead. Phase 847g.)
   - id: CVE-2026-84304
     scope: third-party
     severity: HIGH
     source: trivy
-    carriers: ["grafana/alloy:v1.19.2@sha256:b8ec653c44235fbe910879145dac3597d66b0aaecf60bcbbe82580767771a839", "grafana/grafana:13.2.4-ubuntu", "grafana/loki:3.7.7"]
+    carriers: ["grafana/grafana:13.2.4-ubuntu"]
     rationale: >-
       google.golang.org/grpc in pinned upstream images we cannot rebuild until
       publishers ship new releases. Internal monitoring network only, no
@@ -260,7 +98,7 @@ waivers:
     scope: third-party
     severity: HIGH
     source: trivy
-    carriers: ["grafana/alloy:v1.19.2@sha256:b8ec653c44235fbe910879145dac3597d66b0aaecf60bcbbe82580767771a839", "grafana/grafana:13.2.4-ubuntu", "grafana/loki:3.7.7", "prom/alertmanager:v0.34.1"]
+    carriers: ["grafana/grafana:13.2.4-ubuntu", "prom/alertmanager:v0.34.1"]
     rationale: >-
       google.golang.org/grpc xDS DoS in pinned upstream images we cannot rebuild
       until publishers ship new releases. Internal monitoring network only, no
@@ -292,7 +130,7 @@ waivers:
     scope: third-party
     severity: HIGH
     source: trivy
-    carriers: ["grafana/alloy:v1.19.2@sha256:b8ec653c44235fbe910879145dac3597d66b0aaecf60bcbbe82580767771a839", "redis:7.4.11-alpine@sha256:520775a41a63e77e06c73e35d2fd9cc15921a609516818796b4ecbb813078bc7"]
+    carriers: ["redis:7.4.11-alpine@sha256:520775a41a63e77e06c73e35d2fd9cc15921a609516818796b4ecbb813078bc7"]
     rationale: >-
       OpenSSL info disclosure in Ubuntu libssl3t64; pinned upstream images we
       cannot rebuild until publishers ship new releases. Internal monitoring
@@ -314,7 +152,14 @@ waivers:
       cannot rebuild until publishers ship new tags. The socket proxy only
       communicates over a local Unix socket and never parses untrusted regex;
       haproxy uses pcre2 only for its own static config patterns.
-    reachability: local-socket-only
+    reachability: input-path-unreachable
+    reachability_evidence: >-
+      pcre2 is never reached with untrusted input. The socket proxy never
+      parses a regex from any source; haproxy compiles only the patterns
+      written into config/haproxy.cfg, which is a bind-mounted static file
+      and not attacker-reachable. haproxy is published on 443/80, so the
+      exposure of this carrier is network-wide — the premise that holds is
+      the input path, not the network path.
     fix_available: false
     recheck_trigger: "the carrier images ship a rebuilt Alpine base with patched pcre2"
     created: 2026-10-07
@@ -370,7 +215,7 @@ waivers:
     scope: third-party
     severity: HIGH
     source: trivy
-    carriers: ["grafana/alloy:v1.19.2@sha256:b8ec653c44235fbe910879145dac3597d66b0aaecf60bcbbe82580767771a839", "grafana/grafana:13.2.4-ubuntu", "grafana/loki:3.7.7", "oliver006/redis_exporter:v1.91.1", "prom/alertmanager:v0.34.1", "prom/prometheus:v3.15.0"]
+    carriers: ["grafana/grafana:13.2.4-ubuntu", "prom/alertmanager:v0.34.1"]
     rationale: >-
       golang.org/x/net HTTP/2 header parsing vulnerability; pinned upstream images
       we cannot rebuild until publishers ship new releases. Internal monitoring
@@ -385,7 +230,7 @@ waivers:
     scope: third-party
     severity: HIGH
     source: trivy
-    carriers: ["grafana/alloy:v1.19.2@sha256:b8ec653c44235fbe910879145dac3597d66b0aaecf60bcbbe82580767771a839", "grafana/grafana:13.2.4-ubuntu", "grafana/loki:3.7.7", "oliver006/redis_exporter:v1.91.1", "prom/alertmanager:v0.34.1", "prom/prometheus:v3.15.0"]
+    carriers: ["grafana/grafana:13.2.4-ubuntu", "prom/alertmanager:v0.34.1"]
     rationale: >-
       Go stdlib net/http DoS; pinned upstream image we cannot rebuild until the
       publisher ships a new release. The Redis exporter runs inside the internal
@@ -400,7 +245,7 @@ waivers:
     scope: third-party
     severity: HIGH
     source: trivy
-    carriers: ["grafana/alloy:v1.19.2@sha256:b8ec653c44235fbe910879145dac3597d66b0aaecf60bcbbe82580767771a839", "grafana/grafana:13.2.4-ubuntu", "grafana/loki:3.7.7", "oliver006/redis_exporter:v1.91.1", "prom/alertmanager:v0.34.1", "prom/prometheus:v3.15.0"]
+    carriers: ["grafana/grafana:13.2.4-ubuntu", "prom/alertmanager:v0.34.1"]
     rationale: >-
       Go stdlib crypto/tls DoS; pinned upstream images we cannot rebuild until
       publishers ship new releases. The telemetry stack operates within a
@@ -605,8 +450,64 @@ waivers:
       unbounded session accumulation in MCP's StreamableHTTP SERVER transport;
       JA4proxy never runs an MCP server. mcp is pulled in only by semgrep (a CLI
       scanner) and is imported by no first-party module.
-    reachability: dev-tooling-only
+    reachability: not-imported
     fix_available: false
     recheck_trigger: "semgrep relaxes its mcp pin to allow >= 1.30.0"
     created: 2026-10-17
     expires: 2027-01-15
+
+  - id: CVE-2026-114603
+    scope: third-party
+    severity: MEDIUM
+    source: pip-audit
+    carriers: ["opentelemetry-api"]
+    rationale: >-
+      OpenTelemetry Python API 1.37.0. semgrep 1.181.0 hard-pins opentelemetry-api~=1.37.0
+      (and related OTEL packages) and no semgrep release relaxes that pin to allow
+      >=1.45.1; bumping opentelemetry-api independently breaks semgrep's resolution.
+      The vulnerable path is TraceState.from_header quadratic parsing reached via
+      the default W3C Trace Context propagator — a DoS vector on untrusted
+      tracestate headers. opentelemetry-api is pulled in only by semgrep (a CLI
+      scanner) and is imported by no first-party module; no OTEL propagators are
+      used by JA4proxy's request handling. Dev/CI tooling only.
+    reachability: not-imported
+    fix_available: false
+    recheck_trigger: "semgrep relaxes its opentelemetry pins to allow opentelemetry-api>=1.45.1"
+    created: 2026-10-23
+    expires: 2027-01-21
+
+  # ── Go crypto/x509 (CVE-2026-111943) in images with no fixed tag ──────────
+  - id: CVE-2026-111943
+    scope: third-party
+    severity: HIGH
+    source: trivy
+    carriers: ["grafana/grafana:13.2.4-ubuntu", "prom/alertmanager:v0.34.1"]
+    rationale: >-
+      Go crypto/x509 can build a verified chain through an intermediate
+      certificate the platform trust store no longer trusts (CVSS 6.8,
+      AV:N/AC:H/PR:N/UI:R). Trivy reports it against the Go stdlib embedded in
+      grafana 13.2.4-ubuntu (14 bundled binaries, Go <= 1.27.1) and
+      alertmanager v0.34.1; the fix is a rebuild on Go 1.26.10 / 1.27.3, which
+      only the publisher can do. Both are the newest published tags in their
+      release line (checked 2026-10-23), so no upgrade we can take clears it.
+      Phase 847g bumped every sibling monitoring image that DID ship a fixed
+      rebuild (loki 3.7.9, alloy v1.21.2, prometheus v3.15.1, redis_exporter
+      v1.95.0 — all now scan clean); these two are what remains. Exposure: both
+      bind ${AGENT_BIND_IP:-127.0.0.1} only and are reached over the internal
+      compose network. Reaching this bug needs the process to be a TLS *client*
+      to a peer an attacker can intercept AND that peer to present a chain
+      through a distrusted intermediate. Grafana's provisioned data sources are
+      plain http://prometheus:9090 and http://loki:3100, and Alertmanager's
+      receivers are a local logger webhook plus Slack/PagerDuty/email entries
+      whose endpoints are placeholders in this repository — so the egress path
+      is not active as shipped, and where an operator activates a real HTTPS
+      receiver the preconditions above still have to be met. Not claimed: that
+      neither process ever speaks TLS outbound (Grafana's own update/analytics
+      calls are TLS); claimed: the exploit path needs an interception position
+      we do not concede, and the fix is the publisher's to ship.
+    reachability: internal-monitoring-only
+    fix_available: false
+    recheck_trigger: >-
+      grafana/grafana or prom/alertmanager publish a tag rebuilt with Go >= 1.26.10
+    created: 2026-10-23
+    expires: 2027-01-21

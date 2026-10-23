@@ -48,8 +48,10 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 try:  # invoked directly (scripts/ on sys.path) or as a package member
     from scripts.check_trivyignore_drift import scan_dir_findings
+    from scripts.reachability_checks import ATTESTED_VALUES, REACHABILITY_VALUES
 except ImportError:  # pragma: no cover - direct invocation
     from check_trivyignore_drift import scan_dir_findings
+    from reachability_checks import ATTESTED_VALUES, REACHABILITY_VALUES
 
 _ROOT = Path(__file__).resolve().parents[1]
 REGISTRY = _ROOT / "security" / "waivers.yaml"
@@ -246,6 +248,31 @@ def validate(registry: Dict[str, Any]) -> List[str]:
                 "(state the upstream change that would obsolete this waiver)"
             )
 
+        # Phase 847f: `reachability` is an enum naming a registered check, not
+        # free text. A waiver whose claim names no registered check is a claim
+        # nothing verifies — the exact thing this programme is against — so it
+        # is rejected at authoring time rather than discovered later.
+        reachability = w.get("reachability")
+        if not reachability:
+            errors.append(
+                f"{where}: missing required field 'reachability' — name the "
+                f"registered check this waiver's premise is bound to"
+            )
+        elif reachability not in REACHABILITY_VALUES:
+            errors.append(
+                f"{where}: reachability {reachability!r} is not a registered "
+                f"check; must be one of {sorted(REACHABILITY_VALUES)}"
+            )
+        elif reachability in ATTESTED_VALUES and not (
+            isinstance(w.get("reachability_evidence"), str)
+            and w["reachability_evidence"].strip()
+        ):
+            errors.append(
+                f"{where}: reachability {reachability!r} is an attested claim "
+                f"and requires a non-empty 'reachability_evidence' field naming "
+                f"the path that is not reachable"
+            )
+
         created, expires = w.get("created"), w.get("expires")
         for label, value in (("created", created), ("expires", expires)):
             if value and not _is_iso_date(value):
@@ -296,6 +323,8 @@ def render_trivy(registry: Dict[str, Any], scope: str) -> str:
         parts.extend(f"#   - {c}" for c in carriers)
         if w.get("reachability"):
             parts.append(f"# Reachability: {w['reachability']}")
+        if w.get("reachability_evidence"):
+            parts.extend(_wrap_comment(f"Reachability evidence: {w['reachability_evidence']}"))
         parts.append(f"# Severity: {w.get('severity', 'HIGH')}")
         if w.get("fix_available") is False and w.get("recheck_trigger"):
             parts.extend(_wrap_comment(f"Re-check when: {w['recheck_trigger']}"))

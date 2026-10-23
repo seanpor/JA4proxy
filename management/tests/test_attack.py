@@ -129,6 +129,31 @@ async def test_block_count_only_counts_blocking_actions(
 
 
 @pytest.mark.asyncio
+async def test_attack_table_partial_resolves_the_handler_defaults(
+    authenticated_client: AsyncClient, fake_redis
+) -> None:
+    """The HTML partial calls the JSON handler directly — its defaults must resolve.
+
+    `top_attackers` declares `window: int = Query(...)`. Calling it as a plain
+    function (which is what the partial does) bypasses dependency injection, so
+    the `Query` object itself reached both `time.time() - window` (TypeError) and
+    the response's `window_seconds` field (not JSON serialisable). The panel had
+    therefore never rendered its content path — the htmx failure branch swallowed
+    it. Phase 824c's repaired Tier 1/Tier 2 caught it; this pins the contract
+    directly.
+    """
+    await fake_redis.xadd(
+        "events:connection", {"event": _make_event("10.2.2.2", score=70)}
+    )
+
+    r = await authenticated_client.get("/api/v1/partials/attack-top")
+
+    assert r.status_code == 200
+    assert "10.2.2.2" in r.text
+    assert "window_seconds" not in r.text or "Query" not in r.text
+
+
+@pytest.mark.asyncio
 async def test_redis_unavailable_returns_empty(
     test_client: AsyncClient, auth_cookie: dict, fake_redis
 ) -> None:

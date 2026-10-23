@@ -12,7 +12,7 @@ read the top of the file for full options.
 
 <!-- BEGIN GENERATED: scripts -->
 
-_144 scripts. Generated from each script's header comment by `make sync` — do not edit this table by hand._
+_146 scripts. Generated from each script's header comment by `make sync` — do not edit this table by hand._
 
 | Script | Called by | What it does |
 |--------|-----------|--------------|
@@ -48,6 +48,7 @@ _144 scripts. Generated from each script's header comment by `make sync` — do 
 | `check_upstream_image_updates.py` | — | Automated Upstream Sidecar Container Image Tag Checker (Phase 827). |
 | `ci_summary.py` | `make lint` | CI summary utility. |
 | `close-phase.sh` | — | mechanical pre-merge gate for phase close-out. |
+| `compose_exposure.py` | — | scripts/compose_exposure.py — one implementation of "is this surface published?". |
 | `compute_ja4_fixtures.py` | — | Add current dir to path to import local modules |
 | `config-signer.py` | — | config-signer.py — Ed25519 signing utility for JA4proxy configuration files. |
 | `count_lines.py` | — | Count non-blank lines of code by category across the JA4proxy project. |
@@ -112,6 +113,7 @@ _144 scripts. Generated from each script's header comment by `make sync` — do 
 | `populate-grafana-demo-data.sh` | — | Populate Grafana with realistic demo data by simulating security events |
 | `process_metrics.py` | — | process_metrics.py — emit an engineering-process metrics report. |
 | `quick-start.sh` | `make quick-start` | JA4proxy quick-start helper |
+| `reachability_checks.py` | `make lint-static` | scripts/reachability_checks.py — machine-checked reachability assertions for waivers. |
 | `reconcile_ipset.py` | — | reconcile_ipset.py — iptables/ipset drift reconciliation for TAP enforcement. |
 | `redis-acl-setup.sh` | — | scripts/redis-acl-setup.sh — Configure Redis ACL users for least-privilege operation |
 | `redis-to-ebpf.py` | — | redis-to-ebpf.py — Sync Redis blacklist/ban entries into a BPF hash map. |

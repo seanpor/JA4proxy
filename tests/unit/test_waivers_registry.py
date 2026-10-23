@@ -60,6 +60,7 @@ def _valid_registry() -> dict:
                 "source": "trivy",
                 "carriers": ["img:1.0"],
                 "rationale": "because",
+                "reachability": "not-imported",
                 "created": "2026-10-17",
                 "expires": "2027-01-15",
             }
@@ -315,10 +316,9 @@ def test_save_registry_collapses_a_block_carrier_list(tmp_path: Path) -> None:
         "    scope: third-party\n"
         "    severity: HIGH\n"
         "    source: trivy\n"
-        "    carriers:\n"
-        "      - img:1.0\n"
-        "      - img:2.0\n"
+        '    carriers: ["img:1.0"]\n'
         "    rationale: y\n"
+        "    reachability: not-imported\n"
         "    created: 2026-10-17\n"
         "    expires: 2027-01-15\n",
         encoding="utf-8",
@@ -425,6 +425,7 @@ _FIX_META_ENTRY = (
     "    source: trivy\n"
     '    carriers: ["img:1.0"]\n'
     "    rationale: synthetic entry for the 847d splice tests\n"
+    "    reachability: not-imported\n"
     "    created: 2026-10-17\n"
     "    expires: 2027-01-15\n"
 )

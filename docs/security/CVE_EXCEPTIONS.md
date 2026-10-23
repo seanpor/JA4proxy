@@ -63,3 +63,31 @@ rationale.
 - **Re-evaluation trigger**: a semgrep release that pins `mcp>=1.30.0` (then
   upgrade semgrep and drop this exception), or any first-party use of `mcp`.
 
+## CVE-2026-114603
+- **Severity**: MEDIUM (CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L; upstream advisory rates it Medium — availability only, no data exposure or code execution)
+- **Component**: `opentelemetry-api` 1.37.0 (transitive dependency of `semgrep`, not imported by any JA4proxy code)
+- **Accepted by**: phase-847f
+- **Date accepted**: 2026-10-23
+- **Expiry**: 2027-01-21  (90 days)
+- **Upstream tracker**: https://github.com/advisories/GHSA-xcq7-p3pf-p88h
+- **Reason no upgrade fix is possible**: `semgrep` 1.181.0 hard-pins
+  `opentelemetry-api~=1.37.0` (with the matching SDK/exporter/instrumentation
+  pins); the fix is 1.45.1. No semgrep release relaxes the pin, and a
+  `pip install "opentelemetry-api>=1.45.1" "semgrep>=1.176.0"` resolves as
+  `ResolutionImpossible`. Same shape as the `mcp` exception above.
+- **Rationale**: Quadratic backtracking in `TraceState.from_header` when the
+  default W3C Trace Context propagator parses an oversized `tracestate` header
+  — a CPU/availability DoS on a service that extracts propagation headers from
+  untrusted HTTP requests. JA4proxy does not: `opentelemetry-api` is installed
+  only into the `ja4proxy-tools` CI image (via `requirements.txt`) because
+  `semgrep` depends on it, no first-party module imports it, no OTEL propagator
+  is wired into any request path, and no deployed image declares it
+  (`requirements-analytics.txt` / `management/requirements.txt` do not).
+  The `make lint-static` pip-audit gate and `make scan-regression` bind this
+  claim to a machine check (`reachability: not-imported`): if first-party code
+  ever imports `opentelemetry`, or a deployed image starts declaring it, the
+  gate fails and demands re-justification.
+- **Re-evaluation trigger**: a semgrep release that allows
+  `opentelemetry-api>=1.45.1` (then upgrade semgrep and drop this exception),
+  or any first-party import of `opentelemetry`.
+

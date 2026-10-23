@@ -6,6 +6,7 @@
 --ignore-vuln CVE-2025-50181
 --ignore-vuln CVE-2025-66418
 --ignore-vuln CVE-2025-66471
+--ignore-vuln CVE-2026-114603
 --ignore-vuln CVE-2026-21441
 --ignore-vuln CVE-2026-4539
 --ignore-vuln CVE-2026-59951

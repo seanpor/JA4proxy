@@ -34,9 +34,18 @@ sys.path.insert(0, str(_ROOT / "scripts"))
 import medium_inventory as inv  # noqa: E402
 from scan_baseline import MEDIUM_BASELINE_PATH, BaselineError, load_baseline  # noqa: E402
 
-# The MEDIUM surface as measured on 2026-10-21 (Phase 847e). It may only go
-# DOWN. Lowering it is a reviewed edit to this file — that is the point.
-MEDIUM_CEILING_MAX = 152
+# The MEDIUM surface as measured on 2026-10-21 (Phase 847e): 152. It may only
+# go DOWN. Lowering it is a reviewed edit to this file — that is the point.
+#
+# 2026-10-23 (Phase 847g): re-measured at **79**. The CVE-2026-111943 image
+# bumps did most of it — every replacement tag was measured for MEDIUM as well
+# as HIGH, and three of the four came back with none: loki 14 -> 0,
+# prometheus 9 -> 0, redis_exporter 9 -> 0, alloy 59 -> 16 (two minors forward,
+# newer base). grafana 30 -> 31 and ja4proxy-test 1 -> 2 are the only growth,
+# and both are recorded in `security/baseline-medium.json`. Lowering the ceiling
+# to the new measurement is what keeps this a ratchet instead of a rubber stamp:
+# leaving it at 152 would let a later re-measure silently re-accrete 73 findings.
+MEDIUM_CEILING_MAX = 79
 
 
 def _record() -> dict:

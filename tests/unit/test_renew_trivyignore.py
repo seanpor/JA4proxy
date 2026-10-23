@@ -70,6 +70,7 @@ def _write_registry(path: Path, *entries) -> Path:
             f"    source: {e['source']}\n",
             "    carriers: [" + ", ".join(f'"{c}"' for c in e["carriers"]) + "]\n",
             f"    rationale: {e['rationale']}\n",
+            f"    reachability: {e.get('reachability', 'internal-monitoring-only')}\n",
             f"    created: {e['created']}\n",
             f"    expires: {e['expires']}\n",
         ]

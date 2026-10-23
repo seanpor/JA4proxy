@@ -4942,19 +4942,12 @@ phases:
 
   824c:
     name: "Template route-target gate (self-maintaining) + refresh stale journey list"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_824c.md
+    status: COMPLETE
+    completed: '2026-10-22'
+    action_plan: docs/phases/complete/PHASE_824c.md
     dependencies: [824b]
     size: MEDIUM
-    summary: "PROPOSED 2026-10-15. A static test extracts every hx-* target from
-      management/templates/** and asserts each resolves to a registered route —
-      forward direction from templates to app.routes, and reverse (registered
-      partials with no template reference, allowing the attack-table alias).
-      Handles Jinja query expressions and the JS-assembled hx-get at
-      threat_posture.html:258. Mutating targets are matched by method and never
-      sent. Excludes the 824d health endpoint. Also completes the stale
-      hardcoded partial list in check_console_journey.sh (it predates 821b).
-      No live HTTP in this gate."
+    summary: "COMPLETE 2026-10-22. Shared hx_targets() normalises Jinja tags/expressions so attack-top/attack-fingerprint-table are covered; Tier 1 repaired. Static gate enforces forward/reverse/mutating targets; attack-table allowed as alias only. Stale console journey partial list refreshed."
 
   824d:
     name: "/api/v1/health/ui four-state endpoint"
@@ -5447,24 +5440,27 @@ phases:
 
   847e:
     name: "MEDIUM-CVE gating (measure, then extend)"
-    status: IN_PROGRESS
-    action_plan: docs/phases/PHASE_847e.md
+    status: COMPLETE
+    completed: '2026-10-22'
+    action_plan: docs/phases/complete/PHASE_847e.md
     dependencies: [847c]
     size: MEDIUM
-    summary: "IN_PROGRESS 2026-10-21. Inventory the MEDIUM surface first (counts, fixability, reachability), then extend the 847 machinery to MEDIUM in the scope the data supports (full-baseline, diff-only, or monitor-only + ratchet). Enforces a ratchet so the MEDIUM baseline can only shrink. Refuses to promise literal zero-MEDIUM without data. — Measured: 152 unwaived MEDIUM findings, 119 with a published fix, 149 in third-party images; scope chosen: diff-only MEDIUM gate + ratchet."
+    summary: "COMPLETE 2026-10-22. Inventory the MEDIUM surface first (counts, fixability, reachability), then extend the 847 machinery to MEDIUM in the scope the data supports (full-baseline, diff-only, or monitor-only + ratchet). Enforces a ratchet so the MEDIUM baseline can only shrink. Refuses to promise literal zero-MEDIUM without data. — Measured: 152 unwaived MEDIUM findings, 119 with a published fix, 149 in third-party images; scope chosen: diff-only MEDIUM gate + ratchet. A port-parsing bug in the exposure classifier (over-splitting interpolated `${VAR:-default}` ports) was found and fixed (Phase 847f) — inventory re-measured with identical counts; 51 published surfaces corrected to 1, all now correctly reported as loopback-bound."
 
   847f:
     name: "Reachability evidence binding"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_847f.md
+    status: COMPLETE
+    completed: '2026-10-23'
+    action_plan: docs/phases/complete/PHASE_847f.md
     dependencies: [847a]
     size: MEDIUM
-    summary: "PROPOSED 2026-10-17. Make waiver justifications checked, not asserted: bind each waiver's reachability claim to an automated assertion (internal-monitoring-only -> compose has no public port; not-imported -> no first-party import). A broken premise fails CI and requires re-justification rather than silently outliving its justification."
+    summary: "COMPLETE 2026-10-23. Make waiver justifications checked, not asserted: bind each waiver's reachability claim to an automated assertion (internal-monitoring-only -> compose has no public port; local-socket-only -> no published port at all; not-imported -> no first-party import and not a deployed dependency; dev-tooling-only -> not a deployed dependency). An attested value (input-path-unreachable) requires substantive evidence. A broken premise fails CI and requires re-justification rather than silently outliving its justification. Found and corrected: a port-parsing bug in the 847e inventory shared implementation; CVE-2026-103111 re-justified as input-path-unreachable; all 36 waivers passed 35 machine + 1 attested checks (registry now 28 entries, 27 machine + 1 attested, 0 broken, after 847g removed ten whose images were bumped out of the finding)."
   847g:
     name: "Go 1.27.3 bump + CVE-2026-111943 triage"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_847g.md
-    dependencies: []
+    status: COMPLETE
+    completed: '2026-10-23'
+    action_plan: docs/phases/complete/PHASE_847g.md
+    dependencies: [847a,847c]
     size: SMALL
-    summary: "PROPOSED 2026-10-21, filed by the 847c monitor within nine hours of publication. CVE-2026-111943 is a Go stdlib crypto/x509 HIGH, published 2026-10-21, fixed in Go 1.26.10 / 1.27.3. Two parts, and they are not the same kind of work. OURS: every first-party image is built on golang:1.27.2-alpine, so a digest-pinned bump to 1.27.3 clears the CVE in the proxy, mock backend, tap, CLI, Logtide and FOSS build with a real fix rather than a waiver. NOT OURS: six pinned third-party images (grafana/grafana, grafana/loki, grafana/alloy, prom/prometheus, prom/alertmanager, oliver006/redis_exporter) bundle a Go toolchain we do not control, and each needs either a bump to a tag that bundles a patched toolchain or a dated, justified waiver - at which point 847d's re-affirmation takes over and re-asks on the day it expires. The audit half is already handled and landed with Phase 847d: every Go toolchain CI pins was moved to 1.27.3 and go.mod's floor to 1.26.10, because the required Go dependency audit (govulncheck) job pinned the vulnerable 1.27.2 and govulncheck exited 3 on internal/security/mtls.go:50 - failing every pull request in the repository for a reason unrelated to the pull request. What is left here is the half that ships: the images. The full scan (make scan) is red on this CVE on main for every branch; it is de-required by the 847c split precisely so that an upstream CVE disclosed overnight cannot redden an unrelated PR, and 847d landed while it was open for exactly that reason. The fix is a phase, not a commit: refreshed digests need the images rebuilt and the scan re-run, and it does not belong in an unrelated PR."
+    summary: "IN_PROGRESS 2026-10-23. CVE-2026-111943 (crypto/x509). First-party images bumped to golang:1.27.3-alpine / 1.26.10-alpine, digest-pinned to current multi-arch indexes (logtide stale-index anomaly fixed); make scan-first-party clean. Third-party: loki 3.7.7->3.7.9, alloy v1.19.2->v1.21.2 (both Alloy configs validate), prometheus v3.15.0->v3.15.1, redis_exporter v1.91.1->v1.95.0 (Ansible v1.86.0 bumped too; no flags removed). grafana:13.2.4-ubuntu and alertmanager:v0.34.1 have no fixed tag -> one dated HIGH waiver (internal-monitoring-only, expires 2027-01-21). 10 waivers removed as dead (alloy+loki bumps); registry 37->28. make scan-images 9/9 clean. MEDIUM re-measured 152->79 (ceiling lowered)."
 
