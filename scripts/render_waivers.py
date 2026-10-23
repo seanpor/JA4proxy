@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render the CVE-waiver derived artifacts from security/waivers.yaml.
+"""Render the CVE-waiver derived artifacts from security/waivers.yaml (`--drop ID` removes a dead waiver).
 
 Phase 847a.
 
@@ -671,6 +671,18 @@ def main(argv: List[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true", help="exit 1 if a derived file is stale")
     parser.add_argument("--refresh-carriers", action="store_true")
+    parser.add_argument(
+        "--drop",
+        action="append",
+        metavar="ID",
+        help=(
+            "delete a waiver whose finding no longer exists (repeatable). Uses the "
+            "validated splice, so comments survive and a carrier another waiver still "
+            "claims makes it refuse; then regenerates the derived files. Phase 848: "
+            "a dead waiver keeps an --ignore-vuln alive, which silently suppresses a "
+            "reintroduced finding."
+        ),
+    )
     parser.add_argument("--scan-dir", type=Path)
     parser.add_argument("--today", default="", help="override today (YYYY-MM-DD)")
     parser.add_argument("--registry", type=Path, default=REGISTRY)
@@ -705,6 +717,23 @@ def main(argv: List[str] | None = None) -> int:
 
     if mutated:
         save_registry(registry, args.registry)
+
+    if args.drop:
+        # After any save_registry: the splice edits the file's text and returns the
+        # trimmed registry, so re-serialising afterwards would undo it (and drop the
+        # comments the splice exists to preserve).
+        try:
+            removed = remove_entries(registry, args.drop, args.registry)
+        except ValueError as exc:
+            print(f"✗ {exc}", file=sys.stderr)
+            return 2
+        print(f"Dropped {len(removed)} waiver(s): {', '.join(removed)}")
+        registry = load_registry(args.registry)
+        errors = validate(registry)
+        if errors:
+            for e in errors:
+                print(f"✗ {e}", file=sys.stderr)
+            return 2
 
     rendered = render_all(registry)
 
