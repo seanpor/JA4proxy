@@ -142,6 +142,16 @@ Six build stages moved to `golang:1.27.3-alpine`, and the two remaining
 
 `tests/unit/test_go_toolchain_pins.py` keeps the pins honest.
 
+**The ninth Go build site was outside every gate.** `deploy/docker/update-checker`
+is a dev-tooling image — built by `make check-updates-container`, not deployed,
+not in `FIRST_PARTY_IMAGES`, so Trivy never saw it — and it pinned
+`golang:1.25.10-alpine`, inside the affected range. It was fixed in a separate
+commit rather than folded in silently, and the pin test was extended from a list
+of known files to a property over every `FROM golang:…` in the repository,
+mutation-verified by reverting the pin. Without that, "every surface this
+repository controls" would have been false by exactly the one image no scan
+covers.
+
 **The `Dockerfile.logtide` digest anomaly, resolved.** The plan said to find out
 why logtide carried a different digest for the same tag before changing it. It
 was not a platform pin, so nothing was silently amd64-only: `738d1cf0…`
