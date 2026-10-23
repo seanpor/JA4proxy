@@ -100,6 +100,21 @@ def test_unparseable_run_list_is_an_error_not_an_empty_list(monkeypatch) -> None
         ensure.runs_for(SHA)
 
 
+def test_a_full_sha_is_not_resolved_again(monkeypatch) -> None:
+    captured = _fake_subprocess(monkeypatch, stdout=SHA)
+    assert ensure.resolve_sha(SHA) == SHA
+    assert "argv" not in captured, "a full SHA must not cost an API call"
+
+
+def test_a_short_sha_is_expanded_before_any_run_lookup(monkeypatch) -> None:
+    """`gh run list --commit` matches full SHAs only; a short one matches nothing
+    and would read as 'unverified' — a false alarm from the verifier itself."""
+    captured = _fake_subprocess(monkeypatch, stdout=SHA + "\n")
+    assert ensure.resolve_sha("a" * 8) == SHA
+    assert captured["argv"][:2] == ["gh", "api"]
+    assert any(arg.endswith("/commits/" + "a" * 8) for arg in captured["argv"])
+
+
 def test_dispatch_targets_ci_on_main(monkeypatch) -> None:
     captured = _fake_subprocess(monkeypatch, stdout="")
     ensure.dispatch()
@@ -147,6 +162,15 @@ def test_unverified_tip_with_apply_dispatches_once(monkeypatch, capsys) -> None:
     assert ensure.main(["--apply"]) == 0
     assert dispatches == [1]
     assert "dispatched" in capsys.readouterr().out
+
+
+def test_a_short_sha_is_resolved_by_main(monkeypatch, capsys) -> None:
+    seen: list[str] = []
+    monkeypatch.setattr(ensure, "resolve_sha", lambda s: seen.append(s) or SHA)
+    monkeypatch.setattr(ensure, "runs_for", lambda sha: [_run()])
+    assert ensure.main(["--sha", "abc1234"]) == 0
+    assert seen == ["abc1234"]
+    assert "verified" in capsys.readouterr().out
 
 
 def test_an_explicit_sha_never_dispatches_even_with_apply(monkeypatch, capsys) -> None:

@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 from typing import Sequence
@@ -81,6 +82,19 @@ def repo_slug() -> str:
     return _gh(["repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"]).strip()
 
 
+def resolve_sha(sha: str) -> str:
+    """Expand a short `--sha` to the full commit SHA, via the API (not local git).
+
+    `gh run list --commit` matches **full** SHAs only. A short SHA silently
+    matches nothing and reads as "unverified" — a false alarm, which for a
+    verifier is worse than no verifier. Resolved through the API rather than
+    `git rev-parse` so it also works in a shallow checkout.
+    """
+    if re.fullmatch(r"[0-9a-f]{40}", sha):
+        return sha
+    return _gh(["api", f"repos/{repo_slug()}/commits/{sha}", "--jq", ".sha"]).strip()
+
+
 def main_tip() -> str:
     return _gh(["api", f"repos/{repo_slug()}/commits/main", "--jq", ".sha"]).strip()
 
@@ -121,7 +135,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        sha = args.sha or main_tip()
+        sha = resolve_sha(args.sha) if args.sha else main_tip()
         verdict = decide(runs_for(sha), sha, args.workflow_name)
     except RuntimeError as exc:
         print(f"✗ {exc}", file=sys.stderr)
