@@ -11,7 +11,7 @@ phase: 847
 > **Size:** LARGE
 > **Dependencies:** none (847a is the entry point; the rest chain from it)
 > **Branch:** `phase-847-cve-zero-path`
-> **Splits into:** 847a–847f (see roadmap below)
+> **Splits into:** 847a–847g (see roadmap below)
 
 ---
 
@@ -149,6 +149,7 @@ blockers.
 | **847d** | Fix-forward bot + expiry re-affirmation | MEDIUM | 847c | Scheduled job checks fix availability, opens bump PRs with scan diffs; expiry re-affirmation replaces blind re-dating. |
 | **847e** | MEDIUM-CVE gating (measure, then extend) | MEDIUM | 847c | Inventory the MEDIUM surface, then extend the same registry + diff machinery to MEDIUM. Decision gated on the inventory. |
 | **847f** | Reachability evidence binding | MEDIUM | 847a | Turn waiver justifications into automated assertions (e.g. "grafana is internal-only" → compose-network check); a broken premise invalidates the waiver. |
+| **847g** | Go 1.27.3 bump + CVE-2026-111943 triage | SMALL | 847a, 847c | Clear the Go stdlib CVE from every surface we build (base-image bump) and decide per third-party surface: bump where a fixed tag exists, else a dated waiver. Split out mid-programme when the CVE landed. |
 
 Sequencing rationale: **847a first** (mechanical, unblocks everything, zero risk);
 **847c is the structural win** (highest value, needs a/b in place); **847e waits

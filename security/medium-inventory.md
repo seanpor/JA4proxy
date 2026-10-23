@@ -9,7 +9,7 @@ Recorded: 2026-10-23 — produced by `scripts/medium_inventory.py`. The numbers 
 - **1** are on a surface that publishes a host port; **78** are on a surface that does not
 - **4** on images this repository builds, **75** on third-party images
 
-The decision this measurement informed, and the reasoning behind it, are recorded in `docs/phases/PHASE_847e.md`.
+The decision this measurement informed, and the reasoning behind it, are recorded in `docs/phases/complete/PHASE_847e.md`.
 
 ## By kind — how a fix could arrive
 

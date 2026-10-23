@@ -421,7 +421,7 @@ def render_markdown(surfaces: dict[str, dict], severities: str) -> str:
         f"**{s['third_party']}** on third-party images",
         "",
         "The decision this measurement informed, and the reasoning behind it, are "
-        "recorded in `docs/phases/PHASE_847e.md`.",
+        "recorded in `docs/phases/complete/PHASE_847e.md`.",
         "",
         "## By kind — how a fix could arrive",
         "",
