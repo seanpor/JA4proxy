@@ -20,5 +20,7 @@
   distribution's import root is the namespace `opentelemetry`, which the check
   never looked for. `IMPORT_ALIASES` now maps it and every hyphenated
   distribution's underscore form is tried, so the claim fails if it should.
-  (The registry is 28 entries after Phase 847g removed ten that its image bumps
-  made dead; the checks run over whatever is in the file.)
+  (The registry is 21 entries at the programme's close-out — 847g removed ten
+  image waivers its bumps made dead, and the close-out removed seven pip waivers
+  whose fix had already been adopted. The checks run over whatever is in the
+  file.)
