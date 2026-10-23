@@ -54,7 +54,8 @@ rationale.
 - **Reason no upgrade fix is possible**: `semgrep` hard-pins `mcp==1.29.0`, and the
   latest semgrep release (1.181.0) still does; `mcp` 1.30.0 is the fix. Bumping
   `mcp` independently would break semgrep's resolution, so there is no safe
-  resolution today. This mirrors the existing `click`/PYSEC-2026-2132 exception.
+  resolution today. This is the same shape as the `opentelemetry-api` exception
+  below: a semgrep-pinned transitive dependency with no safe independent bump.
 - **Rationale**: The vulnerability is unbounded session accumulation in MCP's
   **StreamableHTTP server transport** — it requires running an MCP *server* over
   streamable HTTP. JA4proxy never does: `mcp` is pulled in only by `semgrep` (a

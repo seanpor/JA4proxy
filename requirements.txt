@@ -62,7 +62,10 @@ mcp>=1.29.0  # CVE-2025-66416 (requires >=1.28.0) — pinned to match semgrep 1.
 # (expiry 2027-01-14). Vulnerable path is an MCP StreamableHTTP server we never run.
 protobuf>=5.29.6  # PYSEC-2026-1805 / CVE-2026-0994 fix (clears protobuf 4.x vulnerability)
 
-# NOTE (phase-800 / phase-833): click 8.1.8 (PYSEC-2026-2132) is acknowledged in the lint gate
-# because semgrep pins click~=8.1.8 (fix is 8.3.3). Dev/CI tooling only.
-# protobuf 4.25.9 (PYSEC-2026-1805) was resolved in Phase 833 by pinning protobuf>=5.29.6 above.
+# NOTE (phase-800 / phase-833 / phase-847): click (PYSEC-2026-2132) and protobuf
+# (PYSEC-2026-1805) were waived while semgrep pinned vulnerable versions; both
+# waivers were removed on 2026-10-23 (phase-847 close-out) because resolution now
+# yields click 8.4.2 / protobuf 6.33.6, which the advisory database reports clean.
+# The urllib3 and pygments waivers were removed in the same sweep, for the same
+# reason. Do not re-add an --ignore-vuln without a fresh `pip-audit -r requirements.txt`.
 
