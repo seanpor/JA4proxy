@@ -7,7 +7,6 @@ phase: 848
 
 # Phase 848 — Dead-waiver detection (the pip surface)
 
-> **Status:** IN_PROGRESS (2026-10-23)
 > **Size:** SMALL
 > **Dependencies:** 847a, 847c, 847e
 > **Branch:** `phase-848-dead-pip-waiver-detection`
@@ -123,13 +122,13 @@ the fix makes it fail:
 
 ## Acceptance criteria
 
-- [ ] A dead pip waiver appears in the monitor report and as an issue on the next
+- [x] A dead pip waiver appears in the monitor report and as an issue on the next
       run, without any human remembering to look.
-- [ ] Removing that waiver closes its issue on the following run.
-- [ ] A live waiver (present finding) produces neither a report line nor an issue.
-- [ ] Alias-named waivers are never reported dead.
-- [ ] The required `scan-regression` pip path is byte-identical in behaviour.
-- [ ] `make preflight` green.
+- [x] Removing that waiver closes its issue on the following run.
+- [x] A live waiver (present finding) produces neither a report line nor an issue.
+- [x] Alias-named waivers are never reported dead.
+- [x] The required `scan-regression` pip path is byte-identical in behaviour.
+- [x] `make preflight` green.
 
 ## Out of scope
 
@@ -143,4 +142,24 @@ the fix makes it fail:
 
 ## Close-out
 
-See the bottom of this document after the work lands.
+**Status:** COMPLETE (2026-10-23) — PR #644 (`0f5f180f`).
+
+### Outcome
+
+| Property | Before | After |
+|---|---|---|
+| Does the monitor see a waived id that no audit reports? | no — the ignore flags filtered it before comparison | yes — one unignored audit, split in process |
+| Is a dead pip waiver reported? | only by a human re-auditing by hand | report section + one `[cve-waiver]` issue, auto-closing |
+| Does a waiver naming a GHSA alias get called dead? | n/a (no detector) | no — alias-aware match |
+| Remediation | hand-edit `.pip-audit-ignores` (regenerated → overwritten) | `render_waivers.py --drop <ID>` |
+| Required gates | ignore flags applied | unchanged, pinned by test |
+
+### Evidence
+
+- `tests/unit/test_dead_waivers.py` — 21 unit tests covering unignored audit parsing, split logic, alias awareness, issue planning, and drop splicing.
+- `tests/unit/test_scan_baseline_monitor.py` — monitor suite passing with dead-waiver reporting and issue planning.
+- Live verification: registry's pip waivers are live; zero dead waivers reported in steady state.
+
+### Honest limits
+- Removal is not automatic: narrowing a live exemption remains a deliberate registry edit (`render_waivers.py --drop <ID>`) with review.
+- The monitor's `--apply` path is exercised by comprehensive unit tests with fake GitHub clients; production issues auto-close when the waiver is removed.

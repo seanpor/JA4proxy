@@ -113,14 +113,14 @@ with the reason, because "the verifier could not run" must never read as
 
 ## Acceptance criteria
 
-- [ ] `python3 scripts/ensure_main_verified.py --sha <app-merged SHA>` exits 1
-      and names the missing run (verified live, pasted in the PR).
-- [ ] The same command for a human-merged `main` commit exits 0.
-- [ ] `--apply` dispatches `ci.yml` against `main` when the tip is unverified,
+- [x] `python3 scripts/ensure_main_verified.py --sha <app-merged SHA>` exits 1
+      and names the missing run (verified live on `fd592b98`).
+- [x] The same command for a human-merged `main` commit exits 0.
+- [x] `--apply` dispatches `ci.yml` against `main` when the tip is unverified,
       and does not when it is not.
-- [ ] No dispatch loop: a run that exists but failed is not re-dispatched.
-- [ ] The job is not a required check; a broken verifier cannot block a merge.
-- [ ] `make preflight` green.
+- [x] No dispatch loop: a run that exists but failed is not re-dispatched.
+- [x] The job is not a required check; a broken verifier cannot block a merge.
+- [x] `make preflight` green.
 
 ## Out of scope
 
@@ -133,4 +133,25 @@ with the reason, because "the verifier could not run" must never read as
 
 ## Close-out
 
-See the bottom of this document after the work lands.
+**Status:** COMPLETE (2026-10-23) — PR #645 (`f05ebcea`).
+
+### Outcome
+
+| Property | Before | After |
+|---|---|---|
+| Does an app-authored merge get verified on `main`? | no — GitHub suppresses `push` for `GITHUB_TOKEN` | yes — `ensure_main_verified.py` detects unverified tips |
+| How quickly is a missed run repaired? | never | ~1 min via `workflow_run` on auto-merge workflows, backstopped by :13/:43 sweep |
+| Can the verifier loop indefinitely? | n/a | no — `decide()` treats any completed run (success or fail) or in-progress run as verified |
+| Can a broken verifier block merging? | n/a | no — not a required check |
+| Local inspection | n/a | `make verify-main` / `python3 scripts/ensure_main_verified.py` |
+
+### Evidence
+
+- `tests/unit/test_ensure_main_verified.py` — decision matrix tests + executor CLI tests with fake `gh`.
+- Live demonstration on `fd592b98`: correctly identified missing push run (exit 1).
+- Live verification on current `main` tip `f05ebcea`: exit 0 (verified by run `39958242845`).
+- Workflow `main-verification.yml` executed successfully in production (run `39958401449`).
+
+### Honest limits
+- The verifier triggers `ci.yml` against the current tip of `main` via `workflow_dispatch`; it does not run retrospective builds for older, superseded commits.
+- A failing CI run is intentionally not re-dispatched to avoid infinite loops; failures require maintainer attention.
