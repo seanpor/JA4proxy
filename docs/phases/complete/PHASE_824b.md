@@ -7,7 +7,6 @@ phase: 824b
 
 # Phase 824b — Partial Auth Enforcement & Panel Landmarks
 
-> **Status:** PROPOSED
 > **Size:** SMALL
 > **Dependencies:** Phase 824c (for the shared `hx_targets` extractor)
 > **Branch:** `phase-824b-partial-auth-landmarks`
@@ -182,18 +181,43 @@ Record both in the PR description.
 
 ## Acceptance Criteria
 
-- [ ] `management/tests/test_partial_contract.py` exists with the two parametrised
+- [x] `management/tests/test_partial_contract.py` exists with the two parametrised
       tests.
-- [ ] `test_partial_requires_auth` covers **every** extracted `GET` target and
+- [x] `test_partial_requires_auth` covers **every** extracted `GET` target and
       asserts 401 — including the 14 partials that had no such test before.
-- [ ] Every entry in `LANDMARKS` is verified against its template and is present
+- [x] Every entry in `LANDMARKS` is verified against its template and is present
       in the **empty** state.
-- [ ] `attack-mode-indicator` is excluded from `LANDMARKS` and has its own
+- [x] `attack-mode-indicator` is excluded from `LANDMARKS` and has its own
       explicit test documenting why.
-- [ ] Both failure modes were **demonstrated** (landmark and auth) and reverted.
-- [ ] The new file imports the extractor from 824c — no second copy of the regex.
-- [ ] `make test` passes; `make lint` passes.
-- [ ] A fragment exists at `docs/fragments/phase-824b-*.md`.
+- [x] Both failure modes were **demonstrated** (landmark and auth) and reverted.
+- [x] The new file imports the extractor from 824c — no second copy of the regex.
+- [x] `make test` passes; `make lint` passes.
+- [x] A fragment exists at `docs/fragments/phase-824b-*.md`.
+
+---
+
+## Close-out
+
+**Status:** COMPLETE (2026-10-24).
+
+### Outcome
+
+| Property | Before | After |
+|---|---|---|
+| Unauthenticated partial testing | 6 of 20 partials tested (`test_pages.py`) | All 26 extracted GET targets tested in `test_partial_contract.py` |
+| Negative test assertion | None for 14 partials | 401 status verified on all targets |
+| Positive panel landmark assertion | Tier 2 checks error absence only | `test_partial_renders_its_panel` asserts structural landmarks in empty state |
+| Inactive attack mode contract | Implicit | Explicitly verified as 200 text/html with empty string body |
+
+### Evidence
+
+- `management/tests/test_partial_contract.py` — 34 test cases (26 auth + 7 landmark + 1 empty-indicator).
+- Demonstrated landmark failure: changing `attack-top`'s landmark to `IP Address` failed with `AssertionError: /api/v1/partials/attack-top did not render its own panel`.
+- Demonstrated auth failure: removing `Depends(get_current_user)` from `health_cards_partial` failed `test_partial_requires_auth` with 500 error (`TypeError`).
+- `make test` and `make lint` pass 100%.
+
+### Honest limits
+- Landmarks verify that the correct template structure renders in the baseline empty state; end-to-end data population remains covered by integration journey tiers.
 
 ---
 

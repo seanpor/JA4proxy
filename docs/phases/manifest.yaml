@@ -4927,18 +4927,17 @@ phases:
 
   824b:
     name: "Route-contract tests for the eight uncovered partials"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_824b.md
-    dependencies: []
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_824b.md
+    dependencies: [824c]
     size: SMALL
-    summary: "PROPOSED 2026-10-15. Adds authenticated + unauthenticated
-      route-contract tests to management/tests/test_pages.py for the eight
-      partials with no dedicated route test (health-cards, dial, audit,
-      intelligence, intelligence-review, attack-top, attack-fingerprint-table,
-      attack-mode-indicator). Copy of the existing panel4 pair. Landmarks must
-      survive the empty state; attack-mode-indicator returns an empty string
-      when inactive, so it asserts status + content-type only. Renaming a route
-      must be demonstrated to fail the test."
+    summary: "COMPLETE 2026-10-24. Adds authenticated + unauthenticated
+      route-contract tests in management/tests/test_partial_contract.py for all
+      26 extracted GET targets from templates (via hx_targets). Asserts 401
+      unauthenticated for all partials (covering the 14 previously untested),
+      and asserts panel landmark strings that survive the empty state.
+      attack-mode-indicator is asserted as 200 text/html with empty string
+      when inactive. Landmark and auth failures were both demonstrated and reverted."
 
   824c:
     name: "Template route-target gate (self-maintaining) + refresh stale journey list"
