@@ -1891,15 +1891,24 @@ pentest-shell: ## Open a shell on the attacker workstation inside the range
 
 # Phase 824 — journey tests. Assert a PERSON can do the thing, not that a unit
 # returns a value. Require a running stack, so they are not part of `make test`.
-test-journeys: ## Phase 824 — run customer-journey checks against a live stack
+# TIER: 1=static/contract only, 2=live stack (default), 3=fault injection / restart
+TIER ?= 2
+test-journeys: ## Phase 824 — run customer-journey checks against a live stack (TIER=2 default)
 	@set -a; [ -f .env ] && . ./.env; set +a; \
 	fail=0; \
+	req_tier="$(TIER)"; \
+	req_num="$${req_tier#T}"; req_num="$${req_num#t}"; \
+	echo "Running customer journey checks for TIER <= $$req_num..."; \
 	for j in tests/integration/journeys/check_*.sh; do \
 		[ -x "$$j" ] || continue; \
-		echo "── $$j"; "$$j" || fail=1; \
+		script_tier=$$(grep -E '^# Tier: T[0-9]+' "$$j" | head -1 | sed -E 's/.*T([0-9]+).*/\1/' || echo "2"); \
+		[ -n "$$script_tier" ] || script_tier=2; \
+		if [ "$$script_tier" -le "$$req_num" ]; then \
+			echo "── $$j (Tier: T$$script_tier)"; "$$j" || fail=1; \
+		fi; \
 	done; \
 	[ $$fail -eq 0 ] || { echo "✗ journey check(s) failed"; exit 1; }; \
-	echo "✓ all journey checks passed"
+	echo "✓ all journey checks for TIER=$$req_num passed"
 
 # ── phase-826: demo support ───────────────────────────────────────────────────
 # Pre-flight before showing the product to anyone. Checks the failures that

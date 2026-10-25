@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Tier: T2
 # Console journey — live-stack check for unauthenticated partial routes.
 # Phase 824c: the list below is now complete for every registered
 # /api/v1/partials/* route (authoritative map: management/tests/test_template_route_targets.py).
@@ -10,6 +11,8 @@
 set -euo pipefail
 
 BASE="${1:-http://localhost:8000}"
+START_TIME=$(date +%s)
+trap 'duration=$(( $(date +%s) - START_TIME )); echo "Duration: ${duration}s"' EXIT
 
 PARTIALS=(
   alerts-bar

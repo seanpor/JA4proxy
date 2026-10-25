@@ -1,0 +1,1 @@
+- Phase 824e: Added T2 customer journey scripts `check_j1_stop_the_bots.sh`, `check_j4_false_positive_rescue.sh`, and T3 script `check_j8_degraded_dependencies.sh` under `tests/integration/journeys/`, with duration tracking and contract assertions. Added tier selection (`TIER=`) to `make test-journeys` dynamically inspecting script tier headers.
