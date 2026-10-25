@@ -7,7 +7,7 @@
 
 ## 1. Management API Endpoints Matrix
 
-Total Endpoints Discovered: **112**
+Total Endpoints Discovered: **113**
 
 | Method | Path | Function | Required Role | Summary |
 | :--- | :--- | :--- | :--- | :--- |
@@ -49,6 +49,7 @@ Total Endpoints Discovered: **112**
 | `GET` | `/api/v1/fingerprints/{ja4}/profile` | `get_fingerprint_profile` | `analyst` | Aggregate profile for a JA4 fingerprint from the live event stream. |
 | `GET` | `/api/v1/health` | `health` | `public` | Return system health status. |
 | `GET` | `/api/v1/health/deep` | `health_deep` | `auditor` | Deep health check — verifies Redis connectivity and returns latency. |
+| `GET` | `/api/v1/health/ui` | `ui_health` | `auditor` | Report aggregate and per-panel health across all console partials. |
 | `POST` | `/api/v1/intelligence/dismiss/{finding_id}` | `dismiss_finding` | `public` | Dismiss an analytics finding. |
 | `POST` | `/api/v1/intelligence/mark-fp/{finding_id}` | `mark_finding_fp` | `public` | Mark an analytics finding as a false positive. |
 | `GET` | `/api/v1/ip/{ip:path}/profile` | `get_ip_profile` | `analyst` | Aggregate profile for a source IP from the live event stream. |

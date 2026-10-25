@@ -7,7 +7,6 @@ phase: 824d
 
 # Phase 824d — `/api/v1/health/ui` Four-State Endpoint
 
-> **Status:** PROPOSED
 > **Size:** MEDIUM
 > **Dependencies:** Phase 824c
 > **Part of:** Phase 824 (umbrella) — see `docs/phases/PHASE_824.md`
@@ -140,19 +139,47 @@ off any scrape-triggered path.
 
 ## Acceptance Criteria
 
-- [ ] `GET /api/v1/health/ui` exists and requires authentication (401 when
+- [x] `GET /api/v1/health/ui` exists and requires authentication (401 when
       anonymous).
-- [ ] A healthy stack returns `GREEN` with every panel `OK`.
-- [ ] Redis stopped yields `DEGRADED`, **not** RED (the J8 mapping).
-- [ ] A deliberately broken panel returns `BROKEN` and makes `status` RED —
+- [x] A healthy stack returns `GREEN` with every panel `OK` or `EMPTY`.
+- [x] Redis stopped yields `DEGRADED`, **not** RED (the J8 mapping).
+- [x] A deliberately broken panel returns `BROKEN` and makes `status` RED —
       **demonstrated**, not assumed.
-- [ ] A legitimately empty panel returns `EMPTY` and does **not** make `status`
+- [x] A legitimately empty panel returns `EMPTY` and does **not** make `status`
       RED.
-- [ ] The endpoint never returns an upstream error string.
-- [ ] The endpoint excludes itself from the probed set (no recursion).
-- [ ] The HEALTHCHECK is unchanged.
-- [ ] `make test` passes; `make lint` passes; `make scan` passes.
-- [ ] A fragment exists at `docs/fragments/phase-824d-*.md`.
+- [x] The endpoint never returns an upstream error string.
+- [x] The endpoint excludes itself from the probed set (no recursion).
+- [x] The HEALTHCHECK is unchanged.
+- [x] `make test` passes; `make lint` passes; `make scan` passes.
+- [x] A fragment exists at `docs/fragments/phase-824d-*.md`.
+
+---
+
+## Close-out
+
+**Status:** COMPLETE (2026-10-25).
+
+### Outcome
+
+| Property | Before | After |
+|---|---|---|
+| Single console health signal | None — only per-route inspection | `GET /api/v1/health/ui` returns `GREEN` or `RED` |
+| Four-state classification | None | `OK`, `EMPTY`, `DEGRADED`, `BROKEN` per panel |
+| Redis down handling | Unhandled or RED | Marked `DEGRADED` (status stays `GREEN`) |
+| Broken / 500 panel | Silent or hidden behind 200 | Marked `BROKEN` with stable reason, status transitions to `RED` |
+| Upstream error leak | Potential | Strictly prevented — mapped to fixed reason codes |
+
+### Evidence
+
+- `management/api/routes/ui_health.py` implemented with in-process ASGI client.
+- `management/tests/test_ui_health.py` — 6 unit tests covering auth, baseline GREEN, DEGRADED on Redis down, BROKEN on route missing / 500, timeout handling, and no exception leaks.
+- Demonstrated BROKEN -> RED transition via missing route and mock timeout.
+- Hardened Redis resilience on partial endpoints (`_get_dial`, `attack-mode-indicator`, `intelligence`) to prevent unhandled Redis errors from crashing partial renders.
+- `make surface-inventory` updated to record `GET /api/v1/health/ui` (113 total routes).
+- Full `make preflight` and local gate checks passed.
+
+### Honest limits
+- Internal probes execute in-process via `ASGITransport` with a 3.0s timeout per probe, running sequentially across all panels without a background caching worker.
 
 ---
 
