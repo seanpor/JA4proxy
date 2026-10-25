@@ -316,7 +316,7 @@ _210 targets. Generated from the Makefile's own `##` help comments by `make sync
 | `pentest-range-down` | Tear down the pentest range (evidence is kept) |
 | `pentest-range-verify` | Re-run the range isolation assertions without rebuilding |
 | `pentest-shell` | Open a shell on the attacker workstation inside the range |
-| `test-journeys` | Phase 824 — run customer-journey checks against a live stack |
+| `test-journeys` | Phase 824 — run customer-journey checks against a live stack (TIER=2 default) |
 
 ### Phase 816: End-to-end management console showcase demo
 

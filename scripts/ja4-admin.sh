@@ -287,6 +287,13 @@ cmd_blocked() {
     while IFS= read -r key; do
         [[ -z "$key" ]] && continue
         found=1
+        TTL=$(redis_cmd TTL "$key"); ENTITY="${key#ban:}"
+        printf "  ${RED}BAN${NC}         %-40s  expires in %ss\n" "$ENTITY" "$TTL"
+    done < <(redis_cmd KEYS "ban:*" 2>/dev/null)
+
+    while IFS= read -r key; do
+        [[ -z "$key" ]] && continue
+        found=1
         TTL=$(redis_cmd TTL "$key"); ENTITY="${key#banned:temporary:}"
         printf "  ${RED}BAN${NC}         %-40s  expires in %ss\n" "$ENTITY" "$TTL"
     done < <(redis_cmd KEYS "banned:temporary:*" 2>/dev/null)
@@ -371,6 +378,7 @@ cmd_block_ip() {
     validate_ip "$IP"
     [[ "$SECS" =~ ^[0-9]+$ ]] || die "Duration must be a positive integer"
     redis_cmd SETEX "blocked:block:${IP}" "$SECS" "admin-manual-block" > /dev/null
+    redis_cmd SETEX "ban:${IP}" "$SECS" "admin-manual-block" > /dev/null
     echo -e "${RED}✓ Hard-blocked IP: ${IP} for ${SECS}s${NC}"
     echo -e "  Connections from this IP will be dropped immediately."
     echo -e "  To remove early: $0 unblock-ip ${IP}"
@@ -381,7 +389,7 @@ cmd_unblock_ip() {
     [[ -n "$IP" ]] || die "Usage: $0 unblock-ip <ip>"
     validate_ip "$IP"
     local removed=0
-    for KEY in "blocked:block:${IP}" "blocked:tarpit:${IP}" "banned:temporary:${IP}" "banned:permanent:${IP}"; do
+    for KEY in "blocked:block:${IP}" "blocked:tarpit:${IP}" "banned:temporary:${IP}" "banned:permanent:${IP}" "ban:${IP}"; do
         if [[ "$(redis_cmd DEL "$KEY")" == "1" ]]; then
             removed=$((removed + 1))
             TYPE="${KEY%%:$IP}"

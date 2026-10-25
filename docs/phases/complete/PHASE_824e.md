@@ -103,18 +103,48 @@ within a month.
 
 ## Acceptance Criteria
 
-- [ ] `check_j1_stop_the_bots.sh`, `check_j4_false_positive_rescue.sh` and
+- [x] `check_j1_stop_the_bots.sh`, `check_j4_false_positive_rescue.sh` and
       `check_j8_degraded_dependencies.sh` exist, are executable, and follow the
       `ok`/`bad`/`FAIL` convention of the existing J2 script.
-- [ ] J1 asserts the **control group survives**, not only that bots are blocked.
-- [ ] J4 bounds the recovery assertion in time.
-- [ ] J8 asserts fail-open **and** visible degradation, then recovery.
-- [ ] `make test-journeys TIER=2` runs the T2 scripts only; `TIER=3` includes J8.
-- [ ] Each script prints its wall-clock time.
-- [ ] Each script is **demonstrated** to fail when the behaviour it checks is
+- [x] J1 asserts the **control group survives**, not only that bots are blocked.
+- [x] J4 bounds the recovery assertion in time.
+- [x] J8 asserts fail-open **and** visible degradation, then recovery.
+- [x] `make test-journeys TIER=2` runs the T2 scripts only; `TIER=3` includes J8.
+- [x] Each script prints its wall-clock time.
+- [x] Each script is **demonstrated** to fail when the behaviour it checks is
       broken.
-- [ ] `make lint` passes.
-- [ ] A fragment exists at `docs/fragments/phase-824e-*.md`.
+- [x] `make lint` passes.
+- [x] A fragment exists at `docs/fragments/phase-824e-*.md`.
+
+---
+
+## Close-out
+
+### Outcome
+
+| Property | Before | After |
+|---|---|---|
+| Automated customer journeys | J2 only (`check_console_journey.sh`) | J1, J2, J4 (T2), and J8 (T3) implemented |
+| Tiered execution | All scripts executed unconditionally in `make test-journeys` | `make test-journeys TIER=N` dynamically selects scripts declaring `# Tier: T<N>` |
+| Wall-clock observability | Unobserved duration | Each journey traps EXIT and prints elapsed execution time |
+| Doctrine verification | Separate unit tests for fail-open and health reporting | J8 verifies end-to-end fail-open proxy flow and visible console degradation on Redis failure |
+
+### Evidence
+
+- `tests/integration/journeys/check_console_journey.sh`: Header updated to `# Tier: T2` with duration reporting.
+- `tests/integration/journeys/check_j1_stop_the_bots.sh`: T2 script asserting both bot block and control group survival with dial cleanup.
+- `tests/integration/journeys/check_j4_false_positive_rescue.sh`: T2 script asserting time-bounded recovery within propagation interval.
+- `tests/integration/journeys/check_j8_degraded_dependencies.sh`: T3 script testing doctrine split under Redis outage with automatic container restart.
+- Demonstrated failure modes:
+  - J4 demonstrated to fail when given invalid IP / unconfirmed block (exit 1).
+  - J1 demonstrated to fail when stack is absent / dial adjustment fails (exit 1).
+  - J8 demonstrated to fail when Redis container cannot be stopped (exit 1).
+  - J2 demonstrated to fail against down stack (exit 1).
+- Tier selection verified:
+  - `make test-journeys TIER=1`: runs 0 scripts (none tagged T1).
+  - `make test-journeys TIER=2`: selects J1, J2, J4.
+  - `make test-journeys TIER=3`: selects J1, J2, J4, J8.
+- `scripts/ja4-admin.sh` updated to also manage `ban:${IP}` keys matching the Go proxy's manual ban format.
 
 ---
 

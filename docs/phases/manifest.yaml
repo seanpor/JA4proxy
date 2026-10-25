@@ -4969,8 +4969,8 @@ phases:
 
   824e:
     name: "T2 journey scripts (J1/J4/J8) and make test-journeys TIER="
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_824e.md
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_824e.md
     dependencies: [824a]
     size: MEDIUM
     summary: "PROPOSED 2026-10-15. Turns the highest-value journeys from
