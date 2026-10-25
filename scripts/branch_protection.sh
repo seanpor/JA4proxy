@@ -38,6 +38,7 @@ gh api "repos/${REPO}/branches/main/protection" \
   --field "required_status_checks[contexts][]=Meta-Validation (Doctor + Meta-Lint)" \
   --field "required_status_checks[contexts][]=Full Lint (make lint)" \
   --field "required_status_checks[contexts][]=Full Test Suite (make test)" \
+  --field "required_status_checks[contexts][]=UI route contract and health tests (Tier 1)" \
   --field "required_status_checks[contexts][]=Go Build + Compose Validate" \
   --field "required_status_checks[contexts][]=Go race tests (make test-race)" \
   --field "required_status_checks[contexts][]=Scan Regression (surfaces touched)" \

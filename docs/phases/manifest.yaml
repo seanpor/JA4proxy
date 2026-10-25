@@ -4887,28 +4887,12 @@ phases:
 
   824:
     name: "Customer journeys & UI regression gate (umbrella)"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_824.md
+    status: COMPLETE
+    completed: '2026-10-25'
+    action_plan: docs/phases/complete/PHASE_824.md
     dependencies: [816, 821a, 821b]
     size: LARGE
-    summary: "PROPOSED 2026-08-15, split into 824a–824f on 2026-10-15 after
-      review. The suite proves the parts work; it does not prove a person can
-      get their job done, and it does not notice a blank console. Umbrella for a
-      persona-level regression layer and a UI gate. Split so each piece is
-      independently reviewable: 824a the journey catalogue (docs-only); 824b
-      route-contract tests for the eight partials with no dedicated route test;
-      824c a self-maintaining static gate that extracts hx-* targets FROM the
-      templates and asserts each resolves (plus a refresh of the stale
-      check_console_journey.sh list); 824d a /api/v1/health/ui four-state
-      endpoint reusing Phase 821a's Ok/Empty/Unavailable model, where EMPTY and
-      DEGRADED must never read RED; 824e the T2 journey scripts (J1/J4/J8) and
-      make test-journeys TIER= selection; 824f CI tiering + branch protection.
-      CORRECTED 2026-10-15: the earlier plan claimed '20 targets, 7 asserted, 13
-      unasserted' and listed alerts-bar/panel1-5 as unasserted. Measured: 21
-      hx-get targets (20 partials + tls-health), 13 covered, 8 not —
-      attack-fingerprint-table, attack-mode-indicator, attack-top, audit, dial,
-      health-cards, intelligence, intelligence-review. Phase 821b did not widen
-      the gap; it added tests for the panels it added (b1e5aa14)."
+    summary: "COMPLETE 2026-10-25. Split into 824a–824f on 2026-10-15; all sub-phases complete (824a catalogue, 824b auth+landmarks, 824c template route target gate, 824d /api/v1/health/ui endpoint, 824e T2 journey scripts J1/J4/J8 + TIER= selection, 824f CI tiering + branch protection). Ensures persona-level customer journeys and console route contracts are continuously verified without flaky required gates."
 
   824a:
     name: "Customer journey catalogue (docs-only)"
@@ -4986,17 +4970,17 @@ phases:
 
   824f:
     name: "Journey CI tiering and branch protection"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_824f.md
+    status: COMPLETE
+    completed: '2026-10-25'
+    action_plan: docs/phases/complete/PHASE_824f.md
     dependencies: [824d, 824e]
     size: SMALL
-    summary: "PROPOSED 2026-10-15. Wires the T1 checks (824b/824c/824d) into
-      ci.yml as a required job and adds the T2 journey job as nightly +
-      workflow_dispatch with continue-on-error (a flaky required check stalls
-      every merge). Registers the new required context in
-      scripts/branch_protection.sh in the same change, or
-      tests/test_workflow_pinning.py:318 fails. All uses: SHA-pinned. The only
-      sub-phase that touches main's protection, so it lands as one PR."
+    summary: "COMPLETE 2026-10-25. Wires the T1 checks (824b/824c/824d via
+      make test-ui-contract) into ci.yml as a required job and adds the T2
+      journey job as nightly + workflow_dispatch with continue-on-error (a flaky
+      required check stalls every merge). Registers the new required context in
+      scripts/branch_protection.sh in the same change, maintaining zero drift in
+      test_workflow_pinning.py. All actions SHA-pinned."
 
   825:
     name: "Migrate Promtail to Grafana Alloy (cAdvisor stays)"

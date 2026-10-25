@@ -1910,6 +1910,14 @@ test-journeys: ## Phase 824 — run customer-journey checks against a live stack
 	[ $$fail -eq 0 ] || { echo "✗ journey check(s) failed"; exit 1; }; \
 	echo "✓ all journey checks for TIER=$$req_num passed"
 
+test-ui-contract: tools-image ## Phase 824f — run Tier 1 UI route contract, regression, and health tests
+	@echo "=== Running Tier 1 UI tests (containerized: $(TOOLS_IMG)) ==="
+	@$(TOOLS_RUN) pytest \
+		management/tests/test_partial_contract.py \
+		management/tests/test_ui_regression.py \
+		management/tests/test_ui_health.py \
+		-v --timeout=60 --tb=short
+
 # ── phase-826: demo support ───────────────────────────────────────────────────
 # Pre-flight before showing the product to anyone. Checks the failures that
 # have actually happened and were invisible: analytics unable to read the

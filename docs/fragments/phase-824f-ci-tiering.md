@@ -1,0 +1,4 @@
+- Added CI job `UI route contract and health tests (Tier 1)` to `ci.yml` gating static UI contract, route targets, and health checks on PRs.
+- Created `.github/workflows/journeys.yml` to run Tier 2 live customer journeys on a nightly schedule and `workflow_dispatch` (`continue-on-error: true`).
+- Updated `scripts/branch_protection.sh` with the new required check and verified zero drift in `test_workflow_pinning.py`.
+- Added `make test-ui-contract` target to `Makefile`.
