@@ -7,10 +7,9 @@ phase: 824f
 
 # Phase 824f — CI Tiering and Branch Protection
 
-> **Status:** PROPOSED
 > **Size:** SMALL
 > **Dependencies:** Phase 824d, Phase 824e
-> **Part of:** Phase 824 (umbrella) — see `docs/phases/PHASE_824.md`
+> **Part of:** Phase 824 (umbrella) — see `docs/phases/complete/PHASE_824.md`
 
 ---
 
@@ -61,14 +60,35 @@ Every `uses:` must be SHA-pinned (repo convention; enforced by
 
 ## Acceptance Criteria
 
-- [ ] A CI job runs the T1 checks (824b/824c/824d) and is required.
-- [ ] The T2 job runs the journey scripts, is `continue-on-error`, and is
+- [x] A CI job runs the T1 checks (824b/824c/824d) and is required.
+- [x] The T2 job runs the journey scripts, is `continue-on-error`, and is
       scheduled nightly plus `workflow_dispatch`.
-- [ ] `scripts/branch_protection.sh` matches the required job set exactly.
-- [ ] `python -m pytest tests/test_workflow_pinning.py` passes.
-- [ ] YAML has no duplicate job names (verify with `rg` after editing).
-- [ ] `make lint` passes.
-- [ ] A fragment exists at `docs/fragments/phase-824f-*.md`.
+- [x] `scripts/branch_protection.sh` matches the required job set exactly.
+- [x] `python -m pytest tests/test_workflow_pinning.py` passes.
+- [x] YAML has no duplicate job names (verify with `rg` after editing).
+- [x] `make lint` passes.
+- [x] A fragment exists at `docs/fragments/phase-824f-*.md`.
+
+---
+
+## Close-out
+
+### Outcome
+
+| Property | Before | After |
+|---|---|---|
+| Tier 1 UI gating | Embedded inside generic `make test` without dedicated required check | Dedicated required job `UI route contract and health tests (Tier 1)` in `ci.yml` via `make test-ui-contract` |
+| Tier 2 journey execution in CI | No automated scheduled execution | Scheduled nightly + `workflow_dispatch` in `.github/workflows/journeys.yml` with `continue-on-error: true` |
+| Branch protection sync | 13 required contexts | 14 required contexts (includes Tier 1 UI gate), 0 drift in `test_workflow_pinning.py` |
+
+### Evidence
+
+- `.github/workflows/ci.yml`: Added required `ui-contract` job running `make test-ui-contract`.
+- `.github/workflows/journeys.yml`: Added workflow triggering nightly (`23 4 * * *`) and on demand (`workflow_dispatch`), running `make test-journeys TIER=2`.
+- `Makefile`: Added `test-ui-contract` target targeting `test_partial_contract.py`, `test_ui_regression.py`, and `test_ui_health.py`.
+- `scripts/branch_protection.sh`: Registered `UI route contract and health tests (Tier 1)`.
+- `tests/test_workflow_pinning.py`: 7/7 tests passed cleanly (pinning, top-level permissions, and branch protection context matching).
+
 
 ---
 

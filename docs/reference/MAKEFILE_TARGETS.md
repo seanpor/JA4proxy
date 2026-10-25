@@ -45,7 +45,7 @@ The default lane runs **without HAProxy** (single proxy, reached directly on
 
 <!-- BEGIN GENERATED: make-targets -->
 
-_210 targets. Generated from the Makefile's own `##` help comments by `make sync` — do not edit this table by hand._
+_211 targets. Generated from the Makefile's own `##` help comments by `make sync` — do not edit this table by hand._
 
 ### Aggregate linters
 
@@ -317,6 +317,7 @@ _210 targets. Generated from the Makefile's own `##` help comments by `make sync
 | `pentest-range-verify` | Re-run the range isolation assertions without rebuilding |
 | `pentest-shell` | Open a shell on the attacker workstation inside the range |
 | `test-journeys` | Phase 824 — run customer-journey checks against a live stack (TIER=2 default) |
+| `test-ui-contract` | Phase 824f — run Tier 1 UI route contract, regression, and health tests |
 
 ### Phase 816: End-to-end management console showcase demo
 

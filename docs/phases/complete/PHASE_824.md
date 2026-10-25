@@ -7,7 +7,6 @@ phase: 824
 
 # Phase 824 — Customer Journeys & UI Regression Gate (umbrella)
 
-> **Status:** PROPOSED
 > **Size:** LARGE (umbrella — split into six SMALL/MEDIUM sub-phases)
 > **Dependencies:** Phase 816 (COMPLETE), Phase 821a (COMPLETE), Phase 821b (COMPLETE)
 > **Branch:** one branch per sub-phase, e.g. `phase-824a-journey-catalogue`
