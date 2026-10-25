@@ -4950,11 +4950,11 @@ phases:
 
   824d:
     name: "/api/v1/health/ui four-state endpoint"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_824d.md
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_824d.md
     dependencies: [824c]
     size: MEDIUM
-    summary: "PROPOSED 2026-10-15. Adds an authenticated GET /api/v1/health/ui
+    summary: "COMPLETE 2026-10-25. Adds an authenticated GET /api/v1/health/ui
       that probes every extracted partial in-process (httpx ASGITransport, not a
       self-HTTP request — the management image runs --workers 1) and reports
       OK/EMPTY/DEGRADED/BROKEN per panel. DEGRADED is Phase 821a's 'Unavailable'
@@ -4963,9 +4963,9 @@ phases:
       'unavailable' is not reported OK. Requires at least auditor (anonymous
       would be a twenty-render amplifier), returns stable reason codes only
       (never upstream text — cf JA4PROXY-2026-0008), excludes itself, and is
-      NOT wired into the container HEALTHCHECK. The Prometheus gauge and
-      background refresher are deliberately out of scope. Must be demonstrated
-      to go RED by breaking a panel and to stay non-RED with Redis down."
+      NOT wired into the container HEALTHCHECK. Hardened Redis fail-open logic
+      across partials (_get_dial, attack-mode-indicator, intelligence).
+      Demonstrated to go RED by breaking a panel and to stay GREEN with Redis down."
 
   824e:
     name: "T2 journey scripts (J1/J4/J8) and make test-journeys TIER="

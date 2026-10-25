@@ -80,6 +80,9 @@ from .routes import (
     tls_health as tls_health_routes,
 )
 from .routes import (
+    ui_health as ui_health_routes,  # phase-824d
+)
+from .routes import (
     webauthn as webauthn_routes,
 )
 from .routes.canonical_lists import migrate_legacy_entries
@@ -421,6 +424,7 @@ def create_app() -> FastAPI:
     app.include_router(threat_intel.router)  # phase-85
     app.include_router(snapshots.router)  # phase-237
     app.include_router(tls_health_routes.router)  # phase-237
+    app.include_router(ui_health_routes.router)  # phase-824d
     app.include_router(attack_mode.router)  # phase-247
     app.include_router(attack.router)  # phase-247 / phase-250
     app.include_router(offense_routes.router)  # phase-248

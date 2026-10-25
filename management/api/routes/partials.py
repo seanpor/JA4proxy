@@ -119,13 +119,13 @@ async def _find_manual_attribution(redis, client_ip: str, event_ts: float) -> Op
 
 
 async def _get_dial(redis) -> int:
-    """Read current dial from Redis (default 0)."""
-    raw: Optional[str] = await redis.get(_DIAL_KEY)
-    if raw is None:
-        return 0
+    """Read current dial from Redis (default 0). Fail open (return 0) if Redis errors."""
     try:
+        raw: Optional[str] = await redis.get(_DIAL_KEY)
+        if raw is None:
+            return 0
         return int(raw)
-    except ValueError:
+    except Exception:  # noqa: BLE001
         return 0
 
 
@@ -1379,6 +1379,7 @@ async def intelligence_partial(
 
     high_findings: list[dict] = []
     total_unreviewed = 0
+    total_high = 0
 
     try:
         raw_ids = await redis.zrevrange(_INTELLIGENCE_INDEX, 0, 49)

@@ -220,7 +220,11 @@ async def attack_mode_indicator(
     """
     from fastapi.responses import HTMLResponse
 
-    raw = await redis.get(_ATTACK_MODE_KEY)
+    try:
+        raw = await redis.get(_ATTACK_MODE_KEY)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("attack_mode_indicator | event=redis_error | error=%s", exc)
+        raw = None
     if raw:
         return HTMLResponse(
             '<span class="w-2 h-2 rounded-full bg-red-500 ml-1 inline-block" '
