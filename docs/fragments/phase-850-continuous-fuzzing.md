@@ -1,0 +1,4 @@
+- Added `.github/workflows/fuzzing.yml` for continuous daily automated fuzz testing with corpus caching.
+- Implemented native Go fuzz targets for `internal/quic` (`FuzzParseClientHelloFeatures`), `internal/webhook` (`FuzzComputeHMAC`, `FuzzWebhookEndpointRedaction`), and `internal/config` (`FuzzLoadConfigYAML`).
+- Updated `make test-go-fuzz-smoke` to cover all 8 native fuzz targets across parsers and security logic.
+- Closed out 11 historical deferred phases (109-117, 120, 400) whose findings were superseded and remediated in Phase 118, 119, and 500.
