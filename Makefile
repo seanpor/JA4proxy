@@ -1318,11 +1318,15 @@ test-go-redis-tls:  ## Go Redis TLS smoke test
 	@trap 'docker compose -f deploy/docker/docker-compose.redis-tls.yml down -v' EXIT; \
 	  GOROOT=$(GOROOT) go test -race -count=1 ./internal/redis/... -run 'TLS|HealthCheck'
 
-test-go-fuzz-smoke:  ## Run Go native fuzz smoke tests (10s per target)
-	$(GO) test -run='^$$' -fuzz='^FuzzClientHello$$' -fuzztime=10s ./cmd/ja4pd/
-	$(GO) test -run='^$$' -fuzz='^FuzzReadProxyProtocol$$' -fuzztime=10s ./cmd/ja4pd/
-	$(GO) test -run='^$$' -fuzz='^FuzzReadProxyProtocolV2$$' -fuzztime=10s ./cmd/ja4pd/
-	$(GO) test -run='^$$' -fuzz='^FuzzParseClientHello$$' -fuzztime=10s ./internal/tls/
+test-go-fuzz-smoke:  ## Run Go native fuzz smoke tests across all targets
+	$(GO) test -run='^$$' -fuzz='^FuzzClientHello$$' -fuzztime=5s ./cmd/ja4pd/
+	$(GO) test -run='^$$' -fuzz='^FuzzReadProxyProtocol$$' -fuzztime=5s ./cmd/ja4pd/
+	$(GO) test -run='^$$' -fuzz='^FuzzReadProxyProtocolV2$$' -fuzztime=5s ./cmd/ja4pd/
+	$(GO) test -run='^$$' -fuzz='^FuzzParseClientHello$$' -fuzztime=5s ./internal/tls/
+	$(GO) test -run='^$$' -fuzz='^FuzzParseClientHelloFeatures$$' -fuzztime=5s ./internal/quic/
+	$(GO) test -run='^$$' -fuzz='^FuzzComputeHMAC$$' -fuzztime=5s ./internal/webhook/
+	$(GO) test -run='^$$' -fuzz='^FuzzWebhookEndpointRedaction$$' -fuzztime=5s ./internal/webhook/
+	$(GO) test -run='^$$' -fuzz='^FuzzLoadConfigYAML$$' -fuzztime=5s ./internal/config/
 
 .PHONY: test-go-fuzz-smoke
 

@@ -218,8 +218,8 @@ phases:
       Phase 118*/119* chained-branch remediations. 54/54 findings FIXED.
   109:
     name: PROXY Protocol Hardening & Scrubbing
-    status: DEFERRED
-    action_plan: docs/phases/PHASE_109.md
+    status: CLOSED
+    action_plan: docs/phases/cancelled/PHASE_109.md
     dependencies:
     - 108
     size: MEDIUM
@@ -227,8 +227,8 @@ phases:
     summary: "Superseded by Phase 118 \u2014 PROXY-header scrubbing closed via findings register (118a/b, 116a)."
   110:
     name: Management API Security Hardening
-    status: DEFERRED
-    action_plan: docs/phases/PHASE_110.md
+    status: CLOSED
+    action_plan: docs/phases/cancelled/PHASE_110.md
     dependencies:
     - 108
     size: MEDIUM
@@ -237,8 +237,8 @@ phases:
       \ via findings register (110e, 118c/d/e/h)."
   111:
     name: Security Logic & Tarpit Hardening
-    status: DEFERRED
-    action_plan: docs/phases/PHASE_111.md
+    status: CLOSED
+    action_plan: docs/phases/cancelled/PHASE_111.md
     dependencies:
     - 108
     size: SMALL
@@ -246,8 +246,8 @@ phases:
     summary: "Superseded by Phase 118 \u2014 fail-closed tarpit and BlockNonTLS enforcement closed via findings register (111a)."
   112:
     name: Session & Data Integrity Hardening
-    status: DEFERRED
-    action_plan: docs/phases/PHASE_112.md
+    status: CLOSED
+    action_plan: docs/phases/cancelled/PHASE_112.md
     dependencies:
     - 108
     size: MEDIUM
@@ -256,8 +256,8 @@ phases:
       \ register (118f/g/m)."
   113:
     name: Proxy Stability & Audit Instrumentation
-    status: DEFERRED
-    action_plan: docs/phases/PHASE_113.md
+    status: CLOSED
+    action_plan: docs/phases/cancelled/PHASE_113.md
     dependencies:
     - 108
     size: SMALL
@@ -266,8 +266,8 @@ phases:
       \ via findings register."
   114:
     name: Supply Chain & Infrastructure Hygiene
-    status: DEFERRED
-    action_plan: docs/phases/PHASE_114.md
+    status: CLOSED
+    action_plan: docs/phases/cancelled/PHASE_114.md
     dependencies:
     - 108
     size: SMALL
@@ -276,8 +276,8 @@ phases:
       \ via findings register."
   115:
     name: Web & Rendering Security
-    status: DEFERRED
-    action_plan: docs/phases/PHASE_115.md
+    status: CLOSED
+    action_plan: docs/phases/cancelled/PHASE_115.md
     dependencies:
     - 108
     size: SMALL
@@ -285,8 +285,8 @@ phases:
     summary: "Superseded by Phase 118 \u2014 HTMX XSS and WeasyPrint SSRF/LFI closed via findings register."
   116:
     name: Protocol Parser Hardening
-    status: DEFERRED
-    action_plan: docs/phases/PHASE_116.md
+    status: CLOSED
+    action_plan: docs/phases/cancelled/PHASE_116.md
     dependencies:
     - 108
     size: SMALL
@@ -295,8 +295,8 @@ phases:
       \ (116a, 118a/b)."
   117:
     name: DMZ Network Hardening & Anti-Smuggling
-    status: DEFERRED
-    action_plan: docs/phases/PHASE_117.md
+    status: CLOSED
+    action_plan: docs/phases/cancelled/PHASE_117.md
     dependencies:
     - 108
     size: MEDIUM
@@ -325,8 +325,8 @@ phases:
       \ verification) closed via phase-119a\u2026119t chained-branch remediations."
   120:
     name: 'Independent Red Team Findings: Design Flaws, Infrastructure & Logic Bugs (RETIRED)'
-    status: DEFERRED
-    action_plan: docs/phases/PHASE_120.md
+    status: CLOSED
+    action_plan: docs/phases/cancelled/PHASE_120.md
     dependencies:
     - 108
     size: LARGE
@@ -3037,8 +3037,8 @@ phases:
       — switched PoC compose to --requirepass-file with Docker secrets)."
   400:
     name: Comprehensive Security Review
-    status: DEFERRED
-    action_plan: docs/phases/PHASE_400.md
+    status: CLOSED
+    action_plan: docs/phases/cancelled/PHASE_400.md
     dependencies: []
     size: LARGE
     summary: "Initial codebase security review that identified 12 findings (F-400-01 through F-400-12) and 7 stale findings.yaml\
@@ -5464,3 +5464,16 @@ phases:
     size: SMALL
     summary: "COMPLETE 2026-10-23. PR #645 (f05ebcea). Issue #622. GitHub does not dispatch workflows for events caused by the default GITHUB_TOKEN (anti-recursion), so a PR merged by the Actions app — auto-merge workflows, or any bot using that token — lands on main with NO push run: the commit that is now the tip was never built or scanned, while the PR's checks were green before it existed. Merges with a personal token are unaffected, which is why the gap looked intermittent. Fixing the root cause needs a standing repo-wide PAT; instead: scripts/ensure_main_verified.py decides purely whether a commit has a CI run (queued/in-progress counts; a completed FAILED run also counts, so the verifier cannot loop) and with --apply dispatches ci.yml against main. Wired to workflow_run of the two auto-merge workflows (repair in ~1 min) plus a :13/:43 sweep and workflow_dispatch. Never a required check: a verifier must not be the thing that needs verifying."
 
+
+  850:
+    name: "Continuous Fuzzing & Advanced Testing Hardening"
+    status: COMPLETE
+    completed: '2026-10-26'
+    action_plan: docs/phases/complete/PHASE_850.md
+    dependencies: [846]
+    size: MEDIUM
+    summary: "COMPLETE 2026-10-26. Establishes continuous automated fuzzing in
+      GitHub Actions (.github/workflows/fuzzing.yml), extends native Go fuzzing
+      across internal/quic, internal/webhook, and internal/config, updates
+      make test-go-fuzz-smoke, and closes out all 11 superseded deferred historical
+      phases."

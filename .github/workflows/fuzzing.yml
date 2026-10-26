@@ -1,0 +1,63 @@
+---
+# Phase 850 — Continuous Automated Fuzzing.
+#
+# Runs Go native fuzz targets for parsers and security logic (cmd/ja4pd,
+# internal/tls, internal/quic, internal/webhook, internal/config).
+# Scheduled daily off-peak and triggers manually on demand via workflow_dispatch.
+#
+# All third-party actions are SHA-pinned; see .github/workflows/ci.yml's
+# header comment for the pinning procedure.
+
+name: Continuous Fuzzing
+
+on:
+  schedule:
+    - cron: "0 2 * * *"  # 02:00 UTC daily — off-peak
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fuzz:
+    name: Go Native Fuzzing
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
+        with:
+          go-version: "1.27.3"
+
+      - name: Cache Fuzz Corpus
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: ~/.cache/go-build/fuzz
+          key: go-fuzz-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            go-fuzz-${{ runner.os }}-
+
+      - name: Run Fuzz Targets (cmd/ja4pd)
+        run: |
+          go test -run='^$' -fuzz='^FuzzClientHello$' -fuzztime=30s ./cmd/ja4pd/
+          go test -run='^$' -fuzz='^FuzzReadProxyProtocol$' -fuzztime=30s ./cmd/ja4pd/
+          go test -run='^$' -fuzz='^FuzzReadProxyProtocolV2$' -fuzztime=30s ./cmd/ja4pd/
+
+      - name: Run Fuzz Targets (internal/tls)
+        run: |
+          go test -run='^$' -fuzz='^FuzzParseClientHello$' -fuzztime=30s ./internal/tls/
+          go test -run='^$' -fuzz='^FuzzDifferentialClientHello$' -fuzztime=30s ./internal/tls/
+
+      - name: Run Fuzz Targets (internal/quic)
+        run: |
+          go test -run='^$' -fuzz='^FuzzParseClientHelloFeatures$' -fuzztime=30s ./internal/quic/
+
+      - name: Run Fuzz Targets (internal/webhook)
+        run: |
+          go test -run='^$' -fuzz='^FuzzComputeHMAC$' -fuzztime=30s ./internal/webhook/
+          go test -run='^$' -fuzz='^FuzzWebhookEndpointRedaction$' -fuzztime=30s ./internal/webhook/
+
+      - name: Run Fuzz Targets (internal/config)
+        run: |
+          go test -run='^$' -fuzz='^FuzzLoadConfigYAML$' -fuzztime=30s ./internal/config/
