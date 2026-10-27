@@ -5487,3 +5487,12 @@ phases:
     size: SMALL
     summary: "COMPLETE 2026-10-27. Characterized hot-path allocations in ParseClientHello and ComputeJA4. Optimized JA4 computation heap allocations from 41 allocs/op (864 B/op) to 4 allocs/op (128 B/op) with ~4x throughput speedup (717ns vs 2886ns). Added internal/tls/alloc_budget_test.go enforcing strict allocs/run budgets (ParseClientHello <= 8, ComputeJA4 <= 5)."
 
+  852:
+    name: "Authlib 1.9.1 Security Upgrade & JWS Signature Bypass Regression Suite"
+    status: COMPLETE
+    completed: '2026-10-27'
+    action_plan: docs/phases/complete/PHASE_852.md
+    dependencies: [851a]
+    size: SMALL
+    summary: "COMPLETE 2026-10-27. Remediates 7 Dependabot CVE alerts in Authlib including CVE-2026-96760 (Critical, empty signatures verification bypass) and CVE-2026-114616 (High, empty HMAC key). Added management/tests/test_authlib_cve_regression.py asserting rejection of forged JWS payloads and empty keys."
+
