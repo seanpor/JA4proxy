@@ -4,4 +4,7 @@
 # Word-split by the shell at the point of use (one flag pair per line).
 
 --ignore-vuln CVE-2026-114603
+--ignore-vuln CVE-2026-116684
+--ignore-vuln CVE-2026-116685
+--ignore-vuln CVE-2026-116686
 --ignore-vuln CVE-2026-59951

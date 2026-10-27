@@ -355,7 +355,7 @@ waivers:
     source: pip-audit
     carriers: ["mcp"]
     rationale: >-
-      mcp 1.29.0. semgrep hard-pins mcp==1.29.0 and its latest release (1.181.0)
+      mcp 1.29.0. semgrep hard-pins mcp==1.29.0 and its latest release (1.182.1)
       still does, so raising the floor breaks semgrep's resolution. The CVE is
       unbounded session accumulation in MCP's StreamableHTTP SERVER transport;
       JA4proxy never runs an MCP server. mcp is pulled in only by semgrep (a CLI
@@ -365,6 +365,58 @@ waivers:
     recheck_trigger: "semgrep relaxes its mcp pin to allow >= 1.30.0"
     created: 2026-10-17
     expires: 2027-01-14
+
+  - id: CVE-2026-116684
+    scope: third-party
+    severity: HIGH
+    source: pip-audit
+    carriers: ["mcp"]
+    rationale: >-
+      mcp 1.29.0 missing audience validation in server-side bearer authentication.
+      semgrep hard-pins mcp==1.29.0 and its latest release (1.182.1) still does,
+      so raising the floor breaks semgrep's resolution. JA4proxy never runs an MCP
+      server; mcp is pulled in only as a CLI dependency of semgrep and is not
+      imported by any first-party module.
+    reachability: not-imported
+    fix_available: false
+    recheck_trigger: "semgrep relaxes its mcp pin to allow >= 1.30.0"
+    created: 2026-10-27
+    expires: 2027-01-25
+
+  - id: CVE-2026-116685
+    scope: third-party
+    severity: HIGH
+    source: pip-audit
+    carriers: ["mcp"]
+    rationale: >-
+      mcp 1.29.0 HTTP client transports follow cross-origin redirects carrying
+      custom headers. semgrep hard-pins mcp==1.29.0 and its latest release (1.182.1)
+      still does, so raising the floor breaks semgrep's resolution. JA4proxy never
+      uses MCP client transports; mcp is pulled in only as a CLI dependency of
+      semgrep and is not imported by any first-party module.
+    reachability: not-imported
+    fix_available: false
+    recheck_trigger: "semgrep relaxes its mcp pin to allow >= 1.30.0"
+    created: 2026-10-27
+    expires: 2027-01-25
+
+  - id: CVE-2026-116686
+    scope: third-party
+    severity: HIGH
+    source: pip-audit
+    carriers: ["mcp"]
+    rationale: >-
+      mcp 1.29.0 client tool output validation resolves arbitrary remote or local
+      $ref URLs via default jsonschema resolver. semgrep hard-pins mcp==1.29.0 and
+      its latest release (1.182.1) still does, so raising the floor breaks semgrep's
+      resolution. JA4proxy never runs an MCP client or connects to untrusted MCP
+      servers; mcp is pulled in only as a CLI dependency of semgrep and is not
+      imported by any first-party module.
+    reachability: not-imported
+    fix_available: false
+    recheck_trigger: "semgrep relaxes its mcp pin to allow >= 1.30.0"
+    created: 2026-10-27
+    expires: 2027-01-25
 
   - id: CVE-2026-114603
     scope: third-party
@@ -427,3 +479,22 @@ waivers:
       grafana/grafana or prom/alertmanager publish a tag rebuilt with Go >= 1.26.10
     created: 2026-10-23
     expires: 2027-01-21
+
+  # ── libbrotli1 (CVE-2026-111497) in Grafana Ubuntu base ───────────────────
+  - id: CVE-2026-111497
+    scope: third-party
+    severity: MEDIUM
+    source: trivy
+    carriers: ["grafana/grafana:13.2.4-ubuntu"]
+    rationale: >-
+      Out-of-bounds write in libbrotli1 1.1.0-2build2 (fixed in 1.1.0-2ubuntu0.1)
+      in grafana 13.2.4-ubuntu base. Grafana is a third-party pinned image bound
+      only to internal monitoring network (${AGENT_BIND_IP:-127.0.0.1}); it does
+      not decompress untrusted brotli payloads. Pinned upstream image we cannot
+      rebuild independently; the fix only reaches us when Grafana rebuilds on
+      the updated Ubuntu 24.04 package.
+    reachability: internal-monitoring-only
+    fix_available: false
+    recheck_trigger: "grafana/grafana publishes a tag rebuilt with libbrotli1 >= 1.1.0-2ubuntu0.1"
+    created: 2026-10-27
+    expires: 2027-01-25

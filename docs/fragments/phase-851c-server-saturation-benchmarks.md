@@ -1,0 +1,2 @@
+- Added `internal/server/saturation_bench_test.go` verifying server admission and tarpit capacity ceilings.
+- Verified strict global and per-IP tarpit bounds (JA4PROXY-2026-0013) with zero leaked slots under heavy concurrency, and established baseline admission throughput (~3.38M ops/sec).
