@@ -31,6 +31,6 @@ qrcode[pil]==8.2         # phase-79: TOTP setup QR codes
 cryptography==50.0.1       # phase-79: Fernet encryption for TOTP secrets (PR #336: was 48.0.1 -- webauthn 3.0.0 requires cryptography>=49.0.0) (phase-813: CVE-2026-69247 fix)
 webauthn==3.0.0            # phase-79: WebAuthn/FIDO2 hardware key MFA
 python3-saml==1.16.0       # phase-79: SAML 2.0 SSO (requires xmlsec1 system package)
-authlib==1.8.0             # phase-79: OIDC / OAuth 2.0 (PKCE, token validation)
+authlib==1.9.1             # phase-79: OIDC / OAuth 2.0 (PKCE, token validation)
 pyyaml==6.0.3              # phase-100: proxy.yml SSO role mapping (Gap 6)
 prometheus-client==0.26.0   # console metrics — management_ui_rules.yml alerts on these
