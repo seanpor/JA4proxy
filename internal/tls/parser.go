@@ -152,12 +152,11 @@ func parseClientHelloBody(body []byte, rawRecord []byte) (*ClientHelloInfo, erro
 	if csLen%2 != 0 {
 		return nil, fmt.Errorf("invalid cipher suites length %d", csLen)
 	}
-	for i := 0; i < csLen; i += 2 {
-		cs := binary.BigEndian.Uint16(hello[pos+i : pos+i+2])
-		if info.CipherSuites == nil {
-			info.CipherSuites = make([]uint16, 0, csLen/2)
+	if csLen > 0 {
+		info.CipherSuites = make([]uint16, csLen/2)
+		for i := 0; i < csLen; i += 2 {
+			info.CipherSuites[i/2] = binary.BigEndian.Uint16(hello[pos+i : pos+i+2])
 		}
-		info.CipherSuites = append(info.CipherSuites, cs)
 	}
 	pos += csLen
 
@@ -298,6 +297,10 @@ func parseSupportedVersions(info *ClientHelloInfo, data []byte) {
 	if 1+listLen > len(data) || listLen%2 != 0 {
 		return
 	}
+	count := listLen / 2
+	if info.SupportedVersions == nil {
+		info.SupportedVersions = make([]uint16, 0, count)
+	}
 	for i := 0; i < listLen; i += 2 {
 		v := binary.BigEndian.Uint16(data[1+i : 3+i])
 		info.SupportedVersions = append(info.SupportedVersions, v)
@@ -313,6 +316,10 @@ func parseSupportedGroups(info *ClientHelloInfo, data []byte) {
 	if 2+listLen > len(data) || listLen%2 != 0 {
 		return
 	}
+	count := listLen / 2
+	if info.SupportedGroups == nil {
+		info.SupportedGroups = make([]uint16, 0, count)
+	}
 	for i := 0; i < listLen; i += 2 {
 		g := binary.BigEndian.Uint16(data[2+i : 4+i])
 		info.SupportedGroups = append(info.SupportedGroups, g)
@@ -327,6 +334,10 @@ func parseSignatureAlgorithms(info *ClientHelloInfo, data []byte) {
 	listLen := int(binary.BigEndian.Uint16(data[0:2]))
 	if 2+listLen > len(data) || listLen%2 != 0 {
 		return
+	}
+	count := listLen / 2
+	if info.SignatureAlgorithms == nil {
+		info.SignatureAlgorithms = make([]uint16, 0, count)
 	}
 	for i := 0; i < listLen; i += 2 {
 		s := binary.BigEndian.Uint16(data[2+i : 4+i])
