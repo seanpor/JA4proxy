@@ -355,7 +355,7 @@ waivers:
     source: pip-audit
     carriers: ["mcp"]
     rationale: >-
-      mcp 1.29.0. semgrep hard-pins mcp==1.29.0 and its latest release (1.181.0)
+      mcp 1.29.0. semgrep hard-pins mcp==1.29.0 and its latest release (1.182.1)
       still does, so raising the floor breaks semgrep's resolution. The CVE is
       unbounded session accumulation in MCP's StreamableHTTP SERVER transport;
       JA4proxy never runs an MCP server. mcp is pulled in only by semgrep (a CLI
@@ -365,6 +365,58 @@ waivers:
     recheck_trigger: "semgrep relaxes its mcp pin to allow >= 1.30.0"
     created: 2026-10-17
     expires: 2027-01-14
+
+  - id: CVE-2026-116684
+    scope: third-party
+    severity: HIGH
+    source: pip-audit
+    carriers: ["mcp"]
+    rationale: >-
+      mcp 1.29.0 missing audience validation in server-side bearer authentication.
+      semgrep hard-pins mcp==1.29.0 and its latest release (1.182.1) still does,
+      so raising the floor breaks semgrep's resolution. JA4proxy never runs an MCP
+      server; mcp is pulled in only as a CLI dependency of semgrep and is not
+      imported by any first-party module.
+    reachability: not-imported
+    fix_available: false
+    recheck_trigger: "semgrep relaxes its mcp pin to allow >= 1.30.0"
+    created: 2026-10-27
+    expires: 2027-01-25
+
+  - id: CVE-2026-116685
+    scope: third-party
+    severity: HIGH
+    source: pip-audit
+    carriers: ["mcp"]
+    rationale: >-
+      mcp 1.29.0 HTTP client transports follow cross-origin redirects carrying
+      custom headers. semgrep hard-pins mcp==1.29.0 and its latest release (1.182.1)
+      still does, so raising the floor breaks semgrep's resolution. JA4proxy never
+      uses MCP client transports; mcp is pulled in only as a CLI dependency of
+      semgrep and is not imported by any first-party module.
+    reachability: not-imported
+    fix_available: false
+    recheck_trigger: "semgrep relaxes its mcp pin to allow >= 1.30.0"
+    created: 2026-10-27
+    expires: 2027-01-25
+
+  - id: CVE-2026-116686
+    scope: third-party
+    severity: HIGH
+    source: pip-audit
+    carriers: ["mcp"]
+    rationale: >-
+      mcp 1.29.0 client tool output validation resolves arbitrary remote or local
+      $ref URLs via default jsonschema resolver. semgrep hard-pins mcp==1.29.0 and
+      its latest release (1.182.1) still does, so raising the floor breaks semgrep's
+      resolution. JA4proxy never runs an MCP client or connects to untrusted MCP
+      servers; mcp is pulled in only as a CLI dependency of semgrep and is not
+      imported by any first-party module.
+    reachability: not-imported
+    fix_available: false
+    recheck_trigger: "semgrep relaxes its mcp pin to allow >= 1.30.0"
+    created: 2026-10-27
+    expires: 2027-01-25
 
   - id: CVE-2026-114603
     scope: third-party

@@ -64,6 +64,39 @@ rationale.
 - **Re-evaluation trigger**: a semgrep release that pins `mcp>=1.30.0` (then
   upgrade semgrep and drop this exception), or any first-party use of `mcp`.
 
+## CVE-2026-116684
+- **Severity**: HIGH (CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N)
+- **Component**: `mcp` 1.29.0 (transitive dependency of `semgrep`, not imported by any JA4proxy code)
+- **Accepted by**: Gemini
+- **Date accepted**: 2026-10-27
+- **Expiry**: 2027-01-25  (90 days)
+- **Upstream tracker**: https://github.com/modelcontextprotocol/python-sdk/security/advisories/GHSA-79g7-5wgw-9cp6
+- **Reason no upgrade fix is possible**: `semgrep` 1.182.1 hard-pins `mcp==1.29.0`; `mcp` 1.30.0 is the fix. Raising the floor independently breaks semgrep's pip resolution.
+- **Rationale**: Missing audience validation (`aud`) in server-side bearer authentication when an authorization server issues tokens for multiple resource servers. JA4proxy does not run an MCP server. `mcp` is pulled in only as a CLI dependency of semgrep in the tools container and is imported by no first-party module.
+- **Re-evaluation trigger**: Semgrep relaxes its `mcp` pin to allow `>=1.30.0`, or any first-party use of `mcp`.
+
+## CVE-2026-116685
+- **Severity**: HIGH (CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N)
+- **Component**: `mcp` 1.29.0 (transitive dependency of `semgrep`, not imported by any JA4proxy code)
+- **Accepted by**: Gemini
+- **Date accepted**: 2026-10-27
+- **Expiry**: 2027-01-25  (90 days)
+- **Upstream tracker**: https://github.com/modelcontextprotocol/python-sdk/security/advisories/GHSA-mrm5-h9w8-592v
+- **Reason no upgrade fix is possible**: `semgrep` 1.182.1 hard-pins `mcp==1.29.0`; `mcp` 1.30.0 is the fix.
+- **Rationale**: Streamable HTTP and SSE client transports follow cross-origin redirects carrying custom request headers or redirect body (307/308). JA4proxy never uses MCP client transports. `mcp` is pulled in only as a CLI dependency of semgrep in the tools container and is imported by no first-party module.
+- **Re-evaluation trigger**: Semgrep relaxes its `mcp` pin to allow `>=1.30.0`, or any first-party use of `mcp`.
+
+## CVE-2026-116686
+- **Severity**: HIGH (CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:H)
+- **Component**: `mcp` 1.29.0 (transitive dependency of `semgrep`, not imported by any JA4proxy code)
+- **Accepted by**: Gemini
+- **Date accepted**: 2026-10-27
+- **Expiry**: 2027-01-25  (90 days)
+- **Upstream tracker**: https://github.com/modelcontextprotocol/python-sdk/security/advisories/GHSA-2g55-33vv-6f4m
+- **Reason no upgrade fix is possible**: `semgrep` 1.182.1 hard-pins `mcp==1.29.0`; `mcp` 1.30.0 is the fix.
+- **Rationale**: Tool output schema validation in MCP clients resolves arbitrary remote or local `$ref` URLs using `jsonschema`'s default resolver, leading to SSRF or event-loop stall. JA4proxy never runs an MCP client. `mcp` is pulled in only as a CLI dependency of semgrep in the tools container and is imported by no first-party module.
+- **Re-evaluation trigger**: Semgrep relaxes its `mcp` pin to allow `>=1.30.0`, or any first-party use of `mcp`.
+
 ## CVE-2026-114603
 - **Severity**: MEDIUM (CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L; upstream advisory rates it Medium — availability only, no data exposure or code execution)
 - **Component**: `opentelemetry-api` 1.37.0 (transitive dependency of `semgrep`, not imported by any JA4proxy code)
