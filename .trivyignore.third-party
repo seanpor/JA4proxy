@@ -113,6 +113,21 @@ CVE-2026-100354 exp:2027-01-15
 # pcre2
 CVE-2026-103111 exp:2027-01-05
 
+# Out-of-bounds write in libbrotli1 1.1.0-2build2 (fixed in 1.1.0-2ubuntu0.1)
+# in grafana 13.2.4-ubuntu base. Grafana is a third-party pinned image bound
+# only to internal monitoring network (${AGENT_BIND_IP:-127.0.0.1}); it does
+# not decompress untrusted brotli payloads. Pinned upstream image we cannot
+# rebuild independently; the fix only reaches us when Grafana rebuilds on the
+# updated Ubuntu 24.04 package.
+#
+# Carriers:
+#   - grafana/grafana:13.2.4-ubuntu
+# Reachability: internal-monitoring-only
+# Severity: MEDIUM
+# Re-check when: grafana/grafana publishes a tag rebuilt with libbrotli1 >=
+# 1.1.0-2ubuntu0.1
+CVE-2026-111497 exp:2027-01-25
+
 # Go crypto/x509 can build a verified chain through an intermediate
 # certificate the platform trust store no longer trusts (CVSS 6.8,
 # AV:N/AC:H/PR:N/UI:R). Trivy reports it against the Go stdlib embedded in

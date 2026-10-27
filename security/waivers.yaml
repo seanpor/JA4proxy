@@ -479,3 +479,22 @@ waivers:
       grafana/grafana or prom/alertmanager publish a tag rebuilt with Go >= 1.26.10
     created: 2026-10-23
     expires: 2027-01-21
+
+  # ── libbrotli1 (CVE-2026-111497) in Grafana Ubuntu base ───────────────────
+  - id: CVE-2026-111497
+    scope: third-party
+    severity: MEDIUM
+    source: trivy
+    carriers: ["grafana/grafana:13.2.4-ubuntu"]
+    rationale: >-
+      Out-of-bounds write in libbrotli1 1.1.0-2build2 (fixed in 1.1.0-2ubuntu0.1)
+      in grafana 13.2.4-ubuntu base. Grafana is a third-party pinned image bound
+      only to internal monitoring network (${AGENT_BIND_IP:-127.0.0.1}); it does
+      not decompress untrusted brotli payloads. Pinned upstream image we cannot
+      rebuild independently; the fix only reaches us when Grafana rebuilds on
+      the updated Ubuntu 24.04 package.
+    reachability: internal-monitoring-only
+    fix_available: false
+    recheck_trigger: "grafana/grafana publishes a tag rebuilt with libbrotli1 >= 1.1.0-2ubuntu0.1"
+    created: 2026-10-27
+    expires: 2027-01-25
