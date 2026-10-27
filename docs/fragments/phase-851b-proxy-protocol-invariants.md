@@ -1,0 +1,2 @@
+- Added property-based invariant test suite (`internal/proxy/invariant_test.go`) using `rapid`.
+- Verified 100/100 property iterations for parser totality, LOCAL header discard semantics (JA4PROXY-2026-0113), length bounds, and double-header anti-smuggling invariants (JA4PROXY-2026-0002, JA4PROXY-2026-0110).
