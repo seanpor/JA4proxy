@@ -1,0 +1,2 @@
+- Optimized TLS hot-path JA4 fingerprint computation allocations from 41 allocs/op (864 B/op) to 4 allocs/op (128 B/op), delivering ~4x faster throughput (717ns vs 2886ns).
+- Added `internal/tls/alloc_budget_test.go` enforcing strict allocation budgets on `ParseClientHello` (<= 8 allocs/op) and `ComputeJA4` (<= 5 allocs/op).

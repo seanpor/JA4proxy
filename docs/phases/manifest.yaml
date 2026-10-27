@@ -5477,3 +5477,13 @@ phases:
       across internal/quic, internal/webhook, and internal/config, updates
       make test-go-fuzz-smoke, and closes out all 11 superseded deferred historical
       phases."
+
+  851a:
+    name: "TLS Hot-Path Zero-Allocation & Strict Allocation Budget Enforcement"
+    status: COMPLETE
+    completed: '2026-10-27'
+    action_plan: docs/phases/complete/PHASE_851A.md
+    dependencies: [850]
+    size: SMALL
+    summary: "COMPLETE 2026-10-27. Characterized hot-path allocations in ParseClientHello and ComputeJA4. Optimized JA4 computation heap allocations from 41 allocs/op (864 B/op) to 4 allocs/op (128 B/op) with ~4x throughput speedup (717ns vs 2886ns). Added internal/tls/alloc_budget_test.go enforcing strict allocs/run budgets (ParseClientHello <= 8, ComputeJA4 <= 5)."
+

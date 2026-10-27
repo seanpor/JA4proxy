@@ -2,9 +2,8 @@ package tls
 
 import (
 	"crypto/sha256"
-	"fmt"
-	"sort"
-	"strings"
+	"encoding/hex"
+	"slices"
 )
 
 // greaseValues is the set of GREASE values defined in RFC 8701.
@@ -19,6 +18,17 @@ var greaseValues = map[uint16]bool{
 // isGREASE reports whether value is a GREASE value.
 func isGREASE(v uint16) bool {
 	return greaseValues[v]
+}
+
+const hexChars = "0123456789abcdef"
+
+func appendHexUint16(dst []byte, v uint16) []byte {
+	return append(dst,
+		hexChars[(v>>12)&0xf],
+		hexChars[(v>>8)&0xf],
+		hexChars[(v>>4)&0xf],
+		hexChars[v&0xf],
+	)
 }
 
 // ComputeJA4 generates the JA4 fingerprint from a parsed ClientHelloInfo.
@@ -56,7 +66,7 @@ func ComputeJA4(info *ClientHelloInfo) string {
 
 	// ── Cipher suites ─────────────────────────────────────────────────────
 	// Filter GREASE; count; hash sorted list.
-	var filteredCiphers []uint16
+	filteredCiphers := make([]uint16, 0, len(info.CipherSuites))
 	for _, cs := range info.CipherSuites {
 		if !isGREASE(cs) {
 			filteredCiphers = append(filteredCiphers, cs)
@@ -70,8 +80,8 @@ func ComputeJA4(info *ClientHelloInfo) string {
 
 	// ── Extensions ────────────────────────────────────────────────────────
 	// Filter GREASE; SNI *is* included in the count but excluded from the hash.
-	var filteredExts []uint16
-	var hashableExts []uint16
+	filteredExts := make([]uint16, 0, len(info.Extensions))
+	hashableExts := make([]uint16, 0, len(info.Extensions))
 	for _, ext := range info.Extensions {
 		if !isGREASE(ext) {
 			filteredExts = append(filteredExts, ext)
@@ -87,7 +97,7 @@ func ComputeJA4(info *ClientHelloInfo) string {
 	}
 
 	// ── Section C Hash (Extensions + Signature Algorithms) ────────────────
-	var filteredSigAlgs []uint16
+	filteredSigAlgs := make([]uint16, 0, len(info.SignatureAlgorithms))
 	for _, sa := range info.SignatureAlgorithms {
 		if !isGREASE(sa) {
 			filteredSigAlgs = append(filteredSigAlgs, sa)
@@ -99,11 +109,24 @@ func ComputeJA4(info *ClientHelloInfo) string {
 	// First + last char of first ALPN value, or "00" if none.
 	alpn := alpnString(info.ALPNProtocols)
 
-	return fmt.Sprintf("%s%s%s%02d%02d%s_%s_%s",
-		proto, version, sni,
-		cipherCount, extCount, alpn,
-		cipherHash, extHash,
-	)
+	// Build output string directly with 36 chars: {proto(1)}{version(2)}{sni(1)}{cc(2)}{ec(2)}{alpn(2)}_{ch(12)}_{eh(12)} = 36
+	var buf [36]byte
+	buf[0] = proto[0]
+	buf[1] = version[0]
+	buf[2] = version[1]
+	buf[3] = sni[0]
+	buf[4] = '0' + byte(cipherCount/10)
+	buf[5] = '0' + byte(cipherCount%10)
+	buf[6] = '0' + byte(extCount/10)
+	buf[7] = '0' + byte(extCount%10)
+	buf[8] = alpn[0]
+	buf[9] = alpn[1]
+	buf[10] = '_'
+	copy(buf[11:23], cipherHash)
+	buf[23] = '_'
+	copy(buf[24:36], extHash)
+
+	return string(buf[:])
 }
 
 // ComputeJA4FromFields generates the JA4 fingerprint from raw fields.
@@ -156,31 +179,34 @@ func alpnString(protocols []string) string {
 	case 0:
 		return "00"
 	case 1:
-		return string(first[0]) + "0"
+		return string([]byte{first[0], '0'})
 	default:
-		return string(first[0]) + string(first[len(first)-1])
+		return string([]byte{first[0], first[len(first)-1]})
 	}
 }
 
-// hashCiphers returns the Section B component.
+// hashCiphers returns the Section B component (12 hex chars).
 func hashCiphers(ciphers []uint16) string {
 	if len(ciphers) == 0 {
 		return "000000000000"
 	}
 	sorted := make([]uint16, len(ciphers))
 	copy(sorted, ciphers)
-	sort.Slice(sorted, func(i, j int) bool { return sorted[i] < sorted[j] })
+	slices.Sort(sorted)
 
-	parts := make([]string, len(sorted))
+	// Each cipher is 4 hex chars, comma separated: 4*N + (N-1) = 5*N - 1 bytes
+	buf := make([]byte, 0, len(sorted)*5)
 	for i, cs := range sorted {
-		parts[i] = fmt.Sprintf("%04x", cs)
+		if i > 0 {
+			buf = append(buf, ',')
+		}
+		buf = appendHexUint16(buf, cs)
 	}
-	s := strings.Join(parts, ",")
-	h := sha256.Sum256([]byte(s))
-	return fmt.Sprintf("%x", h)[:12]
+	h := sha256.Sum256(buf)
+	return hex.EncodeToString(h[:6])
 }
 
-// hashSectionC returns the Section C component.
+// hashSectionC returns the Section C component (12 hex chars).
 func hashSectionC(exts []uint16, sigAlgs []uint16) string {
 	if len(exts) == 0 {
 		return "000000000000"
@@ -189,27 +215,27 @@ func hashSectionC(exts []uint16, sigAlgs []uint16) string {
 	// 1. Sort Extensions
 	sortedExts := make([]uint16, len(exts))
 	copy(sortedExts, exts)
-	sort.Slice(sortedExts, func(i, j int) bool { return sortedExts[i] < sortedExts[j] })
+	slices.Sort(sortedExts)
 
-	extParts := make([]string, len(sortedExts))
+	buf := make([]byte, 0, len(sortedExts)*5+len(sigAlgs)*5+1)
 	for i, ext := range sortedExts {
-		extParts[i] = fmt.Sprintf("%04x", ext)
+		if i > 0 {
+			buf = append(buf, ',')
+		}
+		buf = appendHexUint16(buf, ext)
 	}
-	extStr := strings.Join(extParts, ",")
 
 	// 2. Original order for SigAlgs
-	var combined string
 	if len(sigAlgs) > 0 {
-		sigParts := make([]string, len(sigAlgs))
+		buf = append(buf, '_')
 		for i, sa := range sigAlgs {
-			sigParts[i] = fmt.Sprintf("%04x", sa)
+			if i > 0 {
+				buf = append(buf, ',')
+			}
+			buf = appendHexUint16(buf, sa)
 		}
-		sigStr := strings.Join(sigParts, ",")
-		combined = extStr + "_" + sigStr
-	} else {
-		combined = extStr
 	}
 
-	h := sha256.Sum256([]byte(combined))
-	return fmt.Sprintf("%x", h)[:12]
+	h := sha256.Sum256(buf)
+	return hex.EncodeToString(h[:6])
 }
