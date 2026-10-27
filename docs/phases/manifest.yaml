@@ -5496,6 +5496,16 @@ phases:
     size: SMALL
     summary: "COMPLETE 2026-10-27. Added internal/proxy/invariant_test.go using rapid property-based testing. Verified parser totality under random inputs, LOCAL command discard semantics (JA4PROXY-2026-0113), header boundary enforcement, and double-header anti-smuggling invariants (JA4PROXY-2026-0002, JA4PROXY-2026-0110)."
 
+  851c:
+    name: "Server Connection Saturation & Tarpit Bounding Benchmarks"
+    status: COMPLETE
+    completed: '2026-10-27'
+    action_plan: docs/phases/complete/PHASE_851C.md
+    dependencies: [851b]
+    size: SMALL
+    summary: "COMPLETE 2026-10-27. Added internal/server/saturation_bench_test.go with concurrency stress tests and admission benchmarks. Verified global and per-IP tarpit concurrency ceilings (JA4PROXY-2026-0013) with zero leaked slots, non-blocking listener admission capacity limits, and 3.38M ops/sec admission throughput."
+
+
 
   852:
     name: "Authlib 1.9.1 Security Upgrade & JWS Signature Bypass Regression Suite"
