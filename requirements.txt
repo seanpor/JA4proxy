@@ -35,7 +35,7 @@ black>=26.5.1
 flake8==7.3.0
 mypy==2.3.1
 isort==9.0.1
-pylint==4.0.8
+pylint==4.0.9
 
 # Compliance and audit
 jsonschema==4.25.1
