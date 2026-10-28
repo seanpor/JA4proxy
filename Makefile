@@ -1332,6 +1332,9 @@ test-go-fuzz-smoke:  ## Run Go native fuzz smoke tests across all targets
 	$(GO) test -run='^$$' -fuzz='^FuzzEffectiveThresholdAndDecider$$' -fuzztime=5s ./internal/security/
 	$(GO) test -run='^$$' -fuzz='^FuzzRiskScorer$$' -fuzztime=5s ./internal/security/
 	$(GO) test -run='^$$' -fuzz='^FuzzPipelineBypassesAndHardBlocks$$' -fuzztime=5s ./internal/security/
+	$(GO) test -run='^$$' -fuzz='^FuzzVerifyPubSubHMAC$$' -fuzztime=5s ./internal/redis/
+	$(GO) test -run='^$$' -fuzz='^FuzzPubSubEnvelopeRoundtrip$$' -fuzztime=5s ./internal/redis/
+	$(GO) test -run='^$$' -fuzz='^FuzzPubSubHandlerDispatch$$' -fuzztime=5s ./internal/redis/
 
 .PHONY: test-go-fuzz-smoke
 
