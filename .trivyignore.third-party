@@ -160,6 +160,21 @@ CVE-2026-111497 exp:2027-01-25
 # with Go >= 1.26.10
 CVE-2026-111943 exp:2027-01-21
 
+# github.com/go-jose/go-jose/v4 DoS when parsing crafted JWKs with large RSA
+# keys. Both Grafana and Alloy are third-party pinned monitoring images bound
+# only to internal loopback/monitoring networks (${AGENT_BIND_IP:-127.0.0.1})
+# and do not parse untrusted user-supplied JWKs. We cannot rebuild these
+# images independently; upstream publishers must ship tags built with go-jose
+# >= 4.1.6.
+#
+# Carriers:
+#   - grafana/alloy:v1.21.2@sha256:89a5a320168387336b9ac3c850609c3ba7757eadd4ae5f1d819deb35e9854b18
+#   - grafana/grafana:13.2.4-ubuntu
+# Reachability: internal-monitoring-only
+# Severity: HIGH
+# Re-check when: grafana and alloy publish tags built with go-jose >= 4.1.6
+CVE-2026-116587 exp:2027-01-26
+
 # OpenSSL DoS (libcrypto3 in Alpine) in a pinned upstream image we cannot
 # rebuild until the publisher ships a new tag. The socket proxy only
 # communicates over a local Unix socket and is never exposed to untrusted

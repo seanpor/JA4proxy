@@ -1327,6 +1327,11 @@ test-go-fuzz-smoke:  ## Run Go native fuzz smoke tests across all targets
 	$(GO) test -run='^$$' -fuzz='^FuzzComputeHMAC$$' -fuzztime=5s ./internal/webhook/
 	$(GO) test -run='^$$' -fuzz='^FuzzWebhookEndpointRedaction$$' -fuzztime=5s ./internal/webhook/
 	$(GO) test -run='^$$' -fuzz='^FuzzLoadConfigYAML$$' -fuzztime=5s ./internal/config/
+	$(GO) test -run='^$$' -fuzz='^FuzzSNIAnalyzer$$' -fuzztime=5s ./internal/security/
+	$(GO) test -run='^$$' -fuzz='^FuzzBuildRanger$$' -fuzztime=5s ./internal/security/
+	$(GO) test -run='^$$' -fuzz='^FuzzEffectiveThresholdAndDecider$$' -fuzztime=5s ./internal/security/
+	$(GO) test -run='^$$' -fuzz='^FuzzRiskScorer$$' -fuzztime=5s ./internal/security/
+	$(GO) test -run='^$$' -fuzz='^FuzzPipelineBypassesAndHardBlocks$$' -fuzztime=5s ./internal/security/
 
 .PHONY: test-go-fuzz-smoke
 
