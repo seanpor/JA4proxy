@@ -1,0 +1,1 @@
+- Phase 851d: Add Go native fuzz testing and Rapid property tests in `internal/security/rule_fuzz_test.go` covering SNI analysis, CIDR feed parsing, scoring aggregation, and bypass/hard-block evaluation with zero alloc bypass evaluation benchmarks (2.82 ns/op).
