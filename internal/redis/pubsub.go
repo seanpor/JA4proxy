@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+	"unicode/utf8"
 
 	rdb "github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
@@ -238,7 +239,12 @@ func verifyPubSubHMAC(secret []byte, channel, payload string) error {
 // SignPubSubMessage produces the JSON envelope the Python publisher emits,
 // and is used by tests (and by any future Go publisher) to build a message
 // that the verifier will accept. Returns the JSON string ready to PUBLISH.
+// If msgType or value contains invalid UTF-8 bytes, an error is returned to
+// prevent encoding/json Unicode replacement divergence with the HMAC digest.
 func SignPubSubMessage(secret []byte, msgType, value string) (string, error) {
+	if !utf8.ValidString(msgType) || !utf8.ValidString(value) {
+		return "", fmt.Errorf("pubsub: message type or value contains invalid UTF-8")
+	}
 	mac := hmac.New(sha256.New, secret)
 	_, _ = mac.Write([]byte(msgType + ":" + value))
 	env := signedPubSubMessage{

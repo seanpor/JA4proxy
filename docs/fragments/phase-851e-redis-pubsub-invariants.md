@@ -1,0 +1,5 @@
+- Added `internal/redis/pubsub_fuzz_test.go` with 3 native Go fuzz targets (`FuzzVerifyPubSubHMAC`, `FuzzPubSubEnvelopeRoundtrip`, `FuzzPubSubHandlerDispatch`) and 3 Rapid property-based invariant test suites.
+- Hardened `SignPubSubMessage` against invalid UTF-8 bytes to prevent JSON serialization unicode replacement divergence.
+- Verified HMAC sensitivity to bit flips, critical channel unsigned message rejection (JA4PROXY-2026-0019/0121), and single-purpose channel type fallback invariants.
+- Benchmarked Pub/Sub HMAC verification (2,222 ns/op) and handler dispatch (2,903 ns/op).
+- Integrated new targets into `make test-go-fuzz-smoke`.
