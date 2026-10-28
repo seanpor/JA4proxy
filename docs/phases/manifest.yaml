@@ -5525,6 +5525,15 @@ phases:
     size: SMALL
     summary: "COMPLETE 2026-10-28. Added internal/redis/pubsub_fuzz_test.go with 3 native Go fuzz targets (FuzzVerifyPubSubHMAC, FuzzPubSubEnvelopeRoundtrip, FuzzPubSubHandlerDispatch) and 3 Rapid property invariant suites. Hardened SignPubSubMessage against invalid UTF-8 Unicode replacement corruption. Verified signature tampering sensitivity, critical channel HMAC enforcement, and type fallback invariants. Benchmarked HMAC verification (2222 ns/op) and dispatch (2903 ns/op)."
 
+  851f:
+    name: "Webhook Dispatch & Retry Queue Invariant Testing"
+    status: COMPLETE
+    completed: '2026-10-28'
+    action_plan: docs/phases/complete/PHASE_851F.md
+    dependencies: [851e]
+    size: SMALL
+    summary: "COMPLETE 2026-10-28. Added internal/webhook/dispatch_fuzz_test.go with 2 native Go fuzz targets (FuzzIsPrivateIP, FuzzWebhookEventDelivery) and 3 Rapid property invariant suites. Verified secret redaction (JA4PROXY-2026-0051), event filtering, and SSRF private/reserved IP classification invariants under arbitrary inputs. Integrated fuzz targets into test-go-fuzz-smoke. Benchmarked HMAC computation (1,327 ns/op, ~753k ops/sec) and end-to-end delivery throughput (138,116 ns/op)."
+
   852:
     name: "Authlib 1.9.1 Security Upgrade & JWS Signature Bypass Regression Suite"
     status: COMPLETE

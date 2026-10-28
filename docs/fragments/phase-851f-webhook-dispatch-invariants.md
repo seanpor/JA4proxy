@@ -1,0 +1,1 @@
+- Phase 851f: Added native Go fuzz targets (`FuzzIsPrivateIP`, `FuzzWebhookEventDelivery`) and Rapid property invariant suites for webhook dispatch, verifying secret redaction, event filtering, and SSRF loopback/private/reserved IP classification invariants under arbitrary inputs.
