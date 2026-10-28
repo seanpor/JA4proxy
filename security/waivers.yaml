@@ -498,3 +498,23 @@ waivers:
     recheck_trigger: "grafana/grafana publishes a tag rebuilt with libbrotli1 >= 1.1.0-2ubuntu0.1"
     created: 2026-10-27
     expires: 2027-01-25
+
+  # ── go-jose RSA DoS (CVE-2026-116587) in Grafana & Alloy ─────────────────
+  - id: CVE-2026-116587
+    scope: third-party
+    severity: HIGH
+    source: trivy
+    carriers:
+      - "grafana/alloy:v1.21.2@sha256:89a5a320168387336b9ac3c850609c3ba7757eadd4ae5f1d819deb35e9854b18"
+      - "grafana/grafana:13.2.4-ubuntu"
+    rationale: >-
+      github.com/go-jose/go-jose/v4 DoS when parsing crafted JWKs with large RSA
+      keys. Both Grafana and Alloy are third-party pinned monitoring images bound
+      only to internal loopback/monitoring networks (${AGENT_BIND_IP:-127.0.0.1})
+      and do not parse untrusted user-supplied JWKs. We cannot rebuild these images
+      independently; upstream publishers must ship tags built with go-jose >= 4.1.6.
+    reachability: internal-monitoring-only
+    fix_available: false
+    recheck_trigger: "grafana and alloy publish tags built with go-jose >= 4.1.6"
+    created: 2026-10-28
+    expires: 2027-01-26
