@@ -1,8 +1,9 @@
 ---
-# Phase 850 — Continuous Automated Fuzzing.
+# Phase 850 & Phase 851j — Continuous Automated Fuzzing.
 #
-# Runs Go native fuzz targets for parsers and security logic (cmd/ja4pd,
-# internal/tls, internal/quic, internal/webhook, internal/config).
+# Runs Go native fuzz targets for parsers and security logic in parallel matrix jobs:
+#   cmd/ja4pd, internal/tls, internal/quic, internal/webhook,
+#   internal/config, internal/cache, internal/security, internal/redis.
 # Scheduled daily off-peak and triggers manually on demand via workflow_dispatch.
 #
 # All third-party actions are SHA-pinned; see .github/workflows/ci.yml's
@@ -14,15 +15,69 @@ on:
   schedule:
     - cron: "0 2 * * *"  # 02:00 UTC daily — off-peak
   workflow_dispatch:
+    inputs:
+      fuzztime:
+        description: "Duration to run each fuzz target (e.g., 30s, 1m, 5m)"
+        required: false
+        default: "30s"
 
 permissions:
   contents: read
 
 jobs:
   fuzz:
-    name: Go Native Fuzzing
+    name: Fuzz ${{ matrix.pkg }}
     runs-on: ubuntu-latest
-    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - pkg: "cmd/ja4pd"
+            targets: >-
+              FuzzClientHello
+              FuzzReadProxyProtocol
+              FuzzReadProxyProtocolV2
+              FuzzFragmentation
+              FuzzProtocolSmuggling
+          - pkg: "internal/tls"
+            targets: >-
+              FuzzParseClientHello
+              FuzzDifferentialClientHello
+          - pkg: "internal/quic"
+            targets: >-
+              FuzzParseClientHelloFeatures
+              FuzzReadVarint
+              FuzzParseCRYPTOFrames
+              FuzzDecodeInitialHeader
+          - pkg: "internal/webhook"
+            targets: >-
+              FuzzComputeHMAC
+              FuzzWebhookEndpointRedaction
+              FuzzIsPrivateIP
+              FuzzWebhookEventDelivery
+          - pkg: "internal/config"
+            targets: >-
+              FuzzLoadConfigYAML
+              FuzzLoadYAML
+              FuzzFlexInt
+              FuzzExpandEnvVars
+          - pkg: "internal/cache"
+            targets: >-
+              FuzzLRUOperations
+              FuzzLRUKeyFormatting
+          - pkg: "internal/security"
+            targets: >-
+              FuzzSNIAnalyzer
+              FuzzBuildRanger
+              FuzzEffectiveThresholdAndDecider
+              FuzzRiskScorer
+              FuzzPipelineBypassesAndHardBlocks
+          - pkg: "internal/redis"
+            targets: >-
+              FuzzVerifyPubSubHMAC
+              FuzzPubSubEnvelopeRoundtrip
+              FuzzPubSubHandlerDispatch
+
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
@@ -34,30 +89,23 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
         with:
           path: ~/.cache/go-build/fuzz
-          key: go-fuzz-${{ runner.os }}-${{ github.run_id }}
+          key: go-fuzz-${{ runner.os }}-${{ matrix.pkg }}-${{ github.run_id }}
           restore-keys: |
-            go-fuzz-${{ runner.os }}-
+            go-fuzz-${{ runner.os }}-${{ matrix.pkg }}-
 
-      - name: Run Fuzz Targets (cmd/ja4pd)
+      - name: Run Fuzz Targets (${{ matrix.pkg }})
+        env:
+          FUZZTIME: ${{ inputs.fuzztime || '30s' }}
         run: |
-          go test -run='^$' -fuzz='^FuzzClientHello$' -fuzztime=30s ./cmd/ja4pd/
-          go test -run='^$' -fuzz='^FuzzReadProxyProtocol$' -fuzztime=30s ./cmd/ja4pd/
-          go test -run='^$' -fuzz='^FuzzReadProxyProtocolV2$' -fuzztime=30s ./cmd/ja4pd/
+          for target in ${{ matrix.targets }}; do
+            echo "=== Fuzzing $target in ./${{ matrix.pkg }} ($FUZZTIME) ==="
+            go test -run='^$' -fuzz="^${target}$" -fuzztime="$FUZZTIME" "./${{ matrix.pkg }}/"
+          done
 
-      - name: Run Fuzz Targets (internal/tls)
-        run: |
-          go test -run='^$' -fuzz='^FuzzParseClientHello$' -fuzztime=30s ./internal/tls/
-          go test -run='^$' -fuzz='^FuzzDifferentialClientHello$' -fuzztime=30s ./internal/tls/
-
-      - name: Run Fuzz Targets (internal/quic)
-        run: |
-          go test -run='^$' -fuzz='^FuzzParseClientHelloFeatures$' -fuzztime=30s ./internal/quic/
-
-      - name: Run Fuzz Targets (internal/webhook)
-        run: |
-          go test -run='^$' -fuzz='^FuzzComputeHMAC$' -fuzztime=30s ./internal/webhook/
-          go test -run='^$' -fuzz='^FuzzWebhookEndpointRedaction$' -fuzztime=30s ./internal/webhook/
-
-      - name: Run Fuzz Targets (internal/config)
-        run: |
-          go test -run='^$' -fuzz='^FuzzLoadConfigYAML$' -fuzztime=30s ./internal/config/
+      - name: Preserve Crasher Artifacts
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: fuzz-crashers-${{ runner.os }}-${{ matrix.pkg }}
+          path: "**/testdata/fuzz/**"
+          if-no-files-found: ignore
