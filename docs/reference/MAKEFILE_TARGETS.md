@@ -45,7 +45,7 @@ The default lane runs **without HAProxy** (single proxy, reached directly on
 
 <!-- BEGIN GENERATED: make-targets -->
 
-_211 targets. Generated from the Makefile's own `##` help comments by `make sync` — do not edit this table by hand._
+_212 targets. Generated from the Makefile's own `##` help comments by `make sync` — do not edit this table by hand._
 
 ### Aggregate linters
 
@@ -126,6 +126,7 @@ _211 targets. Generated from the Makefile's own `##` help comments by `make sync
 | `test-evidence-paths` | Phase 107h.2 — fail if conformance docs cite repo paths that don't exist |
 | `test-ip` | Alias for simulating IP decision |
 | `test-slo` | SLO validation tests |
+| `test-soak` | High-concurrency connection leak and stream table soak suite (Phase 854) |
 | `validate-slo-rules` | Validate SLO recording/alert rules (promtool or YAML) |
 | `validation-report` | Generate validation report |
 | `verify-finding` | Run two-state revert proof for a single finding (usage: make verify-finding FINDING=JA4PROXY-2026-0042) |

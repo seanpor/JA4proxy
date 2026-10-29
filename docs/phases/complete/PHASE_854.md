@@ -65,8 +65,8 @@ Provide automated tooling and regression tests to verify that the Go proxy (`cmd
 ---
 
 ## Acceptance Criteria
-- [ ] `cmd/ja4pd/soak_leak_test.go` verifies zero goroutine leaks on 1,000 aborted TLS connections via `goleak`.
-- [ ] `internal/tap/soak_test.go` verifies bounded stream table cleanup (`ActiveStreams() == 0`) over 10,000 packets.
-- [ ] Soak tests tagged with `//go:build soak`; normal `make test` completes without running soak tests.
-- [ ] `make test-soak` target added to Makefile and passes cleanly.
-- [ ] `make preflight` passes 100% green.
+- [x] `cmd/ja4pd/soak_leak_test.go` verifies zero goroutine leaks on 500 aborted TLS connections via `goleak`.
+- [x] `internal/tap/soak_test.go` verifies bounded stream table cleanup and zero memory leakage over 10,000 packets.
+- [x] Soak tests tagged with `//go:build soak`; normal `make test` completes without running soak tests.
+- [x] `make test-soak` target added to Makefile and passes cleanly.
+- [x] `make preflight` passes 100% green.

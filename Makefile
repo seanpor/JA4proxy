@@ -1417,6 +1417,11 @@ test-slo:  ## SLO validation tests
 	GOROOT=$(GOROOT) go test ./internal/metrics/... ./internal/redis/... -count=1
 	$(PYTHON) -c "import yaml; yaml.safe_load(open('deploy/monitoring/prometheus/slo_recording_rules.yml')); yaml.safe_load(open('deploy/monitoring/alertmanager/rules/slo_alerts.yml')); print('YAML OK')"
 
+test-soak:  ## High-concurrency connection leak and stream table soak suite (Phase 854)
+	$(GO) test -v -tags=soak -timeout=180s ./cmd/ja4pd ./internal/tap
+.PHONY: test-soak
+
+
 
 ## CI local targets
 ci-local: ## Run the same fast checks the CI workflow runs (Go + Python tests)

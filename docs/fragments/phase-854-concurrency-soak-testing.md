@@ -1,0 +1,4 @@
+- Added `cmd/ja4pd/soak_leak_test.go` with `goleak` verifying zero goroutine leaks across 500 abrupt TLS RST connections under high concurrency.
+- Added `internal/tap/soak_test.go` verifying stream table reclamation and memory stability across 10,000 synthetic frames.
+- Gated soak tests behind `//go:build soak` to preserve sub-minute CI test execution.
+- Added `make test-soak` Makefile target.
