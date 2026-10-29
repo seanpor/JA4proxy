@@ -5617,9 +5617,9 @@ phases:
 
   855:
     name: "eBPF Volumetric Drop Daemon Invariants & Synchronization Hardening"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_855.md
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_855.md
     dependencies: [854]
     size: SMALL
-    summary: "Harden scripts/redis-to-ebpf.py against corrupt Redis keys, network disconnects, bpftool timeouts, and metric counter wraps."
+    summary: "COMPLETE 2026-10-29. Hardened scripts/redis-to-ebpf.py against embedded nulls and malformed IPv4/IPv6 inputs in _ip_to_hex, non-dict/empty drop counter entries, string/bytes decoding variation in Redis scan_iter/smembers, and Redis disconnection backoff. Added comprehensive unit tests in tests/unit/security/test_ebpf_sync_hardening.py."
 
