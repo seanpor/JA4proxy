@@ -5570,6 +5570,23 @@ phases:
     size: SMALL
     summary: "COMPLETE 2026-10-29. Synchronized .github/workflows/fuzzing.yml with all 29 native Go fuzz targets across 8 packages using parallel matrix execution. Removed continue-on-error to prevent silent regression masking, added crasher seed artifact uploads, and configured granular package corpus caching. Synchronized Makefile test-go-fuzz-smoke to all 29 targets. Added tests/unit/test_fuzz_target_sync.py to enforce drift-free synchronization."
 
+  851k:
+    name: "TAP Sensor Packet Decoding Invariants & Fuzzing"
+    status: COMPLETE
+    completed: '2026-10-29'
+    action_plan: docs/phases/complete/PHASE_851K.md
+    dependencies: [851j]
+    size: SMALL
+    summary: "COMPLETE 2026-10-29. Added internal/tap/packet_fuzz_test.go with 4 native Go fuzz targets (FuzzPacketDecoder, FuzzTCPReassembly, FuzzParsePortList, FuzzComputeJA4T) and 3 Rapid property test suites verifying stream reassembly buffer boundedness, BPF jump offset uint8 bounds, and Redis circuit breaker state transitions. Discovered and fixed a bug where ParsePortList accepted reserved port 0. Benchmarked packet decoding (29.4 ns/op), reassembly (61.0 ns/op), and JA4T computation (247.5 ns/op). Integrated targets into Makefile test-go-fuzz-smoke and fuzzing.yml CI matrix."
+
+  851l:
+    name: "CLI Command Parser & Output Contract Fuzzing"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_851L.md
+    dependencies: [851k]
+    size: SMALL
+    summary: "Fuzz the CLI command argument parser and output formatting contracts in internal/cli/engine and internal/cli/output across malformed subcommands, deeply nested JSON flags, table truncation, and exit code invariants."
+
   852:
     name: "Authlib 1.9.1 Security Upgrade & JWS Signature Bypass Regression Suite"
     status: COMPLETE
