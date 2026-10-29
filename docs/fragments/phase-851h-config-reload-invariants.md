@@ -1,0 +1,1 @@
+- Phase 851h: Added native Go fuzz targets (`FuzzLoadYAML`, `FuzzFlexInt`, `FuzzExpandEnvVars`) and Rapid property invariant suites for configuration parsing, verifying validation strictness, environment variable expansion determinism, and `DefaultConfig` security invariants.
