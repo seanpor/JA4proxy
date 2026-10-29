@@ -5608,11 +5608,12 @@ phases:
 
   854:
     name: "High-Concurrency Soak & Resource Leak Verification"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_854.md
+    status: COMPLETE
+    completed: '2026-10-29'
+    action_plan: docs/phases/complete/PHASE_854.md
     dependencies: [853]
     size: SMALL
-    summary: "Verify zero goroutine and connection leaks in cmd/ja4pd and bounded stream table reclamation in internal/tap under sustained connection churning."
+    summary: "COMPLETE 2026-10-29. Added cmd/ja4pd/soak_leak_test.go and internal/tap/soak_test.go with //go:build soak. Verified zero goroutine leaks under 500 abrupt TLS RST connections using goleak and bounded stream table reclamation over 10,000 packets. Added make test-soak target to Makefile."
 
   855:
     name: "eBPF Volumetric Drop Daemon Invariants & Synchronization Hardening"
