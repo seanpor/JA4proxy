@@ -62,8 +62,8 @@ Harden the operator CLI (`cmd/ja4p`, `internal/cli`) against unhandled panics, m
 ---
 
 ## Acceptance Criteria
-- [ ] 2 native Go fuzz targets added in their proper packages (`internal/cli/engine` and `internal/cli/output`).
-- [ ] Execution isolation guarantees zero process aborts via `os.Exit` and zero side-effect mutations.
-- [ ] Rapid property tests prove end-to-end command JSON output contracts.
-- [ ] Zero panics across 250,000+ fuzz inputs.
-- [ ] `make test-go-fuzz-smoke` and `make preflight` pass 100% green.
+- [x] 2 native Go fuzz targets added in their proper packages (`internal/cli/engine` and `internal/cli/output`).
+- [x] Execution isolation guarantees zero process aborts via `os.Exit` and zero side-effect mutations.
+- [x] Rapid property tests prove end-to-end command JSON output contracts.
+- [x] Zero panics across 250,000+ fuzz inputs.
+- [x] `make test-go-fuzz-smoke` and `make preflight` pass 100% green.

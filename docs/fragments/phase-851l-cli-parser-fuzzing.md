@@ -1,0 +1,5 @@
+- Added `FuzzCLIArgumentParsing` in `internal/cli/engine` with `osExit` interception and mock transport isolation.
+- Added `FuzzOutputFormatter` in `internal/cli/output` verifying table, CSV, and JSON rendering resilience across arbitrary Unicode, ANSI escapes, and empty structures.
+- Added Rapid property tests verifying `--output json` always yields valid JSON and invalid commands produce non-zero errors.
+- Micro-benchmarked CLI execution (140.2 µs/op), JSON render (10.8 µs/op), and table render (262.1 µs/op).
+- Synchronized `Makefile test-go-fuzz-smoke` and `.github/workflows/fuzzing.yml` across all 35 native Go fuzz targets.

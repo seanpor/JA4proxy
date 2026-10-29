@@ -5581,11 +5581,12 @@ phases:
 
   851l:
     name: "CLI Command Parser & Output Contract Fuzzing"
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_851L.md
+    status: COMPLETE
+    completed: '2026-10-29'
+    action_plan: docs/phases/complete/PHASE_851L.md
     dependencies: [851k]
     size: SMALL
-    summary: "Fuzz the CLI command argument parser and output formatting contracts in internal/cli/engine and internal/cli/output across malformed subcommands, deeply nested JSON flags, table truncation, and exit code invariants."
+    summary: "COMPLETE 2026-10-29. Added FuzzCLIArgumentParsing in internal/cli/engine and FuzzOutputFormatter in internal/cli/output with osExit isolation and mock HTTP transports. Added Rapid property invariant tests verifying JSON stdout formatting and non-zero exits for invalid commands. Benchmarked CLI execution (140.2 µs/op), JSON render (10.8 µs/op), and table render (262.1 µs/op). Synchronized Makefile test-go-fuzz-smoke and fuzzing.yml CI matrix across all 35 native Go fuzz targets."
 
   852:
     name: "Authlib 1.9.1 Security Upgrade & JWS Signature Bypass Regression Suite"
