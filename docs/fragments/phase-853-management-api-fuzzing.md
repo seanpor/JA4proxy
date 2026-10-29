@@ -1,0 +1,3 @@
+- Added `management/tests/test_api_contract_fuzz.py` with Hypothesis property fuzz tests covering datacenter policy, config reload, bans CRUD, bearer token auth, and canonical lists.
+- Verified No-500 Invariant across arbitrary inputs, malformed types, and boundary TTL integers.
+- Verified standard JSON error response schema parity (`{"detail": ...}`).

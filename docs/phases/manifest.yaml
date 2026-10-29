@@ -5597,3 +5597,28 @@ phases:
     size: SMALL
     summary: "COMPLETE 2026-10-27. Remediates 7 Dependabot CVE alerts in Authlib including CVE-2026-96760 (Critical, empty signatures verification bypass) and CVE-2026-114616 (High, empty HMAC key). Added management/tests/test_authlib_cve_regression.py asserting rejection of forged JWS payloads and empty keys."
 
+  853:
+    name: "Management API Contract & Schema-Driven Fuzzing"
+    status: COMPLETE
+    completed: '2026-10-29'
+    action_plan: docs/phases/complete/PHASE_853.md
+    dependencies: [851l]
+    size: SMALL
+    summary: "COMPLETE 2026-10-29. Added management/tests/test_api_contract_fuzz.py with Hypothesis property tests fuzzing datacenter policy, config reload, bans CRUD, bearer token auth, and canonical lists. Verified No-500 Invariant and standard JSON error response schemas across boundary inputs."
+
+  854:
+    name: "High-Concurrency Soak & Resource Leak Verification"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_854.md
+    dependencies: [853]
+    size: SMALL
+    summary: "Verify zero goroutine and connection leaks in cmd/ja4pd and bounded stream table reclamation in internal/tap under sustained connection churning."
+
+  855:
+    name: "eBPF Volumetric Drop Daemon Invariants & Synchronization Hardening"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_855.md
+    dependencies: [854]
+    size: SMALL
+    summary: "Harden scripts/redis-to-ebpf.py against corrupt Redis keys, network disconnects, bpftool timeouts, and metric counter wraps."
+
