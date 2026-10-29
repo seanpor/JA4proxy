@@ -5534,6 +5534,15 @@ phases:
     size: SMALL
     summary: "COMPLETE 2026-10-28. Added internal/webhook/dispatch_fuzz_test.go with 2 native Go fuzz targets (FuzzIsPrivateIP, FuzzWebhookEventDelivery) and 3 Rapid property invariant suites. Verified secret redaction (JA4PROXY-2026-0051), event filtering, and SSRF private/reserved IP classification invariants under arbitrary inputs. Integrated fuzz targets into test-go-fuzz-smoke. Benchmarked HMAC computation (1,327 ns/op, ~753k ops/sec) and end-to-end delivery throughput (138,116 ns/op)."
 
+  851g:
+    name: "QUIC Packet & Frame Parsing Invariants & Fuzzing"
+    status: COMPLETE
+    completed: '2026-10-29'
+    action_plan: docs/phases/complete/PHASE_851G.md
+    dependencies: [851f]
+    size: SMALL
+    summary: "COMPLETE 2026-10-29. Added internal/quic/packet_fuzz_test.go with 3 native Go fuzz targets (FuzzReadVarint, FuzzParseCRYPTOFrames, FuzzDecodeInitialHeader) and 4 Rapid property invariant suites. Verified RFC 9000 varint decoding totality & roundtrips, CRYPTO defragmentation MaxCryptoBytes ceiling, Decoder connection tracking MaxActive saturation limits, and JA4Q determinism. Integrated new fuzz targets into test-go-fuzz-smoke. Benchmarked varint decoding (1.48-2.33 ns/op, 0 allocs) and multi-frame CRYPTO parsing (195.8 ns/op)."
+
   852:
     name: "Authlib 1.9.1 Security Upgrade & JWS Signature Bypass Regression Suite"
     status: COMPLETE

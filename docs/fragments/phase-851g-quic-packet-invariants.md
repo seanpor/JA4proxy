@@ -1,0 +1,1 @@
+- Phase 851g: Added native Go fuzz targets (`FuzzReadVarint`, `FuzzParseCRYPTOFrames`, `FuzzDecodeInitialHeader`) and Rapid property invariant suites for QUIC parsing, verifying RFC 9000 varint decoding totality, `MaxCryptoBytes` memory bounds, connection tracker `MaxActive` capacity enforcement, and JA4Q determinism.

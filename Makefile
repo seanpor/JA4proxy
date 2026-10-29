@@ -1324,6 +1324,9 @@ test-go-fuzz-smoke:  ## Run Go native fuzz smoke tests across all targets
 	$(GO) test -run='^$$' -fuzz='^FuzzReadProxyProtocolV2$$' -fuzztime=5s ./cmd/ja4pd/
 	$(GO) test -run='^$$' -fuzz='^FuzzParseClientHello$$' -fuzztime=5s ./internal/tls/
 	$(GO) test -run='^$$' -fuzz='^FuzzParseClientHelloFeatures$$' -fuzztime=5s ./internal/quic/
+	$(GO) test -run='^$$' -fuzz='^FuzzReadVarint$$' -fuzztime=5s ./internal/quic/
+	$(GO) test -run='^$$' -fuzz='^FuzzParseCRYPTOFrames$$' -fuzztime=5s ./internal/quic/
+	$(GO) test -run='^$$' -fuzz='^FuzzDecodeInitialHeader$$' -fuzztime=5s ./internal/quic/
 	$(GO) test -run='^$$' -fuzz='^FuzzComputeHMAC$$' -fuzztime=5s ./internal/webhook/
 	$(GO) test -run='^$$' -fuzz='^FuzzWebhookEndpointRedaction$$' -fuzztime=5s ./internal/webhook/
 	$(GO) test -run='^$$' -fuzz='^FuzzIsPrivateIP$$' -fuzztime=5s ./internal/webhook/
