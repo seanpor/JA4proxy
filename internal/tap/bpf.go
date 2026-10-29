@@ -111,6 +111,9 @@ func ParsePortList(s string) ([]uint16, error) {
 		if err != nil {
 			return nil, err
 		}
+		if v == 0 {
+			return nil, errors.New("tap: port 0 is invalid")
+		}
 		out = append(out, uint16(v))
 	}
 	return out, nil

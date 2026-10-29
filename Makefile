@@ -1348,6 +1348,10 @@ test-go-fuzz-smoke:  ## Run Go native fuzz smoke tests across all targets
 	$(GO) test -run='^$$' -fuzz='^FuzzVerifyPubSubHMAC$$' -fuzztime=5s ./internal/redis/
 	$(GO) test -run='^$$' -fuzz='^FuzzPubSubEnvelopeRoundtrip$$' -fuzztime=5s ./internal/redis/
 	$(GO) test -run='^$$' -fuzz='^FuzzPubSubHandlerDispatch$$' -fuzztime=5s ./internal/redis/
+	$(GO) test -run='^$$' -fuzz='^FuzzPacketDecoder$$' -fuzztime=5s ./internal/tap/
+	$(GO) test -run='^$$' -fuzz='^FuzzTCPReassembly$$' -fuzztime=5s ./internal/tap/
+	$(GO) test -run='^$$' -fuzz='^FuzzParsePortList$$' -fuzztime=5s ./internal/tap/
+	$(GO) test -run='^$$' -fuzz='^FuzzComputeJA4T$$' -fuzztime=5s ./internal/tap/
 
 .PHONY: test-go-fuzz-smoke
 

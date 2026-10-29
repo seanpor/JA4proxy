@@ -1,0 +1,5 @@
+- Added `internal/tap/packet_fuzz_test.go` with 4 native Go fuzz targets (`FuzzPacketDecoder`, `FuzzTCPReassembly`, `FuzzParsePortList`, `FuzzComputeJA4T`) and 3 Rapid property invariant suites.
+- Fixed a security bug in `internal/tap/bpf.go:ParsePortList` where reserved port 0 was accepted without error.
+- Verified TCP stream reassembly buffer boundedness, Redis circuit breaker state transitions, and BPF jump offset uint8 bounds.
+- Benchmarked packet decode (29.4 ns/op), reassembly (61.0 ns/op), and JA4T computation (247.5 ns/op).
+- Synchronized `Makefile test-go-fuzz-smoke` and `.github/workflows/fuzzing.yml` across all 33 native Go fuzz targets.
