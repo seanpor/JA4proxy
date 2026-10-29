@@ -1,0 +1,2 @@
+- Hardened `scripts/redis-to-ebpf.py` against embedded nulls and malformed IPv4/IPv6 inputs in `_ip_to_hex`, non-dict drop counter entries in `_read_drop_counters`, and string vs bytes decoding differences in `_collect_blocked_ips`.
+- Added unit tests in `tests/unit/security/test_ebpf_sync_hardening.py` testing error resilience and reconnection backoff for the eBPF synchronization daemon (Phase 855).

@@ -89,12 +89,14 @@ _REASON_NAMES = {_REASON_BLACKLIST: "blacklist", _REASON_BAN: "ban"}
 def _ip_to_hex(ip: str) -> Optional[str]:
     """Convert a dotted-decimal IPv4 address to a 4-byte hex string.
 
-    Returns ``None`` for non-IPv4 addresses (IPv6, CIDR ranges, etc.).
+    Returns ``None`` for non-IPv4 addresses (IPv6, CIDR ranges, etc.) or malformed strings.
     """
+    if not isinstance(ip, str) or "\x00" in ip:
+        return None
     try:
         packed = socket.inet_pton(socket.AF_INET, ip.strip())
         return " ".join(f"{b:02x}" for b in packed)
-    except OSError:
+    except (OSError, ValueError):
         return None
 
 
@@ -199,7 +201,11 @@ def _read_drop_counters(map_id: int) -> Dict[str, int]:
         return {}
 
     counters: Dict[str, int] = {}
+    if not isinstance(entries, list):
+        return {}
     for entry in entries:
+        if not isinstance(entry, dict):
+            continue
         try:
             key_raw = entry.get("key", [])
             if not key_raw:
@@ -235,16 +241,17 @@ async def _collect_blocked_ips(redis_client: aioredis.Redis) -> Dict[str, str]:
         #   ip:blacklist  — static operator-managed IP SET (Phase 35, see REDIS_SCHEMA.md)
         #
         # ban:{ip} keys — TTL-bound per-IP bans
-        async for key in redis_client.scan_iter("ban:*"):
-            ip = key.decode("utf-8", errors="ignore").removeprefix("ban:")
-            if ip:
+        async for raw_key in redis_client.scan_iter("ban:*"):
+            key_str = raw_key.decode("utf-8", errors="ignore") if isinstance(raw_key, bytes) else str(raw_key)
+            ip = key_str.removeprefix("ban:").strip()
+            if ip and _ip_to_hex(ip) is not None:
                 result[ip] = "ban"
 
         # ip:blacklist — static blocklist SET (if present)
         members = await redis_client.smembers("ip:blacklist")
         for m in members:
-            ip = m.decode("utf-8", errors="ignore")
-            if ip and ip not in result:
+            ip = (m.decode("utf-8", errors="ignore") if isinstance(m, bytes) else str(m)).strip()
+            if ip and _ip_to_hex(ip) is not None and ip not in result:
                 result[ip] = "blacklist"
 
     except Exception as exc:
