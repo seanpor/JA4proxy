@@ -1,0 +1,1 @@
+- Phase 851i: Added native Go fuzz targets (`FuzzLRUOperations`, `FuzzLRUKeyFormatting`) and Rapid property invariant suites for internal in-process cache, verifying capacity bounds, LRU eviction order monotonicity, TTL expiration dynamics, and concurrent list-map parity under multi-threaded contention.

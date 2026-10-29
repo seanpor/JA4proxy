@@ -5552,6 +5552,15 @@ phases:
     size: SMALL
     summary: "COMPLETE 2026-10-29. Added internal/config/config_fuzz_test.go with 3 native Go fuzz targets (FuzzLoadYAML, FuzzFlexInt, FuzzExpandEnvVars) and 3 Rapid property invariant suites. Verified configuration validation strictness (ports, dials, monotonic risk thresholds), environment variable expansion and fallback determinism, and DefaultConfig security defaults. Integrated fuzz targets into test-go-fuzz-smoke. Benchmarked full config loading (42.6µs/op) and zero-allocation config validation (19.78 ns/op, 0 allocs)."
 
+  851i:
+    name: "Cache Invalidation & Eviction Invariant Testing"
+    status: COMPLETE
+    completed: '2026-10-29'
+    action_plan: docs/phases/complete/PHASE_851I.md
+    dependencies: [851h]
+    size: SMALL
+    summary: "COMPLETE 2026-10-29. Added internal/cache/cache_fuzz_test.go with 2 native Go fuzz targets (FuzzLRUOperations, FuzzLRUKeyFormatting) and 4 Rapid property invariant suites. Verified capacity boundedness (Len() <= cap), LRU eviction order monotonicity, TTL expiration dynamics and lazy purging, and internal map/doubly-linked-list parity under high concurrency (-race clean). Integrated fuzz targets into test-go-fuzz-smoke. Benchmarked hit (19.2 ns/op) and miss (12.6 ns/op) lookups and concurrent throughput (155.5 ns/op)."
+
   852:
     name: "Authlib 1.9.1 Security Upgrade & JWS Signature Bypass Regression Suite"
     status: COMPLETE
