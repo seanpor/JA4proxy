@@ -1322,7 +1322,10 @@ test-go-fuzz-smoke:  ## Run Go native fuzz smoke tests across all targets
 	$(GO) test -run='^$$' -fuzz='^FuzzClientHello$$' -fuzztime=5s ./cmd/ja4pd/
 	$(GO) test -run='^$$' -fuzz='^FuzzReadProxyProtocol$$' -fuzztime=5s ./cmd/ja4pd/
 	$(GO) test -run='^$$' -fuzz='^FuzzReadProxyProtocolV2$$' -fuzztime=5s ./cmd/ja4pd/
+	$(GO) test -run='^$$' -fuzz='^FuzzFragmentation$$' -fuzztime=5s ./cmd/ja4pd/
+	$(GO) test -run='^$$' -fuzz='^FuzzProtocolSmuggling$$' -fuzztime=5s ./cmd/ja4pd/
 	$(GO) test -run='^$$' -fuzz='^FuzzParseClientHello$$' -fuzztime=5s ./internal/tls/
+	$(GO) test -run='^$$' -fuzz='^FuzzDifferentialClientHello$$' -fuzztime=5s ./internal/tls/
 	$(GO) test -run='^$$' -fuzz='^FuzzParseClientHelloFeatures$$' -fuzztime=5s ./internal/quic/
 	$(GO) test -run='^$$' -fuzz='^FuzzReadVarint$$' -fuzztime=5s ./internal/quic/
 	$(GO) test -run='^$$' -fuzz='^FuzzParseCRYPTOFrames$$' -fuzztime=5s ./internal/quic/

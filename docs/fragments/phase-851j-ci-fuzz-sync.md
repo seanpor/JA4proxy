@@ -1,0 +1,1 @@
+- Phase 851j: Synchronized `.github/workflows/fuzzing.yml` and `Makefile` across all 29 native Go fuzz targets in 8 packages, converted the CI fuzzing job to a parallel matrix, removed `continue-on-error`, added crasher artifact preservation, and implemented `tests/unit/test_fuzz_target_sync.py` to prevent fuzz target drift.
