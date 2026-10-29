@@ -1352,6 +1352,8 @@ test-go-fuzz-smoke:  ## Run Go native fuzz smoke tests across all targets
 	$(GO) test -run='^$$' -fuzz='^FuzzTCPReassembly$$' -fuzztime=5s ./internal/tap/
 	$(GO) test -run='^$$' -fuzz='^FuzzParsePortList$$' -fuzztime=5s ./internal/tap/
 	$(GO) test -run='^$$' -fuzz='^FuzzComputeJA4T$$' -fuzztime=5s ./internal/tap/
+	$(GO) test -run='^$$' -fuzz='^FuzzCLIArgumentParsing$$' -fuzztime=5s ./internal/cli/engine/
+	$(GO) test -run='^$$' -fuzz='^FuzzOutputFormatter$$' -fuzztime=5s ./internal/cli/output/
 
 .PHONY: test-go-fuzz-smoke
 

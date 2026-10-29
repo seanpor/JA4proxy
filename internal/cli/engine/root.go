@@ -40,6 +40,13 @@ var gf globalFlags
 // osExit is overridden in tests to prevent calling os.Exit.
 var osExit = os.Exit
 
+// SetOSExit sets a custom osExit handler and returns the previous handler.
+func SetOSExit(fn func(int)) func(int) {
+	prev := osExit
+	osExit = fn
+	return prev
+}
+
 // newClient builds a Management API client using the resolved URL and token.
 // Resolution order: --flag > JA4PROXY_* env var > OS keyring (if use_keyring:true)
 // > ~/.config/ja4proxy/cli.yaml plaintext token > "".
