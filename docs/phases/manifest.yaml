@@ -5543,6 +5543,15 @@ phases:
     size: SMALL
     summary: "COMPLETE 2026-10-29. Added internal/quic/packet_fuzz_test.go with 3 native Go fuzz targets (FuzzReadVarint, FuzzParseCRYPTOFrames, FuzzDecodeInitialHeader) and 4 Rapid property invariant suites. Verified RFC 9000 varint decoding totality & roundtrips, CRYPTO defragmentation MaxCryptoBytes ceiling, Decoder connection tracking MaxActive saturation limits, and JA4Q determinism. Integrated new fuzz targets into test-go-fuzz-smoke. Benchmarked varint decoding (1.48-2.33 ns/op, 0 allocs) and multi-frame CRYPTO parsing (195.8 ns/op)."
 
+  851h:
+    name: "Dynamic Config Hot-Reload Invariant Fuzzing"
+    status: COMPLETE
+    completed: '2026-10-29'
+    action_plan: docs/phases/complete/PHASE_851H.md
+    dependencies: [851g]
+    size: SMALL
+    summary: "COMPLETE 2026-10-29. Added internal/config/config_fuzz_test.go with 3 native Go fuzz targets (FuzzLoadYAML, FuzzFlexInt, FuzzExpandEnvVars) and 3 Rapid property invariant suites. Verified configuration validation strictness (ports, dials, monotonic risk thresholds), environment variable expansion and fallback determinism, and DefaultConfig security defaults. Integrated fuzz targets into test-go-fuzz-smoke. Benchmarked full config loading (42.6µs/op) and zero-allocation config validation (19.78 ns/op, 0 allocs)."
+
   852:
     name: "Authlib 1.9.1 Security Upgrade & JWS Signature Bypass Regression Suite"
     status: COMPLETE

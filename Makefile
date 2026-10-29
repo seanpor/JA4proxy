@@ -1332,6 +1332,9 @@ test-go-fuzz-smoke:  ## Run Go native fuzz smoke tests across all targets
 	$(GO) test -run='^$$' -fuzz='^FuzzIsPrivateIP$$' -fuzztime=5s ./internal/webhook/
 	$(GO) test -run='^$$' -fuzz='^FuzzWebhookEventDelivery$$' -fuzztime=5s ./internal/webhook/
 	$(GO) test -run='^$$' -fuzz='^FuzzLoadConfigYAML$$' -fuzztime=5s ./internal/config/
+	$(GO) test -run='^$$' -fuzz='^FuzzLoadYAML$$' -fuzztime=5s ./internal/config/
+	$(GO) test -run='^$$' -fuzz='^FuzzFlexInt$$' -fuzztime=5s ./internal/config/
+	$(GO) test -run='^$$' -fuzz='^FuzzExpandEnvVars$$' -fuzztime=5s ./internal/config/
 	$(GO) test -run='^$$' -fuzz='^FuzzSNIAnalyzer$$' -fuzztime=5s ./internal/security/
 	$(GO) test -run='^$$' -fuzz='^FuzzBuildRanger$$' -fuzztime=5s ./internal/security/
 	$(GO) test -run='^$$' -fuzz='^FuzzEffectiveThresholdAndDecider$$' -fuzztime=5s ./internal/security/
