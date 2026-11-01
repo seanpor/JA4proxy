@@ -7,19 +7,19 @@ redis==8.1.0
 aioredis==2.0.1
 
 # HTTP server for /health, /ready, /metrics endpoints
-aiohttp>=3.10.11
+aiohttp>=3.14.5
 
 # Metrics
 prometheus-client==0.26.0
 
 # Config + validation
 pyyaml==6.0.3
-jsonschema==4.25.1
+jsonschema==4.26.0
 
 # Numerical analysis (baseline stats, distribution comparison)
-numpy>=2.5.2
+numpy>=2.5.4
 
-msgpack>=1.2.2  # GHSA-6v7p-g79w-8964 (HIGH) — not a direct dep; local rebuild (Python 3.14,
+msgpack>=1.2.3  # GHSA-6v7p-g79w-8964 (HIGH) — not a direct dep; local rebuild (Python 3.14,
 # matching the image) resolved cleanly with no msgpack at all, so this pin is defensive
 # insurance against a transient PyPI resolution picking it up as some package's optional/
 # transitive extra, not a confirmed fix for a reproduced local finding.
