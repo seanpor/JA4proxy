@@ -67,6 +67,7 @@ KNOWN_ACTION_SHAS: dict[str, dict[str, str]] = {
     },
     # scorecard.yml (OpenSSF Scorecard workflow) — verified via git ls-remote
     "ossf/scorecard-action": {
+        "v2.5.0": "fa7117db83c52d787ae5a89f350999701505d78e",  # phase-812-autofix (PR #681)
         "v2.3.1": "0864cf19026789058feabb7e87baa5f140aac736",
         "v2.4.3": "4eaacf0543bb3f2c246792bd56e8cdeffafb205a",  # phase-307 (PR #105)
         "v2.4.4": "2d1146689b8cda280b9bc96326124645441f03bc",  # PR #379 — annotated tag; this is the dereferenced commit SHA (`git ls-remote ... refs/tags/v2.4.4^{}`), not the tag object SHA
@@ -83,12 +84,14 @@ KNOWN_ACTION_SHAS: dict[str, dict[str, str]] = {
         "v7.0.0": "b7ad1dad31e06c5925ef5d2fc7ad053ef454303e",  # PR #379
     },
     "actions/setup-python": {
+        "v7.1.0": "6d4fd22b20465ccc0f7354476588e8df7c9ca0e0",  # phase-812-autofix (PR #681)
         "v5.0.0": "0a5c61591373683505ea898e09a3ea4f39ef2b9c",
         "v6.2.0": "a309ff8b426b58ec0e2a45f0f869d46889d02405",
         "v6.3.0": "ece7cb06caefa5fff74198d8649806c4678c61a1",  # PR #347
         "v7.0.0": "5fda3b95a4ea91299a34e894583c3862153e4b97",  # PR #379
     },
     "trufflesecurity/trufflehog": {
+        "v3.99.7": "31ce31ee1abbcc7dc8eee5764c17121c3044c8b2",  # phase-812-autofix (PR #681)
         "v3.97.9": "4dd8831c5f12599465d4d45c3c447b4018a34c85",  # phase-812-autofix (PR #523)
         "v3.97.6": "64d939a56362f519781c53ea09b27f8d1dc0140a",  # phase-812-autofix (PR #516)
         "v3.97.4": "363923b901c911a9164f50b6c423f47c15372b1c",  # phase-812-autofix (PR #491)
@@ -124,6 +127,7 @@ KNOWN_ACTION_SHAS: dict[str, dict[str, str]] = {
         "v7.0.0": "2dc316deee8e90f13e1a351ab510b4d5bc0c82cd",
     },
     "goreleaser/goreleaser-action": {
+        "v7.3.0": "a4f02ab5355a589de60d917a659ce617ed19b3de",  # phase-812-autofix (PR #681)
         "v6.3.0": "9c156ee8a17a598857849441385a2041ef570552",
         "v7.0.0": "ec59f474b9834571250b370d4735c50f8e2d1e29",
         "v7.2.2": "5daf1e915a5f0af01ddbcd89a43b8061ff4f1a89",  # phase-307 (PR #105)
@@ -146,6 +150,7 @@ KNOWN_ACTION_SHAS: dict[str, dict[str, str]] = {
         "v4.2.0": "bb05f3f5519dd87d3ba754cc423b652a5edd6d2c",  # PR #347
     },
     "docker/login-action": {
+        "v4.7.0": "81c6f93d4bc991e510b342a00b419b3bb4efc5c6",  # phase-812-autofix (PR #681)
         "v4.6.0": "dbcb813823bdd20940b903addbd779551569679f",  # phase-812-autofix (PR #491)
         "v3.3.0": "9780b0c442fbb1117ed29e0efdff1e18412f7567",
         "v4.1.0": "4907a6ddec9925e35a0a9e82d7399ccc52663121",
@@ -174,6 +179,7 @@ KNOWN_ACTION_SHAS: dict[str, dict[str, str]] = {
         "v4.1.2": "6f9f17788090df1f26f669e9d70d6ae9567deba6",  # phase-307 (PR #105)
     },
     "anchore/sbom-action": {
+        "v0.24.3": "66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c",  # phase-812-autofix (PR #681)
         "v0.24.2": "3ad7283483fc7af8ff2b4ea19663c2d5ca935e26",  # phase-812-autofix (PR #491)
         "v0.17.8": "55dc4ee22412511ee8c3142cbea40418e6cec693",
         "v0.24.0": "e22c389904149dbc22b58101806040fa8d37a610",
@@ -201,6 +207,7 @@ KNOWN_ACTION_SHAS: dict[str, dict[str, str]] = {
         "v4.1.0": "6549dc21effb2730855a1281407ecfcececc6c1b",
     },
     "actions/upload-artifact": {
+        "v7.0.2": "cf430e030ddbb5b0abf93d22962f4752f3646cd9",  # phase-812-autofix (PR #681)
         "v4": "ea165f8d65b6e75b540449e92b4886f43607fa02",  # scorecard.yml
         "v7.0.1": "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
     },
