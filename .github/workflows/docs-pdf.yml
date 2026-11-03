@@ -58,21 +58,21 @@ jobs:
           continue_on_error: false
 
       - name: Upload brochure
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
           name: brochure
           path: docs/pdf/brochure/brochure.pdf
           if-no-files-found: warn
 
       - name: Upload user-guide
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
           name: user-guide
           path: docs/pdf/user-guide/user-guide.pdf
           if-no-files-found: warn
 
       - name: Upload reference-manual
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
           name: reference-manual
           path: docs/pdf/reference-manual/reference-manual.pdf
