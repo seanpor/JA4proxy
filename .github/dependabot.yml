@@ -48,9 +48,15 @@ updates:
     # bump in this range fails CI and can never auto-merge -- it just sits
     # open, re-nagging on every rebase/recheck. Ignored until that upstream
     # conflict resolves; revisit manually (see PR #374 discussion).
+    # Phase 859 / Phase 860: semgrep>=1.182.1 pins jsonschema~=4.25.1 and mcp==1.29.0.
+    # Bumping jsonschema>=4.26 or mcp>=1.30 creates ResolutionImpossible until semgrep updates.
     ignore:
       - dependency-name: "pip-audit"
         versions: [">=2.8.0"]
+      - dependency-name: "jsonschema"
+        versions: [">=4.26.0"]
+      - dependency-name: "mcp"
+        versions: [">=1.30.0"]
 
   - package-ecosystem: "gomod"
     directory: "/"
@@ -103,6 +109,13 @@ updates:
     open-pull-requests-limit: 5
     cooldown:
       default-days: 7
+    # Phase 859: Production targets Python 3.14.* per AGENTS.md. Upstream Python 3.15.x
+    # causes runtime hardening steps (rm -rf /usr/local/lib/python3.14/...) to silently
+    # no-op, shipping pip/setuptools in production images. Python 3.14.x patch releases
+    # are still permitted. Tracked for formal migration in Phase 861.
+    ignore:
+      - dependency-name: "python"
+        versions: [">=3.15.0"]
 
   - package-ecosystem: "docker"
     directory: "/src/analytics"
@@ -111,6 +124,10 @@ updates:
     open-pull-requests-limit: 5
     cooldown:
       default-days: 7
+    # Phase 859: Pinned to Python 3.14.* runtime. Tracked for Phase 861.
+    ignore:
+      - dependency-name: "python"
+        versions: [">=3.15.0"]
 
   - package-ecosystem: "docker"
     directory: "/src/tarpit"
@@ -119,3 +136,8 @@ updates:
     open-pull-requests-limit: 5
     cooldown:
       default-days: 7
+    # Phase 859: Pinned to Python 3.14.* runtime. Tracked for Phase 861.
+    ignore:
+      - dependency-name: "python"
+        versions: [">=3.15.0"]
+
