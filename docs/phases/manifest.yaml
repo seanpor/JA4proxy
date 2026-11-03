@@ -5625,11 +5625,11 @@ phases:
 
   859:
     name: "Unblock Dependabot Queue & Remediate pyasn1 CVE Baseline Issues"
-    status: IN_PROGRESS
-    action_plan: docs/phases/PHASE_859.md
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_859.md
     dependencies: [855]
     size: SMALL
-    summary: "IN PROGRESS. Remediate CVE-baseline issues #672-#675 (pyasn1 in ja4proxy-management: delete orphan pin or bump to 0.6.5), fix the lychee ico.org.uk timeout flake with timeout/retry, add Dependabot ignores for Python >=3.15 and semgrep-coupled pins, then land/close Dependabot PRs #676-#682 individually. #682 deferred to Phase 860; Python 3.15 migration to Phase 861."
+    summary: "COMPLETE 2026-11-03. Remediated pyasn1 CVE-baseline issues #672-#675 by bumping pyasn1 to 0.6.5 in management/requirements.txt. Fixed lychee docs-link-check timeout/retry on ico.org.uk. Configured Dependabot ignores for jsonschema, mcp, and Python 3.15, and capped Makefile test workers. Phase 860 and 861 documented for follow-on."
 
   860:
     name: "Python Dependencies Reconciliation & Semgrep Pin Coupling"
