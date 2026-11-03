@@ -744,7 +744,7 @@ DPIA: Conducted 2026-03-27, low risk
 
 - [GDPR Full Text](https://eur-lex.europa.eu/eli/reg/2016/679/oj)
 - [EDPB Guidelines on Legitimate Interest](https://edpb.europa.eu/our-work-tools/our-documents/guidelines/guidelines-220205-legitimate-interest_en)
-- [ICO Guide to GDPR](https://ico.org.uk/for-organisations/guide-to-data-protection/)
+- [ICO Guide to GDPR](https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/)
 
 ---
 

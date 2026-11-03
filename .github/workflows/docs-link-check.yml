@@ -1,8 +1,9 @@
-# Documentation link check (Phase 107w.3)
+# Documentation link check (Phase 107w.3, updated Phase 859)
 #
 # Walks markdown docs in compliance / security / audience-scoped directories
 # with `lychee` and fails the build on broken INTERNAL links (relative paths
-# to non-existent files). External 4xx/5xx are tolerated (vendor sites flake).
+# to non-existent files). External 4xx/5xx are tolerated (vendor sites flake),
+# with retries and 30s timeout configured to absorb transient edge/bot-challenge stalls.
 #
 # Trigger: pull_request on docs/** changes + workflow_dispatch.
 # Promote to push:main after the workflow proves stable in PR runs.
@@ -43,6 +44,8 @@ jobs:
           args: >-
             --no-progress
             --accept 200,204,301,302,403,429,503,504
+            --timeout 30
+            --max-retries 3
             --max-concurrency 4
             --exclude SLSA_VERIFICATION
             --exclude https://eur-lex.europa.eu

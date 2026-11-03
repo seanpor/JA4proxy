@@ -5623,3 +5623,28 @@ phases:
     size: SMALL
     summary: "COMPLETE 2026-10-29. Hardened scripts/redis-to-ebpf.py against embedded nulls and malformed IPv4/IPv6 inputs in _ip_to_hex, non-dict/empty drop counter entries, string/bytes decoding variation in Redis scan_iter/smembers, and Redis disconnection backoff. Added comprehensive unit tests in tests/unit/security/test_ebpf_sync_hardening.py."
 
+  859:
+    name: "Unblock Dependabot Queue & Remediate pyasn1 CVE Baseline Issues"
+    status: IN_PROGRESS
+    action_plan: docs/phases/PHASE_859.md
+    dependencies: [855]
+    size: SMALL
+    summary: "IN PROGRESS. Remediate CVE-baseline issues #672-#675 (pyasn1 in ja4proxy-management: delete orphan pin or bump to 0.6.5), fix the lychee ico.org.uk timeout flake with timeout/retry, add Dependabot ignores for Python >=3.15 and semgrep-coupled pins, then land/close Dependabot PRs #676-#682 individually. #682 deferred to Phase 860; Python 3.15 migration to Phase 861."
+
+  860:
+    name: "Python Dependencies Reconciliation & Semgrep Pin Coupling"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_860.md
+    dependencies: [859]
+    size: MEDIUM
+    summary: "PROPOSED. Resolve pip ResolutionImpossible conflict from PR #682 caused by semgrep>=1.182.1 pins on jsonschema and mcp. Safely triage and apply compatible dependency upgrades and protobuf 5->7 major migration."
+
+  861:
+    name: "Python 3.15 Container Runtime & Toolchain Migration"
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_861.md
+    dependencies: [859]
+    size: MEDIUM
+    summary: "PROPOSED. Project-wide migration to Python 3.15 container base images and tools image once upstream wheel ecosystem and toolchains stabilize."
+
+
