@@ -1,0 +1,1 @@
+- Completed Phase 861: Migrated container runtime and toolchains across all 9 Dockerfiles to Python 3.15, implemented fail-closed pip purges across production images, and updated CI workflows and policy.
