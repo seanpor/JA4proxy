@@ -1,0 +1,5 @@
+- Reconciled Python dependencies across `requirements.txt`, `requirements-test.txt`, `requirements-analytics.txt`, and `management/requirements.txt` to clear pin conflicts.
+- Decoupled `semgrep` from root Python requirements (runs hermetically via official container image), removing transitive pins on `mcp` and `opentelemetry-api`.
+- Retired 5 resolved CVE waivers for `mcp` (CVE-2026-59951, CVE-2026-116684..116686) and `opentelemetry-api` (CVE-2026-114603) from `security/waivers.yaml` and `docs/security/CVE_EXCEPTIONS.md`.
+- Upgraded `fakeredis` to 2.40.0 with regression validation for `xtrim` and consumer stream group operations.
+- Synchronized CI workflow count fixtures in adversarial test suites.

@@ -160,6 +160,34 @@ CVE-2026-111497 exp:2027-01-25
 # with Go >= 1.26.10
 CVE-2026-111943 exp:2027-01-21
 
+# github.com/go-jose/go-jose/v4 resource consumption when parsing crafted
+# malformed public keys. Grafana is a third-party pinned monitoring image
+# bound only to internal loopback/monitoring networks
+# (${AGENT_BIND_IP:-127.0.0.1}) and does not parse untrusted user-supplied
+# keys. We cannot rebuild this image independently; upstream publisher must
+# ship a tag built with go-jose >= 4.1.5.
+#
+# Carriers:
+#   - grafana/grafana:13.2.4-ubuntu
+# Reachability: internal-monitoring-only
+# Severity: MEDIUM
+# Re-check when: grafana publishes a tag built with go-jose >= 4.1.5
+CVE-2026-116585 exp:2027-02-02
+
+# github.com/go-jose/go-jose/v4 decompression bomb / resource consumption
+# during JWE payload handling. Grafana is a third-party pinned monitoring
+# image bound only to internal loopback/monitoring networks
+# (${AGENT_BIND_IP:-127.0.0.1}) and does not accept untrusted JWE payloads. We
+# cannot rebuild this image independently; upstream publisher must ship a tag
+# built with go-jose >= 4.1.5.
+#
+# Carriers:
+#   - grafana/grafana:13.2.4-ubuntu
+# Reachability: internal-monitoring-only
+# Severity: MEDIUM
+# Re-check when: grafana publishes a tag built with go-jose >= 4.1.5
+CVE-2026-116586 exp:2027-02-02
+
 # github.com/go-jose/go-jose/v4 DoS when parsing crafted JWKs with large RSA
 # keys. Both Grafana and Alloy are third-party pinned monitoring images bound
 # only to internal loopback/monitoring networks (${AGENT_BIND_IP:-127.0.0.1})

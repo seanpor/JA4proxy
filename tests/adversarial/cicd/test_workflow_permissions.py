@@ -18,7 +18,7 @@ WORKFLOWS_DIR = Path(".github/workflows")
 
 def get_workflow_files() -> list[Path]:
     files = sorted(WORKFLOWS_DIR.glob("*.yml"))
-    assert len(files) == 17
+    assert len(files) == 20
     return files
 
 

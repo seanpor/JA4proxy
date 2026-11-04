@@ -5633,7 +5633,7 @@ phases:
 
   860:
     name: "Python Dependencies Reconciliation & Semgrep Pin Coupling"
-    status: PROPOSED
+    status: IN_PROGRESS
     action_plan: docs/phases/PHASE_860.md
     dependencies: [859]
     size: MEDIUM

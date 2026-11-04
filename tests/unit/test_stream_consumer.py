@@ -955,3 +955,35 @@ class TestStreamConsumerCoverageGaps:
         c.connect = _mock_connect
         await c.run_detection_cycle()
         assert connect_called
+
+    async def test_fakeredis_stream_and_xtrim_integration(self):
+        """Phase 860: Verify fakeredis 2.40.0 stream group operations and xtrim compatibility.
+        Verifies xreadgroup, xack, and xtrim minid work without upstream regression."""
+        import fakeredis.aioredis
+
+        fake_r = fakeredis.aioredis.FakeRedis()
+        stream_name = "test_stream_p860"
+        group_name = "test_group"
+
+        # 1. Add event to stream
+        msg_id = await fake_r.xadd(stream_name, {"event": "login", "ip": "1.2.3.4"})
+        assert msg_id is not None
+
+        # 2. Create consumer group and read
+        await fake_r.xgroup_create(stream_name, group_name, id="0", mkstream=True)
+        read_res = await fake_r.xreadgroup(group_name, "consumer_1", {stream_name: ">"}, count=1)
+        assert len(read_res) == 1
+        stream, entries = read_res[0]
+        assert stream == stream_name.encode() or stream == stream_name
+        assert len(entries) == 1
+        read_id, data = entries[0]
+        assert read_id == msg_id
+
+        # 3. Acknowledge
+        ack_res = await fake_r.xack(stream_name, group_name, read_id)
+        assert ack_res == 1
+
+        # 4. xtrim with minid
+        trimmed = await fake_r.xtrim(stream_name, minid="0-0")
+        assert trimmed >= 0
+

@@ -209,7 +209,7 @@ class GDPRPurge:
 
         if use_minid:
             minid = f"{cutoff_ms}-0"
-            await self._redis.xtrim(self.STREAM_KEY, minid=minid)
+            await self._redis.xtrim(self.STREAM_KEY, minid=minid, approximate=False)
         else:
             cutoff_ts = str(cutoff_ms)
             while True:
