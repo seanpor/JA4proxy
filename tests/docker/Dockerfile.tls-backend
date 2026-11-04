@@ -1,4 +1,4 @@
-FROM python:3.14.0-slim
+FROM python:3.15.2-slim@sha256:8c13a3f37a6a5b71498228e902c4b9f51c1f7900d49fabf71f9a650c6120e0d0
 RUN useradd -r -u 1001 -s /bin/false testuser
 RUN openssl req -x509 -newkey rsa:2048 -keyout /key.pem -out /cert.pem \
     -days 3650 -nodes -subj '/CN=test-backend' 2>/dev/null && \

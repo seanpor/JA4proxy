@@ -5641,11 +5641,11 @@ phases:
 
   861:
     name: "Python 3.15 Container Runtime & Toolchain Migration"
-    status: PROPOSED
+    status: IN_PROGRESS
     action_plan: docs/phases/PHASE_861.md
     dependencies: [859]
     size: MEDIUM
-    summary: "PROPOSED. Project-wide migration to Python 3.15 container base images and tools image once upstream wheel ecosystem and toolchains stabilize."
+    summary: "IN_PROGRESS. Project-wide migration to Python 3.15 container base images and tools image once upstream wheel ecosystem and toolchains stabilize."
 
   862:
     name: "Local Pre-PR Gates & Upstream Drift Prevention"

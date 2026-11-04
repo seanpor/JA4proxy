@@ -1,0 +1,3 @@
+- Migrated Python container runtime and toolchains across all 9 Dockerfiles to Python 3.15 (`python:3.15.2-alpine3.24` and `python:3.15.2-slim`).
+- Implemented fail-closed dynamic packaging tool purges (`! python3 -m pip --version 2>/dev/null`) across production images.
+- Updated `tests/unit/test_docker_consistency.py`, CI workflows, `pyproject.toml`, and `AGENTS.md` to Python 3.15.

@@ -30,11 +30,11 @@ Only after written approval: create your feature branch, write code, write tests
 
 ## 🐳 Container-Strict Execution (No Host Python)
 
-**Virtual environments on the host are strictly forbidden.** The host runs Python 3.10, but production targets Python 3.14.* (the test/tools images are pinned to `python:3.14`). Running tests, linters, or scripts on the host leads to severe version-skew bugs and polluted state.
+**Virtual environments on the host are strictly forbidden.** The host runs Python 3.10, but production targets Python 3.15.* (the test/tools images are pinned to `python:3.15`). Running tests, linters, or scripts on the host leads to severe version-skew bugs and polluted state.
 
 - **Rule 1:** NEVER create a virtual environment (e.g., `uv venv`, `python -m venv`) on the host.
 - **Rule 2:** NEVER run `pip install`, `pytest`, `ruff`, or `mypy` directly on the host machine.
-- **Rule 3:** Run Python through the **`make` targets** — they execute inside the pinned `ja4proxy-tools` image (`Dockerfile.tools`, Python 3.14) via `docker run`, building it on demand. This is the canonical, CI-identical path.
+- **Rule 3:** Run Python through the **`make` targets** — they execute inside the pinned `ja4proxy-tools` image (`Dockerfile.tools`, Python 3.15) via `docker run`, building it on demand. This is the canonical, CI-identical path.
   - *Wrong:* `python3 -m pytest tests/`
   - *Right:* `make test` (Go native + Python in-container) · `make test-unit` · `make test-chaos` · `make lint` · `make sync`
   - Need an ad-hoc command? `docker run --rm -v "$PWD":/src -w /src ja4proxy-tools pytest <args>` (this is what `$(TOOLS_RUN)` expands to).
