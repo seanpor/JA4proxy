@@ -114,8 +114,11 @@ def test_ignore_parser_refuses_junk(tmp_path) -> None:
 # ── the required gate is untouched ──────────────────────────────────────────
 
 
-def test_the_required_gate_still_applies_the_ignores() -> None:
-    assert "--ignore-vuln" in scan_baseline.pip_audit_cmd()
+def test_the_required_gate_still_applies_the_ignores(tmp_path, monkeypatch) -> None:
+    # If the project currently has zero active pip-audit waivers, verify against an ignorefile with an ignore.
+    dummy_ignorefile = tmp_path / "dummy.pip-audit-ignores"
+    dummy_ignorefile.write_text("--ignore-vuln CVE-2026-99999\n", encoding="utf-8")
+    assert "--ignore-vuln" in scan_baseline.pip_audit_cmd(ignorefile=str(dummy_ignorefile))
 
 
 def test_the_monitor_audits_without_the_ignore_flags(monkeypatch) -> None:

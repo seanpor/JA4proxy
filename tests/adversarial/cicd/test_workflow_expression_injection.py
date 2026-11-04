@@ -36,7 +36,7 @@ UNTRUSTED_EXPRESSION_PATTERNS = [
 
 def get_workflow_files() -> list[Path]:
     files = sorted(WORKFLOWS_DIR.glob("*.yml"))
-    assert len(files) == 17, f"Expected 17 workflow files in {WORKFLOWS_DIR}, found {len(files)}"
+    assert len(files) == 20, f"Expected 20 workflow files in {WORKFLOWS_DIR}, found {len(files)}"
     return files
 
 

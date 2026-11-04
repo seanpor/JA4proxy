@@ -112,11 +112,13 @@ WORKDIR /src
 # resolve imports and pytest/conftest can import redis, fastapi, etc.
 # Management deps are included so pylint can resolve all imports.
 COPY requirements.txt requirements-test.txt requirements-analytics.txt requirements-lint-management.txt ./
+COPY management/requirements.txt ./management/requirements.txt
 RUN pip install --no-cache-dir \
       -r requirements.txt \
       -r requirements-test.txt \
       -r requirements-analytics.txt \
-      -r requirements-lint-management.txt
+      -r requirements-lint-management.txt \
+      -r management/requirements.txt
 
 # Third-party Python linters (pinned major versions) that are compatible with
 # the project's Python 3.14. semgrep and ansible-lint are NOT installed here —
