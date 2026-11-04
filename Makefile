@@ -1553,6 +1553,14 @@ test-doc-links: ## Phase 107w.3 — lychee-check all docs for broken internal li
 lint-meta: tools-image ## Phase 147 — Verify Makefile and automation script health
 	@$(TOOLS_RUN) python3 scripts/meta_lint.py
 	@$(TOOLS_RUN) python3 scripts/check_toolchain_alignment.py
+	@$(TOOLS_RUN) python3 scripts/sync_reference_docs.py --check
+	@$(TOOLS_RUN) python3 scripts/check_deps_resolution.py
+
+lint-resolution: tools-image ## Phase 862 — Verify independent Python requirements resolution and parity
+	@$(TOOLS_RUN) python3 scripts/check_deps_resolution.py
+
+hygiene: tools-image ## Phase 862 — Fast on-demand local pre-check for CVEs, doc sync, and dependency parity
+	@bash scripts/local_hygiene.sh
 
 check-toolchain: tools-image ## Audit toolchain alignment across go.mod, Dockerfiles, and linter capabilities
 	@$(TOOLS_RUN) python3 scripts/check_toolchain_alignment.py

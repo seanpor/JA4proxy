@@ -1,0 +1,3 @@
+- Add sync_reference_docs and isolated environment dependency resolution checks to make lint-meta and close-phase.sh.
+- Add on-demand make hygiene target for fast local CVE, doc sync, and dependency parity auditing.
+- Align fakeredis pin in management/requirements.txt with root test toolchain.

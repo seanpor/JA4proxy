@@ -45,7 +45,7 @@ The default lane runs **without HAProxy** (single proxy, reached directly on
 
 <!-- BEGIN GENERATED: make-targets -->
 
-_212 targets. Generated from the Makefile's own `##` help comments by `make sync` — do not edit this table by hand._
+_214 targets. Generated from the Makefile's own `##` help comments by `make sync` — do not edit this table by hand._
 
 ### Aggregate linters
 
@@ -105,8 +105,10 @@ _212 targets. Generated from the Makefile's own `##` help comments by `make sync
 | `ci-local` | Run the same fast checks the CI workflow runs (Go + Python tests) |
 | `findings-list` | List open findings (add FINDINGS_ARGS=... to pass flags, e.g. --severity HIGH) |
 | `findings-render` | Regenerate docs/security/FINDINGS_REGISTER.md from findings.yaml |
+| `hygiene` | Phase 862 — Fast on-demand local pre-check for CVEs, doc sync, and dependency parity |
 | `lint-alert-urls` | Verify Alertmanager runbook_url values are up to date |
 | `lint-meta` | Phase 147 — Verify Makefile and automation script health |
+| `lint-resolution` | Phase 862 — Verify independent Python requirements resolution and parity |
 | `load-test` | Run JA4proxy load test |
 | `load-test-baseline` | Run baseline load test (localhost:8080, 60s, 1000 rps) |
 | `load-test-report` | Show latest load test reports |
