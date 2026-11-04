@@ -109,13 +109,6 @@ updates:
     open-pull-requests-limit: 5
     cooldown:
       default-days: 7
-    # Phase 859: Production targets Python 3.14.* per AGENTS.md. Upstream Python 3.15.x
-    # causes runtime hardening steps (rm -rf /usr/local/lib/python3.14/...) to silently
-    # no-op, shipping pip/setuptools in production images. Python 3.14.x patch releases
-    # are still permitted. Tracked for formal migration in Phase 861.
-    ignore:
-      - dependency-name: "python"
-        versions: [">=3.15.0"]
 
   - package-ecosystem: "docker"
     directory: "/src/analytics"
@@ -124,10 +117,6 @@ updates:
     open-pull-requests-limit: 5
     cooldown:
       default-days: 7
-    # Phase 859: Pinned to Python 3.14.* runtime. Tracked for Phase 861.
-    ignore:
-      - dependency-name: "python"
-        versions: [">=3.15.0"]
 
   - package-ecosystem: "docker"
     directory: "/src/tarpit"
@@ -136,8 +125,4 @@ updates:
     open-pull-requests-limit: 5
     cooldown:
       default-days: 7
-    # Phase 859: Pinned to Python 3.14.* runtime. Tracked for Phase 861.
-    ignore:
-      - dependency-name: "python"
-        versions: [">=3.15.0"]
 

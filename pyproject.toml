@@ -81,7 +81,7 @@ exclude = ["^archive/", "^vendor/", "^node_modules/"]
 # Phase 16f baseline — --ignore-missing-imports --no-strict-optional
 # Goal: zero errors in new code; suppress known legacy patterns.
 # Phase 16g will tighten to --strict once Redis typing is resolved.
-python_version = "3.14"
+python_version = "3.15"
 ignore_missing_imports = true
 no_strict_optional = true
 warn_return_any = false

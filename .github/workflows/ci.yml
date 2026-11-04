@@ -64,7 +64,7 @@ jobs:
           go-version: "1.27.3"
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
         with:
-          python-version: "3.14"
+          python-version: "3.15"
       - name: make doctor
         run: make doctor
       - name: make lint-meta
@@ -115,7 +115,7 @@ jobs:
           go-version: "1.27.3"
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
         with:
-          python-version: "3.14"
+          python-version: "3.15"
       - name: Install dependencies
         run: |
           # pip-audit is required by `make lint` (lint-static's CVE gate);
@@ -186,7 +186,7 @@ jobs:
       # gate) imports it at module level and exits 2 without it.
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
         with:
-          python-version: "3.14"
+          python-version: "3.15"
       - name: Install Python deps
         run: pip install pyyaml
       # The question is "did the waiver SET move?", not "did a waiver FILE
@@ -331,7 +331,7 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
         with:
           go-version: "1.27.3"
-      # Python tests run inside the pinned 3.14 tools image (built by the
+      # Python tests run inside the pinned 3.15 tools image (built by the
       # `tools-image` prereq of `make test`); Go tests run natively. No host
       # Python setup is required.
       - name: make test
@@ -406,7 +406,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
         with:
-          python-version: "3.14"
+          python-version: "3.15"
       - name: Semgrep scan
         run: |
           pip install semgrep==1.76.0
@@ -419,7 +419,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
         with:
-          python-version: "3.14"
+          python-version: "3.15"
       - name: pip-audit
         run: |
           # phase-61 review-fix #2 (B2): pin pip-audit. An audit tool whose
@@ -504,7 +504,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
         with:
-          python-version: "3.14"
+          python-version: "3.15"
       - name: Install Python deps
         run: pip install pyyaml
       - name: Check traceability matrix

@@ -81,7 +81,7 @@ def iter_env_entries(compose: dict) -> list[tuple[str, str]]:
 
 
 # ---------------------------------------------------------------------------
-# 89a — Python base image must be patch-pinned 3.14.0 (slim or alpine)
+# 89a — Python base image must be patch-pinned 3.15.2 (slim or alpine)
 # ---------------------------------------------------------------------------
 
 
@@ -90,18 +90,15 @@ class TestPythonBaseImage:
 
     Two bases are allowed:
 
-    * ``python:3.14.0-slim`` (Debian) — the management FastAPI service;
-    * ``python:3.14.6-alpine3.24`` (digest-pinned) — analytics, tarpit, test,
-      trafficgen. Phase 229 first moved analytics/tarpit to alpine to drop
-      Debian's perl CVEs; Phase 317 re-based the remaining Debian Python
-      images (test, trafficgen) onto this same hardened alpine base and pinned
-      it by digest (0 HIGH/CRITICAL).
+    * ``python:3.15.2-slim`` (Debian) — tests and tools containers;
+    * ``python:3.15.2-alpine3.24`` (digest-pinned) — management, analytics, tarpit,
+      test, trafficgen. Phase 861 upgraded all runtime images to Python 3.15.2.
 
     The invariant that still matters is the **patch pin** — floating tags like
-    ``3.14-slim`` or ``3.14-alpine`` (without a patch version) remain rejected.
+    ``3.15-slim`` or ``3.15-alpine`` (without a patch version) remain rejected.
     """
 
-    _ALLOWED = ("python:3.14.0-slim", "python:3.14.6-alpine3.24")
+    _ALLOWED = ("python:3.15.2-slim", "python:3.15.2-alpine3.24")
 
     @pytest.mark.parametrize("df_path,lines", collect_dockerfiles())
     def test_python_tag_is_pinned(self, df_path: Path, lines: list[str]):
@@ -111,8 +108,8 @@ class TestPythonBaseImage:
                 continue
             assert image_ref.startswith(self._ALLOWED), (
                 f"{df_path}:{lineno} — "
-                f"expected FROM python:3.14.0-slim or python:3.14.6-alpine3.24, "
-                f"got FROM {image_ref}. Floating tags like '3.14-slim' (without "
+                f"expected FROM python:3.15.2-slim or python:3.15.2-alpine3.24, "
+                f"got FROM {image_ref}. Floating tags like '3.15-slim' (without "
                 f"patch version) are rejected."
             )
 

@@ -1,7 +1,7 @@
 # Analytics Node Dockerfile
 # Phase 12a: Foundation · Phase 229: alpine base (perl-free)
 
-FROM python:3.14.6-alpine3.24@sha256:26730869004e2b9c4b9ad09cab8625e81d256d1ce97e72df5520e806b1709f92
+FROM python:3.15.2-alpine3.24@sha256:20a82dbc2783112ddb91d1534603f802d222a3e63e593cd002eb2ac534e70211
 LABEL dockerfile.location="module" \
       dockerfile.module="src/analytics" \
       dockerfile.build-context="root"
@@ -27,10 +27,15 @@ WORKDIR /app
 COPY requirements-analytics.txt ./
 RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked \
     apk add --no-cache --virtual .build-deps build-base openssl-dev && \
-    pip install --upgrade pip && \
+    pip install --upgrade pip setuptools wheel && \
     pip install -r requirements-analytics.txt && \
-    pip uninstall -y pip && \
-    rm -rf /usr/local/lib/python3.14/ensurepip /usr/local/lib/python3.14/site-packages/pip* /usr/local/bin/pip* && \
+    pip uninstall -y pip setuptools wheel && \
+    rm -rf /usr/local/lib/python3.*/ensurepip \
+           /usr/local/lib/python3.*/site-packages/pip* \
+           /usr/local/lib/python3.*/site-packages/setuptools* \
+           /usr/local/lib/python3.*/site-packages/wheel* \
+           /usr/local/bin/pip* && \
+    ! python3 -m pip --version 2>/dev/null && \
     apk del .build-deps
 
 # Copy application code
