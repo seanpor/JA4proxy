@@ -1,0 +1,1 @@
+- Completed Phase 860: Decoupled Semgrep/MCP from root requirements, reconciled Python dependency trees, upgraded protobuf, pydantic, and fakeredis, and retired 5 obsolete CVE waivers.
