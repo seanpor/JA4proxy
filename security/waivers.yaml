@@ -400,7 +400,43 @@ waivers:
     created: 2026-10-27
     expires: 2027-01-25
 
-  # ── go-jose RSA DoS (CVE-2026-116587) in Grafana & Alloy ─────────────────
+  # ── go-jose RSA DoS & key parsing (CVE-2026-116585, CVE-2026-116586, CVE-2026-116587) in Grafana & Alloy ─────────────────
+  - id: CVE-2026-116585
+    scope: third-party
+    severity: MEDIUM
+    source: trivy
+    carriers:
+      - "grafana/grafana:13.2.4-ubuntu"
+    rationale: >-
+      github.com/go-jose/go-jose/v4 resource consumption when parsing crafted
+      malformed public keys. Grafana is a third-party pinned monitoring image bound
+      only to internal loopback/monitoring networks (${AGENT_BIND_IP:-127.0.0.1})
+      and does not parse untrusted user-supplied keys. We cannot rebuild this image
+      independently; upstream publisher must ship a tag built with go-jose >= 4.1.5.
+    reachability: internal-monitoring-only
+    fix_available: false
+    recheck_trigger: "grafana publishes a tag built with go-jose >= 4.1.5"
+    created: 2026-11-04
+    expires: 2027-02-02
+
+  - id: CVE-2026-116586
+    scope: third-party
+    severity: MEDIUM
+    source: trivy
+    carriers:
+      - "grafana/grafana:13.2.4-ubuntu"
+    rationale: >-
+      github.com/go-jose/go-jose/v4 decompression bomb / resource consumption during
+      JWE payload handling. Grafana is a third-party pinned monitoring image bound
+      only to internal loopback/monitoring networks (${AGENT_BIND_IP:-127.0.0.1})
+      and does not accept untrusted JWE payloads. We cannot rebuild this image
+      independently; upstream publisher must ship a tag built with go-jose >= 4.1.5.
+    reachability: internal-monitoring-only
+    fix_available: false
+    recheck_trigger: "grafana publishes a tag built with go-jose >= 4.1.5"
+    created: 2026-11-04
+    expires: 2027-02-02
+
   - id: CVE-2026-116587
     scope: third-party
     severity: HIGH
