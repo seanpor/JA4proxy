@@ -12,7 +12,7 @@ read the top of the file for full options.
 
 <!-- BEGIN GENERATED: scripts -->
 
-_147 scripts. Generated from each script's header comment by `make sync` — do not edit this table by hand._
+_149 scripts. Generated from each script's header comment by `make sync` — do not edit this table by hand._
 
 | Script | Called by | What it does |
 |--------|-----------|--------------|
@@ -37,6 +37,7 @@ _147 scripts. Generated from each script's header comment by `make sync` — do 
 | `check-status.sh` | — | Quick status check for JA4proxy POC and monitoring stack |
 | `check_bare_except.py` | — | Fail if any file contains a bare except: or a bare except Exception: pass. |
 | `check_bind_address.py` | — | Pre-flight guard for JA4PROXY-2026-0045 (Phase 226). |
+| `check_deps_resolution.py` | `make lint-meta` | Check independent resolver compatibility per isolated Python environment. |
 | `check_doc_frontmatter.py` | `make doc-health` | Documentation Frontmatter Validator |
 | `check_finding_spec.py` | — | check_finding_spec.py — completeness gate for penetration-testing finding |
 | `check_image_versions.py` | `make scan-images` | check_image_versions.py — detect :latest tags and version drift between compose files. |
@@ -98,6 +99,7 @@ _147 scripts. Generated from each script's header comment by `make sync` — do 
 | `lint-phases.py` | `make lint-phases` | lint-phases.py — Validate phase documentation consistency. |
 | `lint_toml.py` | `make lint-toml` | TOML syntax + parse validation. |
 | `load_test.py` | `make load-test` | Phase 86b / 86i — Load testing harness for JA4proxy. |
+| `local_hygiene.sh` | `make hygiene` | scripts/local_hygiene.sh — Fast on-demand local pre-check for CVEs and drift. |
 | `measure_mttr.sh` | `make measure-mttr` | Phase 64h / 819d — MTTR baseline measurement script. |
 | `medium_inventory.py` | `make medium-inventory` | scripts/medium_inventory.py — measure the MEDIUM vulnerability surface. |
 | `meta_lint.py` | `make lint-meta` | Meta-lint: verify the Makefile is internally honest. |
@@ -146,7 +148,7 @@ _147 scripts. Generated from each script's header comment by `make sync` — do 
 | `surface_inventory.py` | `make surface-inventory` | Attack-Surface Inventory Parser & Documentation Generator. |
 | `sweep_retrospective_findings.py` | — | sweep_retrospective_findings.py — Execute Phase 814c Retrospective Closure Sweep. |
 | `sync-roadmap.py` | `make sync` | Sync Roadmap Script |
-| `sync_reference_docs.py` | `make sync` | sync_reference_docs.py — generate the reference lists from the things they |
+| `sync_reference_docs.py` | `make lint-meta` | sync_reference_docs.py — generate the reference lists from the things they |
 | `tap_benchmark.py` | — | tap_benchmark.py — TAP mode throughput benchmark. |
 | `test-bot.py` | `make remote-bot` | JA4proxy test bot — lightweight manual tester. |
 | `test-ja4-blocking.sh` | — | JA4 Fingerprint Blocking Test Script |

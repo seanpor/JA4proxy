@@ -130,11 +130,16 @@ else
     echo "  (no signal score changes, skipping)"
 fi
 
-# 9. Phase doc sync
+# 9. Reference docs sync check & roadmap sync
+echo -e "${BOLD}[10/11] reference docs sync check${RESET}"
+python3 scripts/sync_reference_docs.py --check || fail "Reference docs out of sync — run 'make sync' and commit"
+pass "reference docs sync"
+
+# 10. Phase doc sync
 # Phase 332: TODO.md / PROJECT_STATUS.md are generated build artifacts (gitignored),
 # not committed source. We still run `make sync` here as a generation-validity gate
 # — it must regenerate cleanly from manifest.yaml — but there is nothing to stage.
-echo -e "${BOLD}[10/10] sync roadmap (generation check)${RESET}"
+echo -e "${BOLD}[11/11] sync roadmap (generation check)${RESET}"
 make sync || fail "make sync (containerized sync-roadmap.py) failed — fix manifest.yaml"
 pass "sync"
 

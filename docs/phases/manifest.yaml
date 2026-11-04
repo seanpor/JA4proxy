@@ -5647,4 +5647,12 @@ phases:
     size: MEDIUM
     summary: "PROPOSED. Project-wide migration to Python 3.15 container base images and tools image once upstream wheel ecosystem and toolchains stabilize."
 
+  862:
+    name: "Local Pre-PR Gates & Upstream Drift Prevention"
+    status: IN_PROGRESS
+    action_plan: docs/phases/PHASE_862.md
+    dependencies: [859]
+    size: SMALL
+    summary: "IN PROGRESS. Enforce shift-left verification by adding sync_reference_docs check and cross-file requirements solver check to make lint-meta and scripts/close-phase.sh, extend Dependabot auto-sync for Docker images, partition Dependabot Python groups, and add local hygiene check job."
+
 

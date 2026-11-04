@@ -24,7 +24,7 @@ sse-starlette==3.4.10
 httpx==0.28.1
 pytest==9.1.1
 pytest-asyncio==1.4.0
-fakeredis[aioredis]==2.37.1
+fakeredis[aioredis]==2.38.0
 bcrypt==5.0.0              # phase-79: bearer token hashing
 pyotp==2.10.0               # phase-79: TOTP MFA
 qrcode[pil]==8.2         # phase-79: TOTP setup QR codes
