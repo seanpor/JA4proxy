@@ -5,7 +5,15 @@
 FROM python:3.15.2-alpine3.24@sha256:20a82dbc2783112ddb91d1534603f802d222a3e63e593cd002eb2ac534e70211
 
 # Patch base-image OS packages to clear any pending CVEs (alpine: apk).
-RUN apk upgrade --no-cache
+# Strip default pip/ensurepip from base image so unused packaging tools and
+# their vendored dependencies are not present in the runtime image.
+RUN apk upgrade --no-cache && \
+    rm -rf /usr/local/lib/python3.*/ensurepip \
+           /usr/local/lib/python3.*/site-packages/pip* \
+           /usr/local/lib/python3.*/site-packages/setuptools* \
+           /usr/local/lib/python3.*/site-packages/wheel* \
+           /usr/local/bin/pip* && \
+    ! python3 -m pip --version 2>/dev/null
 
 # checkov:skip=CKV_DOCKER_2: Traffic generator is short-lived and doesn't run a service
 # Security: Create non-root user (alpine: addgroup/adduser)
