@@ -1,0 +1,4 @@
+- Implemented Go proxy binary hardening with external static PIE, Full RELRO, BIND_NOW, -trimpath, and -buildid= via scripts/go_build_hardened.sh (Phase 863).
+- Added native _FILE secret expansion in internal/config/loader.go, removing shell wrapper dependencies for container secret injection.
+- Implemented native --health-check probe in cmd/ja4pd and migrated production runtime image to distroless static.
+- Enabled Profile-Guided Optimization (PGO) with baseline profile at cmd/ja4pd/default.pgo and created regeneration runbook.
