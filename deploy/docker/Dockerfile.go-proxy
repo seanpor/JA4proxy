@@ -19,7 +19,7 @@ ARG VERSION=unknown
 ARG GIT_COMMIT=unknown
 ARG BUILD_DATE=unknown
 
-RUN apk add --no-cache ca-certificates git
+RUN apk add --no-cache ca-certificates git gcc musl-dev
 
 WORKDIR /build
 
@@ -28,9 +28,10 @@ COPY go.mod go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod,sharing=locked \
     go mod download
 
-# Copy source and build a statically-linked binary.
+# Copy source and build a statically-linked binary using hardened flags (Phase 863).
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w -buildid= -extldflags '-static' -X github.com/seanpor/ja4proxy/internal/config.Version=${VERSION} -X github.com/seanpor/ja4proxy/internal/config.GitCommit=${GIT_COMMIT} -X github.com/seanpor/ja4proxy/internal/config.BuildDate=${BUILD_DATE}" -trimpath -o /ja4pd ./cmd/ja4pd
+# Keep in sync: F2 hardened flags — see docs/phases/PHASE_863.md flag matrix
+RUN ./scripts/go_build_hardened.sh /ja4pd ./cmd/ja4pd
 
 # ── Runtime stage ─────────────────────────────────────────────────────────────
 FROM alpine:3.24.3@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a
