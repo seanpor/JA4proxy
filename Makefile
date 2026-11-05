@@ -394,7 +394,11 @@ compose-validate: ## Validate docker-compose files and required env vars (fast, 
 # Skips tests marked @pytest.mark.live_services (require Go/Python proxy + Redis stack)
 test: tools-image cli-build ## Phase 146 — Run the full test suite
 	@echo "=== Running Go Native Tests ==="
-	@GOROOT=$(GOROOT) go test -v -coverprofile=coverage.txt -covermode=atomic ./...
+	@if command -v go >/dev/null 2>&1 || [ -x /snap/go/current/bin/go ]; then \
+		GOROOT=$(GOROOT) $(GO) test -v -coverprofile=coverage.txt -covermode=atomic ./...; \
+	else \
+		docker run --rm -v "$$PWD":/src -w /src golang:1.27.3-alpine go test -v -coverprofile=coverage.txt -covermode=atomic ./...; \
+	fi
 	@echo "=== Running Python Unit Tests (containerized: $(TOOLS_IMG)) ==="
 	@$(TOOLS_RUN) pytest tests/unit/ -n $(WORKERS) --dist=loadfile --timeout=60 --tb=short
 	@echo "=== Running management/tests/ (phase-808 — was silently excluded, see manifest) ==="
@@ -1206,7 +1210,11 @@ test-race:  ## Run Go unit tests under the race detector
 
 # Run go vet (static analysis)
 go-lint:  ## Run `go vet` on Go code
-	$(GO) vet ./...
+	@if command -v go >/dev/null 2>&1 || [ -x /snap/go/current/bin/go ]; then \
+		$(GO) vet ./...; \
+	else \
+		docker run --rm -v "$$PWD":/src -w /src golang:1.27.3-alpine go vet ./...; \
+	fi
 
 # Audit Python and Go signal scores against registry (Phase 65)
 check-scores: tools-image  ## Audit Python and Go signal scores against registry
