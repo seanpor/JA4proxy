@@ -455,3 +455,24 @@ waivers:
     recheck_trigger: "grafana and alloy publish tags built with go-jose >= 4.1.6"
     created: 2026-10-28
     expires: 2027-01-26
+
+  # ── apt (CVE-2026-109518) in Grafana & Alloy Ubuntu bases (#700, #701) ─────
+  - id: CVE-2026-109518
+    scope: third-party
+    severity: HIGH
+    source: trivy
+    carriers:
+      - "grafana/alloy:v1.21.2@sha256:89a5a320168387336b9ac3c850609c3ba7757eadd4ae5f1d819deb35e9854b18"
+      - "grafana/grafana:13.2.4-ubuntu"
+    rationale: >-
+      Flaw in apt 2.8.3 (fixed in 2.8.4ubuntu0.1) in upstream Ubuntu base images.
+      Grafana and Alloy are third-party pinned monitoring images bound only to
+      internal loopback/monitoring networks (${AGENT_BIND_IP:-127.0.0.1}). The apt
+      package manager is never invoked at runtime in production. Pinned upstream
+      images we cannot rebuild independently; the fix reaches us when upstream
+      publishers release new base image builds.
+    reachability: internal-monitoring-only
+    fix_available: false
+    recheck_trigger: "grafana and alloy publish tags built with apt >= 2.8.4ubuntu0.1"
+    created: 2026-11-05
+    expires: 2027-02-03
