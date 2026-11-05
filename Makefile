@@ -14,7 +14,7 @@ BUILD_DATE ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 FULL_VERSION := v$(VERSION).$(BUILD_NUMBER)
 TOOLS_IMG := ja4proxy-tools
 
-LDFLAGS := -ldflags="-s -w -X github.com/seanpor/ja4proxy/internal/config.Version=$(FULL_VERSION) \
+LDFLAGS := -ldflags="-s -w -buildid= -X github.com/seanpor/ja4proxy/internal/config.Version=$(FULL_VERSION) \
            -X github.com/seanpor/ja4proxy/internal/config.GitCommit=$(GIT_COMMIT) \
            -X github.com/seanpor/ja4proxy/internal/config.BuildDate=$(BUILD_DATE)"
 
@@ -1741,18 +1741,18 @@ bump-build: ## Show build number (derived from git commit count — no file need
 
 go-build: ## Build the Go proxy daemon into bin/ja4pd
 	@mkdir -p bin
-	$(GO) build $(LDFLAGS) -o bin/ja4pd ./cmd/ja4pd
+	$(GO) build -trimpath $(LDFLAGS) -o bin/ja4pd ./cmd/ja4pd
 	@echo "✓ bin/ja4pd"
 
 go-build-foss: ## Build royalty-free Go proxy daemon into bin/ja4pd-foss (-tags no_ja4plus)
 	@mkdir -p bin
-	$(GO) build -tags no_ja4plus $(LDFLAGS) -o bin/ja4pd-foss ./cmd/ja4pd
+	$(GO) build -trimpath -tags no_ja4plus $(LDFLAGS) -o bin/ja4pd-foss ./cmd/ja4pd
 	@echo "✓ bin/ja4pd-foss (pure FOSS, no FoxIO JA4+ methods)"
 
 
 cli-build: ## Build the unified ja4p CLI tool
 	@mkdir -p bin
-	$(GO) build $(LDFLAGS) -o bin/ja4p ./cmd/ja4p
+	$(GO) build -trimpath $(LDFLAGS) -o bin/ja4p ./cmd/ja4p
 	@echo "✓ bin/ja4p"
 
 

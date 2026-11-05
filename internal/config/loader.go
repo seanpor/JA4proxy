@@ -113,6 +113,9 @@ func Load(path string) (*Config, error) {
 
 // expandEnvVars replaces ${VAR} and ${VAR:-default} in s with the corresponding
 // environment variable value (or the default if the variable is unset/empty).
+// If VAR is unset or empty, it also checks for ${VAR}_FILE and reads that file's
+// content (trimming whitespace), enabling direct Docker/Kubernetes secrets
+// integration without requiring a shell wrapper.
 func expandEnvVars(s string) string {
 	return envVarPattern.ReplaceAllStringFunc(s, func(match string) string {
 		sub := envVarPattern.FindStringSubmatch(match)
@@ -123,6 +126,15 @@ func expandEnvVars(s string) string {
 		defaultVal := sub[2]
 		if val, ok := os.LookupEnv(varName); ok && val != "" {
 			return val
+		}
+		// Check for ${VAR}_FILE if $VAR is unset/empty
+		if filePath, ok := os.LookupEnv(varName + "_FILE"); ok && filePath != "" {
+			if data, err := os.ReadFile(filePath); err == nil {
+				fileVal := strings.TrimSpace(string(data))
+				if fileVal != "" {
+					return fileVal
+				}
+			}
 		}
 		return defaultVal
 	})

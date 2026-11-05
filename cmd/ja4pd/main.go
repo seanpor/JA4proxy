@@ -7,10 +7,13 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/sirupsen/logrus"
 
@@ -36,6 +39,29 @@ func RunDaemon(ctx context.Context, cfg *config.Config, cfgPath string, log *log
 }
 
 func main() {
+	healthCheck := flag.Bool("health-check", false, "Perform HTTP health check against local proxy and exit")
+	healthURL := flag.String("health-url", "http://127.0.0.1:9090/health", "Target URL for health check")
+	flag.Parse()
+
+	if *healthCheck || (len(os.Args) > 1 && os.Args[1] == "healthcheck") {
+		url := *healthURL
+		if len(os.Args) > 1 && os.Args[1] == "healthcheck" && len(os.Args) > 2 {
+			url = os.Args[2]
+		}
+		client := &http.Client{Timeout: 3 * time.Second}
+		resp, err := client.Get(url)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "health check failed: %v\n", err)
+			os.Exit(1)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			fmt.Fprintf(os.Stderr, "health check status non-200: %d\n", resp.StatusCode)
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+
 	cfgPath := os.Getenv("CONFIG_PATH")
 	if cfgPath == "" {
 		cfgPath = "config/proxy.yml"
