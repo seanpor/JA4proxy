@@ -26,6 +26,27 @@ Target: an internet-facing, high-throughput, inline network security proxy — r
 
 ---
 
+## Critical Prerequisites & Design Corrections (from Principal Systems Review)
+
+1. **Native `_FILE` secret resolution in Go (`internal/config/loader.go`):**
+   - Current `deploy/docker/docker-compose.prod.yml` relies on `/bin/sh -c 'export REDIS_PASSWORD=$(cat /run/secrets/redis_password); exec /usr/local/bin/ja4pd'`.
+   - Distroless minimal runtimes (`gcr.io/distroless/static`) have **no `/bin/sh`**.
+   - **Fix:** In `internal/config/loader.go`, teach `expandEnvVars` native `_FILE` fallback: if `${VAR}` is requested and `$VAR` is unset/empty, check if `${VAR}_FILE` is set. If `${VAR}_FILE` exists and points to a readable file, read and trim its contents. Also support direct `${VAR_FILE}` expansion.
+   - This eliminates the `/bin/sh` entrypoint wrapper in `docker-compose.prod.yml`, allowing the container to use direct exec form `ENTRYPOINT ["/usr/local/bin/ja4pd"]` with `environment: [REDIS_PASSWORD_FILE=/run/secrets/redis_password]`.
+2. **Native zero-dependency health check probe (`cmd/ja4pd`):**
+   - Distroless minimal runtimes contain neither `curl` nor `wget`.
+   - **Fix:** Add a lightweight `ja4pd --health-check` (or `ja4pd healthcheck [--url=...]`) command to `cmd/ja4pd/main.go` that performs a direct HTTP GET with timeout and exits 0 on 200 OK, 1 otherwise.
+   - This makes `HEALTHCHECK CMD ["/usr/local/bin/ja4pd", "--health-check"]` completely self-contained and immune to base image utility differences.
+3. **CGO Musl Static PIE Validation (F2 vs V1):**
+   - Empirical test confirmed: `CGO_ENABLED=1 -buildmode=pie -linkmode external -extldflags "-static -z relro -z now" -tags netgo,osusergo` successfully produces a `static-pie linked` executable with `BIND_NOW` and `GNU_RELRO` that executes cleanly in distroless static.
+   - To guard against musl static thread stack / cgo traps, the spike in 863b must include `make test-race` and high-concurrency soak testing (`make test-soak`).
+4. **Memory and GC Tuning Calibration:**
+   - Instead of aggressive `GOGC=50`, default to `GOGC=100` and `GOMEMLIMIT=400MiB` (leaving 112MiB headroom under the 512MiB cgroup limit for off-heap buffers, OS threads, and connection tables). Benchmark before/after.
+5. **Representative Macro-Workload PGO:**
+   - Profile collection must use representative TLS pipeline workloads (mixed handshakes, extensions, JA4 fingerprints), not synthetic single-function tight loops.
+
+---
+
 ## Verified design constraints (read before touching anything)
 
 These were **empirically verified on 2026-11-04** in the actual builder image (`golang:1.27.3-alpine`) and runtime candidates (`gcr.io/distroless/static:nonroot`, `:debug`). Do not re-derive them; re-run the probes only to confirm the toolchain hasn't changed.
@@ -77,7 +98,7 @@ These were **empirically verified on 2026-11-04** in the actual builder image (`
 
 ---
 
-## Work package 863a — Safe hardening wins (no image-base change)
+## Work package 863a — Safe hardening wins & Zero-Dependency Foundations
 
 Independent of the F2 decision. Ship first; revertable on its own.
 
@@ -85,14 +106,19 @@ Independent of the F2 decision. Ship first; revertable on its own.
 
 1. **`Makefile` `LDFLAGS` (lines 17–19):**
    - Add `-buildid=` **inside** the existing `-ldflags="..."` string. Pair it with `-trimpath` and pinned toolchain/base images; `-buildid=` alone does **not** guarantee reproducibility.
-   - Add `-trimpath` explicitly to the `go-build`/`cli-build`/`go-build-foss` invocations (explicit even though implicit since Go 1.18).
+   - Add `-trimpath` explicitly to the `go-build`/`cli-build`/`go-build-foss` invocations.
    - Do **not** add `-pgo=auto` (already default), `GOEXPERIMENT=loopvar` (no-op), or bare `-buildid=` (errors).
-2. **Runtime healthcheck: `curl` → busybox `wget`** in `deploy/docker/Dockerfile.go-proxy`:
-   - `HEALTHCHECK CMD ["wget", "-q", "-O", "/dev/null", "http://localhost:9090/health"]` (exec form — no shell required).
-   - Remove `curl` from the `apk add` line.
-3. **Runtime memory limits** (Dockerfile `ENV`, overridable by compose):
-   - `GOMEMLIMIT=440MiB` (≈86% of the 512M cgroup limit — fact 5).
-   - `GOGC=50` — **bench-gated**: run `make bench-macro` before/after; if throughput regresses >2%, drop `GOGC=50` and keep only `GOMEMLIMIT` (record the result in this file).
+2. **Native `_FILE` secret reading in Go (`internal/config/loader.go`):**
+   - When expanding `${VAR}` or `${VAR:-default}`, if `VAR` is unset/empty, check if `${VAR}_FILE` exists in the environment. If so, read and strip whitespace from the file.
+   - Eliminates `/bin/sh` wrapper requirement for Docker/Kubernetes secrets in production compose!
+   - Update `deploy/docker/docker-compose.prod.yml` to set `REDIS_PASSWORD_FILE=/run/secrets/redis_password` and use native exec form entrypoint without `/bin/sh`.
+3. **Native zero-dependency healthcheck subcommand (`cmd/ja4pd`):**
+   - Implement `ja4pd --health-check` (or `ja4pd healthcheck [--url=...]`) in `cmd/ja4pd/main.go`.
+   - Update `Dockerfile.go-proxy` to `HEALTHCHECK CMD ["/usr/local/bin/ja4pd", "--health-check"]`.
+   - Completely removes dependency on `curl` or `wget` from runtime images!
+4. **Runtime memory limits & GC tuning** (Dockerfile `ENV`, overridable by compose):
+   - `GOMEMLIMIT=400MiB` (leaves 112MiB headroom under 512M cgroup limit).
+   - `GOGC=100` (evaluate `GOGC=50` bench-gated; keep `100` if GC CPU overhead increases).
 
 ### Acceptance criteria (863a)
 
@@ -264,6 +290,6 @@ After any rollback: `make build && make test` must be green before push.
 
 - **Migrating** `ja4p`/`ja4-tap` images and release artifacts to F2/distroless (separate phases). Their **flag divergence must still be recorded** by the 863b guard test, either by adopting the shared recipe or by an explicit allowlist entry naming the follow-up phase.
 - FIPS 140-3 mode (`GOFIPS140`), ARM64 build pipeline.
-- New `ja4pd --health-check` subcommand (rejected: new code in the security-critical binary to solve a build concern — busybox wget covers it).
+- Migrating non-proxy images (`ja4p`/`ja4-tap`) to distroless in this phase (separate phases).
 - Changing proxy runtime logic, compose resource limits (the 512M limit is the *input* to GOMEMLIMIT, not changed here).
 - Re-generating the PGO profile in CI (manual/runbook-driven; CI consumes the committed profile only).
