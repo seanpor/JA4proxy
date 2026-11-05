@@ -12,7 +12,7 @@ read the top of the file for full options.
 
 <!-- BEGIN GENERATED: scripts -->
 
-_149 scripts. Generated from each script's header comment by `make sync` — do not edit this table by hand._
+_151 scripts. Generated from each script's header comment by `make sync` — do not edit this table by hand._
 
 | Script | Called by | What it does |
 |--------|-----------|--------------|
@@ -79,6 +79,7 @@ _149 scripts. Generated from each script's header comment by `make sync` — do 
 | `fix_forward.py` | — | scripts/fix_forward.py — fix-availability engine + proposal authoring (Phase 847d). |
 | `fix_runbook_urls.py` | `make lint-alert-urls` | Phase 86h - Rewrite dead runbook_url annotations in Alertmanager rule files. |
 | `gdpr_delete.py` | — | GDPR Subject Erasure (Right to be Forgotten) — Live Redis Purge |
+| `gen_pgo_profile.sh` | — | scripts/gen_pgo_profile.sh — Regenerate cmd/ja4pd/default.pgo from representative load run (Phase 863) |
 | `generate-backend-cert.sh` | — | Generate a self-signed TLS cert for the mock backend (deploy/docker/Dockerfile.mockbackend |
 | `generate-grafana-cert.sh` | — | Generate a self-signed TLS cert for Grafana (deploy/docker/docker-compose.monitoring.yml mounts this). |
 | `generate-test-traffic.sh` | — | Generate realistic test traffic for JA4proxy to populate Grafana dashboard |
@@ -93,6 +94,7 @@ _149 scripts. Generated from each script's header comment by `make sync` — do 
 | `generate_test_pcap.py` | — | generate_test_pcap.py — Synthetic PCAP corpus generator for TAP mode tests. |
 | `generate_validation_report.py` | `make validation-report` | Phase 62 — pre-enterprise validation report generator. |
 | `geoip-monitor.sh` | `make geoip-monitor` | Auto-block countries that are actively attacking |
+| `go_build_hardened.sh` | `make go-build` | Single-source build script for hardened Go binaries (Phase 863) |
 | `ja4-admin.sh` | `make agent-up` | ja4-admin — JA4proxy incident response CLI |
 | `ja4proxy_admin.py` | — | ja4proxy-admin — CLI for JA4proxy operational management. |
 | `lane-env.sh` | `make lane` | assign this git worktree a collision-free "lane" of host ports |
