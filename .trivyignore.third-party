@@ -113,22 +113,6 @@ CVE-2026-100354 exp:2027-01-15
 # pcre2
 CVE-2026-103111 exp:2027-01-05
 
-# Flaw in apt 2.8.3 (fixed in 2.8.4ubuntu0.1) in upstream Ubuntu base images.
-# Grafana and Alloy are third-party pinned monitoring images bound only to
-# internal loopback/monitoring networks (${AGENT_BIND_IP:-127.0.0.1}). The apt
-# package manager is never invoked at runtime in production. Pinned upstream
-# images we cannot rebuild independently; the fix reaches us when upstream
-# publishers release new base image builds.
-#
-# Carriers:
-#   - grafana/alloy:v1.21.2@sha256:89a5a320168387336b9ac3c850609c3ba7757eadd4ae5f1d819deb35e9854b18
-#   - grafana/grafana:13.2.4-ubuntu
-# Reachability: internal-monitoring-only
-# Severity: HIGH
-# Re-check when: grafana and alloy publish tags built with apt >=
-# 2.8.4ubuntu0.1
-CVE-2026-109518 exp:2027-02-03
-
 # Out-of-bounds write in libbrotli1 1.1.0-2build2 (fixed in 1.1.0-2ubuntu0.1)
 # in grafana 13.2.4-ubuntu base. Grafana is a third-party pinned image bound
 # only to internal monitoring network (${AGENT_BIND_IP:-127.0.0.1}); it does
