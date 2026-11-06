@@ -49,6 +49,7 @@ func main() {
 			url = os.Args[2]
 		}
 		client := &http.Client{Timeout: 3 * time.Second}
+		// #nosec G704 -- internal loopback health check probe using validated CLI target
 		resp, err := client.Get(url)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "health check failed: %v\n", err)

@@ -10,7 +10,6 @@ GO_DOCKERFILES = [
     REPO_ROOT / "deploy" / "docker" / "Dockerfile.go-proxy",
     REPO_ROOT / "deploy" / "docker" / "Dockerfile.go-proxy.foss",
     REPO_ROOT / "deploy" / "docker" / "Dockerfile.cli",
-    REPO_ROOT / "deploy" / "docker" / "Dockerfile.ja4-tap",
 ]
 
 MAKEFILE = REPO_ROOT / "Makefile"
@@ -21,6 +20,7 @@ ALLOWLIST = {
     ".goreleaser.yml": "Stale reference to non-existent ./cmd/ja4proxy-cli/ deferred to CLI packaging follow-up",
     "deploy/docker/Dockerfile.mockbackend": "Lightweight mock test backend used only in tests, non-production",
     "deploy/docker/Dockerfile.logtide": "Separate analytics forwarder component",
+    "deploy/docker/Dockerfile.ja4-tap": "Standalone sensor daemon requiring separate TAP hardening follow-up phase",
 }
 
 

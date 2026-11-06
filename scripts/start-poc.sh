@@ -202,11 +202,11 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
 done
 if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then echo -e "${RED}✗ Failed${NC}"; exit 1; fi
 
-# Check Proxy (from INSIDE the container to bypass auth issues)
+# Check Proxy (from INSIDE the container to bypass auth issues, using native ja4pd probe)
 echo -n "Checking Proxy... "
 RETRY_COUNT=0
 while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-    if docker compose $P_FLAG -f deploy/docker/docker-compose.poc.yml --env-file .env exec -T proxy curl -sf http://localhost:9090/health > /dev/null 2>&1; then
+    if docker compose $P_FLAG -f deploy/docker/docker-compose.poc.yml --env-file .env exec -T proxy /usr/local/bin/ja4pd --health-check > /dev/null 2>&1; then
         echo -e "${GREEN}✓${NC}"
         break
     fi
