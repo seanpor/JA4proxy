@@ -8,7 +8,7 @@
 services:
   # HAProxy load balancer for multi-process scaling
   haproxy:
-    image: haproxy:2.8.28-alpine
+    image: haproxy:3.4.7-alpine
     container_name: ja4proxy_haproxy
     ports:
       - "443:443"
