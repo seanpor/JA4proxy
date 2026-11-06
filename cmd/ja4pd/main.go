@@ -9,6 +9,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/signal"
@@ -56,9 +57,16 @@ func main() {
 			os.Exit(1)
 		}
 		defer resp.Body.Close()
+		body, _ := io.ReadAll(resp.Body)
 		if resp.StatusCode != http.StatusOK {
 			fmt.Fprintf(os.Stderr, "health check status non-200: %d\n", resp.StatusCode)
+			if len(body) > 0 {
+				fmt.Fprintln(os.Stderr, string(body))
+			}
 			os.Exit(1)
+		}
+		if len(body) > 0 {
+			fmt.Println(string(body))
 		}
 		os.Exit(0)
 	}
