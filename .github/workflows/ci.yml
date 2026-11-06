@@ -686,7 +686,7 @@ jobs:
           # so a future regression that leaves the endpoint reachable but
           # Redis silently unauthenticated (Phase 813's exact failure mode)
           # still fails this job.
-          health=$(docker compose $P_FLAG -f deploy/docker/docker-compose.poc.yml --env-file .env exec -T proxy curl -sf http://localhost:9090/health)
+          health=$(docker compose $P_FLAG -f deploy/docker/docker-compose.poc.yml --env-file .env exec -T proxy /usr/local/bin/ja4pd --health-check)
           echo "$health"
           echo "$health" | grep -q '"redis":"ok"'
       - name: Tear down

@@ -86,18 +86,7 @@ services:
       - BACKEND_HOST=${BACKEND_HOST:?Set BACKEND_HOST to your upstream server IP/hostname}
       - BACKEND_PORT=${BACKEND_PORT:-443}
       - REDIS_UNIX_SOCKET_PATH=/var/run/redis/redis.sock
-    # Phase 813: config/proxy.yml's redis.password reads "${REDIS_PASSWORD}"
-    # (an env var this container's own process must see), but this service
-    # only ever had `secrets: [redis_password]` -- a file at
-    # /run/secrets/redis_password -- with nothing bridging the file's
-    # content into that env var. ja4pd has no built-in _FILE-suffix
-    # convention, so REDIS_PASSWORD silently resolved to empty and every
-    # Redis operation would have failed AUTH. Same bridging pattern already
-    # used below for ja4-tap.
-    entrypoint:
-      - /bin/sh
-      - -c
-      - 'export REDIS_PASSWORD="$$(cat /run/secrets/redis_password)"; exec /usr/local/bin/ja4pd'
+      - REDIS_PASSWORD_FILE=/run/secrets/redis_password
     # JA4PROXY-2026-0042: GID 999 matches the redis user inside redis:7.4.9-alpine
     # (see deploy/helm/ja4proxy/templates/redis.yaml and
     # deploy/ansible/roles/redis-secure/tasks/main.yml, which both pin 999 for

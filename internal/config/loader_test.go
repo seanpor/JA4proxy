@@ -206,6 +206,17 @@ func TestLoad_SecurityListsLoaded(t *testing.T) {
 }
 
 func TestExpandEnvVars(t *testing.T) {
+	// Create a temporary secret file for testing _FILE fallback
+	tmpSecret, err := os.CreateTemp("", "secret-*")
+	if err != nil {
+		t.Fatalf("failed to create temp secret file: %v", err)
+	}
+	defer os.Remove(tmpSecret.Name())
+	if _, err := tmpSecret.WriteString("from_secret_file\n"); err != nil {
+		t.Fatalf("failed to write temp secret: %v", err)
+	}
+	tmpSecret.Close()
+
 	cases := []struct {
 		input    string
 		env      map[string]string
@@ -235,6 +246,11 @@ func TestExpandEnvVars(t *testing.T) {
 			input:    "${A:-x}${B:-y}",
 			env:      map[string]string{"A": "hello"},
 			expected: "helloy",
+		},
+		{
+			input:    "${SECRET:-default}",
+			env:      map[string]string{"SECRET_FILE": tmpSecret.Name()},
+			expected: "from_secret_file",
 		},
 	}
 

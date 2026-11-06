@@ -40,7 +40,7 @@ _14 first-party images. Generated from the Dockerfiles and compose files by `mak
 | — | `Dockerfile.tools` | `python:3.15.2-slim@sha256:8c13a3f37a6a5b71498228e902c4b9f51c1f7900d49fabf71f9a650c6120e0d0` |
 | `ja4proxy-attacker:1.0.0` | `deploy/docker/Dockerfile.attacker` | `alpine:3.24.3@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a` |
 | — | `deploy/docker/Dockerfile.cli` | `gcr.io/distroless/static-debian12@sha256:a9fcaedd4c9b59e12dd65d954f0b5044f19b0647a8a3712e77205df9e7b102cd` |
-| `ja4proxy:2.0.0` | `deploy/docker/Dockerfile.go-proxy` | `alpine:3.24.3@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a` |
+| `ja4proxy:2.0.0` | `deploy/docker/Dockerfile.go-proxy` | `gcr.io/distroless/static:debug@sha256:63b4c0065ff7bd68753510400b2d5cedd5d5571d15eac4be0b6b0dd236a2d148` |
 | — | `deploy/docker/Dockerfile.go-proxy.foss` | `alpine:3.24.3@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a` |
 | `ja4proxy-tap:1.0.0` | `deploy/docker/Dockerfile.ja4-tap` | `alpine:3.24.3@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a` |
 | `ja4proxy-logtide:1.0.0` | `deploy/docker/Dockerfile.logtide` | `gcr.io/distroless/static-debian12@sha256:a9fcaedd4c9b59e12dd65d954f0b5044f19b0647a8a3712e77205df9e7b102cd` |

@@ -14,7 +14,7 @@ BUILD_DATE ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 FULL_VERSION := v$(VERSION).$(BUILD_NUMBER)
 TOOLS_IMG := ja4proxy-tools
 
-LDFLAGS := -ldflags="-s -w -X github.com/seanpor/ja4proxy/internal/config.Version=$(FULL_VERSION) \
+LDFLAGS := -ldflags="-s -w -buildid= -X github.com/seanpor/ja4proxy/internal/config.Version=$(FULL_VERSION) \
            -X github.com/seanpor/ja4proxy/internal/config.GitCommit=$(GIT_COMMIT) \
            -X github.com/seanpor/ja4proxy/internal/config.BuildDate=$(BUILD_DATE)"
 
@@ -45,6 +45,7 @@ doctor: ## Phase 147/225/603 — Verify environment and toolchain health
 	@command -v docker > /dev/null && echo "  ✓ docker binary" || { echo "  ✗ docker NOT found — required to run containerized tools and build images"; exit 1; }
 	@docker info > /dev/null 2>&1 && echo "  ✓ docker daemon responsive" || { echo "  ✗ docker daemon NOT running or not accessible by current user"; exit 1; }
 	@$(GO) version 2>/dev/null | grep -E "go1\.(2[6-9]|[3-9][0-9])" > /dev/null && echo "  ✓ Go ($$($(GO) version | awk '{print $$3}'))" || { echo "  ✗ Go 1.26+ required, found: $$($(GO) version 2>&1)"; exit 1; }
+	@command -v gcc > /dev/null && echo "  ✓ C compiler ($$(gcc --version 2>&1 | head -n1 | awk '{print $$1, $$3}'))" || { echo "  ✗ gcc NOT found — required for hardened static-pie CGO build mode"; exit 1; }
 	@command -v $(PYTHON) > /dev/null && echo "  ✓ python3 ($$($(PYTHON) --version 2>&1 | awk '{print $$2}'))" || { echo "  ✗ python3 NOT found"; exit 1; }
 	@echo "── Containerized Toolchain (hermetic; zero host dependencies) ───────"
 	@docker image inspect $(TOOLS_IMG) > /dev/null 2>&1 \
@@ -393,7 +394,11 @@ compose-validate: ## Validate docker-compose files and required env vars (fast, 
 # Skips tests marked @pytest.mark.live_services (require Go/Python proxy + Redis stack)
 test: tools-image cli-build ## Phase 146 — Run the full test suite
 	@echo "=== Running Go Native Tests ==="
-	@GOROOT=$(GOROOT) go test -v -coverprofile=coverage.txt -covermode=atomic ./...
+	@if command -v go >/dev/null 2>&1 || [ -x /snap/go/current/bin/go ]; then \
+		GOROOT=$(GOROOT) $(GO) test -v -coverprofile=coverage.txt -covermode=atomic ./...; \
+	else \
+		docker run --rm -v "$$PWD":/src -w /src golang:1.27.3-alpine go test -v -coverprofile=coverage.txt -covermode=atomic ./...; \
+	fi
 	@echo "=== Running Python Unit Tests (containerized: $(TOOLS_IMG)) ==="
 	@$(TOOLS_RUN) pytest tests/unit/ -n $(WORKERS) --dist=loadfile --timeout=60 --tb=short
 	@echo "=== Running management/tests/ (phase-808 — was silently excluded, see manifest) ==="
@@ -1205,7 +1210,11 @@ test-race:  ## Run Go unit tests under the race detector
 
 # Run go vet (static analysis)
 go-lint:  ## Run `go vet` on Go code
-	$(GO) vet ./...
+	@if command -v go >/dev/null 2>&1 || [ -x /snap/go/current/bin/go ]; then \
+		$(GO) vet ./...; \
+	else \
+		docker run --rm -v "$$PWD":/src -w /src golang:1.27.3-alpine go vet ./...; \
+	fi
 
 # Audit Python and Go signal scores against registry (Phase 65)
 check-scores: tools-image  ## Audit Python and Go signal scores against registry
@@ -1739,20 +1748,25 @@ init: setup-build ## Start the guided setup wizard
 bump-build: ## Show build number (derived from git commit count — no file needed)
 	@echo "✓ Build number: $$(git rev-list --count HEAD 2>/dev/null || echo 0)"
 
+# Keep in sync: F2 hardened flags — see docs/phases/PHASE_863.md flag matrix
 go-build: ## Build the Go proxy daemon into bin/ja4pd
 	@mkdir -p bin
-	$(GO) build $(LDFLAGS) -o bin/ja4pd ./cmd/ja4pd
+	@command -v gcc >/dev/null 2>&1 || { echo "✗ gcc NOT found — required for hardened build mode (Phase 863)"; exit 1; }
+	VERSION=$(FULL_VERSION) GIT_COMMIT=$(GIT_COMMIT) BUILD_DATE=$(BUILD_DATE) ./scripts/go_build_hardened.sh bin/ja4pd ./cmd/ja4pd
 	@echo "✓ bin/ja4pd"
 
+# Keep in sync: F2 hardened flags — see docs/phases/PHASE_863.md flag matrix
 go-build-foss: ## Build royalty-free Go proxy daemon into bin/ja4pd-foss (-tags no_ja4plus)
 	@mkdir -p bin
-	$(GO) build -tags no_ja4plus $(LDFLAGS) -o bin/ja4pd-foss ./cmd/ja4pd
+	@command -v gcc >/dev/null 2>&1 || { echo "✗ gcc NOT found — required for hardened build mode (Phase 863)"; exit 1; }
+	VERSION=$(FULL_VERSION) GIT_COMMIT=$(GIT_COMMIT) BUILD_DATE=$(BUILD_DATE) ./scripts/go_build_hardened.sh bin/ja4pd-foss ./cmd/ja4pd no_ja4plus
 	@echo "✓ bin/ja4pd-foss (pure FOSS, no FoxIO JA4+ methods)"
 
-
+# Keep in sync: F2 hardened flags — see docs/phases/PHASE_863.md flag matrix
 cli-build: ## Build the unified ja4p CLI tool
 	@mkdir -p bin
-	$(GO) build $(LDFLAGS) -o bin/ja4p ./cmd/ja4p
+	@command -v gcc >/dev/null 2>&1 || { echo "✗ gcc NOT found — required for hardened build mode (Phase 863)"; exit 1; }
+	VERSION=$(FULL_VERSION) GIT_COMMIT=$(GIT_COMMIT) BUILD_DATE=$(BUILD_DATE) ./scripts/go_build_hardened.sh bin/ja4p ./cmd/ja4p
 	@echo "✓ bin/ja4p"
 
 

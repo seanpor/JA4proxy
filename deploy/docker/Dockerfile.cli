@@ -17,7 +17,7 @@ ARG VERSION=unknown
 ARG GIT_COMMIT=unknown
 ARG BUILD_DATE=unknown
 
-RUN apk add --no-cache ca-certificates git
+RUN apk add --no-cache ca-certificates git gcc musl-dev
 
 WORKDIR /build
 
@@ -25,9 +25,10 @@ WORKDIR /build
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy source and build a statically-linked binary.
+# Copy source and build a statically-linked binary using hardened flags (Phase 863).
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w -extldflags '-static' -X github.com/seanpor/ja4proxy/internal/config.Version=${VERSION} -X github.com/seanpor/ja4proxy/internal/config.GitCommit=${GIT_COMMIT} -X github.com/seanpor/ja4proxy/internal/config.BuildDate=${BUILD_DATE}" -trimpath -o /build/ja4p ./cmd/ja4p/
+# Keep in sync: F2 hardened flags — see docs/phases/PHASE_863.md flag matrix
+RUN ./scripts/go_build_hardened.sh /build/ja4p ./cmd/ja4p/
 
 # ── Runtime stage ─────────────────────────────────────────────────────────────
 # checkov:skip=CKV_DOCKER_2: CLI tool is short-lived and doesn't run a service

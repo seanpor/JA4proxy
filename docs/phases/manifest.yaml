@@ -5656,3 +5656,10 @@ phases:
     summary: "COMPLETE 2026-11-04. Shifted drift detection left by wiring sync_reference_docs check and isolated environment requirements solver check into make lint-meta and scripts/close-phase.sh. Added on-demand make hygiene pre-flight check target and aligned test/runtime fakeredis mock parity."
 
 
+  863:
+    name: "Go Proxy Build Hardening — Security & Throughput Optimization"
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_863.md
+    dependencies: [862]
+    size: LARGE
+    summary: "COMPLETE 2026-11-05. Hardened production Go proxy across four work packages: 863a native _FILE secret expansion and ja4pd healthcheck probe, 863b static PIE with Full RELRO, BIND_NOW, and shared build script guard, 863c migration to distroless static runtime image, and 863d Profile-Guided Optimization (PGO) in cmd/ja4pd/."
