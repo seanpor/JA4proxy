@@ -17,9 +17,9 @@
       "ref": "grafana/loki:3.7.9"
     },
     "image:haproxy": {
-      "digest": "sha256:e0d1dc5a92d389551a968627602fcd64b038af819b496c9636bbc38a3cf745b4",
+      "digest": "sha256:5312d37032c079c4937d45ef63758852434351f3b425a3703521fd999837abcf",
       "findings": {},
-      "ref": "haproxy:2.8.28-alpine"
+      "ref": "haproxy:3.4.7-alpine"
     },
     "image:ja4proxy": {
       "findings": {},

@@ -95,23 +95,33 @@ CVE-2026-100354 exp:2027-01-15
 
 # pcre2 vulnerability in Alpine 3.19/3.24; pinned upstream official images we
 # cannot rebuild until publishers ship new tags. The socket proxy only
-# communicates over a local Unix socket and never parses untrusted regex;
-# haproxy uses pcre2 only for its own static config patterns.
+# communicates over a local Unix socket and never parses untrusted regex.
+# Phase 864 bumped haproxy to 3.4.7-alpine which clears pcre2.
 #
 # Carriers:
-#   - haproxy:2.8.28-alpine
 #   - tecnativa/docker-socket-proxy:v0.5.0
 # Reachability: input-path-unreachable
 # Reachability evidence: pcre2 is never reached with untrusted input. The
-# socket proxy never parses a regex from any source; haproxy compiles only the
-# patterns written into config/haproxy.cfg, which is a bind-mounted static
-# file and not attacker-reachable. haproxy is published on 443/80, so the
-# exposure of this carrier is network-wide — the premise that holds is the
-# input path, not the network path.
+# socket proxy never parses a regex from any source and has no published
+# ports.
 # Severity: HIGH
 # Re-check when: the carrier images ship a rebuilt Alpine base with patched
 # pcre2
 CVE-2026-103111 exp:2027-01-05
+
+# apt integer overflow vulnerability in Ubuntu base packages. Grafana and
+# Alloy are third-party monitoring images bound only to internal loopback
+# (${AGENT_BIND_IP:-127.0.0.1}). The apt package manager is never invoked or
+# reachable at runtime. We cannot rebuild these images; upstream publishers
+# must ship tags built with apt 2.8.4ubuntu0.1.
+#
+# Carriers:
+#   - grafana/alloy:v1.21.2@sha256:89a5a320168387336b9ac3c850609c3ba7757eadd4ae5f1d819deb35e9854b18
+#   - grafana/grafana:13.2.4-ubuntu
+# Reachability: internal-monitoring-only
+# Severity: HIGH
+# Re-check when: upstream ubuntu base image rebuilds with apt 2.8.4ubuntu0.1
+CVE-2026-109518 exp:2027-02-04
 
 # Out-of-bounds write in libbrotli1 1.1.0-2build2 (fixed in 1.1.0-2ubuntu0.1)
 # in grafana 13.2.4-ubuntu base. Grafana is a third-party pinned image bound
@@ -298,6 +308,21 @@ CVE-2026-84445 exp:2027-01-05
 # Severity: HIGH
 # Re-check when: the carrier images ship a rebuilt Ubuntu base
 CVE-2026-84782 exp:2027-01-05
+
+# zlib memory corruption vulnerability in Alpine base packages. Pinned
+# third-party official images where publishers have not yet shipped Alpine
+# 3.24 builds with zlib 1.3.2-r1. The socket proxy only communicates over
+# /var/run/docker.sock with no published network ports; Redis runs on isolated
+# internal Docker networks (ja4proxy-data/ja4proxy-mgmt) with no published
+# host ports in deployed stacks.
+#
+# Carriers:
+#   - redis:7.4.11-alpine@sha256:520775a41a63e77e06c73e35d2fd9cc15921a609516818796b4ecbb813078bc7
+#   - tecnativa/docker-socket-proxy:v0.5.0
+# Reachability: local-socket-only
+# Severity: HIGH
+# Re-check when: upstream alpine base image rebuilds with zlib 1.3.2-r1
+CVE-2026-85091 exp:2027-02-04
 
 # pcre2 vulnerability in Alpine 3.19/3.24; pinned upstream official images we
 # cannot rebuild until publishers ship new tags. The socket proxy only

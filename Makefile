@@ -1661,7 +1661,11 @@ lint-makefiles: ## Lint Makefile for common issues (checkmake)
 
 lint-go-mod: ## Verify go.mod and go.sum are consistent (go mod verify)
 	@echo "=== go mod verify ==="
-	@GOROOT=$(GOROOT) go mod verify
+	@if command -v go >/dev/null 2>&1 || [ -x /snap/go/current/bin/go ]; then \
+		GOROOT=$(GOROOT) $(GO) mod verify; \
+	else \
+		docker run --rm -v "$$PWD":/src -w /src golang:1.27.3-alpine go mod verify; \
+	fi
 	@echo "  ✓ go mod verify passed"
 
 # ── Aggregate linters ─────────────────────────────────────────────────────────
