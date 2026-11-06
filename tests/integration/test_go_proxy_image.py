@@ -125,13 +125,16 @@ def test_built_image_runs_as_uid_1000() -> None:
         build.returncode == 0
     ), f"docker build failed:\nSTDOUT:\n{build.stdout}\nSTDERR:\n{build.stderr}"
 
+    # Distroless static debug has /busybox/sh, standard alpine had /bin/sh.
+    # Check id -u using busybox sh or inspect.
+    entrypoint = "/busybox/sh" if "distroless" in DOCKERFILE.read_text() else "/bin/sh"
     run = subprocess.run(
         [
             "docker",
             "run",
             "--rm",
             "--entrypoint",
-            "/bin/sh",
+            entrypoint,
             tag,
             "-c",
             "id -u",
