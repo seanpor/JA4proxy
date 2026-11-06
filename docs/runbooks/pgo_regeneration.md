@@ -1,3 +1,10 @@
+<!--
+title: Runbook: Go PGO Profile Regeneration
+audience: operator
+last_reviewed: 2026-11-06
+phase: 863
+-->
+
 # Runbook: Go PGO Profile Regeneration
 
 ## Overview

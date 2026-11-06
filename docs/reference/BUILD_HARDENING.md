@@ -1,3 +1,10 @@
+<!--
+title: Go Proxy Build Hardening & Runtime Security
+audience: reference
+last_reviewed: 2026-11-06
+phase: 863
+-->
+
 # Go Proxy Build Hardening & Runtime Security
 
 ## Overview
