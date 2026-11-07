@@ -109,6 +109,21 @@ CVE-2026-100354 exp:2027-01-15
 # pcre2
 CVE-2026-103111 exp:2027-01-05
 
+# musl libc vulnerability in Alpine base packages (fixed in 1.2.5-r12 /
+# 1.2.6-r3). Redis runs strictly on internal docker networks (ja4proxy-data)
+# with no published host ports; docker-socket-proxy only communicates over
+# local /var/run/docker.sock with no published network ports. Upstream
+# publishers must rebuild against updated Alpine base images.
+#
+# Carriers:
+#   - redis:7.4.11-alpine@sha256:520775a41a63e77e06c73e35d2fd9cc15921a609516818796b4ecbb813078bc7
+#   - tecnativa/docker-socket-proxy:v0.5.0
+# Reachability: local-socket-only
+# Severity: HIGH
+# Re-check when: upstream redis and docker-socket-proxy rebuild on patched
+# Alpine base
+CVE-2026-107891 exp:2027-02-05
+
 # apt integer overflow vulnerability in Ubuntu base packages. Grafana and
 # Alloy are third-party monitoring images bound only to internal loopback
 # (${AGENT_BIND_IP:-127.0.0.1}). The apt package manager is never invoked or
@@ -248,6 +263,24 @@ CVE-2026-21728 exp:2027-01-05
 # Re-check when: grafana/grafana ships a tag with the Tempo fix
 CVE-2026-28377 exp:2027-01-05
 
+# golang.org/x/net HTTP/2 rapid reset / frame parsing issue (fixed in 0.62.0);
+# bundled Go runtime in third-party monitoring containers. All carriers are
+# internal monitoring components bound to internal networks or loopback
+# (${AGENT_BIND_IP:-127.0.0.1}) with no untrusted network exposure. Fix
+# requires upstream publishers to rebuild against golang.org/x/net >= 0.62.0.
+#
+# Carriers:
+#   - grafana/alloy:v1.21.2@sha256:89a5a320168387336b9ac3c850609c3ba7757eadd4ae5f1d819deb35e9854b18
+#   - grafana/grafana:13.2.4-ubuntu
+#   - grafana/loki:3.7.9
+#   - prom/alertmanager:v0.34.1
+#   - prom/prometheus:v3.15.1
+# Reachability: internal-monitoring-only
+# Severity: HIGH
+# Re-check when: upstream monitoring images rebuild against golang.org/x/net
+# >= 0.62.0
+CVE-2026-78661 exp:2027-02-05
+
 # Go stdlib net/http DoS; pinned upstream image we cannot rebuild until the
 # publisher ships a new release. The Redis exporter runs inside the internal
 # telemetry network with no untrusted network access.
@@ -371,4 +404,22 @@ CVE-2026-89161 exp:2027-01-05
 # Severity: HIGH
 # Re-check when: the carrier images ship a Go >= the fixed build
 CVE-2026-97031 exp:2027-01-08
+
+# golang.org/x/net HTTP/2 resource consumption issue (fixed in 0.62.0);
+# bundled Go runtime in third-party monitoring containers. All carriers are
+# internal monitoring components bound to internal networks or loopback
+# (${AGENT_BIND_IP:-127.0.0.1}) with no untrusted network exposure. Fix
+# requires upstream publishers to rebuild against golang.org/x/net >= 0.62.0.
+#
+# Carriers:
+#   - grafana/alloy:v1.21.2@sha256:89a5a320168387336b9ac3c850609c3ba7757eadd4ae5f1d819deb35e9854b18
+#   - grafana/grafana:13.2.4-ubuntu
+#   - grafana/loki:3.7.9
+#   - prom/alertmanager:v0.34.1
+#   - prom/prometheus:v3.15.1
+# Reachability: internal-monitoring-only
+# Severity: MEDIUM
+# Re-check when: upstream monitoring images rebuild against golang.org/x/net
+# >= 0.62.0
+CVE-2026-97045 exp:2027-02-05
 

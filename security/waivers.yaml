@@ -490,3 +490,69 @@ waivers:
     created: 2026-11-06
     expires: 2027-02-04
 
+
+  # ── golang.org/x/net (CVE-2026-78661) in third-party monitoring stack ────────────
+  - id: CVE-2026-78661
+    scope: third-party
+    severity: HIGH
+    source: trivy
+    carriers:
+      - "grafana/alloy:v1.21.2@sha256:89a5a320168387336b9ac3c850609c3ba7757eadd4ae5f1d819deb35e9854b18"
+      - "grafana/grafana:13.2.4-ubuntu"
+      - "grafana/loki:3.7.9"
+      - "prom/alertmanager:v0.34.1"
+      - "prom/prometheus:v3.15.1"
+    rationale: >-
+      golang.org/x/net HTTP/2 rapid reset / frame parsing issue (fixed in 0.62.0);
+      bundled Go runtime in third-party monitoring containers. All carriers are
+      internal monitoring components bound to internal networks or loopback
+      (${AGENT_BIND_IP:-127.0.0.1}) with no untrusted network exposure. Fix requires
+      upstream publishers to rebuild against golang.org/x/net >= 0.62.0.
+    reachability: internal-monitoring-only
+    fix_available: false
+    recheck_trigger: "upstream monitoring images rebuild against golang.org/x/net >= 0.62.0"
+    created: 2026-11-07
+    expires: 2027-02-05
+
+  # ── musl (CVE-2026-107891) in Alpine base images ─────────────────────────
+  - id: CVE-2026-107891
+    scope: third-party
+    severity: HIGH
+    source: trivy
+    carriers:
+      - "redis:7.4.11-alpine@sha256:520775a41a63e77e06c73e35d2fd9cc15921a609516818796b4ecbb813078bc7"
+      - "tecnativa/docker-socket-proxy:v0.5.0"
+    rationale: >-
+      musl libc vulnerability in Alpine base packages (fixed in 1.2.5-r12 / 1.2.6-r3).
+      Redis runs strictly on internal docker networks (ja4proxy-data) with no published
+      host ports; docker-socket-proxy only communicates over local /var/run/docker.sock
+      with no published network ports. Upstream publishers must rebuild against updated
+      Alpine base images.
+    reachability: local-socket-only
+    fix_available: false
+    recheck_trigger: "upstream redis and docker-socket-proxy rebuild on patched Alpine base"
+    created: 2026-11-07
+    expires: 2027-02-05
+
+  # ── golang.org/x/net (CVE-2026-97045) in third-party monitoring stack ────────────
+  - id: CVE-2026-97045
+    scope: third-party
+    severity: MEDIUM
+    source: trivy
+    carriers:
+      - "grafana/alloy:v1.21.2@sha256:89a5a320168387336b9ac3c850609c3ba7757eadd4ae5f1d819deb35e9854b18"
+      - "grafana/grafana:13.2.4-ubuntu"
+      - "grafana/loki:3.7.9"
+      - "prom/alertmanager:v0.34.1"
+      - "prom/prometheus:v3.15.1"
+    rationale: >-
+      golang.org/x/net HTTP/2 resource consumption issue (fixed in 0.62.0);
+      bundled Go runtime in third-party monitoring containers. All carriers are
+      internal monitoring components bound to internal networks or loopback
+      (${AGENT_BIND_IP:-127.0.0.1}) with no untrusted network exposure. Fix requires
+      upstream publishers to rebuild against golang.org/x/net >= 0.62.0.
+    reachability: internal-monitoring-only
+    fix_available: false
+    recheck_trigger: "upstream monitoring images rebuild against golang.org/x/net >= 0.62.0"
+    created: 2026-11-07
+    expires: 2027-02-05
