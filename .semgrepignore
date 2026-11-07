@@ -4,4 +4,5 @@ internal/test/bench/ja4bench.go
 *_test.go
 **/test_*.py
 **/tests/**
+security/sast/custom-rules/fixtures/**
 security/sast/rules/**

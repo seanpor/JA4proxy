@@ -5679,3 +5679,12 @@ phases:
     dependencies: [864]
     size: MEDIUM
     summary: "COMPLETE 2026-11-07. Migrate project SAST from Semgrep to Opengrep (v1.33.1): create dedicated non-root container image (ja4proxy-opengrep:1.33.1), vendor baseline rules locally with zero external network telemetry, update Makefile targets and CI workflows, and eliminate Semgrep python-dependency pin conflicts."
+
+  866:
+    name: "Custom SAST Rules & Dependabot Unpin Sweep"
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_866.md
+    dependencies: [865]
+    size: MEDIUM
+    summary: "COMPLETE 2026-11-07. Isolated custom SAST rules into security/sast/custom-rules/ separate from vendored community rulesets; authored 4 Go security invariant rules enforcing AGENTS.md / CWE-400 / CWE-276 / CWE-778 requirements with comprehensive positive and negative test fixtures; remediated unbounded body reads and permission checks across codebase; unpinned dependabot.yml legacy semgrep exclusions."
+    summary: "Isolate project-specific SAST rules in security/sast/custom-rules/, consolidate legacy Phase 122 rules, implement custom Go invariants (unbounded HTTP reads, sensitive key permissions, channel metric drops, hotpath regex), harden client/dial/netbox stream reads, and remove legacy Semgrep ignore pins from dependabot.yml."

@@ -1,0 +1,5 @@
+- Isolate custom SAST rules into `security/sast/custom-rules/` to prevent future upstream/vendored rule updates from overwriting project rules.
+- Author 4 project-tailored Opengrep security rules (`ja4p-unbounded-http-body-decode`, `ja4p-sensitive-key-read-perm-check`, `ja4p-select-default-missing-metric`, `ja4p-hotpath-regexp-compile`) codifying `AGENTS.md` and `findings.yaml` invariants.
+- Remediate unbounded HTTP response body decodes and file permission checks across `internal/`, `cmd/`, and `deploy/terraform-provider/`.
+- Unpin Dependabot exclusions in `.github/dependabot.yml` previously constrained by legacy Semgrep.
+- Provide comprehensive positive/negative test fixtures in `security/sast/custom-rules/fixtures/rules_fixture.go` with automated regression tests.

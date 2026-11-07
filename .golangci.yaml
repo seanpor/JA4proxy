@@ -104,4 +104,9 @@ linters:
       - path: "cmd/ja4-tap/.*\\.go|internal/backup/.*\\.go|internal/cluster/.*\\.go|internal/redis/.*\\.go|internal/webhook/.*\\.go"
         linters:
           - contextcheck
+      # SAST rule test fixtures
+      - path: "security/sast/.*\\.go"
+        linters:
+          - unused
+          - gosec
 

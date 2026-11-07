@@ -1714,7 +1714,7 @@ lint-docs-all: lint-docs lint-phases check-manifest link-check lint-markdown lin
 lint-opengrep: opengrep-image ## Run Opengrep SAST using local rulesets (containerised)
 	@echo "=== opengrep: SAST (pinned binary v1.33.1 in container) ==="
 	@docker run --rm -u $$(id -u):$$(id -g) -e HOME=/tmp -v $(PWD):/src -w /src $(OPENGREP_IMG) \
-		scan --quiet --error --disable-version-check --config .semgrep-phase122.yml --config security/sast/rules/ .
+		scan --quiet --error --disable-version-check --config security/sast/rules/ --config security/sast/custom-rules/ .
 
 lint-semgrep: lint-opengrep ## Backward-compatible alias for lint-opengrep (Phase 865)
 

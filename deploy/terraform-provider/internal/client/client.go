@@ -133,7 +133,8 @@ func (c *Client) do(req *http.Request) ([]byte, int, error) {
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	// LimitReader caps API response body to 4 MiB (AGENTS.md / CWE-400 / Phase 866).
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
 	if err != nil {
 		return nil, resp.StatusCode, fmt.Errorf("failed to read response body: %w", err)
 	}

@@ -57,7 +57,8 @@ func main() {
 			os.Exit(1)
 		}
 		defer resp.Body.Close()
-		body, _ := io.ReadAll(resp.Body)
+		// LimitReader caps loopback health check response to 64 KiB (AGENTS.md / CWE-400 / Phase 866).
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
 		if resp.StatusCode != http.StatusOK {
 			fmt.Fprintf(os.Stderr, "health check status non-200: %d\n", resp.StatusCode)
 			if len(body) > 0 {
