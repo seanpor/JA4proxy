@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/seanpor/ja4proxy/internal/cli/client"
@@ -112,7 +113,8 @@ func RunDialSetRaw(ctx context.Context, httpClient *http.Client, baseURL, token 
 	defer resp.Body.Close()
 
 	var respBody map[string]interface{}
-	if decErr := json.NewDecoder(resp.Body).Decode(&respBody); decErr != nil {
+	// LimitReader caps JSON decode to 256 KiB (AGENTS.md / CWE-400 / Phase 866).
+	if decErr := json.NewDecoder(io.LimitReader(resp.Body, 256<<10)).Decode(&respBody); decErr != nil {
 		respBody = nil
 	}
 

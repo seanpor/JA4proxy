@@ -136,6 +136,14 @@ func resolvePassphrase(keyFile, key string) (string, error) {
 		return key, nil
 	}
 	if keyFile != "" {
+		// Verify restrictive permissions BEFORE reading sensitive key file (AGENTS.md / CWE-276 / Phase 866).
+		info, statErr := os.Stat(keyFile)
+		if statErr != nil {
+			return "", fmt.Errorf("stat key file: %w", statErr)
+		}
+		if info.Mode().Perm()&0077 != 0 {
+			return "", fmt.Errorf("insecure permissions on key file %q: %#o (must be at most 0600)", keyFile, info.Mode().Perm())
+		}
 		b, err := os.ReadFile(keyFile)
 		if err != nil {
 			return "", fmt.Errorf("reading key file: %w", err)

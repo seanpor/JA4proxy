@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -68,7 +69,8 @@ func LoadTrustedCIDRsFromNetBox(ctx context.Context, baseURL, token, tag string)
 		}
 
 		var nbResp netboxPrefixResponse
-		if err := json.NewDecoder(resp.Body).Decode(&nbResp); err != nil {
+		// LimitReader caps upstream JSON payload to 256 KiB (AGENTS.md / CWE-400 / Phase 866).
+		if err := json.NewDecoder(io.LimitReader(resp.Body, 256<<10)).Decode(&nbResp); err != nil {
 			logrus.WithError(err).Warn("netbox: JSON decode failed — failing open")
 			_ = resp.Body.Close() // #nosec G104
 			return []string{}, nil

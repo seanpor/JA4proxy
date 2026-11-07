@@ -1,0 +1,109 @@
+rules:
+  - id: ja4p-unbounded-http-body-decode
+    languages: [go]
+    severity: ERROR
+    message: >
+      Unbounded HTTP body read or JSON decode without io.LimitReader cap.
+      Wrap resp.Body with io.LimitReader(resp.Body, maxBytes) per AGENTS.md
+      to prevent CWE-400 memory exhaustion / DoS attacks from untrusted upstreams.
+    patterns:
+      - pattern-either:
+          - pattern: json.NewDecoder($RESP.Body).Decode(...)
+          - pattern: io.ReadAll($RESP.Body)
+      - pattern-not-inside: |
+          ...
+          io.LimitReader($RESP.Body, ...)
+          ...
+    paths:
+      exclude:
+        - "*_test.go"
+        - "tests/**"
+        - "internal/testutil/**"
+    metadata:
+      category: security
+      subcategory: [vulnerability]
+      confidence: HIGH
+      cwe: CWE-400
+
+  - id: ja4p-sensitive-key-read-perm-check
+    languages: [go]
+    severity: ERROR
+    message: >
+      Cryptographic key or secret file read via os.ReadFile without validating
+      restrictive file permissions (0600/0400) first via os.Stat (per AGENTS.md / CWE-276).
+      Validate file permissions BEFORE reading key material into memory.
+    patterns:
+      - pattern: os.ReadFile($PATH)
+      - metavariable-regex:
+          metavariable: $PATH
+          regex: (?i)(.*key.*|.*secret.*|.*priv.*)
+      - pattern-not-inside: |
+          ...
+          $INFO, $ERR := os.Stat($PATH)
+          ...
+          os.ReadFile($PATH)
+      - pattern-not-inside: |
+          ...
+          $INFO, $ERR = os.Stat($PATH)
+          ...
+          os.ReadFile($PATH)
+    paths:
+      exclude:
+        - "*_test.go"
+        - "tests/**"
+        - "internal/testutil/**"
+    metadata:
+      category: security
+      subcategory: [vulnerability]
+      confidence: MEDIUM
+      cwe: CWE-276
+
+  - id: ja4p-select-default-missing-metric
+    languages: [go]
+    severity: WARNING
+    message: >
+      Non-blocking channel send in select statement has an empty default branch without a metric increment.
+      Silent drops in fail-open paths are invisible to operators (per AGENTS.md / CWE-778).
+      Record dropped events using a metric counter (e.g., metrics.XxxDroppedTotal.Inc()).
+    patterns:
+      - pattern: |
+          select {
+          case ... <- ...:
+              ...
+          default:
+          }
+    paths:
+      exclude:
+        - "*_test.go"
+        - "tests/**"
+    metadata:
+      category: observability
+      subcategory: [audit]
+      confidence: HIGH
+      cwe: CWE-778
+
+  - id: ja4p-hotpath-regexp-compile
+    languages: [go]
+    severity: WARNING
+    message: >
+      Regular expression compiled inside a function body.
+      Repeated regexp.Compile or regexp.MustCompile in request processing hot paths
+      causes severe heap allocation churn and CPU overhead (CWE-400).
+      Declare compiled expressions at package scope using var _ = regexp.MustCompile(...).
+    patterns:
+      - pattern-either:
+          - pattern: regexp.Compile(...)
+          - pattern: regexp.MustCompile(...)
+      - pattern-inside: |
+          func $FN(...) {
+              ...
+          }
+    paths:
+      exclude:
+        - "*_test.go"
+        - "tests/**"
+    metadata:
+      category: performance
+      subcategory: [audit]
+      confidence: HIGH
+      cwe: CWE-400

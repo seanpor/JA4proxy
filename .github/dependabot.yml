@@ -39,24 +39,8 @@ updates:
       python-dependencies:
         patterns:
           - "*"
-        exclude-patterns:
-          - "pip-audit"
     cooldown:
       default-days: 7
-    # PR #374: pip-audit>=2.8.0 pulls in mcp/semgrep/tomli versions that
-    # conflict with the pins held for the CVE-2025-66416 mitigation, so every
-    # bump in this range fails CI and can never auto-merge -- it just sits
-    # open, re-nagging on every rebase/recheck. Ignored until that upstream
-    # conflict resolves; revisit manually (see PR #374 discussion).
-    # Phase 859 / Phase 860: semgrep>=1.182.1 pins jsonschema~=4.25.1 and mcp==1.29.0.
-    # Bumping jsonschema>=4.26 or mcp>=1.30 creates ResolutionImpossible until semgrep updates.
-    ignore:
-      - dependency-name: "pip-audit"
-        versions: [">=2.8.0"]
-      - dependency-name: "jsonschema"
-        versions: [">=4.26.0"]
-      - dependency-name: "mcp"
-        versions: [">=1.30.0"]
 
   - package-ecosystem: "gomod"
     directory: "/"

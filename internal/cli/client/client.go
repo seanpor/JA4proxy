@@ -86,7 +86,8 @@ func (c *Client) PostBinaryResponse(ctx context.Context, path string, body inter
 	}
 	defer resp.Body.Close()
 
-	data, _ := io.ReadAll(resp.Body)
+	// LimitReader caps binary response payload to 16 MiB (AGENTS.md / CWE-400 / Phase 866).
+	data, _ := io.ReadAll(io.LimitReader(resp.Body, 16<<20))
 	ct := resp.Header.Get("Content-Type")
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
@@ -142,7 +143,8 @@ func (c *Client) do(req *http.Request, out interface{}) error {
 	}
 	defer resp.Body.Close()
 
-	bodyBytes, _ := io.ReadAll(resp.Body)
+	// LimitReader caps JSON response payload to 4 MiB (AGENTS.md / CWE-400 / Phase 866).
+	bodyBytes, _ := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		snippet := string(bodyBytes)
