@@ -1,0 +1,5 @@
+- **Phase 867: Deep Review & Architectural Audit of Performance Testing Harnesses**
+  - Conducted ground-truth architectural review of all 24 performance testing harnesses, micro/macro benchmarks, load generators, and CI gates across the codebase.
+  - Published comprehensive audit report in `docs/reports/PERFORMANCE_HARNESS_REVIEW.md` documenting critical protocol framing violations (ALPN `h2` with raw ASCII HTTP/1.1), verdict corruption (HTTP 403 treated as allowed connections), the inverted `RateLimited` gate in `nightly_benchmark_gate.py`, and Coordinated Omission in tail latency percentiles under Little's Law.
+  - Recorded native Go micro-benchmark baselines across all 9 internal subsystems (TLS, QUIC, pipeline, cache, tap, server, security, webhook, redis).
+  - Defined 6-dimension capabilities matrix and sequenced modernization roadmap across Phases 868–871.
