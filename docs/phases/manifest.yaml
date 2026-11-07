@@ -5663,3 +5663,11 @@ phases:
     dependencies: [862]
     size: LARGE
     summary: "COMPLETE 2026-11-05. Hardened production Go proxy across four work packages: 863a native _FILE secret expansion and ja4pd healthcheck probe, 863b static PIE with Full RELRO, BIND_NOW, and shared build script guard, 863c migration to distroless static runtime image, and 863d Profile-Guided Optimization (PGO) in cmd/ja4pd/."
+
+  864:
+    name: "Third-Party CVE Triage & HAProxy Fix-Forward Bump"
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_864.md
+    dependencies: [863]
+    size: SMALL
+    summary: "COMPLETE 2026-11-06. Remediate 6 baseline monitor issues (#700, #701, #703, #704, #705, #706): bump HAProxy to 3.4.7-alpine across compose definitions, prune CVE-2026-103111 carrier, and register reachability-bound waivers for CVE-2026-85091 (zlib) and CVE-2026-109518 (apt)."

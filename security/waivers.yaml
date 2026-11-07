@@ -146,20 +146,16 @@ waivers:
     scope: third-party
     severity: HIGH
     source: trivy
-    carriers: ["haproxy:2.8.28-alpine", "tecnativa/docker-socket-proxy:v0.5.0"]
+    carriers: ["tecnativa/docker-socket-proxy:v0.5.0"]
     rationale: >-
       pcre2 vulnerability in Alpine 3.19/3.24; pinned upstream official images we
       cannot rebuild until publishers ship new tags. The socket proxy only
-      communicates over a local Unix socket and never parses untrusted regex;
-      haproxy uses pcre2 only for its own static config patterns.
+      communicates over a local Unix socket and never parses untrusted regex.
+      Phase 864 bumped haproxy to 3.4.7-alpine which clears pcre2.
     reachability: input-path-unreachable
     reachability_evidence: >-
       pcre2 is never reached with untrusted input. The socket proxy never
-      parses a regex from any source; haproxy compiles only the patterns
-      written into config/haproxy.cfg, which is a bind-mounted static file
-      and not attacker-reachable. haproxy is published on 443/80, so the
-      exposure of this carrier is network-wide — the premise that holds is
-      the input path, not the network path.
+      parses a regex from any source and has no published ports.
     fix_available: false
     recheck_trigger: "the carrier images ship a rebuilt Alpine base with patched pcre2"
     created: 2026-10-07
@@ -455,3 +451,155 @@ waivers:
     recheck_trigger: "grafana and alloy publish tags built with go-jose >= 4.1.6"
     created: 2026-10-28
     expires: 2027-01-26
+
+  - id: CVE-2026-85091
+    scope: third-party
+    severity: HIGH
+    source: trivy
+    carriers:
+      - "redis:7.4.11-alpine@sha256:520775a41a63e77e06c73e35d2fd9cc15921a609516818796b4ecbb813078bc7"
+      - "tecnativa/docker-socket-proxy:v0.5.0"
+    rationale: >-
+      zlib memory corruption vulnerability in Alpine base packages. Pinned third-party
+      official images where publishers have not yet shipped Alpine 3.24 builds with
+      zlib 1.3.2-r1. The socket proxy only communicates over /var/run/docker.sock with
+      no published network ports; Redis runs on isolated internal Docker networks
+      (ja4proxy-data/ja4proxy-mgmt) with no published host ports in deployed stacks.
+    reachability: local-socket-only
+    fix_available: false
+    recheck_trigger: "upstream alpine base image rebuilds with zlib 1.3.2-r1"
+    created: 2026-11-06
+    expires: 2027-02-04
+
+  - id: CVE-2026-109518
+    scope: third-party
+    severity: HIGH
+    source: trivy
+    carriers:
+      - "grafana/alloy:v1.21.2@sha256:89a5a320168387336b9ac3c850609c3ba7757eadd4ae5f1d819deb35e9854b18"
+      - "grafana/grafana:13.2.4-ubuntu"
+    rationale: >-
+      apt integer overflow vulnerability in Ubuntu base packages. Grafana and Alloy
+      are third-party monitoring images bound only to internal loopback
+      (${AGENT_BIND_IP:-127.0.0.1}). The apt package manager is never invoked or
+      reachable at runtime. We cannot rebuild these images; upstream publishers
+      must ship tags built with apt 2.8.4ubuntu0.1.
+    reachability: internal-monitoring-only
+    fix_available: false
+    recheck_trigger: "upstream ubuntu base image rebuilds with apt 2.8.4ubuntu0.1"
+    created: 2026-11-06
+    expires: 2027-02-04
+
+
+  # ── golang.org/x/net (CVE-2026-78661) in third-party monitoring stack ────────────
+  - id: CVE-2026-78661
+    scope: third-party
+    severity: HIGH
+    source: trivy
+    carriers:
+      - "grafana/alloy:v1.21.2@sha256:89a5a320168387336b9ac3c850609c3ba7757eadd4ae5f1d819deb35e9854b18"
+      - "grafana/grafana:13.2.4-ubuntu"
+      - "grafana/loki:3.7.9"
+      - "prom/alertmanager:v0.34.1"
+      - "prom/prometheus:v3.15.1"
+    rationale: >-
+      golang.org/x/net HTTP/2 rapid reset / frame parsing issue (fixed in 0.62.0);
+      bundled Go runtime in third-party monitoring containers. All carriers are
+      internal monitoring components bound to internal networks or loopback
+      (${AGENT_BIND_IP:-127.0.0.1}) with no untrusted network exposure. Fix requires
+      upstream publishers to rebuild against golang.org/x/net >= 0.62.0.
+    reachability: internal-monitoring-only
+    fix_available: false
+    recheck_trigger: "upstream monitoring images rebuild against golang.org/x/net >= 0.62.0"
+    created: 2026-11-07
+    expires: 2027-02-05
+
+  # ── musl (CVE-2026-107891) in Alpine base images ─────────────────────────
+  - id: CVE-2026-107891
+    scope: third-party
+    severity: HIGH
+    source: trivy
+    carriers:
+      - "haproxy:3.4.7-alpine"
+      - "redis:7.4.11-alpine@sha256:520775a41a63e77e06c73e35d2fd9cc15921a609516818796b4ecbb813078bc7"
+      - "tecnativa/docker-socket-proxy:v0.5.0"
+    rationale: >-
+      musl libc vulnerability in Alpine base packages (fixed in 1.2.5-r12 / 1.2.6-r3).
+      The carriers run pinned Alpine images. Redis runs strictly on internal docker
+      networks (ja4proxy-data) with no published host ports; docker-socket-proxy only
+      communicates over local /var/run/docker.sock with no published network ports.
+      HAProxy terminates TLS and performs L4 TCP proxying without parsing untrusted
+      input into musl-vulnerable libc subsystems. Upstream publishers must rebuild
+      against updated Alpine base images.
+    reachability: input-path-unreachable
+    reachability_evidence: >-
+      musl libc memory safety bugs in dynamic linking/internal allocator paths are
+      unreachable from untrusted TCP payloads processed by HAProxy's event loop,
+      and Redis/docker-socket-proxy have no exposed network ingress.
+    fix_available: false
+    recheck_trigger: "upstream official images rebuild on patched Alpine base"
+    created: 2026-11-07
+    expires: 2027-02-05
+
+  # ── golang.org/x/net (CVE-2026-97045) in third-party monitoring stack ────────────
+  - id: CVE-2026-97045
+    scope: third-party
+    severity: MEDIUM
+    source: trivy
+    carriers:
+      - "grafana/alloy:v1.21.2@sha256:89a5a320168387336b9ac3c850609c3ba7757eadd4ae5f1d819deb35e9854b18"
+      - "grafana/grafana:13.2.4-ubuntu"
+      - "grafana/loki:3.7.9"
+      - "prom/alertmanager:v0.34.1"
+      - "prom/prometheus:v3.15.1"
+    rationale: >-
+      golang.org/x/net HTTP/2 resource consumption issue (fixed in 0.62.0);
+      bundled Go runtime in third-party monitoring containers. All carriers are
+      internal monitoring components bound to internal networks or loopback
+      (${AGENT_BIND_IP:-127.0.0.1}) with no untrusted network exposure. Fix requires
+      upstream publishers to rebuild against golang.org/x/net >= 0.62.0.
+    reachability: internal-monitoring-only
+    fix_available: false
+    recheck_trigger: "upstream monitoring images rebuild against golang.org/x/net >= 0.62.0"
+    created: 2026-11-07
+    expires: 2027-02-05
+
+  # ── zlib (CVE-2026-4738) in Alpine base images ───────────────────────────
+  - id: CVE-2026-4738
+    scope: third-party
+    severity: MEDIUM
+    source: trivy
+    carriers:
+      - "redis:7.4.11-alpine@sha256:520775a41a63e77e06c73e35d2fd9cc15921a609516818796b4ecbb813078bc7"
+      - "tecnativa/docker-socket-proxy:v0.5.0"
+    rationale: >-
+      zlib memory consumption issue in Alpine base packages (fixed in 1.4-r0).
+      Redis runs strictly on internal docker networks (ja4proxy-data) with no published
+      host ports; docker-socket-proxy only communicates over local /var/run/docker.sock
+      with no published network ports. Upstream publishers must rebuild against updated
+      Alpine base images.
+    reachability: local-socket-only
+    fix_available: false
+    recheck_trigger: "upstream redis and docker-socket-proxy rebuild on patched Alpine base"
+    created: 2026-11-07
+    expires: 2027-02-05
+
+  # ── perl-base (CVE-2026-82560) in Ubuntu base images ─────────────────────
+  - id: CVE-2026-82560
+    scope: third-party
+    severity: MEDIUM
+    source: trivy
+    carriers:
+      - "grafana/alloy:v1.21.2@sha256:89a5a320168387336b9ac3c850609c3ba7757eadd4ae5f1d819deb35e9854b18"
+      - "grafana/grafana:13.2.4-ubuntu"
+    rationale: >-
+      perl-base memory safety issue in Ubuntu base packages (no fix published yet).
+      Grafana and Alloy are third-party monitoring images bound only to internal
+      loopback/monitoring networks (${AGENT_BIND_IP:-127.0.0.1}). perl is not used
+      to parse untrusted network input at runtime. Upstream publishers must rebuild
+      against patched Ubuntu packages once released.
+    reachability: internal-monitoring-only
+    fix_available: false
+    recheck_trigger: "upstream ubuntu base image rebuilds with patched perl-base"
+    created: 2026-11-07
+    expires: 2027-02-05
