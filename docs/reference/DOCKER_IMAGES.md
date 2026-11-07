@@ -32,7 +32,7 @@ This document serves as the canonical registry of every Docker image used in the
 
 <!-- BEGIN GENERATED: first-party-images -->
 
-_14 first-party images. Generated from the Dockerfiles and compose files by `make sync` — do not edit this table by hand._
+_15 first-party images. Generated from the Dockerfiles and compose files by `make sync` — do not edit this table by hand._
 
 | Image | Dockerfile | Base |
 |-------|------------|------|
@@ -46,6 +46,7 @@ _14 first-party images. Generated from the Dockerfiles and compose files by `mak
 | `ja4proxy-logtide:1.0.0` | `deploy/docker/Dockerfile.logtide` | `gcr.io/distroless/static-debian12@sha256:a9fcaedd4c9b59e12dd65d954f0b5044f19b0647a8a3712e77205df9e7b102cd` |
 | `ghcr.io/seanpor/ja4proxy-management:main` | `deploy/docker/Dockerfile.management` | `python:3.15.2-alpine3.24@sha256:20a82dbc2783112ddb91d1534603f802d222a3e63e593cd002eb2ac534e70211` |
 | `ja4proxy-mockbackend:1.0.0` | `deploy/docker/Dockerfile.mockbackend` | `alpine:3.24.3@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a` |
+| — | `deploy/docker/Dockerfile.opengrep` | `alpine:3.24.3@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a` |
 | `ja4proxy-test:1.0.0` | `deploy/docker/Dockerfile.test` | `python:3.15.2-alpine3.24@sha256:20a82dbc2783112ddb91d1534603f802d222a3e63e593cd002eb2ac534e70211` |
 | `ja4proxy-trafficgen:1.0.0` | `deploy/docker/Dockerfile.trafficgen` | `python:3.15.2-alpine3.24@sha256:20a82dbc2783112ddb91d1534603f802d222a3e63e593cd002eb2ac534e70211` |
 | `ja4proxy-analytics:1.0.0` | `src/analytics/Dockerfile` | `python:3.15.2-alpine3.24@sha256:20a82dbc2783112ddb91d1534603f802d222a3e63e593cd002eb2ac534e70211` |

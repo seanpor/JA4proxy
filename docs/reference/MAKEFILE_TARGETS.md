@@ -45,7 +45,7 @@ The default lane runs **without HAProxy** (single proxy, reached directly on
 
 <!-- BEGIN GENERATED: make-targets -->
 
-_214 targets. Generated from the Makefile's own `##` help comments by `make sync` — do not edit this table by hand._
+_216 targets. Generated from the Makefile's own `##` help comments by `make sync` — do not edit this table by hand._
 
 ### Aggregate linters
 
@@ -72,10 +72,11 @@ _214 targets. Generated from the Makefile's own `##` help comments by `make sync
 | `lint-go` | Run all Go linters (fmt, vet, golangci-lint, mod verify) |
 | `lint-infra` | Run all infrastructure linters |
 | `lint-observability` | Run observability linters (promtool, amtool) |
+| `lint-opengrep` | Run Opengrep SAST using local rulesets (containerised) |
 | `lint-phases` | Validate phase docs (frontmatter, numbering, manifest sync) |
 | `lint-python` | Run all Python linters (ruff, mypy, bandit, pylint) |
-| `lint-sast` | Run cross-language SAST (Semgrep, Checkov) |
-| `lint-semgrep` | Run Semgrep SAST using the project ruleset and CI rulesets (containerised) |
+| `lint-sast` | Run cross-language SAST (Opengrep, Checkov) |
+| `lint-semgrep` | Backward-compatible alias for lint-opengrep (Phase 865) |
 | `lint-supply-chain` | Run supply-chain linters (Gitleaks, govulncheck) |
 | `loadtest` | Lane-isolated good/bad load test -> watch Grafana (knobs: GOOD_RATE BAD_RATE DURATION WORKERS DIAL) |
 | `management-down` | Stop the management UI for the current agent |
@@ -171,6 +172,7 @@ _214 targets. Generated from the Makefile's own `##` help comments by `make sync
 | `lint-yaml` | yamllint `config/` and `monitoring/` |
 | `logs` | Stream proxy container logs |
 | `medium-inventory` | Measure the MEDIUM surface and record security/baseline-medium.json |
+| `opengrep-image` | Build containerized Opengrep SAST image |
 | `reachability-check` | Verify every waiver's reachability premise still holds |
 | `rebuild` | Wipe volumes/images, rebuild from scratch, start fresh |
 | `scan-baseline` | Record security/baseline.json (third-party + first-party images + Python deps) |

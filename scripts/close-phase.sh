@@ -111,10 +111,10 @@ echo -e "${BOLD}[6/10] make test${RESET}"
 make test || fail "make test failed"
 pass "make test"
 
-# 6. Semgrep SAST (containerized, matches CI rulesets p/ci, p/security-audit, p/secrets)
-echo -e "${BOLD}[7/10] make lint-semgrep${RESET}"
-make lint-semgrep || fail "make lint-semgrep failed"
-pass "lint-semgrep"
+# 6. Opengrep SAST (containerized, matches vendored rulesets p-ci, p-security-audit, p-secrets)
+echo -e "${BOLD}[7/10] make lint-opengrep${RESET}"
+make lint-opengrep || fail "make lint-opengrep failed"
+pass "lint-opengrep"
 
 # 7. Phase doc lint
 echo -e "${BOLD}[8/10] make lint-phases${RESET}"

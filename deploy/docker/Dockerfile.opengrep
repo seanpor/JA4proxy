@@ -1,0 +1,28 @@
+# Opengrep SAST toolchain container image (Phase 865).
+# Pinned to official Opengrep binary v1.33.1 with verified SHA256 checksum.
+# Runs as non-root user scanner (UID 1001).
+FROM alpine:3.24.3@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a
+
+RUN apk upgrade --no-cache && \
+    apk add --no-cache ca-certificates git curl bash && \
+    addgroup -g 1001 -S scanner && \
+    adduser -u 1001 -S -G scanner scanner
+
+ARG OPENGREP_VERSION=v1.33.1
+ARG OPENGREP_SHA256=aa03c3bfff105dc122cbbe6e239dc39a5cae486f1837bba3af7a16bca173f8d6
+
+RUN curl -fsSL -o /usr/local/bin/opengrep \
+        "https://github.com/opengrep/opengrep/releases/download/${OPENGREP_VERSION}/opengrep_musllinux_x86" && \
+    echo "${OPENGREP_SHA256}  /usr/local/bin/opengrep" | sha256sum -c - && \
+    chmod 0755 /usr/local/bin/opengrep
+
+USER scanner
+# Allow scanner user to inspect mounted git workspace cleanly
+RUN git config --global --add safe.directory /src
+
+WORKDIR /src
+
+HEALTHCHECK NONE
+
+ENTRYPOINT ["opengrep"]
+CMD ["--help"]

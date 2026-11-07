@@ -1,4 +1,4 @@
-.PHONY: all bench-all build bump-build check ci-verify clean cli-build compose-validate env-sync doc-health doctor go-build help help-dev help-legacy help-lint help-ops help-scan init install-hooks ja4p-validate link-check lint lint-ansible lint-docs lint-phases lint-semgrep logs management-down management-logs management-shell management-up rebuild reload remote-bot sbom scan scan-exceptions scorecard-local setup-build start start-poc status stop sync test test-component-suites test-ip test-race test-ratio traffic-off traffic-on tunnel verify-all preflight poc-secrets
+.PHONY: all bench-all build bump-build check ci-verify clean cli-build compose-validate env-sync doc-health doctor go-build help help-dev help-legacy help-lint help-ops help-scan init install-hooks ja4p-validate link-check lint lint-ansible lint-docs lint-phases lint-opengrep lint-semgrep logs management-down management-logs management-shell management-up rebuild reload remote-bot sbom scan scan-exceptions scorecard-local setup-build start start-poc status stop sync test test-component-suites test-ip test-race test-ratio traffic-off traffic-on tunnel verify-all preflight poc-secrets
 PYTHON ?= $(shell command -v python || command -v python3 || echo python)
 # Prefer snap Go if present (local dev), else fall back to env/system GOROOT.
 GOROOT := $(shell if [ -d /snap/go/current ]; then echo /snap/go/current; elif [ -n "$$GOROOT" ]; then echo "$$GOROOT"; else go env GOROOT 2>/dev/null; fi)
@@ -578,7 +578,15 @@ bandit-image:  ## Build containerized bandit SAST image (Dockerfile.bandit)
 	@docker build -q -t $(BANDIT_IMG) -f Dockerfile.bandit . >/dev/null
 BANDIT_RUN = docker run --rm -v $(PWD):/src -w /src $(BANDIT_IMG)
 
-SEMGREP_IMG := semgrep/semgrep:1.166.0
+# Opengrep SAST toolchain (Phase 865: replaces Semgrep with pinned binary & local rules)
+OPENGREP_IMG := ja4proxy-opengrep:1.33.1
+opengrep-image: ## Build containerized Opengrep SAST image
+	@if [ -z "$$(docker images -q $(OPENGREP_IMG) 2>/dev/null)" ]; then \
+		echo "Building $(OPENGREP_IMG)..."; \
+		docker build -t $(OPENGREP_IMG) -f deploy/docker/Dockerfile.opengrep deploy/docker/ >/dev/null; \
+	fi
+
+SEMGREP_IMG := $(OPENGREP_IMG)
 
 # checkmake publishes no semantic version tags — only `latest` and per-commit
 # tags, all from 2022-02-18. Pinned to the newest immutable commit tag rather
@@ -1676,7 +1684,7 @@ lint-python: lint-static lint-security lint-pylint ## Run all Python linters (ru
 lint-go: go-lint lint-go-full lint-go-mod ## Run all Go linters (fmt, vet, golangci-lint, mod verify)
 	@echo "✓ lint-go complete"
 
-lint-sast: lint-semgrep lint-checkov ## Run cross-language SAST (Semgrep, Checkov)
+lint-sast: lint-opengrep lint-checkov ## Run cross-language SAST (Opengrep, Checkov)
 	@echo "✓ lint-sast complete"
 
 lint-infra: lint-docker lint-shell lint-yaml lint-lua lint-json lint-haproxy lint-makefiles lint-toml lint-ansible lint-helm ## Run all infrastructure linters
@@ -1703,10 +1711,12 @@ lint-phases: tools-image ## Validate phase docs (frontmatter, numbering, manifes
 lint-docs-all: lint-docs lint-phases check-manifest link-check lint-markdown lint-spelling ## Run all documentation quality checks
 	@echo "✓ lint-docs-all complete"
 
-lint-semgrep: ## Run Semgrep SAST using the project ruleset and CI rulesets (containerised)
-	@echo "=== semgrep: SAST (official image — Semgrep does not run on Python 3.14) ==="
-	@docker run --rm -v $(PWD):/src -w /src $(SEMGREP_IMG) \
-		semgrep --quiet --error --config .semgrep-phase122.yml --config p/ci --config p/security-audit --config p/secrets .
+lint-opengrep: opengrep-image ## Run Opengrep SAST using local rulesets (containerised)
+	@echo "=== opengrep: SAST (pinned binary v1.33.1 in container) ==="
+	@docker run --rm -u $$(id -u):$$(id -g) -e HOME=/tmp -v $(PWD):/src -w /src $(OPENGREP_IMG) \
+		scan --quiet --error --disable-version-check --config .semgrep-phase122.yml --config security/sast/rules/ .
+
+lint-semgrep: lint-opengrep ## Backward-compatible alias for lint-opengrep (Phase 865)
 
 lint-ansible: ## Lint the Ansible playbooks/roles under deploy/ansible (containerised; advisory)
 	@echo "=== ansible-lint: deploy/ansible (advisory — molecule role-path syntax-checks are pre-existing) ==="
