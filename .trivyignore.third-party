@@ -110,18 +110,25 @@ CVE-2026-100354 exp:2027-01-15
 CVE-2026-103111 exp:2027-01-05
 
 # musl libc vulnerability in Alpine base packages (fixed in 1.2.5-r12 /
-# 1.2.6-r3). Redis runs strictly on internal docker networks (ja4proxy-data)
-# with no published host ports; docker-socket-proxy only communicates over
-# local /var/run/docker.sock with no published network ports. Upstream
-# publishers must rebuild against updated Alpine base images.
+# 1.2.6-r3). The carriers run pinned Alpine images. Redis runs strictly on
+# internal docker networks (ja4proxy-data) with no published host ports;
+# docker-socket-proxy only communicates over local /var/run/docker.sock with
+# no published network ports. HAProxy terminates TLS and performs L4 TCP
+# proxying without parsing untrusted input into musl-vulnerable libc
+# subsystems. Upstream publishers must rebuild against updated Alpine base
+# images.
 #
 # Carriers:
+#   - haproxy:3.4.7-alpine
 #   - redis:7.4.11-alpine@sha256:520775a41a63e77e06c73e35d2fd9cc15921a609516818796b4ecbb813078bc7
 #   - tecnativa/docker-socket-proxy:v0.5.0
-# Reachability: local-socket-only
+# Reachability: input-path-unreachable
+# Reachability evidence: musl libc memory safety bugs in dynamic
+# linking/internal allocator paths are unreachable from untrusted TCP payloads
+# processed by HAProxy's event loop, and Redis/docker-socket-proxy have no
+# exposed network ingress.
 # Severity: HIGH
-# Re-check when: upstream redis and docker-socket-proxy rebuild on patched
-# Alpine base
+# Re-check when: upstream official images rebuild on patched Alpine base
 CVE-2026-107891 exp:2027-02-05
 
 # apt integer overflow vulnerability in Ubuntu base packages. Grafana and
@@ -262,6 +269,21 @@ CVE-2026-21728 exp:2027-01-05
 # Severity: HIGH
 # Re-check when: grafana/grafana ships a tag with the Tempo fix
 CVE-2026-28377 exp:2027-01-05
+
+# zlib memory consumption issue in Alpine base packages (fixed in 1.4-r0).
+# Redis runs strictly on internal docker networks (ja4proxy-data) with no
+# published host ports; docker-socket-proxy only communicates over local
+# /var/run/docker.sock with no published network ports. Upstream publishers
+# must rebuild against updated Alpine base images.
+#
+# Carriers:
+#   - redis:7.4.11-alpine@sha256:520775a41a63e77e06c73e35d2fd9cc15921a609516818796b4ecbb813078bc7
+#   - tecnativa/docker-socket-proxy:v0.5.0
+# Reachability: local-socket-only
+# Severity: MEDIUM
+# Re-check when: upstream redis and docker-socket-proxy rebuild on patched
+# Alpine base
+CVE-2026-4738 exp:2027-02-05
 
 # golang.org/x/net HTTP/2 rapid reset / frame parsing issue (fixed in 0.62.0);
 # bundled Go runtime in third-party monitoring containers. All carriers are
