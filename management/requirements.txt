@@ -19,7 +19,7 @@ PyJWT[crypto]==2.15.1          # phase-831: replaced unmaintained python-jose; b
 pyasn1==0.6.5              # phase-859: clears CVE-2026-119194..119197 (required by webauthn, pyasn1_modules)
 passlib[bcrypt]==1.7.4
 jinja2==3.1.6
-python-multipart==0.0.32
+python-multipart==0.0.33
 sse-starlette==3.6.0
 httpx==0.28.1
 pytest==9.2.0
