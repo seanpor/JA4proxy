@@ -5671,3 +5671,11 @@ phases:
     dependencies: [863]
     size: SMALL
     summary: "COMPLETE 2026-11-06. Remediate 6 baseline monitor issues (#700, #701, #703, #704, #705, #706): bump HAProxy to 3.4.7-alpine across compose definitions, prune CVE-2026-103111 carrier, and register reachability-bound waivers for CVE-2026-85091 (zlib) and CVE-2026-109518 (apt)."
+
+  865:
+    name: "Migrate SAST from Semgrep to Opengrep"
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_865.md
+    dependencies: [864]
+    size: MEDIUM
+    summary: "COMPLETE 2026-11-07. Migrate project SAST from Semgrep to Opengrep (v1.33.1): create dedicated non-root container image (ja4proxy-opengrep:1.33.1), vendor baseline rules locally with zero external network telemetry, update Makefile targets and CI workflows, and eliminate Semgrep python-dependency pin conflicts."

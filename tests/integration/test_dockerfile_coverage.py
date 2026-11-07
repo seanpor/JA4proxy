@@ -57,9 +57,11 @@ def test_every_docker_dockerfile_is_referenced():
 
     # Dockerfile.cli is built directly by CI (release-cli.yml), not via compose
     # Dockerfile.go-proxy.foss is the pure FOSS commercial profile image built directly/standalone
+    # Dockerfile.opengrep is the SAST toolchain container built on-demand by Makefile/CI
     ci_only = {
         (REPO_ROOT / "deploy" / "docker" / "Dockerfile.cli").resolve(),
         (REPO_ROOT / "deploy" / "docker" / "Dockerfile.go-proxy.foss").resolve(),
+        (REPO_ROOT / "deploy" / "docker" / "Dockerfile.opengrep").resolve(),
     }
     for df in dockerfiles:
         resolved = df.resolve()

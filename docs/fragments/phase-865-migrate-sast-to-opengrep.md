@@ -1,0 +1,3 @@
+- Migrate SAST pipeline from Semgrep to Opengrep v1.33.1 (`deploy/docker/Dockerfile.opengrep`).
+- Vendor baseline SAST security rulesets locally in `security/sast/rules/` (`p-ci.yml`, `p-security-audit.yml`, `p-secrets.yml`), removing network dependencies and telemetry.
+- Update `Makefile` with `lint-opengrep` (and preserve `lint-semgrep` alias), update `scripts/close-phase.sh` and GitHub Actions CI workflow.
