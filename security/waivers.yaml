@@ -583,3 +583,23 @@ waivers:
     recheck_trigger: "upstream redis and docker-socket-proxy rebuild on patched Alpine base"
     created: 2026-11-07
     expires: 2027-02-05
+
+  # ── perl-base (CVE-2026-82560) in Ubuntu base images ─────────────────────
+  - id: CVE-2026-82560
+    scope: third-party
+    severity: MEDIUM
+    source: trivy
+    carriers:
+      - "grafana/alloy:v1.21.2@sha256:89a5a320168387336b9ac3c850609c3ba7757eadd4ae5f1d819deb35e9854b18"
+      - "grafana/grafana:13.2.4-ubuntu"
+    rationale: >-
+      perl-base memory safety issue in Ubuntu base packages (no fix published yet).
+      Grafana and Alloy are third-party monitoring images bound only to internal
+      loopback/monitoring networks (${AGENT_BIND_IP:-127.0.0.1}). perl is not used
+      to parse untrusted network input at runtime. Upstream publishers must rebuild
+      against patched Ubuntu packages once released.
+    reachability: internal-monitoring-only
+    fix_available: false
+    recheck_trigger: "upstream ubuntu base image rebuilds with patched perl-base"
+    created: 2026-11-07
+    expires: 2027-02-05
