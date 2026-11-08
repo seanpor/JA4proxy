@@ -6333,6 +6333,30 @@ phases:
       nulls and malformed IPv4/IPv6 inputs in _ip_to_hex, non-dict/empty drop counter
       entries, string/bytes decoding variation in Redis scan_iter/smembers, and Redis
       disconnection backoff. Added comprehensive unit tests in tests/unit/security/test_ebpf_sync_hardening.py.
+  856:
+    name: Alertmanager & Prometheus Telemetry Integration Smoke Tests
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_856.md
+    dependencies:
+    - 855
+    size: SMALL
+    summary: Automated integration tests verifying that Prometheus metrics emitted by cmd/ja4pd and cmd/ja4-tap adhere to OpenMetrics exposition standards, and that all Alertmanager recording and alert rules evaluate cleanly.
+  857:
+    name: Dynamic Threat-Intelligence Feed Ingestion Contract & Malformed Feed Defense
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_857.md
+    dependencies:
+    - 856
+    size: SMALL
+    summary: Harden threat intelligence feed parsing and transport ingestion against malformed STIX 2.1 indicators, invalid CIDRs, ReDoS, and unbounded HTTP response sizes.
+  858:
+    name: Configuration Schema Auto-Documentation & Operator Drift Detection
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_858.md
+    dependencies:
+    - 857
+    size: SMALL
+    summary: Automated verification test ensuring proxy runtime configuration loaders, environment variables, and operator reference documentation stay synchronized without drift.
   859:
     name: Unblock Dependabot Queue & Remediate pyasn1 CVE Baseline Issues
     status: COMPLETE

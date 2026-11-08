@@ -15,32 +15,37 @@ phase: 857
 
 ## Goal
 
-Harden the threat intelligence feed ingestion script (`scripts/ti_feed_ingest.py`) against malformed STIX/TAXII JSON payloads, invalid CIDRs, connection timeouts, and memory exhaustion during feed parsing.
+Harden threat intelligence feed parsing and transport ingestion (`src/analytics/ti_feeds/stix_ja4.py` and `src/analytics/ti_feeds/taxii.py`) against malformed STIX 2.1 indicators, invalid or boundary CIDRs, nested dictionary recursion, ReDoS patterns, and unbounded HTTP response sizes.
 
 ---
 
 ## Junior Dev Feasibility & Sizing
 
 - **Verdict:** **SMALL & Straightforward**.
-- **Junior Dev Friendliness:** High. Pure Python script hardening with pytest and Hypothesis mock tests. Runs 100% in `ja4proxy-tools`.
+- **Junior Dev Friendliness:** High. Pure Python property-based testing and input sanitation with Hypothesis and pytest. Runs 100% in the containerized `ja4proxy-tools` environment.
+- **Clear Bounds:** Targets `parse_stix_indicator` in `src/analytics/ti_feeds/stix_ja4.py` and payload limit protections in `src/analytics/ti_feeds/taxii.py`.
 
 ---
 
 ## Scope
 
 ### In Scope
-1. **Feed Ingestion Resilience (`tests/unit/security/test_ti_feed_ingest.py`)**:
-   - Fuzz STIX/TAXII feed parsing with corrupted JSON, non-RFC IP notations, and empty indicators.
-   - Assert graceful error logging and metric increments (`TI_FEED_ERRORS.inc()`), never crashing the feed daemon.
-2. **Atomic Redis Write Invariant**:
-   - Verify threat intel indicator sets are written atomically (via Redis pipeline / multi-exec) to prevent partial indicator states during feed reloads.
+1. **Property-Based Fuzzing & Invariant Suite (`tests/unit/analytics/ti_feeds/test_stix_fuzz.py`)**:
+   - Fuzz `parse_stix_indicator` with corrupted CIDR notations (e.g., `/0`, `/129`, `999.999.999.999`, non-standard colons) and verify safe validation failure without exceptions.
+   - Assert regex extractors (`_PATTERN_IPV4_RE`, `_PATTERN_JA4_RE`) reject adversarial pathological strings within bounded time (no catastrophic backtracking / ReDoS).
+   - Assert handling of deeply nested, malformed, or cyclic indicator structures.
+2. **Payload Size Guarding**:
+   - Ensure `TAXIIClient` enforces a strict response payload limit before full JSON decoding to guard against memory exhaustion.
+3. **Containerized Execution**:
+   - Verified via `docker run --rm -v "$PWD":/src -w /src ja4proxy-tools pytest tests/unit/analytics/ti_feeds/`.
 
 ### Out of Scope
-- Direct upstream threat intelligence subscription integration.
+- Changes to external threat intelligence vendors or live external API calls.
 
 ---
 
 ## Acceptance Criteria
-- [ ] Property tests verify malformed feed payloads are rejected without script termination.
-- [ ] Atomic Redis updates verified under partial failure scenarios.
+- [ ] Hypothesis tests in `tests/unit/analytics/ti_feeds/test_stix_fuzz.py` verify robust parsing across malformed CIDRs and indicator formats.
+- [ ] ReDoS safety and bounded regex execution verified on pathological inputs.
+- [ ] Payload size bounding protects feed clients from memory exhaustion.
 - [ ] `make test-unit` and `make preflight` pass 100% green.
