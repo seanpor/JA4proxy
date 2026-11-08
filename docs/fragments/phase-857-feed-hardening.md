@@ -1,0 +1,3 @@
+- Added `parse_stix_indicator` in `src/analytics/ti_feeds/stix_ja4.py` with robust CIDR/IP validation, length bounding, and safe error handling.
+- Enforced response payload size limits (`DEFAULT_MAX_TAXII_PAYLOAD_BYTES`) on TAXII HTTP transport streams in `src/analytics/ti_feeds/taxii.py`.
+- Added property-based fuzzing and ReDoS safety regression tests in `tests/unit/analytics/ti_feeds/test_stix_fuzz.py`.

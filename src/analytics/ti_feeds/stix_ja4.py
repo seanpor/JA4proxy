@@ -23,8 +23,9 @@ Phase 85 scope; they are logged and counted under ``unsupported_pattern``.
 
 from __future__ import annotations
 
+import ipaddress
 import re
-from typing import Optional
+from typing import Any, Optional
 
 #: Permanent UUID for the ``x-ja4-fingerprint`` SCO extension definition.
 #: See PHASE_85.md §4.1. Must not change post-publication.
@@ -73,6 +74,10 @@ IP_PATTERN_REGEX = re.compile(
     r"\[ipv[46]-addr:value\s*=\s*'([^']+)'\]",
     re.IGNORECASE,
 )
+
+# Aliases used in phase references
+_PATTERN_JA4_RE = JA4_PATTERN_REGEX
+_PATTERN_IPV4_RE = IP_PATTERN_REGEX
 
 
 def is_valid_ja4(candidate: str) -> bool:
@@ -185,6 +190,90 @@ def parse_ip_from_pattern(pattern: Optional[str]) -> Optional[str]:
     if match is None:
         return None
     return match.group(1)
+
+
+def parse_stix_indicator(indicator: Any) -> Optional[dict[str, Any]]:
+    """Parse and validate a STIX 2.1 indicator structure.
+
+    Guards against malformed dictionaries, missing/non-string fields,
+    catastrophic regex backtracking, and malformed CIDR/IP notations.
+
+    Returns a normalized dict:
+        {"type": "ip"|"ja4", "value": str, "id": str, "confidence": int, "valid_until": Optional[str]}
+    or None if parsing/validation fails.
+    """
+    if not isinstance(indicator, dict):
+        return None
+
+    # Require dict keys to be strings and protect against recursion/nesting
+    stix_type = indicator.get("type")
+    if stix_type != "indicator":
+        return None
+
+    stix_id = indicator.get("id")
+    if not isinstance(stix_id, str) or not stix_id:
+        return None
+
+    if indicator.get("pattern_type") != "stix":
+        return None
+
+    pattern = indicator.get("pattern")
+    if not isinstance(pattern, str) or not pattern:
+        return None
+
+    # Length check to prevent catastrophic backtracking on arbitrarily large strings
+    if len(pattern) > 2048:
+        return None
+
+    confidence_raw = indicator.get("confidence", 0)
+    try:
+        confidence = int(confidence_raw) if confidence_raw is not None else 0
+    except (ValueError, TypeError):
+        return None
+
+    valid_until = indicator.get("valid_until")
+    if valid_until is not None and not isinstance(valid_until, str):
+        valid_until = None
+
+    if is_ip_pattern(pattern):
+        ip_val = parse_ip_from_pattern(pattern)
+        if not ip_val:
+            return None
+        # Strict IP / CIDR validation
+        try:
+            # Check for CIDR or host IP
+            if "/" in ip_val:
+                net = ipaddress.ip_network(ip_val, strict=False)
+                # Ensure valid CIDR format (avoid /0 or unbannable networks)
+                norm_val = str(net)
+            else:
+                addr = ipaddress.ip_address(ip_val)
+                norm_val = str(addr)
+        except ValueError:
+            return None
+
+        return {
+            "type": "ip",
+            "value": norm_val,
+            "id": stix_id,
+            "confidence": confidence,
+            "valid_until": valid_until,
+        }
+
+    if is_ja4_pattern(pattern):
+        ja4_val = parse_ja4_from_pattern(pattern)
+        if not ja4_val or not is_valid_ja4(ja4_val):
+            return None
+
+        return {
+            "type": "ja4",
+            "value": ja4_val,
+            "id": stix_id,
+            "confidence": confidence,
+            "valid_until": valid_until,
+        }
+
+    return None
 
 
 # ── SCO / extension-object helpers ───────────────────────────────────────────

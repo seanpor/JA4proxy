@@ -6343,12 +6343,12 @@ phases:
     summary: COMPLETE 2026-11-08. Automated integration tests verifying that Prometheus metrics emitted by cmd/ja4pd and cmd/ja4-tap adhere to OpenMetrics exposition standards, and that all Alertmanager recording and alert rules evaluate cleanly.
   857:
     name: Dynamic Threat-Intelligence Feed Ingestion Contract & Malformed Feed Defense
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_857.md
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_857.md
     dependencies:
     - 856
     size: SMALL
-    summary: Harden threat intelligence feed parsing and transport ingestion against malformed STIX 2.1 indicators, invalid CIDRs, ReDoS, and unbounded HTTP response sizes.
+    summary: COMPLETE 2026-11-08. Hardened threat intelligence feed parsing and transport ingestion against malformed STIX 2.1 indicators, invalid CIDRs, ReDoS, and unbounded HTTP response sizes with property-based fuzz tests in tests/unit/analytics/ti_feeds/test_stix_fuzz.py.
   858:
     name: Configuration Schema Auto-Documentation & Operator Drift Detection
     status: PROPOSED

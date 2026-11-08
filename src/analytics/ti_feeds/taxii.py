@@ -64,6 +64,7 @@ logger = logging.getLogger(__name__)
 
 _BATCH_SIZE = 50
 _INTER_BATCH_SLEEP_S = 0.05  # 50 ms per PHASE_85.md §2.5
+DEFAULT_MAX_TAXII_PAYLOAD_BYTES = 10 * 1024 * 1024  # 10 MiB limit against memory exhaustion
 
 # phase-101g M12: explicit-exception unions in place of bare ``except Exception``.
 # ``_FEED_FETCH_ERRORS`` covers HTTP I/O, JSON/STIX parse errors, and our
@@ -238,7 +239,34 @@ class TAXIIClient(FeedClient):
                     raise RuntimeError(
                         f"TAXII server returned HTTP {resp.status}: {text[:256]}"
                     )
-                body_text = await resp.text()
+                # Phase 857: Enforce response payload size limit to prevent memory exhaustion
+                cl = getattr(resp, "content_length", None)
+                if cl is not None and cl > DEFAULT_MAX_TAXII_PAYLOAD_BYTES:
+                    raise RuntimeError(
+                        f"TAXII response payload exceeds limit: {cl} > {DEFAULT_MAX_TAXII_PAYLOAD_BYTES}"
+                    )
+                content_stream = getattr(resp, "content", None)
+                if content_stream is not None and hasattr(content_stream, "read"):
+                    chunks = []
+                    bytes_read = 0
+                    while True:
+                        chunk = await content_stream.read(65536)
+                        if not chunk:
+                            break
+                        bytes_read += len(chunk)
+                        if bytes_read > DEFAULT_MAX_TAXII_PAYLOAD_BYTES:
+                            raise RuntimeError(
+                                f"TAXII response payload stream exceeds limit ({DEFAULT_MAX_TAXII_PAYLOAD_BYTES} bytes)"
+                            )
+                        chunks.append(chunk)
+                    body_bytes = b"".join(chunks)
+                    body_text = body_bytes.decode("utf-8")
+                else:
+                    body_text = await resp.text()
+                    if len(body_text.encode("utf-8")) > DEFAULT_MAX_TAXII_PAYLOAD_BYTES:
+                        raise RuntimeError(
+                            f"TAXII response payload exceeds limit ({DEFAULT_MAX_TAXII_PAYLOAD_BYTES} bytes)"
+                        )
 
         try:
             body = json.loads(body_text)
