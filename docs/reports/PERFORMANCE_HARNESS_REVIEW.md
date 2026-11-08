@@ -254,29 +254,34 @@ Comparison of JA4proxy's current capabilities against production requirements ac
 
 ## 7. Proposed Action Plan & Follow-Up Phases
 
+> [!NOTE]
+> **Numbering Update (Adversarial Re-Audit):**
+> Phase 868 was previously leased for Go Proxy Deep Code Review (`cmd/ja4pd/`, `internal/`).
+> To eliminate number collisions, the four performance follow-up phases below have been formally renumbered and registered in `docs/phases/manifest.yaml` as **Phases 869 through 872** (previously drafted as Phase 868 through Phase 871).
+
 To remediate these systemic issues without destabilizing production, the modernization must be executed across four sequenced implementation phases:
 
-### Phase 868: Modernize Macro Load Generator (`ja4bench` v2)
+### Phase 869 (formerly Phase 868): Modernize Macro Load Generator (`ja4bench` v2)
 - **Scope:**
   1. Decouple request arrival scheduling from connection completion (open-loop Poisson arrival schedule).
   2. Eliminate Coordinated Omission: record scheduled issue time vs response completion ($Latency_{total} = Latency_{wait} + Latency_{service}$).
-  3. Implement strict HTTP status code verification (assert `200 OK` for good traffic, assert `403/429` for blocked traffic).
-  4. Fix ALPN wire protocol: send valid HTTP/2 client prefaces and frames when `h2` is negotiated.
-  5. Add PROXY protocol v2 header generation with rotating synthetic source IPs to bypass client-side `TIME_WAIT` port exhaustion.
+  3. Implement strict connection-level verdict verification (forwarded vs TCP RST vs tarpit-vs-timeout) by instrumenting `server.go` decision logs/metrics rather than expecting non-existent HTTP 403 origin responses (see Re-Audit F-01).
+  4. Clarify client TLS ALPN configuration: proxy is an L4 stream forwarder without an HTTP/2 protocol parser or server ALPN negotiation.
+  5. Capture host sysctls (`net.ipv4.ip_local_port_range`, `net.ipv4.tcp_tw_reuse`) and bind explicit rotating local client addresses to scale connection churn ceilings.
 
-### Phase 869: Deprecate Zombie Benchmarks & Repository Hygiene
+### Phase 870 (formerly Phase 869): Deprecate Zombie Benchmarks & Repository Hygiene
 - **Scope:**
   1. Safely remove `scripts/benchmark_comparison.py`, `scripts/benchmark.py`, `scripts/basic_perf_test.sh`, `scripts/tap_benchmark.py`, `tests/performance/benchmark_phase26.py`, and `tests/performance/benchmark_parallel_signals.py`.
   2. Clean `Makefile` targets: deprecate `perf-test`, update `bench-macro` and `test-go-perf` to target honest Go harnesses exclusively.
-  3. Update `scripts/bench-hostnative.sh` default port binding to `HOST_PORT_DIRECT`.
+  3. Document explicit port bindings for `scripts/bench-hostnative.sh` (`PROXY_PORT=18080`, `METRICS_PORT=29090`) which deliberately bypass docker-proxy.
 
-### Phase 870: Nightly Benchmark & CI Telemetry Gate Realignment
+### Phase 871 (formerly Phase 870): Nightly Benchmark & CI Telemetry Gate Realignment
 - **Scope:**
-  1. Fix the inverted `RateLimited` logic in `scripts/nightly_benchmark_gate.py`: treat `rate_limited == true` as an indicator of an un-saturated load generator, not a proxy regression failure.
+  1. Fix the inverted `RateLimited` logic in `scripts/nightly_benchmark_gate.py`: align semantics so CI does not fire false alerts on runner ceiling vs bare-metal host.
   2. Implement dual-baseline gating: separate GitHub Actions runner baseline from bare-metal host-native baseline.
   3. Store historical trend metrics in Prometheus textfile format with automated regression alert thresholds.
 
-### Phase 871: High-Concurrency Data-Plane & Long-Duration Soak Suite
+### Phase 872 (formerly Phase 871): High-Concurrency Data-Plane & Long-Duration Soak Suite
 - **Scope:**
   1. Implement persistent connection data-plane benchmark measuring bulk payload throughput (Gbps) and GC allocation pressure.
   2. Implement a 2-hour automated soak test monitoring goroutine count, open socket descriptors, and heap allocation stability under continuous 2,000 CPS load.

@@ -1,0 +1,4 @@
+tw_reuse=2
+ port_range=32768	60999
+
+30s @1000CPS: ok=28096 fail=0 firstErr=<nil>

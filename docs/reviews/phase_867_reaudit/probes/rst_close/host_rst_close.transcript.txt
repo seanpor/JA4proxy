@@ -1,0 +1,1 @@
+RST-close peer: io.Copy bytes=0 err=writeto tcp 127.0.0.1:34216->127.0.0.1:18999: read tcp 127.0.0.1:34216->127.0.0.1:18999: read: connection reset by peer (nil err => recorded allowed=true)
