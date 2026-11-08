@@ -1,0 +1,3 @@
+- Added automated OpenMetrics exposition standard validation suite (`internal/metrics/exposition_test.go`) covering all Prometheus metrics across `cmd/ja4pd` and `cmd/ja4-tap`.
+- Exported `metrics.Collectors()` to allow inspecting proxy collectors on isolated registries.
+- Verified all Alertmanager and Prometheus alert and recording rule files via `make lint-observability` (`promtool` and `amtool`).
