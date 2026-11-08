@@ -47,7 +47,7 @@ Prevent silent configuration and environment drift by providing an automated ver
 ---
 
 ## Acceptance Criteria
-- [ ] `tests/unit/test_config_doc_sync.py` verifies zero drift between Go environment variable accesses and `docs/reference/ENV_VARS.md`.
-- [ ] `docs/reference/ENV_VARS.md` accurately documents all production Go proxy environment variables.
-- [ ] Any undocumented production environment variable fails CI with an actionable error message.
-- [ ] `make test-unit` and `make preflight` pass 100% green.
+- [x] `tests/unit/test_config_doc_sync.py` verifies zero drift between Go environment variable accesses and `docs/reference/ENV_VARS.md`.
+- [x] `docs/reference/ENV_VARS.md` accurately documents all production Go proxy environment variables.
+- [x] Any undocumented production environment variable fails CI with an actionable error message.
+- [x] `make test-unit` and `make preflight` pass 100% green.
