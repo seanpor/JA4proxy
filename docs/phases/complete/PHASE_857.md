@@ -45,7 +45,7 @@ Harden threat intelligence feed parsing and transport ingestion (`src/analytics/
 ---
 
 ## Acceptance Criteria
-- [ ] Hypothesis tests in `tests/unit/analytics/ti_feeds/test_stix_fuzz.py` verify robust parsing across malformed CIDRs and indicator formats.
-- [ ] ReDoS safety and bounded regex execution verified on pathological inputs.
-- [ ] Payload size bounding protects feed clients from memory exhaustion.
-- [ ] `make test-unit` and `make preflight` pass 100% green.
+- [x] Hypothesis tests in `tests/unit/analytics/ti_feeds/test_stix_fuzz.py` verify robust parsing across malformed CIDRs and indicator formats.
+- [x] ReDoS safety and bounded regex execution verified on pathological inputs.
+- [x] Payload size bounding protects feed clients from memory exhaustion.
+- [x] `make test-unit` and `make preflight` pass 100% green.
