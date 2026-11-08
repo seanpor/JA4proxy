@@ -13,22 +13,30 @@ Complete census of all environment variables consumed by JA4proxy components.
 
 ---
 
-## Go Proxy (`cmd/ja4pd`, `internal/`)
+## Go Proxy (`cmd/ja4pd`, `cmd/ja4-tap`, `cmd/ja4p`, `internal/`)
 
 | Variable | Source | Default | Description | Security |
 |----------|--------|---------|-------------|----------|
-| `CONFIG_PATH` | `cmd/ja4pd/main.go:59` | `config/proxy.yml` | Path to main configuration file | 🔧 |
-| `ENVIRONMENT` | `cmd/ja4pd/main.go:76` | `""` (empty=off) | Deployment environment (enables structured logging when set) | 📝 |
-| `ALLOW_UNAUTH_REDIS` | `cmd/ja4pd/main.go:76` | `""` | ⚠️ Bypass Redis auth requirement (any value enables) | ⚠️ |
-| `JA4PROXY_TLS_CERT_FILE` | `cmd/ja4pd/main.go:85` | `""` | Path to TLS certificate for monitoring | 🔧 |
-| `JA4PROXY_FORENSIC` | `cmd/ja4pd/main.go:664` | `""` (empty=false) | Enable forensic trace logging | 🔧 |
-| `JA4PROXY_ALLOW_UNAUTH_REDIS` | `internal/config/loader.go:886` | `""` | ⚠️ Bypass Redis auth validation (any non-"1" = enforced) | ⚠️ |
-| `JA4PROXY_ALLOW_UNAUTH_METRICS` | `internal/config/loader.go:1060` | `""` | ⚠️ Bypass metrics auth validation (any non-"1" = enforced) | ⚠️ |
-| `NO_COLOR` | `internal/wizard/output.go:22` | presence-based | Disable color output in CLI | 📝 |
-| `JA4PROXY_TOKEN` | `internal/cli/auth/auth.go:25` | `""` | Authentication token for Management API | ⚠️ |
-| `JA4PROXY_URL` | `internal/cli/auth/auth.go:63` | `""` | Management API base URL | 🔧 |
-| `JA4PROXY_OUTPUT` | `internal/cli/engine/root.go:103` | `""` (falls to `"table"`) | CLI output format (table, json, yaml) | 📝 |
-| `JA4PROXY_BACKUP_KEY` | `cmd/ja4p/backup.go:148` | `""` | ⚠️ Encryption key for backup data at rest | ⚠️ |
+| `ALLOW_UNAUTH_REDIS` | `cmd/ja4pd/main.go` | `""` | ⚠️ Bypass Redis auth requirement (any value enables) | ⚠️ |
+| `CONFIG_PATH` | `cmd/ja4pd/main.go` | `config/proxy.yml` | Path to main configuration file | 🔧 |
+| `ENVIRONMENT` | `cmd/ja4pd/main.go` | `""` (empty=off) | Deployment environment (enables structured logging when set) | 📝 |
+| `EXCLUDE_IPS` | `cmd/ja4-tap/main.go` | `""` | Comma-separated CIDRs/IPs to exclude from TAP processing | 🔧 |
+| `JA4PROXY_ALLOW_UNAUTH_METRICS` | `internal/config/loader.go` | `""` | ⚠️ Bypass metrics auth validation (any non-"1" = enforced) | ⚠️ |
+| `JA4PROXY_ALLOW_UNAUTH_REDIS` | `internal/config/loader.go` | `""` | ⚠️ Bypass Redis auth validation (any non-"1" = enforced) | ⚠️ |
+| `JA4PROXY_BACKUP_KEY` | `cmd/ja4p/backup.go` | `""` | ⚠️ Encryption key for backup data at rest | ⚠️ |
+| `JA4PROXY_FORENSIC` | `internal/server/forward.go` | `""` (empty=false) | Enable forensic trace logging | 🔧 |
+| `JA4PROXY_OUTPUT` | `internal/cli/engine/root.go` | `""` (falls to `"table"`) | CLI output format (table, json, yaml) | 📝 |
+| `JA4PROXY_SECURITY_POLICY_FAIL_OPEN` | `internal/config/loader.go` | `""` | ⚠️ Emergency fail-open override for security policy errors | ⚠️ |
+| `JA4PROXY_TEST_ALLOW_INSECURE_NETBOX` | `internal/config/netbox.go` | `""` | ⚠️ Allow insecure HTTP NetBox endpoint (test only) | ⚠️ |
+| `JA4PROXY_TEST_ALLOW_LOOPBACK` | `internal/webhook/delivery.go` | `""` | ⚠️ Allow loopback webhook target URLs (test only) | ⚠️ |
+| `JA4PROXY_TLS_CERT_FILE` | `cmd/ja4pd/main.go` | `""` | Path to TLS certificate for monitoring | 🔧 |
+| `JA4PROXY_TOKEN` | `internal/cli/auth/auth.go` | `""` | Authentication token for Management API | ⚠️ |
+| `JA4PROXY_URL` | `internal/cli/auth/auth.go` | `""` | Management API base URL | 🔧 |
+| `JA4T_BLOCKLIST` | `cmd/ja4-tap/main.go` | `""` | Path to static JA4T blocklist file | 🔧 |
+| `NO_COLOR` | `internal/wizard/output.go` | presence-based | Disable color output in CLI | 📝 |
+| `QUIC_SECRET_LOG` | `internal/quic/keylog.go` | `""` | ⚠️ Path to TLS keylog file for QUIC decryption | ⚠️ |
+| `REDIS_PASSWORD` | `cmd/ja4-tap/main.go` | `""` | ⚠️ Redis authentication password for TAP sensor | ⚠️ |
+| `REDIS_URL` | `cmd/ja4-tap/main.go` | `""` | Redis connection URL for TAP sensor | 🔧 |
 
 ---
 

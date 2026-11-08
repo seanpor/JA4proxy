@@ -1,0 +1,2 @@
+- Added automated drift detection test `tests/unit/test_config_doc_sync.py` to ensure Go environment variables and operator documentation remain synchronized (Phase 858).
+- Updated `docs/reference/ENV_VARS.md` with full census of Go proxy and TAP environment variables (`JA4PROXY_SECURITY_POLICY_FAIL_OPEN`, `EXCLUDE_IPS`, `JA4T_BLOCKLIST`, `QUIC_SECRET_LOG`, `REDIS_PASSWORD`, `REDIS_URL`, etc.).
