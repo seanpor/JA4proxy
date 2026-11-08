@@ -47,6 +47,6 @@ Provide automated integration tests verifying that Prometheus metrics emitted by
 ---
 
 ## Acceptance Criteria
-- [ ] Automated tests in `internal/metrics/exposition_test.go` verify OpenMetrics text exposition and naming standards across all proxy and tap metrics.
-- [ ] Promtool and amtool linting passes cleanly across all rule files via `make lint-observability`.
-- [ ] `go test ./internal/metrics/...` and `make preflight` pass 100% green.
+- [x] Automated tests in `internal/metrics/exposition_test.go` verify OpenMetrics text exposition and naming standards across all proxy and tap metrics.
+- [x] Promtool and amtool linting passes cleanly across all rule files via `make lint-observability`.
+- [x] `go test ./internal/metrics/...` and `make preflight` pass 100% green.

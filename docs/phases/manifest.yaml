@@ -6335,12 +6335,12 @@ phases:
       disconnection backoff. Added comprehensive unit tests in tests/unit/security/test_ebpf_sync_hardening.py.
   856:
     name: Alertmanager & Prometheus Telemetry Integration Smoke Tests
-    status: PROPOSED
-    action_plan: docs/phases/PHASE_856.md
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_856.md
     dependencies:
     - 855
     size: SMALL
-    summary: Automated integration tests verifying that Prometheus metrics emitted by cmd/ja4pd and cmd/ja4-tap adhere to OpenMetrics exposition standards, and that all Alertmanager recording and alert rules evaluate cleanly.
+    summary: COMPLETE 2026-11-08. Automated integration tests verifying that Prometheus metrics emitted by cmd/ja4pd and cmd/ja4-tap adhere to OpenMetrics exposition standards, and that all Alertmanager recording and alert rules evaluate cleanly.
   857:
     name: Dynamic Threat-Intelligence Feed Ingestion Contract & Malformed Feed Defense
     status: PROPOSED

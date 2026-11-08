@@ -475,8 +475,9 @@ var (
 	)
 )
 
-func Register() {
-	prometheus.MustRegister(
+// Collectors returns all proxy prometheus collectors.
+func Collectors() []prometheus.Collector {
+	return []prometheus.Collector{
 		ConnectionsTotal,
 		SignalLatencySeconds,
 		SignalDriftTotal,
@@ -527,7 +528,11 @@ func Register() {
 		OffenseEscalationsTotal,
 		// phase-249: datacenter policy
 		DatacenterPolicyActionsTotal,
-	)
+	}
+}
+
+func Register() {
+	prometheus.MustRegister(Collectors()...)
 	for _, action := range []string{"allow", "flag", "rate_limit", "tarpit", "block", "ban"} {
 		ConnectionsTotal.WithLabelValues(action)
 	}
