@@ -161,7 +161,9 @@ func (a *AbuseIPDB) GetSignal(clientIP string) *RiskSignal {
 		return nil
 	}
 	redisKey := fmt.Sprintf("abuseipdb:%s", clientIP)
-	cached := a.redis.GetString(context.Background(), redisKey)
+	ctx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
+	cached := a.redis.GetString(ctx, redisKey)
+	cancel()
 	if cached != "" {
 		confidence, err := strconv.Atoi(cached)
 		if err == nil {

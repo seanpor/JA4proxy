@@ -1,0 +1,80 @@
+# Phase 867 GATE transcript (GATE-1..GATE-9)
+# generated: 2026-11-08T13:37:42.164055+00:00
+# run from: /tmp/opencode/reaudit-main
+# checkout HEAD: 3b0346e604 phase-868-go-proxy-deep-code-review
+# audited commit: origin/main @ fba6f574 (PR #719, Phase 867 merge)
+# host: Linux-7.2.15-76070215-generic-x86_64-with-glibc2.35
+# python: 3.10.12
+# GATE-10 (make preflight) is not re-run here; see preflight_main.transcript.txt
+
+=== GATE-1 ===
+$ python3 -c "import re, os; f=open('docs/reports/PERFORMANCE_HARNESS_REVIEW.md').read(); matches=re.findall(r'\| \x60([^\x60]+)\x60 \|', f); paths=[m for m in matches if '/' in m]; assert len(paths) >= 24, f'Found {len(paths)}'; [assert os.path.exists(p), f'Missing {p}' for p in paths]; print(f'Validated {len(paths)} components')"
+File "<string>", line 1
+    import re, os; f=open('docs/reports/PERFORMANCE_HARNESS_REVIEW.md').read(); matches=re.findall(r'\| \x60([^\x60]+)\x60 \|', f); paths=[m for m in matches if '/' in m]; assert len(paths) >= 24, f'Found {len(paths)}'; [assert os.path.exists(p), f'Missing {p}' for p in paths]; print(f'Validated {len(paths)} components')
+                                                                                                                                                                                                                             ^^^^^^
+SyntaxError: invalid syntax
+EXIT=1
+doc expects: Exits 0; confirms $\ge 24$ valid files exist on disk and are formally cataloged.
+
+=== GATE-2 ===
+$ python3 -c "f=open('docs/reports/PERFORMANCE_HARNESS_REVIEW.md').read(); reqs=['\\\\lambda', 'Coordinated Omission', 'TIME_WAIT', 'GoodBlocked', '403 Forbidden']; missing=[r for r in reqs if r not in f]; assert not missing, f'Missing proofs: {missing}'; print('Queueing proofs verified')"
+Queueing proofs verified
+EXIT=0
+doc expects: Exits 0; all 5 mathematical and protocol concepts formally derived and verified.
+
+=== GATE-3 ===
+$ python3 -c "f=open('docs/reports/PERFORMANCE_HARNESS_REVIEW.md').read(); assert 'ALPN' in f and 'RFC 7540' in f and 'RateLimited' in f and 'nightly_benchmark_gate.py' in f; print('Protocol & inversion audit verified')"
+Protocol & inversion audit verified
+EXIT=0
+doc expects: Exits 0; report documents wire protocol framing mismatch and CI inversion bug.
+
+=== GATE-5 ===
+$ python3 -c "f=open('docs/reports/PERFORMANCE_HARNESS_REVIEW.md').read(); assert 'proxy.py' in f and '18082' in f and 'benchmark_comparison.py' in f and 'self.lock' in f; print('Zombie audit verified')"
+Zombie audit verified
+EXIT=0
+doc expects: Exits 0; zombie artifacts explicitly identified with remediation targets.
+
+=== GATE-6 ===
+$ docker run --rm -v "$PWD":/src -w /src ja4proxy-tools python3 -c "import scripts.load_test, scripts.nightly_benchmark_gate, tests.performance.test_bench_go_proxy; print('Container imports OK')"
+Container imports OK
+EXIT=0
+doc expects: Exits 0; verifies container-strict importability without missing dependency failures.
+
+=== GATE-7 ===
+$ python3 -c "f=open('docs/reports/PERFORMANCE_HARNESS_REVIEW.md').read(); dims=['Micro-benchmarks', 'Connection Churn', 'Data Plane Throughput', 'HTTP/2 Multiplexing', 'QUIC / UDP', 'Soak & Concurrency Leaks']; missing=[d for d in dims if d not in f]; assert not missing, f'Missing dimensions: {missing}'; print('Capability matrix complete')"
+Capability matrix complete
+EXIT=0
+doc expects: Exits 0; all 6 performance dimensions evaluated.
+
+=== GATE-8 ===
+$ python3 -c "f=open('docs/reports/PERFORMANCE_HARNESS_REVIEW.md').read(); assert 'Phase 868' in f and 'Phase 869' in f and 'Phase 870' in f and 'Phase 871' in f; print('Roadmap sequenced')"
+Roadmap sequenced
+EXIT=0
+doc expects: Exits 0; 4 distinct sequential follow-up phases defined.
+
+=== GATE-9 ===
+$ make lint-phases && test -f docs/fragments/phase-867-performance-harness-review.md && docker run --rm -v "$PWD":/src -w /src ja4proxy-tools pytest tests/unit/test_changelog_fragments.py
+lint-phases: OK — 435 phases checked, 0 violations.
+============================= test session starts ==============================
+platform linux -- Python 3.15.2, pytest-9.2.0, pluggy-1.7.0
+rootdir: /src
+configfile: pyproject.toml
+plugins: mock-3.17.0, anyio-4.16.0, hypothesis-6.170.14, asyncio-1.4.1, timeout-2.4.0, platformdirs-4.14.5, xdist-3.8.0, cov-7.1.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=function, asyncio_default_test_loop_scope=function
+timeout: 60.0s
+timeout method: signal
+timeout func_only: False
+collected 7 items
+
+tests/unit/test_changelog_fragments.py .......                           [100%]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ SUMMARY ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Passed:   7
+  Duration: 0.2s  (0.0 min)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+============================== 7 passed in 0.17s ===============================
+EXIT=0
+doc expects: Exits 0; manifest passes and changelog fragment validation succeeds.
+
+SUMMARY: 8 gate(s) executed, failing: [1]
+TRANSCRIPT_EXIT=1

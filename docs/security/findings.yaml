@@ -1,5 +1,5 @@
 schema_version: 1
-last_allocated_id: 132
+last_allocated_id: 133
 findings:
 - id: JA4PROXY-2026-0001
   title: PROXY Protocol v2 Spoofing from Untrusted Source
@@ -4064,7 +4064,8 @@ findings:
     vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:N
   notes: Consume single-use nonces and challenges atomically via redis.getdel()
 - id: JA4PROXY-2026-0127
-  title: TAP sensor fails open without seccomp filtering due to missing PR_SET_NO_NEW_PRIVS and default non-enforcement
+  title: TAP sensor fails open without seccomp filtering due to missing PR_SET_NO_NEW_PRIVS and default
+    non-enforcement
   severity: HIGH
   severity_rationale: H (CWE-693 Protection Mechanism Failure + CWE-1188 Insecure Default Initialization).
     In internal/tap/hardening.go, DropCapabilities() drops root privileges and clears PR_SET_KEEPCAPS
@@ -4099,7 +4100,8 @@ findings:
     vector: CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:C/C:H/I:H/A:N
   notes: Add PR_SET_NO_NEW_PRIVS in seccomp_linux.go and fail closed when seccomp fails
 - id: JA4PROXY-2026-0128
-  title: Unrestricted 0.0.0.0 host port bindings in multi-process scale compose bypass HAProxy ingress and expose internal worker and stats ports
+  title: Unrestricted 0.0.0.0 host port bindings in multi-process scale compose bypass HAProxy ingress
+    and expose internal worker and stats ports
   severity: HIGH
   severity_rationale: H (CWE-668 Exposure of Resource to Wrong Sphere + CWE-284 Improper Access Control).
     In deploy/docker/docker-compose.scale.yml, HAProxy stats port (8404:8404) and backend worker direct
@@ -4134,13 +4136,14 @@ findings:
     vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N
   notes: Restrict stats port and worker ports to loopback in docker-compose.scale.yml
 - id: JA4PROXY-2026-0129
-  title: Read-only root filesystem and capability drop omissions in production and monitoring compose files (CIS Docker Benchmark 5.12 & 5.27)
+  title: Read-only root filesystem and capability drop omissions in production and monitoring compose
+    files (CIS Docker Benchmark 5.12 & 5.27)
   severity: MEDIUM
-  severity_rationale: "M (CWE-250 Execution with Unnecessary Privileges + CWE-732 Incorrect Permission Assignment).
-    In deploy/docker/docker-compose.prod.yml, the alloy monitoring container and grafana service omit
-    'read_only: true' and appropriate tmpfs mounts, violating CIS Docker Benchmark 5.12. In the event of
-    application compromise, an attacker can modify rootfs binaries, write persistent backdoors, or stage
-    local toolchains."
+  severity_rationale: 'M (CWE-250 Execution with Unnecessary Privileges + CWE-732 Incorrect Permission
+    Assignment). In deploy/docker/docker-compose.prod.yml, the alloy monitoring container and grafana
+    service omit ''read_only: true'' and appropriate tmpfs mounts, violating CIS Docker Benchmark 5.12.
+    In the event of application compromise, an attacker can modify rootfs binaries, write persistent backdoors,
+    or stage local toolchains.'
   source_refs:
   - report: PHASE_814m
     id: 814m-03
@@ -4166,14 +4169,14 @@ findings:
   cvss_v3_1:
     score: 5.3
     vector: CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:L/I:L/A:L
-  notes: "Enforce read_only: true and tmpfs mounts across monitoring sidecars in prod compose"
+  notes: 'Enforce read_only: true and tmpfs mounts across monitoring sidecars in prod compose'
 - id: JA4PROXY-2026-0130
   title: HAProxy stats dashboard exposed without authentication
   severity: HIGH
-  severity_rationale: "H (CWE-306 Missing Authentication for Critical Function + CWE-200 Information Exposure).
+  severity_rationale: H (CWE-306 Missing Authentication for Critical Function + CWE-200 Information Exposure).
     In deploy/haproxy/haproxy.cfg, 'frontend stats' enables the statistics and Prometheus metrics endpoints
     on port 8404 without configured authentication ('stats auth'). Network actors reaching the stats port
-    can scrape real-time connection counts, proxy backend health statuses, and internal routing topology."
+    can scrape real-time connection counts, proxy backend health statuses, and internal routing topology.
   source_refs:
   - report: PHASE_814n
     id: 814n-01
@@ -4203,10 +4206,11 @@ findings:
 - id: JA4PROXY-2026-0131
   title: Unverified remote binary download in Ansible ja4proxy role
   severity: HIGH
-  severity_rationale: "H (CWE-494 Download of Code Without Integrity Check + CWE-353 Missing Support for Integrity Check).
-    In deploy/ansible/roles/ja4proxy/tasks/deploy_binary.yml, 'ansible.builtin.get_url' downloads the ja4proxy binary
-    from an external URL without providing a 'checksum' parameter. An active network attacker or compromised upstream mirror
-    can supply a trojaned binary that executes with root privileges upon systemd unit startup."
+  severity_rationale: H (CWE-494 Download of Code Without Integrity Check + CWE-353 Missing Support for
+    Integrity Check). In deploy/ansible/roles/ja4proxy/tasks/deploy_binary.yml, 'ansible.builtin.get_url'
+    downloads the ja4proxy binary from an external URL without providing a 'checksum' parameter. An active
+    network attacker or compromised upstream mirror can supply a trojaned binary that executes with root
+    privileges upon systemd unit startup.
   source_refs:
   - report: PHASE_814n
     id: 814n-02
@@ -4236,11 +4240,12 @@ findings:
 - id: JA4PROXY-2026-0132
   title: Downstream telemetry injection in ServiceNow SIR incident integration
   severity: MEDIUM
-  severity_rationale: "M (CWE-116 Improper Encoding or Escaping of Output + CWE-1236 Improper Neutralization of Formula Elements in CSV File).
-    In deploy/integrations/servicenow/ja4proxy_snow_handler.py, ecs_to_sir() formats 'short_description' and 'description'
-    by string concatenation with raw, unescaped 'source.ip' and signal reason text. Crafting inputs with control characters,
-    CR/LF newlines, or formula injection prefixes (=, +, -, @) allows an attacker to inject arbitrary content into incident fields
-    and downstream spreadsheet exports."
+  severity_rationale: M (CWE-116 Improper Encoding or Escaping of Output + CWE-1236 Improper Neutralization
+    of Formula Elements in CSV File). In deploy/integrations/servicenow/ja4proxy_snow_handler.py, ecs_to_sir()
+    formats 'short_description' and 'description' by string concatenation with raw, unescaped 'source.ip'
+    and signal reason text. Crafting inputs with control characters, CR/LF newlines, or formula injection
+    prefixes (=, +, -, @) allows an attacker to inject arbitrary content into incident fields and downstream
+    spreadsheet exports.
   source_refs:
   - report: PHASE_814n
     id: 814n-03
@@ -4267,3 +4272,34 @@ findings:
     score: 5.4
     vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:L/I:L/A:N
   notes: Sanitize CR/LF, control characters, and CSV formula prefixes in ServiceNow incident builder
+- id: JA4PROXY-2026-0133
+  title: Unbounded context.Background in AbuseIPDB GetSignal blocks request evaluation loop under Redis
+    stall
+  severity: MEDIUM
+  severity_rationale: "Unbounded wait on external state store during request evaluation degrades proxy pipeline throughput."
+  source_refs:
+  - report: PHASE_868
+    id: 868-WP4-01
+    discovered: '2026-11-09'
+  remediation_phases:
+  - '868'
+  owner: '@seanpor'
+  lane: go-proxy
+  discovered: '2026-11-09'
+  due: '2027-01-08'
+  github_issue: 724
+  found_against:
+    git_sha: ffab96b5172ba00592ba86a1d753cfd64ab2f9c6
+    config_sha256: 8ce10f3b2cfe28c4
+    note: Phase 868 Go proxy deep code review (WP-4 deadline ladder)
+  status: FIXED
+  supersedes: []
+  depends_on: []
+  regression_test: internal/security/abuseipdb_test.go::TestRegression_JA4PROXY_2026_0133_RedisStallBounded
+  closed_commit: ''
+  cvss_v3_1:
+    score: 5.3
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L
+  notes: In internal/security/abuseipdb.go:164, GetSignal queries Redis with context.Background() on the
+    active request evaluation path, allowing a stalled Redis connection to hang the pipeline goroutine
+    indefinitely instead of timing out.

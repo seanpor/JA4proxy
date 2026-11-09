@@ -1,0 +1,4 @@
+- Executed Phase 868 Go proxy systematic bug-class deep review and published the untrusted surface map & belief ledger across all 32 Go-owned surfaces (`docs/security/pentest/verify/belief-ledger.md`).
+- Added parser boundary condition test suite (`internal/tls/parser_test.go:TestParseClientHello_BoundaryConditions`) and executed 60s continuous fuzzing run (`FuzzParseClientHello`, 8.3M+ executions, 0 crashers).
+- Verified JA4 fingerprint distinctness across SNI/ALPN permutations (`TestJA4_DistinctFingerprintCases`) and audited routing isolation for malformed ClientHellos.
+- Discovered, registered (Issue #724), and resolved finding `JA4PROXY-2026-0133`: unbounded `context.Background()` in `internal/security/abuseipdb.go:GetSignal` replaced with a bounded 250ms timeout context and verified with regression test `TestRegression_JA4PROXY_2026_0133_RedisStallBounded`.

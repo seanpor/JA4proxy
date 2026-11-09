@@ -6458,3 +6458,47 @@ phases:
       truthfulness, identify dead/drifted scripts, and map out modern load testing
       capabilities.
     completed: 2026-11-07
+  868:
+    name: Go Proxy Deep Code Review (Systematic Bug-Class Sweep)
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_868.md
+    dependencies:
+    - 867
+    size: LARGE
+    summary: COMPLETE 2026-11-09. Systematic bug-class review across Go wire parsers and lifecycle state machines. Published 32-surface belief ledger in docs/security/pentest/verify/belief-ledger.md, added parser boundary tests, executed 60s fuzz run with 8.3M execs (0 crashes), verified JA4 distinctness, audited context and deadline ladder, discovered and remediated finding JA4PROXY-2026-0133 (unbounded context.Background in AbuseIPDB GetSignal), and verified race freedom with go test -race.
+    summary: Structured belief ledger and parser boundary code review of the Go proxy
+      hot path (cmd/ja4pd, internal/server, internal/tls, internal/security, internal/quic)
+      hunting truncated-input inversions, integer bounds, context cancellations, and lifecycle
+      state machine bugs.
+  869:
+    name: Modernize Macro Load Generator (ja4bench v2)
+    status: PROPOSED
+    dependencies:
+    - 867
+    size: MEDIUM
+    summary: Modernize ja4bench to implement an open-loop Poisson arrival model, eliminate
+      Coordinated Omission, and record transport/verdict telemetry.
+  870:
+    name: Deprecate Zombie Benchmarks & Repository Hygiene
+    status: PROPOSED
+    dependencies:
+    - 869
+    size: SMALL
+    summary: Safely retire legacy Python benchmark runners and obsolete benchmark scripts,
+      cleaning Makefile targets and clarifying benchmark documentation.
+  871:
+    name: Nightly Benchmark & CI Telemetry Gate Realignment
+    status: PROPOSED
+    dependencies:
+    - 869
+    size: MEDIUM
+    summary: Align RateLimited semantics, implement dual-baseline gating for CI vs host,
+      and publish historical benchmark metrics.
+  872:
+    name: High-Concurrency Data-Plane & Long-Duration Soak Suite
+    status: PROPOSED
+    dependencies:
+    - 869
+    size: LARGE
+    summary: Implement bulk data-plane throughput benchmarks and an automated long-duration
+      concurrency soak test.

@@ -1,0 +1,116 @@
+# Phase 867 GATE transcript (GATE-1..GATE-9)
+# generated: 2026-11-08T13:38:17.667159+00:00
+# run from: /tmp/opencode/reaudit-main
+# checkout HEAD: 3b0346e604 phase-868-go-proxy-deep-code-review
+# audited commit: origin/main @ fba6f574 (PR #719, Phase 867 merge)
+# host: Linux-7.2.15-76070215-generic-x86_64-with-glibc2.35
+# python: 3.10.12
+# GATE-10 (make preflight) is not re-run here; see preflight_main.transcript.txt
+
+=== GATE-4 ===
+$ GOROOT=/snap/go/current go test -bench=. -run=^$ -benchmem ./cmd/ja4pd/ ./internal/tls/ ./internal/quic/ ./internal/server/ ./internal/security/ ./internal/cache/ ./internal/tap/ ./internal/webhook/ ./internal/redis/
+time="2026-11-08T13:38:18Z" level=warning msg="asn_classifier: no GeoIP database configured — country blocking and ASN enrichment disabled. See docs/operations/EMERGENCY_DEPLOY.md for setup instructions"
+goos: linux
+goarch: amd64
+pkg: github.com/seanpor/ja4proxy/cmd/ja4pd
+cpu: Intel(R) Core(TM) i9-9900K CPU @ 3.60GHz
+BenchmarkPipeline_Allow-16    	time="2026-11-08T13:38:18Z" level=warning msg="asn_classifier: no GeoIP database configured — country blocking and ASN enrichment disabled. See docs/operations/EMERGENCY_DEPLOY.md for setup instructions"
+time="2026-11-08T13:38:18Z" level=warning msg="asn_classifier: no GeoIP database configured — country blocking and ASN enrichment disabled. See docs/operations/EMERGENCY_DEPLOY.md for setup instructions"
+time="2026-11-08T13:38:18Z" level=warning msg="asn_classifier: no GeoIP database configured — country blocking and ASN enrichment disabled. See docs/operations/EMERGENCY_DEPLOY.md for setup instructions"
+time="2026-11-08T13:38:19Z" level=warning msg="asn_classifier: no GeoIP database configured — country blocking and ASN enrichment disabled. See docs/operations/EMERGENCY_DEPLOY.md for setup instructions"
+ 2137033	       555.9 ns/op	     184 B/op	       3 allocs/op
+time="2026-11-08T13:38:20Z" level=warning msg="asn_classifier: no GeoIP database configured — country blocking and ASN enrichment disabled. See docs/operations/EMERGENCY_DEPLOY.md for setup instructions"
+BenchmarkPipeline_Score-16    	time="2026-11-08T13:38:20Z" level=warning msg="asn_classifier: no GeoIP database configured — country blocking and ASN enrichment disabled. See docs/operations/EMERGENCY_DEPLOY.md for setup instructions"
+time="2026-11-08T13:38:20Z" level=warning msg="asn_classifier: no GeoIP database configured — country blocking and ASN enrichment disabled. See docs/operations/EMERGENCY_DEPLOY.md for setup instructions"
+time="2026-11-08T13:38:20Z" level=warning msg="asn_classifier: no GeoIP database configured — country blocking and ASN enrichment disabled. See docs/operations/EMERGENCY_DEPLOY.md for setup instructions"
+time="2026-11-08T13:38:21Z" level=warning msg="asn_classifier: no GeoIP database configured — country blocking and ASN enrichment disabled. See docs/operations/EMERGENCY_DEPLOY.md for setup instructions"
+ 2316370	       585.9 ns/op	     160 B/op	       3 allocs/op
+PASS
+ok  	github.com/seanpor/ja4proxy/cmd/ja4pd	3.645s
+goos: linux
+goarch: amd64
+pkg: github.com/seanpor/ja4proxy/internal/tls
+cpu: Intel(R) Core(TM) i9-9900K CPU @ 3.60GHz
+BenchmarkClientHelloParse-16               	 3063295	       373.2 ns/op	     456 B/op	       8 allocs/op
+BenchmarkJA4Compute-16                     	 1259592	       978.3 ns/op	     128 B/op	       4 allocs/op
+BenchmarkClientHelloParseAdversarial-16    	 2669095	       442.8 ns/op	     580 B/op	       7 allocs/op
+PASS
+ok  	github.com/seanpor/ja4proxy/internal/tls	5.379s
+goos: linux
+goarch: amd64
+pkg: github.com/seanpor/ja4proxy/internal/quic
+cpu: Intel(R) Core(TM) i9-9900K CPU @ 3.60GHz
+BenchmarkComputeJA4Q-16                   	  390680	      2708 ns/op	     752 B/op	      34 allocs/op
+BenchmarkParseClientHelloFeatures-16      	11958486	       101.3 ns/op	     120 B/op	       2 allocs/op
+BenchmarkParseCRYPTOFrames-16             	 6206932	       196.7 ns/op	     208 B/op	       3 allocs/op
+BenchmarkDeriveInitialKey-16              	 1631271	       704.7 ns/op	     320 B/op	       8 allocs/op
+BenchmarkDecryptInitial-16                	 2372840	       504.4 ns/op	    1360 B/op	       4 allocs/op
+BenchmarkReadVarint/1-Byte-16             	583718077	         2.277 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReadVarint/2-Byte-16             	482537788	         2.468 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReadVarint/4-Byte-16             	464686242	         2.566 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReadVarint/8-Byte-16             	352188586	         3.516 ns/op	       0 B/op	       0 allocs/op
+BenchmarkParseCRYPTOFramesMultiFrag-16    	 5112685	       234.0 ns/op	     512 B/op	       3 allocs/op
+PASS
+ok  	github.com/seanpor/ja4proxy/internal/quic	14.901s
+goos: linux
+goarch: amd64
+pkg: github.com/seanpor/ja4proxy/internal/server
+cpu: Intel(R) Core(TM) i9-9900K CPU @ 3.60GHz
+BenchmarkServer_AdmitConn-16    	 2301468	       534.1 ns/op	    1376 B/op	      12 allocs/op
+PASS
+ok  	github.com/seanpor/ja4proxy/internal/server	1.762s
+goos: linux
+goarch: amd64
+pkg: github.com/seanpor/ja4proxy/internal/security
+cpu: Intel(R) Core(TM) i9-9900K CPU @ 3.60GHz
+BenchmarkBuildSignalPayload-16                	  409929	      3191 ns/op	    2808 B/op	      13 allocs/op
+BenchmarkCounterfactuals-16                   	 2786791	       382.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRuleEvaluation-16                    	 1000000	      1197 ns/op	     648 B/op	      16 allocs/op
+BenchmarkSNIAnalyzer-16                       	  780339	      1518 ns/op	     333 B/op	       3 allocs/op
+BenchmarkPipelineCheckBypasses-16             	286613661	         3.960 ns/op	       0 B/op	       0 allocs/op
+BenchmarkTapConsumer_GetSignal_CacheHit-16    	 4794577	       252.0 ns/op	       8 B/op	       1 allocs/op
+BenchmarkTapConsumer_GetSignal_RedisHit-16    	  659606	      1670 ns/op	     572 B/op	      13 allocs/op
+PASS
+ok  	github.com/seanpor/ja4proxy/internal/security	9.406s
+goos: linux
+goarch: amd64
+pkg: github.com/seanpor/ja4proxy/internal/cache
+cpu: Intel(R) Core(TM) i9-9900K CPU @ 3.60GHz
+BenchmarkLRUSet-16                	28951344	        40.00 ns/op	       7 B/op	       0 allocs/op
+BenchmarkLRUSetWithEviction-16    	 4240544	       271.9 ns/op	     142 B/op	       5 allocs/op
+BenchmarkLRUGetHit-16             	46342600	        25.67 ns/op	       0 B/op	       0 allocs/op
+BenchmarkLRUGetMiss-16            	86926348	        13.73 ns/op	       0 B/op	       0 allocs/op
+BenchmarkLRUConcurrent-16         	 7846360	       153.2 ns/op	       7 B/op	       1 allocs/op
+PASS
+ok  	github.com/seanpor/ja4proxy/internal/cache	6.729s
+goos: linux
+goarch: amd64
+pkg: github.com/seanpor/ja4proxy/internal/tap
+cpu: Intel(R) Core(TM) i9-9900K CPU @ 3.60GHz
+BenchmarkPacketDecode-16     	30975680	        38.44 ns/op	       0 B/op	       0 allocs/op
+BenchmarkTCPReassembly-16    	14933778	        91.95 ns/op	      16 B/op	       1 allocs/op
+BenchmarkComputeJA4T-16      	 4088601	       288.0 ns/op	     144 B/op	       7 allocs/op
+PASS
+ok  	github.com/seanpor/ja4proxy/internal/tap	4.172s
+goos: linux
+goarch: amd64
+pkg: github.com/seanpor/ja4proxy/internal/webhook
+cpu: Intel(R) Core(TM) i9-9900K CPU @ 3.60GHz
+BenchmarkComputeHMAC-16             	  691946	      1617 ns/op	     768 B/op	      10 allocs/op
+BenchmarkDeliverEventEndToEnd-16    	    7576	    151172 ns/op	   24753 B/op	     203 allocs/op
+PASS
+ok  	github.com/seanpor/ja4proxy/internal/webhook	2.306s
+goos: linux
+goarch: amd64
+pkg: github.com/seanpor/ja4proxy/internal/redis
+cpu: Intel(R) Core(TM) i9-9900K CPU @ 3.60GHz
+BenchmarkVerifyPubSubHMAC-16         	  466555	      2568 ns/op	     747 B/op	      10 allocs/op
+BenchmarkSignPubSubMessage-16        	  522656	      2262 ns/op	    1121 B/op	      13 allocs/op
+BenchmarkPubSubHandlerDispatch-16    	  379458	      3030 ns/op	    1279 B/op	      16 allocs/op
+PASS
+ok  	github.com/seanpor/ja4proxy/internal/redis	3.622s
+EXIT=0
+doc expects: Exits 0 across all 9 packages; tabular results populated in report.
+
+SUMMARY: 1 gate(s) executed, failing: none
+GATE4_TRANSCRIPT_EXIT=0
