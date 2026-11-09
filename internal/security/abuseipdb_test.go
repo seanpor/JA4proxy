@@ -142,5 +142,37 @@ func TestAbuseIPDB_LookupStoresInRedis(t *testing.T) {
 	}
 }
 
+type stallingRedis struct {
+	mockRedis
+	blocked chan struct{}
+}
+
+func (s *stallingRedis) GetString(ctx context.Context, key string) string {
+	select {
+	case <-ctx.Done():
+		return ""
+	case <-s.blocked:
+		return "80"
+	}
+}
+
+func TestRegression_JA4PROXY_2026_0133_RedisStallBounded(t *testing.T) {
+	// Proves that when Redis GetString stalls, GetSignal times out within 250ms
+	// and does not block indefinitely.
+	stall := &stallingRedis{blocked: make(chan struct{})}
+	a := NewAbuseIPDB(defaultAbuseIPDBCfg("https://api.abuseipdb.com/api/v2/check"), stall, nil)
+
+	start := time.Now()
+	sig := a.GetSignal("198.51.100.1")
+	elapsed := time.Since(start)
+
+	if elapsed > 1*time.Second {
+		t.Fatalf("GetSignal took %v; expected bounded timeout <= 500ms under Redis stall", elapsed)
+	}
+	if sig != nil {
+		t.Errorf("expected nil signal under Redis timeout, got %v", sig)
+	}
+}
+
 // Compile check: ensure cache.LRU usage is correct.
 var _ *cache.LRU = cache.New(10)

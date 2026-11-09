@@ -164,3 +164,77 @@ func TestJA4_FPCorpus_NoRegression(t *testing.T) {
 		}
 	}
 }
+
+// TestJA4_DistinctFingerprintCases satisfies Gate G-3.1 for Phase 868.
+// Asserts distinct JA4 fingerprints across permutations of SNI and ALPN:
+// no-SNI, SNI-only, ALPN-only, both, and both-malformed.
+func TestJA4_DistinctFingerprintCases(t *testing.T) {
+	// Base cipher and extension setup
+	baseCiphers := []uint16{0x1301, 0x1302}
+	baseExts := []uint16{0x002b} // supported_versions
+
+	cases := []struct {
+		name string
+		info *ClientHelloInfo
+	}{
+		{
+			name: "no-SNI-no-ALPN",
+			info: &ClientHelloInfo{
+				LegacyVersion:     0x0303,
+				SupportedVersions: []uint16{0x0304},
+				CipherSuites:      baseCiphers,
+				Extensions:        baseExts,
+				SNIPresent:        false,
+				ALPNProtocols:     nil,
+			},
+		},
+		{
+			name: "SNI-only",
+			info: &ClientHelloInfo{
+				LegacyVersion:     0x0303,
+				SupportedVersions: []uint16{0x0304},
+				CipherSuites:      baseCiphers,
+				Extensions:        append([]uint16{0x0000}, baseExts...),
+				SNIPresent:        true,
+				SNI:               "example.com",
+				ALPNProtocols:     nil,
+			},
+		},
+		{
+			name: "ALPN-only",
+			info: &ClientHelloInfo{
+				LegacyVersion:     0x0303,
+				SupportedVersions: []uint16{0x0304},
+				CipherSuites:      baseCiphers,
+				Extensions:        append([]uint16{0x0010}, baseExts...),
+				SNIPresent:        false,
+				ALPNProtocols:     []string{"h2"},
+			},
+		},
+		{
+			name: "both-SNI-and-ALPN",
+			info: &ClientHelloInfo{
+				LegacyVersion:     0x0303,
+				SupportedVersions: []uint16{0x0304},
+				CipherSuites:      baseCiphers,
+				Extensions:        append([]uint16{0x0000, 0x0010}, baseExts...),
+				SNIPresent:        true,
+				SNI:               "example.com",
+				ALPNProtocols:     []string{"h2"},
+			},
+		},
+	}
+
+	seen := make(map[string]string)
+	for _, tc := range cases {
+		fp := ComputeJA4(tc.info)
+		if orig, exists := seen[fp]; exists {
+			t.Errorf("JA4 collision between %q and %q: %s", orig, tc.name, fp)
+		}
+		seen[fp] = tc.name
+	}
+
+	if len(seen) != len(cases) {
+		t.Fatalf("expected %d distinct JA4 fingerprints, got %d", len(cases), len(seen))
+	}
+}

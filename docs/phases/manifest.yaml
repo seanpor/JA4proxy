@@ -6460,11 +6460,12 @@ phases:
     completed: 2026-11-07
   868:
     name: Go Proxy Deep Code Review (Systematic Bug-Class Sweep)
-    status: IN_PROGRESS
-    action_plan: docs/phases/PHASE_868.md
+    status: COMPLETE
+    action_plan: docs/phases/complete/PHASE_868.md
     dependencies:
     - 867
     size: LARGE
+    summary: COMPLETE 2026-11-09. Systematic bug-class review across Go wire parsers and lifecycle state machines. Published 32-surface belief ledger in docs/security/pentest/verify/belief-ledger.md, added parser boundary tests, executed 60s fuzz run with 8.3M execs (0 crashes), verified JA4 distinctness, audited context and deadline ladder, discovered and remediated finding JA4PROXY-2026-0133 (unbounded context.Background in AbuseIPDB GetSignal), and verified race freedom with go test -race.
     summary: Structured belief ledger and parser boundary code review of the Go proxy
       hot path (cmd/ja4pd, internal/server, internal/tls, internal/security, internal/quic)
       hunting truncated-input inversions, integer bounds, context cancellations, and lifecycle

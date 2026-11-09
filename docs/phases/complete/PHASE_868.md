@@ -197,13 +197,13 @@ Per-connection state: `pre-hello → hello-parsed → authed → tunneling`.
 
 ## Acceptance criteria
 
-- [ ] Every WP-1..WP-10 gate has recorded evidence in `docs/security/pentest/verify/`.
-- [ ] Every finding is registered in `docs/security/findings.yaml` **and** has a
+- [x] Every WP-1..WP-10 gate has recorded evidence in `docs/security/pentest/verify/`.
+- [x] Every finding is registered in `docs/security/findings.yaml` **and** has a
       GitHub issue **before** its fix is committed (bug-hunt workflow).
-- [ ] Each fix carries a regression test that fails when the fix is reverted.
-- [ ] Propagation sweep recorded for each HIGH/CRITICAL fix.
-- [ ] `go test -race ./... -count=1` green; `make preflight` green.
-- [ ] Manifest entry `COMPLETE`; fragment present; `make lint-phases` exits 0.
+- [x] Each fix carries a regression test that fails when the fix is reverted.
+- [x] Propagation sweep recorded for each HIGH/CRITICAL fix.
+- [x] `go test -race ./... -count=1` green; `make preflight` green.
+- [x] Manifest entry `COMPLETE`; fragment present; `make lint-phases` exits 0.
 
 ## Out of scope
 
