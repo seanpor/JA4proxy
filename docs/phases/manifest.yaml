@@ -6470,38 +6470,134 @@ phases:
       hot path (cmd/ja4pd, internal/server, internal/tls, internal/security, internal/quic)
       hunting truncated-input inversions, integer bounds, context cancellations, and lifecycle
       state machine bugs.
-  869:
-    name: Modernize Macro Load Generator (ja4bench v2)
+  869a:
+    name: Wire Protocol Framing & ALPN Realignment
     status: PROPOSED
+    action_plan: docs/phases/PHASE_869.md
     dependencies:
     - 867
-    size: MEDIUM
-    summary: Modernize ja4bench to implement an open-loop Poisson arrival model, eliminate
-      Coordinated Omission, and record transport/verdict telemetry.
-  870:
-    name: Deprecate Zombie Benchmarks & Repository Hygiene
-    status: PROPOSED
-    dependencies:
-    - 869
     size: SMALL
-    summary: Safely retire legacy Python benchmark runners and obsolete benchmark scripts,
-      cleaning Makefile targets and clarifying benchmark documentation.
-  871:
-    name: Nightly Benchmark & CI Telemetry Gate Realignment
+    summary: Eliminate HTTP/2 ALPN wire mismatch in ja4bench and align TLS negotiation with the L4 proxy forwarding model.
+  869b:
+    name: L4 Transport Verdict Model & Structured Metrics
     status: PROPOSED
+    action_plan: docs/phases/PHASE_869.md
     dependencies:
-    - 869
-    size: MEDIUM
-    summary: Align RateLimited semantics, implement dual-baseline gating for CI vs host,
-      and publish historical benchmark metrics.
-  872:
-    name: High-Concurrency Data-Plane & Long-Duration Soak Suite
+    - 869a
+    size: SMALL
+    summary: Replace flawed HTTP status code assumptions with an honest L4 verdict model (forwarded, RST, timeout) in ja4bench.
+  869c:
+    name: Open-Loop Poisson Arrival Engine & Coordinated Omission Elimination
     status: PROPOSED
+    action_plan: docs/phases/PHASE_869.md
     dependencies:
-    - 869
-    size: LARGE
-    summary: Implement bulk data-plane throughput benchmarks and an automated long-duration
-      concurrency soak test.
+    - 869b
+    size: SMALL
+    summary: Implement an open-loop arrival schedule in ja4bench to measure wait and service latency independently, eliminating Coordinated Omission.
+  869d:
+    name: Ephemeral Socket Safety & Multi-IP Local Port Binding
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_869.md
+    dependencies:
+    - 869c
+    size: SMALL
+    summary: Support rotating local IP bindings and sysctl inspection in ja4bench to prevent ephemeral port exhaustion during high-churn benchmarks.
+  870a:
+    name: Decommission Defunct Python Benchmark Scripts
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_870.md
+    dependencies:
+    - 869d
+    size: SMALL
+    summary: Safely delete zombie Python benchmark scripts referencing the deleted Python proxy and retire them from documentation.
+  870b:
+    name: Remove Obsolete Pytest Files & Fix Chaos Port Defaults
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_870.md
+    dependencies:
+    - 870a
+    size: SMALL
+    summary: Remove non-functional performance pytests and update legacy port defaults in chaos and performance test suites.
+  870c:
+    name: Modernize Shell Harnesses & Fix HTTP Error Tolerances
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_870.md
+    dependencies:
+    - 870b
+    size: SMALL
+    summary: Fix basic_perf_test.sh to reject 502/503 responses and synchronize bench-hostnative.sh default ports.
+  870d:
+    name: Clean Makefile Targets & Update Documentation References
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_870.md
+    dependencies:
+    - 870c
+    size: SMALL
+    summary: Deprecate the obsolete perf-test Makefile target and route all performance targets exclusively to Go harnesses.
+  871a:
+    name: Realign RateLimited Semantics in Gate & Tests
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_871.md
+    dependencies:
+    - 870d
+    size: SMALL
+    summary: Invert the flawed rate_limited check in nightly_benchmark_gate.py so that achieving target throughput passes CI.
+  871b:
+    name: Rename Generator Field to TargetAchieved
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_871.md
+    dependencies:
+    - 871a
+    size: SMALL
+    summary: Rename ambiguous RateLimited field to TargetAchieved in ja4bench with backwards-compatible JSON aliases.
+  871c:
+    name: Implement Dual-Baseline Gating (CI vs Bare-Metal)
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_871.md
+    dependencies:
+    - 871b
+    size: SMALL
+    summary: Separate GitHub Actions runner performance baselines from host-native bare metal baselines to prevent spurious CI failures.
+  871d:
+    name: Prometheus Textfile Export & Metric Alert Rules
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_871.md
+    dependencies:
+    - 871c
+    size: SMALL
+    summary: Export L4 verdict counters and latency percentiles to node-exporter textfile format and add Alertmanager regression rules.
+  872a:
+    name: Bulk Data-Plane Streaming Benchmark Harness
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_872.md
+    dependencies:
+    - 871d
+    size: SMALL
+    summary: Implement a high-concurrency data-plane benchmark measuring bulk streaming throughput (Gbps) over persistent TLS connections.
+  872b:
+    name: Zero-Copy & Allocation Telemetry in Streaming
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_872.md
+    dependencies:
+    - 872a
+    size: SMALL
+    summary: Instrument memory allocations, GC pauses, and bytes per operation during persistent bulk data transfer.
+  872c:
+    name: 2-Hour Automated Soak & Leak Runner
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_872.md
+    dependencies:
+    - 872b
+    size: SMALL
+    summary: Implement an automated soak test runner monitoring RSS memory drift, open file descriptors, and goroutines under sustained load.
+  872d:
+    name: pprof Snapshot Collector & PGO Profile Exporter
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_872.md
+    dependencies:
+    - 872c
+    size: SMALL
+    summary: Collect baseline and final pprof heap/goroutine snapshots during soak runs and export production CPU profiles for Go PGO.
   873a:
     name: Fix Update-Checker Container & Registry API Parsing
     status: IN_PROGRESS
