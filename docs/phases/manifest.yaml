@@ -6502,3 +6502,35 @@ phases:
     size: LARGE
     summary: Implement bulk data-plane throughput benchmarks and an automated long-duration
       concurrency soak test.
+  873a:
+    name: Fix Update-Checker Container & Registry API Parsing
+    status: IN_PROGRESS
+    action_plan: docs/phases/PHASE_873.md
+    dependencies:
+    - 868
+    size: SMALL
+    summary: Fix registry API queries (digest stripping, first-party filtering) and non-root cache permissions in check_updates.py and Dockerfile.
+  873b:
+    name: Go Module & Node/sql.js Automated Upgrade Engine
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_873.md
+    dependencies:
+    - 873a
+    size: SMALL
+    summary: Implement automated update routines for Go modules and vendor Node/sql.js libraries with integrity verification.
+  873c:
+    name: Python Multi-Environment Parity Update Engine
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_873.md
+    dependencies:
+    - 873b
+    size: SMALL
+    summary: Implement containerized Python dependency upgrade tooling preserving cross-environment parity and upper-bound constraints.
+  873d:
+    name: Docker Multi-Arch Digest Resolver & Unified Maintenance Orchestration
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_873.md
+    dependencies:
+    - 873c
+    size: SMALL
+    summary: Implement Docker digest resolution, unified make update-all target, daily-maintenance cron script, and operational runbook.
