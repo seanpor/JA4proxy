@@ -401,8 +401,7 @@ waivers:
     scope: third-party
     severity: MEDIUM
     source: trivy
-    carriers:
-      - "grafana/grafana:13.2.4-ubuntu"
+    carriers: ["grafana/grafana:13.2.4-ubuntu"]
     rationale: >-
       github.com/go-jose/go-jose/v4 resource consumption when parsing crafted
       malformed public keys. Grafana is a third-party pinned monitoring image bound
@@ -419,8 +418,7 @@ waivers:
     scope: third-party
     severity: MEDIUM
     source: trivy
-    carriers:
-      - "grafana/grafana:13.2.4-ubuntu"
+    carriers: ["grafana/grafana:13.2.4-ubuntu"]
     rationale: >-
       github.com/go-jose/go-jose/v4 decompression bomb / resource consumption during
       JWE payload handling. Grafana is a third-party pinned monitoring image bound
@@ -437,9 +435,7 @@ waivers:
     scope: third-party
     severity: HIGH
     source: trivy
-    carriers:
-      - "grafana/alloy:v1.21.2@sha256:89a5a320168387336b9ac3c850609c3ba7757eadd4ae5f1d819deb35e9854b18"
-      - "grafana/grafana:13.2.4-ubuntu"
+    carriers: ["grafana/alloy:v1.21.2@sha256:89a5a320168387336b9ac3c850609c3ba7757eadd4ae5f1d819deb35e9854b18", "grafana/grafana:13.2.4-ubuntu"]
     rationale: >-
       github.com/go-jose/go-jose/v4 DoS when parsing crafted JWKs with large RSA
       keys. Both Grafana and Alloy are third-party pinned monitoring images bound
@@ -456,9 +452,7 @@ waivers:
     scope: third-party
     severity: HIGH
     source: trivy
-    carriers:
-      - "redis:7.4.11-alpine@sha256:520775a41a63e77e06c73e35d2fd9cc15921a609516818796b4ecbb813078bc7"
-      - "tecnativa/docker-socket-proxy:v0.5.0"
+    carriers: ["redis:7.4.11-alpine@sha256:520775a41a63e77e06c73e35d2fd9cc15921a609516818796b4ecbb813078bc7", "tecnativa/docker-socket-proxy:v0.5.0"]
     rationale: >-
       zlib memory corruption vulnerability in Alpine base packages. Pinned third-party
       official images where publishers have not yet shipped Alpine 3.24 builds with
@@ -475,9 +469,7 @@ waivers:
     scope: third-party
     severity: HIGH
     source: trivy
-    carriers:
-      - "grafana/alloy:v1.21.2@sha256:89a5a320168387336b9ac3c850609c3ba7757eadd4ae5f1d819deb35e9854b18"
-      - "grafana/grafana:13.2.4-ubuntu"
+    carriers: ["grafana/alloy:v1.21.2@sha256:89a5a320168387336b9ac3c850609c3ba7757eadd4ae5f1d819deb35e9854b18", "grafana/grafana:13.2.4-ubuntu"]
     rationale: >-
       apt integer overflow vulnerability in Ubuntu base packages. Grafana and Alloy
       are third-party monitoring images bound only to internal loopback
@@ -496,12 +488,7 @@ waivers:
     scope: third-party
     severity: HIGH
     source: trivy
-    carriers:
-      - "grafana/alloy:v1.21.2@sha256:89a5a320168387336b9ac3c850609c3ba7757eadd4ae5f1d819deb35e9854b18"
-      - "grafana/grafana:13.2.4-ubuntu"
-      - "grafana/loki:3.7.9"
-      - "prom/alertmanager:v0.34.1"
-      - "prom/prometheus:v3.15.1"
+    carriers: ["grafana/alloy:v1.21.2@sha256:89a5a320168387336b9ac3c850609c3ba7757eadd4ae5f1d819deb35e9854b18", "grafana/grafana:13.2.4-ubuntu", "grafana/loki:3.7.9", "prom/alertmanager:v0.34.1", "prom/prometheus:v3.15.1"]
     rationale: >-
       golang.org/x/net HTTP/2 rapid reset / frame parsing issue (fixed in 0.62.0);
       bundled Go runtime in third-party monitoring containers. All carriers are
@@ -519,10 +506,7 @@ waivers:
     scope: third-party
     severity: HIGH
     source: trivy
-    carriers:
-      - "haproxy:3.4.7-alpine"
-      - "redis:7.4.11-alpine@sha256:520775a41a63e77e06c73e35d2fd9cc15921a609516818796b4ecbb813078bc7"
-      - "tecnativa/docker-socket-proxy:v0.5.0"
+    carriers: ["redis:7.4.11-alpine@sha256:520775a41a63e77e06c73e35d2fd9cc15921a609516818796b4ecbb813078bc7", "tecnativa/docker-socket-proxy:v0.5.0"]
     rationale: >-
       musl libc vulnerability in Alpine base packages (fixed in 1.2.5-r12 / 1.2.6-r3).
       The carriers run pinned Alpine images. Redis runs strictly on internal docker
@@ -546,12 +530,7 @@ waivers:
     scope: third-party
     severity: MEDIUM
     source: trivy
-    carriers:
-      - "grafana/alloy:v1.21.2@sha256:89a5a320168387336b9ac3c850609c3ba7757eadd4ae5f1d819deb35e9854b18"
-      - "grafana/grafana:13.2.4-ubuntu"
-      - "grafana/loki:3.7.9"
-      - "prom/alertmanager:v0.34.1"
-      - "prom/prometheus:v3.15.1"
+    carriers: ["grafana/alloy:v1.21.2@sha256:89a5a320168387336b9ac3c850609c3ba7757eadd4ae5f1d819deb35e9854b18", "grafana/grafana:13.2.4-ubuntu", "grafana/loki:3.7.9", "prom/alertmanager:v0.34.1", "prom/prometheus:v3.15.1"]
     rationale: >-
       golang.org/x/net HTTP/2 resource consumption issue (fixed in 0.62.0);
       bundled Go runtime in third-party monitoring containers. All carriers are
@@ -569,9 +548,7 @@ waivers:
     scope: third-party
     severity: MEDIUM
     source: trivy
-    carriers:
-      - "redis:7.4.11-alpine@sha256:520775a41a63e77e06c73e35d2fd9cc15921a609516818796b4ecbb813078bc7"
-      - "tecnativa/docker-socket-proxy:v0.5.0"
+    carriers: ["redis:7.4.11-alpine@sha256:520775a41a63e77e06c73e35d2fd9cc15921a609516818796b4ecbb813078bc7", "tecnativa/docker-socket-proxy:v0.5.0"]
     rationale: >-
       zlib memory consumption issue in Alpine base packages (fixed in 1.4-r0).
       Redis runs strictly on internal docker networks (ja4proxy-data) with no published
@@ -589,9 +566,7 @@ waivers:
     scope: third-party
     severity: MEDIUM
     source: trivy
-    carriers:
-      - "grafana/alloy:v1.21.2@sha256:89a5a320168387336b9ac3c850609c3ba7757eadd4ae5f1d819deb35e9854b18"
-      - "grafana/grafana:13.2.4-ubuntu"
+    carriers: ["grafana/alloy:v1.21.2@sha256:89a5a320168387336b9ac3c850609c3ba7757eadd4ae5f1d819deb35e9854b18", "grafana/grafana:13.2.4-ubuntu"]
     rationale: >-
       perl-base memory safety issue in Ubuntu base packages (no fix published yet).
       Grafana and Alloy are third-party monitoring images bound only to internal
