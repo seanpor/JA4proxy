@@ -1,3 +1,10 @@
+<!--
+title: "Strategic Product Plan: v3.0.0 & Future Horizons"
+audience: product
+last_reviewed: 2026-11-11
+phase: 873
+-->
+
 # JA4proxy Strategic Product Plan: v3.0.0 & Future Horizons
 
 **Document Type:** Strategic Product Plan & Release Roadmap  
