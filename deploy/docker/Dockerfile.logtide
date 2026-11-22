@@ -6,7 +6,7 @@
 # third-party upstream container CVE waiver debt (.trivyignore.third-party).
 
 # ── Build stage ───────────────────────────────────────────────────────────────
-FROM golang:1.27.3-alpine@sha256:d200d2dd76b03a99b52651fd1325aff7dcd35422c35c01bac56571b0507f3deb AS builder
+FROM golang:1.27.3-alpine@sha256:fa3d596898d9f126af7c01d14ee7597bab3f39cccf392ef36b69fe77cd681f18 AS builder
 ARG VERSION=unknown
 ARG GIT_COMMIT=unknown
 
@@ -26,7 +26,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
     -o /build/logtide ./cmd/ja4p/
 
 # ── Runtime stage ─────────────────────────────────────────────────────────────
-FROM gcr.io/distroless/static-debian12@sha256:a9fcaedd4c9b59e12dd65d954f0b5044f19b0647a8a3712e77205df9e7b102cd
+FROM gcr.io/distroless/static-debian12@sha256:d75cdd72874d4790092fcb1b058493ecf6bb5bf2b2b897045b00ff01d91843f2
 
 COPY --from=builder /build/logtide /usr/local/bin/logtide
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/

@@ -129,7 +129,7 @@ services:
         max-file: "3"
 
   redis:
-    image: redis:7.4.11-alpine@sha256:520775a41a63e77e06c73e35d2fd9cc15921a609516818796b4ecbb813078bc7
+    image: redis:7.4.11-alpine@sha256:d9436322172a5b482c187bf1f363d3c4fea086fcca6b9c8a94de8f0f39ed3193
     # No host port exposure — internal to ja4proxy-data only.
     # Tests use `docker exec` + redis-cli for state manipulation.
     restart: unless-stopped

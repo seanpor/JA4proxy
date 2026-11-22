@@ -1284,6 +1284,12 @@ update-python:  ## Update Python requirements across all environments in lockste
 	@echo "=== Updating Python Requirements (Multi-Env Parity) ==="
 	@$(TOOLS_RUN) python3 scripts/apply_updates_python.py
 
+update-docker:  ## Resolve and update multi-arch Docker digests across Dockerfiles and compose files
+	@echo "=== Updating Docker Multi-Arch Digests ==="
+	@$(TOOLS_RUN) python3 scripts/apply_updates_docker.py
+
+update-all: update-go update-python update-node update-docker check-updates preflight  ## Update all dependencies (Go, Python, Node, Docker) and run preflight
+
 # Start Python legacy proxy alongside the Go proxy for parity comparison.
 # Both proxies share the same Redis instance.
 # Go proxy (primary): host port 8081 / metrics 9090
