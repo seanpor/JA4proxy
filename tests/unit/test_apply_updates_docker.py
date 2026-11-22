@@ -138,7 +138,8 @@ class TestFileRewriting:
 
         def fake_resolve(image: str, tag: str) -> str:
             calls.append((image, tag))
-            if image.startswith("gcr.io/"):
+            registry, _ = mod._split_registry(image)
+            if registry == "gcr.io":
                 return DIGEST_GCR
             return DIGEST_NEW
 

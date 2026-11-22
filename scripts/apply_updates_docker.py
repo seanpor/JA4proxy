@@ -101,17 +101,26 @@ def _discover_compose_files(repo_root: Path) -> list[Path]:
     return sorted(p for p in docker_dir.glob("docker-compose*.yml") if p.is_file())
 
 
+def _split_registry(image: str) -> tuple[str | None, str]:
+    """
+    Split an OCI image reference into (registry_host, repo_path).
+    Returns (None, image) when no explicit registry host is present (Docker Hub default).
+    """
+    first, sep, rest = image.partition("/")
+    if sep and ("." in first or ":" in first):
+        return first, rest
+    return None, image
+
+
 def _is_skipped_image(image: str) -> bool:
     """Return True for first-party images or unsupported third-party registries."""
     if image.startswith("ja4proxy"):
         return True
-    if image.startswith("gcr.io/") or image.startswith("docker.io/"):
+    registry, _ = _split_registry(image)
+    if registry is None or registry in ("gcr.io", "docker.io"):
         return False
-    first_segment = image.split("/", 1)[0]
-    if "/" in image and ("." in first_segment or ":" in first_segment):
-        # Unrecognized third-party registry (e.g. mcr.microsoft.com, ghcr.io, quay.io)
-        return True
-    return False
+    # Unrecognized third-party registry (e.g. mcr.microsoft.com, ghcr.io, quay.io)
+    return True
 
 
 def _validate_oci_repo_and_tag(repo: str, tag: str) -> None:
@@ -148,8 +157,8 @@ def resolve_digest(image: str, tag: str) -> str:
     Resolve the latest multi-arch manifest digest (`sha256:...`) for an image:tag
     on Docker Hub or Google Container Registry (gcr.io).
     """
-    if image.startswith("gcr.io/"):
-        path = image.removeprefix("gcr.io/")
+    registry, path = _split_registry(image)
+    if registry == "gcr.io":
         _validate_oci_repo_and_tag(path, tag)
         url = f"https://gcr.io/v2/{path}/manifests/{tag}"
         headers = {
@@ -161,8 +170,10 @@ def resolve_digest(image: str, tag: str) -> str:
             digest = str(resp.headers.get("Docker-Content-Digest", ""))
         return _validate_digest(digest, image, tag)
 
-    normalized = image.removeprefix("docker.io/")
-    repo = normalized if "/" in normalized else f"library/{normalized}"
+    if registry not in (None, "docker.io"):
+        raise ValueError(f"Unsupported registry host: {registry!r}")
+
+    repo = path if "/" in path else f"library/{path}"
     _validate_oci_repo_and_tag(repo, tag)
     token = _fetch_docker_hub_token(repo)
     url = f"https://registry-1.docker.io/v2/{repo}/manifests/{tag}"

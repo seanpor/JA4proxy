@@ -61,7 +61,7 @@ jobs:
       # below for the full story.
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
         with:
-          go-version: "1.27.3"
+          go-version: "1.27.4"
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
         with:
           python-version: "3.15"
@@ -112,7 +112,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
         with:
-          go-version: "1.27.3"
+          go-version: "1.27.4"
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
         with:
           python-version: "3.15"
@@ -136,7 +136,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
         with:
-          go-version: "1.27.3"
+          go-version: "1.27.4"
       - name: Build Go binaries
         run: make go-build cli-build
       - name: Validate compose env vars (no image build)
@@ -159,7 +159,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
         with:
-          go-version: "1.27.3"
+          go-version: "1.27.4"
       - name: Go tests under race detector
         # -race requires cgo; ubuntu runners ship a C toolchain (CGO_ENABLED=1
         # is the default on linux/amd64).
@@ -330,7 +330,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
         with:
-          go-version: "1.27.3"
+          go-version: "1.27.4"
       # Python tests run inside the pinned 3.15 tools image (built by the
       # `tools-image` prereq of `make test`); Go tests run natively. No host
       # Python setup is required.
@@ -460,7 +460,7 @@ jobs:
       # the bump. This pin is about the audit being meaningful.
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
         with:
-          go-version: "1.27.3"
+          go-version: "1.27.4"
       - name: govulncheck
         run: |
           # phase-61 review-fix #2 (B2): pin govulncheck. @latest defeats the
