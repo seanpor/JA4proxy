@@ -1280,6 +1280,10 @@ update-node:  ## Update Node / sql.js dependencies in container and run scan-js
 	@docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e npm_config_cache=/tmp/npm-cache -v "$(PWD):/app" --entrypoint python3 ja4proxy-update-checker scripts/apply_updates_go_node.py --node
 	@$(MAKE) scan-js
 
+update-python:  ## Update Python requirements across all environments in lockstep (containerized)
+	@echo "=== Updating Python Requirements (Multi-Env Parity) ==="
+	@$(TOOLS_RUN) python3 scripts/apply_updates_python.py
+
 # Start Python legacy proxy alongside the Go proxy for parity comparison.
 # Both proxies share the same Redis instance.
 # Go proxy (primary): host port 8081 / metrics 9090

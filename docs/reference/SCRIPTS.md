@@ -12,11 +12,13 @@ read the top of the file for full options.
 
 <!-- BEGIN GENERATED: scripts -->
 
-_151 scripts. Generated from each script's header comment by `make sync` — do not edit this table by hand._
+_153 scripts. Generated from each script's header comment by `make sync` — do not edit this table by hand._
 
 | Script | Called by | What it does |
 |--------|-----------|--------------|
 | `agent-env.sh` | `make agent-up` | scripts/agent-env.sh — Generate isolated .env file for a named agent |
+| `apply_updates_go_node.py` | `make update-go` | apply_updates_go_node.py — Automated dependency upgrade engine for Go modules and Node/sql.js. |
+| `apply_updates_python.py` | `make update-python` | apply_updates_python.py — Python multi-environment parity dependency updater. |
 | `assemble-changelog.py` | `make changelog-assemble` | Assemble CHANGELOG news fragments into CHANGELOG.md. |
 | `basic_perf_test.sh` | `make perf-test-basic` | Basic performance test script |
 | `bench-hostnative.sh` | `make bench-hostnative` | end-to-end throughput benchmark with the engine running |
