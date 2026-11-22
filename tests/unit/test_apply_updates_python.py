@@ -178,3 +178,73 @@ class TestMultiEnvironmentParityUpdates:
         assert rc == 0
         assert req_a.read_text() == orig_a
         mock_val.assert_not_called()
+
+    def test_rolls_back_when_validation_times_out(self, tmp_path: Path) -> None:
+        import subprocess
+
+        req_a = tmp_path / "requirements.txt"
+        orig_a = "pyyaml==6.0.3\n"
+        req_a.write_text(orig_a)
+        scripts_dir = tmp_path / "scripts"
+        scripts_dir.mkdir()
+        (scripts_dir / "check_deps_resolution.py").write_text("pass\n")
+
+        with (
+            patch.object(mod, "fetch_pypi_releases", return_value=["6.0.3", "6.0.4"]),
+            patch.object(
+                mod.subprocess,
+                "run",
+                side_effect=subprocess.TimeoutExpired(cmd=["python3"], timeout=180),
+            ),
+        ):
+            rc = mod.update_python_requirements(req_files=[req_a], repo_root=tmp_path)
+
+        assert rc == 1
+        assert req_a.read_text() == orig_a
+
+    def test_pypi_lookup_failure_returns_nonzero_without_modifying_files(
+        self, tmp_path: Path
+    ) -> None:
+        import urllib.error
+
+        req_a = tmp_path / "requirements.txt"
+        orig_a = "pyyaml==6.0.3\n"
+        req_a.write_text(orig_a)
+
+        with patch.object(
+            mod,
+            "fetch_pypi_releases",
+            side_effect=urllib.error.URLError("dns failure"),
+        ):
+            rc = mod.update_python_requirements(req_files=[req_a], repo_root=tmp_path)
+
+        assert rc == 1
+        assert req_a.read_text() == orig_a
+
+    def test_trailing_whitespace_and_upper_bound_parity_guard(
+        self, tmp_path: Path
+    ) -> None:
+        req_a = tmp_path / "requirements.txt"
+        req_b = tmp_path / "management" / "requirements.txt"
+        req_b.parent.mkdir(parents=True)
+        req_a.write_text("pyyaml==6.0.3   \npytest-asyncio>=1.4.1,<2\n")
+        req_b.write_text("pytest-asyncio==2.1.0\n")
+
+        pypi_map = {
+            "pyyaml": ["6.0.3", "6.0.4\n"],
+            "pytest-asyncio": ["1.4.1", "2.1.0"],
+        }
+
+        with (
+            patch.object(mod, "fetch_pypi_releases", side_effect=lambda pkg: pypi_map[pkg]),
+            patch.object(mod, "_run_validation", return_value=True),
+        ):
+            rc = mod.update_python_requirements(
+                req_files=[req_a, req_b], repo_root=tmp_path
+            )
+
+        assert rc == 0
+        # pyyaml trailing whitespace preserved and newline from upstream version stripped
+        assert "pyyaml==6.0.4   \n" in req_a.read_text()
+        # pytest-asyncio must NOT be rewritten to unsatisfiable >=2.1.0,<2
+        assert "pytest-asyncio>=1.4.1,<2\n" in req_a.read_text()

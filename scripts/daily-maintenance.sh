@@ -6,7 +6,7 @@
 #   scripts/daily-maintenance.sh --apply [--skip-preflight]
 #
 # Modes:
-#   --dry-run         Read-only check across Docker, Go, Python, and Node (no files modified)
+#   --dry-run         Read-only check across Go, Python, Node, and Docker (no files modified)
 #   --apply           Apply updates across all 4 ecosystems and run `make preflight` (default)
 #   --skip-preflight  Skip `make preflight` during --apply (for fast local validation)
 
@@ -40,6 +40,11 @@ for arg in "$@"; do
   esac
 done
 
+if ! command -v docker >/dev/null 2>&1 || ! docker info >/dev/null 2>&1; then
+  echo "ERROR: Docker CLI/daemon is unavailable — aborting before modifying any files." >&2
+  exit 1
+fi
+
 START_TS="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 echo "================================================================"
 echo " JA4proxy Daily Maintenance"
@@ -49,21 +54,27 @@ echo " Repo      : ${REPO_ROOT}"
 echo "================================================================"
 
 if [[ "$MODE" == "dry-run" ]]; then
-  echo "[1/5] Checking Go module updates (dry-run)..."
-  GOROOT="${GOROOT:-/snap/go/current}" python3 scripts/apply_updates_go_node.py --go --dry-run
-
-  echo "[2/5] Checking Node / sql.js updates (dry-run)..."
   docker build -q -t ja4proxy-update-checker -f deploy/docker/update-checker/Dockerfile . >/dev/null
-  docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -e npm_config_cache=/tmp/npm-cache \
-    -v "${REPO_ROOT}:/app" --entrypoint python3 ja4proxy-update-checker \
-    scripts/apply_updates_go_node.py --node --dry-run
+  make tools-image >/dev/null
 
-  echo "[3/5] Checking Python requirements parity updates (dry-run)..."
-  docker run --rm -v "${REPO_ROOT}:/src" -w /src ja4proxy-tools \
+  echo "[1/5] Checking Go module updates (dry-run, read-only container)..."
+  docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -e GOCACHE=/tmp/gocache -e GOPATH=/tmp/gopath \
+    -v "${REPO_ROOT}:/app:ro" --entrypoint python3 ja4proxy-update-checker \
+    scripts/apply_updates_go_node.py --go --dry-run
+
+  echo "[2/5] Checking Python requirements parity updates (dry-run, read-only container)..."
+  docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp \
+    -v "${REPO_ROOT}:/src:ro" -w /src ja4proxy-tools \
     python3 scripts/apply_updates_python.py --dry-run
 
-  echo "[4/5] Checking Docker multi-arch digests (dry-run)..."
-  docker run --rm -v "${REPO_ROOT}:/src" -w /src ja4proxy-tools \
+  echo "[3/5] Checking Node / sql.js updates (dry-run, read-only container)..."
+  docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -e npm_config_cache=/tmp/npm-cache \
+    -v "${REPO_ROOT}:/app:ro" --entrypoint python3 ja4proxy-update-checker \
+    scripts/apply_updates_go_node.py --node --dry-run
+
+  echo "[4/5] Checking Docker multi-arch digests (dry-run, read-only container)..."
+  docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp \
+    -v "${REPO_ROOT}:/src:ro" -w /src ja4proxy-tools \
     python3 scripts/apply_updates_docker.py --dry-run
 
   echo "[5/5] Summary"

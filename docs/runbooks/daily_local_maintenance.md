@@ -11,16 +11,16 @@ This runbook documents the automated multi-ecosystem dependency update pipeline 
 
 ## 1. Architecture & Safety Guarantees
 
-All four dependency ecosystems are updated through deterministic, rollback-safe scripts:
+All four dependency ecosystems are updated inside non-root containers (without mounting `/var/run/docker.sock`) through deterministic, rollback-safe scripts:
 
 | Ecosystem | Make Target | Execution Environment | Rollback / Verification Gate |
 | :--- | :--- | :--- | :--- |
-| **Go modules** | `make update-go` | Native Go (`GOROOT=/snap/go/current`) | Snapshots `go.mod`/`go.sum`; runs `go mod tidy` + `go mod verify` |
-| **Python requirements** | `make update-python` | Containerized (`ja4proxy-tools`, Python 3.15) | Lockstep updates across all 3 requirement files; runs `scripts/check_deps_resolution.py` |
-| **Node / `sql.js`** | `make update-node` | Containerized (`ja4proxy-update-checker`) | Snapshots `package.json`/`package-lock.json`; runs `make scan-js` (`retire.js`) |
-| **Docker digests** | `make update-docker` | Containerized (`ja4proxy-tools`) | Resolves OCI/Docker multi-arch `Docker-Content-Digest` (`sha256:...`) across Dockerfiles & compose files |
+| **Go modules** | `make update-go` | Containerized (`ja4proxy-update-checker`, host UID) | Snapshots all modules' `go.mod`/`go.sum`; runs `go mod tidy` + `go mod verify` |
+| **Python requirements** | `make update-python` | Containerized (`ja4proxy-tools`, host UID, no `docker.sock`) | Lockstep updates across all 3 requirement files; runs `scripts/check_deps_resolution.py` |
+| **Node / `sql.js`** | `make update-node` | Containerized (`ja4proxy-update-checker`, host UID) | Snapshots `package.json`, `package-lock.json`, and vendor assets; runs `retire.js` (`--scan-js`) |
+| **Docker digests** | `make update-docker` | Containerized (`ja4proxy-tools`, host UID, no `docker.sock`) | Resolves OCI/Docker multi-arch `Docker-Content-Digest` (`sha256:...`) across Dockerfiles & compose files |
 
-Running `make update-all` chains all four targets, followed by `make check-updates` and `make preflight` (`make lint` + `make scan` + `make test`).
+Running `make update-all` chains all four targets, followed by `make check-updates` and `make preflight` (`make lint` + `make scan` + `make test` + `make test-race`).
 
 ---
 
@@ -28,7 +28,7 @@ Running `make update-all` chains all four targets, followed by `make check-updat
 
 ### Dry-Run (Read-Only Audit)
 
-Preview all pending updates without modifying any files:
+Preview all pending updates inside read-only (`:ro`) container mounts without modifying any files:
 
 ```bash
 scripts/daily-maintenance.sh --dry-run
@@ -36,11 +36,15 @@ scripts/daily-maintenance.sh --dry-run
 
 ### Apply Updates & Run Full Preflight
 
-Apply updates across all four ecosystems and execute the full CI-equivalent `make preflight` gate:
+Apply updates across all four ecosystems and execute `make preflight`:
 
 ```bash
 scripts/daily-maintenance.sh --apply
-# Equivalent Make target:
+
+# Fast local validation without running make preflight:
+scripts/daily-maintenance.sh --apply --skip-preflight
+
+# Full Makefile pipeline (also runs `make check-updates` before `make preflight`):
 make update-all
 ```
 
@@ -104,11 +108,12 @@ systemctl --user list-timers ja4proxy-maintenance.timer
 
 ## 5. Rollback & Troubleshooting
 
-- **Automatic rollback:** Each updater snapshots its target files before writing and restores them automatically if `go mod verify`, `scripts/check_deps_resolution.py`, or `retire.js` fails.
+- **Automatic rollback:** Each updater snapshots its target files before writing (via temp file + atomic `os.replace`) and restores all of them automatically if `go mod verify`, `scripts/check_deps_resolution.py` (including timeouts), `retire.js`, or any file write fails. Registry/PyPI lookup failures abort with exit code `1` without modifying files.
 - **Manual rollback:** If `make preflight` fails after an update, revert the working tree cleanly:
   ```bash
   git checkout -- go.mod go.sum deploy/terraform-provider/go.mod deploy/terraform-provider/go.sum \
     requirements.txt requirements-analytics.txt management/requirements.txt \
+    package.json package-lock.json management/static/vendor/ \
     Dockerfile* deploy/docker/
   ```
-- **Registry rate limits:** Docker Hub anonymous pulls are rate-limited per IP. If `apply_updates_docker.py` logs HTTP 429 warnings, re-run after the rate-limit window resets or authenticate via Docker Hub credentials.
+- **Registry rate limits:** `scripts/apply_updates_docker.py` uses anonymous Docker Hub pulls (no credentials required). If Docker Hub returns HTTP 429, the script aborts with exit code `1` without mutating files; re-run after the rate-limit window resets.

@@ -1262,7 +1262,7 @@ scan-all: scan-container scan-dockerfiles scan-first-party scan-images  ## Run a
 check-updates-container:  ## Run dependency update checker in container
 	@echo "=== Containerized Update Check (Go, Python, Docker, Node) ==="
 	@docker build -q -t ja4proxy-update-checker -f deploy/docker/update-checker/Dockerfile .
-	@docker run --rm -v "$(PWD):/app" ja4proxy-update-checker
+	@docker run --rm -v "$(PWD):/app:ro" ja4proxy-update-checker
 
 check-updates-local:  ## Run dependency update checker locally
 	@echo "=== Local Update Check (Go, Python, Docker, Node) ==="
@@ -1270,23 +1270,23 @@ check-updates-local:  ## Run dependency update checker locally
 
 check-updates: check-updates-container  ## Check Python/Go/Docker dependency versions
 
-update-go:  ## Update Go module dependencies (go.mod / go.sum)
+update-go:  ## Update Go module dependencies (go.mod / go.sum) in container
 	@echo "=== Updating Go Dependencies ==="
-	@GOROOT=$(GOROOT) $(PYTHON) scripts/apply_updates_go_node.py --go
+	@docker build -q -t ja4proxy-update-checker -f deploy/docker/update-checker/Dockerfile .
+	@docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e GOCACHE=/tmp/gocache -e GOPATH=/tmp/gopath -v "$(PWD):/app" --entrypoint python3 ja4proxy-update-checker scripts/apply_updates_go_node.py --go
 
-update-node:  ## Update Node / sql.js dependencies in container and run scan-js
+update-node:  ## Update Node / sql.js dependencies in container with retire.js scan and rollback
 	@echo "=== Updating Node / sql.js Dependencies ==="
 	@docker build -q -t ja4proxy-update-checker -f deploy/docker/update-checker/Dockerfile .
-	@docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e npm_config_cache=/tmp/npm-cache -v "$(PWD):/app" --entrypoint python3 ja4proxy-update-checker scripts/apply_updates_go_node.py --node
-	@$(MAKE) scan-js
+	@docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e npm_config_cache=/tmp/npm-cache -v "$(PWD):/app" --entrypoint python3 ja4proxy-update-checker scripts/apply_updates_go_node.py --node --scan-js
 
-update-python:  ## Update Python requirements across all environments in lockstep (containerized)
+update-python: tools-image  ## Update Python requirements across all environments in lockstep (containerized, no docker.sock)
 	@echo "=== Updating Python Requirements (Multi-Env Parity) ==="
-	@$(TOOLS_RUN) python3 scripts/apply_updates_python.py
+	@docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$(PWD):/src" -w /src $(TOOLS_IMG) python3 scripts/apply_updates_python.py
 
-update-docker:  ## Resolve and update multi-arch Docker digests across Dockerfiles and compose files
+update-docker: tools-image  ## Resolve and update multi-arch Docker digests across Dockerfiles and compose files (no docker.sock)
 	@echo "=== Updating Docker Multi-Arch Digests ==="
-	@$(TOOLS_RUN) python3 scripts/apply_updates_docker.py
+	@docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$(PWD):/src" -w /src $(TOOLS_IMG) python3 scripts/apply_updates_docker.py
 
 update-all: update-go update-python update-node update-docker check-updates preflight  ## Update all dependencies (Go, Python, Node, Docker) and run preflight
 

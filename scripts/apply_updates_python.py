@@ -15,10 +15,13 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import http.client
 import json
+import os
 import re
 import subprocess
 import sys
+import tempfile
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -45,7 +48,15 @@ _REQ_LINE_RE = re.compile(
     r"(?P<ver>[A-Za-z0-9._+-]+)"
     r"(?P<rest>(?:,\s*(?:<=|<|!=|~=)\s*[A-Za-z0-9._*+-]+)*)"
     r"(?P<marker>;[^#]*)?"
-    r"(?P<comment>\s*#.*)?$"
+    r"(?P<comment>\s*#.*)?"
+    r"(?P<trailing>\s*)$"
+)
+_HTTP_ERRORS = (
+    urllib.error.URLError,
+    TimeoutError,
+    http.client.HTTPException,
+    json.JSONDecodeError,
+    ValueError,
 )
 
 
@@ -64,13 +75,29 @@ class ParsedRequirement:
     rest: str
     marker: str
     comment: str
+    trailing: str = ""
 
     def render(self, new_ver: str) -> str:
         """Render the requirement line with a new version, preserving formatting."""
         return (
             f"{self.indent}{self.name}{self.extras}{self.op}"
-            f"{new_ver}{self.rest}{self.marker}{self.comment}"
+            f"{new_ver}{self.rest}{self.marker}{self.comment}{self.trailing}"
         )
+
+
+def _atomic_write_bytes(path: Path, data: bytes) -> None:
+    """Write bytes atomically via temp file + os.replace, refusing symlinks."""
+    if path.is_symlink():
+        raise OSError(f"Refusing to write through symlink: {path}")
+    fd, tmp_name = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
+    tmp_path = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(data)
+        os.replace(tmp_path, path)
+    except BaseException:
+        tmp_path.unlink(missing_ok=True)
+        raise
 
 
 def normalize_pkg_name(name: str) -> str:
@@ -103,6 +130,7 @@ def parse_requirements_file(file_path: Path) -> tuple[list[str], list[ParsedRequ
                 rest=match.group("rest") or "",
                 marker=match.group("marker") or "",
                 comment=match.group("comment") or "",
+                trailing=match.group("trailing") or "",
             )
         )
     return raw_lines, parsed
@@ -133,6 +161,19 @@ def fetch_pypi_releases(package: str) -> list[str]:
     return versions
 
 
+def _build_specifier_set(upper_bounds: list[str]) -> SpecifierSet | None:
+    """Combine comma-separated upper-bound fragments into a SpecifierSet."""
+    spec_parts: list[str] = []
+    for bound in upper_bounds:
+        cleaned = bound.strip().lstrip(",").strip()
+        if cleaned:
+            spec_parts.append(cleaned)
+    try:
+        return SpecifierSet(",".join(spec_parts)) if spec_parts else SpecifierSet()
+    except InvalidSpecifier:
+        return None
+
+
 def select_latest_compatible(
     releases: list[str],
     current_min: str,
@@ -141,24 +182,18 @@ def select_latest_compatible(
     """
     Pick the highest stable release strictly greater than current_min that
     satisfies all combined upper-bound constraints (e.g. [',<2', ',<7']).
+    Returns canonical normalized version string (no whitespace).
     """
     try:
         cur_ver = Version(current_min)
     except InvalidVersion:
         return None
 
-    spec_parts: list[str] = []
-    for bound in upper_bounds:
-        cleaned = bound.strip().lstrip(",").strip()
-        if cleaned:
-            spec_parts.append(cleaned)
-
-    try:
-        spec_set = SpecifierSet(",".join(spec_parts)) if spec_parts else SpecifierSet()
-    except InvalidSpecifier:
+    spec_set = _build_specifier_set(upper_bounds)
+    if spec_set is None:
         return None
 
-    candidates: list[tuple[Version, str]] = []
+    candidates: list[Version] = []
     for rel in releases:
         try:
             ver = Version(rel)
@@ -170,13 +205,13 @@ def select_latest_compatible(
             continue
         if ver not in spec_set:
             continue
-        candidates.append((ver, rel))
+        candidates.append(ver)
 
     if not candidates:
         return None
 
-    candidates.sort(key=lambda item: item[0], reverse=True)
-    return candidates[0][1]
+    candidates.sort(reverse=True)
+    return str(candidates[0])
 
 
 def _run_validation(repo_root: Path) -> bool:
@@ -185,13 +220,18 @@ def _run_validation(repo_root: Path) -> bool:
     if not script.exists():
         print(f"WARNING: validation script not found at {script}", file=sys.stderr)
         return True
-    proc = subprocess.run(
-        [sys.executable, str(script)],
-        cwd=repo_root,
-        capture_output=True,
-        text=True,
-        timeout=180,
-    )
+    try:
+        proc = subprocess.run(
+            [sys.executable, str(script)],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
+    except (subprocess.TimeoutExpired, OSError) as exc:
+        print(f"ERROR: dependency validation execution failed: {exc}", file=sys.stderr)
+        return False
+
     if proc.stdout:
         print(proc.stdout.rstrip())
     if proc.returncode != 0:
@@ -210,6 +250,7 @@ def update_python_requirements(
     """
     Synchronously upgrade outdated Python dependencies across all requirement files,
     respecting upper-bound constraints and rolling back on validation failure.
+    Returns 1 if any PyPI lookup fails (no silent false-green).
     """
     root = repo_root if repo_root is not None else REPO_ROOT
     files = [f for f in (req_files if req_files is not None else REQUIREMENT_FILES) if f.exists()]
@@ -227,6 +268,8 @@ def update_python_requirements(
             by_pkg.setdefault(item.norm_name, []).append(item)
 
     planned: dict[str, tuple[str, str]] = {}
+    lookup_failures = 0
+
     for norm_name, occurrences in sorted(by_pkg.items()):
         upper_bounds = [occ.rest for occ in occurrences if occ.rest]
         valid_versions: list[tuple[Version, str]] = []
@@ -240,12 +283,13 @@ def update_python_requirements(
 
         valid_versions.sort(key=lambda item: item[0])
         min_ver_str = valid_versions[0][1]
-        max_ver_str = valid_versions[-1][1]
+        max_ver_obj, max_ver_str = valid_versions[-1]
 
         try:
             releases = fetch_pypi_releases(norm_name)
-        except (urllib.error.URLError, json.JSONDecodeError, ValueError) as exc:
-            print(f"WARNING: PyPI lookup failed for {norm_name}: {exc}", file=sys.stderr)
+        except _HTTP_ERRORS as exc:
+            lookup_failures += 1
+            print(f"ERROR: PyPI lookup failed for {norm_name}: {exc}", file=sys.stderr)
             continue
 
         latest = select_latest_compatible(
@@ -253,11 +297,21 @@ def update_python_requirements(
             current_min=max_ver_str,
             upper_bounds=upper_bounds,
         )
-        target_ver = latest if latest is not None else (
-            max_ver_str if min_ver_str != max_ver_str else None
-        )
+        target_ver: str | None = latest
+        if target_ver is None and min_ver_str != max_ver_str:
+            spec_set = _build_specifier_set(upper_bounds)
+            if spec_set is not None and max_ver_obj in spec_set:
+                target_ver = max_ver_str
+
         if target_ver is not None:
             planned[norm_name] = (min_ver_str, target_ver)
+
+    if lookup_failures > 0:
+        print(
+            f"ERROR: {lookup_failures} PyPI lookup(s) failed — aborting without modifying files.",
+            file=sys.stderr,
+        )
+        return 1
 
     if not planned:
         print("All Python requirements are up to date and in parity.")
@@ -285,7 +339,8 @@ def update_python_requirements(
 
     try:
         for fpath in modified_files:
-            fpath.write_text("\n".join(file_lines[fpath]) + "\n", encoding="utf-8")
+            content = ("\n".join(file_lines[fpath]) + "\n").encode("utf-8")
+            _atomic_write_bytes(fpath, content)
 
         if validate and not _run_validation(root):
             print(
@@ -293,12 +348,12 @@ def update_python_requirements(
                 file=sys.stderr,
             )
             for fpath, raw_bytes in snapshots.items():
-                fpath.write_bytes(raw_bytes)
+                _atomic_write_bytes(fpath, raw_bytes)
             return 1
     except OSError as exc:
         print(f"ERROR: failed writing requirements files: {exc}", file=sys.stderr)
         for fpath, raw_bytes in snapshots.items():
-            fpath.write_bytes(raw_bytes)
+            _atomic_write_bytes(fpath, raw_bytes)
         return 1
 
     for norm_name, (old_ver, new_ver) in planned.items():

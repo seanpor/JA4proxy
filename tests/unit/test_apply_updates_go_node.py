@@ -149,6 +149,41 @@ class TestGoModuleUpdates:
         assert (tmp_path / "go.mod").read_text() == orig_mod
         assert (tmp_path / "go.sum").read_text() == orig_sum
 
+    def test_update_go_modules_rolls_back_all_modules_on_second_module_failure(
+        self, tmp_path: Path
+    ) -> None:
+        mod_a = tmp_path / "root"
+        mod_b = tmp_path / "provider"
+        mod_a.mkdir()
+        mod_b.mkdir()
+        (mod_a / "go.mod").write_text("orig-a-mod\n")
+        (mod_a / "go.sum").write_text("orig-a-sum\n")
+        (mod_b / "go.mod").write_text("orig-b-mod\n")
+        (mod_b / "go.sum").write_text("orig-b-sum\n")
+
+        def fake_run(
+            cmd: list[str],
+            cwd: Path | None = None,
+            env: dict[str, str] | None = None,
+            timeout: int = 120,
+        ) -> tuple[str, str, int]:
+            if cwd == mod_a and cmd[1:3] == ["get", "-u"]:
+                (mod_a / "go.mod").write_text("updated-a-mod\n")
+                (mod_a / "go.sum").write_text("updated-a-sum\n")
+                return ("", "", 0)
+            if cwd == mod_b and cmd[1:3] == ["mod", "verify"]:
+                return ("", "checksum mismatch", 1)
+            return ("", "", 0)
+
+        with patch.object(mod, "_run", side_effect=fake_run):
+            rc = mod.update_go_modules([mod_a, mod_b])
+
+        assert rc == 1
+        assert (mod_a / "go.mod").read_text() == "orig-a-mod\n"
+        assert (mod_a / "go.sum").read_text() == "orig-a-sum\n"
+        assert (mod_b / "go.mod").read_text() == "orig-b-mod\n"
+        assert (mod_b / "go.sum").read_text() == "orig-b-sum\n"
+
     def test_update_go_modules_dry_run_makes_no_changes(self, tmp_path: Path) -> None:
         (tmp_path / "go.mod").write_text("module example.com/a\n")
         with patch.object(mod, "_run") as mock_run:
@@ -246,7 +281,55 @@ class TestNodeSqlJsUpdates:
 
         assert rc == 0
         assert calls[0] == ["npm", "install", "--package-lock-only", "--ignore-scripts"]
-        assert calls[1] == ["npx", "--yes", "retire@5", "--path", "management/static"]
+        assert calls[1] == [
+            "npx",
+            "--yes",
+            "--ignore-scripts",
+            "retire@5.7.0",
+            "--path",
+            "management/static",
+        ]
+
+    def test_update_node_syncs_vendor_sqljs_and_rolls_back_on_scan_failure(
+        self, tmp_path: Path
+    ) -> None:
+        pkg_json = tmp_path / "package.json"
+        orig_pkg = json.dumps({"dependencies": {"sql.js": "^1.14.0"}}, indent=2) + "\n"
+        pkg_json.write_text(orig_pkg)
+
+        vendor_dir = tmp_path / "management" / "static" / "vendor" / "sql.js"
+        vendor_dir.mkdir(parents=True)
+        (vendor_dir / "sql-wasm.js").write_bytes(b"old-js")
+        checksums = tmp_path / "management" / "static" / "vendor" / "CHECKSUMS.txt"
+        orig_checksums = "deadbeef  htmx.min.js\n"
+        checksums.write_text(orig_checksums)
+
+        dist_dir = tmp_path / "node_modules" / "sql.js" / "dist"
+        dist_dir.mkdir(parents=True)
+        (dist_dir / "sql-wasm.js").write_bytes(b"new-js")
+        (dist_dir / "sql-wasm.wasm").write_bytes(b"new-wasm")
+
+        def fake_run(
+            cmd: list[str],
+            cwd: Path | None = None,
+            env: dict[str, str] | None = None,
+            timeout: int = 120,
+        ) -> tuple[str, str, int]:
+            if cmd[0] == "npm":
+                return ("", "", 0)
+            return ("", "retire CVE found", 13)
+
+        with (
+            patch.object(mod, "_fetch_npm_latest_version", return_value="1.17.0"),
+            patch.object(mod, "_run", side_effect=fake_run),
+        ):
+            rc = mod.update_node_packages(repo_root=tmp_path, run_scan=True)
+
+        assert rc == 1
+        assert pkg_json.read_text() == orig_pkg
+        assert (vendor_dir / "sql-wasm.js").read_bytes() == b"old-js"
+        assert not (vendor_dir / "sql-wasm.wasm").exists()
+        assert checksums.read_text() == orig_checksums
 
 
 class TestCliMain:

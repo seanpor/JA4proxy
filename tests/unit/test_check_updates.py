@@ -21,8 +21,8 @@ class _FakeHTTPResponse:
     def __init__(self, payload: dict) -> None:
         self._body = json.dumps(payload).encode("utf-8")
 
-    def read(self) -> bytes:
-        return self._body
+    def read(self, amt: int | None = None) -> bytes:
+        return self._body if amt is None else self._body[:amt]
 
     def __enter__(self) -> _FakeHTTPResponse:
         return self
@@ -180,16 +180,47 @@ class TestDigestStripping:
         mock_dh.assert_not_called()
 
 
+    def test_unrecognized_third_party_registry_is_skipped(self) -> None:
+        with (
+            patch.object(check_updates, "_extract_makefile_images", return_value=[]),
+            patch.object(
+                check_updates,
+                "_extract_compose_images",
+                return_value=["ghcr.io/org/tool:1.2.3", "quay.io/org/app:2.0.0"],
+            ),
+            patch.object(check_updates, "_docker_hub_tags") as mock_dh,
+            patch.object(check_updates, "_gcr_tags") as mock_gcr,
+        ):
+            updates = check_updates.check_docker_images()
+
+        assert updates == []
+        mock_dh.assert_not_called()
+        mock_gcr.assert_not_called()
+
+    def test_invalid_oci_image_name_rejected_before_http(self) -> None:
+        with patch.object(check_updates.urllib.request, "urlopen") as mock_open:
+            assert check_updates._docker_hub_tags("../../etc/passwd") == []
+            assert check_updates._gcr_tags("gcr.io/../../evil") == []
+        mock_open.assert_not_called()
+
+
 class TestGoListEnvironment:
     """GOROOT must only be overridden to /snap/go/current when that directory exists."""
 
-    def test_does_not_force_snap_goroot_when_absent(self, tmp_path: Path) -> None:
+    def test_does_not_force_snap_goroot_when_absent(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("GOROOT", raising=False)
         (tmp_path / "go.mod").write_text("module example.com/test\n")
-        captured_env: dict[str, str] = {}
+        captured_envs: list[dict[str, str]] = []
 
-        def fake_run(cmd: list[str], cwd: Path | None = None, timeout: int = 30, env: dict[str, str] | None = None):
-            if env is not None:
-                captured_env.update(env)
+        def fake_run(
+            cmd: list[str],
+            cwd: Path | None = None,
+            timeout: int = 30,
+            env: dict[str, str] | None = None,
+        ) -> tuple[str, str, int]:
+            captured_envs.append(dict(env) if env is not None else {})
             return ("", "", 0)
 
         with (
@@ -199,7 +230,36 @@ class TestGoListEnvironment:
         ):
             check_updates._go_list_updates(tmp_path)
 
-        assert captured_env.get("GOROOT") != "/snap/go/current"
+        assert len(captured_envs) == 1
+        assert "GOROOT" not in captured_envs[0]
+
+    def test_uses_snap_goroot_when_present(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("GOROOT", raising=False)
+        (tmp_path / "go.mod").write_text("module example.com/test\n")
+        snap_dir = tmp_path / "snap-go"
+        snap_dir.mkdir()
+        captured_envs: list[dict[str, str]] = []
+
+        def fake_run(
+            cmd: list[str],
+            cwd: Path | None = None,
+            timeout: int = 30,
+            env: dict[str, str] | None = None,
+        ) -> tuple[str, str, int]:
+            captured_envs.append(dict(env) if env is not None else {})
+            return ("", "", 0)
+
+        with (
+            patch.object(check_updates, "REPO_ROOT", tmp_path),
+            patch.object(check_updates, "_run", side_effect=fake_run),
+            patch.object(check_updates, "_SNAP_GOROOT", snap_dir),
+        ):
+            check_updates._go_list_updates(tmp_path)
+
+        assert len(captured_envs) == 1
+        assert captured_envs[0]["GOROOT"] == str(snap_dir)
 
 
 class TestJsonOutputFormat:

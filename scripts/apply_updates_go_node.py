@@ -12,12 +12,13 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import http.client
 import json
 import os
 import re
-import shutil
 import subprocess
 import sys
+import tempfile
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -34,6 +35,13 @@ _MAX_HTTP_BYTES = 256 * 1024  # 256 KiB cap on external registry responses
 _SEMVER_RE = re.compile(r"^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$")
 _NPM_PKG_RE = re.compile(r"^(?:@[a-z0-9-~][a-z0-9-._~]*/)?[a-z0-9-~][a-z0-9-._~]*$")
 _SPEC_RE = re.compile(r"^([~^]|>=|<=|>|<|=)?\s*(.+)$")
+_HTTP_ERRORS = (
+    urllib.error.URLError,
+    TimeoutError,
+    http.client.HTTPException,
+    json.JSONDecodeError,
+    ValueError,
+)
 
 
 def _run(
@@ -69,6 +77,21 @@ def _go_env_and_bin() -> tuple[str, dict[str, str]]:
     return "go", env
 
 
+def _atomic_write_bytes(path: Path, data: bytes) -> None:
+    """Write bytes atomically via temp file + os.replace, refusing symlinks."""
+    if path.is_symlink():
+        raise OSError(f"Refusing to write through symlink: {path}")
+    fd, tmp_name = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
+    tmp_path = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(data)
+        os.replace(tmp_path, path)
+    except BaseException:
+        tmp_path.unlink(missing_ok=True)
+        raise
+
+
 def _snapshot_files(paths: list[Path]) -> dict[Path, bytes | None]:
     """Capture raw file bytes (or None if absent) for atomic rollback on failure."""
     return {p: (p.read_bytes() if p.exists() else None) for p in paths}
@@ -78,10 +101,10 @@ def _restore_files(snapshot: dict[Path, bytes | None]) -> None:
     """Restore files from a snapshot captured by _snapshot_files."""
     for path, content in snapshot.items():
         if content is None:
-            if path.exists():
+            if path.exists() and not path.is_symlink():
                 path.unlink()
         else:
-            path.write_bytes(content)
+            _atomic_write_bytes(path, content)
 
 
 def update_go_modules(
@@ -92,30 +115,34 @@ def update_go_modules(
     Upgrade Go dependencies in each module directory via `go get -u ./...`,
     `go mod tidy`, and `go mod verify`.
 
-    Rolls back go.mod and go.sum on any failure.
+    Snapshots all target modules before mutating and rolls back ALL modules on
+    any failure so no partial state is left behind.
     """
-    dirs = module_dirs if module_dirs is not None else GO_MODULES
+    dirs = [d for d in (module_dirs if module_dirs is not None else GO_MODULES) if (d / "go.mod").exists()]
+    if not dirs:
+        return 0
+
     go_bin, env = _go_env_and_bin()
 
-    for mod_dir in dirs:
-        go_mod = mod_dir / "go.mod"
-        if not go_mod.exists():
-            continue
+    if dry_run:
+        for mod_dir in dirs:
+            label = str(mod_dir)
+            for args in (["get", "-u", "./..."], ["mod", "tidy"], ["mod", "verify"]):
+                print(f"[dry-run] ({label}) {go_bin} {' '.join(args)}")
+        return 0
 
-        go_sum = mod_dir / "go.sum"
+    snapshot_targets: list[Path] = []
+    for mod_dir in dirs:
+        snapshot_targets.extend([mod_dir / "go.mod", mod_dir / "go.sum"])
+    all_snapshots = _snapshot_files(snapshot_targets)
+
+    for mod_dir in dirs:
         label = str(mod_dir)
         commands = [
             [go_bin, "get", "-u", "./..."],
             [go_bin, "mod", "tidy"],
             [go_bin, "mod", "verify"],
         ]
-
-        if dry_run:
-            for cmd in commands:
-                print(f"[dry-run] ({label}) {' '.join(cmd)}")
-            continue
-
-        snapshot = _snapshot_files([go_mod, go_sum])
         for cmd in commands:
             _, stderr, rc = _run(cmd, cwd=mod_dir, env=env, timeout=180)
             if rc != 0:
@@ -123,7 +150,7 @@ def update_go_modules(
                     f"ERROR: {' '.join(cmd)} failed in {label} (rc={rc}): {stderr.strip()}",
                     file=sys.stderr,
                 )
-                _restore_files(snapshot)
+                _restore_files(all_snapshots)
                 return 1
 
         print(f"Updated Go module: {label}")
@@ -168,12 +195,12 @@ def _sync_vendor_sqljs_if_present(repo_root: Path) -> None:
         src = dist_dir / asset
         if src.is_file():
             dst = vendor_dir / asset
-            shutil.copy2(src, dst)
+            _atomic_write_bytes(dst, src.read_bytes())
             updated_files.append(dst)
 
     checksums_file = repo_root / "management" / "static" / "vendor" / "CHECKSUMS.txt"
     if updated_files and checksums_file.is_file():
-        lines = checksums_file.read_text().splitlines()
+        lines = checksums_file.read_text(encoding="utf-8").splitlines()
         entries: dict[str, str] = {}
         order: list[str] = []
         for line in lines:
@@ -187,7 +214,8 @@ def _sync_vendor_sqljs_if_present(repo_root: Path) -> None:
             if rel not in entries:
                 order.append(rel)
             entries[rel] = digest
-        checksums_file.write_text("\n".join(f"{entries[k]}  {k}" for k in order) + "\n")
+        rendered = "\n".join(f"{entries[k]}  {k}" for k in order) + "\n"
+        _atomic_write_bytes(checksums_file, rendered.encode("utf-8"))
 
 
 def update_node_packages(
@@ -198,7 +226,8 @@ def update_node_packages(
     """
     Update Node/sql.js dependencies in package.json and regenerate package-lock.json.
 
-    Rolls back package.json and package-lock.json on any failure.
+    Rolls back package.json, package-lock.json, and any vendored sql.js assets
+    on any failure.
     """
     root = repo_root if repo_root is not None else REPO_ROOT
     pkg_json_path = root / "package.json"
@@ -221,10 +250,10 @@ def update_node_packages(
 
     changes: list[tuple[str, str, str]] = []
     for pkg_name, current_spec in list(deps.items()):
-        prefix, current_ver = _parse_version_spec(str(current_spec))
+        prefix, _ = _parse_version_spec(str(current_spec))
         try:
             latest = _fetch_npm_latest_version(pkg_name)
-        except (urllib.error.URLError, json.JSONDecodeError, ValueError) as exc:
+        except _HTTP_ERRORS as exc:
             print(f"ERROR: npm registry lookup failed for {pkg_name}: {exc}", file=sys.stderr)
             return 1
         new_spec = f"{prefix}{latest}"
@@ -241,9 +270,20 @@ def update_node_packages(
             print(f"[dry-run] {pkg_name}: {old_spec} -> {new_spec}")
         return 0
 
-    snapshot = _snapshot_files([pkg_json_path, lock_json_path])
+    vendor_dir = root / "management" / "static" / "vendor" / "sql.js"
+    checksums_file = root / "management" / "static" / "vendor" / "CHECKSUMS.txt"
+    snapshot_paths = [pkg_json_path, lock_json_path]
+    if vendor_dir.is_dir():
+        snapshot_paths.extend([vendor_dir / "sql-wasm.js", vendor_dir / "sql-wasm.wasm"])
+    if checksums_file.is_file():
+        snapshot_paths.append(checksums_file)
+
+    snapshot = _snapshot_files(snapshot_paths)
     try:
-        pkg_json_path.write_text(json.dumps(pkg_data, indent=2) + "\n", encoding="utf-8")
+        _atomic_write_bytes(
+            pkg_json_path,
+            (json.dumps(pkg_data, indent=2) + "\n").encode("utf-8"),
+        )
         _, stderr, rc = _run(
             ["npm", "install", "--package-lock-only", "--ignore-scripts"],
             cwd=root,
@@ -258,7 +298,7 @@ def update_node_packages(
 
         if run_scan:
             _, scan_err, scan_rc = _run(
-                ["npx", "--yes", "retire@5", "--path", "management/static"],
+                ["npx", "--yes", "--ignore-scripts", "retire@5.7.0", "--path", "management/static"],
                 cwd=root,
                 timeout=120,
             )

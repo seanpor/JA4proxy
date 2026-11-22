@@ -82,6 +82,10 @@ REGISTRY_MAP: dict[str, str | None] = {
 # Suffixes to skip when checking for latest tags (unstable/pre-release)
 SKIP_SUFFIXES = {"rc", "alpha", "beta", "dev", "nightly", "pre"}
 
+# Security bounds for registry HTTP responses and OCI image names
+_MAX_HTTP_BYTES = 2 * 1024 * 1024  # 2 MiB cap on registry tag listings
+_OCI_REPO_RE = re.compile(r"^[a-z0-9]+(?:[._-][a-z0-9]+)*(?:/[a-z0-9]+(?:[._-][a-z0-9]+)*)*$")
+
 # ANSI color codes for terminal output
 GREEN = "\033[92m"
 YELLOW = "\033[93m"
@@ -268,11 +272,13 @@ def _extract_compose_images() -> list[str]:
     if not COMPOSE_DIR.exists():
         return images
 
-    # Simple YAML-like grep: look for `image: <name>:<tag>` lines
+    # Simple YAML-like grep: look for `image: <name>:<tag>` lines (strip optional quotes)
     for compose_file in sorted(COMPOSE_DIR.glob("docker-compose*.yml")):
         text = compose_file.read_text()
         for match in re.finditer(r'^\s+image:\s+([^\s#]+)', text, re.MULTILINE):
-            images.append(match.group(1))
+            cleaned = match.group(1).strip("'\"")
+            if cleaned and "$" not in cleaned:
+                images.append(cleaned)
     return sorted(set(images))
 
 
@@ -303,17 +309,28 @@ def _docker_hub_tags(image: str) -> list[str]:
     else:
         namespace, repo = image.split("/", 1)
 
+    if not _OCI_REPO_RE.match(f"{namespace}/{repo}"):
+        print(f"    {YELLOW}Skipping invalid Docker Hub image reference: {image}{RESET}", file=sys.stderr)
+        return []
+
     url = f"https://hub.docker.com/v2/repositories/{namespace}/{repo}/tags?page_size=100"
     tags: list[str] = []
 
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "ja4proxy-check-updates/1.0"})
         with urllib.request.urlopen(req, timeout=10) as resp:  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
-            data = json.loads(resp.read().decode())
+            raw = resp.read(_MAX_HTTP_BYTES + 1)
+            if len(raw) > _MAX_HTTP_BYTES:
+                print(
+                    f"    {YELLOW}Docker Hub response exceeded {_MAX_HTTP_BYTES} bytes for {image}{RESET}",
+                    file=sys.stderr,
+                )
+                return []
+            data = json.loads(raw.decode())
             for entry in data.get("results", []):
                 name = entry["name"]
                 tags.append(name)
-    except (urllib.error.HTTPError, urllib.error.URLError, json.JSONDecodeError) as e:
+    except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, json.JSONDecodeError) as e:
         print(f"    {YELLOW}Docker Hub API error for {image}: {e}{RESET}", file=sys.stderr)
         return []
 
@@ -336,14 +353,25 @@ def _gcr_tags(image: str) -> list[str]:
     # Strip digest and 'gcr.io/' prefix
     image = _strip_digest(image)
     path = image.replace("gcr.io/", "", 1)
+    if not _OCI_REPO_RE.match(path):
+        print(f"    {YELLOW}Skipping invalid GCR image reference: {image}{RESET}", file=sys.stderr)
+        return []
+
     url = f"https://gcr.io/v2/{path}/tags/list"
 
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "ja4proxy-check-updates/1.0"})
         with urllib.request.urlopen(req, timeout=10) as resp:  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
-            data = json.loads(resp.read().decode())
+            raw = resp.read(_MAX_HTTP_BYTES + 1)
+            if len(raw) > _MAX_HTTP_BYTES:
+                print(
+                    f"    {YELLOW}GCR response exceeded {_MAX_HTTP_BYTES} bytes for {image}{RESET}",
+                    file=sys.stderr,
+                )
+                return []
+            data = json.loads(raw.decode())
             return data.get("child", []) or data.get("tags", [])
-    except (urllib.error.HTTPError, urllib.error.URLError, json.JSONDecodeError) as e:
+    except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, json.JSONDecodeError) as e:
         print(f"    {YELLOW}GCR API error for {image}: {e}{RESET}", file=sys.stderr)
         return []
 
@@ -439,11 +467,19 @@ def check_docker_images() -> list[Update]:
             continue
 
         # Determine registry
-        registry = "dh"  # default: Docker Hub
+        registry: str | None = "dh"  # default: Docker Hub
         for prefix, reg_type in REGISTRY_MAP.items():
             if name.startswith(prefix):
                 registry = reg_type
                 break
+        else:
+            first_segment = name.split("/", 1)[0]
+            if "/" in name and ("." in first_segment or ":" in first_segment):
+                if first_segment == "docker.io":
+                    name = name.split("/", 1)[1]
+                else:
+                    # Unrecognized third-party registry (e.g. ghcr.io, quay.io) — skip
+                    registry = None
 
         if registry is None:
             # Registry not supported by this script (e.g. mcr.microsoft.com)
@@ -595,10 +631,14 @@ def check_python_packages() -> list[Update]:
         pip_cmd = ["pip"]
 
     # Install requirements into user site-packages when running inside the update-checker container
+    # --only-binary=:all: prevents arbitrary setup.py/PEP-517 build hooks during read-only checks.
     if os.path.exists("/.dockerenv"):
         for req_file in PYTHON_REQUIREMENTS:
             if req_file.exists():
-                _run(pip_cmd + ["install", "--user", "-r", str(req_file), "--quiet"], timeout=120)
+                _run(
+                    pip_cmd + ["install", "--user", "--only-binary=:all:", "-r", str(req_file), "--quiet"],
+                    timeout=120,
+                )
     stdout, _, rc = _run(pip_cmd + ["list", "--outdated", "--format=json"], timeout=30)
     if rc != 0:
         print(f"    {YELLOW}pip list --outdated failed{RESET}", file=sys.stderr)

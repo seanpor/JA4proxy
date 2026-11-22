@@ -94,6 +94,14 @@ class TestRegistryDigestResolution:
         ):
             mod.resolve_digest("gcr.io/distroless/static", "debug")
 
+    def test_rejects_path_traversal_in_repo_and_tag(self) -> None:
+        with patch.object(mod.urllib.request, "urlopen") as mock_open:
+            with pytest.raises(ValueError, match="Invalid OCI repository"):
+                mod.resolve_digest("gcr.io/../evil/image", "latest")
+            with pytest.raises(ValueError, match="Invalid OCI tag"):
+                mod.resolve_digest("alpine", "..")
+        mock_open.assert_not_called()
+
 
 class TestFileRewriting:
     """Dockerfile and docker-compose*.yml multi-arch digest rewriting."""
@@ -107,7 +115,7 @@ class TestFileRewriting:
 
         df1.write_text(
             f"# Builder stage\n"
-            f"FROM golang:1.27.3-alpine@{DIGEST_OLD} AS builder\n"
+            f"from golang:1.27.3-alpine@{DIGEST_OLD} AS builder\n"
             f"FROM gcr.io/distroless/static-debian12@{DIGEST_OLD}\n"
             f"FROM python:3.11-slim\n"
         )
@@ -117,9 +125,13 @@ class TestFileRewriting:
         compose.write_text(
             f"services:\n"
             f"  proxy:\n"
-            f"    image: ja4proxy:2.0.0\n"
+            f"    image: ja4proxy:2.0.0@{DIGEST_OLD}\n"
+            f"  playwright:\n"
+            f"    image: mcr.microsoft.com/playwright:v1.40.0@{DIGEST_OLD}\n"
+            f"  ghcr:\n"
+            f"    image: ghcr.io/org/tool:1.0.0@{DIGEST_OLD}\n"
             f"  redis:\n"
-            f"    image: redis:7.4.11-alpine@{DIGEST_OLD}  # pinned\n"
+            f'    image: "redis:7.4.11-alpine@{DIGEST_OLD}"  # pinned\n'
         )
 
         calls: list[tuple[str, str]] = []
@@ -142,12 +154,17 @@ class TestFileRewriting:
         assert calls.count(("golang", "1.27.3-alpine")) == 1
         assert ("gcr.io/distroless/static-debian12", "latest") in calls
         assert ("redis", "7.4.11-alpine") in calls
+        # First-party and unsupported third-party registries must never be queried
+        assert all(
+            img not in ("ja4proxy", "mcr.microsoft.com/playwright", "ghcr.io/org/tool")
+            for img, _ in calls
+        )
 
-        assert f"FROM golang:1.27.3-alpine@{DIGEST_NEW} AS builder\n" in df1.read_text()
+        assert f"from golang:1.27.3-alpine@{DIGEST_NEW} AS builder\n" in df1.read_text()
         assert f"FROM gcr.io/distroless/static-debian12@{DIGEST_GCR}\n" in df1.read_text()
         assert "FROM python:3.11-slim\n" in df1.read_text()
         assert f"FROM golang:1.27.3-alpine@{DIGEST_NEW} AS builder\n" in df2.read_text()
-        assert f"    image: redis:7.4.11-alpine@{DIGEST_NEW}  # pinned\n" in compose.read_text()
+        assert f'    image: "redis:7.4.11-alpine@{DIGEST_NEW}"  # pinned\n' in compose.read_text()
 
     def test_dry_run_makes_no_file_modifications(self, tmp_path: Path) -> None:
         df = tmp_path / "Dockerfile.test"
@@ -163,3 +180,66 @@ class TestFileRewriting:
 
         assert rc == 0
         assert df.read_text() == orig
+
+    def test_registry_failure_returns_nonzero_without_modifying_files(
+        self, tmp_path: Path
+    ) -> None:
+        import urllib.error
+
+        df = tmp_path / "Dockerfile.test"
+        orig = f"FROM alpine:3.24.3@{DIGEST_OLD}\n"
+        df.write_text(orig)
+
+        with patch.object(
+            mod, "resolve_digest", side_effect=urllib.error.URLError("HTTP 429")
+        ):
+            rc = mod.update_docker_digests(dockerfiles=[df], compose_files=[])
+
+        assert rc == 1
+        assert df.read_text() == orig
+
+    def test_write_oserror_rolls_back_all_dockerfiles(self, tmp_path: Path) -> None:
+        df1 = tmp_path / "Dockerfile.one"
+        df2 = tmp_path / "Dockerfile.two"
+        orig1 = f"FROM alpine:3.24.3@{DIGEST_OLD}\n"
+        orig2 = f"FROM golang:1.27.3-alpine@{DIGEST_OLD}\n"
+        df1.write_text(orig1)
+        df2.write_text(orig2)
+
+        real_atomic_write = mod._atomic_write_bytes
+        write_count = 0
+
+        def flaky_write(path: Path, data: bytes) -> None:
+            nonlocal write_count
+            write_count += 1
+            if write_count == 2:
+                raise OSError("disk full")
+            real_atomic_write(path, data)
+
+        with (
+            patch.object(mod, "resolve_digest", return_value=DIGEST_NEW),
+            patch.object(mod, "_atomic_write_bytes", side_effect=flaky_write),
+        ):
+            rc = mod.update_docker_digests(dockerfiles=[df1, df2], compose_files=[])
+
+        assert rc == 1
+        assert df1.read_text() == orig1
+        assert df2.read_text() == orig2
+
+
+class TestDailyMaintenanceScriptCli:
+    """CLI argument handling for scripts/daily-maintenance.sh."""
+
+    def test_help_and_unknown_flag(self) -> None:
+        import subprocess
+
+        script = Path(__file__).resolve().parent.parent.parent / "scripts" / "daily-maintenance.sh"
+        help_res = subprocess.run(["bash", str(script), "--help"], capture_output=True, text=True)
+        assert help_res.returncode == 0
+        assert "--dry-run" in help_res.stdout
+
+        bad_res = subprocess.run(
+            ["bash", str(script), "--unknown-flag"], capture_output=True, text=True
+        )
+        assert bad_res.returncode == 2
+        assert "unknown argument" in bad_res.stderr
