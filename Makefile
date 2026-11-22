@@ -1270,6 +1270,16 @@ check-updates-local:  ## Run dependency update checker locally
 
 check-updates: check-updates-container  ## Check Python/Go/Docker dependency versions
 
+update-go:  ## Update Go module dependencies (go.mod / go.sum)
+	@echo "=== Updating Go Dependencies ==="
+	@GOROOT=$(GOROOT) $(PYTHON) scripts/apply_updates_go_node.py --go
+
+update-node:  ## Update Node / sql.js dependencies in container and run scan-js
+	@echo "=== Updating Node / sql.js Dependencies ==="
+	@docker build -q -t ja4proxy-update-checker -f deploy/docker/update-checker/Dockerfile .
+	@docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e npm_config_cache=/tmp/npm-cache -v "$(PWD):/app" --entrypoint python3 ja4proxy-update-checker scripts/apply_updates_go_node.py --node
+	@$(MAKE) scan-js
+
 # Start Python legacy proxy alongside the Go proxy for parity comparison.
 # Both proxies share the same Redis instance.
 # Go proxy (primary): host port 8081 / metrics 9090
