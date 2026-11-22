@@ -12,11 +12,14 @@ read the top of the file for full options.
 
 <!-- BEGIN GENERATED: scripts -->
 
-_151 scripts. Generated from each script's header comment by `make sync` — do not edit this table by hand._
+_155 scripts. Generated from each script's header comment by `make sync` — do not edit this table by hand._
 
 | Script | Called by | What it does |
 |--------|-----------|--------------|
 | `agent-env.sh` | `make agent-up` | scripts/agent-env.sh — Generate isolated .env file for a named agent |
+| `apply_updates_docker.py` | `make update-docker` | apply_updates_docker.py — Multi-arch OCI/Docker digest resolver and updater. |
+| `apply_updates_go_node.py` | `make update-go` | apply_updates_go_node.py — Automated dependency upgrade engine for Go modules and Node/sql.js. |
+| `apply_updates_python.py` | `make update-python` | apply_updates_python.py — Python multi-environment parity dependency updater. |
 | `assemble-changelog.py` | `make changelog-assemble` | Assemble CHANGELOG news fragments into CHANGELOG.md. |
 | `basic_perf_test.sh` | `make perf-test-basic` | Basic performance test script |
 | `bench-hostnative.sh` | `make bench-hostnative` | end-to-end throughput benchmark with the engine running |
@@ -54,6 +57,7 @@ _151 scripts. Generated from each script's header comment by `make sync` — do 
 | `config-signer.py` | — | config-signer.py — Ed25519 signing utility for JA4proxy configuration files. |
 | `count_lines.py` | — | Count non-blank lines of code by category across the JA4proxy project. |
 | `create_test_mmdb.py` | — | Create a minimal MaxMind test database for ASN classifier testing. |
+| `daily-maintenance.sh` | — | scripts/daily-maintenance.sh — Automated daily dependency update and preflight runner. |
 | `demo-bot.sh` | `make demo-bot` | make ONE deliberately non-browser TLS connection. |
 | `demo-check.sh` | `make demo-check` | refuse to start a demo on a stack that is quietly broken. |
 | `demo-mgmt.sh` | `make demo` | Orchestrate full JA4proxy showcase demo: boot, seed API, generate traffic, verify |

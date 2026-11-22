@@ -45,7 +45,7 @@ The default lane runs **without HAProxy** (single proxy, reached directly on
 
 <!-- BEGIN GENERATED: make-targets -->
 
-_216 targets. Generated from the Makefile's own `##` help comments by `make sync` — do not edit this table by hand._
+_221 targets. Generated from the Makefile's own `##` help comments by `make sync` — do not edit this table by hand._
 
 ### Aggregate linters
 
@@ -365,6 +365,11 @@ _216 targets. Generated from the Makefile's own `##` help comments by `make sync
 | `scan-container` | Run Go SAST (gosec) in a container — gates on high-severity/high-confidence findings |
 | `scan-local` | Run gosec Go SAST scanner locally |
 | `scorecard-local` | OpenSSF Scorecard (local, advisory — the gate is scorecard.yml) |
+| `update-all` | Update all dependencies (Go, Python, Node, Docker) and run preflight |
+| `update-docker` | Resolve and update multi-arch Docker digests across Dockerfiles and compose files (no docker.sock) |
+| `update-go` | Update Go module dependencies (go.mod / go.sum) in container |
+| `update-node` | Update Node / sql.js dependencies in container with retire.js scan and rollback |
+| `update-python` | Update Python requirements across all environments in lockstep (containerized, no docker.sock) |
 
 ### Startup / Shutdown
 

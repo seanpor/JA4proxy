@@ -17,6 +17,7 @@ No dependencies are installed or modified — this is read-only.
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import re
@@ -52,12 +53,19 @@ PYTHON_REQUIREMENTS = [
     REPO_ROOT / "management" / "requirements.txt",
 ]
 
+# Snap-installed Go path on Ubuntu hosts (absent inside containers)
+_SNAP_GOROOT = Path("/snap/go/current")
+
 # First-party images built locally — no registry to check.
 FIRST_PARTY_IMAGES = frozenset({
     "ja4proxy",
     "ja4proxy-analytics",
+    "ja4proxy-attacker",
+    "ja4proxy-logtide",
     "ja4proxy-management",
     "ja4proxy-mockbackend",
+    "ja4proxy-proxy",
+    "ja4proxy-tap",
     "ja4proxy-tarpit",
     "ja4proxy-test",
     "ja4proxy-trafficgen",
@@ -73,6 +81,10 @@ REGISTRY_MAP: dict[str, str | None] = {
 
 # Suffixes to skip when checking for latest tags (unstable/pre-release)
 SKIP_SUFFIXES = {"rc", "alpha", "beta", "dev", "nightly", "pre"}
+
+# Security bounds for registry HTTP responses and OCI image names
+_MAX_HTTP_BYTES = 2 * 1024 * 1024  # 2 MiB cap on registry tag listings
+_OCI_REPO_RE = re.compile(r"^[a-z0-9]+(?:[._-][a-z0-9]+)*(?:/[a-z0-9]+(?:[._-][a-z0-9]+)*)*$")
 
 # ANSI color codes for terminal output
 GREEN = "\033[92m"
@@ -209,6 +221,11 @@ def _run(cmd: list[str], cwd: Path | None = None, timeout: int = 30,
 # ---------------------------------------------------------------------------
 
 
+def _strip_digest(image_ref: str) -> str:
+    """Strip an '@sha256:...' (or any '@digest') suffix from an image reference."""
+    return image_ref.split("@", 1)[0]
+
+
 def _extract_makefile_images() -> list[str]:
     """
     Read the Makefile and extract all image references from TRIVY_IMAGES.
@@ -217,7 +234,7 @@ def _extract_makefile_images() -> list[str]:
     This function parses those lines and returns a list of 'name:tag' strings.
     """
     if not MAKEFILE.exists():
-        print(f"  {YELLOW}Makefile not found at {MAKEFILE}{RESET}")
+        print(f"  {YELLOW}Makefile not found at {MAKEFILE}{RESET}", file=sys.stderr)
         return []
 
     text = MAKEFILE.read_text()
@@ -230,7 +247,6 @@ def _extract_makefile_images() -> list[str]:
         re.MULTILINE | re.DOTALL,
     )
     if not match:
-        print(f"  {YELLOW}TRIVY_IMAGES not found in Makefile{RESET}")
         return []
 
     block = match.group(1)
@@ -256,11 +272,13 @@ def _extract_compose_images() -> list[str]:
     if not COMPOSE_DIR.exists():
         return images
 
-    # Simple YAML-like grep: look for `image: <name>:<tag>` lines
+    # Simple YAML-like grep: look for `image: <name>:<tag>` lines (strip optional quotes)
     for compose_file in sorted(COMPOSE_DIR.glob("docker-compose*.yml")):
         text = compose_file.read_text()
         for match in re.finditer(r'^\s+image:\s+([^\s#]+)', text, re.MULTILINE):
-            images.append(match.group(1))
+            cleaned = match.group(1).strip("'\"")
+            if cleaned and "$" not in cleaned:
+                images.append(cleaned)
     return sorted(set(images))
 
 
@@ -284,11 +302,16 @@ def _docker_hub_tags(image: str) -> list[str]:
     # For user images like 'prom/prometheus', namespace='prom', repo='prometheus'.
 
     # If the image has no '/', it's an official library image
+    image = _strip_digest(image)
     if "/" not in image:
         namespace = "library"
         repo = image
     else:
         namespace, repo = image.split("/", 1)
+
+    if not _OCI_REPO_RE.match(f"{namespace}/{repo}"):
+        print(f"    {YELLOW}Skipping invalid Docker Hub image reference: {image}{RESET}", file=sys.stderr)
+        return []
 
     url = f"https://hub.docker.com/v2/repositories/{namespace}/{repo}/tags?page_size=100"
     tags: list[str] = []
@@ -296,12 +319,19 @@ def _docker_hub_tags(image: str) -> list[str]:
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "ja4proxy-check-updates/1.0"})
         with urllib.request.urlopen(req, timeout=10) as resp:  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
-            data = json.loads(resp.read().decode())
+            raw = resp.read(_MAX_HTTP_BYTES + 1)
+            if len(raw) > _MAX_HTTP_BYTES:
+                print(
+                    f"    {YELLOW}Docker Hub response exceeded {_MAX_HTTP_BYTES} bytes for {image}{RESET}",
+                    file=sys.stderr,
+                )
+                return []
+            data = json.loads(raw.decode())
             for entry in data.get("results", []):
                 name = entry["name"]
                 tags.append(name)
-    except (urllib.error.HTTPError, urllib.error.URLError, json.JSONDecodeError) as e:
-        print(f"    {YELLOW}Docker Hub API error for {image}: {e}{RESET}")
+    except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, json.JSONDecodeError) as e:
+        print(f"    {YELLOW}Docker Hub API error for {image}: {e}{RESET}", file=sys.stderr)
         return []
 
     return tags
@@ -320,17 +350,29 @@ def _gcr_tags(image: str) -> list[str]:
     # GCR API: https://gcr.io/v2/{project}/{image}/tags/list
     # e.g. gcr.io/cadvisor/cadvisor -> project='cadvisor', image='cadvisor'
 
-    # Strip 'gcr.io/' prefix
+    # Strip digest and 'gcr.io/' prefix
+    image = _strip_digest(image)
     path = image.replace("gcr.io/", "", 1)
+    if not _OCI_REPO_RE.match(path):
+        print(f"    {YELLOW}Skipping invalid GCR image reference: {image}{RESET}", file=sys.stderr)
+        return []
+
     url = f"https://gcr.io/v2/{path}/tags/list"
 
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "ja4proxy-check-updates/1.0"})
         with urllib.request.urlopen(req, timeout=10) as resp:  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
-            data = json.loads(resp.read().decode())
+            raw = resp.read(_MAX_HTTP_BYTES + 1)
+            if len(raw) > _MAX_HTTP_BYTES:
+                print(
+                    f"    {YELLOW}GCR response exceeded {_MAX_HTTP_BYTES} bytes for {image}{RESET}",
+                    file=sys.stderr,
+                )
+                return []
+            data = json.loads(raw.decode())
             return data.get("child", []) or data.get("tags", [])
-    except (urllib.error.HTTPError, urllib.error.URLError, json.JSONDecodeError) as e:
-        print(f"    {YELLOW}GCR API error for {image}: {e}{RESET}")
+    except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, json.JSONDecodeError) as e:
+        print(f"    {YELLOW}GCR API error for {image}: {e}{RESET}", file=sys.stderr)
         return []
 
 
@@ -404,17 +446,18 @@ def check_docker_images() -> list[Update]:
     makefile_images = _extract_makefile_images()
     compose_images = _extract_compose_images()
 
-    # Merge: use Makefile list as primary, add any from compose not duplicated
+    # Merge: strip @sha256:... digests before deduplicating and splitting tags
     seen = set()
     all_images: list[str] = []
     for img in makefile_images + compose_images:
-        if img not in seen:
-            seen.add(img)
-            all_images.append(img)
+        cleaned = _strip_digest(img)
+        if cleaned not in seen:
+            seen.add(cleaned)
+            all_images.append(cleaned)
 
     for img_ref in sorted(all_images):
         if ":" not in img_ref:
-            # Skip images without a tag
+            # Skip images without a tag (including digest-only references)
             continue
 
         name, current_tag = img_ref.rsplit(":", 1)
@@ -424,11 +467,19 @@ def check_docker_images() -> list[Update]:
             continue
 
         # Determine registry
-        registry = "dh"  # default: Docker Hub
+        registry: str | None = "dh"  # default: Docker Hub
         for prefix, reg_type in REGISTRY_MAP.items():
             if name.startswith(prefix):
                 registry = reg_type
                 break
+        else:
+            first_segment = name.split("/", 1)[0]
+            if "/" in name and ("." in first_segment or ":" in first_segment):
+                if first_segment == "docker.io":
+                    name = name.split("/", 1)[1]
+                else:
+                    # Unrecognized third-party registry (e.g. ghcr.io, quay.io) — skip
+                    registry = None
 
         if registry is None:
             # Registry not supported by this script (e.g. mcr.microsoft.com)
@@ -480,7 +531,8 @@ def _go_list_updates(module_dir: Path) -> list[Update]:
         return updates
 
     env = os.environ.copy()
-    env["GOROOT"] = "/snap/go/current"
+    if _SNAP_GOROOT.is_dir():
+        env["GOROOT"] = str(_SNAP_GOROOT)
 
     stdout, _, rc = _run(
         ["go", "list", "-u", "-m", "all"],
@@ -489,7 +541,10 @@ def _go_list_updates(module_dir: Path) -> list[Update]:
         timeout=60,
     )
     if rc != 0:
-        print(f"    {YELLOW}go list -u failed in {module_dir.relative_to(REPO_ROOT)}{RESET}")
+        print(
+            f"    {YELLOW}go list -u failed in {module_dir.relative_to(REPO_ROOT)}{RESET}",
+            file=sys.stderr,
+        )
         return updates
 
     module_label = module_dir.relative_to(REPO_ROOT)
@@ -536,7 +591,7 @@ def check_go_modules() -> list[Update]:
     # Check if Go is available
     _, _, rc = _run(["go", "version"])
     if rc != 0:
-        print(f"    {YELLOW}Go not found — skipping Go module checks{RESET}")
+        print(f"    {YELLOW}Go not found — skipping Go module checks{RESET}", file=sys.stderr)
         return updates
 
     for mod_dir in GO_MODULES:
@@ -570,31 +625,29 @@ def check_python_packages() -> list[Update]:
         stdout, _, rc = _run(["python3", "-m", "pip", "--version"])
         pip_cmd = ["python3", "-m", "pip"]
         if rc != 0:
-            print(f"    {YELLOW}pip not found — skipping Python checks{RESET}")
+            print(f"    {YELLOW}pip not found — skipping Python checks{RESET}", file=sys.stderr)
             return updates
     else:
         pip_cmd = ["pip"]
 
-    # If in a container or no venv, use requirements files directly
-    # Note: 'pip list --outdated' only works for INSTALLED packages.
-    # In a container, we can install them into a temp location to check versions.
-    # For now, let's just run it; if we are in the update-checker container,
-    # we might need to 'pip install -r requirements.txt' first or use a different tool.
-    # But for now, we'll just try to run it.
-    # Install requirements if we are in the update-checker container
+    # Install requirements into user site-packages when running inside the update-checker container
+    # --only-binary=:all: prevents arbitrary setup.py/PEP-517 build hooks during read-only checks.
     if os.path.exists("/.dockerenv"):
         for req_file in PYTHON_REQUIREMENTS:
             if req_file.exists():
-                _run(pip_cmd + ["install", "-r", str(req_file), "--quiet"])
+                _run(
+                    pip_cmd + ["install", "--user", "--only-binary=:all:", "-r", str(req_file), "--quiet"],
+                    timeout=120,
+                )
     stdout, _, rc = _run(pip_cmd + ["list", "--outdated", "--format=json"], timeout=30)
     if rc != 0:
-        print(f"    {YELLOW}pip list --outdated failed{RESET}")
+        print(f"    {YELLOW}pip list --outdated failed{RESET}", file=sys.stderr)
         return updates
 
     try:
         pkgs = json.loads(stdout)
     except json.JSONDecodeError:
-        print(f"    {YELLOW}could not parse pip output{RESET}")
+        print(f"    {YELLOW}could not parse pip output{RESET}", file=sys.stderr)
         return updates
 
     for pkg in pkgs:
@@ -639,18 +692,18 @@ def check_node_packages() -> list[Update]:
     # Check if npm is available
     _, _, rc = _run(["npm", "--version"])
     if rc != 0:
-        print(f"    {YELLOW}npm not found — skipping Node checks{RESET}")
+        print(f"    {YELLOW}npm not found — skipping Node checks{RESET}", file=sys.stderr)
         return updates
 
     stdout, _, rc = _run(["npm", "outdated", "--json"], cwd=REPO_ROOT, timeout=30)
     if rc == 127:
         # npm not found
-        print(f"    {YELLOW}npm not found — skipping Node checks{RESET}")
+        print(f"    {YELLOW}npm not found — skipping Node checks{RESET}", file=sys.stderr)
         return updates
     if rc != 0 and not stdout.strip():
         # npm outdated returns exit code 1 when outdated packages are found,
         # so we only skip if there's genuinely no output
-        print(f"    {YELLOW}npm outdated failed — skipping Node checks{RESET}")
+        print(f"    {YELLOW}npm outdated failed — skipping Node checks{RESET}", file=sys.stderr)
         return updates
 
     try:
@@ -683,20 +736,58 @@ def check_node_packages() -> list[Update]:
 # ---------------------------------------------------------------------------
 
 
-def main() -> int:
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Check Docker, Go, Python, and Node dependencies for available updates.",
+    )
+    parser.add_argument(
+        "--format",
+        choices=("text", "json"),
+        default="text",
+        help="Output format (default: text)",
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> int:
     """
-    Run all four dependency checks and print a color-coded report.
+    Run all four dependency checks and print a report.
 
     Returns:
         0 if all checks completed successfully (no errors).
         1 if a tool crashed or encountered an unrecoverable error.
     """
+    args = _parse_args(argv)
+
+    if args.format == "json":
+        all_updates: list[Update] = []
+        all_updates.extend(check_docker_images())
+        all_updates.extend(check_go_modules())
+        all_updates.extend(check_python_packages())
+        all_updates.extend(check_node_packages())
+
+        major = sum(1 for u in all_updates if u.severity == "major")
+        minor = sum(1 for u in all_updates if u.severity == "minor")
+        patch = sum(1 for u in all_updates if u.severity == "patch")
+
+        payload = {
+            "updates": [u._asdict() for u in all_updates],
+            "summary": {
+                "total": len(all_updates),
+                "major": major,
+                "minor": minor,
+                "patch": patch,
+            },
+        }
+        print(json.dumps(payload, indent=2))
+        return 0
+
     print(f"{BOLD}{CYAN}=== Dependency Update Checker ==={RESET}")
     print("  Checking Docker, Go, Python, and Node dependencies.")
     print(f"  This is read-only — nothing is installed or modified.{RESET}")
     print()
 
-    all_updates: list[Update] = []
+    all_updates = []
 
     # --- Docker images ---
     print(f"  {BOLD}--- Docker images ---{RESET}")
