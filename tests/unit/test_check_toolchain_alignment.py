@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from unittest.mock import patch
+
+import yaml
 
 from scripts import check_toolchain_alignment as mod
 
@@ -122,5 +125,12 @@ class TestPreflightAndSastParity:
             / "python-url-substring-sanitization.yml"
         )
         assert rule_file.is_file()
-        content = rule_file.read_text(encoding="utf-8")
-        assert "ja4p-python-incomplete-url-substring-sanitization" in content
+        data = yaml.safe_load(rule_file.read_text(encoding="utf-8"))
+        rules = data["rules"]
+        assert len(rules) == 1
+        rule = rules[0]
+        assert rule["id"] == "ja4p-python-incomplete-url-substring-sanitization"
+        regex = rule["patterns"][1]["metavariable-regex"]["regex"]
+        assert re.match(regex, '"gcr.' + 'io/"')
+        assert re.match(regex, "'docker." + "io/'")
+        assert not re.match(regex, '"gcr.' + 'io"')
