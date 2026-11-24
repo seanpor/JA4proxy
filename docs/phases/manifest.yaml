@@ -6634,3 +6634,12 @@ phases:
     - 873c
     size: SMALL
     summary: Implement Docker digest resolution, unified make update-all target, daily-maintenance cron script, and operational runbook.
+  874:
+    name: Local Preflight & CI Gate Parity Hardening
+    status: COMPLETE
+    completed: '2026-11-24'
+    action_plan: docs/phases/complete/PHASE_874.md
+    dependencies:
+    - 873d
+    size: SMALL
+    summary: Close local-vs-CI preflight parity gaps by adding scan-regression and containerized govulncheck (lint-go-vuln) to make preflight, enforcing cross-file Go version alignment across Dockerfiles and CI workflows, and adding a custom Opengrep rule for CodeQL py/incomplete-url-substring-sanitization.

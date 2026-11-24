@@ -45,7 +45,7 @@ The default lane runs **without HAProxy** (single proxy, reached directly on
 
 <!-- BEGIN GENERATED: make-targets -->
 
-_221 targets. Generated from the Makefile's own `##` help comments by `make sync` — do not edit this table by hand._
+_222 targets. Generated from the Makefile's own `##` help comments by `make sync` — do not edit this table by hand._
 
 ### Aggregate linters
 
@@ -69,7 +69,7 @@ _221 targets. Generated from the Makefile's own `##` help comments by `make sync
 | `lint-ansible` | Lint the Ansible playbooks/roles under deploy/ansible (containerised; advisory) |
 | `lint-docs` | Core documentation quality checks |
 | `lint-docs-all` | Run all documentation quality checks |
-| `lint-go` | Run all Go linters (fmt, vet, golangci-lint, mod verify) |
+| `lint-go` | Run all Go linters (fmt, vet, golangci-lint, mod verify, govulncheck) |
 | `lint-infra` | Run all infrastructure linters |
 | `lint-observability` | Run observability linters (promtool, amtool) |
 | `lint-opengrep` | Run Opengrep SAST using local rulesets (containerised) |
@@ -303,7 +303,7 @@ _221 targets. Generated from the Makefile's own `##` help comments by `make sync
 | Target | Description |
 |--------|-------------|
 | `check` | Fast gate: compile + env validate + tests (~3 min, no image builds or CVE scans) |
-| `preflight` | Full local gate before opening a PR: lint + scan + test + test-race (~25 min) |
+| `preflight` | Full local gate before opening a PR: lint + scan + scan-regression + test + test-race |
 | `tap-build` | Build standalone TAP sensor binary |
 
 ### Phase 511: Emergency traffic insertion / rollback
@@ -360,6 +360,7 @@ _221 targets. Generated from the Makefile's own `##` help comments by `make sync
 | `check-updates` | Check Python/Go/Docker dependency versions |
 | `check-updates-container` | Run dependency update checker in container |
 | `check-updates-local` | Run dependency update checker locally |
+| `lint-go-vuln` | Run govulncheck inside aligned Go security-scan container (CI parity) |
 | `scan` | Phase 146 — Run all security and container scans |
 | `scan-all` | Run all security scans (container, dockerfiles, 1st-party, images) |
 | `scan-container` | Run Go SAST (gosec) in a container — gates on high-severity/high-confidence findings |
