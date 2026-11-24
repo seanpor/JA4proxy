@@ -1,0 +1,24 @@
+rules:
+  - id: ja4p-python-incomplete-url-substring-sanitization
+    languages: [python]
+    severity: ERROR
+    message: >
+      Incomplete URL/registry host check using `.startswith("<host>/")` or substring matching
+      (CodeQL py/incomplete-url-substring-sanitization / CWE-20).
+      Parse the host explicitly via `urllib.parse.urlparse()` or `str.partition("/")`
+      and compare the extracted host with exact equality (`==`).
+    patterns:
+      - pattern-either:
+          - pattern: $X.startswith($HOST)
+          - pattern: $HOST in $X
+      - metavariable-regex:
+          metavariable: $HOST
+          regex: ^["'][a-z0-9-]+(?:\.[a-z0-9-]+)+/["']$
+    paths:
+      exclude:
+        - "security/sast/custom-rules/fixtures/**"
+    metadata:
+      category: security
+      subcategory: [vulnerability]
+      confidence: HIGH
+      cwe: CWE-20

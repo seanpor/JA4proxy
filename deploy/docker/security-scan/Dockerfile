@@ -1,6 +1,6 @@
-# Phase 229: aligned to the single pinned Go base used everywhere else
-# (was golang:1.25.10-alpine — a drifted, unpinned version).
-FROM golang:1.26.10-alpine@sha256:87c65a688975c0b1d4585d204874c45ca78354670e3a5f11368c5a492303d696
+# Phase 229 / Phase 874: aligned to the single pinned Go base used across all
+# builder Dockerfiles and CI workflows (prevents local-vs-CI govulncheck drift).
+FROM golang:1.27.4-alpine@sha256:70bd7ddea8b6cbe5d6943cde279d6b67feb10cc924fb9100d1d8757c1575b280
 
 RUN apk add --no-cache git && \
     addgroup -g 1001 -S scanner && adduser -u 1001 -S -G scanner scanner

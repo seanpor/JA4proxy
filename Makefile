@@ -1245,8 +1245,14 @@ scorecard-local: ## OpenSSF Scorecard (local, advisory — the gate is scorecard
 
 scan-container: ## Run Go SAST (gosec) in a container — gates on high-severity/high-confidence findings
 	@docker build -q -t ja4proxy-security-scan -f deploy/docker/security-scan/Dockerfile .
-	@docker run --rm -v "$(PWD):/app" ja4proxy-security-scan \
+	@docker run --rm -v "$(PWD):/app:ro" ja4proxy-security-scan \
 		"gosec -severity high -confidence high -exclude-dir=.claude -quiet ./..."
+
+lint-go-vuln: ## Run govulncheck inside aligned Go security-scan container (CI parity)
+	@echo "=== govulncheck: Go stdlib & module vulnerability audit (containerized) ==="
+	@docker build -q -t ja4proxy-security-scan -f deploy/docker/security-scan/Dockerfile .
+	@docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e GOCACHE=/tmp/gocache -e GOMODCACHE=/tmp/gomodcache -v "$(PWD):/app:ro" ja4proxy-security-scan "govulncheck ./cmd/... ./internal/..."
+	@echo "  ✓ govulncheck passed"
 
 scan-local:  ## Run gosec Go SAST scanner locally
 	@(gosec -fmt=text -exclude-dir=.claude ./... || true)
@@ -1701,7 +1707,7 @@ lint-go-mod: ## Verify go.mod and go.sum are consistent (go mod verify)
 lint-python: lint-static lint-security lint-pylint ## Run all Python linters (ruff, mypy, bandit, pylint)
 	@echo "✓ lint-python complete"
 
-lint-go: go-lint lint-go-full lint-go-mod ## Run all Go linters (fmt, vet, golangci-lint, mod verify)
+lint-go: go-lint lint-go-full lint-go-mod lint-go-vuln ## Run all Go linters (fmt, vet, golangci-lint, mod verify, govulncheck)
 	@echo "✓ lint-go complete"
 
 lint-sast: lint-opengrep lint-checkov ## Run cross-language SAST (Opengrep, Checkov)
@@ -1919,15 +1925,17 @@ loadtest: go-build cli-build ## Lane-isolated good/bad load test -> watch Grafan
 check: go-build cli-build compose-validate test ## Fast gate: compile + env validate + tests (~3 min, no image builds or CVE scans)
 	@echo "✓ check passed — matches CI required checks"
 
-preflight: ## Full local gate before opening a PR: lint + scan + test + test-race (~25 min)
+preflight: ## Full local gate before opening a PR: lint + scan + scan-regression + test + test-race
 	@echo "NOTE: scan-first-party scans Docker images — run 'make build' first to ensure they are current."
-	@echo "=== preflight [1/4] make lint ==="
+	@echo "=== preflight [1/5] make lint ==="
 	@$(MAKE) lint
-	@echo "=== preflight [2/4] make scan ==="
+	@echo "=== preflight [2/5] make scan ==="
 	@$(MAKE) scan
-	@echo "=== preflight [3/4] make test ==="
+	@echo "=== preflight [3/5] make scan-regression ==="
+	@$(MAKE) scan-regression
+	@echo "=== preflight [4/5] make test ==="
 	@$(MAKE) test
-	@echo "=== preflight [4/4] make test-race ==="
+	@echo "=== preflight [5/5] make test-race ==="
 	@$(MAKE) test-race
 	@echo "✓ preflight passed — safe to open a PR"
 tap-build: ## Build standalone TAP sensor binary

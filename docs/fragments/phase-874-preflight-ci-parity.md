@@ -1,0 +1,3 @@
+- Added `make scan-regression` and containerized `make lint-go-vuln` (`govulncheck` at the exact Go version pinned in CI) to `make preflight` so local pre-push gates match GitHub Actions required checks (Phase 874).
+- Extended `scripts/check_toolchain_alignment.py` to enforce single-version Go toolchain alignment across `deploy/docker/Dockerfile*`, `deploy/docker/security-scan/Dockerfile`, and `.github/workflows/*.yml`, and aligned all remaining `1.26.10` / `1.27.3` pins to `1.27.4` (Phase 874).
+- Added custom Opengrep rule `ja4p-python-incomplete-url-substring-sanitization` (`security/sast/custom-rules/python-url-substring-sanitization.yml`) with test fixture to catch CodeQL URL-substring sanitization findings locally (Phase 874).

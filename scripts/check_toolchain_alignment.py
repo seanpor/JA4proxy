@@ -3,9 +3,12 @@
 check_toolchain_alignment.py — Verify toolchain version alignment across the project.
 
 Checks:
-1. go.mod `go` directive version (e.g. 1.26.6) vs golangci-lint release capabilities.
-2. Builder Dockerfile Go versions (e.g. golang:1.27.2-alpine) vs go.mod version.
-3. Makefile GOROOT configuration.
+1. go.mod `go` directive version (e.g. 1.26.10) vs golangci-lint release capabilities.
+2. Builder Dockerfile Go versions (e.g. golang:1.27.4-alpine) >= minimum secure floor.
+3. Cross-file Go toolchain alignment across:
+   - deploy/docker/Dockerfile* (including deploy/docker/security-scan/Dockerfile and
+     deploy/docker/update-checker/Dockerfile)
+   - .github/workflows/*.yml (`go-version: "X.Y.Z"`)
 
 Exit codes:
   0: All toolchain versions aligned.
@@ -22,6 +25,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 
 GO_MOD = REPO_ROOT / "go.mod"
 DOCKERFILES_DIR = REPO_ROOT / "deploy" / "docker"
+WORKFLOWS_DIR = REPO_ROOT / ".github" / "workflows"
 MAKEFILE = REPO_ROOT / "Makefile"
 
 # Maximum Go version supported by golangci-lint built with Go 1.26.x
@@ -41,7 +45,7 @@ def get_go_mod_version() -> tuple[int, ...] | None:
     """Extract `go X.Y.Z` version from go.mod."""
     if not GO_MOD.exists():
         return None
-    for line in GO_MOD.read_text().splitlines():
+    for line in GO_MOD.read_text(encoding="utf-8").splitlines():
         match = re.match(r"^go\s+([0-9\.]+)", line.strip())
         if match:
             return parse_semver(match.group(1))
@@ -49,21 +53,67 @@ def get_go_mod_version() -> tuple[int, ...] | None:
 
 
 def check_dockerfile_go_versions() -> list[str]:
-    """Check Go version in builder Dockerfiles."""
-    errors = []
+    """Check Go version in builder Dockerfiles against minimum secure floor."""
+    errors: list[str] = []
     if not DOCKERFILES_DIR.exists():
         return errors
 
-    for df in sorted(DOCKERFILES_DIR.glob("Dockerfile*")):
-        content = df.read_text()
+    for df in sorted(DOCKERFILES_DIR.rglob("Dockerfile*")):
+        if not df.is_file():
+            continue
+        content = df.read_text(encoding="utf-8")
         for line in content.splitlines():
             match = re.search(r"FROM\s+golang:([0-9\.]+)-alpine", line)
             if match:
                 ver = parse_semver(match.group(1))
                 if ver and ver < (1, 27, 2):
                     errors.append(
-                        f"{df.relative_to(REPO_ROOT)} uses Go {match.group(1)} < 1.27.2 (carried stdlib CVE-2026-78667/CVE-2026-97031)"
+                        f"{df.relative_to(REPO_ROOT)} uses Go {match.group(1)} < 1.27.2 "
+                        f"(carried stdlib CVE-2026-78667/CVE-2026-97031)"
                     )
+    return errors
+
+
+def check_go_toolchain_alignment() -> list[str]:
+    """
+    Verify that all Go builder Dockerfiles (including security-scan/Dockerfile)
+    and all GitHub Actions workflow `go-version` pins agree on a single Go version.
+    """
+    found: dict[str, set[str]] = {}
+
+    if DOCKERFILES_DIR.exists():
+        for df in sorted(DOCKERFILES_DIR.rglob("Dockerfile*")):
+            if not df.is_file():
+                continue
+            rel = str(df.relative_to(REPO_ROOT))
+            for line in df.read_text(encoding="utf-8").splitlines():
+                match = re.search(r"FROM\s+golang:([0-9]+\.[0-9]+\.[0-9]+)-alpine", line)
+                if match:
+                    found.setdefault(rel, set()).add(match.group(1))
+
+    if WORKFLOWS_DIR.exists():
+        for wf in sorted(WORKFLOWS_DIR.glob("*.yml")):
+            if not wf.is_file():
+                continue
+            rel = str(wf.relative_to(REPO_ROOT))
+            for line in wf.read_text(encoding="utf-8").splitlines():
+                match = re.match(r'^\s*go-version:\s*["\']?([0-9]+\.[0-9]+\.[0-9]+)["\']?', line)
+                if match:
+                    found.setdefault(rel, set()).add(match.group(1))
+
+    all_versions = {v for versions in found.values() for v in versions}
+    if len(all_versions) <= 1:
+        return []
+
+    expected = max(all_versions, key=parse_semver)
+    errors: list[str] = []
+    for rel, versions in sorted(found.items()):
+        for ver in sorted(versions):
+            if ver != expected:
+                errors.append(
+                    f"Go toolchain drift: {rel} pins Go {ver}, expected {expected} "
+                    f"(align Dockerfiles and CI workflows to prevent local-vs-CI govulncheck drift)"
+                )
     return errors
 
 
@@ -75,7 +125,6 @@ def main() -> int:
     if go_mod_ver is None:
         errors.append("Could not parse `go` version directive from go.mod")
     else:
-        # Check go.mod version against golangci-lint capabilities
         if go_mod_ver > GOLANGCI_LINT_MAX_GO:
             errors.append(
                 f"go.mod specifies Go version {'.'.join(str(x) for x in go_mod_ver)}, "
@@ -83,9 +132,8 @@ def main() -> int:
                 f"Keep go.mod at 1.26.x until golangci-lint is upgraded."
             )
 
-    # Check Dockerfiles
-    docker_errors = check_dockerfile_go_versions()
-    errors.extend(docker_errors)
+    errors.extend(check_dockerfile_go_versions())
+    errors.extend(check_go_toolchain_alignment())
 
     if errors:
         print("✗ Toolchain alignment check FAILED:")
