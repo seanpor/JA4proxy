@@ -119,8 +119,6 @@ CVE-2026-103111 exp:2027-01-05
 # images.
 #
 # Carriers:
-#   - haproxy:3.4.7-alpine
-#   - redis:7.4.11-alpine@sha256:520775a41a63e77e06c73e35d2fd9cc15921a609516818796b4ecbb813078bc7
 #   - tecnativa/docker-socket-proxy:v0.5.0
 # Reachability: input-path-unreachable
 # Reachability evidence: musl libc memory safety bugs in dynamic
@@ -386,7 +384,6 @@ CVE-2026-84782 exp:2027-01-05
 # host ports in deployed stacks.
 #
 # Carriers:
-#   - redis:7.4.11-alpine@sha256:520775a41a63e77e06c73e35d2fd9cc15921a609516818796b4ecbb813078bc7
 #   - tecnativa/docker-socket-proxy:v0.5.0
 # Reachability: local-socket-only
 # Severity: HIGH
